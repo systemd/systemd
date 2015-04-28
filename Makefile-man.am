@@ -66,7 +66,6 @@ MANPAGES += \
 	man/systemd-efi-boot-generator.8 \
 	man/systemd-escape.1 \
 	man/systemd-fsck@.service.8 \
-	man/systemd-fsckd.service.8 \
 	man/systemd-fstab-generator.8 \
 	man/systemd-getty-generator.8 \
 	man/systemd-gpt-auto-generator.8 \
@@ -209,8 +208,6 @@ MANPAGES_ALIAS += \
 	man/systemd-ask-password-wall.service.8 \
 	man/systemd-fsck-root.service.8 \
 	man/systemd-fsck.8 \
-	man/systemd-fsckd.8 \
-	man/systemd-fsckd.socket.8 \
 	man/systemd-hibernate-resume.8 \
 	man/systemd-hibernate.service.8 \
 	man/systemd-hybrid-sleep.service.8 \
@@ -321,8 +318,6 @@ man/systemd-ask-password-wall.path.8: man/systemd-ask-password-console.service.8
 man/systemd-ask-password-wall.service.8: man/systemd-ask-password-console.service.8
 man/systemd-fsck-root.service.8: man/systemd-fsck@.service.8
 man/systemd-fsck.8: man/systemd-fsck@.service.8
-man/systemd-fsckd.8: man/systemd-fsckd.service.8
-man/systemd-fsckd.socket.8: man/systemd-fsckd.service.8
 man/systemd-hibernate-resume.8: man/systemd-hibernate-resume@.service.8
 man/systemd-hibernate.service.8: man/systemd-suspend.service.8
 man/systemd-hybrid-sleep.service.8: man/systemd-suspend.service.8
@@ -599,12 +594,6 @@ man/systemd-fsck-root.service.html: man/systemd-fsck@.service.html
 	$(html-alias)
 
 man/systemd-fsck.html: man/systemd-fsck@.service.html
-	$(html-alias)
-
-man/systemd-fsckd.html: man/systemd-fsckd.service.html
-	$(html-alias)
-
-man/systemd-fsckd.socket.html: man/systemd-fsckd.service.html
 	$(html-alias)
 
 man/systemd-hibernate-resume.html: man/systemd-hibernate-resume@.service.html
@@ -1764,7 +1753,6 @@ EXTRA_DIST += \
 	man/systemd-escape.xml \
 	man/systemd-firstboot.xml \
 	man/systemd-fsck@.service.xml \
-	man/systemd-fsckd.service.xml \
 	man/systemd-fstab-generator.xml \
 	man/systemd-getty-generator.xml \
 	man/systemd-gpt-auto-generator.xml \

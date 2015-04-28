@@ -27,6 +27,7 @@
 #include <fcntl.h>
 #include <sys/file.h>
 #include <sys/stat.h>
+#include <sys/prctl.h>
 
 #include "sd-bus.h"
 #include "sd-device.h"
@@ -40,10 +41,10 @@
 #include "device-util.h"
 #include "path-util.h"
 #include "socket-util.h"
-#include "fsckd/fsckd.h"
 
 static bool arg_skip = false;
 static bool arg_force = false;
+static bool arg_show_progress = false;
 static const char *arg_repair = "-a";
 
 static void start_target(const char *target) {
@@ -135,39 +136,74 @@ static void test_files(void) {
         }
 #endif
 
+        arg_show_progress = access("/run/systemd/show-status", F_OK) >= 0;
 }
 
-static int process_progress(int fd, pid_t fsck_pid, dev_t device_num) {
-        _cleanup_fclose_ FILE *f = NULL;
-        usec_t last = 0;
-        _cleanup_close_ int fsckd_fd = -1;
-        static const union sockaddr_union sa = {
-                .un.sun_family = AF_UNIX,
-                .un.sun_path = FSCKD_SOCKET_PATH,
+static double percent(int pass, unsigned long cur, unsigned long max) {
+        /* Values stolen from e2fsck */
+
+        static const int pass_table[] = {
+                0, 70, 90, 92, 95, 100
         };
 
-        fsckd_fd = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
-        if (fsckd_fd < 0)
-                return log_warning_errno(errno, "Cannot open fsckd socket, we won't report fsck progress: %m");
-        if (connect(fsckd_fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(sa.un.sun_path)) < 0)
-                return log_warning_errno(errno, "Cannot connect to fsckd socket, we won't report fsck progress: %m");
+        if (pass <= 0)
+                return 0.0;
 
-        f = fdopen(fd, "r");
-        if (!f)
-                return log_warning_errno(errno, "Cannot connect to fsck, we won't report fsck progress: %m");
+        if ((unsigned) pass >= ELEMENTSOF(pass_table) || max == 0)
+                return 100.0;
 
-        while (!feof(f)) {
-                int pass;
-                size_t buflen;
-                size_t cur, max;
-                ssize_t r;
-                usec_t t;
+        return (double) pass_table[pass-1] +
+                ((double) pass_table[pass] - (double) pass_table[pass-1]) *
+                (double) cur / (double) max;
+}
+
+static int process_progress(int fd) {
+        _cleanup_fclose_ FILE *console = NULL, *f = NULL;
+        usec_t last = 0;
+        bool locked = false;
+        int clear = 0, r;
+
+        /* No progress pipe to process? Then we are a NOP. */
+        if (fd < 0)
+                return 0;
+
+        f = fdopen(fd, "re");
+        if (!f) {
+                safe_close(fd);
+                return -errno;
+        }
+
+        console = fopen("/dev/console", "we");
+        if (!console)
+                return -ENOMEM;
+
+        for (;;) {
+                int pass, m;
+                unsigned long cur, max;
                 _cleanup_free_ char *device = NULL;
-                FsckProgress progress;
-                FsckdMessage fsckd_message;
+                double p;
+                usec_t t;
 
-                if (fscanf(f, "%i %zu %zu %ms", &pass, &cur, &max, &device) != 4)
+                if (fscanf(f, "%i %lu %lu %ms", &pass, &cur, &max, &device) != 4) {
+
+                        if (ferror(f))
+                                r = log_warning_errno(errno, "Failed to read from progress pipe: %m");
+                        else if (feof(f))
+                                r = 0;
+                        else {
+                                log_warning("Failed to parse progress pipe data");
+                                r = -EBADMSG;
+                        }
                         break;
+                }
+
+                /* Only show one progress counter at max */
+                if (!locked) {
+                        if (flock(fileno(console), LOCK_EX|LOCK_NB) < 0)
+                                continue;
+
+                        locked = true;
+                }
 
                 /* Only update once every 50ms */
                 t = now(CLOCK_MONOTONIC);
@@ -176,42 +212,58 @@ static int process_progress(int fd, pid_t fsck_pid, dev_t device_num) {
 
                 last = t;
 
-                /* send progress to fsckd */
-                progress.devnum = device_num;
-                progress.cur = cur;
-                progress.max = max;
-                progress.pass = pass;
+                p = percent(pass, cur, max);
+                fprintf(console, "\r%s: fsck %3.1f%% complete...\r%n", device, p, &m);
+                fflush(console);
 
-                r = send(fsckd_fd, &progress, sizeof(FsckProgress), 0);
-                if (r < 0 || (size_t) r < sizeof(FsckProgress))
-                        log_warning_errno(errno, "Cannot communicate fsck progress to fsckd: %m");
-
-                /* get fsckd requests, only read when we have coherent size data */
-                r = ioctl(fsckd_fd, FIONREAD, &buflen);
-                if (r == 0 && (size_t) buflen >= sizeof(FsckdMessage)) {
-                        r = recv(fsckd_fd, &fsckd_message, sizeof(FsckdMessage), 0);
-                        if (r > 0 && fsckd_message.cancel == 1) {
-                                log_info("Request to cancel fsck from fsckd");
-                                kill(fsck_pid, SIGTERM);
-                        }
-                }
+                if (m > clear)
+                        clear = m;
         }
 
-        return 0;
+        if (clear > 0) {
+                unsigned j;
+
+                fputc('\r', console);
+                for (j = 0; j < (unsigned) clear; j++)
+                        fputc(' ', console);
+                fputc('\r', console);
+                fflush(console);
+        }
+
+        return r;
+}
+
+static int fsck_progress_socket(void) {
+        static const union sockaddr_union sa = {
+                .un.sun_family = AF_UNIX,
+                .un.sun_path = "/run/systemd/fsck.progress",
+        };
+
+        int fd, r;
+
+        fd = socket(AF_UNIX, SOCK_STREAM, 0);
+        if (fd < 0)
+                return log_warning_errno(errno, "socket(): %m");
+
+        if (connect(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(sa.un.sun_path)) < 0) {
+                r = log_full_errno(errno == ECONNREFUSED || errno == ENOENT ? LOG_DEBUG : LOG_WARNING,
+                                   errno, "Failed to connect to progress socket %s, ignoring: %m", sa.un.sun_path);
+                safe_close(fd);
+                return r;
+        }
+
+        return fd;
 }
 
 int main(int argc, char *argv[]) {
-        const char *cmdline[9];
-        int i = 0, r = EXIT_FAILURE, q;
-        pid_t pid;
-        int progress_rc;
-        siginfo_t status;
+        _cleanup_close_pair_ int progress_pipe[2] = { -1, -1 };
         _cleanup_device_unref_ sd_device *dev = NULL;
         const char *device, *type;
         bool root_directory;
-        _cleanup_close_pair_ int progress_pipe[2] = { -1, -1 };
-        char dash_c[sizeof("-C")-1 + DECIMAL_STR_MAX(int) + 1];
+        siginfo_t status;
         struct stat st;
+        int r;
+        pid_t pid;
 
         if (argc > 2) {
                 log_error("This program expects one or no arguments.");
@@ -309,48 +361,74 @@ int main(int argc, char *argv[]) {
                         log_warning_errno(r, "Couldn't detect if fsck.%s may be used for %s: %m", type, device);
         }
 
-        if (pipe(progress_pipe) < 0) {
-                r = log_error_errno(errno, "pipe(): %m");
-                goto finish;
+        if (arg_show_progress) {
+                if (pipe(progress_pipe) < 0) {
+                        r = log_error_errno(errno, "pipe(): %m");
+                        goto finish;
+                }
         }
-
-        cmdline[i++] = "/sbin/fsck";
-        cmdline[i++] =  arg_repair;
-        cmdline[i++] = "-T";
-
-        /*
-         * Since util-linux v2.25 fsck uses /run/fsck/<diskname>.lock files.
-         * The previous versions use flock for the device and conflict with
-         * udevd, see https://bugs.freedesktop.org/show_bug.cgi?id=79576#c5
-         */
-        cmdline[i++] = "-l";
-
-        if (!root_directory)
-                cmdline[i++] = "-M";
-
-        if (arg_force)
-                cmdline[i++] = "-f";
-
-        xsprintf(dash_c, "-C%i", progress_pipe[1]);
-        cmdline[i++] = dash_c;
-
-        cmdline[i++] = device;
-        cmdline[i++] = NULL;
 
         pid = fork();
         if (pid < 0) {
                 r = log_error_errno(errno, "fork(): %m");
                 goto finish;
-        } else if (pid == 0) {
+        }
+        if (pid == 0) {
+                char dash_c[sizeof("-C")-1 + DECIMAL_STR_MAX(int) + 1];
+                int progress_socket = -1;
+                const char *cmdline[9];
+                int i = 0;
+
                 /* Child */
+
+                reset_all_signal_handlers();
+                reset_signal_mask();
+                assert_se(prctl(PR_SET_PDEATHSIG, SIGTERM) == 0);
+
+                /* Close the reading side of the progress pipe */
                 progress_pipe[0] = safe_close(progress_pipe[0]);
+
+                /* Try to connect to a progress management daemon, if there is one */
+                progress_socket = fsck_progress_socket();
+                if (progress_socket >= 0) {
+                        /* If this worked we close the progress pipe early, and just use the socket */
+                        progress_pipe[1] = safe_close(progress_pipe[1]);
+                        xsprintf(dash_c, "-C%i", progress_socket);
+                } else if (progress_pipe[1] >= 0) {
+                        /* Otherwise if we have the progress pipe to our own local handle, we use it */
+                        xsprintf(dash_c, "-C%i", progress_pipe[1]);
+                } else
+                        dash_c[0] = 0;
+
+                cmdline[i++] = "/sbin/fsck";
+                cmdline[i++] =  arg_repair;
+                cmdline[i++] = "-T";
+
+                /*
+                 * Since util-linux v2.25 fsck uses /run/fsck/<diskname>.lock files.
+                 * The previous versions use flock for the device and conflict with
+                 * udevd, see https://bugs.freedesktop.org/show_bug.cgi?id=79576#c5
+                 */
+                cmdline[i++] = "-l";
+
+                if (!root_directory)
+                        cmdline[i++] = "-M";
+
+                if (arg_force)
+                        cmdline[i++] = "-f";
+
+                if (!isempty(dash_c))
+                        cmdline[i++] = dash_c;
+
+                cmdline[i++] = device;
+                cmdline[i++] = NULL;
+
                 execv(cmdline[0], (char**) cmdline);
                 _exit(8); /* Operational error */
         }
 
         progress_pipe[1] = safe_close(progress_pipe[1]);
-
-        progress_rc = process_progress(progress_pipe[0], pid, st.st_rdev);
+        (void) process_progress(progress_pipe[0]);
         progress_pipe[0] = -1;
 
         r = wait_for_terminate(pid, &status);
@@ -359,14 +437,13 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        if (status.si_code != CLD_EXITED || (status.si_status & ~1) || progress_rc != 0) {
+        if (status.si_code != CLD_EXITED || (status.si_status & ~1)) {
 
-                /* cancel will kill fsck (but process_progress returns 0) */
-                if ((progress_rc != 0 && status.si_code == CLD_KILLED) || status.si_code == CLD_DUMPED)
+                if (status.si_code == CLD_KILLED || status.si_code == CLD_DUMPED)
                         log_error("fsck terminated by signal %s.", signal_to_string(status.si_status));
                 else if (status.si_code == CLD_EXITED)
                         log_error("fsck failed with error code %i.", status.si_status);
-                else if (progress_rc != 0)
+                else
                         log_error("fsck failed due to unknown reason.");
 
                 r = -EINVAL;
@@ -378,9 +455,8 @@ int main(int argc, char *argv[]) {
                         /* Some other problem */
                         start_target(SPECIAL_EMERGENCY_TARGET);
                 else {
+                        log_warning("Ignoring error.");
                         r = 0;
-                        if (progress_rc != 0)
-                                log_warning("Ignoring error.");
                 }
 
         } else

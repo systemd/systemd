@@ -78,7 +78,6 @@
 /systemd-export
 /systemd-firstboot
 /systemd-fsck
-/systemd-fsckd
 /systemd-fstab-generator
 /systemd-getty-generator
 /systemd-gnome-ask-password-agent

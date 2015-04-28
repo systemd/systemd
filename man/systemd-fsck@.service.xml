@@ -80,9 +80,7 @@
     the filesystem should actually be checked based on the time since
     last check, number of mounts, unclean unmount, etc.</para>
 
-    <para><filename>systemd-fsck</filename> will forward file system
-    checking progress to <filename>systemd-fsckd.service</filename>
-    socket. If a file system check fails for a service without
+    <para>If a file system check fails for a service without
     <option>nofail</option>, emergency mode is activated, by isolating
     to <filename>emergency.target</filename>.</para>
   </refsect1>
