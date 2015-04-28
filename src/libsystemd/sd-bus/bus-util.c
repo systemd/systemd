@@ -1758,28 +1758,34 @@ static const struct {
 };
 
 static void log_job_error_with_service_result(const char* service, const char *result) {
-        unsigned i;
         _cleanup_free_ char *service_shell_quoted = NULL;
 
         assert(service);
-        assert(result);
 
         service_shell_quoted = shell_maybe_quote(service);
 
-        for (i = 0; i < ELEMENTSOF(explanations); ++i)
-                if (streq(result, explanations[i].result))
-                        break;
+        if (!isempty(result)) {
+                unsigned i;
 
-        if (i < ELEMENTSOF(explanations))
-                log_error("Job for %s failed because %s. See \"systemctl status %s\" and \"journalctl -xe\" for details.\n",
-                          service,
-                          explanations[i].explanation,
-                          strna(service_shell_quoted));
-        else
-                log_error("Job for %s failed. See \"systemctl status %s\" and \"journalctl -xe\" for details.\n",
-                          service,
-                          strna(service_shell_quoted));
+                for (i = 0; i < ELEMENTSOF(explanations); ++i)
+                        if (streq(result, explanations[i].result))
+                                break;
 
+                if (i < ELEMENTSOF(explanations)) {
+                        log_error("Job for %s failed because %s. See \"systemctl status %s\" and \"journalctl -xe\" for details.\n",
+                                  service,
+                                  explanations[i].explanation,
+                                  strna(service_shell_quoted));
+
+                        goto finish;
+                }
+        }
+
+        log_error("Job for %s failed. See \"systemctl status %s\" and \"journalctl -xe\" for details.\n",
+                  service,
+                  strna(service_shell_quoted));
+
+finish:
         /* For some results maybe additional explanation is required */
         if (streq_ptr(result, "start-limit"))
                 log_info("To force a start use \"systemctl reset-failed %1$s\" followed by \"systemctl start %1$s\" again.",
