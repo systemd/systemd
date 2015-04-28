@@ -803,13 +803,19 @@ static int start_transient_scope(
                 char **argv) {
 
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_bus_message_unref_ sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
         _cleanup_strv_free_ char **env = NULL, **user_env = NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
         _cleanup_free_ char *scope = NULL;
+        const char *object = NULL;
         int r;
 
         assert(bus);
         assert(argv);
+
+        r = bus_wait_for_jobs_new(bus, &w);
+        if (r < 0)
+                return log_oom();
 
         if (arg_unit) {
                 scope = unit_name_mangle_with_suffix(arg_unit, MANGLE_NOGLOB, ".scope");
@@ -851,7 +857,7 @@ static int start_transient_scope(
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_call(bus, m, 0, &error, NULL);
+        r = sd_bus_call(bus, m, 0, &error, &reply);
         if (r < 0) {
                 log_error("Failed to start transient scope unit: %s", bus_error_message(&error, -r));
                 return r;
@@ -911,8 +917,16 @@ static int start_transient_scope(
         if (!env)
                 return log_oom();
 
+        r = sd_bus_message_read(reply, "o", &object);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        r = bus_wait_for_jobs_one(w, object, arg_quiet);
+        if (r < 0)
+                return r;
+
         if (!arg_quiet)
-                log_info("Running as unit %s.", scope);
+                log_info("Running scope as unit %s.", scope);
 
         execvpe(argv[0], argv, env);
 
@@ -924,12 +938,18 @@ static int start_transient_timer(
                 char **argv) {
 
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_bus_message_unref_ sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
         _cleanup_free_ char *timer = NULL, *service = NULL;
+        const char *object = NULL;
         int r;
 
         assert(bus);
         assert(argv);
+
+        r = bus_wait_for_jobs_new(bus, &w);
+        if (r < 0)
+                return log_oom();
 
         if (arg_unit) {
                 switch(unit_name_to_type(arg_unit)) {
@@ -1031,15 +1051,23 @@ static int start_transient_timer(
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_call(bus, m, 0, &error, NULL);
+        r = sd_bus_call(bus, m, 0, &error, &reply);
         if (r < 0) {
                 log_error("Failed to start transient timer unit: %s", bus_error_message(&error, -r));
                 return r;
         }
 
-        log_info("Running as unit %s.", timer);
+        r = sd_bus_message_read(reply, "o", &object);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        r = bus_wait_for_jobs_one(w, object, arg_quiet);
+        if (r < 0)
+                return r;
+
+        log_info("Running timer as unit %s.", timer);
         if (argv[0])
-                log_info("Will run as unit %s.", service);
+                log_info("Will run service as unit %s.", service);
 
         return 0;
 }
