@@ -2081,6 +2081,11 @@ static int terminate_machine(pid_t pid) {
         if (!arg_register)
                 return 0;
 
+        /* If we are reusing the unit, then just exit, systemd will do
+         * the right thing when we exit. */
+        if (arg_keep_unit)
+                return 0;
+
         r = sd_bus_default_system(&bus);
         if (r < 0)
                 return log_error_errno(r, "Failed to open system bus: %m");
