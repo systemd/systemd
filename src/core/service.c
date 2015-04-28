@@ -1268,6 +1268,49 @@ static int cgroup_good(Service *s) {
         return !r;
 }
 
+static bool service_shall_restart(Service *s) {
+        assert(s);
+
+        /* Don't restart after manual stops */
+        if (s->forbid_restart)
+                return false;
+
+        /* Never restart if this is configured as special exception */
+        if (exit_status_set_test(&s->restart_prevent_status, s->main_exec_status.code, s->main_exec_status.status))
+                return false;
+
+        /* Restart if the exit code/status are configured as restart triggers */
+        if (exit_status_set_test(&s->restart_force_status,  s->main_exec_status.code, s->main_exec_status.status))
+                return true;
+
+        switch (s->restart) {
+
+        case SERVICE_RESTART_NO:
+                return false;
+
+        case SERVICE_RESTART_ALWAYS:
+                return true;
+
+        case SERVICE_RESTART_ON_SUCCESS:
+                return s->result == SERVICE_SUCCESS;
+
+        case SERVICE_RESTART_ON_FAILURE:
+                return s->result != SERVICE_SUCCESS;
+
+        case SERVICE_RESTART_ON_ABNORMAL:
+                return !IN_SET(s->result, SERVICE_SUCCESS, SERVICE_FAILURE_EXIT_CODE);
+
+        case SERVICE_RESTART_ON_WATCHDOG:
+                return s->result == SERVICE_FAILURE_WATCHDOG;
+
+        case SERVICE_RESTART_ON_ABORT:
+                return IN_SET(s->result, SERVICE_FAILURE_SIGNAL, SERVICE_FAILURE_CORE_DUMP);
+
+        default:
+                assert_not_reached("unknown restart setting");
+        }
+}
+
 static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) {
         int r;
         assert(s);
@@ -1282,16 +1325,7 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
                 failure_action(UNIT(s)->manager, s->failure_action, s->reboot_arg);
         }
 
-        if (allow_restart &&
-            !s->forbid_restart &&
-            (s->restart == SERVICE_RESTART_ALWAYS ||
-             (s->restart == SERVICE_RESTART_ON_SUCCESS && s->result == SERVICE_SUCCESS) ||
-             (s->restart == SERVICE_RESTART_ON_FAILURE && s->result != SERVICE_SUCCESS) ||
-             (s->restart == SERVICE_RESTART_ON_ABNORMAL && !IN_SET(s->result, SERVICE_SUCCESS, SERVICE_FAILURE_EXIT_CODE)) ||
-             (s->restart == SERVICE_RESTART_ON_WATCHDOG && s->result == SERVICE_FAILURE_WATCHDOG) ||
-             (s->restart == SERVICE_RESTART_ON_ABORT && IN_SET(s->result, SERVICE_FAILURE_SIGNAL, SERVICE_FAILURE_CORE_DUMP)) ||
-             exit_status_set_test(&s->restart_force_status,  s->main_exec_status.code, s->main_exec_status.status)) &&
-            !exit_status_set_test(&s->restart_prevent_status, s->main_exec_status.code, s->main_exec_status.status)) {
+        if (allow_restart && service_shall_restart(s)) {
 
                 r = service_arm_timer(s, s->restart_usec);
                 if (r < 0)
@@ -1896,7 +1930,7 @@ static int service_stop(Unit *u) {
 
         assert(s);
 
-        /* Don't create restart jobs from here. */
+        /* Don't create restart jobs from manual stops. */
         s->forbid_restart = true;
 
         /* Already on it */
