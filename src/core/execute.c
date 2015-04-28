@@ -1809,6 +1809,7 @@ static int exec_child(
                         log_close();
                 }
         }
+
         execve(command->path, final_argv, final_env);
         *exit_status = EXIT_EXEC;
         return -errno;
@@ -1903,7 +1904,7 @@ int exec_spawn(ExecCommand *command,
          * sure that when we kill the cgroup the process will be
          * killed too). */
         if (params->cgroup_path)
-                cg_attach(SYSTEMD_CGROUP_CONTROLLER, params->cgroup_path, pid);
+                (void) cg_attach(SYSTEMD_CGROUP_CONTROLLER, params->cgroup_path, pid);
 
         exec_status_start(&command->exec_status, pid);
 

@@ -277,6 +277,7 @@ static int scope_start(Unit *u) {
         if (s->state == SCOPE_FAILED)
                 return -EPERM;
 
+        /* We can't fulfill this right now, please try again later */
         if (s->state == SCOPE_STOP_SIGTERM ||
             s->state == SCOPE_STOP_SIGKILL)
                 return -EAGAIN;
@@ -290,8 +291,11 @@ static int scope_start(Unit *u) {
         (void) unit_reset_cpu_usage(u);
 
         r = unit_attach_pids_to_cgroup(u);
-        if (r < 0)
+        if (r < 0) {
+                log_unit_warning_errno(UNIT(s)->id, r, "%s: Failed to add PIDs to scope's control group: %m", UNIT(s)->id);
+                scope_enter_dead(s, SERVICE_FAILURE_RESOURCES);
                 return r;
+        }
 
         s->result = SCOPE_SUCCESS;
 
