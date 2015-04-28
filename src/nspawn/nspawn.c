@@ -2014,6 +2014,10 @@ static int register_machine(pid_t pid, int local_ifindex) {
                 if (r < 0)
                         return bus_log_create_error(r);
 
+                /* If you make changes here, also make sure to update
+                 * systemd-nspawn@.service, to keep the device
+                 * policies in sync regardless if we are run with or
+                 * without the --keep-unit switch. */
                 r = sd_bus_message_append(m, "(sv)", "DeviceAllow", "a(ss)", 9,
                                           /* Allow the container to
                                            * access and create the API
