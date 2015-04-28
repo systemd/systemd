@@ -93,7 +93,17 @@ evdev:name:TPPS/2 IBM TrackPoint:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPadX20?
   POINTINGSTICK_SENSITIVITY=200
   POINTINGSTICK_CONST_ACCEL=1.25
 
+# Lenovo Thinkpad X240
+evdev:name:TPPS/2 IBM TrackPoint:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPadX240:*
+  POINTINGSTICK_SENSITIVITY=200
+  POINTINGSTICK_CONST_ACCEL=1.0
+
 # Lenovo Thinkpad T440s
 evdev:name:TPPS/2 IBM TrackPoint:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPadT440s:*
+  POINTINGSTICK_SENSITIVITY=200
+  POINTINGSTICK_CONST_ACCEL=1.0
+
+# Lenovo Thinkpad T540p
+evdev:name:TPPS/2 IBM TrackPoint:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPadT540p:*
   POINTINGSTICK_SENSITIVITY=200
   POINTINGSTICK_CONST_ACCEL=1.0
