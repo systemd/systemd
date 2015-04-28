@@ -73,10 +73,13 @@ static void start_target(const char *target) {
 
         /* Don't print a warning if we aren't called during startup */
         if (r < 0 && !sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_JOB))
-                log_error("Failed to start unit: %s", bus_error_message(&error, -r));
+                log_error("Failed to start unit: %s", bus_error_message(&error, r));
 }
 
 static int parse_proc_cmdline_item(const char *key, const char *value) {
+        int r;
+
+        assert(key);
 
         if (streq(key, "fsck.mode") && value) {
 
@@ -93,12 +96,15 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
 
                 if (streq(value, "preen"))
                         arg_repair = "-a";
-                else if (streq(value, "yes"))
-                        arg_repair = "-y";
-                else if (streq(value, "no"))
-                        arg_repair = "-n";
-                else
-                        log_warning("Invalid fsck.repair= parameter '%s'. Ignoring.", value);
+                else {
+                        r = parse_boolean(value);
+                        if (r > 0)
+                                arg_repair = "-y";
+                        else if (r == 0)
+                                arg_repair = "-n";
+                        else
+                                log_warning("Invalid fsck.repair= parameter '%s'. Ignoring.", value);
+                }
         }
 
 #ifdef HAVE_SYSV_COMPAT
