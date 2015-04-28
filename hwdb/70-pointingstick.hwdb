@@ -43,6 +43,8 @@
 #   POINTINGSTICK_CONST_ACCEL
 #   POINTINGSTICK_SENSITIVITY
 #
+# Entries should be sorted with growing _SENSITIVITY and _CONST_ACCEL.
+#
 #########################################
 #      POINTINGSTICK_CONST_ACCEL        #
 #########################################
@@ -85,6 +87,15 @@ evdev:name:*DualPoint Stick:dmi:bvn*:bvr*:bd*:svnDellInc.:pnLatitudeE6400*:pvr*
 # Lenovo
 #########################################
 
+# Lenovo Thinkpad X240
+evdev:name:TPPS/2 IBM TrackPoint:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPadX240:*
+# Lenovo Thinkpad T440s
+evdev:name:TPPS/2 IBM TrackPoint:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPadT440s:*
+# Lenovo Thinkpad T540p
+evdev:name:TPPS/2 IBM TrackPoint:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPadT540p:*
+  POINTINGSTICK_SENSITIVITY=200
+  POINTINGSTICK_CONST_ACCEL=1.0
+
 # Lenovo Thinkpad X200s / X201s
 # Note these come with 2 revisions of keyboard, with the trackpoints having a
 # different sensitivity in the different revisions. 1.25 is a bit slow for the
@@ -92,18 +103,3 @@ evdev:name:*DualPoint Stick:dmi:bvn*:bvr*:bd*:svnDellInc.:pnLatitudeE6400*:pvr*
 evdev:name:TPPS/2 IBM TrackPoint:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPadX20?s:*
   POINTINGSTICK_SENSITIVITY=200
   POINTINGSTICK_CONST_ACCEL=1.25
-
-# Lenovo Thinkpad X240
-evdev:name:TPPS/2 IBM TrackPoint:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPadX240:*
-  POINTINGSTICK_SENSITIVITY=200
-  POINTINGSTICK_CONST_ACCEL=1.0
-
-# Lenovo Thinkpad T440s
-evdev:name:TPPS/2 IBM TrackPoint:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPadT440s:*
-  POINTINGSTICK_SENSITIVITY=200
-  POINTINGSTICK_CONST_ACCEL=1.0
-
-# Lenovo Thinkpad T540p
-evdev:name:TPPS/2 IBM TrackPoint:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPadT540p:*
-  POINTINGSTICK_SENSITIVITY=200
-  POINTINGSTICK_CONST_ACCEL=1.0
