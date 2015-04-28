@@ -42,6 +42,18 @@
 #include "path-util.h"
 #include "socket-util.h"
 
+/* exit codes as defined in fsck(8) */
+enum {
+        FSCK_SUCCESS = 0,
+        FSCK_ERROR_CORRECTED = 1,
+        FSCK_SYSTEM_SHOULD_REBOOT = 2,
+        FSCK_ERRORS_LEFT_UNCORRECTED = 4,
+        FSCK_OPERATIONAL_ERROR = 8,
+        FSCK_USAGE_OR_SYNTAX_ERROR = 16,
+        FSCK_USER_CANCELLED = 32,
+        FSCK_SHARED_LIB_ERROR = 128,
+};
+
 static bool arg_skip = false;
 static bool arg_force = false;
 static bool arg_show_progress = false;
@@ -424,7 +436,7 @@ int main(int argc, char *argv[]) {
                 cmdline[i++] = NULL;
 
                 execv(cmdline[0], (char**) cmdline);
-                _exit(8); /* Operational error */
+                _exit(FSCK_OPERATIONAL_ERROR);
         }
 
         progress_pipe[1] = safe_close(progress_pipe[1]);
@@ -448,10 +460,10 @@ int main(int argc, char *argv[]) {
 
                 r = -EINVAL;
 
-                if (status.si_code == CLD_EXITED && (status.si_status & 2) && root_directory)
+                if (status.si_code == CLD_EXITED && (status.si_status & FSCK_SYSTEM_SHOULD_REBOOT) && root_directory)
                         /* System should be rebooted. */
                         start_target(SPECIAL_REBOOT_TARGET);
-                else if (status.si_code == CLD_EXITED && (status.si_status & 6))
+                else if (status.si_code == CLD_EXITED && (status.si_status & (FSCK_SYSTEM_SHOULD_REBOOT | FSCK_ERRORS_LEFT_UNCORRECTED)))
                         /* Some other problem */
                         start_target(SPECIAL_EMERGENCY_TARGET);
                 else {
@@ -462,7 +474,7 @@ int main(int argc, char *argv[]) {
         } else
                 r = 0;
 
-        if (status.si_code == CLD_EXITED && (status.si_status & 1))
+        if (status.si_code == CLD_EXITED && (status.si_status & FSCK_ERROR_CORRECTED))
                 (void) touch("/run/systemd/quotacheck");
 
 finish:
