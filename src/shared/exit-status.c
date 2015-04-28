@@ -225,3 +225,17 @@ bool exit_status_set_is_empty(ExitStatusSet *x) {
 
         return set_isempty(x->status) && set_isempty(x->signal);
 }
+
+bool exit_status_set_test(ExitStatusSet *x, int code, int status) {
+
+        if (exit_status_set_is_empty(x))
+                return false;
+
+        if (code == CLD_EXITED && set_contains(x->status, INT_TO_PTR(status)))
+                return true;
+
+        if (IN_SET(code, CLD_KILLED, CLD_DUMPED) && set_contains(x->signal, INT_TO_PTR(status)))
+                return true;
+
+        return false;
+}

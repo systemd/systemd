@@ -1290,10 +1290,8 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
              (s->restart == SERVICE_RESTART_ON_ABNORMAL && !IN_SET(s->result, SERVICE_SUCCESS, SERVICE_FAILURE_EXIT_CODE)) ||
              (s->restart == SERVICE_RESTART_ON_WATCHDOG && s->result == SERVICE_FAILURE_WATCHDOG) ||
              (s->restart == SERVICE_RESTART_ON_ABORT && IN_SET(s->result, SERVICE_FAILURE_SIGNAL, SERVICE_FAILURE_CORE_DUMP)) ||
-             (s->main_exec_status.code == CLD_EXITED && set_contains(s->restart_force_status.status, INT_TO_PTR(s->main_exec_status.status))) ||
-             (IN_SET(s->main_exec_status.code, CLD_KILLED, CLD_DUMPED) && set_contains(s->restart_force_status.signal, INT_TO_PTR(s->main_exec_status.status)))) &&
-            (s->main_exec_status.code != CLD_EXITED || !set_contains(s->restart_prevent_status.status, INT_TO_PTR(s->main_exec_status.status))) &&
-            (!IN_SET(s->main_exec_status.code, CLD_KILLED, CLD_DUMPED) || !set_contains(s->restart_prevent_status.signal, INT_TO_PTR(s->main_exec_status.status)))) {
+             exit_status_set_test(&s->restart_force_status,  s->main_exec_status.code, s->main_exec_status.status)) &&
+            !exit_status_set_test(&s->restart_prevent_status, s->main_exec_status.code, s->main_exec_status.status)) {
 
                 r = service_arm_timer(s, s->restart_usec);
                 if (r < 0)
