@@ -105,6 +105,8 @@ int machine_save(Machine *m);
 int machine_load(Machine *m);
 int machine_kill(Machine *m, KillWho who, int signo);
 
+void machine_release_unit(Machine *m);
+
 MachineState machine_get_state(Machine *u);
 
 MachineOperation *machine_operation_unref(MachineOperation *o);

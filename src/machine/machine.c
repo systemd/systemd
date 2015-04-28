@@ -80,17 +80,14 @@ void machine_free(Machine *m) {
         if (m->in_gc_queue)
                 LIST_REMOVE(gc_queue, m->manager->machine_gc_queue, m);
 
-        if (m->unit) {
-                hashmap_remove(m->manager->machine_units, m->unit);
-                free(m->unit);
-        }
+        machine_release_unit(m);
 
         free(m->scope_job);
 
-        hashmap_remove(m->manager->machines, m->name);
+        (void) hashmap_remove(m->manager->machines, m->name);
 
         if (m->leader > 0)
-                hashmap_remove_value(m->manager->machine_leaders, UINT_TO_PTR(m->leader), m);
+                (void) hashmap_remove_value(m->manager->machine_leaders, UINT_TO_PTR(m->leader), m);
 
         sd_bus_message_unref(m->create_message);
 
@@ -524,6 +521,17 @@ MachineOperation *machine_operation_unref(MachineOperation *o) {
 
         free(o);
         return NULL;
+}
+
+void machine_release_unit(Machine *m) {
+        assert(m);
+
+        if (!m->unit)
+                return;
+
+        (void) hashmap_remove(m->manager->machine_units, m->unit);
+        free(m->unit);
+        m->unit = NULL;
 }
 
 static const char* const machine_class_table[_MACHINE_CLASS_MAX] = {

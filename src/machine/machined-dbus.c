@@ -24,6 +24,7 @@
 #include <unistd.h>
 
 #include "sd-id128.h"
+#include "strv.h"
 #include "path-util.h"
 #include "unit-name.h"
 #include "bus-util.h"
@@ -923,9 +924,9 @@ int match_job_removed(sd_bus *bus, sd_bus_message *message, void *userdata, sd_b
 
 int match_properties_changed(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_free_ char *unit = NULL;
+        const char *path, *interface;
         Manager *m = userdata;
         Machine *machine;
-        const char *path;
         int r;
 
         assert(bus);
@@ -939,13 +940,46 @@ int match_properties_changed(sd_bus *bus, sd_bus_message *message, void *userdat
         r = unit_name_from_dbus_path(path, &unit);
         if (r == -EINVAL) /* not for a unit */
                 return 0;
-        if (r < 0)
-                return r;
+        if (r < 0){
+                log_oom();
+                return 0;
+        }
 
         machine = hashmap_get(m->machine_units, unit);
-        if (machine)
-                machine_add_to_gc_queue(machine);
+        if (!machine)
+                return 0;
 
+        r = sd_bus_message_read(message, "s", &interface);
+        if (r < 0) {
+                bus_log_parse_error(r);
+                return 0;
+        }
+
+        if (streq(interface, "org.freedesktop.systemd1.Unit")) {
+                struct properties {
+                        char *active_state;
+                        char *sub_state;
+                } properties = {};
+
+                const struct bus_properties_map map[] = {
+                        { "ActiveState", "s", NULL, offsetof(struct properties, active_state) },
+                        { "SubState",    "s", NULL, offsetof(struct properties, sub_state)    },
+                        {}
+                };
+
+                r = bus_message_map_properties_changed(message, map, &properties);
+                if (r < 0)
+                        bus_log_parse_error(r);
+                else if (streq_ptr(properties.active_state, "inactive") ||
+                         streq_ptr(properties.active_state, "failed") ||
+                         streq_ptr(properties.sub_state, "auto-restart"))
+                        machine_release_unit(machine);
+
+                free(properties.active_state);
+                free(properties.sub_state);
+        }
+
+        machine_add_to_gc_queue(machine);
         return 0;
 }
 
@@ -962,12 +996,15 @@ int match_unit_removed(sd_bus *bus, sd_bus_message *message, void *userdata, sd_
         r = sd_bus_message_read(message, "so", &unit, &path);
         if (r < 0) {
                 bus_log_parse_error(r);
-                return r;
+                return 0;
         }
 
         machine = hashmap_get(m->machine_units, unit);
-        if (machine)
-                machine_add_to_gc_queue(machine);
+        if (!machine)
+                return 0;
+
+        machine_release_unit(machine);
+        machine_add_to_gc_queue(machine);
 
         return 0;
 }
@@ -1190,7 +1227,7 @@ int manager_unit_is_active(Manager *manager, const char *unit) {
         if (r < 0)
                 return -EINVAL;
 
-        return !streq(state, "inactive") && !streq(state, "failed");
+        return !STR_IN_SET(state, "inactive", "failed");
 }
 
 int manager_job_is_active(Manager *manager, const char *path) {
