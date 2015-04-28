@@ -293,7 +293,7 @@ static int scope_start(Unit *u) {
         r = unit_attach_pids_to_cgroup(u);
         if (r < 0) {
                 log_unit_warning_errno(UNIT(s)->id, r, "%s: Failed to add PIDs to scope's control group: %m", UNIT(s)->id);
-                scope_enter_dead(s, SERVICE_FAILURE_RESOURCES);
+                scope_enter_dead(s, SCOPE_FAILURE_RESOURCES);
                 return r;
         }
 
