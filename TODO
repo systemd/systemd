@@ -33,11 +33,7 @@ Before 220:
 * Figure out why 13790add4 breaks boot across all distributions. Revert it if
   we cannot get it fixed.
 
-* rework fsckd/fsck's connection logic or remove fsck entirely
-
 * fix userns support in nspawn, or remove it entirely
-
-* make unmount-on-eject work again
 
 * bus-proxy: GetConnectionSELinuxSecurityContext() is completely broken
 
@@ -106,8 +102,6 @@ Features:
   running in the initrd, and operate on the right device.
 
 * .timer units should optionally support CLOCK_BOOTTIME in addition to CLOCK_MONOTONIC
-
-* systemd-run should support a mode where we wait for the unit to be started up
 
 * create a btrfs qgroup for /var/lib/machines, and add all container
   subvolumes we create to it.
