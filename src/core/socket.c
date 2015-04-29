@@ -1272,11 +1272,12 @@ static int socket_watch_fds(Socket *s) {
                 else
                         r = sd_event_add_io(UNIT(s)->manager->event, &p->event_source, p->fd, EPOLLIN, socket_dispatch_io, p);
 
-                        (void) sd_event_source_set_description(p->event_source, "socket-port-io");
                 if (r < 0) {
                         log_unit_warning_errno(UNIT(s)->id, r, "Failed to watch listening fds: %m");
                         goto fail;
                 }
+
+                (void) sd_event_source_set_description(p->event_source, "socket-port-io");
         }
 
         return 0;
