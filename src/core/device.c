@@ -750,9 +750,8 @@ static int device_dispatch_io(sd_event_source *source, int fd, uint32_t revents,
         return 0;
 }
 
-static bool device_supported(Manager *m) {
+static bool device_supported(void) {
         static int read_only = -1;
-        assert(m);
 
         /* If /sys is read-only we don't support device units, and any
          * attempts to start one should fail immediately. */

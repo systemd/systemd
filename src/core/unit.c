@@ -1448,7 +1448,7 @@ int unit_start(Unit *u) {
                 return unit_start(following);
         }
 
-        if (UNIT_VTABLE(u)->supported && !UNIT_VTABLE(u)->supported(u->manager))
+        if (!unit_supported(u))
                 return -EOPNOTSUPP;
 
         /* If it is stopped, but we cannot start it, then fail */
@@ -2855,7 +2855,7 @@ int unit_add_node_link(Unit *u, const char *what, bool wants) {
 
         /* When device units aren't supported (such as in a
          * container), don't create dependencies on them. */
-        if (unit_vtable[UNIT_DEVICE]->supported && !unit_vtable[UNIT_DEVICE]->supported(u->manager))
+        if (!unit_type_supported(UNIT_DEVICE))
                 return 0;
 
         e = unit_name_from_path(what, ".device");
@@ -3688,6 +3688,18 @@ int unit_setup_exec_runtime(Unit *u) {
         }
 
         return exec_runtime_make(rt, unit_get_exec_context(u), u->id);
+}
+
+bool unit_type_supported(UnitType t) {
+        if (_unlikely_(t < 0))
+                return false;
+        if (_unlikely_(t >= _UNIT_TYPE_MAX))
+                return false;
+
+        if (!unit_vtable[t]->supported)
+                return true;
+
+        return unit_vtable[t]->supported();
 }
 
 static const char* const unit_active_state_table[_UNIT_ACTIVE_STATE_MAX] = {

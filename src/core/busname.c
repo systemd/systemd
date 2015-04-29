@@ -984,9 +984,8 @@ static int busname_get_timeout(Unit *u, uint64_t *timeout) {
         return 1;
 }
 
-static bool busname_supported(Manager *m) {
+static bool busname_supported(void) {
         static int supported = -1;
-        assert(m);
 
         if (supported < 0)
                 supported = access("/sys/fs/kdbus", F_OK) >= 0;

@@ -402,7 +402,7 @@ struct UnitVTable {
 
         /* If this function is set and return false all jobs for units
          * of this type will immediately fail. */
-        bool (*supported)(Manager *m);
+        bool (*supported)(void);
 
         /* The interface name */
         const char *bus_interface;
@@ -600,6 +600,12 @@ int unit_kill_context(Unit *u, KillContext *c, KillOperation k, pid_t main_pid, 
 int unit_make_transient(Unit *u);
 
 int unit_require_mounts_for(Unit *u, const char *path);
+
+bool unit_type_supported(UnitType t);
+
+static inline bool unit_supported(Unit *u) {
+        return unit_type_supported(u->type);
+}
 
 const char *unit_active_state_to_string(UnitActiveState i) _const_;
 UnitActiveState unit_active_state_from_string(const char *s) _pure_;

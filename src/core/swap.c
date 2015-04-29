@@ -1407,7 +1407,7 @@ static int swap_get_timeout(Unit *u, uint64_t *timeout) {
         return 1;
 }
 
-static bool swap_supported(Manager *m) {
+static bool swap_supported(void) {
         static int supported = -1;
 
         /* If swap support is not available in the kernel, or we are

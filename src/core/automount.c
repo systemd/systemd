@@ -1012,10 +1012,8 @@ static void automount_reset_failed(Unit *u) {
         a->result = AUTOMOUNT_SUCCESS;
 }
 
-static bool automount_supported(Manager *m) {
+static bool automount_supported(void) {
         static int supported = -1;
-
-        assert(m);
 
         if (supported < 0)
                 supported = access("/dev/autofs", F_OK) >= 0;

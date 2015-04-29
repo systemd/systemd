@@ -975,7 +975,7 @@ int manager_enumerate(Manager *m) {
         for (c = 0; c < _UNIT_TYPE_MAX; c++) {
                 int q;
 
-                if (unit_vtable[c]->supported && !unit_vtable[c]->supported(m)) {
+                if (!unit_type_supported(c)) {
                         log_debug("Unit type .%s is not supported on this system.", unit_type_to_string(c));
                         continue;
                 }
