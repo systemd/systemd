@@ -150,8 +150,11 @@ int bus_kernel_make_starter(
         hello->attach_flags_send = _KDBUS_ATTACH_ANY;
         hello->attach_flags_recv = _KDBUS_ATTACH_ANY;
 
-        if (ioctl(fd, KDBUS_CMD_HELLO, hello) < 0)
+        if (ioctl(fd, KDBUS_CMD_HELLO, hello) < 0) {
+                if (errno == ENOTTY) /* Major API change */
+                        return -ESOCKTNOSUPPORT;
                 return -errno;
+        }
 
         /* not interested in any output values */
         cmd_free.offset = hello->offset;
@@ -160,7 +163,7 @@ int bus_kernel_make_starter(
         /* The higher 32bit of the bus_flags fields are considered
          * 'incompatible flags'. Refuse them all for now. */
         if (hello->bus_flags > 0xFFFFFFFFULL)
-                return -EOPNOTSUPP;
+                return -ESOCKTNOSUPPORT;
 
         return fd;
 }

@@ -962,8 +962,16 @@ int bus_kernel_take_fd(sd_bus *b) {
         }
 
         r = ioctl(b->input_fd, KDBUS_CMD_HELLO, hello);
-        if (r < 0)
+        if (r < 0) {
+                if (errno == ENOTTY)
+                        /* If the ioctl is not supported we assume that the
+                         * API version changed in a major incompatible way,
+                         * let's indicate an API incompatibility in this
+                         * case. */
+                        return -ESOCKTNOSUPPORT;
+
                 return -errno;
+        }
 
         if (!b->kdbus_buffer) {
                 b->kdbus_buffer = mmap(NULL, KDBUS_POOL_SIZE, PROT_READ, MAP_SHARED, b->input_fd, 0);
@@ -977,7 +985,7 @@ int bus_kernel_take_fd(sd_bus *b) {
         /* The higher 32bit of the bus_flags fields are considered
          * 'incompatible flags'. Refuse them all for now. */
         if (hello->bus_flags > 0xFFFFFFFFULL) {
-                r = -EOPNOTSUPP;
+                r = -ESOCKTNOSUPPORT;
                 goto fail;
         }
 
@@ -1611,6 +1619,11 @@ int bus_kernel_create_bus(const char *name, bool world, char **s) {
 
         if (ioctl(fd, KDBUS_CMD_BUS_MAKE, make) < 0) {
                 safe_close(fd);
+
+                /* Major API change? then the ioctls got shuffled around. */
+                if (errno == ENOTTY)
+                        return -ESOCKTNOSUPPORT;
+
                 return -errno;
         }
 
