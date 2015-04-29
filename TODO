@@ -51,6 +51,8 @@ Before 220:
 
 Features:
 
+* when detecting kdbus support in busname.c make sure to check kdbus kernel ioctl version
+
 * intrdouce sd_pid_get_user_slice() and friends
 
 * journalctl: -m should access container journals directly by enumerating them via machined, and also watch containers coming and going. Benefit: nspawn --ephemeral would start working nicely with the journal.
