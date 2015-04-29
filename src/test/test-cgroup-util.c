@@ -125,6 +125,23 @@ static void test_path_get_owner_uid(void) {
         check_p_g_o_u("", -ENXIO, 0);
 }
 
+static void check_p_g_slice(const char *path, int code, const char *result) {
+        _cleanup_free_ char *s = NULL;
+
+        assert_se(cg_path_get_slice(path, &s) == code);
+        assert_se(streq_ptr(s, result));
+}
+
+static void test_path_get_slice(void) {
+        check_p_g_slice("/user.slice", 0, "user.slice");
+        check_p_g_slice("/foobar", 0, "-.slice");
+        check_p_g_slice("/user.slice/user-waldo.slice", 0, "user-waldo.slice");
+        check_p_g_slice("", 0, "-.slice");
+        check_p_g_slice("foobar", 0, "-.slice");
+        check_p_g_slice("foobar.slice", 0, "foobar.slice");
+        check_p_g_slice("foo.slice/foo-bar.slice/waldo.service", 0, "foo-bar.slice");
+}
+
 static void test_get_paths(void) {
         _cleanup_free_ char *a = NULL;
 
@@ -255,6 +272,7 @@ int main(void) {
         test_path_get_user_unit();
         test_path_get_session();
         test_path_get_owner_uid();
+        test_path_get_slice();
         TEST_REQ_RUNNING_SYSTEMD(test_get_paths());
         test_proc();
         TEST_REQ_RUNNING_SYSTEMD(test_escape());

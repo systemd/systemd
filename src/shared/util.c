@@ -350,7 +350,6 @@ int parse_uid(const char *s, uid_t* ret_uid) {
         int r;
 
         assert(s);
-        assert(ret_uid);
 
         r = safe_atolu(s, &ul);
         if (r < 0)
@@ -369,7 +368,9 @@ int parse_uid(const char *s, uid_t* ret_uid) {
         if (uid == (uid_t) 0xFFFF)
                 return -ENXIO;
 
-        *ret_uid = uid;
+        if (ret_uid)
+                *ret_uid = uid;
+
         return 0;
 }
 

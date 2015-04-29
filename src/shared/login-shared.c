@@ -23,7 +23,9 @@
 #include "def.h"
 
 bool session_id_valid(const char *id) {
-        assert(id);
 
-        return id[0] && id[strspn(id, LETTERS DIGITS)] == '\0';
+        if (isempty(id))
+                return false;
+
+        return id[strspn(id, LETTERS DIGITS)] == '\0';
 }
