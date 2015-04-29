@@ -273,6 +273,41 @@
         </para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>VARIANT=</varname></term>
+
+        <listitem><para>
+        A string identifying a specific variant or edition of the
+        operating system suitable for presentation to the user. This
+        field may be used to inform the user that the configuration of
+        this system is subject to a specific divergent set of rules or
+        default configuration settings. This field is optional and may
+        not be implemented on all systems.
+        Examples:
+        <literal>VARIANT="Server Edition"</literal>,
+        <literal>VARIANT="Smart Refrigerator Edition"</literal>
+        Note: this field is for display purposes only. The
+        <varname>VARIANT_ID</varname> field should be used for making
+        programmatic decisions.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>VARIANT_ID=</varname></term>
+
+        <listitem><para>
+        A lower-case string (no spaces or other characters outside of
+        0-9, a-z, ".", "_" and "-"), identifying a specific variant or
+        edition of the operating system. This may be interpreted by
+        other packages in order to determine a divergent default
+        configuration. This field is optional and may not be
+        implemented on all systems.
+        Examples:
+        <literal>VARIANT_ID=server</literal>,
+        <literal>VARIANT_ID=embedded</literal>
+        </para></listitem>
+      </varlistentry>
+
     </variablelist>
 
     <para>If you are reading this file from C code or a shell script
