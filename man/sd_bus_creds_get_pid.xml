@@ -44,9 +44,17 @@
 
   <refnamediv>
     <refname>sd_bus_creds_get_pid</refname>
+    <refname>sd_bus_creds_get_ppid</refname>
     <refname>sd_bus_creds_get_tid</refname>
     <refname>sd_bus_creds_get_uid</refname>
+    <refname>sd_bus_creds_get_euid</refname>
+    <refname>sd_bus_creds_get_suid</refname>
+    <refname>sd_bus_creds_get_fsuid</refname>
     <refname>sd_bus_creds_get_gid</refname>
+    <refname>sd_bus_creds_get_egid</refname>
+    <refname>sd_bus_creds_get_sgid</refname>
+    <refname>sd_bus_creds_get_fsgid</refname>
+    <refname>sd_bus_creds_get_supplementary_gids</refname>
     <refname>sd_bus_creds_get_comm</refname>
     <refname>sd_bus_creds_get_tid_comm</refname>
     <refname>sd_bus_creds_get_exe</refname>
@@ -64,9 +72,10 @@
     <refname>sd_bus_creds_get_selinux_context</refname>
     <refname>sd_bus_creds_get_audit_session_id</refname>
     <refname>sd_bus_creds_get_audit_login_uid</refname>
+    <refname>sd_bus_creds_get_tty</refname>
     <refname>sd_bus_creds_get_unique_name</refname>
     <refname>sd_bus_creds_get_well_known_names</refname>
-    <refname>sd_bus_creds_get_connection_name</refname>
+    <refname>sd_bus_creds_get_description</refname>
 
     <refpurpose>Retrieve fields from a credentials object</refpurpose>
   </refnamediv>
@@ -82,13 +91,37 @@
       </funcprototype>
 
       <funcprototype>
+        <funcdef>int <function>sd_bus_creds_get_ppid</function></funcdef>
+        <paramdef>sd_bus_creds *<parameter>c</parameter></paramdef>
+        <paramdef>pid_t *<parameter>ppid</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
         <funcdef>int <function>sd_bus_creds_get_tid</function></funcdef>
         <paramdef>sd_bus_creds *<parameter>c</parameter></paramdef>
         <paramdef>pid_t *<parameter>tid</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
-        <funcdef>int <function>sd_bus_creds_get_pid</function></funcdef>
+        <funcdef>int <function>sd_bus_creds_get_uid</function></funcdef>
+        <paramdef>sd_bus_creds *<parameter>c</parameter></paramdef>
+        <paramdef>uid_t *<parameter>uid</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_creds_get_euid</function></funcdef>
+        <paramdef>sd_bus_creds *<parameter>c</parameter></paramdef>
+        <paramdef>uid_t *<parameter>uid</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_creds_get_suid</function></funcdef>
+        <paramdef>sd_bus_creds *<parameter>c</parameter></paramdef>
+        <paramdef>uid_t *<parameter>uid</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_creds_get_fsuid</function></funcdef>
         <paramdef>sd_bus_creds *<parameter>c</parameter></paramdef>
         <paramdef>uid_t *<parameter>uid</parameter></paramdef>
       </funcprototype>
@@ -97,6 +130,30 @@
         <funcdef>int <function>sd_bus_creds_get_gid</function></funcdef>
         <paramdef>sd_bus_creds *<parameter>c</parameter></paramdef>
         <paramdef>gid_t *<parameter>gid</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_creds_get_egid</function></funcdef>
+        <paramdef>sd_bus_creds *<parameter>c</parameter></paramdef>
+        <paramdef>gid_t *<parameter>gid</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_creds_get_sgid</function></funcdef>
+        <paramdef>sd_bus_creds *<parameter>c</parameter></paramdef>
+        <paramdef>gid_t *<parameter>gid</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_creds_get_fsgid</function></funcdef>
+        <paramdef>sd_bus_creds *<parameter>c</parameter></paramdef>
+        <paramdef>gid_t *<parameter>gid</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_creds_get_supplementary_gids</function></funcdef>
+        <paramdef>sd_bus_creds *<parameter>c</parameter></paramdef>
+        <paramdef>const gid_t **<parameter>gids</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
@@ -202,6 +259,12 @@
       </funcprototype>
 
       <funcprototype>
+        <funcdef>int <function>sd_bus_creds_get_tty</function></funcdef>
+        <paramdef>sd_bus_creds *<parameter>c</parameter></paramdef>
+        <paramdef>const char **<parameter>tty</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
         <funcdef>int <function>sd_bus_creds_get_unique_name</function></funcdef>
         <paramdef>sd_bus_creds *<parameter>c</parameter></paramdef>
         <paramdef>const char **<parameter>name</parameter></paramdef>
@@ -214,7 +277,7 @@
       </funcprototype>
 
       <funcprototype>
-        <funcdef>int <function>sd_bus_creds_get_connection_name</function></funcdef>
+        <funcdef>int <function>sd_bus_creds_get_description</function></funcdef>
         <paramdef>sd_bus_creds *<parameter>c</parameter></paramdef>
         <paramdef>const char **<parameter>name</parameter></paramdef>
       </funcprototype>
@@ -226,26 +289,43 @@
     <title>Description</title>
 
     <para>These functions return information from an
-    <parameter>sd_bus_creds</parameter> object. It may be created with
+    <parameter>sd_bus_creds</parameter> credential object. Credential
+    objects may be created with
     <citerefentry><refentrytitle>sd_bus_creds_new_from_pid</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-    in which case it will describe the specified process, or it may be
-    created by
+    in which case they describe the credentials of the process
+    identified by the specified PID, with
+    <citerefentry><refentrytitle>sd_bus_get_name_creds</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    in which case they describe the credentials of a bus peer
+    identified by the specified bus name, or with
     <citerefentry><refentrytitle>sd_bus_get_owner_creds</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-    in which case it will describe the process at the other endpoint
-    of a connection.
-    </para>
+    in which case they describe the credentials of the creator of a
+    bus.</para>
 
-    <para><function>sd_bus_creds_get_pid()</function> will retrieve the
-    PID (process identifier).</para>
+    <para><function>sd_bus_creds_get_pid()</function> will retrieve
+    the PID (process identifier). Similar,
+    <function>sd_bus_creds_get_ppid()</function> will retrieve the
+    parent PID. Note that PID 1 has no parent process, in which case
+    -ENXIO is returned.</para>
 
     <para><function>sd_bus_creds_get_tid()</function> will retrieve the
     TID (thread identifier).</para>
 
-    <para><function>sd_bus_creds_get_uid()</function> will retrieve the
-    numeric UID (user identifier).</para>
+    <para><function>sd_bus_creds_get_uid()</function> will retrieve
+    the numeric UID (user identifier). Similar,
+    <function>sd_bus_creds_get_euid()</function> returns the effective
+    UID, <function>sd_bus_creds_get_suid()</function> the saved UID
+    and <function>sd_bus_creds_get_fsuid()</function> the file system
+    UID.</para>
 
     <para><function>sd_bus_creds_get_gid()</function> will retrieve the
-    numeric GID (group identifier).</para>
+    numeric GID (group identifier). Similar,
+    <function>sd_bus_creds_get_egid()</function> returns the effective
+    GID, <function>sd_bus_creds_get_sgid()</function> the saved GID
+    and <function>sd_bus_creds_get_fsgid()</function> the file system
+    GID.</para>
+
+    <para><function>sd_bus_creds_get_supplementary_gids()</function>
+    will retrieve the supplementary GIDs list.</para>
 
     <para><function>sd_bus_creds_get_comm()</function> will retrieve the
     comm field (truncated name of the executable, as stored in
@@ -257,32 +337,36 @@
     <filename>/proc/<replaceable>pid</replaceable>/task/<replaceable>tid</replaceable>/comm</filename>).
     </para>
 
-    <para><function>sd_bus_creds_get_exe()</function> will retrieve the
-    path to the program (as stored in the
+    <para><function>sd_bus_creds_get_exe()</function> will retrieve
+    the path to the program executable (as stored in the
     <filename>/proc/<replaceable>pid</replaceable>/exe</filename>
-    link, but with <literal> (deleted)</literal> suffix removed).
-    </para>
+    link, but with <literal> (deleted)</literal> suffix removed). Note
+    that kernel threads do not have an executable path, in which case
+    -ENXIO is returned.</para>
 
-    <para><function>sd_bus_creds_get_cmdline()</function> will retrieve
-    an array of command line arguments (as stored in
-    <filename>/proc/<replaceable>pid</replaceable>/cmdline</filename>).
-    </para>
+    <para><function>sd_bus_creds_get_cmdline()</function> will
+    retrieve an array of command line arguments (as stored in
+    <filename>/proc/<replaceable>pid</replaceable>/cmdline</filename>). Note
+    that kernel threads do not have a command line, in which case
+    -ENXIO is returned.</para>
 
     <para><function>sd_bus_creds_get_cgroup()</function> will retrieve
     the cgroup path. See <ulink
     url="https://www.kernel.org/doc/Documentation/cgroups/cgroups.txt">cgroups.txt</ulink>.
     </para>
 
-    <para><function>sd_bus_creds_get_unit()</function> will retrieve the
-    systemd unit name (in the system instance of systemd) that the
+    <para><function>sd_bus_creds_get_unit()</function> will retrieve
+    the systemd unit name (in the system instance of systemd) that the
     process is part of. See
-    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>. For
+    processes that are not part of a unit returns -ENXIO.
     </para>
 
     <para><function>sd_bus_creds_get_user_unit()</function> will
     retrieve the systemd unit name (in the user instance of systemd)
     that the process is part of. See
-    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>. For
+    processes that are not part of a user unit returns -ENXIO.
     </para>
 
     <para><function>sd_bus_creds_get_slice()</function> will retrieve
@@ -291,17 +375,17 @@
     <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
     </para>
 
-    <para><function>sd_bus_creds_get_session()</function> will retrieve
-    the logind session that the process is part of. See
-    <citerefentry><refentrytitle>systemd-logind.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+    <para><function>sd_bus_creds_get_session()</function> will
+    retrieve the logind session that the process is part of. See
+    <citerefentry><refentrytitle>systemd-logind.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>. For
+    processes that are not part of a session returns -ENXIO.
     </para>
 
-    <para><function>sd_bus_creds_get_owner_uid()</function> will retrieve
-    the numeric UID (user identifier) of the user who owns the slice
-    that the process is part of. See
+    <para><function>sd_bus_creds_get_owner_uid()</function> will
+    retrieve the numeric UID (user identifier) of the user who owns
+    the session that the process is part of. See
     <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    <!-- and
-    <citerefentry><refentrytitle>systemd-user-sessions.service</refentrytitle><manvolnum>8</manvolnum></citerefentry> -->.
+    For processes that are not part of a session returns -ENXIO.
     </para>
 
     <para><function>sd_bus_creds_has_effective_cap()</function> will
@@ -331,12 +415,18 @@
     <para><function>sd_bus_creds_get_selinux_context()</function> will
     retrieve the SELinux security context (label) of the process.</para>
 
-    <para><function>sd_bus_creds_get_audit_session_id()</function> will
-    retrieve the audit session identifier of the process.</para>
+    <para><function>sd_bus_creds_get_audit_session_id()</function>
+    will retrieve the audit session identifier of the process. Returns
+    -ENXIO for processes that are not part of an audit session.</para>
 
     <para><function>sd_bus_creds_get_audit_login_uid()</function> will
     retrieve the audit user login identifier (the identifier of the
-    user who is "responsible" for the session).</para>
+    user who is "responsible" for the session). Returns -ENXIO for
+    processes that are not part of an audit session.</para>
+
+    <para><function>sd_bus_creds_get_tty()</function> will retrieve
+    the controlling TTY. Returns -ENXIO for processes that have no
+    controlling TTY.</para>
 
     <para><function>sd_bus_creds_get_unique_name()</function> will
     retrieve the D-Bus unique name. See <ulink
@@ -348,11 +438,11 @@
     url="http://dbus.freedesktop.org/doc/dbus-specification.html#message-protocol-names-bus">The
     D-Bus specification</ulink>.</para>
 
-    <para><function>sd_bus_creds_get_connection_name()</function> will
+    <para><function>sd_bus_creds_get_description()</function> will
     retrieve a descriptive name of the bus connection of the
     peer. This name is useful to discern multiple bus connections by
     the same peer, and may be altered by the peer with the
-    <citerefentry><refentrytitle>sd_bus_set_name</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    <citerefentry><refentrytitle>sd_bus_set_description</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     call.</para>
 
     <para>All functions that take a <parameter>const
@@ -386,31 +476,34 @@
       <varlistentry>
         <term><constant>-ENODATA</constant></term>
 
-        <listitem><para>Given field is not available in
-        <parameter>c</parameter>.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><constant>-ENOENT</constant></term>
-
-        <listitem><para>Given field is not specified for the sender.
-        This will be returned by <function>sd_bus_get_unit()</function>,
-        <function>sd_bus_get_user_unit()</function>,
-        <function>sd_bus_get_slice()</function>,
-        <function>sd_bus_get_session()</function>, and
-        <function>sd_bus_get_name_creds_uid()</function> if the sender is not
-        part of a systemd system unit, systemd user unit, systemd
-        slice, logind session, or a systemd user session.</para>
+        <listitem><para>Given field is not available in the
+        credentials object <parameter>c</parameter>.</para>
         </listitem>
       </varlistentry>
 
       <varlistentry>
         <term><constant>-ENXIO</constant></term>
 
-        <listitem><para>An error occurred in parsing cgroup paths.
-        <filename>libsystemd</filename> might be out of sync with
-        the running systemd version.</para></listitem>
+        <listitem><para>Given field is not specified for the described
+        process or peer. This will be returned by
+        <function>sd_bus_get_unit()</function>,
+        <function>sd_bus_get_user_unit()</function>,
+        <function>sd_bus_get_slice()</function>,
+        <function>sd_bus_get_session()</function>, and
+        <function>sd_bus_get_owner_uid()</function> if the process is
+        not part of a systemd system unit, systemd user unit, systemd
+        slice, or logind session. It will also be returned by
+        <function>sd_bus_creds_get_exe()</function> and
+        <function>sd_bus_creds_get_cmdline()</function> for kernel
+        threads (since these aren't started from an executable binary
+        or have a command line),
+        <function>sd_bus_creds_get_audit_session_id()</function> and
+        <function>sd_bus_creds_get_audit_login_uid()</function> when
+        the process is not part of an audit session, and
+        <function>sd_bus_creds_get_tty()</function> if the process has
+        no controlling TTY.
+        </para>
+        </listitem>
       </varlistentry>
 
       <varlistentry>

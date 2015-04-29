@@ -799,16 +799,25 @@ MANPAGES_ALIAS += \
 	man/sd_bus_creds_get_cgroup.3 \
 	man/sd_bus_creds_get_cmdline.3 \
 	man/sd_bus_creds_get_comm.3 \
-	man/sd_bus_creds_get_connection_name.3 \
+	man/sd_bus_creds_get_description.3 \
+	man/sd_bus_creds_get_egid.3 \
+	man/sd_bus_creds_get_euid.3 \
 	man/sd_bus_creds_get_exe.3 \
+	man/sd_bus_creds_get_fsgid.3 \
+	man/sd_bus_creds_get_fsuid.3 \
 	man/sd_bus_creds_get_gid.3 \
 	man/sd_bus_creds_get_mask.3 \
 	man/sd_bus_creds_get_owner_uid.3 \
+	man/sd_bus_creds_get_ppid.3 \
 	man/sd_bus_creds_get_selinux_context.3 \
 	man/sd_bus_creds_get_session.3 \
+	man/sd_bus_creds_get_sgid.3 \
 	man/sd_bus_creds_get_slice.3 \
+	man/sd_bus_creds_get_suid.3 \
+	man/sd_bus_creds_get_supplementary_gids.3 \
 	man/sd_bus_creds_get_tid.3 \
 	man/sd_bus_creds_get_tid_comm.3 \
+	man/sd_bus_creds_get_tty.3 \
 	man/sd_bus_creds_get_uid.3 \
 	man/sd_bus_creds_get_unique_name.3 \
 	man/sd_bus_creds_get_unit.3 \
@@ -870,16 +879,25 @@ man/sd_bus_creds_get_audit_session_id.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_get_cgroup.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_get_cmdline.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_get_comm.3: man/sd_bus_creds_get_pid.3
-man/sd_bus_creds_get_connection_name.3: man/sd_bus_creds_get_pid.3
+man/sd_bus_creds_get_description.3: man/sd_bus_creds_get_pid.3
+man/sd_bus_creds_get_egid.3: man/sd_bus_creds_get_pid.3
+man/sd_bus_creds_get_euid.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_get_exe.3: man/sd_bus_creds_get_pid.3
+man/sd_bus_creds_get_fsgid.3: man/sd_bus_creds_get_pid.3
+man/sd_bus_creds_get_fsuid.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_get_gid.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_get_mask.3: man/sd_bus_creds_new_from_pid.3
 man/sd_bus_creds_get_owner_uid.3: man/sd_bus_creds_get_pid.3
+man/sd_bus_creds_get_ppid.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_get_selinux_context.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_get_session.3: man/sd_bus_creds_get_pid.3
+man/sd_bus_creds_get_sgid.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_get_slice.3: man/sd_bus_creds_get_pid.3
+man/sd_bus_creds_get_suid.3: man/sd_bus_creds_get_pid.3
+man/sd_bus_creds_get_supplementary_gids.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_get_tid.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_get_tid_comm.3: man/sd_bus_creds_get_pid.3
+man/sd_bus_creds_get_tty.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_get_uid.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_get_unique_name.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_get_unit.3: man/sd_bus_creds_get_pid.3
@@ -951,10 +969,22 @@ man/sd_bus_creds_get_cmdline.html: man/sd_bus_creds_get_pid.html
 man/sd_bus_creds_get_comm.html: man/sd_bus_creds_get_pid.html
 	$(html-alias)
 
-man/sd_bus_creds_get_connection_name.html: man/sd_bus_creds_get_pid.html
+man/sd_bus_creds_get_description.html: man/sd_bus_creds_get_pid.html
+	$(html-alias)
+
+man/sd_bus_creds_get_egid.html: man/sd_bus_creds_get_pid.html
+	$(html-alias)
+
+man/sd_bus_creds_get_euid.html: man/sd_bus_creds_get_pid.html
 	$(html-alias)
 
 man/sd_bus_creds_get_exe.html: man/sd_bus_creds_get_pid.html
+	$(html-alias)
+
+man/sd_bus_creds_get_fsgid.html: man/sd_bus_creds_get_pid.html
+	$(html-alias)
+
+man/sd_bus_creds_get_fsuid.html: man/sd_bus_creds_get_pid.html
 	$(html-alias)
 
 man/sd_bus_creds_get_gid.html: man/sd_bus_creds_get_pid.html
@@ -966,19 +996,34 @@ man/sd_bus_creds_get_mask.html: man/sd_bus_creds_new_from_pid.html
 man/sd_bus_creds_get_owner_uid.html: man/sd_bus_creds_get_pid.html
 	$(html-alias)
 
+man/sd_bus_creds_get_ppid.html: man/sd_bus_creds_get_pid.html
+	$(html-alias)
+
 man/sd_bus_creds_get_selinux_context.html: man/sd_bus_creds_get_pid.html
 	$(html-alias)
 
 man/sd_bus_creds_get_session.html: man/sd_bus_creds_get_pid.html
 	$(html-alias)
 
+man/sd_bus_creds_get_sgid.html: man/sd_bus_creds_get_pid.html
+	$(html-alias)
+
 man/sd_bus_creds_get_slice.html: man/sd_bus_creds_get_pid.html
+	$(html-alias)
+
+man/sd_bus_creds_get_suid.html: man/sd_bus_creds_get_pid.html
+	$(html-alias)
+
+man/sd_bus_creds_get_supplementary_gids.html: man/sd_bus_creds_get_pid.html
 	$(html-alias)
 
 man/sd_bus_creds_get_tid.html: man/sd_bus_creds_get_pid.html
 	$(html-alias)
 
 man/sd_bus_creds_get_tid_comm.html: man/sd_bus_creds_get_pid.html
+	$(html-alias)
+
+man/sd_bus_creds_get_tty.html: man/sd_bus_creds_get_pid.html
 	$(html-alias)
 
 man/sd_bus_creds_get_uid.html: man/sd_bus_creds_get_pid.html
