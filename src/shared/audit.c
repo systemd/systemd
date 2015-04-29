@@ -46,7 +46,7 @@ int audit_session_from_pid(pid_t pid, uint32_t *id) {
         if (r < 0)
                 return r;
 
-        if (u == (uint32_t) -1 || u <= 0)
+        if (u == AUDIT_SESSION_INVALID || u <= 0)
                 return -ENXIO;
 
         *id = u;

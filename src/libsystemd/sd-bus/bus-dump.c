@@ -331,13 +331,11 @@ static void dump_capabilities(
 }
 
 int bus_creds_dump(sd_bus_creds *c, FILE *f, bool terse) {
-        bool audit_sessionid_is_set = false, audit_loginuid_is_set = false;
-        const char *u = NULL, *uu = NULL, *s = NULL, *sl = NULL;
         uid_t owner, audit_loginuid;
         uint32_t audit_sessionid;
         char **cmdline = NULL, **well_known = NULL;
-        const char *prefix, *color, *suffix;
-        int r;
+        const char *prefix, *color, *suffix, *s;
+        int r, q, v, w;
 
         assert(c);
 
@@ -362,8 +360,12 @@ int bus_creds_dump(sd_bus_creds *c, FILE *f, bool terse) {
                 fprintf(f, "%sPID=%s"PID_FMT"%s", prefix, color, c->pid, suffix);
         if (c->mask & SD_BUS_CREDS_TID)
                 fprintf(f, "%sTID=%s"PID_FMT"%s", prefix, color, c->tid, suffix);
-        if (c->mask & SD_BUS_CREDS_PPID)
-                fprintf(f, "%sPPID=%s"PID_FMT"%s", prefix, color, c->ppid, suffix);
+        if (c->mask & SD_BUS_CREDS_PPID) {
+                if (c->ppid == 0)
+                        fprintf(f, "%sPPID=%sn/a%s", prefix, color, suffix);
+                else
+                        fprintf(f, "%sPPID=%s"PID_FMT"%s", prefix, color, c->ppid, suffix);
+        }
         if (c->mask & SD_BUS_CREDS_TTY)
                 fprintf(f, "%sTTY=%s%s%s", prefix, color, strna(c->tty), suffix);
 
@@ -409,12 +411,13 @@ int bus_creds_dump(sd_bus_creds *c, FILE *f, bool terse) {
         if (c->mask & SD_BUS_CREDS_TID_COMM)
                 fprintf(f, "%sTIDComm=%s%s%s", prefix, color, c->tid_comm, suffix);
         if (c->mask & SD_BUS_CREDS_EXE)
-                fprintf(f, "%sExe=%s%s%s", prefix, color, c->exe, suffix);
+                fprintf(f, "%sExe=%s%s%s", prefix, color, strna(c->exe), suffix);
 
         if (terse && (c->mask & (SD_BUS_CREDS_EXE|SD_BUS_CREDS_COMM|SD_BUS_CREDS_TID_COMM)))
                 fputs("\n", f);
 
-        if (sd_bus_creds_get_cmdline(c, &cmdline) >= 0) {
+        r = sd_bus_creds_get_cmdline(c, &cmdline);
+        if (r >= 0) {
                 char **i;
 
                 fprintf(f, "%sCommandLine=%s", prefix, color);
@@ -426,7 +429,8 @@ int bus_creds_dump(sd_bus_creds *c, FILE *f, bool terse) {
                 }
 
                 fprintf(f, "%s", suffix);
-        }
+        } else if (r != -ENODATA)
+                fprintf(f, "%sCommandLine=%sn/a%s", prefix, color, suffix);
 
         if (c->mask & SD_BUS_CREDS_SELINUX_CONTEXT)
                 fprintf(f, "%sLabel=%s%s%s", prefix, color, c->label, suffix);
@@ -438,32 +442,38 @@ int bus_creds_dump(sd_bus_creds *c, FILE *f, bool terse) {
 
         if (c->mask & SD_BUS_CREDS_CGROUP)
                 fprintf(f, "%sCGroup=%s%s%s", prefix, color, c->cgroup, suffix);
-        (void) sd_bus_creds_get_unit(c, &u);
-        if (u)
-                fprintf(f, "%sUnit=%s%s%s", prefix, color, u, suffix);
-        (void) sd_bus_creds_get_user_unit(c, &uu);
-        if (uu)
-                fprintf(f, "%sUserUnit=%s%s%s", prefix, color, uu, suffix);
-        (void) sd_bus_creds_get_slice(c, &sl);
-        if (sl)
-                fprintf(f, "%sSlice=%s%s%s", prefix, color, sl, suffix);
-        (void) sd_bus_creds_get_session(c, &s);
-        if (s)
-                fprintf(f, "%sSession=%s%s%s", prefix, color, s, suffix);
+        s = NULL;
+        r = sd_bus_creds_get_unit(c, &s);
+        if (r != -ENODATA)
+                fprintf(f, "%sUnit=%s%s%s", prefix, color, strna(s), suffix);
+        s = NULL;
+        q = sd_bus_creds_get_user_unit(c, &s);
+        if (q != -ENODATA)
+                fprintf(f, "%sUserUnit=%s%s%s", prefix, color, strna(s), suffix);
+        s = NULL;
+        v = sd_bus_creds_get_slice(c, &s);
+        if (v != -ENODATA)
+                fprintf(f, "%sSlice=%s%s%s", prefix, color, strna(s), suffix);
+        s = NULL;
+        w = sd_bus_creds_get_session(c, &s);
+        if (w != -ENODATA)
+                fprintf(f, "%sSession=%s%s%s", prefix, color, strna(s), suffix);
 
-        if (terse && ((c->mask & SD_BUS_CREDS_CGROUP) || u || uu || sl || s))
+        if (terse && ((c->mask & SD_BUS_CREDS_CGROUP) || r != -ENODATA || q != -ENODATA || v != -ENODATA || w != -ENODATA))
                 fputs("\n", f);
 
-        if (sd_bus_creds_get_audit_login_uid(c, &audit_loginuid) >= 0) {
-                audit_loginuid_is_set = true;
+        r = sd_bus_creds_get_audit_login_uid(c, &audit_loginuid);
+        if (r >= 0)
                 fprintf(f, "%sAuditLoginUID=%s"UID_FMT"%s", prefix, color, audit_loginuid, suffix);
-        }
-        if (sd_bus_creds_get_audit_session_id(c, &audit_sessionid) >= 0) {
-                audit_sessionid_is_set = true;
+        else if (r != -ENODATA)
+                fprintf(f, "%sAuditLoginUID=%sn/a%s", prefix, color, suffix);
+        q = sd_bus_creds_get_audit_session_id(c, &audit_sessionid);
+        if (q >= 0)
                 fprintf(f, "%sAuditSessionID=%s%"PRIu32"%s", prefix, color, audit_sessionid, suffix);
-        }
+        else if (q != -ENODATA)
+                fprintf(f, "%sAuditSessionID=%sn/a%s", prefix, color, suffix);
 
-        if (terse && (audit_loginuid_is_set || audit_sessionid_is_set))
+        if (terse && (r != -ENODATA || q != -ENODATA))
                 fputs("\n", f);
 
         if (c->mask & SD_BUS_CREDS_UNIQUE_NAME)

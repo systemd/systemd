@@ -598,6 +598,9 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
                         if (d->pids.ppid > 0) {
                                 m->creds.ppid = (pid_t) d->pids.ppid;
                                 m->creds.mask |= SD_BUS_CREDS_PPID & bus->creds_mask;
+                        } else if (d->pids.pid == 1) {
+                                m->creds.ppid = 0;
+                                m->creds.mask |= SD_BUS_CREDS_PPID & bus->creds_mask;
                         }
 
                         break;
@@ -686,15 +689,11 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
                         break;
 
                 case KDBUS_ITEM_AUDIT:
-                        if ((uint32_t) d->audit.sessionid != (uint32_t) -1) {
-                                m->creds.audit_session_id = (uint32_t) d->audit.sessionid;
-                                m->creds.mask |= SD_BUS_CREDS_AUDIT_SESSION_ID & bus->creds_mask;
-                        }
+                        m->creds.audit_session_id = (uint32_t) d->audit.sessionid;
+                        m->creds.mask |= SD_BUS_CREDS_AUDIT_SESSION_ID & bus->creds_mask;
 
-                        if ((uid_t) d->audit.loginuid != UID_INVALID) {
-                                m->creds.audit_login_uid = (uid_t) d->audit.loginuid;
-                                m->creds.mask |= SD_BUS_CREDS_AUDIT_LOGIN_UID & bus->creds_mask;
-                        }
+                        m->creds.audit_login_uid = (uid_t) d->audit.loginuid;
+                        m->creds.mask |= SD_BUS_CREDS_AUDIT_LOGIN_UID & bus->creds_mask;
                         break;
 
                 case KDBUS_ITEM_CAPS:

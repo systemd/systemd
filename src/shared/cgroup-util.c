@@ -1150,7 +1150,7 @@ int cg_path_decode_unit(const char *cgroup, char **unit){
         c = cg_unescape(c);
 
         if (!unit_name_is_valid(c, TEMPLATE_INVALID))
-                return -EINVAL;
+                return -ENXIO;
 
         s = strdup(c);
         if (!s)
@@ -1258,7 +1258,7 @@ int cg_path_get_user_unit(const char *path, char **unit) {
         if (!t)
                 t = skip_user_manager(e);
         if (!t)
-                return -ENOENT;
+                return -ENXIO;
 
         /* ... and skip more slices if there are any */
         e = skip_slices(t);
@@ -1318,17 +1318,17 @@ int cg_path_get_session(const char *path, char **session) {
 
         n = strchrnul(e, '/');
         if (e == n)
-                return -ENOENT;
+                return -ENXIO;
 
         s = strndupa(e, n - e);
         s = cg_unescape(s);
 
         x = startswith(s, "session-");
         if (!x)
-                return -ENOENT;
+                return -ENXIO;
         y = endswith(x, ".scope");
         if (!y || x == y)
-                return -ENOENT;
+                return -ENXIO;
 
         if (session) {
                 char *r;
@@ -1369,17 +1369,17 @@ int cg_path_get_owner_uid(const char *path, uid_t *uid) {
 
         start = startswith(slice, "user-");
         if (!start)
-                return -ENOENT;
+                return -ENXIO;
         end = endswith(slice, ".slice");
         if (!end)
-                return -ENOENT;
+                return -ENXIO;
 
         s = strndupa(start, end - start);
         if (!s)
-                return -ENOENT;
+                return -ENXIO;
 
         if (parse_uid(s, &u) < 0)
-                return -EIO;
+                return -ENXIO;
 
         if (uid)
                 *uid = u;
@@ -1415,7 +1415,7 @@ int cg_path_get_slice(const char *p, char **slice) {
                         char *s;
 
                         if (!e)
-                                return -ENOENT;
+                                return -ENXIO;
 
                         s = strndup(e, m);
                         if (!s)

@@ -44,9 +44,8 @@ static void test_get_process_comm(void) {
         if (stat("/proc/1/comm", &st) == 0) {
                 assert_se(get_process_comm(1, &a) >= 0);
                 log_info("pid1 comm: '%s'", a);
-        } else {
+        } else
                 log_warning("/proc/1/comm does not exist.");
-        }
 
         assert_se(get_process_cmdline(1, 0, true, &c) >= 0);
         log_info("pid1 cmdline: '%s'", c);
@@ -87,7 +86,7 @@ static void test_get_process_comm(void) {
         log_info("self strlen(environ): '%zu'", strlen(env));
 
         if (!detect_container(NULL))
-                assert_se(get_ctty_devnr(1, &h) == -ENOENT);
+                assert_se(get_ctty_devnr(1, &h) == -ENXIO);
 
         getenv_for_pid(1, "PATH", &i);
         log_info("pid1 $PATH: '%s'", strna(i));

@@ -423,9 +423,24 @@ static int bus_populate_creds_from_items(
                                 c->mask |= SD_BUS_CREDS_TID;
                         }
 
-                        if (mask & SD_BUS_CREDS_PPID && item->pids.ppid > 0) {
-                                c->ppid = (pid_t) item->pids.ppid;
-                                c->mask |= SD_BUS_CREDS_PPID;
+                        if (mask & SD_BUS_CREDS_PPID) {
+                                if (item->pids.ppid > 0) {
+                                        c->ppid = (pid_t) item->pids.ppid;
+                                        c->mask |= SD_BUS_CREDS_PPID;
+                                } else if (item->pids.pid == 1) {
+                                        /* The structure doesn't
+                                         * really distuingish the case
+                                         * where a process has no
+                                         * parent and where we don't
+                                         * know it because it could
+                                         * not be translated due to
+                                         * namespaces. However, we
+                                         * know that PID 1 has no
+                                         * parent process, hence let's
+                                         * patch that in, manually. */
+                                        c->ppid = 0;
+                                        c->mask |= SD_BUS_CREDS_PPID;
+                                }
                         }
 
                         break;
@@ -565,12 +580,12 @@ static int bus_populate_creds_from_items(
                         break;
 
                 case KDBUS_ITEM_AUDIT:
-                        if (mask & SD_BUS_CREDS_AUDIT_SESSION_ID && (uint32_t) item->audit.sessionid != (uint32_t) -1) {
+                        if (mask & SD_BUS_CREDS_AUDIT_SESSION_ID) {
                                 c->audit_session_id = (uint32_t) item->audit.sessionid;
                                 c->mask |= SD_BUS_CREDS_AUDIT_SESSION_ID;
                         }
 
-                        if (mask & SD_BUS_CREDS_AUDIT_LOGIN_UID && (uid_t) item->audit.loginuid != UID_INVALID) {
+                        if (mask & SD_BUS_CREDS_AUDIT_LOGIN_UID) {
                                 c->audit_login_uid = (uid_t) item->audit.loginuid;
                                 c->mask |= SD_BUS_CREDS_AUDIT_LOGIN_UID;
                         }
