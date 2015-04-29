@@ -1166,7 +1166,6 @@ static int method_reload(sd_bus_message *message, void *userdata, sd_bus_error *
         if (r < 0)
                 return r;
 
-        m->queued_message_bus = sd_bus_ref(sd_bus_message_get_bus(message));
         m->exit_code = MANAGER_RELOAD;
 
         return 1;

@@ -55,18 +55,15 @@ int bus_send_queued_message(Manager *m) {
         if (!m->queued_message)
                 return 0;
 
-        assert(m->queued_message_bus);
-
         /* If we cannot get rid of this message we won't dispatch any
          * D-Bus messages, so that we won't end up wanting to queue
          * another message. */
 
-        r = sd_bus_send(m->queued_message_bus, m->queued_message, NULL);
+        r = sd_bus_send(NULL, m->queued_message, NULL);
         if (r < 0)
                 log_warning_errno(r, "Failed to send queued message: %m");
 
         m->queued_message = sd_bus_message_unref(m->queued_message);
-        m->queued_message_bus = sd_bus_unref(m->queued_message_bus);
 
         return 0;
 }
@@ -1031,12 +1028,8 @@ static void destroy_bus(Manager *m, sd_bus **bus) {
                         j->clients = sd_bus_track_unref(j->clients);
 
         /* Get rid of queued message on this bus */
-        if (m->queued_message_bus == *bus) {
-                m->queued_message_bus = sd_bus_unref(m->queued_message_bus);
-
-                if (m->queued_message)
-                        m->queued_message = sd_bus_message_unref(m->queued_message);
-        }
+        if (m->queued_message && sd_bus_message_get_bus(m->queued_message) == *bus)
+                m->queued_message = sd_bus_message_unref(m->queued_message);
 
         /* Possibly flush unwritten data, but only if we are
          * unprivileged, since we don't want to sync here */

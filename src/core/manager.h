@@ -199,11 +199,9 @@ struct Manager {
         sd_bus_track *subscribed;
         char **deserialized_subscribed;
 
-        sd_bus_message *queued_message; /* This is used during reloading:
-                                      * before the reload we queue the
-                                      * reply message here, and
-                                      * afterwards we send it */
-        sd_bus *queued_message_bus; /* The connection to send the queued message on */
+        /* This is used during reloading: before the reload we queue
+         * the reply message here, and afterwards we send it */
+        sd_bus_message *queued_message;
 
         Hashmap *watch_bus;  /* D-Bus names => Unit object n:1 */
 
