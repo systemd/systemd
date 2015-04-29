@@ -428,7 +428,7 @@ static int method_list_sessions(sd_bus_message *message, void *userdata, sd_bus_
         if (r < 0)
                 return r;
 
-        return sd_bus_send(sd_bus_message_get_bus(reply), reply, NULL);
+        return sd_bus_send(NULL, reply, NULL);
 }
 
 static int method_list_users(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -468,7 +468,7 @@ static int method_list_users(sd_bus_message *message, void *userdata, sd_bus_err
         if (r < 0)
                 return r;
 
-        return sd_bus_send(sd_bus_message_get_bus(reply), reply, NULL);
+        return sd_bus_send(NULL, reply, NULL);
 }
 
 static int method_list_seats(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -505,7 +505,7 @@ static int method_list_seats(sd_bus_message *message, void *userdata, sd_bus_err
         if (r < 0)
                 return r;
 
-        return sd_bus_send(sd_bus_message_get_bus(reply), reply, NULL);
+        return sd_bus_send(NULL, reply, NULL);
 }
 
 static int method_list_inhibitors(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -543,7 +543,7 @@ static int method_list_inhibitors(sd_bus_message *message, void *userdata, sd_bu
         if (r < 0)
                 return r;
 
-        return sd_bus_send(sd_bus_message_get_bus(reply), reply, NULL);
+        return sd_bus_send(NULL, reply, NULL);
 }
 
 static int method_create_session(sd_bus_message *message, void *userdata, sd_bus_error *error) {

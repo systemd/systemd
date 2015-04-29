@@ -916,7 +916,7 @@ static int list_units_filtered(sd_bus_message *message, void *userdata, sd_bus_e
         if (r < 0)
                 return r;
 
-        return sd_bus_send(sd_bus_message_get_bus(reply), reply, NULL);
+        return sd_bus_send(NULL, reply, NULL);
 }
 
 static int method_list_units(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -985,7 +985,7 @@ static int method_list_jobs(sd_bus_message *message, void *userdata, sd_bus_erro
         if (r < 0)
                 return r;
 
-        return sd_bus_send(sd_bus_message_get_bus(reply), reply, NULL);
+        return sd_bus_send(NULL, reply, NULL);
 }
 
 static int method_subscribe(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -1502,7 +1502,7 @@ static int method_list_unit_files(sd_bus_message *message, void *userdata, sd_bu
         if (r < 0)
                 return r;
 
-        return sd_bus_send(sd_bus_message_get_bus(reply), reply, NULL);
+        return sd_bus_send(NULL, reply, NULL);
 
 fail:
         unit_file_list_free(h);
@@ -1620,7 +1620,7 @@ static int reply_unit_file_changes_and_free(
         if (r < 0)
                 goto fail;
 
-        return sd_bus_send(sd_bus_message_get_bus(message), reply, NULL);
+        return sd_bus_send(NULL, reply, NULL);
 
 fail:
         unit_file_changes_free(changes, n_changes);

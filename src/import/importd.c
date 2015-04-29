@@ -1064,7 +1064,7 @@ static int method_list_transfers(sd_bus_message *msg, void *userdata, sd_bus_err
         if (r < 0)
                 return r;
 
-        return sd_bus_send(sd_bus_message_get_bus(msg), reply, NULL);
+        return sd_bus_send(NULL, reply, NULL);
 }
 
 static int method_cancel(sd_bus_message *msg, void *userdata, sd_bus_error *error) {

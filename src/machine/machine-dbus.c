@@ -335,7 +335,7 @@ int bus_machine_method_get_addresses(sd_bus_message *message, void *userdata, sd
         if (r < 0)
                 return r;
 
-        return sd_bus_send(sd_bus_message_get_bus(reply), reply, NULL);
+        return sd_bus_send(NULL, reply, NULL);
 }
 
 int bus_machine_method_get_os_release(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -426,7 +426,7 @@ int bus_machine_method_get_os_release(sd_bus_message *message, void *userdata, s
         if (r < 0)
                 return r;
 
-        return sd_bus_send(sd_bus_message_get_bus(reply), reply, NULL);
+        return sd_bus_send(NULL, reply, NULL);
 }
 
 int bus_machine_method_open_pty(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -458,7 +458,7 @@ int bus_machine_method_open_pty(sd_bus_message *message, void *userdata, sd_bus_
         if (r < 0)
                 return r;
 
-        return sd_bus_send(sd_bus_message_get_bus(reply), reply, NULL);
+        return sd_bus_send(NULL, reply, NULL);
 }
 
 int bus_machine_method_open_login(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -551,7 +551,7 @@ int bus_machine_method_open_login(sd_bus_message *message, void *userdata, sd_bu
         if (r < 0)
                 return r;
 
-        return sd_bus_send(sd_bus_message_get_bus(reply), reply, NULL);
+        return sd_bus_send(NULL, reply, NULL);
 }
 
 int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bus_error *error) {

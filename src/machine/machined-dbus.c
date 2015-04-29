@@ -255,7 +255,7 @@ static int method_list_machines(sd_bus_message *message, void *userdata, sd_bus_
         if (r < 0)
                 return sd_bus_error_set_errno(error, r);
 
-        return sd_bus_send(sd_bus_message_get_bus(message), reply, NULL);
+        return sd_bus_send(NULL, reply, NULL);
 }
 
 static int method_create_or_register_machine(Manager *manager, sd_bus_message *message, bool read_network, Machine **_m, sd_bus_error *error) {
@@ -593,7 +593,7 @@ static int method_list_images(sd_bus_message *message, void *userdata, sd_bus_er
         if (r < 0)
                 return r;
 
-        return sd_bus_send(sd_bus_message_get_bus(message), reply, NULL);
+        return sd_bus_send(NULL, reply, NULL);
 }
 
 static int method_open_machine_pty(sd_bus_message *message, void *userdata, sd_bus_error *error) {
