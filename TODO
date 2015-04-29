@@ -39,15 +39,21 @@ Before 220:
 
 * logind: follow PropertiesChanged state more closely, to deal with quick logouts and relogins
 
-* sd-bus.h: drop bus parameter in message handlers
-
 * networkd: fix ip forwarding boolean
 
 * whe should apply a stop limit (similar to the existing start limit),
   so that we don't enter unbounded umount loops:
   http://lists.freedesktop.org/archives/systemd-devel/2015-April/030224.html
 
+* change to KillMode=mixed by default
+
+* introduce argv0array=
+
+* sd_bus_creds: allow distinguishing "missing data" and "data not applicable" when querying data
+
 Features:
+
+* sd_bus_send() without bus argument?
 
 * journalctl: -m should access container journals directly by enumerating them via machined, and also watch containers coming and going. Benefit: nspawn --ephemeral would start working nicely with the journal.
 
