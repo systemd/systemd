@@ -769,6 +769,7 @@ if ENABLE_KDBUS
 MANPAGES += \
 	man/sd_bus_creds_get_pid.3 \
 	man/sd_bus_creds_new_from_pid.3 \
+	man/sd_bus_default.3 \
 	man/sd_bus_error.3 \
 	man/sd_bus_message_append.3 \
 	man/sd_bus_message_append_array.3 \
@@ -779,7 +780,6 @@ MANPAGES += \
 	man/sd_bus_message_get_monotonic_usec.3 \
 	man/sd_bus_negotiate_fds.3 \
 	man/sd_bus_new.3 \
-	man/sd_bus_open_user.3 \
 	man/sd_bus_path_encode.3 \
 	man/sd_bus_request_name.3 \
 	man/sd_event_add_child.3 \
@@ -850,9 +850,11 @@ MANPAGES_ALIAS += \
 	man/sd_bus_message_get_seqnum.3 \
 	man/sd_bus_negotiate_creds.3 \
 	man/sd_bus_negotiate_timestamps.3 \
+	man/sd_bus_open.3 \
 	man/sd_bus_open_system.3 \
-	man/sd_bus_open_system_container.3 \
+	man/sd_bus_open_system_machine.3 \
 	man/sd_bus_open_system_remote.3 \
+	man/sd_bus_open_user.3 \
 	man/sd_bus_path_decode.3 \
 	man/sd_bus_ref.3 \
 	man/sd_bus_release_name.3 \
@@ -909,8 +911,8 @@ man/sd_bus_creds_has_inheritable_cap.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_has_permitted_cap.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_ref.3: man/sd_bus_creds_new_from_pid.3
 man/sd_bus_creds_unref.3: man/sd_bus_creds_new_from_pid.3
-man/sd_bus_default_system.3: man/sd_bus_open_user.3
-man/sd_bus_default_user.3: man/sd_bus_open_user.3
+man/sd_bus_default_system.3: man/sd_bus_default.3
+man/sd_bus_default_user.3: man/sd_bus_default.3
 man/sd_bus_error_copy.3: man/sd_bus_error.3
 man/sd_bus_error_free.3: man/sd_bus_error.3
 man/sd_bus_error_get_errno.3: man/sd_bus_error.3
@@ -930,9 +932,11 @@ man/sd_bus_message_get_reply_cookie.3: man/sd_bus_message_get_cookie.3
 man/sd_bus_message_get_seqnum.3: man/sd_bus_message_get_monotonic_usec.3
 man/sd_bus_negotiate_creds.3: man/sd_bus_negotiate_fds.3
 man/sd_bus_negotiate_timestamps.3: man/sd_bus_negotiate_fds.3
-man/sd_bus_open_system.3: man/sd_bus_open_user.3
-man/sd_bus_open_system_container.3: man/sd_bus_open_user.3
-man/sd_bus_open_system_remote.3: man/sd_bus_open_user.3
+man/sd_bus_open.3: man/sd_bus_default.3
+man/sd_bus_open_system.3: man/sd_bus_default.3
+man/sd_bus_open_system_machine.3: man/sd_bus_default.3
+man/sd_bus_open_system_remote.3: man/sd_bus_default.3
+man/sd_bus_open_user.3: man/sd_bus_default.3
 man/sd_bus_path_decode.3: man/sd_bus_path_encode.3
 man/sd_bus_ref.3: man/sd_bus_new.3
 man/sd_bus_release_name.3: man/sd_bus_request_name.3
@@ -1059,10 +1063,10 @@ man/sd_bus_creds_ref.html: man/sd_bus_creds_new_from_pid.html
 man/sd_bus_creds_unref.html: man/sd_bus_creds_new_from_pid.html
 	$(html-alias)
 
-man/sd_bus_default_system.html: man/sd_bus_open_user.html
+man/sd_bus_default_system.html: man/sd_bus_default.html
 	$(html-alias)
 
-man/sd_bus_default_user.html: man/sd_bus_open_user.html
+man/sd_bus_default_user.html: man/sd_bus_default.html
 	$(html-alias)
 
 man/sd_bus_error_copy.html: man/sd_bus_error.html
@@ -1122,13 +1126,19 @@ man/sd_bus_negotiate_creds.html: man/sd_bus_negotiate_fds.html
 man/sd_bus_negotiate_timestamps.html: man/sd_bus_negotiate_fds.html
 	$(html-alias)
 
-man/sd_bus_open_system.html: man/sd_bus_open_user.html
+man/sd_bus_open.html: man/sd_bus_default.html
 	$(html-alias)
 
-man/sd_bus_open_system_container.html: man/sd_bus_open_user.html
+man/sd_bus_open_system.html: man/sd_bus_default.html
 	$(html-alias)
 
-man/sd_bus_open_system_remote.html: man/sd_bus_open_user.html
+man/sd_bus_open_system_machine.html: man/sd_bus_default.html
+	$(html-alias)
+
+man/sd_bus_open_system_remote.html: man/sd_bus_default.html
+	$(html-alias)
+
+man/sd_bus_open_user.html: man/sd_bus_default.html
 	$(html-alias)
 
 man/sd_bus_path_decode.html: man/sd_bus_path_encode.html
@@ -1721,6 +1731,7 @@ EXTRA_DIST += \
 	man/sd_booted.xml \
 	man/sd_bus_creds_get_pid.xml \
 	man/sd_bus_creds_new_from_pid.xml \
+	man/sd_bus_default.xml \
 	man/sd_bus_error.xml \
 	man/sd_bus_message_append.xml \
 	man/sd_bus_message_append_array.xml \
@@ -1731,7 +1742,6 @@ EXTRA_DIST += \
 	man/sd_bus_message_get_monotonic_usec.xml \
 	man/sd_bus_negotiate_fds.xml \
 	man/sd_bus_new.xml \
-	man/sd_bus_open_user.xml \
 	man/sd_bus_path_encode.xml \
 	man/sd_bus_request_name.xml \
 	man/sd_event_add_child.xml \

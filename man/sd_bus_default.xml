@@ -21,10 +21,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="sd_bus_open_user" conditional="ENABLE_KDBUS">
+<refentry id="sd_bus_default" conditional="ENABLE_KDBUS">
 
   <refentryinfo>
-    <title>sd_bus_open_user</title>
+    <title>sd_bus_default</title>
     <productname>systemd</productname>
 
     <authorgroup>
@@ -38,25 +38,47 @@
   </refentryinfo>
 
   <refmeta>
-    <refentrytitle>sd_bus_open_user</refentrytitle>
+    <refentrytitle>sd_bus_default</refentrytitle>
     <manvolnum>3</manvolnum>
   </refmeta>
 
   <refnamediv>
-    <refname>sd_bus_open_user</refname>
-    <refname>sd_bus_open_system</refname>
-    <refname>sd_bus_open_system_remote</refname>
-    <refname>sd_bus_open_system_container</refname>
-
+    <refname>sd_bus_default</refname>
     <refname>sd_bus_default_user</refname>
     <refname>sd_bus_default_system</refname>
 
-    <refpurpose>Open a connection to the system or user bus</refpurpose>
+    <refname>sd_bus_open</refname>
+    <refname>sd_bus_open_user</refname>
+    <refname>sd_bus_open_system</refname>
+    <refname>sd_bus_open_system_remote</refname>
+    <refname>sd_bus_open_system_machine</refname>
+
+    <refpurpose>Acquire a connection to a system or user bus</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
     <funcsynopsis>
       <funcsynopsisinfo>#include &lt;systemd/sd-bus.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_default</function></funcdef>
+        <paramdef>sd_bus **<parameter>bus</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_default_user</function></funcdef>
+        <paramdef>sd_bus **<parameter>bus</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_default_system</function></funcdef>
+        <paramdef>sd_bus **<parameter>bus</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_open</function></funcdef>
+        <paramdef>sd_bus **<parameter>bus</parameter></paramdef>
+      </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_open_user</function></funcdef>
@@ -70,35 +92,58 @@
 
       <funcprototype>
         <funcdef>int <function>sd_bus_open_system_remote</function></funcdef>
+        <paramdef>sd_bus **<parameter>bus</parameter></paramdef>
         <paramdef>const char *<parameter>host</parameter></paramdef>
-        <paramdef>sd_bus **<parameter>bus</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
-        <funcdef>int <function>sd_bus_open_system_container</function></funcdef>
+        <funcdef>int <function>sd_bus_open_system_machine</function></funcdef>
+        <paramdef>sd_bus **<parameter>bus</parameter></paramdef>
         <paramdef>const char *<parameter>machine</parameter></paramdef>
-        <paramdef>sd_bus **<parameter>bus</parameter></paramdef>
       </funcprototype>
 
-      <funcprototype>
-        <funcdef>int <function>sd_bus_default_user</function></funcdef>
-        <paramdef>sd_bus **<parameter>bus</parameter></paramdef>
-      </funcprototype>
-
-      <funcprototype>
-        <funcdef>int <function>sd_bus_default_system</function></funcdef>
-        <paramdef>sd_bus **<parameter>bus</parameter></paramdef>
-      </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
 
   <refsect1>
     <title>Description</title>
 
-    <para><function>sd_bus_open_user()</function> creates a new bus
-    object and opens a connection to the user bus.
-    <function>sd_bus_open_system()</function> does the same, but
+    <para><function>sd_bus_default()</function> acquires a bus
+    connection object to the user bus when invoked in user context or
+    to the system bus otherwise. The connection object is associated
+    to the calling thread. Each time the function is invoked from the
+    same thread the same object is returned, but its reference count
+    increased by one, as long as at least one reference is kept. When
+    the last reference to the connection is dropped (using the
+    <function>sd_bus_unref()</function> call), the connection is
+    terminated. Note that the connection is not automatically
+    terminated when the associated thread ends. It is important to
+    drop the last reference to the bus connection explicitly before
+    the thread ends or otherwise the connection will be leaked.</para>
+
+    <para><function>sd_bus_default_user()</function> returns a user
+    bus connection object associated to the calling thread.
+    <function>sd_bus_default_system()</function> is similar, but
     connects to the system bus.</para>
+
+    <para><function>sd_bus_open()</function> creates a new,
+    independent bus connection to the user bus when invoked in user
+    context or the system bus
+    otherwise. <function>sd_bus_open_user()</function> is similar, but
+    connects only to the user bus.
+    <function>sd_bus_open_system()</function> does the same, but
+    connects to the system bus. In contrast to
+    <function>sd_bus_default()</function>,
+    <function>sd_bus_default_user()</function>,
+    <function>sd_bus_default_system()</function> these calls return
+    new, independent connection objects that are not associated with
+    the invoking thread and are not shared between multiple
+    invocations. It is recommended to share connections per thread to
+    efficiently make use the available resources. Thus, it is
+    recommended to use <function>sd_bus_default()</function>,
+    <function>sd_bus_default_user()</function>,
+    <function>sd_bus_default_system()</function> to connect to the
+    user or system busses.</para>
 
     <para>If the <varname>$DBUS_SESSION_BUS_ADDRESS</varname> environment
     variable is set
@@ -108,10 +153,10 @@
     this variable is not set, a suitable default for the default user
     D-Bus instance will be used.</para>
 
-    <para>If the <varname>$DBUS_SYSTEM_BUS_ADDRESS</varname> environment
-    variable is set, it will be used as the address of the system
-    bus. This variable uses the same syntax as
-    <varname>$DBUS_SESSION_BUS_ADDRESS</varname>/. If this variable is
+    <para>If the <varname>$DBUS_SYSTEM_BUS_ADDRESS</varname>
+    environment variable is set, it will be used as the address of the
+    system bus. This variable uses the same syntax as
+    <varname>$DBUS_SESSION_BUS_ADDRESS</varname>. If this variable is
     not set, a suitable default for the default system D-Bus instance
     will be used.</para>
 
@@ -123,20 +168,11 @@
 
     <para><function>sd_bus_open_system_container()</function> connects
     to the system bus in the specified <parameter>machine</parameter>,
-    where <parameter>machine</parameter> is the name of a container.
-    See
+    where <parameter>machine</parameter> is the name of a local
+    container.  See
     <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     for more information about "machines".</para>
 
-    <para><function>sd_bus_default_user()</function> returns a bus
-    object connected to the user bus. Each thread has its own object, but it
-    may be passed around. It is created on the first invocation of
-    <function>sd_bus_default_user()</function>, and subsequent
-    invocations returns a reference to the same object.</para>
-
-    <para><function>sd_bus_default_system()</function> is similar to
-    <function>sd_bus_default_user()</function>, but connects to the
-    system bus.</para>
   </refsect1>
 
   <refsect1>
@@ -149,7 +185,8 @@
 
   <refsect1>
     <title>Reference ownership</title>
-    <para>Functions <function>sd_bus_open_user()</function>,
+    <para>The functions <function>sd_bus_open_user()</function>,
+    <function>sd_bus_open()</function>,
     <function>sd_bus_open_system()</function>,
     <function>sd_bus_open_system_remote()</function>, and
     <function>sd_bus_open_system_machine()</function> return a new
@@ -158,9 +195,13 @@
     <citerefentry><refentrytitle>sd_bus_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
     </para>
 
-    <para>The functions <function>sd_bus_default_user()</function> and
-    <function>sd_bus_default_system()</function> do not create a new
-    reference.</para>
+    <para>The functions <function>sd_bus_default()</function>,
+    <function>sd_bus_default_user()</function> and
+    <function>sd_bus_default_system()</function> do not necessarily
+    create a new object, but increase the connection reference by
+    one. Use
+    <citerefentry><refentrytitle>sd_bus_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    to drop the reference.</para>
   </refsect1>
 
   <refsect1>
@@ -173,9 +214,7 @@
       <varlistentry>
         <term><constant>-EINVAL</constant></term>
 
-        <listitem><para>Specified parameter is invalid
-        (<constant>NULL</constant> in case of output
-        parameters).</para></listitem>
+        <listitem><para>The specified parameters are invalid.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -184,18 +223,25 @@
         <listitem><para>Memory allocation failed.</para></listitem>
       </varlistentry>
 
-      <para>In addition, any further connection-related errors may be
-      by returned. See <citerefentry><refentrytitle>sd_bus_send</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
+      <varlistentry>
+        <term><constant>-ESOCKTNOSUPPORT</constant></term>
+
+        <listitem><para>The protocol version required to connect to the selected bus is not supported.</para></listitem>
+      </varlistentry>
     </variablelist>
+
+    <para>In addition, any further connection-related errors may be
+    by returned. See <citerefentry><refentrytitle>sd_bus_send</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
   </refsect1>
 
   <refsect1>
     <title>Notes</title>
 
-    <para><function>sd_bus_open_user()</function> and other functions
-    described here are available as a shared library, which can be
-    compiled and linked to with the
-    <constant>libsystemd</constant> <citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    <para><function>sd_bus_open_user()</function> and the other
+    functions described here are available as a shared library, which
+    can be compiled and linked to with the
+    <constant>libsystemd</constant> <citerefentry
+    project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     file.</para>
   </refsect1>
 
