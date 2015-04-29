@@ -343,14 +343,13 @@ static int property_set_runtime_watchdog(
         return watchdog_set_timeout(t);
 }
 
-static int method_get_unit(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_get_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_free_ char *path = NULL;
         Manager *m = userdata;
         const char *name;
         Unit *u;
         int r;
 
-        assert(bus);
         assert(message);
         assert(m);
 
@@ -392,14 +391,13 @@ static int method_get_unit(sd_bus *bus, sd_bus_message *message, void *userdata,
         return sd_bus_reply_method_return(message, "o", path);
 }
 
-static int method_get_unit_by_pid(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_get_unit_by_pid(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_free_ char *path = NULL;
         Manager *m = userdata;
         pid_t pid;
         Unit *u;
         int r;
 
-        assert(bus);
         assert(message);
         assert(m);
 
@@ -440,14 +438,13 @@ static int method_get_unit_by_pid(sd_bus *bus, sd_bus_message *message, void *us
         return sd_bus_reply_method_return(message, "o", path);
 }
 
-static int method_load_unit(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_load_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_free_ char *path = NULL;
         Manager *m = userdata;
         const char *name;
         Unit *u;
         int r;
 
-        assert(bus);
         assert(message);
         assert(m);
 
@@ -489,12 +486,11 @@ static int method_load_unit(sd_bus *bus, sd_bus_message *message, void *userdata
         return sd_bus_reply_method_return(message, "o", path);
 }
 
-static int method_start_unit_generic(sd_bus *bus, sd_bus_message *message, Manager *m, JobType job_type, bool reload_if_possible, sd_bus_error *error) {
+static int method_start_unit_generic(sd_bus_message *message, Manager *m, JobType job_type, bool reload_if_possible, sd_bus_error *error) {
         const char *name;
         Unit *u;
         int r;
 
-        assert(bus);
         assert(message);
         assert(m);
 
@@ -506,44 +502,43 @@ static int method_start_unit_generic(sd_bus *bus, sd_bus_message *message, Manag
         if (r < 0)
                 return r;
 
-        return bus_unit_method_start_generic(bus, message, u, job_type, reload_if_possible, error);
+        return bus_unit_method_start_generic(message, u, job_type, reload_if_possible, error);
 }
 
-static int method_start_unit(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_start_unit_generic(bus, message, userdata, JOB_START, false, error);
+static int method_start_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return method_start_unit_generic(message, userdata, JOB_START, false, error);
 }
 
-static int method_stop_unit(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_start_unit_generic(bus, message, userdata, JOB_STOP, false, error);
+static int method_stop_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return method_start_unit_generic(message, userdata, JOB_STOP, false, error);
 }
 
-static int method_reload_unit(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_start_unit_generic(bus, message, userdata, JOB_RELOAD, false, error);
+static int method_reload_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return method_start_unit_generic(message, userdata, JOB_RELOAD, false, error);
 }
 
-static int method_restart_unit(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_start_unit_generic(bus, message, userdata, JOB_RESTART, false, error);
+static int method_restart_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return method_start_unit_generic(message, userdata, JOB_RESTART, false, error);
 }
 
-static int method_try_restart_unit(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_start_unit_generic(bus, message, userdata, JOB_TRY_RESTART, false, error);
+static int method_try_restart_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return method_start_unit_generic(message, userdata, JOB_TRY_RESTART, false, error);
 }
 
-static int method_reload_or_restart_unit(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_start_unit_generic(bus, message, userdata, JOB_RESTART, true, error);
+static int method_reload_or_restart_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return method_start_unit_generic(message, userdata, JOB_RESTART, true, error);
 }
 
-static int method_reload_or_try_restart_unit(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_start_unit_generic(bus, message, userdata, JOB_TRY_RESTART, true, error);
+static int method_reload_or_try_restart_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return method_start_unit_generic(message, userdata, JOB_TRY_RESTART, true, error);
 }
 
-static int method_start_unit_replace(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_start_unit_replace(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
         const char *old_name;
         Unit *u;
         int r;
 
-        assert(bus);
         assert(message);
         assert(m);
 
@@ -555,16 +550,15 @@ static int method_start_unit_replace(sd_bus *bus, sd_bus_message *message, void 
         if (!u || !u->job || u->job->type != JOB_START)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_JOB, "No job queued for unit %s", old_name);
 
-        return method_start_unit_generic(bus, message, m, JOB_START, false, error);
+        return method_start_unit_generic(message, m, JOB_START, false, error);
 }
 
-static int method_kill_unit(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_kill_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
         const char *name;
         Unit *u;
         int r;
 
-        assert(bus);
         assert(message);
         assert(m);
 
@@ -576,16 +570,15 @@ static int method_kill_unit(sd_bus *bus, sd_bus_message *message, void *userdata
         if (!u)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s is not loaded.", name);
 
-        return bus_unit_method_kill(bus, message, u, error);
+        return bus_unit_method_kill(message, u, error);
 }
 
-static int method_reset_failed_unit(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_reset_failed_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
         const char *name;
         Unit *u;
         int r;
 
-        assert(bus);
         assert(message);
         assert(m);
 
@@ -597,16 +590,15 @@ static int method_reset_failed_unit(sd_bus *bus, sd_bus_message *message, void *
         if (!u)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s is not loaded.", name);
 
-        return bus_unit_method_reset_failed(bus, message, u, error);
+        return bus_unit_method_reset_failed(message, u, error);
 }
 
-static int method_set_unit_properties(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_set_unit_properties(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
         const char *name;
         Unit *u;
         int r;
 
-        assert(bus);
         assert(message);
         assert(m);
 
@@ -618,7 +610,7 @@ static int method_set_unit_properties(sd_bus *bus, sd_bus_message *message, void
         if (!u)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s is not loaded.", name);
 
-        return bus_unit_method_set_properties(bus, message, u, error);
+        return bus_unit_method_set_properties(message, u, error);
 }
 
 static int transient_unit_from_message(
@@ -704,7 +696,7 @@ static int transient_aux_units_from_message(
         return 0;
 }
 
-static int method_start_transient_unit(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_start_transient_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         const char *name, *smode;
         Manager *m = userdata;
         JobMode mode;
@@ -712,7 +704,6 @@ static int method_start_transient_unit(sd_bus *bus, sd_bus_message *message, voi
         Unit *u;
         int r;
 
-        assert(bus);
         assert(message);
         assert(m);
 
@@ -757,17 +748,16 @@ static int method_start_transient_unit(sd_bus *bus, sd_bus_message *message, voi
         manager_dispatch_load_queue(m);
 
         /* Finally, start it */
-        return bus_unit_queue_job(bus, message, u, JOB_START, mode, false, error);
+        return bus_unit_queue_job(message, u, JOB_START, mode, false, error);
 }
 
-static int method_get_job(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_get_job(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_free_ char *path = NULL;
         Manager *m = userdata;
         uint32_t id;
         Job *j;
         int r;
 
-        assert(bus);
         assert(message);
         assert(m);
 
@@ -792,13 +782,12 @@ static int method_get_job(sd_bus *bus, sd_bus_message *message, void *userdata, 
         return sd_bus_reply_method_return(message, "o", path);
 }
 
-static int method_cancel_job(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_cancel_job(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
         uint32_t id;
         Job *j;
         int r;
 
-        assert(bus);
         assert(message);
         assert(m);
 
@@ -810,14 +799,13 @@ static int method_cancel_job(sd_bus *bus, sd_bus_message *message, void *userdat
         if (!j)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_JOB, "Job %u does not exist.", (unsigned) id);
 
-        return bus_job_method_cancel(bus, message, j, error);
+        return bus_job_method_cancel(message, j, error);
 }
 
-static int method_clear_jobs(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_clear_jobs(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
         int r;
 
-        assert(bus);
         assert(message);
         assert(m);
 
@@ -836,11 +824,10 @@ static int method_clear_jobs(sd_bus *bus, sd_bus_message *message, void *userdat
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int method_reset_failed(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_reset_failed(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
         int r;
 
-        assert(bus);
         assert(message);
         assert(m);
 
@@ -859,7 +846,7 @@ static int method_reset_failed(sd_bus *bus, sd_bus_message *message, void *userd
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int list_units_filtered(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error, char **states) {
+static int list_units_filtered(sd_bus_message *message, void *userdata, sd_bus_error *error, char **states) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         Manager *m = userdata;
         const char *k;
@@ -867,7 +854,6 @@ static int list_units_filtered(sd_bus *bus, sd_bus_message *message, void *userd
         Unit *u;
         int r;
 
-        assert(bus);
         assert(message);
         assert(m);
 
@@ -930,14 +916,14 @@ static int list_units_filtered(sd_bus *bus, sd_bus_message *message, void *userd
         if (r < 0)
                 return r;
 
-        return sd_bus_send(bus, reply, NULL);
+        return sd_bus_send(sd_bus_message_get_bus(reply), reply, NULL);
 }
 
-static int method_list_units(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return list_units_filtered(bus, message, userdata, error, NULL);
+static int method_list_units(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return list_units_filtered(message, userdata, error, NULL);
 }
 
-static int method_list_units_filtered(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_list_units_filtered(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_strv_free_ char **states = NULL;
         int r;
 
@@ -945,17 +931,16 @@ static int method_list_units_filtered(sd_bus *bus, sd_bus_message *message, void
         if (r < 0)
                 return r;
 
-        return list_units_filtered(bus, message, userdata, error, states);
+        return list_units_filtered(message, userdata, error, states);
 }
 
-static int method_list_jobs(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_list_jobs(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         Manager *m = userdata;
         Iterator i;
         Job *j;
         int r;
 
-        assert(bus);
         assert(message);
         assert(m);
 
@@ -1000,14 +985,13 @@ static int method_list_jobs(sd_bus *bus, sd_bus_message *message, void *userdata
         if (r < 0)
                 return r;
 
-        return sd_bus_send(bus, reply, NULL);
+        return sd_bus_send(sd_bus_message_get_bus(reply), reply, NULL);
 }
 
-static int method_subscribe(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_subscribe(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
         int r;
 
-        assert(bus);
         assert(message);
         assert(m);
 
@@ -1017,13 +1001,13 @@ static int method_subscribe(sd_bus *bus, sd_bus_message *message, void *userdata
         if (r < 0)
                 return r;
 
-        if (bus == m->api_bus) {
+        if (sd_bus_message_get_bus(message) == m->api_bus) {
 
                 /* Note that direct bus connection subscribe by
                  * default, we only track peers on the API bus here */
 
                 if (!m->subscribed) {
-                        r = sd_bus_track_new(bus, &m->subscribed, NULL, NULL);
+                        r = sd_bus_track_new(sd_bus_message_get_bus(message), &m->subscribed, NULL, NULL);
                         if (r < 0)
                                 return r;
                 }
@@ -1038,11 +1022,10 @@ static int method_subscribe(sd_bus *bus, sd_bus_message *message, void *userdata
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int method_unsubscribe(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_unsubscribe(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
         int r;
 
-        assert(bus);
         assert(message);
         assert(m);
 
@@ -1052,7 +1035,7 @@ static int method_unsubscribe(sd_bus *bus, sd_bus_message *message, void *userda
         if (r < 0)
                 return r;
 
-        if (bus == m->api_bus) {
+        if (sd_bus_message_get_bus(message) == m->api_bus) {
                 r = sd_bus_track_remove_sender(m->subscribed, message);
                 if (r < 0)
                         return r;
@@ -1063,14 +1046,13 @@ static int method_unsubscribe(sd_bus *bus, sd_bus_message *message, void *userda
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int method_dump(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_dump(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_free_ char *dump = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         Manager *m = userdata;
         size_t size;
         int r;
 
-        assert(bus);
         assert(message);
         assert(m);
 
@@ -1095,7 +1077,7 @@ static int method_dump(sd_bus *bus, sd_bus_message *message, void *userdata, sd_
         return sd_bus_reply_method_return(message, "s", dump);
 }
 
-static int method_create_snapshot(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_create_snapshot(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_free_ char *path = NULL;
         Manager *m = userdata;
         const char *name;
@@ -1103,7 +1085,6 @@ static int method_create_snapshot(sd_bus *bus, sd_bus_message *message, void *us
         Snapshot *s = NULL;
         int r;
 
-        assert(bus);
         assert(message);
         assert(m);
 
@@ -1135,13 +1116,12 @@ static int method_create_snapshot(sd_bus *bus, sd_bus_message *message, void *us
         return sd_bus_reply_method_return(message, "o", path);
 }
 
-static int method_remove_snapshot(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_remove_snapshot(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
         const char *name;
         Unit *u;
         int r;
 
-        assert(bus);
         assert(message);
         assert(m);
 
@@ -1156,14 +1136,13 @@ static int method_remove_snapshot(sd_bus *bus, sd_bus_message *message, void *us
         if (u->type != UNIT_SNAPSHOT)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s is not a snapshot", name);
 
-        return bus_snapshot_method_remove(bus, message, u, error);
+        return bus_snapshot_method_remove(message, u, error);
 }
 
-static int method_reload(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_reload(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
         int r;
 
-        assert(bus);
         assert(message);
         assert(m);
 
@@ -1187,17 +1166,16 @@ static int method_reload(sd_bus *bus, sd_bus_message *message, void *userdata, s
         if (r < 0)
                 return r;
 
-        m->queued_message_bus = sd_bus_ref(bus);
+        m->queued_message_bus = sd_bus_ref(sd_bus_message_get_bus(message));
         m->exit_code = MANAGER_RELOAD;
 
         return 1;
 }
 
-static int method_reexecute(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_reexecute(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
         int r;
 
-        assert(bus);
         assert(message);
         assert(m);
 
@@ -1218,11 +1196,10 @@ static int method_reexecute(sd_bus *bus, sd_bus_message *message, void *userdata
         return 1;
 }
 
-static int method_exit(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_exit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
         int r;
 
-        assert(bus);
         assert(message);
         assert(m);
 
@@ -1238,11 +1215,10 @@ static int method_exit(sd_bus *bus, sd_bus_message *message, void *userdata, sd_
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int method_reboot(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_reboot(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
         int r;
 
-        assert(bus);
         assert(message);
         assert(m);
 
@@ -1258,11 +1234,10 @@ static int method_reboot(sd_bus *bus, sd_bus_message *message, void *userdata, s
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int method_poweroff(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_poweroff(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
         int r;
 
-        assert(bus);
         assert(message);
         assert(m);
 
@@ -1278,11 +1253,10 @@ static int method_poweroff(sd_bus *bus, sd_bus_message *message, void *userdata,
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int method_halt(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_halt(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
         int r;
 
-        assert(bus);
         assert(message);
         assert(m);
 
@@ -1298,11 +1272,10 @@ static int method_halt(sd_bus *bus, sd_bus_message *message, void *userdata, sd_
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int method_kexec(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_kexec(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
         int r;
 
-        assert(bus);
         assert(message);
         assert(m);
 
@@ -1318,13 +1291,12 @@ static int method_kexec(sd_bus *bus, sd_bus_message *message, void *userdata, sd
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int method_switch_root(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_switch_root(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         char *ri = NULL, *rt = NULL;
         const char *root, *init;
         Manager *m = userdata;
         int r;
 
-        assert(bus);
         assert(message);
         assert(m);
 
@@ -1383,12 +1355,11 @@ static int method_switch_root(sd_bus *bus, sd_bus_message *message, void *userda
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int method_set_environment(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_set_environment(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_strv_free_ char **plus = NULL;
         Manager *m = userdata;
         int r;
 
-        assert(bus);
         assert(message);
         assert(m);
 
@@ -1415,12 +1386,11 @@ static int method_set_environment(sd_bus *bus, sd_bus_message *message, void *us
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int method_unset_environment(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_unset_environment(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_strv_free_ char **minus = NULL;
         Manager *m = userdata;
         int r;
 
-        assert(bus);
         assert(message);
         assert(m);
 
@@ -1448,12 +1418,11 @@ static int method_unset_environment(sd_bus *bus, sd_bus_message *message, void *
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int method_unset_and_set_environment(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_unset_and_set_environment(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_strv_free_ char **minus = NULL, **plus = NULL;
         Manager *m = userdata;
         int r;
 
-        assert(bus);
         assert(message);
         assert(m);
 
@@ -1487,7 +1456,7 @@ static int method_unset_and_set_environment(sd_bus *bus, sd_bus_message *message
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int method_list_unit_files(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_list_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         Manager *m = userdata;
         UnitFileList *item;
@@ -1495,7 +1464,6 @@ static int method_list_unit_files(sd_bus *bus, sd_bus_message *message, void *us
         Iterator i;
         int r;
 
-        assert(bus);
         assert(message);
         assert(m);
 
@@ -1534,21 +1502,20 @@ static int method_list_unit_files(sd_bus *bus, sd_bus_message *message, void *us
         if (r < 0)
                 return r;
 
-        return sd_bus_send(bus, reply, NULL);
+        return sd_bus_send(sd_bus_message_get_bus(reply), reply, NULL);
 
 fail:
         unit_file_list_free(h);
         return r;
 }
 
-static int method_get_unit_file_state(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_get_unit_file_state(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
         const char *name;
         UnitFileState state;
         UnitFileScope scope;
         int r;
 
-        assert(bus);
         assert(message);
         assert(m);
 
@@ -1571,13 +1538,12 @@ static int method_get_unit_file_state(sd_bus *bus, sd_bus_message *message, void
         return sd_bus_reply_method_return(message, "s", unit_file_state_to_string(state));
 }
 
-static int method_get_default_target(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_get_default_target(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_free_ char *default_target = NULL;
         Manager *m = userdata;
         UnitFileScope scope;
         int r;
 
-        assert(bus);
         assert(message);
         assert(m);
 
@@ -1611,7 +1577,6 @@ static int send_unit_files_changed(sd_bus *bus, void *userdata) {
 
 static int reply_unit_file_changes_and_free(
                 Manager *m,
-                sd_bus *bus,
                 sd_bus_message *message,
                 int carries_install_info,
                 UnitFileChange *changes,
@@ -1655,7 +1620,7 @@ static int reply_unit_file_changes_and_free(
         if (r < 0)
                 goto fail;
 
-        return sd_bus_send(bus, reply, NULL);
+        return sd_bus_send(sd_bus_message_get_bus(message), reply, NULL);
 
 fail:
         unit_file_changes_free(changes, n_changes);
@@ -1663,7 +1628,6 @@ fail:
 }
 
 static int method_enable_unit_files_generic(
-                sd_bus *bus,
                 sd_bus_message *message,
                 Manager *m,
                 const char *verb,
@@ -1677,7 +1641,6 @@ static int method_enable_unit_files_generic(
         UnitFileScope scope;
         int runtime, force, r;
 
-        assert(bus);
         assert(message);
         assert(m);
 
@@ -1705,34 +1668,34 @@ static int method_enable_unit_files_generic(
         if (r < 0)
                 return r;
 
-        return reply_unit_file_changes_and_free(m, bus, message, carries_install_info ? r : -1, changes, n_changes);
+        return reply_unit_file_changes_and_free(m, message, carries_install_info ? r : -1, changes, n_changes);
 }
 
-static int method_enable_unit_files(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_enable_unit_files_generic(bus, message, userdata, "enable", unit_file_enable, true, error);
+static int method_enable_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return method_enable_unit_files_generic(message, userdata, "enable", unit_file_enable, true, error);
 }
 
-static int method_reenable_unit_files(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_enable_unit_files_generic(bus, message, userdata, "enable", unit_file_reenable, true, error);
+static int method_reenable_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return method_enable_unit_files_generic(message, userdata, "enable", unit_file_reenable, true, error);
 }
 
-static int method_link_unit_files(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_enable_unit_files_generic(bus, message, userdata, "enable", unit_file_link, false, error);
+static int method_link_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return method_enable_unit_files_generic(message, userdata, "enable", unit_file_link, false, error);
 }
 
 static int unit_file_preset_without_mode(UnitFileScope scope, bool runtime, const char *root_dir, char **files, bool force, UnitFileChange **changes, unsigned *n_changes) {
         return unit_file_preset(scope, runtime, root_dir, files, UNIT_FILE_PRESET_FULL, force, changes, n_changes);
 }
 
-static int method_preset_unit_files(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_enable_unit_files_generic(bus, message, userdata, "enable", unit_file_preset_without_mode, true, error);
+static int method_preset_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return method_enable_unit_files_generic(message, userdata, "enable", unit_file_preset_without_mode, true, error);
 }
 
-static int method_mask_unit_files(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_enable_unit_files_generic(bus, message, userdata, "disable", unit_file_mask, false, error);
+static int method_mask_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return method_enable_unit_files_generic(message, userdata, "disable", unit_file_mask, false, error);
 }
 
-static int method_preset_unit_files_with_mode(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_preset_unit_files_with_mode(sd_bus_message *message, void *userdata, sd_bus_error *error) {
 
         _cleanup_strv_free_ char **l = NULL;
         UnitFileChange *changes = NULL;
@@ -1743,7 +1706,6 @@ static int method_preset_unit_files_with_mode(sd_bus *bus, sd_bus_message *messa
         int runtime, force, r;
         const char *mode;
 
-        assert(bus);
         assert(message);
         assert(m);
 
@@ -1779,11 +1741,10 @@ static int method_preset_unit_files_with_mode(sd_bus *bus, sd_bus_message *messa
         if (r < 0)
                 return r;
 
-        return reply_unit_file_changes_and_free(m, bus, message, r, changes, n_changes);
+        return reply_unit_file_changes_and_free(m, message, r, changes, n_changes);
 }
 
 static int method_disable_unit_files_generic(
-                sd_bus *bus,
                 sd_bus_message *message,
                 Manager *m, const
                 char *verb,
@@ -1796,7 +1757,6 @@ static int method_disable_unit_files_generic(
         UnitFileScope scope;
         int r, runtime;
 
-        assert(bus);
         assert(message);
         assert(m);
 
@@ -1824,18 +1784,18 @@ static int method_disable_unit_files_generic(
         if (r < 0)
                 return r;
 
-        return reply_unit_file_changes_and_free(m, bus, message, -1, changes, n_changes);
+        return reply_unit_file_changes_and_free(m, message, -1, changes, n_changes);
 }
 
-static int method_disable_unit_files(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_disable_unit_files_generic(bus, message, userdata, "disable", unit_file_disable, error);
+static int method_disable_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return method_disable_unit_files_generic(message, userdata, "disable", unit_file_disable, error);
 }
 
-static int method_unmask_unit_files(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_disable_unit_files_generic(bus, message, userdata, "enable", unit_file_unmask, error);
+static int method_unmask_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return method_disable_unit_files_generic(message, userdata, "enable", unit_file_unmask, error);
 }
 
-static int method_set_default_target(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_set_default_target(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         UnitFileChange *changes = NULL;
         unsigned n_changes = 0;
         Manager *m = userdata;
@@ -1843,7 +1803,6 @@ static int method_set_default_target(sd_bus *bus, sd_bus_message *message, void 
         const char *name;
         int force, r;
 
-        assert(bus);
         assert(message);
         assert(m);
 
@@ -1867,10 +1826,10 @@ static int method_set_default_target(sd_bus *bus, sd_bus_message *message, void 
         if (r < 0)
                 return r;
 
-        return reply_unit_file_changes_and_free(m, bus, message, -1, changes, n_changes);
+        return reply_unit_file_changes_and_free(m, message, -1, changes, n_changes);
 }
 
-static int method_preset_all_unit_files(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_preset_all_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         UnitFileChange *changes = NULL;
         unsigned n_changes = 0;
         Manager *m = userdata;
@@ -1879,7 +1838,6 @@ static int method_preset_all_unit_files(sd_bus *bus, sd_bus_message *message, vo
         const char *mode;
         int force, runtime, r;
 
-        assert(bus);
         assert(message);
         assert(m);
 
@@ -1911,10 +1869,10 @@ static int method_preset_all_unit_files(sd_bus *bus, sd_bus_message *message, vo
         if (r < 0)
                 return r;
 
-        return reply_unit_file_changes_and_free(m, bus, message, -1, changes, n_changes);
+        return reply_unit_file_changes_and_free(m, message, -1, changes, n_changes);
 }
 
-static int method_add_dependency_unit_files(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_add_dependency_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_strv_free_ char **l = NULL;
         Manager *m = userdata;
         UnitFileChange *changes = NULL;
@@ -1925,7 +1883,6 @@ static int method_add_dependency_unit_files(sd_bus *bus, sd_bus_message *message
         char *type;
         UnitDependency dep;
 
-        assert(bus);
         assert(message);
         assert(m);
 
@@ -1957,7 +1914,7 @@ static int method_add_dependency_unit_files(sd_bus *bus, sd_bus_message *message
         if (r < 0)
                 return r;
 
-        return reply_unit_file_changes_and_free(m, bus, message, -1, changes, n_changes);
+        return reply_unit_file_changes_and_free(m, message, -1, changes, n_changes);
 }
 
 const sd_bus_vtable bus_manager_vtable[] = {

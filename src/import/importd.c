@@ -719,13 +719,16 @@ static Transfer *manager_find(Manager *m, TransferType type, const char *dkr_ind
         return NULL;
 }
 
-static int method_import_tar_or_raw(sd_bus *bus, sd_bus_message *msg, void *userdata, sd_bus_error *error) {
+static int method_import_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
         _cleanup_(transfer_unrefp) Transfer *t = NULL;
         int fd, force, read_only, r;
         const char *local, *object;
         Manager *m = userdata;
         TransferType type;
         uint32_t id;
+
+        assert(msg);
+        assert(m);
 
         r = bus_verify_polkit_async(
                         msg,
@@ -780,13 +783,16 @@ static int method_import_tar_or_raw(sd_bus *bus, sd_bus_message *msg, void *user
         return sd_bus_reply_method_return(msg, "uo", id, object);
 }
 
-static int method_export_tar_or_raw(sd_bus *bus, sd_bus_message *msg, void *userdata, sd_bus_error *error) {
+static int method_export_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
         _cleanup_(transfer_unrefp) Transfer *t = NULL;
         int fd, r;
         const char *local, *object, *format;
         Manager *m = userdata;
         TransferType type;
         uint32_t id;
+
+        assert(msg);
+        assert(m);
 
         r = bus_verify_polkit_async(
                         msg,
@@ -841,7 +847,7 @@ static int method_export_tar_or_raw(sd_bus *bus, sd_bus_message *msg, void *user
         return sd_bus_reply_method_return(msg, "uo", id, object);
 }
 
-static int method_pull_tar_or_raw(sd_bus *bus, sd_bus_message *msg, void *userdata, sd_bus_error *error) {
+static int method_pull_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
         _cleanup_(transfer_unrefp) Transfer *t = NULL;
         const char *remote, *local, *verify, *object;
         Manager *m = userdata;
@@ -850,7 +856,6 @@ static int method_pull_tar_or_raw(sd_bus *bus, sd_bus_message *msg, void *userda
         int force, r;
         uint32_t id;
 
-        assert(bus);
         assert(msg);
         assert(m);
 
@@ -924,7 +929,7 @@ static int method_pull_tar_or_raw(sd_bus *bus, sd_bus_message *msg, void *userda
         return sd_bus_reply_method_return(msg, "uo", id, object);
 }
 
-static int method_pull_dkr(sd_bus *bus, sd_bus_message *msg, void *userdata, sd_bus_error *error) {
+static int method_pull_dkr(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
         _cleanup_(transfer_unrefp) Transfer *t = NULL;
         const char *index_url, *remote, *tag, *local, *verify, *object;
         Manager *m = userdata;
@@ -932,7 +937,6 @@ static int method_pull_dkr(sd_bus *bus, sd_bus_message *msg, void *userdata, sd_
         int force, r;
         uint32_t id;
 
-        assert(bus);
         assert(msg);
         assert(m);
 
@@ -1023,14 +1027,13 @@ static int method_pull_dkr(sd_bus *bus, sd_bus_message *msg, void *userdata, sd_
         return sd_bus_reply_method_return(msg, "uo", id, object);
 }
 
-static int method_list_transfers(sd_bus *bus, sd_bus_message *msg, void *userdata, sd_bus_error *error) {
+static int method_list_transfers(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         Manager *m = userdata;
         Transfer *t;
         Iterator i;
         int r;
 
-        assert(bus);
         assert(msg);
         assert(m);
 
@@ -1061,14 +1064,13 @@ static int method_list_transfers(sd_bus *bus, sd_bus_message *msg, void *userdat
         if (r < 0)
                 return r;
 
-        return sd_bus_send(bus, reply, NULL);
+        return sd_bus_send(sd_bus_message_get_bus(msg), reply, NULL);
 }
 
-static int method_cancel(sd_bus *bus, sd_bus_message *msg, void *userdata, sd_bus_error *error) {
+static int method_cancel(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
         Transfer *t = userdata;
         int r;
 
-        assert(bus);
         assert(msg);
         assert(t);
 
@@ -1092,13 +1094,12 @@ static int method_cancel(sd_bus *bus, sd_bus_message *msg, void *userdata, sd_bu
         return sd_bus_reply_method_return(msg, NULL);
 }
 
-static int method_cancel_transfer(sd_bus *bus, sd_bus_message *msg, void *userdata, sd_bus_error *error) {
+static int method_cancel_transfer(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
         Transfer *t;
         uint32_t id;
         int r;
 
-        assert(bus);
         assert(msg);
         assert(m);
 

@@ -125,14 +125,13 @@ static int property_get_pool_limit(
         return sd_bus_message_append(reply, "t", size);
 }
 
-static int method_get_machine(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_get_machine(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_free_ char *p = NULL;
         Manager *m = userdata;
         Machine *machine;
         const char *name;
         int r;
 
-        assert(bus);
         assert(message);
         assert(m);
 
@@ -151,13 +150,12 @@ static int method_get_machine(sd_bus *bus, sd_bus_message *message, void *userda
         return sd_bus_reply_method_return(message, "o", p);
 }
 
-static int method_get_image(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_get_image(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_free_ char *p = NULL;
         Manager *m = userdata;
         const char *name;
         int r;
 
-        assert(bus);
         assert(message);
         assert(m);
 
@@ -178,14 +176,13 @@ static int method_get_image(sd_bus *bus, sd_bus_message *message, void *userdata
         return sd_bus_reply_method_return(message, "o", p);
 }
 
-static int method_get_machine_by_pid(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_get_machine_by_pid(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_free_ char *p = NULL;
         Manager *m = userdata;
         Machine *machine = NULL;
         pid_t pid;
         int r;
 
-        assert(bus);
         assert(message);
         assert(m);
 
@@ -220,14 +217,13 @@ static int method_get_machine_by_pid(sd_bus *bus, sd_bus_message *message, void 
         return sd_bus_reply_method_return(message, "o", p);
 }
 
-static int method_list_machines(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_list_machines(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         Manager *m = userdata;
         Machine *machine;
         Iterator i;
         int r;
 
-        assert(bus);
         assert(message);
         assert(m);
 
@@ -259,7 +255,7 @@ static int method_list_machines(sd_bus *bus, sd_bus_message *message, void *user
         if (r < 0)
                 return sd_bus_error_set_errno(error, r);
 
-        return sd_bus_send(bus, reply, NULL);
+        return sd_bus_send(sd_bus_message_get_bus(message), reply, NULL);
 }
 
 static int method_create_or_register_machine(Manager *manager, sd_bus_message *message, bool read_network, Machine **_m, sd_bus_error *error) {
@@ -387,10 +383,13 @@ fail:
         return r;
 }
 
-static int method_create_machine_internal(sd_bus *bus, sd_bus_message *message, bool read_network, void *userdata, sd_bus_error *error) {
+static int method_create_machine_internal(sd_bus_message *message, bool read_network, void *userdata, sd_bus_error *error) {
         Manager *manager = userdata;
         Machine *m = NULL;
         int r;
+
+        assert(message);
+        assert(manager);
 
         r = method_create_or_register_machine(manager, message, read_network, &m, error);
         if (r < 0)
@@ -412,19 +411,22 @@ fail:
         return r;
 }
 
-static int method_create_machine_with_network(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_create_machine_internal(bus, message, true, userdata, error);
+static int method_create_machine_with_network(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return method_create_machine_internal(message, true, userdata, error);
 }
 
-static int method_create_machine(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_create_machine_internal(bus, message, false, userdata, error);
+static int method_create_machine(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return method_create_machine_internal(message, false, userdata, error);
 }
 
-static int method_register_machine_internal(sd_bus *bus, sd_bus_message *message, bool read_network, void *userdata, sd_bus_error *error) {
+static int method_register_machine_internal(sd_bus_message *message, bool read_network, void *userdata, sd_bus_error *error) {
         Manager *manager = userdata;
         _cleanup_free_ char *p = NULL;
         Machine *m = NULL;
         int r;
+
+        assert(message);
+        assert(manager);
 
         r = method_create_or_register_machine(manager, message, read_network, &m, error);
         if (r < 0)
@@ -453,21 +455,20 @@ fail:
         return r;
 }
 
-static int method_register_machine_with_network(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_register_machine_internal(bus, message, true, userdata, error);
+static int method_register_machine_with_network(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return method_register_machine_internal(message, true, userdata, error);
 }
 
-static int method_register_machine(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_register_machine_internal(bus, message, false, userdata, error);
+static int method_register_machine(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return method_register_machine_internal(message, false, userdata, error);
 }
 
-static int method_terminate_machine(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_terminate_machine(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
         Machine *machine;
         const char *name;
         int r;
 
-        assert(bus);
         assert(message);
         assert(m);
 
@@ -479,16 +480,15 @@ static int method_terminate_machine(sd_bus *bus, sd_bus_message *message, void *
         if (!machine)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_MACHINE, "No machine '%s' known", name);
 
-        return bus_machine_method_terminate(bus, message, machine, error);
+        return bus_machine_method_terminate(message, machine, error);
 }
 
-static int method_kill_machine(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_kill_machine(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
         Machine *machine;
         const char *name;
         int r;
 
-        assert(bus);
         assert(message);
         assert(m);
 
@@ -500,16 +500,15 @@ static int method_kill_machine(sd_bus *bus, sd_bus_message *message, void *userd
         if (!machine)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_MACHINE, "No machine '%s' known", name);
 
-        return bus_machine_method_kill(bus, message, machine, error);
+        return bus_machine_method_kill(message, machine, error);
 }
 
-static int method_get_machine_addresses(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_get_machine_addresses(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
         Machine *machine;
         const char *name;
         int r;
 
-        assert(bus);
         assert(message);
         assert(m);
 
@@ -521,16 +520,15 @@ static int method_get_machine_addresses(sd_bus *bus, sd_bus_message *message, vo
         if (!machine)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_MACHINE, "No machine '%s' known", name);
 
-        return bus_machine_method_get_addresses(bus, message, machine, error);
+        return bus_machine_method_get_addresses(message, machine, error);
 }
 
-static int method_get_machine_os_release(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_get_machine_os_release(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
         Machine *machine;
         const char *name;
         int r;
 
-        assert(bus);
         assert(message);
         assert(m);
 
@@ -542,10 +540,10 @@ static int method_get_machine_os_release(sd_bus *bus, sd_bus_message *message, v
         if (!machine)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_MACHINE, "No machine '%s' known", name);
 
-        return bus_machine_method_get_os_release(bus, message, machine, error);
+        return bus_machine_method_get_os_release(message, machine, error);
 }
 
-static int method_list_images(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_list_images(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_(image_hashmap_freep) Hashmap *images = NULL;
         Manager *m = userdata;
@@ -553,7 +551,6 @@ static int method_list_images(sd_bus *bus, sd_bus_message *message, void *userda
         Iterator i;
         int r;
 
-        assert(bus);
         assert(message);
         assert(m);
 
@@ -596,16 +593,15 @@ static int method_list_images(sd_bus *bus, sd_bus_message *message, void *userda
         if (r < 0)
                 return r;
 
-        return sd_bus_send(bus, reply, NULL);
+        return sd_bus_send(sd_bus_message_get_bus(message), reply, NULL);
 }
 
-static int method_open_machine_pty(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_open_machine_pty(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
         Machine *machine;
         const char *name;
         int r;
 
-        assert(bus);
         assert(message);
         assert(m);
 
@@ -617,16 +613,15 @@ static int method_open_machine_pty(sd_bus *bus, sd_bus_message *message, void *u
         if (!machine)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_MACHINE, "No machine '%s' known", name);
 
-        return bus_machine_method_open_pty(bus, message, machine, error);
+        return bus_machine_method_open_pty(message, machine, error);
 }
 
-static int method_open_machine_login(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_open_machine_login(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
         Machine *machine;
         const char *name;
         int r;
 
-        assert(bus);
         assert(message);
         assert(m);
 
@@ -638,16 +633,15 @@ static int method_open_machine_login(sd_bus *bus, sd_bus_message *message, void 
         if (!machine)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_MACHINE, "No machine '%s' known", name);
 
-        return bus_machine_method_open_login(bus, message, machine, error);
+        return bus_machine_method_open_login(message, machine, error);
 }
 
-static int method_bind_mount_machine(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_bind_mount_machine(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
         Machine *machine;
         const char *name;
         int r;
 
-        assert(bus);
         assert(message);
         assert(m);
 
@@ -659,16 +653,15 @@ static int method_bind_mount_machine(sd_bus *bus, sd_bus_message *message, void 
         if (!machine)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_MACHINE, "No machine '%s' known", name);
 
-        return bus_machine_method_bind_mount(bus, message, machine, error);
+        return bus_machine_method_bind_mount(message, machine, error);
 }
 
-static int method_copy_machine(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_copy_machine(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
         Machine *machine;
         const char *name;
         int r;
 
-        assert(bus);
         assert(message);
         assert(m);
 
@@ -680,15 +673,14 @@ static int method_copy_machine(sd_bus *bus, sd_bus_message *message, void *userd
         if (!machine)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_MACHINE, "No machine '%s' known", name);
 
-        return bus_machine_method_copy(bus, message, machine, error);
+        return bus_machine_method_copy(message, machine, error);
 }
 
-static int method_remove_image(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_remove_image(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(image_unrefp) Image* i = NULL;
         const char *name;
         int r;
 
-        assert(bus);
         assert(message);
 
         r = sd_bus_message_read(message, "s", &name);
@@ -705,15 +697,14 @@ static int method_remove_image(sd_bus *bus, sd_bus_message *message, void *userd
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_IMAGE, "No image '%s' known", name);
 
         i->userdata = userdata;
-        return bus_image_method_remove(bus, message, i, error);
+        return bus_image_method_remove(message, i, error);
 }
 
-static int method_rename_image(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_rename_image(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(image_unrefp) Image* i = NULL;
         const char *old_name;
         int r;
 
-        assert(bus);
         assert(message);
 
         r = sd_bus_message_read(message, "s", &old_name);
@@ -730,15 +721,16 @@ static int method_rename_image(sd_bus *bus, sd_bus_message *message, void *userd
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_IMAGE, "No image '%s' known", old_name);
 
         i->userdata = userdata;
-        return bus_image_method_rename(bus, message, i, error);
+        return bus_image_method_rename(message, i, error);
 }
 
-static int method_clone_image(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_clone_image(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(image_unrefp) Image *i = NULL;
         const char *old_name;
         int r;
 
-        assert(bus);
+        assert(message);
+
         r = sd_bus_message_read(message, "s", &old_name);
         if (r < 0)
                 return r;
@@ -753,15 +745,16 @@ static int method_clone_image(sd_bus *bus, sd_bus_message *message, void *userda
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_IMAGE, "No image '%s' known", old_name);
 
         i->userdata = userdata;
-        return bus_image_method_clone(bus, message, i, error);
+        return bus_image_method_clone(message, i, error);
 }
 
-static int method_mark_image_read_only(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_mark_image_read_only(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(image_unrefp) Image *i = NULL;
         const char *name;
         int r;
 
-        assert(bus);
+        assert(message);
+
         r = sd_bus_message_read(message, "s", &name);
         if (r < 0)
                 return r;
@@ -776,15 +769,16 @@ static int method_mark_image_read_only(sd_bus *bus, sd_bus_message *message, voi
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_IMAGE, "No image '%s' known", name);
 
         i->userdata = userdata;
-        return bus_image_method_mark_read_only(bus, message, i, error);
+        return bus_image_method_mark_read_only(message, i, error);
 }
 
-static int method_set_pool_limit(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_set_pool_limit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
         uint64_t limit;
         int r;
 
-        assert(bus);
+        assert(message);
+
         r = sd_bus_message_read(message, "t", &limit);
         if (r < 0)
                 return r;
@@ -822,12 +816,13 @@ static int method_set_pool_limit(sd_bus *bus, sd_bus_message *message, void *use
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int method_set_image_limit(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_set_image_limit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(image_unrefp) Image *i = NULL;
         const char *name;
         int r;
 
-        assert(bus);
+        assert(message);
+
         r = sd_bus_message_read(message, "s", &name);
         if (r < 0)
                 return r;
@@ -842,7 +837,7 @@ static int method_set_image_limit(sd_bus *bus, sd_bus_message *message, void *us
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_IMAGE, "No image '%s' known", name);
 
         i->userdata = userdata;
-        return bus_image_method_set_limit(bus, message, i, error);
+        return bus_image_method_set_limit(message, i, error);
 }
 
 const sd_bus_vtable manager_vtable[] = {
@@ -879,14 +874,13 @@ const sd_bus_vtable manager_vtable[] = {
         SD_BUS_VTABLE_END
 };
 
-int match_job_removed(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         const char *path, *result, *unit;
         Manager *m = userdata;
         Machine *machine;
         uint32_t id;
         int r;
 
-        assert(bus);
         assert(message);
         assert(m);
 
@@ -922,14 +916,13 @@ int match_job_removed(sd_bus *bus, sd_bus_message *message, void *userdata, sd_b
         return 0;
 }
 
-int match_properties_changed(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+int match_properties_changed(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_free_ char *unit = NULL;
         const char *path, *interface;
         Manager *m = userdata;
         Machine *machine;
         int r;
 
-        assert(bus);
         assert(message);
         assert(m);
 
@@ -983,13 +976,12 @@ int match_properties_changed(sd_bus *bus, sd_bus_message *message, void *userdat
         return 0;
 }
 
-int match_unit_removed(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+int match_unit_removed(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         const char *path, *unit;
         Manager *m = userdata;
         Machine *machine;
         int r;
 
-        assert(bus);
         assert(message);
         assert(m);
 
@@ -1009,13 +1001,14 @@ int match_unit_removed(sd_bus *bus, sd_bus_message *message, void *userdata, sd_
         return 0;
 }
 
-int match_reloading(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+int match_reloading(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
         Machine *machine;
         Iterator i;
         int b, r;
 
-        assert(bus);
+        assert(message);
+        assert(m);
 
         r = sd_bus_message_read(message, "b", &b);
         if (r < 0) {

@@ -41,7 +41,7 @@ struct context {
         uint32_t automatic_integer_property;
 };
 
-static int something_handler(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
+static int something_handler(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         struct context *c = userdata;
         const char *s;
         char *n = NULL;
@@ -67,7 +67,7 @@ static int something_handler(sd_bus *bus, sd_bus_message *m, void *userdata, sd_
         return 1;
 }
 
-static int exit_handler(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
+static int exit_handler(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         struct context *c = userdata;
         int r;
 
@@ -129,10 +129,10 @@ static int value_handler(sd_bus *bus, const char *path, const char *interface, c
         return 1;
 }
 
-static int notify_test(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
+static int notify_test(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         int r;
 
-        assert_se(sd_bus_emit_properties_changed(bus, m->path, "org.freedesktop.systemd.ValueTest", "Value", NULL) >= 0);
+        assert_se(sd_bus_emit_properties_changed(sd_bus_message_get_bus(m), m->path, "org.freedesktop.systemd.ValueTest", "Value", NULL) >= 0);
 
         r = sd_bus_reply_method_return(m, NULL);
         assert_se(r >= 0);
@@ -140,10 +140,10 @@ static int notify_test(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_er
         return 1;
 }
 
-static int notify_test2(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
+static int notify_test2(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         int r;
 
-        assert_se(sd_bus_emit_properties_changed_strv(bus, m->path, "org.freedesktop.systemd.ValueTest", NULL) >= 0);
+        assert_se(sd_bus_emit_properties_changed_strv(sd_bus_message_get_bus(m), m->path, "org.freedesktop.systemd.ValueTest", NULL) >= 0);
 
         r = sd_bus_reply_method_return(m, NULL);
         assert_se(r >= 0);
@@ -151,10 +151,10 @@ static int notify_test2(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_e
         return 1;
 }
 
-static int emit_interfaces_added(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
+static int emit_interfaces_added(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         int r;
 
-        assert_se(sd_bus_emit_interfaces_added(bus, m->path, "org.freedesktop.systemd.test", NULL) >= 0);
+        assert_se(sd_bus_emit_interfaces_added(sd_bus_message_get_bus(m), m->path, "org.freedesktop.systemd.test", NULL) >= 0);
 
         r = sd_bus_reply_method_return(m, NULL);
         assert_se(r >= 0);
@@ -162,10 +162,10 @@ static int emit_interfaces_added(sd_bus *bus, sd_bus_message *m, void *userdata,
         return 1;
 }
 
-static int emit_interfaces_removed(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
+static int emit_interfaces_removed(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         int r;
 
-        assert_se(sd_bus_emit_interfaces_removed(bus, m->path, "org.freedesktop.systemd.test", NULL) >= 0);
+        assert_se(sd_bus_emit_interfaces_removed(sd_bus_message_get_bus(m), m->path, "org.freedesktop.systemd.test", NULL) >= 0);
 
         r = sd_bus_reply_method_return(m, NULL);
         assert_se(r >= 0);
@@ -173,10 +173,10 @@ static int emit_interfaces_removed(sd_bus *bus, sd_bus_message *m, void *userdat
         return 1;
 }
 
-static int emit_object_added(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
+static int emit_object_added(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         int r;
 
-        assert_se(sd_bus_emit_object_added(bus, m->path) >= 0);
+        assert_se(sd_bus_emit_object_added(sd_bus_message_get_bus(m), m->path) >= 0);
 
         r = sd_bus_reply_method_return(m, NULL);
         assert_se(r >= 0);
@@ -184,10 +184,10 @@ static int emit_object_added(sd_bus *bus, sd_bus_message *m, void *userdata, sd_
         return 1;
 }
 
-static int emit_object_removed(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
+static int emit_object_removed(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         int r;
 
-        assert_se(sd_bus_emit_object_removed(bus, m->path) >= 0);
+        assert_se(sd_bus_emit_object_removed(sd_bus_message_get_bus(m), m->path) >= 0);
 
         r = sd_bus_reply_method_return(m, NULL);
         assert_se(r >= 0);

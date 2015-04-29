@@ -28,7 +28,6 @@
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_type, image_type, ImageType);
 
 int bus_image_method_remove(
-                sd_bus *bus,
                 sd_bus_message *message,
                 void *userdata,
                 sd_bus_error *error) {
@@ -37,7 +36,6 @@ int bus_image_method_remove(
         Manager *m = image->userdata;
         int r;
 
-        assert(bus);
         assert(message);
         assert(image);
 
@@ -62,7 +60,6 @@ int bus_image_method_remove(
 }
 
 int bus_image_method_rename(
-                sd_bus *bus,
                 sd_bus_message *message,
                 void *userdata,
                 sd_bus_error *error) {
@@ -72,7 +69,6 @@ int bus_image_method_rename(
         const char *new_name;
         int r;
 
-        assert(bus);
         assert(message);
         assert(image);
 
@@ -104,7 +100,6 @@ int bus_image_method_rename(
 }
 
 int bus_image_method_clone(
-                sd_bus *bus,
                 sd_bus_message *message,
                 void *userdata,
                 sd_bus_error *error) {
@@ -114,7 +109,6 @@ int bus_image_method_clone(
         const char *new_name;
         int r, read_only;
 
-        assert(bus);
         assert(message);
         assert(image);
 
@@ -146,7 +140,6 @@ int bus_image_method_clone(
 }
 
 int bus_image_method_mark_read_only(
-                sd_bus *bus,
                 sd_bus_message *message,
                 void *userdata,
                 sd_bus_error *error) {
@@ -155,7 +148,6 @@ int bus_image_method_mark_read_only(
         Manager *m = image->userdata;
         int r, read_only;
 
-        assert(bus);
         assert(message);
 
         r = sd_bus_message_read(message, "b", &read_only);
@@ -183,7 +175,6 @@ int bus_image_method_mark_read_only(
 }
 
 int bus_image_method_set_limit(
-                sd_bus *bus,
                 sd_bus_message *message,
                 void *userdata,
                 sd_bus_error *error) {
@@ -193,7 +184,6 @@ int bus_image_method_set_limit(
         uint64_t limit;
         int r;
 
-        assert(bus);
         assert(message);
 
         r = sd_bus_message_read(message, "t", &limit);

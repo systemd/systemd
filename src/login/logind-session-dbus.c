@@ -180,11 +180,10 @@ static int property_get_idle_since_hint(
         return sd_bus_message_append(reply, "t", u);
 }
 
-int bus_session_method_terminate(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+int bus_session_method_terminate(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Session *s = userdata;
         int r;
 
-        assert(bus);
         assert(message);
         assert(s);
 
@@ -208,11 +207,10 @@ int bus_session_method_terminate(sd_bus *bus, sd_bus_message *message, void *use
         return sd_bus_reply_method_return(message, NULL);
 }
 
-int bus_session_method_activate(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+int bus_session_method_activate(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Session *s = userdata;
         int r;
 
-        assert(bus);
         assert(message);
         assert(s);
 
@@ -223,11 +221,10 @@ int bus_session_method_activate(sd_bus *bus, sd_bus_message *message, void *user
         return sd_bus_reply_method_return(message, NULL);
 }
 
-int bus_session_method_lock(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+int bus_session_method_lock(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Session *s = userdata;
         int r;
 
-        assert(bus);
         assert(message);
         assert(s);
 
@@ -251,13 +248,12 @@ int bus_session_method_lock(sd_bus *bus, sd_bus_message *message, void *userdata
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int method_set_idle_hint(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_set_idle_hint(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
         Session *s = userdata;
         uid_t uid;
         int r, b;
 
-        assert(bus);
         assert(message);
         assert(s);
 
@@ -281,14 +277,13 @@ static int method_set_idle_hint(sd_bus *bus, sd_bus_message *message, void *user
         return sd_bus_reply_method_return(message, NULL);
 }
 
-int bus_session_method_kill(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+int bus_session_method_kill(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Session *s = userdata;
         const char *swho;
         int32_t signo;
         KillWho who;
         int r;
 
-        assert(bus);
         assert(message);
         assert(s);
 
@@ -327,13 +322,12 @@ int bus_session_method_kill(sd_bus *bus, sd_bus_message *message, void *userdata
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int method_take_control(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_take_control(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
         Session *s = userdata;
         int r, force;
         uid_t uid;
 
-        assert(bus);
         assert(message);
         assert(s);
 
@@ -359,10 +353,9 @@ static int method_take_control(sd_bus *bus, sd_bus_message *message, void *userd
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int method_release_control(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_release_control(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Session *s = userdata;
 
-        assert(bus);
         assert(message);
         assert(s);
 
@@ -374,14 +367,13 @@ static int method_release_control(sd_bus *bus, sd_bus_message *message, void *us
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int method_take_device(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_take_device(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Session *s = userdata;
         uint32_t major, minor;
         SessionDevice *sd;
         dev_t dev;
         int r;
 
-        assert(bus);
         assert(message);
         assert(s);
 
@@ -413,14 +405,13 @@ static int method_take_device(sd_bus *bus, sd_bus_message *message, void *userda
         return r;
 }
 
-static int method_release_device(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_release_device(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Session *s = userdata;
         uint32_t major, minor;
         SessionDevice *sd;
         dev_t dev;
         int r;
 
-        assert(bus);
         assert(message);
         assert(s);
 
@@ -440,14 +431,13 @@ static int method_release_device(sd_bus *bus, sd_bus_message *message, void *use
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int method_pause_device_complete(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_pause_device_complete(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Session *s = userdata;
         uint32_t major, minor;
         SessionDevice *sd;
         dev_t dev;
         int r;
 
-        assert(bus);
         assert(message);
         assert(s);
 

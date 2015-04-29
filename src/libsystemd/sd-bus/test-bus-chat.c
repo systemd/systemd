@@ -35,15 +35,13 @@
 #include "bus-internal.h"
 #include "bus-util.h"
 
-static int match_callback(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+static int match_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
         log_info("Match triggered! interface=%s member=%s", strna(sd_bus_message_get_interface(m)), strna(sd_bus_message_get_member(m)));
         return 0;
 }
 
-static int object_callback(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+static int object_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
         int r;
-
-        assert_se(bus);
 
         if (sd_bus_message_is_method_error(m, NULL))
                 return 0;
@@ -358,7 +356,7 @@ finish:
         return INT_TO_PTR(r);
 }
 
-static int quit_callback(sd_bus *b, sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+static int quit_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
         bool *x = userdata;
 
         log_error("Quit callback: %s", strerror(sd_bus_message_get_errno(m)));

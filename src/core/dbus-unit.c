@@ -391,7 +391,6 @@ static int property_get_load_error(
 }
 
 int bus_unit_method_start_generic(
-                sd_bus *bus,
                 sd_bus_message *message,
                 Unit *u,
                 JobType job_type,
@@ -402,7 +401,6 @@ int bus_unit_method_start_generic(
         JobMode mode;
         int r;
 
-        assert(bus);
         assert(message);
         assert(u);
         assert(job_type >= 0 && job_type < _JOB_TYPE_MAX);
@@ -425,45 +423,44 @@ int bus_unit_method_start_generic(
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        return bus_unit_queue_job(bus, message, u, job_type, mode, reload_if_possible, error);
+        return bus_unit_queue_job(message, u, job_type, mode, reload_if_possible, error);
 }
 
-static int method_start(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return bus_unit_method_start_generic(bus, message, userdata, JOB_START, false, error);
+static int method_start(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return bus_unit_method_start_generic(message, userdata, JOB_START, false, error);
 }
 
-static int method_stop(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return bus_unit_method_start_generic(bus, message, userdata, JOB_STOP, false, error);
+static int method_stop(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return bus_unit_method_start_generic(message, userdata, JOB_STOP, false, error);
 }
 
-static int method_reload(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return bus_unit_method_start_generic(bus, message, userdata, JOB_RELOAD, false, error);
+static int method_reload(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return bus_unit_method_start_generic(message, userdata, JOB_RELOAD, false, error);
 }
 
-static int method_restart(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return bus_unit_method_start_generic(bus, message, userdata, JOB_RESTART, false, error);
+static int method_restart(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return bus_unit_method_start_generic(message, userdata, JOB_RESTART, false, error);
 }
 
-static int method_try_restart(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return bus_unit_method_start_generic(bus, message, userdata, JOB_TRY_RESTART, false, error);
+static int method_try_restart(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return bus_unit_method_start_generic(message, userdata, JOB_TRY_RESTART, false, error);
 }
 
-static int method_reload_or_restart(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return bus_unit_method_start_generic(bus, message, userdata, JOB_RESTART, true, error);
+static int method_reload_or_restart(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return bus_unit_method_start_generic(message, userdata, JOB_RESTART, true, error);
 }
 
-static int method_reload_or_try_restart(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return bus_unit_method_start_generic(bus, message, userdata, JOB_TRY_RESTART, true, error);
+static int method_reload_or_try_restart(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return bus_unit_method_start_generic(message, userdata, JOB_TRY_RESTART, true, error);
 }
 
-int bus_unit_method_kill(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+int bus_unit_method_kill(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Unit *u = userdata;
         const char *swho;
         int32_t signo;
         KillWho who;
         int r;
 
-        assert(bus);
         assert(message);
         assert(u);
 
@@ -499,11 +496,10 @@ int bus_unit_method_kill(sd_bus *bus, sd_bus_message *message, void *userdata, s
         return sd_bus_reply_method_return(message, NULL);
 }
 
-int bus_unit_method_reset_failed(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+int bus_unit_method_reset_failed(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Unit *u = userdata;
         int r;
 
-        assert(bus);
         assert(message);
         assert(u);
 
@@ -522,11 +518,10 @@ int bus_unit_method_reset_failed(sd_bus *bus, sd_bus_message *message, void *use
         return sd_bus_reply_method_return(message, NULL);
 }
 
-int bus_unit_method_set_properties(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+int bus_unit_method_set_properties(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Unit *u = userdata;
         int runtime, r;
 
-        assert(bus);
         assert(message);
         assert(u);
 
@@ -831,7 +826,6 @@ void bus_unit_send_removed_signal(Unit *u) {
 }
 
 int bus_unit_queue_job(
-                sd_bus *bus,
                 sd_bus_message *message,
                 Unit *u,
                 JobType type,
@@ -843,7 +837,6 @@ int bus_unit_queue_job(
         Job *j;
         int r;
 
-        assert(bus);
         assert(message);
         assert(u);
         assert(type >= 0 && type < _JOB_TYPE_MAX);
@@ -877,9 +870,9 @@ int bus_unit_queue_job(
         if (r < 0)
                 return r;
 
-        if (bus == u->manager->api_bus) {
+        if (sd_bus_message_get_bus(message) == u->manager->api_bus) {
                 if (!j->clients) {
-                        r = sd_bus_track_new(bus, &j->clients, NULL, NULL);
+                        r = sd_bus_track_new(sd_bus_message_get_bus(message), &j->clients, NULL, NULL);
                         if (r < 0)
                                 return r;
                 }

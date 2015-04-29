@@ -1115,11 +1115,10 @@ static int bind_mount(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int on_machine_removed(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+static int on_machine_removed(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
         PTYForward ** forward = (PTYForward**) userdata;
         int r;
 
-        assert(bus);
         assert(m);
         assert(forward);
 
@@ -1136,7 +1135,7 @@ static int on_machine_removed(sd_bus *bus, sd_bus_message *m, void *userdata, sd
         }
 
         /* On error, or when the forwarder is not initialized yet, quit immediately */
-        sd_event_exit(sd_bus_get_event(bus), EXIT_FAILURE);
+        sd_event_exit(sd_bus_get_event(sd_bus_message_get_bus(m)), EXIT_FAILURE);
         return 0;
 }
 
@@ -1496,12 +1495,11 @@ static int enable_machine(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int match_log_message(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
+static int match_log_message(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         const char **our_path = userdata, *line;
         unsigned priority;
         int r;
 
-        assert(bus);
         assert(m);
         assert(our_path);
 
@@ -1521,12 +1519,11 @@ static int match_log_message(sd_bus *bus, sd_bus_message *m, void *userdata, sd_
         return 0;
 }
 
-static int match_transfer_removed(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
+static int match_transfer_removed(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         const char **our_path = userdata, *path, *result;
         uint32_t id;
         int r;
 
-        assert(bus);
         assert(m);
         assert(our_path);
 
@@ -1539,7 +1536,7 @@ static int match_transfer_removed(sd_bus *bus, sd_bus_message *m, void *userdata
         if (!streq_ptr(*our_path, path))
                 return 0;
 
-        sd_event_exit(sd_bus_get_event(bus), !streq_ptr(result, "done"));
+        sd_event_exit(sd_bus_get_event(sd_bus_message_get_bus(m)), !streq_ptr(result, "done"));
         return 0;
 }
 

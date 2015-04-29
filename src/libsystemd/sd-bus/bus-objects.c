@@ -277,7 +277,7 @@ static int node_callbacks_run(
                 bus->current_slot = sd_bus_slot_ref(slot);
                 bus->current_handler = c->callback;
                 bus->current_userdata = slot->userdata;
-                r = c->callback(bus, m, slot->userdata, &error_buffer);
+                r = c->callback(m, slot->userdata, &error_buffer);
                 bus->current_userdata = NULL;
                 bus->current_handler = NULL;
                 bus->current_slot = sd_bus_slot_unref(slot);
@@ -395,7 +395,7 @@ static int method_callbacks_run(
                 bus->current_slot = sd_bus_slot_ref(slot);
                 bus->current_handler = c->vtable->x.method.handler;
                 bus->current_userdata = u;
-                r = c->vtable->x.method.handler(bus, m, u, &error);
+                r = c->vtable->x.method.handler(m, u, &error);
                 bus->current_userdata = NULL;
                 bus->current_handler = NULL;
                 bus->current_slot = sd_bus_slot_unref(slot);

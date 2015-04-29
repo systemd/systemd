@@ -403,12 +403,15 @@ static int property_get_chassis(
         return sd_bus_message_append(reply, "s", name);
 }
 
-static int method_set_hostname(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
+static int method_set_hostname(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         Context *c = userdata;
         const char *name;
         int interactive;
         char *h;
         int r;
+
+        assert(m);
+        assert(c);
 
         r = sd_bus_message_read(m, "sb", &name, &interactive);
         if (r < 0)
@@ -454,16 +457,19 @@ static int method_set_hostname(sd_bus *bus, sd_bus_message *m, void *userdata, s
 
         log_info("Changed host name to '%s'", strna(c->data[PROP_HOSTNAME]));
 
-        sd_bus_emit_properties_changed(bus, "/org/freedesktop/hostname1", "org.freedesktop.hostname1", "Hostname", NULL);
+        (void) sd_bus_emit_properties_changed(sd_bus_message_get_bus(m), "/org/freedesktop/hostname1", "org.freedesktop.hostname1", "Hostname", NULL);
 
         return sd_bus_reply_method_return(m, NULL);
 }
 
-static int method_set_static_hostname(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
+static int method_set_static_hostname(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         Context *c = userdata;
         const char *name;
         int interactive;
         int r;
+
+        assert(m);
+        assert(c);
 
         r = sd_bus_message_read(m, "sb", &name, &interactive);
         if (r < 0)
@@ -519,18 +525,17 @@ static int method_set_static_hostname(sd_bus *bus, sd_bus_message *m, void *user
 
         log_info("Changed static host name to '%s'", strna(c->data[PROP_STATIC_HOSTNAME]));
 
-        sd_bus_emit_properties_changed(bus, "/org/freedesktop/hostname1", "org.freedesktop.hostname1", "StaticHostname", NULL);
+        (void) sd_bus_emit_properties_changed(sd_bus_message_get_bus(m), "/org/freedesktop/hostname1", "org.freedesktop.hostname1", "StaticHostname", NULL);
 
         return sd_bus_reply_method_return(m, NULL);
 }
 
-static int set_machine_info(Context *c, sd_bus *bus, sd_bus_message *m, int prop, sd_bus_message_handler_t cb, sd_bus_error *error) {
+static int set_machine_info(Context *c, sd_bus_message *m, int prop, sd_bus_message_handler_t cb, sd_bus_error *error) {
         int interactive;
         const char *name;
         int r;
 
         assert(c);
-        assert(bus);
         assert(m);
 
         r = sd_bus_message_read(m, "sb", &name, &interactive);
@@ -600,33 +605,36 @@ static int set_machine_info(Context *c, sd_bus *bus, sd_bus_message *m, int prop
                  prop == PROP_LOCATION ? "location" :
                  prop == PROP_CHASSIS ? "chassis" : "icon name", strna(c->data[prop]));
 
-        sd_bus_emit_properties_changed(bus, "/org/freedesktop/hostname1", "org.freedesktop.hostname1",
-                                       prop == PROP_PRETTY_HOSTNAME ? "PrettyHostname" :
-                                       prop == PROP_DEPLOYMENT ? "Deployment" :
-                                       prop == PROP_LOCATION ? "Location" :
-                                       prop == PROP_CHASSIS ? "Chassis" : "IconName" , NULL);
+        (void) sd_bus_emit_properties_changed(
+                        sd_bus_message_get_bus(m),
+                        "/org/freedesktop/hostname1",
+                        "org.freedesktop.hostname1",
+                        prop == PROP_PRETTY_HOSTNAME ? "PrettyHostname" :
+                        prop == PROP_DEPLOYMENT ? "Deployment" :
+                        prop == PROP_LOCATION ? "Location" :
+                        prop == PROP_CHASSIS ? "Chassis" : "IconName" , NULL);
 
         return sd_bus_reply_method_return(m, NULL);
 }
 
-static int method_set_pretty_hostname(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
-        return set_machine_info(userdata, bus, m, PROP_PRETTY_HOSTNAME, method_set_pretty_hostname, error);
+static int method_set_pretty_hostname(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        return set_machine_info(userdata, m, PROP_PRETTY_HOSTNAME, method_set_pretty_hostname, error);
 }
 
-static int method_set_icon_name(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
-        return set_machine_info(userdata, bus, m, PROP_ICON_NAME, method_set_icon_name, error);
+static int method_set_icon_name(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        return set_machine_info(userdata, m, PROP_ICON_NAME, method_set_icon_name, error);
 }
 
-static int method_set_chassis(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
-        return set_machine_info(userdata, bus, m, PROP_CHASSIS, method_set_chassis, error);
+static int method_set_chassis(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        return set_machine_info(userdata, m, PROP_CHASSIS, method_set_chassis, error);
 }
 
-static int method_set_deployment(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
-        return set_machine_info(userdata, bus, m, PROP_DEPLOYMENT, method_set_deployment, error);
+static int method_set_deployment(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        return set_machine_info(userdata, m, PROP_DEPLOYMENT, method_set_deployment, error);
 }
 
-static int method_set_location(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
-        return set_machine_info(userdata, bus, m, PROP_LOCATION, method_set_location, error);
+static int method_set_location(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        return set_machine_info(userdata, m, PROP_LOCATION, method_set_location, error);
 }
 
 static const sd_bus_vtable hostname_vtable[] = {

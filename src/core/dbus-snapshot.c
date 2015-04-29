@@ -25,11 +25,10 @@
 #include "snapshot.h"
 #include "dbus-snapshot.h"
 
-int bus_snapshot_method_remove(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+int bus_snapshot_method_remove(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Snapshot *s = userdata;
         int r;
 
-        assert(bus);
         assert(message);
         assert(s);
 

@@ -193,11 +193,10 @@ static int property_get_idle_since_hint(
         return sd_bus_message_append(reply, "t", u);
 }
 
-int bus_seat_method_terminate(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+int bus_seat_method_terminate(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Seat *s = userdata;
         int r;
 
-        assert(bus);
         assert(message);
         assert(s);
 
@@ -221,13 +220,12 @@ int bus_seat_method_terminate(sd_bus *bus, sd_bus_message *message, void *userda
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int method_activate_session(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_activate_session(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Seat *s = userdata;
         const char *name;
         Session *session;
         int r;
 
-        assert(bus);
         assert(message);
         assert(s);
 
@@ -249,12 +247,11 @@ static int method_activate_session(sd_bus *bus, sd_bus_message *message, void *u
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int method_switch_to(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_switch_to(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Seat *s = userdata;
         unsigned int to;
         int r;
 
-        assert(bus);
         assert(message);
         assert(s);
 
@@ -272,11 +269,10 @@ static int method_switch_to(sd_bus *bus, sd_bus_message *message, void *userdata
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int method_switch_to_next(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_switch_to_next(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Seat *s = userdata;
         int r;
 
-        assert(bus);
         assert(message);
         assert(s);
 
@@ -287,11 +283,10 @@ static int method_switch_to_next(sd_bus *bus, sd_bus_message *message, void *use
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int method_switch_to_previous(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_switch_to_previous(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Seat *s = userdata;
         int r;
 
-        assert(bus);
         assert(message);
         assert(s);
 

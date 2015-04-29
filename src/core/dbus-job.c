@@ -52,11 +52,10 @@ static int property_get_unit(
         return sd_bus_message_append(reply, "(so)", j->unit->id, p);
 }
 
-int bus_job_method_cancel(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+int bus_job_method_cancel(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Job *j = userdata;
         int r;
 
-        assert(bus);
         assert(message);
         assert(j);
 

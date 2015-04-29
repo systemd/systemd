@@ -29,7 +29,7 @@
 
 static bool mask[32];
 
-static int filter(sd_bus *b, sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+static int filter(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
         log_info("Ran %u", PTR_TO_UINT(userdata));
         assert_se(PTR_TO_UINT(userdata) < ELEMENTSOF(mask));
         mask[PTR_TO_UINT(userdata)] = true;

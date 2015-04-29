@@ -172,11 +172,10 @@ static int property_get_linger(
         return sd_bus_message_append(reply, "b", r > 0);
 }
 
-int bus_user_method_terminate(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+int bus_user_method_terminate(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         User *u = userdata;
         int r;
 
-        assert(bus);
         assert(message);
         assert(u);
 
@@ -200,12 +199,11 @@ int bus_user_method_terminate(sd_bus *bus, sd_bus_message *message, void *userda
         return sd_bus_reply_method_return(message, NULL);
 }
 
-int bus_user_method_kill(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+int bus_user_method_kill(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         User *u = userdata;
         int32_t signo;
         int r;
 
-        assert(bus);
         assert(message);
         assert(u);
 

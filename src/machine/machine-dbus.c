@@ -121,11 +121,10 @@ static int property_get_netif(
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_class, machine_class, MachineClass);
 
-int bus_machine_method_terminate(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+int bus_machine_method_terminate(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Machine *m = userdata;
         int r;
 
-        assert(bus);
         assert(message);
         assert(m);
 
@@ -149,14 +148,13 @@ int bus_machine_method_terminate(sd_bus *bus, sd_bus_message *message, void *use
         return sd_bus_reply_method_return(message, NULL);
 }
 
-int bus_machine_method_kill(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+int bus_machine_method_kill(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Machine *m = userdata;
         const char *swho;
         int32_t signo;
         KillWho who;
         int r;
 
-        assert(bus);
         assert(message);
         assert(m);
 
@@ -195,7 +193,7 @@ int bus_machine_method_kill(sd_bus *bus, sd_bus_message *message, void *userdata
         return sd_bus_reply_method_return(message, NULL);
 }
 
-int bus_machine_method_get_addresses(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+int bus_machine_method_get_addresses(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_close_pair_ int pair[2] = { -1, -1 };
         _cleanup_free_ char *us = NULL, *them = NULL;
@@ -206,7 +204,6 @@ int bus_machine_method_get_addresses(sd_bus *bus, sd_bus_message *message, void 
         pid_t child;
         int r;
 
-        assert(bus);
         assert(message);
         assert(m);
 
@@ -338,10 +335,10 @@ int bus_machine_method_get_addresses(sd_bus *bus, sd_bus_message *message, void 
         if (r < 0)
                 return r;
 
-        return sd_bus_send(bus, reply, NULL);
+        return sd_bus_send(sd_bus_message_get_bus(reply), reply, NULL);
 }
 
-int bus_machine_method_get_os_release(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+int bus_machine_method_get_os_release(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_close_ int mntns_fd = -1, root_fd = -1;
         _cleanup_close_pair_ int pair[2] = { -1, -1 };
@@ -353,7 +350,6 @@ int bus_machine_method_get_os_release(sd_bus *bus, sd_bus_message *message, void
         pid_t child;
         int r;
 
-        assert(bus);
         assert(message);
         assert(m);
 
@@ -430,17 +426,16 @@ int bus_machine_method_get_os_release(sd_bus *bus, sd_bus_message *message, void
         if (r < 0)
                 return r;
 
-        return sd_bus_send(bus, reply, NULL);
+        return sd_bus_send(sd_bus_message_get_bus(reply), reply, NULL);
 }
 
-int bus_machine_method_open_pty(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+int bus_machine_method_open_pty(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_free_ char *pty_name = NULL;
         _cleanup_close_ int master = -1;
         Machine *m = userdata;
         int r;
 
-        assert(bus);
         assert(message);
         assert(m);
 
@@ -463,10 +458,10 @@ int bus_machine_method_open_pty(sd_bus *bus, sd_bus_message *message, void *user
         if (r < 0)
                 return r;
 
-        return sd_bus_send(bus, reply, NULL);
+        return sd_bus_send(sd_bus_message_get_bus(reply), reply, NULL);
 }
 
-int bus_machine_method_open_login(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+int bus_machine_method_open_login(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_free_ char *pty_name = NULL, *getty = NULL;
         _cleanup_bus_unref_ sd_bus *container_bus = NULL;
@@ -475,6 +470,9 @@ int bus_machine_method_open_login(sd_bus *bus, sd_bus_message *message, void *us
         const char *p;
         char *address;
         int r;
+
+        assert(message);
+        assert(m);
 
         if (m->class != MACHINE_CONTAINER)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Opening logins is only supported on container machines.");
@@ -553,10 +551,10 @@ int bus_machine_method_open_login(sd_bus *bus, sd_bus_message *message, void *us
         if (r < 0)
                 return r;
 
-        return sd_bus_send(bus, reply, NULL);
+        return sd_bus_send(sd_bus_message_get_bus(reply), reply, NULL);
 }
 
-int bus_machine_method_bind_mount(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_close_pair_ int errno_pipe_fd[2] = { -1, -1 };
         char mount_slave[] = "/tmp/propagate.XXXXXX", *mount_tmp, *mount_outside, *p;
         bool mount_slave_created = false, mount_slave_mounted = false,
@@ -568,6 +566,9 @@ int bus_machine_method_bind_mount(sd_bus *bus, sd_bus_message *message, void *us
         pid_t child;
         siginfo_t si;
         int r;
+
+        assert(message);
+        assert(m);
 
         if (m->class != MACHINE_CONTAINER)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Bind mounting is only supported on container machines.");
@@ -814,7 +815,7 @@ fail:
         return 0;
 }
 
-int bus_machine_method_copy(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+int bus_machine_method_copy(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         const char *src, *dest, *host_path, *container_path, *host_basename, *host_dirname, *container_basename, *container_dirname;
         _cleanup_close_pair_ int errno_pipe_fd[2] = { -1, -1 };
         _cleanup_close_ int hostfd = -1;
@@ -824,6 +825,9 @@ int bus_machine_method_copy(sd_bus *bus, sd_bus_message *message, void *userdata
         pid_t child;
         char *t;
         int r;
+
+        assert(message);
+        assert(m);
 
         if (m->n_operations >= MACHINE_OPERATIONS_MAX)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_LIMITS_EXCEEDED, "Too many ongoing copies.");

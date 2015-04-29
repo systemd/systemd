@@ -65,10 +65,10 @@ int manager_get_machine_by_pid(Manager *m, pid_t pid, Machine **machine);
 
 extern const sd_bus_vtable manager_vtable[];
 
-int match_reloading(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error);
-int match_unit_removed(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error);
-int match_properties_changed(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error);
-int match_job_removed(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error);
+int match_reloading(sd_bus_message *message, void *userdata, sd_bus_error *error);
+int match_unit_removed(sd_bus_message *message, void *userdata, sd_bus_error *error);
+int match_properties_changed(sd_bus_message *message, void *userdata, sd_bus_error *error);
+int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *error);
 
 int manager_start_scope(Manager *manager, const char *scope, pid_t pid, const char *slice, const char *description, sd_bus_message *more_properties, sd_bus_error *error, char **job);
 int manager_stop_unit(Manager *manager, const char *unit, sd_bus_error *error, char **job);

@@ -357,14 +357,13 @@ static int property_get_ntp_sync(
         return sd_bus_message_append(reply, "b", ntp_synced());
 }
 
-static int method_set_timezone(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
+static int method_set_timezone(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         Context *c = userdata;
         const char *z;
         int interactive;
         char *t;
         int r;
 
-        assert(bus);
         assert(m);
         assert(c);
 
@@ -424,18 +423,17 @@ static int method_set_timezone(sd_bus *bus, sd_bus_message *m, void *userdata, s
                    LOG_MESSAGE("Changed time zone to '%s'.", c->zone),
                    NULL);
 
-        sd_bus_emit_properties_changed(bus, "/org/freedesktop/timedate1", "org.freedesktop.timedate1", "Timezone", NULL);
+        (void) sd_bus_emit_properties_changed(sd_bus_message_get_bus(m), "/org/freedesktop/timedate1", "org.freedesktop.timedate1", "Timezone", NULL);
 
         return sd_bus_reply_method_return(m, NULL);
 }
 
-static int method_set_local_rtc(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
+static int method_set_local_rtc(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         int lrtc, fix_system, interactive;
         Context *c = userdata;
         struct timespec ts;
         int r;
 
-        assert(bus);
         assert(m);
         assert(c);
 
@@ -514,12 +512,12 @@ static int method_set_local_rtc(sd_bus *bus, sd_bus_message *m, void *userdata, 
 
         log_info("RTC configured to %s time.", c->local_rtc ? "local" : "UTC");
 
-        sd_bus_emit_properties_changed(bus, "/org/freedesktop/timedate1", "org.freedesktop.timedate1", "LocalRTC", NULL);
+        (void) sd_bus_emit_properties_changed(sd_bus_message_get_bus(m), "/org/freedesktop/timedate1", "org.freedesktop.timedate1", "LocalRTC", NULL);
 
         return sd_bus_reply_method_return(m, NULL);
 }
 
-static int method_set_time(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
+static int method_set_time(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         int relative, interactive;
         Context *c = userdata;
         int64_t utc;
@@ -528,7 +526,6 @@ static int method_set_time(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bu
         struct tm* tm;
         int r;
 
-        assert(bus);
         assert(m);
         assert(c);
 
@@ -605,10 +602,13 @@ static int method_set_time(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bu
         return sd_bus_reply_method_return(m, NULL);
 }
 
-static int method_set_ntp(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
+static int method_set_ntp(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         int enabled, interactive;
         Context *c = userdata;
         int r;
+
+        assert(m);
+        assert(c);
 
         r = sd_bus_message_read(m, "bb", &enabled, &interactive);
         if (r < 0)
@@ -630,18 +630,18 @@ static int method_set_ntp(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus
         if (r == 0)
                 return 1;
 
-        r = context_enable_ntp(bus, error, enabled);
+        r = context_enable_ntp(sd_bus_message_get_bus(m), error, enabled);
         if (r < 0)
                 return r;
 
-        r = context_start_ntp(bus, error, enabled);
+        r = context_start_ntp(sd_bus_message_get_bus(m), error, enabled);
         if (r < 0)
                 return r;
 
         c->use_ntp = enabled;
         log_info("Set NTP to %s", enabled ? "enabled" : "disabled");
 
-        sd_bus_emit_properties_changed(bus, "/org/freedesktop/timedate1", "org.freedesktop.timedate1", "NTP", NULL);
+        (void) sd_bus_emit_properties_changed(sd_bus_message_get_bus(m), "/org/freedesktop/timedate1", "org.freedesktop.timedate1", "NTP", NULL);
 
         return sd_bus_reply_method_return(m, NULL);
 }

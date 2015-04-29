@@ -105,12 +105,11 @@ static int manager_reset_all(Manager *m) {
         return 0;
 }
 
-static int match_prepare_for_sleep(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *ret_error) {
+static int match_prepare_for_sleep(sd_bus_message *message, void *userdata, sd_bus_error *ret_error) {
         Manager *m = userdata;
         int b, r;
 
-        assert(bus);
-        assert(bus);
+        assert(message);
 
         r = sd_bus_message_read(message, "b", &b);
         if (r < 0) {

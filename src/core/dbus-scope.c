@@ -31,11 +31,10 @@
 #include "dbus-kill.h"
 #include "dbus-scope.h"
 
-static int bus_scope_abandon(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int bus_scope_abandon(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Scope *s = userdata;
         int r;
 
-        assert(bus);
         assert(message);
         assert(s);
 

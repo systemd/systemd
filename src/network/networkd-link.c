@@ -734,11 +734,11 @@ static int link_set_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
         return 0;
 }
 
-static int set_hostname_handler(sd_bus *bus, sd_bus_message *m, void *userdata,
-                                sd_bus_error *ret_error) {
+static int set_hostname_handler(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
         _cleanup_link_unref_ Link *link = userdata;
         int r;
 
+        assert(m);
         assert(link);
 
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))

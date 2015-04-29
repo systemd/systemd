@@ -162,11 +162,11 @@ bool manager_is_docked_or_multiple_displays(Manager *m);
 
 extern const sd_bus_vtable manager_vtable[];
 
-int match_job_removed(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error);
-int match_unit_removed(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error);
-int match_properties_changed(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error);
-int match_reloading(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error);
-int match_name_owner_changed(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error);
+int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *error);
+int match_unit_removed(sd_bus_message *message, void *userdata, sd_bus_error *error);
+int match_properties_changed(sd_bus_message *message, void *userdata, sd_bus_error *error);
+int match_reloading(sd_bus_message *message, void *userdata, sd_bus_error *error);
+int match_name_owner_changed(sd_bus_message *message, void *userdata, sd_bus_error *error);
 
 int bus_manager_shutdown_or_sleep_now_or_later(Manager *m, const char *unit_name, InhibitWhat w, sd_bus_error *error);
 

@@ -25,4 +25,4 @@
 
 extern const sd_bus_vtable bus_snapshot_vtable[];
 
-int bus_snapshot_method_remove(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error);
+int bus_snapshot_method_remove(sd_bus_message *message, void *userdata, sd_bus_error *error);

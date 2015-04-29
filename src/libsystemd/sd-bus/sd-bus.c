@@ -367,13 +367,15 @@ _public_ int sd_bus_get_allow_interactive_authorization(sd_bus *bus) {
         return bus->allow_interactive_authorization;
 }
 
-static int hello_callback(sd_bus *bus, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
+static int hello_callback(sd_bus_message *reply, void *userdata, sd_bus_error *error) {
         const char *s;
+        sd_bus *bus;
         int r;
 
+        assert(reply);
+        bus = reply->bus;
         assert(bus);
         assert(bus->state == BUS_HELLO || bus->state == BUS_CLOSING);
-        assert(reply);
 
         r = sd_bus_message_get_errno(reply);
         if (r > 0)
@@ -2193,7 +2195,7 @@ static int process_timeout(sd_bus *bus) {
         bus->current_slot = sd_bus_slot_ref(slot);
         bus->current_handler = c->callback;
         bus->current_userdata = slot->userdata;
-        r = c->callback(bus, m, slot->userdata, &error_buffer);
+        r = c->callback(m, slot->userdata, &error_buffer);
         bus->current_userdata = NULL;
         bus->current_handler = NULL;
         bus->current_slot = NULL;
@@ -2296,7 +2298,7 @@ static int process_reply(sd_bus *bus, sd_bus_message *m) {
         bus->current_slot = sd_bus_slot_ref(slot);
         bus->current_handler = c->callback;
         bus->current_userdata = slot->userdata;
-        r = c->callback(bus, m, slot->userdata, &error_buffer);
+        r = c->callback(m, slot->userdata, &error_buffer);
         bus->current_userdata = NULL;
         bus->current_handler = NULL;
         bus->current_slot = NULL;
@@ -2343,7 +2345,7 @@ static int process_filter(sd_bus *bus, sd_bus_message *m) {
                         bus->current_slot = sd_bus_slot_ref(slot);
                         bus->current_handler = l->callback;
                         bus->current_userdata = slot->userdata;
-                        r = l->callback(bus, m, slot->userdata, &error_buffer);
+                        r = l->callback(m, slot->userdata, &error_buffer);
                         bus->current_userdata = NULL;
                         bus->current_handler = NULL;
                         bus->current_slot = sd_bus_slot_unref(slot);
@@ -2624,7 +2626,7 @@ static int process_closing(sd_bus *bus, sd_bus_message **ret) {
                 bus->current_slot = sd_bus_slot_ref(slot);
                 bus->current_handler = c->callback;
                 bus->current_userdata = slot->userdata;
-                r = c->callback(bus, m, slot->userdata, &error_buffer);
+                r = c->callback(m, slot->userdata, &error_buffer);
                 bus->current_userdata = NULL;
                 bus->current_handler = NULL;
                 bus->current_slot = NULL;

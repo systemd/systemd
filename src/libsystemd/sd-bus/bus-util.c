@@ -39,14 +39,13 @@
 #include "bus-util.h"
 #include "bus-internal.h"
 
-static int name_owner_change_callback(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+static int name_owner_change_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
         sd_event *e = userdata;
 
-        assert(bus);
         assert(m);
         assert(e);
 
-        sd_bus_close(bus);
+        sd_bus_close(sd_bus_message_get_bus(m));
         sd_event_exit(e, 0);
 
         return 1;
@@ -322,12 +321,11 @@ static void async_polkit_query_free(AsyncPolkitQuery *q) {
         free(q);
 }
 
-static int async_polkit_callback(sd_bus *bus, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
+static int async_polkit_callback(sd_bus_message *reply, void *userdata, sd_bus_error *error) {
         _cleanup_bus_error_free_ sd_bus_error error_buffer = SD_BUS_ERROR_NULL;
         AsyncPolkitQuery *q = userdata;
         int r;
 
-        assert(bus);
         assert(reply);
         assert(q);
 
@@ -340,7 +338,7 @@ static int async_polkit_callback(sd_bus *bus, sd_bus_message *reply, void *userd
                 goto finish;
         }
 
-        r = q->callback(bus, q->request, q->userdata, &error_buffer);
+        r = q->callback(q->request, q->userdata, &error_buffer);
         r = bus_maybe_reply_error(q->request, r, &error_buffer);
 
 finish:
@@ -1606,24 +1604,22 @@ typedef struct BusWaitForJobs {
         sd_bus_slot *slot_disconnected;
 } BusWaitForJobs;
 
-static int match_disconnected(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
-        assert(bus);
+static int match_disconnected(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         assert(m);
 
         log_error("Warning! D-Bus connection terminated.");
-        sd_bus_close(bus);
+        sd_bus_close(sd_bus_message_get_bus(m));
 
         return 0;
 }
 
-static int match_job_removed(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
+static int match_job_removed(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         const char *path, *unit, *result;
         BusWaitForJobs *d = userdata;
         uint32_t id;
         char *found;
         int r;
 
-        assert(bus);
         assert(m);
         assert(d);
 
