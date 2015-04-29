@@ -467,14 +467,14 @@ static int on_bus_track(sd_bus_track *t, void *userdata) {
         return 0;
 }
 
-int dns_query_bus_track(DnsQuery *q, sd_bus *bus, sd_bus_message *m) {
+int dns_query_bus_track(DnsQuery *q, sd_bus_message *m) {
         int r;
 
         assert(q);
         assert(m);
 
         if (!q->bus_track) {
-                r = sd_bus_track_new(bus, &q->bus_track, on_bus_track, q);
+                r = sd_bus_track_new(sd_bus_message_get_bus(m), &q->bus_track, on_bus_track, q);
                 if (r < 0)
                         return r;
         }

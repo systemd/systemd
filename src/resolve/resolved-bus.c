@@ -339,7 +339,7 @@ static int bus_method_resolve_hostname(sd_bus_message *message, void *userdata, 
         q->request_hostname = hostname;
         q->complete = bus_method_resolve_hostname_complete;
 
-        r = dns_query_bus_track(q, sd_bus_message_get_bus(message), message);
+        r = dns_query_bus_track(q, message);
         if (r < 0)
                 return r;
 
@@ -491,7 +491,7 @@ static int bus_method_resolve_address(sd_bus_message *message, void *userdata, s
         memcpy(&q->request_address, d, sz);
         q->complete = bus_method_resolve_address_complete;
 
-        r = dns_query_bus_track(q, sd_bus_message_get_bus(message), message);
+        r = dns_query_bus_track(q, message);
         if (r < 0)
                 return r;
 
@@ -643,7 +643,7 @@ static int bus_method_resolve_record(sd_bus_message *message, void *userdata, sd
         q->request_hostname = name;
         q->complete = bus_method_resolve_record_complete;
 
-        r = dns_query_bus_track(q, sd_bus_message_get_bus(message), message);
+        r = dns_query_bus_track(q, message);
         if (r < 0)
                 return r;
 

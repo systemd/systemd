@@ -147,13 +147,11 @@ static int signal_activation_request(sd_bus_message *message, void *userdata, sd
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         Manager *m = userdata;
         const char *name;
-        sd_bus *bus;
         Unit *u;
         int r;
 
         assert(message);
         assert(m);
-        assert_se(bus = sd_bus_message_get_bus(message));
 
         r = sd_bus_message_read(message, "s", &name);
         if (r < 0) {
@@ -189,7 +187,7 @@ failed:
 
         log_debug("D-Bus activation failed for %s: %s", name, bus_error_message(&error, r));
 
-        r = sd_bus_message_new_signal(bus, &reply, "/org/freedesktop/systemd1", "org.freedesktop.systemd1.Activator", "ActivationFailure");
+        r = sd_bus_message_new_signal(sd_bus_message_get_bus(message), &reply, "/org/freedesktop/systemd1", "org.freedesktop.systemd1.Activator", "ActivationFailure");
         if (r < 0) {
                 bus_log_create_error(r);
                 return 0;
@@ -201,7 +199,7 @@ failed:
                 return 0;
         }
 
-        r = sd_bus_send_to(bus, reply, "org.freedesktop.DBus", NULL);
+        r = sd_bus_send_to(NULL, reply, "org.freedesktop.DBus", NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to respond with to bus activation request: %m");
 
