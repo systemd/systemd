@@ -148,9 +148,10 @@
     not all processes are part of a login session (e.g. system service
     processes, user processes that are shared between multiple
     sessions of the same user, or kernel threads). For processes not
-    being part of a login session this function will fail. The
-    returned string needs to be freed with the libc
-    <citerefentry project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    being part of a login session this function will fail with
+    -ENXIO. The returned string needs to be freed with the libc
+    <citerefentry
+    project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     call after use.</para>
 
     <para><function>sd_pid_get_unit()</function> may be used to
@@ -159,11 +160,12 @@
     short string, suitable for usage in file system paths. Note that
     not all processes are part of a system unit/service (e.g. user
     processes, or kernel threads). For processes not being part of a
-    systemd system unit this function will fail. (More specifically:
-    this call will not work for processes that are part of user units,
-    use <function>sd_pid_get_user_unit()</function> for that.) The
-    returned string needs to be freed with the libc
-    <citerefentry project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    systemd system unit this function will fail with -ENXIO (More
+    specifically: this call will not work for processes that are part
+    of user units, use <function>sd_pid_get_user_unit()</function> for
+    that.) The returned string needs to be freed with the libc
+    <citerefentry
+    project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     call after use.</para>
 
     <para><function>sd_pid_get_user_unit()</function> may be used to
@@ -179,14 +181,16 @@
     login sessions of the same user, where
     <function>sd_pid_get_session()</function> will fail. For processes
     not being part of a login session and not being a shared process
-    of a user this function will fail.</para>
+    of a user this function will fail with -ENXIO.</para>
 
     <para><function>sd_pid_get_machine_name()</function> may be used
     to determine the name of the VM or container is a member of. The
     machine name is a short string, suitable for usage in file system
     paths. The returned string needs to be freed with the libc
-    <citerefentry project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-    call after use.</para>
+    <citerefentry
+    project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    call after use. For processes not part of a VM or containers this
+    function fails with -ENXIO.</para>
 
     <para><function>sd_pid_get_slice()</function> may be used to
     determine the slice unit the process is a member of. See
@@ -216,6 +220,37 @@
     <para>On success, these calls return 0 or a positive integer. On
     failure, these calls return a negative errno-style error
     code.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Errors</title>
+
+    <para>Returned errors may indicate the following problems:</para>
+
+    <variablelist>
+
+      <varlistentry>
+        <term><constant>-ENXIO</constant></term>
+
+        <listitem><para>Given field is not specified for the described
+        process or peer.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><constant>-ESRCH</constant></term>
+
+        <listitem><para>The specified PID does not refer to a running
+        process.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><constant>-ENOMEM</constant></term>
+
+        <listitem><para>Memory allocation failed.</para></listitem>
+      </varlistentry>
+    </variablelist>
   </refsect1>
 
   <refsect1>
