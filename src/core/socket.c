@@ -170,12 +170,18 @@ static int socket_arm_timer(Socket *s) {
                 return sd_event_source_set_enabled(s->timer_event_source, SD_EVENT_ONESHOT);
         }
 
-        return sd_event_add_time(
+        r = sd_event_add_time(
                         UNIT(s)->manager->event,
                         &s->timer_event_source,
                         CLOCK_MONOTONIC,
                         now(CLOCK_MONOTONIC) + s->timeout_usec, 0,
                         socket_dispatch_timer, s);
+        if (r < 0)
+                return r;
+
+        (void) sd_event_source_set_description(s->timer_event_source, "socket-timer");
+
+        return 0;
 }
 
 int socket_instantiate_service(Socket *s) {
@@ -1266,6 +1272,7 @@ static int socket_watch_fds(Socket *s) {
                 else
                         r = sd_event_add_io(UNIT(s)->manager->event, &p->event_source, p->fd, EPOLLIN, socket_dispatch_io, p);
 
+                        (void) sd_event_source_set_description(p->event_source, "socket-port-io");
                 if (r < 0) {
                         log_unit_warning_errno(UNIT(s)->id, r, "Failed to watch listening fds: %m");
                         goto fail;

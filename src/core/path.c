@@ -73,6 +73,8 @@ int path_spec_watch(PathSpec *s, sd_event_io_handler_t handler) {
         if (r < 0)
                 goto fail;
 
+        (void) sd_event_source_set_description(s->event_source, "path");
+
         /* This assumes the path was passed through path_kill_slashes()! */
 
         for (slash = strchr(s->path, '/'); ; slash = strchr(slash+1, '/')) {

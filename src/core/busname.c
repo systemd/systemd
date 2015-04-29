@@ -124,12 +124,18 @@ static int busname_arm_timer(BusName *n) {
                 return sd_event_source_set_enabled(n->timer_event_source, SD_EVENT_ONESHOT);
         }
 
-        return sd_event_add_time(
+        r =  sd_event_add_time(
                         UNIT(n)->manager->event,
                         &n->timer_event_source,
                         CLOCK_MONOTONIC,
                         now(CLOCK_MONOTONIC) + n->timeout_usec, 0,
                         busname_dispatch_timer, n);
+        if (r < 0)
+                return r;
+
+        (void) sd_event_source_set_description(n->timer_event_source, "busname-timer");
+
+        return 0;
 }
 
 static int busname_add_default_default_dependencies(BusName *n) {
@@ -285,6 +291,7 @@ static int busname_watch_fd(BusName *n) {
                 r = sd_event_source_set_enabled(n->starter_event_source, SD_EVENT_ON);
         else
                 r = sd_event_add_io(UNIT(n)->manager->event, &n->starter_event_source, n->starter_fd, EPOLLIN, busname_dispatch_io, n);
+                (void) sd_event_source_set_description(n->starter_event_source, "busname-starter");
         if (r < 0) {
                 log_unit_warning_errno(UNIT(n)->id, r, "Failed to watch starter fd: %m");
                 busname_unwatch_fd(n);

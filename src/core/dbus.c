@@ -982,6 +982,8 @@ static int bus_init_private(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate event source: %m");
 
+        (void) sd_event_source_set_description(s, "bus-connection");
+
         m->private_listen_fd = fd;
         m->private_listen_event_source = s;
         fd = -1;

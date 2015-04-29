@@ -444,6 +444,8 @@ static void timer_enter_waiting(Timer *t, bool initial) {
                 if (r < 0)
                         goto fail;
 
+                (void) sd_event_source_set_description(t->monotonic_event_source, "timer-monotonic");
+
         } else if (t->monotonic_event_source) {
 
                 r = sd_event_source_set_enabled(t->monotonic_event_source, SD_EVENT_OFF);
@@ -470,6 +472,8 @@ static void timer_enter_waiting(Timer *t, bool initial) {
                                         timer_dispatch, t);
                 if (r < 0)
                         goto fail;
+
+                (void) sd_event_source_set_description(t->realtime_event_source, "timer-realtime");
 
         } else if (t->realtime_event_source) {
 

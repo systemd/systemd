@@ -627,6 +627,8 @@ static int device_enumerate(Manager *m) {
                 r = sd_event_add_io(m->event, &m->udev_event_source, udev_monitor_get_fd(m->udev_monitor), EPOLLIN, device_dispatch_io, m);
                 if (r < 0)
                         goto fail;
+
+                (void) sd_event_source_set_description(m->udev_event_source, "device");
         }
 
         e = udev_enumerate_new(m->udev);

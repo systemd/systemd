@@ -103,6 +103,8 @@ static void manager_watch_jobs_in_progress(Manager *m) {
                         CLOCK_MONOTONIC,
                         next, 0,
                         manager_dispatch_jobs_in_progress, m);
+
+        (void) sd_event_source_set_description(m->jobs_in_progress_event_source, "manager-jobs-in-progress");
 }
 
 #define CYLON_BUFFER_EXTRA (2*(sizeof(ANSI_RED_ON)-1) + sizeof(ANSI_HIGHLIGHT_RED_ON)-1 + 2*(sizeof(ANSI_HIGHLIGHT_OFF)-1))
@@ -278,6 +280,8 @@ static int manager_check_ask_password(Manager *m) {
                         return -errno;
                 }
 
+                (void) sd_event_source_set_description(m->ask_password_event_source, "manager-ask-password");
+
                 /* Queries might have been added meanwhile... */
                 manager_dispatch_ask_password_fd(m->ask_password_event_source,
                                                  m->ask_password_inotify_fd, EPOLLIN, m);
@@ -300,6 +304,8 @@ static int manager_watch_idle_pipe(Manager *m) {
         r = sd_event_add_io(m->event, &m->idle_pipe_event_source, m->idle_pipe[2], EPOLLIN, manager_dispatch_idle_pipe_fd, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to watch idle pipe: %m");
+
+        (void) sd_event_source_set_description(m->idle_pipe_event_source, "manager-idle-pipe");
 
         return 0;
 }
@@ -342,6 +348,8 @@ static int manager_setup_time_change(Manager *m) {
         r = sd_event_add_io(m->event, &m->time_change_event_source, m->time_change_fd, EPOLLIN, manager_dispatch_time_change_fd, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to create time change event source: %m");
+
+        (void) sd_event_source_set_description(m->time_change_event_source, "manager-time-change");
 
         log_debug("Set up TFD_TIMER_CANCEL_ON_SET timerfd.");
 
@@ -452,6 +460,8 @@ static int manager_setup_signals(Manager *m) {
         r = sd_event_add_io(m->event, &m->signal_event_source, m->signal_fd, EPOLLIN, manager_dispatch_signal_fd, m);
         if (r < 0)
                 return r;
+
+        (void) sd_event_source_set_description(m->signal_event_source, "manager-signal");
 
         /* Process signals a bit earlier than the rest of things, but
          * later than notify_fd processing, so that the notify
@@ -593,6 +603,8 @@ int manager_new(SystemdRunningAs running_as, bool test_run, Manager **_m) {
         if (r < 0)
                 goto fail;
 
+        (void) sd_event_source_set_description(m->run_queue_event_source, "manager-run-queue");
+
         r = manager_setup_signals(m);
         if (r < 0)
                 goto fail;
@@ -691,6 +703,8 @@ static int manager_setup_notify(Manager *m) {
                 r = sd_event_source_set_priority(m->notify_event_source, -7);
                 if (r < 0)
                         return log_error_errno(r, "Failed to set priority of notify event source: %m");
+
+                (void) sd_event_source_set_description(m->notify_event_source, "manager-notify");
         }
 
         return 0;

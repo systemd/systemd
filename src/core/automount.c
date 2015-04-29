@@ -274,12 +274,13 @@ static int automount_coldplug(Unit *u) {
 
                 if (a->deserialized_state == AUTOMOUNT_WAITING ||
                     a->deserialized_state == AUTOMOUNT_RUNNING) {
-
                         assert(a->pipe_fd >= 0);
 
                         r = sd_event_add_io(u->manager->event, &a->pipe_event_source, a->pipe_fd, EPOLLIN, automount_dispatch_io, u);
                         if (r < 0)
                                 return r;
+
+                        (void) sd_event_source_set_description(a->pipe_event_source, "automount-io");
                 }
 
                 automount_set_state(a, a->deserialized_state);
@@ -595,6 +596,8 @@ static void automount_enter_waiting(Automount *a) {
         if (r < 0)
                 goto fail;
 
+        (void) sd_event_source_set_description(a->pipe_event_source, "automount-io");
+
         a->pipe_fd = p[0];
         a->dev_id = st.st_dev;
 
@@ -683,11 +686,17 @@ static int automount_start_expire(Automount *a) {
                 return sd_event_source_set_enabled(a->expire_event_source, SD_EVENT_ONESHOT);
         }
 
-        return sd_event_add_time(
+        r = sd_event_add_time(
                         UNIT(a)->manager->event,
                         &a->expire_event_source,
                         CLOCK_MONOTONIC, timeout, 0,
                         automount_dispatch_expire, a);
+        if (r < 0)
+                return r;
+
+        (void) sd_event_source_set_description(a->expire_event_source, "automount-expire");
+
+        return 0;
 }
 
 static void automount_enter_runnning(Automount *a) {

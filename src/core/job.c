@@ -934,6 +934,8 @@ int job_start_timer(Job *j) {
         if (r < 0)
                 return r;
 
+        (void) sd_event_source_set_description(j->timer_event_source, "job-start");
+
         return 0;
 }
 
@@ -1129,6 +1131,8 @@ int job_coldplug(Job *j) {
                         job_dispatch_timer, j);
         if (r < 0)
                 log_debug_errno(r, "Failed to restart timeout for job: %m");
+
+        (void) sd_event_source_set_description(j->timer_event_source, "job-timeout");
 
         return r;
 }

@@ -227,6 +227,8 @@ static void service_start_watchdog(Service *s) {
                         return;
                 }
 
+                (void) sd_event_source_set_description(s->watchdog_event_source, "service-watchdog");
+
                 /* Let's process everything else which might be a sign
                  * of living before we consider a service died. */
                 r = sd_event_source_set_priority(s->watchdog_event_source, SD_EVENT_PRIORITY_IDLE);
@@ -372,6 +374,8 @@ static int service_add_fd_store(Service *s, int fd) {
                 return r;
         }
 
+        (void) sd_event_source_set_description(fs->event_source, "service-fd-store");
+
         LIST_PREPEND(fd_store, s->fd_store, fs);
         s->n_fd_store++;
 
@@ -422,12 +426,18 @@ static int service_arm_timer(Service *s, usec_t usec) {
                 return sd_event_source_set_enabled(s->timer_event_source, SD_EVENT_ONESHOT);
         }
 
-        return sd_event_add_time(
+        r = sd_event_add_time(
                         UNIT(s)->manager->event,
                         &s->timer_event_source,
                         CLOCK_MONOTONIC,
                         now(CLOCK_MONOTONIC) + usec, 0,
                         service_dispatch_timer, s);
+        if (r < 0)
+                return r;
+
+        (void) sd_event_source_set_description(s->timer_event_source, "service-timer");
+
+        return 0;
 }
 
 static int service_verify(Service *s) {

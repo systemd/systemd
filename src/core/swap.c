@@ -177,12 +177,18 @@ static int swap_arm_timer(Swap *s) {
                 return sd_event_source_set_enabled(s->timer_event_source, SD_EVENT_ONESHOT);
         }
 
-        return sd_event_add_time(
+        r = sd_event_add_time(
                         UNIT(s)->manager->event,
                         &s->timer_event_source,
                         CLOCK_MONOTONIC,
                         now(CLOCK_MONOTONIC) + s->timeout_usec, 0,
                         swap_dispatch_timer, s);
+        if (r < 0)
+                return r;
+
+        (void) sd_event_source_set_description(s->timer_event_source, "swap-timer");
+
+        return 0;
 }
 
 static int swap_add_device_links(Swap *s) {
@@ -1294,6 +1300,8 @@ static int swap_enumerate(Manager *m) {
                 r = sd_event_source_set_priority(m->swap_event_source, -10);
                 if (r < 0)
                         goto fail;
+
+                (void) sd_event_source_set_description(m->swap_event_source, "swap-proc");
         }
 
         r = swap_load_proc_swaps(m, false);
