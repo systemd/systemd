@@ -49,11 +49,9 @@ Before 220:
 
 * introduce argv0array=
 
-* sd_bus_creds: allow distinguishing "missing data" and "data not applicable" when querying data
-
 Features:
 
-* sd_bus_send() without bus argument?
+* intrdouce sd_pid_get_user_slice() and friends
 
 * journalctl: -m should access container journals directly by enumerating them via machined, and also watch containers coming and going. Benefit: nspawn --ephemeral would start working nicely with the journal.
 
