@@ -3120,13 +3120,13 @@ lib_LTLIBRARIES += \
 tests += \
 	test-bus-marshal \
 	test-bus-signature \
+	test-bus-benchmark \
 	test-bus-chat \
 	test-bus-cleanup \
 	test-bus-server \
 	test-bus-match \
 	test-bus-kernel \
 	test-bus-kernel-bloom \
-	test-bus-kernel-benchmark \
 	test-bus-zero-copy \
 	test-bus-introspect \
 	test-bus-objects \
@@ -3258,10 +3258,10 @@ test_bus_kernel_bloom_LDADD = \
 	libsystemd-internal.la \
 	libsystemd-shared.la
 
-test_bus_kernel_benchmark_SOURCES = \
-	src/libsystemd/sd-bus/test-bus-kernel-benchmark.c
+test_bus_benchmark_SOURCES = \
+	src/libsystemd/sd-bus/test-bus-benchmark.c
 
-test_bus_kernel_benchmark_LDADD = \
+test_bus_benchmark_LDADD = \
 	libsystemd-internal.la \
 	libsystemd-shared.la
 

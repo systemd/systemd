@@ -144,6 +144,7 @@
 /test-barrier
 /test-boot-timestamp
 /test-btrfs
+/test-bus-benchmark
 /test-bus-chat
 /test-bus-cleanup
 /test-bus-creds
@@ -151,7 +152,6 @@
 /test-bus-gvariant
 /test-bus-introspect
 /test-bus-kernel
-/test-bus-kernel-benchmark
 /test-bus-kernel-bloom
 /test-bus-marshal
 /test-bus-match
