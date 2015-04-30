@@ -527,8 +527,7 @@ static const idev_element_vtable unmanaged_evdev_vtable = {
  * you run inside a user session with exclusive device access.
  */
 
-static int managed_evdev_take_device_fn(sd_bus *bus,
-                                        sd_bus_message *reply,
+static int managed_evdev_take_device_fn(sd_bus_message *reply,
                                         void *userdata,
                                         sd_bus_error *ret_error) {
         managed_evdev *em = userdata;

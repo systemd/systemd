@@ -271,8 +271,7 @@ sysview_seat *sysview_session_get_seat(sysview_session *session) {
         return session->seat;
 }
 
-static int session_take_control_fn(sd_bus *bus,
-                                   sd_bus_message *reply,
+static int session_take_control_fn(sd_bus_message *reply,
                                    void *userdata,
                                    sd_bus_error *ret_error) {
         sysview_session *session = userdata;
@@ -1216,8 +1215,7 @@ static int context_ld_session_removed(sysview_context *c, sd_bus_message *signal
         return 0;
 }
 
-static int context_ld_manager_signal_fn(sd_bus *bus,
-                                        sd_bus_message *signal,
+static int context_ld_manager_signal_fn(sd_bus_message *signal,
                                         void *userdata,
                                         sd_bus_error *ret_error) {
         sysview_context *c = userdata;
@@ -1260,8 +1258,7 @@ static void context_ld_stop(sysview_context *c) {
         c->ld_slot_manager_signal = sd_bus_slot_unref(c->ld_slot_manager_signal);
 }
 
-static int context_ld_list_seats_fn(sd_bus *bus,
-                                    sd_bus_message *reply,
+static int context_ld_list_seats_fn(sd_bus_message *reply,
                                     void *userdata,
                                     sd_bus_error *ret_error) {
         sysview_context *c = userdata;
@@ -1313,8 +1310,7 @@ settle:
         return r;
 }
 
-static int context_ld_list_sessions_fn(sd_bus *bus,
-                                       sd_bus_message *reply,
+static int context_ld_list_sessions_fn(sd_bus_message *reply,
                                        void *userdata,
                                        sd_bus_error *ret_error) {
         sysview_context *c = userdata;

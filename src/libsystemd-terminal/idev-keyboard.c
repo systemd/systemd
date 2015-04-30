@@ -387,8 +387,7 @@ static const struct bus_properties_map kbdctx_locale_map[] = {
         { },
 };
 
-static int kbdctx_locale_get_all_fn(sd_bus *bus,
-                                    sd_bus_message *m,
+static int kbdctx_locale_get_all_fn(sd_bus_message *m,
                                     void *userdata,
                                     sd_bus_error *ret_err) {
         kbdctx *kc = userdata;
@@ -404,7 +403,7 @@ static int kbdctx_locale_get_all_fn(sd_bus *bus,
                 return 0;
         }
 
-        r = bus_message_map_all_properties(bus, m, kbdctx_locale_map, kc);
+        r = bus_message_map_all_properties(m, kbdctx_locale_map, kc);
         if (r < 0) {
                 log_debug("idev-keyboard: erroneous GetAll() reply from locale1");
                 return 0;
@@ -448,8 +447,7 @@ error:
         return log_debug_errno(r, "idev-keyboard: cannot send GetAll to locale1: %m");
 }
 
-static int kbdctx_locale_props_changed_fn(sd_bus *bus,
-                                          sd_bus_message *signal,
+static int kbdctx_locale_props_changed_fn(sd_bus_message *signal,
                                           void *userdata,
                                           sd_bus_error *ret_err) {
         kbdctx *kc = userdata;

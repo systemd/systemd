@@ -428,8 +428,7 @@ idev_session *idev_find_session(idev_context *c, const char *name) {
         return hashmap_get(c->session_map, name);
 }
 
-static int session_resume_device_fn(sd_bus *bus,
-                                    sd_bus_message *signal,
+static int session_resume_device_fn(sd_bus_message *signal,
                                     void *userdata,
                                     sd_bus_error *ret_error) {
         idev_session *s = userdata;
@@ -451,8 +450,7 @@ static int session_resume_device_fn(sd_bus *bus,
         return 0;
 }
 
-static int session_pause_device_fn(sd_bus *bus,
-                                   sd_bus_message *signal,
+static int session_pause_device_fn(sd_bus_message *signal,
                                    void *userdata,
                                    sd_bus_error *ret_error) {
         idev_session *s = userdata;

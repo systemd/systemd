@@ -2655,8 +2655,7 @@ static void managed_card_disable(grdev_card *card) {
         grdrm_card_disable(&cm->card);
 }
 
-static int managed_card_pause_device_fn(sd_bus *bus,
-                                        sd_bus_message *signal,
+static int managed_card_pause_device_fn(sd_bus_message *signal,
                                         void *userdata,
                                         sd_bus_error *ret_error) {
         managed_card *cm = userdata;
@@ -2744,8 +2743,7 @@ static int managed_card_pause_device_fn(sd_bus *bus,
         return 0;
 }
 
-static int managed_card_resume_device_fn(sd_bus *bus,
-                                         sd_bus_message *signal,
+static int managed_card_resume_device_fn(sd_bus_message *signal,
                                          void *userdata,
                                          sd_bus_error *ret_error) {
         managed_card *cm = userdata;
@@ -2847,8 +2845,7 @@ static int managed_card_setup_bus(managed_card *cm) {
         return 0;
 }
 
-static int managed_card_take_device_fn(sd_bus *bus,
-                                       sd_bus_message *reply,
+static int managed_card_take_device_fn(sd_bus_message *reply,
                                        void *userdata,
                                        sd_bus_error *ret_error) {
         managed_card *cm = userdata;
