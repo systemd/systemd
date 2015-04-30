@@ -49,11 +49,15 @@ Before 220:
 
 * introduce argv0array=
 
+* be stricter when validating slice names
+
 Features:
 
-* when detecting kdbus support in busname.c make sure to check kdbus kernel ioctl version
+* logind: rename session scope so that it includes the UID. THat way
+  the session scope can be arranged freely in slices and we don't have
+  make assumptions about their slice anymore.
 
-* intrdouce sd_pid_get_user_slice() and friends
+* when detecting kdbus support in busname.c make sure to check kdbus kernel ioctl version
 
 * journalctl: -m should access container journals directly by enumerating them via machined, and also watch containers coming and going. Benefit: nspawn --ephemeral would start working nicely with the journal.
 
