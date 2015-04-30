@@ -1250,7 +1250,7 @@
           <row>
       <entry><literal>%H</literal></entry>
       <entry>Host name</entry>
-      <entry>The hostname of the running system at the point in time the unit configuation is loaded.</entry>
+      <entry>The hostname of the running system at the point in time the unit configuration is loaded.</entry>
           </row>
           <row>
       <entry><literal>%v</literal></entry>

@@ -136,7 +136,7 @@ static void tar_export_report_progress(TarExport *e) {
         unsigned percent;
         assert(e);
 
-        /* Do we have any quota info? I fnot, we don't know anything about the progress */
+        /* Do we have any quota info? If not, we don't know anything about the progress */
         if (e->quota_referenced == (uint64_t) -1)
                 return;
 
