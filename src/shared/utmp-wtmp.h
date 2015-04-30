@@ -65,7 +65,7 @@ static inline int utmp_wall(
                 const char *username,
                 const char *origin_tty,
                 bool (*match_tty)(const char *tty, void *userdata),
-                void *userdata);
+                void *userdata) {
         return 0;
 }
 
