@@ -268,9 +268,14 @@ static void test_slice_to_path(void) {
         test_slice_to_path_one("foobar.slice", "foobar.slice", 0);
         test_slice_to_path_one("foobar-waldo.slice", "foobar.slice/foobar-waldo.slice", 0);
         test_slice_to_path_one("foobar-waldo.service", NULL, -EINVAL);
-        test_slice_to_path_one("-.slice", NULL, -EINVAL);
+        test_slice_to_path_one("-.slice", "", 0);
+        test_slice_to_path_one("--.slice", NULL, -EINVAL);
+        test_slice_to_path_one("-", NULL, -EINVAL);
         test_slice_to_path_one("-foo-.slice", NULL, -EINVAL);
         test_slice_to_path_one("-foo.slice", NULL, -EINVAL);
+        test_slice_to_path_one("foo-.slice", NULL, -EINVAL);
+        test_slice_to_path_one("foo--bar.slice", "foo.slice/foo-.slice/foo--bar.slice", 0);
+        test_slice_to_path_one("foo.slice/foo--bar.slice", NULL, -EINVAL);
         test_slice_to_path_one("a-b.slice", "a.slice/a-b.slice", 0);
         test_slice_to_path_one("a-b-c-d-e.slice", "a.slice/a-b.slice/a-b-c.slice/a-b-c-d.slice/a-b-c-d-e.slice", 0);
 }

@@ -1642,6 +1642,16 @@ int cg_slice_to_path(const char *unit, char **ret) {
         assert(unit);
         assert(ret);
 
+        if (streq(unit, "-.slice")) {
+                char *x;
+
+                x = strdup("");
+                if (!x)
+                        return -ENOMEM;
+                *ret = x;
+                return 0;
+        }
+
         if (!unit_name_is_valid(unit, TEMPLATE_INVALID))
                 return -EINVAL;
 
@@ -1657,8 +1667,10 @@ int cg_slice_to_path(const char *unit, char **ret) {
                 _cleanup_free_ char *escaped = NULL;
                 char n[dash - p + sizeof(".slice")];
 
-                strcpy(stpncpy(n, p, dash - p), ".slice");
+                if (isempty(dash + 1))
+                        return -EINVAL;
 
+                strcpy(stpncpy(n, p, dash - p), ".slice");
                 if (!unit_name_is_valid(n, TEMPLATE_INVALID))
                         return -EINVAL;
 
