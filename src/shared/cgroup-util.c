@@ -1663,11 +1663,17 @@ int cg_slice_to_path(const char *unit, char **ret) {
                 return -ENOMEM;
 
         dash = strchr(p, '-');
+
+        /* Don't allow initial dashes */
+        if (dash == p)
+                return -EINVAL;
+
         while (dash) {
                 _cleanup_free_ char *escaped = NULL;
                 char n[dash - p + sizeof(".slice")];
 
-                if (isempty(dash + 1))
+                /* Don't allow trailing or double dashes */
+                if (dash[1] == 0 || dash[1] == '-')
                         return -EINVAL;
 
                 strcpy(stpncpy(n, p, dash - p), ".slice");
