@@ -335,7 +335,7 @@ int bus_creds_dump(sd_bus_creds *c, FILE *f, bool terse) {
         uint32_t audit_sessionid;
         char **cmdline = NULL, **well_known = NULL;
         const char *prefix, *color, *suffix, *s;
-        int r, q, v, w;
+        int r, q, v, w, z;
 
         assert(c);
 
@@ -447,19 +447,23 @@ int bus_creds_dump(sd_bus_creds *c, FILE *f, bool terse) {
         if (r != -ENODATA)
                 fprintf(f, "%sUnit=%s%s%s", prefix, color, strna(s), suffix);
         s = NULL;
-        q = sd_bus_creds_get_user_unit(c, &s);
-        if (q != -ENODATA)
-                fprintf(f, "%sUserUnit=%s%s%s", prefix, color, strna(s), suffix);
-        s = NULL;
         v = sd_bus_creds_get_slice(c, &s);
         if (v != -ENODATA)
                 fprintf(f, "%sSlice=%s%s%s", prefix, color, strna(s), suffix);
         s = NULL;
-        w = sd_bus_creds_get_session(c, &s);
+        q = sd_bus_creds_get_user_unit(c, &s);
+        if (q != -ENODATA)
+                fprintf(f, "%sUserUnit=%s%s%s", prefix, color, strna(s), suffix);
+        s = NULL;
+        w = sd_bus_creds_get_user_slice(c, &s);
         if (w != -ENODATA)
+                fprintf(f, "%sUserSlice=%s%s%s", prefix, color, strna(s), suffix);
+        s = NULL;
+        z = sd_bus_creds_get_session(c, &s);
+        if (z != -ENODATA)
                 fprintf(f, "%sSession=%s%s%s", prefix, color, strna(s), suffix);
 
-        if (terse && ((c->mask & SD_BUS_CREDS_CGROUP) || r != -ENODATA || q != -ENODATA || v != -ENODATA || w != -ENODATA))
+        if (terse && ((c->mask & SD_BUS_CREDS_CGROUP) || r != -ENODATA || q != -ENODATA || v != -ENODATA || w != -ENODATA || z != -ENODATA))
                 fputs("\n", f);
 
         r = sd_bus_creds_get_audit_login_uid(c, &audit_loginuid);

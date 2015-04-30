@@ -73,23 +73,24 @@ enum {
         SD_BUS_CREDS_CMDLINE            = 1ULL << 15,
         SD_BUS_CREDS_CGROUP             = 1ULL << 16,
         SD_BUS_CREDS_UNIT               = 1ULL << 17,
-        SD_BUS_CREDS_USER_UNIT          = 1ULL << 18,
-        SD_BUS_CREDS_SLICE              = 1ULL << 19,
-        SD_BUS_CREDS_SESSION            = 1ULL << 20,
-        SD_BUS_CREDS_OWNER_UID          = 1ULL << 21,
-        SD_BUS_CREDS_EFFECTIVE_CAPS     = 1ULL << 22,
-        SD_BUS_CREDS_PERMITTED_CAPS     = 1ULL << 23,
-        SD_BUS_CREDS_INHERITABLE_CAPS   = 1ULL << 24,
-        SD_BUS_CREDS_BOUNDING_CAPS      = 1ULL << 25,
-        SD_BUS_CREDS_SELINUX_CONTEXT    = 1ULL << 26,
-        SD_BUS_CREDS_AUDIT_SESSION_ID   = 1ULL << 27,
-        SD_BUS_CREDS_AUDIT_LOGIN_UID    = 1ULL << 28,
-        SD_BUS_CREDS_TTY                = 1ULL << 29,
-        SD_BUS_CREDS_UNIQUE_NAME        = 1ULL << 30,
-        SD_BUS_CREDS_WELL_KNOWN_NAMES   = 1ULL << 31,
-        SD_BUS_CREDS_DESCRIPTION        = 1ULL << 32,
+        SD_BUS_CREDS_SLICE              = 1ULL << 18,
+        SD_BUS_CREDS_USER_UNIT          = 1ULL << 19,
+        SD_BUS_CREDS_USER_SLICE         = 1ULL << 20,
+        SD_BUS_CREDS_SESSION            = 1ULL << 21,
+        SD_BUS_CREDS_OWNER_UID          = 1ULL << 22,
+        SD_BUS_CREDS_EFFECTIVE_CAPS     = 1ULL << 23,
+        SD_BUS_CREDS_PERMITTED_CAPS     = 1ULL << 24,
+        SD_BUS_CREDS_INHERITABLE_CAPS   = 1ULL << 25,
+        SD_BUS_CREDS_BOUNDING_CAPS      = 1ULL << 26,
+        SD_BUS_CREDS_SELINUX_CONTEXT    = 1ULL << 27,
+        SD_BUS_CREDS_AUDIT_SESSION_ID   = 1ULL << 28,
+        SD_BUS_CREDS_AUDIT_LOGIN_UID    = 1ULL << 29,
+        SD_BUS_CREDS_TTY                = 1ULL << 30,
+        SD_BUS_CREDS_UNIQUE_NAME        = 1ULL << 31,
+        SD_BUS_CREDS_WELL_KNOWN_NAMES   = 1ULL << 32,
+        SD_BUS_CREDS_DESCRIPTION        = 1ULL << 33,
         SD_BUS_CREDS_AUGMENT            = 1ULL << 63, /* special flag, if on sd-bus will augment creds struct, in a potentially race-full way. */
-        _SD_BUS_CREDS_ALL               = (1ULL << 33) -1,
+        _SD_BUS_CREDS_ALL               = (1ULL << 34) -1,
 };
 
 enum {
@@ -351,8 +352,9 @@ int sd_bus_creds_get_exe(sd_bus_creds *c, const char **exe);
 int sd_bus_creds_get_cmdline(sd_bus_creds *c, char ***cmdline);
 int sd_bus_creds_get_cgroup(sd_bus_creds *c, const char **cgroup);
 int sd_bus_creds_get_unit(sd_bus_creds *c, const char **unit);
-int sd_bus_creds_get_user_unit(sd_bus_creds *c, const char **unit);
 int sd_bus_creds_get_slice(sd_bus_creds *c, const char **slice);
+int sd_bus_creds_get_user_unit(sd_bus_creds *c, const char **unit);
+int sd_bus_creds_get_user_slice(sd_bus_creds *c, const char **slice);
 int sd_bus_creds_get_session(sd_bus_creds *c, const char **session);
 int sd_bus_creds_get_owner_uid(sd_bus_creds *c, uid_t *uid);
 int sd_bus_creds_has_effective_cap(sd_bus_creds *c, int capability);

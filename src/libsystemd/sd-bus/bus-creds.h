@@ -61,6 +61,7 @@ struct sd_bus_creds {
         char *unit;
         char *user_unit;
         char *slice;
+        char *user_slice;
 
         char *tty;
 

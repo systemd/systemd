@@ -62,21 +62,24 @@ int sd_pid_get_session(pid_t pid, char **session);
  * return an error for system processes. */
 int sd_pid_get_owner_uid(pid_t pid, uid_t *uid);
 
-/* Get systemd unit (i.e. service) name from PID, for system
+/* Get systemd non-slice unit (i.e. service) name from PID, for system
  * services. This will return an error for non-service processes. */
 int sd_pid_get_unit(pid_t pid, char **unit);
 
-/* Get systemd unit (i.e. service) name from PID, for user
+/* Get systemd non-slice unit (i.e. service) name from PID, for user
  * services. This will return an error for non-user-service
  * processes. */
 int sd_pid_get_user_unit(pid_t pid, char **unit);
 
+/* Get slice name from PID. */
+int sd_pid_get_slice(pid_t pid, char **slice);
+
+/* Get user slice name from PID. */
+int sd_pid_get_user_slice(pid_t pid, char **slice);
+
 /* Get machine name from PID, for processes assigned to a VM or
  * container. This will return an error for non-machine processes. */
 int sd_pid_get_machine_name(pid_t pid, char **machine);
-
-/* Get slice name from PID. */
-int sd_pid_get_slice(pid_t pid, char **slice);
 
 /* Similar to sd_pid_get_session(), but retrieves data about peer of
  * connected AF_UNIX socket */
@@ -94,13 +97,17 @@ int sd_peer_get_unit(int fd, char **unit);
  * connected AF_UNIX socket */
 int sd_peer_get_user_unit(int fd, char **unit);
 
-/* Similar to sd_pid_get_machine_name(), but retrieves data about peer
- * of connected AF_UNIX socket */
-int sd_peer_get_machine_name(int fd, char **machine);
-
 /* Similar to sd_pid_get_slice(), but retrieves data about peer of
  * connected AF_UNIX socket */
 int sd_peer_get_slice(int fd, char **slice);
+
+/* Similar to sd_pid_get_user_slice(), but retrieves data about peer of
+ * connected AF_UNIX socket */
+int sd_peer_get_user_slice(int fd, char **slice);
+
+/* Similar to sd_pid_get_machine_name(), but retrieves data about peer
+ * of connected AF_UNIX socket */
+int sd_peer_get_machine_name(int fd, char **machine);
 
 /* Get state from UID. Possible states: offline, lingering, online, active, closing */
 int sd_uid_get_state(uid_t uid, char **state);

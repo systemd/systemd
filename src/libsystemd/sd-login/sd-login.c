@@ -74,6 +74,14 @@ _public_ int sd_pid_get_slice(pid_t pid, char **slice) {
         return cg_pid_get_slice(pid, slice);
 }
 
+_public_ int sd_pid_get_user_slice(pid_t pid, char **slice) {
+
+        assert_return(pid >= 0, -EINVAL);
+        assert_return(slice, -EINVAL);
+
+        return cg_pid_get_user_slice(pid, slice);
+}
+
 _public_ int sd_pid_get_owner_uid(pid_t pid, uid_t *uid) {
 
         assert_return(pid >= 0, -EINVAL);
@@ -164,6 +172,20 @@ _public_ int sd_peer_get_slice(int fd, char **slice) {
                 return r;
 
         return cg_pid_get_slice(ucred.pid, slice);
+}
+
+_public_ int sd_peer_get_user_slice(int fd, char **slice) {
+        struct ucred ucred;
+        int r;
+
+        assert_return(fd >= 0, -EINVAL);
+        assert_return(slice, -EINVAL);
+
+        r = getpeercred(fd, &ucred);
+        if (r < 0)
+                return r;
+
+        return cg_pid_get_user_slice(ucred.pid, slice);
 }
 
 static int file_of_uid(uid_t uid, char **p) {

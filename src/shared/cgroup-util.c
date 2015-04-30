@@ -1317,45 +1317,37 @@ static const char *skip_user_manager(const char *p) {
         return NULL;
 }
 
-int cg_path_get_user_unit(const char *path, char **ret) {
+static const char *skip_user_prefix(const char *path) {
         const char *e, *t;
-        char *unit;
-        int r;
 
         assert(path);
-        assert(ret);
-
-        /* We always have to parse the path from the beginning as unit
-         * cgroups might have arbitrary child cgroups and we shouldn't get
-         * confused by those */
 
         /* Skip slices, if there are any */
         e = skip_slices(path);
 
-        /* Skip the user manager... */
+        /* Skip the user manager, if it's in the path now... */
         t = skip_user_manager(e);
+        if (t)
+                return t;
 
-        /* Alternatively skip the user session... */
-        if (!t)
-                t = skip_session(e);
+        /* Alternatively skip the user session if it is in the path... */
+        return skip_session(e);
+}
+
+int cg_path_get_user_unit(const char *path, char **ret) {
+        const char *t;
+
+        assert(path);
+        assert(ret);
+
+        t = skip_user_prefix(path);
         if (!t)
                 return -ENXIO;
 
-        /* ... and skip more slices if there are any */
-        e = skip_slices(t);
-
-        r = cg_path_decode_unit(e, &unit);
-        if (r < 0)
-                return r;
-
-        /* We skipped over the slices, don't accept any now */
-        if (endswith(unit, ".slice")) {
-                free(unit);
-                return -ENXIO;
-        }
-
-        *ret = unit;
-        return 0;
+        /* And from here on it looks pretty much the same as for a
+         * system unit, hence let's use the same parser from here
+         * on. */
+        return cg_path_get_unit(t, ret);
 }
 
 int cg_pid_get_user_unit(pid_t pid, char **unit) {
@@ -1487,6 +1479,9 @@ int cg_path_get_slice(const char *p, char **slice) {
         assert(p);
         assert(slice);
 
+        /* Finds the right-most slice unit from the beginning, but
+         * stops before we come to the first non-slice unit. */
+
         for (;;) {
                 size_t n;
 
@@ -1525,6 +1520,33 @@ int cg_pid_get_slice(pid_t pid, char **slice) {
                 return r;
 
         return cg_path_get_slice(cgroup, slice);
+}
+
+int cg_path_get_user_slice(const char *p, char **slice) {
+        const char *t;
+        assert(p);
+        assert(slice);
+
+        t = skip_user_prefix(p);
+        if (!t)
+                return -ENXIO;
+
+        /* And now it looks pretty much the same as for a system
+         * slice, so let's just use the same parser from here on. */
+        return cg_path_get_slice(t, slice);
+}
+
+int cg_pid_get_user_slice(pid_t pid, char **slice) {
+        _cleanup_free_ char *cgroup = NULL;
+        int r;
+
+        assert(slice);
+
+        r = cg_pid_get_path_shifted(pid, NULL, &cgroup);
+        if (r < 0)
+                return r;
+
+        return cg_path_get_user_slice(cgroup, slice);
 }
 
 char *cg_escape(const char *p) {

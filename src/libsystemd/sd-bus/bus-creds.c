@@ -53,6 +53,7 @@ void bus_creds_done(sd_bus_creds *c) {
         free(c->unit);
         free(c->user_unit);
         free(c->slice);
+        free(c->user_slice);
         free(c->unescaped_description);
         free(c->supplementary_gids);
         free(c->tty);
@@ -463,6 +464,33 @@ _public_ int sd_bus_creds_get_slice(sd_bus_creds *c, const char **ret) {
         }
 
         *ret = c->slice;
+        return 0;
+}
+
+_public_ int sd_bus_creds_get_user_slice(sd_bus_creds *c, const char **ret) {
+        int r;
+
+        assert_return(c, -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        if (!(c->mask & SD_BUS_CREDS_USER_SLICE))
+                return -ENODATA;
+
+        assert(c->cgroup);
+
+        if (!c->user_slice) {
+                const char *shifted;
+
+                r = cg_shift_path(c->cgroup, c->cgroup_root, &shifted);
+                if (r < 0)
+                        return r;
+
+                r = cg_path_get_user_slice(shifted, (char**) &c->user_slice);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = c->user_slice;
         return 0;
 }
 
@@ -1013,7 +1041,7 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid) {
                         c->mask |= SD_BUS_CREDS_TID_COMM;
         }
 
-        if (missing & (SD_BUS_CREDS_CGROUP|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_USER_UNIT|SD_BUS_CREDS_SLICE|SD_BUS_CREDS_SESSION|SD_BUS_CREDS_OWNER_UID)) {
+        if (missing & (SD_BUS_CREDS_CGROUP|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_USER_UNIT|SD_BUS_CREDS_SLICE|SD_BUS_CREDS_USER_SLICE|SD_BUS_CREDS_SESSION|SD_BUS_CREDS_OWNER_UID)) {
 
                 if (!c->cgroup) {
                         r = cg_pid_get_path(NULL, pid, &c->cgroup);
@@ -1030,7 +1058,7 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid) {
                 }
 
                 if (c->cgroup)
-                        c->mask |= missing & (SD_BUS_CREDS_CGROUP|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_USER_UNIT|SD_BUS_CREDS_SLICE|SD_BUS_CREDS_SESSION|SD_BUS_CREDS_OWNER_UID);
+                        c->mask |= missing & (SD_BUS_CREDS_CGROUP|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_USER_UNIT|SD_BUS_CREDS_SLICE|SD_BUS_CREDS_USER_SLICE|SD_BUS_CREDS_SESSION|SD_BUS_CREDS_OWNER_UID);
         }
 
         if (missing & SD_BUS_CREDS_AUDIT_SESSION_ID) {
@@ -1224,7 +1252,7 @@ int bus_creds_extend_by_pid(sd_bus_creds *c, uint64_t mask, sd_bus_creds **ret) 
                 n->mask |= SD_BUS_CREDS_CMDLINE;
         }
 
-        if (c->mask & mask & (SD_BUS_CREDS_CGROUP|SD_BUS_CREDS_SESSION|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_USER_UNIT|SD_BUS_CREDS_SLICE|SD_BUS_CREDS_OWNER_UID)) {
+        if (c->mask & mask & (SD_BUS_CREDS_CGROUP|SD_BUS_CREDS_SESSION|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_USER_UNIT|SD_BUS_CREDS_SLICE|SD_BUS_CREDS_USER_SLICE|SD_BUS_CREDS_OWNER_UID)) {
                 assert(c->cgroup);
 
                 n->cgroup = strdup(c->cgroup);
@@ -1235,7 +1263,7 @@ int bus_creds_extend_by_pid(sd_bus_creds *c, uint64_t mask, sd_bus_creds **ret) 
                 if (!n->cgroup_root)
                         return -ENOMEM;
 
-                n->mask |= mask & (SD_BUS_CREDS_CGROUP|SD_BUS_CREDS_SESSION|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_USER_UNIT|SD_BUS_CREDS_SLICE|SD_BUS_CREDS_OWNER_UID);
+                n->mask |= mask & (SD_BUS_CREDS_CGROUP|SD_BUS_CREDS_SESSION|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_USER_UNIT|SD_BUS_CREDS_SLICE|SD_BUS_CREDS_USER_SLICE|SD_BUS_CREDS_OWNER_UID);
         }
 
         if (c->mask & mask & (SD_BUS_CREDS_EFFECTIVE_CAPS|SD_BUS_CREDS_PERMITTED_CAPS|SD_BUS_CREDS_INHERITABLE_CAPS|SD_BUS_CREDS_BOUNDING_CAPS)) {

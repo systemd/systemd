@@ -142,6 +142,30 @@ static void test_path_get_slice(void) {
         check_p_g_slice("foo.slice/foo-bar.slice/waldo.service", 0, "foo-bar.slice");
 }
 
+static void check_p_g_u_slice(const char *path, int code, const char *result) {
+        _cleanup_free_ char *s = NULL;
+
+        assert_se(cg_path_get_user_slice(path, &s) == code);
+        assert_se(streq_ptr(s, result));
+}
+
+static void test_path_get_user_slice(void) {
+        check_p_g_u_slice("/user.slice", -ENXIO, NULL);
+        check_p_g_u_slice("/foobar", -ENXIO, NULL);
+        check_p_g_u_slice("/user.slice/user-waldo.slice", -ENXIO, NULL);
+        check_p_g_u_slice("", -ENXIO, NULL);
+        check_p_g_u_slice("foobar", -ENXIO, NULL);
+        check_p_g_u_slice("foobar.slice", -ENXIO, NULL);
+        check_p_g_u_slice("foo.slice/foo-bar.slice/waldo.service", -ENXIO, NULL);
+
+        check_p_g_u_slice("foo.slice/foo-bar.slice/user@1000.service", 0, "-.slice");
+        check_p_g_u_slice("foo.slice/foo-bar.slice/user@1000.service/", 0, "-.slice");
+        check_p_g_u_slice("foo.slice/foo-bar.slice/user@1000.service///", 0, "-.slice");
+        check_p_g_u_slice("foo.slice/foo-bar.slice/user@1000.service/waldo.service", 0, "-.slice");
+        check_p_g_u_slice("foo.slice/foo-bar.slice/user@1000.service/piep.slice/foo.service", 0, "piep.slice");
+        check_p_g_u_slice("/foo.slice//foo-bar.slice/user@1000.service/piep.slice//piep-pap.slice//foo.service", 0, "piep-pap.slice");
+}
+
 static void test_get_paths(void) {
         _cleanup_free_ char *a = NULL;
 
@@ -273,6 +297,7 @@ int main(void) {
         test_path_get_session();
         test_path_get_owner_uid();
         test_path_get_slice();
+        test_path_get_user_slice();
         TEST_REQ_RUNNING_SYSTEMD(test_get_paths());
         test_proc();
         TEST_REQ_RUNNING_SYSTEMD(test_escape());

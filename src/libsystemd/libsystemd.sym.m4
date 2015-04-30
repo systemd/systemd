@@ -163,6 +163,12 @@ global:
         sd_pid_notify_with_fds;
 } LIBSYSTEMD_217;
 
+LIBSYSTEMD_220 {
+global:
+        sd_pid_get_user_slice;
+        sd_peer_get_user_slice;
+} LIBSYSTEMD_219;
+
 m4_ifdef(`ENABLE_KDBUS',
 LIBSYSTEMD_FUTURE {
 global:
@@ -334,8 +340,9 @@ global:
         sd_bus_creds_get_cmdline;
         sd_bus_creds_get_cgroup;
         sd_bus_creds_get_unit;
-        sd_bus_creds_get_user_unit;
         sd_bus_creds_get_slice;
+        sd_bus_creds_get_user_unit;
+        sd_bus_creds_get_user_slice;
         sd_bus_creds_get_session;
         sd_bus_creds_get_owner_uid;
         sd_bus_creds_has_effective_cap;
@@ -459,5 +466,5 @@ global:
         /* sd-path */
         sd_path_home;
         sd_path_search;
-} LIBSYSTEMD_217;
+} LIBSYSTEMD_220;
 )
