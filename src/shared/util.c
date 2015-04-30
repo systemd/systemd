@@ -3917,7 +3917,7 @@ bool path_is_safe(const char *p) {
         if (streq(p, "..") || startswith(p, "../") || endswith(p, "/..") || strstr(p, "/../"))
                 return false;
 
-        if (strlen(p) > PATH_MAX)
+        if (strlen(p)+1 > PATH_MAX)
                 return false;
 
         /* The following two checks are not really dangerous, but hey, they still are confusing */
