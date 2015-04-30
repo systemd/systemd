@@ -99,7 +99,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_TEMPLATE:
 
-                        if (!unit_name_is_valid(optarg, true) || !unit_name_is_template(optarg)) {
+                        if (!unit_name_is_valid(optarg, UNIT_NAME_TEMPLATE)) {
                                 log_error("Template name %s is not valid.", optarg);
                                 return -EINVAL;
                         }
@@ -166,22 +166,26 @@ int main(int argc, char *argv[]) {
                 switch (arg_action) {
 
                 case ACTION_ESCAPE:
-                        if (arg_path)
-                                e = unit_name_path_escape(*i);
-                        else
+                        if (arg_path) {
+                                r = unit_name_path_escape(*i, &e);
+                                if (r < 0) {
+                                        log_error_errno(r, "Failed to escape string: %m");
+                                        goto finish;
+                                }
+                        } else {
                                 e = unit_name_escape(*i);
-
-                        if (!e) {
-                                r = log_oom();
-                                goto finish;
+                                if (!e) {
+                                        r = log_oom();
+                                        goto finish;
+                                }
                         }
 
                         if (arg_template) {
                                 char *x;
 
-                                x = unit_name_replace_instance(arg_template, e);
-                                if (!x) {
-                                        r = log_oom();
+                                r = unit_name_replace_instance(arg_template, e, &x);
+                                if (r < 0) {
+                                        log_error_errno(r, "Failed to replace instance: %m");
                                         goto finish;
                                 }
 
@@ -204,20 +208,20 @@ int main(int argc, char *argv[]) {
 
                 case ACTION_UNESCAPE:
                         if (arg_path)
-                                e = unit_name_path_unescape(*i);
+                                r = unit_name_path_unescape(*i, &e);
                         else
-                                e = unit_name_unescape(*i);
+                                r = unit_name_unescape(*i, &e);
 
-                        if (!e) {
-                                r = log_oom();
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to unescape string: %m");
                                 goto finish;
                         }
                         break;
 
                 case ACTION_MANGLE:
-                        e = unit_name_mangle(*i, MANGLE_NOGLOB);
-                        if (!e) {
-                                r = log_oom();
+                        r = unit_name_mangle(*i, UNIT_NAME_NOGLOB, &e);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to mangle name: %m");
                                 goto finish;
                         }
                         break;

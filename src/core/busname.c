@@ -163,9 +163,9 @@ static int busname_add_extras(BusName *n) {
         assert(n);
 
         if (!n->name) {
-                n->name = unit_name_to_prefix(u->id);
-                if (!n->name)
-                        return -ENOMEM;
+                r = unit_name_to_prefix(u->id, &n->name);
+                if (r < 0)
+                        return r;
         }
 
         if (!u->description) {

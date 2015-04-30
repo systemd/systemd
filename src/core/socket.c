@@ -196,12 +196,15 @@ int socket_instantiate_service(Socket *s) {
          * here. For Accept=no this is mostly a NOP since the service
          * is figured out at load time anyway. */
 
-        if (UNIT_DEREF(s->service) || !s->accept)
+        if (UNIT_DEREF(s->service))
                 return 0;
 
-        prefix = unit_name_to_prefix(UNIT(s)->id);
-        if (!prefix)
-                return -ENOMEM;
+        if (!s->accept)
+                return 0;
+
+        r = unit_name_to_prefix(UNIT(s)->id, &prefix);
+        if (r < 0)
+                return r;
 
         if (asprintf(&name, "%s@%u.service", prefix, s->n_accepted) < 0)
                 return -ENOMEM;
@@ -1836,17 +1839,13 @@ static void socket_enter_running(Socket *s, int cfd) {
                         return;
                 }
 
-                prefix = unit_name_to_prefix(UNIT(s)->id);
-                if (!prefix) {
-                        r = -ENOMEM;
+                r = unit_name_to_prefix(UNIT(s)->id, &prefix);
+                if (r < 0)
                         goto fail;
-                }
 
-                name = unit_name_build(prefix, instance, ".service");
-                if (!name) {
-                        r = -ENOMEM;
+                r = unit_name_build(prefix, instance, ".service", &name);
+                if (r < 0)
                         goto fail;
-                }
 
                 r = unit_add_name(UNIT_DEREF(s->service), name);
                 if (r < 0)

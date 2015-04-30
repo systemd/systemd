@@ -310,11 +310,13 @@ static int sysv_translate_facility(const char *name, const char *filename, char 
          * out whether something is a target or a service alias. */
 
         if (*name == '$') {
-                if (!unit_prefix_is_valid(n))
-                        return -EINVAL;
+                int k;
 
                 /* Facilities starting with $ are most likely targets */
-                r = unit_name_build(n, NULL, ".target");
+                k = unit_name_build(n, NULL, ".target", &r);
+                if (k < 0)
+                        return k;
+
         } else if (streq_ptr(n, filename))
                 /* Names equaling the file name of the services are redundant */
                 return 0;

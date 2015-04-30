@@ -32,6 +32,7 @@ static const char *arg_dest = "/tmp";
 static char *arg_resume_dev = NULL;
 
 static int parse_proc_cmdline_item(const char *key, const char *value) {
+
         if (streq(key, "resume") && value) {
                 free(arg_resume_dev);
                 arg_resume_dev = fstab_node_to_udev_node(value);
@@ -44,13 +45,14 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
 
 static int process_resume(void) {
         _cleanup_free_ char *name = NULL, *lnk = NULL;
+        int r;
 
         if (!arg_resume_dev)
                 return 0;
 
-        name = unit_name_from_path_instance("systemd-hibernate-resume", arg_resume_dev, ".service");
-        if (!name)
-                return log_oom();
+        r = unit_name_from_path_instance("systemd-hibernate-resume", arg_resume_dev, ".service", &name);
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate unit name: %m");
 
         lnk = strjoin(arg_dest, "/" SPECIAL_SYSINIT_TARGET ".wants/", name, NULL);
         if (!lnk)

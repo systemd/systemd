@@ -143,21 +143,31 @@ int unit_add_name(Unit *u, const char *text) {
         assert(u);
         assert(text);
 
-        if (unit_name_is_template(text)) {
+        if (unit_name_is_valid(text, UNIT_NAME_TEMPLATE)) {
 
                 if (!u->instance)
                         return -EINVAL;
 
-                s = unit_name_replace_instance(text, u->instance);
-        } else
+                r = unit_name_replace_instance(text, u->instance, &s);
+                if (r < 0)
+                        return r;
+        } else {
                 s = strdup(text);
-        if (!s)
-                return -ENOMEM;
+                if (!s)
+                        return -ENOMEM;
+        }
 
-        if (!unit_name_is_valid(s, TEMPLATE_INVALID))
+        if (set_contains(u->names, s))
+                return 0;
+        if (hashmap_contains(u->manager->units, s))
+                return -EEXIST;
+
+        if (!unit_name_is_valid(s, UNIT_NAME_PLAIN|UNIT_NAME_INSTANCE))
                 return -EINVAL;
 
-        assert_se((t = unit_name_to_type(s)) >= 0);
+        t = unit_name_to_type(s);
+        if (t < 0)
+                return -EINVAL;
 
         if (u->type != _UNIT_TYPE_INVALID && t != u->type)
                 return -EINVAL;
@@ -170,25 +180,25 @@ int unit_add_name(Unit *u, const char *text) {
                 return -EINVAL;
 
         /* Ensure that this unit is either instanced or not instanced,
-         * but not both. */
+         * but not both. Note that we do allow names with different
+         * instance names however! */
         if (u->type != _UNIT_TYPE_INVALID && !u->instance != !i)
                 return -EINVAL;
 
-        if (unit_vtable[t]->no_alias &&
-            !set_isempty(u->names) &&
-            !set_get(u->names, s))
+        if (unit_vtable[t]->no_alias && !set_isempty(u->names))
                 return -EEXIST;
 
         if (hashmap_size(u->manager->units) >= MANAGER_MAX_NAMES)
                 return -E2BIG;
 
         r = set_put(u->names, s);
-        if (r <= 0)
+        if (r < 0)
                 return r;
+        assert(r > 0);
 
         r = hashmap_put(u->manager->units, s, u);
         if (r < 0) {
-                set_remove(u->names, s);
+                (void) set_remove(u->names, s);
                 return r;
         }
 
@@ -218,14 +228,14 @@ int unit_choose_id(Unit *u, const char *name) {
         assert(u);
         assert(name);
 
-        if (unit_name_is_template(name)) {
+        if (unit_name_is_valid(name, UNIT_NAME_TEMPLATE)) {
 
                 if (!u->instance)
                         return -EINVAL;
 
-                t = unit_name_replace_instance(name, u->instance);
-                if (!t)
-                        return -ENOMEM;
+                r = unit_name_replace_instance(name, u->instance, &t);
+                if (r < 0)
+                        return r;
 
                 name = t;
         }
@@ -235,6 +245,7 @@ int unit_choose_id(Unit *u, const char *name) {
         if (!s)
                 return -ENOENT;
 
+        /* Determine the new instance from the new id */
         r = unit_name_to_instance(s, &i);
         if (r < 0)
                 return r;
@@ -748,24 +759,22 @@ int unit_merge_by_name(Unit *u, const char *name) {
         assert(u);
         assert(name);
 
-        if (unit_name_is_template(name)) {
+        if (unit_name_is_valid(name, UNIT_NAME_TEMPLATE)) {
                 if (!u->instance)
                         return -EINVAL;
 
-                s = unit_name_replace_instance(name, u->instance);
-                if (!s)
-                        return -ENOMEM;
+                r = unit_name_replace_instance(name, u->instance, &s);
+                if (r < 0)
+                        return r;
 
                 name = s;
         }
 
         other = manager_get_unit(u->manager, name);
-        if (!other)
-                r = unit_add_name(u, name);
-        else
-                r = unit_merge(u, other);
+        if (other)
+                return unit_merge(u, other);
 
-        return r;
+        return unit_add_name(u, name);
 }
 
 Unit* unit_follow_merge(Unit *u) {
@@ -2294,58 +2303,55 @@ int unit_add_two_dependencies(Unit *u, UnitDependency d, UnitDependency e, Unit 
         if (r < 0)
                 return r;
 
-        r = unit_add_dependency(u, e, other, add_reference);
-        if (r < 0)
-                return r;
-
-        return 0;
+        return unit_add_dependency(u, e, other, add_reference);
 }
 
-static const char *resolve_template(Unit *u, const char *name, const char*path, char **p) {
-        char *s;
+static int resolve_template(Unit *u, const char *name, const char*path, char **buf, const char **ret) {
+        int r;
 
         assert(u);
         assert(name || path);
-        assert(p);
+        assert(buf);
+        assert(ret);
 
         if (!name)
                 name = basename(path);
 
-        if (!unit_name_is_template(name)) {
-                *p = NULL;
-                return name;
+        if (!unit_name_is_valid(name, UNIT_NAME_TEMPLATE)) {
+                *buf = NULL;
+                *ret = name;
+                return 0;
         }
 
         if (u->instance)
-                s = unit_name_replace_instance(name, u->instance);
+                r = unit_name_replace_instance(name, u->instance, buf);
         else {
                 _cleanup_free_ char *i = NULL;
 
-                i = unit_name_to_prefix(u->id);
-                if (!i)
-                        return NULL;
+                r = unit_name_to_prefix(u->id, &i);
+                if (r < 0)
+                        return r;
 
-                s = unit_name_replace_instance(name, i);
+                r = unit_name_replace_instance(name, i, buf);
         }
+        if (r < 0)
+                return r;
 
-        if (!s)
-                return NULL;
-
-        *p = s;
-        return s;
+        *ret = *buf;
+        return 0;
 }
 
 int unit_add_dependency_by_name(Unit *u, UnitDependency d, const char *name, const char *path, bool add_reference) {
+        _cleanup_free_ char *buf = NULL;
         Unit *other;
         int r;
-        _cleanup_free_ char *s = NULL;
 
         assert(u);
         assert(name || path);
 
-        name = resolve_template(u, name, path, &s);
-        if (!name)
-                return -ENOMEM;
+        r = resolve_template(u, name, path, &buf, &name);
+        if (r < 0)
+                return r;
 
         r = manager_load_unit(u->manager, name, path, NULL, &other);
         if (r < 0)
@@ -2355,16 +2361,16 @@ int unit_add_dependency_by_name(Unit *u, UnitDependency d, const char *name, con
 }
 
 int unit_add_two_dependencies_by_name(Unit *u, UnitDependency d, UnitDependency e, const char *name, const char *path, bool add_reference) {
-        _cleanup_free_ char *s = NULL;
+        _cleanup_free_ char *buf = NULL;
         Unit *other;
         int r;
 
         assert(u);
         assert(name || path);
 
-        name = resolve_template(u, name, path, &s);
-        if (!name)
-                return -ENOMEM;
+        r = resolve_template(u, name, path, &buf, &name);
+        if (r < 0)
+                return r;
 
         r = manager_load_unit(u->manager, name, path, NULL, &other);
         if (r < 0)
@@ -2374,16 +2380,16 @@ int unit_add_two_dependencies_by_name(Unit *u, UnitDependency d, UnitDependency 
 }
 
 int unit_add_dependency_by_name_inverse(Unit *u, UnitDependency d, const char *name, const char *path, bool add_reference) {
+        _cleanup_free_ char *buf = NULL;
         Unit *other;
         int r;
-        _cleanup_free_ char *s = NULL;
 
         assert(u);
         assert(name || path);
 
-        name = resolve_template(u, name, path, &s);
-        if (!name)
-                return -ENOMEM;
+        r = resolve_template(u, name, path, &buf, &name);
+        if (r < 0)
+                return r;
 
         r = manager_load_unit(u->manager, name, path, NULL, &other);
         if (r < 0)
@@ -2393,26 +2399,22 @@ int unit_add_dependency_by_name_inverse(Unit *u, UnitDependency d, const char *n
 }
 
 int unit_add_two_dependencies_by_name_inverse(Unit *u, UnitDependency d, UnitDependency e, const char *name, const char *path, bool add_reference) {
+        _cleanup_free_ char *buf = NULL;
         Unit *other;
         int r;
-        _cleanup_free_ char *s = NULL;
 
         assert(u);
         assert(name || path);
 
-        name = resolve_template(u, name, path, &s);
-        if (!name)
-                return -ENOMEM;
+        r  = resolve_template(u, name, path, &buf, &name);
+        if (r < 0)
+                return r;
 
         r = manager_load_unit(u->manager, name, path, NULL, &other);
         if (r < 0)
                 return r;
 
-        r = unit_add_two_dependencies(other, d, e, u, add_reference);
-        if (r < 0)
-                return r;
-
-        return r;
+        return unit_add_two_dependencies(other, d, e, u, add_reference);
 }
 
 int set_unit_path(const char *p) {
@@ -2475,14 +2477,14 @@ int unit_add_default_slice(Unit *u, CGroupContext *c) {
                 /* Implicitly place all instantiated units in their
                  * own per-template slice */
 
-                prefix = unit_name_to_prefix(u->id);
-                if (!prefix)
-                        return -ENOMEM;
+                r = unit_name_to_prefix(u->id, &prefix);
+                if (r < 0)
+                        return r;
 
                 /* The prefix is already escaped, but it might include
                  * "-" which has a special meaning for slice units,
                  * hence escape it here extra. */
-                escaped = strreplace(prefix, "-", "\\x2d");
+                escaped = unit_name_escape(prefix);
                 if (!escaped)
                         return -ENOMEM;
 
@@ -2525,11 +2527,11 @@ int unit_load_related_unit(Unit *u, const char *type, Unit **_found) {
         assert(type);
         assert(_found);
 
-        t = unit_name_change_suffix(u->id, type);
-        if (!t)
-                return -ENOMEM;
-
-        assert(!unit_has_name(u, t));
+        r = unit_name_change_suffix(u->id, type, &t);
+        if (r < 0)
+                return r;
+        if (unit_has_name(u, t))
+                return -EINVAL;
 
         r = manager_load_unit(u->manager, t, NULL, NULL, _found);
         assert(r < 0 || *_found != u);
@@ -2858,9 +2860,9 @@ int unit_add_node_link(Unit *u, const char *what, bool wants) {
         if (!unit_type_supported(UNIT_DEVICE))
                 return 0;
 
-        e = unit_name_from_path(what, ".device");
-        if (!e)
-                return -ENOMEM;
+        r = unit_name_from_path(what, ".device", &e);
+        if (r < 0)
+                return r;
 
         r = manager_load_unit(u->manager, e, NULL, NULL, &device);
         if (r < 0)

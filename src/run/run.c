@@ -414,9 +414,9 @@ static int transient_cgroup_set_properties(sd_bus_message *m) {
         if (!isempty(arg_slice)) {
                 _cleanup_free_ char *slice;
 
-                slice = unit_name_mangle_with_suffix(arg_slice, MANGLE_NOGLOB, ".slice");
-                if (!slice)
-                        return -ENOMEM;
+                r = unit_name_mangle_with_suffix(arg_slice, UNIT_NAME_NOGLOB, ".slice", &slice);
+                if (r < 0)
+                        return r;
 
                 r = sd_bus_message_append(m, "(sv)", "Slice", "s", slice);
                 if (r < 0)
@@ -728,9 +728,9 @@ static int start_transient_service(
         }
 
         if (arg_unit) {
-                service = unit_name_mangle_with_suffix(arg_unit, MANGLE_NOGLOB, ".service");
-                if (!service)
-                        return log_oom();
+                r = unit_name_mangle_with_suffix(arg_unit, UNIT_NAME_NOGLOB, ".service", &service);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to mangle unit name: %m");
         } else if (asprintf(&service, "run-"PID_FMT".service", getpid()) < 0)
                 return log_oom();
 
@@ -846,9 +846,9 @@ static int start_transient_scope(
                 return log_oom();
 
         if (arg_unit) {
-                scope = unit_name_mangle_with_suffix(arg_unit, MANGLE_NOGLOB, ".scope");
-                if (!scope)
-                        return log_oom();
+                r = unit_name_mangle_with_suffix(arg_unit, UNIT_NAME_NOGLOB, ".scope", &scope);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to mangle scope name: %m");
         } else if (asprintf(&scope, "run-"PID_FMT".scope", getpid()) < 0)
                 return log_oom();
 
@@ -980,16 +980,16 @@ static int start_transient_timer(
                 return log_oom();
 
         if (arg_unit) {
-                switch(unit_name_to_type(arg_unit)) {
+                switch (unit_name_to_type(arg_unit)) {
 
                 case UNIT_SERVICE:
                         service = strdup(arg_unit);
                         if (!service)
                                 return log_oom();
 
-                        timer = unit_name_change_suffix(service, ".timer");
-                        if (!timer)
-                                return log_oom();
+                        r = unit_name_change_suffix(service, ".timer", &timer);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to change unit suffix: %m");
                         break;
 
                 case UNIT_TIMER:
@@ -997,19 +997,19 @@ static int start_transient_timer(
                         if (!timer)
                                 return log_oom();
 
-                        service = unit_name_change_suffix(timer, ".service");
-                        if (!service)
-                                return log_oom();
+                        r = unit_name_change_suffix(timer, ".service", &service);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to change unit suffix: %m");
                         break;
 
                 default:
-                        service = unit_name_mangle_with_suffix(arg_unit, MANGLE_NOGLOB, ".service");
-                        if (!service)
-                                return log_oom();
+                        r = unit_name_mangle_with_suffix(arg_unit, UNIT_NAME_NOGLOB, ".service", &service);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to mangle unit name: %m");
 
-                        timer = unit_name_mangle_with_suffix(arg_unit, MANGLE_NOGLOB, ".timer");
-                        if (!timer)
-                                return log_oom();
+                        r = unit_name_mangle_with_suffix(arg_unit, UNIT_NAME_NOGLOB, ".timer", &timer);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to mangle unit name: %m");
 
                         break;
                 }

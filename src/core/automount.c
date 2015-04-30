@@ -167,8 +167,9 @@ static int automount_add_default_dependencies(Automount *a) {
 }
 
 static int automount_verify(Automount *a) {
-        bool b;
         _cleanup_free_ char *e = NULL;
+        int r;
+
         assert(a);
 
         if (UNIT(a)->load_state != UNIT_LOADED)
@@ -179,13 +180,11 @@ static int automount_verify(Automount *a) {
                 return -EINVAL;
         }
 
-        e = unit_name_from_path(a->where, ".automount");
-        if (!e)
-                return -ENOMEM;
+        r = unit_name_from_path(a->where, ".automount", &e);
+        if (r < 0)
+                return log_unit_error(UNIT(a)->id, "Failed to generate unit name from path: %m");
 
-        b = unit_has_name(UNIT(a), e);
-
-        if (!b) {
+        if (!unit_has_name(UNIT(a), e)) {
                 log_unit_error(UNIT(a)->id, "%s's Where setting doesn't match unit name. Refusing.", UNIT(a)->id);
                 return -EINVAL;
         }
@@ -209,9 +208,9 @@ static int automount_load(Unit *u) {
                 Unit *x;
 
                 if (!a->where) {
-                        a->where = unit_name_to_path(u->id);
-                        if (!a->where)
-                                return -ENOMEM;
+                        r = unit_name_to_path(u->id, &a->where);
+                        if (r < 0)
+                                return r;
                 }
 
                 path_kill_slashes(a->where);

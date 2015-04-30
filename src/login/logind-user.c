@@ -378,7 +378,7 @@ static int user_start_slice(User *u) {
                 char lu[DECIMAL_STR_MAX(uid_t) + 1], *slice;
                 sprintf(lu, UID_FMT, u->uid);
 
-                r = build_subslice(SPECIAL_USER_SLICE, lu, &slice);
+                r = slice_build_subslice(SPECIAL_USER_SLICE, lu, &slice);
                 if (r < 0)
                         return r;
 
@@ -411,9 +411,9 @@ static int user_start_service(User *u) {
                 char lu[DECIMAL_STR_MAX(uid_t) + 1], *service;
                 sprintf(lu, UID_FMT, u->uid);
 
-                service = unit_name_build("user", lu, ".service");
-                if (!service)
-                        return log_oom();
+                r = unit_name_build("user", lu, ".service", &service);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to build service name: %m");
 
                 r = manager_start_unit(u->manager, service, &error, &job);
                 if (r < 0) {

@@ -1154,7 +1154,7 @@ int cg_path_decode_unit(const char *cgroup, char **unit){
         c = strndupa(cgroup, n);
         c = cg_unescape(c);
 
-        if (!unit_name_is_valid(c, TEMPLATE_INVALID))
+        if (!unit_name_is_valid(c, UNIT_NAME_PLAIN|UNIT_NAME_INSTANCE))
                 return -ENXIO;
 
         s = strdup(c);
@@ -1181,7 +1181,7 @@ static bool valid_slice_name(const char *p, size_t n) {
 
                 c = cg_unescape(buf);
 
-                return unit_name_is_valid(c, TEMPLATE_INVALID);
+                return unit_name_is_valid(c, UNIT_NAME_PLAIN);
         }
 
         return false;
@@ -1638,6 +1638,7 @@ bool cg_controller_is_valid(const char *p, bool allow_named) {
 int cg_slice_to_path(const char *unit, char **ret) {
         _cleanup_free_ char *p = NULL, *s = NULL, *e = NULL;
         const char *dash;
+        int r;
 
         assert(unit);
         assert(ret);
@@ -1652,15 +1653,15 @@ int cg_slice_to_path(const char *unit, char **ret) {
                 return 0;
         }
 
-        if (!unit_name_is_valid(unit, TEMPLATE_INVALID))
+        if (!unit_name_is_valid(unit, UNIT_NAME_PLAIN))
                 return -EINVAL;
 
         if (!endswith(unit, ".slice"))
                 return -EINVAL;
 
-        p = unit_name_to_prefix(unit);
-        if (!p)
-                return -ENOMEM;
+        r = unit_name_to_prefix(unit, &p);
+        if (r < 0)
+                return r;
 
         dash = strchr(p, '-');
 
@@ -1677,7 +1678,7 @@ int cg_slice_to_path(const char *unit, char **ret) {
                         return -EINVAL;
 
                 strcpy(stpncpy(n, p, dash - p), ".slice");
-                if (!unit_name_is_valid(n, TEMPLATE_INVALID))
+                if (!unit_name_is_valid(n, UNIT_NAME_PLAIN))
                         return -EINVAL;
 
                 escaped = cg_escape(n);

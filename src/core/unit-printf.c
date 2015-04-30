@@ -30,83 +30,54 @@
 
 static int specifier_prefix_and_instance(char specifier, void *data, void *userdata, char **ret) {
         Unit *u = userdata;
-        char *n;
 
         assert(u);
 
-        n = unit_name_to_prefix_and_instance(u->id);
-        if (!n)
-                return -ENOMEM;
-
-        *ret = n;
-        return 0;
+        return unit_name_to_prefix_and_instance(u->id, ret);
 }
 
 static int specifier_prefix(char specifier, void *data, void *userdata, char **ret) {
         Unit *u = userdata;
-        char *n;
 
         assert(u);
 
-        n = unit_name_to_prefix(u->id);
-        if (!n)
-                return -ENOMEM;
-
-        *ret = n;
-        return 0;
+        return unit_name_to_prefix(u->id, ret);
 }
 
 static int specifier_prefix_unescaped(char specifier, void *data, void *userdata, char **ret) {
-        Unit *u = userdata;
         _cleanup_free_ char *p = NULL;
-        char *n;
+        Unit *u = userdata;
+        int r;
 
         assert(u);
 
-        p = unit_name_to_prefix(u->id);
-        if (!p)
-                return -ENOMEM;
+        r = unit_name_to_prefix(u->id, &p);
+        if (r < 0)
+                return r;
 
-        n = unit_name_unescape(p);
-        if (!n)
-                return -ENOMEM;
-
-        *ret = n;
-        return 0;
+        return unit_name_unescape(p, ret);
 }
 
 static int specifier_instance_unescaped(char specifier, void *data, void *userdata, char **ret) {
         Unit *u = userdata;
-        char *n;
 
         assert(u);
 
         if (!u->instance)
-                return -EOPNOTSUPP;
+                return -EINVAL;
 
-        n = unit_name_unescape(u->instance);
-        if (!n)
-                return -ENOMEM;
-
-        *ret = n;
-        return 0;
+        return unit_name_unescape(u->instance, ret);
 }
 
 static int specifier_filename(char specifier, void *data, void *userdata, char **ret) {
         Unit *u = userdata;
-        char *n;
 
         assert(u);
 
         if (u->instance)
-                n = unit_name_path_unescape(u->instance);
+                return unit_name_path_unescape(u->instance, ret);
         else
-                n = unit_name_to_path(u->id);
-        if (!n)
-                return -ENOMEM;
-
-        *ret = n;
-        return 0;
+                return unit_name_to_path(u->id, ret);
 }
 
 static int specifier_cgroup(char specifier, void *data, void *userdata, char **ret) {
@@ -195,7 +166,7 @@ static int specifier_user_name(char specifier, void *data, void *userdata, char 
 
         c = unit_get_exec_context(u);
         if (!c)
-                return -EOPNOTSUPP;
+                return -EINVAL;
 
         if (u->manager->running_as == SYSTEMD_SYSTEM) {
 

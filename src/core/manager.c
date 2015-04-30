@@ -1306,7 +1306,7 @@ int manager_load_unit_prepare(
 
         t = unit_name_to_type(name);
 
-        if (t == _UNIT_TYPE_INVALID || !unit_name_is_valid(name, TEMPLATE_INVALID))
+        if (t == _UNIT_TYPE_INVALID || !unit_name_is_valid(name, UNIT_NAME_PLAIN|UNIT_NAME_INSTANCE))
                 return sd_bus_error_setf(e, SD_BUS_ERROR_INVALID_ARGS, "Unit name %s is not valid.", name);
 
         ret = manager_get_unit(m, name);
@@ -2093,7 +2093,7 @@ void manager_send_unit_audit(Manager *m, Unit *u, int type, bool success) {
 #ifdef HAVE_AUDIT
         _cleanup_free_ char *p = NULL;
         const char *msg;
-        int audit_fd;
+        int audit_fd, r;
 
         audit_fd = get_audit_fd();
         if (audit_fd < 0)
@@ -2110,9 +2110,9 @@ void manager_send_unit_audit(Manager *m, Unit *u, int type, bool success) {
         if (u->type != UNIT_SERVICE)
                 return;
 
-        p = unit_name_to_prefix_and_instance(u->id);
-        if (!p) {
-                log_oom();
+        r = unit_name_to_prefix_and_instance(u->id, &p);
+        if (r < 0) {
+                log_error_errno(r, "Failed to extract prefix and instance of unit name: %m");
                 return;
         }
 
@@ -3027,15 +3027,16 @@ void manager_status_printf(Manager *m, StatusType type, const char *status, cons
 int manager_get_unit_by_path(Manager *m, const char *path, const char *suffix, Unit **_found) {
         _cleanup_free_ char *p = NULL;
         Unit *found;
+        int r;
 
         assert(m);
         assert(path);
         assert(suffix);
         assert(_found);
 
-        p = unit_name_from_path(path, suffix);
-        if (!p)
-                return -ENOMEM;
+        r = unit_name_from_path(path, suffix, &p);
+        if (r < 0)
+                return r;
 
         found = manager_get_unit(m, p);
         if (!found) {

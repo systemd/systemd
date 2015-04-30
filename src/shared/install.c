@@ -258,10 +258,10 @@ static int remove_marked_symlinks_fd(
                         int q;
                         bool found;
 
-                        if (!unit_name_is_valid(de->d_name, TEMPLATE_VALID))
+                        if (!unit_name_is_valid(de->d_name, UNIT_NAME_ANY))
                                 continue;
 
-                        if (unit_name_is_instance(de->d_name) &&
+                        if (unit_name_is_valid(de->d_name, UNIT_NAME_INSTANCE) &&
                             instance_whitelist &&
                             !strv_contains(instance_whitelist, de->d_name)) {
 
@@ -272,9 +272,9 @@ static int remove_marked_symlinks_fd(
                                  * the template of it might be
                                  * listed. */
 
-                                w = unit_name_template(de->d_name);
-                                if (!w)
-                                        return -ENOMEM;
+                                r = unit_name_template(de->d_name, &w);
+                                if (r < 0)
+                                        return r;
 
                                 if (!strv_contains(instance_whitelist, w))
                                         continue;
@@ -583,7 +583,7 @@ int unit_file_mask(
         STRV_FOREACH(i, files) {
                 _cleanup_free_ char *path = NULL;
 
-                if (!unit_name_is_valid(*i, TEMPLATE_VALID)) {
+                if (!unit_name_is_valid(*i, UNIT_NAME_ANY)) {
                         if (r == 0)
                                 r = -EINVAL;
                         continue;
@@ -646,7 +646,7 @@ int unit_file_unmask(
         STRV_FOREACH(i, files) {
                 _cleanup_free_ char *path = NULL;
 
-                if (!unit_name_is_valid(*i, TEMPLATE_VALID)) {
+                if (!unit_name_is_valid(*i, UNIT_NAME_ANY)) {
                         if (r == 0)
                                 r = -EINVAL;
                         continue;
@@ -717,7 +717,7 @@ int unit_file_link(
                 fn = basename(*i);
 
                 if (!path_is_absolute(*i) ||
-                    !unit_name_is_valid(fn, TEMPLATE_VALID)) {
+                    !unit_name_is_valid(fn, UNIT_NAME_ANY)) {
                         if (r == 0)
                                 r = -EINVAL;
                         continue;
@@ -856,7 +856,7 @@ static int install_info_add(
         if (!name)
                 name = basename(path);
 
-        if (!unit_name_is_valid(name, TEMPLATE_VALID))
+        if (!unit_name_is_valid(name, UNIT_NAME_ANY))
                 return -EINVAL;
 
         if (ordered_hashmap_get(c->have_installed, name) ||
@@ -1118,7 +1118,7 @@ static int unit_file_search(
                         return r;
         }
 
-        if (unit_name_is_instance(info->name)) {
+        if (unit_name_is_valid(info->name, UNIT_NAME_INSTANCE)) {
 
                 /* Unit file doesn't exist, however instance
                  * enablement was requested.  We will check if it is
@@ -1126,9 +1126,9 @@ static int unit_file_search(
 
                 _cleanup_free_ char *template = NULL;
 
-                template = unit_name_template(info->name);
-                if (!template)
-                        return -ENOMEM;
+                r = unit_name_template(info->name, &template);
+                if (r < 0)
+                        return r;
 
                 STRV_FOREACH(p, paths->unit_path) {
                         _cleanup_free_ char *path = NULL;
@@ -1274,7 +1274,7 @@ static int install_info_symlink_wants(
         assert(i);
         assert(config_path);
 
-        if (unit_name_is_template(i->name)) {
+        if (unit_name_is_valid(i->name, UNIT_NAME_TEMPLATE)) {
 
                 /* Don't install any symlink if there's no default
                  * instance configured */
@@ -1282,9 +1282,9 @@ static int install_info_symlink_wants(
                 if (!i->default_instance)
                         return 0;
 
-                buf = unit_name_replace_instance(i->name, i->default_instance);
-                if (!buf)
-                        return -ENOMEM;
+                r = unit_name_replace_instance(i->name, i->default_instance, &buf);
+                if (r < 0)
+                        return r;
 
                 n = buf;
         } else
@@ -1297,7 +1297,7 @@ static int install_info_symlink_wants(
                 if (q < 0)
                         return q;
 
-                if (!unit_name_is_valid(dst, TEMPLATE_VALID)) {
+                if (!unit_name_is_valid(dst, UNIT_NAME_ANY)) {
                         r = -EINVAL;
                         continue;
                 }
@@ -1462,13 +1462,13 @@ static int install_context_mark_for_removal(
                 } else if (r >= 0)
                         r += q;
 
-                if (unit_name_is_instance(i->name)) {
+                if (unit_name_is_valid(i->name, UNIT_NAME_INSTANCE)) {
                         char *unit_file;
 
                         if (i->path) {
                                 unit_file = basename(i->path);
 
-                                if (unit_name_is_instance(unit_file))
+                                if (unit_name_is_valid(unit_file, UNIT_NAME_INSTANCE))
                                         /* unit file named as instance exists, thus all symlinks
                                          * pointing to it will be removed */
                                         q = mark_symlink_for_removal(remove_symlinks_to, i->name);
@@ -1480,9 +1480,9 @@ static int install_context_mark_for_removal(
                                 /* If i->path is not set, it means that we didn't actually find
                                  * the unit file. But we can still remove symlinks to the
                                  * nonexistent template. */
-                                unit_file = unit_name_template(i->name);
-                                if (!unit_file)
-                                        return log_oom();
+                                r = unit_name_template(i->name, &unit_file);
+                                if (r < 0)
+                                        return r;
 
                                 q = mark_symlink_for_removal(remove_symlinks_to, unit_file);
                                 free(unit_file);
@@ -1797,7 +1797,7 @@ UnitFileState unit_file_lookup_state(
 
         assert(paths);
 
-        if (!unit_name_is_valid(name, TEMPLATE_VALID))
+        if (!unit_name_is_valid(name, UNIT_NAME_ANY))
                 return -EINVAL;
 
         STRV_FOREACH(i, paths->unit_path) {
@@ -1824,7 +1824,7 @@ UnitFileState unit_file_lookup_state(
                         if (errno != ENOENT)
                                 return r;
 
-                        if (!unit_name_is_instance(name))
+                        if (!unit_name_is_valid(name, UNIT_NAME_INSTANCE))
                                 continue;
                 } else {
                         if (!S_ISREG(st.st_mode) && !S_ISLNK(st.st_mode))
@@ -1834,8 +1834,7 @@ UnitFileState unit_file_lookup_state(
                         if (r < 0 && r != -ENOENT)
                                 return r;
                         else if (r > 0) {
-                                state = path_startswith(*i, "/run") ?
-                                        UNIT_FILE_MASKED_RUNTIME : UNIT_FILE_MASKED;
+                                state = path_startswith(*i, "/run") ? UNIT_FILE_MASKED_RUNTIME : UNIT_FILE_MASKED;
                                 return state;
                         }
                 }
@@ -1995,7 +1994,7 @@ int unit_file_preset(
 
         STRV_FOREACH(i, files) {
 
-                if (!unit_name_is_valid(*i, TEMPLATE_VALID))
+                if (!unit_name_is_valid(*i, UNIT_NAME_ANY))
                         return -EINVAL;
 
                 r = unit_file_query_preset(scope, root_dir, *i);
@@ -2091,7 +2090,7 @@ int unit_file_preset_all(
                         if (hidden_file(de->d_name))
                                 continue;
 
-                        if (!unit_name_is_valid(de->d_name, TEMPLATE_VALID))
+                        if (!unit_name_is_valid(de->d_name, UNIT_NAME_ANY))
                                 continue;
 
                         dirent_ensure_type(d, de);
@@ -2203,7 +2202,7 @@ int unit_file_get_list(
                         if (hidden_file(de->d_name))
                                 continue;
 
-                        if (!unit_name_is_valid(de->d_name, TEMPLATE_VALID))
+                        if (!unit_name_is_valid(de->d_name, UNIT_NAME_ANY))
                                 continue;
 
                         if (hashmap_get(h, de->d_name))

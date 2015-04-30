@@ -435,7 +435,7 @@ static int mount_add_default_dependencies(Mount *m) {
 
 static int mount_verify(Mount *m) {
         _cleanup_free_ char *e = NULL;
-        bool b;
+        int r;
 
         assert(m);
 
@@ -445,12 +445,11 @@ static int mount_verify(Mount *m) {
         if (!m->from_fragment && !m->from_proc_self_mountinfo)
                 return -ENOENT;
 
-        e = unit_name_from_path(m->where, ".mount");
-        if (!e)
-                return -ENOMEM;
+        r = unit_name_from_path(m->where, ".mount", &e);
+        if (r < 0)
+                return log_unit_error_errno(UNIT(m)->id, r, "Failed to generate unit name from mount path: %m");
 
-        b = unit_has_name(UNIT(m), e);
-        if (!b) {
+        if (!unit_has_name(UNIT(m), e)) {
                 log_unit_error(UNIT(m)->id, "%s's Where= setting doesn't match unit name. Refusing.", UNIT(m)->id);
                 return -EINVAL;
         }
@@ -483,9 +482,9 @@ static int mount_add_extras(Mount *m) {
                 m->from_fragment = true;
 
         if (!m->where) {
-                m->where = unit_name_to_path(u->id);
-                if (!m->where)
-                        return -ENOMEM;
+                r = unit_name_to_path(u->id, &m->where);
+                if (r < 0)
+                        return r;
         }
 
         path_kill_slashes(m->where);
@@ -1419,9 +1418,9 @@ static int mount_setup_unit(
         if (!is_path(where))
                 return 0;
 
-        e = unit_name_from_path(where, ".mount");
-        if (!e)
-                return -ENOMEM;
+        r = unit_name_from_path(where, ".mount", &e);
+        if (r < 0)
+                return r;
 
         u = manager_get_unit(m, e);
         if (!u) {

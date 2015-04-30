@@ -29,30 +29,18 @@
 
 static int specifier_prefix_and_instance(char specifier, void *data, void *userdata, char **ret) {
         InstallInfo *i = userdata;
-        char *n;
 
         assert(i);
 
-        n = unit_name_to_prefix_and_instance(i->name);
-        if (!n)
-                return -ENOMEM;
-
-        *ret = n;
-        return 0;
+        return unit_name_to_prefix_and_instance(i->name, ret);
 }
 
 static int specifier_prefix(char specifier, void *data, void *userdata, char **ret) {
         InstallInfo *i = userdata;
-        char *n;
 
         assert(i);
 
-        n = unit_name_to_prefix(i->name);
-        if (!n)
-                return -ENOMEM;
-
-        *ret = n;
-        return 0;
+        return unit_name_to_prefix(i->name, ret);
 }
 
 static int specifier_instance(char specifier, void *data, void *userdata, char **ret) {

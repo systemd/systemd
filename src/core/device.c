@@ -279,9 +279,9 @@ static int device_add_udev_wants(Unit *u, struct udev_device *dev) {
                 memcpy(e, word, l);
                 e[l] = 0;
 
-                n = unit_name_mangle(e, MANGLE_NOGLOB);
-                if (!n)
-                        return log_oom();
+                r = unit_name_mangle(e, UNIT_NAME_NOGLOB, &n);
+                if (r < 0)
+                        return log_unit_error_errno(u->id, r, "Failed to mangle unit name: %m");
 
                 r = unit_add_dependency_by_name(u, UNIT_WANTS, n, NULL, true);
                 if (r < 0)
@@ -308,9 +308,9 @@ static int device_setup_unit(Manager *m, struct udev_device *dev, const char *pa
         if (!sysfs)
                 return 0;
 
-        e = unit_name_from_path(path, ".device");
-        if (!e)
-                return log_oom();
+        r = unit_name_from_path(path, ".device", &e);
+        if (r < 0)
+                return log_unit_error_errno(u->id, r, "Failed to generate device name: %m");
 
         u = manager_get_unit(m, e);
 
@@ -491,6 +491,7 @@ static int device_update_found_by_sysfs(Manager *m, const char *sysfs, bool add,
 static int device_update_found_by_name(Manager *m, const char *path, bool add, DeviceFound found, bool now) {
         _cleanup_free_ char *e = NULL;
         Unit *u;
+        int r;
 
         assert(m);
         assert(path);
@@ -498,9 +499,9 @@ static int device_update_found_by_name(Manager *m, const char *path, bool add, D
         if (found == DEVICE_NOT_FOUND)
                 return 0;
 
-        e = unit_name_from_path(path, ".device");
-        if (!e)
-                return log_oom();
+        r = unit_name_from_path(path, ".device", &e);
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate unit name from device path: %m");
 
         u = manager_get_unit(m, e);
         if (!u)

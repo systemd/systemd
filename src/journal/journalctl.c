@@ -1135,9 +1135,9 @@ static int add_units(sd_journal *j) {
         STRV_FOREACH(i, arg_system_units) {
                 _cleanup_free_ char *u = NULL;
 
-                u = unit_name_mangle(*i, MANGLE_GLOB);
-                if (!u)
-                        return log_oom();
+                r = unit_name_mangle(*i, UNIT_NAME_GLOB, &u);
+                if (r < 0)
+                        return r;
 
                 if (string_is_glob(u)) {
                         r = strv_push(&patterns, u);
@@ -1181,9 +1181,9 @@ static int add_units(sd_journal *j) {
         STRV_FOREACH(i, arg_user_units) {
                 _cleanup_free_ char *u = NULL;
 
-                u = unit_name_mangle(*i, MANGLE_GLOB);
-                if (!u)
-                        return log_oom();
+                r = unit_name_mangle(*i, UNIT_NAME_GLOB, &u);
+                if (r < 0)
+                        return r;
 
                 if (string_is_glob(u)) {
                         r = strv_push(&patterns, u);
@@ -1840,9 +1840,8 @@ int main(int argc, char *argv[]) {
                 return EXIT_FAILURE;
 
         r = add_units(j);
-        strv_free(arg_system_units);
-        strv_free(arg_user_units);
-
+        arg_system_units = strv_free(arg_system_units);
+        arg_user_units = strv_free(arg_user_units);
         if (r < 0) {
                 log_error_errno(r, "Failed to add filter for units: %m");
                 return EXIT_FAILURE;

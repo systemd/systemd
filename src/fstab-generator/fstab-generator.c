@@ -83,9 +83,9 @@ static int add_swap(
                 opts = filtered;
         }
 
-        name = unit_name_from_path(what, ".swap");
-        if (!name)
-                return log_oom();
+        r = unit_name_from_path(what, ".swap", &name);
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate unit name: %m");
 
         unit = strjoin(arg_dest, "/", name, NULL);
         if (!unit)
@@ -224,9 +224,9 @@ static int add_mount(
                 noauto = nofail = automount = false;
         }
 
-        name = unit_name_from_path(where, ".mount");
-        if (!name)
-                return log_oom();
+        r = unit_name_from_path(where, ".mount", &name);
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate unit name: %m");
 
         unit = strjoin(arg_dest, "/", name, NULL);
         if (!unit)
@@ -290,9 +290,9 @@ static int add_mount(
         }
 
         if (automount) {
-                automount_name = unit_name_from_path(where, ".automount");
-                if (!automount_name)
-                        return log_oom();
+                r = unit_name_from_path(where, ".automount", &automount_name);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to generate unit name: %m");
 
                 automount_unit = strjoin(arg_dest, "/", automount_name, NULL);
                 if (!automount_unit)

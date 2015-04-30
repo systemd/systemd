@@ -49,14 +49,15 @@ static bool arg_root_rw = false;
 static int add_swap(const char *path) {
         _cleanup_free_ char *name = NULL, *unit = NULL, *lnk = NULL;
         _cleanup_fclose_ FILE *f = NULL;
+        int r;
 
         assert(path);
 
         log_debug("Adding swap: %s", path);
 
-        name = unit_name_from_path(path, ".swap");
-        if (!name)
-                return log_oom();
+        r = unit_name_from_path(path, ".swap", &name);
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate unit name: %m");
 
         unit = strjoin(arg_dest, "/", name, NULL);
         if (!unit)
@@ -100,17 +101,17 @@ static int add_cryptsetup(const char *id, const char *what, bool rw, char **devi
         assert(what);
         assert(device);
 
-        d = unit_name_from_path(what, ".device");
-        if (!d)
-                return log_oom();
+        r = unit_name_from_path(what, ".device", &d);
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate unit name: %m");
 
         e = unit_name_escape(id);
         if (!e)
                 return log_oom();
 
-        n = unit_name_build("systemd-cryptsetup", e, ".service");
-        if (!n)
-                return log_oom();
+        r = unit_name_build("systemd-cryptsetup", e, ".service", &n);
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate unit name: %m");
 
         p = strjoin(arg_dest, "/", n, NULL);
         if (!p)
@@ -224,9 +225,9 @@ static int add_mount(
                 fstype = NULL;
         }
 
-        unit = unit_name_from_path(where, ".mount");
-        if (!unit)
-                return log_oom();
+        r = unit_name_from_path(where, ".mount", &unit);
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate unit name: %m");
 
         p = strjoin(arg_dest, "/", unit, NULL);
         if (!p)

@@ -164,7 +164,7 @@ static int iterate_dir(
 }
 
 int unit_file_process_dir(
-                Set * unit_path_cache,
+                Set *unit_path_cache,
                 const char *unit_path,
                 const char *name,
                 const char *suffix,
@@ -174,6 +174,7 @@ int unit_file_process_dir(
                 char ***strv) {
 
         _cleanup_free_ char *path = NULL;
+        int r;
 
         assert(unit_path);
         assert(name);
@@ -184,22 +185,22 @@ int unit_file_process_dir(
                 return log_oom();
 
         if (!unit_path_cache || set_get(unit_path_cache, path))
-                iterate_dir(path, dependency, consumer, arg, strv);
+                (void) iterate_dir(path, dependency, consumer, arg, strv);
 
-        if (unit_name_is_instance(name)) {
+        if (unit_name_is_valid(name, UNIT_NAME_INSTANCE)) {
                 _cleanup_free_ char *template = NULL, *p = NULL;
                 /* Also try the template dir */
 
-                template = unit_name_template(name);
-                if (!template)
-                        return log_oom();
+                r = unit_name_template(name, &template);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to generate template from unit name: %m");
 
                 p = strjoin(unit_path, "/", template, suffix, NULL);
                 if (!p)
                         return log_oom();
 
                 if (!unit_path_cache || set_get(unit_path_cache, p))
-                        iterate_dir(p, dependency, consumer, arg, strv);
+                        (void) iterate_dir(p, dependency, consumer, arg, strv);
         }
 
         return 0;

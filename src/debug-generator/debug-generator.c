@@ -41,9 +41,9 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
                 else {
                         char *n;
 
-                        n = unit_name_mangle(value, MANGLE_NOGLOB);
-                        if (!n)
-                                return log_oom();
+                        r = unit_name_mangle(value, UNIT_NAME_NOGLOB, &n);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to glob unit name: %m");
 
                         r = strv_consume(&arg_mask, n);
                         if (r < 0)
@@ -57,9 +57,9 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
                 else {
                         char *n;
 
-                        n = unit_name_mangle(value, MANGLE_NOGLOB);
-                        if (!n)
-                                return log_oom();
+                        r = unit_name_mangle(value, UNIT_NAME_NOGLOB, &n);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to glob unit name: %m");
 
                         r = strv_consume(&arg_wants, n);
                         if (r < 0)

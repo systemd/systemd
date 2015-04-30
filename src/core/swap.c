@@ -222,18 +222,17 @@ static int swap_add_default_dependencies(Swap *s) {
 }
 
 static int swap_verify(Swap *s) {
-        bool b;
         _cleanup_free_ char *e = NULL;
+        int r;
 
         if (UNIT(s)->load_state != UNIT_LOADED)
                 return 0;
 
-        e = unit_name_from_path(s->what, ".swap");
-        if (!e)
-                return log_oom();
+        r = unit_name_from_path(s->what, ".swap", &e);
+        if (r < 0)
+                return log_unit_error_errno(UNIT(s)->id, r, "%s: failed to generate unit name from path: %m", UNIT(s)->id);
 
-        b = unit_has_name(UNIT(s), e);
-        if (!b) {
+        if (!unit_has_name(UNIT(s), e)) {
                 log_unit_error(UNIT(s)->id, "%s: Value of \"What\" and unit name do not match, not loading.", UNIT(s)->id);
                 return -EINVAL;
         }
@@ -289,8 +288,11 @@ static int swap_load(Unit *u) {
                                 s->what = strdup(s->parameters_fragment.what);
                         else if (s->parameters_proc_swaps.what)
                                 s->what = strdup(s->parameters_proc_swaps.what);
-                        else
-                                s->what = unit_name_to_path(u->id);
+                        else {
+                                r = unit_name_to_path(u->id, &s->what);
+                                if (r < 0)
+                                        return r;
+                        }
 
                         if (!s->what)
                                 return -ENOMEM;
@@ -355,9 +357,9 @@ static int swap_setup_unit(
         assert(what);
         assert(what_proc_swaps);
 
-        e = unit_name_from_path(what, ".swap");
-        if (!e)
-                return log_oom();
+        r = unit_name_from_path(what, ".swap", &e);
+        if (r < 0)
+                return log_unit_error_errno(u->id, r, "Failed to generate unit name from path: %m");
 
         u = manager_get_unit(m, e);
 
@@ -1329,9 +1331,9 @@ int swap_process_device_new(Manager *m, struct udev_device *dev) {
         if (!dn)
                 return 0;
 
-        e = unit_name_from_path(dn, ".swap");
-        if (!e)
-                return -ENOMEM;
+        r = unit_name_from_path(dn, ".swap", &e);
+        if (r < 0)
+                return r;
 
         s = hashmap_get(m->units, e);
         if (s)
@@ -1340,15 +1342,14 @@ int swap_process_device_new(Manager *m, struct udev_device *dev) {
         first = udev_device_get_devlinks_list_entry(dev);
         udev_list_entry_foreach(item, first) {
                 _cleanup_free_ char *n = NULL;
+                int q;
 
-                n = unit_name_from_path(udev_list_entry_get_name(item), ".swap");
-                if (!n)
-                        return -ENOMEM;
+                q = unit_name_from_path(udev_list_entry_get_name(item), ".swap", &n);
+                if (q < 0)
+                        return q;
 
                 s = hashmap_get(m->units, n);
                 if (s) {
-                        int q;
-
                         q = swap_set_devnode(s, dn);
                         if (q < 0)
                                 r = q;

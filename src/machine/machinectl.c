@@ -1340,6 +1340,29 @@ static int read_only_image(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
+static int make_service_name(const char *name, char **ret) {
+        _cleanup_free_ char *e = NULL;
+        int r;
+
+        assert(name);
+        assert(ret);
+
+        if (!machine_name_is_valid(name)) {
+                log_error("Invalid machine name %s.", name);
+                return -EINVAL;
+        }
+
+        e = unit_name_escape(name);
+        if (!e)
+                return log_oom();
+
+        r = unit_name_build("systemd-nspawn", e, ".service", ret);
+        if (r < 0)
+                return log_error_errno(r, "Failed to build unit name: %m");
+
+        return 0;
+}
+
 static int start_machine(int argc, char *argv[], void *userdata) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
@@ -1356,21 +1379,12 @@ static int start_machine(int argc, char *argv[], void *userdata) {
 
         for (i = 1; i < argc; i++) {
                 _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-                _cleanup_free_ char *e = NULL, *unit = NULL;
+                _cleanup_free_ char *unit = NULL;
                 const char *object;
 
-                if (!machine_name_is_valid(argv[i])) {
-                        log_error("Invalid machine name %s.", argv[i]);
-                        return -EINVAL;
-                }
-
-                e = unit_name_escape(argv[i]);
-                if (!e)
-                        return log_oom();
-
-                unit = unit_name_build("systemd-nspawn", e, ".service");
-                if (!unit)
-                        return log_oom();
+                r = make_service_name(argv[i], &unit);
+                if (r < 0)
+                        return r;
 
                 r = sd_bus_call_method(
                                 bus,
@@ -1433,18 +1447,9 @@ static int enable_machine(int argc, char *argv[], void *userdata) {
         for (i = 1; i < argc; i++) {
                 _cleanup_free_ char *e = NULL, *unit = NULL;
 
-                if (!machine_name_is_valid(argv[i])) {
-                        log_error("Invalid machine name %s.", argv[i]);
-                        return -EINVAL;
-                }
-
-                e = unit_name_escape(argv[i]);
-                if (!e)
-                        return log_oom();
-
-                unit = unit_name_build("systemd-nspawn", e, ".service");
-                if (!unit)
-                        return log_oom();
+                r = make_service_name(argv[i], &unit);
+                if (r < 0)
+                        return r;
 
                 r = sd_bus_message_append(m, "s", unit);
                 if (r < 0)

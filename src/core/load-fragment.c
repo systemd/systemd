@@ -3394,7 +3394,7 @@ static int open_follow(char **filename, FILE **_f, Set *names, char **_final) {
                  * unit name. */
                 name = basename(*filename);
 
-                if (unit_name_is_valid(name, TEMPLATE_VALID)) {
+                if (unit_name_is_valid(name, UNIT_NAME_ANY)) {
 
                         id = set_get(names, name);
                         if (!id) {
@@ -3642,11 +3642,11 @@ int unit_load_fragment(Unit *u) {
 
         /* Look for a template */
         if (u->load_state == UNIT_STUB && u->instance) {
-                _cleanup_free_ char *k;
+                _cleanup_free_ char *k = NULL;
 
-                k = unit_name_template(u->id);
-                if (!k)
-                        return -ENOMEM;
+                r = unit_name_template(u->id, &k);
+                if (r < 0)
+                        return r;
 
                 r = load_from_path(u, k);
                 if (r < 0)
@@ -3659,9 +3659,9 @@ int unit_load_fragment(Unit *u) {
                                 if (t == u->id)
                                         continue;
 
-                                z = unit_name_template(t);
-                                if (!z)
-                                        return -ENOMEM;
+                                r = unit_name_template(t, &z);
+                                if (r < 0)
+                                        return r;
 
                                 r = load_from_path(u, z);
                                 if (r < 0)

@@ -50,13 +50,11 @@ static int add_symlink(const char *fservice, const char *tservice) {
 
         r = symlink(from, to);
         if (r < 0) {
+                /* In case console=hvc0 is passed this will very likely result in EEXIST */
                 if (errno == EEXIST)
-                        /* In case console=hvc0 is passed this will very likely result in EEXIST */
                         return 0;
-                else {
-                        log_error_errno(errno, "Failed to create symlink %s: %m", to);
-                        return -errno;
-                }
+
+                return log_error_errno(errno, "Failed to create symlink %s: %m", to);
         }
 
         return 0;
@@ -64,28 +62,30 @@ static int add_symlink(const char *fservice, const char *tservice) {
 
 static int add_serial_getty(const char *tty) {
         _cleanup_free_ char *n = NULL;
+        int r;
 
         assert(tty);
 
         log_debug("Automatically adding serial getty for /dev/%s.", tty);
 
-        n = unit_name_from_path_instance("serial-getty", tty, ".service");
-        if (!n)
-                return log_oom();
+        r = unit_name_from_path_instance("serial-getty", tty, ".service", &n);
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate service name: %m");
 
         return add_symlink("serial-getty@.service", n);
 }
 
 static int add_container_getty(const char *tty) {
         _cleanup_free_ char *n = NULL;
+        int r;
 
         assert(tty);
 
         log_debug("Automatically adding container getty for /dev/pts/%s.", tty);
 
-        n = unit_name_from_path_instance("container-getty", tty, ".service");
-        if (!n)
-                return log_oom();
+        r = unit_name_from_path_instance("container-getty", tty, ".service", &n);
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate service name: %m");
 
         return add_symlink("container-getty@.service", n);
 }

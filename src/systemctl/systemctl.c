@@ -1636,13 +1636,15 @@ static int list_dependencies(sd_bus *bus, char **args) {
         _cleanup_strv_free_ char **units = NULL;
         _cleanup_free_ char *unit = NULL;
         const char *u;
+        int r;
 
         assert(bus);
 
         if (args[1]) {
-                unit = unit_name_mangle(args[1], MANGLE_NOGLOB);
-                if (!unit)
-                        return log_oom();
+                r = unit_name_mangle(args[1], UNIT_NAME_NOGLOB, &unit);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to mangle unit name: %m");
+
                 u = unit;
         } else
                 u = SPECIAL_DEFAULT_TARGET;
@@ -1938,9 +1940,9 @@ static int set_default(sd_bus *bus, char **args) {
         unsigned n_changes = 0;
         int r;
 
-        unit = unit_name_mangle_with_suffix(args[1], MANGLE_NOGLOB, ".target");
-        if (!unit)
-                return log_oom();
+        r = unit_name_mangle_with_suffix(args[1], UNIT_NAME_NOGLOB, ".target", &unit);
+        if (r < 0)
+                return log_error_errno(r, "Failed to mangle unit name: %m");
 
         if (!bus || avoid_bus()) {
                 r = unit_file_set_default(arg_scope, arg_root, unit, true, &changes, &n_changes);
@@ -2257,7 +2259,7 @@ static int unit_find_paths(
         assert(fragment_path);
         assert(lp);
 
-        if (!avoid_bus_cache && !unit_name_is_template(unit_name)) {
+        if (!avoid_bus_cache && !unit_name_is_valid(unit_name, UNIT_NAME_TEMPLATE)) {
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_bus_message_unref_ sd_bus_message *unit_load_error = NULL;
                 _cleanup_free_ char *unit = NULL;
@@ -2323,24 +2325,23 @@ static int unit_find_paths(
 
                 names = set_new(NULL);
                 if (!names)
-                        return -ENOMEM;
+                        return log_oom();
 
                 r = set_put(names, unit_name);
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Failed to add unit name: %m");
 
                 r = unit_file_find_path(lp, unit_name, &path);
                 if (r < 0)
                         return r;
 
                 if (r == 0) {
-                        _cleanup_free_ char *template;
+                        _cleanup_free_ char *template = NULL;
 
-                        template = unit_name_template(unit_name);
-                        if (!template)
-                                return log_oom();
-
-                        if (!streq(template, unit_name)) {
+                        r = unit_name_template(unit_name, &template);
+                        if (r != -EINVAL)
+                                return log_error_errno(r, "Failed to determine template name: %m");
+                        if (r >= 0) {
                                 r = unit_file_find_path(lp, template, &path);
                                 if (r < 0)
                                         return r;
@@ -2382,9 +2383,9 @@ static int check_one_unit(sd_bus *bus, const char *name, const char *good_states
 
         assert(name);
 
-        n = unit_name_mangle(name, MANGLE_NOGLOB);
-        if (!n)
-                return log_oom();
+        r = unit_name_mangle(name, UNIT_NAME_NOGLOB, &n);
+        if (r < 0)
+                return log_error_errno(r, "Failed to mangle unit name: %m");
 
         /* We don't use unit_dbus_path_from_name() directly since we
          * don't want to load the unit if it isn't loaded. */
@@ -2439,9 +2440,9 @@ static int check_triggering_units(
         char **i;
         int r;
 
-        n = unit_name_mangle(name, MANGLE_NOGLOB);
-        if (!n)
-                return log_oom();
+        r = unit_name_mangle(name, UNIT_NAME_NOGLOB, &n);
+        if (r < 0)
+                return log_error_errno(r, "Failed to mangle unit name: %m");
 
         path = unit_dbus_path_from_name(n);
         if (!path)
@@ -2595,17 +2596,17 @@ static int expand_names(sd_bus *bus, char **names, const char* suffix, char ***r
 
         _cleanup_strv_free_ char **mangled = NULL, **globs = NULL;
         char **name;
-        int r = 0, i;
+        int r, i;
 
         STRV_FOREACH(name, names) {
                 char *t;
 
                 if (suffix)
-                        t = unit_name_mangle_with_suffix(*name, MANGLE_GLOB, suffix);
+                        r = unit_name_mangle_with_suffix(*name, UNIT_NAME_GLOB, suffix, &t);
                 else
-                        t = unit_name_mangle(*name, MANGLE_GLOB);
-                if (!t)
-                        return log_oom();
+                        r = unit_name_mangle(*name, UNIT_NAME_GLOB, &t);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to mangle name: %m");
 
                 if (string_is_glob(t))
                         r = strv_consume(&globs, t);
@@ -4673,9 +4674,9 @@ static int set_property(sd_bus *bus, char **args) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        n = unit_name_mangle(args[1], MANGLE_NOGLOB);
-        if (!n)
-                return log_oom();
+        r = unit_name_mangle(args[1], UNIT_NAME_NOGLOB, &n);
+        if (r < 0)
+                return log_error_errno(r, "Failed to mangle unit name: %m");
 
         r = sd_bus_message_append(m, "sb", n, arg_runtime);
         if (r < 0)
@@ -4721,12 +4722,15 @@ static int snapshot(sd_bus *bus, char **args) {
 
         polkit_agent_open_if_enabled();
 
-        if (strv_length(args) > 1)
-                n = unit_name_mangle_with_suffix(args[1], MANGLE_NOGLOB, ".snapshot");
-        else
+        if (strv_length(args) > 1) {
+                r = unit_name_mangle_with_suffix(args[1], UNIT_NAME_NOGLOB, ".snapshot", &n);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to generate unit name: %m");
+        } else {
                 n = strdup("");
-        if (!n)
-                return log_oom();
+                if (!n)
+                        return log_oom();
+        }
 
         r = sd_bus_call_method(
                         bus,
@@ -5217,25 +5221,29 @@ static int enable_sysv_units(const char *verb, char **args) {
 
 static int mangle_names(char **original_names, char ***mangled_names) {
         char **i, **l, **name;
+        int r;
 
-        l = new(char*, strv_length(original_names) + 1);
+        l = i = new(char*, strv_length(original_names) + 1);
         if (!l)
                 return log_oom();
 
-        i = l;
         STRV_FOREACH(name, original_names) {
 
                 /* When enabling units qualified path names are OK,
                  * too, hence allow them explicitly. */
 
-                if (is_path(*name))
+                if (is_path(*name)) {
                         *i = strdup(*name);
-                else
-                        *i = unit_name_mangle(*name, MANGLE_NOGLOB);
-
-                if (!*i) {
-                        strv_free(l);
-                        return log_oom();
+                        if (!*i) {
+                                strv_free(l);
+                                return log_oom();
+                        }
+                } else {
+                        r = unit_name_mangle(*name, UNIT_NAME_NOGLOB, i);
+                        if (r < 0) {
+                                strv_free(l);
+                                return log_error_errno(r, "Failed to mangle unit name: %m");
+                        }
                 }
 
                 i++;
@@ -5418,9 +5426,9 @@ static int add_dependency(sd_bus *bus, char **args) {
         if (!args[1])
                 return 0;
 
-        target = unit_name_mangle_with_suffix(args[1], MANGLE_NOGLOB, ".target");
-        if (!target)
-                return log_oom();
+        r = unit_name_mangle_with_suffix(args[1], UNIT_NAME_NOGLOB, ".target", &target);
+        if (r < 0)
+                return log_error_errno(r, "Failed to mangle unit name: %m");
 
         r = mangle_names(args+2, &names);
         if (r < 0)

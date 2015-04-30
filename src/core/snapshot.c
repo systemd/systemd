@@ -201,10 +201,10 @@ int snapshot_create(Manager *m, const char *name, bool cleanup, sd_bus_error *e,
         assert(_s);
 
         if (name) {
-                if (!unit_name_is_valid(name, TEMPLATE_INVALID))
+                if (!unit_name_is_valid(name, UNIT_NAME_PLAIN))
                         return sd_bus_error_setf(e, SD_BUS_ERROR_INVALID_ARGS, "Unit name %s is not valid.", name);
 
-                if (unit_name_to_type(name) != UNIT_SNAPSHOT)
+                if (!endswith(name, ".snapshot"))
                         return sd_bus_error_setf(e, SD_BUS_ERROR_INVALID_ARGS, "Unit name %s lacks snapshot suffix.", name);
 
                 if (manager_get_unit(m, name))

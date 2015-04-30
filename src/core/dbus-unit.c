@@ -940,7 +940,7 @@ static int bus_unit_set_transient_property(
                 if (r < 0)
                         return r;
 
-                if (!unit_name_is_valid(s, TEMPLATE_INVALID) || !endswith(s, ".slice"))
+                if (!unit_name_is_valid(s, UNIT_NAME_PLAIN) || !endswith(s, ".slice"))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid slice name %s", s);
 
                 if (isempty(s)) {
@@ -988,7 +988,7 @@ static int bus_unit_set_transient_property(
                         return r;
 
                 while ((r = sd_bus_message_read(message, "s", &other)) > 0) {
-                        if (!unit_name_is_valid(other, TEMPLATE_INVALID))
+                        if (!unit_name_is_valid(other, UNIT_NAME_PLAIN|UNIT_NAME_INSTANCE))
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid unit name %s", other);
 
                         if (mode != UNIT_CHECK) {
