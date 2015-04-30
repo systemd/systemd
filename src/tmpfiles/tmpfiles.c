@@ -984,8 +984,12 @@ static int write_one_file(Item *i, const char *path) {
                         return 0;
                 }
 
-                log_error_errno(errno, "Failed to create file %s: %m", path);
-                return -errno;
+                r = -errno;
+                if (!i->argument && errno == EROFS && stat(path, &st) == 0 &&
+                    (i->type == CREATE_FILE || st.st_size == 0))
+                        goto check_mode;
+
+                return log_error_errno(r, "Failed to create file %s: %m", path);
         }
 
         if (i->argument) {
@@ -1012,6 +1016,7 @@ static int write_one_file(Item *i, const char *path) {
         if (stat(path, &st) < 0)
                 return log_error_errno(errno, "stat(%s) failed: %m", path);
 
+ check_mode:
         if (!S_ISREG(st.st_mode)) {
                 log_error("%s is not a file.", path);
                 return -EEXIST;
@@ -1154,6 +1159,10 @@ static int create_item(Item *i) {
 
                 log_debug("Copying tree \"%s\" to \"%s\".", resolved, i->path);
                 r = copy_tree(resolved, i->path, false);
+
+                if (r == -EROFS && stat(i->path, &st) == 0)
+                        r = -EEXIST;
+
                 if (r < 0) {
                         struct stat a, b;
 
