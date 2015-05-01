@@ -448,6 +448,9 @@ AddressFamilyBoolean address_family_boolean_from_string(const char *s) _const_;
 
 int config_parse_address_family_boolean(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 
+/* IPForwarding parser */
+int config_parse_address_family_boolean_with_kernel(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+
 /* Operational State */
 
 const char* link_operstate_to_string(LinkOperationalState s) _const_;
