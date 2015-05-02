@@ -154,13 +154,13 @@ static bool mount_in_initrd(struct mntent *me) {
                streq(me->mnt_dir, "/usr");
 }
 
-static int write_idle_timeout(FILE *f, const char *where, const char *opts, char **filtered) {
+static int write_idle_timeout(FILE *f, const char *where, const char *opts) {
         _cleanup_free_ char *timeout = NULL;
         char timespan[FORMAT_TIMESPAN_MAX];
         usec_t u;
         int r;
 
-        r = fstab_filter_options(opts, "x-systemd.idle-timeout\0", NULL, &timeout, filtered);
+        r = fstab_filter_options(opts, "x-systemd.idle-timeout\0", NULL, &timeout, NULL);
         if (r < 0)
                 return log_warning_errno(r, "Failed to parse options: %m");
         if (r == 0)
@@ -315,7 +315,7 @@ static int add_mount(
                         "Where=%s\n",
                         where);
 
-                r = write_idle_timeout(f, where, opts, &filtered);
+                r = write_idle_timeout(f, where, opts);
                 if (r < 0)
                         return r;
 
