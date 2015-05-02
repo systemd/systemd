@@ -32,13 +32,13 @@
 
 int generator_write_fsck_deps(
                 FILE *f,
-                const char *dest,
+                const char *dir,
                 const char *what,
                 const char *where,
                 const char *fstype) {
 
         assert(f);
-        assert(dest);
+        assert(dir);
         assert(what);
         assert(where);
 
@@ -58,10 +58,10 @@ int generator_write_fsck_deps(
                         return log_warning_errno(r, "Checking was requested for %s, but fsck.%s cannot be used: %m", what, fstype);
         }
 
-        if (streq(where, "/")) {
+        if (path_equal(where, "/")) {
                 char *lnk;
 
-                lnk = strjoina(dest, "/" SPECIAL_LOCAL_FS_TARGET ".wants/systemd-fsck-root.service");
+                lnk = strjoina(dir, "/" SPECIAL_LOCAL_FS_TARGET ".wants/systemd-fsck-root.service");
 
                 mkdir_parents(lnk, 0755);
                 if (symlink(SYSTEM_DATA_UNIT_PATH "/systemd-fsck-root.service", lnk) < 0)
@@ -75,17 +75,20 @@ int generator_write_fsck_deps(
                         return log_oom();
 
                 fprintf(f,
-                        "RequiresOverridable=%s\n"
-                        "After=%s\n",
-                        fsck,
+                        "RequiresOverridable=%1$s\n"
+                        "After=%1$s\n",
                         fsck);
         }
 
         return 0;
 }
 
-int generator_write_timeouts(const char *dir, const char *what, const char *where,
-                             const char *opts, char **filtered) {
+int generator_write_timeouts(
+                const char *dir,
+                const char *what,
+                const char *where,
+                const char *opts,
+                char **filtered) {
 
         /* Allow configuration how long we wait for a device that
          * backs a mount point to show up. This is useful to support

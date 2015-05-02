@@ -176,6 +176,7 @@ static int write_idle_timeout(FILE *f, const char *where, const char *opts) {
 
         return 0;
 }
+
 static int add_mount(
                 const char *what,
                 const char *where,
@@ -213,10 +214,14 @@ static int add_mount(
                 return 0;
 
         if (path_equal(where, "/")) {
-                /* The root disk is not an option */
-                automount = false;
-                noauto = false;
-                nofail = false;
+                if (noauto)
+                        log_warning("Ignoring \"noauto\" for root device");
+                if (nofail)
+                        log_warning("Ignoring \"nofail\" for root device");
+                if (automount)
+                        log_warning("Ignoring automount option for root device");
+
+                noauto = nofail = automount = false;
         }
 
         name = unit_name_from_path(where, ".mount");
@@ -419,7 +424,7 @@ static int parse_fstab(bool initrd) {
         return r;
 }
 
-static int add_root_mount(void) {
+static int add_sysroot_mount(void) {
         _cleanup_free_ char *what = NULL;
         const char *opts;
 
@@ -453,7 +458,7 @@ static int add_root_mount(void) {
                          "/proc/cmdline");
 }
 
-static int add_usr_mount(void) {
+static int add_sysroot_usr_mount(void) {
         _cleanup_free_ char *what = NULL;
         const char *opts;
 
@@ -600,9 +605,9 @@ int main(int argc, char *argv[]) {
 
         /* Always honour root= and usr= in the kernel command line if we are in an initrd */
         if (in_initrd()) {
-                r = add_root_mount();
+                r = add_sysroot_mount();
                 if (r == 0)
-                        r = add_usr_mount();
+                        r = add_sysroot_usr_mount();
         }
 
         /* Honour /etc/fstab only when that's enabled */
