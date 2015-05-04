@@ -22,6 +22,7 @@
 ***/
 
 #include "time-util.h"
+#include "lockfile-util.h"
 #include "hashmap.h"
 
 typedef enum ImageType {

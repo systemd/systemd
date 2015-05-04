@@ -882,20 +882,6 @@ int chattr_path(const char *p, unsigned value, unsigned mask);
 int read_attr_fd(int fd, unsigned *ret);
 int read_attr_path(const char *p, unsigned *ret);
 
-typedef struct LockFile {
-        char *path;
-        int fd;
-        int operation;
-} LockFile;
-
-int make_lock_file(const char *p, int operation, LockFile *ret);
-int make_lock_file_for(const char *p, int operation, LockFile *ret);
-void release_lock_file(LockFile *f);
-
-#define _cleanup_release_lock_file_ _cleanup_(release_lock_file)
-
-#define LOCK_FILE_INIT { .fd = -1, .path = NULL }
-
 #define RLIMIT_MAKE_CONST(lim) ((struct rlimit) { lim, lim })
 
 ssize_t sparse_write(int fd, const void *p, size_t sz, size_t run_length);

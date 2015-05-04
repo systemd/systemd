@@ -775,6 +775,8 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/formats-util.h \
 	src/shared/fstab-util.c \
 	src/shared/fstab-util.h \
+	src/shared/lockfile-util.c \
+	src/shared/lockfile-util.h \
 	src/shared/path-util.c \
 	src/shared/path-util.h \
 	src/shared/time-util.c \
