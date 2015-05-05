@@ -328,6 +328,21 @@ static void test_unit_name_build(void) {
         free(t);
 }
 
+static void test_slice_name_is_valid(void) {
+        assert_se(slice_name_is_valid("-.slice"));
+        assert_se(slice_name_is_valid("foo.slice"));
+        assert_se(slice_name_is_valid("foo-bar.slice"));
+        assert_se(slice_name_is_valid("foo-bar-baz.slice"));
+        assert_se(!slice_name_is_valid("-foo-bar-baz.slice"));
+        assert_se(!slice_name_is_valid("foo-bar-baz-.slice"));
+        assert_se(!slice_name_is_valid("-foo-bar-baz-.slice"));
+        assert_se(!slice_name_is_valid("foo-bar--baz.slice"));
+        assert_se(!slice_name_is_valid("foo--bar--baz.slice"));
+        assert_se(!slice_name_is_valid(".slice"));
+        assert_se(!slice_name_is_valid(""));
+        assert_se(!slice_name_is_valid("foo.service"));
+}
+
 static void test_build_subslice(void) {
         char *a;
         char *b;
@@ -344,6 +359,25 @@ static void test_build_subslice(void) {
 
         assert_se(slice_build_subslice("foo.service", "bar", &a) < 0);
         assert_se(slice_build_subslice("foo", "bar", &a) < 0);
+}
+
+static void test_build_parent_slice_one(const char *name, const char *expect, int ret) {
+        _cleanup_free_ char *s = NULL;
+
+        assert_se(slice_build_parent_slice(name, &s) == ret);
+        assert_se(streq_ptr(s, expect));
+}
+
+static void test_build_parent_slice(void) {
+        test_build_parent_slice_one("-.slice", NULL, 0);
+        test_build_parent_slice_one("foo.slice", "-.slice", 1);
+        test_build_parent_slice_one("foo-bar.slice", "foo.slice", 1);
+        test_build_parent_slice_one("foo-bar-baz.slice", "foo-bar.slice", 1);
+        test_build_parent_slice_one("foo-bar--baz.slice", NULL, -EINVAL);
+        test_build_parent_slice_one("-foo-bar.slice", NULL, -EINVAL);
+        test_build_parent_slice_one("foo-bar-.slice", NULL, -EINVAL);
+        test_build_parent_slice_one("foo-bar.service", NULL, -EINVAL);
+        test_build_parent_slice_one(".slice", NULL, -EINVAL);
 }
 
 static void test_unit_name_to_instance(void) {
@@ -398,6 +432,29 @@ static void test_unit_name_template(void) {
         test_u_n_t_one("foo.mount", NULL, -EINVAL);
 }
 
+static void test_unit_name_path_unescape_one(const char *name, const char *path, int ret) {
+        _cleanup_free_ char *p = NULL;
+
+        assert_se(unit_name_path_unescape(name, &p) == ret);
+        assert_se(streq_ptr(path, p));
+}
+
+static void test_unit_name_path_unescape(void) {
+
+        test_unit_name_path_unescape_one("foo", "/foo", 0);
+        test_unit_name_path_unescape_one("foo-bar", "/foo/bar", 0);
+        test_unit_name_path_unescape_one("foo-.bar", "/foo/.bar", 0);
+        test_unit_name_path_unescape_one("foo-bar-baz", "/foo/bar/baz", 0);
+        test_unit_name_path_unescape_one("-", "/", 0);
+        test_unit_name_path_unescape_one("--", NULL, -EINVAL);
+        test_unit_name_path_unescape_one("-foo-bar", NULL, -EINVAL);
+        test_unit_name_path_unescape_one("foo--bar", NULL, -EINVAL);
+        test_unit_name_path_unescape_one("foo-bar-", NULL, -EINVAL);
+        test_unit_name_path_unescape_one(".-bar", NULL, -EINVAL);
+        test_unit_name_path_unescape_one("foo-..", NULL, -EINVAL);
+        test_unit_name_path_unescape_one("", NULL, -EINVAL);
+}
+
 int main(int argc, char* argv[]) {
         int rc = 0;
         test_unit_name_is_valid();
@@ -411,10 +468,13 @@ int main(int argc, char* argv[]) {
         test_unit_prefix_is_valid();
         test_unit_name_change_suffix();
         test_unit_name_build();
+        test_slice_name_is_valid();
         test_build_subslice();
+        test_build_parent_slice();
         test_unit_name_to_instance();
         test_unit_name_escape();
         test_unit_name_template();
+        test_unit_name_path_unescape();
 
         return rc;
 }

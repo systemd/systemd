@@ -93,27 +93,28 @@ static int slice_add_default_dependencies(Slice *s) {
         return 0;
 }
 
+
 static int slice_verify(Slice *s) {
+        _cleanup_free_ char *parent = NULL;
+        int r;
+
         assert(s);
 
         if (UNIT(s)->load_state != UNIT_LOADED)
                 return 0;
 
-        if (UNIT_DEREF(UNIT(s)->slice)) {
-                char *a, *dash;
+        if (!slice_name_is_valid(UNIT(s)->id)) {
+                log_unit_error(UNIT(s)->id, "Slice name %s is not valid. Refusing.", UNIT(s)->id);
+                return -EINVAL;
+        }
 
-                a = strdupa(UNIT(s)->id);
-                dash = strrchr(a, '-');
-                if (dash)
-                        strcpy(dash, ".slice");
-                else
-                        a = (char*) SPECIAL_ROOT_SLICE;
+        r = slice_build_parent_slice(UNIT(s)->id, &parent);
+        if (r < 0)
+                return log_unit_error_errno(UNIT(s)->id, r, "Failed to determine parent slice: %m");
 
-                if (!unit_has_name(UNIT_DEREF(UNIT(s)->slice), a)) {
-                        log_unit_error(UNIT(s)->id,
-                                       "%s located outside its parent slice. Refusing.", UNIT(s)->id);
-                        return -EINVAL;
-                }
+        if (parent ? !unit_has_name(UNIT_DEREF(UNIT(s)->slice), parent) : UNIT_ISSET(UNIT(s)->slice)) {
+                log_unit_error(UNIT(s)->id, "%s located outside its parent slice. Refusing.", UNIT(s)->id);
+                return -EINVAL;
         }
 
         return 0;

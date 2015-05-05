@@ -339,7 +339,7 @@ int unit_name_unescape(const char *f, char **ret) {
                         if (b < 0)
                                 return -EINVAL;
 
-                        *(t++) = (char) ((a << 4) | b);
+                        *(t++) = (char) (((uint8_t) a << 4U) | (uint8_t) b);
                         f += 3;
                 } else
                         *(t++) = *f;
@@ -392,42 +392,48 @@ int unit_name_path_escape(const char *f, char **ret) {
 }
 
 int unit_name_path_unescape(const char *f, char **ret) {
-        char *s, *w;
+        char *s;
         int r;
 
         assert(f);
+
+        if (isempty(f))
+                return -EINVAL;
 
         if (streq(f, "-")) {
                 s = strdup("/");
                 if (!s)
                         return -ENOMEM;
+        } else {
+                char *w;
 
-                *ret = s;
-                return 0;
-        }
+                r = unit_name_unescape(f, &w);
+                if (r < 0)
+                        return r;
 
-        r = unit_name_unescape(f, &s);
-        if (r < 0)
-                return r;
+                /* Don't accept trailing or leading slashes */
+                if (startswith(w, "/") || endswith(w, "/")) {
+                        free(w);
+                        return -EINVAL;
+                }
 
-        /* Don't accept trailing or leading slashes */
-        if (startswith(s, "/") || endswith(s, "/")) {
-                free(s);
-                return -EINVAL;
-        }
-
-        /* Prefix a slash again */
-        w = strappend("/", s);
-        free(s);
-        if (!w)
-                return -ENOMEM;
-
-        if (!path_is_safe(w)) {
+                /* Prefix a slash again */
+                s = strappend("/", w);
                 free(w);
-                return -EINVAL;
+                if (!s)
+                        return -ENOMEM;
+
+                if (!path_is_safe(s)) {
+                        free(s);
+                        return -EINVAL;
+                }
         }
 
-        *ret = w;
+        if (ret)
+                *ret = s;
+        else
+                free(s);
+
         return 0;
 }
 
@@ -665,6 +671,39 @@ int unit_name_mangle_with_suffix(const char *name, UnitNameMangle allow_globs, c
         return 1;
 }
 
+int slice_build_parent_slice(const char *slice, char **ret) {
+        char *s, *dash;
+
+        assert(slice);
+        assert(ret);
+
+        if (!slice_name_is_valid(slice))
+                return -EINVAL;
+
+        if (streq(slice, "-.slice")) {
+                *ret = NULL;
+                return 0;
+        }
+
+        s = strdup(slice);
+        if (!s)
+                return -ENOMEM;
+
+        dash = strrchr(s, '-');
+        if (dash)
+                strcpy(dash, ".slice");
+        else {
+                free(s);
+
+                s = strdup("-.slice");
+                if (!s)
+                        return -ENOMEM;
+        }
+
+        *ret = s;
+        return 1;
+}
+
 int slice_build_subslice(const char *slice, const char*name, char **ret) {
         char *subslice;
 
@@ -672,7 +711,7 @@ int slice_build_subslice(const char *slice, const char*name, char **ret) {
         assert(name);
         assert(ret);
 
-        if (!unit_name_is_valid(slice, UNIT_NAME_PLAIN))
+        if (!slice_name_is_valid(slice))
                 return -EINVAL;
 
         if (!unit_prefix_is_valid(name))
@@ -683,9 +722,7 @@ int slice_build_subslice(const char *slice, const char*name, char **ret) {
         else {
                 char *e;
 
-                e = endswith(slice, ".slice");
-                if (!e)
-                        return -EINVAL;
+                assert_se(e = endswith(slice, ".slice"));
 
                 subslice = new(char, (e - slice) + 1 + strlen(name) + 6 + 1);
                 if (!subslice)
@@ -696,6 +733,44 @@ int slice_build_subslice(const char *slice, const char*name, char **ret) {
 
         *ret = subslice;
         return 0;
+}
+
+bool slice_name_is_valid(const char *name) {
+        const char *p, *e;
+        bool dash = false;
+
+        if (!unit_name_is_valid(name, UNIT_NAME_PLAIN))
+                return false;
+
+        if (streq(name, "-.slice"))
+                return true;
+
+        e = endswith(name, ".slice");
+        if (!e)
+                return false;
+
+        for (p = name; p < e; p++) {
+
+                if (*p == '-') {
+
+                        /* Don't allow initial dash */
+                        if (p == name)
+                                return false;
+
+                        /* Don't allow multiple dashes */
+                        if (dash)
+                                return false;
+
+                        dash = true;
+                } else
+                        dash = false;
+        }
+
+        /* Don't allow trailing hash */
+        if (dash)
+                return false;
+
+        return true;
 }
 
 static const char* const unit_type_table[_UNIT_TYPE_MAX] = {

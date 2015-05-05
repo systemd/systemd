@@ -161,7 +161,9 @@ static inline int unit_name_mangle(const char *name, UnitNameMangle allow_globs,
         return unit_name_mangle_with_suffix(name, allow_globs, ".service", ret);
 }
 
+int slice_build_parent_slice(const char *slice, char **ret);
 int slice_build_subslice(const char *slice, const char*name, char **subslice);
+bool slice_name_is_valid(const char *name);
 
 const char *unit_type_to_string(UnitType i) _const_;
 UnitType unit_type_from_string(const char *s) _pure_;
