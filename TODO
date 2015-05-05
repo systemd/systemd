@@ -49,9 +49,13 @@ Before 220:
 
 * introduce argv0array=
 
-* be stricter when validating slice names
+* rework log_unit_error() to always prefix output with unit name
 
 Features:
+
+* networkd: dhcp server: try to assign stable IP addresses based on client's MAC address
+
+* nspawn: a nice way to boot up without machine id set, so that it is set at boot automatically for supporting --ephemeral. Maybe hash the host machine id together with the machine name to generate the machine id for the container
 
 * logind: rename session scope so that it includes the UID. THat way
   the session scope can be arranged freely in slices and we don't have
