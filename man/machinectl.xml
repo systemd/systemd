@@ -487,7 +487,13 @@
         images are cloned into subvolume images with this command.
         Note that cloning a container or VM image is optimized for
         btrfs file systems, and might not be efficient on others, due
-        to file system limitations.</para></listitem>
+        to file system limitations.</para>
+
+        <para>Note that this command leaves host name, machine ID and
+        all other settings that could identify the instance
+        unmodified. The original image and the cloned copy will hence
+        share these credentials, and it might be necessary to manually
+        change them in the copy.</para></listitem>
       </varlistentry>
 
       <varlistentry>

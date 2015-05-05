@@ -187,7 +187,11 @@
         system, so that the <literal>btrfs</literal> subvolume may be
         created. May not be specified together with
         <option>--image=</option> or
-        <option>--ephemeral</option>.</para></listitem>
+        <option>--ephemeral</option>.</para>
+
+        <para>Note that this switch leaves host name, machine ID and
+        all other settings that could identify the instance
+        unmodified.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -201,7 +205,10 @@
         This option is only supported if the root file system is
         <literal>btrfs</literal>. May not be specified together with
         <option>--image=</option> or
-        <option>--template=</option>.</para></listitem>
+        <option>--template=</option>.</para>
+        <para>Note that this switch leaves host name, machine ID and
+        all other settings that could identify the instance
+        unmodified.</para></listitem>
       </varlistentry>
 
       <varlistentry>
