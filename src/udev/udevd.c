@@ -150,7 +150,7 @@ static void worker_cleanup(struct worker *worker) {
 }
 
 static void worker_unref(struct worker *worker) {
-        if (!worker || (-- worker->refcount) > 0)
+        if (!worker || --worker->refcount > 0)
                 return;
         log_debug("worker ["PID_FMT"] cleaned up", worker->pid);
         worker_cleanup(worker);
