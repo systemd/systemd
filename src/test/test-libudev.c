@@ -304,6 +304,7 @@ static int test_queue(struct udev *udev) {
 
 static int test_enumerate(struct udev *udev, const char *subsystem) {
         struct udev_enumerate *udev_enumerate;
+        int r;
 
         printf("enumerate '%s'\n", subsystem == NULL ? "<all>" : subsystem);
         udev_enumerate = udev_enumerate_new(udev);
@@ -339,7 +340,9 @@ static int test_enumerate(struct udev *udev, const char *subsystem) {
         if (udev_enumerate == NULL)
                 return -1;
         udev_enumerate_add_match_subsystem(udev_enumerate,"block");
-        udev_enumerate_add_match_is_initialized(udev_enumerate);
+        r = udev_enumerate_add_match_is_initialized(udev_enumerate);
+        if (r < 0)
+                return r;
         udev_enumerate_scan_devices(udev_enumerate);
         test_enumerate_print_list(udev_enumerate);
         udev_enumerate_unref(udev_enumerate);
