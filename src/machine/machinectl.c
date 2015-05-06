@@ -1445,7 +1445,7 @@ static int enable_machine(int argc, char *argv[], void *userdata) {
                 return bus_log_create_error(r);
 
         for (i = 1; i < argc; i++) {
-                _cleanup_free_ char *e = NULL, *unit = NULL;
+                _cleanup_free_ char *unit = NULL;
 
                 r = make_service_name(argv[i], &unit);
                 if (r < 0)
