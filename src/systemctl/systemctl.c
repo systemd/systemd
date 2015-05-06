@@ -7289,7 +7289,7 @@ static int halt_main(sd_bus *bus) {
         if (arg_when > 0) {
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_bus_close_unref_ sd_bus *b = NULL;
-                _cleanup_free_ char *m;
+                _cleanup_free_ char *m = NULL;
 
                 if (avoid_bus()) {
                         log_error("Unable to perform operation without bus connection.");
