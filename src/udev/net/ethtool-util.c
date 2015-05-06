@@ -93,8 +93,7 @@ int ethtool_get_driver(int *fd, const char *ifname, char **ret) {
         return 0;
 }
 
-int ethtool_set_speed(int *fd, const char *ifname, unsigned int speed, Duplex duplex)
-{
+int ethtool_set_speed(int *fd, const char *ifname, unsigned int speed, Duplex duplex) {
         struct ethtool_cmd ecmd = {
                 .cmd = ETHTOOL_GSET
         };
