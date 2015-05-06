@@ -302,7 +302,7 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        if (access("/sys/fs/kdbus/control", F_OK) < 0)
+        if (!is_kdbus_available())
                 return 0;
 
         r = cg_pid_get_owner_uid(0, NULL);
@@ -310,7 +310,7 @@ int main(int argc, char *argv[]) {
                 path = "/usr/share/dbus-1/services";
                 type = "session";
                 units = USER_DATA_UNIT_PATH;
-        } else if (r == -ENOENT) {
+        } else if (r == -ENXIO) {
                 path = "/usr/share/dbus-1/system-services";
                 type = "system";
                 units = SYSTEM_DATA_UNIT_PATH;

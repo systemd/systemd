@@ -721,6 +721,8 @@ static int manager_setup_kdbus(Manager *m) {
 
         if (m->test_run || m->kdbus_fd >= 0)
                 return 0;
+        if (!is_kdbus_available())
+                return -ESOCKTNOSUPPORT;
 
         if (m->running_as == SYSTEMD_SYSTEM && detect_container(NULL) <= 0)
                 bus_kernel_fix_attach_mask();

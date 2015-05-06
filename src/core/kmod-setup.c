@@ -28,6 +28,7 @@
 
 #include "macro.h"
 #include "capability.h"
+#include "bus-util.h"
 #include "kmod-setup.h"
 
 #ifdef HAVE_KMOD
@@ -43,10 +44,6 @@ static void systemd_kmod_log(
         DISABLE_WARNING_FORMAT_NONLITERAL;
         log_internalv(LOG_DEBUG, 0, file, line, fn, format, args);
         REENABLE_WARNING;
-}
-
-static bool cmdline_check_kdbus(void) {
-        return get_proc_cmdline_key("kdbus", NULL) > 0;
 }
 #endif
 
@@ -69,7 +66,7 @@ int kmod_setup(void) {
                 { "unix",      "/proc/net/unix",            true,  NULL                },
 
                 /* IPC is needed before we bring up any other services */
-                { "kdbus",     "/sys/fs/kdbus",             false, cmdline_check_kdbus },
+                { "kdbus",     "/sys/fs/kdbus",             false, is_kdbus_wanted     },
 
                 /* netfilter is needed by networkd, nspawn among others, and cannot be autoloaded */
                 { "ip_tables", "/proc/net/ip_tables_names", false, NULL                },

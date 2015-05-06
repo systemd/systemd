@@ -988,7 +988,7 @@ static bool busname_supported(void) {
         static int supported = -1;
 
         if (supported < 0)
-                supported = access("/sys/fs/kdbus", F_OK) >= 0;
+                supported = is_kdbus_available();
 
         return supported;
 }

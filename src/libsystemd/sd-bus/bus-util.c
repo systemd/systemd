@@ -2051,3 +2051,30 @@ int bus_path_decode_unique(const char *path, const char *prefix, char **ret_send
         *ret_external = external;
         return 1;
 }
+
+bool is_kdbus_wanted(void) {
+        _cleanup_free_ char *value = NULL;
+        int r;
+
+        if (get_proc_cmdline_key("kdbus", NULL) <= 0) {
+                r = get_proc_cmdline_key("kdbus=", &value);
+                if (r <= 0 || parse_boolean(value) != 1)
+                        return false;
+        }
+
+        return true;
+}
+
+bool is_kdbus_available(void) {
+        _cleanup_close_ int fd = -1;
+        struct kdbus_cmd cmd = { .size = sizeof(cmd), .flags = KDBUS_FLAG_NEGOTIATE };
+
+        if (!is_kdbus_wanted())
+                return false;
+
+        fd = open("/sys/fs/kdbus/control", O_RDWR | O_CLOEXEC | O_NONBLOCK | O_NOCTTY);
+        if (fd < 0)
+                return false;
+
+        return ioctl(fd, KDBUS_CMD_BUS_MAKE, &cmd) >= 0;
+}
