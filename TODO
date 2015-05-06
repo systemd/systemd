@@ -61,8 +61,6 @@ Features:
   the session scope can be arranged freely in slices and we don't have
   make assumptions about their slice anymore.
 
-* when detecting kdbus support in busname.c make sure to check kdbus kernel ioctl version
-
 * journalctl: -m should access container journals directly by enumerating them via machined, and also watch containers coming and going. Benefit: nspawn --ephemeral would start working nicely with the journal.
 
 * nspawn: don't copy /etc/resolv.conf from host into container unless we are in shared-network mode
