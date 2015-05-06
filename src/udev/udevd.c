@@ -60,11 +60,10 @@ static int fd_ep = -1;
 static int fd_inotify = -1;
 static bool stop_exec_queue;
 static bool reload;
-static int children;
 static bool arg_debug = false;
 static int arg_daemonize = false;
 static int arg_resolve_names = 1;
-static int arg_children_max;
+static unsigned arg_children_max;
 static int arg_exec_delay;
 static usec_t arg_event_timeout_usec = 180 * USEC_PER_SEC;
 static usec_t arg_event_timeout_warn_usec = 180 * USEC_PER_SEC / 3;
@@ -154,8 +153,6 @@ static void worker_free(struct worker *worker) {
         udev_unref(worker->udev);
         event_free(worker->event);
 
-        children--;
-
         free(worker);
 }
 
@@ -197,8 +194,6 @@ static int worker_new(struct worker **ret, struct udev *udev, struct udev_monito
         r = hashmap_put(workers, UINT_TO_PTR(pid), worker);
         if (r < 0)
                 return r;
-
-        children++;
 
         *ret = worker;
         worker = NULL;
@@ -472,9 +467,9 @@ static void event_run(struct event *event) {
                 return;
         }
 
-        if (children >= arg_children_max) {
+        if (hashmap_size(workers) >= arg_children_max) {
                 if (arg_children_max > 1)
-                        log_debug("maximum number (%i) of children reached", children);
+                        log_debug("maximum number (%i) of children reached", hashmap_size(workers));
                 return;
         }
 
@@ -1044,7 +1039,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
                 prio = util_log_priority(value);
                 log_set_max_level(prio);
         } else if (streq(key, "children-max")) {
-                r = safe_atoi(value, &arg_children_max);
+                r = safe_atou(value, &arg_children_max);
                 if (r < 0)
                         log_warning("invalid udev.children-max ignored: %s", value);
         } else if (streq(key, "exec-delay")) {
@@ -1106,7 +1101,7 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_daemonize = true;
                         break;
                 case 'c':
-                        r = safe_atoi(optarg, &arg_children_max);
+                        r = safe_atou(optarg, &arg_children_max);
                         if (r < 0)
                                 log_warning("Invalid --children-max ignored: %s", optarg);
                         break;
@@ -1319,7 +1314,7 @@ int main(int argc, char *argv[]) {
                 sd_notify(1, "READY=1");
         }
 
-        if (arg_children_max <= 0) {
+        if (arg_children_max == 0) {
                 cpu_set_t cpu_set;
 
                 arg_children_max = 8;
@@ -1409,12 +1404,12 @@ int main(int argc, char *argv[]) {
                         worker_kill(udev);
 
                         /* exit after all has cleaned up */
-                        if (udev_list_node_is_empty(&event_list) && children == 0)
+                        if (udev_list_node_is_empty(&event_list) && hashmap_isempty(workers))
                                 break;
 
                         /* timeout at exit for workers to finish */
                         timeout = 30 * MSEC_PER_SEC;
-                } else if (udev_list_node_is_empty(&event_list) && children == 0) {
+                } else if (udev_list_node_is_empty(&event_list) && hashmap_isempty(workers)) {
                         /* we are idle */
                         timeout = -1;
 
