@@ -87,12 +87,9 @@ static int context_read_data(Context *c) {
                         c->zone = strdup(e);
                         if (!c->zone)
                                 return log_oom();
-
-                        goto have_timezone;
                 }
         }
 
-have_timezone:
         if (isempty(c->zone)) {
                 free(c->zone);
                 c->zone = NULL;
