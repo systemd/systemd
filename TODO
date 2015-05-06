@@ -111,9 +111,6 @@ Features:
 * Maybe add support for the equivalent of "ethtool advertise" to .link files?
   http://lists.freedesktop.org/archives/systemd-devel/2015-April/030112.html
 
-* fstab-generator should generate systemd-fsck-root.service when
-  running in the initrd, and operate on the right device.
-
 * .timer units should optionally support CLOCK_BOOTTIME in addition to CLOCK_MONOTONIC
 
 * create a btrfs qgroup for /var/lib/machines, and add all container
@@ -150,8 +147,6 @@ Features:
 
 * Introduce $LISTEN_NAMES to complement $LISTEN_FDS, containing a
   colon separated list of identifiers for the fds passed.
-
-* when the fstab-generator runs in the initrd, it should create a /dev/null mask for systemd-fsck-root.service, to avoid that the the root fs is fsck'ed twice.
 
 * maybe introduce WantsMountsFor=? Usecase:
   http://lists.freedesktop.org/archives/systemd-devel/2015-January/027729.html
