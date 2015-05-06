@@ -310,7 +310,7 @@ static int device_setup_unit(Manager *m, struct udev_device *dev, const char *pa
 
         r = unit_name_from_path(path, ".device", &e);
         if (r < 0)
-                return log_unit_error_errno(u->id, r, "Failed to generate device name: %m");
+                return log_error_errno(r, "Failed to generate unit name from device path: %m");
 
         u = manager_get_unit(m, e);
 
