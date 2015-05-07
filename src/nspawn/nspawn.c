@@ -2040,7 +2040,17 @@ static int register_machine(pid_t pid, int local_ifindex) {
                                           "/dev/pts/ptmx", "rw",
                                           "char-pts", "rw");
                 if (r < 0)
-                        return log_error_errno(r, "Failed to add device whitelist: %m");
+                        return bus_log_create_error(r);
+
+                if (arg_kill_signal != 0) {
+                        r = sd_bus_message_append(m, "(sv)", "KillSignal", "i", arg_kill_signal);
+                        if (r < 0)
+                                return bus_log_create_error(r);
+
+                        r = sd_bus_message_append(m, "(sv)", "KillMode", "s", "mixed");
+                        if (r < 0)
+                                return bus_log_create_error(r);
+                }
 
                 STRV_FOREACH(i, arg_property) {
                         r = sd_bus_message_open_container(m, 'r', "sv");
