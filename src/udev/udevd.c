@@ -126,10 +126,6 @@ struct worker {
 struct worker_message {
 };
 
-static inline struct worker *node_to_worker(struct udev_list_node *node) {
-        return container_of(node, struct worker, node);
-}
-
 static void event_free(struct event *event) {
         if (!event)
                 return;
