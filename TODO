@@ -53,6 +53,16 @@ Before 220:
 
 Features:
 
+* invent a better systemd-run scheme for naming scopes, that works with remoting
+
+* add journalctl -H that talks via ssh to a remote peer and passes through binary logs data
+
+* change journalctl -M to acquire fd to journal directory via machined, and then operate on that via openat() insteat of absolute paths
+
+* log accumulated resource usage after each service invocation
+
+* export unit name escaping calls
+
 * networkd: dhcp server: try to assign stable IP addresses based on client's MAC address
 
 * nspawn: a nice way to boot up without machine id set, so that it is set at boot automatically for supporting --ephemeral. Maybe hash the host machine id together with the machine name to generate the machine id for the container
@@ -78,7 +88,7 @@ Features:
 * man: document how update dkr images works with machinectl
   http://lists.freedesktop.org/archives/systemd-devel/2015-February/028630.html
 
-* nspawn: as soon as networkd has a bus interface, hook up --network-interface= with networkd, to trigger netdev creation should an interface be missing
+* nspawn: as soon as networkd has a bus interface, hook up --network-interface=, --network-bridge= with networkd, to trigger netdev creation should an interface be missing
 
 * networkd: make DHCP server IP range configurable, including only with a single IP address
 
