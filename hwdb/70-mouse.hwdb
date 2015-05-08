@@ -198,6 +198,10 @@ mouse:usb:v046dpc245:name:Logitech Gaming Mouse G400:
 mouse:usb:v046dpc24c:name:Logitech G400s Optical Gaming Mouse:
  MOUSE_DPI=400@1000 *800@1000 2000@1000 4000@1000
 
+# Logitech M570 trackball
+mouse:usb:v046dp1028:name:Logitech M570:
+ MOUSE_DPI=540@167
+
 # Logitech Wireless Mouse M185
 mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:4008:
 # Logitech M705 (marathon mouse)
