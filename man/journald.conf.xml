@@ -97,7 +97,7 @@
         needed, so that its existence controls where log data goes.
         <literal>none</literal> turns off all storage, all log data
         received will be dropped. Forwarding to other targets, such as
-        the console, the kernel log buffer or a syslog daemon will
+        the console, the kernel log buffer, or a syslog socket will
         still work however. Defaults to
         <literal>auto</literal>.</para></listitem>
       </varlistentry>
@@ -220,27 +220,19 @@
         journald will stop using more space, but it will not be
         removing existing files to go reduce footprint either.</para>
 
-        <para><varname>SystemMaxFileSize=</varname>
-        and
-        <varname>RuntimeMaxFileSize=</varname>
-        control how large individual journal
-        files may grow at maximum. This
-        influences the granularity in which
-        disk space is made available through
-        rotation, i.e. deletion of historic
-        data. Defaults to one eighth of the
-        values configured with
+        <para><varname>SystemMaxFileSize=</varname> and
+        <varname>RuntimeMaxFileSize=</varname> control how large
+        individual journal files may grow at maximum. This influences
+        the granularity in which disk space is made available through
+        rotation, i.e. deletion of historic data. Defaults to one
+        eighth of the values configured with
         <varname>SystemMaxUse=</varname> and
-        <varname>RuntimeMaxUse=</varname>, so
-        that usually seven rotated journal
-        files are kept as history. Specify
-        values in bytes or use K, M, G, T, P,
-        E as units for the specified sizes
-        (equal to 1024, 1024²,... bytes).
-        Note that size limits are enforced
-        synchronously when journal files are
-        extended, and no explicit rotation
-        step triggered by time is
+        <varname>RuntimeMaxUse=</varname>, so that usually seven
+        rotated journal files are kept as history. Specify values in
+        bytes or use K, M, G, T, P, E as units for the specified sizes
+        (equal to 1024, 1024²,... bytes).  Note that size limits are
+        enforced synchronously when journal files are extended, and no
+        explicit rotation step triggered by time is
         needed.</para></listitem>
       </varlistentry>
 
@@ -308,13 +300,13 @@
         daemon, to the kernel log buffer (kmsg), to the system
         console, or sent as wall messages to all logged-in users.
         These options take boolean arguments. If forwarding to syslog
-        is enabled but no syslog daemon is running, the respective
-        option has no effect. By default, only forwarding wall is
-        enabled. These settings may be overridden at boot time with
-        the kernel command line options
+        is enabled but nothing reads messages from the socket,
+        forwarding to syslog has no effect. By default, only
+        forwarding to wall is enabled. These settings may be
+        overridden at boot time with the kernel command line options
         <literal>systemd.journald.forward_to_syslog=</literal>,
         <literal>systemd.journald.forward_to_kmsg=</literal>,
-        <literal>systemd.journald.forward_to_console=</literal> and
+        <literal>systemd.journald.forward_to_console=</literal>, and
         <literal>systemd.journald.forward_to_wall=</literal>. When
         forwarding to the console, the TTY to log to can be changed
         with <varname>TTYPath=</varname>, described
@@ -363,6 +355,32 @@
 
     </variablelist>
 
+  </refsect1>
+
+  <refsect1>
+    <title>Forwarding to traditional syslog daemons</title>
+
+    <para>
+      Journal events can be transfered to a different logging daemon
+      in two different ways. In the first method, messages are
+      immediately forwarded to a socket
+      (<filename>/run/systemd/journal/syslog</filename>), where the
+      traditional syslog daemon can read them. This method is
+      controlled by <varname>ForwardToSyslog=</varname> option.  In a
+      second method, a syslog daemon behaves like a normal journal
+      client, and reads messages from the journal files, similarly to
+      <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+      In this method, messages do not have to be read immediately,
+      which allows a logging daemon which is only started late in boot
+      to access all messages since the start of the system. In
+      addition, full structured meta-data is available to it. This
+      method of course is available only if the messages are stored in
+      a journal file at all. So it will work if
+      <varname>Storage=none</varname> is set. It should be noted that
+      usualy the <emphasis>second</emphasis> method is used by syslog
+      daemons, so the <varname>Storage=</varname> option, and not the
+      <varname>ForwardToSyslog=</varname> option, is relevant for them.
+    </para>
   </refsect1>
 
   <refsect1>
