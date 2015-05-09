@@ -361,7 +361,7 @@
     <title>Forwarding to traditional syslog daemons</title>
 
     <para>
-      Journal events can be transfered to a different logging daemon
+      Journal events can be transferred to a different logging daemon
       in two different ways. In the first method, messages are
       immediately forwarded to a socket
       (<filename>/run/systemd/journal/syslog</filename>), where the
@@ -375,9 +375,9 @@
       to access all messages since the start of the system. In
       addition, full structured meta-data is available to it. This
       method of course is available only if the messages are stored in
-      a journal file at all. So it will work if
+      a journal file at all. So it will not work if
       <varname>Storage=none</varname> is set. It should be noted that
-      usualy the <emphasis>second</emphasis> method is used by syslog
+      usually the <emphasis>second</emphasis> method is used by syslog
       daemons, so the <varname>Storage=</varname> option, and not the
       <varname>ForwardToSyslog=</varname> option, is relevant for them.
     </para>
