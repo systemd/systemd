@@ -6333,7 +6333,7 @@ libsystemd_journal_la_SOURCES = \
 	src/compat-libs/libsystemd-journal.sym
 
 libsystemd_journal_la_CPPFLAGS = \
-	$(AM_CFLAGS) \
+	$(AM_CPPFLAGS) \
 	-imacros$(top_srcdir)/src/compat-libs/linkwarning.h
 
 libsystemd_journal_la_LDFLAGS = \
@@ -6351,7 +6351,7 @@ libsystemd_login_la_SOURCES = \
 	src/compat-libs/libsystemd-login.sym
 
 libsystemd_login_la_CPPFLAGS = \
-	$(AM_CFLAGS) \
+	$(AM_CPPFLAGS) \
 	-imacros$(top_srcdir)/src/compat-libs/linkwarning.h
 
 libsystemd_login_la_LDFLAGS = \
@@ -6368,7 +6368,7 @@ libsystemd_id128_la_SOURCES = \
 	src/compat-libs/libsystemd-id128.sym
 
 libsystemd_id128_la_CPPFLAGS = \
-	$(AM_CFLAGS) \
+	$(AM_CPPFLAGS) \
 	-imacros$(top_srcdir)/src/compat-libs/linkwarning.h
 
 libsystemd_id128_la_LDFLAGS = \
@@ -6385,7 +6385,7 @@ libsystemd_daemon_la_SOURCES = \
 	src/compat-libs/libsystemd-daemon.sym
 
 libsystemd_daemon_la_CPPFLAGS = \
-	$(AM_CFLAGS) \
+	$(AM_CPPFLAGS) \
 	-imacros$(top_srcdir)/src/compat-libs/linkwarning.h
 
 libsystemd_daemon_la_LDFLAGS = \
