@@ -382,7 +382,7 @@
           interface. If enabled packets forwarded from the network
           interface will be appear as coming from the local host.
           Takes a boolean argument. Implies
-          <varname>IPForward=yes</varname>. Defaults to
+          <varname>IPForward=ipv4</varname>. Defaults to
           <literal>no</literal>.</para></listitem>
         </varlistentry>
         <varlistentry>
