@@ -262,7 +262,7 @@ fail:
 
 static void* client1(void*p) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-        sd_bus *bus = NULL;
+        _cleanup_bus_close_unref_ sd_bus *bus = NULL;
         sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *hello;
         int r;
@@ -345,8 +345,6 @@ finish:
                 else
                         sd_bus_send(bus, q, NULL);
 
-                sd_bus_flush(bus);
-                sd_bus_unref(bus);
         }
 
         sd_bus_error_free(&error);
