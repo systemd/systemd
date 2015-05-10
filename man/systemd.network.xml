@@ -373,9 +373,7 @@
           globally turned on in the kernel, with the
           <filename>net.ipv4.ip_forward</filename> and
           <filename>net.ipv4.ip_forward</filename> sysctl
-          options. Also, if this option is enabled for at least one
-          interface, the global options in the kernel are also enabled
-          as necessary, to ensure IP forwarding can take place.</para>
+          options.</para>
           </listitem>
         </varlistentry>
         <varlistentry>

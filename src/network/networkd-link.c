@@ -1475,38 +1475,12 @@ static int link_enter_join_netdev(Link *link) {
 
 static int link_set_ipv4_forward(Link *link) {
         const char *p = NULL;
-        bool b;
         int r;
 
-        b = link_ipv4_forward_enabled(link);
-
         p = strjoina("/proc/sys/net/ipv4/conf/", link->ifname, "/forwarding");
-        r = write_string_file_no_create(p, one_zero(b));
+        r = write_string_file_no_create(p, one_zero(link_ipv4_forward_enabled(link)));
         if (r < 0)
                 log_link_warning_errno(link, r, "Cannot configure IPv4 forwarding for interface %s: %m", link->ifname);
-
-        if (b) {
-                _cleanup_free_ char *buf = NULL;
-
-                /* If IP forwarding is turned on for this interface,
-                 * then propagate this to the global setting. Given
-                 * that turning this on has side-effects on other
-                 * fields, we'll try to avoid doing this unless
-                 * necessary, hence check the previous value
-                 * first. Note that we never turn this option off
-                 * again, since all interfaces we manage do not do
-                 * forwarding anyway by default, and ownership rules
-                 * of this control are so unclear. */
-
-                r = read_one_line_file("/proc/sys/net/ipv4/ip_forward", &buf);
-                if (r < 0)
-                        log_link_warning_errno(link, r, "Cannot read /proc/sys/net/ipv4/ip_forward: %m");
-                else if (!streq(buf, "1")) {
-                        r = write_string_file_no_create("/proc/sys/net/ipv4/ip_forward", "1");
-                        if (r < 0)
-                                log_link_warning_errno(link, r, "Cannot write /proc/sys/net/ipv4/ip_forward: %m");
-                }
-        }
 
         return 0;
 }
