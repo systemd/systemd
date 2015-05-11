@@ -812,52 +812,6 @@ fail:
                 mount_enter_dead(m, MOUNT_FAILURE_RESOURCES);
 }
 
-void unit_warn_if_dir_nonempty(Unit *u, const char* where) {
-        int r;
-
-        assert(u);
-        assert(where);
-
-        r = dir_is_empty(where);
-        if (r > 0)
-                return;
-        if (r < 0) {
-                log_unit_warning_errno(u, r, "Failed to check directory %s: %m", where);
-                return;
-        }
-
-        log_struct(LOG_NOTICE,
-                   LOG_MESSAGE_ID(SD_MESSAGE_OVERMOUNTING),
-                   LOG_UNIT_ID(u),
-                   LOG_UNIT_MESSAGE(u, "Directory %s to mount over is not empty, mounting anyway.", where),
-                   "WHERE=%s", where,
-                   NULL);
-}
-
-int unit_fail_if_symlink(Unit *u, const char* where) {
-        int r;
-
-        assert(u);
-        assert(where);
-
-        r = is_symlink(where);
-        if (r < 0) {
-                log_unit_debug_errno(u, r, "Failed to check symlink %s, ignoring: %m", where);
-                return 0;
-        }
-        if (r == 0)
-                return 0;
-
-        log_struct(LOG_ERR,
-                   LOG_MESSAGE_ID(SD_MESSAGE_OVERMOUNTING),
-                   LOG_UNIT_ID(u),
-                   LOG_UNIT_MESSAGE(u, "Mount on symlink %s not allowed.", where),
-                   "WHERE=%s", where,
-                   NULL);
-
-        return -ELOOP;
-}
-
 static void mount_enter_unmounting(Mount *m) {
         int r;
 

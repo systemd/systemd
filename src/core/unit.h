@@ -607,6 +607,9 @@ static inline bool unit_supported(Unit *u) {
         return unit_type_supported(u->type);
 }
 
+void unit_warn_if_dir_nonempty(Unit *u, const char* where);
+int unit_fail_if_symlink(Unit *u, const char* where);
+
 const char *unit_active_state_to_string(UnitActiveState i) _const_;
 UnitActiveState unit_active_state_from_string(const char *s) _pure_;
 

@@ -128,6 +128,3 @@ MountExecCommand mount_exec_command_from_string(const char *s) _pure_;
 
 const char* mount_result_to_string(MountResult i) _const_;
 MountResult mount_result_from_string(const char *s) _pure_;
-
-void unit_warn_if_dir_nonempty(Unit *u, const char* where);
-int unit_fail_if_symlink(Unit *u, const char* where);
