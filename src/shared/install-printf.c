@@ -28,7 +28,7 @@
 #include "formats-util.h"
 
 static int specifier_prefix_and_instance(char specifier, void *data, void *userdata, char **ret) {
-        InstallInfo *i = userdata;
+        UnitFileInstallInfo *i = userdata;
 
         assert(i);
 
@@ -36,7 +36,7 @@ static int specifier_prefix_and_instance(char specifier, void *data, void *userd
 }
 
 static int specifier_prefix(char specifier, void *data, void *userdata, char **ret) {
-        InstallInfo *i = userdata;
+        UnitFileInstallInfo *i = userdata;
 
         assert(i);
 
@@ -44,7 +44,7 @@ static int specifier_prefix(char specifier, void *data, void *userdata, char **r
 }
 
 static int specifier_instance(char specifier, void *data, void *userdata, char **ret) {
-        InstallInfo *i = userdata;
+        UnitFileInstallInfo *i = userdata;
         char *instance;
         int r;
 
@@ -65,7 +65,7 @@ static int specifier_instance(char specifier, void *data, void *userdata, char *
 }
 
 static int specifier_user_name(char specifier, void *data, void *userdata, char **ret) {
-        InstallInfo *i = userdata;
+        UnitFileInstallInfo *i = userdata;
         const char *username;
         _cleanup_free_ char *tmp = NULL;
         char *printed = NULL;
@@ -102,7 +102,7 @@ static int specifier_user_name(char specifier, void *data, void *userdata, char 
 }
 
 
-int install_full_printf(InstallInfo *i, const char *format, char **ret) {
+int install_full_printf(UnitFileInstallInfo *i, const char *format, char **ret) {
 
         /* This is similar to unit_full_printf() but does not support
          * anything path-related.

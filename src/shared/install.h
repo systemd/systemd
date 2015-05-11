@@ -21,19 +21,27 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+typedef enum UnitFileScope UnitFileScope;
+typedef enum UnitFileState UnitFileState;
+typedef enum UnitFilePresetMode UnitFilePresetMode;
+typedef enum UnitFileChangeType UnitFileChangeType;
+typedef struct UnitFileChange UnitFileChange;
+typedef struct UnitFileList UnitFileList;
+typedef struct UnitFileInstallInfo UnitFileInstallInfo;
+
 #include "hashmap.h"
 #include "unit-name.h"
 #include "path-lookup.h"
 
-typedef enum UnitFileScope {
+enum UnitFileScope {
         UNIT_FILE_SYSTEM,
         UNIT_FILE_GLOBAL,
         UNIT_FILE_USER,
         _UNIT_FILE_SCOPE_MAX,
         _UNIT_FILE_SCOPE_INVALID = -1
-} UnitFileScope;
+};
 
-typedef enum UnitFileState {
+enum UnitFileState {
         UNIT_FILE_ENABLED,
         UNIT_FILE_ENABLED_RUNTIME,
         UNIT_FILE_LINKED,
@@ -46,35 +54,35 @@ typedef enum UnitFileState {
         UNIT_FILE_INVALID,
         _UNIT_FILE_STATE_MAX,
         _UNIT_FILE_STATE_INVALID = -1
-} UnitFileState;
+};
 
-typedef enum UnitFilePresetMode {
+enum UnitFilePresetMode {
         UNIT_FILE_PRESET_FULL,
         UNIT_FILE_PRESET_ENABLE_ONLY,
         UNIT_FILE_PRESET_DISABLE_ONLY,
         _UNIT_FILE_PRESET_MAX,
         _UNIT_FILE_PRESET_INVALID = -1
-} UnitFilePresetMode;
+};
 
-typedef enum UnitFileChangeType {
+enum UnitFileChangeType {
         UNIT_FILE_SYMLINK,
         UNIT_FILE_UNLINK,
         _UNIT_FILE_CHANGE_TYPE_MAX,
         _UNIT_FILE_CHANGE_TYPE_INVALID = -1
-} UnitFileChangeType;
+};
 
-typedef struct UnitFileChange {
+struct UnitFileChange {
         UnitFileChangeType type;
         char *path;
         char *source;
-} UnitFileChange;
+};
 
-typedef struct UnitFileList {
+struct UnitFileList {
         char *path;
         UnitFileState state;
-} UnitFileList;
+};
 
-typedef struct {
+struct UnitFileInstallInfo {
         char *name;
         char *path;
         char *user;
@@ -85,7 +93,7 @@ typedef struct {
         char **also;
 
         char *default_instance;
-} InstallInfo;
+};
 
 int unit_file_enable(UnitFileScope scope, bool runtime, const char *root_dir, char **files, bool force, UnitFileChange **changes, unsigned *n_changes);
 int unit_file_disable(UnitFileScope scope, bool runtime, const char *root_dir, char **files, UnitFileChange **changes, unsigned *n_changes);

@@ -809,7 +809,7 @@ void unit_file_changes_free(UnitFileChange *changes, unsigned n_changes) {
         free(changes);
 }
 
-static void install_info_free(InstallInfo *i) {
+static void install_info_free(UnitFileInstallInfo *i) {
         assert(i);
 
         free(i->name);
@@ -823,7 +823,7 @@ static void install_info_free(InstallInfo *i) {
 }
 
 static void install_info_hashmap_free(OrderedHashmap *m) {
-        InstallInfo *i;
+        UnitFileInstallInfo *i;
 
         if (!m)
                 return;
@@ -847,7 +847,7 @@ static int install_info_add(
                 InstallContext *c,
                 const char *name,
                 const char *path) {
-        InstallInfo *i = NULL;
+        UnitFileInstallInfo *i = NULL;
         int r;
 
         assert(c);
@@ -867,7 +867,7 @@ static int install_info_add(
         if (r < 0)
                 return r;
 
-        i = new0(InstallInfo, 1);
+        i = new0(UnitFileInstallInfo, 1);
         if (!i)
                 return -ENOMEM;
 
@@ -926,7 +926,7 @@ static int config_parse_also(
         size_t l;
         const char *word, *state;
         InstallContext *c = data;
-        InstallInfo *i = userdata;
+        UnitFileInstallInfo *i = userdata;
 
         assert(filename);
         assert(lvalue);
@@ -967,7 +967,7 @@ static int config_parse_user(
                 void *data,
                 void *userdata) {
 
-        InstallInfo *i = data;
+        UnitFileInstallInfo *i = data;
         char *printed;
         int r;
 
@@ -997,7 +997,7 @@ static int config_parse_default_instance(
                 void *data,
                 void *userdata) {
 
-        InstallInfo *i = data;
+        UnitFileInstallInfo *i = data;
         char *printed;
         int r;
 
@@ -1022,7 +1022,7 @@ static int config_parse_default_instance(
 
 static int unit_file_load(
                 InstallContext *c,
-                InstallInfo *info,
+                UnitFileInstallInfo *info,
                 const char *path,
                 const char *root_dir,
                 bool allow_symlink,
@@ -1082,7 +1082,7 @@ static int unit_file_load(
 
 static int unit_file_search(
                 InstallContext *c,
-                InstallInfo *info,
+                UnitFileInstallInfo *info,
                 const LookupPaths *paths,
                 const char *root_dir,
                 bool allow_symlink,
@@ -1159,7 +1159,7 @@ static int unit_file_can_install(
                 bool *also) {
 
         _cleanup_(install_context_done) InstallContext c = {};
-        InstallInfo *i;
+        UnitFileInstallInfo *i;
         int r;
 
         assert(paths);
@@ -1226,7 +1226,7 @@ static int create_symlink(
 }
 
 static int install_info_symlink_alias(
-                InstallInfo *i,
+                UnitFileInstallInfo *i,
                 const char *config_path,
                 bool force,
                 UnitFileChange **changes,
@@ -1258,7 +1258,7 @@ static int install_info_symlink_alias(
 }
 
 static int install_info_symlink_wants(
-                InstallInfo *i,
+                UnitFileInstallInfo *i,
                 const char *config_path,
                 char **list,
                 const char *suffix,
@@ -1315,7 +1315,7 @@ static int install_info_symlink_wants(
 }
 
 static int install_info_symlink_link(
-                InstallInfo *i,
+                UnitFileInstallInfo *i,
                 const LookupPaths *paths,
                 const char *config_path,
                 const char *root_dir,
@@ -1343,7 +1343,7 @@ static int install_info_symlink_link(
 }
 
 static int install_info_apply(
-                InstallInfo *i,
+                UnitFileInstallInfo *i,
                 const LookupPaths *paths,
                 const char *config_path,
                 const char *root_dir,
@@ -1383,7 +1383,7 @@ static int install_context_apply(
                 UnitFileChange **changes,
                 unsigned *n_changes) {
 
-        InstallInfo *i;
+        UnitFileInstallInfo *i;
         int r, q;
 
         assert(c);
@@ -1428,7 +1428,7 @@ static int install_context_mark_for_removal(
                 const char *config_path,
                 const char *root_dir) {
 
-        InstallInfo *i;
+        UnitFileInstallInfo *i;
         int r, q;
 
         assert(c);
@@ -1513,7 +1513,7 @@ int unit_file_add_dependency(
         _cleanup_free_ char *config_path = NULL;
         char **i;
         int r;
-        InstallInfo *info;
+        UnitFileInstallInfo *info;
 
         assert(scope >= 0);
         assert(scope < _UNIT_FILE_SCOPE_MAX);
@@ -1702,7 +1702,7 @@ int unit_file_set_default(
         _cleanup_free_ char *config_path = NULL;
         char *path;
         int r;
-        InstallInfo *i = NULL;
+        UnitFileInstallInfo *i = NULL;
 
         assert(scope >= 0);
         assert(scope < _UNIT_FILE_SCOPE_MAX);

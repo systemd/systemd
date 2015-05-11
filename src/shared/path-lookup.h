@@ -23,8 +23,6 @@
 
 #include "macro.h"
 
-typedef enum UnitFileScope UnitFileScope;
-
 typedef struct LookupPaths {
         char **unit_path;
 #ifdef HAVE_SYSV_COMPAT
@@ -52,9 +50,12 @@ int lookup_paths_init(LookupPaths *p,
                       const char *generator,
                       const char *generator_early,
                       const char *generator_late);
-void lookup_paths_free(LookupPaths *p);
+
+#include "install.h"
+
 int lookup_paths_init_from_scope(LookupPaths *paths,
                                  UnitFileScope scope,
                                  const char *root_dir);
 
+void lookup_paths_free(LookupPaths *p);
 #define _cleanup_lookup_paths_free_ _cleanup_(lookup_paths_free)
