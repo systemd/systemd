@@ -49,7 +49,7 @@ Before 220:
 
 * introduce argv0array=
 
-* rework log_unit_error() to always prefix output with unit name
+* Assertion 'device' failed at src/network/networkd-network.c:280, function network_get(). Aborting.
 
 Features:
 
