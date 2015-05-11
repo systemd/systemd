@@ -83,16 +83,14 @@ static int dhcp6_address_update(Link *link, struct in6_addr *ip6_addr,
         addr->cinfo.ifa_prefered = lifetime_preferred;
         addr->cinfo.ifa_valid = lifetime_valid;
 
-        log_link_struct(link, LOG_INFO, "MESSAGE=%-*s: DHCPv6 address "SD_ICMP6_ADDRESS_FORMAT_STR"/%d timeout preferred %d valid %d",
-                        IFNAMSIZ,
-                        link->ifname, SD_ICMP6_ADDRESS_FORMAT_VAL(addr->in_addr.in6),
-                        addr->prefixlen, lifetime_preferred, lifetime_valid,
-                        NULL);
+        log_link_info(link,
+                      "DHCPv6 address "SD_ICMP6_ADDRESS_FORMAT_STR"/%d timeout preferred %d valid %d",
+                      SD_ICMP6_ADDRESS_FORMAT_VAL(addr->in_addr.in6),
+                      addr->prefixlen, lifetime_preferred, lifetime_valid);
 
         r = address_update(addr, link, dhcp6_address_handler);
         if (r < 0)
-                log_link_warning(link, "Could not assign DHCPv6 address: %s",
-                                strerror(-r));
+                log_link_warning_errno(link, r, "Could not assign DHCPv6 address: %m");
 
         return r;
 }
@@ -289,11 +287,9 @@ static int dhcp6_prefix_expired(Link *link) {
         if (r < 0)
                 return r;
 
-        log_link_struct(link, LOG_INFO,
-                        "MESSAGE=%-*s: IPv6 prefix "SD_ICMP6_ADDRESS_FORMAT_STR"/%d expired",
-                        IFNAMSIZ, link->ifname,
-                        SD_ICMP6_ADDRESS_FORMAT_VAL(*expired_prefix),
-                        expired_prefixlen, NULL);
+        log_link_info(link, "IPv6 prefix "SD_ICMP6_ADDRESS_FORMAT_STR"/%d expired",
+                      SD_ICMP6_ADDRESS_FORMAT_VAL(*expired_prefix),
+                      expired_prefixlen);
 
         sd_dhcp6_lease_reset_address_iter(lease);
 
@@ -306,14 +302,9 @@ static int dhcp6_prefix_expired(Link *link) {
                 if (r < 0)
                         continue;
 
-                log_link_struct(link, LOG_INFO,
-                                "MESSAGE=%-*s: IPv6 prefix length updated "SD_ICMP6_ADDRESS_FORMAT_STR"/%d",
-                                IFNAMSIZ, link->ifname,
-                                SD_ICMP6_ADDRESS_FORMAT_VAL(ip6_addr), 128,
-                                NULL);
+                log_link_info(link, "IPv6 prefix length updated "SD_ICMP6_ADDRESS_FORMAT_STR"/%d", SD_ICMP6_ADDRESS_FORMAT_VAL(ip6_addr), 128);
 
-                dhcp6_address_update(link, &ip6_addr, 128, lifetime_preferred,
-                                     lifetime_valid);
+                dhcp6_address_update(link, &ip6_addr, 128, lifetime_preferred, lifetime_valid);
         }
 
         return 0;

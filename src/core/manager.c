@@ -528,7 +528,19 @@ static int manager_default_environment(Manager *m) {
         return 0;
 }
 
+
 int manager_new(SystemdRunningAs running_as, bool test_run, Manager **_m) {
+
+        static const char * const unit_log_fields[_SYSTEMD_RUNNING_AS_MAX] = {
+                [SYSTEMD_SYSTEM] = "UNIT=",
+                [SYSTEMD_USER] = "USER_UNIT=",
+        };
+
+        static const char * const unit_log_format_strings[_SYSTEMD_RUNNING_AS_MAX] = {
+                [SYSTEMD_SYSTEM] = "UNIT=%s",
+                [SYSTEMD_USER] = "USER_UNIT=%s",
+        };
+
         Manager *m;
         int r;
 
@@ -548,6 +560,10 @@ int manager_new(SystemdRunningAs running_as, bool test_run, Manager **_m) {
         m->running_as = running_as;
         m->exit_code = _MANAGER_EXIT_CODE_INVALID;
         m->default_timer_accuracy_usec = USEC_PER_MINUTE;
+
+        /* Prepare log fields we can use for structured logging */
+        m->unit_log_field = unit_log_fields[running_as];
+        m->unit_log_format_string = unit_log_format_strings[running_as];
 
         m->idle_pipe[0] = m->idle_pipe[1] = m->idle_pipe[2] = m->idle_pipe[3] = -1;
 
@@ -861,7 +877,7 @@ static unsigned manager_dispatch_gc_queue(Manager *m) {
                 if (u->gc_marker == gc_marker + GC_OFFSET_BAD ||
                     u->gc_marker == gc_marker + GC_OFFSET_UNSURE) {
                         if (u->id)
-                                log_unit_debug(u->id, "Collecting %s", u->id);
+                                log_unit_debug(u, "Collecting.");
                         u->gc_marker = gc_marker + GC_OFFSET_BAD;
                         unit_add_to_cleanup_queue(u);
                 }
@@ -1186,9 +1202,7 @@ int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool ove
         if (mode == JOB_ISOLATE && !unit->allow_isolate)
                 return sd_bus_error_setf(e, BUS_ERROR_NO_ISOLATION, "Operation refused, unit may not be isolated.");
 
-        log_unit_debug(unit->id,
-                       "Trying to enqueue job %s/%s/%s", unit->id,
-                       job_type_to_string(type), job_mode_to_string(mode));
+        log_unit_debug(unit, "Trying to enqueue job %s/%s/%s", unit->id, job_type_to_string(type), job_mode_to_string(mode));
 
         job_type_collapse(&type, unit);
 
@@ -1212,7 +1226,7 @@ int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool ove
         if (r < 0)
                 goto tr_abort;
 
-        log_unit_debug(unit->id,
+        log_unit_debug(unit,
                        "Enqueued job %s/%s as %u", unit->id,
                        job_type_to_string(type), (unsigned) tr->anchor_job->id);
 
@@ -1482,7 +1496,7 @@ static void manager_invoke_notify_message(Manager *m, Unit *u, pid_t pid, char *
                 return;
         }
 
-        log_unit_debug(u->id, "Got notification message for unit %s", u->id);
+        log_unit_debug(u, "Got notification message for unit.");
 
         if (UNIT_VTABLE(u)->notify_message)
                 UNIT_VTABLE(u)->notify_message(u, pid, tags, fds);
@@ -1605,7 +1619,7 @@ static void invoke_sigchld_event(Manager *m, Unit *u, siginfo_t *si) {
         assert(u);
         assert(si);
 
-        log_unit_debug(u->id, "Child "PID_FMT" belongs to %s", si->si_pid, u->id);
+        log_unit_debug(u, "Child "PID_FMT" belongs to %s", si->si_pid, u->id);
 
         unit_unwatch_pid(u, si->si_pid);
         UNIT_VTABLE(u)->sigchld_event(u, si->si_pid, si->si_code, si->si_status);
@@ -1677,11 +1691,11 @@ static int manager_start_target(Manager *m, const char *name, JobMode mode) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
-        log_unit_debug(name, "Activating special unit %s", name);
+        log_debug("Activating special unit %s", name);
 
         r = manager_add_job_by_name(m, JOB_START, name, mode, true, &error, NULL);
         if (r < 0)
-                log_unit_error(name, "Failed to enqueue %s job: %s", name, bus_error_message(&error, r));
+                log_error("Failed to enqueue %s job: %s", name, bus_error_message(&error, r));
 
         return r;
 }

@@ -722,12 +722,7 @@ static int link_set_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
 
         r = sd_rtnl_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
-                log_link_struct(link, LOG_ERR,
-                                "MESSAGE=%-*s: could not join netdev: %s",
-                                IFNAMSIZ, link->ifname,
-                                strerror(-r),
-                                "ERRNO=%d", -r,
-                                NULL);
+                log_link_error_errno(link, r, "Could not join netdev: %m");
                 link_enter_failed(link);
                 return 1;
         }
@@ -1411,22 +1406,20 @@ static int link_enter_join_netdev(Link *link) {
                 return link_joined(link);
 
         if (link->network->bond) {
-                log_link_struct(link, LOG_DEBUG,
-                                "MESSAGE=%-*s: enslaving by '%s'",
-                                IFNAMSIZ, link->ifname,
-                                link->network->bond->ifname,
-                                NETDEVIF(link->network->bond),
-                                NULL);
+                log_struct(LOG_DEBUG,
+                           LOG_LINK_INTERFACE(link),
+                           LOG_NETDEV_INTERFACE(link->network->bond),
+                           LOG_LINK_MESSAGE(link, "Enslaving by '%s'", link->network->bond->ifname),
+                           NULL);
 
-                r = netdev_join(link->network->bond, link, &netdev_join_handler);
+                r = netdev_join(link->network->bond, link, netdev_join_handler);
                 if (r < 0) {
-                        log_link_struct(link, LOG_WARNING,
-                                        "MESSAGE=%-*s: could not join netdev '%s': %s",
-                                        IFNAMSIZ, link->ifname,
-                                        link->network->bond->ifname,
-                                        strerror(-r),
-                                        NETDEVIF(link->network->bond),
-                                        NULL);
+                        log_struct_errno(LOG_WARNING, r,
+                                         LOG_LINK_INTERFACE(link),
+                                         LOG_NETDEV_INTERFACE(link->network->bond),
+                                         LOG_LINK_MESSAGE(link, "Could not join netdev '%s': %m", link->network->bond->ifname),
+                                         NULL);
+
                         link_enter_failed(link);
                         return r;
                 }
@@ -1435,23 +1428,19 @@ static int link_enter_join_netdev(Link *link) {
         }
 
         if (link->network->bridge) {
-                log_link_struct(link, LOG_DEBUG,
-                                "MESSAGE=%-*s: enslaving by '%s'",
-                                IFNAMSIZ, link->ifname,
-                                link->network->bridge->ifname,
-                                NETDEVIF(link->network->bridge),
-                                NULL);
+                log_struct(LOG_DEBUG,
+                           LOG_LINK_INTERFACE(link),
+                           LOG_NETDEV_INTERFACE(link->network->bridge),
+                           LOG_LINK_MESSAGE(link, "Enslaving by '%s'", link->network->bridge->ifname),
+                           NULL);
 
-                r = netdev_join(link->network->bridge, link,
-                                &netdev_join_handler);
+                r = netdev_join(link->network->bridge, link, netdev_join_handler);
                 if (r < 0) {
-                        log_link_struct(link, LOG_WARNING,
-                                        "MESSAGE=%-*s: could not join netdev '%s': %s",
-                                        IFNAMSIZ, link->ifname,
-                                        link->network->bridge->ifname,
-                                        strerror(-r),
-                                        NETDEVIF(link->network->bridge),
-                                        NULL);
+                        log_struct_errno(LOG_WARNING, r,
+                                         LOG_LINK_INTERFACE(link),
+                                         LOG_NETDEV_INTERFACE(link->network->bridge),
+                                         LOG_LINK_MESSAGE(link, "Could not join netdev '%s': %m", link->network->bridge->ifname),
+                                         NULL),
                         link_enter_failed(link);
                         return r;
                 }
@@ -1460,20 +1449,20 @@ static int link_enter_join_netdev(Link *link) {
         }
 
         HASHMAP_FOREACH(netdev, link->network->stacked_netdevs, i) {
-                log_link_struct(link, LOG_DEBUG,
-                                "MESSAGE=%-*s: enslaving by '%s'",
-                                IFNAMSIZ, link->ifname,
-                                netdev->ifname, NETDEVIF(netdev),
-                                NULL);
 
-                r = netdev_join(netdev, link, &netdev_join_handler);
+                log_struct(LOG_DEBUG,
+                           LOG_LINK_INTERFACE(link),
+                           LOG_NETDEV_INTERFACE(netdev),
+                           LOG_LINK_MESSAGE(link, "Enslaving by '%s'", netdev->ifname),
+                           NULL);
+
+                r = netdev_join(netdev, link, netdev_join_handler);
                 if (r < 0) {
-                        log_link_struct(link, LOG_WARNING,
-                                        "MESSAGE=%-*s: could not join netdev '%s': %s",
-                                        IFNAMSIZ, link->ifname,
-                                        netdev->ifname,
-                                        strerror(-r),
-                                        NETDEVIF(netdev), NULL);
+                        log_struct_errno(LOG_WARNING, r,
+                                         LOG_LINK_INTERFACE(link),
+                                         LOG_NETDEV_INTERFACE(netdev),
+                                         LOG_LINK_MESSAGE(link, "Could not join netdev '%s': %m", netdev->ifname),
+                                         NULL);
                         link_enter_failed(link);
                         return r;
                 }

@@ -65,7 +65,7 @@ const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX] = {
         [UNIT_SCOPE] = &scope_vtable
 };
 
-static int maybe_warn_about_dependency(const char *id, const char *other, UnitDependency dependency);
+static void maybe_warn_about_dependency(Unit *u, const char *other, UnitDependency dependency);
 
 Unit *unit_new(Manager *m, size_t size) {
         Unit *u;
@@ -652,7 +652,7 @@ static void merge_dependencies(Unit *u, Unit *other, const char *other_id, UnitD
                         /* Do not add dependencies between u and itself */
                         if (back == u) {
                                 if (set_remove(back->dependencies[k], other))
-                                        maybe_warn_about_dependency(u->id, other_id, k);
+                                        maybe_warn_about_dependency(u, other_id, k);
                         } else {
                                 r = set_remove_and_put(back->dependencies[k], other, u);
                                 if (r == -EEXIST)
@@ -666,7 +666,7 @@ static void merge_dependencies(Unit *u, Unit *other, const char *other_id, UnitD
         /* Also do not move dependencies on u to itself */
         back = set_remove(other->dependencies[d], u);
         if (back)
-                maybe_warn_about_dependency(u->id, other_id, d);
+                maybe_warn_about_dependency(u, other_id, d);
 
         /* The move cannot fail. The caller must have performed a reservation. */
         assert_se(complete_move(&u->dependencies[d], &other->dependencies[d]) == 0);
@@ -1226,7 +1226,7 @@ int unit_load(Unit *u) {
                         goto fail;
 
                 if (u->on_failure_job_mode == JOB_ISOLATE && set_size(u->dependencies[UNIT_ON_FAILURE]) > 1) {
-                        log_unit_error(u->id, "More than one OnFailure= dependencies specified for %s but OnFailureJobMode=isolate set. Refusing.", u->id);
+                        log_unit_error(u, "More than one OnFailure= dependencies specified but OnFailureJobMode=isolate set. Refusing.");
                         r = -EINVAL;
                         goto fail;
                 }
@@ -1247,8 +1247,7 @@ fail:
         unit_add_to_dbus_queue(u);
         unit_add_to_gc_queue(u);
 
-        log_unit_debug(u->id, "Failed to load configuration for %s: %s",
-                       u->id, strerror(-r));
+        log_unit_debug_errno(u, r, "Failed to load configuration: %m");
 
         return r;
 }
@@ -1272,23 +1271,20 @@ static bool unit_condition_test_list(Unit *u, Condition *first, const char *(*to
 
                 r = condition_test(c);
                 if (r < 0)
-                        log_unit_warning(u->id,
-                                         "Couldn't determine result for %s=%s%s%s for %s, assuming failed: %s",
+                        log_unit_warning(u,
+                                         "Couldn't determine result for %s=%s%s%s, assuming failed: %m",
                                          to_string(c->type),
                                          c->trigger ? "|" : "",
                                          c->negate ? "!" : "",
-                                         c->parameter,
-                                         u->id,
-                                         strerror(-r));
+                                         c->parameter);
                 else
-                        log_unit_debug(u->id,
-                                       "%s=%s%s%s %s for %s.",
+                        log_unit_debug(u,
+                                       "%s=%s%s%s %s.",
                                        to_string(c->type),
                                        c->trigger ? "|" : "",
                                        c->negate ? "!" : "",
                                        c->parameter,
-                                       condition_result_to_string(c->result),
-                                       u->id);
+                                       condition_result_to_string(c->result));
 
                 if (!c->trigger && r <= 0)
                         return false;
@@ -1401,11 +1397,17 @@ static void unit_status_log_starting_stopping_reloading(Unit *u, JobType t) {
               t == JOB_STOP  ? SD_MESSAGE_UNIT_STOPPING :
                                SD_MESSAGE_UNIT_RELOADING;
 
-        log_unit_struct(u->id,
-                        LOG_INFO,
-                        LOG_MESSAGE_ID(mid),
-                        LOG_MESSAGE("%s", buf),
-                        NULL);
+        /* Note that we deliberately use LOG_MESSAGE() instead of
+         * LOG_UNIT_MESSAGE() here, since this is supposed to mimic
+         * closely what is written to screen using the status output,
+         * which is supposed the highest level, friendliest output
+         * possible, which means we should avoid the low-level unit
+         * name. */
+        log_struct(LOG_INFO,
+                   LOG_MESSAGE_ID(mid),
+                   LOG_UNIT_ID(u),
+                   LOG_MESSAGE("%s", buf),
+                   NULL);
 }
 
 /* Errors:
@@ -1439,21 +1441,21 @@ int unit_start(Unit *u) {
          * but we don't want to recheck the condition in that case. */
         if (state != UNIT_ACTIVATING &&
             !unit_condition_test(u)) {
-                log_unit_debug(u->id, "Starting of %s requested but condition failed. Not starting unit.", u->id);
+                log_unit_debug(u, "Starting requested but condition failed. Not starting unit.");
                 return -EALREADY;
         }
 
         /* If the asserts failed, fail the entire job */
         if (state != UNIT_ACTIVATING &&
             !unit_assert_test(u)) {
-                log_unit_debug(u->id, "Starting of %s requested but asserts failed.", u->id);
+                log_unit_notice(u, "Starting requested but asserts failed.");
                 return -EPROTO;
         }
 
         /* Forward to the main object, if we aren't it. */
         following = unit_following(u);
         if (following) {
-                log_unit_debug(u->id, "Redirecting start request from %s to %s.", u->id, following->id);
+                log_unit_debug(u, "Redirecting start request from %s to %s.", u->id, following->id);
                 return unit_start(following);
         }
 
@@ -1513,7 +1515,7 @@ int unit_stop(Unit *u) {
 
         following = unit_following(u);
         if (following) {
-                log_unit_debug(u->id, "Redirecting stop request from %s to %s.", u->id, following->id);
+                log_unit_debug(u, "Redirecting stop request from %s to %s.", u->id, following->id);
                 return unit_stop(following);
         }
 
@@ -1554,13 +1556,13 @@ int unit_reload(Unit *u) {
                 return -EALREADY;
 
         if (state != UNIT_ACTIVE) {
-                log_unit_warning(u->id, "Unit %s cannot be reloaded because it is inactive.", u->id);
+                log_unit_warning(u, "Unit cannot be reloaded because it is inactive.");
                 return -ENOEXEC;
         }
 
         following = unit_following(u);
         if (following) {
-                log_unit_debug(u->id, "Redirecting reload request from %s to %s.", u->id, following->id);
+                log_unit_debug(u, "Redirecting reload request from %s to %s.", u->id, following->id);
                 return unit_reload(following);
         }
 
@@ -1617,7 +1619,7 @@ static void unit_check_unneeded(Unit *u) {
                 if (unit_active_or_pending(other))
                         return;
 
-        log_unit_info(u->id, "Unit %s is not needed anymore. Stopping.", u->id);
+        log_unit_info(u, "Unit not needed anymore. Stopping.");
 
         /* Ok, nobody needs us anymore. Sniff. Then let's commit suicide */
         manager_add_job(u->manager, JOB_STOP, u, JOB_FAIL, true, NULL, NULL);
@@ -1651,7 +1653,7 @@ static void unit_check_binds_to(Unit *u) {
                 return;
 
         assert(other);
-        log_unit_info(u->id, "Unit %s is bound to inactive unit %s. Stopping, too.", u->id, other->id);
+        log_unit_info(u, "Unit is bound to inactive unit %s. Stopping, too.", other->id);
 
         /* A unit we need to run is gone. Sniff. Let's stop this. */
         manager_add_job(u->manager, JOB_STOP, u, JOB_FAIL, true, NULL, NULL);
@@ -1743,14 +1745,14 @@ void unit_start_on_failure(Unit *u) {
         if (set_size(u->dependencies[UNIT_ON_FAILURE]) <= 0)
                 return;
 
-        log_unit_info(u->id, "Triggering OnFailure= dependencies of %s.", u->id);
+        log_unit_info(u, "Triggering OnFailure= dependencies.");
 
         SET_FOREACH(other, u->dependencies[UNIT_ON_FAILURE], i) {
                 int r;
 
                 r = manager_add_job(u->manager, JOB_START, other, u->on_failure_job_mode, true, NULL, NULL);
                 if (r < 0)
-                        log_unit_error_errno(u->id, r, "Failed to enqueue OnFailure= job: %m");
+                        log_unit_error_errno(u, r, "Failed to enqueue OnFailure= job: %m");
         }
 }
 
@@ -1911,7 +1913,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
                         check_unneeded_dependencies(u);
 
                 if (ns != os && ns == UNIT_FAILED) {
-                        log_unit_notice(u->id, "Unit %s entered failed state.", u->id);
+                        log_unit_notice(u, "Unit entered failed state.");
                         unit_start_on_failure(u);
                 }
         }
@@ -2142,51 +2144,17 @@ bool unit_job_is_applicable(Unit *u, JobType j) {
         }
 }
 
-static int maybe_warn_about_dependency(const char *id, const char *other, UnitDependency dependency) {
-        assert(id);
+static void maybe_warn_about_dependency(Unit *u, const char *other, UnitDependency dependency) {
+        assert(u);
 
-        switch (dependency) {
-        case UNIT_REQUIRES:
-        case UNIT_REQUIRES_OVERRIDABLE:
-        case UNIT_WANTS:
-        case UNIT_REQUISITE:
-        case UNIT_REQUISITE_OVERRIDABLE:
-        case UNIT_BINDS_TO:
-        case UNIT_PART_OF:
-        case UNIT_REQUIRED_BY:
-        case UNIT_REQUIRED_BY_OVERRIDABLE:
-        case UNIT_WANTED_BY:
-        case UNIT_BOUND_BY:
-        case UNIT_CONSISTS_OF:
-        case UNIT_REFERENCES:
-        case UNIT_REFERENCED_BY:
-        case UNIT_PROPAGATES_RELOAD_TO:
-        case UNIT_RELOAD_PROPAGATED_FROM:
-        case UNIT_JOINS_NAMESPACE_OF:
-                return 0;
+        /* Only warn about some unit types */
+        if (!IN_SET(dependency, UNIT_CONFLICTS, UNIT_CONFLICTED_BY, UNIT_BEFORE, UNIT_AFTER, UNIT_ON_FAILURE, UNIT_TRIGGERS, UNIT_TRIGGERED_BY))
+                return;
 
-        case UNIT_CONFLICTS:
-        case UNIT_CONFLICTED_BY:
-        case UNIT_BEFORE:
-        case UNIT_AFTER:
-        case UNIT_ON_FAILURE:
-        case UNIT_TRIGGERS:
-        case UNIT_TRIGGERED_BY:
-                if (streq_ptr(id, other))
-                        log_unit_warning(id, "Dependency %s=%s dropped from unit %s",
-                                         unit_dependency_to_string(dependency), id, other);
-                else
-                        log_unit_warning(id, "Dependency %s=%s dropped from unit %s merged into %s",
-                                         unit_dependency_to_string(dependency), id,
-                                         strna(other), id);
-                return -EINVAL;
-
-        case _UNIT_DEPENDENCY_MAX:
-        case _UNIT_DEPENDENCY_INVALID:
-                break;
-        }
-
-        assert_not_reached("Invalid dependency type");
+        if (streq_ptr(u->id, other))
+                log_unit_warning(u, "Dependency %s=%s dropped", unit_dependency_to_string(dependency), u->id);
+        else
+                log_unit_warning(u, "Dependency %s=%s dropped, merged into %s", unit_dependency_to_string(dependency), strna(other), u->id);
 }
 
 int unit_add_dependency(Unit *u, UnitDependency d, Unit *other, bool add_reference) {
@@ -2230,7 +2198,7 @@ int unit_add_dependency(Unit *u, UnitDependency d, Unit *other, bool add_referen
         /* We won't allow dependencies on ourselves. We will not
          * consider them an error however. */
         if (u == other) {
-                maybe_warn_about_dependency(orig_u->id, orig_other->id, d);
+                maybe_warn_about_dependency(orig_u, orig_other->id, d);
                 return 0;
         }
 
@@ -2577,7 +2545,7 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
 
                 rt = unit_get_exec_runtime(u);
                 if (rt) {
-                        r = exec_runtime_serialize(rt, u, f, fds);
+                        r = exec_runtime_serialize(u, rt, f, fds);
                         if (r < 0)
                                 return r;
                 }
@@ -2669,7 +2637,7 @@ static int unit_set_cgroup_path(Unit *u, const char *path) {
         }
 
         if (u->cgroup_path) {
-                log_unit_debug(u->id, "%s: Changing cgroup path from %s to %s.", u->id, u->cgroup_path, strna(p));
+                log_unit_debug(u, "Changing cgroup path from %s to %s.", u->cgroup_path, strna(p));
                 hashmap_remove(u->manager->cgroup_unit, u->cgroup_path);
                 free(u->cgroup_path);
         }
@@ -2751,7 +2719,7 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
 
                                 type = job_type_from_string(v);
                                 if (type < 0)
-                                        log_debug("Failed to parse job type value %s", v);
+                                        log_unit_debug(u, "Failed to parse job type value: %s", v);
                                 else
                                         u->deserialized_job = type;
                         }
@@ -2778,7 +2746,7 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
 
                         r = parse_boolean(v);
                         if (r < 0)
-                                log_debug("Failed to parse condition result value %s, ignoring.", v);
+                                log_unit_debug(u, "Failed to parse condition result value %s, ignoring.", v);
                         else
                                 u->condition_result = r;
 
@@ -2788,7 +2756,7 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
 
                         r = parse_boolean(v);
                         if (r < 0)
-                                log_debug("Failed to parse assert result value %s, ignoring.", v);
+                                log_unit_debug(u, "Failed to parse assert result value %s, ignoring.", v);
                         else
                                 u->assert_result = r;
 
@@ -2798,7 +2766,7 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
 
                         r = parse_boolean(v);
                         if (r < 0)
-                                log_debug("Failed to parse transient bool %s, ignoring.", v);
+                                log_unit_debug(u, "Failed to parse transient bool %s, ignoring.", v);
                         else
                                 u->transient = r;
 
@@ -2808,7 +2776,7 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
 
                         r = safe_atou64(v, &u->cpuacct_usage_base);
                         if (r < 0)
-                                log_debug("Failed to parse CPU usage %s, ignoring.", v);
+                                log_unit_debug(u, "Failed to parse CPU usage %s, ignoring.", v);
 
                         continue;
 
@@ -2816,16 +2784,16 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
 
                         r = unit_set_cgroup_path(u, v);
                         if (r < 0)
-                                log_debug_errno(r, "Failed to set cgroup path %s, ignoring: %m", v);
+                                log_unit_debug_errno(u, r, "Failed to set cgroup path %s, ignoring: %m", v);
 
                         continue;
                 }
 
                 if (unit_can_serialize(u)) {
                         if (rt) {
-                                r = exec_runtime_deserialize_item(rt, u, l, v, fds);
+                                r = exec_runtime_deserialize_item(u, rt, l, v, fds);
                                 if (r < 0) {
-                                        log_unit_warning(u->id, "Failed to deserialize runtime parameter '%s', ignoring.", l);
+                                        log_unit_warning(u, "Failed to deserialize runtime parameter '%s', ignoring.", l);
                                         continue;
                                 }
 
@@ -2836,7 +2804,7 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
 
                         r = UNIT_VTABLE(u)->deserialize_item(u, l, v, fds);
                         if (r < 0)
-                                log_unit_warning(u->id, "Failed to deserialize unit parameter '%s', ignoring.", l);
+                                log_unit_warning(u, "Failed to deserialize unit parameter '%s', ignoring.", l);
                 }
         }
 }
@@ -3526,7 +3494,7 @@ int unit_kill_context(
                         _cleanup_free_ char *comm = NULL;
                         get_process_comm(main_pid, &comm);
 
-                        log_unit_warning_errno(u->id, r, "Failed to kill main process " PID_FMT " (%s): %m", main_pid, strna(comm));
+                        log_unit_warning_errno(u, r, "Failed to kill main process " PID_FMT " (%s): %m", main_pid, strna(comm));
                 } else {
                         if (!main_pid_alien)
                                 wait_for_exit = true;
@@ -3543,7 +3511,7 @@ int unit_kill_context(
                         _cleanup_free_ char *comm = NULL;
                         get_process_comm(control_pid, &comm);
 
-                        log_unit_warning_errno(u->id, r, "Failed to kill control process " PID_FMT " (%s): %m", control_pid, strna(comm));
+                        log_unit_warning_errno(u, r, "Failed to kill control process " PID_FMT " (%s): %m", control_pid, strna(comm));
                 } else {
                         wait_for_exit = true;
 
@@ -3563,7 +3531,7 @@ int unit_kill_context(
                 r = cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, sig, true, true, false, pid_set);
                 if (r < 0) {
                         if (r != -EAGAIN && r != -ESRCH && r != -ENOENT)
-                                log_unit_warning_errno(u->id, r, "Failed to kill control group: %m");
+                                log_unit_warning_errno(u, r, "Failed to kill control group: %m");
                 } else if (r > 0) {
 
                         /* FIXME: For now, we will not wait for the

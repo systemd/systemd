@@ -292,6 +292,9 @@ struct Manager {
 
         /* When the user hits C-A-D more than 7 times per 2s, reboot immediately... */
         RateLimit ctrl_alt_del_ratelimit;
+
+        const char *unit_log_field;
+        const char *unit_log_format_string;
 };
 
 int manager_new(SystemdRunningAs running_as, bool test_run, Manager **m);

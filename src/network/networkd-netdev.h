@@ -202,8 +202,12 @@ const struct ConfigPerfItem* network_netdev_gperf_lookup(const char *key, unsign
 
 /* Macros which append INTERFACE= to the message */
 
-#define log_netdev_full(netdev, level, error, fmt, ...)                  \
-        log_object_internal(level, error, __FILE__, __LINE__, __func__, "INTERFACE=", netdev->ifname, "%-*s: " fmt, IFNAMSIZ, netdev->ifname, ##__VA_ARGS__)
+#define log_netdev_full(netdev, level, error, ...)                      \
+        ({                                                              \
+                NetDev *_n = (netdev);                                  \
+                _n ? log_object_internal(level, error, __FILE__, __LINE__, __func__, "INTERFACE=", _n->ifname, ##__VA_ARGS__) : \
+                        log_internal(level, error, __FILE__, __LINE__, __func__, ##__VA_ARGS__); \
+        })
 
 #define log_netdev_debug(netdev, ...)       log_netdev_full(netdev, LOG_DEBUG, 0, ##__VA_ARGS__)
 #define log_netdev_info(netdev, ...)        log_netdev_full(netdev, LOG_INFO, 0, ##__VA_ARGS__)
@@ -217,6 +221,5 @@ const struct ConfigPerfItem* network_netdev_gperf_lookup(const char *key, unsign
 #define log_netdev_warning_errno(netdev, error, ...) log_netdev_full(netdev, LOG_WARNING, error, ##__VA_ARGS__)
 #define log_netdev_error_errno(netdev, error, ...)   log_netdev_full(netdev, LOG_ERR, error, ##__VA_ARGS__)
 
-#define log_netdev_struct(level, netdev, ...) log_struct(level, "INTERFACE=%s", netdev->ifname, __VA_ARGS__)
-
-#define NETDEVIF(netdev) "INTERFACE=%s", netdev->ifname
+#define LOG_NETDEV_MESSAGE(netdev, fmt, ...) "MESSAGE=%s: " fmt, (netdev)->ifname, ##__VA_ARGS__
+#define LOG_NETDEV_INTERFACE(netdev) "INTERFACE=%s", (netdev)->ifname

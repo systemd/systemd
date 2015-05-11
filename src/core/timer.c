@@ -85,7 +85,7 @@ static int timer_verify(Timer *t) {
                 return 0;
 
         if (!t->values) {
-                log_unit_error(UNIT(t)->id, "%s lacks value setting. Refusing.", UNIT(t)->id);
+                log_unit_error(UNIT(t), "Timer unit lacks value setting. Refusing.");
                 return -EINVAL;
         }
 
@@ -147,7 +147,7 @@ static int timer_setup_persistent(Timer *t) {
 
                         r = get_home_dir(&h);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to determine home directory: %m");
+                                return log_unit_error_errno(UNIT(t), r, "Failed to determine home directory: %m");
 
                         t->stamp_path = strjoin(h, "/.local/share/systemd/timers/stamp-", UNIT(t)->id, NULL);
                 }
@@ -257,10 +257,7 @@ static void timer_set_state(Timer *t, TimerState state) {
         }
 
         if (state != old_state)
-                log_unit_debug(UNIT(t)->id,
-                               "%s changed %s -> %s", UNIT(t)->id,
-                               timer_state_to_string(old_state),
-                               timer_state_to_string(state));
+                log_unit_debug(UNIT(t), "Changed %s -> %s", timer_state_to_string(old_state), timer_state_to_string(state));
 
         unit_notify(UNIT(t), state_translation_table[old_state], state_translation_table[state], true);
 }
@@ -416,7 +413,7 @@ static void timer_enter_waiting(Timer *t, bool initial) {
         }
 
         if (!found_monotonic && !found_realtime) {
-                log_unit_debug(UNIT(t)->id, "%s: Timer is elapsed.", UNIT(t)->id);
+                log_unit_debug(UNIT(t), "Timer is elapsed.");
                 timer_set_state(t, TIMER_ELAPSED);
                 return;
         }
@@ -424,9 +421,7 @@ static void timer_enter_waiting(Timer *t, bool initial) {
         if (found_monotonic) {
                 char buf[FORMAT_TIMESPAN_MAX];
 
-                log_unit_debug(UNIT(t)->id, "%s: Monotonic timer elapses in %s.",
-                               UNIT(t)->id,
-                               format_timespan(buf, sizeof(buf), t->next_elapse_monotonic_or_boottime > ts_monotonic ? t->next_elapse_monotonic_or_boottime - ts_monotonic : 0, 0));
+                log_unit_debug(UNIT(t), "Monotonic timer elapses in %s.", format_timespan(buf, sizeof(buf), t->next_elapse_monotonic_or_boottime > ts_monotonic ? t->next_elapse_monotonic_or_boottime - ts_monotonic : 0, 0));
 
                 if (t->monotonic_event_source) {
                         r = sd_event_source_set_time(t->monotonic_event_source, t->next_elapse_monotonic_or_boottime);
@@ -455,7 +450,7 @@ static void timer_enter_waiting(Timer *t, bool initial) {
 
         if (found_realtime) {
                 char buf[FORMAT_TIMESTAMP_MAX];
-                log_unit_debug(UNIT(t)->id, "%s: Realtime timer elapses at %s.", UNIT(t)->id, format_timestamp(buf, sizeof(buf), t->next_elapse_realtime));
+                log_unit_debug(UNIT(t), "Realtime timer elapses at %s.", format_timestamp(buf, sizeof(buf), t->next_elapse_realtime));
 
                 if (t->realtime_event_source) {
                         r = sd_event_source_set_time(t->realtime_event_source, t->next_elapse_realtime);
@@ -486,7 +481,7 @@ static void timer_enter_waiting(Timer *t, bool initial) {
         return;
 
 fail:
-        log_unit_warning_errno(UNIT(t)->id, r, "%s failed to enter waiting state: %m", UNIT(t)->id);
+        log_unit_warning_errno(UNIT(t), r, "Failed to enter waiting state: %m");
         timer_enter_dead(t, TIMER_FAILURE_RESOURCES);
 }
 
@@ -514,9 +509,7 @@ static void timer_enter_running(Timer *t) {
         return;
 
 fail:
-        log_unit_warning(UNIT(t)->id,
-                         "%s failed to queue unit startup job: %s",
-                         UNIT(t)->id, bus_error_message(&error, r));
+        log_unit_warning(UNIT(t), "Failed to queue unit startup job: %s", bus_error_message(&error, r));
         timer_enter_dead(t, TIMER_FAILURE_RESOURCES);
 }
 
@@ -597,7 +590,7 @@ static int timer_deserialize_item(Unit *u, const char *key, const char *value, F
 
                 state = timer_state_from_string(value);
                 if (state < 0)
-                        log_unit_debug(u->id, "Failed to parse state value %s", value);
+                        log_unit_debug(u, "Failed to parse state value: %s", value);
                 else
                         t->deserialized_state = state;
         } else if (streq(key, "result")) {
@@ -605,23 +598,23 @@ static int timer_deserialize_item(Unit *u, const char *key, const char *value, F
 
                 f = timer_result_from_string(value);
                 if (f < 0)
-                        log_unit_debug(u->id, "Failed to parse result value %s", value);
+                        log_unit_debug(u, "Failed to parse result value: %s", value);
                 else if (f != TIMER_SUCCESS)
                         t->result = f;
         } else if (streq(key, "last-trigger-realtime")) {
 
                 r = safe_atou64(value, &t->last_trigger.realtime);
                 if (r < 0)
-                        log_unit_debug(u->id, "Failed to parse last-trigger-realtime value %s", value);
+                        log_unit_debug(u, "Failed to parse last-trigger-realtime value: %s", value);
 
         } else if (streq(key, "last-trigger-monotonic")) {
 
                 r = safe_atou64(value, &t->last_trigger.monotonic);
                 if (r < 0)
-                        log_unit_debug(u->id, "Failed to parse last-trigger-monotonic value %s", value);
+                        log_unit_debug(u, "Failed to parse last-trigger-monotonic value: %s", value);
 
         } else
-                log_unit_debug(u->id, "Unknown serialization key '%s'", key);
+                log_unit_debug(u, "Unknown serialization key: %s", key);
 
         return 0;
 }
@@ -646,7 +639,7 @@ static int timer_dispatch(sd_event_source *s, uint64_t usec, void *userdata) {
         if (t->state != TIMER_WAITING)
                 return 0;
 
-        log_unit_debug(UNIT(t)->id, "Timer elapsed on %s", UNIT(t)->id);
+        log_unit_debug(UNIT(t), "Timer elapsed.");
         timer_enter_running(t);
         return 0;
 }
@@ -679,7 +672,7 @@ static void timer_trigger_notify(Unit *u, Unit *other) {
         case TIMER_RUNNING:
 
                 if (UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(other))) {
-                        log_unit_debug(UNIT(t)->id, "%s got notified about unit deactivation.", UNIT(t)->id);
+                        log_unit_debug(UNIT(t), "Got notified about unit deactivation.");
                         timer_enter_waiting(t, false);
                 }
                 break;
@@ -712,7 +705,7 @@ static void timer_time_change(Unit *u) {
         if (t->state != TIMER_WAITING)
                 return;
 
-        log_unit_debug(u->id, "%s: time change, recalculating next elapse.", u->id);
+        log_unit_debug(u, "Time change, recalculating next elapse.");
         timer_enter_waiting(t, false);
 }
 

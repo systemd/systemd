@@ -31,10 +31,11 @@
 #include "path-util.h"
 #include "path-lookup.h"
 #include "log.h"
-#include "unit.h"
 #include "unit-name.h"
 #include "special.h"
 #include "hashmap.h"
+#include "set.h"
+#include "install.h"
 
 typedef enum RunlevelType {
         RUNLEVEL_UP,
@@ -223,7 +224,7 @@ static int generate_unit_file(SysvStub *s) {
         STRV_FOREACH(p, s->wanted_by) {
                 r = add_symlink(s->name, *p);
                 if (r < 0)
-                        log_unit_error_errno(s->name, r, "Failed to create 'Wants' symlink to %s: %m", *p);
+                        log_error_errno(r, "Failed to create 'Wants' symlink to %s: %m", *p);
         }
 
         return 0;
@@ -354,9 +355,7 @@ static int handle_provides(SysvStub *s, unsigned line, const char *full_text, co
                         log_debug("Adding Provides: alias '%s' for '%s'", m, s->name);
                         r = add_alias(s->name, m);
                         if (r < 0)
-                                log_unit_warning_errno(s->name, r,
-                                                       "[%s:%u] Failed to add LSB Provides name %s, ignoring: %m",
-                                                       s->path, line, m);
+                                log_warning_errno(r, "[%s:%u] Failed to add LSB Provides name %s, ignoring: %m", s->path, line, m);
                 } else {
                         /* NB: SysV targets which are provided by a
                          * service are pulled in by the services, as
@@ -377,9 +376,7 @@ static int handle_provides(SysvStub *s, unsigned line, const char *full_text, co
                 }
         }
         if (!isempty(state_))
-                log_unit_error(s->name,
-                               "[%s:%u] Trailing garbage in Provides, ignoring.",
-                               s->path, line);
+                log_error("[%s:%u] Trailing garbage in Provides, ignoring.", s->path, line);
         return 0;
 }
 
@@ -398,9 +395,7 @@ static int handle_dependencies(SysvStub *s, unsigned line, const char *full_text
 
                 r = sysv_translate_facility(n, basename(s->path), &m);
                 if (r < 0) {
-                        log_unit_warning_errno(s->name, r,
-                                               "[%s:%u] Failed to translate LSB dependency %s, ignoring: %m",
-                                               s->path, line, n);
+                        log_warning_errno(r, "[%s:%u] Failed to translate LSB dependency %s, ignoring: %m", s->path, line, n);
                         continue;
                 }
                 if (r == 0)
@@ -421,9 +416,7 @@ static int handle_dependencies(SysvStub *s, unsigned line, const char *full_text
                         return log_oom();
         }
         if (!isempty(state_))
-                log_unit_warning(s->name,
-                                 "[%s:%u] Trailing garbage in %*s, ignoring.",
-                                 s->path, line, (int)(strchr(full_text, ':') - full_text), full_text);
+                log_warning("[%s:%u] Trailing garbage in %*s, ignoring.", s->path, line, (int)(strchr(full_text, ':') - full_text), full_text);
         return 0;
 }
 
@@ -457,9 +450,7 @@ static int load_sysv(SysvStub *s) {
                         if (feof(f))
                                 break;
 
-                        return log_unit_error_errno(s->name, errno,
-                                                    "Failed to read configuration file '%s': %m",
-                                                    s->path);
+                        return log_error_errno(errno, "Failed to read configuration file '%s': %m", s->path);
                 }
 
                 line++;
@@ -531,9 +522,7 @@ static int load_sysv(SysvStub *s) {
 
                                 fn = strstrip(t+8);
                                 if (!path_is_absolute(fn)) {
-                                        log_unit_error(s->name,
-                                                       "[%s:%u] PID file not absolute. Ignoring.",
-                                                       s->path, line);
+                                        log_error("[%s:%u] PID file not absolute. Ignoring.", s->path, line);
                                         continue;
                                 }
 

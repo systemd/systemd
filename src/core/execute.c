@@ -392,11 +392,12 @@ static int setup_input(const ExecContext *context, int socket_fd, bool apply_tty
         }
 }
 
-static int setup_output(const ExecContext *context, int fileno, int socket_fd, const char *ident, const char *unit_id, bool apply_tty_stdin, uid_t uid, gid_t gid) {
+static int setup_output(Unit *unit, const ExecContext *context, int fileno, int socket_fd, const char *ident, bool apply_tty_stdin, uid_t uid, gid_t gid) {
         ExecOutput o;
         ExecInput i;
         int r;
 
+        assert(unit);
         assert(context);
         assert(ident);
 
@@ -459,15 +460,9 @@ static int setup_output(const ExecContext *context, int fileno, int socket_fd, c
         case EXEC_OUTPUT_KMSG_AND_CONSOLE:
         case EXEC_OUTPUT_JOURNAL:
         case EXEC_OUTPUT_JOURNAL_AND_CONSOLE:
-                r = connect_logger_as(context, o, ident, unit_id, fileno, uid, gid);
+                r = connect_logger_as(context, o, ident, unit->id, fileno, uid, gid);
                 if (r < 0) {
-                        log_unit_struct(unit_id,
-                                        LOG_ERR,
-                                        LOG_MESSAGE("Failed to connect %s of %s to the journal socket: %s",
-                                                    fileno == STDOUT_FILENO ? "stdout" : "stderr",
-                                                    unit_id, strerror(-r)),
-                                        LOG_ERRNO(-r),
-                                        NULL);
+                        log_unit_error_errno(unit, r, "Failed to connect %s to the journal socket, ignoring: %m", fileno == STDOUT_FILENO ? "stdout" : "stderr");
                         r = open_null_as(O_WRONLY, fileno);
                 }
                 return r;
@@ -1263,6 +1258,7 @@ static int build_environment(
 }
 
 static int exec_child(
+                Unit *unit,
                 ExecCommand *command,
                 const ExecContext *context,
                 const ExecParameters *params,
@@ -1282,6 +1278,7 @@ static int exec_child(
         gid_t gid = GID_INVALID;
         int i, r;
 
+        assert(unit);
         assert(command);
         assert(context);
         assert(params);
@@ -1383,13 +1380,13 @@ static int exec_child(
                 return r;
         }
 
-        r = setup_output(context, STDOUT_FILENO, socket_fd, basename(command->path), params->unit_id, params->apply_tty_stdin, uid, gid);
+        r = setup_output(unit, context, STDOUT_FILENO, socket_fd, basename(command->path), params->apply_tty_stdin, uid, gid);
         if (r < 0) {
                 *exit_status = EXIT_STDOUT;
                 return r;
         }
 
-        r = setup_output(context, STDERR_FILENO, socket_fd, basename(command->path), params->unit_id, params->apply_tty_stdin, uid, gid);
+        r = setup_output(unit, context, STDERR_FILENO, socket_fd, basename(command->path), params->apply_tty_stdin, uid, gid);
         if (r < 0) {
                 *exit_status = EXIT_STDERR;
                 return r;
@@ -1415,7 +1412,7 @@ static int exec_child(
                 r = write_string_file("/proc/self/oom_score_adj", t);
                 if (r == -EPERM || r == -EACCES) {
                         log_open();
-                        log_unit_debug_errno(params->unit_id, r, "Failed to adjust OOM setting, assuming containerized execution, ignoring: %m");
+                        log_unit_debug_errno(unit, r, "Failed to adjust OOM setting, assuming containerized execution, ignoring: %m");
                         log_close();
                 } else if (r < 0) {
                         *exit_status = EXIT_OOM_ADJUST;
@@ -1600,7 +1597,7 @@ static int exec_child(
                  * silently proceeed. */
                 if (r == -EPERM || r == -EACCES) {
                         log_open();
-                        log_unit_debug_errno(params->unit_id, r, "Failed to set up namespace, assuming containerized execution, ignoring: %m");
+                        log_unit_debug_errno(unit, r, "Failed to set up namespace, assuming containerized execution, ignoring: %m");
                         log_close();
                 } else if (r < 0) {
                         *exit_status = EXIT_NAMESPACE;
@@ -1801,11 +1798,11 @@ static int exec_child(
                 line = exec_command_line(final_argv);
                 if (line) {
                         log_open();
-                        log_unit_struct(params->unit_id,
-                                        LOG_DEBUG,
-                                        "EXECUTABLE=%s", command->path,
-                                        LOG_MESSAGE("Executing: %s", line),
-                                        NULL);
+                        log_struct(LOG_DEBUG,
+                                   LOG_UNIT_ID(unit),
+                                   "EXECUTABLE=%s", command->path,
+                                   LOG_UNIT_MESSAGE(unit, "Executing: %s", line),
+                                   NULL);
                         log_close();
                 }
         }
@@ -1815,7 +1812,8 @@ static int exec_child(
         return -errno;
 }
 
-int exec_spawn(ExecCommand *command,
+int exec_spawn(Unit *unit,
+               ExecCommand *command,
                const ExecContext *context,
                const ExecParameters *params,
                ExecRuntime *runtime,
@@ -1828,6 +1826,7 @@ int exec_spawn(ExecCommand *command,
         char **argv;
         pid_t pid;
 
+        assert(unit);
         assert(command);
         assert(context);
         assert(ret);
@@ -1839,7 +1838,7 @@ int exec_spawn(ExecCommand *command,
             context->std_error == EXEC_OUTPUT_SOCKET) {
 
                 if (params->n_fds != 1) {
-                        log_unit_error(params->unit_id, "Got more than one socket.");
+                        log_unit_error(unit, "Got more than one socket.");
                         return -EINVAL;
                 }
 
@@ -1850,28 +1849,29 @@ int exec_spawn(ExecCommand *command,
                 n_fds = params->n_fds;
         }
 
-        r = exec_context_load_environment(context, params->unit_id, &files_env);
+        r = exec_context_load_environment(unit, context, &files_env);
         if (r < 0)
-                return log_unit_error_errno(params->unit_id, r, "Failed to load environment files: %m");
+                return log_unit_error_errno(unit, r, "Failed to load environment files: %m");
 
         argv = params->argv ?: command->argv;
         line = exec_command_line(argv);
         if (!line)
                 return log_oom();
 
-        log_unit_struct(params->unit_id,
-                        LOG_DEBUG,
-                        "EXECUTABLE=%s", command->path,
-                        LOG_MESSAGE("About to execute: %s", line),
-                        NULL);
+        log_struct(LOG_DEBUG,
+                   LOG_UNIT_ID(unit),
+                   LOG_UNIT_MESSAGE(unit, "About to execute: %s", line),
+                   "EXECUTABLE=%s", command->path,
+                   NULL);
         pid = fork();
         if (pid < 0)
-                return log_unit_error_errno(params->unit_id, r, "Failed to fork: %m");
+                return log_unit_error_errno(unit, r, "Failed to fork: %m");
 
         if (pid == 0) {
                 int exit_status;
 
-                r = exec_child(command,
+                r = exec_child(unit,
+                               command,
                                context,
                                params,
                                runtime,
@@ -1882,21 +1882,20 @@ int exec_spawn(ExecCommand *command,
                                &exit_status);
                 if (r < 0) {
                         log_open();
-                        log_unit_struct(params->unit_id,
-                                        LOG_ERR,
-                                        LOG_MESSAGE_ID(SD_MESSAGE_SPAWN_FAILED),
-                                        "EXECUTABLE=%s", command->path,
-                                        LOG_MESSAGE("Failed at step %s spawning %s: %s",
-                                                    exit_status_to_string(exit_status, EXIT_STATUS_SYSTEMD),
-                                                    command->path, strerror(-r)),
-                                        LOG_ERRNO(r),
-                                        NULL);
+                        log_struct_errno(LOG_ERR, r,
+                                         LOG_MESSAGE_ID(SD_MESSAGE_SPAWN_FAILED),
+                                         LOG_UNIT_ID(unit),
+                                         LOG_UNIT_MESSAGE(unit, "Failed at step %s spawning %s: %m",
+                                                          exit_status_to_string(exit_status, EXIT_STATUS_SYSTEMD),
+                                                          command->path),
+                                         "EXECUTABLE=%s", command->path,
+                                         NULL);
                 }
 
                 _exit(exit_status);
         }
 
-        log_unit_debug(params->unit_id, "Forked %s as "PID_FMT, command->path, pid);
+        log_unit_debug(unit, "Forked %s as "PID_FMT, command->path, pid);
 
         /* We add the new process to the cgroup both in the child (so
          * that we can be sure that no user code is ever executed
@@ -2068,17 +2067,17 @@ void exec_command_free_array(ExecCommand **c, unsigned n) {
 }
 
 typedef struct InvalidEnvInfo {
-        const char *unit_id;
+        Unit *unit;
         const char *path;
 } InvalidEnvInfo;
 
 static void invalid_env(const char *p, void *userdata) {
         InvalidEnvInfo *info = userdata;
 
-        log_unit_error(info->unit_id, "Ignoring invalid environment assignment '%s': %s", p, info->path);
+        log_unit_error(info->unit, "Ignoring invalid environment assignment '%s': %s", p, info->path);
 }
 
-int exec_context_load_environment(const ExecContext *c, const char *unit_id, char ***l) {
+int exec_context_load_environment(Unit *unit, const ExecContext *c, char ***l) {
         char **i, **r = NULL;
 
         assert(c);
@@ -2136,7 +2135,7 @@ int exec_context_load_environment(const ExecContext *c, const char *unit_id, cha
                         /* Log invalid environment variables with filename */
                         if (p) {
                                 InvalidEnvInfo info = {
-                                        .unit_id = unit_id,
+                                        .unit = unit,
                                         .path = pglob.gl_pathv[n]
                                 };
 
@@ -2734,17 +2733,18 @@ ExecRuntime *exec_runtime_unref(ExecRuntime *r) {
         assert(r->n_ref > 0);
 
         r->n_ref--;
-        if (r->n_ref <= 0) {
-                free(r->tmp_dir);
-                free(r->var_tmp_dir);
-                safe_close_pair(r->netns_storage_socket);
-                free(r);
-        }
+        if (r->n_ref > 0)
+                return NULL;
+
+        free(r->tmp_dir);
+        free(r->var_tmp_dir);
+        safe_close_pair(r->netns_storage_socket);
+        free(r);
 
         return NULL;
 }
 
-int exec_runtime_serialize(ExecRuntime *rt, Unit *u, FILE *f, FDSet *fds) {
+int exec_runtime_serialize(Unit *u, ExecRuntime *rt, FILE *f, FDSet *fds) {
         assert(u);
         assert(f);
         assert(fds);
@@ -2781,7 +2781,7 @@ int exec_runtime_serialize(ExecRuntime *rt, Unit *u, FILE *f, FDSet *fds) {
         return 0;
 }
 
-int exec_runtime_deserialize_item(ExecRuntime **rt, Unit *u, const char *key, const char *value, FDSet *fds) {
+int exec_runtime_deserialize_item(Unit *u, ExecRuntime **rt, const char *key, const char *value, FDSet *fds) {
         int r;
 
         assert(rt);
@@ -2793,7 +2793,7 @@ int exec_runtime_deserialize_item(ExecRuntime **rt, Unit *u, const char *key, co
 
                 r = exec_runtime_allocate(rt);
                 if (r < 0)
-                        return r;
+                        return log_oom();
 
                 copy = strdup(value);
                 if (!copy)
@@ -2807,7 +2807,7 @@ int exec_runtime_deserialize_item(ExecRuntime **rt, Unit *u, const char *key, co
 
                 r = exec_runtime_allocate(rt);
                 if (r < 0)
-                        return r;
+                        return log_oom();
 
                 copy = strdup(value);
                 if (!copy)
@@ -2821,10 +2821,10 @@ int exec_runtime_deserialize_item(ExecRuntime **rt, Unit *u, const char *key, co
 
                 r = exec_runtime_allocate(rt);
                 if (r < 0)
-                        return r;
+                        return log_oom();
 
                 if (safe_atoi(value, &fd) < 0 || !fdset_contains(fds, fd))
-                        log_unit_debug(u->id, "Failed to parse netns socket value %s", value);
+                        log_unit_debug(u, "Failed to parse netns socket value: %s", value);
                 else {
                         safe_close((*rt)->netns_storage_socket[0]);
                         (*rt)->netns_storage_socket[0] = fdset_remove(fds, fd);
@@ -2834,10 +2834,10 @@ int exec_runtime_deserialize_item(ExecRuntime **rt, Unit *u, const char *key, co
 
                 r = exec_runtime_allocate(rt);
                 if (r < 0)
-                        return r;
+                        return log_oom();
 
                 if (safe_atoi(value, &fd) < 0 || !fdset_contains(fds, fd))
-                        log_unit_debug(u->id, "Failed to parse netns socket value %s", value);
+                        log_unit_debug(u, "Failed to parse netns socket value: %s", value);
                 else {
                         safe_close((*rt)->netns_storage_socket[1]);
                         (*rt)->netns_storage_socket[1] = fdset_remove(fds, fd);

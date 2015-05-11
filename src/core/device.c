@@ -132,10 +132,7 @@ static void device_set_state(Device *d, DeviceState state) {
         d->state = state;
 
         if (state != old_state)
-                log_unit_debug(UNIT(d)->id,
-                               "%s changed %s -> %s", UNIT(d)->id,
-                               device_state_to_string(old_state),
-                               device_state_to_string(state));
+                log_unit_debug(UNIT(d), "Changed %s -> %s", device_state_to_string(old_state), device_state_to_string(state));
 
         unit_notify(UNIT(d), state_translation_table[old_state], state_translation_table[state], true);
 }
@@ -183,11 +180,11 @@ static int device_deserialize_item(Unit *u, const char *key, const char *value, 
 
                 state = device_state_from_string(value);
                 if (state < 0)
-                        log_unit_debug(u->id, "Failed to parse state value %s", value);
+                        log_unit_debug(u, "Failed to parse state value: %s", value);
                 else
                         d->deserialized_state = state;
         } else
-                log_unit_debug(u->id, "Unknown serialization key '%s'", key);
+                log_unit_debug(u, "Unknown serialization key: %s", key);
 
         return 0;
 }
@@ -252,7 +249,7 @@ static int device_update_description(Unit *u, struct udev_device *dev, const cha
                 r = unit_set_description(u, path);
 
         if (r < 0)
-                log_unit_error_errno(u->id, r, "Failed to set device description: %m");
+                log_unit_error_errno(u, r, "Failed to set device description: %m");
 
         return r;
 }
@@ -281,14 +278,14 @@ static int device_add_udev_wants(Unit *u, struct udev_device *dev) {
 
                 r = unit_name_mangle(e, UNIT_NAME_NOGLOB, &n);
                 if (r < 0)
-                        return log_unit_error_errno(u->id, r, "Failed to mangle unit name: %m");
+                        return log_unit_error_errno(u, r, "Failed to mangle unit name: %m");
 
                 r = unit_add_dependency_by_name(u, UNIT_WANTS, n, NULL, true);
                 if (r < 0)
-                        return log_unit_error_errno(u->id, r, "Failed to add wants dependency: %m");
+                        return log_unit_error_errno(u, r, "Failed to add wants dependency: %m");
         }
         if (!isempty(state))
-                log_unit_warning(u->id, "Property %s on %s has trailing garbage, ignoring.", property, strna(udev_device_get_syspath(dev)));
+                log_unit_warning(u, "Property %s on %s has trailing garbage, ignoring.", property, strna(udev_device_get_syspath(dev)));
 
         return 0;
 }
@@ -317,7 +314,7 @@ static int device_setup_unit(Manager *m, struct udev_device *dev, const char *pa
         if (u &&
             DEVICE(u)->sysfs &&
             !path_equal(DEVICE(u)->sysfs, sysfs)) {
-                log_unit_debug(u->id, "Device %s appeared twice with different sysfs paths %s and %s", e, DEVICE(u)->sysfs, sysfs);
+                log_unit_debug(u, "Device %s appeared twice with different sysfs paths %s and %s", e, DEVICE(u)->sysfs, sysfs);
                 return -EEXIST;
         }
 
@@ -358,7 +355,7 @@ static int device_setup_unit(Manager *m, struct udev_device *dev, const char *pa
         return 0;
 
 fail:
-        log_unit_warning_errno(u->id, r, "Failed to set up device unit: %m");
+        log_unit_warning_errno(u, r, "Failed to set up device unit: %m");
 
         if (delete)
                 unit_free(u);

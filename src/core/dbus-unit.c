@@ -666,7 +666,7 @@ static int property_get_current_memory(
 
         r = unit_get_memory_current(u, &sz);
         if (r < 0 && r != -ENODATA)
-                log_unit_warning_errno(u->id, r, "Failed to get memory.usage_in_bytes attribute: %m");
+                log_unit_warning_errno(u, r, "Failed to get memory.usage_in_bytes attribute: %m");
 
         return sd_bus_message_append(reply, "t", sz);
 }
@@ -690,7 +690,7 @@ static int property_get_cpu_usage(
 
         r = unit_get_cpu_usage(u, &ns);
         if (r < 0 && r != -ENODATA)
-                log_unit_warning_errno(u->id, r, "Failed to get cpuacct.usage attribute: %m");
+                log_unit_warning_errno(u, r, "Failed to get cpuacct.usage attribute: %m");
 
         return sd_bus_message_append(reply, "t", ns);
 }
@@ -776,7 +776,7 @@ void bus_unit_send_change_signal(Unit *u) {
 
         r = bus_foreach_bus(u->manager, NULL, u->sent_dbus_new_signal ? send_changed_signal : send_new_signal, u);
         if (r < 0)
-                log_debug_errno(r, "Failed to send unit change signal for %s: %m", u->id);
+                log_unit_debug_errno(u, r, "Failed to send unit change signal for %s: %m", u->id);
 
         u->sent_dbus_new_signal = true;
 }
@@ -822,7 +822,7 @@ void bus_unit_send_removed_signal(Unit *u) {
 
         r = bus_foreach_bus(u->manager, NULL, send_removed_signal, u);
         if (r < 0)
-                log_debug_errno(r, "Failed to send unit remove signal for %s: %m", u->id);
+                log_unit_debug_errno(u, r, "Failed to send unit remove signal for %s: %m", u->id);
 }
 
 int bus_unit_queue_job(

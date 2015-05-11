@@ -409,62 +409,43 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
         assert(link);
 
         r = sd_dhcp_client_get_lease(client, &lease);
-        if (r < 0) {
-                log_link_warning(link, "DHCP error: no lease: %s",
-                                 strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_link_error_errno(link, r, "DHCP error: no lease: %m");
 
         r = sd_dhcp_lease_get_address(lease, &address);
-        if (r < 0) {
-                log_link_warning(link, "DHCP error: no address: %s",
-                                 strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_link_error_errno(link, r, "DHCP error: no address: %m");
 
         r = sd_dhcp_lease_get_netmask(lease, &netmask);
-        if (r < 0) {
-                log_link_warning(link, "DHCP error: no netmask: %s",
-                                 strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_link_error_errno(link, r, "DHCP error: no netmask: %m");
 
         prefixlen = in_addr_netmask_to_prefixlen(&netmask);
 
         r = sd_dhcp_lease_get_router(lease, &gateway);
-        if (r < 0 && r != -ENOENT) {
-                log_link_warning(link, "DHCP error: could not get gateway: %s",
-                                 strerror(-r));
-                return r;
-        }
+        if (r < 0 && r != -ENOENT)
+                return log_link_error_errno(link, r, "DHCP error: could not get gateway: %m");
 
         if (r >= 0)
-                log_link_struct(link, LOG_INFO,
-                                "MESSAGE=%-*s: DHCPv4 address %u.%u.%u.%u/%u via %u.%u.%u.%u",
-                                 IFNAMSIZ,
-                                 link->ifname,
-                                 ADDRESS_FMT_VAL(address),
-                                 prefixlen,
-                                 ADDRESS_FMT_VAL(gateway),
-                                 "ADDRESS=%u.%u.%u.%u",
-                                 ADDRESS_FMT_VAL(address),
-                                 "PREFIXLEN=%u",
-                                 prefixlen,
-                                 "GATEWAY=%u.%u.%u.%u",
-                                 ADDRESS_FMT_VAL(gateway),
-                                 NULL);
+                log_struct(LOG_INFO,
+                           LOG_LINK_INTERFACE(link),
+                           LOG_LINK_MESSAGE(link, "DHCPv4 address %u.%u.%u.%u/%u via %u.%u.%u.%u",
+                                            ADDRESS_FMT_VAL(address),
+                                            prefixlen,
+                                            ADDRESS_FMT_VAL(gateway)),
+                           "ADDRESS=%u.%u.%u.%u", ADDRESS_FMT_VAL(address),
+                           "PREFIXLEN=%u", prefixlen,
+                           "GATEWAY=%u.%u.%u.%u", ADDRESS_FMT_VAL(gateway),
+                           NULL);
         else
-                log_link_struct(link, LOG_INFO,
-                                "MESSAGE=%-*s: DHCPv4 address %u.%u.%u.%u/%u",
-                                 IFNAMSIZ,
-                                 link->ifname,
-                                 ADDRESS_FMT_VAL(address),
-                                 prefixlen,
-                                 "ADDRESS=%u.%u.%u.%u",
-                                 ADDRESS_FMT_VAL(address),
-                                 "PREFIXLEN=%u",
-                                 prefixlen,
-                                 NULL);
+                log_struct(LOG_INFO,
+                           LOG_LINK_INTERFACE(link),
+                           LOG_LINK_MESSAGE(link, "DHCPv4 address %u.%u.%u.%u/%u",
+                                            ADDRESS_FMT_VAL(address),
+                                            prefixlen),
+                           "ADDRESS=%u.%u.%u.%u", ADDRESS_FMT_VAL(address),
+                           "PREFIXLEN=%u", prefixlen,
+                           NULL);
 
         link->dhcp_lease = lease;
 
@@ -475,8 +456,7 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
                 if (r >= 0) {
                         r = link_set_mtu(link, mtu);
                         if (r < 0)
-                                log_link_error(link, "Failed to set MTU "
-                                               "to %" PRIu16, mtu);
+                                log_link_error_errno(link, r, "Failed to set MTU to %" PRIu16 ": %m", mtu);
                 }
         }
 
@@ -487,27 +467,21 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
                 if (r >= 0) {
                         r = link_set_hostname(link, hostname);
                         if (r < 0)
-                                log_link_error(link,
-                                               "Failed to set transient hostname to '%s'",
-                                               hostname);
+                                log_link_error_errno(link, r, "Failed to set transient hostname to '%s': %m", hostname);
                 }
         }
 
         if (!link->network->dhcp_critical) {
-                r = sd_dhcp_lease_get_lifetime(link->dhcp_lease,
-                                               &lifetime);
+                r = sd_dhcp_lease_get_lifetime(link->dhcp_lease, &lifetime);
                 if (r < 0) {
-                        log_link_warning(link,
-                                         "DHCP error: no lifetime: %s",
-                                         strerror(-r));
+                        log_link_warning_errno(link, r, "DHCP error: no lifetime: %m");
                         return r;
                 }
         }
 
         r = dhcp4_update_address(link, &address, &netmask, lifetime);
         if (r < 0) {
-                log_link_warning(link, "could not update IP address: %s",
-                                 strerror(-r));
+                log_link_warning_errno(link, r, "Could not update IP address: %m");
                 link_enter_failed(link);
                 return r;
         }

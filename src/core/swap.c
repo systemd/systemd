@@ -230,15 +230,15 @@ static int swap_verify(Swap *s) {
 
         r = unit_name_from_path(s->what, ".swap", &e);
         if (r < 0)
-                return log_unit_error_errno(UNIT(s)->id, r, "%s: failed to generate unit name from path: %m", UNIT(s)->id);
+                return log_unit_error_errno(UNIT(s), r, "Failed to generate unit name from path: %m");
 
         if (!unit_has_name(UNIT(s), e)) {
-                log_unit_error(UNIT(s)->id, "%s: Value of \"What\" and unit name do not match, not loading.", UNIT(s)->id);
+                log_unit_error(UNIT(s), "Value of What= and unit name do not match, not loading.");
                 return -EINVAL;
         }
 
         if (s->exec_context.pam_name && s->kill_context.kill_mode != KILL_CONTROL_GROUP) {
-                log_unit_error(UNIT(s)->id, "%s has PAM enabled. Kill mode must be set to 'control-group'. Refusing to load.", UNIT(s)->id);
+                log_unit_error(UNIT(s), "Unit has PAM enabled. Kill mode must be set to 'control-group'. Refusing to load.");
                 return -EINVAL;
         }
 
@@ -359,7 +359,7 @@ static int swap_setup_unit(
 
         r = unit_name_from_path(what, ".swap", &e);
         if (r < 0)
-                return log_error_errno(r, "Failed to generate unit name from path: %m");
+                return log_unit_error_errno(u, r, "Failed to generate unit name from path: %m");
 
         u = manager_get_unit(m, e);
 
@@ -414,7 +414,7 @@ static int swap_setup_unit(
         return 0;
 
 fail:
-        log_unit_warning_errno(e, r, "Failed to load swap unit: %m");
+        log_unit_warning_errno(u, r, "Failed to load swap unit: %m");
 
         if (delete && u)
                 unit_free(u);
@@ -497,11 +497,7 @@ static void swap_set_state(Swap *s, SwapState state) {
         }
 
         if (state != old_state)
-                log_unit_debug(UNIT(s)->id,
-                               "%s changed %s -> %s",
-                               UNIT(s)->id,
-                               swap_state_to_string(old_state),
-                               swap_state_to_string(state));
+                log_unit_debug(UNIT(s), "Changed %s -> %s", swap_state_to_string(old_state), swap_state_to_string(state));
 
         unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state], true);
 
@@ -634,9 +630,9 @@ static int swap_spawn(Swap *s, ExecCommand *c, pid_t *_pid) {
         exec_params.cgroup_path = UNIT(s)->cgroup_path;
         exec_params.cgroup_delegate = s->cgroup_context.delegate;
         exec_params.runtime_prefix = manager_get_runtime_prefix(UNIT(s)->manager);
-        exec_params.unit_id = UNIT(s)->id;
 
-        r = exec_spawn(c,
+        r = exec_spawn(UNIT(s),
+                       c,
                        &s->exec_context,
                        &exec_params,
                        s->exec_runtime,
@@ -716,7 +712,7 @@ static void swap_enter_signal(Swap *s, SwapState state, SwapResult f) {
         return;
 
 fail:
-        log_unit_warning_errno(UNIT(s)->id, r, "%s failed to kill processes: %m", UNIT(s)->id);
+        log_unit_warning_errno(UNIT(s), r, "Failed to kill processes: %m");
         swap_enter_dead(s, SWAP_FAILURE_RESOURCES);
 }
 
@@ -730,15 +726,13 @@ static void swap_enter_activating(Swap *s) {
         s->control_command = s->exec_command + SWAP_EXEC_ACTIVATE;
 
         if (s->from_fragment) {
-                fstab_filter_options(s->parameters_fragment.options, "discard\0",
-                                     NULL, &discard, NULL);
+                fstab_filter_options(s->parameters_fragment.options, "discard\0", NULL, &discard, NULL);
 
                 priority = s->parameters_fragment.priority;
                 if (priority < 0) {
                         r = fstab_find_pri(s->parameters_fragment.options, &priority);
                         if (r < 0)
-                                log_notice_errno(r, "Failed to parse swap priority \"%s\", ignoring: %m",
-                                                 s->parameters_fragment.options);
+                                log_notice_errno(r, "Failed to parse swap priority \"%s\", ignoring: %m", s->parameters_fragment.options);
                 }
         }
 
@@ -783,7 +777,7 @@ static void swap_enter_activating(Swap *s) {
         return;
 
 fail:
-        log_unit_warning_errno(UNIT(s)->id, r, "%s failed to run 'swapon' task: %m", UNIT(s)->id);
+        log_unit_warning_errno(UNIT(s), r, "Failed to run 'swapon' task: %m");
         swap_enter_dead(s, SWAP_FAILURE_RESOURCES);
 }
 
@@ -813,7 +807,7 @@ static void swap_enter_deactivating(Swap *s) {
         return;
 
 fail:
-        log_unit_warning_errno(UNIT(s)->id, r, "%s failed to run 'swapoff' task: %m", UNIT(s)->id);
+        log_unit_warning_errno(UNIT(s), r, "Failed to run 'swapoff' task: %m");
         swap_enter_active(s, SWAP_FAILURE_RESOURCES);
 }
 
@@ -907,7 +901,7 @@ static int swap_deserialize_item(Unit *u, const char *key, const char *value, FD
 
                 state = swap_state_from_string(value);
                 if (state < 0)
-                        log_unit_debug(u->id, "Failed to parse state value %s", value);
+                        log_unit_debug(u, "Failed to parse state value: %s", value);
                 else
                         s->deserialized_state = state;
         } else if (streq(key, "result")) {
@@ -915,14 +909,14 @@ static int swap_deserialize_item(Unit *u, const char *key, const char *value, FD
 
                 f = swap_result_from_string(value);
                 if (f < 0)
-                        log_unit_debug(u->id, "Failed to parse result value %s", value);
+                        log_unit_debug(u, "Failed to parse result value: %s", value);
                 else if (f != SWAP_SUCCESS)
                         s->result = f;
         } else if (streq(key, "control-pid")) {
                 pid_t pid;
 
                 if (parse_pid(value, &pid) < 0)
-                        log_unit_debug(u->id, "Failed to parse control-pid value %s", value);
+                        log_unit_debug(u, "Failed to parse control-pid value: %s", value);
                 else
                         s->control_pid = pid;
 
@@ -931,13 +925,13 @@ static int swap_deserialize_item(Unit *u, const char *key, const char *value, FD
 
                 id = swap_exec_command_from_string(value);
                 if (id < 0)
-                        log_unit_debug(u->id, "Failed to parse exec-command value %s", value);
+                        log_unit_debug(u, "Failed to parse exec-command value: %s", value);
                 else {
                         s->control_command_id = id;
                         s->control_command = s->exec_command + id;
                 }
         } else
-                log_unit_debug(u->id, "Unknown serialization key '%s'", key);
+                log_unit_debug(u, "Unknown serialization key: %s", key);
 
         return 0;
 }
@@ -995,10 +989,8 @@ static void swap_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 s->control_command_id = _SWAP_EXEC_COMMAND_INVALID;
         }
 
-        log_unit_full(u->id,
-                      f == SWAP_SUCCESS ? LOG_DEBUG : LOG_NOTICE,
-                      "%s swap process exited, code=%s status=%i",
-                      u->id, sigchld_code_to_string(code), status);
+        log_unit_full(u, f == SWAP_SUCCESS ? LOG_DEBUG : LOG_NOTICE, 0,
+                      "Swap process exited, code=%s status=%i", sigchld_code_to_string(code), status);
 
         switch (s->state) {
 
@@ -1038,38 +1030,38 @@ static int swap_dispatch_timer(sd_event_source *source, usec_t usec, void *userd
 
         case SWAP_ACTIVATING:
         case SWAP_ACTIVATING_DONE:
-                log_unit_warning(UNIT(s)->id, "%s activation timed out. Stopping.", UNIT(s)->id);
+                log_unit_warning(UNIT(s), "Activation timed out. Stopping.");
                 swap_enter_signal(s, SWAP_ACTIVATING_SIGTERM, SWAP_FAILURE_TIMEOUT);
                 break;
 
         case SWAP_DEACTIVATING:
-                log_unit_warning(UNIT(s)->id, "%s deactivation timed out. Stopping.", UNIT(s)->id);
+                log_unit_warning(UNIT(s), "Deactivation timed out. Stopping.");
                 swap_enter_signal(s, SWAP_DEACTIVATING_SIGTERM, SWAP_FAILURE_TIMEOUT);
                 break;
 
         case SWAP_ACTIVATING_SIGTERM:
                 if (s->kill_context.send_sigkill) {
-                        log_unit_warning(UNIT(s)->id, "%s activation timed out. Killing.", UNIT(s)->id);
+                        log_unit_warning(UNIT(s), "Activation timed out. Killing.");
                         swap_enter_signal(s, SWAP_ACTIVATING_SIGKILL, SWAP_FAILURE_TIMEOUT);
                 } else {
-                        log_unit_warning(UNIT(s)->id, "%s activation timed out. Skipping SIGKILL. Ignoring.", UNIT(s)->id);
+                        log_unit_warning(UNIT(s), "Activation timed out. Skipping SIGKILL. Ignoring.");
                         swap_enter_dead(s, SWAP_FAILURE_TIMEOUT);
                 }
                 break;
 
         case SWAP_DEACTIVATING_SIGTERM:
                 if (s->kill_context.send_sigkill) {
-                        log_unit_warning(UNIT(s)->id, "%s deactivation timed out. Killing.", UNIT(s)->id);
+                        log_unit_warning(UNIT(s), "Deactivation timed out. Killing.");
                         swap_enter_signal(s, SWAP_DEACTIVATING_SIGKILL, SWAP_FAILURE_TIMEOUT);
                 } else {
-                        log_unit_warning(UNIT(s)->id, "%s deactivation timed out. Skipping SIGKILL. Ignoring.", UNIT(s)->id);
+                        log_unit_warning(UNIT(s), "Deactivation timed out. Skipping SIGKILL. Ignoring.");
                         swap_enter_dead(s, SWAP_FAILURE_TIMEOUT);
                 }
                 break;
 
         case SWAP_ACTIVATING_SIGKILL:
         case SWAP_DEACTIVATING_SIGKILL:
-                log_unit_warning(UNIT(s)->id, "%s swap process still around after SIGKILL. Ignoring.", UNIT(s)->id);
+                log_unit_warning(UNIT(s), "Swap process still around after SIGKILL. Ignoring.");
                 swap_enter_dead(s, SWAP_FAILURE_TIMEOUT);
                 break;
 

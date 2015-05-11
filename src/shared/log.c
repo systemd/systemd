@@ -693,7 +693,8 @@ int log_object_internalv(
                 va_list ap) {
 
         PROTECT_ERRNO;
-        char buffer[LINE_MAX];
+        char *buffer, *b;
+        size_t l;
 
         if (error < 0)
                 error = -error;
@@ -705,7 +706,21 @@ int log_object_internalv(
         if (error != 0)
                 errno = error;
 
-        vsnprintf(buffer, sizeof(buffer), format, ap);
+        /* Prepend the object name before the message */
+        if (object) {
+                size_t n;
+
+                n = strlen(object);
+                l = n + 2 + LINE_MAX;
+
+                buffer = newa(char, l);
+                b = stpcpy(stpcpy(buffer, object), ": ");
+        } else {
+                l = LINE_MAX;
+                b = buffer = newa(char, l);
+        }
+
+        vsnprintf(b, l, format, ap);
 
         return log_dispatch(level, error, file, line, func, object_field, object, buffer);
 }

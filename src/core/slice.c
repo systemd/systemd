@@ -104,16 +104,16 @@ static int slice_verify(Slice *s) {
                 return 0;
 
         if (!slice_name_is_valid(UNIT(s)->id)) {
-                log_unit_error(UNIT(s)->id, "Slice name %s is not valid. Refusing.", UNIT(s)->id);
+                log_unit_error(UNIT(s), "Slice name %s is not valid. Refusing.", UNIT(s)->id);
                 return -EINVAL;
         }
 
         r = slice_build_parent_slice(UNIT(s)->id, &parent);
         if (r < 0)
-                return log_unit_error_errno(UNIT(s)->id, r, "Failed to determine parent slice: %m");
+                return log_unit_error_errno(UNIT(s), r, "Failed to determine parent slice: %m");
 
         if (parent ? !unit_has_name(UNIT_DEREF(UNIT(s)->slice), parent) : UNIT_ISSET(UNIT(s)->slice)) {
-                log_unit_error(UNIT(s)->id, "%s located outside its parent slice. Refusing.", UNIT(s)->id);
+                log_unit_error(UNIT(s), "Located outside of parent slice. Refusing.");
                 return -EINVAL;
         }
 
