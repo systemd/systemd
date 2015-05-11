@@ -607,6 +607,7 @@ static int swap_spawn(Swap *s, ExecCommand *c, pid_t *_pid) {
                 .apply_permissions = true,
                 .apply_chroot      = true,
                 .apply_tty_stdin   = true,
+                .bus_endpoint_fd   = -1,
         };
 
         assert(s);

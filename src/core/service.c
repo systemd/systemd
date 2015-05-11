@@ -1054,10 +1054,10 @@ static int service_spawn(
                 **argv = NULL, **final_env = NULL, **our_env = NULL;
         const char *path;
         ExecParameters exec_params = {
-                .apply_permissions = apply_permissions,
-                .apply_chroot      = apply_chroot,
-                .apply_tty_stdin   = apply_tty_stdin,
-                .bus_endpoint_fd   = -1,
+                .apply_permissions   = apply_permissions,
+                .apply_chroot        = apply_chroot,
+                .apply_tty_stdin     = apply_tty_stdin,
+                .bus_endpoint_fd     = -1,
                 .selinux_context_net = s->socket_fd_selinux_context_net
         };
 
