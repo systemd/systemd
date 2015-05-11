@@ -4838,7 +4838,7 @@ int open_tmpfile(const char *path, int flags) {
 
 #ifdef O_TMPFILE
         /* Try O_TMPFILE first, if it is supported */
-        fd = open(path, flags|O_TMPFILE, S_IRUSR|S_IWUSR);
+        fd = open(path, flags|O_TMPFILE|O_EXCL, S_IRUSR|S_IWUSR);
         if (fd >= 0)
                 return fd;
 #endif
