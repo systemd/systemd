@@ -141,7 +141,7 @@
     <replaceable>COMMAND</replaceable> specifies the program to launch
     in the container, and the remaining arguments are used as
     arguments for this program. If <option>-b</option> is not used and
-    no arguments are specifed, a shell is launched in the
+    no arguments are specified, a shell is launched in the
     container.</para>
 
     <para>The following options are understood:</para>
@@ -727,7 +727,7 @@
       <programlisting># pacstrap -c -d ~/arch-tree/ base
 # systemd-nspawn -bD ~/arch-tree/</programlisting>
 
-      <para>This installs a mimimal Arch Linux distribution into the
+      <para>This installs a minimal Arch Linux distribution into the
       directory <filename>~/arch-tree/</filename> and then boots an OS
       in a namespace container in it.</para>
     </example>

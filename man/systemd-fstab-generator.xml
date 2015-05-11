@@ -156,7 +156,7 @@
         <listitem><para>Takes the <filename>/usr</filename> filesystem
         mount options to use. If <varname>mount.usr=</varname> or
         <varname>mount.usrfstype=</varname> is set, then
-        <varname>mount.usrflages=</varname> will default to the value
+        <varname>mount.usrflags=</varname> will default to the value
         set in <varname>rootflags=</varname>.</para>
 
         <para>Otherwise this value will be read from the

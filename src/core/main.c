@@ -1384,7 +1384,7 @@ int main(int argc, char *argv[]) {
 
         r = initialize_join_controllers();
         if (r < 0) {
-                error_message = "Failed to initalize cgroup controllers";
+                error_message = "Failed to initialize cgroup controllers";
                 goto finish;
         }
 

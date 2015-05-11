@@ -753,7 +753,7 @@ static int manager_connect_bus(Manager *m, bool reexecuting) {
                 reexecuting ||
                 (m->running_as == SYSTEMD_USER && getenv("DBUS_SESSION_BUS_ADDRESS"));
 
-        /* Try to connect to the busses, if possible. */
+        /* Try to connect to the buses, if possible. */
         return bus_init(m, try_bus_connect);
 }
 

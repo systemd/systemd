@@ -56,7 +56,7 @@ int main(int argc, char* argv[]) {
         log_open();
 
         if (getuid() != 0)
-                log_warning("This program is unlikely to work for unpriviledged users");
+                log_warning("This program is unlikely to work for unprivileged users");
 
         test_sleep();
 

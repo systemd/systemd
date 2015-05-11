@@ -94,7 +94,7 @@
     a global, monotonically increasing sequence number to all messages
     transmitted on the local system, at the time the message was sent.
     This sequence number is useful for determining message send order,
-    even across different busses of the local system. The sequence
+    even across different buses of the local system. The sequence
     number combined with the boot ID of the system (as returned by
     <citerefentry><refentrytitle>sd_id128_get_boot</refentrytitle><manvolnum>3</manvolnum></citerefentry>)
     is a suitable globally unique identifier for bus messages.</para>

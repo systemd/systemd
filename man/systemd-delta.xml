@@ -69,7 +69,7 @@
     certain configuration files can have <literal>.d</literal>
     directories which contain "drop-in" files with configuration
     snippets which augment the main configuration file. "Drop-in"
-    files can be overriden in the same way by placing files with the
+    files can be overridden in the same way by placing files with the
     same name in a directory of higher priority (except that in case
     of "drop-in" files, both the "drop-in" file name and the name of
     the containing directory, which corresponds to the name of the

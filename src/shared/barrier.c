@@ -138,7 +138,7 @@ int barrier_create(Barrier *b) {
  * barrier_create(). The object is released and reset to invalid
  * state. Therefore, it is safe to call barrier_destroy() multiple
  * times or even if barrier_create() failed. However, barrier must be
- * always initalized with BARRIER_NULL.
+ * always initialized with BARRIER_NULL.
  *
  * If @b is NULL, this is a no-op.
  */

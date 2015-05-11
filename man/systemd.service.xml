@@ -513,7 +513,7 @@
         <option>on-failure</option>, the service will be restarted
         when the process exits with a non-zero exit code, is
         terminated by a signal (including on core dump, but excluding
-        the aforementiond four signals), when an operation (such as
+        the aforementioned four signals), when an operation (such as
         service reload) times out, and when the configured watchdog
         timeout is triggered. If set to <option>on-abnormal</option>,
         the service will be restarted when the process is terminated
@@ -891,7 +891,7 @@
     <title>Command lines</title>
 
     <para>This section describes command line parsing and
-    variable and specifier substitions for
+    variable and specifier substitutions for
     <varname>ExecStart=</varname>,
     <varname>ExecStartPre=</varname>,
     <varname>ExecStartPost=</varname>,
@@ -1131,7 +1131,7 @@ WantedBy=multi-user.target</programlisting>
       <varname>Type=</varname><option>oneshot</option> exists. Units
       of this type will wait until the process specified terminates
       and then fall back to being inactive. The following unit will
-      perform a clenaup action:</para>
+      perform a cleanup action:</para>
 
       <programlisting>[Unit]
 Description=Cleanup old Foo data

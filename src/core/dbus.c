@@ -1116,7 +1116,7 @@ int bus_foreach_bus(
         sd_bus *b;
         int r, ret = 0;
 
-        /* Send to all direct busses, unconditionally */
+        /* Send to all direct buses, unconditionally */
         SET_FOREACH(b, m->private_buses, i) {
                 r = send_message(b, userdata);
                 if (r < 0)

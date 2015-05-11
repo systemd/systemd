@@ -64,7 +64,7 @@
     <filename>/usr/lib/sysctl.d/50-coredump.conf</filename> which
     configures <varname>kernel.core_pattern</varname> to invoke
     <command>systemd-coredump</command>. This file may be masked or
-    overriden to use a different setting following normal
+    overridden to use a different setting following normal
     <citerefentry><refentrytitle>sysctl.d</refentrytitle><manvolnum>5</manvolnum></citerefentry> rules.</para>
 
     <para>The behaviour of a specific program upon reception of a

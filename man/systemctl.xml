@@ -154,7 +154,7 @@
           <command>list-dependencies</command>, i.e. follow
           dependencies of type <varname>WantedBy=</varname>,
           <varname>RequiredBy=</varname>,
-          <varname>RequiredByOverrridable=</varname>,
+          <varname>RequiredByOverridable=</varname>,
           <varname>PartOf=</varname>, <varname>BoundBy=</varname>,
           instead of <varname>Wants=</varname> and similar.
           </para>

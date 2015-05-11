@@ -58,7 +58,7 @@
       associated key-value pairs. Every record in the hwdb starts with one or
       more match string, specifying a shell glob to compare the database
       lookup string against. Multiple match lines are specified in additional
-      consecutive lines. Every match line is compared indivdually, they are
+      consecutive lines. Every match line is compared individually, they are
       combined by OR. Every match line must start at the first character of
       the line.</para>
 

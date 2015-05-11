@@ -137,7 +137,7 @@ static void override_abs(int fd, const char *devnode,
                 return;
         }
 
-        log_debug("keyboard: %x overriden with %"PRIi32"/%"PRIi32"/%"PRIi32"/%"PRIi32"/%"PRIi32" for \"%s\"",
+        log_debug("keyboard: %x overridden with %"PRIi32"/%"PRIi32"/%"PRIi32"/%"PRIi32"/%"PRIi32" for \"%s\"",
                   evcode,
                   absinfo.minimum, absinfo.maximum, absinfo.resolution, absinfo.fuzz, absinfo.flat,
                   devnode);

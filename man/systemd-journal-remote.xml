@@ -156,7 +156,7 @@
         <varname>$LISTEN_FDS</varname>/<varname>$LISTEN_PID</varname>.
         In the second case, an HTTP or HTTPS server will be spawned on
         this port, respectively for <option>--listen-http</option> and
-        <option>--listen-https</option>. Currenntly, only POST requests
+        <option>--listen-https</option>. Currently, only POST requests
         to <filename>/upload</filename> with <literal>Content-Type:
         application/vnd.fdo.journal</literal> are supported.</para>
         </listitem>

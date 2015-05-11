@@ -66,7 +66,7 @@
     of the daemon per connection (inetd-style).
     </para>
 
-    <para>The daemon to launch and its options should be specifed
+    <para>The daemon to launch and its options should be specified
     after options intended for <command>systemd-activate</command>.
     </para>
 
@@ -76,7 +76,7 @@
     inherited, and sockets will be passed through file descriptors 3
     and higher. Sockets passed through <varname>$LISTEN_FDS</varname>
     to <command>systemd-activate</command> will be passed through to
-    the dameon, in the original positions. Other sockets specified
+    the daemon, in the original positions. Other sockets specified
     with <option>--listen</option> will use consecutive descriptors.
     </para>
   </refsect1>

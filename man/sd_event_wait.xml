@@ -95,7 +95,7 @@
     events or a timeout. If any events are ready to be processed, it
     returns a positive value, and the events should be processed with
     <function>sd_event_dispatch</function>. Otherwise, the loop is
-    back in the inital state and <function>sd_event_prepare</function>
+    back in the initial state and <function>sd_event_prepare</function>
     should be called again.</para>
 
     <programlisting>

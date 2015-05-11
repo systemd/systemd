@@ -45,7 +45,7 @@ static int message_new_empty(sd_rtnl *rtnl, sd_rtnl_message **ret) {
 
         /* Note that 'rtnl' is currently unused, if we start using it internally
            we must take care to avoid problems due to mutual references between
-           busses and their queued messages. See sd-bus.
+           buses and their queued messages. See sd-bus.
          */
 
         m = new0(sd_rtnl_message, 1);

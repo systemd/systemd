@@ -63,7 +63,7 @@ global:
         sd_journal_open_files;
         sd_journal_open_container;
 
-        /* sd-dameon */
+        /* sd-daemon */
         sd_booted;
         sd_is_fifo;
         sd_is_mq;

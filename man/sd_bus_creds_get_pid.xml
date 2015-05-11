@@ -453,7 +453,7 @@
 
     <para>All functions that take a <parameter>char***</parameter>
     parameter will store the answer there as an address of a an array
-    of strings. Each invidividual string is NUL-terminated, and the
+    of strings. Each individual string is NUL-terminated, and the
     array is NULL-terminated as a whole. It will be valid as long as
     <parameter>c</parameter> remains valid, and should not be freed or
     modified by the caller.</para>

@@ -1593,7 +1593,7 @@ int bus_kernel_create_bus(const char *name, bool world, char **s) {
 
         make->size += ALIGN8(n->size);
 
-        /* The busses we create make no restrictions on what metadata
+        /* The buses we create make no restrictions on what metadata
          * peers can read from incoming messages. */
         n = KDBUS_ITEM_NEXT(n);
         n->type = KDBUS_ITEM_ATTACH_FLAGS_RECV;

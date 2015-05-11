@@ -90,7 +90,7 @@
     requires a writable <filename>/etc</filename> file system and is
     fragile because the file might be edited by the administrator at
     the same time. With <command>nss-myhostname</command> enabled
-    changing <filename>/etc/hosts</filename> is unncessary, and on
+    changing <filename>/etc/hosts</filename> is unnecessary, and on
     many systems the file becomes entirely optional.</para>
 
     <para>To activate the NSS modules, <literal>myhostname</literal>

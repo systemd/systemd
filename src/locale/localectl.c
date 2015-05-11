@@ -77,7 +77,7 @@ typedef struct StatusInfo {
         const char *x11_options;
 } StatusInfo;
 
-static void print_overriden_variables(void) {
+static void print_overridden_variables(void) {
         int r;
         char *variables[_VARIABLE_LC_MAX] = {};
         LocaleVariable j;
@@ -176,7 +176,7 @@ static int show_status(sd_bus *bus, char **args, unsigned n) {
                 goto fail;
         }
 
-        print_overriden_variables();
+        print_overridden_variables();
         print_status_info(&info);
 
 fail:

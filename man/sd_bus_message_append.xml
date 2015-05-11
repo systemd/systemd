@@ -87,7 +87,7 @@
     Arguments corresponding to this nested sequence follow the same
     rules as if they were not nested.</para>
 
-    <para>A variant is denoted by <literal>v</literal>. Correspoding
+    <para>A variant is denoted by <literal>v</literal>. Corresponding
     arguments must include a format string denoting a complete type,
     and following that, arguments corresponding to the specified type.
     </para>

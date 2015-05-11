@@ -5722,10 +5722,10 @@ static int get_file_to_edit(const char *name, const char *user_home, const char 
 
         if (arg_runtime) {
                 if (access(path, F_OK) >= 0)
-                        return log_error_errno(EEXIST, "Refusing to create \"%s\" because it would be overriden by \"%s\" anyway.",
+                        return log_error_errno(EEXIST, "Refusing to create \"%s\" because it would be overridden by \"%s\" anyway.",
                                                run, path);
                 if (path2 && access(path2, F_OK) >= 0)
-                        return log_error_errno(EEXIST, "Refusing to create \"%s\" because it would be overriden by \"%s\" anyway.",
+                        return log_error_errno(EEXIST, "Refusing to create \"%s\" because it would be overridden by \"%s\" anyway.",
                                                run, path2);
                 *ret_path = run;
                 run = NULL;

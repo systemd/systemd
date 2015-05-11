@@ -140,7 +140,7 @@
       <listitem>
         <para><parameter>late-dir</parameter></para>
         <para>argv[3] may be used to extend the unit file tree without
-        overridding any other unit files. Any native configuration
+        overriding any other unit files. Any native configuration
         files supplied by the vendor or user/administrator take
         precedence over the generated ones placed in this directory.
         </para>

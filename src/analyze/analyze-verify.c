@@ -226,7 +226,7 @@ int verify_units(char **filenames, SystemdRunningAs running_as, bool check_man) 
 
         r = manager_new(running_as, true, &m);
         if (r < 0)
-                return log_error_errno(r, "Failed to initalize manager: %m");
+                return log_error_errno(r, "Failed to initialize manager: %m");
 
         log_debug("Starting manager...");
 
