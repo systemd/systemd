@@ -341,8 +341,10 @@ static int test_enumerate(struct udev *udev, const char *subsystem) {
                 return -1;
         udev_enumerate_add_match_subsystem(udev_enumerate,"block");
         r = udev_enumerate_add_match_is_initialized(udev_enumerate);
-        if (r < 0)
+        if (r < 0) {
+                udev_enumerate_unref(udev_enumerate);
                 return r;
+        }
         udev_enumerate_scan_devices(udev_enumerate);
         test_enumerate_print_list(udev_enumerate);
         udev_enumerate_unref(udev_enumerate);
