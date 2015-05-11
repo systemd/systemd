@@ -252,7 +252,7 @@ int main(int argc, char *argv[]) {
                 }
 
         } else {
-                _cleanup_free_ char **files = NULL;
+                _cleanup_strv_free_ char **files = NULL;
                 char **fn, **i;
 
                 STRV_FOREACH(i, arg_proc_cmdline_modules) {
