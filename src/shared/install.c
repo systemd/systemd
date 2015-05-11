@@ -824,12 +824,16 @@ static void install_info_free(UnitFileInstallInfo *i) {
 
 static void install_info_hashmap_free(OrderedHashmap *m) {
         UnitFileInstallInfo *i;
+        char *name;
 
         if (!m)
                 return;
 
-        while ((i = ordered_hashmap_steal_first(m)))
+        while ((name = ordered_hashmap_first_key(m))) {
+                i = ordered_hashmap_steal_first(m);
                 install_info_free(i);
+                free(name);
+        }
 
         ordered_hashmap_free(m);
 }
@@ -849,6 +853,7 @@ static int install_info_add(
                 const char *path) {
         UnitFileInstallInfo *i = NULL;
         int r;
+        char *n = NULL;
 
         assert(c);
         assert(name || path);
@@ -885,7 +890,18 @@ static int install_info_add(
                 }
         }
 
-        r = ordered_hashmap_put(c->will_install, i->name, i);
+        n = strdup(name);
+        if (!n) {
+                r = -ENOMEM;
+                goto fail;
+        }
+
+        /*
+         *  There is a possibility that i->name will be changed if we figure out that we are not
+         *  handling unit file but rather symlink to another unit file in /usr. Thus we can't use
+         *  i->name as a key.
+         */
+        r = ordered_hashmap_put(c->will_install, n, i);
         if (r < 0)
                 goto fail;
 
@@ -894,6 +910,8 @@ static int install_info_add(
 fail:
         if (i)
                 install_info_free(i);
+
+        free(n);
 
         return r;
 }
@@ -1107,6 +1125,68 @@ static int unit_file_search(
                 path = strjoin(*p, "/", info->name, NULL);
                 if (!path)
                         return -ENOMEM;
+
+                if (!path_startswith(path, "/etc") && !path_startswith(path, "/run")) {
+                        _cleanup_free_ char *root_target = NULL, *root_path = NULL;
+
+                        if (root_dir)
+                                root_path = path_join(root_dir, path, NULL);
+                        else
+                                root_path = strdup(path);
+
+                        if (!root_path)
+                                return -ENOMEM;
+
+                        r = readlink_and_canonicalize(root_path, &root_target);
+                        if (r >= 0) {
+                                _cleanup_free_ char *root_target_prefix= NULL, *target = NULL;
+
+                                root_target_prefix = path_join(root_dir, *p, NULL);
+                                if (!root_target_prefix)
+                                        return -ENOMEM;
+
+                                if (path_startswith(root_target, *p) ||
+                                     path_startswith(root_target, root_target_prefix)) {
+                                        char *name, *n = NULL;
+
+                                        name = basename(root_target);
+                                        target = path_join(*p, name, NULL);
+                                        if (!target)
+                                                return -ENOMEM;
+
+                                        free(path);
+                                        path = target;
+                                        target = NULL;
+
+                                        if (unit_name_is_valid(info->name, UNIT_NAME_INSTANCE)) {
+                                                _cleanup_free_ char *instance = NULL;
+                                                char *at;
+
+                                                at = strchr(info->name, '@');
+
+                                                assert(at);
+
+                                                instance = strdup(++at);
+                                                if (!instance)
+                                                        return -ENOMEM;
+
+                                                at = strchr(name, '@');
+                                                if (at) {
+                                                        *at = '\0';
+                                                        n = strjoin(name, "@", instance, NULL);
+                                                } else
+                                                        n = strdup(name);
+                                        } else
+                                                n = strdup(name);
+
+                                        if (!n)
+                                                return -ENOMEM;
+
+                                        free(info->name);
+                                        info->name = n;
+                                }
+                        }
+                }
 
                 r = unit_file_load(c, info, path, root_dir, allow_symlink, load, also);
                 if (r >= 0) {
