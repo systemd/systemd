@@ -49,8 +49,6 @@ Before 220:
 
 * introduce argv0array=
 
-* Assertion 'device' failed at src/network/networkd-network.c:280, function network_get(). Aborting.
-
 Features:
 
 * invent a better systemd-run scheme for naming scopes, that works with remoting
