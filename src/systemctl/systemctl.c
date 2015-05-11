@@ -2339,7 +2339,7 @@ static int unit_find_paths(
                         _cleanup_free_ char *template = NULL;
 
                         r = unit_name_template(unit_name, &template);
-                        if (r != -EINVAL)
+                        if (r < 0 && r != -EINVAL)
                                 return log_error_errno(r, "Failed to determine template name: %m");
                         if (r >= 0) {
                                 r = unit_file_find_path(lp, template, &path);
