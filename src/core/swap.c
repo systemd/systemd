@@ -359,7 +359,7 @@ static int swap_setup_unit(
 
         r = unit_name_from_path(what, ".swap", &e);
         if (r < 0)
-                return log_unit_error_errno(u->id, r, "Failed to generate unit name from path: %m");
+                return log_error_errno(r, "Failed to generate unit name from path: %m");
 
         u = manager_get_unit(m, e);
 
