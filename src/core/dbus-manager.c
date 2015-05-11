@@ -1206,7 +1206,7 @@ static int method_exit(sd_bus_message *message, void *userdata, sd_bus_error *er
         if (r < 0)
                 return r;
 
-        if (m->running_as == SYSTEMD_SYSTEM)
+        if (m->running_as == MANAGER_SYSTEM)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Exit is only supported for user service managers.");
 
         m->exit_code = MANAGER_EXIT;
@@ -1225,7 +1225,7 @@ static int method_reboot(sd_bus_message *message, void *userdata, sd_bus_error *
         if (r < 0)
                 return r;
 
-        if (m->running_as != SYSTEMD_SYSTEM)
+        if (m->running_as != MANAGER_SYSTEM)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Reboot is only supported for system managers.");
 
         m->exit_code = MANAGER_REBOOT;
@@ -1244,7 +1244,7 @@ static int method_poweroff(sd_bus_message *message, void *userdata, sd_bus_error
         if (r < 0)
                 return r;
 
-        if (m->running_as != SYSTEMD_SYSTEM)
+        if (m->running_as != MANAGER_SYSTEM)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Powering off is only supported for system managers.");
 
         m->exit_code = MANAGER_POWEROFF;
@@ -1263,7 +1263,7 @@ static int method_halt(sd_bus_message *message, void *userdata, sd_bus_error *er
         if (r < 0)
                 return r;
 
-        if (m->running_as != SYSTEMD_SYSTEM)
+        if (m->running_as != MANAGER_SYSTEM)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Halt is only supported for system managers.");
 
         m->exit_code = MANAGER_HALT;
@@ -1282,7 +1282,7 @@ static int method_kexec(sd_bus_message *message, void *userdata, sd_bus_error *e
         if (r < 0)
                 return r;
 
-        if (m->running_as != SYSTEMD_SYSTEM)
+        if (m->running_as != MANAGER_SYSTEM)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "KExec is only supported for system managers.");
 
         m->exit_code = MANAGER_KEXEC;
@@ -1303,7 +1303,7 @@ static int method_switch_root(sd_bus_message *message, void *userdata, sd_bus_er
         if (r < 0)
                 return r;
 
-        if (m->running_as != SYSTEMD_SYSTEM)
+        if (m->running_as != MANAGER_SYSTEM)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Root switching is only supported by system manager.");
 
         r = sd_bus_message_read(message, "ss", &root, &init);
@@ -1480,7 +1480,7 @@ static int method_list_unit_files(sd_bus_message *message, void *userdata, sd_bu
         if (!h)
                 return -ENOMEM;
 
-        r = unit_file_get_list(m->running_as == SYSTEMD_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER, NULL, h);
+        r = unit_file_get_list(m->running_as == MANAGER_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER, NULL, h);
         if (r < 0)
                 goto fail;
 
@@ -1528,7 +1528,7 @@ static int method_get_unit_file_state(sd_bus_message *message, void *userdata, s
         if (r < 0)
                 return r;
 
-        scope = m->running_as == SYSTEMD_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER;
+        scope = m->running_as == MANAGER_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER;
 
         state = unit_file_get_state(scope, NULL, name);
         if (state < 0)
@@ -1552,7 +1552,7 @@ static int method_get_default_target(sd_bus_message *message, void *userdata, sd
         if (r < 0)
                 return r;
 
-        scope = m->running_as == SYSTEMD_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER;
+        scope = m->running_as == MANAGER_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER;
 
         r = unit_file_get_default(scope, NULL, &default_target);
         if (r < 0)
@@ -1661,7 +1661,7 @@ static int method_enable_unit_files_generic(
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        scope = m->running_as == SYSTEMD_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER;
+        scope = m->running_as == MANAGER_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER;
 
         r = call(scope, runtime, NULL, l, force, &changes, &n_changes);
         if (r < 0)
@@ -1734,7 +1734,7 @@ static int method_preset_unit_files_with_mode(sd_bus_message *message, void *use
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        scope = m->running_as == SYSTEMD_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER;
+        scope = m->running_as == MANAGER_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER;
 
         r = unit_file_preset(scope, runtime, NULL, l, mm, force, &changes, &n_changes);
         if (r < 0)
@@ -1771,7 +1771,7 @@ static int method_disable_unit_files_generic(
         if (r < 0)
                 return r;
 
-        scope = m->running_as == SYSTEMD_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER;
+        scope = m->running_as == MANAGER_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER;
 
         r = bus_verify_manage_unit_files_async(m, message, error);
         if (r < 0)
@@ -1819,7 +1819,7 @@ static int method_set_default_target(sd_bus_message *message, void *userdata, sd
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        scope = m->running_as == SYSTEMD_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER;
+        scope = m->running_as == MANAGER_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER;
 
         r = unit_file_set_default(scope, NULL, name, force, &changes, &n_changes);
         if (r < 0)
@@ -1862,7 +1862,7 @@ static int method_preset_all_unit_files(sd_bus_message *message, void *userdata,
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        scope = m->running_as == SYSTEMD_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER;
+        scope = m->running_as == MANAGER_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER;
 
         r = unit_file_preset_all(scope, runtime, NULL, mm, force, &changes, &n_changes);
         if (r < 0)
@@ -1907,7 +1907,7 @@ static int method_add_dependency_unit_files(sd_bus_message *message, void *userd
         if (r < 0)
                 return r;
 
-        scope = m->running_as == SYSTEMD_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER;
+        scope = m->running_as == MANAGER_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER;
 
         r = unit_file_add_dependency(scope, runtime, NULL, l, target, dep, force, &changes, &n_changes);
         if (r < 0)

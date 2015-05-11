@@ -5111,7 +5111,7 @@ static int enable_sysv_units(const char *verb, char **args) {
         /* Processes all SysV units, and reshuffles the array so that
          * afterwards only the native units remain */
 
-        r = lookup_paths_init(&paths, SYSTEMD_SYSTEM, false, arg_root, NULL, NULL, NULL);
+        r = lookup_paths_init(&paths, MANAGER_SYSTEM, false, arg_root, NULL, NULL, NULL);
         if (r < 0)
                 return r;
 

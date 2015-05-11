@@ -33,20 +33,20 @@ typedef struct LookupPaths {
 #endif
 } LookupPaths;
 
-typedef enum SystemdRunningAs {
-        SYSTEMD_SYSTEM,
-        SYSTEMD_USER,
-        _SYSTEMD_RUNNING_AS_MAX,
-        _SYSTEMD_RUNNING_AS_INVALID = -1
-} SystemdRunningAs;
+typedef enum ManagerRunningAs {
+        MANAGER_SYSTEM,
+        MANAGER_USER,
+        _MANAGER_RUNNING_AS_MAX,
+        _MANAGER_RUNNING_AS_INVALID = -1
+} ManagerRunningAs;
 
 int user_config_home(char **config_home);
 int user_runtime_dir(char **runtime_dir);
 
-char **generator_paths(SystemdRunningAs running_as);
+char **generator_paths(ManagerRunningAs running_as);
 
 int lookup_paths_init(LookupPaths *p,
-                      SystemdRunningAs running_as,
+                      ManagerRunningAs running_as,
                       bool personal,
                       const char *root_dir,
                       const char *generator,

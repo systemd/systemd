@@ -25,4 +25,4 @@
 
 #include "path-lookup.h"
 
-int verify_units(char **filenames, SystemdRunningAs running_as, bool check_man);
+int verify_units(char **filenames, ManagerRunningAs running_as, bool check_man);

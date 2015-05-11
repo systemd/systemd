@@ -85,7 +85,7 @@ static int signal_agent_released(sd_bus_message *message, void *userdata, sd_bus
         manager_notify_cgroup_empty(m, cgroup);
 
         /* only forward to system bus if running as system instance */
-        if (m->running_as != SYSTEMD_SYSTEM || !m->system_bus)
+        if (m->running_as != MANAGER_SYSTEM || !m->system_bus)
                 return 0;
 
         r = sd_bus_message_rewind(message, 1);
@@ -685,7 +685,7 @@ static int bus_on_connection(sd_event_source *s, int fd, uint32_t revents, void 
                 return 0;
         }
 
-        if (m->running_as == SYSTEMD_SYSTEM) {
+        if (m->running_as == MANAGER_SYSTEM) {
                 /* When we run as system instance we get the Released
                  * signal via a direct connection */
 
@@ -813,10 +813,10 @@ static int bus_init_api(Manager *m) {
                 return 0;
 
         /* The API and system bus is the same if we are running in system mode */
-        if (m->running_as == SYSTEMD_SYSTEM && m->system_bus)
+        if (m->running_as == MANAGER_SYSTEM && m->system_bus)
                 bus = sd_bus_ref(m->system_bus);
         else {
-                if (m->running_as == SYSTEMD_SYSTEM)
+                if (m->running_as == MANAGER_SYSTEM)
                         r = sd_bus_open_system(&bus);
                 else
                         r = sd_bus_open_user(&bus);
@@ -856,7 +856,7 @@ static int bus_setup_system(Manager *m, sd_bus *bus) {
         assert(bus);
 
         /* On kdbus or if we are a user instance we get the Released message via the system bus */
-        if (m->running_as == SYSTEMD_USER || m->kdbus_fd >= 0) {
+        if (m->running_as == MANAGER_USER || m->kdbus_fd >= 0) {
                 r = sd_bus_add_match(
                                 bus,
                                 NULL,
@@ -881,7 +881,7 @@ static int bus_init_system(Manager *m) {
                 return 0;
 
         /* The API and system bus is the same if we are running in system mode */
-        if (m->running_as == SYSTEMD_SYSTEM && m->api_bus) {
+        if (m->running_as == MANAGER_SYSTEM && m->api_bus) {
                 m->system_bus = sd_bus_ref(m->api_bus);
                 return 0;
         }
@@ -932,7 +932,7 @@ static int bus_init_private(Manager *m) {
         if (m->kdbus_fd >= 0)
                 return 0;
 
-        if (m->running_as == SYSTEMD_SYSTEM) {
+        if (m->running_as == MANAGER_SYSTEM) {
 
                 /* We want the private bus only when running as init */
                 if (getpid() != 1)
@@ -1031,7 +1031,7 @@ static void destroy_bus(Manager *m, sd_bus **bus) {
 
         /* Possibly flush unwritten data, but only if we are
          * unprivileged, since we don't want to sync here */
-        if (m->running_as != SYSTEMD_SYSTEM)
+        if (m->running_as != MANAGER_SYSTEM)
                 sd_bus_flush(*bus);
 
         /* And destroy the object */

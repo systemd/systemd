@@ -908,7 +908,7 @@ int manager_setup_cgroup(Manager *m) {
         /* LEGACY: Already in /system.slice? If so, let's cut this
          * off. This is to support live upgrades from older systemd
          * versions where PID 1 was moved there. */
-        if (m->running_as == SYSTEMD_SYSTEM) {
+        if (m->running_as == MANAGER_SYSTEM) {
                 char *e;
 
                 e = endswith(m->cgroup_root, "/" SPECIAL_SYSTEM_SLICE);
@@ -933,7 +933,7 @@ int manager_setup_cgroup(Manager *m) {
         if (!m->test_run) {
 
                 /* 3. Install agent */
-                if (m->running_as == SYSTEMD_SYSTEM) {
+                if (m->running_as == MANAGER_SYSTEM) {
                         r = cg_install_release_agent(SYSTEMD_CGROUP_CONTROLLER, SYSTEMD_CGROUP_AGENT_PATH);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to install release agent, ignoring: %m");

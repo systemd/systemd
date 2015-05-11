@@ -140,7 +140,7 @@ static int specifier_runtime(char specifier, void *data, void *userdata, char **
 
         assert(u);
 
-        if (u->manager->running_as == SYSTEMD_SYSTEM)
+        if (u->manager->running_as == MANAGER_SYSTEM)
                 e = "/run";
         else {
                 e = getenv("XDG_RUNTIME_DIR");
@@ -168,7 +168,7 @@ static int specifier_user_name(char specifier, void *data, void *userdata, char 
         if (!c)
                 return -EINVAL;
 
-        if (u->manager->running_as == SYSTEMD_SYSTEM) {
+        if (u->manager->running_as == MANAGER_SYSTEM) {
 
                 /* We cannot use NSS from PID 1, hence try to make the
                  * best of it in that case, and fail if we can't help
@@ -231,7 +231,7 @@ static int specifier_user_home(char specifier, void *data, void *userdata, char 
         if (!c)
                 return -EOPNOTSUPP;
 
-        if (u->manager->running_as == SYSTEMD_SYSTEM) {
+        if (u->manager->running_as == MANAGER_SYSTEM) {
 
                 /* We cannot use NSS from PID 1, hence try to make the
                  * best of it if we can, but fail if we can't */
@@ -279,7 +279,7 @@ static int specifier_user_shell(char specifier, void *data, void *userdata, char
         if (!c)
                 return -EOPNOTSUPP;
 
-        if (u->manager->running_as == SYSTEMD_SYSTEM) {
+        if (u->manager->running_as == MANAGER_SYSTEM) {
 
                 /* We cannot use NSS from PID 1, hence try to make the
                  * best of it if we can, but fail if we can't */

@@ -2408,7 +2408,7 @@ int config_parse_syscall_filter(
 
         /* Turn on NNP, but only if it wasn't configured explicitly
          * before, and only if we are in user mode. */
-        if (!c->no_new_privileges_set && u->manager->running_as == SYSTEMD_USER)
+        if (!c->no_new_privileges_set && u->manager->running_as == MANAGER_USER)
                 c->no_new_privileges = true;
 
         return 0;

@@ -147,7 +147,7 @@ static int busname_add_default_default_dependencies(BusName *n) {
         if (r < 0)
                 return r;
 
-        if (UNIT(n)->manager->running_as == SYSTEMD_SYSTEM) {
+        if (UNIT(n)->manager->running_as == MANAGER_SYSTEM) {
                 r = unit_add_two_dependencies_by_name(UNIT(n), UNIT_AFTER, UNIT_REQUIRES, SPECIAL_SYSINIT_TARGET, NULL, true);
                 if (r < 0)
                         return r;
@@ -312,7 +312,7 @@ static int busname_open_fd(BusName *n) {
         if (n->starter_fd >= 0)
                 return 0;
 
-        mode = UNIT(n)->manager->running_as == SYSTEMD_SYSTEM ? "system" : "user";
+        mode = UNIT(n)->manager->running_as == MANAGER_SYSTEM ? "system" : "user";
         n->starter_fd = bus_kernel_open_bus_fd(mode, &path);
         if (n->starter_fd < 0)
                 return log_unit_warning_errno(UNIT(n), n->starter_fd, "Failed to open %s: %m", path ?: "kdbus");

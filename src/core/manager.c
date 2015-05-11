@@ -474,7 +474,7 @@ static int manager_setup_signals(Manager *m) {
         if (r < 0)
                 return r;
 
-        if (m->running_as == SYSTEMD_SYSTEM)
+        if (m->running_as == MANAGER_SYSTEM)
                 return enable_special_signals(m);
 
         return 0;
@@ -500,7 +500,7 @@ static void manager_clean_environment(Manager *m) {
 static int manager_default_environment(Manager *m) {
         assert(m);
 
-        if (m->running_as == SYSTEMD_SYSTEM) {
+        if (m->running_as == MANAGER_SYSTEM) {
                 /* The system manager always starts with a clean
                  * environment for its children. It does not import
                  * the kernel or the parents exported variables.
@@ -529,16 +529,16 @@ static int manager_default_environment(Manager *m) {
 }
 
 
-int manager_new(SystemdRunningAs running_as, bool test_run, Manager **_m) {
+int manager_new(ManagerRunningAs running_as, bool test_run, Manager **_m) {
 
-        static const char * const unit_log_fields[_SYSTEMD_RUNNING_AS_MAX] = {
-                [SYSTEMD_SYSTEM] = "UNIT=",
-                [SYSTEMD_USER] = "USER_UNIT=",
+        static const char * const unit_log_fields[_MANAGER_RUNNING_AS_MAX] = {
+                [MANAGER_SYSTEM] = "UNIT=",
+                [MANAGER_USER] = "USER_UNIT=",
         };
 
-        static const char * const unit_log_format_strings[_SYSTEMD_RUNNING_AS_MAX] = {
-                [SYSTEMD_SYSTEM] = "UNIT=%s",
-                [SYSTEMD_USER] = "USER_UNIT=%s",
+        static const char * const unit_log_format_strings[_MANAGER_RUNNING_AS_MAX] = {
+                [MANAGER_SYSTEM] = "UNIT=%s",
+                [MANAGER_USER] = "USER_UNIT=%s",
         };
 
         Manager *m;
@@ -546,14 +546,14 @@ int manager_new(SystemdRunningAs running_as, bool test_run, Manager **_m) {
 
         assert(_m);
         assert(running_as >= 0);
-        assert(running_as < _SYSTEMD_RUNNING_AS_MAX);
+        assert(running_as < _MANAGER_RUNNING_AS_MAX);
 
         m = new0(Manager, 1);
         if (!m)
                 return -ENOMEM;
 
 #ifdef ENABLE_EFI
-        if (running_as == SYSTEMD_SYSTEM && detect_container(NULL) <= 0)
+        if (running_as == MANAGER_SYSTEM && detect_container(NULL) <= 0)
                 boot_timestamps(&m->userspace_timestamp, &m->firmware_timestamp, &m->loader_timestamp);
 #endif
 
@@ -678,7 +678,7 @@ static int manager_setup_notify(Manager *m) {
                 if (fd < 0)
                         return log_error_errno(errno, "Failed to allocate notification socket: %m");
 
-                if (m->running_as == SYSTEMD_SYSTEM)
+                if (m->running_as == MANAGER_SYSTEM)
                         m->notify_socket = strdup("/run/systemd/notify");
                 else {
                         const char *e;
@@ -740,12 +740,12 @@ static int manager_setup_kdbus(Manager *m) {
         if (!is_kdbus_available())
                 return -ESOCKTNOSUPPORT;
 
-        if (m->running_as == SYSTEMD_SYSTEM && detect_container(NULL) <= 0)
+        if (m->running_as == MANAGER_SYSTEM && detect_container(NULL) <= 0)
                 bus_kernel_fix_attach_mask();
 
         m->kdbus_fd = bus_kernel_create_bus(
-                        m->running_as == SYSTEMD_SYSTEM ? "system" : "user",
-                        m->running_as == SYSTEMD_SYSTEM, &p);
+                        m->running_as == MANAGER_SYSTEM ? "system" : "user",
+                        m->running_as == MANAGER_SYSTEM, &p);
 
         if (m->kdbus_fd < 0)
                 return log_debug_errno(m->kdbus_fd, "Failed to set up kdbus: %m");
@@ -767,7 +767,7 @@ static int manager_connect_bus(Manager *m, bool reexecuting) {
         try_bus_connect =
                 m->kdbus_fd >= 0 ||
                 reexecuting ||
-                (m->running_as == SYSTEMD_USER && getenv("DBUS_SESSION_BUS_ADDRESS"));
+                (m->running_as == MANAGER_USER && getenv("DBUS_SESSION_BUS_ADDRESS"));
 
         /* Try to connect to the buses, if possible. */
         return bus_init(m, try_bus_connect);
@@ -1728,7 +1728,7 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
                 }
 
                 log_received_signal(sfsi.ssi_signo == SIGCHLD ||
-                                    (sfsi.ssi_signo == SIGTERM && m->running_as == SYSTEMD_USER)
+                                    (sfsi.ssi_signo == SIGTERM && m->running_as == MANAGER_USER)
                                     ? LOG_DEBUG : LOG_INFO,
                                     &sfsi);
 
@@ -1739,7 +1739,7 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
                         break;
 
                 case SIGTERM:
-                        if (m->running_as == SYSTEMD_SYSTEM) {
+                        if (m->running_as == MANAGER_SYSTEM) {
                                 /* This is for compatibility with the
                                  * original sysvinit */
                                 m->exit_code = MANAGER_REEXECUTE;
@@ -1749,7 +1749,7 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
                         /* Fall through */
 
                 case SIGINT:
-                        if (m->running_as == SYSTEMD_SYSTEM) {
+                        if (m->running_as == MANAGER_SYSTEM) {
 
                                 /* If the user presses C-A-D more than
                                  * 7 times within 2s, we reboot
@@ -1775,14 +1775,14 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
                         break;
 
                 case SIGWINCH:
-                        if (m->running_as == SYSTEMD_SYSTEM)
+                        if (m->running_as == MANAGER_SYSTEM)
                                 manager_start_target(m, SPECIAL_KBREQUEST_TARGET, JOB_REPLACE);
 
                         /* This is a nop on non-init */
                         break;
 
                 case SIGPWR:
-                        if (m->running_as == SYSTEMD_SYSTEM)
+                        if (m->running_as == MANAGER_SYSTEM)
                                 manager_start_target(m, SPECIAL_SIGPWR_TARGET, JOB_REPLACE);
 
                         /* This is a nop on non-init */
@@ -1896,7 +1896,7 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
                                 break;
 
                         case 24:
-                                if (m->running_as == SYSTEMD_USER) {
+                                if (m->running_as == MANAGER_USER) {
                                         m->exit_code = MANAGER_EXIT;
                                         return 0;
                                 }
@@ -2014,7 +2014,7 @@ int manager_loop(Manager *m) {
         while (m->exit_code == MANAGER_OK) {
                 usec_t wait_usec;
 
-                if (m->runtime_watchdog > 0 && m->running_as == SYSTEMD_SYSTEM)
+                if (m->runtime_watchdog > 0 && m->running_as == MANAGER_SYSTEM)
                         watchdog_ping();
 
                 if (!ratelimit_test(&rl)) {
@@ -2040,7 +2040,7 @@ int manager_loop(Manager *m) {
                         continue;
 
                 /* Sleep for half the watchdog time */
-                if (m->runtime_watchdog > 0 && m->running_as == SYSTEMD_SYSTEM) {
+                if (m->runtime_watchdog > 0 && m->running_as == MANAGER_SYSTEM) {
                         wait_usec = m->runtime_watchdog / 2;
                         if (wait_usec <= 0)
                                 wait_usec = 1;
@@ -2120,7 +2120,7 @@ void manager_send_unit_audit(Manager *m, Unit *u, int type, bool success) {
         if (m->n_reloading > 0)
                 return;
 
-        if (m->running_as != SYSTEMD_SYSTEM)
+        if (m->running_as != MANAGER_SYSTEM)
                 return;
 
         if (u->type != UNIT_SERVICE)
@@ -2157,7 +2157,7 @@ void manager_send_unit_plymouth(Manager *m, Unit *u) {
         if (m->n_reloading > 0)
                 return;
 
-        if (m->running_as != SYSTEMD_SYSTEM)
+        if (m->running_as != MANAGER_SYSTEM)
                 return;
 
         if (detect_container(NULL) > 0)
@@ -2219,7 +2219,7 @@ int manager_open_serialization(Manager *m, FILE **_f) {
 
         assert(_f);
 
-        path = m->running_as == SYSTEMD_SYSTEM ? "/run/systemd" : "/tmp";
+        path = m->running_as == MANAGER_SYSTEM ? "/run/systemd" : "/tmp";
         fd = open_tmpfile(path, O_RDWR|O_CLOEXEC);
         if (fd < 0)
                 return -errno;
@@ -2635,7 +2635,7 @@ static void manager_notify_finished(Manager *m) {
         if (m->test_run)
                 return;
 
-        if (m->running_as == SYSTEMD_SYSTEM && detect_container(NULL) <= 0) {
+        if (m->running_as == MANAGER_SYSTEM && detect_container(NULL) <= 0) {
 
                 /* Note that m->kernel_usec.monotonic is always at 0,
                  * and m->firmware_usec.monotonic and
@@ -2751,7 +2751,7 @@ static int create_generator_dir(Manager *m, char **generator, const char *name) 
         if (*generator)
                 return 0;
 
-        if (m->running_as == SYSTEMD_SYSTEM && getpid() == 1) {
+        if (m->running_as == MANAGER_SYSTEM && getpid() == 1) {
                 /* systemd --system, not running --test */
 
                 p = strappend("/run/systemd/", name);
@@ -2764,7 +2764,7 @@ static int create_generator_dir(Manager *m, char **generator, const char *name) 
                         free(p);
                         return r;
                 }
-        } else if (m->running_as == SYSTEMD_USER) {
+        } else if (m->running_as == MANAGER_USER) {
                 const char *s = NULL;
 
                 s = getenv("XDG_RUNTIME_DIR");
@@ -2951,7 +2951,7 @@ void manager_recheck_journal(Manager *m) {
 
         assert(m);
 
-        if (m->running_as != SYSTEMD_SYSTEM)
+        if (m->running_as != MANAGER_SYSTEM)
                 return;
 
         u = manager_get_unit(m, SPECIAL_JOURNALD_SOCKET);
@@ -2975,7 +2975,7 @@ void manager_set_show_status(Manager *m, ShowStatus mode) {
         assert(m);
         assert(IN_SET(mode, SHOW_STATUS_AUTO, SHOW_STATUS_NO, SHOW_STATUS_YES, SHOW_STATUS_TEMPORARY));
 
-        if (m->running_as != SYSTEMD_SYSTEM)
+        if (m->running_as != MANAGER_SYSTEM)
                 return;
 
         m->show_status = mode;
@@ -2989,7 +2989,7 @@ void manager_set_show_status(Manager *m, ShowStatus mode) {
 static bool manager_get_show_status(Manager *m, StatusType type) {
         assert(m);
 
-        if (m->running_as != SYSTEMD_SYSTEM)
+        if (m->running_as != MANAGER_SYSTEM)
                 return false;
 
         if (m->no_console_output)
@@ -3011,7 +3011,7 @@ static bool manager_get_show_status(Manager *m, StatusType type) {
 void manager_set_first_boot(Manager *m, bool b) {
         assert(m);
 
-        if (m->running_as != SYSTEMD_SYSTEM)
+        if (m->running_as != MANAGER_SYSTEM)
                 return;
 
         m->first_boot = b;
@@ -3079,7 +3079,7 @@ Set *manager_get_units_requiring_mounts_for(Manager *m, const char *path) {
 const char *manager_get_runtime_prefix(Manager *m) {
         assert(m);
 
-        return m->running_as == SYSTEMD_SYSTEM ?
+        return m->running_as == MANAGER_SYSTEM ?
                "/run" :
                getenv("XDG_RUNTIME_DIR");
 }

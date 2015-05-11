@@ -39,7 +39,7 @@ static int setup_test(Manager **m) {
 
         assert_se(m);
 
-        r = manager_new(SYSTEMD_USER, true, &tmp);
+        r = manager_new(MANAGER_USER, true, &tmp);
         if (IN_SET(r, -EPERM, -EACCES, -EADDRINUSE, -EHOSTDOWN, -ENOENT)) {
                 printf("Skipping test: manager_new: %s", strerror(-r));
                 return -EXIT_TEST_SKIP;

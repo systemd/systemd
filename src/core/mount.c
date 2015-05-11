@@ -320,7 +320,7 @@ static int mount_add_device_links(Mount *m) {
         if (path_equal(m->where, "/"))
                 return 0;
 
-        if (mount_is_auto(p) && UNIT(m)->manager->running_as == SYSTEMD_SYSTEM)
+        if (mount_is_auto(p) && UNIT(m)->manager->running_as == MANAGER_SYSTEM)
                 device_wants_mount = true;
 
         r = unit_add_node_link(UNIT(m), p->what, device_wants_mount);
@@ -336,7 +336,7 @@ static int mount_add_quota_links(Mount *m) {
 
         assert(m);
 
-        if (UNIT(m)->manager->running_as != SYSTEMD_SYSTEM)
+        if (UNIT(m)->manager->running_as != MANAGER_SYSTEM)
                 return 0;
 
         p = get_mount_parameters_fragment(m);
@@ -379,7 +379,7 @@ static int mount_add_default_dependencies(Mount *m) {
 
         assert(m);
 
-        if (UNIT(m)->manager->running_as != SYSTEMD_SYSTEM)
+        if (UNIT(m)->manager->running_as != MANAGER_SYSTEM)
                 return 0;
 
         /* We do not add any default dependencies to / and /usr, since
@@ -828,7 +828,7 @@ static void mount_enter_unmounting(Mount *m) {
         m->control_command = m->exec_command + MOUNT_EXEC_UNMOUNT;
 
         r = exec_command_set(m->control_command, "/bin/umount", m->where, NULL);
-        if (r >= 0 && UNIT(m)->manager->running_as == SYSTEMD_SYSTEM)
+        if (r >= 0 && UNIT(m)->manager->running_as == MANAGER_SYSTEM)
                 r = exec_command_append(m->control_command, "-n", NULL);
         if (r < 0)
                 goto fail;
@@ -880,7 +880,7 @@ static void mount_enter_mounting(Mount *m) {
 
                 r = exec_command_set(m->control_command, "/bin/mount",
                                      m->parameters_fragment.what, m->where, NULL);
-                if (r >= 0 && UNIT(m)->manager->running_as == SYSTEMD_SYSTEM)
+                if (r >= 0 && UNIT(m)->manager->running_as == MANAGER_SYSTEM)
                         r = exec_command_append(m->control_command, "-n", NULL);
                 if (r >= 0 && m->sloppy_options)
                         r = exec_command_append(m->control_command, "-s", NULL);
@@ -928,7 +928,7 @@ static void mount_enter_remounting(Mount *m) {
                 r = exec_command_set(m->control_command, "/bin/mount",
                                      m->parameters_fragment.what, m->where,
                                      "-o", o, NULL);
-                if (r >= 0 && UNIT(m)->manager->running_as == SYSTEMD_SYSTEM)
+                if (r >= 0 && UNIT(m)->manager->running_as == MANAGER_SYSTEM)
                         r = exec_command_append(m->control_command, "-n", NULL);
                 if (r >= 0 && m->sloppy_options)
                         r = exec_command_append(m->control_command, "-s", NULL);
@@ -1376,7 +1376,7 @@ static int mount_setup_unit(
                         goto fail;
                 }
 
-                if (m->running_as == SYSTEMD_SYSTEM) {
+                if (m->running_as == MANAGER_SYSTEM) {
                         const char* target;
 
                         target = mount_needs_network(options, fstype) ?  SPECIAL_REMOTE_FS_TARGET : SPECIAL_LOCAL_FS_TARGET;
@@ -1404,7 +1404,7 @@ static int mount_setup_unit(
                         }
                 }
 
-                if (m->running_as == SYSTEMD_SYSTEM &&
+                if (m->running_as == MANAGER_SYSTEM &&
                     mount_needs_network(options, fstype)) {
                         /* _netdev option may have shown up late, or on a
                          * remount. Add remote-fs dependencies, even though

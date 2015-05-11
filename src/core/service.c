@@ -1121,7 +1121,7 @@ static int service_spawn(
                         goto fail;
                 }
 
-        if (UNIT(s)->manager->running_as != SYSTEMD_SYSTEM)
+        if (UNIT(s)->manager->running_as != MANAGER_SYSTEM)
                 if (asprintf(our_env + n_env++, "MANAGERPID="PID_FMT, getpid()) < 0) {
                         r = -ENOMEM;
                         goto fail;
@@ -1181,7 +1181,7 @@ static int service_spawn(
 
 #ifdef ENABLE_KDBUS
         if (s->exec_context.bus_endpoint) {
-                r = bus_kernel_create_endpoint(UNIT(s)->manager->running_as == SYSTEMD_SYSTEM ? "system" : "user",
+                r = bus_kernel_create_endpoint(UNIT(s)->manager->running_as == MANAGER_SYSTEM ? "system" : "user",
                                                UNIT(s)->id, &bus_endpoint_path);
                 if (r < 0)
                         goto fail;

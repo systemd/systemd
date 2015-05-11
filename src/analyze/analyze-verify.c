@@ -192,7 +192,7 @@ static int verify_unit(Unit *u, bool check_man) {
         return r;
 }
 
-int verify_units(char **filenames, SystemdRunningAs running_as, bool check_man) {
+int verify_units(char **filenames, ManagerRunningAs running_as, bool check_man) {
         _cleanup_bus_error_free_ sd_bus_error err = SD_BUS_ERROR_NULL;
         Manager *m = NULL;
         FILE *serial = NULL;

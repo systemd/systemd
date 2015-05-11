@@ -218,8 +218,8 @@ static char** user_dirs(
         return tmp;
 }
 
-char **generator_paths(SystemdRunningAs running_as) {
-        if (running_as == SYSTEMD_USER)
+char **generator_paths(ManagerRunningAs running_as) {
+        if (running_as == MANAGER_USER)
                 return strv_new("/run/systemd/user-generators",
                                 "/etc/systemd/user-generators",
                                 "/usr/local/lib/systemd/user-generators",
@@ -235,7 +235,7 @@ char **generator_paths(SystemdRunningAs running_as) {
 
 int lookup_paths_init(
                 LookupPaths *p,
-                SystemdRunningAs running_as,
+                ManagerRunningAs running_as,
                 bool personal,
                 const char *root_dir,
                 const char *generator,
@@ -277,7 +277,7 @@ int lookup_paths_init(
                  * we include /lib in the search path for the system
                  * stuff but avoid it for user stuff. */
 
-                if (running_as == SYSTEMD_USER) {
+                if (running_as == MANAGER_USER) {
                         if (personal)
                                 unit_path = user_dirs(generator, generator_early, generator_late);
                         else
@@ -337,7 +337,7 @@ int lookup_paths_init(
                 p->unit_path = NULL;
         }
 
-        if (running_as == SYSTEMD_SYSTEM) {
+        if (running_as == MANAGER_SYSTEM) {
 #ifdef HAVE_SYSV_COMPAT
                 /* /etc/init.d/ compatibility does not matter to users */
 
@@ -437,7 +437,7 @@ int lookup_paths_init_from_scope(LookupPaths *paths,
         zero(*paths);
 
         return lookup_paths_init(paths,
-                                 scope == UNIT_FILE_SYSTEM ? SYSTEMD_SYSTEM : SYSTEMD_USER,
+                                 scope == UNIT_FILE_SYSTEM ? MANAGER_SYSTEM : MANAGER_USER,
                                  scope == UNIT_FILE_USER,
                                  root_dir,
                                  NULL, NULL, NULL);

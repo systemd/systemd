@@ -26,7 +26,7 @@
 #include "strv.h"
 #include "rm-rf.h"
 
-static void test_paths(SystemdRunningAs running_as, bool personal) {
+static void test_paths(ManagerRunningAs running_as, bool personal) {
         char template[] = "/tmp/test-path-lookup.XXXXXXX";
 
         _cleanup_lookup_paths_free_ LookupPaths lp = {};
@@ -46,11 +46,11 @@ static void test_paths(SystemdRunningAs running_as, bool personal) {
         assert_se(rm_rf(template, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
 }
 
-static void print_generator_paths(SystemdRunningAs running_as) {
+static void print_generator_paths(ManagerRunningAs running_as) {
         _cleanup_strv_free_ char **paths;
         char **dir;
 
-        log_info("Generators dirs (%s):", running_as == SYSTEMD_SYSTEM ? "system" : "user");
+        log_info("Generators dirs (%s):", running_as == MANAGER_SYSTEM ? "system" : "user");
 
         paths = generator_paths(running_as);
         STRV_FOREACH(dir, paths)
@@ -62,13 +62,13 @@ int main(int argc, char **argv) {
         log_parse_environment();
         log_open();
 
-        test_paths(SYSTEMD_SYSTEM, false);
-        test_paths(SYSTEMD_SYSTEM, true);
-        test_paths(SYSTEMD_USER, false);
-        test_paths(SYSTEMD_USER, true);
+        test_paths(MANAGER_SYSTEM, false);
+        test_paths(MANAGER_SYSTEM, true);
+        test_paths(MANAGER_USER, false);
+        test_paths(MANAGER_USER, true);
 
-        print_generator_paths(SYSTEMD_SYSTEM);
-        print_generator_paths(SYSTEMD_USER);
+        print_generator_paths(MANAGER_SYSTEM);
+        print_generator_paths(MANAGER_USER);
 
         return EXIT_SUCCESS;
 }

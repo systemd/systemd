@@ -226,7 +226,7 @@ struct Manager {
         int pin_cgroupfs_fd;
 
         /* Flags */
-        SystemdRunningAs running_as;
+        ManagerRunningAs running_as;
         ManagerExitCode exit_code:5;
 
         bool dispatching_load_queue:1;
@@ -297,7 +297,7 @@ struct Manager {
         const char *unit_log_format_string;
 };
 
-int manager_new(SystemdRunningAs running_as, bool test_run, Manager **m);
+int manager_new(ManagerRunningAs running_as, bool test_run, Manager **m);
 Manager* manager_free(Manager *m);
 
 int manager_enumerate(Manager *m);

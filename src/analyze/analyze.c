@@ -1328,7 +1328,7 @@ int main(int argc, char *argv[]) {
 
         if (streq_ptr(argv[optind], "verify"))
                 r = verify_units(argv+optind+1,
-                                 arg_user ? SYSTEMD_USER : SYSTEMD_SYSTEM,
+                                 arg_user ? MANAGER_USER : MANAGER_SYSTEM,
                                  arg_man);
         else {
                 _cleanup_bus_close_unref_ sd_bus *bus = NULL;

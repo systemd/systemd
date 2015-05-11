@@ -284,7 +284,7 @@ static int socket_add_default_dependencies(Socket *s) {
         if (r < 0)
                 return r;
 
-        if (UNIT(s)->manager->running_as == SYSTEMD_SYSTEM) {
+        if (UNIT(s)->manager->running_as == MANAGER_SYSTEM) {
                 r = unit_add_two_dependencies_by_name(UNIT(s), UNIT_AFTER, UNIT_REQUIRES, SPECIAL_SYSINIT_TARGET, NULL, true);
                 if (r < 0)
                         return r;

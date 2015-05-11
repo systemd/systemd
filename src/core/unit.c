@@ -804,7 +804,7 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
                         return r;
         }
 
-        if (u->manager->running_as != SYSTEMD_SYSTEM)
+        if (u->manager->running_as != MANAGER_SYSTEM)
                 return 0;
 
         if (c->private_tmp) {
@@ -2456,7 +2456,7 @@ int unit_add_default_slice(Unit *u, CGroupContext *c) {
                 if (!escaped)
                         return -ENOMEM;
 
-                if (u->manager->running_as == SYSTEMD_SYSTEM)
+                if (u->manager->running_as == MANAGER_SYSTEM)
                         b = strjoin("system-", escaped, ".slice", NULL);
                 else
                         b = strappend(escaped, ".slice");
@@ -2466,7 +2466,7 @@ int unit_add_default_slice(Unit *u, CGroupContext *c) {
                 slice_name = b;
         } else
                 slice_name =
-                        u->manager->running_as == SYSTEMD_SYSTEM
+                        u->manager->running_as == MANAGER_SYSTEM
                         ? SPECIAL_SYSTEM_SLICE
                         : SPECIAL_ROOT_SLICE;
 
@@ -2836,7 +2836,7 @@ int unit_add_node_link(Unit *u, const char *what, bool wants) {
         if (r < 0)
                 return r;
 
-        r = unit_add_two_dependencies(u, UNIT_AFTER, u->manager->running_as == SYSTEMD_SYSTEM ? UNIT_BINDS_TO : UNIT_WANTS, device, true);
+        r = unit_add_two_dependencies(u, UNIT_AFTER, u->manager->running_as == MANAGER_SYSTEM ? UNIT_BINDS_TO : UNIT_WANTS, device, true);
         if (r < 0)
                 return r;
 
@@ -3111,7 +3111,7 @@ UnitFileState unit_get_unit_file_state(Unit *u) {
 
         if (u->unit_file_state < 0 && u->fragment_path)
                 u->unit_file_state = unit_file_get_state(
-                                u->manager->running_as == SYSTEMD_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER,
+                                u->manager->running_as == MANAGER_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER,
                                 NULL, basename(u->fragment_path));
 
         return u->unit_file_state;
@@ -3122,7 +3122,7 @@ int unit_get_unit_file_preset(Unit *u) {
 
         if (u->unit_file_preset < 0 && u->fragment_path)
                 u->unit_file_preset = unit_file_query_preset(
-                                u->manager->running_as == SYSTEMD_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER,
+                                u->manager->running_as == MANAGER_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER,
                                 NULL, basename(u->fragment_path));
 
         return u->unit_file_preset;
@@ -3172,7 +3172,7 @@ int unit_patch_contexts(Unit *u) {
                                         return -ENOMEM;
                         }
 
-                if (u->manager->running_as == SYSTEMD_USER &&
+                if (u->manager->running_as == MANAGER_USER &&
                     !ec->working_directory) {
 
                         r = get_home_dir(&ec->working_directory);
@@ -3184,7 +3184,7 @@ int unit_patch_contexts(Unit *u) {
                         ec->working_directory_missing_ok = true;
                 }
 
-                if (u->manager->running_as == SYSTEMD_USER &&
+                if (u->manager->running_as == MANAGER_USER &&
                     (ec->syscall_whitelist ||
                      !set_isempty(ec->syscall_filter) ||
                      !set_isempty(ec->syscall_archs) ||
@@ -3263,7 +3263,7 @@ ExecRuntime *unit_get_exec_runtime(Unit *u) {
 }
 
 static int unit_drop_in_dir(Unit *u, UnitSetPropertiesMode mode, bool transient, char **dir) {
-        if (u->manager->running_as == SYSTEMD_USER) {
+        if (u->manager->running_as == MANAGER_USER) {
                 int r;
 
                 if (mode == UNIT_PERSISTENT && !transient)
@@ -3432,7 +3432,7 @@ int unit_make_transient(Unit *u) {
         free(u->fragment_path);
         u->fragment_path = NULL;
 
-        if (u->manager->running_as == SYSTEMD_USER) {
+        if (u->manager->running_as == MANAGER_USER) {
                 _cleanup_free_ char *c = NULL;
 
                 r = user_runtime_dir(&c);
