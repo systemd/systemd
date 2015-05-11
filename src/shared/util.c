@@ -5682,6 +5682,9 @@ int free_and_strdup(char **p, const char *s) {
         /* Replaces a string pointer with an strdup()ed new string,
          * possibly freeing the old one. */
 
+        if (streq_ptr(*p, s))
+                return 0;
+
         if (s) {
                 t = strdup(s);
                 if (!t)
@@ -5692,7 +5695,7 @@ int free_and_strdup(char **p, const char *s) {
         free(*p);
         *p = t;
 
-        return 0;
+        return 1;
 }
 
 int sethostname_idempotent(const char *s) {
