@@ -910,9 +910,16 @@ static int on_inotify(sd_event_source *s, int fd, uint32_t revents, void *userda
                         continue;
 
                 log_debug("inotify event: %x for %s", e->mask, udev_device_get_devnode(dev));
-                if (e->mask & IN_CLOSE_WRITE)
+                if (e->mask & IN_CLOSE_WRITE) {
                         synthesize_change(dev);
-                else if (e->mask & IN_IGNORED)
+
+                        /* settle might be waiting on us to determine the queue
+                         * state. If we just handled an inotify event, we might have
+                         * generated a "change" event, but we won't have queued up
+                         * the resultant uevent yet. Do that.
+                         */
+                        on_uevent(NULL, -1, 0, monitor);
+                } else if (e->mask & IN_IGNORED)
                         udev_watch_end(udev, dev);
         }
 
@@ -1565,21 +1572,8 @@ int main(int argc, char *argv[]) {
                         continue;
 
                 /* device node watch */
-                if (is_inotify) {
+                if (is_inotify)
                         on_inotify(NULL, fd_inotify, 0, udev);
-
-                        /*
-                         * settle might be waiting on us to determine the queue
-                         * state. If we just handled an inotify event, we might have
-                         * generated a "change" event, but we won't have queued up
-                         * the resultant uevent yet.
-                         *
-                         * Before we go ahead and potentially tell settle that the
-                         * queue is empty, lets loop one more time to update the
-                         * queue state again before deciding.
-                         */
-                        continue;
-                }
 
                 /* tell settle that we are busy or idle, this needs to be before the
                  * PING handling
