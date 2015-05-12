@@ -696,6 +696,20 @@ static int on_uevent(sd_event_source *s, int fd, uint32_t revents, void *userdat
         return 1;
 }
 
+static void event_queue_update(void) {
+        int r;
+
+        if (!udev_list_node_is_empty(&event_list)) {
+                r = touch("/run/udev/queue");
+                if (r < 0)
+                        log_warning_errno(r, "could not touch /run/udev/queue: %m");
+        } else {
+                r = unlink("/run/udev/queue");
+                if (r < 0 && errno != ENOENT)
+                        log_warning("could not unlink /run/udev/queue: %m");
+        }
+}
+
 /* receive the udevd message from userspace */
 static int on_ctrl_msg(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         struct udev_ctrl *uctrl = userdata;
@@ -769,8 +783,13 @@ static int on_ctrl_msg(sd_event_source *s, int fd, uint32_t revents, void *userd
                 arg_children_max = i;
         }
 
-        if (udev_ctrl_get_ping(ctrl_msg) > 0)
+        if (udev_ctrl_get_ping(ctrl_msg) > 0) {
                 log_debug("udevd message (SYNC) received");
+                /* tell settle that we are busy or idle, this needs to be before the
+                 * PING handling
+                 */
+                event_queue_update();
+        }
 
         if (udev_ctrl_get_exit(ctrl_msg) > 0) {
                 log_debug("udevd message (EXIT) received");
@@ -985,20 +1004,6 @@ static int on_sigchld(sd_event_source *s, const struct signalfd_siginfo *si, voi
         }
 
         return 1;
-}
-
-static void event_queue_update(void) {
-        int r;
-
-        if (!udev_list_node_is_empty(&event_list)) {
-                r = touch("/run/udev/queue");
-                if (r < 0)
-                        log_warning_errno(r, "could not touch /run/udev/queue: %m");
-        } else {
-                r = unlink("/run/udev/queue");
-                if (r < 0 && errno != ENOENT)
-                        log_warning("could not unlink /run/udev/queue: %m");
-        }
 }
 
 static int systemd_fds(struct udev *udev, int *rctrl, int *rnetlink) {
@@ -1574,11 +1579,6 @@ int main(int argc, char *argv[]) {
                 /* device node watch */
                 if (is_inotify)
                         on_inotify(NULL, fd_inotify, 0, udev);
-
-                /* tell settle that we are busy or idle, this needs to be before the
-                 * PING handling
-                 */
-                event_queue_update();
 
                 /*
                  * This needs to be after the inotify handling, to make sure,
