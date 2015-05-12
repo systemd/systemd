@@ -51,10 +51,6 @@
 #include "formats-util.h"
 #include "hashmap.h"
 
-static int worker_watch[2] = { -1, -1 };
-static int fd_signal = -1;
-static int fd_ep = -1;
-static int fd_inotify = -1;
 static bool arg_debug = false;
 static int arg_daemonize = false;
 static int arg_resolve_names = 1;
@@ -62,7 +58,6 @@ static unsigned arg_children_max;
 static int arg_exec_delay;
 static usec_t arg_event_timeout_usec = 180 * USEC_PER_SEC;
 static usec_t arg_event_timeout_warn_usec = 180 * USEC_PER_SEC / 3;
-static sigset_t sigmask_orig;
 
 typedef struct Manager {
         struct udev *udev;
@@ -70,6 +65,7 @@ typedef struct Manager {
         struct udev_list_node events;
         char *cgroup;
         pid_t pid; /* the process that originally allocated the manager object */
+        sigset_t sigmask_orig;
 
         struct udev_rules *rules;
         struct udev_list properties;
@@ -77,6 +73,14 @@ typedef struct Manager {
         struct udev_monitor *monitor;
         struct udev_ctrl *ctrl;
         struct udev_ctrl_connection *ctrl_conn_blocking;
+
+        int fd_ep;
+        int fd_ctrl;
+        int fd_uevent;
+        int fd_signal;
+        int fd_inotify;
+        int fd_worker;
+        int worker_watch[2];
 
         bool stop_exec_queue:1;
         bool reload:1;
@@ -236,6 +240,32 @@ static void worker_attach_event(struct worker *worker, struct event *event) {
         event->worker = worker;
 }
 
+static void manager_free(Manager *manager) {
+        if (!manager)
+                return;
+
+        udev_unref(manager->udev);
+        manager_workers_free(manager);
+        event_queue_cleanup(manager, EVENT_UNDEF);
+
+        udev_monitor_unref(manager->monitor);
+        udev_ctrl_unref(manager->ctrl);
+        udev_ctrl_connection_unref(manager->ctrl_conn_blocking);
+
+        udev_list_cleanup(&manager->properties);
+        udev_rules_unref(manager->rules);
+        free(manager->cgroup);
+
+        safe_close(manager->fd_ep);
+        safe_close(manager->fd_signal);
+        safe_close(manager->fd_inotify);
+        safe_close_pair(manager->worker_watch);
+
+        free(manager);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
+
 static int worker_send_message(int fd) {
         struct worker_message message = {};
 
@@ -260,6 +290,7 @@ static void worker_spawn(Manager *manager, struct event *event) {
         case 0: {
                 struct udev_device *dev = NULL;
                 int fd_monitor;
+                _cleanup_close_ int fd_signal = -1, fd_ep = -1;
                 _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
                 struct epoll_event ep_signal, ep_monitor;
                 sigset_t mask;
@@ -271,11 +302,11 @@ static void worker_spawn(Manager *manager, struct event *event) {
 
                 manager_workers_free(manager);
                 event_queue_cleanup(manager, EVENT_UNDEF);
-                udev_monitor_unref(manager->monitor);
-                udev_ctrl_unref(manager->ctrl);
-                close(fd_signal);
-                close(fd_ep);
-                close(worker_watch[READ_END]);
+                manager->monitor = udev_monitor_unref(manager->monitor);
+                manager->ctrl = udev_ctrl_unref(manager->ctrl);
+                manager->fd_signal = safe_close(manager->fd_signal);
+                manager->worker_watch[READ_END] = safe_close(manager->worker_watch[READ_END]);
+                manager->fd_ep = safe_close(manager->fd_ep);
 
                 sigfillset(&mask);
                 fd_signal = signalfd(-1, &mask, SFD_NONBLOCK|SFD_CLOEXEC);
@@ -364,11 +395,11 @@ static void worker_spawn(Manager *manager, struct event *event) {
                                                  arg_event_timeout_usec, arg_event_timeout_warn_usec,
                                                  &manager->properties,
                                                  manager->rules,
-                                                 &sigmask_orig);
+                                                 &manager->sigmask_orig);
 
                         udev_event_execute_run(udev_event,
                                                arg_event_timeout_usec, arg_event_timeout_warn_usec,
-                                               &sigmask_orig);
+                                               &manager->sigmask_orig);
 
                         if (udev_event->rtnl)
                                 /* in case rtnl was initialized */
@@ -389,7 +420,7 @@ skip:
                         log_debug("seq %llu processed", udev_device_get_seqnum(dev));
 
                         /* send udevd the result of the event execution */
-                        r = worker_send_message(worker_watch[WRITE_END]);
+                        r = worker_send_message(manager->worker_watch[WRITE_END]);
                         if (r < 0)
                                 log_error_errno(r, "failed to send result of seq %llu to main daemon: %m",
                                                 udev_device_get_seqnum(dev));
@@ -439,13 +470,8 @@ skip:
                 }
 out:
                 udev_device_unref(dev);
-                safe_close(fd_signal);
-                safe_close(fd_ep);
-                close(fd_inotify);
-                close(worker_watch[WRITE_END]);
-                udev_rules_unref(manager->rules);
+                manager_free(manager);
                 udev_builtin_exit(udev);
-                udev_unref(udev);
                 log_close();
                 _exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
         }
@@ -1232,29 +1258,15 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-static void manager_free(Manager *manager) {
-        if (!manager)
-                return;
-
-        udev_unref(manager->udev);
-        manager_workers_free(manager);
-        event_queue_cleanup(manager, EVENT_UNDEF);
-
-        udev_monitor_unref(manager->monitor);
-        udev_ctrl_unref(manager->ctrl);
-        udev_ctrl_connection_unref(manager->ctrl_conn_blocking);
-
-        udev_list_cleanup(&manager->properties);
-        udev_rules_unref(manager->rules);
-        free(manager->cgroup);
-
-        free(manager);
-}
-
-DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
-
 static int manager_new(Manager **ret) {
         _cleanup_(manager_freep) Manager *manager = NULL;
+        struct epoll_event ep_ctrl = { .events = EPOLLIN };
+        struct epoll_event ep_inotify = { .events = EPOLLIN };
+        struct epoll_event ep_signal = { .events = EPOLLIN };
+        struct epoll_event ep_netlink = { .events = EPOLLIN };
+        struct epoll_event ep_worker = { .events = EPOLLIN };
+        sigset_t mask;
+        int r, one = 1;
 
         assert(ret);
 
@@ -1263,6 +1275,14 @@ static int manager_new(Manager **ret) {
                 return log_oom();
 
         manager->pid = getpid();
+
+        manager->fd_ep = -1;
+        manager->fd_ctrl = -1;
+        manager->fd_uevent = -1;
+        manager->fd_signal = -1;
+        manager->fd_inotify = -1;
+        manager->worker_watch[WRITE_END] = -1;
+        manager->worker_watch[READ_END] = -1;
 
         manager->udev = udev_new();
         if (!manager->udev)
@@ -1275,6 +1295,87 @@ static int manager_new(Manager **ret) {
         udev_list_node_init(&manager->events);
         udev_list_init(manager->udev, &manager->properties, true);
 
+        r = systemd_fds(&manager->fd_ctrl, &manager->fd_uevent);
+        if (r >= 0) {
+                /* get control and netlink socket from systemd */
+                manager->ctrl = udev_ctrl_new_from_fd(manager->udev, manager->fd_ctrl);
+                if (!manager->ctrl)
+                        return log_error_errno(EINVAL, "error taking over udev control socket");
+
+                manager->monitor = udev_monitor_new_from_netlink_fd(manager->udev, "kernel", manager->fd_uevent);
+                if (!manager->monitor)
+                        return log_error_errno(EINVAL, "error taking over netlink socket");
+
+                /* get our own cgroup, we regularly kill everything udev has left behind */
+                r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, 0, &manager->cgroup);
+                if (r < 0)
+                        log_warning_errno(r, "failed to get cgroup: %m");
+        } else {
+                /* open control and netlink socket */
+                manager->ctrl = udev_ctrl_new(manager->udev);
+                if (!manager->ctrl)
+                        return log_error_errno(EINVAL, "error initializing udev control socket");
+
+                manager->fd_ctrl = udev_ctrl_get_fd(manager->ctrl);
+
+                manager->monitor = udev_monitor_new_from_netlink(manager->udev, "kernel");
+                if (!manager->monitor)
+                        return log_error_errno(EINVAL, "error initializing netlink socket");
+
+                manager->fd_uevent = udev_monitor_get_fd(manager->monitor);
+
+                (void) udev_monitor_set_receive_buffer_size(manager->monitor, 128 * 1024 * 1024);
+        }
+
+        r = udev_monitor_enable_receiving(manager->monitor);
+        if (r < 0)
+                return log_error_errno(EINVAL, "error binding netlink socket");
+
+        r = udev_ctrl_enable_receiving(manager->ctrl);
+        if (r < 0)
+                return log_error_errno(EINVAL, "error binding udev control socket");
+
+        /* unnamed socket from workers to the main daemon */
+        r = socketpair(AF_LOCAL, SOCK_DGRAM|SOCK_CLOEXEC, 0, manager->worker_watch);
+        if (r < 0)
+                return log_error_errno(errno, "error creating socketpair: %m");
+
+        manager->fd_worker = manager->worker_watch[READ_END];
+
+        r = setsockopt(manager->fd_worker, SOL_SOCKET, SO_PASSCRED, &one, sizeof(one));
+        if (r < 0)
+                return log_error_errno(errno, "could not enable SO_PASSCRED: %m");
+
+        manager->fd_inotify = udev_watch_init(manager->udev);
+        if (manager->fd_inotify < 0)
+                return log_error_errno(ENOMEM, "error initializing inotify");
+
+        udev_watch_restore(manager->udev);
+
+        /* block and listen to all signals on signalfd */
+        sigfillset(&mask);
+        sigprocmask(SIG_SETMASK, &mask, &manager->sigmask_orig);
+        manager->fd_signal = signalfd(-1, &mask, SFD_NONBLOCK|SFD_CLOEXEC);
+        if (manager->fd_signal < 0)
+                return log_error_errno(errno, "error creating signalfd");
+
+        ep_ctrl.data.fd = manager->fd_ctrl;
+        ep_inotify.data.fd = manager->fd_inotify;
+        ep_signal.data.fd = manager->fd_signal;
+        ep_netlink.data.fd = manager->fd_uevent;
+        ep_worker.data.fd = manager->fd_worker;
+
+        manager->fd_ep = epoll_create1(EPOLL_CLOEXEC);
+        if (manager->fd_ep < 0)
+                return log_error_errno(errno, "error creating epoll fd: %m");
+
+        if (epoll_ctl(manager->fd_ep, EPOLL_CTL_ADD, manager->fd_ctrl, &ep_ctrl) < 0 ||
+            epoll_ctl(manager->fd_ep, EPOLL_CTL_ADD, manager->fd_inotify, &ep_inotify) < 0 ||
+            epoll_ctl(manager->fd_ep, EPOLL_CTL_ADD, manager->fd_signal, &ep_signal) < 0 ||
+            epoll_ctl(manager->fd_ep, EPOLL_CTL_ADD, manager->fd_uevent, &ep_netlink) < 0 ||
+            epoll_ctl(manager->fd_ep, EPOLL_CTL_ADD, manager->fd_worker, &ep_worker) < 0)
+                return log_error_errno(errno, "fail to add fds to epoll: %m");
+
         *ret = manager;
         manager = NULL;
 
@@ -1283,16 +1384,7 @@ static int manager_new(Manager **ret) {
 
 int main(int argc, char *argv[]) {
         _cleanup_(manager_freep) Manager *manager = NULL;
-        sigset_t mask;
-        int fd_ctrl = -1;
-        int fd_netlink = -1;
-        int fd_worker = -1;
-        struct epoll_event ep_ctrl = { .events = EPOLLIN };
-        struct epoll_event ep_inotify = { .events = EPOLLIN };
-        struct epoll_event ep_signal = { .events = EPOLLIN };
-        struct epoll_event ep_netlink = { .events = EPOLLIN };
-        struct epoll_event ep_worker = { .events = EPOLLIN };
-        int r = 0, one = 1;
+        int r;
 
         log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();
@@ -1337,10 +1429,6 @@ int main(int argc, char *argv[]) {
 
         dev_setup(NULL);
 
-        r = manager_new(&manager);
-        if (r < 0)
-                goto exit;
-
         /* before opening new files, make sure std{in,out,err} fds are in a sane state */
         if (arg_daemonize) {
                 int fd;
@@ -1358,51 +1446,21 @@ int main(int argc, char *argv[]) {
                 }
         }
 
-        if (systemd_fds(&fd_ctrl, &fd_netlink) >= 0) {
-                /* get control and netlink socket from systemd */
-                manager->ctrl = udev_ctrl_new_from_fd(manager->udev, fd_ctrl);
-                if (!manager->ctrl) {
-                        r = log_error_errno(EINVAL, "error taking over udev control socket");
-                        goto exit;
-                }
+        if (arg_children_max == 0) {
+                cpu_set_t cpu_set;
 
-                manager->monitor = udev_monitor_new_from_netlink_fd(manager->udev, "kernel", fd_netlink);
-                if (!manager->monitor) {
-                        r = log_error_errno(EINVAL, "error taking over netlink socket");
-                        goto exit;
-                }
+                arg_children_max = 8;
 
-                /* get our own cgroup, we regularly kill everything udev has left behind */
-                if (cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, 0, &manager->cgroup) < 0)
-                        manager->cgroup = NULL;
-        } else {
-                /* open control and netlink socket */
-                manager->ctrl = udev_ctrl_new(manager->udev);
-                if (!manager->ctrl) {
-                        r = log_error_errno(EINVAL, "error initializing udev control socket");
-                        goto exit;
+                if (sched_getaffinity(0, sizeof (cpu_set), &cpu_set) == 0) {
+                        arg_children_max +=  CPU_COUNT(&cpu_set) * 2;
                 }
-                fd_ctrl = udev_ctrl_get_fd(manager->ctrl);
-
-                manager->monitor = udev_monitor_new_from_netlink(manager->udev, "kernel");
-                if (!manager->monitor) {
-                        r = log_error_errno(EINVAL, "error initializing netlink socket");
-                        goto exit;
-                }
-                fd_netlink = udev_monitor_get_fd(manager->monitor);
-
-                udev_monitor_set_receive_buffer_size(manager->monitor, 128 * 1024 * 1024);
         }
 
-        if (udev_monitor_enable_receiving(manager->monitor) < 0) {
-                r = log_error_errno(EINVAL, "error binding netlink socket");
+        log_debug("set children_max to %u", arg_children_max);
+
+        r = manager_new(&manager);
+        if (r < 0)
                 goto exit;
-        }
-
-        if (udev_ctrl_enable_receiving(manager->ctrl) < 0) {
-                r = log_error_errno(EINVAL, "error binding udev control socket");
-                goto exit;
-        }
 
         log_info("starting version " VERSION);
 
@@ -1429,90 +1487,32 @@ int main(int argc, char *argv[]) {
                 setsid();
 
                 write_string_file("/proc/self/oom_score_adj", "-1000");
-        } else {
+        } else
                 sd_notify(1, "READY=1");
-        }
-
-        if (arg_children_max == 0) {
-                cpu_set_t cpu_set;
-
-                arg_children_max = 8;
-
-                if (sched_getaffinity(0, sizeof (cpu_set), &cpu_set) == 0) {
-                        arg_children_max +=  CPU_COUNT(&cpu_set) * 2;
-                }
-        }
-        log_debug("set children_max to %u", arg_children_max);
-
-        fd_inotify = udev_watch_init(manager->udev);
-        if (fd_inotify < 0) {
-                r = log_error_errno(ENOMEM, "error initializing inotify");
-                goto exit;
-        }
-        udev_watch_restore(manager->udev);
-
-        /* block and listen to all signals on signalfd */
-        sigfillset(&mask);
-        sigprocmask(SIG_SETMASK, &mask, &sigmask_orig);
-        fd_signal = signalfd(-1, &mask, SFD_NONBLOCK|SFD_CLOEXEC);
-        if (fd_signal < 0) {
-                r = log_error_errno(errno, "error creating signalfd");
-                goto exit;
-        }
-
-        /* unnamed socket from workers to the main daemon */
-        if (socketpair(AF_LOCAL, SOCK_DGRAM|SOCK_CLOEXEC, 0, worker_watch) < 0) {
-                r = log_error_errno(errno, "error creating socketpair");
-                goto exit;
-        }
-        fd_worker = worker_watch[READ_END];
-
-        r = setsockopt(fd_worker, SOL_SOCKET, SO_PASSCRED, &one, sizeof(one));
-        if (r < 0)
-                return log_error_errno(errno, "could not enable SO_PASSCRED: %m");
-
-        ep_ctrl.data.fd = fd_ctrl;
-        ep_inotify.data.fd = fd_inotify;
-        ep_signal.data.fd = fd_signal;
-        ep_netlink.data.fd = fd_netlink;
-        ep_worker.data.fd = fd_worker;
-
-        fd_ep = epoll_create1(EPOLL_CLOEXEC);
-        if (fd_ep < 0) {
-                log_error_errno(errno, "error creating epoll fd: %m");
-                goto exit;
-        }
-        if (epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_ctrl, &ep_ctrl) < 0 ||
-            epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_inotify, &ep_inotify) < 0 ||
-            epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_signal, &ep_signal) < 0 ||
-            epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_netlink, &ep_netlink) < 0 ||
-            epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_worker, &ep_worker) < 0) {
-                log_error_errno(errno, "fail to add fds to epoll: %m");
-                goto exit;
-        }
 
         for (;;) {
                 static usec_t last_usec;
                 struct epoll_event ev[8];
                 int fdcount;
                 int timeout;
-                bool is_worker, is_signal, is_inotify, is_netlink, is_ctrl;
+                bool is_worker, is_signal, is_inotify, is_uevent, is_ctrl;
                 int i;
 
                 if (manager->exit) {
                         /* close sources of new events and discard buffered events */
-                        if (fd_ctrl >= 0) {
-                                epoll_ctl(fd_ep, EPOLL_CTL_DEL, fd_ctrl, NULL);
-                                fd_ctrl = -1;
+                        if (manager->fd_ctrl >= 0) {
+                                epoll_ctl(manager->fd_ep, EPOLL_CTL_DEL, manager->fd_ctrl, NULL);
+                                manager->fd_ctrl = safe_close(manager->fd_ctrl);
                         }
+
                         if (manager->monitor) {
-                                epoll_ctl(fd_ep, EPOLL_CTL_DEL, fd_netlink, NULL);
+                                epoll_ctl(manager->fd_ep, EPOLL_CTL_DEL, manager->fd_uevent, NULL);
                                 manager->monitor = udev_monitor_unref(manager->monitor);
                         }
-                        if (fd_inotify >= 0) {
-                                epoll_ctl(fd_ep, EPOLL_CTL_DEL, fd_inotify, NULL);
-                                close(fd_inotify);
-                                fd_inotify = -1;
+
+                        if (manager->fd_inotify >= 0) {
+                                epoll_ctl(manager->fd_ep, EPOLL_CTL_DEL, manager->fd_inotify, NULL);
+                                manager->fd_inotify = safe_close(manager->fd_inotify);
                         }
 
                         /* discard queued events and kill workers */
@@ -1537,7 +1537,7 @@ int main(int argc, char *argv[]) {
                         timeout = 3 * MSEC_PER_SEC;
                 }
 
-                fdcount = epoll_wait(fd_ep, ev, ELEMENTSOF(ev), timeout);
+                fdcount = epoll_wait(manager->fd_ep, ev, ELEMENTSOF(ev), timeout);
                 if (fdcount < 0)
                         continue;
 
@@ -1585,17 +1585,17 @@ int main(int argc, char *argv[]) {
 
                 }
 
-                is_worker = is_signal = is_inotify = is_netlink = is_ctrl = false;
+                is_worker = is_signal = is_inotify = is_uevent = is_ctrl = false;
                 for (i = 0; i < fdcount; i++) {
-                        if (ev[i].data.fd == fd_worker && ev[i].events & EPOLLIN)
+                        if (ev[i].data.fd == manager->fd_worker && ev[i].events & EPOLLIN)
                                 is_worker = true;
-                        else if (ev[i].data.fd == fd_netlink && ev[i].events & EPOLLIN)
-                                is_netlink = true;
-                        else if (ev[i].data.fd == fd_signal && ev[i].events & EPOLLIN)
+                        else if (ev[i].data.fd == manager->fd_uevent && ev[i].events & EPOLLIN)
+                                is_uevent = true;
+                        else if (ev[i].data.fd == manager->fd_signal && ev[i].events & EPOLLIN)
                                 is_signal = true;
-                        else if (ev[i].data.fd == fd_inotify && ev[i].events & EPOLLIN)
+                        else if (ev[i].data.fd == manager->fd_inotify && ev[i].events & EPOLLIN)
                                 is_inotify = true;
-                        else if (ev[i].data.fd == fd_ctrl && ev[i].events & EPOLLIN)
+                        else if (ev[i].data.fd == manager->fd_ctrl && ev[i].events & EPOLLIN)
                                 is_ctrl = true;
                 }
 
@@ -1619,11 +1619,11 @@ int main(int argc, char *argv[]) {
 
                 /* event has finished */
                 if (is_worker)
-                        on_worker(NULL, fd_worker, 0, manager);
+                        on_worker(NULL, manager->fd_worker, 0, manager);
 
                 /* uevent from kernel */
-                if (is_netlink)
-                        on_uevent(NULL, fd_netlink, 0, manager);
+                if (is_uevent)
+                        on_uevent(NULL, manager->fd_uevent, 0, manager);
 
                 /* start new events */
                 if (!udev_list_node_is_empty(&manager->events) && !manager->exit && !manager->stop_exec_queue) {
@@ -1638,7 +1638,7 @@ int main(int argc, char *argv[]) {
                         struct signalfd_siginfo fdsi;
                         ssize_t size;
 
-                        size = read(fd_signal, &fdsi, sizeof(struct signalfd_siginfo));
+                        size = read(manager->fd_signal, &fdsi, sizeof(struct signalfd_siginfo));
                         if (size == sizeof(struct signalfd_siginfo)) {
                                 switch (fdsi.ssi_signo) {
                                 case SIGINT:
@@ -1661,7 +1661,7 @@ int main(int argc, char *argv[]) {
 
                 /* device node watch */
                 if (is_inotify)
-                        on_inotify(NULL, fd_inotify, 0, manager);
+                        on_inotify(NULL, manager->fd_inotify, 0, manager);
 
                 /*
                  * This needs to be after the inotify handling, to make sure,
@@ -1669,21 +1669,15 @@ int main(int argc, char *argv[]) {
                  * "change" events by the inotify device node watch.
                  */
                 if (is_ctrl)
-                        on_ctrl_msg(NULL, fd_ctrl, 0, manager);
+                        on_ctrl_msg(NULL, manager->fd_ctrl, 0, manager);
         }
 
 exit:
-        udev_ctrl_cleanup(manager->ctrl);
+        if (manager)
+                udev_ctrl_cleanup(manager->ctrl);
 exit_daemonize:
-        if (fd_ep >= 0)
-                close(fd_ep);
-        udev_builtin_exit(manager->udev);
-        if (fd_signal >= 0)
-                close(fd_signal);
-        if (worker_watch[READ_END] >= 0)
-                close(worker_watch[READ_END]);
-        if (worker_watch[WRITE_END] >= 0)
-                close(worker_watch[WRITE_END]);
+        if (manager)
+                udev_builtin_exit(manager->udev);
         mac_selinux_finish();
         log_close();
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
