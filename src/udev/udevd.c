@@ -52,15 +52,10 @@
 #include "hashmap.h"
 
 static struct udev_rules *rules;
-static struct udev_ctrl *udev_ctrl;
-static struct udev_ctrl_connection *udev_ctrl_conn;
-static struct udev_monitor *monitor;
 static int worker_watch[2] = { -1, -1 };
 static int fd_signal = -1;
 static int fd_ep = -1;
 static int fd_inotify = -1;
-static bool stop_exec_queue;
-static bool reload;
 static bool arg_debug = false;
 static int arg_daemonize = false;
 static int arg_resolve_names = 1;
@@ -70,10 +65,22 @@ static usec_t arg_event_timeout_usec = 180 * USEC_PER_SEC;
 static usec_t arg_event_timeout_warn_usec = 180 * USEC_PER_SEC / 3;
 static sigset_t sigmask_orig;
 static UDEV_LIST(event_list);
-Hashmap *workers;
 static char *udev_cgroup;
-static struct udev_list properties_list;
-static bool udev_exit;
+
+typedef struct Manager {
+        struct udev *udev;
+        Hashmap *workers;
+
+        struct udev_list properties;
+
+        struct udev_monitor *monitor;
+        struct udev_ctrl *ctrl;
+        struct udev_ctrl_connection *ctrl_conn_blocking;
+
+        bool stop_exec_queue:1;
+        bool reload:1;
+        bool exit:1;
+} Manager;
 
 enum event_state {
         EVENT_UNDEF,
@@ -114,8 +121,8 @@ enum worker_state {
 };
 
 struct worker {
+        Manager *manager;
         struct udev_list_node node;
-        struct udev *udev;
         int refcount;
         pid_t pid;
         struct udev_monitor *monitor;
@@ -145,31 +152,33 @@ static void worker_free(struct worker *worker) {
         if (!worker)
                 return;
 
-        hashmap_remove(workers, UINT_TO_PTR(worker->pid));
+        assert(worker->manager);
+
+        hashmap_remove(worker->manager->workers, UINT_TO_PTR(worker->pid));
         udev_monitor_unref(worker->monitor);
-        udev_unref(worker->udev);
         event_free(worker->event);
 
         free(worker);
 }
 
-static void workers_free(void) {
+static void manager_workers_free(Manager *manager) {
         struct worker *worker;
         Iterator i;
 
-        HASHMAP_FOREACH(worker, workers, i)
+        assert(manager);
+
+        HASHMAP_FOREACH(worker, manager->workers, i)
                 worker_free(worker);
 
-        hashmap_free(workers);
-        workers = NULL;
+        manager->workers = hashmap_free(manager->workers);
 }
 
-static int worker_new(struct worker **ret, struct udev *udev, struct udev_monitor *worker_monitor, pid_t pid) {
+static int worker_new(struct worker **ret, Manager *manager, struct udev_monitor *worker_monitor, pid_t pid) {
         _cleanup_free_ struct worker *worker = NULL;
         int r;
 
         assert(ret);
-        assert(udev);
+        assert(manager);
         assert(worker_monitor);
         assert(pid > 1);
 
@@ -178,17 +187,17 @@ static int worker_new(struct worker **ret, struct udev *udev, struct udev_monito
                 return -ENOMEM;
 
         worker->refcount = 1;
-        worker->udev = udev_ref(udev);
+        worker->manager = manager;
         /* close monitor, but keep address around */
         udev_monitor_disconnect(worker_monitor);
         worker->monitor = udev_monitor_ref(worker_monitor);
         worker->pid = pid;
 
-        r = hashmap_ensure_allocated(&workers, NULL);
+        r = hashmap_ensure_allocated(&manager->workers, NULL);
         if (r < 0)
                 return r;
 
-        r = hashmap_put(workers, UINT_TO_PTR(pid), worker);
+        r = hashmap_put(manager->workers, UINT_TO_PTR(pid), worker);
         if (r < 0)
                 return r;
 
@@ -212,7 +221,7 @@ static void worker_attach_event(struct worker *worker, struct event *event) {
         event->worker = worker;
 }
 
-static void worker_spawn(struct event *event) {
+static void worker_spawn(Manager *manager, struct event *event) {
         struct udev *udev = event->udev;
         _cleanup_udev_monitor_unref_ struct udev_monitor *worker_monitor = NULL;
         pid_t pid;
@@ -222,7 +231,7 @@ static void worker_spawn(struct event *event) {
         if (worker_monitor == NULL)
                 return;
         /* allow the main daemon netlink address to send devices to the worker */
-        udev_monitor_allow_unicast_sender(worker_monitor, monitor);
+        udev_monitor_allow_unicast_sender(worker_monitor, manager->monitor);
         udev_monitor_enable_receiving(worker_monitor);
 
         pid = fork();
@@ -239,10 +248,10 @@ static void worker_spawn(struct event *event) {
                 dev = event->dev;
                 event->dev = NULL;
 
-                workers_free();
+                manager_workers_free(manager);
                 event_queue_cleanup(udev, EVENT_UNDEF);
-                udev_monitor_unref(monitor);
-                udev_ctrl_unref(udev_ctrl);
+                udev_monitor_unref(manager->monitor);
+                udev_ctrl_unref(manager->ctrl);
                 close(fd_signal);
                 close(fd_ep);
                 close(worker_watch[READ_END]);
@@ -333,7 +342,7 @@ static void worker_spawn(struct event *event) {
                         /* apply rules, create node, symlinks */
                         udev_event_execute_rules(udev_event,
                                                  arg_event_timeout_usec, arg_event_timeout_warn_usec,
-                                                 &properties_list,
+                                                 &manager->properties,
                                                  rules,
                                                  &sigmask_orig);
 
@@ -430,7 +439,7 @@ out:
                 struct worker *worker;
                 int r;
 
-                r = worker_new(&worker, udev, worker_monitor, pid);
+                r = worker_new(&worker, manager, worker_monitor, pid);
                 if (r < 0)
                         return;
 
@@ -442,17 +451,20 @@ out:
         }
 }
 
-static void event_run(struct event *event) {
+static void event_run(Manager *manager, struct event *event) {
         struct worker *worker;
         Iterator i;
 
-        HASHMAP_FOREACH(worker, workers, i) {
+        assert(manager);
+        assert(event);
+
+        HASHMAP_FOREACH(worker, manager->workers, i) {
                 ssize_t count;
 
                 if (worker->state != WORKER_IDLE)
                         continue;
 
-                count = udev_monitor_send_device(monitor, worker->monitor, event->dev);
+                count = udev_monitor_send_device(manager->monitor, worker->monitor, event->dev);
                 if (count < 0) {
                         log_error_errno(errno, "worker ["PID_FMT"] did not accept message %zi (%m), kill it",
                                         worker->pid, count);
@@ -464,14 +476,14 @@ static void event_run(struct event *event) {
                 return;
         }
 
-        if (hashmap_size(workers) >= arg_children_max) {
+        if (hashmap_size(manager->workers) >= arg_children_max) {
                 if (arg_children_max > 1)
-                        log_debug("maximum number (%i) of children reached", hashmap_size(workers));
+                        log_debug("maximum number (%i) of children reached", hashmap_size(manager->workers));
                 return;
         }
 
         /* start new worker and pass initial device */
-        worker_spawn(event);
+        worker_spawn(manager, event);
 }
 
 static int event_queue_insert(struct udev_device *dev) {
@@ -501,11 +513,13 @@ static int event_queue_insert(struct udev_device *dev) {
         return 0;
 }
 
-static void worker_kill(void) {
+static void manager_kill_workers(Manager *manager) {
         struct worker *worker;
         Iterator i;
 
-        HASHMAP_FOREACH(worker, workers, i) {
+        assert(manager);
+
+        HASHMAP_FOREACH(worker, manager->workers, i) {
                 if (worker->state == WORKER_KILLED)
                         continue;
 
@@ -586,8 +600,10 @@ static bool is_devpath_busy(struct event *event) {
         return false;
 }
 
-static void event_queue_start(struct udev *udev) {
+static void event_queue_start(Manager *manager) {
         struct udev_list_node *loop;
+
+        assert(manager);
 
         udev_list_node_foreach(loop, &event_list) {
                 struct event *event = node_to_event(loop);
@@ -599,7 +615,7 @@ static void event_queue_start(struct udev *udev) {
                 if (is_devpath_busy(event))
                         continue;
 
-                event_run(event);
+                event_run(manager, event);
         }
 }
 
@@ -617,6 +633,10 @@ static void event_queue_cleanup(struct udev *udev, enum event_state match_type) 
 }
 
 static int on_worker(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        Manager *manager = userdata;
+
+        assert(manager);
+
         for (;;) {
                 struct worker_message msg;
                 struct iovec iovec = {
@@ -662,7 +682,7 @@ static int on_worker(sd_event_source *s, int fd, uint32_t revents, void *userdat
                 }
 
                 /* lookup worker who sent the signal */
-                worker = hashmap_get(workers, UINT_TO_PTR(ucred->pid));
+                worker = hashmap_get(manager->workers, UINT_TO_PTR(ucred->pid));
                 if (!worker) {
                         log_debug("worker ["PID_FMT"] returned, but is no longer tracked", ucred->pid);
                         continue;
@@ -679,13 +699,13 @@ static int on_worker(sd_event_source *s, int fd, uint32_t revents, void *userdat
 }
 
 static int on_uevent(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        struct udev_monitor *m = userdata;
+        Manager *manager = userdata;
         struct udev_device *dev;
         int r;
 
-        assert(m);
+        assert(manager);
 
-        dev = udev_monitor_receive_device(m);
+        dev = udev_monitor_receive_device(manager->monitor);
         if (dev) {
                 udev_device_ensure_usec_initialized(dev, NULL);
                 r = event_queue_insert(dev);
@@ -712,15 +732,15 @@ static void event_queue_update(void) {
 
 /* receive the udevd message from userspace */
 static int on_ctrl_msg(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        struct udev_ctrl *uctrl = userdata;
+        Manager *manager = userdata;
         _cleanup_udev_ctrl_connection_unref_ struct udev_ctrl_connection *ctrl_conn = NULL;
         _cleanup_udev_ctrl_msg_unref_ struct udev_ctrl_msg *ctrl_msg = NULL;
         const char *str;
         int i;
 
-        assert(uctrl);
+        assert(manager);
 
-        ctrl_conn = udev_ctrl_get_connection(uctrl);
+        ctrl_conn = udev_ctrl_get_connection(manager->ctrl);
         if (!ctrl_conn)
                 return 1;
 
@@ -732,30 +752,30 @@ static int on_ctrl_msg(sd_event_source *s, int fd, uint32_t revents, void *userd
         if (i >= 0) {
                 log_debug("udevd message (SET_LOG_LEVEL) received, log_priority=%i", i);
                 log_set_max_level(i);
-                worker_kill();
+                manager_kill_workers(manager);
         }
 
         if (udev_ctrl_get_stop_exec_queue(ctrl_msg) > 0) {
                 log_debug("udevd message (STOP_EXEC_QUEUE) received");
-                stop_exec_queue = true;
+                manager->stop_exec_queue = true;
         }
 
         if (udev_ctrl_get_start_exec_queue(ctrl_msg) > 0) {
                 log_debug("udevd message (START_EXEC_QUEUE) received");
-                stop_exec_queue = false;
+                manager->stop_exec_queue = false;
         }
 
         if (udev_ctrl_get_reload(ctrl_msg) > 0) {
                 log_debug("udevd message (RELOAD) received");
-                reload = true;
+                manager->reload = true;
         }
 
         str = udev_ctrl_get_set_env(ctrl_msg);
         if (str != NULL) {
-                char *key;
+                _cleanup_free_ char *key = NULL;
 
                 key = strdup(str);
-                if (key != NULL) {
+                if (key) {
                         char *val;
 
                         val = strchr(key, '=');
@@ -764,17 +784,15 @@ static int on_ctrl_msg(sd_event_source *s, int fd, uint32_t revents, void *userd
                                 val = &val[1];
                                 if (val[0] == '\0') {
                                         log_debug("udevd message (ENV) received, unset '%s'", key);
-                                        udev_list_entry_add(&properties_list, key, NULL);
+                                        udev_list_entry_add(&manager->properties, key, NULL);
                                 } else {
                                         log_debug("udevd message (ENV) received, set '%s=%s'", key, val);
-                                        udev_list_entry_add(&properties_list, key, val);
+                                        udev_list_entry_add(&manager->properties, key, val);
                                 }
-                        } else {
+                        } else
                                 log_error("wrong key format '%s'", key);
-                        }
-                        free(key);
                 }
-                worker_kill();
+                manager_kill_workers(manager);
         }
 
         i = udev_ctrl_get_set_children_max(ctrl_msg);
@@ -793,9 +811,10 @@ static int on_ctrl_msg(sd_event_source *s, int fd, uint32_t revents, void *userd
 
         if (udev_ctrl_get_exit(ctrl_msg) > 0) {
                 log_debug("udevd message (EXIT) received");
-                udev_exit = true;
-                /* keep reference to block the client until we exit */
-                udev_ctrl_conn = udev_ctrl_connection_ref(ctrl_conn);
+                manager->exit = true;
+                /* keep reference to block the client until we exit
+                   TODO: deal with several blocking exit requests */
+                manager->ctrl_conn_blocking = udev_ctrl_connection_ref(ctrl_conn);
         }
 
         return 1;
@@ -906,12 +925,12 @@ static int synthesize_change(struct udev_device *dev) {
 }
 
 static int on_inotify(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        struct udev *udev = userdata;
+        Manager *manager = userdata;
         union inotify_event_buffer buffer;
         struct inotify_event *e;
         ssize_t l;
 
-        assert(udev);
+        assert(manager);
 
         l = read(fd, &buffer, sizeof(buffer));
         if (l < 0) {
@@ -924,7 +943,7 @@ static int on_inotify(sd_event_source *s, int fd, uint32_t revents, void *userda
         FOREACH_INOTIFY_EVENT(e, buffer, l) {
                 _cleanup_udev_device_unref_ struct udev_device *dev = NULL;
 
-                dev = udev_watch_lookup(udev, e->wd);
+                dev = udev_watch_lookup(manager->udev, e->wd);
                 if (!dev)
                         continue;
 
@@ -937,27 +956,39 @@ static int on_inotify(sd_event_source *s, int fd, uint32_t revents, void *userda
                          * generated a "change" event, but we won't have queued up
                          * the resultant uevent yet. Do that.
                          */
-                        on_uevent(NULL, -1, 0, monitor);
+                        on_uevent(NULL, -1, 0, manager);
                 } else if (e->mask & IN_IGNORED)
-                        udev_watch_end(udev, dev);
+                        udev_watch_end(manager->udev, dev);
         }
 
         return 1;
 }
 
 static int on_request_exit(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
-        udev_exit = true;
+        Manager *manager = userdata;
+
+        assert(manager);
+
+        manager->exit = true;
 
         return 1;
 }
 
 static int on_request_reload(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
-        reload = true;
+        Manager *manager = userdata;
+
+        assert(manager);
+
+        manager->reload = true;
 
         return 1;
 }
 
 static int on_sigchld(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
+        Manager *manager = userdata;
+
+        assert(manager);
+
         for (;;) {
                 pid_t pid;
                 int status;
@@ -967,7 +998,7 @@ static int on_sigchld(sd_event_source *s, const struct signalfd_siginfo *si, voi
                 if (pid <= 0)
                         return 1;
 
-                worker = hashmap_get(workers, UINT_TO_PTR(pid));
+                worker = hashmap_get(manager->workers, UINT_TO_PTR(pid));
                 if (!worker) {
                         log_warning("worker ["PID_FMT"] is unknown, ignoring", pid);
                         return 1;
@@ -996,7 +1027,7 @@ static int on_sigchld(sd_event_source *s, const struct signalfd_siginfo *si, voi
                                 udev_device_delete_db(worker->event->dev);
                                 udev_device_tag_index(worker->event->dev, NULL, false);
                                 /* forward kernel event without amending it */
-                                udev_monitor_send_device(monitor, NULL, worker->event->dev_kernel);
+                                udev_monitor_send_device(manager->monitor, NULL, worker->event->dev_kernel);
                         }
                 }
 
@@ -1006,7 +1037,7 @@ static int on_sigchld(sd_event_source *s, const struct signalfd_siginfo *si, voi
         return 1;
 }
 
-static int systemd_fds(struct udev *udev, int *rctrl, int *rnetlink) {
+static int systemd_fds(int *rctrl, int *rnetlink) {
         int ctrl = -1, netlink = -1;
         int fd, n;
 
@@ -1182,8 +1213,45 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
+static void manager_free(Manager *manager) {
+        if (!manager)
+                return;
+
+        udev_unref(manager->udev);
+        manager_workers_free(manager);
+
+        udev_monitor_unref(manager->monitor);
+        udev_ctrl_unref(manager->ctrl);
+        udev_ctrl_connection_unref(manager->ctrl_conn_blocking);
+
+        udev_list_cleanup(&manager->properties);
+
+        free(manager);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
+
+static int manager_new(Manager **ret) {
+        _cleanup_(manager_freep) Manager *manager = NULL;
+
+        assert(ret);
+
+        manager = new0(Manager, 1);
+        if (!manager)
+                return log_oom();
+
+        manager->udev = udev_new();
+        if (!manager->udev)
+                return log_error_errno(errno, "could not allocate udev context: %m");
+
+        *ret = manager;
+        manager = NULL;
+
+        return 1;
+}
+
 int main(int argc, char *argv[]) {
-        struct udev *udev;
+        _cleanup_(manager_freep) Manager *manager = NULL;
         sigset_t mask;
         int fd_ctrl = -1;
         int fd_netlink = -1;
@@ -1195,15 +1263,13 @@ int main(int argc, char *argv[]) {
         struct epoll_event ep_worker = { .events = EPOLLIN };
         int r = 0, one = 1;
 
-        udev = udev_new();
-        if (!udev) {
-                r = log_error_errno(errno, "could not allocate udev context: %m");
-                goto exit;
-        }
-
         log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();
         log_open();
+
+        r = manager_new(&manager);
+        if (r < 0)
+                goto exit;
 
         r = parse_argv(argc, argv);
         if (r <= 0)
@@ -1236,7 +1302,7 @@ int main(int argc, char *argv[]) {
 
         umask(022);
 
-        udev_list_init(udev, &properties_list, true);
+        udev_list_init(manager->udev, &manager->properties, true);
 
         r = mkdir("/run/udev", 0755);
         if (r < 0 && errno != EEXIST) {
@@ -1263,16 +1329,16 @@ int main(int argc, char *argv[]) {
                 }
         }
 
-        if (systemd_fds(udev, &fd_ctrl, &fd_netlink) >= 0) {
+        if (systemd_fds(&fd_ctrl, &fd_netlink) >= 0) {
                 /* get control and netlink socket from systemd */
-                udev_ctrl = udev_ctrl_new_from_fd(udev, fd_ctrl);
-                if (!udev_ctrl) {
+                manager->ctrl = udev_ctrl_new_from_fd(manager->udev, fd_ctrl);
+                if (!manager->ctrl) {
                         r = log_error_errno(EINVAL, "error taking over udev control socket");
                         goto exit;
                 }
 
-                monitor = udev_monitor_new_from_netlink_fd(udev, "kernel", fd_netlink);
-                if (!monitor) {
+                manager->monitor = udev_monitor_new_from_netlink_fd(manager->udev, "kernel", fd_netlink);
+                if (!manager->monitor) {
                         r = log_error_errno(EINVAL, "error taking over netlink socket");
                         goto exit;
                 }
@@ -1282,38 +1348,38 @@ int main(int argc, char *argv[]) {
                         udev_cgroup = NULL;
         } else {
                 /* open control and netlink socket */
-                udev_ctrl = udev_ctrl_new(udev);
-                if (!udev_ctrl) {
+                manager->ctrl = udev_ctrl_new(manager->udev);
+                if (!manager->ctrl) {
                         r = log_error_errno(EINVAL, "error initializing udev control socket");
                         goto exit;
                 }
-                fd_ctrl = udev_ctrl_get_fd(udev_ctrl);
+                fd_ctrl = udev_ctrl_get_fd(manager->ctrl);
 
-                monitor = udev_monitor_new_from_netlink(udev, "kernel");
-                if (!monitor) {
+                manager->monitor = udev_monitor_new_from_netlink(manager->udev, "kernel");
+                if (!manager->monitor) {
                         r = log_error_errno(EINVAL, "error initializing netlink socket");
                         goto exit;
                 }
-                fd_netlink = udev_monitor_get_fd(monitor);
+                fd_netlink = udev_monitor_get_fd(manager->monitor);
 
-                udev_monitor_set_receive_buffer_size(monitor, 128 * 1024 * 1024);
+                udev_monitor_set_receive_buffer_size(manager->monitor, 128 * 1024 * 1024);
         }
 
-        if (udev_monitor_enable_receiving(monitor) < 0) {
+        if (udev_monitor_enable_receiving(manager->monitor) < 0) {
                 r = log_error_errno(EINVAL, "error binding netlink socket");
                 goto exit;
         }
 
-        if (udev_ctrl_enable_receiving(udev_ctrl) < 0) {
+        if (udev_ctrl_enable_receiving(manager->ctrl) < 0) {
                 r = log_error_errno(EINVAL, "error binding udev control socket");
                 goto exit;
         }
 
         log_info("starting version " VERSION);
 
-        udev_builtin_init(udev);
+        udev_builtin_init(manager->udev);
 
-        rules = udev_rules_new(udev, arg_resolve_names);
+        rules = udev_rules_new(manager->udev, arg_resolve_names);
         if (!rules) {
                 r = log_error_errno(ENOMEM, "error reading rules");
                 goto exit;
@@ -1357,12 +1423,12 @@ int main(int argc, char *argv[]) {
 
         udev_list_node_init(&event_list);
 
-        fd_inotify = udev_watch_init(udev);
+        fd_inotify = udev_watch_init(manager->udev);
         if (fd_inotify < 0) {
                 r = log_error_errno(ENOMEM, "error initializing inotify");
                 goto exit;
         }
-        udev_watch_restore(udev);
+        udev_watch_restore(manager->udev);
 
         /* block and listen to all signals on signalfd */
         sigfillset(&mask);
@@ -1412,16 +1478,15 @@ int main(int argc, char *argv[]) {
                 bool is_worker, is_signal, is_inotify, is_netlink, is_ctrl;
                 int i;
 
-                if (udev_exit) {
+                if (manager->exit) {
                         /* close sources of new events and discard buffered events */
                         if (fd_ctrl >= 0) {
                                 epoll_ctl(fd_ep, EPOLL_CTL_DEL, fd_ctrl, NULL);
                                 fd_ctrl = -1;
                         }
-                        if (monitor != NULL) {
+                        if (manager->monitor) {
                                 epoll_ctl(fd_ep, EPOLL_CTL_DEL, fd_netlink, NULL);
-                                udev_monitor_unref(monitor);
-                                monitor = NULL;
+                                manager->monitor = udev_monitor_unref(manager->monitor);
                         }
                         if (fd_inotify >= 0) {
                                 epoll_ctl(fd_ep, EPOLL_CTL_DEL, fd_inotify, NULL);
@@ -1430,16 +1495,16 @@ int main(int argc, char *argv[]) {
                         }
 
                         /* discard queued events and kill workers */
-                        event_queue_cleanup(udev, EVENT_QUEUED);
-                        worker_kill();
+                        event_queue_cleanup(manager->udev, EVENT_QUEUED);
+                        manager_kill_workers(manager);
 
                         /* exit after all has cleaned up */
-                        if (udev_list_node_is_empty(&event_list) && hashmap_isempty(workers))
+                        if (udev_list_node_is_empty(&event_list) && hashmap_isempty(manager->workers))
                                 break;
 
                         /* timeout at exit for workers to finish */
                         timeout = 30 * MSEC_PER_SEC;
-                } else if (udev_list_node_is_empty(&event_list) && hashmap_isempty(workers)) {
+                } else if (udev_list_node_is_empty(&event_list) && hashmap_isempty(manager->workers)) {
                         /* we are idle */
                         timeout = -1;
 
@@ -1463,7 +1528,7 @@ int main(int argc, char *argv[]) {
                         Iterator j;
 
                         /* timeout */
-                        if (udev_exit) {
+                        if (manager->exit) {
                                 log_error("timeout, giving up waiting for workers to finish");
                                 break;
                         }
@@ -1471,11 +1536,11 @@ int main(int argc, char *argv[]) {
                         /* kill idle workers */
                         if (udev_list_node_is_empty(&event_list)) {
                                 log_debug("cleanup idle workers");
-                                worker_kill();
+                                manager_kill_workers(manager);
                         }
 
                         /* check for hanging events */
-                        HASHMAP_FOREACH(worker, workers, j) {
+                        HASHMAP_FOREACH(worker, manager->workers, j) {
                                 struct event *event = worker->event;
                                 usec_t ts;
 
@@ -1519,36 +1584,36 @@ int main(int argc, char *argv[]) {
                 /* check for changed config, every 3 seconds at most */
                 if ((now(CLOCK_MONOTONIC) - last_usec) > 3 * USEC_PER_SEC) {
                         if (udev_rules_check_timestamp(rules))
-                                reload = true;
-                        if (udev_builtin_validate(udev))
-                                reload = true;
+                                manager->reload = true;
+                        if (udev_builtin_validate(manager->udev))
+                                manager->reload = true;
 
                         last_usec = now(CLOCK_MONOTONIC);
                 }
 
                 /* reload requested, HUP signal received, rules changed, builtin changed */
-                if (reload) {
-                        worker_kill();
+                if (manager->reload) {
+                        manager_kill_workers(manager);
                         rules = udev_rules_unref(rules);
-                        udev_builtin_exit(udev);
-                        reload = false;
+                        udev_builtin_exit(manager->udev);
+                        manager->reload = false;
                 }
 
                 /* event has finished */
                 if (is_worker)
-                        on_worker(NULL, fd_worker, 0, NULL);
+                        on_worker(NULL, fd_worker, 0, manager);
 
                 /* uevent from kernel */
                 if (is_netlink)
-                        on_uevent(NULL, fd_netlink, 0, monitor);
+                        on_uevent(NULL, fd_netlink, 0, manager);
 
                 /* start new events */
-                if (!udev_list_node_is_empty(&event_list) && !udev_exit && !stop_exec_queue) {
-                        udev_builtin_init(udev);
+                if (!udev_list_node_is_empty(&event_list) && !manager->exit && !manager->stop_exec_queue) {
+                        udev_builtin_init(manager->udev);
                         if (rules == NULL)
-                                rules = udev_rules_new(udev, arg_resolve_names);
+                                rules = udev_rules_new(manager->udev, arg_resolve_names);
                         if (rules != NULL)
-                                event_queue_start(udev);
+                                event_queue_start(manager);
                 }
 
                 if (is_signal) {
@@ -1560,25 +1625,25 @@ int main(int argc, char *argv[]) {
                                 switch (fdsi.ssi_signo) {
                                 case SIGINT:
                                 case SIGTERM:
-                                        on_request_exit(NULL, &fdsi, NULL);
+                                        on_request_exit(NULL, &fdsi, manager);
                                         break;
                                 case SIGHUP:
-                                        on_request_reload(NULL, &fdsi, NULL);
+                                        on_request_reload(NULL, &fdsi, manager);
                                         break;
                                 case SIGCHLD:
-                                        on_sigchld(NULL, &fdsi, NULL);
+                                        on_sigchld(NULL, &fdsi, manager);
                                         break;
                                 }
                         }
                 }
 
                 /* we are shutting down, the events below are not handled anymore */
-                if (udev_exit)
+                if (manager->exit)
                         continue;
 
                 /* device node watch */
                 if (is_inotify)
-                        on_inotify(NULL, fd_inotify, 0, udev);
+                        on_inotify(NULL, fd_inotify, 0, manager);
 
                 /*
                  * This needs to be after the inotify handling, to make sure,
@@ -1586,31 +1651,25 @@ int main(int argc, char *argv[]) {
                  * "change" events by the inotify device node watch.
                  */
                 if (is_ctrl)
-                        on_ctrl_msg(NULL, fd_ctrl, 0, udev_ctrl);
+                        on_ctrl_msg(NULL, fd_ctrl, 0, manager);
         }
 
 exit:
-        udev_ctrl_cleanup(udev_ctrl);
+        udev_ctrl_cleanup(manager->ctrl);
         unlink("/run/udev/queue");
 exit_daemonize:
         if (fd_ep >= 0)
                 close(fd_ep);
-        workers_free();
-        event_queue_cleanup(udev, EVENT_UNDEF);
+        event_queue_cleanup(manager->udev, EVENT_UNDEF);
         udev_rules_unref(rules);
-        udev_builtin_exit(udev);
+        udev_builtin_exit(manager->udev);
         if (fd_signal >= 0)
                 close(fd_signal);
         if (worker_watch[READ_END] >= 0)
                 close(worker_watch[READ_END]);
         if (worker_watch[WRITE_END] >= 0)
                 close(worker_watch[WRITE_END]);
-        udev_monitor_unref(monitor);
-        udev_ctrl_connection_unref(udev_ctrl_conn);
-        udev_ctrl_unref(udev_ctrl);
-        udev_list_cleanup(&properties_list);
         mac_selinux_finish();
-        udev_unref(udev);
         log_close();
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
