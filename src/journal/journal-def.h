@@ -220,7 +220,7 @@ struct Header {
         le64_t n_tags;
         le64_t n_entry_arrays;
 
-        /* Size: 224 */
+        /* Size: 240 */
 } _packed_;
 
 #define FSS_HEADER_SIGNATURE ((char[]) { 'K', 'S', 'H', 'H', 'R', 'H', 'L', 'P' })
