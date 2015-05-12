@@ -2815,7 +2815,7 @@ static void trim_generator_dir(Manager *m, char **generator) {
 }
 
 static int manager_run_generators(Manager *m) {
-        _cleanup_free_ char **paths = NULL;
+        _cleanup_strv_free_ char **paths = NULL;
         const char *argv[5];
         char **path;
         int r;
