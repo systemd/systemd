@@ -27,8 +27,8 @@
 struct _EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL;
 
 typedef EFI_STATUS (EFIAPI *EFI_INPUT_RESET_EX)(
-        struct _EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL *This;
-        BOOLEAN ExtendedVerification;
+        struct _EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL *This,
+        BOOLEAN ExtendedVerification
 );
 
 typedef UINT8 EFI_KEY_TOGGLE_STATE;
@@ -44,29 +44,29 @@ typedef struct {
 } EFI_KEY_DATA;
 
 typedef EFI_STATUS (EFIAPI *EFI_INPUT_READ_KEY_EX)(
-        struct _EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL *This;
-        EFI_KEY_DATA *KeyData;
+        struct _EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL *This,
+        EFI_KEY_DATA *KeyData
 );
 
 typedef EFI_STATUS (EFIAPI *EFI_SET_STATE)(
-        struct _EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL *This;
-        EFI_KEY_TOGGLE_STATE *KeyToggleState;
+        struct _EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL *This,
+        EFI_KEY_TOGGLE_STATE *KeyToggleState
 );
 
 typedef EFI_STATUS (EFIAPI *EFI_KEY_NOTIFY_FUNCTION)(
-        EFI_KEY_DATA *KeyData;
+        EFI_KEY_DATA *KeyData
 );
 
 typedef EFI_STATUS (EFIAPI *EFI_REGISTER_KEYSTROKE_NOTIFY)(
-        struct _EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL *This;
-        EFI_KEY_DATA KeyData;
-        EFI_KEY_NOTIFY_FUNCTION KeyNotificationFunction;
-        VOID **NotifyHandle;
+        struct _EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL *This,
+        EFI_KEY_DATA KeyData,
+        EFI_KEY_NOTIFY_FUNCTION KeyNotificationFunction,
+        VOID **NotifyHandle
 );
 
 typedef EFI_STATUS (EFIAPI *EFI_UNREGISTER_KEYSTROKE_NOTIFY)(
-        struct _EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL *This;
-        VOID *NotificationHandle;
+        struct _EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL *This,
+        VOID *NotificationHandle
 );
 
 typedef struct _EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL {
