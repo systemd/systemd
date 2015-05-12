@@ -1496,10 +1496,10 @@ static void manager_invoke_notify_message(Manager *m, Unit *u, pid_t pid, char *
                 return;
         }
 
-        log_unit_debug(u, "Got notification message for unit.");
-
         if (UNIT_VTABLE(u)->notify_message)
                 UNIT_VTABLE(u)->notify_message(u, pid, tags, fds);
+        else
+                log_unit_debug(u, "Got notification message for unit. Ignoring.");
 }
 
 static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata) {

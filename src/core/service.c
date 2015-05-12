@@ -2818,20 +2818,18 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags, FDSet *fds) 
         assert(u);
 
         cc = strv_join(tags, ", ");
-        log_unit_debug(u, "Got notification message from PID "PID_FMT" (%s)", pid, isempty(cc) ? "n/a" : cc);
 
         if (s->notify_access == NOTIFY_NONE) {
                 log_unit_warning(u, "Got notification message from PID "PID_FMT", but reception is disabled.", pid);
                 return;
-        }
-
-        if (s->notify_access == NOTIFY_MAIN && pid != s->main_pid) {
+        } else if (s->notify_access == NOTIFY_MAIN && pid != s->main_pid) {
                 if (s->main_pid != 0)
                         log_unit_warning(u, "Got notification message from PID "PID_FMT", but reception only permitted for main PID "PID_FMT, pid, s->main_pid);
                 else
                         log_unit_debug(u, "Got notification message from PID "PID_FMT", but reception only permitted for main PID which is currently not known", pid);
                 return;
-        }
+        } else
+                log_unit_debug(u, "Got notification message from PID "PID_FMT" (%s)", pid, isempty(cc) ? "n/a" : cc);
 
         /* Interpret MAINPID= */
         e = strv_find_startswith(tags, "MAINPID=");
@@ -2839,8 +2837,6 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags, FDSet *fds) 
                 if (parse_pid(e, &pid) < 0)
                         log_unit_warning(u, "Failed to parse MAINPID= field in notification message: %s", e);
                 else {
-                        log_unit_debug(u, "Got MAINPID=%s", e);
-
                         service_set_main_pid(s, pid);
                         unit_watch_pid(UNIT(s), pid);
                         notify_dbus = true;
@@ -2850,7 +2846,6 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags, FDSet *fds) 
         /* Interpret RELOADING= */
         if (strv_find(tags, "RELOADING=1")) {
 
-                log_unit_debug(u, "Got RELOADING=1");
                 s->notify_state = NOTIFY_RELOADING;
 
                 if (s->state == SERVICE_RUNNING)
@@ -2862,7 +2857,6 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags, FDSet *fds) 
         /* Interpret READY= */
         if (strv_find(tags, "READY=1")) {
 
-                log_unit_debug(u, "Ggot READY=1");
                 s->notify_state = NOTIFY_READY;
 
                 /* Type=notify services inform us about completed
@@ -2881,7 +2875,6 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags, FDSet *fds) 
         /* Interpret STOPPING= */
         if (strv_find(tags, "STOPPING=1")) {
 
-                log_unit_debug(u, "Got STOPPING=1");
                 s->notify_state = NOTIFY_STOPPING;
 
                 if (s->state == SERVICE_RUNNING)
@@ -2899,8 +2892,6 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags, FDSet *fds) 
                         if (!utf8_is_valid(e))
                                 log_unit_warning(u, "Status message in notification message is not UTF-8 clean.");
                         else {
-                                log_unit_debug(u, "Got STATUS=%s", e);
-
                                 t = strdup(e);
                                 if (!t)
                                         log_oom();
@@ -2925,8 +2916,6 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags, FDSet *fds) 
                 if (safe_atoi(e, &status_errno) < 0 || status_errno < 0)
                         log_unit_warning(u, "Failed to parse ERRNO= field in notification message: %s", e);
                 else {
-                        log_unit_debug(u, "Got ERRNO=%s", e);
-
                         if (s->status_errno != status_errno) {
                                 s->status_errno = status_errno;
                                 notify_dbus = true;
@@ -2936,13 +2925,11 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags, FDSet *fds) 
 
         /* Interpret WATCHDOG= */
         if (strv_find(tags, "WATCHDOG=1")) {
-                log_unit_debug(u, "Got WATCHDOG=1");
                 service_reset_watchdog(s);
         }
 
         /* Add the passed fds to the fd store */
         if (strv_find(tags, "FDSTORE=1")) {
-                log_unit_debug(u, "Got FDSTORE=1");
                 service_add_fd_store_set(s, fds);
         }
 
