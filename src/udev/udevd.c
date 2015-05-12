@@ -616,7 +616,7 @@ static void event_queue_cleanup(struct udev *udev, enum event_state match_type) 
         }
 }
 
-static void worker_returned(int fd_worker) {
+static int on_worker(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         for (;;) {
                 struct worker_message msg;
                 struct iovec iovec = {
@@ -638,16 +638,15 @@ static void worker_returned(int fd_worker) {
                 struct ucred *ucred = NULL;
                 struct worker *worker;
 
-                size = recvmsg(fd_worker, &msghdr, MSG_DONTWAIT);
+                size = recvmsg(fd, &msghdr, MSG_DONTWAIT);
                 if (size < 0) {
                         if (errno == EAGAIN || errno == EINTR)
-                                return;
+                                return 1;
 
-                        log_error_errno(errno, "failed to receive message: %m");
-                        return;
+                        return log_error_errno(errno, "failed to receive message: %m");
                 } else if (size != sizeof(struct worker_message)) {
                         log_warning_errno(EIO, "ignoring worker message with invalid size %zi bytes", size);
-                        return;
+                        continue;
                 }
 
                 for (cmsg = CMSG_FIRSTHDR(&msghdr); cmsg; cmsg = CMSG_NXTHDR(&msghdr, cmsg)) {
@@ -675,10 +674,31 @@ static void worker_returned(int fd_worker) {
                 /* worker returned */
                 event_free(worker->event);
         }
+
+        return 1;
+}
+
+static int on_uevent(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        struct udev_monitor *m = userdata;
+        struct udev_device *dev;
+        int r;
+
+        assert(m);
+
+        dev = udev_monitor_receive_device(m);
+        if (dev) {
+                udev_device_ensure_usec_initialized(dev, NULL);
+                r = event_queue_insert(dev);
+                if (r < 0)
+                        udev_device_unref(dev);
+        }
+
+        return 1;
 }
 
 /* receive the udevd message from userspace */
-static void handle_ctrl_msg(struct udev_ctrl *uctrl) {
+static int on_ctrl_msg(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        struct udev_ctrl *uctrl = userdata;
         _cleanup_udev_ctrl_connection_unref_ struct udev_ctrl_connection *ctrl_conn = NULL;
         _cleanup_udev_ctrl_msg_unref_ struct udev_ctrl_msg *ctrl_msg = NULL;
         const char *str;
@@ -688,11 +708,11 @@ static void handle_ctrl_msg(struct udev_ctrl *uctrl) {
 
         ctrl_conn = udev_ctrl_get_connection(uctrl);
         if (!ctrl_conn)
-                return;
+                return 1;
 
         ctrl_msg = udev_ctrl_receive_msg(ctrl_conn);
         if (!ctrl_msg)
-                return;
+                return 1;
 
         i = udev_ctrl_get_set_log_level(ctrl_msg);
         if (i >= 0) {
@@ -759,7 +779,7 @@ static void handle_ctrl_msg(struct udev_ctrl *uctrl) {
                 udev_ctrl_conn = udev_ctrl_connection_ref(ctrl_conn);
         }
 
-        return;
+        return 1;
 }
 
 static int synthesize_change(struct udev_device *dev) {
@@ -866,21 +886,24 @@ static int synthesize_change(struct udev_device *dev) {
         return 0;
 }
 
-static int handle_inotify(struct udev *udev) {
+static int on_inotify(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        struct udev *udev = userdata;
         union inotify_event_buffer buffer;
         struct inotify_event *e;
         ssize_t l;
 
-        l = read(fd_inotify, &buffer, sizeof(buffer));
+        assert(udev);
+
+        l = read(fd, &buffer, sizeof(buffer));
         if (l < 0) {
                 if (errno == EAGAIN || errno == EINTR)
-                        return 0;
+                        return 1;
 
                 return log_error_errno(errno, "Failed to read inotify fd: %m");
         }
 
         FOREACH_INOTIFY_EVENT(e, buffer, l) {
-                struct udev_device *dev;
+                _cleanup_udev_device_unref_ struct udev_device *dev = NULL;
 
                 dev = udev_watch_lookup(udev, e->wd);
                 if (!dev)
@@ -891,71 +914,70 @@ static int handle_inotify(struct udev *udev) {
                         synthesize_change(dev);
                 else if (e->mask & IN_IGNORED)
                         udev_watch_end(udev, dev);
-
-                udev_device_unref(dev);
         }
 
-        return 0;
+        return 1;
 }
 
-static void handle_signal(struct udev *udev, int signo) {
-        switch (signo) {
-        case SIGINT:
-        case SIGTERM:
-                udev_exit = true;
-                break;
-        case SIGCHLD:
-                for (;;) {
-                        pid_t pid;
-                        int status;
-                        struct worker *worker;
+static int on_request_exit(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
+        udev_exit = true;
 
-                        pid = waitpid(-1, &status, WNOHANG);
-                        if (pid <= 0)
-                                break;
+        return 1;
+}
 
-                        worker = hashmap_get(workers, UINT_TO_PTR(pid));
-                        if (!worker) {
-                                log_warning("worker ["PID_FMT"] is unknown, ignoring", pid);
-                                continue;
-                        }
+static int on_request_reload(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
+        reload = true;
 
-                        if (WIFEXITED(status)) {
-                                if (WEXITSTATUS(status) == 0)
-                                        log_debug("worker ["PID_FMT"] exited", pid);
-                                else
-                                        log_warning("worker ["PID_FMT"] exited with return code %i", pid, WEXITSTATUS(status));
-                        } else if (WIFSIGNALED(status)) {
-                                log_warning("worker ["PID_FMT"] terminated by signal %i (%s)",
-                                            pid, WTERMSIG(status), strsignal(WTERMSIG(status)));
-                        } else if (WIFSTOPPED(status)) {
-                                log_info("worker ["PID_FMT"] stopped", pid);
-                                continue;
-                        } else if (WIFCONTINUED(status)) {
-                                log_info("worker ["PID_FMT"] continued", pid);
-                                continue;
-                        } else {
-                                log_warning("worker ["PID_FMT"] exit with status 0x%04x", pid, status);
-                        }
+        return 1;
+}
 
-                        if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
-                                if (worker->event) {
-                                        log_error("worker ["PID_FMT"] failed while handling '%s'", pid, worker->event->devpath);
-                                        /* delete state from disk */
-                                        udev_device_delete_db(worker->event->dev);
-                                        udev_device_tag_index(worker->event->dev, NULL, false);
-                                        /* forward kernel event without amending it */
-                                        udev_monitor_send_device(monitor, NULL, worker->event->dev_kernel);
-                                }
-                        }
+static int on_sigchld(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
+        for (;;) {
+                pid_t pid;
+                int status;
+                struct worker *worker;
 
-                        worker_free(worker);
+                pid = waitpid(-1, &status, WNOHANG);
+                if (pid <= 0)
+                        return 1;
+
+                worker = hashmap_get(workers, UINT_TO_PTR(pid));
+                if (!worker) {
+                        log_warning("worker ["PID_FMT"] is unknown, ignoring", pid);
+                        return 1;
                 }
-                break;
-        case SIGHUP:
-                reload = true;
-                break;
+
+                if (WIFEXITED(status)) {
+                        if (WEXITSTATUS(status) == 0)
+                                log_debug("worker ["PID_FMT"] exited", pid);
+                        else
+                                log_warning("worker ["PID_FMT"] exited with return code %i", pid, WEXITSTATUS(status));
+                } else if (WIFSIGNALED(status)) {
+                        log_warning("worker ["PID_FMT"] terminated by signal %i (%s)", pid, WTERMSIG(status), strsignal(WTERMSIG(status)));
+                } else if (WIFSTOPPED(status)) {
+                        log_info("worker ["PID_FMT"] stopped", pid);
+                        return 1;
+                } else if (WIFCONTINUED(status)) {
+                        log_info("worker ["PID_FMT"] continued", pid);
+                        return 1;
+                } else
+                        log_warning("worker ["PID_FMT"] exit with status 0x%04x", pid, status);
+
+                if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
+                        if (worker->event) {
+                                log_error("worker ["PID_FMT"] failed while handling '%s'", pid, worker->event->devpath);
+                                /* delete state from disk */
+                                udev_device_delete_db(worker->event->dev);
+                                udev_device_tag_index(worker->event->dev, NULL, false);
+                                /* forward kernel event without amending it */
+                                udev_monitor_send_device(monitor, NULL, worker->event->dev_kernel);
+                        }
+                }
+
+                worker_free(worker);
         }
+
+        return 1;
 }
 
 static void event_queue_update(void) {
@@ -1502,18 +1524,11 @@ int main(int argc, char *argv[]) {
 
                 /* event has finished */
                 if (is_worker)
-                        worker_returned(fd_worker);
+                        on_worker(NULL, fd_worker, 0, NULL);
 
-                if (is_netlink) {
-                        struct udev_device *dev;
-
-                        dev = udev_monitor_receive_device(monitor);
-                        if (dev) {
-                                udev_device_ensure_usec_initialized(dev, NULL);
-                                if (event_queue_insert(dev) < 0)
-                                        udev_device_unref(dev);
-                        }
-                }
+                /* uevent from kernel */
+                if (is_netlink)
+                        on_uevent(NULL, fd_netlink, 0, monitor);
 
                 /* start new events */
                 if (!udev_list_node_is_empty(&event_list) && !udev_exit && !stop_exec_queue) {
@@ -1529,8 +1544,20 @@ int main(int argc, char *argv[]) {
                         ssize_t size;
 
                         size = read(fd_signal, &fdsi, sizeof(struct signalfd_siginfo));
-                        if (size == sizeof(struct signalfd_siginfo))
-                                handle_signal(udev, fdsi.ssi_signo);
+                        if (size == sizeof(struct signalfd_siginfo)) {
+                                switch (fdsi.ssi_signo) {
+                                case SIGINT:
+                                case SIGTERM:
+                                        on_request_exit(NULL, &fdsi, NULL);
+                                        break;
+                                case SIGHUP:
+                                        on_request_reload(NULL, &fdsi, NULL);
+                                        break;
+                                case SIGCHLD:
+                                        on_sigchld(NULL, &fdsi, NULL);
+                                        break;
+                                }
+                        }
                 }
 
                 /* we are shutting down, the events below are not handled anymore */
@@ -1539,7 +1566,7 @@ int main(int argc, char *argv[]) {
 
                 /* device node watch */
                 if (is_inotify) {
-                        handle_inotify(udev);
+                        on_inotify(NULL, fd_inotify, 0, udev);
 
                         /*
                          * settle might be waiting on us to determine the queue
@@ -1569,7 +1596,7 @@ int main(int argc, char *argv[]) {
                  * exit.
                  */
                 if (is_ctrl)
-                        handle_ctrl_msg(udev_ctrl);
+                        on_ctrl_msg(NULL, fd_ctrl, 0, udev_ctrl);
         }
 
 exit:
