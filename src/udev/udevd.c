@@ -51,7 +51,6 @@
 #include "formats-util.h"
 #include "hashmap.h"
 
-static struct udev_rules *rules;
 static int worker_watch[2] = { -1, -1 };
 static int fd_signal = -1;
 static int fd_ep = -1;
@@ -64,13 +63,14 @@ static int arg_exec_delay;
 static usec_t arg_event_timeout_usec = 180 * USEC_PER_SEC;
 static usec_t arg_event_timeout_warn_usec = 180 * USEC_PER_SEC / 3;
 static sigset_t sigmask_orig;
-static UDEV_LIST(event_list);
-static char *udev_cgroup;
 
 typedef struct Manager {
         struct udev *udev;
         Hashmap *workers;
+        struct udev_list_node events;
+        char *cgroup;
 
+        struct udev_rules *rules;
         struct udev_list properties;
 
         struct udev_monitor *monitor;
@@ -111,7 +111,7 @@ static inline struct event *node_to_event(struct udev_list_node *node) {
         return container_of(node, struct event, node);
 }
 
-static void event_queue_cleanup(struct udev *udev, enum event_state type);
+static void event_queue_cleanup(Manager *manager, enum event_state type);
 
 enum worker_state {
         WORKER_UNDEF,
@@ -249,7 +249,7 @@ static void worker_spawn(Manager *manager, struct event *event) {
                 event->dev = NULL;
 
                 manager_workers_free(manager);
-                event_queue_cleanup(udev, EVENT_UNDEF);
+                event_queue_cleanup(manager, EVENT_UNDEF);
                 udev_monitor_unref(manager->monitor);
                 udev_ctrl_unref(manager->ctrl);
                 close(fd_signal);
@@ -343,7 +343,7 @@ static void worker_spawn(Manager *manager, struct event *event) {
                         udev_event_execute_rules(udev_event,
                                                  arg_event_timeout_usec, arg_event_timeout_warn_usec,
                                                  &manager->properties,
-                                                 rules,
+                                                 manager->rules,
                                                  &sigmask_orig);
 
                         udev_event_execute_run(udev_event,
@@ -424,7 +424,7 @@ out:
                 safe_close(fd_ep);
                 close(fd_inotify);
                 close(worker_watch[WRITE_END]);
-                udev_rules_unref(rules);
+                udev_rules_unref(manager->rules);
                 udev_builtin_exit(udev);
                 udev_unref(udev);
                 log_close();
@@ -486,8 +486,11 @@ static void event_run(Manager *manager, struct event *event) {
         worker_spawn(manager, event);
 }
 
-static int event_queue_insert(struct udev_device *dev) {
+static int event_queue_insert(Manager *manager, struct udev_device *dev) {
         struct event *event;
+
+        assert(manager);
+        assert(dev);
 
         event = new0(struct event, 1);
         if (event == NULL)
@@ -509,7 +512,7 @@ static int event_queue_insert(struct udev_device *dev) {
              udev_device_get_action(dev), udev_device_get_subsystem(dev));
 
         event->state = EVENT_QUEUED;
-        udev_list_node_append(&event->node, &event_list);
+        udev_list_node_append(&event->node, &manager->events);
         return 0;
 }
 
@@ -529,12 +532,12 @@ static void manager_kill_workers(Manager *manager) {
 }
 
 /* lookup event for identical, parent, child device */
-static bool is_devpath_busy(struct event *event) {
+static bool is_devpath_busy(Manager *manager, struct event *event) {
         struct udev_list_node *loop;
         size_t common;
 
         /* check if queue contains events we depend on */
-        udev_list_node_foreach(loop, &event_list) {
+        udev_list_node_foreach(loop, &manager->events) {
                 struct event *loop_event = node_to_event(loop);
 
                 /* we already found a later event, earlier can not block us, no need to check again */
@@ -605,24 +608,24 @@ static void event_queue_start(Manager *manager) {
 
         assert(manager);
 
-        udev_list_node_foreach(loop, &event_list) {
+        udev_list_node_foreach(loop, &manager->events) {
                 struct event *event = node_to_event(loop);
 
                 if (event->state != EVENT_QUEUED)
                         continue;
 
                 /* do not start event if parent or child event is still running */
-                if (is_devpath_busy(event))
+                if (is_devpath_busy(manager, event))
                         continue;
 
                 event_run(manager, event);
         }
 }
 
-static void event_queue_cleanup(struct udev *udev, enum event_state match_type) {
+static void event_queue_cleanup(Manager *manager, enum event_state match_type) {
         struct udev_list_node *loop, *tmp;
 
-        udev_list_node_foreach_safe(loop, tmp, &event_list) {
+        udev_list_node_foreach_safe(loop, tmp, &manager->events) {
                 struct event *event = node_to_event(loop);
 
                 if (match_type != EVENT_UNDEF && match_type != event->state)
@@ -708,7 +711,7 @@ static int on_uevent(sd_event_source *s, int fd, uint32_t revents, void *userdat
         dev = udev_monitor_receive_device(manager->monitor);
         if (dev) {
                 udev_device_ensure_usec_initialized(dev, NULL);
-                r = event_queue_insert(dev);
+                r = event_queue_insert(manager, dev);
                 if (r < 0)
                         udev_device_unref(dev);
         }
@@ -716,10 +719,12 @@ static int on_uevent(sd_event_source *s, int fd, uint32_t revents, void *userdat
         return 1;
 }
 
-static void event_queue_update(void) {
+static void event_queue_update(Manager *manager) {
         int r;
 
-        if (!udev_list_node_is_empty(&event_list)) {
+        assert(manager);
+
+        if (!udev_list_node_is_empty(&manager->events)) {
                 r = touch("/run/udev/queue");
                 if (r < 0)
                         log_warning_errno(r, "could not touch /run/udev/queue: %m");
@@ -806,7 +811,7 @@ static int on_ctrl_msg(sd_event_source *s, int fd, uint32_t revents, void *userd
                 /* tell settle that we are busy or idle, this needs to be before the
                  * PING handling
                  */
-                event_queue_update();
+                event_queue_update(manager);
         }
 
         if (udev_ctrl_get_exit(ctrl_msg) > 0) {
@@ -1219,12 +1224,15 @@ static void manager_free(Manager *manager) {
 
         udev_unref(manager->udev);
         manager_workers_free(manager);
+        event_queue_cleanup(manager, EVENT_UNDEF);
 
         udev_monitor_unref(manager->monitor);
         udev_ctrl_unref(manager->ctrl);
         udev_ctrl_connection_unref(manager->ctrl_conn_blocking);
 
         udev_list_cleanup(&manager->properties);
+        udev_rules_unref(manager->rules);
+        free(manager->cgroup);
 
         free(manager);
 }
@@ -1243,6 +1251,13 @@ static int manager_new(Manager **ret) {
         manager->udev = udev_new();
         if (!manager->udev)
                 return log_error_errno(errno, "could not allocate udev context: %m");
+
+        manager->rules = udev_rules_new(manager->udev, arg_resolve_names);
+        if (!manager->rules)
+                return log_error_errno(ENOMEM, "error reading rules");
+
+        udev_list_node_init(&manager->events);
+        udev_list_init(manager->udev, &manager->properties, true);
 
         *ret = manager;
         manager = NULL;
@@ -1266,10 +1281,6 @@ int main(int argc, char *argv[]) {
         log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();
         log_open();
-
-        r = manager_new(&manager);
-        if (r < 0)
-                goto exit;
 
         r = parse_argv(argc, argv);
         if (r <= 0)
@@ -1302,8 +1313,6 @@ int main(int argc, char *argv[]) {
 
         umask(022);
 
-        udev_list_init(manager->udev, &manager->properties, true);
-
         r = mkdir("/run/udev", 0755);
         if (r < 0 && errno != EEXIST) {
                 r = log_error_errno(errno, "could not create /run/udev: %m");
@@ -1311,6 +1320,10 @@ int main(int argc, char *argv[]) {
         }
 
         dev_setup(NULL);
+
+        r = manager_new(&manager);
+        if (r < 0)
+                goto exit;
 
         /* before opening new files, make sure std{in,out,err} fds are in a sane state */
         if (arg_daemonize) {
@@ -1344,8 +1357,8 @@ int main(int argc, char *argv[]) {
                 }
 
                 /* get our own cgroup, we regularly kill everything udev has left behind */
-                if (cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, 0, &udev_cgroup) < 0)
-                        udev_cgroup = NULL;
+                if (cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, 0, &manager->cgroup) < 0)
+                        manager->cgroup = NULL;
         } else {
                 /* open control and netlink socket */
                 manager->ctrl = udev_ctrl_new(manager->udev);
@@ -1379,13 +1392,7 @@ int main(int argc, char *argv[]) {
 
         udev_builtin_init(manager->udev);
 
-        rules = udev_rules_new(manager->udev, arg_resolve_names);
-        if (!rules) {
-                r = log_error_errno(ENOMEM, "error reading rules");
-                goto exit;
-        }
-
-        r = udev_rules_apply_static_dev_perms(rules);
+        r = udev_rules_apply_static_dev_perms(manager->rules);
         if (r < 0)
                 log_error_errno(r, "failed to apply permissions on static device nodes: %m");
 
@@ -1420,8 +1427,6 @@ int main(int argc, char *argv[]) {
                 }
         }
         log_debug("set children_max to %u", arg_children_max);
-
-        udev_list_node_init(&event_list);
 
         fd_inotify = udev_watch_init(manager->udev);
         if (fd_inotify < 0) {
@@ -1495,29 +1500,29 @@ int main(int argc, char *argv[]) {
                         }
 
                         /* discard queued events and kill workers */
-                        event_queue_cleanup(manager->udev, EVENT_QUEUED);
+                        event_queue_cleanup(manager, EVENT_QUEUED);
                         manager_kill_workers(manager);
 
                         /* exit after all has cleaned up */
-                        if (udev_list_node_is_empty(&event_list) && hashmap_isempty(manager->workers))
+                        if (udev_list_node_is_empty(&manager->events) && hashmap_isempty(manager->workers))
                                 break;
 
                         /* timeout at exit for workers to finish */
                         timeout = 30 * MSEC_PER_SEC;
-                } else if (udev_list_node_is_empty(&event_list) && hashmap_isempty(manager->workers)) {
+                } else if (udev_list_node_is_empty(&manager->events) && hashmap_isempty(manager->workers)) {
                         /* we are idle */
                         timeout = -1;
 
                         /* cleanup possible left-over processes in our cgroup */
-                        if (udev_cgroup)
-                                cg_kill(SYSTEMD_CGROUP_CONTROLLER, udev_cgroup, SIGKILL, false, true, NULL);
+                        if (manager->cgroup)
+                                cg_kill(SYSTEMD_CGROUP_CONTROLLER, manager->cgroup, SIGKILL, false, true, NULL);
                 } else {
                         /* kill idle or hanging workers */
                         timeout = 3 * MSEC_PER_SEC;
                 }
 
                 /* tell settle that we are busy or idle */
-                event_queue_update();
+                event_queue_update(manager);
 
                 fdcount = epoll_wait(fd_ep, ev, ELEMENTSOF(ev), timeout);
                 if (fdcount < 0)
@@ -1534,7 +1539,7 @@ int main(int argc, char *argv[]) {
                         }
 
                         /* kill idle workers */
-                        if (udev_list_node_is_empty(&event_list)) {
+                        if (udev_list_node_is_empty(&manager->events)) {
                                 log_debug("cleanup idle workers");
                                 manager_kill_workers(manager);
                         }
@@ -1583,7 +1588,7 @@ int main(int argc, char *argv[]) {
 
                 /* check for changed config, every 3 seconds at most */
                 if ((now(CLOCK_MONOTONIC) - last_usec) > 3 * USEC_PER_SEC) {
-                        if (udev_rules_check_timestamp(rules))
+                        if (udev_rules_check_timestamp(manager->rules))
                                 manager->reload = true;
                         if (udev_builtin_validate(manager->udev))
                                 manager->reload = true;
@@ -1594,7 +1599,7 @@ int main(int argc, char *argv[]) {
                 /* reload requested, HUP signal received, rules changed, builtin changed */
                 if (manager->reload) {
                         manager_kill_workers(manager);
-                        rules = udev_rules_unref(rules);
+                        manager->rules = udev_rules_unref(manager->rules);
                         udev_builtin_exit(manager->udev);
                         manager->reload = false;
                 }
@@ -1608,11 +1613,11 @@ int main(int argc, char *argv[]) {
                         on_uevent(NULL, fd_netlink, 0, manager);
 
                 /* start new events */
-                if (!udev_list_node_is_empty(&event_list) && !manager->exit && !manager->stop_exec_queue) {
+                if (!udev_list_node_is_empty(&manager->events) && !manager->exit && !manager->stop_exec_queue) {
                         udev_builtin_init(manager->udev);
-                        if (rules == NULL)
-                                rules = udev_rules_new(manager->udev, arg_resolve_names);
-                        if (rules != NULL)
+                        if (!manager->rules)
+                                manager->rules = udev_rules_new(manager->udev, arg_resolve_names);
+                        if (manager->rules)
                                 event_queue_start(manager);
                 }
 
@@ -1660,8 +1665,6 @@ exit:
 exit_daemonize:
         if (fd_ep >= 0)
                 close(fd_ep);
-        event_queue_cleanup(manager->udev, EVENT_UNDEF);
-        udev_rules_unref(rules);
         udev_builtin_exit(manager->udev);
         if (fd_signal >= 0)
                 close(fd_signal);

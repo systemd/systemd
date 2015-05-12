@@ -93,7 +93,6 @@ struct udev_list {
         unsigned int entries_max;
         bool unique;
 };
-#define UDEV_LIST(list) struct udev_list_node list = { &(list), &(list) }
 void udev_list_node_init(struct udev_list_node *list);
 int udev_list_node_is_empty(struct udev_list_node *list);
 void udev_list_node_append(struct udev_list_node *new, struct udev_list_node *list);
