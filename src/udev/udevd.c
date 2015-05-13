@@ -244,6 +244,8 @@ static void manager_free(Manager *manager) {
         if (!manager)
                 return;
 
+        udev_builtin_exit(manager->udev);
+
         udev_unref(manager->udev);
         manager_workers_free(manager);
         event_queue_cleanup(manager, EVENT_UNDEF);
@@ -471,7 +473,6 @@ skip:
 out:
                 udev_device_unref(dev);
                 manager_free(manager);
-                udev_builtin_exit(udev);
                 log_close();
                 _exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
         }
@@ -1288,6 +1289,8 @@ static int manager_new(Manager **ret) {
         if (!manager->udev)
                 return log_error_errno(errno, "could not allocate udev context: %m");
 
+        udev_builtin_init(manager->udev);
+
         manager->rules = udev_rules_new(manager->udev, arg_resolve_names);
         if (!manager->rules)
                 return log_error_errno(ENOMEM, "error reading rules");
@@ -1463,8 +1466,6 @@ int main(int argc, char *argv[]) {
                 goto exit;
 
         log_info("starting version " VERSION);
-
-        udev_builtin_init(manager->udev);
 
         r = udev_rules_apply_static_dev_perms(manager->rules);
         if (r < 0)
@@ -1676,8 +1677,6 @@ exit:
         if (manager)
                 udev_ctrl_cleanup(manager->ctrl);
 exit_daemonize:
-        if (manager)
-                udev_builtin_exit(manager->udev);
         mac_selinux_finish();
         log_close();
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
