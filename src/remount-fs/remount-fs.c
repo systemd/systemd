@@ -94,15 +94,15 @@ int main(int argc, char *argv[]) {
                         const char *arguments[5];
                         /* Child */
 
-                        arguments[0] = "/bin/mount";
+                        arguments[0] = MOUNT_PATH;
                         arguments[1] = me->mnt_dir;
                         arguments[2] = "-o";
                         arguments[3] = "remount";
                         arguments[4] = NULL;
 
-                        execv("/bin/mount", (char **) arguments);
+                        execv(MOUNT_PATH, (char **) arguments);
 
-                        log_error_errno(errno, "Failed to execute /bin/mount: %m");
+                        log_error_errno(errno, "Failed to execute " MOUNT_PATH ": %m");
                         _exit(EXIT_FAILURE);
                 }
 
@@ -142,9 +142,9 @@ int main(int argc, char *argv[]) {
                 if (s) {
                         if (!is_clean_exit(si.si_code, si.si_status, NULL)) {
                                 if (si.si_code == CLD_EXITED)
-                                        log_error("/bin/mount for %s exited with exit status %i.", s, si.si_status);
+                                        log_error(MOUNT_PATH " for %s exited with exit status %i.", s, si.si_status);
                                 else
-                                        log_error("/bin/mount for %s terminated by signal %s.", s, signal_to_string(si.si_status));
+                                        log_error(MOUNT_PATH " for %s terminated by signal %s.", s, signal_to_string(si.si_status));
 
                                 ret = EXIT_FAILURE;
                         }

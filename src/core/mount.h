@@ -28,8 +28,8 @@ typedef struct Mount Mount;
 
 typedef enum MountState {
         MOUNT_DEAD,
-        MOUNT_MOUNTING,               /* /bin/mount is running, but the mount is not done yet. */
-        MOUNT_MOUNTING_DONE,          /* /bin/mount is running, and the mount is done. */
+        MOUNT_MOUNTING,               /* /usr/bin/mount is running, but the mount is not done yet. */
+        MOUNT_MOUNTING_DONE,          /* /usr/bin/mount is running, and the mount is done. */
         MOUNT_MOUNTED,
         MOUNT_REMOUNTING,
         MOUNT_UNMOUNTING,

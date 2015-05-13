@@ -135,8 +135,8 @@ static void mount_init(Unit *u) {
                 m->exec_context.std_error = u->manager->default_std_error;
         }
 
-        /* We need to make sure that /bin/mount is always called in
-         * the same process group as us, so that the autofs kernel
+        /* We need to make sure that /usr/bin/mount is always called
+         * in the same process group as us, so that the autofs kernel
          * side doesn't send us another mount request while we are
          * already trying to comply its last one. */
         m->exec_context.same_pgrp = true;
@@ -833,7 +833,7 @@ static void mount_enter_unmounting(Mount *m) {
         m->control_command_id = MOUNT_EXEC_UNMOUNT;
         m->control_command = m->exec_command + MOUNT_EXEC_UNMOUNT;
 
-        r = exec_command_set(m->control_command, "/bin/umount", m->where, NULL);
+        r = exec_command_set(m->control_command, UMOUNT_PATH, m->where, NULL);
         if (r >= 0 && UNIT(m)->manager->running_as == MANAGER_SYSTEM)
                 r = exec_command_append(m->control_command, "-n", NULL);
         if (r < 0)
@@ -884,7 +884,7 @@ static void mount_enter_mounting(Mount *m) {
                 if (r < 0)
                         goto fail;
 
-                r = exec_command_set(m->control_command, "/bin/mount",
+                r = exec_command_set(m->control_command, MOUNT_PATH,
                                      m->parameters_fragment.what, m->where, NULL);
                 if (r >= 0 && UNIT(m)->manager->running_as == MANAGER_SYSTEM)
                         r = exec_command_append(m->control_command, "-n", NULL);
@@ -931,7 +931,7 @@ static void mount_enter_remounting(Mount *m) {
                 else
                         o = "remount";
 
-                r = exec_command_set(m->control_command, "/bin/mount",
+                r = exec_command_set(m->control_command, MOUNT_PATH,
                                      m->parameters_fragment.what, m->where,
                                      "-o", o, NULL);
                 if (r >= 0 && UNIT(m)->manager->running_as == MANAGER_SYSTEM)
@@ -1582,7 +1582,7 @@ static int mount_enumerate(Manager *m) {
 
                 /* Dispatch this before we dispatch SIGCHLD, so that
                  * we always get the events from /proc/self/mountinfo
-                 * before the SIGCHLD of /bin/mount. */
+                 * before the SIGCHLD of /usr/bin/mount. */
                 r = sd_event_source_set_priority(m->mount_event_source, -10);
                 if (r < 0)
                         goto fail;
