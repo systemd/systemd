@@ -317,6 +317,12 @@ static int mount_add_device_links(Mount *m) {
         if (!is_device_path(p->what))
                 return 0;
 
+        /* /dev/root is a really weird thing, it's not a real device,
+         * but just a path the kernel exports for the root file system
+         * specified on the kernel command line. Ignore it here. */
+        if (path_equal(p->what, "/dev/root"))
+                return 0;
+
         if (path_equal(m->where, "/"))
                 return 0;
 
