@@ -1325,7 +1325,6 @@ static int mount_cgroup(const char *dest) {
         if (r < 0)
                 return log_error_errno(r, "Failed to determine our own cgroup path: %m");
 
-
         for (;;) {
                 _cleanup_free_ char *controller = NULL, *origin = NULL, *combined = NULL;
 
@@ -1365,8 +1364,13 @@ static int mount_cgroup(const char *dest) {
                         if (r < 0)
                                 return r;
 
-                        if (symlink(combined, target) < 0)
-                                return log_error_errno(errno, "Failed to create symlink for combined hierarchy: %m");
+                        r = symlink_idempotent(combined, target);
+                        if (r == -EINVAL) {
+                                log_error("Invalid existing symlink for combined hierarchy");
+                                return r;
+                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to create symlink for combined hierarchy: %m");
                 }
         }
 

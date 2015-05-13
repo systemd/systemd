@@ -404,6 +404,7 @@ bool machine_name_is_valid(const char *s) _pure_;
 
 char* strshorten(char *s, size_t l);
 
+int symlink_idempotent(const char *from, const char *to);
 
 int symlink_atomic(const char *from, const char *to);
 int mknod_atomic(const char *path, mode_t mode, dev_t dev);
