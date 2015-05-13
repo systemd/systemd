@@ -1926,7 +1926,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         if (arg_root) {
                 char *p;
 
-                p = strappend(arg_root, i.path);
+                p = prefix_root(arg_root, i.path);
                 if (!p)
                         return log_oom();
 

@@ -52,8 +52,6 @@ static bool arg_copy_locale = false;
 static bool arg_copy_timezone = false;
 static bool arg_copy_root_password = false;
 
-#define prefix_roota(p) (arg_root ? (const char*) strjoina(arg_root, p) : (const char*) p)
-
 static void clear_string(char *x) {
 
         if (!x)
@@ -87,13 +85,13 @@ static void print_welcome(void) {
         if (done)
                 return;
 
-        os_release = prefix_roota("/etc/os-release");
+        os_release = prefix_roota(arg_root, "/etc/os-release");
         r = parse_env_file(os_release, NEWLINE,
                            "PRETTY_NAME", &pretty_name,
                            NULL);
         if (r == -ENOENT) {
 
-                os_release = prefix_roota("/usr/lib/os-release");
+                os_release = prefix_roota(arg_root, "/usr/lib/os-release");
                 r = parse_env_file(os_release, NEWLINE,
                                    "PRETTY_NAME", &pretty_name,
                                    NULL);
@@ -251,7 +249,7 @@ static int process_locale(void) {
         unsigned i = 0;
         int r;
 
-        etc_localeconf = prefix_roota("/etc/locale.conf");
+        etc_localeconf = prefix_roota(arg_root, "/etc/locale.conf");
         if (faccessat(AT_FDCWD, etc_localeconf, F_OK, AT_SYMLINK_NOFOLLOW) >= 0)
                 return 0;
 
@@ -325,7 +323,7 @@ static int process_timezone(void) {
         const char *etc_localtime, *e;
         int r;
 
-        etc_localtime = prefix_roota("/etc/localtime");
+        etc_localtime = prefix_roota(arg_root, "/etc/localtime");
         if (faccessat(AT_FDCWD, etc_localtime, F_OK, AT_SYMLINK_NOFOLLOW) >= 0)
                 return 0;
 
@@ -404,7 +402,7 @@ static int process_hostname(void) {
         const char *etc_hostname;
         int r;
 
-        etc_hostname = prefix_roota("/etc/hostname");
+        etc_hostname = prefix_roota(arg_root, "/etc/hostname");
         if (faccessat(AT_FDCWD, etc_hostname, F_OK, AT_SYMLINK_NOFOLLOW) >= 0)
                 return 0;
 
@@ -429,7 +427,7 @@ static int process_machine_id(void) {
         char id[SD_ID128_STRING_MAX];
         int r;
 
-        etc_machine_id = prefix_roota("/etc/machine-id");
+        etc_machine_id = prefix_roota(arg_root, "/etc/machine-id");
         if (faccessat(AT_FDCWD, etc_machine_id, F_OK, AT_SYMLINK_NOFOLLOW) >= 0)
                 return 0;
 
@@ -455,7 +453,7 @@ static int prompt_root_password(void) {
         if (!arg_prompt_root_password)
                 return 0;
 
-        etc_shadow = prefix_roota("/etc/shadow");
+        etc_shadow = prefix_roota(arg_root, "/etc/shadow");
         if (faccessat(AT_FDCWD, etc_shadow, F_OK, AT_SYMLINK_NOFOLLOW) >= 0)
                 return 0;
 
@@ -544,7 +542,7 @@ static int process_root_password(void) {
         const char *etc_shadow;
         int r;
 
-        etc_shadow = prefix_roota("/etc/shadow");
+        etc_shadow = prefix_roota(arg_root, "/etc/shadow");
         if (faccessat(AT_FDCWD, etc_shadow, F_OK, AT_SYMLINK_NOFOLLOW) >= 0)
                 return 0;
 

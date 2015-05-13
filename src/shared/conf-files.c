@@ -36,12 +36,13 @@
 
 static int files_add(Hashmap *h, const char *root, const char *path, const char *suffix) {
         _cleanup_closedir_ DIR *dir = NULL;
-        char *dirpath;
+        const char *dirpath;
+        int r;
 
         assert(path);
         assert(suffix);
 
-        dirpath = strjoina(root ? root : "", path);
+        dirpath = prefix_roota(root, path);
 
         dir = opendir(dirpath);
         if (!dir) {
@@ -53,7 +54,6 @@ static int files_add(Hashmap *h, const char *root, const char *path, const char 
         for (;;) {
                 struct dirent *de;
                 char *p;
-                int r;
 
                 errno = 0;
                 de = readdir(dir);

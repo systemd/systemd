@@ -294,6 +294,34 @@ static void test_path_startswith(void) {
         assert_se(!path_startswith("/foo/bar/barfoo/", "/f/b/b/"));
 }
 
+static void test_prefix_root_one(const char *r, const char *p, const char *expected) {
+        _cleanup_free_ char *s = NULL;
+        const char *t;
+
+        assert_se(s = prefix_root(r, p));
+        assert_se(streq_ptr(s, expected));
+
+        t = prefix_roota(r, p);
+        assert_se(t);
+        assert_se(streq_ptr(t, expected));
+}
+
+static void test_prefix_root(void) {
+        test_prefix_root_one("/", "/foo", "/foo");
+        test_prefix_root_one(NULL, "/foo", "/foo");
+        test_prefix_root_one("", "/foo", "/foo");
+        test_prefix_root_one("///", "/foo", "/foo");
+        test_prefix_root_one("/", "////foo", "/foo");
+        test_prefix_root_one(NULL, "////foo", "/foo");
+
+        test_prefix_root_one("/foo", "/bar", "/foo/bar");
+        test_prefix_root_one("/foo", "bar", "/foo/bar");
+        test_prefix_root_one("foo", "bar", "foo/bar");
+        test_prefix_root_one("/foo/", "/bar", "/foo/bar");
+        test_prefix_root_one("/foo/", "//bar", "/foo/bar");
+        test_prefix_root_one("/foo///", "//bar", "/foo/bar");
+}
+
 int main(int argc, char **argv) {
         test_path();
         test_find_binary(argv[0], true);
@@ -304,6 +332,7 @@ int main(int argc, char **argv) {
         test_make_relative();
         test_strv_resolve();
         test_path_startswith();
+        test_prefix_root();
 
         return 0;
 }

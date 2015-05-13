@@ -80,15 +80,13 @@ static uid_t search_uid = UID_INVALID;
 static UidRange *uid_range = NULL;
 static unsigned n_uid_range = 0;
 
-#define fix_root(x) (arg_root ? strjoina(arg_root, x) : x)
-
 static int load_user_database(void) {
         _cleanup_fclose_ FILE *f = NULL;
         const char *passwd_path;
         struct passwd *pw;
         int r;
 
-        passwd_path = fix_root("/etc/passwd");
+        passwd_path = prefix_roota(arg_root, "/etc/passwd");
         f = fopen(passwd_path, "re");
         if (!f)
                 return errno == ENOENT ? 0 : -errno;
@@ -140,7 +138,7 @@ static int load_group_database(void) {
         struct group *gr;
         int r;
 
-        group_path = fix_root("/etc/group");
+        group_path = prefix_roota(arg_root, "/etc/group");
         f = fopen(group_path, "re");
         if (!f)
                 return errno == ENOENT ? 0 : -errno;
@@ -369,7 +367,7 @@ static int write_files(void) {
                 _cleanup_fclose_ FILE *original = NULL;
 
                 /* First we update the actual group list file */
-                group_path = fix_root("/etc/group");
+                group_path = prefix_roota(arg_root, "/etc/group");
                 r = fopen_temporary_label("/etc/group", group_path, &group, &group_tmp);
                 if (r < 0)
                         goto finish;
@@ -448,7 +446,7 @@ static int write_files(void) {
                 }
 
                 /* OK, now also update the shadow file for the group list */
-                gshadow_path = fix_root("/etc/gshadow");
+                gshadow_path = prefix_roota(arg_root, "/etc/gshadow");
                 r = fopen_temporary_label("/etc/gshadow", gshadow_path, &gshadow, &gshadow_tmp);
                 if (r < 0)
                         goto finish;
@@ -514,7 +512,7 @@ static int write_files(void) {
                 long lstchg;
 
                 /* First we update the user database itself */
-                passwd_path = fix_root("/etc/passwd");
+                passwd_path = prefix_roota(arg_root, "/etc/passwd");
                 r = fopen_temporary_label("/etc/passwd", passwd_path, &passwd, &passwd_tmp);
                 if (r < 0)
                         goto finish;
@@ -599,7 +597,7 @@ static int write_files(void) {
                 }
 
                 /* The we update the shadow database */
-                shadow_path = fix_root("/etc/shadow");
+                shadow_path = prefix_roota(arg_root, "/etc/shadow");
                 r = fopen_temporary_label("/etc/shadow", shadow_path, &shadow, &shadow_tmp);
                 if (r < 0)
                         goto finish;
@@ -802,7 +800,7 @@ static int uid_is_ok(uid_t uid, const char *name) {
 static int root_stat(const char *p, struct stat *st) {
         const char *fix;
 
-        fix = fix_root(p);
+        fix = prefix_roota(arg_root, p);
         if (stat(fix, st) < 0)
                 return -errno;
 

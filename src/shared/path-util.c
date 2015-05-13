@@ -793,3 +793,37 @@ int fsck_exists(const char *fstype) {
 
         return 0;
 }
+
+char *prefix_root(const char *root, const char *path) {
+        char *n, *p;
+        size_t l;
+
+        /* If root is passed, prefixes path with it. Otherwise returns
+         * it as is. */
+
+        assert(path);
+
+        /* First, drop duplicate prefixing slashes from the path */
+        while (path[0] == '/' && path[1] == '/')
+                path++;
+
+        if (isempty(root) || path_equal(root, "/"))
+                return strdup(path);
+
+        l = strlen(root) + 1 + strlen(path) + 1;
+
+        n = new(char, l);
+        if (!n)
+                return NULL;
+
+        p = stpcpy(n, root);
+
+        while (p > n && p[-1] == '/')
+                p--;
+
+        if (path[0] != '/')
+                *(p++) = '/';
+
+        strcpy(p, path);
+        return n;
+}
