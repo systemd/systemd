@@ -1257,6 +1257,36 @@ static int build_environment(
         return 0;
 }
 
+static bool exec_needs_mount_namespace(
+                const ExecContext *context,
+                const ExecParameters *params,
+                ExecRuntime *runtime) {
+
+        assert(context);
+        assert(params);
+
+        if (!strv_isempty(context->read_write_dirs) ||
+            !strv_isempty(context->read_only_dirs) ||
+            !strv_isempty(context->inaccessible_dirs))
+                return true;
+
+        if (context->mount_flags != 0)
+                return true;
+
+        if (context->private_tmp && runtime && (runtime->tmp_dir || runtime->var_tmp_dir))
+                return true;
+
+        if (params->bus_endpoint_path)
+                return true;
+
+        if (context->private_devices ||
+            context->protect_system != PROTECT_SYSTEM_NO ||
+            context->protect_home != PROTECT_HOME_NO)
+                return true;
+
+        return false;
+}
+
 static int exec_child(
                 Unit *unit,
                 ExecCommand *command,
@@ -1555,16 +1585,7 @@ static int exec_child(
                 }
         }
 
-        if (!strv_isempty(context->read_write_dirs) ||
-            !strv_isempty(context->read_only_dirs) ||
-            !strv_isempty(context->inaccessible_dirs) ||
-            context->mount_flags != 0 ||
-            (context->private_tmp && runtime && (runtime->tmp_dir || runtime->var_tmp_dir)) ||
-            params->bus_endpoint_path ||
-            context->private_devices ||
-            context->protect_system != PROTECT_SYSTEM_NO ||
-            context->protect_home != PROTECT_HOME_NO) {
-
+        if (exec_needs_mount_namespace(context, params, runtime)) {
                 char *tmp = NULL, *var = NULL;
 
                 /* The runtime struct only contains the parent
