@@ -87,7 +87,7 @@ static int mount_path_compare(const void *a, const void *b) {
 
         d = path_compare(p->path, q->path);
 
-        if (!d) {
+        if (d == 0) {
                 /* If the paths are equal, check the mode */
                 if (p->mode < q->mode)
                         return -1;

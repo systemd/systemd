@@ -565,6 +565,52 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--overlay=</option></term>
+        <term><option>--overlay-ro=</option></term>
+
+        <listitem><para>Combine multiple directory trees into one
+        overlay file system and mount it into the container. Takes a
+        list of colon-separated paths to the directory trees to
+        combine and the destination mount point.</para>
+
+        <para>If three or more paths are specified, then the last
+        specified path is the destination mount point in the
+        container, all paths specified before refer to directory trees
+        on the host and are combined in the specified order into one
+        overlay file system. The left-most path is hence the lowest
+        directory tree, the second-to-last path the highest directory
+        tree in the stacking order. If <option>--overlay-ro=</option>
+        is used instead of <option>--overlay=</option> a read-only
+        overlay file system is created. If a writable overlay file
+        system is created all changes made to it are written to the
+        highest directory tree in the stacking order, i.e. the
+        second-to-last specified.</para>
+
+        <para>If only two paths are specified, then the second
+        specified path is used both as the top-level directory tree in
+        the stacking order as seen from the host, as well as the mount
+        point for the overlay file system in the container. At least
+        two paths have to be specified.</para>
+
+        <para>For details about overlay file systems, see <ulink
+        url="https://www.kernel.org/doc/Documentation/filesystems/overlayfs.txt">overlayfs.txt</ulink>. Note
+        that the semantics of overlay file systems are substantially
+        different from normal file systems, in particular regarding
+        reported device and inode information. Device and inode
+        information may change for a file while it is being written
+        to, and processes might see out-of-date versions of files at
+        times. Note that this switch automatically derives the
+        <literal>workdir=</literal> mount option for the overlay file
+        system from the top-level directory tree, making it a sibling
+        of it. It is hence essential that the top-level directory tree
+        is not a mount point itself (since the working directory must
+        be on the same file system as the top-most directory
+        tree). Also note that the <literal>lowerdir=</literal> mount
+        option receives the paths to stack in the opposite order of
+        this switch.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--setenv=</option></term>
 
         <listitem><para>Specifies an environment variable assignment

@@ -125,6 +125,22 @@ typedef enum Volatile {
         VOLATILE_STATE,
 } Volatile;
 
+typedef enum CustomMountType {
+        CUSTOM_MOUNT_BIND,
+        CUSTOM_MOUNT_TMPFS,
+        CUSTOM_MOUNT_OVERLAY,
+} CustomMountType;
+
+typedef struct CustomMount {
+        CustomMountType type;
+        bool read_only;
+        char *source; /* for overlayfs this is the upper directory */
+        char *destination;
+        char *options;
+        char *work_dir;
+        char **lower;
+} CustomMount;
+
 static char *arg_directory = NULL;
 static char *arg_template = NULL;
 static char *arg_user = NULL;
@@ -166,9 +182,8 @@ static uint64_t arg_retain =
         (1ULL << CAP_AUDIT_WRITE) |
         (1ULL << CAP_AUDIT_CONTROL) |
         (1ULL << CAP_MKNOD);
-static char **arg_bind = NULL;
-static char **arg_bind_ro = NULL;
-static char **arg_tmpfs = NULL;
+static CustomMount *arg_custom_mounts = NULL;
+static unsigned arg_n_custom_mounts = 0;
 static char **arg_setenv = NULL;
 static bool arg_quiet = false;
 static bool arg_share_system = false;
@@ -244,6 +259,11 @@ static void help(void) {
                "                            the container\n"
                "     --bind-ro=PATH[:PATH]  Similar, but creates a read-only bind mount\n"
                "     --tmpfs=PATH:[OPTIONS] Mount an empty tmpfs to the specified directory\n"
+               "     --overlay=PATH[:PATH...]:PATH\n"
+               "                            Create an overlay mount from the host to \n"
+               "                            the container\n"
+               "     --overlay-ro=PATH[:PATH...]:PATH\n"
+               "                            Similar, but creates a read-only overlay mount\n"
                "     --setenv=NAME=VALUE    Pass an environment variable to PID 1\n"
                "     --share-system         Share system namespaces with host\n"
                "     --register=BOOLEAN     Register container as machine\n"
@@ -251,6 +271,89 @@ static void help(void) {
                "                            the service unit nspawn is running in\n"
                "     --volatile[=MODE]      Run the system in volatile mode\n"
                , program_invocation_short_name);
+}
+
+static CustomMount* custom_mount_add(CustomMountType t) {
+        CustomMount *c, *ret;
+
+        c = realloc(arg_custom_mounts, (arg_n_custom_mounts + 1) * sizeof(CustomMount));
+        if (!c)
+                return NULL;
+
+        arg_custom_mounts = c;
+        ret = arg_custom_mounts + arg_n_custom_mounts;
+        arg_n_custom_mounts++;
+
+        *ret = (CustomMount) { .type = t };
+
+        return ret;
+}
+
+static void custom_mount_free_all(void) {
+        unsigned i;
+
+        for (i = 0; i < arg_n_custom_mounts; i++) {
+                CustomMount *m = &arg_custom_mounts[i];
+
+                free(m->source);
+                free(m->destination);
+                free(m->options);
+
+                if (m->work_dir) {
+                        (void) rm_rf(m->work_dir, REMOVE_ROOT|REMOVE_PHYSICAL);
+                        free(m->work_dir);
+                }
+
+                strv_free(m->lower);
+        }
+
+        free(arg_custom_mounts);
+        arg_custom_mounts = NULL;
+        arg_n_custom_mounts = 0;
+}
+
+static int custom_mount_compare(const void *a, const void *b) {
+        const CustomMount *x = a, *y = b;
+        int r;
+
+        r = path_compare(x->destination, y->destination);
+        if (r != 0)
+                return r;
+
+        if (x->type < y->type)
+                return -1;
+        if (x->type > y->type)
+                return 1;
+
+        return 0;
+}
+
+static int custom_mounts_prepare(void) {
+        unsigned i;
+        int r;
+
+        /* Ensure the mounts are applied prefix first. */
+        qsort_safe(arg_custom_mounts, arg_n_custom_mounts, sizeof(CustomMount), custom_mount_compare);
+
+        /* Allocate working directories for the overlay file systems that need it */
+        for (i = 0; i < arg_n_custom_mounts; i++) {
+                CustomMount *m = &arg_custom_mounts[i];
+
+                if (m->type != CUSTOM_MOUNT_OVERLAY)
+                        continue;
+
+                if (m->work_dir)
+                        continue;
+
+                if (m->read_only)
+                        continue;
+
+                r = tempfn_random(m->source, &m->work_dir);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to generate work directory from %s: %m", m->source);
+        }
+
+        return 0;
 }
 
 static int set_sanitized_path(char **b, const char *path) {
@@ -287,6 +390,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_BIND,
                 ARG_BIND_RO,
                 ARG_TMPFS,
+                ARG_OVERLAY,
+                ARG_OVERLAY_RO,
                 ARG_SETENV,
                 ARG_SHARE_SYSTEM,
                 ARG_REGISTER,
@@ -320,6 +425,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "bind",                  required_argument, NULL, ARG_BIND              },
                 { "bind-ro",               required_argument, NULL, ARG_BIND_RO           },
                 { "tmpfs",                 required_argument, NULL, ARG_TMPFS             },
+                { "overlay",               required_argument, NULL, ARG_OVERLAY           },
+                { "overlay-ro",            required_argument, NULL, ARG_OVERLAY_RO        },
                 { "machine",               required_argument, NULL, 'M'                   },
                 { "slice",                 required_argument, NULL, 'S'                   },
                 { "setenv",                required_argument, NULL, ARG_SETENV            },
@@ -544,72 +651,131 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_BIND:
                 case ARG_BIND_RO: {
-                        _cleanup_free_ char *a = NULL, *b = NULL;
+                        _cleanup_free_ char *source = NULL, *destination = NULL;
+                        CustomMount *m;
                         char *e;
-                        char ***x;
-
-                        x = c == ARG_BIND ? &arg_bind : &arg_bind_ro;
 
                         e = strchr(optarg, ':');
                         if (e) {
-                                a = strndup(optarg, e - optarg);
-                                b = strdup(e + 1);
+                                source = strndup(optarg, e - optarg);
+                                destination = strdup(e + 1);
                         } else {
-                                a = strdup(optarg);
-                                b = strdup(optarg);
+                                source = strdup(optarg);
+                                destination = strdup(optarg);
                         }
 
-                        if (!a || !b)
+                        if (!source || !destination)
                                 return log_oom();
 
-                        if (!path_is_absolute(a) || !path_is_absolute(b)) {
+                        if (!path_is_absolute(source) || !path_is_absolute(destination)) {
                                 log_error("Invalid bind mount specification: %s", optarg);
                                 return -EINVAL;
                         }
 
-                        r = strv_extend(x, a);
-                        if (r < 0)
+                        m = custom_mount_add(CUSTOM_MOUNT_BIND);
+                        if (!m)
                                 return log_oom();
 
-                        r = strv_extend(x, b);
-                        if (r < 0)
-                                return log_oom();
+                        m->source = source;
+                        m->destination = destination;
+                        m->read_only = c == ARG_BIND_RO;
+
+                        source = destination = NULL;
 
                         break;
                 }
 
                 case ARG_TMPFS: {
-                        _cleanup_free_ char *a = NULL, *b = NULL;
+                        _cleanup_free_ char *path = NULL, *opts = NULL;
+                        CustomMount *m;
                         char *e;
 
                         e = strchr(optarg, ':');
                         if (e) {
-                                a = strndup(optarg, e - optarg);
-                                b = strdup(e + 1);
+                                path = strndup(optarg, e - optarg);
+                                opts = strdup(e + 1);
                         } else {
-                                a = strdup(optarg);
-                                b = strdup("mode=0755");
+                                path = strdup(optarg);
+                                opts = strdup("mode=0755");
                         }
 
-                        if (!a || !b)
+                        if (!path || !opts)
                                 return log_oom();
 
-                        if (!path_is_absolute(a)) {
+                        if (!path_is_absolute(path)) {
                                 log_error("Invalid tmpfs specification: %s", optarg);
                                 return -EINVAL;
                         }
 
-                        r = strv_push(&arg_tmpfs, a);
-                        if (r < 0)
+                        m = custom_mount_add(CUSTOM_MOUNT_TMPFS);
+                        if (!m)
                                 return log_oom();
 
-                        a = NULL;
+                        m->destination = path;
+                        m->options = opts;
 
-                        r = strv_push(&arg_tmpfs, b);
-                        if (r < 0)
+                        path = opts = NULL;
+
+                        break;
+                }
+
+                case ARG_OVERLAY:
+                case ARG_OVERLAY_RO: {
+                        _cleanup_free_ char *upper = NULL, *destination = NULL;
+                        _cleanup_strv_free_ char **lower = NULL;
+                        CustomMount *m;
+                        unsigned n = 0;
+                        char **i;
+
+                        lower = strv_split(optarg, ":");
+                        if (!lower)
                                 return log_oom();
 
-                        b = NULL;
+                        STRV_FOREACH(i, lower) {
+                                if (!path_is_absolute(*i)) {
+                                        log_error("Overlay path %s is not absolute.", *i);
+                                        return -EINVAL;
+                                }
+
+                                n++;
+                        }
+
+                        if (n < 2) {
+                                log_error("--overlay= needs at least two colon-separated directories specified.");
+                                return -EINVAL;
+                        }
+
+                        if (n == 2) {
+                                /* If two parameters are specified,
+                                 * the first one is the lower, the
+                                 * second one the upper directory. And
+                                 * we'll also define the the
+                                 * destination mount point the same as
+                                 * the upper. */
+                                upper = lower[1];
+                                lower[1] = NULL;
+
+                                destination = strdup(upper);
+                                if (!destination)
+                                        return log_oom();
+
+                        } else {
+                                upper = lower[n - 2];
+                                destination = lower[n - 1];
+                                lower[n - 2] = NULL;
+                        }
+
+                        m = custom_mount_add(CUSTOM_MOUNT_OVERLAY);
+                        if (!m)
+                                return log_oom();
+
+                        m->destination = destination;
+                        m->source = upper;
+                        m->lower = lower;
+                        m->read_only = c == ARG_OVERLAY_RO;
+
+                        upper = destination = NULL;
+                        lower = NULL;
 
                         break;
                 }
@@ -964,62 +1130,149 @@ static int mount_all(const char *dest) {
         return r;
 }
 
-static int mount_binds(const char *dest, char **l, bool ro) {
-        char **x, **y;
+static int mount_bind(const char *dest, CustomMount *m) {
+        struct stat source_st, dest_st;
+        char *where;
+        int r;
 
-        STRV_FOREACH_PAIR(x, y, l) {
-                _cleanup_free_ char *where = NULL;
-                struct stat source_st, dest_st;
-                int r;
+        assert(dest);
+        assert(m);
 
-                if (stat(*x, &source_st) < 0)
-                        return log_error_errno(errno, "Failed to stat %s: %m", *x);
+        if (stat(m->source, &source_st) < 0)
+                return log_error_errno(errno, "Failed to stat %s: %m", m->source);
 
-                where = strappend(dest, *y);
-                if (!where)
-                        return log_oom();
+        where = strjoina(dest, m->destination);
 
-                r = stat(where, &dest_st);
-                if (r == 0) {
-                        if (S_ISDIR(source_st.st_mode) && !S_ISDIR(dest_st.st_mode)) {
-                                log_error("Cannot bind mount directory %s on file %s.", *x, where);
-                                return -EINVAL;
-                        }
-                        if (!S_ISDIR(source_st.st_mode) && S_ISDIR(dest_st.st_mode)) {
-                                log_error("Cannot bind mount file %s on directory %s.", *x, where);
-                                return -EINVAL;
-                        }
-                } else if (errno == ENOENT) {
-                        r = mkdir_parents_label(where, 0755);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to bind mount %s: %m", *x);
-                } else {
-                        log_error_errno(errno, "Failed to bind mount %s: %m", *x);
-                        return -errno;
+        r = stat(where, &dest_st);
+        if (r >= 0) {
+                if (S_ISDIR(source_st.st_mode) && !S_ISDIR(dest_st.st_mode)) {
+                        log_error("Cannot bind mount directory %s on file %s.", m->source, where);
+                        return -EINVAL;
                 }
 
-                /* Create the mount point. Any non-directory file can be
-                 * mounted on any non-directory file (regular, fifo, socket,
-                 * char, block).
-                 */
-                if (S_ISDIR(source_st.st_mode)) {
-                        r = mkdir_label(where, 0755);
-                        if (r < 0 && errno != EEXIST)
-                                return log_error_errno(r, "Failed to create mount point %s: %m", where);
-                } else {
-                        r = touch(where);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to create mount point %s: %m", where);
+                if (!S_ISDIR(source_st.st_mode) && S_ISDIR(dest_st.st_mode)) {
+                        log_error("Cannot bind mount file %s on directory %s.", m->source, where);
+                        return -EINVAL;
                 }
 
-                if (mount(*x, where, NULL, MS_BIND, NULL) < 0)
-                        return log_error_errno(errno, "mount(%s) failed: %m", where);
+        } else if (errno == ENOENT) {
+                r = mkdir_parents_label(where, 0755);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to make parents of %s: %m", where);
+        } else {
+                log_error_errno(errno, "Failed to stat %s: %m", where);
+                return -errno;
+        }
 
-                if (ro) {
-                        r = bind_remount_recursive(where, true);
-                        if (r < 0)
-                                return log_error_errno(r, "Read-Only bind mount failed: %m");
+        /* Create the mount point. Any non-directory file can be
+         * mounted on any non-directory file (regular, fifo, socket,
+         * char, block).
+         */
+        if (S_ISDIR(source_st.st_mode))
+                r = mkdir_label(where, 0755);
+        else
+                r = touch(where);
+        if (r < 0 && r != -EEXIST)
+                return log_error_errno(r, "Failed to create mount point %s: %m", where);
+
+        if (mount(m->source, where, NULL, MS_BIND, NULL) < 0)
+                return log_error_errno(errno, "mount(%s) failed: %m", where);
+
+        if (m->read_only) {
+                r = bind_remount_recursive(where, true);
+                if (r < 0)
+                        return log_error_errno(r, "Read-only bind mount failed: %m");
+        }
+
+        return 0;
+}
+
+static int mount_tmpfs(const char *dest, CustomMount *m) {
+        char *where;
+        int r;
+
+        assert(dest);
+        assert(m);
+
+        where = strjoina(dest, m->destination);
+
+        r = mkdir_label(where, 0755);
+        if (r < 0 && r != -EEXIST)
+                return log_error_errno(r, "Creating mount point for tmpfs %s failed: %m", where);
+
+        if (mount("tmpfs", where, "tmpfs", MS_NODEV|MS_STRICTATIME, m->options) < 0)
+                return log_error_errno(errno, "tmpfs mount to %s failed: %m", where);
+
+        return 0;
+}
+
+static int mount_overlay(const char *dest, CustomMount *m) {
+        _cleanup_free_ char *lower = NULL;
+        char *where, *options;
+        int r;
+
+        assert(dest);
+        assert(m);
+
+        where = strjoina(dest, m->destination);
+
+        r = mkdir_label(where, 0755);
+        if (r < 0 && r != -EEXIST)
+                return log_error_errno(r, "Creating mount point for overlay %s failed: %m", where);
+
+        (void) mkdir_p_label(m->source, 0755);
+
+        strv_reverse(m->lower);
+        lower = strv_join(m->lower, ":");
+        strv_reverse(m->lower);
+
+        if (!lower)
+                return log_oom();
+
+        if (m->read_only)
+                options = strjoina("lowerdir=", m->source, ":", lower);
+        else {
+                assert(m->work_dir);
+                (void) mkdir_label(m->work_dir, 0700);
+
+                options = strjoina("lowerdir=", lower, ",upperdir=", m->source, ",workdir=", m->work_dir);
+        }
+
+        if (mount("overlay", where, "overlay", m->read_only ? MS_RDONLY : 0, options) < 0)
+                return log_error_errno(errno, "overlay mount to %s failed: %m", where);
+
+        return 0;
+}
+
+static int mount_custom(const char *dest) {
+        unsigned i;
+        int r;
+
+        assert(dest);
+
+        for (i = 0; i < arg_n_custom_mounts; i++) {
+                CustomMount *m = &arg_custom_mounts[i];
+
+                switch (m->type) {
+
+                case CUSTOM_MOUNT_BIND:
+                        r = mount_bind(dest, m);
+                        break;
+
+                case CUSTOM_MOUNT_TMPFS:
+                        r = mount_tmpfs(dest, m);
+                        break;
+
+                case CUSTOM_MOUNT_OVERLAY:
+                        r = mount_overlay(dest, m);
+                        break;
+
+                default:
+                        assert_not_reached("Unknown custom mount type");
                 }
+
+                if (r < 0)
+                        return r;
         }
 
         return 0;
@@ -1135,28 +1388,6 @@ static int mount_cgroup(const char *dest) {
 
         if (mount(NULL, cgroup_root, NULL, MS_REMOUNT|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME|MS_RDONLY, "mode=755") < 0)
                 return log_error_errno(errno, "Failed to remount %s read-only: %m", cgroup_root);
-
-        return 0;
-}
-
-static int mount_tmpfs(const char *dest) {
-        char **i, **o;
-
-        STRV_FOREACH_PAIR(i, o, arg_tmpfs) {
-                _cleanup_free_ char *where = NULL;
-                int r;
-
-                where = strappend(dest, *i);
-                if (!where)
-                        return log_oom();
-
-                r = mkdir_label(where, 0755);
-                if (r < 0 && r != -EEXIST)
-                        return log_error_errno(r, "Creating mount point for tmpfs %s failed: %m", where);
-
-                if (mount("tmpfs", where, "tmpfs", MS_NODEV|MS_STRICTATIME, *o) < 0)
-                        return log_error_errno(errno, "tmpfs mount to %s failed: %m", where);
-        }
 
         return 0;
 }
@@ -3889,6 +4120,10 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 goto finish;
 
+        r = custom_mounts_prepare();
+        if (r < 0)
+                goto finish;
+
         interactive = isatty(STDIN_FILENO) > 0 && isatty(STDOUT_FILENO) > 0;
 
         master = posix_openpt(O_RDWR|O_NOCTTY|O_CLOEXEC|O_NDELAY);
@@ -4126,13 +4361,7 @@ int main(int argc, char *argv[]) {
                         if (setup_journal(arg_directory) < 0)
                                 _exit(EXIT_FAILURE);
 
-                        if (mount_binds(arg_directory, arg_bind, false) < 0)
-                                _exit(EXIT_FAILURE);
-
-                        if (mount_binds(arg_directory, arg_bind_ro, true) < 0)
-                                _exit(EXIT_FAILURE);
-
-                        if (mount_tmpfs(arg_directory) < 0)
+                        if (mount_custom(arg_directory) < 0)
                                 _exit(EXIT_FAILURE);
 
                         /* Wait until we are cgroup-ified, so that we
@@ -4505,9 +4734,7 @@ finish:
         strv_free(arg_network_interfaces);
         strv_free(arg_network_macvlan);
         strv_free(arg_network_ipvlan);
-        strv_free(arg_bind);
-        strv_free(arg_bind_ro);
-        strv_free(arg_tmpfs);
+        custom_mount_free_all();
 
         flush_ports(&exposed);
 
