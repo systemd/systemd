@@ -1031,18 +1031,19 @@ static int mount_all(const char *dest) {
         } MountPoint;
 
         static const MountPoint mount_table[] = {
-                { "proc",      "/proc",     "proc",  NULL,        MS_NOSUID|MS_NOEXEC|MS_NODEV,           true  },
-                { "/proc/sys", "/proc/sys", NULL,    NULL,        MS_BIND,                                true  },   /* Bind mount first */
-                { NULL,        "/proc/sys", NULL,    NULL,        MS_BIND|MS_RDONLY|MS_REMOUNT,           true  },   /* Then, make it r/o */
-                { "sysfs",     "/sys",      "sysfs", NULL,        MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV, true  },
-                { "tmpfs",     "/dev",      "tmpfs", "mode=755",  MS_NOSUID|MS_STRICTATIME,               true  },
-                { "devpts",    "/dev/pts",  "devpts","newinstance,ptmxmode=0666,mode=620,gid=" STRINGIFY(TTY_GID), MS_NOSUID|MS_NOEXEC, true },
-                { "tmpfs",     "/dev/shm",  "tmpfs", "mode=1777", MS_NOSUID|MS_NODEV|MS_STRICTATIME,      true  },
-                { "tmpfs",     "/run",      "tmpfs", "mode=755",  MS_NOSUID|MS_NODEV|MS_STRICTATIME,      true  },
-                { "tmpfs",     "/tmp",      "tmpfs", "mode=1777", MS_STRICTATIME,                         true  },
+                { "proc",      "/proc",          "proc",   NULL,        MS_NOSUID|MS_NOEXEC|MS_NODEV,                true  },
+                { "/proc/sys", "/proc/sys",      NULL,     NULL,        MS_BIND,                                     true  },   /* Bind mount first */
+                { NULL,        "/proc/sys",      NULL,     NULL,        MS_BIND|MS_RDONLY|MS_REMOUNT,                true  },   /* Then, make it r/o */
+                { "sysfs",     "/sys",           "sysfs",  NULL,        MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV,      true  },
+                { "tmpfs",     "/sys/fs/cgroup", "tmpfs",  "mode=755",  MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME, true  },
+                { "tmpfs",     "/dev",           "tmpfs",  "mode=755",  MS_NOSUID|MS_STRICTATIME,                    true  },
+                { "devpts",    "/dev/pts",       "devpts", "newinstance,ptmxmode=0666,mode=620,gid=" STRINGIFY(TTY_GID), MS_NOSUID|MS_NOEXEC, true },
+                { "tmpfs",     "/dev/shm",       "tmpfs",  "mode=1777", MS_NOSUID|MS_NODEV|MS_STRICTATIME,           true  },
+                { "tmpfs",     "/run",           "tmpfs",  "mode=755",  MS_NOSUID|MS_NODEV|MS_STRICTATIME,           true  },
+                { "tmpfs",     "/tmp",           "tmpfs",  "mode=1777", MS_STRICTATIME,                              true  },
 #ifdef HAVE_SELINUX
-                { "/sys/fs/selinux", "/sys/fs/selinux", NULL, NULL, MS_BIND,                              false },  /* Bind mount first */
-                { NULL,              "/sys/fs/selinux", NULL, NULL, MS_BIND|MS_RDONLY|MS_REMOUNT,         false },  /* Then, make it r/o */
+                { "/sys/fs/selinux", "/sys/fs/selinux", NULL, NULL,     MS_BIND,                                     false },  /* Bind mount first */
+                { NULL,              "/sys/fs/selinux", NULL, NULL,     MS_BIND|MS_RDONLY|MS_REMOUNT,                false },  /* Then, make it r/o */
 #endif
         };
 
@@ -1324,9 +1325,6 @@ static int mount_cgroup(const char *dest) {
         if (r < 0)
                 return log_error_errno(r, "Failed to determine our own cgroup path: %m");
 
-        cgroup_root = strjoina(dest, "/sys/fs/cgroup");
-        if (mount("tmpfs", cgroup_root, "tmpfs", MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME, "mode=755") < 0)
-                return log_error_errno(errno, "Failed to mount tmpfs to /sys/fs/cgroup: %m");
 
         for (;;) {
                 _cleanup_free_ char *controller = NULL, *origin = NULL, *combined = NULL;
@@ -1386,6 +1384,7 @@ static int mount_cgroup(const char *dest) {
         if (mount(NULL, systemd_root, NULL, MS_BIND|MS_REMOUNT|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_RDONLY, NULL) < 0)
                 return log_error_errno(errno, "Failed to mount cgroup root read-only: %m");
 
+        cgroup_root = strjoina(dest, "/sys/fs/cgroup");
         if (mount(NULL, cgroup_root, NULL, MS_REMOUNT|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME|MS_RDONLY, "mode=755") < 0)
                 return log_error_errno(errno, "Failed to remount %s read-only: %m", cgroup_root);
 
