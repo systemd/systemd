@@ -399,12 +399,12 @@ static void sit_init(NetDev *n) {
 }
 
 static void vti_init(NetDev *n) {
-        Tunnel *t = VTI(n);
+        Tunnel *t;
 
         assert(n);
 
         if (n->kind == NETDEV_KIND_VTI)
-                t =  VTI(n);
+                t = VTI(n);
         else
                 t = VTI6(n);
 
