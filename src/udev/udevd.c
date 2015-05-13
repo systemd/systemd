@@ -84,7 +84,6 @@ typedef struct Manager {
         int worker_watch[2];
 
         bool stop_exec_queue:1;
-        bool reload:1;
         bool exit:1;
 } Manager;
 
@@ -689,6 +688,43 @@ static bool is_devpath_busy(Manager *manager, struct event *event) {
         return false;
 }
 
+static void manager_exit(Manager *manager) {
+
+        assert(manager);
+
+        manager->exit = true;
+
+        /* close sources of new events and discard buffered events */
+        if (manager->fd_ctrl >= 0) {
+                epoll_ctl(manager->fd_ep, EPOLL_CTL_DEL, manager->fd_ctrl, NULL);
+                manager->fd_ctrl = safe_close(manager->fd_ctrl);
+        }
+
+        if (manager->monitor) {
+                epoll_ctl(manager->fd_ep, EPOLL_CTL_DEL, manager->fd_uevent, NULL);
+                manager->monitor = udev_monitor_unref(manager->monitor);
+        }
+
+        if (manager->fd_inotify >= 0) {
+                epoll_ctl(manager->fd_ep, EPOLL_CTL_DEL, manager->fd_inotify, NULL);
+                manager->fd_inotify = safe_close(manager->fd_inotify);
+        }
+
+        /* discard queued events and kill workers */
+        event_queue_cleanup(manager, EVENT_QUEUED);
+        manager_kill_workers(manager);
+}
+
+/* reload requested, HUP signal received, rules changed, builtin changed */
+static void manager_reload(Manager *manager) {
+
+        assert(manager);
+
+        manager_kill_workers(manager);
+        manager->rules = udev_rules_unref(manager->rules);
+        udev_builtin_exit(manager->udev);
+}
+
 static void event_queue_start(Manager *manager) {
         struct udev_list_node *loop;
 
@@ -845,7 +881,7 @@ static int on_ctrl_msg(sd_event_source *s, int fd, uint32_t revents, void *userd
 
         if (udev_ctrl_get_reload(ctrl_msg) > 0) {
                 log_debug("udevd message (RELOAD) received");
-                manager->reload = true;
+                manager_reload(manager);
         }
 
         str = udev_ctrl_get_set_env(ctrl_msg);
@@ -884,7 +920,7 @@ static int on_ctrl_msg(sd_event_source *s, int fd, uint32_t revents, void *userd
 
         if (udev_ctrl_get_exit(ctrl_msg) > 0) {
                 log_debug("udevd message (EXIT) received");
-                manager->exit = true;
+                manager_exit(manager);
                 /* keep reference to block the client until we exit
                    TODO: deal with several blocking exit requests */
                 manager->ctrl_conn_blocking = udev_ctrl_connection_ref(ctrl_conn);
@@ -1042,7 +1078,7 @@ static int on_sigterm(sd_event_source *s, const struct signalfd_siginfo *si, voi
 
         assert(manager);
 
-        manager->exit = true;
+        manager_exit(manager);
 
         return 1;
 }
@@ -1052,7 +1088,7 @@ static int on_sighup(sd_event_source *s, const struct signalfd_siginfo *si, void
 
         assert(manager);
 
-        manager->reload = true;
+        manager_reload(manager);
 
         return 1;
 }
@@ -1538,26 +1574,6 @@ int main(int argc, char *argv[]) {
                 int i;
 
                 if (manager->exit) {
-                        /* close sources of new events and discard buffered events */
-                        if (manager->fd_ctrl >= 0) {
-                                epoll_ctl(manager->fd_ep, EPOLL_CTL_DEL, manager->fd_ctrl, NULL);
-                                manager->fd_ctrl = safe_close(manager->fd_ctrl);
-                        }
-
-                        if (manager->monitor) {
-                                epoll_ctl(manager->fd_ep, EPOLL_CTL_DEL, manager->fd_uevent, NULL);
-                                manager->monitor = udev_monitor_unref(manager->monitor);
-                        }
-
-                        if (manager->fd_inotify >= 0) {
-                                epoll_ctl(manager->fd_ep, EPOLL_CTL_DEL, manager->fd_inotify, NULL);
-                                manager->fd_inotify = safe_close(manager->fd_inotify);
-                        }
-
-                        /* discard queued events and kill workers */
-                        event_queue_cleanup(manager, EVENT_QUEUED);
-                        manager_kill_workers(manager);
-
                         /* exit after all has cleaned up */
                         if (udev_list_node_is_empty(&manager->events) && hashmap_isempty(manager->workers))
                                 break;
@@ -1636,20 +1652,11 @@ int main(int argc, char *argv[]) {
 
                 /* check for changed config, every 3 seconds at most */
                 if ((now(CLOCK_MONOTONIC) - last_usec) > 3 * USEC_PER_SEC) {
-                        if (udev_rules_check_timestamp(manager->rules))
-                                manager->reload = true;
-                        if (udev_builtin_validate(manager->udev))
-                                manager->reload = true;
+                        if (udev_rules_check_timestamp(manager->rules) ||
+                            udev_builtin_validate(manager->udev))
+                                manager_reload(manager);
 
                         last_usec = now(CLOCK_MONOTONIC);
-                }
-
-                /* reload requested, HUP signal received, rules changed, builtin changed */
-                if (manager->reload) {
-                        manager_kill_workers(manager);
-                        manager->rules = udev_rules_unref(manager->rules);
-                        udev_builtin_exit(manager->udev);
-                        manager->reload = false;
                 }
 
                 /* event has finished */
