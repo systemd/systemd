@@ -1268,22 +1268,23 @@ static int socket_watch_fds(Socket *s) {
                 if (p->fd < 0)
                         continue;
 
-                if (p->event_source)
+                if (p->event_source) {
                         r = sd_event_source_set_enabled(p->event_source, SD_EVENT_ON);
-                else
+                        if (r < 0)
+                                goto fail;
+                } else {
                         r = sd_event_add_io(UNIT(s)->manager->event, &p->event_source, p->fd, EPOLLIN, socket_dispatch_io, p);
+                        if (r < 0)
+                                goto fail;
 
-                if (r < 0) {
-                        log_unit_warning_errno(UNIT(s), r, "Failed to watch listening fds: %m");
-                        goto fail;
+                        (void) sd_event_source_set_description(p->event_source, "socket-port-io");
                 }
-
-                (void) sd_event_source_set_description(p->event_source, "socket-port-io");
         }
 
         return 0;
 
 fail:
+        log_unit_warning_errno(UNIT(s), r, "Failed to watch listening fds: %m");
         socket_unwatch_fds(s);
         return r;
 }

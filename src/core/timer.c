@@ -429,17 +429,21 @@ static void timer_enter_waiting(Timer *t, bool initial) {
                                 goto fail;
 
                         r = sd_event_source_set_enabled(t->monotonic_event_source, SD_EVENT_ONESHOT);
-                } else
+                        if (r < 0)
+                                goto fail;
+                } else {
+
                         r = sd_event_add_time(
                                         UNIT(t)->manager->event,
                                         &t->monotonic_event_source,
                                         t->wake_system ? CLOCK_BOOTTIME_ALARM : CLOCK_MONOTONIC,
                                         t->next_elapse_monotonic_or_boottime, t->accuracy_usec,
                                         timer_dispatch, t);
-                if (r < 0)
-                        goto fail;
+                        if (r < 0)
+                                goto fail;
 
-                (void) sd_event_source_set_description(t->monotonic_event_source, "timer-monotonic");
+                        (void) sd_event_source_set_description(t->monotonic_event_source, "timer-monotonic");
+                }
 
         } else if (t->monotonic_event_source) {
 
@@ -458,17 +462,20 @@ static void timer_enter_waiting(Timer *t, bool initial) {
                                 goto fail;
 
                         r = sd_event_source_set_enabled(t->realtime_event_source, SD_EVENT_ONESHOT);
-                } else
+                        if (r < 0)
+                                goto fail;
+                } else {
                         r = sd_event_add_time(
                                         UNIT(t)->manager->event,
                                         &t->realtime_event_source,
                                         t->wake_system ? CLOCK_REALTIME_ALARM : CLOCK_REALTIME,
                                         t->next_elapse_realtime, t->accuracy_usec,
                                         timer_dispatch, t);
-                if (r < 0)
-                        goto fail;
+                        if (r < 0)
+                                goto fail;
 
-                (void) sd_event_source_set_description(t->realtime_event_source, "timer-realtime");
+                        (void) sd_event_source_set_description(t->realtime_event_source, "timer-realtime");
+                }
 
         } else if (t->realtime_event_source) {
 

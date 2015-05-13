@@ -287,20 +287,24 @@ static int busname_watch_fd(BusName *n) {
         if (n->starter_fd < 0)
                 return 0;
 
-        if (n->starter_event_source)
+        if (n->starter_event_source) {
                 r = sd_event_source_set_enabled(n->starter_event_source, SD_EVENT_ON);
-        else
+                if (r < 0)
+                        goto fail;
+        } else {
                 r = sd_event_add_io(UNIT(n)->manager->event, &n->starter_event_source, n->starter_fd, EPOLLIN, busname_dispatch_io, n);
+                if (r < 0)
+                        goto fail;
 
-        if (r < 0) {
-                log_unit_warning_errno(UNIT(n), r, "Failed to watch starter fd: %m");
-                busname_unwatch_fd(n);
-                return r;
+                (void) sd_event_source_set_description(n->starter_event_source, "busname-starter");
         }
 
-        (void) sd_event_source_set_description(n->starter_event_source, "busname-starter");
-
         return 0;
+
+fail:
+        log_unit_warning_errno(UNIT(n), r, "Failed to watch starter fd: %m");
+        busname_unwatch_fd(n);
+        return r;
 }
 
 static int busname_open_fd(BusName *n) {
