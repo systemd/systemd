@@ -595,7 +595,11 @@ int config_parse_exec(
                                 skip = separate_argv0 + ignore;
 
                                 /* skip special chars in the beginning */
-                                assert(skip < l);
+                                if (l <= skip) {
+                                        log_syntax(unit, LOG_ERR, filename, line, EINVAL, "Empty path in command line, ignoring: %s", rvalue);
+                                        r = 0;
+                                        goto fail;
+                                }
 
                         } else if (strneq(word, ";", MAX(l, 1U)))
                                 /* new commandline */

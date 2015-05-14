@@ -317,6 +317,27 @@ static void test_config_parse_exec(void) {
         assert_se(r == 0);
         assert_se(c1->command_next == NULL);
 
+        log_info("/* invalid space between modifiers */");
+        r = config_parse_exec(NULL, "fake", 4, "section", 1,
+                              "LValue", 0, "- /path",
+                              &c, NULL);
+        assert_se(r == 0);
+        assert_se(c1->command_next == NULL);
+
+        log_info("/* only modifiers, no path */");
+        r = config_parse_exec(NULL, "fake", 4, "section", 1,
+                              "LValue", 0, "-",
+                              &c, NULL);
+        assert_se(r == 0);
+        assert_se(c1->command_next == NULL);
+
+        log_info("/* empty argument, reset */");
+        r = config_parse_exec(NULL, "fake", 4, "section", 1,
+                              "LValue", 0, "",
+                              &c, NULL);
+        assert_se(r == 0);
+        assert_se(c == NULL);
+
         exec_command_free_list(c);
 }
 
