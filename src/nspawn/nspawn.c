@@ -2210,6 +2210,7 @@ static int register_machine(pid_t pid, int local_ifindex) {
         } else {
                 _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
                 char **i;
+                unsigned j;
 
                 r = sd_bus_message_new_method_call(
                                 bus,
@@ -2275,6 +2276,24 @@ static int register_machine(pid_t pid, int local_ifindex) {
                                           "char-pts", "rw");
                 if (r < 0)
                         return bus_log_create_error(r);
+
+                for (j = 0; j < arg_n_custom_mounts; j++) {
+                        CustomMount *cm = &arg_custom_mounts[j];
+
+                        if (cm->type != CUSTOM_MOUNT_BIND)
+                                continue;
+
+                        r = is_device_node(cm->source);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to stat %s: %m", cm->source);
+
+                        if (r) {
+                                r = sd_bus_message_append(m, "(sv)", "DeviceAllow", "a(ss)", 1,
+                                        cm->source, cm->read_only ? "r" : "rw");
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to append message arguments: %m");
+                        }
+                }
 
                 if (arg_kill_signal != 0) {
                         r = sd_bus_message_append(m, "(sv)", "KillSignal", "i", arg_kill_signal);

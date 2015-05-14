@@ -852,6 +852,7 @@ int take_password_lock(const char *root);
 
 int is_symlink(const char *path);
 int is_dir(const char *path, bool follow);
+int is_device_node(const char *path);
 
 typedef enum UnquoteFlags {
         UNQUOTE_RELAX     = 1,

@@ -5435,6 +5435,15 @@ int is_dir(const char* path, bool follow) {
         return !!S_ISDIR(st.st_mode);
 }
 
+int is_device_node(const char *path) {
+        struct stat info;
+
+        if (lstat(path, &info) < 0)
+                return -errno;
+
+        return !!(S_ISBLK(info.st_mode) || S_ISCHR(info.st_mode));
+}
+
 int unquote_first_word(const char **p, char **ret, UnquoteFlags flags) {
         _cleanup_free_ char *s = NULL;
         size_t allocated = 0, sz = 0;
