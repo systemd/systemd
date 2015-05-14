@@ -140,21 +140,19 @@ struct udev *udev_ctrl_get_udev(struct udev_ctrl *uctrl) {
 }
 
 static struct udev_ctrl *udev_ctrl_ref(struct udev_ctrl *uctrl) {
-        if (uctrl == NULL)
-                return NULL;
-        uctrl->refcount++;
+        if (uctrl)
+                uctrl->refcount++;
+
         return uctrl;
 }
 
 struct udev_ctrl *udev_ctrl_unref(struct udev_ctrl *uctrl) {
-        if (uctrl == NULL)
-                return NULL;
-        uctrl->refcount--;
-        if (uctrl->refcount > 0)
-                return uctrl;
-        if (uctrl->sock >= 0)
-                close(uctrl->sock);
-        free(uctrl);
+        if (uctrl && -- uctrl->refcount == 0) {
+                if (uctrl->sock >= 0)
+                        close(uctrl->sock);
+                free(uctrl);
+        }
+
         return NULL;
 }
 
@@ -224,15 +222,15 @@ struct udev_ctrl_connection *udev_ctrl_connection_ref(struct udev_ctrl_connectio
 }
 
 struct udev_ctrl_connection *udev_ctrl_connection_unref(struct udev_ctrl_connection *conn) {
-        if (conn == NULL)
-                return NULL;
-        conn->refcount--;
-        if (conn->refcount > 0)
-                return conn;
-        if (conn->sock >= 0)
-                close(conn->sock);
-        udev_ctrl_unref(conn->uctrl);
-        free(conn);
+        if (conn && -- conn->refcount == 0) {
+                if (conn->sock >= 0)
+                        close(conn->sock);
+
+                udev_ctrl_unref(conn->uctrl);
+
+                free(conn);
+        }
+
         return NULL;
 }
 
@@ -405,13 +403,11 @@ err:
 }
 
 struct udev_ctrl_msg *udev_ctrl_msg_unref(struct udev_ctrl_msg *ctrl_msg) {
-        if (ctrl_msg == NULL)
-                return NULL;
-        ctrl_msg->refcount--;
-        if (ctrl_msg->refcount > 0)
-                return ctrl_msg;
-        udev_ctrl_connection_unref(ctrl_msg->conn);
-        free(ctrl_msg);
+        if (ctrl_msg && -- ctrl_msg->refcount == 0) {
+                udev_ctrl_connection_unref(ctrl_msg->conn);
+                free(ctrl_msg);
+        }
+
         return NULL;
 }
 
