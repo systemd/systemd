@@ -8,7 +8,7 @@
 [Unit]
 Description=Network Name Resolution
 Documentation=man:systemd-resolved.service(8)
-After=systemd-networkd.service network.service
+After=systemd-networkd.service network.target
 
 m4_ifdef(`ENABLE_KDBUS',
 # On kdbus systems we pull in the busname explicitly, because it
