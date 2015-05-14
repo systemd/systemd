@@ -177,7 +177,7 @@ static int bus_socket_auth_verify_client(sd_bus *b) {
         /* We expect two response lines: "OK" and possibly
          * "AGREE_UNIX_FD" */
 
-        e = memmem(b->rbuffer, b->rbuffer_size, "\r\n", 2);
+        e = memmem_safe(b->rbuffer, b->rbuffer_size, "\r\n", 2);
         if (!e)
                 return 0;
 

@@ -787,6 +787,21 @@ static inline void qsort_safe(void *base, size_t nmemb, size_t size, comparison_
         qsort(base, nmemb, size, compar);
 }
 
+/* Normal memmem() requires haystack to be nonnull, which is annoying for zero-length buffers */
+static inline void *memmem_safe(const void *haystack, size_t haystacklen, const void *needle, size_t needlelen) {
+
+        if (needlelen <= 0)
+                return (void*) haystack;
+
+        if (haystacklen < needlelen)
+                return NULL;
+
+        assert(haystack);
+        assert(needle);
+
+        return memmem(haystack, haystacklen, needle, needlelen);
+}
+
 int proc_cmdline(char **ret);
 int parse_proc_cmdline(int (*parse_word)(const char *key, const char *value));
 int get_proc_cmdline_key(const char *parameter, char **value);
