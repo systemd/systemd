@@ -151,9 +151,6 @@ Features:
   that are not supported...
   http://lists.freedesktop.org/archives/systemd-devel/2015-February/028076.html
 
-* Introduce $LISTEN_NAMES to complement $LISTEN_FDS, containing a
-  colon separated list of identifiers for the fds passed.
-
 * maybe introduce WantsMountsFor=? Usecase:
   http://lists.freedesktop.org/archives/systemd-devel/2015-January/027729.html
 
