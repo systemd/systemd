@@ -120,6 +120,7 @@ UnitFileState unit_file_get_state(
 int unit_file_get_list(UnitFileScope scope, const char *root_dir, Hashmap *h);
 
 void unit_file_list_free(Hashmap *h);
+int unit_file_changes_add(UnitFileChange **changes, unsigned *n_changes, UnitFileChangeType type, const char *path, const char *source);
 void unit_file_changes_free(UnitFileChange *changes, unsigned n_changes);
 
 int unit_file_query_preset(UnitFileScope scope, const char *root_dir, const char *name);

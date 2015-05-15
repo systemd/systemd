@@ -1479,7 +1479,7 @@ static int enable_machine(int argc, char *argv[], void *userdata) {
                         return bus_log_parse_error(r);
         }
 
-        r = bus_deserialize_and_dump_unit_file_changes(reply, arg_quiet);
+        r = bus_deserialize_and_dump_unit_file_changes(reply, arg_quiet, NULL, NULL);
         if (r < 0)
                 return r;
 

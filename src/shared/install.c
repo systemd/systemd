@@ -112,51 +112,6 @@ static int get_config_path(UnitFileScope scope, bool runtime, const char *root_d
         return 0;
 }
 
-static int add_file_change(
-                UnitFileChange **changes,
-                unsigned *n_changes,
-                UnitFileChangeType type,
-                const char *path,
-                const char *source) {
-
-        UnitFileChange *c;
-        unsigned i;
-
-        assert(path);
-        assert(!changes == !n_changes);
-
-        if (!changes)
-                return 0;
-
-        c = realloc(*changes, (*n_changes + 1) * sizeof(UnitFileChange));
-        if (!c)
-                return -ENOMEM;
-
-        *changes = c;
-        i = *n_changes;
-
-        c[i].type = type;
-        c[i].path = strdup(path);
-        if (!c[i].path)
-                return -ENOMEM;
-
-        path_kill_slashes(c[i].path);
-
-        if (source) {
-                c[i].source = strdup(source);
-                if (!c[i].source) {
-                        free(c[i].path);
-                        return -ENOMEM;
-                }
-
-                path_kill_slashes(c[i].path);
-        } else
-                c[i].source = NULL;
-
-        *n_changes = i+1;
-        return 0;
-}
-
 static int mark_symlink_for_removal(
                 Set **remove_symlinks_to,
                 const char *p) {
@@ -309,7 +264,7 @@ static int remove_marked_symlinks_fd(
 
                         path_kill_slashes(p);
                         rmdir_parents(p, config_path);
-                        add_file_change(changes, n_changes, UNIT_FILE_UNLINK, p, NULL);
+                        unit_file_changes_add(changes, n_changes, UNIT_FILE_UNLINK, p, NULL);
 
                         if (!set_get(remove_symlinks_to, p)) {
 
@@ -596,7 +551,7 @@ int unit_file_mask(
                 }
 
                 if (symlink("/dev/null", path) >= 0) {
-                        add_file_change(changes, n_changes, UNIT_FILE_SYMLINK, path, "/dev/null");
+                        unit_file_changes_add(changes, n_changes, UNIT_FILE_SYMLINK, path, "/dev/null");
                         continue;
                 }
 
@@ -607,8 +562,8 @@ int unit_file_mask(
 
                         if (force) {
                                 if (symlink_atomic("/dev/null", path) >= 0) {
-                                        add_file_change(changes, n_changes, UNIT_FILE_UNLINK, path, NULL);
-                                        add_file_change(changes, n_changes, UNIT_FILE_SYMLINK, path, "/dev/null");
+                                        unit_file_changes_add(changes, n_changes, UNIT_FILE_UNLINK, path, NULL);
+                                        unit_file_changes_add(changes, n_changes, UNIT_FILE_SYMLINK, path, "/dev/null");
                                         continue;
                                 }
                         }
@@ -664,7 +619,7 @@ int unit_file_unmask(
                                 q = -errno;
                         else {
                                 q = mark_symlink_for_removal(&remove_symlinks_to, path);
-                                add_file_change(changes, n_changes, UNIT_FILE_UNLINK, path, NULL);
+                                unit_file_changes_add(changes, n_changes, UNIT_FILE_UNLINK, path, NULL);
                         }
                 }
 
@@ -746,7 +701,7 @@ int unit_file_link(
                         return -ENOMEM;
 
                 if (symlink(*i, path) >= 0) {
-                        add_file_change(changes, n_changes, UNIT_FILE_SYMLINK, path, *i);
+                        unit_file_changes_add(changes, n_changes, UNIT_FILE_SYMLINK, path, *i);
                         continue;
                 }
 
@@ -765,8 +720,8 @@ int unit_file_link(
 
                         if (force) {
                                 if (symlink_atomic(*i, path) >= 0) {
-                                        add_file_change(changes, n_changes, UNIT_FILE_UNLINK, path, NULL);
-                                        add_file_change(changes, n_changes, UNIT_FILE_SYMLINK, path, *i);
+                                        unit_file_changes_add(changes, n_changes, UNIT_FILE_UNLINK, path, NULL);
+                                        unit_file_changes_add(changes, n_changes, UNIT_FILE_SYMLINK, path, *i);
                                         continue;
                                 }
                         }
@@ -791,6 +746,51 @@ void unit_file_list_free(Hashmap *h) {
         }
 
         hashmap_free(h);
+}
+
+int unit_file_changes_add(
+                UnitFileChange **changes,
+                unsigned *n_changes,
+                UnitFileChangeType type,
+                const char *path,
+                const char *source) {
+
+        UnitFileChange *c;
+        unsigned i;
+
+        assert(path);
+        assert(!changes == !n_changes);
+
+        if (!changes)
+                return 0;
+
+        c = realloc(*changes, (*n_changes + 1) * sizeof(UnitFileChange));
+        if (!c)
+                return -ENOMEM;
+
+        *changes = c;
+        i = *n_changes;
+
+        c[i].type = type;
+        c[i].path = strdup(path);
+        if (!c[i].path)
+                return -ENOMEM;
+
+        path_kill_slashes(c[i].path);
+
+        if (source) {
+                c[i].source = strdup(source);
+                if (!c[i].source) {
+                        free(c[i].path);
+                        return -ENOMEM;
+                }
+
+                path_kill_slashes(c[i].path);
+        } else
+                c[i].source = NULL;
+
+        *n_changes = i+1;
+        return 0;
 }
 
 void unit_file_changes_free(UnitFileChange *changes, unsigned n_changes) {
@@ -1198,7 +1198,7 @@ static int create_symlink(
         mkdir_parents_label(new_path, 0755);
 
         if (symlink(old_path, new_path) >= 0) {
-                add_file_change(changes, n_changes, UNIT_FILE_SYMLINK, new_path, old_path);
+                unit_file_changes_add(changes, n_changes, UNIT_FILE_SYMLINK, new_path, old_path);
                 return 0;
         }
 
@@ -1219,8 +1219,8 @@ static int create_symlink(
         if (r < 0)
                 return r;
 
-        add_file_change(changes, n_changes, UNIT_FILE_UNLINK, new_path, NULL);
-        add_file_change(changes, n_changes, UNIT_FILE_SYMLINK, new_path, old_path);
+        unit_file_changes_add(changes, n_changes, UNIT_FILE_UNLINK, new_path, NULL);
+        unit_file_changes_add(changes, n_changes, UNIT_FILE_SYMLINK, new_path, old_path);
 
         return 0;
 }

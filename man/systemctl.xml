@@ -456,6 +456,18 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--now</option></term>
+
+        <listitem>
+          <para>When used with <command>enable</command>, the units
+          will also be started. When used with <command>disable</command> or
+          <command>mask</command>, the units will also be stopped. The start
+          or stop operation is only carried out when the respective enable or
+          disable operation has been successful.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--root=</option></term>
 
         <listitem>
@@ -921,11 +933,12 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             the changes are taken into account immediately. Note that
             this does <emphasis>not</emphasis> have the effect of also
             starting any of the units being enabled. If this
-            is desired, a separate <command>start</command> command must
-            be invoked for the unit. Also note that in case of instance
-            enablement, symlinks named the same as instances are created in
-            the install location, however they all point to the same
-            template unit file.</para>
+            is desired, either <option>--now</option> should be used
+            together with this command, or an additional <command>start</command>
+            command must be invoked for the unit. Also note that in case of
+            instance enablement, symlinks named the same as instances
+            are created in the install location, however they all point to the
+            same template unit file.</para>
 
             <para>This command will print the actions executed. This
             output may be suppressed by passing <option>--quiet</option>.
@@ -980,9 +993,10 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             <command>enable</command>. This call implicitly reloads the
             systemd daemon configuration after completing the disabling
             of the units. Note that this command does not implicitly
-            stop the units that are being disabled. If this is desired,
-            an additional <command>stop</command> command should be
-            executed afterwards.</para>
+            stop the units that are being disabled. If this is desired, either
+            <option>--now</option> should be used together with this command, or
+            an additional <command>stop</command> command should be executed
+            afterwards.</para>
 
             <para>This command will print the actions executed. This
             output may be suppressed by passing <option>--quiet</option>.
@@ -1128,7 +1142,8 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             activation of the unit, including enablement and manual
             activation. Use this option with care. This honors the
             <option>--runtime</option> option to only mask temporarily
-            until the next reboot of the system.</para>
+            until the next reboot of the system. The <option>--now</option>
+            option can be used to ensure that the units are also stopped.</para>
           </listitem>
         </varlistentry>
 

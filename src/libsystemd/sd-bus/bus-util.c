@@ -1899,7 +1899,7 @@ int bus_wait_for_jobs_one(BusWaitForJobs *d, const char *path, bool quiet) {
         return bus_wait_for_jobs(d, quiet);
 }
 
-int bus_deserialize_and_dump_unit_file_changes(sd_bus_message *m, bool quiet) {
+int bus_deserialize_and_dump_unit_file_changes(sd_bus_message *m, bool quiet, UnitFileChange **changes, unsigned *n_changes) {
         const char *type, *path, *source;
         int r;
 
@@ -1914,6 +1914,10 @@ int bus_deserialize_and_dump_unit_file_changes(sd_bus_message *m, bool quiet) {
                         else
                                 log_info("Removed symlink %s.", path);
                 }
+
+                r = unit_file_changes_add(changes, n_changes, streq(type, "symlink") ? UNIT_FILE_SYMLINK : UNIT_FILE_UNLINK, path, source);
+                if (r < 0)
+                        return r;
         }
         if (r < 0)
                 return bus_log_parse_error(r);
