@@ -67,9 +67,9 @@ static int write_fsck_sysroot_service(const char *dir, const char *what) {
                 what,
                 device);
 
-        fflush(f);
-        if (ferror(f))
-                return log_error_errno(errno, "Failed to write unit file %s: %m", unit);
+        r = fflush_and_check(f);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write unit file %s: %m", unit);
 
         return 0;
 }
