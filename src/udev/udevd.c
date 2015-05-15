@@ -406,9 +406,6 @@ static void worker_spawn(Manager *manager, struct event *event) {
                                 goto out;
                         }
 
-                        /* needed for SIGCHLD/SIGTERM in spawn() */
-                        udev_event->fd_signal = fd_signal;
-
                         if (arg_exec_delay > 0)
                                 udev_event->exec_delay = arg_exec_delay;
 
@@ -480,11 +477,6 @@ skip:
 
                         udev_device_unref(dev);
                         dev = NULL;
-
-                        if (udev_event->sigterm) {
-                                udev_event_unref(udev_event);
-                                goto out;
-                        }
 
                         udev_event_unref(udev_event);
 

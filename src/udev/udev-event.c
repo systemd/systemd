@@ -32,7 +32,16 @@
 
 #include "udev.h"
 #include "rtnl-util.h"
+#include "event-util.h"
 #include "formats-util.h"
+#include "process-util.h"
+
+typedef struct Spawn {
+        const char *cmd;
+        pid_t pid;
+        usec_t timeout_warn;
+        usec_t timeout;
+} Spawn;
 
 struct udev_event *udev_event_new(struct udev_device *dev) {
         struct udev *udev = udev_device_get_udev(dev);
@@ -45,8 +54,7 @@ struct udev_event *udev_event_new(struct udev_device *dev) {
         event->udev = udev;
         udev_list_init(udev, &event->run_list, false);
         udev_list_init(udev, &event->seclabel_list, false);
-        event->fd_signal = -1;
-        event->birth_usec = now(CLOCK_MONOTONIC);
+        event->birth_usec = clock_boottime_or_monotonic();
         return event;
 }
 
@@ -467,7 +475,7 @@ static void spawn_read(struct udev_event *event,
                 if (timeout_usec > 0) {
                         usec_t age_usec;
 
-                        age_usec = now(CLOCK_MONOTONIC) - event->birth_usec;
+                        age_usec = clock_boottime_or_monotonic() - event->birth_usec;
                         if (age_usec >= timeout_usec) {
                                 log_error("timeout '%s'", cmd);
                                 return;
@@ -540,102 +548,116 @@ static void spawn_read(struct udev_event *event,
                 result[respos] = '\0';
 }
 
+static int on_spawn_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
+        Spawn *spawn = userdata;
+        char timeout[FORMAT_TIMESTAMP_RELATIVE_MAX];
+
+        assert(spawn);
+
+        kill_and_sigcont(spawn->pid, SIGKILL);
+
+        log_error("spawned process '%s' ["PID_FMT"] timed out after %s, killing", spawn->cmd, spawn->pid,
+                  format_timestamp_relative(timeout, sizeof(timeout), spawn->timeout));
+
+        return 1;
+}
+
+static int on_spawn_timeout_warning(sd_event_source *s, uint64_t usec, void *userdata) {
+        Spawn *spawn = userdata;
+        char timeout[FORMAT_TIMESTAMP_RELATIVE_MAX];
+
+        assert(spawn);
+
+        log_warning("spawned process '%s' ["PID_FMT"] is taking longer than %s to complete", spawn->cmd, spawn->pid,
+                    format_timestamp_relative(timeout, sizeof(timeout), spawn->timeout));
+
+        return 1;
+}
+
+static int on_spawn_sigchld(sd_event_source *s, const siginfo_t *si, void *userdata) {
+        Spawn *spawn = userdata;
+
+        assert(spawn);
+
+        switch (si->si_code) {
+        case CLD_EXITED:
+                if (si->si_status != 0)
+                        log_warning("process '%s' failed with exit code %i.", spawn->cmd, si->si_status);
+                else {
+                        log_debug("process '%s' succeeded.", spawn->cmd);
+                        sd_event_exit(sd_event_source_get_event(s), 0);
+
+                        return 1;
+                }
+
+                break;
+        case CLD_KILLED:
+        case CLD_DUMPED:
+                log_warning("process '%s' terminated by signal %s.", spawn->cmd, signal_to_string(si->si_status));
+
+                break;
+        default:
+                log_error("process '%s' failed due to unknown reason.", spawn->cmd);
+        }
+
+        sd_event_exit(sd_event_source_get_event(s), -EIO);
+
+        return 1;
+}
+
 static int spawn_wait(struct udev_event *event,
                       usec_t timeout_usec,
                       usec_t timeout_warn_usec,
                       const char *cmd, pid_t pid) {
-        struct pollfd pfd[1];
-        int err = 0;
+        Spawn spawn = {
+                .cmd = cmd,
+                .pid = pid,
+        };
+        _cleanup_event_unref_ sd_event *e = NULL;
+        int r, ret;
 
-        pfd[0].events = POLLIN;
-        pfd[0].fd = event->fd_signal;
+        r = sd_event_new(&e);
+        if (r < 0)
+                return r;
 
-        while (pid > 0) {
-                int timeout;
-                int timeout_warn = 0;
-                int fdcount;
+        if (timeout_usec > 0) {
+                usec_t usec, age_usec;
 
-                if (timeout_usec > 0) {
-                        usec_t age_usec;
+                usec = now(clock_boottime_or_monotonic());
+                age_usec = usec - event->birth_usec;
+                if (age_usec < timeout_usec) {
+                        if (timeout_warn_usec > 0 && timeout_warn_usec < timeout_usec && age_usec < timeout_warn_usec) {
+                                spawn.timeout_warn = timeout_warn_usec - age_usec;
 
-                        age_usec = now(CLOCK_MONOTONIC) - event->birth_usec;
-                        if (age_usec >= timeout_usec)
-                                timeout = 1000;
-                        else {
-                                if (timeout_warn_usec > 0)
-                                        timeout_warn = ((timeout_warn_usec - age_usec) / USEC_PER_MSEC) + MSEC_PER_SEC;
-
-                                timeout = ((timeout_usec - timeout_warn_usec - age_usec) / USEC_PER_MSEC) + MSEC_PER_SEC;
+                                r =  sd_event_add_time(e, NULL, clock_boottime_or_monotonic(),
+                                                       usec + spawn.timeout_warn, USEC_PER_SEC,
+                                                       on_spawn_timeout_warning, &spawn);
+                                if (r < 0)
+                                        return r;
                         }
-                } else {
-                        timeout = -1;
-                }
 
-                fdcount = poll(pfd, 1, timeout_warn);
-                if (fdcount < 0) {
-                        if (errno == EINTR)
-                                continue;
-                        err = -errno;
-                        log_error_errno(errno, "failed to poll: %m");
-                        goto out;
-                }
-                if (fdcount == 0) {
-                        log_warning("slow: '%s' ["PID_FMT"]", cmd, pid);
+                        spawn.timeout = timeout_usec - age_usec;
 
-                        fdcount = poll(pfd, 1, timeout);
-                        if (fdcount < 0) {
-                                if (errno == EINTR)
-                                        continue;
-                                err = -errno;
-                                log_error_errno(errno, "failed to poll: %m");
-                                goto out;
-                        }
-                        if (fdcount == 0) {
-                                log_error("timeout: killing '%s' ["PID_FMT"]", cmd, pid);
-                                kill(pid, SIGKILL);
-                        }
-                }
-
-                if (pfd[0].revents & POLLIN) {
-                        struct signalfd_siginfo fdsi;
-                        int status;
-                        ssize_t size;
-
-                        size = read(event->fd_signal, &fdsi, sizeof(struct signalfd_siginfo));
-                        if (size != sizeof(struct signalfd_siginfo))
-                                continue;
-
-                        switch (fdsi.ssi_signo) {
-                        case SIGTERM:
-                                event->sigterm = true;
-                                break;
-                        case SIGCHLD:
-                                if (waitpid(pid, &status, WNOHANG) < 0)
-                                        break;
-                                if (WIFEXITED(status)) {
-                                        log_debug("'%s' ["PID_FMT"] exit with return code %i", cmd, pid, WEXITSTATUS(status));
-                                        if (WEXITSTATUS(status) != 0)
-                                                err = -1;
-                                } else if (WIFSIGNALED(status)) {
-                                        log_error("'%s' ["PID_FMT"] terminated by signal %i (%s)", cmd, pid, WTERMSIG(status), strsignal(WTERMSIG(status)));
-                                        err = -1;
-                                } else if (WIFSTOPPED(status)) {
-                                        log_error("'%s' ["PID_FMT"] stopped", cmd, pid);
-                                        err = -1;
-                                } else if (WIFCONTINUED(status)) {
-                                        log_error("'%s' ["PID_FMT"] continued", cmd, pid);
-                                        err = -1;
-                                } else {
-                                        log_error("'%s' ["PID_FMT"] exit with status 0x%04x", cmd, pid, status);
-                                        err = -1;
-                                }
-                                pid = 0;
-                                break;
-                        }
+                        r = sd_event_add_time(e, NULL, clock_boottime_or_monotonic(),
+                                              usec + spawn.timeout, USEC_PER_SEC, on_spawn_timeout, &spawn);
+                        if (r < 0)
+                                return r;
                 }
         }
-out:
-        return err;
+
+        r = sd_event_add_child(e, NULL, pid, WEXITED, on_spawn_sigchld, &spawn);
+        if (r < 0)
+                return r;
+
+        r = sd_event_loop(e);
+        if (r < 0)
+                return r;
+
+        r = sd_event_get_exit_code(e, &ret);
+        if (r < 0)
+                return r;
+
+        return ret;
 }
 
 int udev_build_argv(struct udev *udev, char *cmd, int *argc, char *argv[]) {

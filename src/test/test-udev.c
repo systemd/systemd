@@ -120,11 +120,6 @@ int main(int argc, char *argv[]) {
 
         sigfillset(&mask);
         sigprocmask(SIG_SETMASK, &mask, &sigmask_orig);
-        event->fd_signal = signalfd(-1, &mask, SFD_NONBLOCK|SFD_CLOEXEC);
-        if (event->fd_signal < 0) {
-                fprintf(stderr, "error creating signalfd\n");
-                goto out;
-        }
 
         /* do what devtmpfs usually provides us */
         if (udev_device_get_devnode(dev) != NULL) {
@@ -153,8 +148,6 @@ int main(int argc, char *argv[]) {
                                3 * USEC_PER_SEC, USEC_PER_SEC,
                                NULL);
 out:
-        if (event != NULL && event->fd_signal >= 0)
-                close(event->fd_signal);
         mac_selinux_finish();
 
         return err ? EXIT_FAILURE : EXIT_SUCCESS;

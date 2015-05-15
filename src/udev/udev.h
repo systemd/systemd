@@ -44,11 +44,9 @@ struct udev_event {
         struct udev_list run_list;
         int exec_delay;
         usec_t birth_usec;
-        int fd_signal;
         sd_rtnl *rtnl;
         unsigned int builtin_run;
         unsigned int builtin_ret;
-        bool sigterm;
         bool inotify_watch;
         bool inotify_watch_final;
         bool group_set;
