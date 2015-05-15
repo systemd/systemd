@@ -48,6 +48,7 @@
 /systemd-modules-load.service
 /systemd-networkd-wait-online.service
 /systemd-networkd.service
+/systemd-networkd.service.m4
 /systemd-nspawn@.service
 /systemd-poweroff.service
 /systemd-quotacheck.service

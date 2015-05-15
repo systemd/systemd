@@ -5920,7 +5920,7 @@ gperf_gperf_sources += \
 	src/network/networkd-netdev-gperf.gperf
 
 EXTRA_DIST += \
-	units/systemd-networkd.service.in \
+	units/systemd-networkd.service.m4.in \
 	units/systemd-networkd-wait-online.service.in
 
 endif
