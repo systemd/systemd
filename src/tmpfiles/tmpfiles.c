@@ -1253,13 +1253,12 @@ static int create_item(Item *i) {
                         if (errno != EEXIST)
                                 return log_error_errno(errno, "Failed to create fifo %s: %m", i->path);
 
-                        if (stat(i->path, &st) < 0)
+                        if (lstat(i->path, &st) < 0)
                                 return log_error_errno(errno, "stat(%s) failed: %m", i->path);
 
                         if (!S_ISFIFO(st.st_mode)) {
 
                                 if (i->force) {
-
                                         RUN_WITH_UMASK(0000) {
                                                 mac_selinux_create_file_prepare(i->path, S_IFIFO);
                                                 r = mkfifo_atomic(i->path, i->mode);
@@ -1270,7 +1269,7 @@ static int create_item(Item *i) {
                                                 return log_error_errno(r, "Failed to create fifo %s: %m", i->path);
                                         creation = CREATION_FORCE;
                                 } else {
-                                        log_debug("%s is not a fifo.", i->path);
+                                        log_warning("\"%s\" already exists and is not a fifo.", i->path);
                                         return 0;
                                 }
                         } else
@@ -1311,6 +1310,7 @@ static int create_item(Item *i) {
 
                                         if (r < 0)
                                                 return log_error_errno(r, "symlink(%s, %s) failed: %m", resolved, i->path);
+
                                         creation = CREATION_FORCE;
                                 } else {
                                         log_debug("\"%s\" is not a symlink or does not point to the correct path.", i->path);
@@ -1319,9 +1319,9 @@ static int create_item(Item *i) {
                         } else
                                 creation = CREATION_EXISTING;
                 } else
+
                         creation = CREATION_NORMAL;
                 log_debug("%s symlink \"%s\".", creation_mode_verb_to_string(creation), i->path);
-
                 break;
         }
 
@@ -1357,7 +1357,7 @@ static int create_item(Item *i) {
                         if (errno != EEXIST)
                                 return log_error_errno(errno, "Failed to create device node %s: %m", i->path);
 
-                        if (stat(i->path, &st) < 0)
+                        if (lstat(i->path, &st) < 0)
                                 return log_error_errno(errno, "stat(%s) failed: %m", i->path);
 
                         if ((st.st_mode & S_IFMT) != file_type) {
@@ -1381,6 +1381,7 @@ static int create_item(Item *i) {
                                 creation = CREATION_EXISTING;
                 } else
                         creation = CREATION_NORMAL;
+
                 log_debug("%s %s device node \"%s\" %u:%u.",
                           creation_mode_verb_to_string(creation),
                           i->type == CREATE_BLOCK_DEVICE ? "block" : "char",
