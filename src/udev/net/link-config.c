@@ -67,9 +67,9 @@ static void link_config_free(link_config *link) {
         free(link->filename);
 
         free(link->match_mac);
-        free(link->match_path);
-        free(link->match_driver);
-        free(link->match_type);
+        strv_free(link->match_path);
+        strv_free(link->match_driver);
+        strv_free(link->match_type);
         free(link->match_name);
         free(link->match_host);
         free(link->match_virt);
