@@ -149,10 +149,6 @@ Features:
   that are not supported...
   http://lists.freedesktop.org/archives/systemd-devel/2015-February/028076.html
 
-* PID 1: when invoking systemctl preset-all on first boots, operate in
-  an exclusively additive way, i.e. never remove any pre-existing
-  symlinks, only add new ones.
-
 * Introduce $LISTEN_NAMES to complement $LISTEN_FDS, containing a
   colon separated list of identifiers for the fds passed.
 

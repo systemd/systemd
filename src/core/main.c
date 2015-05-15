@@ -1618,7 +1618,7 @@ int main(int argc, char *argv[]) {
                 bump_rlimit_nofile(&saved_rlimit_nofile);
 
                 if (empty_etc) {
-                        r = unit_file_preset_all(UNIT_FILE_SYSTEM, false, NULL, UNIT_FILE_PRESET_FULL, false, NULL, 0);
+                        r = unit_file_preset_all(UNIT_FILE_SYSTEM, false, NULL, UNIT_FILE_PRESET_ENABLE_ONLY, false, NULL, 0);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to populate /etc with preset unit settings, ignoring: %m");
                         else
