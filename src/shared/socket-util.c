@@ -51,11 +51,6 @@ int socket_address_parse(SocketAddress *a, const char *s) {
         if (*s == '[') {
                 /* IPv6 in [x:.....:z]:p notation */
 
-                if (!socket_ipv6_is_supported()) {
-                        log_warning("Binding to IPv6 address not available since kernel does not support IPv6.");
-                        return -EAFNOSUPPORT;
-                }
-
                 e = strchr(s+1, ']');
                 if (!e)
                         return -EINVAL;
@@ -140,11 +135,6 @@ int socket_address_parse(SocketAddress *a, const char *s) {
                                 if (idx == 0)
                                         return -EINVAL;
 
-                                if (!socket_ipv6_is_supported()) {
-                                        log_warning("Binding to interface is not available since kernel does not support IPv6.");
-                                        return -EAFNOSUPPORT;
-                                }
-
                                 a->sockaddr.in6.sin6_family = AF_INET6;
                                 a->sockaddr.in6.sin6_port = htons((uint16_t) u);
                                 a->sockaddr.in6.sin6_scope_id = idx;
@@ -175,6 +165,25 @@ int socket_address_parse(SocketAddress *a, const char *s) {
                 }
         }
 
+        return 0;
+}
+
+int socket_address_parse_and_warn(SocketAddress *a, const char *s) {
+        SocketAddress b;
+        int r;
+
+        /* Similar to socket_address_parse() but warns for IPv6 sockets when we don't support them. */
+
+        r = socket_address_parse(&b, s);
+        if (r < 0)
+                return r;
+
+        if (!socket_ipv6_is_supported() && b.sockaddr.sa.sa_family == AF_INET6) {
+                log_warning("Binding to IPv6 address not available since kernel does not support IPv6.");
+                return -EAFNOSUPPORT;
+        }
+
+        *a = b;
         return 0;
 }
 

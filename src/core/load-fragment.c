@@ -356,7 +356,7 @@ int config_parse_socket_listen(const char *unit,
                         log_syntax(unit, LOG_ERR, filename, line, -r,
                                    "Failed to resolve unit specifiers on %s, ignoring: %s", rvalue, strerror(-r));
 
-                r = socket_address_parse(&p->address, k ? k : rvalue);
+                r = socket_address_parse_and_warn(&p->address, k ? k : rvalue);
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, -r,
                                    "Failed to parse address value, ignoring: %s", rvalue);
