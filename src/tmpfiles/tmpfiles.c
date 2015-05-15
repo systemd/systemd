@@ -1214,20 +1214,25 @@ static int create_item(Item *i) {
                                 r = mkdir_label(i->path, i->mode);
 
                 if (r < 0) {
-                        if (r != -EEXIST)
+                        int k;
+
+                        if (r != -EEXIST && r != -EROFS)
                                 return log_error_errno(r, "Failed to create directory or subvolume \"%s\": %m", i->path);
 
-                        if (stat(i->path, &st) < 0)
-                                return log_error_errno(errno, "stat(%s) failed: %m", i->path);
-
-                        if (!S_ISDIR(st.st_mode)) {
-                                log_debug("\"%s\" already exists and is not a directory.", i->path);
+                        k = is_dir(i->path, false);
+                        if (k == -ENOENT && r == -EROFS)
+                                return log_error_errno(r, "%s does not exist and cannot be created as the file system is read-only.", i->path);
+                        if (k < 0)
+                                return log_error_errno(k, "Failed to check if %s exists: %m", i->path);
+                        if (!k) {
+                                log_warning("\"%s\" already exists and is not a directory.", i->path);
                                 return 0;
                         }
 
                         creation = CREATION_EXISTING;
                 } else
                         creation = CREATION_NORMAL;
+
                 log_debug("%s directory \"%s\".", creation_mode_verb_to_string(creation), i->path);
 
                 r = path_set_perms(i, i->path);
