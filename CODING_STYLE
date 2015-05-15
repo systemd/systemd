@@ -269,3 +269,21 @@
   behaviour in this case, so consider using them as an alternative.)
   Regarding not using alloca() within function parameters, see the
   BUGS section of the alloca(3) man page.
+
+- Use memzero() or even better zero() instead of memset(..., 0, ...)
+
+- Instead of using memzero()/memset() to initialize structs allocated
+  on the stack, please try to use c99 structure initializers. It's
+  short, prettier and actually even faster at execution. Hence:
+
+          struct foobar t = {
+                  .foo = 7,
+                  .bar = "bazz",
+          };
+
+  instead of:
+
+          struct foobar t;
+          zero(t);
+          t.foo = 7;
+          t.bar = "bazz";
