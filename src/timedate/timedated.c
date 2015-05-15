@@ -182,7 +182,7 @@ static int context_write_data_local_rtc(Context *c) {
 
 static int context_read_ntp(Context *c, sd_bus *bus) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        sd_bus_message *reply = NULL;
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         const char *s;
         int r;
 
