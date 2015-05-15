@@ -221,6 +221,12 @@ static void worker_attach_event(struct worker *worker, struct event *event) {
         event->worker = worker;
 }
 
+static int worker_send_message(int fd) {
+        struct worker_message message = {};
+
+        return loop_write(fd, &message, sizeof(message), false);
+}
+
 static void worker_spawn(Manager *manager, struct event *event) {
         struct udev *udev = event->udev;
         _cleanup_udev_monitor_unref_ struct udev_monitor *worker_monitor = NULL;
@@ -292,7 +298,6 @@ static void worker_spawn(Manager *manager, struct event *event) {
 
                 for (;;) {
                         struct udev_event *udev_event;
-                        struct worker_message msg;
                         int fd_lock = -1;
 
                         log_debug("seq %llu running", udev_device_get_seqnum(dev));
@@ -369,10 +374,9 @@ skip:
                         log_debug("seq %llu processed", udev_device_get_seqnum(dev));
 
                         /* send udevd the result of the event execution */
-                        memzero(&msg, sizeof(struct worker_message));
-                        r = send(worker_watch[WRITE_END], &msg, sizeof(struct worker_message), 0);
+                        r = worker_send_message(worker_watch[WRITE_END]);
                         if (r < 0)
-                                log_error_errno(errno, "failed to send result of seq %llu to main daemon: %m",
+                                log_error_errno(r, "failed to send result of seq %llu to main daemon: %m",
                                                 udev_device_get_seqnum(dev));
 
                         udev_device_unref(dev);
