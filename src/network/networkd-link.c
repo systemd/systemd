@@ -26,6 +26,7 @@
 #include "util.h"
 #include "virt.h"
 #include "fileio.h"
+#include "socket-util.h"
 #include "bus-util.h"
 #include "udev-util.h"
 #include "network-internal.h"
@@ -1488,6 +1489,10 @@ static int link_set_ipv4_forward(Link *link) {
 static int link_set_ipv6_forward(Link *link) {
         const char *p = NULL;
         int r;
+
+        /* Make this a NOP if IPv6 is not available */
+        if (!socket_ipv6_is_supported())
+                return 0;
 
         p = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/forwarding");
         r = write_string_file_no_create(p, one_zero(link_ipv6_forward_enabled(link)));
