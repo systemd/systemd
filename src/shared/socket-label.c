@@ -109,9 +109,6 @@ int socket_address_listen(
                 /* Enforce the right access mode for the socket */
                 old_mask = umask(~ socket_mode);
 
-                /* Include the original umask in our mask */
-                umask(~socket_mode | old_mask);
-
                 r = mac_selinux_bind(fd, &a->sockaddr.sa, a->size);
 
                 if (r < 0 && errno == EADDRINUSE) {
