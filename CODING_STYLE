@@ -121,7 +121,8 @@
   no speed benefit, and on calls like printf() "float"s get promoted
   to "double"s anyway, so there is no point.
 
-- Do not invoke functions when you allocate variables on the stack. Wrong:
+- Do not mix function invocations with variable definitions in one
+  line. Wrong:
 
   {
           int a = foobar();
@@ -259,3 +260,12 @@
 
   which will always work regardless if p is initialized or not, and
   guarantees that p is NULL afterwards, all in just one line.
+
+- Use alloca(), but never forget that it is not OK to invoke alloca()
+  within a loop or within function call parameters. alloca() memory is
+  released at the end of a function, and not at the end of a {}
+  block. Thus, if you invoke it in a loop, you keep increasing the
+  stack pointer without ever releasing memory again. (VLAs have better
+  behaviour in this case, so consider using them as an alternative.)
+  Regarding not using alloca() within function parameters, see the
+  BUGS section of the alloca(3) man page.
