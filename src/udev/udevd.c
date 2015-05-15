@@ -667,8 +667,11 @@ static int on_worker(sd_event_source *s, int fd, uint32_t revents, void *userdat
 
                 size = recvmsg(fd, &msghdr, MSG_DONTWAIT);
                 if (size < 0) {
-                        if (errno == EAGAIN || errno == EINTR)
-                                return 1;
+                        if (errno == EINTR)
+                                continue;
+                        else if (errno == EAGAIN)
+                                /* nothing more to read */
+                                break;
 
                         return log_error_errno(errno, "failed to receive message: %m");
                 } else if (size != sizeof(struct worker_message)) {
