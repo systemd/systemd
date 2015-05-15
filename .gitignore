@@ -22,6 +22,10 @@
 /*.tar.xz
 /Makefile
 /TAGS
+/GPATH
+/GRTAGS
+/GSYMS
+/GTAGS
 /accelerometer
 /ata_id
 /bootctl
