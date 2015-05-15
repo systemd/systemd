@@ -134,7 +134,9 @@
         by coredumps might temporarily exceed these limits while
         coredumps are processed. Note that old coredumps are also
         removed based on time via
-        <citerefentry><refentrytitle>systemd-tmpfiles</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para></listitem>
+        <citerefentry><refentrytitle>systemd-tmpfiles</refentrytitle><manvolnum>8</manvolnum></citerefentry>. Set
+        either value to 0 to turn off size based
+        clean-up.</para></listitem>
       </varlistentry>
     </variablelist>
 

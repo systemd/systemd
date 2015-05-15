@@ -103,8 +103,7 @@ static bool vacuum_necessary(int fd, off_t sum, off_t keep_free, off_t max_use) 
 
                         if (max_use < DEFAULT_MAX_USE_LOWER)
                                 max_use = DEFAULT_MAX_USE_LOWER;
-                }
-                else
+                } else
                         max_use = DEFAULT_MAX_USE_LOWER;
         } else
                 max_use = PAGE_ALIGN(max_use);
@@ -135,7 +134,7 @@ int coredump_vacuum(int exclude_fd, off_t keep_free, off_t max_use) {
         struct stat exclude_st;
         int r;
 
-        if (keep_free <= 0 && max_use <= 0)
+        if (keep_free == 0 && max_use == 0)
                 return 0;
 
         if (exclude_fd >= 0) {
