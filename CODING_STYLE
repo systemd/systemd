@@ -287,3 +287,6 @@
           zero(t);
           t.foo = 7;
           t.bar = "bazz";
+
+- When returning a return code from main(), please preferably use
+  EXIT_FAILURE and EXIT_SUCCESS as defined by libc.
