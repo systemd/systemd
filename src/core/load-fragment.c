@@ -596,7 +596,8 @@ int config_parse_exec(
 
                                 /* skip special chars in the beginning */
                                 if (l <= skip) {
-                                        log_syntax(unit, LOG_ERR, filename, line, EINVAL, "Empty path in command line, ignoring: %s", rvalue);
+                                        log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                                                   "Empty path in command line, ignoring: \"%s\"", rvalue);
                                         r = 0;
                                         goto fail;
                                 }
