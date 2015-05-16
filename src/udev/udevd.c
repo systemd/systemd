@@ -69,6 +69,7 @@ typedef struct Manager {
         Hashmap *workers;
         struct udev_list_node events;
         char *cgroup;
+        pid_t pid; /* the process that originally allocated the manager object */
 
         struct udev_rules *rules;
         struct udev_list properties;
@@ -90,6 +91,7 @@ enum event_state {
 
 struct event {
         struct udev_list_node node;
+        Manager *manager;
         struct udev *udev;
         struct udev_device *dev;
         struct udev_device *dev_kernel;
@@ -135,6 +137,8 @@ struct worker_message {
 };
 
 static void event_free(struct event *event) {
+        int r;
+
         if (!event)
                 return;
 
@@ -144,6 +148,17 @@ static void event_free(struct event *event) {
 
         if (event->worker)
                 event->worker->event = NULL;
+
+        assert(event->manager);
+
+        if (udev_list_node_is_empty(&event->manager->events)) {
+                /* only clean up the queue from the process that created it */
+                if (event->manager->pid == getpid()) {
+                        r = unlink("/run/udev/queue");
+                        if (r < 0)
+                                log_warning_errno(errno, "could not unlink /run/udev/queue: %m");
+                }
+        }
 
         free(event);
 }
@@ -492,15 +507,20 @@ static void event_run(Manager *manager, struct event *event) {
 
 static int event_queue_insert(Manager *manager, struct udev_device *dev) {
         struct event *event;
+        int r;
 
         assert(manager);
         assert(dev);
 
+        /* only the main process can add events to the queue */
+        assert(manager->pid == getpid());
+
         event = new0(struct event, 1);
-        if (event == NULL)
-                return -1;
+        if (!event)
+                return -ENOMEM;
 
         event->udev = udev_device_get_udev(dev);
+        event->manager = manager;
         event->dev = dev;
         event->dev_kernel = udev_device_shallow_clone(dev);
         udev_device_copy_properties(event->dev_kernel, dev);
@@ -516,7 +536,15 @@ static int event_queue_insert(Manager *manager, struct udev_device *dev) {
              udev_device_get_action(dev), udev_device_get_subsystem(dev));
 
         event->state = EVENT_QUEUED;
+
+        if (udev_list_node_is_empty(&manager->events)) {
+                r = touch("/run/udev/queue");
+                if (r < 0)
+                        log_warning_errno(r, "could not touch /run/udev/queue: %m");
+        }
+
         udev_list_node_append(&event->node, &manager->events);
+
         return 0;
 }
 
@@ -726,22 +754,6 @@ static int on_uevent(sd_event_source *s, int fd, uint32_t revents, void *userdat
         return 1;
 }
 
-static void event_queue_update(Manager *manager) {
-        int r;
-
-        assert(manager);
-
-        if (!udev_list_node_is_empty(&manager->events)) {
-                r = touch("/run/udev/queue");
-                if (r < 0)
-                        log_warning_errno(r, "could not touch /run/udev/queue: %m");
-        } else {
-                r = unlink("/run/udev/queue");
-                if (r < 0 && errno != ENOENT)
-                        log_warning("could not unlink /run/udev/queue: %m");
-        }
-}
-
 /* receive the udevd message from userspace */
 static int on_ctrl_msg(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         Manager *manager = userdata;
@@ -813,13 +825,8 @@ static int on_ctrl_msg(sd_event_source *s, int fd, uint32_t revents, void *userd
                 arg_children_max = i;
         }
 
-        if (udev_ctrl_get_ping(ctrl_msg) > 0) {
+        if (udev_ctrl_get_ping(ctrl_msg) > 0)
                 log_debug("udevd message (SYNC) received");
-                /* tell settle that we are busy or idle, this needs to be before the
-                 * PING handling
-                 */
-                event_queue_update(manager);
-        }
 
         if (udev_ctrl_get_exit(ctrl_msg) > 0) {
                 log_debug("udevd message (EXIT) received");
@@ -1255,6 +1262,8 @@ static int manager_new(Manager **ret) {
         if (!manager)
                 return log_oom();
 
+        manager->pid = getpid();
+
         manager->udev = udev_new();
         if (!manager->udev)
                 return log_error_errno(errno, "could not allocate udev context: %m");
@@ -1528,9 +1537,6 @@ int main(int argc, char *argv[]) {
                         timeout = 3 * MSEC_PER_SEC;
                 }
 
-                /* tell settle that we are busy or idle */
-                event_queue_update(manager);
-
                 fdcount = epoll_wait(fd_ep, ev, ELEMENTSOF(ev), timeout);
                 if (fdcount < 0)
                         continue;
@@ -1668,7 +1674,6 @@ int main(int argc, char *argv[]) {
 
 exit:
         udev_ctrl_cleanup(manager->ctrl);
-        unlink("/run/udev/queue");
 exit_daemonize:
         if (fd_ep >= 0)
                 close(fd_ep);
