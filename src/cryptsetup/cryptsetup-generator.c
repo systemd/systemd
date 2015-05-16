@@ -176,9 +176,9 @@ static int create_disk(
                         "ExecStartPost=/sbin/mkswap '/dev/mapper/%s'\n",
                         name);
 
-        fflush(f);
-        if (ferror(f))
-                return log_error_errno(errno, "Failed to write file %s: %m", p);
+        r = fflush_and_check(f);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write file %s: %m", p);
 
         from = strjoina("../", n);
 

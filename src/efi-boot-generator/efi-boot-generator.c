@@ -123,9 +123,9 @@ int main(int argc, char *argv[]) {
                 "Options=umask=0077,noauto\n",
                 what);
 
-        fflush(f);
-        if (ferror(f)) {
-                log_error_errno(errno, "Failed to write mount unit file: %m");
+        r = fflush_and_check(f);
+        if (r < 0) {
+                log_error_errno(r, "Failed to write mount unit file: %m");
                 return EXIT_FAILURE;
         }
 
@@ -144,9 +144,9 @@ int main(int argc, char *argv[]) {
               "Where=/boot\n"
               "TimeoutIdleSec=120\n", f);
 
-        fflush(f);
-        if (ferror(f)) {
-                log_error_errno(errno, "Failed to write automount unit file: %m");
+        r = fflush_and_check(f);
+        if (r < 0) {
+                log_error_errno(r, "Failed to write automount unit file: %m");
                 return EXIT_FAILURE;
         }
 

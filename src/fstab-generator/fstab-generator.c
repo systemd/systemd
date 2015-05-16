@@ -275,9 +275,9 @@ static int add_mount(
         if (!isempty(filtered) && !streq(filtered, "defaults"))
                 fprintf(f, "Options=%s\n", filtered);
 
-        fflush(f);
-        if (ferror(f))
-                return log_error_errno(errno, "Failed to write unit file %s: %m", unit);
+        r = fflush_and_check(f);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write unit file %s: %m", unit);
 
         if (!noauto && post) {
                 lnk = strjoin(arg_dest, "/", post, nofail || automount ? ".wants/" : ".requires/", name, NULL);
@@ -324,9 +324,9 @@ static int add_mount(
                 if (r < 0)
                         return r;
 
-                fflush(f);
-                if (ferror(f))
-                        return log_error_errno(errno, "Failed to write unit file %s: %m", automount_unit);
+                r = fflush_and_check(f);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to write unit file %s: %m", automount_unit);
 
                 free(lnk);
                 lnk = strjoin(arg_dest, "/", post, nofail ? ".wants/" : ".requires/", automount_name, NULL);
