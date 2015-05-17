@@ -292,18 +292,19 @@ static int device_add_udev_wants(Unit *u, struct udev_device *dev) {
 
 static int device_setup_unit(Manager *m, struct udev_device *dev, const char *path, bool main) {
         _cleanup_free_ char *e = NULL;
-        const char *sysfs;
+        const char *sysfs = NULL;
         Unit *u = NULL;
         bool delete;
         int r;
 
         assert(m);
-        assert(dev);
         assert(path);
 
-        sysfs = udev_device_get_syspath(dev);
-        if (!sysfs)
-                return 0;
+        if (dev) {
+                sysfs = udev_device_get_syspath(dev);
+                if (!sysfs)
+                        return 0;
+        }
 
         r = unit_name_from_path(path, ".device", &e);
         if (r < 0)
@@ -312,6 +313,7 @@ static int device_setup_unit(Manager *m, struct udev_device *dev, const char *pa
         u = manager_get_unit(m, e);
 
         if (u &&
+            sysfs &&
             DEVICE(u)->sysfs &&
             !path_equal(DEVICE(u)->sysfs, sysfs)) {
                 log_unit_debug(u, "Device %s appeared twice with different sysfs paths %s and %s", e, DEVICE(u)->sysfs, sysfs);
@@ -336,17 +338,19 @@ static int device_setup_unit(Manager *m, struct udev_device *dev, const char *pa
         /* If this was created via some dependency and has not
          * actually been seen yet ->sysfs will not be
          * initialized. Hence initialize it if necessary. */
+        if (sysfs) {
+                r = device_set_sysfs(DEVICE(u), sysfs);
+                if (r < 0)
+                        goto fail;
 
-        r = device_set_sysfs(DEVICE(u), sysfs);
-        if (r < 0)
-                goto fail;
+                (void) device_update_description(u, dev, path);
 
-        (void) device_update_description(u, dev, path);
+                /* The additional systemd udev properties we only interpret
+                 * for the main object */
+                if (main)
+                        (void) device_add_udev_wants(u, dev);
+        }
 
-        /* The additional systemd udev properties we only interpret
-         * for the main object */
-        if (main)
-                (void) device_add_udev_wants(u, dev);
 
         /* Note that this won't dispatch the load queue, the caller
          * has to do that if needed and appropriate */
@@ -788,23 +792,16 @@ int device_found_node(Manager *m, const char *node, bool add, DeviceFound found,
                  * will still have a device node even when the medium
                  * is not there... */
 
-                if (stat(node, &st) < 0) {
-                        if (errno == ENOENT)
+                if (stat(node, &st) >= 0) {
+                        if (!S_ISBLK(st.st_mode) && !S_ISCHR(st.st_mode))
                                 return 0;
 
+                        dev = udev_device_new_from_devnum(m->udev, S_ISBLK(st.st_mode) ? 'b' : 'c', st.st_rdev);
+                        if (!dev && errno != ENOENT)
+                                return log_error_errno(errno, "Failed to get udev device from devnum %u:%u: %m", major(st.st_rdev), minor(st.st_rdev));
+
+                } else if (errno != ENOENT)
                         return log_error_errno(errno, "Failed to stat device node file %s: %m", node);
-                }
-
-                if (!S_ISBLK(st.st_mode) && !S_ISCHR(st.st_mode))
-                        return 0;
-
-                dev = udev_device_new_from_devnum(m->udev, S_ISBLK(st.st_mode) ? 'b' : 'c', st.st_rdev);
-                if (!dev) {
-                        if (errno == ENOENT)
-                                return 0;
-
-                        return log_oom();
-                }
 
                 /* If the device is known in the kernel and newly
                  * appeared, then we'll create a device unit for it,
