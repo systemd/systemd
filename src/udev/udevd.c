@@ -1434,10 +1434,33 @@ int main(int argc, char *argv[]) {
                 goto exit;
         }
 
-        r = mac_selinux_init("/dev");
-        if (r < 0) {
-                log_error_errno(r, "could not initialize labelling: %m");
-                goto exit;
+        if (arg_children_max == 0) {
+                cpu_set_t cpu_set;
+
+                arg_children_max = 8;
+
+                if (sched_getaffinity(0, sizeof (cpu_set), &cpu_set) == 0) {
+                        arg_children_max +=  CPU_COUNT(&cpu_set) * 2;
+                }
+
+                log_debug("set children_max to %u", arg_children_max);
+        }
+
+        /* before opening new files, make sure std{in,out,err} fds are in a sane state */
+        if (arg_daemonize) {
+                int fd;
+
+                fd = open("/dev/null", O_RDWR);
+                if (fd < 0)
+                        log_error("cannot open /dev/null");
+                else {
+                        if (write(STDOUT_FILENO, 0, 0) < 0)
+                                dup2(fd, STDOUT_FILENO);
+                        if (write(STDERR_FILENO, 0, 0) < 0)
+                                dup2(fd, STDERR_FILENO);
+                        if (fd > STDERR_FILENO)
+                                close(fd);
+                }
         }
 
         /* set umask before creating any file/directory */
@@ -1449,6 +1472,12 @@ int main(int argc, char *argv[]) {
 
         umask(022);
 
+        r = mac_selinux_init("/dev");
+        if (r < 0) {
+                log_error_errno(r, "could not initialize labelling: %m");
+                goto exit;
+        }
+
         r = mkdir("/run/udev", 0755);
         if (r < 0 && errno != EEXIST) {
                 r = log_error_errno(errno, "could not create /run/udev: %m");
@@ -1456,35 +1485,6 @@ int main(int argc, char *argv[]) {
         }
 
         dev_setup(NULL);
-
-        /* before opening new files, make sure std{in,out,err} fds are in a sane state */
-        if (arg_daemonize) {
-                int fd;
-
-                fd = open("/dev/null", O_RDWR);
-                if (fd >= 0) {
-                        if (write(STDOUT_FILENO, 0, 0) < 0)
-                                dup2(fd, STDOUT_FILENO);
-                        if (write(STDERR_FILENO, 0, 0) < 0)
-                                dup2(fd, STDERR_FILENO);
-                        if (fd > STDERR_FILENO)
-                                close(fd);
-                } else {
-                        log_error("cannot open /dev/null");
-                }
-        }
-
-        if (arg_children_max == 0) {
-                cpu_set_t cpu_set;
-
-                arg_children_max = 8;
-
-                if (sched_getaffinity(0, sizeof (cpu_set), &cpu_set) == 0) {
-                        arg_children_max +=  CPU_COUNT(&cpu_set) * 2;
-                }
-        }
-
-        log_debug("set children_max to %u", arg_children_max);
 
         r = manager_new(&manager);
         if (r < 0)
