@@ -165,7 +165,7 @@ _systemctl_restartable_units(){
                                { while read -r a b; do echo -E - " $a"; done; } )) )
 }
 
-_systemctl_failed_units()  {_sys_failed_units=(  $(__systemctl list-units --failed | { while read -r a b; do echo -E - " $a"; done; }) )}
+_systemctl_failed_units()  {_sys_failed_units=( ${${(f)"$(__systemctl list-units --failed)"}%% *} ) }
 _systemctl_unit_state() { typeset -gA _sys_unit_state; _sys_unit_state=( $(__systemctl list-unit-files) ) }
 
 local fun
@@ -201,7 +201,7 @@ done
 # Completion functions for FAILED_UNITS
 (( $+functions[_systemctl_reset-failed] )) || _systemctl_reset-failed()
 {
-  _systemctl_failed_units
+  local _sys_failed_units; _systemctl_failed_units
   compadd "$@" -a - _sys_failed_units || _message "no failed unit found"
 }
 
