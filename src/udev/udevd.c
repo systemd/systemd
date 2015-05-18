@@ -83,6 +83,8 @@ typedef struct Manager {
         int fd_worker;
         int worker_watch[2];
 
+        usec_t last_usec;
+
         bool stop_exec_queue:1;
         bool exit:1;
 } Manager;
@@ -729,6 +731,28 @@ static void event_queue_start(Manager *manager) {
         struct udev_list_node *loop;
 
         assert(manager);
+
+        if (udev_list_node_is_empty(&manager->events) ||
+            manager->exit || manager->stop_exec_queue)
+                return;
+
+        /* check for changed config, every 3 seconds at most */
+        if (manager->last_usec == 0 ||
+            (now(CLOCK_MONOTONIC) - manager->last_usec) > 3 * USEC_PER_SEC) {
+                if (udev_rules_check_timestamp(manager->rules) ||
+                    udev_builtin_validate(manager->udev))
+                        manager_reload(manager);
+
+                manager->last_usec = now(CLOCK_MONOTONIC);
+        }
+
+        udev_builtin_init(manager->udev);
+
+        if (!manager->rules) {
+                manager->rules = udev_rules_new(manager->udev, arg_resolve_names);
+                if (!manager->rules)
+                        return;
+        }
 
         udev_list_node_foreach(loop, &manager->events) {
                 struct event *event = node_to_event(loop);
@@ -1566,7 +1590,6 @@ int main(int argc, char *argv[]) {
                 return log_error_errno(r, "failed to set up fds and listen for events: %m");
 
         for (;;) {
-                static usec_t last_usec;
                 struct epoll_event ev[8];
                 int fdcount;
                 int timeout;
@@ -1650,15 +1673,6 @@ int main(int argc, char *argv[]) {
                                 is_ctrl = true;
                 }
 
-                /* check for changed config, every 3 seconds at most */
-                if ((now(CLOCK_MONOTONIC) - last_usec) > 3 * USEC_PER_SEC) {
-                        if (udev_rules_check_timestamp(manager->rules) ||
-                            udev_builtin_validate(manager->udev))
-                                manager_reload(manager);
-
-                        last_usec = now(CLOCK_MONOTONIC);
-                }
-
                 /* event has finished */
                 if (is_worker)
                         on_worker(NULL, manager->fd_worker, 0, manager);
@@ -1668,13 +1682,7 @@ int main(int argc, char *argv[]) {
                         on_uevent(NULL, manager->fd_uevent, 0, manager);
 
                 /* start new events */
-                if (!udev_list_node_is_empty(&manager->events) && !manager->exit && !manager->stop_exec_queue) {
-                        udev_builtin_init(manager->udev);
-                        if (!manager->rules)
-                                manager->rules = udev_rules_new(manager->udev, arg_resolve_names);
-                        if (manager->rules)
-                                event_queue_start(manager);
-                }
+                event_queue_start(manager);
 
                 if (is_signal) {
                         struct signalfd_siginfo fdsi;
