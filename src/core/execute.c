@@ -1307,6 +1307,7 @@ static int exec_child(
         uid_t uid = UID_INVALID;
         gid_t gid = GID_INVALID;
         int i, r;
+        bool needs_mount_namespace;
 
         assert(unit);
         assert(command);
@@ -1585,7 +1586,9 @@ static int exec_child(
                 }
         }
 
-        if (exec_needs_mount_namespace(context, params, runtime)) {
+        needs_mount_namespace = exec_needs_mount_namespace(context, params, runtime);
+
+        if (needs_mount_namespace) {
                 char *tmp = NULL, *var = NULL;
 
                 /* The runtime struct only contains the parent
@@ -1602,6 +1605,7 @@ static int exec_child(
                 }
 
                 r = setup_namespace(
+                                params->apply_chroot ? context->root_directory : NULL,
                                 context->read_write_dirs,
                                 context->read_only_dirs,
                                 context->inaccessible_dirs,
@@ -1627,7 +1631,7 @@ static int exec_child(
         }
 
         if (params->apply_chroot) {
-                if (context->root_directory)
+                if (!needs_mount_namespace && context->root_directory)
                         if (chroot(context->root_directory) < 0) {
                                 *exit_status = EXIT_CHROOT;
                                 return -errno;

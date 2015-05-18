@@ -41,7 +41,8 @@ typedef enum ProtectSystem {
         _PROTECT_SYSTEM_INVALID = -1
 } ProtectSystem;
 
-int setup_namespace(char **read_write_dirs,
+int setup_namespace(const char *chroot,
+                    char **read_write_dirs,
                     char **read_only_dirs,
                     char **inaccessible_dirs,
                     const char *tmp_dir,

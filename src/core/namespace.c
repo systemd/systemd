@@ -36,6 +36,7 @@
 #include "dev-setup.h"
 #include "selinux-util.h"
 #include "namespace.h"
+#include "mkdir.h"
 
 typedef enum MountMode {
         /* This is ordered by priority! */
@@ -122,6 +123,22 @@ static void drop_duplicates(BindMount *m, unsigned *n) {
         }
 
         *n = t - m;
+}
+
+static int mount_move_root(const char *path) {
+        if (chdir(path) < 0)
+                return -errno;
+
+        if (mount(path, "/", NULL, MS_MOVE, NULL) < 0)
+                return -errno;
+
+        if (chroot(".") < 0)
+                return -errno;
+
+        if (chdir("/") < 0)
+                return -errno;
+
+        return 0;
 }
 
 static int mount_dev(BindMount *m) {
@@ -225,7 +242,13 @@ static int mount_dev(BindMount *m) {
 
         dev_setup(temporary_mount);
 
-        if (mount(dev, "/dev/", NULL, MS_MOVE, NULL) < 0) {
+        /* Create the /dev directory if missing. It is more likely to be
+         * missing when the service is started with RootDirectory. This is
+         * consistent with mount units creating the mount points when missing.
+         */
+        (void) mkdir_p_label(m->path, 0755);
+
+        if (mount(dev, m->path, NULL, MS_MOVE, NULL) < 0) {
                 r = -errno;
                 goto fail;
         }
@@ -404,6 +427,7 @@ static int make_read_only(BindMount *m) {
 }
 
 int setup_namespace(
+                const char* root_directory,
                 char** read_write_dirs,
                 char** read_only_dirs,
                 char** inaccessible_dirs,
@@ -449,37 +473,56 @@ int setup_namespace(
                         return r;
 
                 if (tmp_dir) {
-                        m->path = "/tmp";
+                        m->path = prefix_roota(root_directory, "/tmp");
                         m->mode = PRIVATE_TMP;
                         m++;
                 }
 
                 if (var_tmp_dir) {
-                        m->path = "/var/tmp";
+                        m->path = prefix_roota(root_directory, "/var/tmp");
                         m->mode = PRIVATE_VAR_TMP;
                         m++;
                 }
 
                 if (private_dev) {
-                        m->path = "/dev";
+                        m->path = prefix_roota(root_directory, "/dev");
                         m->mode = PRIVATE_DEV;
                         m++;
                 }
 
                 if (bus_endpoint_path) {
-                        m->path = bus_endpoint_path;
+                        m->path = prefix_roota(root_directory, bus_endpoint_path);
                         m->mode = PRIVATE_BUS_ENDPOINT;
                         m++;
                 }
 
                 if (protect_home != PROTECT_HOME_NO) {
-                        r = append_mounts(&m, STRV_MAKE("-/home", "-/run/user", "-/root"), protect_home == PROTECT_HOME_READ_ONLY ? READONLY : INACCESSIBLE);
+                        const char *home_dir, *run_user_dir, *root_dir;
+
+                        home_dir = prefix_roota(root_directory, "/home");
+                        home_dir = strjoina("-", home_dir);
+                        run_user_dir = prefix_roota(root_directory, "/run/user");
+                        run_user_dir = strjoina("-", run_user_dir);
+                        root_dir = prefix_roota(root_directory, "/root");
+                        root_dir = strjoina("-", root_dir);
+
+                        r = append_mounts(&m, STRV_MAKE(home_dir, run_user_dir, root_dir),
+                                protect_home == PROTECT_HOME_READ_ONLY ? READONLY : INACCESSIBLE);
                         if (r < 0)
                                 return r;
                 }
 
                 if (protect_system != PROTECT_SYSTEM_NO) {
-                        r = append_mounts(&m, protect_system == PROTECT_SYSTEM_FULL ? STRV_MAKE("/usr", "-/boot", "/etc") : STRV_MAKE("/usr", "-/boot"), READONLY);
+                        const char *usr_dir, *boot_dir, *etc_dir;
+
+                        usr_dir = prefix_roota(root_directory, "/home");
+                        boot_dir = prefix_roota(root_directory, "/boot");
+                        boot_dir = strjoina("-", boot_dir);
+                        etc_dir = prefix_roota(root_directory, "/etc");
+
+                        r = append_mounts(&m, protect_system == PROTECT_SYSTEM_FULL
+                                ? STRV_MAKE(usr_dir, boot_dir, etc_dir)
+                                : STRV_MAKE(usr_dir, boot_dir), READONLY);
                         if (r < 0)
                                 return r;
                 }
@@ -490,12 +533,20 @@ int setup_namespace(
                 drop_duplicates(mounts, &n);
         }
 
-        if (n > 0) {
+        if (n > 0 || root_directory) {
                 /* Remount / as SLAVE so that nothing now mounted in the namespace
                    shows up in the parent */
                 if (mount(NULL, "/", NULL, MS_SLAVE|MS_REC, NULL) < 0)
                         return -errno;
+        }
 
+        if (root_directory) {
+                /* Turn directory into bind mount */
+                if (mount(root_directory, root_directory, NULL, MS_BIND|MS_REC, NULL) < 0)
+                        return -errno;
+        }
+
+        if (n > 0) {
                 for (m = mounts; m < mounts + n; ++m) {
                         r = apply_mount(m, tmp_dir, var_tmp_dir);
                         if (r < 0)
@@ -509,12 +560,21 @@ int setup_namespace(
                 }
         }
 
+        if (root_directory) {
+                /* MS_MOVE does not work on MS_SHARED so the remount MS_SHARED will be done later */
+                r = mount_move_root(root_directory);
+
+                /* at this point, we cannot rollback */
+                if (r < 0)
+                        return r;
+        }
+
         /* Remount / as the desired mode. Not that this will not
          * reestablish propagation from our side to the host, since
          * what's disconnected is disconnected. */
         if (mount(NULL, "/", NULL, mount_flags | MS_REC, NULL) < 0) {
-                r = -errno;
-                goto fail;
+                /* at this point, we cannot rollback */
+                return -errno;
         }
 
         return 0;

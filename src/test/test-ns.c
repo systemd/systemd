@@ -38,10 +38,12 @@ int main(int argc, char *argv[]) {
                 NULL
         };
 
-        const char * const inaccessible[] = {
+        const char *inaccessible[] = {
                 "/home/lennart/projects",
                 NULL
         };
+        char *root_directory;
+        char *projects_directory;
 
         int r;
         char tmp_dir[] = "/tmp/systemd-private-XXXXXX",
@@ -50,7 +52,20 @@ int main(int argc, char *argv[]) {
         assert_se(mkdtemp(tmp_dir));
         assert_se(mkdtemp(var_tmp_dir));
 
-        r = setup_namespace((char **) writable,
+        root_directory = getenv("TEST_NS_CHROOT");
+        projects_directory = getenv("TEST_NS_PROJECTS");
+
+        if (projects_directory)
+                inaccessible[0] = projects_directory;
+
+        log_info("Inaccessible directory: '%s'", inaccessible[0]);
+        if (root_directory)
+                log_info("Chroot: '%s'", root_directory);
+        else
+                log_info("Not chrooted");
+
+        r = setup_namespace(root_directory,
+                            (char **) writable,
                             (char **) readonly,
                             (char **) inaccessible,
                             tmp_dir,
@@ -62,6 +77,11 @@ int main(int argc, char *argv[]) {
                             0);
         if (r < 0) {
                 log_error_errno(r, "Failed to setup namespace: %m");
+
+                log_info("Usage:\n"
+                         "  sudo TEST_NS_PROJECTS=/home/lennart/projects ./test-ns\n"
+                         "  sudo TEST_NS_CHROOT=/home/alban/debian-tree TEST_NS_PROJECTS=/home/alban/debian-tree/home/alban/Documents ./test-ns");
+
                 return 1;
         }
 
