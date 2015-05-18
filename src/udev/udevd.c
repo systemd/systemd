@@ -847,6 +847,9 @@ static int on_worker(sd_event_source *s, int fd, uint32_t revents, void *userdat
                 event_free(worker->event);
         }
 
+        /* we have free workers, try to schedule events */
+        event_queue_start(manager);
+
         return 1;
 }
 
@@ -863,6 +866,9 @@ static int on_uevent(sd_event_source *s, int fd, uint32_t revents, void *userdat
                 r = event_queue_insert(manager, dev);
                 if (r < 0)
                         udev_device_unref(dev);
+                else
+                        /* we have fresh events, try to schedule them */
+                        event_queue_start(manager);
         }
 
         return 1;
@@ -901,6 +907,7 @@ static int on_ctrl_msg(sd_event_source *s, int fd, uint32_t revents, void *userd
         if (udev_ctrl_get_start_exec_queue(ctrl_msg) > 0) {
                 log_debug("udevd message (START_EXEC_QUEUE) received");
                 manager->stop_exec_queue = false;
+                event_queue_start(manager);
         }
 
         if (udev_ctrl_get_reload(ctrl_msg) > 0) {
@@ -1166,6 +1173,9 @@ static int on_sigchld(sd_event_source *s, const struct signalfd_siginfo *si, voi
 
                 worker_free(worker);
         }
+
+        /* we can start new workers, try to schedule events */
+        event_queue_start(manager);
 
         return 1;
 }
@@ -1680,9 +1690,6 @@ int main(int argc, char *argv[]) {
                 /* uevent from kernel */
                 if (is_uevent)
                         on_uevent(NULL, manager->fd_uevent, 0, manager);
-
-                /* start new events */
-                event_queue_start(manager);
 
                 if (is_signal) {
                         struct signalfd_siginfo fdsi;
