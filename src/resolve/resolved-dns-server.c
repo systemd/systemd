@@ -78,22 +78,23 @@ DnsServer* dns_server_free(DnsServer *s)  {
         if (!s)
                 return NULL;
 
-        if (s->manager) {
+        if (s->link) {
                 if (s->type == DNS_SERVER_LINK)
                         LIST_REMOVE(servers, s->link->dns_servers, s);
-                else if (s->type == DNS_SERVER_SYSTEM)
+
+                if (s->link->current_dns_server == s)
+                        link_set_dns_server(s->link, NULL);
+        }
+
+        if (s->manager) {
+                if (s->type == DNS_SERVER_SYSTEM)
                         LIST_REMOVE(servers, s->manager->dns_servers, s);
                 else if (s->type == DNS_SERVER_FALLBACK)
                         LIST_REMOVE(servers, s->manager->fallback_dns_servers, s);
-                else
-                        assert_not_reached("Unknown server type");
 
                 if (s->manager->current_dns_server == s)
                         manager_set_dns_server(s->manager, NULL);
         }
-
-        if (s->link && s->link->current_dns_server == s)
-                link_set_dns_server(s->link, NULL);
 
         free(s);
 

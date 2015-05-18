@@ -534,10 +534,10 @@ Manager *manager_free(Manager *m) {
         while (m->dns_queries)
                 dns_query_free(m->dns_queries);
 
-        dns_scope_free(m->unicast_scope);
-
         manager_flush_dns_servers(m, DNS_SERVER_SYSTEM);
         manager_flush_dns_servers(m, DNS_SERVER_FALLBACK);
+
+        dns_scope_free(m->unicast_scope);
 
         hashmap_free(m->links);
         hashmap_free(m->dns_transactions);

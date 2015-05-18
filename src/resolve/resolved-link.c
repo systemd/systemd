@@ -68,12 +68,12 @@ Link *link_free(Link *l) {
         if (l->manager)
                 hashmap_remove(l->manager->links, INT_TO_PTR(l->ifindex));
 
+        while (l->dns_servers)
+                dns_server_free(l->dns_servers);
+
         dns_scope_free(l->unicast_scope);
         dns_scope_free(l->llmnr_ipv4_scope);
         dns_scope_free(l->llmnr_ipv6_scope);
-
-        while (l->dns_servers)
-                dns_server_free(l->dns_servers);
 
         free(l);
         return NULL;
