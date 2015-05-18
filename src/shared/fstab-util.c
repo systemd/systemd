@@ -125,6 +125,36 @@ answer:
         return !!n;
 }
 
+int fstab_extract_values(const char *opts, const char *name, char ***values) {
+        _cleanup_strv_free_ char **optsv = NULL, **res = NULL;
+        char **s;
+
+        assert(opts);
+        assert(name);
+        assert(values);
+
+        optsv = strv_split(opts, ",");
+        if (!optsv)
+                return -ENOMEM;
+
+        STRV_FOREACH(s, optsv) {
+                char *arg;
+                int r;
+
+                arg = startswith(*s, name);
+                if (!arg || *arg != '=')
+                        continue;
+                r = strv_extend(&res, arg + 1);
+                if (r < 0)
+                        return r;
+        }
+
+        *values = res;
+        res = NULL;
+
+        return !!*values;
+}
+
 int fstab_find_pri(const char *options, int *ret) {
         _cleanup_free_ char *opt = NULL;
         int r;

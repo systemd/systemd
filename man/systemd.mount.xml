@@ -139,6 +139,36 @@
     <variablelist class='fstab-options'>
 
       <varlistentry>
+        <term><option>x-systemd.requires=</option></term>
+
+        <listitem><para>Configures a <varname>Requires=</varname> and
+        an <varname>After=</varname> dependency between the created
+        mount unit and another systemd unit, such as a device or mount
+        unit. The argument should be a unit name, or an absolute path
+        to a device node or mount point.  This option may be specified
+        more than once. This option is particularly useful for mount
+        point declarations that need an additional device to be around
+        (such as an external journal device for journal file systems)
+        or an additional mount to be in place (such as an overlay file
+        system that merges multiple mount points). See
+        <varname>After=</varname> and <varname>Requires=</varname> in
+        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for details.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>x-systemd.requires-mounts-for=</option></term>
+
+        <listitem><para>Configures a
+        <varname>RequiresMountsFor=</varname> dependency between the
+        created mount unit and other mount units. The argument must be
+        an absolute path. This option may be specified more than once.
+        See <varname>RequiresMountsFor=</varname> in
+        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for details.</para></listitem>
+       </varlistentry>
+
+      <varlistentry>
         <term><option>x-systemd.automount</option></term>
 
         <listitem><para>An automount unit will be created for the file
