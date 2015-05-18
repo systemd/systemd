@@ -93,9 +93,7 @@
 
 __systemctl()
 {
-  local -a _modes
-  _modes=("--user" "--system")
-  systemctl ${words:*_modes} --full --no-legend --no-pager "$@"
+  systemctl $_sys_service_mgr --full --no-legend --no-pager "$@"
 }
 
 
@@ -355,6 +353,8 @@ _job_modes() {
     _values -s , "${_modes[@]}"
 }
 
+local -a _modes; _modes=("--user" "--system")
+local _sys_service_mgr=${${words:*_modes}[(R)(${(j.|.)_modes})]:---system}
 _arguments -s \
     {-h,--help}'[Show help]' \
     '--version[Show package version]' \
