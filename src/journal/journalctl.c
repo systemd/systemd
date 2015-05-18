@@ -37,7 +37,6 @@
 
 #include "sd-journal.h"
 #include "sd-bus.h"
-
 #include "log.h"
 #include "logs-show.h"
 #include "util.h"
@@ -1915,8 +1914,6 @@ int main(int argc, char *argv[]) {
                 goto finish;
 
         r = add_units(j);
-        arg_system_units = strv_free(arg_system_units);
-        arg_user_units = strv_free(arg_user_units);
         if (r < 0) {
                 log_error_errno(r, "Failed to add filter for units: %m");
                 goto finish;
@@ -2182,6 +2179,10 @@ finish:
         pager_close();
 
         strv_free(arg_file);
+
+        strv_free(arg_syslog_identifier);
+        strv_free(arg_system_units);
+        strv_free(arg_user_units);
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
