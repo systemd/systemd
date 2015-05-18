@@ -36,6 +36,7 @@
 #include "strv.h"
 #include "fileio.h"
 #include "test-helper.h"
+#include "hostname-util.h"
 
 static int test_unit_file_get_set(void) {
         int r;

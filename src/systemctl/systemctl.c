@@ -71,6 +71,7 @@
 #include "formats-util.h"
 #include "process-util.h"
 #include "terminal-util.h"
+#include "hostname-util.h"
 
 static char **arg_types = NULL;
 static char **arg_states = NULL;

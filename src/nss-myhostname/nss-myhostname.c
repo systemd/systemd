@@ -29,6 +29,7 @@
 #include "local-addresses.h"
 #include "macro.h"
 #include "nss-util.h"
+#include "hostname-util.h"
 #include "util.h"
 
 /* We use 127.0.0.2 as IPv4 address. This has the advantage over

@@ -25,6 +25,7 @@
 #include "conf-files.h"
 #include "conf-parser.h"
 #include "util.h"
+#include "hostname-util.h"
 #include "networkd.h"
 #include "networkd-netdev.h"
 #include "networkd-link.h"

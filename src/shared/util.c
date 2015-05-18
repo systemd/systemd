@@ -92,6 +92,7 @@
 #include "process-util.h"
 #include "random-util.h"
 #include "terminal-util.h"
+#include "hostname-util.h"
 
 /* Put this test here for a lack of better place */
 assert_cc(EAGAIN == EWOULDBLOCK);
@@ -1934,26 +1935,6 @@ int sigprocmask_many(int how, ...) {
 
         return 0;
 }
-
-char* gethostname_malloc(void) {
-        struct utsname u;
-
-        assert_se(uname(&u) >= 0);
-
-        if (!isempty(u.nodename) && !streq(u.nodename, "(none)"))
-                return strdup(u.nodename);
-
-        return strdup(u.sysname);
-}
-
-bool hostname_is_set(void) {
-        struct utsname u;
-
-        assert_se(uname(&u) >= 0);
-
-        return !isempty(u.nodename) && !streq(u.nodename, "(none)");
-}
-
 char *lookup_uid(uid_t uid) {
         long bufsize;
         char *name;
@@ -2581,79 +2562,6 @@ char* strshorten(char *s, size_t l) {
 
         if (l < strlen(s))
                 s[l] = 0;
-
-        return s;
-}
-
-static bool hostname_valid_char(char c) {
-        return
-                (c >= 'a' && c <= 'z') ||
-                (c >= 'A' && c <= 'Z') ||
-                (c >= '0' && c <= '9') ||
-                c == '-' ||
-                c == '_' ||
-                c == '.';
-}
-
-bool hostname_is_valid(const char *s) {
-        const char *p;
-        bool dot;
-
-        if (isempty(s))
-                return false;
-
-        /* Doesn't accept empty hostnames, hostnames with trailing or
-         * leading dots, and hostnames with multiple dots in a
-         * sequence. Also ensures that the length stays below
-         * HOST_NAME_MAX. */
-
-        for (p = s, dot = true; *p; p++) {
-                if (*p == '.') {
-                        if (dot)
-                                return false;
-
-                        dot = true;
-                } else {
-                        if (!hostname_valid_char(*p))
-                                return false;
-
-                        dot = false;
-                }
-        }
-
-        if (dot)
-                return false;
-
-        if (p-s > HOST_NAME_MAX)
-                return false;
-
-        return true;
-}
-
-char* hostname_cleanup(char *s, bool lowercase) {
-        char *p, *d;
-        bool dot;
-
-        for (p = s, d = s, dot = true; *p; p++) {
-                if (*p == '.') {
-                        if (dot)
-                                continue;
-
-                        *(d++) = '.';
-                        dot = true;
-                } else if (hostname_valid_char(*p)) {
-                        *(d++) = lowercase ? tolower(*p) : *p;
-                        dot = false;
-                }
-
-        }
-
-        if (dot && d > s)
-                d[-1] = 0;
-        else
-                *d = 0;
-
-        strshorten(s, HOST_NAME_MAX);
 
         return s;
 }
@@ -5355,23 +5263,6 @@ int tempfn_random_child(const char *p, char **ret) {
         return 0;
 }
 
-/* make sure the hostname is not "localhost" */
-bool is_localhost(const char *hostname) {
-        assert(hostname);
-
-        /* This tries to identify local host and domain names
-         * described in RFC6761 plus the redhatism of .localdomain */
-
-        return streq(hostname, "localhost") ||
-               streq(hostname, "localhost.") ||
-               streq(hostname, "localdomain.") ||
-               streq(hostname, "localdomain") ||
-               endswith(hostname, ".localhost") ||
-               endswith(hostname, ".localhost.") ||
-               endswith(hostname, ".localdomain") ||
-               endswith(hostname, ".localdomain.");
-}
-
 int take_password_lock(const char *root) {
 
         struct flock flock = {
@@ -5725,26 +5616,6 @@ int free_and_strdup(char **p, const char *s) {
 
         free(*p);
         *p = t;
-
-        return 1;
-}
-
-int sethostname_idempotent(const char *s) {
-        int r;
-        char buf[HOST_NAME_MAX + 1] = {};
-
-        assert(s);
-
-        r = gethostname(buf, sizeof(buf));
-        if (r < 0)
-                return -errno;
-
-        if (streq(buf, s))
-                return 0;
-
-        r = sethostname(s, strlen(s));
-        if (r < 0)
-                return -errno;
 
         return 1;
 }

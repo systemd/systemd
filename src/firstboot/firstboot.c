@@ -36,6 +36,7 @@
 #include "locale-util.h"
 #include "ask-password-api.h"
 #include "terminal-util.h"
+#include "hostname-util.h"
 
 static char *arg_root = NULL;
 static char *arg_locale = NULL;  /* $LANG */

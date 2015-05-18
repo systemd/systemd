@@ -23,11 +23,12 @@
 #include <errno.h>
 #include <stdlib.h>
 
-#include "hostname-setup.h"
 #include "macro.h"
 #include "util.h"
 #include "log.h"
 #include "fileio.h"
+#include "hostname-util.h"
+#include "hostname-setup.h"
 
 static int read_and_strip_hostname(const char *path, char **hn) {
         char *s;

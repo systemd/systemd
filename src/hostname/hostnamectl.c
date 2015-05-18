@@ -26,13 +26,13 @@
 #include <string.h>
 
 #include "sd-bus.h"
-
+#include "sd-id128.h"
+#include "hostname-util.h"
 #include "bus-util.h"
 #include "bus-error.h"
 #include "util.h"
 #include "spawn-polkit-agent.h"
 #include "build.h"
-#include "sd-id128.h"
 #include "architecture.h"
 
 static bool arg_ask_password = true;

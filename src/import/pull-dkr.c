@@ -38,6 +38,7 @@
 #include "import-common.h"
 #include "pull-dkr.h"
 #include "process-util.h"
+#include "hostname-util.h"
 
 typedef enum DkrProgress {
         DKR_SEARCHING,

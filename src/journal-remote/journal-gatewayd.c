@@ -42,6 +42,7 @@
 #include "build.h"
 #include "fileio.h"
 #include "sigbus.h"
+#include "hostname-util.h"
 
 static char *arg_key_pem = NULL;
 static char *arg_cert_pem = NULL;

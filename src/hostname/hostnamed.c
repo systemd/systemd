@@ -33,6 +33,7 @@
 #include "bus-util.h"
 #include "event-util.h"
 #include "selinux-util.h"
+#include "hostname-util.h"
 
 #define VALID_DEPLOYMENT_CHARS (DIGITS LETTERS "-.:")
 

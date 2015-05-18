@@ -27,7 +27,7 @@
 #include "fileio.h"
 #include "unaligned.h"
 #include "in-addr-util.h"
-
+#include "hostname-util.h"
 #include "dhcp-protocol.h"
 #include "dhcp-lease-internal.h"
 #include "sd-dhcp-lease.h"

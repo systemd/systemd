@@ -28,6 +28,7 @@
 #include "ima-util.h"
 #include "apparmor-util.h"
 #include "smack-util.h"
+#include "hostname-util.h"
 
 static void test_condition_test_path(void) {
         Condition *condition;

@@ -42,6 +42,7 @@
 #include "bus-error.h"
 #include "formats-util.h"
 #include "terminal-util.h"
+#include "hostname-util.h"
 
 static int parse_argv(
                 pam_handle_t *handle,

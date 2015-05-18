@@ -25,9 +25,10 @@
 #include "strv.h"
 #include "socket-util.h"
 #include "af-list.h"
+#include "random-util.h"
+#include "hostname-util.h"
 #include "resolved-dns-domain.h"
 #include "resolved-dns-scope.h"
-#include "random-util.h"
 
 #define MULTICAST_RATELIMIT_INTERVAL_USEC (1*USEC_PER_SEC)
 #define MULTICAST_RATELIMIT_BURST 1000

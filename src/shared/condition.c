@@ -35,8 +35,9 @@
 #include "ima-util.h"
 #include "selinux-util.h"
 #include "audit.h"
-#include "condition.h"
 #include "cap-list.h"
+#include "hostname-util.h"
+#include "condition.h"
 
 Condition* condition_new(ConditionType type, const char *parameter, bool trigger, bool negate) {
         Condition *c;

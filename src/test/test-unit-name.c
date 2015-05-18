@@ -35,6 +35,7 @@
 #include "macro.h"
 #include "path-util.h"
 #include "test-helper.h"
+#include "hostname-util.h"
 
 static void test_unit_name_is_valid(void) {
         assert_se(unit_name_is_valid("foo.service", UNIT_NAME_ANY));

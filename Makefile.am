@@ -915,7 +915,9 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/import-util.c \
 	src/shared/import-util.h \
 	src/shared/sysctl-util.c \
-	src/shared/sysctl-util.h
+	src/shared/sysctl-util.h \
+	src/shared/hostname-util.h \
+	src/shared/hostname-util.c
 
 if HAVE_UTMP
 libsystemd_shared_la_SOURCES += \

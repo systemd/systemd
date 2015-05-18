@@ -52,11 +52,11 @@
 #include <blkid/blkid.h>
 #endif
 
-#include "random-util.h"
 #include "sd-daemon.h"
 #include "sd-bus.h"
 #include "sd-id128.h"
 #include "sd-rtnl.h"
+#include "random-util.h"
 #include "log.h"
 #include "util.h"
 #include "mkdir.h"
@@ -95,6 +95,7 @@
 #include "formats-util.h"
 #include "process-util.h"
 #include "terminal-util.h"
+#include "hostname-util.h"
 
 #ifdef HAVE_SECCOMP
 #include "seccomp-util.h"

@@ -61,6 +61,7 @@
 #include "bus-util.h"
 #include "bus-error.h"
 #include "terminal-util.h"
+#include "hostname-util.h"
 
 #define DEFAULT_FSS_INTERVAL_USEC (15*USEC_PER_MINUTE)
 

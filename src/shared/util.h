@@ -351,10 +351,7 @@ char* dirname_malloc(const char *path);
 void sigset_add_many(sigset_t *ss, ...);
 int sigprocmask_many(int how, ...);
 
-bool hostname_is_set(void);
-
 char* lookup_uid(uid_t uid);
-char* gethostname_malloc(void);
 char* getlogname_malloc(void);
 char* getusername_malloc(void);
 
@@ -396,9 +393,6 @@ void execute_directories(const char* const* directories, usec_t timeout, char *a
 bool nulstr_contains(const char*nulstr, const char *needle);
 
 bool plymouth_running(void);
-
-bool hostname_is_valid(const char *s) _pure_;
-char* hostname_cleanup(char *s, bool lowercase);
 
 bool machine_name_is_valid(const char *s) _pure_;
 
@@ -846,8 +840,6 @@ int tempfn_xxxxxx(const char *p, char **ret);
 int tempfn_random(const char *p, char **ret);
 int tempfn_random_child(const char *p, char **ret);
 
-bool is_localhost(const char *hostname);
-
 int take_password_lock(const char *root);
 
 int is_symlink(const char *path);
@@ -863,8 +855,6 @@ int unquote_first_word(const char **p, char **ret, UnquoteFlags flags);
 int unquote_many_words(const char **p, UnquoteFlags flags, ...) _sentinel_;
 
 int free_and_strdup(char **p, const char *s);
-
-int sethostname_idempotent(const char *s);
 
 #define INOTIFY_EVENT_MAX (sizeof(struct inotify_event) + NAME_MAX + 1)
 

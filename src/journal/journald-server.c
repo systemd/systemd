@@ -39,6 +39,10 @@
 #include "missing.h"
 #include "conf-parser.h"
 #include "selinux-util.h"
+#include "acl-util.h"
+#include "formats-util.h"
+#include "process-util.h"
+#include "hostname-util.h"
 #include "journal-internal.h"
 #include "journal-vacuum.h"
 #include "journal-authenticate.h"
@@ -49,9 +53,6 @@
 #include "journald-native.h"
 #include "journald-audit.h"
 #include "journald-server.h"
-#include "acl-util.h"
-#include "formats-util.h"
-#include "process-util.h"
 
 #ifdef HAVE_SELINUX
 #include <selinux/selinux.h>

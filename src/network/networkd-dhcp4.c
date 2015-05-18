@@ -22,6 +22,7 @@
 #include <netinet/ether.h>
 #include <linux/if.h>
 
+#include "hostname-util.h"
 #include "networkd-link.h"
 #include "network-internal.h"
 #include "dhcp-lease-internal.h"
