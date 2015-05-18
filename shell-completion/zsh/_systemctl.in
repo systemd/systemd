@@ -149,20 +149,20 @@ _systemctl_get_template_names() { __systemctl list-unit-files | { while read -r 
 _systemctl_active_units()  {_sys_active_units=(  $(__systemctl list-units          | { while read -r a b; do echo -E - " $a"; done; }) )}
 
 _systemctl_startable_units(){
-    _sys_startable_units=(_filter_units_by_property ActiveState inactive $(
+    _sys_startable_units=( $( _filter_units_by_property ActiveState inactive $(
                           _filter_units_by_property CanStart yes $(
                           __systemctl $mode list-unit-files --state enabled,disabled,static | \
                                { while read -r a b; do [[ $a =~ @\. ]] || echo -E - " $a"; done; }
                           __systemctl $mode list-units --state inactive,failed | \
-                               { while read -r a b; do echo -E - " $a"; done; } )))
+                               { while read -r a b; do echo -E - " $a"; done; } )) ) )
 }
 
 _systemctl_restartable_units(){
-    _sys_restartable_units=(_filter_units_by_property CanStart yes $(
+    _sys_restartable_units=( $(_filter_units_by_property CanStart yes $(
                           __systemctl $mode list-unit-files --state enabled,disabled,static | \
                                { while read -r a b; do [[ $a =~ @\. ]] || echo -E - " $a"; done; }
                           __systemctl $mode list-units | \
-                               { while read -r a b; do echo -E - " $a"; done; } ))
+                               { while read -r a b; do echo -E - " $a"; done; } )) )
 }
 
 _systemctl_failed_units()  {_sys_failed_units=(  $(__systemctl list-units --failed | { while read -r a b; do echo -E - " $a"; done; }) )}
@@ -170,6 +170,7 @@ _systemctl_enabled_units() {_sys_enabled_units=( $(__systemctl list-unit-files  
 _systemctl_disabled_units(){_sys_disabled_units=($(__systemctl list-unit-files     | { while read -r a b; do [[ $b == "disabled" ]] && echo -E - " $a"; done; }) )}
 _systemctl_masked_units()  {_sys_masked_units=(  $(__systemctl list-unit-files     | { while read -r a b; do [[ $b == "masked" ]] && echo -E - " $a"; done; }) )}
 
+local fun
 # Completion functions for ALL_UNITS
 for fun in is-active is-failed is-enabled status show cat mask preset help list-dependencies edit ; do
   (( $+functions[_systemctl_$fun] )) || _systemctl_$fun()
