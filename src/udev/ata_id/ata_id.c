@@ -496,7 +496,7 @@ int main(int argc, char *argv[])
                 }
         }
 
-        memcpy (model, id.model, 40);
+        memcpy(model, id.model, 40);
         model[40] = '\0';
         udev_util_encode_string(model, model_enc, sizeof(model_enc));
         util_replace_whitespace((char *) id.model, model, 40);
