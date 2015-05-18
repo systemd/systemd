@@ -1035,7 +1035,7 @@ static int on_inotify(sd_event_source *s, int fd, uint32_t revents, void *userda
         return 1;
 }
 
-static int on_request_exit(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
+static int on_sigterm(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
         Manager *manager = userdata;
 
         assert(manager);
@@ -1045,7 +1045,7 @@ static int on_request_exit(sd_event_source *s, const struct signalfd_siginfo *si
         return 1;
 }
 
-static int on_request_reload(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
+static int on_sighup(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
         Manager *manager = userdata;
 
         assert(manager);
@@ -1665,10 +1665,10 @@ int main(int argc, char *argv[]) {
                                 switch (fdsi.ssi_signo) {
                                 case SIGINT:
                                 case SIGTERM:
-                                        on_request_exit(NULL, &fdsi, manager);
+                                        on_sigterm(NULL, &fdsi, manager);
                                         break;
                                 case SIGHUP:
-                                        on_request_reload(NULL, &fdsi, manager);
+                                        on_sighup(NULL, &fdsi, manager);
                                         break;
                                 case SIGCHLD:
                                         on_sigchld(NULL, &fdsi, manager);
