@@ -105,7 +105,7 @@ _systemctl_all_units()
   if ( [[ ${+_sys_all_units} -eq 0 ]] || _cache_invalid SYS_ALL_UNITS ) &&
     ! _retrieve_cache SYS_ALL_UNITS;
   then
-    _sys_all_units=( $(__systemctl list-units --all | { while read -r a b; do echo -E - " $a"; done; }) )
+    _sys_all_units=( ${${(f)"$(__systemctl list-units --all)"}%% *} )
     _store_cache SYS_ALL_UNITS _sys_all_units
   fi
 }
@@ -118,7 +118,7 @@ _systemctl_really_all_units()
   if ( [[ ${+_sys_really_all_units} -eq 0 ]] || _cache_invalid SYS_REALLY_ALL_UNITS ) &&
     ! _retrieve_cache SYS_REALLY_ALL_UNITS;
   then
-    all_unit_files=( $(__systemctl list-unit-files | { while read -r a b; do echo -E - " $a"; done; }) )
+    all_unit_files=( ${${(f)"$(__systemctl list-unit-files)"}%% *} )
     _systemctl_all_units
     really_all_units=($_sys_all_units $all_unit_files)
     _sys_really_all_units=(${(u)really_all_units})
@@ -146,7 +146,7 @@ _filter_units_by_property() {
 _systemctl_get_template_names() { echo -E - ${^${(M)${(f)"$(__systemctl list-unit-files)"}##*@.[^[:space:]]##}%%@.*}\@ }
 
 
-_systemctl_active_units()  {_sys_active_units=(  $(__systemctl list-units          | { while read -r a b; do echo -E - " $a"; done; }) )}
+_systemctl_active_units()  {_sys_active_units=(  ${${(f)"$(__systemctl list-units)"}%% *} )}
 
 _systemctl_startable_units(){
     _sys_startable_units=( $( _filter_units_by_property ActiveState inactive $(
@@ -259,22 +259,22 @@ done
 # Completion functions for JOBS
 (( $+functions[_systemctl_cancel] )) || _systemctl_cancel()
 {
-  compadd "$@" - $(__systemctl list-jobs \
-    | cut -d' ' -f1  2>/dev/null ) || _message "no jobs found"
+  compadd "$@" - ${${(f)"$(__systemctl list-jobs)"}%% *} ||
+    _message "no jobs found"
 }
 
 # Completion functions for SNAPSHOTS
 (( $+functions[_systemctl_delete] )) || _systemctl_delete()
 {
-  compadd "$@" - $(__systemctl list-units --type snapshot --all \
-    | cut -d' ' -f1  2>/dev/null ) || _message "no snapshots found"
+  compadd "$@" - ${${(f)"$(__systemctl list-units --type snapshot --all)"}%% *} ||
+    _message "no snapshots found"
 }
 
 # Completion functions for TARGETS
 (( $+functions[_systemctl_set-default] )) || _systemctl_set-default()
 {
-  compadd "$@" - $(__systemctl list-unit-files --type target --all \
-    | cut -d' ' -f1  2>/dev/null ) || _message "no targets found"
+  compadd "$@" - ${${(f)"$(__systemctl list-unit-files --type target --all)"}%% *} ||
+    _message "no targets found"
 }
 
 # Completion functions for ENVS
@@ -287,8 +287,7 @@ for fun in set-environment unset-environment ; do
       suf='-S='
     fi
 
-    compadd "$@" ${suf} - $(systemctl show-environment \
-      | while read line; do echo " ${line%%\=}";done )
+    compadd "$@" ${suf} - ${${(f)"$(systemctl show-environment)"}%%=*}
   }
 done
 
@@ -315,7 +314,7 @@ _systemctl_caching_policy()
   oldcache=( "$1"(mh+1) )
   (( $#oldcache )) && return 0
 
-  _sysunits=($(__systemctl --all | cut -d' ' -f1))
+  _sysunits=(${${(f)"$(__systemctl --all)"}%% *})
 
   if (( $#_sysunits )); then
     for unit in $_sysunits; do
@@ -342,10 +341,9 @@ _unit_properties() {
   if ( [[ ${+_sys_all_properties} -eq 0 ]] || _cache_invalid SYS_ALL_PROPERTIES ) &&
     ! _retrieve_cache SYS_ALL_PROPERTIES;
   then
-    _sys_all_properties=( $( {__systemctl show --all;
-       @rootlibexecdir@/systemd --dump-configuration-items; } | {
-       while IFS='=' read -r a b; do [ -n "$b" ] && echo "$a"; done
-    }) )
+    _sys_all_properties=( ${${(M)${(f)"$(__systemctl show --all;
+    @rootlibexecdir@/systemd --dump-configuration-items)"}##[[:alnum:]]##=*}%%=*}
+    )
     _store_cache SYS_ALL_PROPRTIES _sys_all_properties
   fi
   _values -s , "${_sys_all_properties[@]}"
