@@ -795,7 +795,7 @@ static int add_matches(sd_journal *j, char **args) {
                         p = canonicalize_file_name(*i);
                         path = p ? p : *i;
 
-                        if (stat(path, &st) < 0)
+                        if (lstat(path, &st) < 0)
                                 return log_error_errno(errno, "Couldn't stat file: %m");
 
                         if (S_ISREG(st.st_mode) && (0111 & st.st_mode)) {
