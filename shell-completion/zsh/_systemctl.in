@@ -166,9 +166,7 @@ _systemctl_restartable_units(){
 }
 
 _systemctl_failed_units()  {_sys_failed_units=(  $(__systemctl list-units --failed | { while read -r a b; do echo -E - " $a"; done; }) )}
-_systemctl_enabled_units() {_sys_enabled_units=( $(__systemctl list-unit-files     | { while read -r a b; do [[ $b == "enabled" ]] && echo -E - " $a"; done; }) )}
-_systemctl_disabled_units(){_sys_disabled_units=($(__systemctl list-unit-files     | { while read -r a b; do [[ $b == "disabled" ]] && echo -E - " $a"; done; }) )}
-_systemctl_masked_units()  {_sys_masked_units=(  $(__systemctl list-unit-files     | { while read -r a b; do [[ $b == "masked" ]] && echo -E - " $a"; done; }) )}
+_systemctl_unit_state() { typeset -gA _sys_unit_state; _sys_unit_state=( $(__systemctl list-unit-files) ) }
 
 local fun
 # Completion functions for ALL_UNITS
@@ -183,22 +181,21 @@ done
 # Completion functions for ENABLED_UNITS
 (( $+functions[_systemctl_disable] )) || _systemctl_disable()
 {
-    _systemctl_enabled_units
-    compadd "$@" -a - _sys_enabled_units
+    local _sys_unit_state; _systemctl_unit_state
+    compadd "$@" - ${(k)_sys_unit_state[(R)enabled]}
 }
 
 (( $+functions[_systemctl_reenable] )) || _systemctl_reenable()
 {
-    _systemctl_enabled_units
-    _systemctl_disabled_units
-    compadd "$@" -a - _sys_enabled_units _sys_disabled_units $(_systemctl_get_template_names)
+    local _sys_unit_state; _systemctl_unit_state
+    compadd "$@" - ${(k)_sys_unit_state[(R)(enabled|disabled)]} $(_systemctl_get_template_names)
 }
 
 # Completion functions for DISABLED_UNITS
 (( $+functions[_systemctl_enable] )) || _systemctl_enable()
 {
-  _systemctl_disabled_units
-  compadd "$@" -a - _sys_disabled_units $(_systemctl_get_template_names)
+  local _sys_unit_state; _systemctl_unit_state
+  compadd "$@" - ${(k)_sys_unit_state[(R)disabled]} $(_systemctl_get_template_names)
 }
 
 # Completion functions for FAILED_UNITS
@@ -255,8 +252,8 @@ done
 # Completion functions for MASKED_UNITS
 (( $+functions[_systemctl_unmask] )) || _systemctl_unmask()
 {
-  _systemctl_masked_units
-  compadd "$@" -a - _sys_masked_units || _message "no masked units found"
+  local _sys_unit_state; _systemctl_unit_state
+  compadd "$@" - ${(k)_sys_unit_state[(R)masked]} || _message "no masked units found"
 }
 
 # Completion functions for JOBS
