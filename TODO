@@ -96,9 +96,6 @@ Features:
   should not follow symlinks. None of the other adjustment or creation
   calls follow symlinks.
 
-* bus-proxy: fix return code when releasing name that we don't have:
-  http://lists.freedesktop.org/archives/systemd-devel/2015-April/030494.html
-
 * fstab-generator: default to tmpfs-as-root if only usr= is specified on the kernel cmdline
 
 * docs: bring http://www.freedesktop.org/wiki/Software/systemd/MyServiceCantGetRealtime up to date
@@ -119,9 +116,6 @@ Features:
 
 * create a btrfs qgroup for /var/lib/machines, and add all container
   subvolumes we create to it.
-
-* nspawn: add --overlay= to support overlay file systems, similar to
-  --tmpfs= and --bind=.
 
 * When logging about multiple units (stopping BoundTo units, conflicts, etc.),
   log both units as UNIT=, so that journalctl -u triggers on both.
@@ -179,7 +173,7 @@ Features:
 
 * logind: maybe allow configuration of the StopTimeout for session scopes
 
-* Set NoNewPriviliges= on all of our own services, where that makes sense
+* Set NoNewPrivileges= on all of our own services, where that makes sense
 
 * Rework systemctl's GetAll property parsing to use the generic bus_map_all_properties() API
 
