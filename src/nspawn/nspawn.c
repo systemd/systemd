@@ -3990,7 +3990,6 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        log_close();
         n_fd_passed = sd_listen_fds(false);
         if (n_fd_passed > 0) {
                 r = fdset_new_listen_fds(&fds, false);
@@ -3999,8 +3998,6 @@ int main(int argc, char *argv[]) {
                         goto finish;
                 }
         }
-        fdset_close_others(fds);
-        log_open();
 
         if (arg_directory) {
                 assert(!arg_image);
@@ -4510,6 +4507,17 @@ int main(int argc, char *argv[]) {
                          * setup, too... */
                         (void) barrier_place_and_sync(&barrier); /* #5 */
 
+                        /* Now, explicitly close the log, so that we
+                         * then can close all remaining fds. Closing
+                         * the log explicitly first has the benefit
+                         * that the logging subsystem knows about it,
+                         * and is thus ready to be reopened should we
+                         * need it again. Note that the other fds
+                         * closed here are at least the locking and
+                         * barrier fds. */
+                        log_close();
+                        (void) fdset_close_others(fds);
+
                         if (arg_boot) {
                                 char **a;
                                 size_t l;
@@ -4536,6 +4544,7 @@ int main(int argc, char *argv[]) {
                                 execle("/bin/sh", "-sh", NULL, env_use);
                         }
 
+                        (void) log_open();
                         log_error_errno(errno, "execv() failed: %m");
                         _exit(EXIT_FAILURE);
                 }
