@@ -1,6 +1,6 @@
 #!/bin/bash -x
 
-# Test merging of a --ignore-dependencies job into a previously
+# Test merging of a --job-mode=ignore-dependencies job into a previously
 # installed job.
 
 systemctl start --no-block hello-after-sleep.target
@@ -11,7 +11,7 @@ grep 'hello\.service.*waiting' /root/list-jobs.txt || exit 1
 
 # This is supposed to finish quickly, not wait for sleep to finish.
 START_SEC=$(date -u '+%s')
-systemctl start --ignore-dependencies hello
+systemctl start --job-mode=ignore-dependencies hello
 END_SEC=$(date -u '+%s')
 ELAPSED=$(($END_SEC-$START_SEC))
 
@@ -27,7 +27,7 @@ systemctl stop sleep.service hello-after-sleep.target || exit 1
 systemctl start --no-block hello-after-sleep.target || exit 1
 # hello.service should still be waiting, so these try-restarts will collapse
 # into NOPs.
-systemctl try-restart --fail hello.service || exit 1
+systemctl try-restart --job-mode=fail hello.service || exit 1
 systemctl try-restart hello.service || exit 1
 systemctl stop hello.service sleep.service hello-after-sleep.target || exit 1
 
@@ -39,7 +39,7 @@ systemctl start unstoppable.service || exit 1
 # This is expected to fail with 'job cancelled'
 systemctl stop unstoppable.service && exit 1
 # But this should succeed
-systemctl stop --irreversible unstoppable.service || exit 1
+systemctl stop --job-mode=replace-irreversibly unstoppable.service || exit 1
 
 # We're going to shutdown soon. Let's see if it succeeds when
 # there's an active service that tries to be unstoppable.

@@ -90,10 +90,10 @@ _systemctl () {
         local i verb comps mode
 
         local -A OPTS=(
-               [STANDALONE]='--all -a --reverse --after --before --defaults --fail --ignore-dependencies --failed --force -f --full -l --global
+               [STANDALONE]='--all -a --reverse --after --before --defaults --failed --force -f --full -l --global
                              --help -h --no-ask-password --no-block --no-legend --no-pager --no-reload --no-wall
                              --quiet -q --privileged -P --system --user --version --runtime --recursive -r --firmware-setup'
-                      [ARG]='--host -H --kill-who --property -p --signal -s --type -t --state --root'
+                      [ARG]='--host -H --kill-who --property -p --signal -s --type -t --state --job-mode --root'
         )
 
         if __contains_word "--user" ${COMP_WORDS[*]}; then
@@ -114,6 +114,10 @@ _systemctl () {
                                 comps='loaded not-found stub
                                        active inactive
                                        dead elapsed exited listening mounted plugged running waiting'
+                        ;;
+                        --job-mode)
+                                comps='fail replace replace-irreversibly isolate
+                                       ignore-dependencies ignore-requirements flush'
                         ;;
                         --kill-who)
                                 comps='all control main'

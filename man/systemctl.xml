@@ -1522,7 +1522,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
 
           <listitem>
             <para>Shut down and halt the system. This is mostly equivalent to
-            <command>start halt.target --irreversible</command>, but also
+            <command>start halt.target --job-mode=replace-irreversibly</command>, but also
             prints a wall message to all users.  If combined with
             <option>--force</option>, shutdown of all running services is
             skipped, however all processes are killed and all file
@@ -1538,7 +1538,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
 
           <listitem>
             <para>Shut down and power-off the system. This is mostly
-            equivalent to <command>start poweroff.target --irreversible</command>,
+            equivalent to <command>start poweroff.target --job-mode=replace-irreversibly</command>,
             but also prints a wall message to all users. If combined with
             <option>--force</option>, shutdown of all running services is
             skipped, however all processes are killed and all file
@@ -1554,7 +1554,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
 
           <listitem>
             <para>Shut down and reboot the system. This is mostly
-            equivalent to <command>start reboot.target --irreversible</command>,
+            equivalent to <command>start reboot.target --job-mode=replace-irreversibly</command>,
             but also prints a wall message to all users. If combined with
             <option>--force</option>, shutdown of all running services is
             skipped, however all processes are killed and all file
@@ -1581,7 +1581,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
 
           <listitem>
             <para>Shut down and reboot the system via kexec. This is
-            mostly equivalent to <command>start kexec.target --irreversible</command>,
+            mostly equivalent to <command>start kexec.target --job-mode=replace-irreversibly</command>,
             but also prints a wall message to all users. If combined
             with <option>--force</option>, shutdown of all running
             services is skipped, however all processes are killed and

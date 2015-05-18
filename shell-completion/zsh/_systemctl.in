@@ -353,11 +353,18 @@ _unit_properties() {
   _values -s , "${_sys_all_properties[@]}"
 }
 
+_job_modes() {
+    local -a _modes
+    _modes=(fail replace replace-irreversibly isolate ignore-dependencies ignore-requirements flush)
+    _values -s , "${_modes[@]}"
+}
+
 _arguments -s \
     {-h,--help}'[Show help]' \
     '--version[Show package version]' \
     {-t+,--type=}'[List only units of a particular type]:unit type:_unit_types' \
-    '--state=[Display units in the specifyied state]:unit state:_unit_states' \
+    '--state=[Display units in the specified state]:unit state:_unit_states' \
+    '--job-mode=[Specify how to deal with other jobs]:mode:_job_modes' \
     {-p+,--property=}'[Show only properties by specific name]:unit property:_unit_properties' \
     {-a,--all}'[Show all units/properties, including dead/empty ones]' \
     '--reverse[Show reverse dependencies]' \
@@ -365,10 +372,7 @@ _arguments -s \
     '--before[Show units ordered before]' \
     '--failed[Show only failed units]' \
     {-l,--full}"[Don't ellipsize unit names on output]" \
-    '--fail[When queueing a new job, fail if conflicting jobs are pending]' \
     '--show-types[When showing sockets, show socket type]' \
-    '--irreversible[Mark transactions as irreversible]' \
-    '--ignore-dependencies[When queueing a new job, ignore all its dependencies]' \
     {-i,--ignore-inhibitors}'[When executing a job, ignore jobs dependencies]' \
     {-q,--quiet}'[Suppress output]' \
     '--no-block[Do not wait until operation finished]' \
