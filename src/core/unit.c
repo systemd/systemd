@@ -1092,6 +1092,8 @@ static int unit_add_target_dependencies(Unit *u) {
         static const UnitDependency deps[] = {
                 UNIT_REQUIRED_BY,
                 UNIT_REQUIRED_BY_OVERRIDABLE,
+                UNIT_REQUISITE_OF,
+                UNIT_REQUISITE_OF_OVERRIDABLE,
                 UNIT_WANTED_BY,
                 UNIT_BOUND_BY
         };
@@ -1589,8 +1591,20 @@ bool unit_can_reload(Unit *u) {
 }
 
 static void unit_check_unneeded(Unit *u) {
-        Iterator i;
+
+        static const UnitDependency needed_dependencies[] = {
+                UNIT_REQUIRED_BY,
+                UNIT_REQUIRED_BY_OVERRIDABLE,
+                UNIT_REQUISITE,
+                UNIT_REQUISITE_OF_OVERRIDABLE,
+                UNIT_WANTED_BY,
+                UNIT_BOUND_BY,
+        };
+
         Unit *other;
+        Iterator i;
+        unsigned j;
+        int r;
 
         assert(u);
 
@@ -1603,26 +1617,17 @@ static void unit_check_unneeded(Unit *u) {
         if (!UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(u)))
                 return;
 
-        SET_FOREACH(other, u->dependencies[UNIT_REQUIRED_BY], i)
-                if (unit_active_or_pending(other))
-                        return;
-
-        SET_FOREACH(other, u->dependencies[UNIT_REQUIRED_BY_OVERRIDABLE], i)
-                if (unit_active_or_pending(other))
-                        return;
-
-        SET_FOREACH(other, u->dependencies[UNIT_WANTED_BY], i)
-                if (unit_active_or_pending(other))
-                        return;
-
-        SET_FOREACH(other, u->dependencies[UNIT_BOUND_BY], i)
-                if (unit_active_or_pending(other))
-                        return;
+        for (j = 0; j < ELEMENTSOF(needed_dependencies); j++)
+                SET_FOREACH(other, u->dependencies[j], i)
+                        if (unit_active_or_pending(other))
+                                return;
 
         log_unit_info(u, "Unit not needed anymore. Stopping.");
 
         /* Ok, nobody needs us anymore. Sniff. Then let's commit suicide */
-        manager_add_job(u->manager, JOB_STOP, u, JOB_FAIL, true, NULL, NULL);
+        r = manager_add_job(u->manager, JOB_STOP, u, JOB_FAIL, true, NULL, NULL);
+        if (r < 0)
+                log_unit_warning_errno(u, r, "Failed to enqueue stop job, ignoring: %m");
 }
 
 static void unit_check_binds_to(Unit *u) {
@@ -2163,13 +2168,15 @@ int unit_add_dependency(Unit *u, UnitDependency d, Unit *other, bool add_referen
                 [UNIT_REQUIRES] = UNIT_REQUIRED_BY,
                 [UNIT_REQUIRES_OVERRIDABLE] = UNIT_REQUIRED_BY_OVERRIDABLE,
                 [UNIT_WANTS] = UNIT_WANTED_BY,
-                [UNIT_REQUISITE] = UNIT_REQUIRED_BY,
-                [UNIT_REQUISITE_OVERRIDABLE] = UNIT_REQUIRED_BY_OVERRIDABLE,
+                [UNIT_REQUISITE] = UNIT_REQUISITE_OF,
+                [UNIT_REQUISITE_OVERRIDABLE] = UNIT_REQUISITE_OF_OVERRIDABLE,
                 [UNIT_BINDS_TO] = UNIT_BOUND_BY,
                 [UNIT_PART_OF] = UNIT_CONSISTS_OF,
-                [UNIT_REQUIRED_BY] = _UNIT_DEPENDENCY_INVALID,
-                [UNIT_REQUIRED_BY_OVERRIDABLE] = _UNIT_DEPENDENCY_INVALID,
-                [UNIT_WANTED_BY] = _UNIT_DEPENDENCY_INVALID,
+                [UNIT_REQUIRED_BY] = UNIT_REQUIRES,
+                [UNIT_REQUIRED_BY_OVERRIDABLE] = UNIT_REQUIRES_OVERRIDABLE,
+                [UNIT_REQUISITE_OF] = UNIT_REQUISITE,
+                [UNIT_REQUISITE_OF_OVERRIDABLE] = UNIT_REQUISITE_OVERRIDABLE,
+                [UNIT_WANTED_BY] = UNIT_WANTS,
                 [UNIT_BOUND_BY] = UNIT_BINDS_TO,
                 [UNIT_CONSISTS_OF] = UNIT_PART_OF,
                 [UNIT_CONFLICTS] = UNIT_CONFLICTED_BY,
