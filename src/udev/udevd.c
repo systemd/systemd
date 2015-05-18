@@ -43,6 +43,7 @@
 #include "sd-daemon.h"
 #include "rtnl-util.h"
 #include "cgroup-util.h"
+#include "process-util.h"
 #include "dev-setup.h"
 #include "fileio.h"
 #include "selinux-util.h"
@@ -224,6 +225,30 @@ static int worker_new(struct worker **ret, Manager *manager, struct udev_monitor
         worker = NULL;
 
         return 0;
+}
+
+static int on_event_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
+        struct event *event = userdata;
+
+        assert(event);
+        assert(event->worker);
+
+        kill_and_sigcont(event->worker->pid, SIGKILL);
+        event->worker->state = WORKER_KILLED;
+
+        log_error("seq %llu '%s' killed", udev_device_get_seqnum(event->dev), event->devpath);
+
+        return 1;
+}
+
+static int on_event_timeout_warning(sd_event_source *s, uint64_t usec, void *userdata) {
+        struct event *event = userdata;
+
+        assert(event);
+
+        log_warning("seq %llu '%s' is taking a long time", udev_device_get_seqnum(event->dev), event->devpath);
+
+        return 1;
 }
 
 static void worker_attach_event(struct worker *worker, struct event *event) {
@@ -1571,14 +1596,10 @@ int main(int argc, char *argv[]) {
                                 ts = now(CLOCK_MONOTONIC);
 
                                 if ((ts - event->start_usec) > arg_event_timeout_warn_usec) {
-                                        if ((ts - event->start_usec) > arg_event_timeout_usec) {
-                                                log_error("worker ["PID_FMT"] %s timeout; kill it", worker->pid, event->devpath);
-                                                kill(worker->pid, SIGKILL);
-                                                worker->state = WORKER_KILLED;
-
-                                                log_error("seq %llu '%s' killed", udev_device_get_seqnum(event->dev), event->devpath);
-                                        } else if (!event->warned) {
-                                                log_warning("worker ["PID_FMT"] %s is taking a long time", worker->pid, event->devpath);
+                                        if ((ts - event->start_usec) > arg_event_timeout_usec)
+                                                on_event_timeout(NULL, 0, event);
+                                        else if (!event->warned) {
+                                                on_event_timeout_warning(NULL, 0, event);
                                                 event->warned = true;
                                         }
                                 }
