@@ -272,7 +272,7 @@ static int output_short(
         }
 
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to get journal fields: %m");
 
         if (!message)
                 return 0;
@@ -408,11 +408,9 @@ static int output_verbose(
         r = sd_journal_get_data(j, "_SOURCE_REALTIME_TIMESTAMP", &data, &length);
         if (r == -ENOENT)
                 log_debug("Source realtime timestamp not found");
-        else if (r < 0) {
-                log_full_errno(r == -EADDRNOTAVAIL ? LOG_DEBUG : LOG_ERR, r,
-                               "Failed to get source realtime timestamp: %m");
-                return r;
-        } else {
+        else if (r < 0)
+                return log_full_errno(r == -EADDRNOTAVAIL ? LOG_DEBUG : LOG_ERR, r, "Failed to get source realtime timestamp: %m");
+        else {
                 _cleanup_free_ char *value = NULL;
                 size_t size;
 
@@ -428,11 +426,8 @@ static int output_verbose(
 
         if (r < 0) {
                 r = sd_journal_get_realtime_usec(j, &realtime);
-                if (r < 0) {
-                        log_full_errno(r == -EADDRNOTAVAIL ? LOG_DEBUG : LOG_ERR, r,
-                                       "Failed to get realtime timestamp: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_full_errno(r == -EADDRNOTAVAIL ? LOG_DEBUG : LOG_ERR, r, "Failed to get realtime timestamp: %m");
         }
 
         r = sd_journal_get_cursor(j, &cursor);
@@ -682,7 +677,7 @@ static int output_json(
 
         h = hashmap_new(&string_hash_ops);
         if (!h)
-                return -ENOMEM;
+                return log_oom();
 
         /* First round, iterate through the entry and count how often each field appears */
         JOURNAL_FOREACH_DATA_RETVAL(j, data, length, r) {
@@ -700,7 +695,7 @@ static int output_json(
 
                 n = strndup(data, eq - (const char*) data);
                 if (!n) {
-                        r = -ENOMEM;
+                        r = log_oom();
                         goto finish;
                 }
 
@@ -709,13 +704,16 @@ static int output_json(
                         r = hashmap_put(h, n, UINT_TO_PTR(1));
                         if (r < 0) {
                                 free(n);
+                                log_oom();
                                 goto finish;
                         }
                 } else {
                         r = hashmap_update(h, n, UINT_TO_PTR(u + 1));
                         free(n);
-                        if (r < 0)
+                        if (r < 0) {
+                                log_oom();
                                 goto finish;
+                        }
                 }
         }
 
@@ -753,7 +751,7 @@ static int output_json(
 
                         n = strndup(data, m);
                         if (!n) {
-                                r = -ENOMEM;
+                                r = log_oom();
                                 goto finish;
                         }
 
@@ -948,11 +946,11 @@ static int show_journal(FILE *f,
         /* Seek to end */
         r = sd_journal_seek_tail(j);
         if (r < 0)
-                goto finish;
+                return log_error_errno(r, "Failed to seek to tail: %m");
 
         r = sd_journal_previous_skip(j, how_many);
         if (r < 0)
-                goto finish;
+                return log_error_errno(r, "Failed to skip previous: %m");
 
         for (;;) {
                 for (;;) {
@@ -961,7 +959,7 @@ static int show_journal(FILE *f,
                         if (need_seek) {
                                 r = sd_journal_next(j);
                                 if (r < 0)
-                                        goto finish;
+                                        return log_error_errno(r, "Failed to iterate through journal: %m");
                         }
 
                         if (r == 0)
@@ -977,7 +975,7 @@ static int show_journal(FILE *f,
                                 if (r == -ESTALE)
                                         continue;
                                 else if (r < 0)
-                                        goto finish;
+                                        return log_error_errno(r, "Failed to get journal time: %m");
 
                                 if (usec < not_before)
                                         continue;
@@ -988,7 +986,7 @@ static int show_journal(FILE *f,
 
                         r = output_journal(f, j, mode, n_columns, flags, ellipsized);
                         if (r < 0)
-                                goto finish;
+                                return r;
                 }
 
                 if (warn_cutoff && line < how_many && not_before > 0) {
@@ -999,11 +997,11 @@ static int show_journal(FILE *f,
 
                         r = sd_id128_get_boot(&boot_id);
                         if (r < 0)
-                                goto finish;
+                                return log_error_errno(r, "Failed to get boot id: %m");
 
                         r = sd_journal_get_cutoff_monotonic_usec(j, boot_id, &cutoff, NULL);
                         if (r < 0)
-                                goto finish;
+                                return log_error_errno(r, "Failed to get journal cutoff time: %m");
 
                         if (r > 0 && not_before < cutoff) {
                                 maybe_print_begin_newline(f, &flags);
@@ -1018,12 +1016,11 @@ static int show_journal(FILE *f,
 
                 r = sd_journal_wait(j, USEC_INFINITY);
                 if (r < 0)
-                        goto finish;
+                        return log_error_errno(r, "Failed to wait for journal: %m");
 
         }
 
-finish:
-        return r;
+        return 0;
 }
 
 int add_matches_for_unit(sd_journal *j, const char *unit) {
@@ -1220,7 +1217,7 @@ int add_match_this_boot(sd_journal *j, const char *machine) {
 
         r = sd_journal_add_conjunction(j);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to add conjunction: %m");
 
         return 0;
 }
@@ -1250,7 +1247,7 @@ int show_journal_by_unit(
 
         r = sd_journal_open(&j, journal_open_flags);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to open journal: %m");
 
         r = add_match_this_boot(j, NULL);
         if (r < 0)
@@ -1261,12 +1258,15 @@ int show_journal_by_unit(
         else
                 r = add_matches_for_user_unit(j, unit, uid);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to add unit matches: %m");
 
         if (_unlikely_(log_get_max_level() >= LOG_DEBUG)) {
                 _cleanup_free_ char *filter;
 
                 filter = journal_make_match_string(j);
+                if (!filter)
+                        return log_oom();
+
                 log_debug("Journal filter: %s", filter);
         }
 

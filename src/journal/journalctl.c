@@ -818,17 +818,11 @@ static int add_matches(sd_journal *j, char **args) {
                                         }
                                 } else
                                         t = strappend("_EXE=", path);
-                        } else if (S_ISCHR(st.st_mode)) {
-                                if (asprintf(&t, "_KERNEL_DEVICE=c%u:%u",
-                                             major(st.st_rdev),
-                                             minor(st.st_rdev)) < 0)
-                                        return -ENOMEM;
-                        } else if (S_ISBLK(st.st_mode)) {
-                                if (asprintf(&t, "_KERNEL_DEVICE=b%u:%u",
-                                             major(st.st_rdev),
-                                             minor(st.st_rdev)) < 0)
-                                        return -ENOMEM;
-                        } else {
+                        } else if (S_ISCHR(st.st_mode))
+                                (void) asprintf(&t, "_KERNEL_DEVICE=c%u:%u", major(st.st_rdev), minor(st.st_rdev));
+                        else if (S_ISBLK(st.st_mode))
+                                (void) asprintf(&t, "_KERNEL_DEVICE=b%u:%u", major(st.st_rdev), minor(st.st_rdev));
+                        else {
                                 log_error("File is neither a device node, nor regular file, nor executable: %s", *i);
                                 return -EINVAL;
                         }
@@ -893,7 +887,7 @@ static int discover_next_boot(
 
         next_boot = new0(BootId, 1);
         if (!next_boot)
-                return log_oom();
+                return -ENOMEM;
 
         r = sd_journal_get_monotonic_usec(j, NULL, &next_boot->id);
         if (r < 0)
@@ -1049,7 +1043,9 @@ static int list_boots(sd_journal *j) {
         assert(j);
 
         count = get_boots(j, &all_ids, NULL, 0);
-        if (count <= 0)
+        if (count < 0)
+                return log_error_errno(count, "Failed to determine boots: %m");
+        if (count == 0)
                 return count;
 
         pager_open_if_enabled();
@@ -1109,7 +1105,7 @@ static int add_boot(sd_journal *j) {
 
         r = sd_journal_add_conjunction(j);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to add conjunction: %m");
 
         return 0;
 }
@@ -1127,22 +1123,24 @@ static int add_dmesg(sd_journal *j) {
 
         r = sd_journal_add_conjunction(j);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to add conjunction: %m");
 
         return 0;
 }
 
-static int get_possible_units(sd_journal *j,
-                              const char *fields,
-                              char **patterns,
-                              Set **units) {
+static int get_possible_units(
+                sd_journal *j,
+                const char *fields,
+                char **patterns,
+                Set **units) {
+
         _cleanup_set_free_free_ Set *found;
         const char *field;
         int r;
 
         found = set_new(&string_hash_ops);
         if (!found)
-                return log_oom();
+                return -ENOMEM;
 
         NULSTR_FOREACH(field, fields) {
                 const void *data;
@@ -1165,7 +1163,7 @@ static int get_possible_units(sd_journal *j,
 
                         u = strndup((char*) data + prefix, size - prefix);
                         if (!u)
-                                return log_oom();
+                                return -ENOMEM;
 
                         STRV_FOREACH(pattern, patterns)
                                 if (fnmatch(*pattern, u, FNM_NOESCAPE) == 0) {
@@ -1329,7 +1327,7 @@ static int add_priorities(sd_journal *j) {
 
         r = sd_journal_add_conjunction(j);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to add conjunction: %m");
 
         return 0;
 }
@@ -1930,21 +1928,20 @@ int main(int argc, char *argv[]) {
         }
 
         r = add_priorities(j);
-        if (r < 0) {
-                log_error_errno(r, "Failed to add filter for priorities: %m");
+        if (r < 0)
                 goto finish;
-        }
 
         r = add_matches(j, argv + optind);
-        if (r < 0) {
-                log_error_errno(r, "Failed to add filters: %m");
+        if (r < 0)
                 goto finish;
-        }
 
         if (_unlikely_(log_get_max_level() >= LOG_DEBUG)) {
                 _cleanup_free_ char *filter;
 
                 filter = journal_make_match_string(j);
+                if (!filter)
+                        return log_oom();
+
                 log_debug("Journal filter: %s", filter);
         }
 
@@ -1954,7 +1951,7 @@ int main(int argc, char *argv[]) {
 
                 r = sd_journal_set_data_threshold(j, 0);
                 if (r < 0) {
-                        log_error("Failed to unset data size threshold");
+                        log_error_errno(r, "Failed to unset data size threshold: %m");
                         goto finish;
                 }
 
@@ -1986,8 +1983,10 @@ int main(int argc, char *argv[]) {
         /* Opening the fd now means the first sd_journal_wait() will actually wait */
         if (arg_follow) {
                 r = sd_journal_get_fd(j);
-                if (r < 0)
+                if (r < 0) {
+                        log_error_errno(r, "Failed to get journal fd: %m");
                         goto finish;
+                }
         }
 
         if (arg_cursor || arg_after_cursor) {
