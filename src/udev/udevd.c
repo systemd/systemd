@@ -1042,12 +1042,12 @@ static int on_sigchld(sd_event_source *s, const struct signalfd_siginfo *si, voi
 
                 pid = waitpid(-1, &status, WNOHANG);
                 if (pid <= 0)
-                        return 1;
+                        break;
 
                 worker = hashmap_get(manager->workers, UINT_TO_PTR(pid));
                 if (!worker) {
                         log_warning("worker ["PID_FMT"] is unknown, ignoring", pid);
-                        return 1;
+                        continue;
                 }
 
                 if (WIFEXITED(status)) {
@@ -1059,10 +1059,10 @@ static int on_sigchld(sd_event_source *s, const struct signalfd_siginfo *si, voi
                         log_warning("worker ["PID_FMT"] terminated by signal %i (%s)", pid, WTERMSIG(status), strsignal(WTERMSIG(status)));
                 } else if (WIFSTOPPED(status)) {
                         log_info("worker ["PID_FMT"] stopped", pid);
-                        return 1;
+                        continue;
                 } else if (WIFCONTINUED(status)) {
                         log_info("worker ["PID_FMT"] continued", pid);
-                        return 1;
+                        continue;
                 } else
                         log_warning("worker ["PID_FMT"] exit with status 0x%04x", pid, status);
 
