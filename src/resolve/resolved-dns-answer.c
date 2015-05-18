@@ -25,8 +25,6 @@
 DnsAnswer *dns_answer_new(unsigned n) {
         DnsAnswer *a;
 
-        assert(n > 0);
-
         a = malloc0(offsetof(DnsAnswer, rrs) + sizeof(DnsResourceRecord*) * n);
         if (!a)
                 return NULL;
