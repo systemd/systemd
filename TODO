@@ -37,19 +37,17 @@ Before 220:
 * timer units triggering services with failing conditions run busy:
   http://lists.freedesktop.org/archives/systemd-devel/2015-April/030095.html
 
-* logind: follow PropertiesChanged state more closely, to deal with quick logouts and relogins
-
-* networkd: fix ip forwarding boolean
-
 * whe should apply a stop limit (similar to the existing start limit),
   so that we don't enter unbounded umount loops:
   http://lists.freedesktop.org/archives/systemd-devel/2015-April/030224.html
 
+Features:
+
+* logind: follow PropertiesChanged state more closely, to deal with quick logouts and relogins
+
 * change to KillMode=mixed by default
 
-* introduce argv0array=
-
-Features:
+* introduce argv0contains=
 
 * invent a better systemd-run scheme for naming scopes, that works with remoting
 
@@ -58,8 +56,6 @@ Features:
 * change journalctl -M to acquire fd to journal directory via machined, and then operate on that via openat() insteat of absolute paths
 
 * log accumulated resource usage after each service invocation
-
-* export unit name escaping calls
 
 * networkd: dhcp server: try to assign stable IP addresses based on client's MAC address
 
