@@ -208,7 +208,7 @@ done
 # Completion functions for STARTABLE_UNITS
 (( $+functions[_systemctl_start] )) || _systemctl_start()
 {
-   _systemctl_startable_units
+   local _sys_startable_units; _systemctl_startable_units
    compadd "$@" - ${_sys_startable_units[*]} $(_systemctl_get_template_names)
 }
 
@@ -216,7 +216,7 @@ done
 for fun in stop kill try-restart condrestart ; do
   (( $+functions[_systemctl_$fun] )) || _systemctl_$fun()
   {
-    _systemctl_active_units
+    local _sys_active_units; _systemctl_active_units
     compadd "$@" - $( _filter_units_by_property CanStop yes \
       ${_sys_active_units[*]} )
   }
@@ -234,7 +234,7 @@ done
 for fun in reload reload-or-try-restart force-reload ; do
   (( $+functions[_systemctl_$fun] )) || _systemctl_$fun()
   {
-    _systemctl_active_units
+    local _sys_active_units; _systemctl_active_units
     compadd "$@" - $( _filter_units_by_property CanReload yes \
       ${_sys_active_units[*]} )
   }
@@ -244,7 +244,7 @@ done
 for fun in restart reload-or-restart ; do
   (( $+functions[_systemctl_$fun] )) || _systemctl_$fun()
   {
-    _systemctl_restartable_units
+    local _sys_restartable_units; _systemctl_restartable_units
     compadd "$@" - ${_sys_restartable_units[*]} $(_systemctl_get_template_names)
   }
 done
