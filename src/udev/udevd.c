@@ -1507,7 +1507,9 @@ int main(int argc, char *argv[]) {
                         r = log_error_errno(errno, "fork of daemon failed: %m");
                         goto exit;
                 default:
-                        goto exit_daemonize;
+                        mac_selinux_finish();
+                        log_close();
+                        _exit(EXIT_SUCCESS);
                 }
 
                 setsid();
@@ -1697,7 +1699,6 @@ int main(int argc, char *argv[]) {
 exit:
         if (manager)
                 udev_ctrl_cleanup(manager->ctrl);
-exit_daemonize:
         mac_selinux_finish();
         log_close();
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
