@@ -852,6 +852,15 @@ static int add_matches(sd_journal *j, char **args) {
         return 0;
 }
 
+static void boot_id_free_all(BootId *l) {
+
+        while (l) {
+                BootId *i = l;
+                LIST_REMOVE(boot_list, l, i);
+                free(i);
+        }
+}
+
 static int discover_next_boot(
                 sd_journal *j,
                 BootId **boot,
@@ -929,6 +938,7 @@ static int discover_next_boot(
 
         *boot = next_boot;
         next_boot = NULL;
+
         return 0;
 }
 
@@ -1000,9 +1010,7 @@ static int get_boots(
 
                 r = discover_next_boot(j, &current, advance_older, !query_ref_boot);
                 if (r < 0) {
-                        BootId *id, *id_next;
-                        LIST_FOREACH_SAFE(boot_list, id, id_next, head)
-                                free(id);
+                        boot_id_free_all(head);
                         return r;
                 }
 
@@ -1038,7 +1046,7 @@ finish:
 
 static int list_boots(sd_journal *j) {
         int w, i, count;
-        BootId *id, *id_next, *all_ids;
+        BootId *id, *all_ids;
 
         assert(j);
 
@@ -1054,7 +1062,7 @@ static int list_boots(sd_journal *j) {
         w = DECIMAL_STR_WIDTH(count - 1) + 1;
 
         i = 0;
-        LIST_FOREACH_SAFE(boot_list, id, id_next, all_ids) {
+        LIST_FOREACH(boot_list, id, all_ids) {
                 char a[FORMAT_TIMESTAMP_MAX], b[FORMAT_TIMESTAMP_MAX];
 
                 printf("% *i " SD_ID128_FORMAT_STR " %s—%s\n",
@@ -1063,8 +1071,9 @@ static int list_boots(sd_journal *j) {
                        format_timestamp_maybe_utc(a, sizeof(a), id->first),
                        format_timestamp_maybe_utc(b, sizeof(b), id->last));
                 i++;
-                free(id);
         }
+
+        boot_id_free_all(all_ids);
 
         return 0;
 }
