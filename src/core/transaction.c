@@ -861,8 +861,7 @@ int transaction_add_job_and_dependencies(
         /*           by ? job_type_to_string(by->type) : "NA"); */
 
         if (!IN_SET(unit->load_state, UNIT_LOADED, UNIT_ERROR, UNIT_NOT_FOUND, UNIT_MASKED))
-                return sd_bus_error_setf(e, BUS_ERROR_LOAD_FAILED,
-                                         "Unit %s is not loaded properly.", unit->id);
+                return sd_bus_error_setf(e, BUS_ERROR_LOAD_FAILED, "Unit %s is not loaded properly.", unit->id);
 
         if (type != JOB_STOP && unit->load_state == UNIT_ERROR) {
                 if (unit->load_error == -ENOENT || unit->manager->test_run)
@@ -1023,12 +1022,18 @@ int transaction_add_job_and_dependencies(
                                 UNIT_CONSISTS_OF,
                         };
 
+                        JobType ptype;
                         unsigned j;
+
+                        /* We propagate STOP as STOP, but RESTART only
+                         * as TRY_RESTART, in order not to start
+                         * dependencies that are not around. */
+                        ptype = type == JOB_RESTART ? JOB_TRY_RESTART : type;
 
                         for (j = 0; j < ELEMENTSOF(propagate_deps); j++)
                                 SET_FOREACH(dep, ret->unit->dependencies[propagate_deps[j]], i) {
 
-                                        r = transaction_add_job_and_dependencies(tr, type, dep, ret, true, override, false, false, ignore_order, e);
+                                        r = transaction_add_job_and_dependencies(tr, job_type_collapse(ptype, dep), dep, ret, true, override, false, false, ignore_order, e);
                                         if (r < 0) {
                                                 if (r != -EBADR)
                                                         goto fail;

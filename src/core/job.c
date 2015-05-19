@@ -388,38 +388,38 @@ bool job_type_is_redundant(JobType a, UnitActiveState b) {
         }
 }
 
-void job_type_collapse(JobType *t, Unit *u) {
+JobType job_type_collapse(JobType t, Unit *u) {
         UnitActiveState s;
 
-        switch (*t) {
+        switch (t) {
 
         case JOB_TRY_RESTART:
                 s = unit_active_state(u);
                 if (UNIT_IS_INACTIVE_OR_DEACTIVATING(s))
-                        *t = JOB_NOP;
-                else
-                        *t = JOB_RESTART;
-                break;
+                        return JOB_NOP;
+
+                return JOB_RESTART;
 
         case JOB_RELOAD_OR_START:
                 s = unit_active_state(u);
                 if (UNIT_IS_INACTIVE_OR_DEACTIVATING(s))
-                        *t = JOB_START;
-                else
-                        *t = JOB_RELOAD;
-                break;
+                        return JOB_START;
+
+                return JOB_RELOAD;
 
         default:
-                ;
+                return t;
         }
 }
 
 int job_type_merge_and_collapse(JobType *a, JobType b, Unit *u) {
-        JobType t = job_type_lookup_merge(*a, b);
+        JobType t;
+
+        t = job_type_lookup_merge(*a, b);
         if (t < 0)
                 return -EEXIST;
-        *a = t;
-        job_type_collapse(a, u);
+
+        *a = job_type_collapse(t, u);
         return 0;
 }
 
