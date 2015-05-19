@@ -175,8 +175,8 @@ struct Unit {
         /* Error code when we didn't manage to load the unit (negative) */
         int load_error;
 
-        /* Make sure we never enter endless loops with the check unneeded logic */
-        RateLimit check_unneeded_ratelimit;
+        /* Make sure we never enter endless loops with the check unneeded logic, or the BindsTo= logic */
+        RateLimit auto_stop_ratelimit;
 
         /* Cached unit file state and preset */
         UnitFileState unit_file_state;

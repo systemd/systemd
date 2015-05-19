@@ -91,7 +91,7 @@ Unit *unit_new(Manager *m, size_t size) {
         u->unit_file_preset = -1;
         u->on_failure_job_mode = JOB_REPLACE;
 
-        RATELIMIT_INIT(u->check_unneeded_ratelimit, 10 * USEC_PER_SEC, 16);
+        RATELIMIT_INIT(u->auto_stop_ratelimit, 10 * USEC_PER_SEC, 16);
 
         return u;
 }
@@ -1627,7 +1627,7 @@ static void unit_check_unneeded(Unit *u) {
         /* If stopping a unit fails continously we might enter a stop
          * loop here, hence stop acting on the service being
          * unnecessary after a while. */
-        if (!ratelimit_test(&u->check_unneeded_ratelimit)) {
+        if (!ratelimit_test(&u->auto_stop_ratelimit)) {
                 log_unit_warning(u, "Unit not needed anymore, but not stopping since we tried this too often recently.");
                 return;
         }
@@ -1644,6 +1644,7 @@ static void unit_check_binds_to(Unit *u) {
         bool stop = false;
         Unit *other;
         Iterator i;
+        int r;
 
         assert(u);
 
@@ -1667,11 +1668,21 @@ static void unit_check_binds_to(Unit *u) {
         if (!stop)
                 return;
 
+        /* If stopping a unit fails continously we might enter a stop
+         * loop here, hence stop acting on the service being
+         * unnecessary after a while. */
+        if (!ratelimit_test(&u->auto_stop_ratelimit)) {
+                log_unit_warning(u, "Unit is bound to inactive unit %s, but not stopping since we tried this too often recently.", other->id);
+                return;
+        }
+
         assert(other);
         log_unit_info(u, "Unit is bound to inactive unit %s. Stopping, too.", other->id);
 
         /* A unit we need to run is gone. Sniff. Let's stop this. */
-        manager_add_job(u->manager, JOB_STOP, u, JOB_FAIL, true, NULL, NULL);
+        r = manager_add_job(u->manager, JOB_STOP, u, JOB_FAIL, true, NULL, NULL);
+        if (r < 0)
+                log_unit_warning_errno(u, r, "Failed to enqueue stop job, ignoring: %m");
 }
 
 static void retroactively_start_dependencies(Unit *u) {
