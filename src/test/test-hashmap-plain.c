@@ -682,7 +682,7 @@ static void test_hashmap_get2(void) {
         r = hashmap_get2(m, key_orig, &key_copy);
         assert_se(streq(r, val));
         assert_se(key_orig != key_copy);
-        assert_se(streq(key_orig, key_orig));
+        assert_se(streq(key_orig, key_copy));
 
         r = hashmap_get2(m, "no such key", NULL);
         assert_se(r == NULL);
