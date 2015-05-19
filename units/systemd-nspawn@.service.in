@@ -18,6 +18,7 @@ KillMode=mixed
 Type=notify
 RestartForceExitStatus=133
 SuccessExitStatus=133
+Slice=machine.slice
 Delegate=yes
 
 # Enforce a strict device policy, similar to the one nspawn configures
