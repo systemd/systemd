@@ -1,5 +1,8 @@
-/pci.ids
-/usb.ids
+/20-acpi-vendor.hwdb.base
+/acpi_id_registry.html
 /ma-large.txt
 /ma-medium.txt
 /ma-small.txt
+/pci.ids
+/pnp_id_registry.html
+/usb.ids
