@@ -19,10 +19,6 @@ External:
 
 * Fedora: add an rpmlint check that verifies that all unit files in the RPM are listed in %systemd_post macros.
 
-* Fedora: move kernel image to /usr/lib/modules/, kernel-install will take care of populating /boot
-
-* Fedora: remove /etc/resolv.conf tmpfiles hack
-
 * wiki: update journal format documentation for lz4 additions
 
 * When lz4 gets an API for lz4 command output, make use of it to
@@ -36,10 +32,6 @@ Before 220:
 
 * timer units triggering services with failing conditions run busy:
   http://lists.freedesktop.org/archives/systemd-devel/2015-April/030095.html
-
-* whe should apply a stop limit (similar to the existing start limit),
-  so that we don't enter unbounded umount loops:
-  http://lists.freedesktop.org/archives/systemd-devel/2015-April/030224.html
 
 Features:
 
