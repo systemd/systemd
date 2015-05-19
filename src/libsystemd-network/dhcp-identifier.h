@@ -24,6 +24,7 @@
 
 #include "macro.h"
 #include "sparse-endian.h"
+#include "unaligned.h"
 #include "sd-id128.h"
 
 /* RFC 3315 section 9.1:
@@ -61,4 +62,4 @@ struct duid {
 } _packed_;
 
 int dhcp_identifier_set_duid_en(struct duid *duid, size_t *len);
-int dhcp_identifier_set_iaid(int ifindex, uint8_t *mac, size_t mac_len, uint32_t *_id);
+int dhcp_identifier_set_iaid(int ifindex, uint8_t *mac, size_t mac_len, void *_id);
