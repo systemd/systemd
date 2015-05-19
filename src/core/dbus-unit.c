@@ -716,7 +716,7 @@ static int send_new_signal(sd_bus *bus, void *userdata) {
         assert(u);
 
         p = unit_dbus_path(u);
-        if (!u)
+        if (!p)
                 return -ENOMEM;
 
         r = sd_bus_message_new_signal(
@@ -793,7 +793,7 @@ static int send_removed_signal(sd_bus *bus, void *userdata) {
         assert(u);
 
         p = unit_dbus_path(u);
-        if (!u)
+        if (!p)
                 return -ENOMEM;
 
         r = sd_bus_message_new_signal(
