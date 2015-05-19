@@ -85,7 +85,6 @@ Unit *unit_new(Manager *m, size_t size) {
 
         u->manager = m;
         u->type = _UNIT_TYPE_INVALID;
-        u->deserialized_job = _JOB_TYPE_INVALID;
         u->default_dependencies = true;
         u->unit_file_state = _UNIT_FILE_STATE_INVALID;
         u->unit_file_preset = -1;
@@ -2741,16 +2740,8 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                                         job_free(j);
                                         return r;
                                 }
-                        } else {
-                                /* legacy */
-                                JobType type;
-
-                                type = job_type_from_string(v);
-                                if (type < 0)
-                                        log_unit_debug(u, "Failed to parse job type value: %s", v);
-                                else
-                                        u->deserialized_job = type;
-                        }
+                        } else  /* legacy for pre-44 */
+                                log_unit_warning(u, "Update from too old systemd versions are unsupported, cannot deserialize job: %s", v);
                         continue;
                 } else if (streq(l, "inactive-exit-timestamp")) {
                         dual_timestamp_deserialize(v, &u->inactive_exit_timestamp);
@@ -2899,13 +2890,6 @@ int unit_coldplug(Unit *u) {
                 r = job_coldplug(u->job);
                 if (r < 0)
                         return r;
-        } else if (u->deserialized_job >= 0) {
-                /* legacy */
-                r = manager_add_job(u->manager, u->deserialized_job, u, JOB_IGNORE_REQUIREMENTS, false, NULL, NULL);
-                if (r < 0)
-                        return r;
-
-                u->deserialized_job = _JOB_TYPE_INVALID;
         }
 
         return 0;
