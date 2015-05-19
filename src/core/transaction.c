@@ -921,9 +921,7 @@ int transaction_add_job_and_dependencies(
                                 r = transaction_add_job_and_dependencies(tr, type, dep, ret, false, override, false, false, ignore_order, e);
                                 if (r < 0) {
                                         log_unit_warning(dep, "Cannot add dependency job for, ignoring: %s", bus_error_message(e, r));
-
-                                        if (e)
-                                                sd_bus_error_free(e);
+                                        sd_bus_error_free(e);
                                 }
                         }
 
@@ -938,8 +936,7 @@ int transaction_add_job_and_dependencies(
                                         if (r != -EBADR)
                                                 goto fail;
 
-                                        if (e)
-                                                sd_bus_error_free(e);
+                                        sd_bus_error_free(e);
                                 }
                         }
 
@@ -949,8 +946,7 @@ int transaction_add_job_and_dependencies(
                                         if (r != -EBADR)
                                                 goto fail;
 
-                                        if (e)
-                                                sd_bus_error_free(e);
+                                        sd_bus_error_free(e);
                                 }
                         }
 
@@ -961,9 +957,7 @@ int transaction_add_job_and_dependencies(
                                                       r == -EADDRNOTAVAIL ? LOG_DEBUG : LOG_WARNING, r,
                                                       "Cannot add dependency job, ignoring: %s",
                                                       bus_error_message(e, r));
-
-                                        if (e)
-                                                sd_bus_error_free(e);
+                                        sd_bus_error_free(e);
                                 }
                         }
 
@@ -974,9 +968,7 @@ int transaction_add_job_and_dependencies(
                                                       r == -EADDRNOTAVAIL ? LOG_DEBUG : LOG_WARNING, r,
                                                       "Cannot add dependency job, ignoring: %s",
                                                       bus_error_message(e, r));
-
-                                        if (e)
-                                                sd_bus_error_free(e);
+                                        sd_bus_error_free(e);
                                 }
                         }
 
@@ -986,8 +978,7 @@ int transaction_add_job_and_dependencies(
                                         if (r != -EBADR)
                                                 goto fail;
 
-                                        if (e)
-                                                sd_bus_error_free(e);
+                                        sd_bus_error_free(e);
                                 }
                         }
 
@@ -998,9 +989,7 @@ int transaction_add_job_and_dependencies(
                                                       r == -EADDRNOTAVAIL ? LOG_DEBUG : LOG_WARNING, r,
                                                       "Cannot add dependency job, ignoring: %s",
                                                       bus_error_message(e, r));
-
-                                        if (e)
-                                                sd_bus_error_free(e);
+                                        sd_bus_error_free(e);
                                 }
                         }
 
@@ -1010,8 +999,7 @@ int transaction_add_job_and_dependencies(
                                         if (r != -EBADR)
                                                 goto fail;
 
-                                        if (e)
-                                                sd_bus_error_free(e);
+                                        sd_bus_error_free(e);
                                 }
                         }
 
@@ -1021,9 +1009,7 @@ int transaction_add_job_and_dependencies(
                                         log_unit_warning(dep,
                                                          "Cannot add dependency job, ignoring: %s",
                                                          bus_error_message(e, r));
-
-                                        if (e)
-                                                sd_bus_error_free(e);
+                                        sd_bus_error_free(e);
                                 }
                         }
 
@@ -1060,9 +1046,7 @@ int transaction_add_job_and_dependencies(
                                         log_unit_warning(dep,
                                                          "Cannot add dependency reload job, ignoring: %s",
                                                          bus_error_message(e, r));
-
-                                        if (e)
-                                                sd_bus_error_free(e);
+                                        sd_bus_error_free(e);
                                 }
                         }
                 }
