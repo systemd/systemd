@@ -28,9 +28,6 @@ Before 220:
 
 * fix userns support in nspawn, or remove it entirely
 
-* --slice= in nspawn might not work:
-  https://plus.google.com/112206451048767236518/posts/SYAueyXHeEX
-
 * bus-proxy: GetConnectionSELinuxSecurityContext() is completely broken
 
 Features:
