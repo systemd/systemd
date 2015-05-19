@@ -1628,7 +1628,10 @@ fail:
 }
 
 static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
+        _cleanup_set_free_ Set *around = NULL, *gone = NULL;
         Manager *m = userdata;
+        const char *what;
+        Iterator i;
         Unit *u;
         int r;
 
@@ -1695,6 +1698,8 @@ static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, 
 
                 if (!mount->is_mounted) {
 
+                        /* A mount point is gone */
+
                         mount->from_proc_self_mountinfo = false;
 
                         switch (mount->state) {
@@ -1710,13 +1715,17 @@ static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, 
                                 break;
                         }
 
-                        if (mount->parameters_proc_self_mountinfo.what)
-                                (void) device_found_node(m, mount->parameters_proc_self_mountinfo.what, false, DEVICE_FOUND_MOUNT, true);
+                        /* Remember that this device might just have disappeared */
+                        if (mount->parameters_proc_self_mountinfo.what) {
 
+                                if (set_ensure_allocated(&gone, &string_hash_ops) < 0 ||
+                                    set_put(gone, mount->parameters_proc_self_mountinfo.what) < 0)
+                                        log_oom(); /* we don't care too much about OOM here... */
+                        }
 
                 } else if (mount->just_mounted || mount->just_changed) {
 
-                        /* New or changed mount entry */
+                        /* A mount point was added or changed */
 
                         switch (mount->state) {
 
@@ -1741,10 +1750,25 @@ static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, 
                                 mount_set_state(mount, mount->state);
                                 break;
                         }
+
+                        if (mount->parameters_proc_self_mountinfo.what) {
+
+                                if (set_ensure_allocated(&around, &string_hash_ops) < 0 ||
+                                    set_put(around, mount->parameters_proc_self_mountinfo.what) < 0)
+                                        log_oom();
+                        }
                 }
 
                 /* Reset the flags for later calls */
                 mount->is_mounted = mount->just_mounted = mount->just_changed = false;
+        }
+
+        SET_FOREACH(what, gone, i) {
+                if (set_contains(around, what))
+                        continue;
+
+                /* Let the device units know that the device is no longer mounted */
+                (void) device_found_node(m, what, false, DEVICE_FOUND_MOUNT, true);
         }
 
         return 0;
