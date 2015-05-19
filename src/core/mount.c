@@ -1698,7 +1698,18 @@ static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, 
 
                 if (!mount->is_mounted) {
 
-                        /* A mount point is gone */
+                        /* A mount point is not around right now. It
+                         * might be gone, or might never have
+                         * existed. */
+
+                        if (mount->from_proc_self_mountinfo &&
+                            mount->parameters_proc_self_mountinfo.what) {
+
+                                /* Remember that this device might just have disappeared */
+                                if (set_ensure_allocated(&gone, &string_hash_ops) < 0 ||
+                                    set_put(gone, mount->parameters_proc_self_mountinfo.what) < 0)
+                                        log_oom(); /* we don't care too much about OOM here... */
+                        }
 
                         mount->from_proc_self_mountinfo = false;
 
@@ -1713,14 +1724,6 @@ static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, 
 
                         default:
                                 break;
-                        }
-
-                        /* Remember that this device might just have disappeared */
-                        if (mount->parameters_proc_self_mountinfo.what) {
-
-                                if (set_ensure_allocated(&gone, &string_hash_ops) < 0 ||
-                                    set_put(gone, mount->parameters_proc_self_mountinfo.what) < 0)
-                                        log_oom(); /* we don't care too much about OOM here... */
                         }
 
                 } else if (mount->just_mounted || mount->just_changed) {
@@ -1750,13 +1753,15 @@ static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, 
                                 mount_set_state(mount, mount->state);
                                 break;
                         }
+                }
 
-                        if (mount->parameters_proc_self_mountinfo.what) {
+                if (mount->is_mounted &&
+                    mount->from_proc_self_mountinfo &&
+                    mount->parameters_proc_self_mountinfo.what) {
 
-                                if (set_ensure_allocated(&around, &string_hash_ops) < 0 ||
-                                    set_put(around, mount->parameters_proc_self_mountinfo.what) < 0)
-                                        log_oom();
-                        }
+                        if (set_ensure_allocated(&around, &string_hash_ops) < 0 ||
+                            set_put(around, mount->parameters_proc_self_mountinfo.what) < 0)
+                                log_oom();
                 }
 
                 /* Reset the flags for later calls */
