@@ -1030,40 +1030,26 @@ int transaction_add_job_and_dependencies(
                 }
 
                 if (type == JOB_STOP || type == JOB_RESTART) {
+                        static const UnitDependency propagate_deps[] = {
+                                UNIT_REQUIRED_BY,
+                                UNIT_REQUISITE_OF,
+                                UNIT_BOUND_BY,
+                                UNIT_CONSISTS_OF,
+                        };
 
-                        SET_FOREACH(dep, ret->unit->dependencies[UNIT_REQUIRED_BY], i) {
-                                r = transaction_add_job_and_dependencies(tr, type, dep, ret, true, override, false, false, ignore_order, e);
-                                if (r < 0) {
-                                        if (r != -EBADR)
-                                                goto fail;
+                        unsigned j;
 
-                                        if (e)
+                        for (j = 0; j < ELEMENTSOF(propagate_deps); j++)
+                                SET_FOREACH(dep, ret->unit->dependencies[propagate_deps[j]], i) {
+
+                                        r = transaction_add_job_and_dependencies(tr, type, dep, ret, true, override, false, false, ignore_order, e);
+                                        if (r < 0) {
+                                                if (r != -EBADR)
+                                                        goto fail;
+
                                                 sd_bus_error_free(e);
+                                        }
                                 }
-                        }
-
-                        SET_FOREACH(dep, ret->unit->dependencies[UNIT_BOUND_BY], i) {
-                                r = transaction_add_job_and_dependencies(tr, type, dep, ret, true, override, false, false, ignore_order, e);
-                                if (r < 0) {
-                                        if (r != -EBADR)
-                                                goto fail;
-
-                                        if (e)
-                                                sd_bus_error_free(e);
-                                }
-                        }
-
-                        SET_FOREACH(dep, ret->unit->dependencies[UNIT_CONSISTS_OF], i) {
-                                r = transaction_add_job_and_dependencies(tr, type, dep, ret, true, override, false, false, ignore_order, e);
-                                if (r < 0) {
-                                        if (r != -EBADR)
-                                                goto fail;
-
-                                        if (e)
-                                                sd_bus_error_free(e);
-                                }
-                        }
-
                 }
 
                 if (type == JOB_RELOAD) {
