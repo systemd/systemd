@@ -906,3 +906,5 @@ int rename_noreplace(int olddirfd, const char *oldpath, int newdirfd, const char
 char *shell_maybe_quote(const char *s);
 
 int parse_mode(const char *s, mode_t *ret);
+
+int mount_move_root(const char *path);

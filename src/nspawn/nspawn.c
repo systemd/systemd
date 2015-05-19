@@ -4391,23 +4391,9 @@ int main(int argc, char *argv[]) {
                         if (mount_cgroup(arg_directory) < 0)
                                 _exit(EXIT_FAILURE);
 
-                        if (chdir(arg_directory) < 0) {
-                                log_error_errno(errno, "chdir(%s) failed: %m", arg_directory);
-                                _exit(EXIT_FAILURE);
-                        }
-
-                        if (mount(arg_directory, "/", NULL, MS_MOVE, NULL) < 0) {
-                                log_error_errno(errno, "mount(MS_MOVE) failed: %m");
-                                _exit(EXIT_FAILURE);
-                        }
-
-                        if (chroot(".") < 0) {
-                                log_error_errno(errno, "chroot() failed: %m");
-                                _exit(EXIT_FAILURE);
-                        }
-
-                        if (chdir("/") < 0) {
-                                log_error_errno(errno, "chdir() failed: %m");
+                        r = mount_move_root(arg_directory);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to move root directory: %m");
                                 _exit(EXIT_FAILURE);
                         }
 

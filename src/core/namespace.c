@@ -125,22 +125,6 @@ static void drop_duplicates(BindMount *m, unsigned *n) {
         *n = t - m;
 }
 
-static int mount_move_root(const char *path) {
-        if (chdir(path) < 0)
-                return -errno;
-
-        if (mount(path, "/", NULL, MS_MOVE, NULL) < 0)
-                return -errno;
-
-        if (chroot(".") < 0)
-                return -errno;
-
-        if (chdir("/") < 0)
-                return -errno;
-
-        return 0;
-}
-
 static int mount_dev(BindMount *m) {
         static const char devnodes[] =
                 "/dev/null\0"

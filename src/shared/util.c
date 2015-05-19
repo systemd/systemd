@@ -6229,3 +6229,21 @@ int parse_mode(const char *s, mode_t *ret) {
         *ret = (mode_t) l;
         return 0;
 }
+
+int mount_move_root(const char *path) {
+        assert(path);
+
+        if (chdir(path) < 0)
+                return -errno;
+
+        if (mount(path, "/", NULL, MS_MOVE, NULL) < 0)
+                return -errno;
+
+        if (chroot(".") < 0)
+                return -errno;
+
+        if (chdir("/") < 0)
+                return -errno;
+
+        return 0;
+}
