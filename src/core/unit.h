@@ -239,7 +239,7 @@ struct Unit {
         bool cgroup_subtree_mask_valid:1;
 
         /* Did we already invoke unit_coldplug() for this unit? */
-        bool coldplugged;
+        bool coldplugged:1;
 };
 
 struct UnitStatusMessageFormats {
