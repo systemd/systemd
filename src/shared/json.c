@@ -21,17 +21,171 @@
 
 #include <sys/types.h>
 #include <math.h>
-
 #include "macro.h"
-#include "util.h"
 #include "utf8.h"
 #include "json.h"
 
-enum {
-        STATE_NULL,
-        STATE_VALUE,
-        STATE_VALUE_POST,
-};
+int json_variant_new(JsonVariant **ret, JsonVariantType type) {
+        JsonVariant *v;
+        v = new0(JsonVariant, 1);
+        if (!v)
+                return -ENOMEM;
+        v->type = type;
+        *ret = v;
+        return 0;
+}
+
+static int json_variant_deep_copy(JsonVariant *ret, JsonVariant *variant) {
+        assert(ret);
+        assert(variant);
+
+        ret->type = variant->type;
+        ret->size = variant->size;
+
+        if (variant->type == JSON_VARIANT_STRING) {
+                ret->string = memdup(variant->string, variant->size+1);
+                if (!ret->string)
+                        return -ENOMEM;
+        } else if (variant->type == JSON_VARIANT_ARRAY || variant->type == JSON_VARIANT_OBJECT) {
+                ret->objects = new0(JsonVariant, variant->size);
+                if (!ret->objects)
+                        return -ENOMEM;
+
+                for (unsigned i = 0; i < variant->size; ++i) {
+                        int r;
+                        r = json_variant_deep_copy(&ret->objects[i], &variant->objects[i]);
+                        if (r < 0)
+                                return r;
+                }
+        }
+        else
+                ret->value = variant->value;
+
+        return 0;
+}
+
+static JsonVariant *json_object_unref(JsonVariant *variant);
+
+static JsonVariant *json_variant_unref_inner(JsonVariant *variant) {
+        if (!variant)
+                return NULL;
+
+        if (variant->type == JSON_VARIANT_ARRAY || variant->type == JSON_VARIANT_OBJECT)
+                return json_object_unref(variant);
+
+        else if (variant->type == JSON_VARIANT_STRING)
+                free(variant->string);
+
+        return NULL;
+}
+
+static JsonVariant *json_raw_unref(JsonVariant *variant, size_t size) {
+        if (!variant)
+                return NULL;
+
+        for (size_t i = 0; i < size; ++i)
+                json_variant_unref_inner(&variant[i]);
+
+        free(variant);
+        return NULL;
+}
+
+static JsonVariant *json_object_unref(JsonVariant *variant) {
+        assert(variant);
+        if (!variant->objects)
+                return NULL;
+
+        for (unsigned i = 0; i < variant->size; ++i)
+                json_variant_unref_inner(&variant->objects[i]);
+
+        free(variant->objects);
+        return NULL;
+}
+
+static JsonVariant **json_variant_array_unref(JsonVariant **variant) {
+        size_t i = 0;
+        JsonVariant *p = NULL;
+
+        if (!variant)
+                return NULL;
+
+        while((p = (variant[i++])) != NULL) {
+                if (p->type == JSON_VARIANT_STRING)
+                       free(p->string);
+                free(p);
+        }
+
+        free(variant);
+
+        return NULL;
+}
+DEFINE_TRIVIAL_CLEANUP_FUNC(JsonVariant **, json_variant_array_unref);
+
+JsonVariant *json_variant_unref(JsonVariant *variant) {
+        if (!variant)
+                return NULL;
+
+        if (variant->type == JSON_VARIANT_ARRAY || variant->type == JSON_VARIANT_OBJECT)
+                return json_object_unref(variant);
+
+        else if (variant->type == JSON_VARIANT_STRING)
+                free(variant->string);
+
+        free(variant);
+
+        return NULL;
+}
+
+char *json_variant_string(JsonVariant *variant){
+        assert(variant);
+        assert(variant->type == JSON_VARIANT_STRING);
+
+        return variant->string;
+}
+
+bool json_variant_bool(JsonVariant *variant) {
+        assert(variant);
+        assert(variant->type == JSON_VARIANT_BOOLEAN);
+
+        return variant->value.boolean;
+}
+
+intmax_t json_variant_integer(JsonVariant *variant) {
+        assert(variant);
+        assert(variant->type == JSON_VARIANT_INTEGER);
+
+        return variant->value.integer;
+}
+
+double json_variant_real(JsonVariant *variant) {
+        assert(variant);
+        assert(variant->type == JSON_VARIANT_REAL);
+
+        return variant->value.real;
+}
+
+JsonVariant *json_variant_element(JsonVariant *variant, unsigned index) {
+        assert(variant);
+        assert(variant->type == JSON_VARIANT_ARRAY || variant->type == JSON_VARIANT_OBJECT);
+        assert(index < variant->size);
+        assert(variant->objects);
+
+        return &variant->objects[index];
+}
+
+JsonVariant *json_variant_value(JsonVariant *variant, const char *key) {
+        assert(variant);
+        assert(variant->type == JSON_VARIANT_OBJECT);
+        assert(variant->objects);
+
+        for (unsigned i = 0; i < variant->size; i += 2) {
+                JsonVariant *p = &variant->objects[i];
+                if (p->type == JSON_VARIANT_STRING && streq(key, p->string))
+                        return &variant->objects[i + 1];
+        }
+
+        return NULL;
+}
 
 static void inc_lines(unsigned *line, const char *s, size_t n) {
         const char *p = s;
@@ -285,9 +439,6 @@ static int json_parse_number(const char **p, union json_value *ret) {
                 } while (strchr("0123456789", *c) && *c != 0);
         }
 
-        if (*c != 0)
-                return -EINVAL;
-
         *p = c;
 
         if (is_double) {
@@ -309,6 +460,12 @@ int json_tokenize(
         const char *c;
         int t;
         int r;
+
+        enum {
+                STATE_NULL,
+                STATE_VALUE,
+                STATE_VALUE_POST,
+        };
 
         assert(p);
         assert(*p);
@@ -442,4 +599,259 @@ int json_tokenize(
                 }
 
         }
+}
+
+static bool json_is_value(JsonVariant *var) {
+        assert(var);
+
+        return var->type != JSON_VARIANT_CONTROL;
+}
+
+static int json_scoped_parse(JsonVariant **tokens, size_t *i, size_t n, JsonVariant *scope) {
+        bool arr = scope->type == JSON_VARIANT_ARRAY;
+        int terminator = arr ? JSON_ARRAY_CLOSE : JSON_OBJECT_CLOSE;
+        size_t allocated = 0, size = 0;
+        JsonVariant *key = NULL, *value = NULL, *var = NULL, *items = NULL;
+        enum {
+                STATE_KEY,
+                STATE_COLON,
+                STATE_COMMA,
+                STATE_VALUE
+        } state = arr ? STATE_VALUE : STATE_KEY;
+
+        assert(tokens);
+        assert(i);
+        assert(scope);
+
+        while((var = *i < n ? tokens[(*i)++] : NULL) != NULL) {
+                bool stopper = !json_is_value(var) && var->value.integer == terminator;
+                int r;
+
+                if (stopper) {
+                        if (state != STATE_COMMA && size > 0)
+                                goto error;
+
+                        goto out;
+                }
+
+                if (state == STATE_KEY) {
+                        if (var->type != JSON_VARIANT_STRING)
+                                goto error;
+                        else {
+                                key = var;
+                                state = STATE_COLON;
+                        }
+                }
+                else if (state == STATE_COLON) {
+                        if (key == NULL)
+                                goto error;
+
+                        if (json_is_value(var))
+                                goto error;
+
+                        if (var->value.integer != JSON_COLON)
+                                goto error;
+
+                        state = STATE_VALUE;
+                }
+                else if (state == STATE_VALUE) {
+                        _cleanup_jsonunref_ JsonVariant *v = NULL;
+                        size_t toadd = arr ? 1 : 2;
+
+                        if (!json_is_value(var)) {
+                                int type = (var->value.integer == JSON_ARRAY_OPEN) ? JSON_VARIANT_ARRAY : JSON_VARIANT_OBJECT;
+
+                                r = json_variant_new(&v, type);
+                                if (r < 0)
+                                        goto error;
+
+                                r = json_scoped_parse(tokens, i, n, v);
+                                if (r < 0)
+                                        goto error;
+
+                                value = v;
+                        }
+                        else
+                                value = var;
+
+                        if(!GREEDY_REALLOC(items, allocated, size + toadd))
+                                goto error;
+
+                        if (arr) {
+                                r = json_variant_deep_copy(&items[size], value);
+                                if (r < 0)
+                                        goto error;
+                        } else {
+                                r = json_variant_deep_copy(&items[size], key);
+                                if (r < 0)
+                                        goto error;
+
+                                r = json_variant_deep_copy(&items[size+1], value);
+                                if (r < 0)
+                                        goto error;
+                        }
+
+                        size += toadd;
+                        state = STATE_COMMA;
+                }
+                else if (state == STATE_COMMA) {
+                        if (json_is_value(var))
+                                goto error;
+
+                        if (var->value.integer != JSON_COMMA)
+                                goto error;
+
+                        key = NULL;
+                        value = NULL;
+
+                        state = arr ? STATE_VALUE : STATE_KEY;
+                }
+        }
+
+error:
+        json_raw_unref(items, size);
+        return -EBADMSG;
+
+out:
+        scope->size = size;
+        scope->objects = items;
+
+        return scope->type;
+}
+
+static int json_parse_tokens(JsonVariant **tokens, size_t ntokens, JsonVariant **rv) {
+        size_t it = 0;
+        int r;
+        JsonVariant *e;
+        _cleanup_jsonunref_ JsonVariant *p;
+
+        assert(tokens);
+        assert(ntokens);
+
+        e = tokens[it++];
+        r = json_variant_new(&p, JSON_VARIANT_OBJECT);
+        if (r < 0)
+                return r;
+
+        if (e->type != JSON_VARIANT_CONTROL && e->value.integer != JSON_OBJECT_OPEN)
+                return -EBADMSG;
+
+        r = json_scoped_parse(tokens, &it, ntokens, p);
+        if (r < 0)
+                return r;
+
+        *rv = p;
+        p = NULL;
+
+        return 0;
+}
+
+static int json_tokens(const char *string, size_t size, JsonVariant ***tokens, size_t *n) {
+        _cleanup_free_ char *buf = NULL;
+        _cleanup_(json_variant_array_unrefp) JsonVariant **items = NULL;
+        union json_value v = {};
+        void *json_state = NULL;
+        const char *p;
+        int t, r;
+        size_t allocated = 0, s = 0;
+
+        assert(string);
+        assert(n);
+
+        if (size <= 0)
+                return -EBADMSG;
+
+        buf = strndup(string, size);
+        if (!buf)
+                return -ENOMEM;
+
+        p = buf;
+        for (;;) {
+                _cleanup_free_ char *rstr = NULL;
+                _cleanup_jsonunref_ JsonVariant *var = NULL;
+
+                t = json_tokenize(&p, &rstr, &v, &json_state, NULL);
+
+                if (t < 0)
+                        return t;
+                else if (t == JSON_END)
+                        break;
+
+                if (t <= JSON_ARRAY_CLOSE) {
+                        r = json_variant_new(&var, JSON_VARIANT_CONTROL);
+                        if (r < 0)
+                                return r;
+                        var->value.integer = t;
+                } else {
+                        switch (t) {
+                        case JSON_STRING:
+                                r = json_variant_new(&var, JSON_VARIANT_STRING);
+                                if (r < 0)
+                                        return r;
+                                var->size = strlen(rstr);
+                                var->string = strdup(rstr);
+                                if (!var->string) {
+                                        return -ENOMEM;
+                                }
+                                break;
+                        case JSON_INTEGER:
+                                r = json_variant_new(&var, JSON_VARIANT_INTEGER);
+                                if (r < 0)
+                                        return r;
+                                var->value = v;
+                                break;
+                        case JSON_REAL:
+                                r = json_variant_new(&var, JSON_VARIANT_REAL);
+                                if (r < 0)
+                                        return r;
+                                var->value = v;
+                                break;
+                        case JSON_BOOLEAN:
+                                r = json_variant_new(&var, JSON_VARIANT_BOOLEAN);
+                                if (r < 0)
+                                        return r;
+                                var->value = v;
+                                break;
+                        case JSON_NULL:
+                                r = json_variant_new(&var, JSON_VARIANT_NULL);
+                                if (r < 0)
+                                        return r;
+                                break;
+                        }
+                }
+
+                if (!GREEDY_REALLOC(items, allocated, s+2))
+                        return -ENOMEM;
+
+                items[s++] = var;
+                items[s] = NULL;
+                var = NULL;
+        }
+
+        *n = s;
+        *tokens = items;
+        items = NULL;
+
+        return 0;
+}
+
+int json_parse(const char *string, JsonVariant **rv) {
+        _cleanup_(json_variant_array_unrefp) JsonVariant **s = NULL;
+        JsonVariant *v = NULL;
+        size_t n = 0;
+        int r;
+
+        assert(string);
+        assert(rv);
+
+        r = json_tokens(string, strlen(string), &s, &n);
+        if (r < 0)
+                return r;
+
+        r = json_parse_tokens(s, n, &v);
+        if (r < 0)
+                return r;
+
+        *rv = v;
+        return 0;
 }
