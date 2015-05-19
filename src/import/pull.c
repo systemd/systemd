@@ -227,7 +227,7 @@ static void on_dkr_finished(DkrPull *pull, int error, void *userdata) {
 static int pull_dkr(int argc, char *argv[], void *userdata) {
         _cleanup_(dkr_pull_unrefp) DkrPull *pull = NULL;
         _cleanup_event_unref_ sd_event *event = NULL;
-        const char *name, *tag, *local;
+        const char *name, *reference, *local, *digest;
         int r;
 
         if (!arg_dkr_index_url) {
@@ -240,13 +240,19 @@ static int pull_dkr(int argc, char *argv[], void *userdata) {
                 return -EINVAL;
         }
 
-        tag = strchr(argv[1], ':');
-        if (tag) {
-                name = strndupa(argv[1], tag - argv[1]);
-                tag++;
+        digest = strchr(argv[1], '@');
+        if (digest) {
+                reference = digest + 1;
+                name = strndupa(argv[1], digest - argv[1]);
+        }
+
+        reference = strchr(argv[1], ':');
+        if (reference) {
+                name = strndupa(argv[1], reference - argv[1]);
+                reference++;
         } else {
                 name = argv[1];
-                tag = "latest";
+                reference = "latest";
         }
 
         if (!dkr_name_is_valid(name)) {
@@ -254,8 +260,8 @@ static int pull_dkr(int argc, char *argv[], void *userdata) {
                 return -EINVAL;
         }
 
-        if (!dkr_tag_is_valid(tag)) {
-                log_error("Tag name '%s' is not valid.", tag);
+        if (!dkr_ref_is_valid(reference)) {
+                log_error("Tag name '%s' is not valid.", reference);
                 return -EINVAL;
         }
 
@@ -288,9 +294,9 @@ static int pull_dkr(int argc, char *argv[], void *userdata) {
                         }
                 }
 
-                log_info("Pulling '%s' with tag '%s', saving as '%s'.", name, tag, local);
+                log_info("Pulling '%s' with reference '%s', saving as '%s'.", name, reference, local);
         } else
-                log_info("Pulling '%s' with tag '%s'.", name, tag);
+                log_info("Pulling '%s' with reference '%s'.", name, reference);
 
         r = sd_event_default(&event);
         if (r < 0)
@@ -304,7 +310,7 @@ static int pull_dkr(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate puller: %m");
 
-        r = dkr_pull_start(pull, name, tag, local, arg_force);
+        r = dkr_pull_start(pull, name, reference, local, arg_force, DKR_PULL_V2);
         if (r < 0)
                 return log_error_errno(r, "Failed to pull image: %m");
 
