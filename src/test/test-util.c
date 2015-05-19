@@ -549,6 +549,52 @@ static void test_hostname_is_valid(void) {
         assert_se(!hostname_is_valid("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"));
 }
 
+static void test_read_hostname_config(void) {
+        char path[] = "/tmp/hostname.XXXXXX";
+        char *hostname;
+        int fd;
+
+        fd = mkostemp_safe(path, O_RDWR|O_CLOEXEC);
+        assert(fd > 0);
+        close(fd);
+
+        /* simple hostname */
+        write_string_file(path, "foo");
+        assert_se(read_hostname_config(path, &hostname) == 0);
+        assert_se(streq(hostname, "foo"));
+        free(hostname);
+
+        /* with comment */
+        write_string_file(path, "# comment\nfoo");
+        assert_se(read_hostname_config(path, &hostname) == 0);
+        assert_se(streq(hostname, "foo"));
+        free(hostname);
+
+        /* with comment and extra whitespace */
+        write_string_file(path, "# comment\n\n foo ");
+        assert_se(read_hostname_config(path, &hostname) == 0);
+        assert_se(streq(hostname, "foo"));
+        free(hostname);
+
+        /* cleans up name */
+        write_string_file(path, "!foo/bar.com");
+        assert_se(read_hostname_config(path, &hostname) == 0);
+        assert_se(streq(hostname, "foobar.com"));
+        free(hostname);
+
+        /* no value set */
+        hostname = (char*) 0x1234;
+        write_string_file(path, "# nothing here\n");
+        assert_se(read_hostname_config(path, &hostname) == -ENOENT);
+        assert_se(hostname == (char*) 0x1234);  /* does not touch argument on error */
+
+        /* nonexisting file */
+        assert_se(read_hostname_config("/non/existing", &hostname) == -ENOENT);
+        assert_se(hostname == (char*) 0x1234);  /* does not touch argument on error */
+
+        unlink(path);
+}
+
 static void test_u64log2(void) {
         assert_se(u64log2(0) == 0);
         assert_se(u64log2(8) == 3);
@@ -1481,6 +1527,7 @@ int main(int argc, char *argv[]) {
         test_foreach_word_quoted();
         test_memdup_multiply();
         test_hostname_is_valid();
+        test_read_hostname_config();
         test_u64log2();
         test_protect_errno();
         test_parse_size();

@@ -96,7 +96,7 @@ static int context_read_data(Context *c) {
         if (!c->data[PROP_HOSTNAME])
                 return -ENOMEM;
 
-        r = read_one_line_file("/etc/hostname", &c->data[PROP_STATIC_HOSTNAME]);
+        r = read_hostname_config("/etc/hostname", &c->data[PROP_STATIC_HOSTNAME]);
         if (r < 0 && r != -ENOENT)
                 return r;
 

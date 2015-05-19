@@ -158,3 +158,36 @@ int sethostname_idempotent(const char *s) {
 
         return 1;
 }
+
+int read_hostname_config(const char *path, char **hostname) {
+        _cleanup_fclose_ FILE *f = NULL;
+        char l[LINE_MAX];
+        char *name = NULL;
+
+        assert(path);
+        assert(hostname);
+
+        f = fopen(path, "re");
+        if (!f)
+                return -errno;
+
+        /* may have comments, ignore them */
+        FOREACH_LINE(l, f, return -errno) {
+                truncate_nl(l);
+                if (l[0] != '\0' && l[0] != '#') {
+                        /* found line with value */
+                        name = hostname_cleanup(l, false);
+                        name = strdup(name);
+                        if (!name)
+                                return -ENOMEM;
+                        break;
+                }
+        }
+
+        if (!name)
+                /* no non-empty line found */
+                return -ENOENT;
+
+        *hostname = name;
+        return 0;
+}

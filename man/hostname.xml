@@ -57,11 +57,12 @@
     name of the local system that is set during boot using the
     <citerefentry><refentrytitle>sethostname</refentrytitle><manvolnum>2</manvolnum></citerefentry>
     system call. It should contain a single newline-terminated
-    hostname string. The hostname may be a free-form string up to 64
-    characters in length; however, it is recommended that it consists
-    only of 7-bit ASCII lower-case characters and no spaces or dots,
-    and limits itself to the format allowed for DNS domain name
-    labels, even though this is not a strict requirement.</para>
+    hostname string.  Comments (lines starting with a `#') are ignored.
+    The hostname may be a free-form string up to 64 characters in length;
+    however, it is recommended that it consists only of 7-bit ASCII lower-case
+    characters and no spaces or dots, and limits itself to the format allowed
+    for DNS domain name labels, even though this is not a strict
+    requirement.</para>
 
     <para>Depending on the operating system, other configuration files
     might be checked for configuration of the hostname as well,

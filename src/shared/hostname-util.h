@@ -35,3 +35,5 @@ char* hostname_cleanup(char *s, bool lowercase);
 bool is_localhost(const char *hostname);
 
 int sethostname_idempotent(const char *s);
+
+int read_hostname_config(const char *path, char **hostname);

@@ -30,35 +30,13 @@
 #include "hostname-util.h"
 #include "hostname-setup.h"
 
-static int read_and_strip_hostname(const char *path, char **hn) {
-        char *s;
-        int r;
-
-        assert(path);
-        assert(hn);
-
-        r = read_one_line_file(path, &s);
-        if (r < 0)
-                return r;
-
-        hostname_cleanup(s, false);
-
-        if (isempty(s)) {
-                free(s);
-                return -ENOENT;
-        }
-
-        *hn = s;
-        return 0;
-}
-
 int hostname_setup(void) {
         int r;
         _cleanup_free_ char *b = NULL;
         const char *hn;
         bool enoent = false;
 
-        r = read_and_strip_hostname("/etc/hostname", &b);
+        r = read_hostname_config("/etc/hostname", &b);
         if (r < 0) {
                 if (r == -ENOENT)
                         enoent = true;
