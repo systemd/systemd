@@ -28,10 +28,10 @@ Before 220:
 
 * fix userns support in nspawn, or remove it entirely
 
-* bus-proxy: GetConnectionSELinuxSecurityContext() is completely broken
+* --slice= in nspawn might not work:
+  https://plus.google.com/112206451048767236518/posts/SYAueyXHeEX
 
-* timer units triggering services with failing conditions run busy:
-  http://lists.freedesktop.org/archives/systemd-devel/2015-April/030095.html
+* bus-proxy: GetConnectionSELinuxSecurityContext() is completely broken
 
 Features:
 
