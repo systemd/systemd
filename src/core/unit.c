@@ -1618,7 +1618,7 @@ static void unit_check_unneeded(Unit *u) {
                 return;
 
         for (j = 0; j < ELEMENTSOF(needed_dependencies); j++)
-                SET_FOREACH(other, u->dependencies[j], i)
+                SET_FOREACH(other, u->dependencies[needed_dependencies[j]], i)
                         if (unit_active_or_pending(other))
                                 return;
 
