@@ -52,6 +52,9 @@ struct DkrPull {
         sd_event *event;
         CurlGlue *glue;
 
+        char *index_protocol;
+        char *index_address;
+
         char *index_url;
         char *image_root;
 
@@ -62,9 +65,10 @@ struct DkrPull {
         PullJob *layer_job;
 
         char *name;
-        char *tag;
+        char *reference;
         char *id;
 
+        char *response_digest;
         char *response_token;
         char **response_registries;
 
@@ -88,9 +92,9 @@ struct DkrPull {
 #define PROTOCOL_PREFIX "https://"
 
 #define HEADER_TOKEN "X-Do" /* the HTTP header for the auth token */ "cker-Token:"
-#define HEADER_REGISTRY "X-Do" /*the HTTP header for the registry */ "cker-Endpoints:"
-
-#define LAYERS_MAX 2048
+#define HEADER_REGISTRY "X-Do" /* the HTTP header for the registry */ "cker-Endpoints:"
+#define HEADER_DIGEST "Do" /* the HTTP header for the manifest digest */ "cker-Content-Digest:"
+#define LAYERS_MAX 127
 
 static void dkr_pull_job_on_finished(PullJob *j);
 
@@ -118,12 +122,13 @@ DkrPull* dkr_pull_unref(DkrPull *i) {
         }
 
         free(i->name);
-        free(i->tag);
+        free(i->reference);
         free(i->id);
         free(i->response_token);
-        free(i->response_registries);
         strv_free(i->ancestry);
         free(i->final_path);
+        free(i->index_address);
+        free(i->index_protocol);
         free(i->index_url);
         free(i->image_root);
         free(i->local);
@@ -417,10 +422,27 @@ static int dkr_pull_add_token(DkrPull *i, PullJob *j) {
         return 0;
 }
 
+static int dkr_pull_add_bearer_token(DkrPull *i, PullJob *j) {
+        const char *t = NULL;
+
+        assert(i);
+        assert(j);
+
+        if (i->response_token)
+                t = strjoina("Authorization: Bearer ", i->response_token);
+        else
+                return -EINVAL;
+
+        j->request_header = curl_slist_new("Accept: application/json", t, NULL);
+        if (!j->request_header)
+                return -ENOMEM;
+
+        return 0;
+}
+
 static bool dkr_pull_is_done(DkrPull *i) {
         assert(i);
         assert(i->images_job);
-
         if (i->images_job->state != PULL_JOB_DONE)
                 return false;
 
@@ -430,7 +452,7 @@ static bool dkr_pull_is_done(DkrPull *i) {
         if (!i->ancestry_job || i->ancestry_job->state != PULL_JOB_DONE)
                 return false;
 
-        if (!i->json_job || i->json_job->state != PULL_JOB_DONE)
+        if (i->json_job && i->json_job->state != PULL_JOB_DONE)
                 return false;
 
         if (i->layer_job && i->layer_job->state != PULL_JOB_DONE)
@@ -442,8 +464,9 @@ static bool dkr_pull_is_done(DkrPull *i) {
         return true;
 }
 
-static int dkr_pull_make_local_copy(DkrPull *i) {
+static int dkr_pull_make_local_copy(DkrPull *i, DkrPullVersion version) {
         int r;
+        _cleanup_free_ char *p = NULL;
 
         assert(i);
 
@@ -456,9 +479,29 @@ static int dkr_pull_make_local_copy(DkrPull *i) {
                         return log_oom();
         }
 
-        r = pull_make_local_copy(i->final_path, i->image_root, i->local, i->force_local);
+        if (version == DKR_PULL_V2) {
+                r = path_get_parent(i->image_root, &p);
+                if (r < 0)
+                        return r;
+        }
+
+        r = pull_make_local_copy(i->final_path, p ?: i->image_root, i->local, i->force_local);
         if (r < 0)
                 return r;
+
+        if (version == DKR_PULL_V2) {
+                char **k = NULL;
+                STRV_FOREACH(k, i->ancestry) {
+                        _cleanup_free_ char *d = strjoin(i->image_root, "/.dkr-", *k, NULL);
+                        r = btrfs_subvol_remove(d, false);
+                        if (r < 0)
+                               return r;
+                }
+
+                r = rmdir(i->image_root);
+                if (r < 0)
+                        return r;
+        }
 
         return 0;
 }
@@ -515,6 +558,68 @@ static void dkr_pull_job_on_progress(PullJob *j) {
                         j == i->tags_job                         ? DKR_RESOLVING :
                         j == i->ancestry_job || j == i->json_job ? DKR_METADATA :
                                                                    DKR_DOWNLOADING);
+}
+
+static void dkr_pull_job_on_finished_v2(PullJob *j);
+
+static int dkr_pull_pull_layer_v2(DkrPull *i) {
+        _cleanup_free_ char *path = NULL;
+        const char *url, *layer = NULL;
+        int r;
+
+        assert(i);
+        assert(!i->layer_job);
+        assert(!i->temp_path);
+        assert(!i->final_path);
+
+        for (;;) {
+                layer = dkr_pull_current_layer(i);
+                if (!layer)
+                        return 0; /* no more layers */
+
+                path = strjoin(i->image_root, "/.dkr-", layer, NULL);
+                if (!path)
+                        return log_oom();
+
+                if (laccess(path, F_OK) < 0) {
+                        if (errno == ENOENT)
+                                break;
+
+                        return log_error_errno(errno, "Failed to check for container: %m");
+                }
+
+                log_info("Layer %s already exists, skipping.", layer);
+
+                i->current_ancestry++;
+
+                free(path);
+                path = NULL;
+        }
+
+        log_info("Pulling layer %s...", layer);
+
+        i->final_path = path;
+        path = NULL;
+
+        url = strjoina(PROTOCOL_PREFIX, i->response_registries[0], "/v2/", i->name, "/blobs/", layer);
+        r = pull_job_new(&i->layer_job, url, i->glue, i);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate layer job: %m");
+
+        r = dkr_pull_add_bearer_token(i, i->layer_job);
+        if (r < 0)
+                return log_oom();
+
+        i->layer_job->on_finished = dkr_pull_job_on_finished_v2;
+        i->layer_job->on_open_disk = dkr_pull_job_on_open_disk;
+        i->layer_job->on_progress = dkr_pull_job_on_progress;
+        i->layer_job->grow_machine_directory = i->grow_machine_directory;
+
+        r = pull_job_begin(i->layer_job);
+        if (r < 0)
+                return log_error_errno(r, "Failed to start layer job: %m");
+
+        return 0;
 }
 
 static int dkr_pull_pull_layer(DkrPull *i) {
@@ -577,6 +682,343 @@ static int dkr_pull_pull_layer(DkrPull *i) {
         return 0;
 }
 
+static int dkr_pull_job_on_header(PullJob *j, const char *header, size_t sz)  {
+        _cleanup_free_ char *registry = NULL;
+        char *token, *digest;
+        DkrPull *i;
+        int r;
+
+        assert(j);
+        assert(j->userdata);
+
+        i = j->userdata;
+        r = curl_header_strdup(header, sz, HEADER_TOKEN, &token);
+        if (r < 0)
+                return log_oom();
+        if (r > 0) {
+                free(i->response_token);
+                i->response_token = token;
+                return 0;
+        }
+
+        r = curl_header_strdup(header, sz, HEADER_DIGEST, &digest);
+        if (r < 0)
+                return log_oom();
+        if (r > 0) {
+                free(i->response_digest);
+                i->response_digest = digest;
+                return 0;
+        }
+
+        r = curl_header_strdup(header, sz, HEADER_REGISTRY, &registry);
+        if (r < 0)
+                return log_oom();
+        if (r > 0) {
+                char **l, **k;
+
+                l = strv_split(registry, ",");
+                if (!l)
+                        return log_oom();
+
+                STRV_FOREACH(k, l) {
+                        if (!hostname_is_valid(*k)) {
+                                log_error("Registry hostname is not valid.");
+                                strv_free(l);
+                                return -EBADMSG;
+                        }
+                }
+
+                strv_free(i->response_registries);
+                i->response_registries = l;
+        }
+
+        return 0;
+}
+
+static void dkr_pull_job_on_finished_v2(PullJob *j) {
+        DkrPull *i;
+        int r;
+
+        assert(j);
+        assert(j->userdata);
+
+        i = j->userdata;
+        if (j->error != 0) {
+                if (j == i->images_job)
+                        log_error_errno(j->error, "Failed to retrieve images list. (Wrong index URL?)");
+                else if (j == i->ancestry_job)
+                        log_error_errno(j->error, "Failed to retrieve manifest.");
+                else if (j == i->json_job)
+                        log_error_errno(j->error, "Failed to retrieve json data.");
+                else
+                        log_error_errno(j->error, "Failed to retrieve layer data.");
+
+                r = j->error;
+                goto finish;
+        }
+
+        if (i->images_job == j) {
+                const char *url;
+
+                assert(!i->tags_job);
+                assert(!i->ancestry_job);
+                assert(!i->json_job);
+                assert(!i->layer_job);
+
+                if (strv_isempty(i->response_registries)) {
+                        r = -EBADMSG;
+                        log_error("Didn't get registry information.");
+                        goto finish;
+                }
+
+                log_info("Index lookup succeeded, directed to registry %s.", i->response_registries[0]);
+                dkr_pull_report_progress(i, DKR_RESOLVING);
+
+                url = strjoina(i->index_protocol, "auth.", i->index_address, "/v2/token/?scope=repository:",
+                               i->name, ":pull&service=registry.", i->index_address);
+                r = pull_job_new(&i->tags_job, url, i->glue, i);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to allocate tags job: %m");
+                        goto finish;
+                }
+
+                i->tags_job->on_finished = dkr_pull_job_on_finished_v2;
+                i->tags_job->on_progress = dkr_pull_job_on_progress;
+
+                r = pull_job_begin(i->tags_job);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to start tags job: %m");
+                        goto finish;
+                }
+
+        } else if (i->tags_job == j) {
+                const char *url;
+                _cleanup_free_ const char *buf;
+                _cleanup_jsonunref_ JsonVariant *doc = NULL;
+                JsonVariant *e = NULL;
+
+                assert(!i->ancestry_job);
+                assert(!i->json_job);
+                assert(!i->layer_job);
+
+                buf = strndup((const char *)j->payload, j->payload_size);
+                if (!buf) {
+                        r = -ENOMEM;
+                        log_oom();
+                        goto finish;
+                }
+
+                r = json_parse(buf, &doc);
+                if (r < 0) {
+                        log_error("Unable to parse bearer token\n%s", j->payload);
+                        goto finish;
+                }
+
+                e = json_variant_value(doc, "token");
+                if (!e || e->type != JSON_VARIANT_STRING) {
+                        r = -EBADMSG;
+                        log_error("Invalid JSON format for Bearer token");
+                        goto finish;
+                }
+
+                r = free_and_strdup(&i->response_token, json_variant_string(e));
+                if (r < 0) {
+                        log_oom();
+                        goto finish;
+                }
+
+                url = strjoina(PROTOCOL_PREFIX, i->response_registries[0], "/v2/", i->name, "/manifests/", i->reference);
+                r = pull_job_new(&i->ancestry_job, url, i->glue, i);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to allocate ancestry job: %m");
+                        goto finish;
+                }
+
+                r = dkr_pull_add_bearer_token(i, i->ancestry_job);
+                if (r < 0)
+                        goto finish;
+
+                i->ancestry_job->on_finished = dkr_pull_job_on_finished_v2;
+                i->ancestry_job->on_progress = dkr_pull_job_on_progress;
+                i->ancestry_job->on_header = dkr_pull_job_on_header;
+
+
+                r = pull_job_begin(i->ancestry_job);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to start ancestry job: %m");
+                        goto finish;
+                }
+
+        } else if (i->ancestry_job == j) {
+
+                _cleanup_jsonunref_ JsonVariant *doc = NULL;
+                _cleanup_jsonunref_ JsonVariant *compat = NULL;
+                JsonVariant *e = NULL;
+                _cleanup_strv_free_ char **ancestry = NULL;
+                size_t allocated = 0, size = 0;
+                char *path = NULL, **k = NULL;
+
+                r = json_parse((const char *)j->payload, &doc);
+                if (r < 0) {
+                        log_error("Invalid JSON Manifest");
+                        goto finish;
+                }
+
+                e = json_variant_value(doc, "fsLayers");
+                if (!e || e->type != JSON_VARIANT_ARRAY) {
+                        r = -EBADMSG;
+                        goto finish;
+                }
+
+                log_info("JSON manifest with schema v%"PRIi64" for %s parsed!",
+                                json_variant_integer(json_variant_value(doc, "schemaVersion")),
+                                json_variant_string(json_variant_value(doc, "name")));
+
+                for (unsigned z = 0; z < e->size; z++) {
+                        JsonVariant *f = json_variant_element(e, z), *g = NULL;
+                        const char *layer;
+                        if (f->type != JSON_VARIANT_OBJECT) {
+                                r = -EBADMSG;
+                                goto finish;
+                        }
+
+                        g = json_variant_value(f, "blobSum");
+
+                        layer = json_variant_string(g);
+                        if (!dkr_digest_is_valid(layer)) {
+                                r = -EBADMSG;
+                                goto finish;
+                        }
+
+                        if (!GREEDY_REALLOC(ancestry, allocated, size + 2)) {
+                                r = -ENOMEM;
+                                log_oom();
+                                goto finish;
+                        }
+
+                        ancestry[size] = strdup(layer);
+                        if (!ancestry[size]) {
+                                r = -ENOMEM;
+                                log_oom();
+                                goto finish;
+                        }
+
+                        ancestry[size+1] = NULL;
+                        size += 1;
+                }
+
+                e = json_variant_value(doc, "history");
+                if (!e || e->type != JSON_VARIANT_ARRAY) {
+                        r = -EBADMSG;
+                        goto finish;
+                }
+
+                e = json_variant_element(e, 0);
+                e = json_variant_value(e, "v1Compatibility");
+                r = json_parse(json_variant_string(e), &compat);
+                if (r < 0) {
+                        log_error("Invalid v1Compatibility JSON");
+                        goto finish;
+                }
+
+                e = json_variant_value(compat, "id");
+
+                strv_free(i->ancestry);
+                i->ancestry = strv_reverse(strv_uniq(ancestry));
+                i->n_ancestry = strv_length(i->ancestry);
+                i->current_ancestry = 0;
+                i->id = strdup(i->ancestry[i->n_ancestry - 1]);
+                if (!i->id) {
+                        r = -ENOMEM;
+                        log_oom();
+                        goto finish;
+                }
+                path = strjoin(i->image_root, "/.dkr-", json_variant_string(e), NULL);
+                if (!path) {
+                        r = -ENOMEM;
+                        log_oom();
+                        goto finish;
+                }
+                free(i->image_root);
+                i->image_root = path;
+                ancestry = NULL;
+
+                log_info("Required layers:\n");
+                STRV_FOREACH(k, i->ancestry)
+                        log_info("\t%s", *k);
+                log_info("\nProvenance:\n\tImageID: %s\n\tDigest:  %s", json_variant_string(e), i->response_digest);
+
+                dkr_pull_report_progress(i, DKR_DOWNLOADING);
+
+                r = dkr_pull_pull_layer_v2(i);
+                if (r < 0)
+                        goto finish;
+
+        } else if (i->layer_job == j) {
+                assert(i->temp_path);
+                assert(i->final_path);
+
+                j->disk_fd = safe_close(j->disk_fd);
+
+                if (i->tar_pid > 0) {
+                        r = wait_for_terminate_and_warn("tar", i->tar_pid, true);
+                        i->tar_pid = 0;
+                        if (r < 0)
+                                goto finish;
+                }
+
+                r = aufs_resolve(i->temp_path);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to resolve aufs whiteouts: %m");
+                        goto finish;
+                }
+
+                r = btrfs_subvol_set_read_only(i->temp_path, true);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to mark snapshot read-only: %m");
+                        goto finish;
+                }
+
+                if (rename(i->temp_path, i->final_path) < 0) {
+                        log_error_errno(errno, "Failed to rename snaphsot: %m");
+                        goto finish;
+                }
+
+                log_info("Completed writing to layer %s.", i->final_path);
+
+                i->layer_job = pull_job_unref(i->layer_job);
+                free(i->temp_path);
+                i->temp_path = NULL;
+                free(i->final_path);
+                i->final_path = NULL;
+
+                i->current_ancestry ++;
+                r = dkr_pull_pull_layer_v2(i);
+                if (r < 0)
+                        goto finish;
+
+        } else if (i->json_job != j)
+                assert_not_reached("Got finished event for unknown curl object");
+
+        if (!dkr_pull_is_done(i))
+                return;
+
+        dkr_pull_report_progress(i, DKR_COPYING);
+
+        r = dkr_pull_make_local_copy(i, DKR_PULL_V2);
+        if (r < 0)
+                goto finish;
+
+        r = 0;
+
+finish:
+        if (i->on_finished)
+                i->on_finished(i, r, i->userdata);
+        else
+                sd_event_exit(i->event, r);
+
+}
+
 static void dkr_pull_job_on_finished(PullJob *j) {
         DkrPull *i;
         int r;
@@ -618,7 +1060,7 @@ static void dkr_pull_job_on_finished(PullJob *j) {
                 log_info("Index lookup succeeded, directed to registry %s.", i->response_registries[0]);
                 dkr_pull_report_progress(i, DKR_RESOLVING);
 
-                url = strjoina(PROTOCOL_PREFIX, i->response_registries[0], "/v1/repositories/", i->name, "/tags/", i->tag);
+                url = strjoina(PROTOCOL_PREFIX, i->response_registries[0], "/v1/repositories/", i->name, "/tags/", i->reference);
                 r = pull_job_new(&i->tags_job, url, i->glue, i);
                 if (r < 0) {
                         log_error_errno(r, "Failed to allocate tags job: %m");
@@ -790,12 +1232,11 @@ static void dkr_pull_job_on_finished(PullJob *j) {
 
         dkr_pull_report_progress(i, DKR_COPYING);
 
-        r = dkr_pull_make_local_copy(i);
+        r = dkr_pull_make_local_copy(i, DKR_PULL_V1);
         if (r < 0)
                 goto finish;
 
         r = 0;
-
 finish:
         if (i->on_finished)
                 i->on_finished(i, r, i->userdata);
@@ -803,52 +1244,37 @@ finish:
                 sd_event_exit(i->event, r);
 }
 
-static int dkr_pull_job_on_header(PullJob *j, const char *header, size_t sz)  {
-        _cleanup_free_ char *registry = NULL;
-        char *token;
-        DkrPull *i;
-        int r;
+static int get_protocol_address(char **protocol, char **address, const char *url) {
+        const char *sep, *dot;
+        char *a, *p;
 
-        assert(j);
-        assert(j->userdata);
+        sep = strstr(url, "://");
+        if (!sep)
+                return -EINVAL;
 
-        i = j->userdata;
+        dot = strrchr(url, '.');
+        if (!dot)
+                return -EINVAL;
+        dot--;
 
-        r = curl_header_strdup(header, sz, HEADER_TOKEN, &token);
-        if (r < 0)
+        p = strndup(url, (sep - url) + 3);
+        if (!p)
                 return log_oom();
-        if (r > 0) {
-                free(i->response_token);
-                i->response_token = token;
-                return 0;
-        }
 
-        r = curl_header_strdup(header, sz, HEADER_REGISTRY, &registry);
-        if (r < 0)
+        while (dot > (sep + 3) && *dot != '.')
+                dot--;
+
+        a = strdup(dot + 1);
+        if (!a)
                 return log_oom();
-        if (r > 0) {
-                char **l, **k;
 
-                l = strv_split(registry, ",");
-                if (!l)
-                        return log_oom();
-
-                STRV_FOREACH(k, l) {
-                        if (!hostname_is_valid(*k)) {
-                                log_error("Registry hostname is not valid.");
-                                strv_free(l);
-                                return -EBADMSG;
-                        }
-                }
-
-                strv_free(i->response_registries);
-                i->response_registries = l;
-        }
+        *address = a;
+        *protocol = p;
 
         return 0;
 }
 
-int dkr_pull_start(DkrPull *i, const char *name, const char *tag, const char *local, bool force_local) {
+int dkr_pull_start(DkrPull *i, const char *name, const char *reference, const char *local, bool force_local, DkrPullVersion version) {
         const char *url;
         int r;
 
@@ -857,7 +1283,7 @@ int dkr_pull_start(DkrPull *i, const char *name, const char *tag, const char *lo
         if (!dkr_name_is_valid(name))
                 return -EINVAL;
 
-        if (tag && !dkr_tag_is_valid(tag))
+        if (reference && !dkr_ref_is_valid(reference))
                 return -EINVAL;
 
         if (local && !machine_name_is_valid(local))
@@ -866,8 +1292,14 @@ int dkr_pull_start(DkrPull *i, const char *name, const char *tag, const char *lo
         if (i->images_job)
                 return -EBUSY;
 
-        if (!tag)
-                tag = "latest";
+        if (!reference)
+                reference = "latest";
+
+        free(i->index_protocol);
+        free(i->index_address);
+        r = get_protocol_address(&i->index_protocol, &i->index_address, i->index_url);
+        if (r < 0)
+                return r;
 
         r = free_and_strdup(&i->local, local);
         if (r < 0)
@@ -877,7 +1309,7 @@ int dkr_pull_start(DkrPull *i, const char *name, const char *tag, const char *lo
         r = free_and_strdup(&i->name, name);
         if (r < 0)
                 return r;
-        r = free_and_strdup(&i->tag, tag);
+        r = free_and_strdup(&i->reference, reference);
         if (r < 0)
                 return r;
 
@@ -891,7 +1323,11 @@ int dkr_pull_start(DkrPull *i, const char *name, const char *tag, const char *lo
         if (r < 0)
                 return r;
 
-        i->images_job->on_finished = dkr_pull_job_on_finished;
+        if (version == DKR_PULL_V1)
+                i->images_job->on_finished = dkr_pull_job_on_finished;
+        else
+                i->images_job->on_finished = dkr_pull_job_on_finished_v2;
+
         i->images_job->on_header = dkr_pull_job_on_header;
         i->images_job->on_progress = dkr_pull_job_on_progress;
 
