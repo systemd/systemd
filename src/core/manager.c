@@ -2703,6 +2703,9 @@ void manager_check_finished(Manager *m) {
 
         assert(m);
 
+        if (m->n_reloading > 0)
+                return;
+
         if (hashmap_size(m->jobs) > 0) {
 
                 if (m->jobs_in_progress_event_source)
