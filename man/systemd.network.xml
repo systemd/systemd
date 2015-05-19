@@ -228,6 +228,10 @@
             <para>Enables DHCPv4 and/or DHCPv6 support. Accepts
             <literal>yes</literal>, <literal>no</literal>,
             <literal>ipv4</literal>, or <literal>ipv6</literal>.</para>
+
+            <para>Please note that by default the domain name
+            specified through DHCP is not used for name resolution.
+            See option <option>UseDomains=</option> below.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -529,6 +533,9 @@
             <para>When true (the default), the DNS servers received
             from the DHCP server will be used and take precedence over
             any statically configured ones.</para>
+
+            <para>This corresponds to the <option>nameserver</option>
+            option in <citerefentry project='man-pages'><refentrytitle>resolv.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -567,7 +574,13 @@
           <listitem>
             <para>When true (not the default), the domain name
             received from the DHCP server will be used for DNS
-            resolution over this link.</para>
+            resolution over this link. When a name cannot be resolved
+            as specified, the domain name will be used a suffix and
+            name resolution of that will be attempted.</para>
+
+            <para>This corresponds to the <option>domain</option>
+            option in <citerefentry project='man-pages'><refentrytitle>resolv.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+            and should not be enabled on untrusted networks.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
