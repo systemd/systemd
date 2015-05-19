@@ -1697,7 +1697,7 @@ int loop_write(int fd, const void *buf, size_t nbytes, bool do_poll) {
 
 int parse_size(const char *t, off_t base, off_t *size) {
 
-        /* Soo, sometimes we want to parse IEC binary suffxies, and
+        /* Soo, sometimes we want to parse IEC binary suffixes, and
          * sometimes SI decimal suffixes. This function can parse
          * both. Which one is the right way depends on the
          * context. Wikipedia suggests that SI is customary for
