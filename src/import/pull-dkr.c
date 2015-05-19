@@ -1246,7 +1246,7 @@ finish:
 
 static int get_protocol_address(char **protocol, char **address, const char *url) {
         const char *sep, *dot;
-        char *a, *p;
+        _cleanup_free_ char *a = NULL, *p = NULL;
 
         sep = strstr(url, "://");
         if (!sep)
@@ -1270,6 +1270,7 @@ static int get_protocol_address(char **protocol, char **address, const char *url
 
         *address = a;
         *protocol = p;
+        a = p = NULL;
 
         return 0;
 }
