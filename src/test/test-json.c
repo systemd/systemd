@@ -75,7 +75,7 @@ static void test_one(const char *data, ...) {
 typedef void (*Test)(JsonVariant *);
 
 static void test_file(const char *data, Test test) {
-        JsonVariant *v = NULL;
+        _cleanup_jsonunref_ JsonVariant *v = NULL;
         int r = json_parse(data, &v);
 
         assert_se(r == 0);
@@ -84,8 +84,6 @@ static void test_file(const char *data, Test test) {
 
         if (test)
                 test(v);
-
-        json_variant_unref(v);
 }
 
 static void test_1(JsonVariant *v) {
