@@ -42,7 +42,9 @@ Features:
 
 * add journalctl -H that talks via ssh to a remote peer and passes through binary logs data
 
-* change journalctl -M to acquire fd to journal directory via machined, and then operate on that via openat() insteat of absolute paths
+* change journalctl -M to acquire fd to journal directory via machined, and then operate on that via openat() instead of absolute paths
+
+* add a version of --merge which also merges /var/log/journal/remote
 
 * log accumulated resource usage after each service invocation
 
