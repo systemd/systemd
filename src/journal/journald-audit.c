@@ -534,9 +534,14 @@ int server_open_audit(Server *s) {
                         return 0;
                 }
 
-                r = bind(s->audit_fd, &sa.sa, sizeof(sa.nl));
-                if (r < 0)
-                        return log_error_errno(errno, "Failed to join audit multicast group: %m");
+                if (bind(s->audit_fd, &sa.sa, sizeof(sa.nl)) < 0) {
+                        log_warning_errno(errno,
+                                          "Failed to join audit multicast group. "
+                                          "The kernel is probably too old or multicast reading is not supported. "
+                                          "Ignoring: %m");
+                        s->audit_fd = safe_close(s->audit_fd);
+                        return 0;
+                }
         } else
                 fd_nonblock(s->audit_fd, 1);
 
