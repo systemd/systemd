@@ -4686,16 +4686,7 @@ int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int root_fd) {
                         return -errno;
         }
 
-        if (setresgid(0, 0, 0) < 0)
-                return -errno;
-
-        if (setgroups(0, NULL) < 0)
-                return -errno;
-
-        if (setresuid(0, 0, 0) < 0)
-                return -errno;
-
-        return 0;
+        return reset_uid_gid();
 }
 
 int getpeercred(int fd, struct ucred *ucred) {
@@ -6243,6 +6234,20 @@ int mount_move_root(const char *path) {
                 return -errno;
 
         if (chdir("/") < 0)
+                return -errno;
+
+        return 0;
+}
+
+int reset_uid_gid(void) {
+
+        if (setgroups(0, NULL) < 0)
+                return -errno;
+
+        if (setresgid(0, 0, 0) < 0)
+                return -errno;
+
+        if (setresuid(0, 0, 0) < 0)
                 return -errno;
 
         return 0;
