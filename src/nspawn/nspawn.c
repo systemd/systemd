@@ -2932,15 +2932,16 @@ static int setup_seccomp(void) {
                 uint64_t capability;
                 int syscall_num;
         } blacklist[] = {
-                { CAP_SYS_RAWIO,  SCMP_SYS(iopl)},
-                { CAP_SYS_RAWIO,  SCMP_SYS(ioperm)},
-                { CAP_SYS_BOOT,   SCMP_SYS(kexec_load)},
-                { CAP_SYS_ADMIN,  SCMP_SYS(swapon)},
-                { CAP_SYS_ADMIN,  SCMP_SYS(swapoff)},
-                { CAP_SYS_ADMIN,  SCMP_SYS(open_by_handle_at)},
-                { CAP_SYS_MODULE, SCMP_SYS(init_module)},
-                { CAP_SYS_MODULE, SCMP_SYS(finit_module)},
-                { CAP_SYS_MODULE, SCMP_SYS(delete_module)},
+                { CAP_SYS_RAWIO,  SCMP_SYS(iopl)              },
+                { CAP_SYS_RAWIO,  SCMP_SYS(ioperm)            },
+                { CAP_SYS_BOOT,   SCMP_SYS(kexec_load)        },
+                { CAP_SYS_ADMIN,  SCMP_SYS(swapon)            },
+                { CAP_SYS_ADMIN,  SCMP_SYS(swapoff)           },
+                { CAP_SYS_ADMIN,  SCMP_SYS(open_by_handle_at) },
+                { CAP_SYS_MODULE, SCMP_SYS(init_module)       },
+                { CAP_SYS_MODULE, SCMP_SYS(finit_module)      },
+                { CAP_SYS_MODULE, SCMP_SYS(delete_module)     },
+                { CAP_SYSLOG,     SCMP_SYS(syslog)            },
         };
 
         scmp_filter_ctx seccomp;
