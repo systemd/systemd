@@ -2706,6 +2706,12 @@ void manager_check_finished(Manager *m) {
         if (m->n_reloading > 0)
                 return;
 
+        /* Verify that we are actually running currently. Initially
+         * the exit code is set to invalid, and during operation it is
+         * then set to MANAGER_OK */
+        if (m->exit_code != MANAGER_OK)
+                return;
+
         if (hashmap_size(m->jobs) > 0) {
 
                 if (m->jobs_in_progress_event_source)
