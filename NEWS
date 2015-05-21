@@ -1,5 +1,212 @@
 systemd System and Service Manager
 
+CHANGES WITH 220:
+
+        * systemd now exposes a CPUUsageNSec= property for each
+          service unit on the bus, that contains the overall consumed
+          CPU time of a service (the sum of what each process of the
+          service consumed). This value is only available if
+          CPUAccounting= is turned on for a service, and is then shown
+          in the "systemctl status" output.
+
+        * Support for configuring alternative mappings of the old SysV
+          runlevels to systemd targets has been removed. They are now
+          harcoded in a way that runlevels 2, 3, 4 all map to
+          multi-user.target and 5 to graphical.target (which
+          previously was already the default behaviour).
+
+        * The auto-mounter logic gained support for mount point
+          expiry, using a new TimeoutIdleSec= setting in .automount
+          units. (Also available as x-systemd.idle-timeout= in /etc/fstab).
+
+        * The EFI System Partition (ESP) as mounted to /boot by
+          systemd-efi-boot-generator will now be unmounted
+          automatically after 2min of not being used. This should
+          minimize the risk of ESP corruptions.
+
+        * New /etc/fstab options x-systemd.requires= and
+          x-systemd.requires-mounts-for= are now supported to express
+          additional dependencies for mounts. This is useful for
+          journalling file systems that support external journal
+          devices or overlay file systems that require underlying file
+          systems to be mounted.
+
+        * systemd does not support direct live-upgrades (via systemctl
+          daemon-reexec) from versions older than v44 anymore. As no
+          distribution we are aware of shipped such old versions in a
+          stable release this should not be problematic.
+
+        * When systemd forks off a new per-connection service instance
+          it will now set the $REMOTE_ADDR environment variable to the
+          remote IP address, and $REMOTE_PORT environment variable to
+          the remote IP port. This behaviour is similar to the
+          corresponding environment variables defined by CGI.
+
+        * systemd-networkd gained support for uplink failure
+          detection. The BindCarrier= option allows binding interface
+          configuration dynamically to the link sense of other
+          interfaces. This is useful to achieve behaviour like in
+          network switches.
+
+        * systemd-networkd gained support for configuring the DHCP
+          client identifier to use when requesting leases.
+
+        * systemd-networkd now has a per-network UseNTP= option to
+          configure whether NTP server information acquired via DHCP
+          is passed on to services like systemd-timesyncd.
+
+        * systemd-networkd gained support for vti6 tunnels.
+
+        * Many bonding and vxlan options are now configurable in
+          systemd-networkd.
+
+        * systemd-nspawn gained a new --property= setting to set unit
+          properties for the container scope. This is useful for
+          setting resource parameters (e.g "CPUShares=500") on
+          containers started from the command line.
+
+        * systemd-nspawn gained a new --private-users= switch to make
+          use of user namespacing available on recent Linux kernels.
+
+        * systemd-nspawn may now be called as part of a shell pipeline
+          in which case the pipes used for stdin and stdout are passed
+          directly to the process invoked in the container, without
+          indirection via a pseudo tty.
+
+        * systemd-nspawn gained a new switch to control the UNIX
+          signal to use when killing the init process of the container
+          when shutting down.
+
+        * systemd-nspawn gained a new --overlay= switch for mounting
+          overlay file systems into the container using the new kernel
+          overlayfs support.
+
+        * When a container image is imported via systemd-importd and
+          the host file system is not btrfs, a loopback block device
+          file is created in /var/lib/machines.raw with a btrfs file
+          system inside. It is then mounted to /var/lib/machines to
+          enable btrfs features for container management. The loopback
+          file and btrfs file system is grown as needed when container
+          images are imported via systemd-importd.
+
+        * systemd-machined/systemd-importd gained support for btrfs
+          quota, to enforce container disk space limits on disk. This
+          is exposed in "machinectl set-limit".
+
+        * systemd-importd now can import containers from local .tar,
+          .raw and .qcow2 images, and export them to .tar and .raw. It
+          can also import dkr v2 images now from the network (on top
+          of v1 as before).
+
+        * systemd-importd gained support for verifying downloaded
+          images with gpg2 (previously only gpg1 was supported).
+
+        * systemd-machined, systemd-logind, systemd: most bus calls
+          are now accessible to unprivileged processes via
+          PolicyKit. Also, systemd-logind will now allow users to kill
+          their own sessions without further privileges or
+          authorization.
+
+        * systemd-shutdownd has been removed. This service was
+          previously responsible for implementing scheduled shutdowns
+          as exposed in /usr/bin/shutdown's time parameter. This
+          functionality has now been moved into systemd-logind and is
+          accessible via a bus interface.
+
+        * "systemctl reboot" gained a new switch --firmware-setup that
+          can be used to reboot into the EFI firmware setup, if that
+          is available. systemd-logind now exposes an API on the bus
+          to trigger such reboots, in case graphical desktop UIs want
+          to cover this functionality.
+
+        * "systemctl enable", "systemctl disable" and "systemctl mask"
+          now support a new "--now" switch. If specified the the units
+          that are enabled will also be started, and the ones
+          disabled/masked also stopped.
+
+        * The Gummiboot EFI boot loader tool has been merged into
+          systemd, and renamed to "sd-boot". The bootctl tool has been
+          updated to support sd-boot.
+
+        * An EFI kernel stub has been added that may be used to create
+          kernel EFI binaries that contain not only the actual kernel,
+          but also an initrd, boot splash, command line and OS release
+          information. This combined binary can then be signed as a
+          single image, so that the firmware can verify it all in one
+          step. sd-boot has special support for EFI binaries created
+          like this and can extract OS release information from them
+          and show them in the boot menu. This functionality is useful
+          to implement cryptographically verified boot schemes.
+
+        * Optional support has been added to systemd-fsck to pass
+          fsck's progress report to an AF_UNIX socket in the file
+          system.
+
+        * udev will no longer create device symlinks for all block
+          devices by default. A blacklist for excluding special block
+          devices from this logic has been turned into a whitelist
+          that requires picking block devices explicitly that require
+          device symlinks.
+
+        * A new (currently still internal) API sd-device.h has been
+          added to libsystemd. This modernized API is supposed to
+          replace libudev eventually. In fact, already much of libudev
+          is now just a wrapper around sd-device.h.
+
+        * A new hwdb database for storing metadata about pointing
+          stick devices has been added.
+
+        * systemd-tmpfiles gained support for setting file attributes
+          similar to the "chattr" tool with new 'h' and 'H' lines.
+
+        * systemd-journald will no longer unconditionally set the
+          btrfs NOCOW flag on new journal files. This is instead done
+          with tmpfiles snippet using the new 'h' line type. This
+          allows easy disabling of this logic, by masking the
+          journal-nocow.conf tmpfiles file.
+
+        * systemd-journald will now translate audit message types to
+          human readable identifiers when writing them to the
+          journal. This should improve readability of audit messages.
+
+        * The LUKS logic gained support for the offset= and skip=
+          options in /etc/crypttab, as previously implemented by
+          Debian.
+
+        * /usr/lib/os-release gained a new optional field VARIANT= for
+          distributions that support multiple variants (such as a
+          desktop edition, a server edition, ...)
+
+        Contributions from: Aaro Koskinen, Adam Goode, Alban Crequy,
+        Alberto Fanjul Alonso, Alexander Sverdlin, Alex Puchades, Alin
+        Rauta, Alison Chaiken, Andrew Jones, Arend van Spriel,
+        Benedikt Morbach, Benjamin Franzke, Benjamin Tissoires, Blaž
+        Tomažič, Chris Morgan, Chris Morin, Colin Walters, Cristian
+        Rodríguez, Daniel Buch, Daniel Drake, Daniele Medri, Daniel
+        Mack, Daniel Mustieles, daurnimator, Davide Bettio, David
+        Herrmann, David Strauss, Didier Roche, Dimitri John Ledkov,
+        Eric Cook, Gavin Li, Goffredo Baroncelli, Hannes Reinecke,
+        Hans de Goede, Hans-Peter Deifel, Harald Hoyer, Iago López
+        Galeiras, Ivan Shapovalov, Jan Engelhardt, Jan Janssen, Jan
+        Pazdziora, Jan Synacek, Jasper St. Pierre, Jay Faulkner, John
+        Paul Adrian Glaubitz, Jonathon Gilbert, Karel Zak, Kay
+        Sievers, Koen Kooi, Lennart Poettering, Lubomir Rintel, Lucas
+        De Marchi, Lukas Nykryn, Lukas Rusak, Lukasz Skalski, Łukasz
+        Stelmach, Mantas Mikulėnas, Marc-Antoine Perennou, Marcel
+        Holtmann, Martin Pitt, Mathieu Chevrier, Matthew Garrett,
+        Michael Biebl, Michael Marineau, Michael Olbrich, Michal
+        Schmidt, Michal Sekletar, Mirco Tischler, Nir Soffer, Patrik
+        Flykt, Pavel Odvody, Peter Hutterer, Peter Lemenkov, Peter
+        Waller, Piotr Drąg, Raul Gutierrez S, Richard Maw, Ronny
+        Chevalier, Ross Burton, Sebastian Rasmussen, Sergey Ptashnick,
+        Seth Jennings, Shawn Landden, Simon Farnsworth, Stefan Junker,
+        Stephen Gallagher, Susant Sahani, Sylvain Plantefève, Thomas
+        Haller, Thomas Hindoe Paaboel Andersen, Tobias Hunger, Tom
+        Gundersen, Torstein Husebø, Umut Tezduyar Lindskog, Will
+        Woods, Zachary Cook, Zbigniew Jędrzejewski-Szmek
+
+        -- Berlin, 2015-05-??
+
 CHANGES WITH 219:
 
         * Introduce a new API "sd-hwdb.h" for querying the hardware
