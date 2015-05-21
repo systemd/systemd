@@ -11,7 +11,7 @@ CHANGES WITH 220:
 
         * Support for configuring alternative mappings of the old SysV
           runlevels to systemd targets has been removed. They are now
-          harcoded in a way that runlevels 2, 3, 4 all map to
+          hardcoded in a way that runlevels 2, 3, 4 all map to
           multi-user.target and 5 to graphical.target (which
           previously was already the default behaviour).
 
@@ -21,7 +21,7 @@ CHANGES WITH 220:
 
         * The EFI System Partition (ESP) as mounted to /boot by
           systemd-efi-boot-generator will now be unmounted
-          automatically after 2min of not being used. This should
+          automatically after 2 minutes of not being used. This should
           minimize the risk of ESP corruptions.
 
         * New /etc/fstab options x-systemd.requires= and
