@@ -138,15 +138,15 @@ CHANGES WITH 220:
           disabled/masked also stopped.
 
         * The Gummiboot EFI boot loader tool has been merged into
-          systemd, and renamed to "sd-boot". The bootctl tool has been
-          updated to support sd-boot.
+          systemd, and renamed to "systemd-boot". The bootctl tool has been
+          updated to support systemd-boot.
 
         * An EFI kernel stub has been added that may be used to create
           kernel EFI binaries that contain not only the actual kernel,
           but also an initrd, boot splash, command line and OS release
           information. This combined binary can then be signed as a
           single image, so that the firmware can verify it all in one
-          step. sd-boot has special support for EFI binaries created
+          step. systemd-boot has special support for EFI binaries created
           like this and can extract OS release information from them
           and show them in the boot menu. This functionality is useful
           to implement cryptographically verified boot schemes.
