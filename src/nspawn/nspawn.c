@@ -195,7 +195,7 @@ static char **arg_network_macvlan = NULL;
 static char **arg_network_ipvlan = NULL;
 static bool arg_network_veth = false;
 static const char *arg_network_bridge = NULL;
-static unsigned long arg_personality = 0xffffffffLU;
+static unsigned long arg_personality = PERSONALITY_INVALID;
 static char *arg_image = NULL;
 static Volatile arg_volatile = VOLATILE_NO;
 static ExposePort *arg_expose_ports = NULL;
@@ -823,7 +823,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_PERSONALITY:
 
                         arg_personality = personality_from_string(optarg);
-                        if (arg_personality == 0xffffffffLU) {
+                        if (arg_personality == PERSONALITY_INVALID) {
                                 log_error("Unknown or unsupported personality '%s'.", optarg);
                                 return -EINVAL;
                         }
@@ -4128,7 +4128,7 @@ static int inner_child(
 
         setup_hostname();
 
-        if (arg_personality != 0xffffffffLU) {
+        if (arg_personality != PERSONALITY_INVALID) {
                 if (personality(arg_personality) < 0)
                         return log_error_errno(errno, "personality() failed: %m");
         } else if (secondary) {

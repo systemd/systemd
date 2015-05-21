@@ -816,6 +816,13 @@ int open_tmpfile(const char *path, int flags);
 
 int fd_warn_permissions(const char *path, int fd);
 
+#ifndef PERSONALITY_INVALID
+/* personality(7) documents that 0xffffffffUL is used for querying the
+ * current personality, hence let's use that here as error
+ * indicator. */
+#define PERSONALITY_INVALID 0xffffffffLU
+#endif
+
 unsigned long personality_from_string(const char *p);
 const char *personality_to_string(unsigned long);
 

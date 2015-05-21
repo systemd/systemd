@@ -4837,10 +4837,7 @@ unsigned long personality_from_string(const char *p) {
                 return PER_LINUX;
 #endif
 
-        /* personality(7) documents that 0xffffffffUL is used for
-         * querying the current personality, hence let's use that here
-         * as error indicator. */
-        return 0xffffffffUL;
+        return PERSONALITY_INVALID;
 }
 
 const char* personality_to_string(unsigned long p) {

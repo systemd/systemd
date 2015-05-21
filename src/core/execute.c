@@ -1491,7 +1491,7 @@ static int exec_child(
                         return -errno;
                 }
 
-        if (context->personality != 0xffffffffUL)
+        if (context->personality != PERSONALITY_INVALID)
                 if (personality(context->personality) < 0) {
                         *exit_status = EXIT_PERSONALITY;
                         return -errno;
@@ -1946,7 +1946,7 @@ void exec_context_init(ExecContext *c) {
         c->syslog_level_prefix = true;
         c->ignore_sigpipe = true;
         c->timer_slack_nsec = NSEC_INFINITY;
-        c->personality = 0xffffffffUL;
+        c->personality = PERSONALITY_INVALID;
         c->runtime_directory_mode = 0755;
 }
 
@@ -2427,7 +2427,7 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                         "%sSELinuxContext: %s%s\n",
                         prefix, c->selinux_context_ignore ? "-" : "", c->selinux_context);
 
-        if (c->personality != 0xffffffffUL)
+        if (c->personality != PERSONALITY_INVALID)
                 fprintf(f,
                         "%sPersonality: %s\n",
                         prefix, strna(personality_to_string(c->personality)));
