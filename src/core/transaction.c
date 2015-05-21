@@ -1032,8 +1032,13 @@ int transaction_add_job_and_dependencies(
 
                         for (j = 0; j < ELEMENTSOF(propagate_deps); j++)
                                 SET_FOREACH(dep, ret->unit->dependencies[propagate_deps[j]], i) {
+                                        JobType nt;
 
-                                        r = transaction_add_job_and_dependencies(tr, job_type_collapse(ptype, dep), dep, ret, true, override, false, false, ignore_order, e);
+                                        nt = job_type_collapse(ptype, dep);
+                                        if (nt == JOB_NOP)
+                                                continue;
+
+                                        r = transaction_add_job_and_dependencies(tr, nt, dep, ret, true, override, false, false, ignore_order, e);
                                         if (r < 0) {
                                                 if (r != -EBADR)
                                                         goto fail;
