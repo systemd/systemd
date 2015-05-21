@@ -2,6 +2,15 @@ systemd System and Service Manager
 
 CHANGES WITH 220:
 
+        * The gudev library has been extracted into a separate repository
+          available at: https://git.gnome.org/browse/libgudev/
+          It is now managed as part of the Gnome project. Distributions
+          are recommended to pass --disable-gudev to systemd and use
+          gudev from the Gnome project instead. gudev is still included
+          in systemd, for now. It will be removed soon, though. Please
+          also see the announcement-thread on systemd-devel:
+          http://lists.freedesktop.org/archives/systemd-devel/2015-May/032070.html
+
         * systemd now exposes a CPUUsageNSec= property for each
           service unit on the bus, that contains the overall consumed
           CPU time of a service (the sum of what each process of the
