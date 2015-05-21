@@ -26,11 +26,15 @@ External:
 
 Before 220:
 
-* fix userns support in nspawn, or remove it entirely
-
 * bus-proxy: GetConnectionSELinuxSecurityContext() is completely broken
 
 Features:
+
+* introduce an NSS module that uses machined info to give container UIDs pretty names when user namespacing is used.
+
+* stop using off_t, it's a crazy type. Use uint64_t instead.
+
+* introduce PERSONALITY_INVALID
 
 * logind: follow PropertiesChanged state more closely, to deal with quick logouts and relogins
 
