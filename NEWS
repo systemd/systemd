@@ -57,6 +57,19 @@ CHANGES WITH 220:
 
         * systemd-networkd gained support for vti6 tunnels.
 
+        * Note that systemd-networkd manages the sysctl variable
+          /proc/sys/net/ipv[46]/conf/*/forwarding for each interface
+          it is configured for since v219. The variable controls IP
+          forwarding, and is a per-interface alternative to the global
+          /proc/sys/net/ipv[46]/ip_forward. This setting is
+          configurable in the IPForward= option, which defaults to
+          "no". This means if networkd is used for an interface it is
+          no longer sufficient to set the global sysctl option to turn
+          on IP forwarding! Instead, the .network file option
+          IPForward= needs to be turned on! Note that the
+          implementation of this behaviour was broken in v219 and has
+          been fixed in v220.
+
         * Many bonding and vxlan options are now configurable in
           systemd-networkd.
 
@@ -120,7 +133,7 @@ CHANGES WITH 220:
           to cover this functionality.
 
         * "systemctl enable", "systemctl disable" and "systemctl mask"
-          now support a new "--now" switch. If specified the the units
+          now support a new "--now" switch. If specified the units
           that are enabled will also be started, and the ones
           disabled/masked also stopped.
 
