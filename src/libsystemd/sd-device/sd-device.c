@@ -1193,12 +1193,12 @@ int device_get_id_filename(sd_device *device, const char **ret) {
                                      streq(subsystem, "block") ? 'b' : 'c',
                                      major(devnum), minor(devnum));
                         if (r < 0)
-                                return -errno;
+                                return -ENOMEM;
                 } else if (ifindex > 0) {
                         /* use netdev ifindex -- n3 */
                         r = asprintf(&id, "n%u", ifindex);
                         if (r < 0)
-                                return -errno;
+                                return -ENOMEM;
                 } else {
                         /* use $subsys:$sysname -- pci:0000:00:1f.2
                          * sysname() has '!' translated, get it from devpath
@@ -1211,7 +1211,7 @@ int device_get_id_filename(sd_device *device, const char **ret) {
 
                         r = asprintf(&id, "+%s:%s", subsystem, sysname);
                         if (r < 0)
-                                return -errno;
+                                return -ENOMEM;
                 }
 
                 device->id_filename = id;
