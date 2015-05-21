@@ -280,6 +280,7 @@ int bus_proxy_process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m, SharedPoli
                 return synthetic_driver_send(m->bus, reply);
 
         } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "GetConnectionSELinuxSecurityContext")) {
+                _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
                 _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
 
@@ -293,7 +294,15 @@ int bus_proxy_process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m, SharedPoli
                 if (!(creds->mask & SD_BUS_CREDS_SELINUX_CONTEXT))
                         return synthetic_reply_method_errno(m, -EOPNOTSUPP, NULL);
 
-                return synthetic_reply_method_return(m, "y", creds->label, strlen(creds->label));
+                r = sd_bus_message_new_method_return(m, &reply);
+                if (r < 0)
+                        return synthetic_reply_method_errno(m, r, NULL);
+
+                r = sd_bus_message_append_array(reply, 'y', creds->label, strlen(creds->label));
+                if (r < 0)
+                        return synthetic_reply_method_errno(m, r, NULL);
+
+                return synthetic_driver_send(m->bus, reply);
 
         } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "GetConnectionUnixProcessID")) {
                 _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
