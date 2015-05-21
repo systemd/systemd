@@ -192,7 +192,7 @@ int main(int argc, char *argv[]) {
         test_one("\"\\udc00\\udc00\"", -EINVAL);
         test_one("\"\\ud801\\udc37\"", JSON_STRING, "\xf0\x90\x90\xb7", JSON_END);
 
-        test_one("[1, 2]", JSON_ARRAY_OPEN, JSON_INTEGER, 1, JSON_COMMA, JSON_INTEGER, 2, JSON_ARRAY_CLOSE, JSON_END);
+        test_one("[1, 2]", JSON_ARRAY_OPEN, JSON_INTEGER, (intmax_t) 1, JSON_COMMA, JSON_INTEGER, (intmax_t) 2, JSON_ARRAY_CLOSE, JSON_END);
 
         test_file("{\"k\": \"v\", \"foo\": [1, 2, 3], \"bar\": {\"zap\": null}}", test_1);
         test_file("{\"mutant\": [1, null, \"1\", {\"1\": [1, \"1\"]}], \"blah\": 1.27}", test_2);
