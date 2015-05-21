@@ -794,7 +794,7 @@ static void dkr_pull_job_on_finished_v2(PullJob *j) {
         } else if (i->tags_job == j) {
                 const char *url;
                 _cleanup_free_ const char *buf;
-                _cleanup_jsonunref_ JsonVariant *doc = NULL;
+                _cleanup_json_variant_unref_ JsonVariant *doc = NULL;
                 JsonVariant *e = NULL;
 
                 assert(!i->ancestry_job);
@@ -851,8 +851,7 @@ static void dkr_pull_job_on_finished_v2(PullJob *j) {
 
         } else if (i->ancestry_job == j) {
 
-                _cleanup_jsonunref_ JsonVariant *doc = NULL;
-                _cleanup_jsonunref_ JsonVariant *compat = NULL;
+                _cleanup_json_variant_unref_ JsonVariant *doc = NULL, *compat = NULL;
                 JsonVariant *e = NULL;
                 _cleanup_strv_free_ char **ancestry = NULL;
                 size_t allocated = 0, size = 0;

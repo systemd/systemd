@@ -672,7 +672,7 @@ int sd_dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
         if (r >= 0) {
                 _cleanup_free_ char *client_id_hex;
 
-                client_id_hex = hexmem (client_id, client_id_len);
+                client_id_hex = hexmem(client_id, client_id_len);
                 if (!client_id_hex) {
                         r = -ENOMEM;
                         goto finish;
