@@ -771,6 +771,9 @@ int device_found_node(Manager *m, const char *node, bool add, DeviceFound found,
         assert(m);
         assert(node);
 
+        if (!device_supported())
+                return 0;
+
         /* This is called whenever we find a device referenced in
          * /proc/swaps or /proc/self/mounts. Such a device might be
          * mounted/enabled at a time where udev has not finished
