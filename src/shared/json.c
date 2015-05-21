@@ -723,7 +723,7 @@ static int json_parse_tokens(JsonVariant **tokens, size_t ntokens, JsonVariant *
         size_t it = 0;
         int r;
         JsonVariant *e;
-        _cleanup_jsonunref_ JsonVariant *p;
+        _cleanup_jsonunref_ JsonVariant *p = NULL;
 
         assert(tokens);
         assert(ntokens);
