@@ -775,7 +775,7 @@ int shall_restore_state(void);
  * that only if nmemb > 0.
  */
 static inline void qsort_safe(void *base, size_t nmemb, size_t size, comparison_fn_t compar) {
-        if (nmemb <= 0)
+        if (nmemb <= 1)
                 return;
 
         assert(base);
