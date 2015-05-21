@@ -174,6 +174,9 @@ static int load_link(link_config_ctx *ctx, const char *filename) {
         else
                 log_debug("Parsed configuration file %s", filename);
 
+        if (link->mtu > UINT_MAX || link->speed > UINT_MAX)
+                return -ERANGE;
+
         link->filename = strdup(filename);
 
         LIST_PREPEND(links, ctx->links, link);
@@ -376,10 +379,9 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
         if (!old_name)
                 return -EINVAL;
 
-        r = ethtool_set_speed(&ctx->ethtool_fd, old_name, config->speed / 1024,
-                              config->duplex);
+        r = ethtool_set_speed(&ctx->ethtool_fd, old_name, config->speed / 1024, config->duplex);
         if (r < 0)
-                log_warning_errno(r, "Could not set speed or duplex of %s to %u Mbps (%s): %m",
+                log_warning_errno(r, "Could not set speed or duplex of %s to %zu Mbps (%s): %m",
                                   old_name, config->speed / 1024,
                                   duplex_to_string(config->duplex));
 
@@ -458,8 +460,7 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
                         mac = config->mac;
         }
 
-        r = rtnl_set_link_properties(&ctx->rtnl, ifindex, config->alias, mac,
-                                     config->mtu);
+        r = rtnl_set_link_properties(&ctx->rtnl, ifindex, config->alias, mac, config->mtu);
         if (r < 0)
                 return log_warning_errno(r, "Could not set Alias, MACAddress or MTU on %s: %m", old_name);
 
