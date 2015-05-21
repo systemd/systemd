@@ -23,13 +23,12 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#include "dev-setup.h"
 #include "util.h"
 #include "label.h"
+#include "path-util.h"
+#include "dev-setup.h"
 
-int dev_setup(const char *prefix) {
-        const char *j, *k;
-
+int dev_setup(const char *prefix, uid_t uid, gid_t gid) {
         static const char symlinks[] =
                 "-/proc/kcore\0"     "/dev/core\0"
                 "/proc/self/fd\0"    "/dev/fd\0"
@@ -37,7 +36,13 @@ int dev_setup(const char *prefix) {
                 "/proc/self/fd/1\0"  "/dev/stdout\0"
                 "/proc/self/fd/2\0"  "/dev/stderr\0";
 
+        const char *j, *k;
+        int r;
+
         NULSTR_FOREACH_PAIR(j, k, symlinks) {
+                _cleanup_free_ char *link_name = NULL;
+                const char *n;
+
                 if (j[0] == '-') {
                         j++;
 
@@ -46,15 +51,21 @@ int dev_setup(const char *prefix) {
                 }
 
                 if (prefix) {
-                        _cleanup_free_ char *link_name = NULL;
-
-                        link_name = strjoin(prefix, "/", k, NULL);
+                        link_name = prefix_root(prefix, k);
                         if (!link_name)
                                 return -ENOMEM;
 
-                        symlink_label(j, link_name);
+                        n = link_name;
                 } else
-                        symlink_label(j, k);
+                        n = k;
+
+                r = symlink_label(j, n);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to symlink %s to %s: %m", j, n);
+
+                if (uid != UID_INVALID || gid != GID_INVALID)
+                        if (lchown(n, uid, gid) < 0)
+                                log_debug_errno(errno, "Failed to chown %s: %m", n);
         }
 
         return 0;

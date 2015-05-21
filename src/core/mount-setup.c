@@ -373,7 +373,7 @@ int mount_setup(bool loaded_policy) {
         /* Create a few default symlinks, which are normally created
          * by udevd, but some scripts might need them before we start
          * udevd. */
-        dev_setup(NULL);
+        dev_setup(NULL, UID_INVALID, GID_INVALID);
 
         /* Mark the root directory as shared in regards to mount
          * propagation. The kernel defaults to "private", but we think

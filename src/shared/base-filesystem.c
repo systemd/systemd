@@ -41,13 +41,16 @@ static const BaseFilesystem table[] = {
         { "lib",      0, "usr/lib\0",                  NULL },
         { "root",  0755, NULL,                         NULL },
         { "sbin",     0, "usr/sbin\0",                 NULL },
+        { "usr",   0755, NULL,                         NULL },
+        { "var",   0755, NULL,                         NULL },
+        { "etc",   0755, NULL,                         NULL },
 #if defined(__i386__) || defined(__x86_64__)
         { "lib64",    0, "usr/lib/x86_64-linux-gnu\0"
                          "usr/lib64\0",                "ld-linux-x86-64.so.2" },
 #endif
 };
 
-int base_filesystem_create(const char *root) {
+int base_filesystem_create(const char *root, uid_t uid, gid_t gid) {
         _cleanup_close_ int fd = -1;
         unsigned i;
         int r = 0;
@@ -90,6 +93,12 @@ int base_filesystem_create(const char *root) {
                         r = symlinkat(target, fd, table[i].dir);
                         if (r < 0 && errno != EEXIST)
                                 return log_error_errno(errno, "Failed to create symlink at %s/%s: %m", root, table[i].dir);
+
+                        if (uid != UID_INVALID || gid != UID_INVALID) {
+                                if (fchownat(fd, table[i].dir, uid, gid, AT_SYMLINK_NOFOLLOW) < 0)
+                                        return log_error_errno(errno, "Failed to chown symlink at %s/%s: %m", root, table[i].dir);
+                        }
+
                         continue;
                 }
 
@@ -97,6 +106,11 @@ int base_filesystem_create(const char *root) {
                         r = mkdirat(fd, table[i].dir, table[i].mode);
                 if (r < 0 && errno != EEXIST)
                         return log_error_errno(errno, "Failed to create directory at %s/%s: %m", root, table[i].dir);
+
+                if (uid != UID_INVALID || gid != UID_INVALID) {
+                        if (fchownat(fd, table[i].dir, uid, gid, AT_SYMLINK_NOFOLLOW) < 0)
+                                return log_error_errno(errno, "Failed to chown directory at %s/%s: %m", root, table[i].dir);
+                }
         }
 
         return 0;

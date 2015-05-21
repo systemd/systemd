@@ -224,7 +224,7 @@ static int mount_dev(BindMount *m) {
                 }
         }
 
-        dev_setup(temporary_mount);
+        dev_setup(temporary_mount, UID_INVALID, GID_INVALID);
 
         /* Create the /dev directory if missing. It is more likely to be
          * missing when the service is started with RootDirectory. This is

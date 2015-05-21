@@ -105,7 +105,7 @@ int switch_root(const char *new_root, const char *oldroot, bool detach_oldroot, 
          * to look like. They might even boot, if they are RO and
          * don't have the FS layout. Just ignore the error and
          * switch_root() nevertheless. */
-        (void) base_filesystem_create(new_root);
+        (void) base_filesystem_create(new_root, UID_INVALID, GID_INVALID);
 
         if (chdir(new_root) < 0)
                 return log_error_errno(errno, "Failed to change directory to %s: %m", new_root);

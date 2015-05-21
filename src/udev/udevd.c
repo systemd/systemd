@@ -1484,7 +1484,7 @@ int main(int argc, char *argv[]) {
                 goto exit;
         }
 
-        dev_setup(NULL);
+        dev_setup(NULL, UID_INVALID, GID_INVALID);
 
         r = manager_new(&manager);
         if (r < 0)
