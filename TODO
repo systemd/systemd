@@ -34,8 +34,6 @@ Features:
 
 * stop using off_t, it's a crazy type. Use uint64_t instead.
 
-* introduce PERSONALITY_INVALID
-
 * logind: follow PropertiesChanged state more closely, to deal with quick logouts and relogins
 
 * change to KillMode=mixed by default
