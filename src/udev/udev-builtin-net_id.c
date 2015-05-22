@@ -91,6 +91,7 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <string.h>
 #include <errno.h>
 #include <net/if.h>
@@ -166,15 +167,15 @@ static int dev_pci_onboard(struct udev_device *dev, struct netnames *names) {
 
 /* read the 256 bytes PCI configuration space to check the multi-function bit */
 static bool is_pci_multifunction(struct udev_device *dev) {
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_close_ int fd = -1;
         const char *filename;
         uint8_t config[64];
 
         filename = strjoina(udev_device_get_syspath(dev), "/config");
-        f = fopen(filename, "re");
-        if (!f)
+        fd = open(filename, O_RDONLY | O_CLOEXEC);
+        if (fd < 0)
                 return false;
-        if (fread(&config, sizeof(config), 1, f) != 1)
+        if (read(fd, &config, sizeof(config)) != sizeof(config))
                 return false;
 
         /* bit 0-6 header type, bit 7 multi/single function device */
