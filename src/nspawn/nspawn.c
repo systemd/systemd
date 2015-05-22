@@ -2627,7 +2627,7 @@ static int setup_veth(pid_t pid, char iface_name[IFNAMSIZ], int *ifi) {
 
         r = sd_rtnl_call(rtnl, m, 0, NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to add new veth interfaces: %m");
+                return log_error_errno(r, "Failed to add new veth interfaces (host0, %s): %m", iface_name);
 
         i = (int) if_nametoindex(iface_name);
         if (i <= 0)
