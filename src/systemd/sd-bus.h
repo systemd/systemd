@@ -141,10 +141,10 @@ int sd_bus_set_monitor(sd_bus *bus, int b);
 int sd_bus_is_monitor(sd_bus *bus);
 int sd_bus_set_description(sd_bus *bus, const char *description);
 int sd_bus_get_description(sd_bus *bus, const char **description);
+int sd_bus_negotiate_creds(sd_bus *bus, int b, uint64_t creds_mask);
+int sd_bus_negotiate_timestamp(sd_bus *bus, int b);
 int sd_bus_negotiate_fds(sd_bus *bus, int b);
 int sd_bus_can_send(sd_bus *bus, char type);
-int sd_bus_negotiate_timestamp(sd_bus *bus, int b);
-int sd_bus_negotiate_creds(sd_bus *bus, int b, uint64_t creds_mask);
 int sd_bus_get_creds_mask(sd_bus *bus, uint64_t *creds_mask);
 int sd_bus_set_allow_interactive_authorization(sd_bus *bus, int b);
 int sd_bus_get_allow_interactive_authorization(sd_bus *bus);
@@ -303,7 +303,7 @@ int sd_bus_get_property(sd_bus *bus, const char *destination, const char *path, 
 int sd_bus_get_property_trivial(sd_bus *bus, const char *destination, const char *path, const char *interface, const char *member, sd_bus_error *ret_error, char type, void *ret_ptr);
 int sd_bus_get_property_string(sd_bus *bus, const char *destination, const char *path, const char *interface, const char *member, sd_bus_error *ret_error, char **ret); /* free the result! */
 int sd_bus_get_property_strv(sd_bus *bus, const char *destination, const char *path, const char *interface, const char *member, sd_bus_error *ret_error, char ***ret); /* free the result! */
-int sd_bus_set_property(sd_bus *bus, const char *destination, const char *path, const char *interface, const char *member, sd_bus_error *ret_error, const char *ret_type, ...);
+int sd_bus_set_property(sd_bus *bus, const char *destination, const char *path, const char *interface, const char *member, sd_bus_error *ret_error, const char *type, ...);
 
 int sd_bus_reply_method_return(sd_bus_message *call, const char *types, ...);
 int sd_bus_reply_method_error(sd_bus_message *call, const sd_bus_error *e);

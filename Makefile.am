@@ -3115,17 +3115,17 @@ pkgconfiglib_DATA += \
 	src/libsystemd/libsystemd.pc
 
 pkginclude_HEADERS += \
+	src/systemd/sd-bus.h \
+	src/systemd/sd-bus-protocol.h \
+	src/systemd/sd-bus-vtable.h \
+	src/systemd/sd-event.h
 	src/systemd/sd-login.h \
 	src/systemd/sd-id128.h \
 	src/systemd/sd-daemon.h
 
 if ENABLE_KDBUS
 pkginclude_HEADERS += \
-	src/systemd/sd-bus.h \
-	src/systemd/sd-bus-protocol.h \
-	src/systemd/sd-bus-vtable.h \
 	src/systemd/sd-utf8.h \
-	src/systemd/sd-event.h \
 	src/systemd/sd-rtnl.h \
 	src/systemd/sd-resolve.h \
 	src/systemd/sd-path.h
@@ -6961,7 +6961,8 @@ test-libsystemd-sym.c: \
 		src/systemd/sd-bus.h \
 		src/systemd/sd-utf8.h \
 		src/systemd/sd-resolve.h \
-		src/systemd/sd-path.h
+		src/systemd/sd-path.h \
+		src/systemd/sd-event.h
 	$(generate-sym-test)
 
 test-libudev-sym.c: \

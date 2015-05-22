@@ -169,8 +169,7 @@ global:
         sd_peer_get_user_slice;
 } LIBSYSTEMD_219;
 
-m4_ifdef(`ENABLE_KDBUS',
-LIBSYSTEMD_FUTURE {
+LIBSYSTEMD_221 {
 global:
         /* sd-bus */
         sd_bus_default;
@@ -185,27 +184,36 @@ global:
         sd_bus_set_address;
         sd_bus_set_fd;
         sd_bus_set_exec;
+        sd_bus_get_address;
         sd_bus_set_bus_client;
+        sd_bus_is_bus_client;
         sd_bus_set_server;
+        sd_bus_is_server;
         sd_bus_set_anonymous;
+        sd_bus_is_anonymous;
         sd_bus_set_trusted;
+        sd_bus_is_trusted;
         sd_bus_set_monitor;
+        sd_bus_is_monitor;
         sd_bus_set_description;
+        sd_bus_get_description;
+        sd_bus_negotiate_creds;
+        sd_bus_negotiate_timestamp;
+        sd_bus_negotiate_fds;
+        sd_bus_can_send;
+        sd_bus_get_creds_mask;
         sd_bus_set_allow_interactive_authorization;
         sd_bus_get_allow_interactive_authorization;
-        sd_bus_negotiate_fds;
-        sd_bus_negotiate_timestamp;
-        sd_bus_negotiate_creds;
         sd_bus_start;
         sd_bus_close;
         sd_bus_try_close;
         sd_bus_ref;
         sd_bus_unref;
         sd_bus_is_open;
-        sd_bus_can_send;
         sd_bus_get_bus_id;
+        sd_bus_get_scope;
+        sd_bus_get_tid;
         sd_bus_get_owner_creds;
-        sd_bus_get_description;
         sd_bus_send;
         sd_bus_send_to;
         sd_bus_call;
@@ -217,9 +225,10 @@ global:
         sd_bus_process_priority;
         sd_bus_wait;
         sd_bus_flush;
-        sd_bus_get_current_message;
         sd_bus_get_current_slot;
-        sd_bus_get_tid;
+        sd_bus_get_current_message;
+        sd_bus_get_current_handler;
+        sd_bus_get_current_userdata;
         sd_bus_attach_event;
         sd_bus_detach_event;
         sd_bus_get_event;
@@ -239,6 +248,8 @@ global:
         sd_bus_slot_get_description;
         sd_bus_slot_set_description;
         sd_bus_slot_get_current_message;
+        sd_bus_slot_get_current_handler;
+        sd_bus_slot_get_current_userdata;
         sd_bus_message_new_signal;
         sd_bus_message_new_method_call;
         sd_bus_message_new_method_return;
@@ -248,13 +259,13 @@ global:
         sd_bus_message_new_method_errnof;
         sd_bus_message_ref;
         sd_bus_message_unref;
-        sd_bus_message_get_bus;
         sd_bus_message_get_type;
         sd_bus_message_get_cookie;
         sd_bus_message_get_reply_cookie;
+        sd_bus_message_get_priority;
         sd_bus_message_get_expect_reply;
         sd_bus_message_get_auto_start;
-        sd_bus_message_get_priority;
+        sd_bus_message_get_allow_interactive_authorization;
         sd_bus_message_get_signature;
         sd_bus_message_get_path;
         sd_bus_message_get_interface;
@@ -266,13 +277,16 @@ global:
         sd_bus_message_get_monotonic_usec;
         sd_bus_message_get_realtime_usec;
         sd_bus_message_get_seqnum;
+        sd_bus_message_get_bus;
         sd_bus_message_get_creds;
-        sd_bus_message_is_empty;
         sd_bus_message_is_signal;
         sd_bus_message_is_method_call;
         sd_bus_message_is_method_error;
+        sd_bus_message_is_empty;
+        sd_bus_message_has_signature;
         sd_bus_message_set_expect_reply;
         sd_bus_message_set_auto_start;
+        sd_bus_message_set_allow_interactive_authorization;
         sd_bus_message_set_destination;
         sd_bus_message_set_priority;
         sd_bus_message_append;
@@ -324,6 +338,7 @@ global:
         sd_bus_emit_interfaces_removed_strv;
         sd_bus_emit_interfaces_removed;
         sd_bus_query_sender_creds;
+        sd_bus_query_sender_privilege;
         sd_bus_creds_new_from_pid;
         sd_bus_creds_ref;
         sd_bus_creds_unref;
@@ -374,6 +389,7 @@ global:
         sd_bus_error_copy;
         sd_bus_error_is_set;
         sd_bus_error_has_name;
+        sd_bus_error_add_map;
         sd_bus_path_encode;
         sd_bus_path_decode;
         sd_bus_track_new;
@@ -401,9 +417,10 @@ global:
         sd_event_add_signal;
         sd_event_add_child;
         sd_event_add_defer;
+        sd_event_add_post;
         sd_event_add_exit;
-        sd_event_wait;
         sd_event_prepare;
+        sd_event_wait;
         sd_event_dispatch;
         sd_event_run;
         sd_event_loop;
@@ -417,6 +434,9 @@ global:
         sd_event_get_watchdog;
         sd_event_source_ref;
         sd_event_source_unref;
+        sd_event_source_get_event;
+        sd_event_source_get_userdata;
+        sd_event_source_set_userdata;
         sd_event_source_set_description;
         sd_event_source_get_description;
         sd_event_source_set_prepare;
@@ -425,8 +445,6 @@ global:
         sd_event_source_set_priority;
         sd_event_source_get_enabled;
         sd_event_source_set_enabled;
-        sd_event_source_get_userdata;
-        sd_event_source_set_userdata;
         sd_event_source_get_io_fd;
         sd_event_source_set_io_fd;
         sd_event_source_get_io_events;
@@ -439,8 +457,11 @@ global:
         sd_event_source_get_time_clock;
         sd_event_source_get_signal;
         sd_event_source_get_child_pid;
-        sd_event_source_get_event;
+} LIBSYSTEMD_220;
 
+m4_ifdef(`ENABLE_KDBUS',
+LIBSYSTEMD_FUTURE {
+global:
         /* sd-utf8 */
         sd_utf8_is_valid;
         sd_ascii_is_valid;

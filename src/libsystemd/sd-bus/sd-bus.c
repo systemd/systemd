@@ -3513,7 +3513,7 @@ _public_ int sd_bus_get_address(sd_bus *bus, const char **address) {
         return -ENODATA;
 }
 
-int sd_bus_get_creds_mask(sd_bus *bus, uint64_t *mask) {
+_public_ int sd_bus_get_creds_mask(sd_bus *bus, uint64_t *mask) {
         assert_return(bus, -EINVAL);
         assert_return(mask, -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
@@ -3522,35 +3522,35 @@ int sd_bus_get_creds_mask(sd_bus *bus, uint64_t *mask) {
         return 0;
 }
 
-int sd_bus_is_bus_client(sd_bus *bus) {
+_public_ int sd_bus_is_bus_client(sd_bus *bus) {
         assert_return(bus, -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
         return bus->bus_client;
 }
 
-int sd_bus_is_server(sd_bus *bus) {
+_public_ int sd_bus_is_server(sd_bus *bus) {
         assert_return(bus, -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
         return bus->is_server;
 }
 
-int sd_bus_is_anonymous(sd_bus *bus) {
+_public_ int sd_bus_is_anonymous(sd_bus *bus) {
         assert_return(bus, -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
         return bus->anonymous_auth;
 }
 
-int sd_bus_is_trusted(sd_bus *bus) {
+_public_ int sd_bus_is_trusted(sd_bus *bus) {
         assert_return(bus, -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
         return bus->trusted;
 }
 
-int sd_bus_is_monitor(sd_bus *bus) {
+_public_ int sd_bus_is_monitor(sd_bus *bus) {
         assert_return(bus, -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
