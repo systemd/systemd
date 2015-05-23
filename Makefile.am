@@ -1453,6 +1453,7 @@ tests += \
 	test-socket-util \
 	test-fdset \
 	test-conf-files \
+	test-conf-parser \
 	test-capability \
 	test-async \
 	test-ratelimit \
@@ -2078,6 +2079,12 @@ test_conf_files_SOURCES = \
 
 test_conf_files_LDADD = \
 	libsystemd-label.la \
+	libsystemd-shared.la
+
+test_conf_parser_SOURCES = \
+	src/test/test-conf-parser.c
+
+test_conf_parser_LDADD = \
 	libsystemd-shared.la
 
 test_bus_policy_SOURCES = \

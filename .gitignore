@@ -175,6 +175,7 @@
 /test-compress-benchmark
 /test-condition
 /test-conf-files
+/test-conf-parser
 /test-copy
 /test-coredump-vacuum
 /test-daemon
