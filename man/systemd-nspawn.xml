@@ -330,7 +330,7 @@
         first host UID to assign to the container, the second
         parameter specifies the number of host UIDs to assign to the
         container. If the second parameter is omitted, 65536 UIDs are
-        assigned. If the first parameter is also ommitted (and hence
+        assigned. If the first parameter is also omitted (and hence
         no parameter passed at all), the first UID assigned to the
         container is read from the owner of the root directory of the
         container's directory tree. By default no user namespacing is
@@ -454,7 +454,7 @@
         container port number in the range from 1 to 65535. The
         protocol specifier and its separating colon may be omitted, in
         which case <literal>tcp</literal> is assumed. The container
-        port number and its colon may be ommitted, in which case the
+        port number and its colon may be omitted, in which case the
         same port as the host port is implied. This option is only
         supported if private networking is used, such as
         <option>--network-veth</option> or
