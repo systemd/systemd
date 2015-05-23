@@ -805,7 +805,7 @@ static int remove_boot_efi(const char *esp_path) {
                         continue;
 
                 fd = openat(dirfd(d), de->d_name, O_RDONLY|O_CLOEXEC);
-                if (r < 0)
+                if (fd < 0)
                         return log_error_errno(errno, "Failed to open \"%s/%s\" for reading: %m", p, de->d_name);
 
                 r = get_file_version(fd, &v);
