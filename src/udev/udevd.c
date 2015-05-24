@@ -564,7 +564,10 @@ static int event_queue_insert(Manager *manager, struct udev_device *dev) {
         assert(manager);
         assert(dev);
 
-        /* only the main process can add events to the queue */
+        /* only one process can add events to the queue */
+        if (manager->pid == 0)
+                manager->pid = getpid();
+
         assert(manager->pid == getpid());
 
         event = new0(struct event, 1);
@@ -1299,8 +1302,6 @@ static int manager_new(Manager **ret) {
         manager = new0(Manager, 1);
         if (!manager)
                 return log_oom();
-
-        manager->pid = getpid();
 
         manager->fd_ep = -1;
         manager->fd_ctrl = -1;
