@@ -329,11 +329,15 @@ static void worker_spawn(Manager *manager, struct event *event) {
 
                 manager_workers_free(manager);
                 event_queue_cleanup(manager, EVENT_UNDEF);
+
                 manager->monitor = udev_monitor_unref(manager->monitor);
+                manager->ctrl_conn_blocking = udev_ctrl_connection_unref(manager->ctrl_conn_blocking);
                 manager->ctrl = udev_ctrl_unref(manager->ctrl);
-                manager->fd_signal = safe_close(manager->fd_signal);
-                manager->worker_watch[READ_END] = safe_close(manager->worker_watch[READ_END]);
+
                 manager->fd_ep = safe_close(manager->fd_ep);
+                manager->fd_signal = safe_close(manager->fd_signal);
+                manager->fd_inotify = safe_close(manager->fd_inotify);
+                manager->worker_watch[READ_END] = safe_close(manager->worker_watch[READ_END]);
 
                 sigfillset(&mask);
                 fd_signal = signalfd(-1, &mask, SFD_NONBLOCK|SFD_CLOEXEC);
