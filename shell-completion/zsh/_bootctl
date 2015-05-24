@@ -4,7 +4,10 @@
 {
     local -a _bootctl_cmds
     _bootctl_cmds=(
-        "status:Show current firmware and boot settings"
+        "status:Show status of installed systemd-boot and EFI variables"
+        "instal:Install systemd-boot to the ESP and EFI variables"
+        "update:Update systemd-boot in the ESP and EFI variables"
+        "remove:Remove systemd-boot from the ESP and EFI variables"
     )
     if (( CURRENT == 1 )); then
         _describe -t commands 'bootctl command' _bootctl_cmds || compadd "$@"
@@ -22,4 +25,6 @@
 _arguments \
     {-h,--help}'[Prints a short help text and exits.]' \
     '--version[Prints a short version string and exits.]' \
+    '--path=[Path to the EFI System Partition (ESP)]:path:_directories' \
+    '--no-variables[Do not touch EFI variables]' \
     '*::bootctl command:_bootctl_command'
