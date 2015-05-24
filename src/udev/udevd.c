@@ -316,10 +316,11 @@ static void worker_spawn(Manager *manager, struct event *event) {
         switch (pid) {
         case 0: {
                 struct udev_device *dev = NULL;
+                _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
                 int fd_monitor;
                 _cleanup_close_ int fd_signal = -1, fd_ep = -1;
-                _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
-                struct epoll_event ep_signal, ep_monitor;
+                struct epoll_event ep_signal = { .events = EPOLLIN };
+                struct epoll_event ep_monitor = { .events = EPOLLIN };
                 sigset_t mask;
                 int r = 0;
 
@@ -345,21 +346,16 @@ static void worker_spawn(Manager *manager, struct event *event) {
                         r = log_error_errno(errno, "error creating signalfd %m");
                         goto out;
                 }
+                ep_signal.data.fd = fd_signal;
+
+                fd_monitor = udev_monitor_get_fd(worker_monitor);
+                ep_monitor.data.fd = fd_monitor;
 
                 fd_ep = epoll_create1(EPOLL_CLOEXEC);
                 if (fd_ep < 0) {
                         r = log_error_errno(errno, "error creating epoll fd: %m");
                         goto out;
                 }
-
-                memzero(&ep_signal, sizeof(struct epoll_event));
-                ep_signal.events = EPOLLIN;
-                ep_signal.data.fd = fd_signal;
-
-                fd_monitor = udev_monitor_get_fd(worker_monitor);
-                memzero(&ep_monitor, sizeof(struct epoll_event));
-                ep_monitor.events = EPOLLIN;
-                ep_monitor.data.fd = fd_monitor;
 
                 if (epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_signal, &ep_signal) < 0 ||
                     epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_monitor, &ep_monitor) < 0) {
