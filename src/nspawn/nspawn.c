@@ -1782,7 +1782,7 @@ static int setup_pts(const char *dest) {
                 return log_oom();
 
         /* Mount /dev/pts itself */
-        p = prefix_root(dest, "/dev/pts");
+        p = prefix_roota(dest, "/dev/pts");
         if (mkdir(p, 0755) < 0)
                 return log_error_errno(errno, "Failed to create /dev/pts: %m");
         if (mount("devpts", p, "devpts", MS_NOSUID|MS_NOEXEC, options) < 0)
