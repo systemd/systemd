@@ -2601,6 +2601,8 @@ EFI_FORMAT = -O binary
 else
 EFI_FORMAT = --target=efi-app-$(EFI_ARCH)
 endif
+endif
+endif
 
 # ------------------------------------------------------------------------------
 systemd_boot_headers = \
@@ -2616,13 +2618,16 @@ systemd_boot_sources = \
 	src/boot/efi/pefile.c \
 	src/boot/efi/boot.c
 
+EXTRA_DIST += $(systemd_boot_sources) $(systemd_boot_headers)
+
+if ENABLE_EFI
+if HAVE_GNUEFI
 systemd_boot_objects = $(addprefix $(top_builddir)/,$(systemd_boot_sources:.c=.o))
 systemd_boot_solib = $(top_builddir)/src/boot/efi/systemd_boot.so
 systemd_boot = systemd-boot$(EFI_MACHINE_TYPE_NAME).efi
 
 bootlib_DATA = $(systemd_boot)
 CLEANFILES += $(systemd_boot_objects) $(systemd_boot_solib) $(systemd_boot)
-EXTRA_DIST += $(systemd_boot_sources) $(systemd_boot_headers)
 
 $(top_builddir)/src/boot/efi/%.o: $(top_srcdir)/src/boot/efi/%.c $(addprefix $(top_srcdir)/,$(systemd_boot_headers))
 	@$(MKDIR_P) $(top_builddir)/src/boot/efi/
@@ -2636,6 +2641,8 @@ $(systemd_boot_solib): $(systemd_boot_objects)
 $(systemd_boot): $(systemd_boot_solib)
 	$(AM_V_GEN)$(OBJCOPY) -j .text -j .sdata -j .data -j .dynamic \
 	  -j .dynsym -j .rel -j .rela -j .reloc $(EFI_FORMAT) $< $@
+endif
+endif
 
 # ------------------------------------------------------------------------------
 stub_headers = \
@@ -2653,13 +2660,16 @@ stub_sources = \
 	src/boot/efi/linux.c \
 	src/boot/efi/stub.c
 
+EXTRA_DIST += $(stub_sources) $(stub_headers)
+
+if ENABLE_EFI
+if HAVE_GNUEFI
 stub_objects = $(addprefix $(top_builddir)/,$(stub_sources:.c=.o))
 stub_solib = $(top_builddir)/src/boot/efi/stub.so
 stub = linux$(EFI_MACHINE_TYPE_NAME).efi.stub
 
 bootlib_DATA += $(stub)
 CLEANFILES += $(stub_objects) $(stub_solib) $(stub)
-EXTRA_DIST += $(stub_sources) $(stub_headers)
 
 $(top_builddir)/src/boot/efi/%.o: $(top_srcdir)/src/boot/efi/%.c $(addprefix $(top_srcdir)/,$(stub_headers))
 	@$(MKDIR_P) $(top_builddir)/src/boot/efi/
