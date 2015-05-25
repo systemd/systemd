@@ -1259,8 +1259,7 @@ DISTCLEANFILES = \
 
 EXTRA_DIST += \
 	$(gperf_gperf_m4_sources) \
-	$(gperf_gperf_sources) \
-	$(gperf_txt_sources:-list.txt=-from-name.gperf)
+	$(gperf_gperf_sources)
 
 CLEANFILES += \
 	$(gperf_txt_sources)
@@ -4652,7 +4651,9 @@ libsystemd_journal_internal_la_SOURCES = \
 	src/journal/mmap-cache.h \
 	src/journal/compress.c \
 	src/journal/audit-type.h \
-	src/journal/audit-type.c \
+	src/journal/audit-type.c
+
+nodist_libsystemd_journal_internal_la_SOURCES = \
 	src/journal/audit_type-to-name.h
 
 gperf_txt_sources += \
@@ -5665,11 +5666,11 @@ systemd_resolved_SOURCES = \
 	src/resolve/resolved-dns-stream.h \
 	src/resolve/resolved-dns-stream.c \
 	src/resolve/dns-type.c \
-	src/resolve/dns-type.h \
-	src/resolve/dns_type-from-name.h \
-	src/resolve/dns_type-to-name.h
+	src/resolve/dns-type.h
 
 nodist_systemd_resolved_SOURCES = \
+	src/resolve/dns_type-from-name.h \
+	src/resolve/dns_type-to-name.h \
 	src/resolve/resolved-gperf.c
 
 gperf_gperf_sources += \
@@ -5766,7 +5767,9 @@ systemd_resolve_host_SOURCES = \
 	src/resolve/resolved-dns-domain.c \
 	src/resolve/resolved-dns-domain.h \
 	src/resolve/dns-type.c \
-	src/resolve/dns-type.h \
+	src/resolve/dns-type.h
+
+nodist_systemd_resolve_host_SOURCES = \
 	src/resolve/dns_type-from-name.h \
 	src/resolve/dns_type-to-name.h
 
