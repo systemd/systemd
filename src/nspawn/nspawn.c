@@ -4065,7 +4065,7 @@ static int inner_child(
                 NULL
         };
 
-        char **env_use;
+        _cleanup_strv_free_ char **env_use = NULL;
         int r;
 
         assert(barrier);
@@ -4173,16 +4173,9 @@ static int inner_child(
                         return log_oom();
         }
 
-        if (!strv_isempty(arg_setenv)) {
-                char **n;
-
-                n = strv_env_merge(2, envp, arg_setenv);
-                if (!n)
-                        return log_oom();
-
-                env_use = n;
-        } else
-                env_use = (char**) envp;
+        env_use = strv_env_merge(2, envp, arg_setenv);
+        if (!env_use)
+                return log_oom();
 
         /* Let the parent know that we are ready and
          * wait until the parent is ready with the
