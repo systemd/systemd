@@ -1026,9 +1026,9 @@ static int tmpfs_patch_options(const char *options, char **ret) {
         if (arg_userns && arg_uid_shift != 0) {
 
                 if (options)
-                        asprintf(&buf, "%s,uid=" UID_FMT ",gid=" UID_FMT, options, arg_uid_shift, arg_uid_shift);
+                        (void) asprintf(&buf, "%s,uid=" UID_FMT ",gid=" UID_FMT, options, arg_uid_shift, arg_uid_shift);
                 else
-                        asprintf(&buf, "uid=" UID_FMT ",gid=" UID_FMT, arg_uid_shift, arg_uid_shift);
+                        (void) asprintf(&buf, "uid=" UID_FMT ",gid=" UID_FMT, arg_uid_shift, arg_uid_shift);
                 if (!buf)
                         return -ENOMEM;
 
