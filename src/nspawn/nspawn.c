@@ -4307,33 +4307,23 @@ static int outer_child(
         if (mount(directory, directory, NULL, MS_BIND|MS_REC, NULL) < 0)
                 return log_error_errno(errno, "Failed to make bind mount: %m");
 
-        access("alive12", F_OK);
-
         r = setup_volatile(directory);
         if (r < 0)
                 return r;
-
-        access("alive3", F_OK);
 
         r = setup_volatile_state(directory);
         if (r < 0)
                 return r;
 
-        access("alive4", F_OK);
-
         r = base_filesystem_create(directory, arg_uid_shift, (gid_t) arg_uid_shift);
         if (r < 0)
                 return r;
-
-        access("alive5", F_OK);
 
         if (arg_read_only) {
                 r = bind_remount_recursive(directory, true);
                 if (r < 0)
                         return log_error_errno(r, "Failed to make tree read-only: %m");
         }
-
-        access("alive6", F_OK);
 
         r = mount_all(directory, false);
         if (r < 0)
