@@ -563,24 +563,31 @@ static void test_read_hostname_config(void) {
         assert_se(read_hostname_config(path, &hostname) == 0);
         assert_se(streq(hostname, "foo"));
         free(hostname);
+        hostname = NULL;
 
         /* with comment */
         write_string_file(path, "# comment\nfoo");
         assert_se(read_hostname_config(path, &hostname) == 0);
+        assert_se(hostname);
         assert_se(streq(hostname, "foo"));
         free(hostname);
+        hostname = NULL;
 
         /* with comment and extra whitespace */
         write_string_file(path, "# comment\n\n foo ");
         assert_se(read_hostname_config(path, &hostname) == 0);
+        assert_se(hostname);
         assert_se(streq(hostname, "foo"));
         free(hostname);
+        hostname = NULL;
 
         /* cleans up name */
         write_string_file(path, "!foo/bar.com");
         assert_se(read_hostname_config(path, &hostname) == 0);
+        assert_se(hostname);
         assert_se(streq(hostname, "foobar.com"));
         free(hostname);
+        hostname = NULL;
 
         /* no value set */
         hostname = (char*) 0x1234;
