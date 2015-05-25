@@ -1010,24 +1010,27 @@ static int link_up(Link *link) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not open IFLA_AF_SPEC container: %m");
 
-        r = sd_rtnl_message_open_container(req, AF_INET6);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not open AF_INET6 container: %m");
-
-        ipv6ll_mode = link_ipv6ll_enabled(link) ? IN6_ADDR_GEN_MODE_EUI64 : IN6_ADDR_GEN_MODE_NONE;
-        r = sd_rtnl_message_append_u8(req, IFLA_INET6_ADDR_GEN_MODE, ipv6ll_mode);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not append IFLA_INET6_ADDR_GEN_MODE: %m");
-
-        if (!in_addr_is_null(AF_INET6, &link->network->ipv6_token)) {
-                r = sd_rtnl_message_append_in6_addr(req, IFLA_INET6_TOKEN, &link->network->ipv6_token.in6);
+        if (socket_ipv6_is_supported()) {
+                /* if the kernel lacks ipv6 support setting IFF_UP fails if any ipv6 options are passed */
+                r = sd_rtnl_message_open_container(req, AF_INET6);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append IFLA_INET6_TOKEN: %m");
-        }
+                        return log_link_error_errno(link, r, "Could not open AF_INET6 container: %m");
 
-        r = sd_rtnl_message_close_container(req);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not close AF_INET6 container: %m");
+                ipv6ll_mode = link_ipv6ll_enabled(link) ? IN6_ADDR_GEN_MODE_EUI64 : IN6_ADDR_GEN_MODE_NONE;
+                r = sd_rtnl_message_append_u8(req, IFLA_INET6_ADDR_GEN_MODE, ipv6ll_mode);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append IFLA_INET6_ADDR_GEN_MODE: %m");
+
+                if (!in_addr_is_null(AF_INET6, &link->network->ipv6_token)) {
+                        r = sd_rtnl_message_append_in6_addr(req, IFLA_INET6_TOKEN, &link->network->ipv6_token.in6);
+                        if (r < 0)
+                                return log_link_error_errno(link, r, "Could not append IFLA_INET6_TOKEN: %m");
+                }
+
+                r = sd_rtnl_message_close_container(req);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not close AF_INET6 container: %m");
+        }
 
         r = sd_rtnl_message_close_container(req);
         if (r < 0)
