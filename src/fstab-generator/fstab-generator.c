@@ -53,10 +53,9 @@ static int add_swap(
                 bool noauto,
                 bool nofail) {
 
-        _cleanup_free_ char *name = NULL, *unit = NULL, *lnk = NULL, *filtered = NULL;
+        _cleanup_free_ char *name = NULL, *unit = NULL, *lnk = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        int r, pri = -1;
-        const char *opts;
+        int r;
 
         assert(what);
         assert(me);
@@ -69,18 +68,6 @@ static int add_swap(
         if (detect_container(NULL) > 0) {
                 log_info("Running in a container, ignoring fstab swap entry for %s.", what);
                 return 0;
-        }
-
-        opts = me->mnt_opts;
-        r = fstab_find_pri(opts, &pri);
-        if (r < 0) {
-                log_error_errno(r, "Failed to parse priority, ignoring: %m");
-
-                /* Remove invalid pri field */
-                r = fstab_filter_options(opts, "pri\0", NULL, NULL, &filtered);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to parse options: %m");
-                opts = filtered;
         }
 
         r = unit_name_from_path(what, ".swap", &name);
@@ -109,20 +96,15 @@ static int add_swap(
                 "What=%s\n",
                 what);
 
-        /* Note that we currently pass the priority field twice, once
-         * in Priority=, and once in Options= */
-        if (pri >= 0)
-                fprintf(f, "Priority=%i\n", pri);
-
-        if (!isempty(opts) && !streq(opts, "defaults"))
-                fprintf(f, "Options=%s\n", opts);
+        if (!isempty(me->mnt_opts) && !streq(me->mnt_opts, "defaults"))
+                fprintf(f, "Options=%s\n", me->mnt_opts);
 
         r = fflush_and_check(f);
         if (r < 0)
                 return log_error_errno(r, "Failed to write unit file %s: %m", unit);
 
         /* use what as where, to have a nicer error message */
-        r = generator_write_timeouts(arg_dest, what, what, opts, NULL);
+        r = generator_write_timeouts(arg_dest, what, what, me->mnt_opts, NULL);
         if (r < 0)
                 return r;
 

@@ -136,7 +136,7 @@ REQUIREMENTS:
         During runtime, you need the following additional
         dependencies:
 
-        util-linux >= v2.25 required
+        util-linux >= v2.26 required
         dbus >= 1.4.0 (strictly speaking optional, but recommended)
         dracut (optional)
         PolicyKit (optional)

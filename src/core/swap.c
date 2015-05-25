@@ -717,8 +717,8 @@ fail:
 }
 
 static void swap_enter_activating(Swap *s) {
-        _cleanup_free_ char *discard = NULL;
-        int r, priority = -1;
+        _cleanup_free_ char *opts = NULL;
+        int r;
 
         assert(s);
 
@@ -726,13 +726,21 @@ static void swap_enter_activating(Swap *s) {
         s->control_command = s->exec_command + SWAP_EXEC_ACTIVATE;
 
         if (s->from_fragment) {
-                fstab_filter_options(s->parameters_fragment.options, "discard\0", NULL, &discard, NULL);
+                int priority = -1;
 
-                priority = s->parameters_fragment.priority;
-                if (priority < 0) {
-                        r = fstab_find_pri(s->parameters_fragment.options, &priority);
+                r = fstab_find_pri(s->parameters_fragment.options, &priority);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse swap priority \"%s\", ignoring: %m", s->parameters_fragment.options);
+                else if (r == 1 && s->parameters_fragment.priority >= 0)
+                        log_warning("Duplicate swap priority configuration by Priority and Options fields.");
+
+                if (r <= 0 && s->parameters_fragment.priority >= 0) {
+                        if (s->parameters_fragment.options)
+                                r = asprintf(&opts, "%s,pri=%i", s->parameters_fragment.options, s->parameters_fragment.priority);
+                        else
+                                r = asprintf(&opts, "pri=%i", s->parameters_fragment.priority);
                         if (r < 0)
-                                log_notice_errno(r, "Failed to parse swap priority \"%s\", ignoring: %m", s->parameters_fragment.options);
+                                goto fail;
                 }
         }
 
@@ -740,24 +748,9 @@ static void swap_enter_activating(Swap *s) {
         if (r < 0)
                 goto fail;
 
-        if (priority >= 0) {
-                char p[DECIMAL_STR_MAX(int)];
-
-                sprintf(p, "%i", priority);
-                r = exec_command_append(s->control_command, "-p", p, NULL);
-                if (r < 0)
-                        goto fail;
-        }
-
-        if (discard && !streq(discard, "none")) {
-                const char *discard_arg;
-
-                if (streq(discard, "all"))
-                        discard_arg = "--discard";
-                else
-                        discard_arg = strjoina("--discard=", discard);
-
-                r = exec_command_append(s->control_command, discard_arg, NULL);
+        if (s->parameters_fragment.options || opts) {
+                r = exec_command_append(s->control_command, "-o",
+                                opts ? : s->parameters_fragment.options, NULL);
                 if (r < 0)
                         goto fail;
         }
