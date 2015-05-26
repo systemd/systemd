@@ -337,7 +337,6 @@ static void worker_spawn(Manager *manager, struct event *event) {
 
                 manager->fd_ep = safe_close(manager->fd_ep);
                 manager->fd_signal = safe_close(manager->fd_signal);
-                manager->fd_inotify = safe_close(manager->fd_inotify);
                 manager->worker_watch[READ_END] = safe_close(manager->worker_watch[READ_END]);
 
                 sigfillset(&mask);
