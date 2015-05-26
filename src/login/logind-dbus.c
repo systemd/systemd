@@ -1964,6 +1964,11 @@ static int method_cancel_scheduled_shutdown(sd_bus_message *message, void *userd
         m->scheduled_shutdown_type = NULL;
         m->scheduled_shutdown_timeout = 0;
 
+        if (m->unlink_nologin) {
+                unlink("/run/nologin");
+                m->unlink_nologin = false;
+        }
+
         if (cancelled) {
                 _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
                 const char *tty = NULL;
