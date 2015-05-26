@@ -5887,7 +5887,7 @@ int same_fd(int a, int b) {
 
         /* The fds refer to the same inode on disk, let's also check
          * if they have the same fd flags. This is useful to
-         * distuingish the read and write side of a pipe created with
+         * distinguish the read and write side of a pipe created with
          * pipe(). */
         fa = fcntl(a, F_GETFL);
         if (fa < 0)

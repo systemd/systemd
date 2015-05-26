@@ -32,7 +32,7 @@
 #define MAKE_SET(s) ((Set*) s)
 #define MAKE_FDSET(s) ((FDSet*) s)
 
-/* Make sure we can distuingish fd 0 and NULL */
+/* Make sure we can distinguish fd 0 and NULL */
 #define FD_TO_PTR(fd) INT_TO_PTR((fd)+1)
 #define PTR_TO_FD(p) (PTR_TO_INT(p)-1)
 

@@ -303,7 +303,7 @@ _public_ int sd_bus_creds_get_ppid(sd_bus_creds *c, pid_t *ppid) {
         if (!(c->mask & SD_BUS_CREDS_PPID))
                 return -ENODATA;
 
-        /* PID 1 has no parent process. Let's distuingish the case of
+        /* PID 1 has no parent process. Let's distinguish the case of
          * not knowing and not having a parent process by the returned
          * error code. */
         if (c->ppid == 0)
@@ -989,7 +989,7 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid) {
         if (missing & SD_BUS_CREDS_EXE) {
                 r = get_process_exe(pid, &c->exe);
                 if (r == -ESRCH) {
-                        /* Unfortunately we cannot really distuingish
+                        /* Unfortunately we cannot really distinguish
                          * the case here where the process does not
                          * exist, and /proc/$PID/exe being unreadable
                          * because $PID is a kernel thread. Hence,
@@ -1101,7 +1101,7 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid) {
         }
 
         /* In case only the exe path was to be read we cannot
-         * distuingish the case where the exe path was unreadable
+         * distinguish the case where the exe path was unreadable
          * because the process was a kernel thread, or when the
          * process didn't exist at all. Hence, let's do a final check,
          * to be sure. */

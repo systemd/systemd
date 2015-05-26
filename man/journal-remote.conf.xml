@@ -83,7 +83,7 @@
       <varlistentry>
         <term><varname>ServerKeyFile=</varname></term>
 
-        <listitem><para>SSL key in PEM format</para></listitem>
+        <listitem><para>SSL key in PEM format.</para></listitem>
       </varlistentry>
 
       <varlistentry>

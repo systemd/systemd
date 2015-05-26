@@ -35,7 +35,7 @@ int uname_architecture(void) {
          * 1:1. Instead we try to clean it up and break down the
          * confusion on x86 and arm in particular.
          *
-         * We do not try to distuingish CPUs not CPU features, but
+         * We do not try to distinguish CPUs not CPU features, but
          * actual architectures, i.e. that have genuinely different
          * code. */
 

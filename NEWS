@@ -3997,7 +3997,7 @@ CHANGES WITH 191:
         * HandleSleepKey= in logind.conf has been split up into
           HandleSuspendKey= and HandleHibernateKey=. The old setting
           is not available anymore. X11 and the kernel are
-          distuingishing between these keys and we should too. This
+          distinguishing between these keys and we should too. This
           also means the inhibition lock for these keys has been split
           into two.
 
@@ -4743,7 +4743,7 @@ CHANGES WITH 43:
 
         * Various functionality updates to libsystemd-login.so
 
-        * Track class of PAM logins to distuingish greeters from
+        * Track class of PAM logins to distinguish greeters from
           normal user logins.
 
         Contributions from: Kay Sievers, Lennart Poettering, Michael

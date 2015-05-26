@@ -429,7 +429,7 @@ static int bus_populate_creds_from_items(
                                         c->mask |= SD_BUS_CREDS_PPID;
                                 } else if (item->pids.pid == 1) {
                                         /* The structure doesn't
-                                         * really distuingish the case
+                                         * really distinguish the case
                                          * where a process has no
                                          * parent and where we don't
                                          * know it because it could
