@@ -713,7 +713,7 @@ static inline int setns(int fd, int nstype) {
 #define IFLA_VLAN_MAX   (__IFLA_VLAN_MAX - 1)
 #endif
 
-#if !HAVE_DECL_IFLA_VXLAN_LOCAL6
+#if !HAVE_DECL_IFLA_VXLAN_REMCSUM_NOPARTIAL
 #define IFLA_VXLAN_UNSPEC 0
 #define IFLA_VXLAN_ID 1
 #define IFLA_VXLAN_GROUP 2
@@ -732,7 +732,14 @@ static inline int setns(int fd, int nstype) {
 #define IFLA_VXLAN_PORT 15
 #define IFLA_VXLAN_GROUP6 16
 #define IFLA_VXLAN_LOCAL6 17
-#define __IFLA_VXLAN_MAX 18
+#define IFLA_VXLAN_UDP_CSUM 18
+#define IFLA_VXLAN_UDP_ZERO_CSUM6_TX 19
+#define IFLA_VXLAN_UDP_ZERO_CSUM6_RX 20
+#define IFLA_VXLAN_REMCSUM_TX 21
+#define IFLA_VXLAN_REMCSUM_RX 22
+#define IFLA_VXLAN_GBP 23
+#define IFLA_VXLAN_REMCSUM_NOPARTIAL 24
+#define __IFLA_VXLAN_MAX 25
 
 #define IFLA_VXLAN_MAX  (__IFLA_VXLAN_MAX - 1)
 #endif
