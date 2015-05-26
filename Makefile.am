@@ -4021,6 +4021,7 @@ EXTRA_DIST += \
 	test/udev-test.pl \
 	test/rule-syntax-check.py \
 	test/sysv-generator-test.py \
+	test/mocks/fsck \
 	$(NULL)
 
 
