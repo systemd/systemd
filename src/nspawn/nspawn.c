@@ -2787,6 +2787,8 @@ static int outer_child(
         }
 
         pid_socket = safe_close(pid_socket);
+        kmsg_socket = safe_close(kmsg_socket);
+        rtnl_socket = safe_close(rtnl_socket);
 
         return 0;
 }
