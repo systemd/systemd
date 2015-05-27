@@ -1288,13 +1288,6 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int manager_new(Manager **ret) {
         _cleanup_(manager_freep) Manager *manager = NULL;
-        struct epoll_event ep_ctrl = { .events = EPOLLIN };
-        struct epoll_event ep_inotify = { .events = EPOLLIN };
-        struct epoll_event ep_signal = { .events = EPOLLIN };
-        struct epoll_event ep_netlink = { .events = EPOLLIN };
-        struct epoll_event ep_worker = { .events = EPOLLIN };
-        sigset_t mask;
-        int r, one = 1;
 
         assert(ret);
 
@@ -1322,6 +1315,23 @@ static int manager_new(Manager **ret) {
 
         udev_list_node_init(&manager->events);
         udev_list_init(manager->udev, &manager->properties, true);
+
+        *ret = manager;
+        manager = NULL;
+
+        return 0;
+}
+
+static int manager_listen(Manager *manager) {
+        struct epoll_event ep_ctrl = { .events = EPOLLIN };
+        struct epoll_event ep_inotify = { .events = EPOLLIN };
+        struct epoll_event ep_signal = { .events = EPOLLIN };
+        struct epoll_event ep_netlink = { .events = EPOLLIN };
+        struct epoll_event ep_worker = { .events = EPOLLIN };
+        sigset_t mask;
+        int r, one = 1;
+
+        assert(manager);
 
         r = systemd_fds(&manager->fd_ctrl, &manager->fd_uevent);
         if (r >= 0) {
@@ -1404,10 +1414,7 @@ static int manager_new(Manager **ret) {
             epoll_ctl(manager->fd_ep, EPOLL_CTL_ADD, manager->fd_worker, &ep_worker) < 0)
                 return log_error_errno(errno, "fail to add fds to epoll: %m");
 
-        *ret = manager;
-        manager = NULL;
-
-        return 1;
+        return 0;
 }
 
 int main(int argc, char *argv[]) {
@@ -1517,6 +1524,10 @@ int main(int argc, char *argv[]) {
                 write_string_file("/proc/self/oom_score_adj", "-1000");
         } else
                 sd_notify(1, "READY=1");
+
+        r = manager_listen(manager);
+        if (r < 0)
+                return log_error_errno(r, "failed to set up fds and listen for events: %m");
 
         for (;;) {
                 static usec_t last_usec;
