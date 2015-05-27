@@ -749,6 +749,10 @@ int main(int argc, char *argv[]) {
                 if (arg_iterations && iteration >= arg_iterations)
                         break;
 
+                if (!on_tty()) /* non-TTY: Empty newline as delimiter between polls */
+                        fputs("\n", stdout);
+                fflush(stdout);
+
                 if (arg_batch) {
                         usleep(last_refresh + arg_delay - t);
                 } else {
@@ -762,8 +766,10 @@ int main(int argc, char *argv[]) {
                         }
                 }
 
-                fputs("\r \r", stdout);
-                fflush(stdout);
+                if (on_tty()) { /* TTY: Clear any user keystroke */
+                        fputs("\r \r", stdout);
+                        fflush(stdout);
+                }
 
                 if (arg_batch)
                         continue;
