@@ -413,8 +413,8 @@
           processes. Not all unit types manage processes of these
           types however. For example, for mount units, control processes
           are defined (which are the invocations of
-          <filename>/usr/bin/mount</filename> and
-          <filename>/usr/bin/umount</filename>), but no main process
+          <filename>&MOUNT_PATH;</filename> and
+          <filename>&UMOUNT_PATH;</filename>), but no main process
           is defined. If omitted, defaults to
           <option>all</option>.</para>
         </listitem>
