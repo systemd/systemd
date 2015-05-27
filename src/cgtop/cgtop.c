@@ -63,6 +63,8 @@ static unsigned arg_depth = 3;
 static int64_t arg_iterations = -1;
 static bool arg_batch = false;
 static bool arg_raw = false;
+static char *arg_time_format = NULL;
+static bool arg_time_utc = false;
 static usec_t arg_delay = 1*USEC_PER_SEC;
 
 static enum {
@@ -105,6 +107,37 @@ static const char *cond_format_bytes(char *buf, size_t l, off_t t, bool raw, boo
                 return buf;
         }
         return format_bytes(buf, l, t);
+}
+
+static void print_time_header(char *buf, size_t l, size_t width) {
+        struct tm *curr_time;
+        size_t time_len;
+        time_t raw_time;
+
+        if (arg_time_format == NULL)
+                return;
+
+        time(&raw_time);
+
+        if (arg_time_utc)
+                curr_time = gmtime(&raw_time);
+        else
+                curr_time = localtime(&raw_time);
+
+        if(curr_time == NULL)
+                return;
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
+        time_len = strftime(buf, l, arg_time_format, curr_time);
+        if (time_len <= 0)
+                return;
+#pragma GCC diagnostic pop
+
+        if (on_tty())
+                fprintf(stdout, "%*s", (int)(width - time_len), "");
+
+        fprintf(stdout, "%s\n", buf);
 }
 
 static int process(const char *controller, const char *path, Hashmap *a, Hashmap *b, unsigned iteration) {
@@ -477,6 +510,9 @@ static int display(Hashmap *a) {
 
         qsort_safe(array, n, sizeof(Group*), group_compare);
 
+        /* If timestamp is requested, print right-justified above header */
+        print_time_header(buffer, sizeof(buffer), columns());
+
         /* Find the longest names in one run */
         for (j = 0; j < n; j++) {
                 unsigned cputlen, pathtlen;
@@ -569,6 +605,8 @@ static void help(void) {
                "  -n --iterations=N   Run for N iterations before exiting\n"
                "  -b --batch          Run in batch mode, accepting no input\n"
                "     --depth=DEPTH    Maximum traversal depth (default: %u)\n"
+               "  -T --time=FORMAT    print time, optionally with format string\n"
+               "  -U --utc            use UTC rather than localtime for time header\n"
                , program_invocation_short_name, arg_depth);
 }
 
@@ -589,6 +627,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "raw",        no_argument,       NULL, 'r'         },
                 { "depth",      required_argument, NULL, ARG_DEPTH   },
                 { "cpu",        optional_argument, NULL, ARG_CPU_TYPE},
+                { "time",        optional_argument, NULL, 'T'         },
+                { "utc",        no_argument,       NULL, 'U'         },
                 {}
         };
 
@@ -598,7 +638,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 1);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hptcmin:brd:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hptcmin:brd:TU", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -610,6 +650,14 @@ static int parse_argv(int argc, char *argv[]) {
                         puts(PACKAGE_STRING);
                         puts(SYSTEMD_FEATURES);
                         return 0;
+
+                case 'T':
+                        arg_time_format = strdup(optarg ? optarg : "%a %Y-%m-%d %H:%M:%S");
+                        break;
+
+                case 'U':
+                        arg_time_utc = true;
+                        break;
 
                 case ARG_CPU_TYPE:
                         if (optarg) {
