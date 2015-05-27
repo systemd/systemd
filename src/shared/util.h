@@ -901,3 +901,6 @@ int parse_mode(const char *s, mode_t *ret);
 int mount_move_root(const char *path);
 
 int reset_uid_gid(void);
+
+int send_fd(int sender_fd, int fd);
+int receive_fd(int recv_fd, int *fd);
