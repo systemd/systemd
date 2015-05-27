@@ -1,5 +1,16 @@
 systemd System and Service Manager
 
+CHANGES WITH 221:
+
+        * Support for chkconfig (--enable-chkconfig) was removed in favour of
+          calling an abstraction /lib/systemd/systemd-sysv-install. This needs
+          to be implemented for your distribution. See "SYSV INIT.D SCRIPTS" in
+          README for details.
+
+        Contributions from: ...
+
+        -- Berlin, UNRELEASED
+
 CHANGES WITH 220:
 
         * The gudev library has been extracted into a separate repository

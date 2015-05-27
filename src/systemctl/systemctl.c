@@ -5098,7 +5098,7 @@ static int import_environment(sd_bus *bus, char **args) {
 static int enable_sysv_units(const char *verb, char **args) {
         int r = 0;
 
-#if defined(HAVE_SYSV_COMPAT) && defined(HAVE_CHKCONFIG)
+#if defined(HAVE_SYSV_COMPAT)
         unsigned f = 0;
         _cleanup_lookup_paths_free_ LookupPaths paths = {};
 
@@ -5123,7 +5123,7 @@ static int enable_sysv_units(const char *verb, char **args) {
                 _cleanup_free_ char *p = NULL, *q = NULL, *l = NULL;
                 bool found_native = false, found_sysv;
                 unsigned c = 1;
-                const char *argv[6] = { "/sbin/chkconfig", NULL, NULL, NULL, NULL };
+                const char *argv[6] = { ROOTLIBEXECDIR "/systemd-sysv-install", NULL, NULL, NULL, NULL };
                 char **k;
                 int j;
                 pid_t pid;
@@ -5161,15 +5161,13 @@ static int enable_sysv_units(const char *verb, char **args) {
                 if (!found_sysv)
                         continue;
 
-                log_info("%s is not a native service, redirecting to /sbin/chkconfig.", name);
+                log_info("%s is not a native service, redirecting to systemd-sysv-install", name);
 
                 if (!isempty(arg_root))
                         argv[c++] = q = strappend("--root=", arg_root);
 
+                argv[c++] = verb;
                 argv[c++] = basename(p);
-                argv[c++] =
-                        streq(verb, "enable") ? "on" :
-                        streq(verb, "disable") ? "off" : "--level=5";
                 argv[c] = NULL;
 
                 l = strv_join((char**)argv, " ");
@@ -5185,6 +5183,7 @@ static int enable_sysv_units(const char *verb, char **args) {
                         /* Child */
 
                         execv(argv[0], (char**) argv);
+                        log_error("Failed to execute %s: %m", argv[0]);
                         _exit(EXIT_FAILURE);
                 }
 

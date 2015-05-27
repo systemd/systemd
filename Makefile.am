@@ -627,6 +627,7 @@ systemgenerator_PROGRAMS += \
 endif
 
 EXTRA_DIST += \
+	src/systemctl/systemd-sysv-install.SKELETON \
 	units/rc-local.service.in \
 	units/halt-local.service.in
 

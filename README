@@ -222,6 +222,17 @@ NSS:
 
                 hosts: files mymachines resolve myhostname
 
+SYSV INIT.D SCRIPTS:
+        When calling "systemctl enable/disable/is-enabled" on a unit which is a
+        SysV init.d script, it calls /usr/lib/systemd/systemd-sysv-install;
+        this needs to translate the action into the distribution specific
+        mechanism such as chkconfig or update-rc.d. Packagers need to provide
+        this script if you need this functionality (you don't if you disabled
+        SysV init support).
+
+        Please see src/systemctl/systemd-sysv-install.SKELETON for how this
+        needs to look like, and provide an implementation at the marked places.
+
 WARNINGS:
         systemd will warn you during boot if /etc/mtab is not a
         symlink to /proc/mounts. Please ensure that /etc/mtab is a
