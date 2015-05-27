@@ -90,7 +90,7 @@
     slice specific configuration options are configured in
     the [Slice] section. Currently, only generic resource control settings
     as described in
-    <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>7</manvolnum></citerefentry> are allowed.
+    <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry> are allowed.
     </para>
 
     <para>Unless <varname>DefaultDependencies=false</varname>
