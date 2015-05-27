@@ -1496,7 +1496,7 @@ int main(int argc, char *argv[]) {
                 setsid();
 
         /* Move out of the way, so that we won't block unmounts */
-        assert_se(chdir("/")  == 0);
+        assert_se(chdir("/") == 0);
 
         /* Reset the console, but only if this is really init and we
          * are freshly booted */
