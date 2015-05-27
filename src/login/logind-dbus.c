@@ -1965,7 +1965,7 @@ static int method_cancel_scheduled_shutdown(sd_bus_message *message, void *userd
         m->scheduled_shutdown_timeout = 0;
 
         if (m->unlink_nologin) {
-                unlink("/run/nologin");
+                (void) unlink("/run/nologin");
                 m->unlink_nologin = false;
         }
 

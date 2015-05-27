@@ -170,7 +170,7 @@ static void manager_free(Manager *m) {
                 udev_unref(m->udev);
 
         if (m->unlink_nologin)
-                unlink("/run/nologin");
+                (void) unlink("/run/nologin");
 
         bus_verify_polkit_async_registry_free(m->polkit_registry);
 
