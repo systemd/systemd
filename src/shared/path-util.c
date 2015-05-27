@@ -509,7 +509,7 @@ static int fd_fdinfo_mnt_id(int fd, const char *filename, int flags, int *mnt_id
         return safe_atoi(p, mnt_id);
 }
 
-int fd_is_mount_point(int fd) {
+int fd_is_mount_point(int fd, const char *filename, int flags) {
         union file_handle_union h = FILE_HANDLE_INIT, h_parent = FILE_HANDLE_INIT;
         int mount_id = -1, mount_id_parent = -1;
         bool nosupp = false, check_st_dev = true;
@@ -517,6 +517,7 @@ int fd_is_mount_point(int fd) {
         int r;
 
         assert(fd >= 0);
+        assert(filename);
 
         /* First we will try the name_to_handle_at() syscall, which
          * tells us the mount id and an opaque file "handle". It is
@@ -541,7 +542,7 @@ int fd_is_mount_point(int fd) {
          * subvolumes have different st_dev, even though they aren't
          * real mounts of their own. */
 
-        r = name_to_handle_at(fd, "", &h.handle, &mount_id, AT_EMPTY_PATH);
+        r = name_to_handle_at(fd, filename, &h.handle, &mount_id, flags);
         if (r < 0) {
                 if (errno == ENOSYS)
                         /* This kernel does not support name_to_handle_at()
@@ -558,7 +559,7 @@ int fd_is_mount_point(int fd) {
                         return -errno;
         }
 
-        r = name_to_handle_at(fd, "..", &h_parent.handle, &mount_id_parent, 0);
+        r = name_to_handle_at(fd, "", &h_parent.handle, &mount_id_parent, AT_EMPTY_PATH);
         if (r < 0) {
                 if (errno == EOPNOTSUPP) {
                         if (nosupp)
@@ -593,13 +594,13 @@ int fd_is_mount_point(int fd) {
         return mount_id != mount_id_parent;
 
 fallback_fdinfo:
-        r = fd_fdinfo_mnt_id(fd, "", AT_EMPTY_PATH, &mount_id);
+        r = fd_fdinfo_mnt_id(fd, filename, flags, &mount_id);
         if (r == -EOPNOTSUPP)
                 goto fallback_fstat;
         if (r < 0)
                 return r;
 
-        r = fd_fdinfo_mnt_id(fd, "..", 0, &mount_id_parent);
+        r = fd_fdinfo_mnt_id(fd, "", AT_EMPTY_PATH, &mount_id_parent);
         if (r < 0)
                 return r;
 
@@ -615,10 +616,16 @@ fallback_fdinfo:
         check_st_dev = false;
 
 fallback_fstat:
-        if (fstatat(fd, "", &a, AT_EMPTY_PATH) < 0)
+        /* yay for fstatat() taking a different set of flags than the other
+         * _at() above */
+        if (flags & AT_SYMLINK_FOLLOW)
+                flags &= ~AT_SYMLINK_FOLLOW;
+        else
+                flags |= AT_SYMLINK_NOFOLLOW;
+        if (fstatat(fd, filename, &a, flags) < 0)
                 return -errno;
 
-        if (fstatat(fd, "..", &b, 0) < 0)
+        if (fstatat(fd, "", &b, AT_EMPTY_PATH) < 0)
                 return -errno;
 
         /* A directory with same device and inode as its parent? Must
@@ -632,17 +639,23 @@ fallback_fstat:
 
 int path_is_mount_point(const char *t, bool allow_symlink) {
         _cleanup_close_ int fd = -1;
+        _cleanup_free_ char *parent = NULL;
+        int r;
 
         assert(t);
 
         if (path_equal(t, "/"))
                 return 1;
 
-        fd = openat(AT_FDCWD, t, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|(allow_symlink ? 0 : O_PATH));
+        r = path_get_parent(t, &parent);
+        if (r < 0)
+                return r;
+
+        fd = openat(AT_FDCWD, parent, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_PATH);
         if (fd < 0)
                 return -errno;
 
-        return fd_is_mount_point(fd);
+        return fd_is_mount_point(fd, basename(t), (allow_symlink ? AT_SYMLINK_FOLLOW : 0));
 }
 
 int path_is_read_only_fs(const char *path) {

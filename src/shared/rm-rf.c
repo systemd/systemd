@@ -103,7 +103,7 @@ int rm_rf_children(int fd, RemoveFlags flags, struct stat *root_dev) {
                         }
 
                         /* Stop at mount points */
-                        r = fd_is_mount_point(subdir_fd);
+                        r = fd_is_mount_point(fd, de->d_name, 0);
                         if (r < 0) {
                                 if (ret == 0 && r != -ENOENT)
                                         ret = r;
