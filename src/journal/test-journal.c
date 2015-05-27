@@ -33,6 +33,7 @@ static bool arg_keep = false;
 static void test_non_empty(void) {
         dual_timestamp ts;
         JournalFile *f;
+        JournalDirectory *dir;
         struct iovec iovec;
         static const char test[] = "TEST1=1", test2[] = "TEST2=2";
         Object *o;
@@ -44,7 +45,8 @@ static void test_non_empty(void) {
         assert_se(mkdtemp(t));
         assert_se(chdir(t) >= 0);
 
-        assert_se(journal_file_open("test.journal", O_RDWR|O_CREAT, 0666, true, true, NULL, NULL, NULL, &f) == 0);
+        assert_se(journal_directory_open(".", &dir) == 0);
+        assert_se(journal_file_open(dir, "test.journal", O_RDWR|O_CREAT, 0666, true, true, NULL, NULL, NULL, &f) == 0);
 
         dual_timestamp_get(&ts);
 
@@ -116,16 +118,18 @@ static void test_non_empty(void) {
         if (arg_keep)
                 log_info("Not removing %s", t);
         else {
-                journal_directory_vacuum(".", 3000000, 0, NULL, true);
+                journal_directory_vacuum(dir, 3000000, 0, NULL, true);
 
                 assert_se(rm_rf(t, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
         }
 
+        dir = journal_directory_unref(dir);
         puts("------------------------------------------------------------");
 }
 
 static void test_empty(void) {
         JournalFile *f1, *f2, *f3, *f4;
+        JournalDirectory *dir;
         char t[] = "/tmp/journal-XXXXXX";
 
         log_set_max_level(LOG_DEBUG);
@@ -133,13 +137,15 @@ static void test_empty(void) {
         assert_se(mkdtemp(t));
         assert_se(chdir(t) >= 0);
 
-        assert_se(journal_file_open("test.journal", O_RDWR|O_CREAT, 0666, false, false, NULL, NULL, NULL, &f1) == 0);
+        assert_se(journal_directory_open(".", &dir) == 0);
 
-        assert_se(journal_file_open("test-compress.journal", O_RDWR|O_CREAT, 0666, true, false, NULL, NULL, NULL, &f2) == 0);
+        assert_se(journal_file_open(dir, "test.journal", O_RDWR|O_CREAT, 0666, false, false, NULL, NULL, NULL, &f1) == 0);
 
-        assert_se(journal_file_open("test-seal.journal", O_RDWR|O_CREAT, 0666, false, true, NULL, NULL, NULL, &f3) == 0);
+        assert_se(journal_file_open(dir, "test-compress.journal", O_RDWR|O_CREAT, 0666, true, false, NULL, NULL, NULL, &f2) == 0);
 
-        assert_se(journal_file_open("test-seal-compress.journal", O_RDWR|O_CREAT, 0666, true, true, NULL, NULL, NULL, &f4) == 0);
+        assert_se(journal_file_open(dir, "test-seal.journal", O_RDWR|O_CREAT, 0666, false, true, NULL, NULL, NULL, &f3) == 0);
+
+        assert_se(journal_file_open(dir, "test-seal-compress.journal", O_RDWR|O_CREAT, 0666, true, true, NULL, NULL, NULL, &f4) == 0);
 
         journal_file_print_header(f1);
         puts("");
@@ -155,7 +161,7 @@ static void test_empty(void) {
         if (arg_keep)
                 log_info("Not removing %s", t);
         else {
-                journal_directory_vacuum(".", 3000000, 0, NULL, true);
+                journal_directory_vacuum(dir, 3000000, 0, NULL, true);
 
                 assert_se(rm_rf(t, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
         }
@@ -164,6 +170,7 @@ static void test_empty(void) {
         journal_file_close(f2);
         journal_file_close(f3);
         journal_file_close(f4);
+        journal_directory_unref(dir);
 }
 
 int main(int argc, char *argv[]) {

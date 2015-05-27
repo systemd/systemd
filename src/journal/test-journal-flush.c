@@ -27,17 +27,21 @@
 #include "journal-internal.h"
 
 int main(int argc, char *argv[]) {
-        _cleanup_free_ char *fn = NULL;
+        const char *fn;
         char dn[] = "/var/tmp/test-journal-flush.XXXXXX";
+        JournalDirectory *dir;
         JournalFile *new_journal = NULL;
         sd_journal *j = NULL;
         unsigned n = 0;
         int r;
 
         assert_se(mkdtemp(dn));
-        fn = strappend(dn, "/test.journal");
+        fn = "test.journal";
 
-        r = journal_file_open(fn, O_CREAT|O_RDWR, 0644, false, false, NULL, NULL, NULL, &new_journal);
+        r = journal_directory_open(dn, &dir);
+        assert_se(r >= 0);
+
+        r = journal_file_open(dir, fn, O_CREAT|O_RDWR, 0644, false, false, NULL, NULL, NULL, &new_journal);
         assert_se(r >= 0);
 
         r = sd_journal_open(&j, 0);
@@ -67,7 +71,8 @@ int main(int argc, char *argv[]) {
 
         journal_file_close(new_journal);
 
-        unlink(fn);
+        unlinkat(dir->fd, fn, 0);
+        dir = journal_directory_unref(dir);
         assert_se(rmdir(dn) == 0);
 
         return 0;

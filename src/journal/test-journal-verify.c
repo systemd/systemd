@@ -52,11 +52,11 @@ static void bit_toggle(const char *fn, uint64_t p) {
         safe_close(fd);
 }
 
-static int raw_verify(const char *fn, const char *verification_key) {
+static int raw_verify(JournalDirectory *dir, const char *fn, const char *verification_key) {
         JournalFile *f;
         int r;
 
-        r = journal_file_open(fn, O_RDONLY, 0666, true, !!verification_key, NULL, NULL, NULL, &f);
+        r = journal_file_open(dir, fn, O_RDONLY, 0666, true, !!verification_key, NULL, NULL, NULL, &f);
         if (r < 0)
                 return r;
 
@@ -70,6 +70,7 @@ int main(int argc, char *argv[]) {
         char t[] = "/tmp/journal-XXXXXX";
         unsigned n;
         JournalFile *f;
+        JournalDirectory *dir;
         const char *verification_key = argv[1];
         usec_t from = 0, to = 0, total = 0;
         char a[FORMAT_TIMESTAMP_MAX];
@@ -89,7 +90,8 @@ int main(int argc, char *argv[]) {
 
         log_info("Generating...");
 
-        assert_se(journal_file_open("test.journal", O_RDWR|O_CREAT, 0666, true, !!verification_key, NULL, NULL, NULL, &f) == 0);
+        assert_se(journal_directory_open(".", &dir) == 0);
+        assert_se(journal_file_open(dir, "test.journal", O_RDWR|O_CREAT, 0666, true, !!verification_key, NULL, NULL, NULL, &f) == 0);
 
         for (n = 0; n < N_ENTRIES; n++) {
                 struct iovec iovec;
@@ -112,7 +114,7 @@ int main(int argc, char *argv[]) {
 
         log_info("Verifying...");
 
-        assert_se(journal_file_open("test.journal", O_RDONLY, 0666, true, !!verification_key, NULL, NULL, NULL, &f) == 0);
+        assert_se(journal_file_open(dir, "test.journal", O_RDONLY, 0666, true, !!verification_key, NULL, NULL, NULL, &f) == 0);
         /* journal_file_print_header(f); */
         journal_file_dump(f);
 
@@ -137,7 +139,7 @@ int main(int argc, char *argv[]) {
 
                         log_info("[ %"PRIu64"+%"PRIu64"]", p / 8, p % 8);
 
-                        if (raw_verify("test.journal", verification_key) >= 0)
+                        if (raw_verify(dir, "test.journal", verification_key) >= 0)
                                 log_notice(ANSI_HIGHLIGHT_RED_ON ">>>> %"PRIu64" (bit %"PRIu64") can be toggled without detection." ANSI_HIGHLIGHT_OFF, p / 8, p % 8);
 
                         bit_toggle("test.journal", p);
@@ -145,6 +147,7 @@ int main(int argc, char *argv[]) {
         }
 
         log_info("Exiting...");
+        dir = journal_directory_unref(dir);
 
         assert_se(rm_rf(t, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
 

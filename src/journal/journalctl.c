@@ -1576,7 +1576,7 @@ static int verify(sd_journal *j) {
 
 #ifdef HAVE_GCRYPT
                 if (!arg_verify_key && JOURNAL_HEADER_SEALED(f->header))
-                        log_notice("Journal file %s has sealing enabled but verification key has not been passed using --verify-key=.", f->path);
+                        log_notice("Journal file %s/%s has sealing enabled but verification key has not been passed using --verify-key=.", f->directory->path, f->filename);
 #endif
 
                 k = journal_file_verify(f, arg_verify_key, &first, &validated, &last, true);
@@ -1584,11 +1584,11 @@ static int verify(sd_journal *j) {
                         /* If the key was invalid give up right-away. */
                         return k;
                 } else if (k < 0) {
-                        log_warning("FAIL: %s (%s)", f->path, strerror(-k));
+                        log_warning("FAIL: %s/%s (%s)", f->directory->path, f->filename, strerror(-k));
                         r = k;
                 } else {
                         char a[FORMAT_TIMESTAMP_MAX], b[FORMAT_TIMESTAMP_MAX], c[FORMAT_TIMESPAN_MAX];
-                        log_info("PASS: %s", f->path);
+                        log_info("PASS: %s/%s", f->directory->path, f->filename);
 
                         if (arg_verify_key && JOURNAL_HEADER_SEALED(f->header)) {
                                 if (validated > 0) {
@@ -1899,7 +1899,7 @@ int main(int argc, char *argv[]) {
                         if (d->is_root)
                                 continue;
 
-                        q = journal_directory_vacuum(d->path, arg_vacuum_size, arg_vacuum_time, NULL, true);
+                        q = journal_directory_vacuum(d->d, arg_vacuum_size, arg_vacuum_time, NULL, true);
                         if (q < 0) {
                                 log_error_errno(q, "Failed to vacuum: %m");
                                 r = q;

@@ -33,6 +33,7 @@
 #include "set.h"
 #include "journal-file.h"
 #include "sd-journal.h"
+#include "journal-dir.h"
 
 typedef struct Match Match;
 typedef struct Location Location;
@@ -78,7 +79,7 @@ struct Location {
 };
 
 struct Directory {
-        char *path;
+        JournalDirectory *d;
         int wd;
         bool is_root;
 };

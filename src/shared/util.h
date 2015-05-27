@@ -339,6 +339,7 @@ int loop_write(int fd, const void *buf, size_t nbytes, bool do_poll);
 bool is_device_path(const char *path);
 
 int dir_is_empty(const char *path);
+char* basename_malloc(const char *path);
 char* dirname_malloc(const char *path);
 
 char* lookup_uid(uid_t uid);
