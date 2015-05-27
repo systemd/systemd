@@ -1,6 +1,9 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
+<!ENTITY % entities SYSTEM "custom-entities.ent" >
+%entities;
+]>
 
 <!--
   This file is part of systemd.
@@ -68,11 +71,11 @@
 
     <para>The <filename>.netdev</filename> files are read from the
     files located in the system network directory
-    <filename>/usr/lib/systemd/network</filename>, the volatile
+    <filename>&rootlibexecdir;/network</filename>, the volatile
     runtime network directory
     <filename>/run/systemd/network</filename> and the local
     administration network directory
-    <filename>/etc/systemd/network</filename>. All configuration files
+    <filename>&pkgsysconfdir;/network</filename>. All configuration files
     are collectively sorted and processed in lexical order, regardless
     of the directories in which they live. However, files with
     identical filenames replace each other. Files in
@@ -842,7 +845,7 @@
   <refsect1>
     <title>Example</title>
     <example>
-      <title>/etc/systemd/network/bridge.netdev</title>
+      <title>&pkgsysconfdir;/network/bridge.netdev</title>
 
       <programlisting>[NetDev]
 Name=bridge0
@@ -850,7 +853,7 @@ Kind=bridge</programlisting>
     </example>
 
     <example>
-      <title>/etc/systemd/network/vlan1.netdev</title>
+      <title>&pkgsysconfdir;/network/vlan1.netdev</title>
 
       <programlisting>[Match]
 Virtualization=no
@@ -863,7 +866,7 @@ Kind=vlan
 Id=1</programlisting>
     </example>
     <example>
-      <title>/etc/systemd/network/ipip.netdev</title>
+      <title>&pkgsysconfdir;/network/ipip.netdev</title>
       <programlisting>[NetDev]
 Name=ipip-tun
 Kind=ipip
@@ -875,7 +878,7 @@ Remote=192.169.224.239
 TTL=64</programlisting>
     </example>
     <example>
-      <title>/etc/systemd/network/tap.netdev</title>
+      <title>&pkgsysconfdir;/network/tap.netdev</title>
       <programlisting>[NetDev]
 Name=tap-test
 Kind=tap
@@ -885,7 +888,7 @@ MultiQueue=true
 PacketInfo=true</programlisting> </example>
 
     <example>
-      <title>/etc/systemd/network/sit.netdev</title>
+      <title>&pkgsysconfdir;/network/sit.netdev</title>
       <programlisting>[NetDev]
 Name=sit-tun
 Kind=sit
@@ -897,7 +900,7 @@ Remote=10.65.223.239</programlisting>
     </example>
 
     <example>
-      <title>/etc/systemd/network/gre.netdev</title>
+      <title>&pkgsysconfdir;/network/gre.netdev</title>
       <programlisting>[NetDev]
 Name=gre-tun
 Kind=gre
@@ -909,7 +912,7 @@ Remote=10.65.223.239</programlisting>
     </example>
 
     <example>
-      <title>/etc/systemd/network/vti.netdev</title>
+      <title>&pkgsysconfdir;/network/vti.netdev</title>
 
       <programlisting>[NetDev]
 Name=vti-tun
@@ -922,7 +925,7 @@ Remote=10.65.223.239</programlisting>
     </example>
 
     <example>
-      <title>/etc/systemd/network/veth.netdev</title>
+      <title>&pkgsysconfdir;/network/veth.netdev</title>
       <programlisting>[NetDev]
 Name=veth-test
 Kind=veth
@@ -932,7 +935,7 @@ Name=veth-peer</programlisting>
     </example>
 
     <example>
-      <title>/etc/systemd/network/dummy.netdev</title>
+      <title>&pkgsysconfdir;/network/dummy.netdev</title>
       <programlisting>[NetDev]
 Name=dummy-test
 Kind=dummy

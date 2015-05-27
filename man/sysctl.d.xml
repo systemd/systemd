@@ -1,5 +1,8 @@
 <?xml version="1.0"?> <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN" "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN" "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
+<!ENTITY % entities SYSTEM "custom-entities.ent" >
+%entities;
+]>
 <!--
   This file is part of systemd.
 
@@ -127,7 +130,7 @@
       <para><filename>/etc/udev/rules.d/99-bridge.rules</filename>:
       </para>
 
-      <programlisting>ACTION=="add", SUBSYSTEM=="module", KERNEL=="bridge", RUN+="/usr/lib/systemd/systemd-sysctl --prefix=/net/bridge"
+      <programlisting>ACTION=="add", SUBSYSTEM=="module", KERNEL=="bridge", RUN+="&rootlibexecdir;/systemd-sysctl --prefix=/net/bridge"
 </programlisting>
 
       <para><filename>/etc/sysctl.d/bridge.conf</filename>:

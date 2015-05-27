@@ -1,6 +1,9 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
+<!ENTITY % entities SYSTEM "custom-entities.ent" >
+%entities;
+]>
 
 <!--
   This file is part of systemd.
@@ -56,11 +59,11 @@
     <command>net_setup_link</command> udev builtin.</para>
 
     <para>The link files are read from the files located in the system
-    network directory <filename>/usr/lib/systemd/network</filename>,
+    network directory <filename>&rootlibexecdir;/network</filename>,
     the volatile runtime network directory
     <filename>/run/systemd/network</filename>, and the local
     administration network directory
-    <filename>/etc/systemd/network</filename>. Link files must have
+    <filename>&pkgsysconfdir;/network</filename>. Link files must have
     the extension <filename>.link</filename>; other extensions are
     ignored. All link files are collectively sorted and processed in
     lexical order, regardless of the directories in which they live.
@@ -382,7 +385,7 @@
   <refsect1>
     <title>Example</title>
     <example>
-      <title>/etc/systemd/network/wireless.link</title>
+      <title>&pkgsysconfdir;/network/wireless.link</title>
 
       <programlisting>[Match]
 MACAddress=12:34:56:78:9a:bc

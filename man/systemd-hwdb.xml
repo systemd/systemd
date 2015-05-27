@@ -1,6 +1,9 @@
 <?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
+<!ENTITY % entities SYSTEM "custom-entities.ent" >
+%entities;
+]>
 
 <refentry id="systemd-hwdb" conditional="ENABLE_HWDB">
   <refentryinfo>
@@ -57,7 +60,7 @@
       <varlistentry>
         <term><option>--usr</option></term>
         <listitem>
-          <para>Generate in /usr/lib/udev instead of /etc/udev.</para>
+          <para>Generate in &udevlibexecdir; instead of /etc/udev.</para>
         </listitem>
       </varlistentry>
       <varlistentry>

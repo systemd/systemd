@@ -1,6 +1,9 @@
 <?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
+<!ENTITY % entities SYSTEM "custom-entities.ent" >
+%entities;
+]>
 
 <refentry id="udev">
   <refentryinfo>
@@ -55,7 +58,7 @@
 
   <refsect1><title>Rules Files</title>
       <para>The udev rules are read from the files located in the
-      system rules directory <filename>/usr/lib/udev/rules.d</filename>,
+      system rules directory <filename>&udevlibexecdir;/rules.d</filename>,
       the volatile runtime directory <filename>/run/udev/rules.d</filename>
       and the local administration directory <filename>/etc/udev/rules.d</filename>.
       All rules files are collectively sorted and processed in lexical order,
@@ -421,7 +424,7 @@
                 <listitem>
                   <para>Execute an external program specified as the assigned
                   value. If no absolute path is given, the program is expected
-                  to live in <filename>/usr/lib/udev</filename>; otherwise, the
+                  to live in <filename>&udevlibexecdir;</filename>; otherwise, the
                   absolute path must be specified.</para>
                   <para>This is the default if no <replaceable>type</replaceable>
                   is specified.</para>

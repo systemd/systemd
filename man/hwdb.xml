@@ -1,6 +1,9 @@
 <?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
+<!ENTITY % entities SYSTEM "custom-entities.ent" >
+%entities;
+]>
 
 <refentry id="hwdb" conditional="ENABLE_HWDB">
   <refentryinfo>
@@ -40,7 +43,7 @@
 
   <refsect1><title>Hardware Database Files</title>
       <para>The hwdb files are read from the files located in the
-      system hwdb directory <filename>/usr/lib/udev/hwdb.d</filename>,
+      system hwdb directory <filename>&udevlibexecdir;/hwdb.d</filename>,
       the volatile runtime directory <filename>/run/udev/hwdb.d</filename>
       and the local administration directory <filename>/etc/udev/hwdb.d</filename>.
       All hwdb files are collectively sorted and processed in lexical order,
@@ -70,7 +73,7 @@
       <para>The content of all hwdb files is read by
       <citerefentry><refentrytitle>systemd-hwdb</refentrytitle><manvolnum>8</manvolnum></citerefentry>
       and compiled to a binary database located at <filename>/etc/udev/hwdb.bin</filename>,
-      or alternatively <filename>/usr/lib/udev/hwdb.bin</filename> if you want ship the compiled
+      or alternatively <filename>&udevlibexecdir;/hwdb.bin</filename> if you want ship the compiled
       database in an immutable image.
       During runtime only the binary database is used.</para>
   </refsect1>

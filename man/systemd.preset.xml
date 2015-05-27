@@ -1,6 +1,9 @@
 <?xml version="1.0"?>
 <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN" "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN" "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
+<!ENTITY % entities SYSTEM "custom-entities.ent" >
+%entities;
+]>
 <!--
   This file is part of systemd.
 
@@ -46,12 +49,12 @@
   </refnamediv>
 
   <refsynopsisdiv>
-    <para><filename>/etc/systemd/system-preset/*.preset</filename></para>
+    <para><filename>&pkgsysconfdir;/system-preset/*.preset</filename></para>
     <para><filename>/run/systemd/system-preset/*.preset</filename></para>
-    <para><filename>/usr/lib/systemd/system-preset/*.preset</filename></para>
-    <para><filename>/etc/systemd/user-preset/*.preset</filename></para>
+    <para><filename>&rootlibexecdir;/system-preset/*.preset</filename></para>
+    <para><filename>&pkgsysconfdir;/user-preset/*.preset</filename></para>
     <para><filename>/run/systemd/user-preset/*.preset</filename></para>
-    <para><filename>/usr/lib/systemd/user-preset/*.preset</filename></para>
+    <para><filename>&rootlibexecdir;/user-preset/*.preset</filename></para>
   </refsynopsisdiv>
 
   <refsect1>
@@ -125,7 +128,7 @@
     <para>If the administrator wants to disable a preset file supplied
     by the vendor, the recommended way is to place a symlink to
     <filename>/dev/null</filename> in
-    <filename>/etc/systemd/system-preset/</filename> bearing the same
+    <filename>&pkgsysconfdir;/system-preset/</filename> bearing the same
     filename.</para>
   </refsect1>
 
@@ -133,7 +136,7 @@
     <title>Example</title>
 
     <example>
-      <title>Default off example <filename>/usr/lib/systemd/system-preset/99-default.preset</filename>:</title>
+      <title>Default off example <filename>&rootlibexecdir;/system-preset/99-default.preset</filename>:</title>
 
       <programlisting>disable *</programlisting>
     </example>
@@ -144,7 +147,7 @@
     suchlike.</para>
 
     <example>
-      <title>A GNOME spin example <filename>/usr/lib/systemd/system-preset/50-gnome.preset</filename>:</title>
+      <title>A GNOME spin example <filename>&rootlibexecdir;/system-preset/50-gnome.preset</filename>:</title>
 
       <programlisting>enable gdm.service
 enable colord.service
@@ -162,7 +165,7 @@ enable avahi-daemon.*</programlisting>
     example like the one from the first example above.</para>
 
     <example>
-      <title>Administrator policy <filename>/etc/systemd/system-preset/00-lennart.preset</filename>:</title>
+      <title>Administrator policy <filename>&pkgsysconfdir;/system-preset/00-lennart.preset</filename>:</title>
 
       <programlisting>enable httpd.service
 enable sshd.service

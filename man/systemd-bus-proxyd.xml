@@ -1,6 +1,9 @@
 <?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
+<!ENTITY % entities SYSTEM "custom-entities.ent" >
+%entities;
+]>
 
 <!--
   This file is part of systemd.
@@ -50,7 +53,7 @@
 
   <refsynopsisdiv>
     <cmdsynopsis>
-      <command>/usr/lib/systemd/systemd-bus-proxyd</command>
+      <command>&rootlibexecdir;/systemd-bus-proxyd</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
       <arg choice="opt"><replaceable>PLACEHOLDER</replaceable></arg>
     </cmdsynopsis>
