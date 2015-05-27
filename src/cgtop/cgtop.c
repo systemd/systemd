@@ -60,7 +60,7 @@ typedef struct Group {
 } Group;
 
 static unsigned arg_depth = 3;
-static unsigned arg_iterations = 0;
+static int64_t arg_iterations = -1;
 static bool arg_batch = false;
 static bool arg_raw = false;
 static usec_t arg_delay = 1*USEC_PER_SEC;
@@ -641,7 +641,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'n':
-                        r = safe_atou(optarg, &arg_iterations);
+                        r = safe_atoi64(optarg, &arg_iterations);
                         if (r < 0) {
                                 log_error("Failed to parse iterations parameter.");
                                 return -EINVAL;
@@ -715,8 +715,8 @@ int main(int argc, char *argv[]) {
 
         signal(SIGWINCH, columns_lines_cache_reset);
 
-        if (!on_tty())
-                arg_iterations = 1;
+        if (arg_iterations < 0)
+                arg_iterations = on_tty() ? 0 : 1;
 
         while (!quit) {
                 Hashmap *c;
