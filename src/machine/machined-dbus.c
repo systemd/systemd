@@ -37,6 +37,7 @@
 #include "machined.h"
 #include "machine-dbus.h"
 #include "formats-util.h"
+#include "process-util.h"
 
 static int property_get_pool_path(
                 sd_bus *bus,
@@ -840,6 +841,116 @@ static int method_set_image_limit(sd_bus_message *message, void *userdata, sd_bu
         return bus_image_method_set_limit(message, i, error);
 }
 
+static int get_journal_fd_child(int socket_fd, int mntns_fd, int root_fd) {
+        _cleanup_close_ int fd = -1;
+        int r;
+
+        r = namespace_enter(-1, mntns_fd, -1, root_fd);
+        if (r < 0)
+                return r;
+
+        fd = open("/var/log/journal", O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+        if (fd < 0)
+                return -errno;
+
+        r = send_fd(socket_fd, fd);
+        return r;
+}
+
+static int get_journal_fd_parent(int socket_fd, pid_t child, sd_bus_error *error, int* journal_fd) {
+        int r;
+        siginfo_t si;
+
+        r = wait_for_terminate(child, &si);
+        if (r < 0)
+                return sd_bus_error_set_errnof(error, r, "Failed to wait for child: %m");
+        if (si.si_code != CLD_EXITED || si.si_status != EXIT_SUCCESS)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Child died abnormally.");
+
+        r = receive_fd(socket_fd, journal_fd);
+        if (r < 0)
+                return sd_bus_error_set_errnof(error, r, "Failed to receive journal fd: %m");
+
+        return 0;
+}
+
+static int get_journal_fd(Machine *machine, sd_bus_error *error, int *journal_fd) {
+        _cleanup_close_pair_ int pair[2] = { -1, -1 };
+        _cleanup_close_ int mntns_fd = -1, root_fd = -1, fd = -1;
+        pid_t child;
+        int r;
+
+        assert(machine);
+        assert(error);
+        assert(journal_fd);
+
+        r = socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, pair);
+        if (r < 0)
+                return sd_bus_error_set_errnof(error, errno, "Failed to create pair of sockets: %m");
+
+        r = namespace_open(machine->leader, NULL, &mntns_fd, NULL, &root_fd);
+        if (r < 0)
+                return sd_bus_error_set_errnof(error, r, "Failed to open leader's namespace(): %m");
+
+        child = fork();
+        if (child < 0)
+                return sd_bus_error_set_errnof(error, errno, "Failed to fork(): %m");
+
+        if (child == 0) {
+                pair[0] = safe_close(pair[0]);
+                r = get_journal_fd_child(pair[1], mntns_fd, root_fd);
+                pair[1] = safe_close(pair[1]);
+                if (r < 0)
+                        _exit(EXIT_FAILURE);
+                _exit(EXIT_SUCCESS);
+        }
+
+        pair[1] = safe_close(pair[1]);
+        r = get_journal_fd_parent(pair[0], child, error, journal_fd);
+        return r;
+}
+
+static int method_get_journal(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Manager *m = userdata;
+        const char *name;
+        int r;
+        Machine *machine;
+        _cleanup_close_ int journal_fd = -1;
+
+        assert(message);
+        assert(m);
+
+        r = sd_bus_message_read(message, "s", &name);
+        if (r < 0)
+                return r;
+
+        r = bus_verify_polkit_async(
+                        message,
+                        CAP_SYS_ADMIN,
+                        "org.freedesktop.machine1.get-journal",
+                        false,
+                        UID_INVALID,
+                        &m->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
+
+        if (!machine_name_is_valid(name))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid machine name");
+
+        machine = hashmap_get(m->machines, name);
+        if (!machine)
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_MACHINE, "No machine '%s' known", name);
+
+        r = get_journal_fd(machine, error, &journal_fd);
+        if (r < 0)
+                return r;
+
+        return sd_bus_reply_method_return(message, "h", journal_fd);
+}
+
 const sd_bus_vtable manager_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("PoolPath", "s", property_get_pool_path, 0, 0),
@@ -869,6 +980,7 @@ const sd_bus_vtable manager_vtable[] = {
         SD_BUS_METHOD("MarkImageReadOnly", "sb", NULL, method_mark_image_read_only, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetPoolLimit", "t", NULL, method_set_pool_limit, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetImageLimit", "st", NULL, method_set_image_limit, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("GetJournal", "s", "h", method_get_journal, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_SIGNAL("MachineNew", "so", 0),
         SD_BUS_SIGNAL("MachineRemoved", "so", 0),
         SD_BUS_VTABLE_END
