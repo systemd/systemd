@@ -67,6 +67,9 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 log_warning_errno(r, "Could not create runtime directory 'lldp': %m");
 
+        /* Create a directory for the generated transient network services */
+        mkdir_p("/run/systemd/network", 0755);
+
         r = drop_privileges(uid, gid,
                             (1ULL << CAP_NET_ADMIN) |
                             (1ULL << CAP_NET_BIND_SERVICE) |
