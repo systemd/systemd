@@ -5149,7 +5149,10 @@ static int enable_sysv_units(const char *verb, char **args) {
                                 break;
                 }
 
-                if (found_native)
+                /* If we have both a native unit and a SysV script,
+                 * enable/disable them both (below); for is-enabled, prefer the
+                 * native unit */
+                if (found_native && streq(verb, "is-enabled"))
                         continue;
 
                 p = path_join(arg_root, SYSTEM_SYSVINIT_PATH, name);
@@ -5161,7 +5164,10 @@ static int enable_sysv_units(const char *verb, char **args) {
                 if (!found_sysv)
                         continue;
 
-                log_info("%s is not a native service, redirecting to systemd-sysv-install", name);
+                if (found_native)
+                        log_info("Synchronizing state of %s with SysV init with %s...", name, argv[0]);
+                else
+                        log_info("%s is not a native service, redirecting to systemd-sysv-install", name);
 
                 if (!isempty(arg_root))
                         argv[c++] = q = strappend("--root=", arg_root);
@@ -5208,6 +5214,9 @@ static int enable_sysv_units(const char *verb, char **args) {
                                 return -EINVAL;
                 } else
                         return -EPROTO;
+
+                if (found_native)
+                        continue;
 
                 /* Remove this entry, so that we don't try enabling it as native unit */
                 assert(f > 0);
