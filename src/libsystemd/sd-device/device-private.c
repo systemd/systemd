@@ -659,7 +659,7 @@ static int device_update_properties_bufs(sd_device *device) {
                 if (!buf_strv)
                         return -ENOMEM;
 
-                buf_strv[++ strv_size] = (char *)&buf_nulstr[nulstr_len];
+                buf_strv[strv_size ++] = (char *)&buf_nulstr[nulstr_len];
                 strscpyl((char *)buf_nulstr + nulstr_len, len + 1, prop, "=", val, NULL);
                 nulstr_len += len + 1;
         }
