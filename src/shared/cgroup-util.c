@@ -1616,6 +1616,10 @@ bool cg_controller_is_valid(const char *p, bool allow_named) {
         if (!p)
                 return false;
 
+        /* Unified cgroup */
+        if (*p == 0)
+                return true;
+
         if (allow_named) {
                 s = startswith(p, "name=");
                 if (s)
