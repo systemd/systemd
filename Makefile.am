@@ -721,12 +721,6 @@ man/systemd.directives.xml: $(top_srcdir)/tools/make-directive-index.py $(SOURCE
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
 	$(AM_V_GEN)$(PYTHON) $< $@ $(filter-out $<,$^)
 
-EXTRA_DIST += \
-	man/systemd.index.xml \
-	man/index.html \
-	man/systemd.directives.xml \
-	man/glib-event-glue.c
-
 CLEANFILES += \
 	man/systemd.index.xml \
 	man/systemd.directives.xml
@@ -742,7 +736,12 @@ EXTRA_DIST += \
 	$(man_MANS) \
 	tools/make-man-index.py \
 	tools/make-directive-index.py \
-	tools/xml_helper.py
+	tools/xml_helper.py \
+	man/systemd.index.xml \
+	man/index.html \
+	man/systemd.directives.xml \
+	man/glib-event-glue.c \
+	$(NULL)
 
 # ------------------------------------------------------------------------------
 noinst_LTLIBRARIES += \
@@ -2311,14 +2310,14 @@ nodist_sysusers_DATA = \
 	sysusers.d/systemd.conf \
 	sysusers.d/basic.conf
 
+INSTALL_DIRS += \
+	$(sysusersdir)
+endif
+
 EXTRA_DIST += \
 	units/systemd-sysusers.service.in \
 	sysusers.d/systemd.conf.m4 \
 	sysusers.d/basic.conf.in
-
-INSTALL_DIRS += \
-	$(sysusersdir)
-endif
 
 # ------------------------------------------------------------------------------
 dist_factory_etc_DATA = \
@@ -2348,12 +2347,12 @@ rootbin_PROGRAMS += \
 nodist_systemunit_DATA += \
 	units/systemd-firstboot.service
 
-EXTRA_DIST += \
-	units/systemd-firstboot.service.in
-
 SYSINIT_TARGET_WANTS += \
 	systemd-firstboot.service
 endif
+
+EXTRA_DIST += \
+	units/systemd-firstboot.service.in
 
 # ------------------------------------------------------------------------------
 systemd_machine_id_setup_SOURCES = \
@@ -2485,11 +2484,6 @@ systemd_hibernate_resume_generator_LDADD = \
 	libsystemd-label.la \
 	libsystemd-shared.la
 
-EXTRA_DIST += \
-	units/systemd-hibernate.service.in \
-	units/systemd-hibernate-resume@.service.in \
-	units/systemd-hybrid-sleep.service.in
-
 dist_systemunit_DATA += \
 	units/hibernate.target \
 	units/hybrid-sleep.target
@@ -2499,6 +2493,11 @@ nodist_systemunit_DATA += \
 	units/systemd-hibernate-resume@.service \
 	units/systemd-hybrid-sleep.service
 endif
+
+EXTRA_DIST += \
+	units/systemd-hibernate.service.in \
+	units/systemd-hibernate-resume@.service.in \
+	units/systemd-hybrid-sleep.service.in
 
 # ------------------------------------------------------------------------------
 if ENABLE_EFI
@@ -2685,7 +2684,6 @@ $(stub): $(stub_solib)
 
 # ------------------------------------------------------------------------------
 CLEANFILES += test-efi-disk.img
-EXTRA_DIST += test/test-efi-create-disk.sh
 
 test-efi-disk.img: $(systemd_boot) $(stub) test/test-efi-create-disk.sh
 	$(AM_V_GEN)test/test-efi-create-disk.sh
@@ -2694,6 +2692,8 @@ test-efi: test-efi-disk.img
 	$(QEMU) -machine accel=kvm -m 1024 -bios $(QEMU_BIOS) -snapshot test-efi-disk.img
 endif
 endif
+
+EXTRA_DIST += test/test-efi-create-disk.sh
 
 # ------------------------------------------------------------------------------
 if HAVE_BLKID
@@ -3940,11 +3940,6 @@ dist_udevhwdb_DATA = \
 	hwdb/70-pointingstick.hwdb \
 	hwdb/70-touchpad.hwdb
 
-EXTRA_DIST += \
-	units/systemd-hwdb-update.service.in \
-	hwdb/ids-update.pl \
-	hwdb/sdio.ids
-
 SYSINIT_TARGET_WANTS += \
 	systemd-hwdb-update.service
 
@@ -3959,6 +3954,11 @@ INSTALL_DATA_HOOKS += \
 hwdb-remove-hook:
 	-test -n "$(DESTDIR)" || rm -f /etc/udev/hwdb.bin
 endif
+
+EXTRA_DIST += \
+	units/systemd-hwdb-update.service.in \
+	hwdb/ids-update.pl \
+	hwdb/sdio.ids
 
 # ------------------------------------------------------------------------------
 TESTS += \
@@ -4357,9 +4357,6 @@ dist_systemunit_DATA += \
 nodist_systemunit_DATA += \
 	units/systemd-journal-remote.service
 
-EXTRA_DIST += \
-	units/systemd-journal-remote.service.in
-
 journal-remote-install-hook: journal-install-hook
 	-$(MKDIR_P) $(DESTDIR)/var/log/journal/remote
 	-chown 0:0 $(DESTDIR)/var/log/journal/remote
@@ -4373,6 +4370,7 @@ nodist_pkgsysconf_DATA += \
 	src/journal-remote/journal-remote.conf
 
 EXTRA_DIST += \
+	units/systemd-journal-remote.service.in \
 	src/journal-remote/journal-remote.conf.in
 
 endif
@@ -4399,15 +4397,14 @@ systemd_journal_upload_LDADD = \
 nodist_systemunit_DATA += \
 	units/systemd-journal-upload.service
 
-EXTRA_DIST += \
-	units/systemd-journal-upload.service.in
-
 nodist_pkgsysconf_DATA += \
 	src/journal-remote/journal-upload.conf
 
-EXTRA_DIST += \
-	src/journal-remote/journal-upload.conf.in
 endif
+
+EXTRA_DIST += \
+	units/systemd-journal-upload.service.in \
+	src/journal-remote/journal-upload.conf.in
 
 # using _CFLAGS = in the conditional below would suppress AM_CFLAGS
 journalctl_CFLAGS = \
@@ -4955,10 +4952,10 @@ dist_pkgsysconf_DATA += \
 
 nodist_systemunit_DATA += \
 	units/systemd-bootchart.service
+endif
 
 EXTRA_DIST += \
 	units/systemd-bootchart.service.in
-endif
 
 # ------------------------------------------------------------------------------
 if ENABLE_QUOTACHECK
@@ -5427,9 +5424,6 @@ SYSTEM_UNIT_ALIASES += \
 BUSNAMES_TARGET_WANTS += \
 	org.freedesktop.machine1.busname
 
-EXTRA_DIST += \
-	units/systemd-machined.service.in
-
 libnss_mymachines_la_SOURCES = \
 	src/nss-mymachines/nss-mymachines.sym \
 	src/nss-mymachines/nss-mymachines.c
@@ -5451,6 +5445,9 @@ lib_LTLIBRARIES += \
 	libnss_mymachines.la
 
 endif
+
+EXTRA_DIST += \
+	units/systemd-machined.service.in
 
 # ------------------------------------------------------------------------------
 if ENABLE_IMPORTD
@@ -5579,9 +5576,6 @@ dist_rootlibexec_DATA = \
 nodist_systemunit_DATA += \
 	units/systemd-importd.service
 
-EXTRA_DIST += \
-	units/systemd-importd.service.in
-
 dist_systemunit_DATA_busnames += \
 	units/org.freedesktop.import1.busname
 
@@ -5628,6 +5622,11 @@ endif
 endif
 
 endif
+
+EXTRA_DIST += \
+	units/systemd-importd.service.in \
+	src/resolve/resolved.conf.in
+
 
 # ------------------------------------------------------------------------------
 if ENABLE_RESOLVED
@@ -5702,9 +5701,6 @@ dist_dbuspolicy_DATA += \
 dist_dbussystemservice_DATA += \
 	src/resolve/org.freedesktop.resolve1.service
 
-EXTRA_DIST += \
-	units/systemd-resolved.service.m4.in
-
 SYSTEM_UNIT_ALIASES += \
 	systemd-resolved.service dbus-org.freedesktop.resolve1.service
 
@@ -5716,9 +5712,6 @@ GENERAL_ALIASES += \
 
 nodist_pkgsysconf_DATA += \
 	src/resolve/resolved.conf
-
-EXTRA_DIST += \
-	src/resolve/resolved.conf.in
 
 tests += \
 	test-dns-domain
@@ -5783,6 +5776,9 @@ rootlibexec_PROGRAMS += \
 	systemd-resolve-host
 
 endif
+
+EXTRA_DIST += \
+	units/systemd-resolved.service.m4.in
 
 # ------------------------------------------------------------------------------
 if ENABLE_NETWORKD
@@ -5947,12 +5943,11 @@ BUSNAMES_TARGET_WANTS += \
 gperf_gperf_sources += \
 	src/network/networkd-network-gperf.gperf \
 	src/network/networkd-netdev-gperf.gperf
+endif
 
 EXTRA_DIST += \
 	units/systemd-networkd.service.m4.in \
 	units/systemd-networkd-wait-online.service.in
-
-endif
 
 # ------------------------------------------------------------------------------
 if ENABLE_LOGIND
@@ -6178,13 +6173,13 @@ rootlibexec_PROGRAMS += \
 nodist_systemunit_DATA += \
 	units/systemd-user-sessions.service
 
-EXTRA_DIST += \
-	units/systemd-user-sessions.service.in
-
 MULTI_USER_TARGET_WANTS += \
 	systemd-user-sessions.service
 
 endif
+
+EXTRA_DIST += \
+	units/systemd-user-sessions.service.in
 
 # ------------------------------------------------------------------------------
 
@@ -6347,9 +6342,6 @@ clean-python:
 
 # ------------------------------------------------------------------------------
 if ENABLE_COMPAT_LIBS
-EXTRA_DIST += \
-	src/compat-libs/linkwarning.h
-
 libsystemd-%.c: src/compat-libs/libsystemd-%.sym
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
 	$(AM_V_GEN)sed -r -n 's/^ +(sd_.*);/obsolete_lib(\1,$(notdir $(basename $<)));/p' <$< >$@
@@ -6459,6 +6451,7 @@ UNINSTALL_EXEC_HOOKS += compat-lib-uninstall-hook
 endif
 
 EXTRA_DIST += \
+	src/compat-libs/linkwarning.h \
 	src/compat-libs/libsystemd-journal.pc.in \
 	src/compat-libs/libsystemd-login.pc.in \
 	src/compat-libs/libsystemd-id128.pc.in \
