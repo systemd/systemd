@@ -30,6 +30,8 @@
 
 #define CGROUP_CPU_QUOTA_PERIOD_USEC ((usec_t) 100 * USEC_PER_MSEC)
 
+static int cgroup_populated_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata);
+
 void cgroup_context_init(CGroupContext *c) {
         assert(c);
 
@@ -629,6 +631,7 @@ static const char *migrate_callback(CGroupControllerMask mask, void *userdata) {
 static int unit_create_cgroups(Unit *u, CGroupControllerMask mask) {
         CGroupContext *c;
         int r;
+        int wd = -1;
 
         assert(u);
 
@@ -655,9 +658,12 @@ static int unit_create_cgroups(Unit *u, CGroupControllerMask mask) {
         }
 
         /* First, create our own group */
-        r = cg_create_everywhere(u->manager->cgroup_supported, mask, u->cgroup_path);
+        r = cg_create_everywhere(u->manager->cgroup_supported, mask, u->cgroup_path, u->manager->cgroup_populated_inotify_fd, &wd);
         if (r < 0)
                 return log_error_errno(r, "Failed to create cgroup %s: %m", u->cgroup_path);
+
+        if (wd > 0 && hashmap_put(u->manager->cgroup_populated_by_wd, INT_TO_PTR(wd), u->cgroup_path) < 0)
+                inotify_rm_watch(u->manager->cgroup_populated_inotify_fd, wd);
 
         /* Keep track that this is now realized */
         u->cgroup_realized = true;
@@ -893,6 +899,7 @@ pid_t unit_search_main_pid(Unit *u) {
 
 int manager_setup_cgroup(Manager *m) {
         _cleanup_free_ char *path = NULL;
+        _cleanup_free_ char *sane_behavior = NULL;
         int r;
 
         assert(m);
@@ -944,7 +951,7 @@ int manager_setup_cgroup(Manager *m) {
                 }
 
                 /* 4. Make sure we are in the root cgroup */
-                r = cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_root, 0);
+                r = cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_root, 0, -1, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to create root cgroup hierarchy: %m");
 
@@ -957,6 +964,25 @@ int manager_setup_cgroup(Manager *m) {
 
                 /* 6.  Always enable hierarchical support if it exists... */
                 cg_set_attribute("memory", "/", "memory.use_hierarchy", "1");
+
+                /* 7. Create inotify fd for cgroup.populated files, if
+                 * supported on unified cgroups. Insane ones have
+                 * cgroup.sane_behavior set to 0.*/
+                r = cg_get_attribute(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_root, "cgroup.sane_behavior", &sane_behavior);
+                if (r == -ENOENT) {
+                        m->cgroup_populated_inotify_fd = inotify_init1(IN_NONBLOCK|IN_CLOEXEC);
+                        if (m->cgroup_populated_inotify_fd < 0)
+                                return log_error_errno(errno, "inotify_init1() failed: %m");
+
+                        r = sd_event_add_io(m->event, &m->cgroup_populated_event_source, m->cgroup_populated_inotify_fd, EPOLLIN, cgroup_populated_dispatch_io, m);
+                        if (r < 0)
+                                return log_error_errno(errno, "Failed to create inotify event source: %m");
+                        r = sd_event_source_set_priority(m->cgroup_populated_event_source, -6);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to set priority of cgroup inotify event source: %m");
+                        (void) sd_event_source_set_description(m->cgroup_populated_event_source, "cgroup-populated");
+                }
+
         }
 
         /* 7. Figure out which controllers are supported */
@@ -975,8 +1001,63 @@ void manager_shutdown_cgroup(Manager *m, bool delete) {
 
         m->pin_cgroupfs_fd = safe_close(m->pin_cgroupfs_fd);
 
+        m->cgroup_populated_inotify_fd = safe_close(m->cgroup_populated_inotify_fd);
+        hashmap_free(m->cgroup_populated_by_wd);
+
         free(m->cgroup_root);
         m->cgroup_root = NULL;
+}
+
+static int cgroup_populated_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
+        char *path;
+        Manager *m = userdata;
+        int r;
+        int populated = -1;
+
+        assert(m);
+        assert(revents & (EPOLLPRI | EPOLLIN));
+
+        if (fd != m->cgroup_populated_inotify_fd)
+                return 0;
+
+        for (;;) {
+                union inotify_event_buffer buffer;
+                struct inotify_event *e;
+                ssize_t l;
+
+                l = read(fd, &buffer, sizeof(buffer));
+                if (l < 0) {
+                        if (errno == EAGAIN || errno == EINTR)
+                                break;
+
+                        log_error_errno(errno, "Failed to read cgroup_populated inotify: %m");
+                        break;
+                }
+
+                FOREACH_INOTIFY_EVENT(e, buffer, l) {
+                        _cleanup_free_ char *v = NULL;
+
+                        path = hashmap_get(m->cgroup_populated_by_wd, INT_TO_PTR(e->wd));
+                        if (!path)
+                                continue;
+                        log_info("unified: event for wd: %i, %s", e->wd, path);
+
+                        r = cg_get_attribute(SYSTEMD_CGROUP_CONTROLLER, path, "cgroup.populated", &v);
+                        if (r < 0)
+                                continue;
+
+                        r = safe_atoi(v, &populated);
+                        if (r < 0)
+                                continue;
+
+                        if (populated == 0) {
+                                manager_notify_cgroup_empty(m, path);
+                                log_info("manager_notify_cgroup_empty %s", path);
+                        }
+                }
+        }
+
+        return 0;
 }
 
 Unit* manager_get_unit_by_cgroup(Manager *m, const char *cgroup) {
