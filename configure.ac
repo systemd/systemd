@@ -1218,6 +1218,16 @@ fi
 AM_CONDITIONAL(ENABLE_KDBUS, [test "$have_kdbus" = "yes"])
 
 # ------------------------------------------------------------------------------
+have_unified=no
+AC_ARG_ENABLE(unified, AS_HELP_STRING([--enable-unified], [mount unified cgroup hierchy]))
+if test "x$enable_unified" = "xyes"; then
+        AC_DEFINE(ENABLE_UNIFIED, 1, [Define if unified cgroup hierchy is requested])
+        have_unified=yes
+        M4_DEFINES="$M4_DEFINES -DENABLE_UNIFIED"
+fi
+AM_CONDITIONAL(ENABLE_UNIFIED, [test "$have_unified" = "yes"])
+
+# ------------------------------------------------------------------------------
 AC_ARG_WITH(rc-local-script-path-start,
         AS_HELP_STRING([--with-rc-local-script-path-start=PATH],
                 [Path to /etc/rc.local]),
@@ -1565,6 +1575,7 @@ AC_MSG_RESULT([
         hwdb:                    ${enable_hwdb}
         terminal:                ${have_terminal}
         kdbus:                   ${have_kdbus}
+        unified-cgroup:          ${have_unified}
         Python:                  ${have_python}
         Python Headers:          ${have_python_devel}
         man pages:               ${have_manpages}
