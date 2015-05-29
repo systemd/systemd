@@ -2131,7 +2131,7 @@ systemd_analyze_SOURCES = \
 	src/analyze/analyze-verify.c \
 	src/analyze/analyze-verify.h
 
-systemd_verify_CFLAGS = \
+systemd_analyze_CFLAGS = \
 	$(AM_CFLAGS) \
 	$(SECCOMP_CFLAGS)
 
