@@ -135,7 +135,9 @@ static bool test_pointers(struct udev_device *dev,
                           bool test) {
         bool has_abs_coordinates = false;
         bool has_rel_coordinates = false;
+        bool has_mt_coordinates = false;
         bool has_joystick_axes_or_buttons = false;
+        bool is_direct = false;
         bool has_touch = false;
         bool has_3d_coordinates = false;
         bool has_keys = false;
@@ -168,6 +170,8 @@ static bool test_pointers(struct udev_device *dev,
         finger_but_no_pen = test_bit(BTN_TOOL_FINGER, bitmask_key) && !test_bit(BTN_TOOL_PEN, bitmask_key);
         has_mouse_button = test_bit(BTN_LEFT, bitmask_key);
         has_rel_coordinates = test_bit(EV_REL, bitmask_ev) && test_bit(REL_X, bitmask_rel) && test_bit(REL_Y, bitmask_rel);
+        has_mt_coordinates = test_bit(ABS_MT_POSITION_X, bitmask_abs) && test_bit(ABS_MT_POSITION_Y, bitmask_abs);
+        is_direct = test_bit(INPUT_PROP_DIRECT, bitmask_props);
         has_touch = test_bit(BTN_TOUCH, bitmask_key);
         /* joysticks don't necessarily have buttons; e. g.
          * rudders/pedals are joystick-like, but buttonless; they have
@@ -187,7 +191,7 @@ static bool test_pointers(struct udev_device *dev,
         if (has_abs_coordinates) {
                 if (stylus_or_pen)
                         is_tablet = true;
-                else if (finger_but_no_pen)
+                else if (finger_but_no_pen && !is_direct)
                         is_touchpad = true;
                 else if (has_mouse_button)
                         /* This path is taken by VMware's USB mouse, which has
@@ -198,6 +202,8 @@ static bool test_pointers(struct udev_device *dev,
                 else if (has_joystick_axes_or_buttons)
                         is_joystick = true;
         }
+        if (has_mt_coordinates && is_direct)
+                is_touchscreen = true;
 
         if (has_rel_coordinates && has_mouse_button)
                 is_mouse = true;
