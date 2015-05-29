@@ -49,6 +49,20 @@
 #include "bus-track.h"
 #include "bus-slot.h"
 
+#define log_debug_bus_message(m) do { \
+                  sd_bus_message *_m = (m); \
+                  log_debug("1Got message type=%s sender=%s destination=%s object=%s interface=%s member=%s cookie=%" PRIu64 " reply_cookie=%" PRIu64 " error=%s", \
+                  bus_message_type_to_string(_m->header->type), \
+                  strna(sd_bus_message_get_sender(_m)), \
+                  strna(sd_bus_message_get_destination(_m)), \
+                  strna(sd_bus_message_get_path(_m)), \
+                  strna(sd_bus_message_get_interface(_m)), \
+                  strna(sd_bus_message_get_member(_m)), \
+                  BUS_MESSAGE_COOKIE(_m), \
+                  _m->reply_cookie, \
+                  strna(_m->error.message)); \
+                  } while (false)
+
 static int bus_poll(sd_bus *bus, bool need_more, uint64_t timeout_usec);
 static int attach_io_events(sd_bus *b);
 static void detach_io_events(sd_bus *b);
@@ -1992,6 +2006,7 @@ _public_ int sd_bus_call(
 
                                 memmove(bus->rqueue + i, bus->rqueue + i + 1, sizeof(sd_bus_message*) * (bus->rqueue_size - i - 1));
                                 bus->rqueue_size--;
+                                log_debug_bus_message(incoming);
 
                                 if (incoming->header->type == SD_BUS_MESSAGE_METHOD_RETURN) {
 
@@ -2480,16 +2495,7 @@ static int process_message(sd_bus *bus, sd_bus_message *m) {
         bus->current_message = m;
         bus->iteration_counter++;
 
-        log_debug("Got message type=%s sender=%s destination=%s object=%s interface=%s member=%s cookie=%" PRIu64 " reply_cookie=%" PRIu64 " error=%s",
-                  bus_message_type_to_string(m->header->type),
-                  strna(sd_bus_message_get_sender(m)),
-                  strna(sd_bus_message_get_destination(m)),
-                  strna(sd_bus_message_get_path(m)),
-                  strna(sd_bus_message_get_interface(m)),
-                  strna(sd_bus_message_get_member(m)),
-                  BUS_MESSAGE_COOKIE(m),
-                  m->reply_cookie,
-                  strna(m->error.message));
+        log_debug_bus_message(m);
 
         r = process_hello(bus, m);
         if (r != 0)
