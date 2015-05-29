@@ -28,9 +28,9 @@
 #include <libudev.h>
 #include <linux/input.h>
 #include <stdbool.h>
-#include <systemd/sd-bus.h>
-#include <systemd/sd-event.h>
 #include <xkbcommon/xkbcommon.h>
+#include "sd-bus.h"
+#include "sd-event.h"
 
 typedef struct idev_data                idev_data;
 typedef struct idev_data_evdev          idev_data_evdev;

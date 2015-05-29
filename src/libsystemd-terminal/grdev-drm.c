@@ -27,8 +27,6 @@
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <sys/types.h>
-#include <systemd/sd-bus.h>
-#include <systemd/sd-event.h>
 #include <unistd.h>
 
 /* Yuck! DRM headers need system headers included first.. but we have to
@@ -37,12 +35,14 @@
 #include <drm_fourcc.h>
 #include <drm_mode.h>
 
-#include "bus-util.h"
+#include "sd-bus.h"
+#include "sd-event.h"
 #include "hashmap.h"
-#include "grdev.h"
-#include "grdev-internal.h"
 #include "macro.h"
 #include "util.h"
+#include "bus-util.h"
+#include "grdev.h"
+#include "grdev-internal.h"
 
 #define GRDRM_MAX_TRIES (16)
 

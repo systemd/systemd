@@ -25,12 +25,12 @@
 #include <libudev.h>
 #include <stdbool.h>
 #include <stdlib.h>
-#include <systemd/sd-bus.h>
-#include <systemd/sd-event.h>
-#include "grdev.h"
+#include "sd-bus.h"
+#include "sd-event.h"
 #include "hashmap.h"
 #include "list.h"
 #include "util.h"
+#include "grdev.h"
 
 typedef struct grdev_tile               grdev_tile;
 typedef struct grdev_display_cache      grdev_display_cache;

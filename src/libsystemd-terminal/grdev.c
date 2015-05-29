@@ -22,14 +22,14 @@
 #include <libudev.h>
 #include <stdbool.h>
 #include <stdlib.h>
-#include <systemd/sd-bus.h>
-#include <systemd/sd-event.h>
-#include "grdev.h"
-#include "grdev-internal.h"
+#include "sd-bus.h"
+#include "sd-event.h"
 #include "hashmap.h"
 #include "login-shared.h"
 #include "macro.h"
 #include "util.h"
+#include "grdev.h"
+#include "grdev-internal.h"
 
 static void pipe_enable(grdev_pipe *pipe);
 static void pipe_disable(grdev_pipe *pipe);

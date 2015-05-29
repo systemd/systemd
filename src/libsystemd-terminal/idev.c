@@ -22,14 +22,14 @@
 #include <libudev.h>
 #include <stdbool.h>
 #include <stdlib.h>
-#include <systemd/sd-bus.h>
-#include <systemd/sd-event.h>
+#include "sd-bus.h"
+#include "sd-event.h"
 #include "hashmap.h"
-#include "idev.h"
-#include "idev-internal.h"
 #include "login-shared.h"
 #include "macro.h"
 #include "util.h"
+#include "idev.h"
+#include "idev-internal.h"
 
 static void element_open(idev_element *e);
 static void element_close(idev_element *e);

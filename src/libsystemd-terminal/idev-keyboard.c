@@ -21,17 +21,17 @@
 
 #include <stdbool.h>
 #include <stdlib.h>
-#include <systemd/sd-bus.h>
-#include <systemd/sd-event.h>
 #include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon-compose.h>
-#include "bus-util.h"
+#include "sd-bus.h"
+#include "sd-event.h"
 #include "hashmap.h"
+#include "macro.h"
+#include "util.h"
+#include "bus-util.h"
 #include "idev.h"
 #include "idev-internal.h"
-#include "macro.h"
 #include "term-internal.h"
-#include "util.h"
 
 typedef struct kbdtbl kbdtbl;
 typedef struct kbdmap kbdmap;

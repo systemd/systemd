@@ -24,13 +24,13 @@
 #include <libudev.h>
 #include <stdbool.h>
 #include <stdlib.h>
-#include <systemd/sd-bus.h>
-#include <systemd/sd-event.h>
+#include "sd-bus.h"
+#include "sd-event.h"
+#include "macro.h"
+#include "util.h"
 #include "bus-util.h"
 #include "idev.h"
 #include "idev-internal.h"
-#include "macro.h"
-#include "util.h"
 
 typedef struct idev_evdev idev_evdev;
 typedef struct unmanaged_evdev unmanaged_evdev;

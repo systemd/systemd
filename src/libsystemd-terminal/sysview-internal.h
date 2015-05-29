@@ -25,13 +25,13 @@
 #include <libudev.h>
 #include <stdbool.h>
 #include <stdlib.h>
-#include <systemd/sd-bus.h>
-#include <systemd/sd-event.h>
+#include "sd-bus.h"
+#include "sd-event.h"
 #include "hashmap.h"
 #include "list.h"
 #include "macro.h"
-#include "sysview.h"
 #include "util.h"
+#include "sysview.h"
 
 /*
  * Devices

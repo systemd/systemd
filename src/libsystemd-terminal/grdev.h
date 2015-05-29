@@ -56,8 +56,8 @@
 #include <libudev.h>
 #include <stdbool.h>
 #include <stdlib.h>
-#include <systemd/sd-bus.h>
-#include <systemd/sd-event.h>
+#include "sd-bus.h"
+#include "sd-event.h"
 #include "util.h"
 
 typedef struct grdev_fb                 grdev_fb;

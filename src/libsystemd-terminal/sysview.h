@@ -37,8 +37,8 @@
 #pragma once
 
 #include <stdbool.h>
-#include <systemd/sd-bus.h>
-#include <systemd/sd-event.h>
+#include "sd-bus.h"
+#include "sd-event.h"
 
 typedef struct sysview_event            sysview_event;
 typedef struct sysview_device           sysview_device;

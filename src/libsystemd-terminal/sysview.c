@@ -23,15 +23,15 @@
 #include <libudev.h>
 #include <stdbool.h>
 #include <stdlib.h>
-#include <systemd/sd-bus.h>
-#include <systemd/sd-event.h>
-#include <systemd/sd-login.h>
-#include "bus-util.h"
+#include "sd-bus.h"
+#include "sd-event.h"
+#include "sd-login.h"
 #include "macro.h"
-#include "sysview.h"
-#include "sysview-internal.h"
 #include "udev-util.h"
 #include "util.h"
+#include "bus-util.h"
+#include "sysview.h"
+#include "sysview-internal.h"
 
 static int context_raise_session_control(sysview_context *c, sysview_session *session, int error);
 

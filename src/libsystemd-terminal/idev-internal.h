@@ -26,13 +26,13 @@
 #include <linux/input.h>
 #include <stdbool.h>
 #include <stdlib.h>
-#include <systemd/sd-bus.h>
-#include <systemd/sd-event.h>
 #include <xkbcommon/xkbcommon.h>
+#include "sd-bus.h"
+#include "sd-event.h"
 #include "hashmap.h"
-#include "idev.h"
 #include "list.h"
 #include "util.h"
+#include "idev.h"
 
 typedef struct idev_link                idev_link;
 typedef struct idev_device_vtable       idev_device_vtable;
