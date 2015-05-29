@@ -6799,7 +6799,6 @@ DISTCHECK_CONFIGURE_FLAGS = \
 	--with-pamlibdir=$$dc_install_base/$(pamlibdir) \
 	--with-pamconfdir=$$dc_install_base/$(pamconfdir) \
 	--with-rootprefix=$$dc_install_base \
-	--disable-split-usr \
 	--enable-kdbus \
 	--enable-compat-libs
 
@@ -6821,6 +6820,14 @@ endif
 if ENABLE_GTK_DOC
 DISTCHECK_CONFIGURE_FLAGS += \
 	--enable-gtk-doc
+endif
+
+if ENABLE_SPLIT_USR
+DISTCHECK_CONFIGURE_FLAGS += \
+	--enable-split-usr
+else
+DISTCHECK_CONFIGURE_FLAGS += \
+	--disable-split-usr
 endif
 
 #
