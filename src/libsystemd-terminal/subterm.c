@@ -34,13 +34,14 @@
 #include <string.h>
 #include <sys/ioctl.h>
 #include <termios.h>
+#include "sd-event.h"
 #include "macro.h"
 #include "pty.h"
 #include "ring.h"
-#include "sd-event.h"
-#include "term-internal.h"
-#include "util.h"
+#include "signal-util.h"
 #include "utf8.h"
+#include "util.h"
+#include "term-internal.h"
 
 typedef struct Output Output;
 typedef struct Terminal Terminal;

@@ -35,19 +35,20 @@
 #include <stdlib.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
-#include <systemd/sd-bus.h>
-#include <systemd/sd-event.h>
-#include <systemd/sd-login.h>
 #include <termios.h>
 #include <unistd.h>
 #include <xkbcommon/xkbcommon.h>
+#include "sd-bus.h"
+#include "sd-event.h"
+#include "sd-login.h"
 #include "build.h"
 #include "event-util.h"
-#include "idev.h"
 #include "macro.h"
+#include "signal-util.h"
+#include "util.h"
+#include "idev.h"
 #include "sysview.h"
 #include "term-internal.h"
-#include "util.h"
 
 typedef struct Evcat Evcat;
 

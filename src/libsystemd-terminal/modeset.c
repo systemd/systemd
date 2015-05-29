@@ -35,18 +35,18 @@
 #include <stdlib.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
-#include <systemd/sd-bus.h>
-#include <systemd/sd-event.h>
-#include <systemd/sd-login.h>
 #include <termios.h>
 #include <unistd.h>
-
+#include "sd-bus.h"
+#include "sd-event.h"
+#include "sd-login.h"
 #include "build.h"
-#include "grdev.h"
 #include "macro.h"
-#include "sysview.h"
-#include "util.h"
 #include "random-util.h"
+#include "signal-util.h"
+#include "util.h"
+#include "grdev.h"
+#include "sysview.h"
 
 typedef struct Modeset Modeset;
 
