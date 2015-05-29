@@ -297,7 +297,7 @@ int machine_id_commit(const char *root) {
                 etc_machine_id = path_kill_slashes(x);
         }
 
-        r = path_is_mount_point(etc_machine_id, false);
+        r = path_is_mount_point(etc_machine_id, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine whether %s is a mount point: %m", etc_machine_id);
         if (r == 0) {

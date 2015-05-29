@@ -637,7 +637,8 @@ fallback_fstat:
         return check_st_dev && (a.st_dev != b.st_dev);
 }
 
-int path_is_mount_point(const char *t, bool allow_symlink) {
+/* flags can be AT_SYMLINK_FOLLOW or 0 */
+int path_is_mount_point(const char *t, int flags) {
         _cleanup_close_ int fd = -1;
         _cleanup_free_ char *parent = NULL;
         int r;
@@ -655,7 +656,7 @@ int path_is_mount_point(const char *t, bool allow_symlink) {
         if (fd < 0)
                 return -errno;
 
-        return fd_is_mount_point(fd, basename(t), (allow_symlink ? AT_SYMLINK_FOLLOW : 0));
+        return fd_is_mount_point(fd, basename(t), flags);
 }
 
 int path_is_read_only_fs(const char *path) {

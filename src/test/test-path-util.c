@@ -316,17 +316,17 @@ static void test_path_is_mount_point(void) {
         char tmp_dir[] = "/tmp/test-path-is-mount-point-XXXXXX";
         _cleanup_free_ char *file1 = NULL, *file2 = NULL, *link1 = NULL, *link2 = NULL;
 
-        assert_se(path_is_mount_point("/", true) > 0);
-        assert_se(path_is_mount_point("/", false) > 0);
+        assert_se(path_is_mount_point("/", AT_SYMLINK_FOLLOW) > 0);
+        assert_se(path_is_mount_point("/", 0) > 0);
 
-        assert_se(path_is_mount_point("/proc", true) > 0);
-        assert_se(path_is_mount_point("/proc", false) > 0);
+        assert_se(path_is_mount_point("/proc", AT_SYMLINK_FOLLOW) > 0);
+        assert_se(path_is_mount_point("/proc", 0) > 0);
 
-        assert_se(path_is_mount_point("/proc/1", true) == 0);
-        assert_se(path_is_mount_point("/proc/1", false) == 0);
+        assert_se(path_is_mount_point("/proc/1", AT_SYMLINK_FOLLOW) == 0);
+        assert_se(path_is_mount_point("/proc/1", 0) == 0);
 
-        assert_se(path_is_mount_point("/sys", true) > 0);
-        assert_se(path_is_mount_point("/sys", false) > 0);
+        assert_se(path_is_mount_point("/sys", AT_SYMLINK_FOLLOW) > 0);
+        assert_se(path_is_mount_point("/sys", 0) > 0);
 
         /* file mountpoints */
         assert_se(mkdtemp(tmp_dir) != NULL);
@@ -347,17 +347,17 @@ static void test_path_is_mount_point(void) {
         assert_se(link1);
         assert_se(symlink("file2", link2) == 0);
 
-        assert_se(path_is_mount_point(file1, true) == 0);
-        assert_se(path_is_mount_point(file1, false) == 0);
-        assert_se(path_is_mount_point(link1, true) == 0);
-        assert_se(path_is_mount_point(link1, false) == 0);
+        assert_se(path_is_mount_point(file1, AT_SYMLINK_FOLLOW) == 0);
+        assert_se(path_is_mount_point(file1, 0) == 0);
+        assert_se(path_is_mount_point(link1, AT_SYMLINK_FOLLOW) == 0);
+        assert_se(path_is_mount_point(link1, 0) == 0);
 
         /* this test will only work as root */
         if (mount(file1, file2, NULL, MS_BIND, NULL) >= 0) {
-                rf = path_is_mount_point(file2, false);
-                rt = path_is_mount_point(file2, true);
-                rlf = path_is_mount_point(link2, false);
-                rlt = path_is_mount_point(link2, true);
+                rf = path_is_mount_point(file2, 0);
+                rt = path_is_mount_point(file2, AT_SYMLINK_FOLLOW);
+                rlf = path_is_mount_point(link2, 0);
+                rlt = path_is_mount_point(link2, AT_SYMLINK_FOLLOW);
 
                 assert_se(umount(file2) == 0);
 

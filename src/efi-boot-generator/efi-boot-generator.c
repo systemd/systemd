@@ -68,7 +68,7 @@ int main(int argc, char *argv[]) {
                 return EXIT_SUCCESS;
         }
 
-        r = path_is_mount_point("/boot", true);
+        r = path_is_mount_point("/boot", AT_SYMLINK_FOLLOW);
         if (r > 0) {
                 log_debug("/boot is already a mount point, exiting.");
                 return EXIT_SUCCESS;

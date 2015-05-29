@@ -320,7 +320,7 @@ static int user_mkdir_runtime_path(User *u) {
         } else
                 p = u->runtime_path;
 
-        if (path_is_mount_point(p, false) <= 0) {
+        if (path_is_mount_point(p, 0) <= 0) {
                 _cleanup_free_ char *t = NULL;
 
                 (void) mkdir(p, 0700);

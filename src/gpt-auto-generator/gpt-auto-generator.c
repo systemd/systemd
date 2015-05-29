@@ -297,7 +297,7 @@ static int probe_and_add_mount(
         assert(where);
         assert(description);
 
-        if (path_is_mount_point(where, true) <= 0 &&
+        if (path_is_mount_point(where, AT_SYMLINK_FOLLOW) <= 0 &&
             dir_is_empty(where) <= 0) {
                 log_debug("%s already populated, ignoring.", where);
                 return 0;

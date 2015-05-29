@@ -349,7 +349,7 @@ static int condition_test_path_is_mount_point(Condition *c) {
         assert(c->parameter);
         assert(c->type == CONDITION_PATH_IS_MOUNT_POINT);
 
-        return path_is_mount_point(c->parameter, true) > 0;
+        return path_is_mount_point(c->parameter, AT_SYMLINK_FOLLOW) > 0;
 }
 
 static int condition_test_path_is_read_write(Condition *c) {

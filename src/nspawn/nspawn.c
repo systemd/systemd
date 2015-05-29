@@ -1099,7 +1099,7 @@ static int mount_all(const char *dest, bool userns) {
                 if (!where)
                         return log_oom();
 
-                r = path_is_mount_point(where, true);
+                r = path_is_mount_point(where, AT_SYMLINK_FOLLOW);
                 if (r < 0 && r != -ENOENT)
                         return log_error_errno(r, "Failed to detect whether %s is a mount point: %m", where);
 
@@ -1298,7 +1298,7 @@ static int mount_cgroup_hierarchy(const char *dest, const char *controller, cons
 
         to = strjoina(dest, "/sys/fs/cgroup/", hierarchy);
 
-        r = path_is_mount_point(to, false);
+        r = path_is_mount_point(to, 0);
         if (r < 0 && r != -ENOENT)
                 return log_error_errno(r, "Failed to determine if %s is mounted already: %m", to);
         if (r > 0)
@@ -2154,7 +2154,7 @@ static int setup_journal(const char *directory) {
         p = strjoina("/var/log/journal/", id);
         q = prefix_roota(directory, p);
 
-        if (path_is_mount_point(p, false) > 0) {
+        if (path_is_mount_point(p, 0) > 0) {
                 if (arg_link_journal != LINK_AUTO) {
                         log_error("%s: already a mount point, refusing to use for journal", p);
                         return -EEXIST;
@@ -2163,7 +2163,7 @@ static int setup_journal(const char *directory) {
                 return 0;
         }
 
-        if (path_is_mount_point(q, false) > 0) {
+        if (path_is_mount_point(q, 0) > 0) {
                 if (arg_link_journal != LINK_AUTO) {
                         log_error("%s: already a mount point, refusing to use for journal", q);
                         return -EEXIST;
@@ -4507,7 +4507,7 @@ int main(int argc, char *argv[]) {
                          * the specified is not a mount point we
                          * create the new snapshot in the parent
                          * directory, just next to it. */
-                        r = path_is_mount_point(arg_directory, false);
+                        r = path_is_mount_point(arg_directory, 0);
                         if (r < 0) {
                                 log_error_errno(r, "Failed to determine whether directory %s is mount point: %m", arg_directory);
                                 goto finish;

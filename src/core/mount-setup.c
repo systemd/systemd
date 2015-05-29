@@ -156,7 +156,7 @@ static int mount_one(const MountPoint *p, bool relabel) {
         if (relabel)
                 label_fix(p->where, true, true);
 
-        r = path_is_mount_point(p->where, true);
+        r = path_is_mount_point(p->where, AT_SYMLINK_FOLLOW);
         if (r < 0 && r != -ENOENT)
                 return r;
         if (r > 0)
