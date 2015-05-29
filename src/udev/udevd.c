@@ -730,6 +730,10 @@ static void manager_exit(Manager *manager) {
 
         manager->exit = true;
 
+        sd_notify(false,
+                  "STOPPING=1\n"
+                  "STATUS=Starting shutdown...");
+
         /* close sources of new events and discard buffered events */
         manager->ctrl = udev_ctrl_unref(manager->ctrl);
         manager->ctrl_event = sd_event_source_unref(manager->ctrl_event);
@@ -759,9 +763,17 @@ static void manager_reload(Manager *manager) {
 
         assert(manager);
 
+        sd_notify(false,
+                  "RELOADING=1\n"
+                  "STATUS=Flushing configuration...");
+
         manager_kill_workers(manager);
         manager->rules = udev_rules_unref(manager->rules);
         udev_builtin_exit(manager->udev);
+
+        sd_notify(false,
+                  "READY=1\n"
+                  "STATUS=Processing...");
 }
 
 static void event_queue_start(Manager *manager) {
@@ -1703,6 +1715,10 @@ int main(int argc, char *argv[]) {
         sd_event_get_exit_code(manager->event, &r);
 
 exit:
+        sd_notify(false,
+                  "STOPPING=1\n"
+                  "STATUS=Shutting down...");
+
         if (manager)
                 udev_ctrl_cleanup(manager->ctrl);
         mac_selinux_finish();
