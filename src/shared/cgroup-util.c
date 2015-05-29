@@ -749,6 +749,11 @@ int cg_pid_get_path(const char *controller, pid_t pid, char **path) {
         } else
                 controller = SYSTEMD_CGROUP_CONTROLLER;
 
+#ifdef HAVE_UNIFIED_CGROUP
+        if (!strcmp("systemd", controller))
+                controller = "";
+#endif
+
         fs = procfs_file_alloca(pid, "cgroup");
 
         f = fopen(fs, "re");
@@ -773,6 +778,9 @@ int cg_pid_get_path(const char *controller, pid_t pid, char **path) {
                 e = strchr(l, ':');
                 if (!e)
                         continue;
+
+                if (cs == 0 && e == l)
+                        found = true;
 
                 *e = 0;
 
