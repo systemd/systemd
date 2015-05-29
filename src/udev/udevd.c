@@ -1658,14 +1658,14 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 goto exit;
 
-        log_info("starting version " VERSION);
-
         r = udev_rules_apply_static_dev_perms(manager->rules);
         if (r < 0)
                 log_error_errno(r, "failed to apply permissions on static device nodes: %m");
 
         if (arg_daemonize) {
                 pid_t pid;
+
+                log_info("starting version " VERSION);
 
                 pid = fork();
                 switch (pid) {
@@ -1684,7 +1684,9 @@ int main(int argc, char *argv[]) {
 
                 write_string_file("/proc/self/oom_score_adj", "-1000");
         } else
-                sd_notify(true, "READY=1");
+                sd_notify(true,
+                          "READY=1\n"
+                          "STATUS=Processing...");
 
         r = manager_listen(manager);
         if (r < 0)
