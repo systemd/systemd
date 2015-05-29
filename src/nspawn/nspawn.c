@@ -96,6 +96,7 @@
 #include "process-util.h"
 #include "terminal-util.h"
 #include "hostname-util.h"
+#include "signal-util.h"
 
 #ifdef HAVE_SECCOMP
 #include "seccomp-util.h"

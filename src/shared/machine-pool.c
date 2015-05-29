@@ -30,6 +30,7 @@
 #include "mkdir.h"
 #include "btrfs-util.h"
 #include "path-util.h"
+#include "signal-util.h"
 #include "machine-pool.h"
 
 #define VAR_LIB_MACHINES_SIZE_START (1024UL*1024UL*500UL)

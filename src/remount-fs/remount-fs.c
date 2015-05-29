@@ -29,6 +29,7 @@
 #include "log.h"
 #include "util.h"
 #include "path-util.h"
+#include "signal-util.h"
 #include "mount-setup.h"
 #include "exit-status.h"
 

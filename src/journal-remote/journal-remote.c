@@ -30,6 +30,7 @@
 #include <getopt.h>
 
 #include "sd-daemon.h"
+#include "signal-util.h"
 #include "journal-file.h"
 #include "journald-native.h"
 #include "socket-util.h"

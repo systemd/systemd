@@ -57,9 +57,10 @@
 
 #include "barrier.h"
 #include "macro.h"
-#include "pty.h"
 #include "ring.h"
 #include "util.h"
+#include "signal-util.h"
+#include "pty.h"
 
 #define PTY_BUFSIZE 4096
 

@@ -52,6 +52,7 @@
 #include "errno-list.h"
 #include "af-list.h"
 #include "cap-list.h"
+#include "signal-util.h"
 #include "bus-internal.h"
 
 #ifdef HAVE_SECCOMP

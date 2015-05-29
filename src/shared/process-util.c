@@ -28,10 +28,11 @@
 #include <signal.h>
 #include <ctype.h>
 
-#include "process-util.h"
 #include "fileio.h"
 #include "util.h"
 #include "log.h"
+#include "signal-util.h"
+#include "process-util.h"
 
 int get_process_state(pid_t pid) {
         const char *p;

@@ -785,6 +785,8 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/time-util.h \
 	src/shared/locale-util.c \
 	src/shared/locale-util.h \
+	src/shared/signal-util.c \
+	src/shared/signal-util.h \
 	src/shared/mempool.c \
 	src/shared/mempool.h \
 	src/shared/hashmap.c \

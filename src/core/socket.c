@@ -47,8 +47,9 @@
 #include "selinux-util.h"
 #include "dbus-socket.h"
 #include "unit.h"
-#include "socket.h"
 #include "formats-util.h"
+#include "signal-util.h"
+#include "socket.h"
 
 static const UnitActiveState state_translation_table[_SOCKET_STATE_MAX] = {
         [SOCKET_DEAD] = UNIT_INACTIVE,

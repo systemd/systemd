@@ -30,6 +30,7 @@
 #include "path-util.h"
 #include "missing.h"
 #include "set.h"
+#include "signal-util.h"
 #include "unit-name.h"
 
 #include "sd-bus.h"

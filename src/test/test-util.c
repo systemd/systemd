@@ -39,6 +39,7 @@
 #include "virt.h"
 #include "process-util.h"
 #include "hostname-util.h"
+#include "signal-util.h"
 
 static void test_streq_ptr(void) {
         assert_se(streq_ptr(NULL, NULL));

@@ -27,6 +27,7 @@
 
 #include "pty.h"
 #include "util.h"
+#include "signal-util.h"
 
 static const char sndmsg[] = "message\n";
 static const char rcvmsg[] = "message\r\n";

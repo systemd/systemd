@@ -34,6 +34,7 @@
 
 #include "util.h"
 #include "process-util.h"
+#include "signal-util.h"
 #include "special.h"
 #include "bus-util.h"
 #include "bus-error.h"

@@ -30,9 +30,10 @@
 #include "conf-parser.h"
 #include "bus-util.h"
 #include "bus-error.h"
-#include "logind.h"
 #include "udev-util.h"
 #include "formats-util.h"
+#include "signal-util.h"
+#include "logind.h"
 
 static void manager_free(Manager *m);
 

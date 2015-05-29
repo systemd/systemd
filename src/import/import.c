@@ -25,6 +25,7 @@
 #include "event-util.h"
 #include "verbs.h"
 #include "build.h"
+#include "signal-util.h"
 #include "machine-image.h"
 #include "import-util.h"
 #include "import-tar.h"

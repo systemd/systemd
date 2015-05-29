@@ -37,7 +37,7 @@
 #include "strv.h"
 #include "random-util.h"
 #include "terminal-util.h"
-
+#include "signal-util.h"
 #include "ask-password-api.h"
 
 static void backspace_chars(int ttyfd, size_t p) {

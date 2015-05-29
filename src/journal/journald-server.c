@@ -25,6 +25,10 @@
 #include <sys/statvfs.h>
 #include <sys/mman.h>
 
+#ifdef HAVE_SELINUX
+#include <selinux/selinux.h>
+#endif
+
 #include <libudev.h>
 
 #include "sd-journal.h"
@@ -43,6 +47,7 @@
 #include "formats-util.h"
 #include "process-util.h"
 #include "hostname-util.h"
+#include "signal-util.h"
 #include "journal-internal.h"
 #include "journal-vacuum.h"
 #include "journal-authenticate.h"
@@ -53,10 +58,6 @@
 #include "journald-native.h"
 #include "journald-audit.h"
 #include "journald-server.h"
-
-#ifdef HAVE_SELINUX
-#include <selinux/selinux.h>
-#endif
 
 #define USER_JOURNALS_MAX 1024
 

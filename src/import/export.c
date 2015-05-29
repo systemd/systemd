@@ -23,6 +23,7 @@
 
 #include "sd-event.h"
 #include "event-util.h"
+#include "signal-util.h"
 #include "verbs.h"
 #include "build.h"
 #include "machine-image.h"

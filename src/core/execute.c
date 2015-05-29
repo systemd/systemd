@@ -49,14 +49,13 @@
 #include <sys/apparmor.h>
 #endif
 
+#include "sd-messages.h"
 #include "rm-rf.h"
-#include "execute.h"
 #include "strv.h"
 #include "macro.h"
 #include "capability.h"
 #include "util.h"
 #include "log.h"
-#include "sd-messages.h"
 #include "ioprio.h"
 #include "securebits.h"
 #include "namespace.h"
@@ -79,6 +78,7 @@
 #include "formats-util.h"
 #include "process-util.h"
 #include "terminal-util.h"
+#include "signal-util.h"
 
 #ifdef HAVE_APPARMOR
 #include "apparmor-util.h"
@@ -87,6 +87,8 @@
 #ifdef HAVE_SECCOMP
 #include "seccomp-util.h"
 #endif
+
+#include "execute.h"
 
 #define IDLE_TIMEOUT_USEC (5*USEC_PER_SEC)
 #define IDLE_TIMEOUT2_USEC (1*USEC_PER_SEC)

@@ -39,6 +39,7 @@
 #include "sigbus.h"
 #include "process-util.h"
 #include "terminal-util.h"
+#include "signal-util.h"
 
 static enum {
         ACTION_NONE,

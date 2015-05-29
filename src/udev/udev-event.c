@@ -30,11 +30,12 @@
 #include <sys/wait.h>
 #include <sys/signalfd.h>
 
-#include "udev.h"
 #include "rtnl-util.h"
 #include "event-util.h"
 #include "formats-util.h"
 #include "process-util.h"
+#include "signal-util.h"
+#include "udev.h"
 
 typedef struct Spawn {
         const char *cmd;

@@ -30,6 +30,7 @@
 #include "pull-job.h"
 #include "pull-common.h"
 #include "process-util.h"
+#include "signal-util.h"
 
 #define FILENAME_ESCAPE "/.#\"\'"
 

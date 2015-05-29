@@ -28,9 +28,10 @@
 #include "bus-util.h"
 #include "bus-error.h"
 #include "label.h"
+#include "formats-util.h"
+#include "signal-util.h"
 #include "machine-image.h"
 #include "machined.h"
-#include "formats-util.h"
 
 Manager *manager_new(void) {
         Manager *m;

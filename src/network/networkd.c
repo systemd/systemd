@@ -19,9 +19,9 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "capability.h"
 #include "sd-daemon.h"
-
+#include "capability.h"
+#include "signal-util.h"
 #include "networkd.h"
 
 int main(int argc, char *argv[]) {

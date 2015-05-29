@@ -24,12 +24,13 @@
 #include <unistd.h>
 #include <poll.h>
 
+#include "sd-daemon.h"
 #include "util.h"
 #include "macro.h"
 #include "missing.h"
 #include "utf8.h"
-#include "sd-daemon.h"
 #include "formats-util.h"
+#include "signal-util.h"
 
 #include "sd-bus.h"
 #include "bus-socket.h"

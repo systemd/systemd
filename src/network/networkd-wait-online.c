@@ -21,11 +21,10 @@
 #include <getopt.h>
 
 #include "sd-daemon.h"
-
-#include "networkd-wait-online.h"
-
 #include "strv.h"
 #include "build.h"
+#include "signal-util.h"
+#include "networkd-wait-online.h"
 
 static bool arg_quiet = false;
 static usec_t arg_timeout = 120 * USEC_PER_SEC;

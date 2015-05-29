@@ -38,6 +38,7 @@
 #include "formats-util.h"
 #include "process-util.h"
 #include "terminal-util.h"
+#include "signal-util.h"
 
 #define SNDBUF_SIZE (8*1024*1024)
 

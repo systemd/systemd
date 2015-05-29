@@ -33,6 +33,7 @@
 #include "missing.h"
 #include "set.h"
 #include "list.h"
+#include "signal-util.h"
 
 #include "sd-event.h"
 

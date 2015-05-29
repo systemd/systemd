@@ -40,8 +40,6 @@
 #include "sd-daemon.h"
 #include "sd-messages.h"
 
-#include "manager.h"
-#include "transaction.h"
 #include "hashmap.h"
 #include "macro.h"
 #include "strv.h"
@@ -65,14 +63,17 @@
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-util.h"
-#include "dbus.h"
-#include "dbus-unit.h"
-#include "dbus-job.h"
-#include "dbus-manager.h"
 #include "bus-kernel.h"
 #include "time-util.h"
 #include "process-util.h"
 #include "terminal-util.h"
+#include "signal-util.h"
+#include "dbus.h"
+#include "dbus-unit.h"
+#include "dbus-job.h"
+#include "dbus-manager.h"
+#include "manager.h"
+#include "transaction.h"
 
 /* Initial delay and the interval for printing status messages about running jobs */
 #define JOBS_IN_PROGRESS_WAIT_USEC (5*USEC_PER_SEC)

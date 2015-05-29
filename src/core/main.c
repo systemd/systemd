@@ -60,6 +60,10 @@
 #include "bus-error.h"
 #include "bus-util.h"
 #include "selinux-util.h"
+#include "formats-util.h"
+#include "process-util.h"
+#include "terminal-util.h"
+#include "signal-util.h"
 #include "manager.h"
 #include "dbus-manager.h"
 #include "load-fragment.h"
@@ -72,9 +76,6 @@
 #include "ima-setup.h"
 #include "smack-setup.h"
 #include "kmod-setup.h"
-#include "formats-util.h"
-#include "process-util.h"
-#include "terminal-util.h"
 
 static enum {
         ACTION_RUN,

@@ -19,9 +19,9 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-
-#include "kill.h"
 #include "util.h"
+#include "signal-util.h"
+#include "kill.h"
 
 void kill_context_init(KillContext *c) {
         assert(c);
