@@ -49,6 +49,17 @@
 #include "bus-track.h"
 #include "bus-slot.h"
 
+#define log_debug_bus_message(m) log_debug("Got message type=%s sender=%s destination=%s object=%s interface=%s member=%s cookie=%" PRIu64 " reply_cookie=%" PRIu64 " error=%s", \
+                  bus_message_type_to_string(m->header->type), \
+                  strna(sd_bus_message_get_sender(m)), \
+                  strna(sd_bus_message_get_destination(m)), \
+                  strna(sd_bus_message_get_path(m)), \
+                  strna(sd_bus_message_get_interface(m)), \
+                  strna(sd_bus_message_get_member(m)), \
+                  BUS_MESSAGE_COOKIE(m), \
+                  m->reply_cookie, \
+                  strna(m->error.message))
+
 static int bus_poll(sd_bus *bus, bool need_more, uint64_t timeout_usec);
 static int attach_io_events(sd_bus *b);
 static void detach_io_events(sd_bus *b);
@@ -2006,8 +2017,10 @@ _public_ int sd_bus_call(
 
                                         r = sd_bus_error_setf(error, SD_BUS_ERROR_INCONSISTENT_MESSAGE, "Reply message contained file descriptors which I couldn't accept. Sorry.");
 
-                                } else if (incoming->header->type == SD_BUS_MESSAGE_METHOD_ERROR)
+                                } else if (incoming->header->type == SD_BUS_MESSAGE_METHOD_ERROR) {
+                                        log_debug_bus_message(incoming);
                                         r = sd_bus_error_copy(error, &incoming->error);
+                                }
                                 else
                                         r = -EIO;
 
@@ -2480,16 +2493,7 @@ static int process_message(sd_bus *bus, sd_bus_message *m) {
         bus->current_message = m;
         bus->iteration_counter++;
 
-        log_debug("Got message type=%s sender=%s destination=%s object=%s interface=%s member=%s cookie=%" PRIu64 " reply_cookie=%" PRIu64 " error=%s",
-                  bus_message_type_to_string(m->header->type),
-                  strna(sd_bus_message_get_sender(m)),
-                  strna(sd_bus_message_get_destination(m)),
-                  strna(sd_bus_message_get_path(m)),
-                  strna(sd_bus_message_get_interface(m)),
-                  strna(sd_bus_message_get_member(m)),
-                  BUS_MESSAGE_COOKIE(m),
-                  m->reply_cookie,
-                  strna(m->error.message));
+        log_debug_bus_message(m);
 
         r = process_hello(bus, m);
         if (r != 0)
