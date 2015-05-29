@@ -79,10 +79,10 @@ int cg_trim(const char *controller, const char *path, bool delete_root);
 int cg_rmdir(const char *controller, const char *path);
 int cg_delete(const char *controller, const char *path);
 
-int cg_create(const char *controller, const char *path);
+int cg_create(const char *controller, const char *path, const int inotify_fd, int *wd);
 int cg_attach(const char *controller, const char *path, pid_t pid);
 int cg_attach_fallback(const char *controller, const char *path, pid_t pid);
-int cg_create_and_attach(const char *controller, const char *path, pid_t pid);
+int cg_create_and_attach(const char *controller, const char *path, pid_t pid, const int inotify_fd, int *wd);
 
 int cg_set_attribute(const char *controller, const char *path, const char *attribute, const char *value);
 int cg_get_attribute(const char *controller, const char *path, const char *attribute, char **ret);
@@ -128,7 +128,7 @@ int cg_slice_to_path(const char *unit, char **ret);
 
 typedef const char* (*cg_migrate_callback_t)(CGroupControllerMask mask, void *userdata);
 
-int cg_create_everywhere(CGroupControllerMask supported, CGroupControllerMask mask, const char *path);
+int cg_create_everywhere(CGroupControllerMask supported, CGroupControllerMask mask, const char *path, const int inotify_fd, int *wd);
 int cg_attach_everywhere(CGroupControllerMask supported, const char *path, pid_t pid, cg_migrate_callback_t callback, void *userdata);
 int cg_attach_many_everywhere(CGroupControllerMask supported, const char *path, Set* pids, cg_migrate_callback_t callback, void *userdata);
 int cg_migrate_everywhere(CGroupControllerMask supported, const char *from, const char *to, cg_migrate_callback_t callback, void *userdata);
