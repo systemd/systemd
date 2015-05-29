@@ -6602,7 +6602,7 @@ EXTRA_DIST += \
 
 # ------------------------------------------------------------------------------
 if ENABLE_MANPAGES
-man/custom-entities.ent: configure.ac
+man/custom-entities.ent: Makefile.am configure.ac
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@)
 	$(AM_V_GEN)(echo '<?xml version="1.0" encoding="utf-8" ?>' && \
 	 printf '$(subst '|,<!ENTITY ,$(subst =, ",$(subst |',">\n,$(substitutions))))') \
