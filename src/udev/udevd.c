@@ -351,6 +351,8 @@ static void worker_spawn(Manager *manager, struct event *event) {
                 dev = event->dev;
                 event->dev = NULL;
 
+                unsetenv("NOTIFY_SOCKET");
+
                 manager_workers_free(manager);
                 event_queue_cleanup(manager, EVENT_UNDEF);
 
@@ -1684,7 +1686,7 @@ int main(int argc, char *argv[]) {
 
                 write_string_file("/proc/self/oom_score_adj", "-1000");
         } else
-                sd_notify(true,
+                sd_notify(false,
                           "READY=1\n"
                           "STATUS=Processing...");
 
