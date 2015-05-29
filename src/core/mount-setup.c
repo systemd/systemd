@@ -67,6 +67,11 @@ typedef struct MountPoint {
 #define N_EARLY_MOUNT 4
 #endif
 
+static bool unified_cgroup = false;
+
+static int parse_proc_cmdline_item(const char *key, const char *value);
+static bool is_unified_cgroup(void);
+
 static const MountPoint mount_table[] = {
         { "sysfs",       "/sys",                      "sysfs",      NULL,                      MS_NOSUID|MS_NOEXEC|MS_NODEV,
           NULL,          MNT_FATAL|MNT_IN_CONTAINER },
@@ -94,6 +99,8 @@ static const MountPoint mount_table[] = {
           NULL,          MNT_FATAL|MNT_IN_CONTAINER },
         { "tmpfs",       "/sys/fs/cgroup",            "tmpfs",      "mode=755",                MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME,
           NULL,          MNT_FATAL|MNT_IN_CONTAINER },
+        { "cgroup",      "/sys/fs/cgroup/systemd",    "cgroup",     "__DEVEL__sane_behavior",  MS_NOSUID|MS_NOEXEC|MS_NODEV,
+          is_unified_cgroup, MNT_FATAL|MNT_IN_CONTAINER },
         { "cgroup",      "/sys/fs/cgroup/systemd",    "cgroup",     "none,name=systemd,xattr", MS_NOSUID|MS_NOEXEC|MS_NODEV,
           NULL,          MNT_IN_CONTAINER           },
         { "cgroup",      "/sys/fs/cgroup/systemd",    "cgroup",     "none,name=systemd",       MS_NOSUID|MS_NOEXEC|MS_NODEV,
@@ -118,6 +125,26 @@ static const char ignore_paths[] =
         "/proc/sys\0"
         "/dev/console\0"
         "/proc/kmsg\0";
+
+static int parse_proc_cmdline_item(const char *key, const char *value) {
+        int r;
+        if (streq(key, "systemd.unified-cgroup") && value) {
+                r = parse_boolean(value);
+                if (r < 0)
+                        log_warning("Failed to parse unified cgroup switch %s. Ignoring.", value);
+                else
+                        unified_cgroup = r;
+        }
+        return 0;
+}
+
+static bool is_unified_cgroup(void) {
+        int r;
+        r = parse_proc_cmdline(parse_proc_cmdline_item);
+        if (r < 0)
+                log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
+        return unified_cgroup;
+}
 
 bool mount_point_is_api(const char *path) {
         unsigned i;
