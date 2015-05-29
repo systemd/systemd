@@ -292,3 +292,24 @@
 
 - When returning a return code from main(), please preferably use
   EXIT_FAILURE and EXIT_SUCCESS as defined by libc.
+
+- The order in which header files are included doesn't matter too
+  much. However, please try to include the headers of external
+  libraries first (these are all headers enclosed in <>), followed by
+  the headers of our own public headers (these are all headers
+  starting with "sd-"), internal utility libraries from src/shared/,
+  followed by the headers of the specific component. Or in other
+  words:
+
+          #include <stdio.h>
+          #include "sd-daemon.h"
+          #include "util.h"
+          #include "frobnicator.h"
+
+  Where stdio.h is a public glibc API, sd-daemon.h is a public API of
+  our own, util.h is a utility library header from src/shared, and
+  frobnicator.h is an placeholder name for any systemd component. The
+  benefit of following this ordering is that more local definitions
+  are always defined after more global ones. Thus, our local
+  definitions will never "leak" into the global header files, possibly
+  altering their effect due to #ifdeffery.
