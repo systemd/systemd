@@ -65,7 +65,7 @@
   if (( CURRENT == 1 )); then
     _describe -t commands 'systemctl command' _systemctl_cmds || compadd "$@"
   else
-    local curcontext="$curcontext"
+    local curcontext="$curcontext" expl
 
     cmd="${${_systemctl_cmds[(r)$words[1]:*]%%:*}}"
     # Deal with any aliases
@@ -174,7 +174,8 @@ for fun in is-active is-failed is-enabled status show cat mask preset help list-
   (( $+functions[_systemctl_$fun] )) || _systemctl_$fun()
   {
     _systemctl_really_all_units
-    compadd "$@" -a - _sys_really_all_units
+    _wanted systemd-units expl unit \
+      compadd "$@" -a - _sys_really_all_units
   }
 done
 
@@ -182,34 +183,39 @@ done
 (( $+functions[_systemctl_disable] )) || _systemctl_disable()
 {
     local _sys_unit_state; _systemctl_unit_state
-    compadd "$@" - ${(k)_sys_unit_state[(R)enabled]}
+    _wanted systemd-units expl 'enabled unit' \
+      compadd "$@" - ${(k)_sys_unit_state[(R)enabled]}
 }
 
 (( $+functions[_systemctl_reenable] )) || _systemctl_reenable()
 {
     local _sys_unit_state; _systemctl_unit_state
-    compadd "$@" - ${(k)_sys_unit_state[(R)(enabled|disabled)]} $(_systemctl_get_template_names)
+    _wanted systemd-units expl 'enabled/disabled unit' \
+      compadd "$@" - ${(k)_sys_unit_state[(R)(enabled|disabled)]} $(_systemctl_get_template_names)
 }
 
 # Completion functions for DISABLED_UNITS
 (( $+functions[_systemctl_enable] )) || _systemctl_enable()
 {
   local _sys_unit_state; _systemctl_unit_state
-  compadd "$@" - ${(k)_sys_unit_state[(R)disabled]} $(_systemctl_get_template_names)
+  _wanted systemd-units expl 'disabled unit' \
+    compadd "$@" - ${(k)_sys_unit_state[(R)disabled]} $(_systemctl_get_template_names)
 }
 
 # Completion functions for FAILED_UNITS
 (( $+functions[_systemctl_reset-failed] )) || _systemctl_reset-failed()
 {
   local _sys_failed_units; _systemctl_failed_units
-  compadd "$@" -a - _sys_failed_units || _message "no failed unit found"
+  _wanted systemd-units expl 'failed unit' \
+    compadd "$@" -a - _sys_failed_units || _message "no failed unit found"
 }
 
 # Completion functions for STARTABLE_UNITS
 (( $+functions[_systemctl_start] )) || _systemctl_start()
 {
    local _sys_startable_units; _systemctl_startable_units
-   compadd "$@" - ${_sys_startable_units[*]} $(_systemctl_get_template_names)
+   _wanted systemd-units expl 'startable unit' \
+     compadd "$@" - ${_sys_startable_units[*]} $(_systemctl_get_template_names)
 }
 
 # Completion functions for STOPPABLE_UNITS
@@ -217,8 +223,9 @@ for fun in stop kill try-restart condrestart ; do
   (( $+functions[_systemctl_$fun] )) || _systemctl_$fun()
   {
     local _sys_active_units; _systemctl_active_units
-    compadd "$@" - $( _filter_units_by_property CanStop yes \
-      ${_sys_active_units[*]} )
+    _wanted systemd-units expl 'stoppable unit' \
+      compadd "$@" - $( _filter_units_by_property CanStop yes \
+        ${_sys_active_units[*]} )
   }
 done
 
@@ -226,8 +233,9 @@ done
 (( $+functions[_systemctl_isolate] )) || _systemctl_isolate()
 {
   _systemctl_all_units
-  compadd "$@" - $( _filter_units_by_property AllowIsolate yes \
-    ${_sys_all_units[*]} )
+  _wanted systemd-units expl 'isolatable unit' \
+    compadd "$@" - $( _filter_units_by_property AllowIsolate yes \
+      ${_sys_all_units[*]} )
 }
 
 # Completion functions for RELOADABLE_UNITS
@@ -235,8 +243,9 @@ for fun in reload reload-or-try-restart force-reload ; do
   (( $+functions[_systemctl_$fun] )) || _systemctl_$fun()
   {
     local _sys_active_units; _systemctl_active_units
-    compadd "$@" - $( _filter_units_by_property CanReload yes \
-      ${_sys_active_units[*]} )
+    _wanted systemd-units expl 'reloadable unit' \
+      compadd "$@" - $( _filter_units_by_property CanReload yes \
+        ${_sys_active_units[*]} )
   }
 done
 
@@ -245,7 +254,8 @@ for fun in restart reload-or-restart ; do
   (( $+functions[_systemctl_$fun] )) || _systemctl_$fun()
   {
     local _sys_restartable_units; _systemctl_restartable_units
-    compadd "$@" - ${_sys_restartable_units[*]} $(_systemctl_get_template_names)
+    _wanted systemd-units expl 'restartable unit' \
+      compadd "$@" - ${_sys_restartable_units[*]} $(_systemctl_get_template_names)
   }
 done
 
@@ -253,28 +263,32 @@ done
 (( $+functions[_systemctl_unmask] )) || _systemctl_unmask()
 {
   local _sys_unit_state; _systemctl_unit_state
-  compadd "$@" - ${(k)_sys_unit_state[(R)masked]} || _message "no masked units found"
+  _wanted systemd-units expl 'masked unit' \
+    compadd "$@" - ${(k)_sys_unit_state[(R)masked]} || _message "no masked units found"
 }
 
 # Completion functions for JOBS
 (( $+functions[_systemctl_cancel] )) || _systemctl_cancel()
 {
-  compadd "$@" - ${${(f)"$(__systemctl list-jobs)"}%% *} ||
-    _message "no jobs found"
+  _wanted systemd-jobs expl job \
+    compadd "$@" - ${${(f)"$(__systemctl list-jobs)"}%% *} ||
+      _message "no jobs found"
 }
 
 # Completion functions for SNAPSHOTS
 (( $+functions[_systemctl_delete] )) || _systemctl_delete()
 {
-  compadd "$@" - ${${(f)"$(__systemctl list-units --type snapshot --all)"}%% *} ||
-    _message "no snapshots found"
+  _wanted systemd-snapshots expl snapshot \
+    compadd "$@" - ${${(f)"$(__systemctl list-units --type snapshot --all)"}%% *} ||
+      _message "no snapshots found"
 }
 
 # Completion functions for TARGETS
 (( $+functions[_systemctl_set-default] )) || _systemctl_set-default()
 {
-  compadd "$@" - ${${(f)"$(__systemctl list-unit-files --type target --all)"}%% *} ||
-    _message "no targets found"
+  _wanted systemd-targets expl target \
+    compadd "$@" - ${${(f)"$(__systemctl list-unit-files --type target --all)"}%% *} ||
+      _message "no targets found"
 }
 
 # Completion functions for ENVS
@@ -286,8 +300,8 @@ for fun in set-environment unset-environment ; do
     if [[ "${fun}" = "set-environment" ]]; then
       suf='-S='
     fi
-
-    compadd "$@" ${suf} - ${${(f)"$(systemctl show-environment)"}%%=*}
+    _wanted systemd-environment expl 'environment variable' \
+      compadd "$@" ${suf} - ${${(f)"$(systemctl show-environment)"}%%=*}
   }
 done
 
