@@ -21,16 +21,17 @@
 
 #include <errno.h>
 #include <stdlib.h>
-#include "consoled.h"
-#include "grdev.h"
-#include "idev.h"
-#include "log.h"
 #include "sd-bus.h"
 #include "sd-event.h"
 #include "sd-login.h"
+#include "log.h"
+#include "signal-util.h"
+#include "util.h"
+#include "consoled.h"
+#include "idev.h"
+#include "grdev.h"
 #include "sysview.h"
 #include "unifont.h"
-#include "util.h"
 
 int manager_new(Manager **out) {
         _cleanup_(manager_freep) Manager *m = NULL;
