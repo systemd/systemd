@@ -1433,6 +1433,7 @@ AC_SUBST(DEFAULT_DKR_INDEX_URL)
 AS_IF([test "x${enable_split_usr}" = "xyes"], [
         AC_DEFINE(HAVE_SPLIT_USR, 1, [Define if /bin, /sbin aren't symlinks into /usr])
 ])
+AM_CONDITIONAL(ENABLE_SPLIT_USR, [test "x${enable_split_usr}" = "xyes"])
 
 # Work around intltoolize and gtk-doc problems in VPATH builds
 AM_CONDITIONAL([ENABLE_GTK_DOC_TESTS], [test "x$0" = "x./configure"],
