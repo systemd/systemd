@@ -738,54 +738,72 @@ int user_kill(User *u, int signo) {
         return manager_kill_unit(u->manager, u->slice, KILL_ALL, signo, NULL);
 }
 
+static bool
+elect_display_filter(Session *s) {
+        /* Return true if the session is a candidate for the user’s ‘primary
+         * session’ or ‘display’. */
+        assert(s);
+
+        return (s->class == SESSION_USER && !s->stopping);
+}
+
+static int
+elect_display_compare(Session *s1, Session *s2) {
+        /* Indexed by SessionType. Lower numbers mean more preferred. */
+        const int type_ranks[_SESSION_TYPE_MAX] = {
+                [SESSION_UNSPECIFIED] = 0,
+                [SESSION_TTY] = -2,
+                [SESSION_X11] = -3,
+                [SESSION_WAYLAND] = -3,
+                [SESSION_MIR] = -3,
+                [SESSION_WEB] = -1,
+        };
+
+        /* Calculate the partial order relationship between s1 and s2,
+         * returning < 0 if s1 is preferred as the user’s ‘primary session’,
+         * 0 if s1 and s2 are equally preferred or incomparable, or > 0 if s2
+         * is preferred.
+         *
+         * s1 or s2 may be NULL. */
+        if ((s1 == NULL) != (s2 == NULL))
+                return (s1 == NULL) - (s2 == NULL);
+
+        if (s1->stopping != s2->stopping)
+                return s1->stopping - s2->stopping;
+
+        if ((s1->class != SESSION_USER) != (s2->class != SESSION_USER))
+                return (s1->class != SESSION_USER) - (s2->class != SESSION_USER);
+
+        if ((s1->type == _SESSION_TYPE_INVALID) != (s2->type == _SESSION_TYPE_INVALID))
+                return (s1->type == _SESSION_TYPE_INVALID) - (s2->type == _SESSION_TYPE_INVALID);
+
+        if (s1->type != s2->type)
+                return type_ranks[s1->type] - type_ranks[s2->type];
+
+        return 0;
+}
+
 void user_elect_display(User *u) {
-        Session *graphical = NULL, *text = NULL, *other = NULL, *s;
+        Session *s;
 
         assert(u);
 
         /* This elects a primary session for each user, which we call
          * the "display". We try to keep the assignment stable, but we
          * "upgrade" to better choices. */
+        log_debug("Electing new display for user %s", u->name);
 
         LIST_FOREACH(sessions_by_user, s, u->sessions) {
-
-                if (s->class != SESSION_USER)
+                if (!elect_display_filter(s)) {
+                        log_debug("Ignoring session %s", s->id);
                         continue;
+                }
 
-                if (s->stopping)
-                        continue;
-
-                if (SESSION_TYPE_IS_GRAPHICAL(s->type))
-                        graphical = s;
-                else if (s->type == SESSION_TTY)
-                        text = s;
-                else
-                        other = s;
+                if (elect_display_compare(s, u->display) < 0) {
+                        log_debug("Choosing session %s in preference to %s", s->id, u->display ? u->display->id : "-");
+                        u->display = s;
+                }
         }
-
-        if (graphical &&
-            (!u->display ||
-             u->display->class != SESSION_USER ||
-             u->display->stopping ||
-             !SESSION_TYPE_IS_GRAPHICAL(u->display->type))) {
-                u->display = graphical;
-                return;
-        }
-
-        if (text &&
-            (!u->display ||
-             u->display->class != SESSION_USER ||
-             u->display->stopping ||
-             u->display->type != SESSION_TTY)) {
-                u->display = text;
-                return;
-        }
-
-        if (other &&
-            (!u->display ||
-             u->display->class != SESSION_USER ||
-             u->display->stopping))
-                u->display = other;
 }
 
 static const char* const user_state_table[_USER_STATE_MAX] = {
