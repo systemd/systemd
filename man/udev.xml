@@ -65,10 +65,10 @@
       regardless of the directories in which they live. However, files with
       identical filenames replace each other. Files in <filename>/etc</filename>
       have the highest priority, files in <filename>/run</filename> take precedence
-      over files with the same name in <filename>/usr/lib</filename>. This can be
+      over files with the same name in <filename>&rootprefix;/lib</filename>. This can be
       used to override a system-supplied rules file with a local file if needed;
       a symlink in <filename>/etc</filename> with the same name as a rules file in
-      <filename>/usr/lib</filename>, pointing to <filename>/dev/null</filename>,
+      <filename>&rootprefix;/lib</filename>, pointing to <filename>/dev/null</filename>,
       disables the rules file entirely. Rule files must have the extension
       <filename>.rules</filename>; other extensions are ignored.</para>
 
