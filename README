@@ -250,7 +250,7 @@ WARNINGS:
         supported anymore by the basic set of Linux OS components.
 
         systemd requires that the /run mount point exists. systemd also
-        requires that /var/run is a a symlink to /run.
+        requires that /var/run is a symlink to /run.
 
         For more information on this issue consult
         http://freedesktop.org/wiki/Software/systemd/separate-usr-is-broken
