@@ -62,7 +62,7 @@ static int link_get_type_string(int iftype, sd_device *d, char **ret) {
         assert(ret);
 
         if (iftype == ARPHRD_ETHER && d) {
-                const char *devtype, *id = NULL;
+                const char *devtype = NULL, *id = NULL;
                 /* WLANs have iftype ARPHRD_ETHER, but we want
                  * to show a more useful type string for
                  * them */
