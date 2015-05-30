@@ -444,7 +444,7 @@ int config_parse_many(const char *conf_file,
                 if (r < 0)                                              \
                         log_syntax(unit, LOG_ERR, filename, line, -r,   \
                                    "Failed to parse %s value, ignoring: %s", \
-                                   #vartype, rvalue);                   \
+                                   #type, rvalue);                      \
                                                                         \
                 return 0;                                               \
         }
