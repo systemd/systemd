@@ -1370,16 +1370,19 @@ AC_ARG_WITH([dbuspolicydir],
         AS_HELP_STRING([--with-dbuspolicydir=DIR], [D-Bus policy directory]),
         [],
         [with_dbuspolicydir=${sysconfdir}/dbus-1/system.d])
+AX_NORMALIZE_PATH([with_dbuspolicydir])
 
 AC_ARG_WITH([dbussessionservicedir],
         AS_HELP_STRING([--with-dbussessionservicedir=DIR], [D-Bus session service directory]),
         [],
         [with_dbussessionservicedir=${datadir}/dbus-1/services])
+AX_NORMALIZE_PATH([with_dbussessionservicedir])
 
 AC_ARG_WITH([dbussystemservicedir],
         AS_HELP_STRING([--with-dbussystemservicedir=DIR], [D-Bus system service directory]),
         [],
         [with_dbussystemservicedir=${datadir}/dbus-1/system-services])
+AX_NORMALIZE_PATH([with_dbussystemservicedir])
 
 AC_ARG_WITH([bashcompletiondir],
         AS_HELP_STRING([--with-bashcompletiondir=DIR], [Bash completions directory]),
@@ -1389,29 +1392,35 @@ AC_ARG_WITH([bashcompletiondir],
         ] , [
                 with_bashcompletiondir=${datadir}/bash-completion/completions
         ])])
+AX_NORMALIZE_PATH([with_bashcompletiondir])
 
 AC_ARG_WITH([zshcompletiondir],
         AS_HELP_STRING([--with-zshcompletiondir=DIR], [Zsh completions directory]),
         [], [with_zshcompletiondir=${datadir}/zsh/site-functions])
+AX_NORMALIZE_PATH([with_zshcompletiondir])
 
 AC_ARG_WITH([rootprefix],
         AS_HELP_STRING([--with-rootprefix=DIR], [rootfs directory prefix for config files and kernel modules]),
         [], [with_rootprefix=${ac_default_prefix}])
+AX_NORMALIZE_PATH([with_rootprefix])
 
 AC_ARG_WITH([rootlibdir],
         AS_HELP_STRING([--with-rootlibdir=DIR], [Root directory for libraries necessary for boot]),
         [],
         [with_rootlibdir=${libdir}])
+AX_NORMALIZE_PATH([with_rootlibdir])
 
 AC_ARG_WITH([pamlibdir],
         AS_HELP_STRING([--with-pamlibdir=DIR], [Directory for PAM modules]),
         [],
         [with_pamlibdir=${with_rootlibdir}/security])
+AX_NORMALIZE_PATH([with_pamlibdir])
 
 AC_ARG_WITH([pamconfdir],
         AS_HELP_STRING([--with-pamconfdir=DIR], [Directory for PAM configuration]),
         [],
         [with_pamconfdir=${sysconfdir}/pam.d])
+AX_NORMALIZE_PATH([with_pamconfdir])
 
 AC_ARG_ENABLE([split-usr],
         AS_HELP_STRING([--enable-split-usr], [Assume that /bin, /sbin aren\'t symlinks into /usr]),
