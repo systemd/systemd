@@ -5209,6 +5209,42 @@ int unquote_first_word(const char **p, char **ret, UnquoteFlags flags) {
 
                         break;
 
+                case SINGLE_QUOTE:
+                        if (c == 0) {
+                                if (flags & UNQUOTE_RELAX)
+                                        goto finish;
+                                return -EINVAL;
+                        } else if (c == '\'')
+                                state = VALUE;
+                        else if (c == '\\')
+                                state = SINGLE_QUOTE_ESCAPE;
+                        else {
+                                if (!GREEDY_REALLOC(s, allocated, sz+2))
+                                        return -ENOMEM;
+
+                                s[sz++] = c;
+                        }
+
+                        break;
+
+                case DOUBLE_QUOTE:
+                        if (c == 0)
+                                return -EINVAL;
+                        else if (c == '\"')
+                                state = VALUE;
+                        else if (c == '\\')
+                                state = DOUBLE_QUOTE_ESCAPE;
+                        else {
+                                if (!GREEDY_REALLOC(s, allocated, sz+2))
+                                        return -ENOMEM;
+
+                                s[sz++] = c;
+                        }
+
+                        break;
+
+                case SINGLE_QUOTE_ESCAPE:
+                case DOUBLE_QUOTE_ESCAPE:
                 case VALUE_ESCAPE:
                         if (c == 0) {
                                 if (flags & UNQUOTE_RELAX)
@@ -5235,99 +5271,9 @@ int unquote_first_word(const char **p, char **ret, UnquoteFlags flags) {
                         } else
                                 s[sz++] = c;
 
-                        state = VALUE;
-                        break;
-
-                case SINGLE_QUOTE:
-                        if (c == 0) {
-                                if (flags & UNQUOTE_RELAX)
-                                        goto finish;
-                                return -EINVAL;
-                        } else if (c == '\'')
-                                state = VALUE;
-                        else if (c == '\\')
-                                state = SINGLE_QUOTE_ESCAPE;
-                        else {
-                                if (!GREEDY_REALLOC(s, allocated, sz+2))
-                                        return -ENOMEM;
-
-                                s[sz++] = c;
-                        }
-
-                        break;
-
-                case SINGLE_QUOTE_ESCAPE:
-                        if (c == 0) {
-                                if (flags & UNQUOTE_RELAX)
-                                        goto finish;
-                                return -EINVAL;
-                        }
-
-                        if (!GREEDY_REALLOC(s, allocated, sz+7))
-                                return -ENOMEM;
-
-                        if (flags & UNQUOTE_CUNESCAPE) {
-                                uint32_t u;
-
-                                r = cunescape_one(*p, (size_t) -1, &c, &u);
-                                if (r < 0)
-                                        return -EINVAL;
-
-                                (*p) += r - 1;
-
-                                if (c != 0)
-                                        s[sz++] = c;
-                                else
-                                        sz += utf8_encode_unichar(s + sz, u);
-                        } else
-                                s[sz++] = c;
-
-                        state = SINGLE_QUOTE;
-                        break;
-
-                case DOUBLE_QUOTE:
-                        if (c == 0)
-                                return -EINVAL;
-                        else if (c == '\"')
-                                state = VALUE;
-                        else if (c == '\\')
-                                state = DOUBLE_QUOTE_ESCAPE;
-                        else {
-                                if (!GREEDY_REALLOC(s, allocated, sz+2))
-                                        return -ENOMEM;
-
-                                s[sz++] = c;
-                        }
-
-                        break;
-
-                case DOUBLE_QUOTE_ESCAPE:
-                        if (c == 0) {
-                                if (flags & UNQUOTE_RELAX)
-                                        goto finish;
-                                return -EINVAL;
-                        }
-
-                        if (!GREEDY_REALLOC(s, allocated, sz+7))
-                                return -ENOMEM;
-
-                        if (flags & UNQUOTE_CUNESCAPE) {
-                                uint32_t u;
-
-                                r = cunescape_one(*p, (size_t) -1, &c, &u);
-                                if (r < 0)
-                                        return -EINVAL;
-
-                                (*p) += r - 1;
-
-                                if (c != 0)
-                                        s[sz++] = c;
-                                else
-                                        sz += utf8_encode_unichar(s + sz, u);
-                        } else
-                                s[sz++] = c;
-
-                        state = DOUBLE_QUOTE;
+                        state = (state == SINGLE_QUOTE_ESCAPE) ? SINGLE_QUOTE :
+                                (state == DOUBLE_QUOTE_ESCAPE) ? DOUBLE_QUOTE :
+                                VALUE;
                         break;
 
                 case SPACE:
