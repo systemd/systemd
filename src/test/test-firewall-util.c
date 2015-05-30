@@ -26,35 +26,25 @@
 
 int main(int argc, char *argv[]) {
         int r;
+        uint64_t handle;
         log_set_max_level(LOG_DEBUG);
 
-        r = fw_add_masquerade(true, AF_INET, 0, NULL, 0, "foobar", NULL, 0);
+        r = fw_add_masquerade(AF_INET, 0, NULL, 0, "foobar", NULL, 0, &handle);
         if (r < 0)
                 log_error_errno(r, "Failed to modify firewall: %m");
 
-        r = fw_add_masquerade(true, AF_INET, 0, NULL, 0, "foobar", NULL, 0);
+        r = fw_remove_masquerade(handle);
+        if (r < 0)
+                log_error_errno(r, "Failed to remove firewall rule: %m");
+
+
+        r = fw_add_local_dnat(AF_INET, IPPROTO_TCP, NULL, NULL, 0, NULL, 0, 4711, &MAKE_IN_ADDR_UNION(1, 2, 3, 4), 815, &handle);
         if (r < 0)
                 log_error_errno(r, "Failed to modify firewall: %m");
 
-        r = fw_add_masquerade(false, AF_INET, 0, NULL, 0, "foobar", NULL, 0);
+        r = fw_remove_local_dnat(handle);
         if (r < 0)
-                log_error_errno(r, "Failed to modify firewall: %m");
-
-        r = fw_add_local_dnat(true, AF_INET, IPPROTO_TCP, NULL, NULL, 0, NULL, 0, 4711, &MAKE_IN_ADDR_UNION(1, 2, 3, 4), 815, NULL);
-        if (r < 0)
-                log_error_errno(r, "Failed to modify firewall: %m");
-
-        r = fw_add_local_dnat(true, AF_INET, IPPROTO_TCP, NULL, NULL, 0, NULL, 0, 4711, &MAKE_IN_ADDR_UNION(1, 2, 3, 4), 815, NULL);
-        if (r < 0)
-                log_error_errno(r, "Failed to modify firewall: %m");
-
-        r = fw_add_local_dnat(true, AF_INET, IPPROTO_TCP, NULL, NULL, 0, NULL, 0, 4711, &MAKE_IN_ADDR_UNION(1, 2, 3, 5), 815, &MAKE_IN_ADDR_UNION(1, 2, 3, 4));
-        if (r < 0)
-                log_error_errno(r, "Failed to modify firewall: %m");
-
-        r = fw_add_local_dnat(false, AF_INET, IPPROTO_TCP, NULL, NULL, 0, NULL, 0, 4711, &MAKE_IN_ADDR_UNION(1, 2, 3, 5), 815, NULL);
-        if (r < 0)
-                log_error_errno(r, "Failed to modify firewall: %m");
+                log_error_errno(r, "Failed to remove firewall rule: %m");
 
         return 0;
 }

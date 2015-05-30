@@ -4,6 +4,7 @@
   This file is part of systemd.
 
   Copyright 2015 Lennart Poettering
+  Copyright 2015 Daniel Mack
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -20,74 +21,375 @@
 ***/
 
 #include <sys/types.h>
-#include <arpa/inet.h>
 #include <net/if.h>
-#include <linux/netfilter_ipv4/ip_tables.h>
+#include <netinet/in.h>
+#include <netinet/ip.h>
+#include <netinet/tcp.h>
+#include <arpa/inet.h>
+
+#include <linux/netfilter/nfnetlink.h>
 #include <linux/netfilter/nf_nat.h>
-#include <linux/netfilter/xt_addrtype.h>
-#include <libiptc/libiptc.h>
+#include <linux/netfilter/nf_tables.h>
+
+#include <libmnl/libmnl.h>
+#include <libnftnl/table.h>
+#include <libnftnl/chain.h>
+#include <libnftnl/rule.h>
+#include <libnftnl/expr.h>
 
 #include "util.h"
 #include "firewall-util.h"
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(struct xtc_handle*, iptc_free);
+#define SYSTEMD_TABLE "systemd"
+#define SYSTEMD_CHAIN_NAT_PRE_IPV4  "nat-pre-ipv4"
+#define SYSTEMD_CHAIN_NAT_POST_IPV4 "nat-post-ipv4"
 
-static int entry_fill_basics(
-                struct ipt_entry *entry,
-                int protocol,
-                const char *in_interface,
-                const union in_addr_union *source,
-                unsigned source_prefixlen,
-                const char *out_interface,
-                const union in_addr_union *destination,
-                unsigned destination_prefixlen) {
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct mnl_socket*, mnl_socket_close);
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct nft_table*, nft_table_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct nft_chain*, nft_chain_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct nft_rule*, nft_rule_free);
 
-        assert(entry);
+enum CallbackReturnType {
+        CALLBACK_RETURN_UNDEF,
+        CALLBACK_RETURN_HANDLE,
+        _CALLBACK_RETURN_MAX,
+};
 
-        if (out_interface && strlen(out_interface) >= IFNAMSIZ)
-                return -EINVAL;
+struct fw_callback_data {
+        enum CallbackReturnType type;
+        uint64_t value;
+        bool success;
+};
 
-        if (in_interface && strlen(in_interface) >= IFNAMSIZ)
-                return -EINVAL;
+static int events_cb(const struct nlmsghdr *nlh, void *data)
+{
+        int event = NFNL_MSG_TYPE(nlh->nlmsg_type);
+        struct fw_callback_data *cb = data;
+        int r;
 
-        entry->ip.proto = protocol;
+        if (!cb || cb->type == CALLBACK_RETURN_UNDEF)
+                return MNL_CB_OK;
 
-        if (in_interface) {
-                strcpy(entry->ip.iniface, in_interface);
-                memset(entry->ip.iniface_mask, 0xFF, strlen(in_interface)+1);
+        switch(event) {
+        case NFT_MSG_NEWRULE: {
+                _cleanup_(nft_rule_freep) struct nft_rule *rule = NULL;
+
+                rule = nft_rule_alloc();
+                if (!rule)
+                        return -ENOMEM;
+
+                r = nft_rule_nlmsg_parse(nlh, rule);
+                if (r < 0)
+                        return r;
+
+                switch (cb->type) {
+                case CALLBACK_RETURN_HANDLE:
+                        cb->value = nft_rule_attr_get_u64(rule, NFT_RULE_ATTR_HANDLE);
+                        cb->success = true;
+                        return MNL_CB_STOP;
+
+                default:
+                        assert_not_reached("Invalid callback type");
+                }
+                break;
         }
-        if (source) {
-                entry->ip.src = source->in;
-                in_addr_prefixlen_to_netmask(&entry->ip.smsk, source_prefixlen);
+        default:
+                break;
         }
 
-        if (out_interface) {
-                strcpy(entry->ip.outiface, out_interface);
-                memset(entry->ip.outiface_mask, 0xFF, strlen(out_interface)+1);
+        return MNL_CB_OK;
+}
+
+static int socket_open_and_bind(struct mnl_socket **n) {
+
+        _cleanup_(mnl_socket_closep) struct mnl_socket *nl = NULL;
+        int r;
+
+        nl = mnl_socket_open(NETLINK_NETFILTER);
+        if (!nl)
+                return -errno;
+
+        r = mnl_socket_bind(nl, 1 << (NFNLGRP_NFTABLES-1), MNL_SOCKET_AUTOPID);
+        if (r < 0)
+                return -errno;
+
+        *n = nl;
+        nl = NULL;
+        return 0;
+}
+
+static int send_and_dispatch(
+                struct mnl_socket *nl,
+                const void *req,
+                size_t req_size,
+                enum CallbackReturnType callback_type,
+                uint64_t *callback_value) {
+
+        struct fw_callback_data cb = {};
+        uint32_t portid;
+        int r;
+
+        r = mnl_socket_sendto(nl, req, req_size);
+        if (r < 0)
+                return -errno;
+
+        portid = mnl_socket_get_portid(nl);
+        cb.type = callback_type;
+
+        for (;;) {
+                char buf[MNL_SOCKET_BUFFER_SIZE];
+
+                r = mnl_socket_recvfrom(nl, buf, sizeof(buf));
+                if (r <= 0)
+                        break;
+
+                r = mnl_cb_run(buf, r, 0, portid, events_cb, &cb);
+                if (r <= 0)
+                        break;
         }
-        if (destination) {
-                entry->ip.dst = destination->in;
-                in_addr_prefixlen_to_netmask(&entry->ip.dmsk, destination_prefixlen);
+
+        if (r < 0)
+                return -errno;
+
+        if (callback_type == CALLBACK_RETURN_UNDEF)
+                return 0;
+
+        if (cb.success) {
+                if (callback_value)
+                        *callback_value = cb.value;
+
+                return 0;
         }
+
+        return -ENOENT;
+}
+
+static int table_cmd(struct mnl_socket *nl,
+                     const char *name,
+                     uint16_t family,
+                     bool add) {
+
+        _cleanup_(nft_table_freep) struct nft_table *t = NULL;
+        char buf[MNL_SOCKET_BUFFER_SIZE];
+        struct mnl_nlmsg_batch *batch;
+        struct nlmsghdr *nlh;
+        uint32_t seq = 0;
+        int r;
+
+        t = nft_table_alloc();
+        if (!t)
+                return -ENOMEM;
+
+        nft_table_attr_set_u32(t, NFT_TABLE_ATTR_FAMILY, family);
+        nft_table_attr_set_str(t, NFT_TABLE_ATTR_NAME, name);
+
+        batch = mnl_nlmsg_batch_start(buf, sizeof(buf));
+        nft_batch_begin(mnl_nlmsg_batch_current(batch), seq++);
+        mnl_nlmsg_batch_next(batch);
+
+        nlh = nft_table_nlmsg_build_hdr(mnl_nlmsg_batch_current(batch),
+                                        add ? NFT_MSG_NEWTABLE : NFT_MSG_DELTABLE,
+                                        family, NLM_F_ACK, seq++);
+        nft_table_nlmsg_build_payload(nlh, t);
+        mnl_nlmsg_batch_next(batch);
+
+        nft_batch_end(mnl_nlmsg_batch_current(batch), seq++);
+        mnl_nlmsg_batch_next(batch);
+
+        r = send_and_dispatch(nl, mnl_nlmsg_batch_head(batch), mnl_nlmsg_batch_size(batch), 0, NULL);
+        if (r < 0)
+                return r;
+
+        mnl_nlmsg_batch_stop(batch);
 
         return 0;
 }
 
+static int chain_cmd(
+                struct mnl_socket *nl,
+                const char *name,
+                const char *table,
+                const char *type,
+                int family,
+                int hooknum,
+                int prio,
+                bool add) {
+
+        _cleanup_(nft_chain_freep) struct nft_chain *c = NULL;
+        char buf[MNL_SOCKET_BUFFER_SIZE];
+        struct mnl_nlmsg_batch *batch;
+        struct nlmsghdr *nlh;
+        uint32_t seq = 0;
+        int r;
+
+        c = nft_chain_alloc();
+        if (!c)
+                return -ENOMEM;
+
+        nft_chain_attr_set(c, NFT_CHAIN_ATTR_TABLE, table);
+        nft_chain_attr_set(c, NFT_CHAIN_ATTR_NAME, name);
+
+        if (type)
+                nft_chain_attr_set_str(c, NFT_CHAIN_ATTR_TYPE, type);
+
+        if (prio >= 0)
+                nft_chain_attr_set_u32(c, NFT_CHAIN_ATTR_PRIO, prio);
+
+        if (hooknum >= 0)
+                nft_chain_attr_set_u32(c, NFT_CHAIN_ATTR_HOOKNUM, hooknum);
+
+        batch = mnl_nlmsg_batch_start(buf, sizeof(buf));
+        nft_batch_begin(mnl_nlmsg_batch_current(batch), seq++);
+        mnl_nlmsg_batch_next(batch);
+
+        nlh = nft_chain_nlmsg_build_hdr(mnl_nlmsg_batch_current(batch),
+                                        add ? NFT_MSG_NEWCHAIN: NFT_MSG_DELCHAIN,
+                                        family, NLM_F_ACK, seq++);
+        nft_chain_nlmsg_build_payload(nlh, c);
+        mnl_nlmsg_batch_next(batch);
+
+        nft_batch_end(mnl_nlmsg_batch_current(batch), seq++);
+        mnl_nlmsg_batch_next(batch);
+
+        r = send_and_dispatch(nl, mnl_nlmsg_batch_head(batch), mnl_nlmsg_batch_size(batch), 0, NULL);
+        if (r < 0)
+                return r;
+
+        mnl_nlmsg_batch_stop(batch);
+
+        return 0;
+}
+
+static void put_batch_headers(char *buf, uint16_t type, uint32_t seq) {
+
+        struct nlmsghdr *nlh;
+        struct nfgenmsg *nfg;
+
+        nlh = mnl_nlmsg_put_header(buf);
+        nlh->nlmsg_type = type;
+        nlh->nlmsg_flags = NLM_F_REQUEST;
+        nlh->nlmsg_seq = seq;
+
+        nfg = mnl_nlmsg_put_extra_header(nlh, sizeof(*nfg));
+        nfg->nfgen_family = AF_INET;
+        nfg->version = NFNETLINK_V0;
+        nfg->res_id = NFNL_SUBSYS_NFTABLES;
+}
+
+static int add_payload(struct nft_rule *r, uint32_t base, uint32_t dreg, uint32_t offset, uint32_t len) {
+        struct nft_rule_expr *expr;
+
+        expr = nft_rule_expr_alloc("payload");
+        if (!expr)
+                return -ENOMEM;
+
+        nft_rule_expr_set_u32(expr, NFT_EXPR_PAYLOAD_BASE, base);
+        nft_rule_expr_set_u32(expr, NFT_EXPR_PAYLOAD_DREG, dreg);
+        nft_rule_expr_set_u32(expr, NFT_EXPR_PAYLOAD_OFFSET, offset);
+        nft_rule_expr_set_u32(expr, NFT_EXPR_PAYLOAD_LEN, len);
+
+        nft_rule_add_expr(r, expr);
+
+        return 0;
+}
+
+static int add_bitwise(struct nft_rule *r, int reg, const void *mask, size_t len) {
+        struct nft_rule_expr *expr;
+        uint8_t *xor;
+
+        expr = nft_rule_expr_alloc("bitwise");
+        if (!expr)
+                return -ENOMEM;
+
+        xor = alloca0(len);
+
+        nft_rule_expr_set_u32(expr, NFT_EXPR_BITWISE_SREG, reg);
+        nft_rule_expr_set_u32(expr, NFT_EXPR_BITWISE_DREG, reg);
+        nft_rule_expr_set_u32(expr, NFT_EXPR_BITWISE_LEN, len);
+        nft_rule_expr_set(expr, NFT_EXPR_BITWISE_MASK, mask, len);
+        nft_rule_expr_set(expr, NFT_EXPR_BITWISE_XOR, &xor, len);
+
+        nft_rule_add_expr(r, expr);
+
+        return 0;
+}
+
+static int add_cmp(struct nft_rule *r, uint32_t sreg, uint32_t op, const void *data, uint32_t data_len) {
+        struct nft_rule_expr *expr;
+
+        expr = nft_rule_expr_alloc("cmp");
+        if (!expr)
+                return -ENOMEM;
+
+        nft_rule_expr_set_u32(expr, NFT_EXPR_CMP_SREG, sreg);
+        nft_rule_expr_set_u32(expr, NFT_EXPR_CMP_OP, op);
+        nft_rule_expr_set(expr, NFT_EXPR_CMP_DATA, data, data_len);
+
+        nft_rule_add_expr(r, expr);
+
+        return 0;
+}
+
+static int add_imm(struct nft_rule *r, uint32_t reg, const void *data, uint32_t data_len) {
+        struct nft_rule_expr *expr;
+
+        expr = nft_rule_expr_alloc("immediate");
+        if (!expr)
+                return -ENOMEM;
+
+        nft_rule_expr_set_u32(expr, NFT_EXPR_IMM_DREG, reg);
+        nft_rule_expr_set(expr, NFT_EXPR_IMM_DATA, data, data_len);
+
+        nft_rule_add_expr(r, expr);
+
+        return 0;
+}
+
+static int rule_cmd(
+                struct mnl_socket *nl,
+                struct nft_rule *rule,
+                uint16_t cmd,
+                uint16_t family,
+                uint16_t type,
+                enum CallbackReturnType callback_type,
+                uint64_t *callback_value) {
+
+        char buf[MNL_SOCKET_BUFFER_SIZE];
+        struct mnl_nlmsg_batch *batch;
+        struct nlmsghdr *nlh;
+        uint32_t seq = 0;
+        int r;
+
+        batch = mnl_nlmsg_batch_start(buf, sizeof(buf));
+        put_batch_headers(mnl_nlmsg_batch_current(batch), NFNL_MSG_BATCH_BEGIN, seq++);
+        mnl_nlmsg_batch_next(batch);
+
+        nlh = nft_rule_nlmsg_build_hdr(mnl_nlmsg_batch_current(batch), cmd, family, type, seq++);
+        nft_rule_nlmsg_build_payload(nlh, rule);
+        mnl_nlmsg_batch_next(batch);
+
+        put_batch_headers(mnl_nlmsg_batch_current(batch), NFNL_MSG_BATCH_END, seq++);
+        mnl_nlmsg_batch_next(batch);
+
+        r = send_and_dispatch(nl, mnl_nlmsg_batch_head(batch), mnl_nlmsg_batch_size(batch), callback_type, callback_value);
+        mnl_nlmsg_batch_stop(batch);
+
+        return r;
+}
+
 int fw_add_masquerade(
-                bool add,
                 int af,
-                int protocol,
+                uint8_t protocol,
                 const union in_addr_union *source,
                 unsigned source_prefixlen,
                 const char *out_interface,
                 const union in_addr_union *destination,
-                unsigned destination_prefixlen) {
+                unsigned destination_prefixlen,
+                uint64_t *handle) {
 
-        _cleanup_(iptc_freep) struct xtc_handle *h = NULL;
-        struct ipt_entry *entry, *mask;
-        struct ipt_entry_target *t;
-        size_t sz;
-        struct nf_nat_ipv4_multi_range_compat *mr;
+        _cleanup_(mnl_socket_closep) struct mnl_socket *nl = NULL;
+        _cleanup_(nft_rule_freep) struct nft_rule *rule = NULL;
+        struct nft_rule_expr *expr;
         int r;
 
         if (af != AF_INET)
@@ -96,62 +398,99 @@ int fw_add_masquerade(
         if (protocol != 0 && protocol != IPPROTO_TCP && protocol != IPPROTO_UDP)
                 return -EOPNOTSUPP;
 
-        h = iptc_init("nat");
-        if (!h)
-                return -errno;
+        rule = nft_rule_alloc();
+        if (!rule)
+                return -ENOMEM;
 
-        sz = XT_ALIGN(sizeof(struct ipt_entry)) +
-             XT_ALIGN(sizeof(struct ipt_entry_target)) +
-             XT_ALIGN(sizeof(struct nf_nat_ipv4_multi_range_compat));
+        nft_rule_attr_set(rule, NFT_RULE_ATTR_TABLE, SYSTEMD_TABLE);
+        nft_rule_attr_set(rule, NFT_RULE_ATTR_CHAIN, SYSTEMD_CHAIN_NAT_POST_IPV4);
+        nft_rule_attr_set_u32(rule, NFT_RULE_ATTR_FAMILY, NFPROTO_IPV4);
 
-        /* Put together the entry we want to add or remove */
-        entry = alloca0(sz);
-        entry->next_offset = sz;
-        entry->target_offset = XT_ALIGN(sizeof(struct ipt_entry));
-        r = entry_fill_basics(entry, protocol, NULL, source, source_prefixlen, out_interface, destination, destination_prefixlen);
+        r = add_payload(rule, NFT_PAYLOAD_NETWORK_HEADER, NFT_REG_1,
+                        offsetof(struct iphdr, protocol), sizeof(protocol));
         if (r < 0)
                 return r;
 
-        /* Fill in target part */
-        t = ipt_get_target(entry);
-        t->u.target_size =
-                XT_ALIGN(sizeof(struct ipt_entry_target)) +
-                XT_ALIGN(sizeof(struct nf_nat_ipv4_multi_range_compat));
-        strncpy(t->u.user.name, "MASQUERADE", sizeof(t->u.user.name));
-        mr = (struct nf_nat_ipv4_multi_range_compat*) t->data;
-        mr->rangesize = 1;
+        r = add_cmp(rule, NFT_REG_1, NFT_CMP_EQ, &protocol, sizeof(protocol));
+        if (r < 0)
+                return r;
 
-        /* Create a search mask entry */
-        mask = alloca(sz);
-        memset(mask, 0xFF, sz);
+        if (source) {
+                struct in_addr smsk;
 
-        if (add) {
-                if (iptc_check_entry("POSTROUTING", entry, (unsigned char*) mask, h))
-                        return 0;
-                if (errno != ENOENT) /* if other error than not existing yet, fail */
-                        return -errno;
+                in_addr_prefixlen_to_netmask(&smsk, source_prefixlen);
 
-                if (!iptc_insert_entry("POSTROUTING", entry, 0, h))
-                        return -errno;
-        } else {
-                if (!iptc_delete_entry("POSTROUTING", entry, (unsigned char*) mask, h)) {
-                        if (errno == ENOENT) /* if it's already gone, all is good! */
-                                return 0;
+                r = add_payload(rule, NFT_PAYLOAD_NETWORK_HEADER, NFT_REG_1,
+                                offsetof(struct iphdr, saddr), sizeof(struct in_addr));
+                if (r < 0)
+                        return r;
 
-                        return -errno;
-                }
+                r = add_bitwise(rule, NFT_REG_1, &smsk.s_addr, sizeof(struct in_addr));
+                if (r < 0)
+                        return r;
+
+                r = add_cmp(rule, NFT_REG_1, NFT_CMP_EQ, &source->in.s_addr, sizeof(struct in_addr));
+                if (r < 0)
+                        return r;
         }
 
-        if (!iptc_commit(h))
-                return -errno;
+        if (destination) {
+                struct in_addr dmsk;
 
-        return 0;
+                in_addr_prefixlen_to_netmask(&dmsk, destination_prefixlen);
+
+                r = add_payload(rule, NFT_PAYLOAD_NETWORK_HEADER, NFT_REG_1,
+                                offsetof(struct iphdr, daddr), sizeof(struct in_addr));
+                if (r < 0)
+                        return r;
+
+                r = add_bitwise(rule, NFT_REG_1, &dmsk.s_addr, sizeof(struct in_addr));
+                if (r < 0)
+                        return r;
+
+                r = add_cmp(rule, NFT_REG_1, NFT_CMP_EQ, &destination->in.s_addr, sizeof(struct in_addr));
+                if (r < 0)
+                        return r;
+        }
+
+        if (out_interface) {
+                expr = nft_rule_expr_alloc("meta");
+                if (!expr)
+                        return -ENOMEM;
+
+                nft_rule_expr_set_u32(expr, NFT_EXPR_META_KEY, NFT_META_OIFNAME);
+                nft_rule_expr_set_u32(expr, NFT_EXPR_META_DREG, NFT_REG_1);
+                nft_rule_add_expr(rule, expr);
+
+                r = add_cmp(rule, NFT_REG_1, NFT_CMP_EQ, out_interface, strlen(out_interface) + 1);
+                if (r < 0)
+                        return r;
+        }
+
+        expr = nft_rule_expr_alloc("masq");
+        if (!expr)
+                return -ENOMEM;
+
+        nft_rule_add_expr(rule, expr);
+
+        r = socket_open_and_bind(&nl);
+        if (r < 0)
+                return r;
+
+        r = table_cmd(nl, SYSTEMD_TABLE, NFPROTO_IPV4, true);
+        if (r < 0)
+                return r;
+
+        r = chain_cmd(nl, SYSTEMD_CHAIN_NAT_POST_IPV4, SYSTEMD_TABLE, "nat", NFPROTO_IPV4, NF_INET_POST_ROUTING, 0, true);
+        if (r < 0)
+                return r;
+
+        return rule_cmd(nl, rule, NFT_MSG_NEWRULE, NFPROTO_IPV4, NLM_F_APPEND|NLM_F_CREATE|NLM_F_ACK, CALLBACK_RETURN_HANDLE, handle);
 }
 
 int fw_add_local_dnat(
-                bool add,
                 int af,
-                int protocol,
+                uint8_t protocol,
                 const char *in_interface,
                 const union in_addr_union *source,
                 unsigned source_prefixlen,
@@ -160,19 +499,12 @@ int fw_add_local_dnat(
                 uint16_t local_port,
                 const union in_addr_union *remote,
                 uint16_t remote_port,
-                const union in_addr_union *previous_remote) {
+                uint64_t *handle) {
 
-
-        _cleanup_(iptc_freep) struct xtc_handle *h = NULL;
-        struct ipt_entry *entry, *mask;
-        struct ipt_entry_target *t;
-        struct ipt_entry_match *m;
-        struct xt_addrtype_info_v1 *at;
-        struct nf_nat_ipv4_multi_range_compat *mr;
-        size_t sz, msz;
+        _cleanup_(mnl_socket_closep) struct mnl_socket *nl = NULL;
+        _cleanup_(nft_rule_freep) struct nft_rule *rule = NULL;
+        struct nft_rule_expr *expr;
         int r;
-
-        assert(add || !previous_remote);
 
         if (af != AF_INET)
                 return -EOPNOTSUPP;
@@ -186,159 +518,155 @@ int fw_add_local_dnat(
         if (remote_port <= 0)
                 return -EINVAL;
 
-        h = iptc_init("nat");
-        if (!h)
-                return -errno;
+        rule = nft_rule_alloc();
+        if (!rule)
+                return -ENOMEM;
 
-        sz = XT_ALIGN(sizeof(struct ipt_entry)) +
-             XT_ALIGN(sizeof(struct ipt_entry_match)) +
-             XT_ALIGN(sizeof(struct xt_addrtype_info_v1)) +
-             XT_ALIGN(sizeof(struct ipt_entry_target)) +
-             XT_ALIGN(sizeof(struct nf_nat_ipv4_multi_range_compat));
+        nft_rule_attr_set(rule, NFT_RULE_ATTR_TABLE, SYSTEMD_TABLE);
+        nft_rule_attr_set(rule, NFT_RULE_ATTR_CHAIN, SYSTEMD_CHAIN_NAT_PRE_IPV4);
+        nft_rule_attr_set_u32(rule, NFT_RULE_ATTR_FAMILY, NFPROTO_IPV4);
 
-        if (protocol == IPPROTO_TCP)
-                msz = XT_ALIGN(sizeof(struct ipt_entry_match)) +
-                      XT_ALIGN(sizeof(struct xt_tcp));
-        else
-                msz = XT_ALIGN(sizeof(struct ipt_entry_match)) +
-                      XT_ALIGN(sizeof(struct xt_udp));
-
-        sz += msz;
-
-        /* Fill in basic part */
-        entry = alloca0(sz);
-        entry->next_offset = sz;
-        entry->target_offset =
-                XT_ALIGN(sizeof(struct ipt_entry)) +
-                XT_ALIGN(sizeof(struct ipt_entry_match)) +
-                XT_ALIGN(sizeof(struct xt_addrtype_info_v1)) +
-                msz;
-        r = entry_fill_basics(entry, protocol, in_interface, source, source_prefixlen, NULL, destination, destination_prefixlen);
+        r = add_payload(rule, NFT_PAYLOAD_NETWORK_HEADER, NFT_REG_1,
+                        offsetof(struct iphdr, protocol), sizeof(protocol));
         if (r < 0)
                 return r;
 
-        /* Fill in first match */
-        m = (struct ipt_entry_match*) ((uint8_t*) entry + XT_ALIGN(sizeof(struct ipt_entry)));
-        m->u.match_size = msz;
-        if (protocol == IPPROTO_TCP) {
-                struct xt_tcp *tcp;
+        r = add_cmp(rule, NFT_REG_1, NFT_CMP_EQ, &protocol, sizeof(protocol));
+        if (r < 0)
+                return r;
 
-                strncpy(m->u.user.name, "tcp", sizeof(m->u.user.name));
-                tcp = (struct xt_tcp*) m->data;
-                tcp->dpts[0] = tcp->dpts[1] = local_port;
-                tcp->spts[0] = 0;
-                tcp->spts[1] = 0xFFFF;
+        if (source) {
+                struct in_addr smsk;
 
-        } else {
-                struct xt_udp *udp;
+                in_addr_prefixlen_to_netmask(&smsk, source_prefixlen);
 
-                strncpy(m->u.user.name, "udp", sizeof(m->u.user.name));
-                udp = (struct xt_udp*) m->data;
-                udp->dpts[0] = udp->dpts[1] = local_port;
-                udp->spts[0] = 0;
-                udp->spts[1] = 0xFFFF;
+                r = add_payload(rule, NFT_PAYLOAD_NETWORK_HEADER, NFT_REG_1,
+                                offsetof(struct iphdr, saddr), sizeof(struct in_addr));
+                if (r < 0)
+                        return r;
+
+                r = add_bitwise(rule, NFT_REG_1, &smsk.s_addr, sizeof(struct in_addr));
+                if (r < 0)
+                        return r;
+
+                r = add_cmp(rule, NFT_REG_1, NFT_CMP_EQ, &source->in.s_addr, sizeof(struct in_addr));
+                if (r < 0)
+                        return r;
         }
 
-        /* Fill in second match */
-        m = (struct ipt_entry_match*) ((uint8_t*) entry + XT_ALIGN(sizeof(struct ipt_entry)) + msz);
-        m->u.match_size =
-                XT_ALIGN(sizeof(struct ipt_entry_match)) +
-                XT_ALIGN(sizeof(struct xt_addrtype_info_v1));
-        strncpy(m->u.user.name, "addrtype", sizeof(m->u.user.name));
-        m->u.user.revision = 1;
-        at = (struct xt_addrtype_info_v1*) m->data;
-        at->dest = XT_ADDRTYPE_LOCAL;
+        if (destination) {
+                struct in_addr dmsk;
 
-        /* Fill in target part */
-        t = ipt_get_target(entry);
-        t->u.target_size =
-                XT_ALIGN(sizeof(struct ipt_entry_target)) +
-                XT_ALIGN(sizeof(struct nf_nat_ipv4_multi_range_compat));
-        strncpy(t->u.user.name, "DNAT", sizeof(t->u.user.name));
-        mr = (struct nf_nat_ipv4_multi_range_compat*) t->data;
-        mr->rangesize = 1;
-        mr->range[0].flags = NF_NAT_RANGE_PROTO_SPECIFIED|NF_NAT_RANGE_MAP_IPS;
-        mr->range[0].min_ip = mr->range[0].max_ip = remote->in.s_addr;
-        if (protocol == IPPROTO_TCP)
-                mr->range[0].min.tcp.port = mr->range[0].max.tcp.port = htons(remote_port);
-        else
-                mr->range[0].min.udp.port = mr->range[0].max.udp.port = htons(remote_port);
+                in_addr_prefixlen_to_netmask(&dmsk, destination_prefixlen);
 
-        mask = alloca0(sz);
-        memset(mask, 0xFF, sz);
+                r = add_payload(rule, NFT_PAYLOAD_NETWORK_HEADER, NFT_REG_1,
+                                offsetof(struct iphdr, daddr), sizeof(struct in_addr));
+                if (r < 0)
+                        return r;
 
-        if (add) {
-                /* Add the PREROUTING rule, if it is missing so far */
-                if (!iptc_check_entry("PREROUTING", entry, (unsigned char*) mask, h)) {
-                        if (errno != ENOENT)
-                                return -EINVAL;
+                r = add_bitwise(rule, NFT_REG_1, &dmsk.s_addr, sizeof(struct in_addr));
+                if (r < 0)
+                        return r;
 
-                        if (!iptc_insert_entry("PREROUTING", entry, 0, h))
-                                return -errno;
-                }
-
-                /* If a previous remote is set, remove its entry */
-                if (previous_remote && previous_remote->in.s_addr != remote->in.s_addr) {
-                        mr->range[0].min_ip = mr->range[0].max_ip = previous_remote->in.s_addr;
-
-                        if (!iptc_delete_entry("PREROUTING", entry, (unsigned char*) mask, h)) {
-                                if (errno != ENOENT)
-                                        return -errno;
-                        }
-
-                        mr->range[0].min_ip = mr->range[0].max_ip = remote->in.s_addr;
-                }
-
-                /* Add the OUTPUT rule, if it is missing so far */
-                if (!in_interface) {
-
-                        /* Don't apply onto loopback addresses */
-                        if (!destination) {
-                                entry->ip.dst.s_addr = htobe32(0x7F000000);
-                                entry->ip.dmsk.s_addr = htobe32(0xFF000000);
-                                entry->ip.invflags = IPT_INV_DSTIP;
-                        }
-
-                        if (!iptc_check_entry("OUTPUT", entry, (unsigned char*) mask, h)) {
-                                if (errno != ENOENT)
-                                        return -errno;
-
-                                if (!iptc_insert_entry("OUTPUT", entry, 0, h))
-                                        return -errno;
-                        }
-
-                        /* If a previous remote is set, remove its entry */
-                        if (previous_remote && previous_remote->in.s_addr != remote->in.s_addr) {
-                                mr->range[0].min_ip = mr->range[0].max_ip = previous_remote->in.s_addr;
-
-                                if (!iptc_delete_entry("OUTPUT", entry, (unsigned char*) mask, h)) {
-                                        if (errno != ENOENT)
-                                                return -errno;
-                                }
-                        }
-                }
-        } else {
-                if (!iptc_delete_entry("PREROUTING", entry, (unsigned char*) mask, h)) {
-                        if (errno != ENOENT)
-                                return -errno;
-                }
-
-                if (!in_interface) {
-                        if (!destination) {
-                                entry->ip.dst.s_addr = htobe32(0x7F000000);
-                                entry->ip.dmsk.s_addr = htobe32(0xFF000000);
-                                entry->ip.invflags = IPT_INV_DSTIP;
-                        }
-
-                        if (!iptc_delete_entry("OUTPUT", entry, (unsigned char*) mask, h)) {
-                                if (errno != ENOENT)
-                                        return -errno;
-                        }
-                }
+                r = add_cmp(rule, NFT_REG_1, NFT_CMP_EQ, &destination->in.s_addr, sizeof(struct in_addr));
+                if (r < 0)
+                        return r;
         }
 
-        if (!iptc_commit(h))
-                return -errno;
+        if (in_interface) {
+                expr = nft_rule_expr_alloc("meta");
+                if (!expr)
+                        return -ENOMEM;
 
-        return 0;
+                nft_rule_expr_set_u32(expr, NFT_EXPR_META_KEY, NFT_META_IIFNAME);
+                nft_rule_expr_set_u32(expr, NFT_EXPR_META_DREG, NFT_REG_1);
+                nft_rule_add_expr(rule, expr);
+
+                r = add_cmp(rule, NFT_REG_1, NFT_CMP_EQ, in_interface, strlen(in_interface) + 1);
+                if (r < 0)
+                        return r;
+        }
+
+        if (local_port) {
+                local_port = htobe16(local_port);
+                r = add_payload(rule, NFT_PAYLOAD_TRANSPORT_HEADER, NFT_REG_1,
+                                offsetof(struct tcphdr, dest), sizeof(local_port));
+                if (r < 0)
+                        return r;
+
+                r = add_cmp(rule, NFT_REG_1, NFT_CMP_EQ, &local_port, sizeof(local_port));
+                if (r < 0)
+                        return r;
+        }
+
+        expr = nft_rule_expr_alloc("nat");
+        if (!expr)
+                return -ENOMEM;
+
+        nft_rule_expr_set_u32(expr, NFT_EXPR_NAT_TYPE, NFT_NAT_DNAT);
+        nft_rule_expr_set_u32(expr, NFT_EXPR_NAT_FAMILY, af);
+
+        if (remote) {
+                nft_rule_expr_set_u32(expr, NFT_EXPR_NAT_REG_ADDR_MIN, NFT_REG_1);
+                nft_rule_expr_set_u32(expr, NFT_EXPR_NAT_REG_ADDR_MAX, NFT_REG_1);
+
+                r = add_imm(rule, NFT_REG_1, &remote->in.s_addr, sizeof(remote->in.s_addr));
+                if (r < 0)
+                        return r;
+        }
+
+        if (remote_port) {
+                remote_port = htobe16(remote_port);
+                nft_rule_expr_set_u32(expr, NFT_EXPR_NAT_REG_PROTO_MIN, NFT_REG_2);
+                nft_rule_expr_set_u32(expr, NFT_EXPR_NAT_REG_PROTO_MAX, NFT_REG_2);
+
+                r = add_imm(rule, NFT_REG_2, &remote_port, sizeof(remote_port));
+                if (r < 0)
+                        return r;
+        }
+
+        nft_rule_add_expr(rule, expr);
+
+        r = socket_open_and_bind(&nl);
+        if (r < 0)
+                return r;
+
+        r = table_cmd(nl, SYSTEMD_TABLE, NFPROTO_IPV4, true);
+        if (r < 0)
+                return r;
+
+        r = chain_cmd(nl, SYSTEMD_CHAIN_NAT_PRE_IPV4, SYSTEMD_TABLE, "nat", NFPROTO_IPV4, NF_INET_PRE_ROUTING, 0, true);
+        if (r < 0)
+                return r;
+
+        return rule_cmd(nl, rule, NFT_MSG_NEWRULE, NFPROTO_IPV4, NLM_F_APPEND|NLM_F_CREATE|NLM_F_ACK, CALLBACK_RETURN_HANDLE, handle);
+}
+
+static int fw_remove_rule(uint64_t handle, const char *chain) {
+
+        _cleanup_(mnl_socket_closep) struct mnl_socket *nl = NULL;
+        _cleanup_(nft_rule_freep) struct nft_rule *rule = NULL;
+        int r;
+
+        rule = nft_rule_alloc();
+        if (!rule)
+                return -ENOMEM;
+
+        nft_rule_attr_set(rule, NFT_RULE_ATTR_TABLE, SYSTEMD_TABLE);
+        nft_rule_attr_set(rule, NFT_RULE_ATTR_CHAIN, chain);
+        nft_rule_attr_set_u64(rule, NFT_RULE_ATTR_HANDLE, handle);
+
+        r = socket_open_and_bind(&nl);
+        if (r < 0)
+                return r;
+
+        return rule_cmd(nl, rule, NFT_MSG_DELRULE, NFPROTO_IPV4, NLM_F_ACK, 0, NULL);
+}
+
+int fw_remove_masquerade(uint64_t handle) {
+        return fw_remove_rule(handle, SYSTEMD_CHAIN_NAT_POST_IPV4);
+}
+
+int fw_remove_local_dnat(uint64_t handle) {
+        return fw_remove_rule(handle, SYSTEMD_CHAIN_NAT_PRE_IPV4);
 }

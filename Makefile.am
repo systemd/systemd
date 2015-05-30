@@ -1039,7 +1039,7 @@ libshared_la_LIBADD = \
 	$(SECCOMP_LIBS)
 
 # -----------------------------------------------------------------------------
-if HAVE_LIBIPTC
+if HAVE_LIBNFTNL
 noinst_LTLIBRARIES += \
 	libfirewall.la
 
@@ -1049,10 +1049,12 @@ libfirewall_la_SOURCES = \
 
 libfirewall_la_CFLAGS = \
 	$(AM_CFLAGS) \
-	$(LIBIPTC_CFLAGS)
+	$(LIBMNL_CFLAGS) \
+	$(LIBNFTNL_CFLAGS)
 
 libfirewall_la_LIBADD = \
-	$(LIBIPTC_LIBS)
+	$(LIBMNL_LIBS) \
+	$(LIBNFTNL_LIBS)
 endif
 
 # -----------------------------------------------------------------------------
@@ -1376,7 +1378,7 @@ manual_tests += \
 	test-acd \
 	test-ipv4ll-manual
 
-if HAVE_LIBIPTC
+if HAVE_LIBNFTNL
 manual_tests += \
 	test-firewall-util
 endif
@@ -1874,7 +1876,7 @@ test_btrfs_SOURCES = \
 test_btrfs_LDADD = \
 	libshared.la
 
-if HAVE_LIBIPTC
+if HAVE_LIBNFTNL
 test_firewall_util_SOURCES = \
 	src/test/test-firewall-util.c
 
@@ -2810,7 +2812,7 @@ systemd_nspawn_LDADD = \
 	libshared.la \
 	$(BLKID_LIBS)
 
-if HAVE_LIBIPTC
+if HAVE_LIBNFTNL
 systemd_nspawn_LDADD += \
 	libfirewall.la
 endif
@@ -5192,7 +5194,7 @@ systemd_networkd_SOURCES = \
 systemd_networkd_LDADD = \
 	libnetworkd-core.la
 
-if HAVE_LIBIPTC
+if HAVE_LIBNFTNL
 systemd_networkd_LDADD += \
 	libfirewall.la
 endif
@@ -5292,7 +5294,7 @@ test_network_SOURCES = \
 test_network_LDADD = \
 	libnetworkd-core.la
 
-if HAVE_LIBIPTC
+if HAVE_LIBNFTNL
 test_network_LDADD += \
 	libfirewall.la
 endif
@@ -5305,7 +5307,7 @@ test_network_tables_LDADD = \
 	libnetworkd-core.la \
 	libudev-core.la
 
-if HAVE_LIBIPTC
+if HAVE_LIBNFTNL
 test_network_tables_LDADD += \
 	libfirewall.la
 endif
