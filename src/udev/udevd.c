@@ -1451,10 +1451,6 @@ static int manager_new(Manager **ret) {
         manager->worker_watch[WRITE_END] = -1;
         manager->worker_watch[READ_END] = -1;
 
-        r = sd_event_default(&manager->event);
-        if (r < 0)
-                return log_error_errno(errno, "could not allocate event loop: %m");
-
         manager->udev = udev_new();
         if (!manager->udev)
                 return log_error_errno(errno, "could not allocate udev context: %m");
@@ -1540,6 +1536,10 @@ static int manager_listen(Manager *manager) {
         /* block and listen to all signals on signalfd */
         sigfillset(&mask);
         sigprocmask(SIG_SETMASK, &mask, &manager->sigmask_orig);
+
+        r = sd_event_default(&manager->event);
+        if (r < 0)
+                return log_error_errno(errno, "could not allocate event loop: %m");
 
         r = sd_event_add_signal(manager->event, NULL, SIGINT, on_sigterm, manager);
         if (r < 0)
