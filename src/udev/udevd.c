@@ -1439,7 +1439,7 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int manager_new(Manager **ret) {
         _cleanup_(manager_freep) Manager *manager = NULL;
-        int r;
+        int r, fd_ctrl, fd_uevent;
 
         assert(ret);
 
@@ -1463,18 +1463,6 @@ static int manager_new(Manager **ret) {
 
         udev_list_node_init(&manager->events);
         udev_list_init(manager->udev, &manager->properties, true);
-
-        *ret = manager;
-        manager = NULL;
-
-        return 0;
-}
-
-static int manager_listen(Manager *manager) {
-        sigset_t mask;
-        int r, fd_worker, fd_ctrl, fd_uevent, one = 1;
-
-        assert(manager);
 
         r = systemd_fds(&fd_ctrl, &fd_uevent);
         if (r >= 0) {
@@ -1515,6 +1503,18 @@ static int manager_listen(Manager *manager) {
         r = udev_ctrl_enable_receiving(manager->ctrl);
         if (r < 0)
                 return log_error_errno(EINVAL, "error binding udev control socket");
+
+        *ret = manager;
+        manager = NULL;
+
+        return 0;
+}
+
+static int manager_listen(Manager *manager) {
+        sigset_t mask;
+        int r, fd_worker, one = 1;
+
+        assert(manager);
 
         /* unnamed socket from workers to the main daemon */
         r = socketpair(AF_LOCAL, SOCK_DGRAM|SOCK_CLOEXEC, 0, manager->worker_watch);
@@ -1561,7 +1561,7 @@ static int manager_listen(Manager *manager) {
         if (r < 0)
                 return log_error_errno(r, "error creating watchdog event source: %m");
 
-        r = sd_event_add_io(manager->event, &manager->ctrl_event, fd_ctrl, EPOLLIN, on_ctrl_msg, manager);
+        r = sd_event_add_io(manager->event, &manager->ctrl_event, udev_ctrl_get_fd(manager->ctrl), EPOLLIN, on_ctrl_msg, manager);
         if (r < 0)
                 return log_error_errno(r, "error creating ctrl event source: %m");
 
@@ -1577,7 +1577,7 @@ static int manager_listen(Manager *manager) {
         if (r < 0)
                 return log_error_errno(r, "error creating inotify event source: %m");
 
-        r = sd_event_add_io(manager->event, &manager->uevent_event, fd_uevent, EPOLLIN, on_uevent, manager);
+        r = sd_event_add_io(manager->event, &manager->uevent_event, udev_monitor_get_fd(manager->monitor), EPOLLIN, on_uevent, manager);
         if (r < 0)
                 return log_error_errno(r, "error creating uevent event source: %m");
 
