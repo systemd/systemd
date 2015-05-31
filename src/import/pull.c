@@ -440,7 +440,7 @@ int main(int argc, char *argv[]) {
         if (r <= 0)
                 goto finish;
 
-        ignore_signals(SIGPIPE, -1);
+        (void) ignore_signals(SIGPIPE, -1);
 
         r = pull_main(argc, argv);
 

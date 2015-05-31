@@ -109,8 +109,8 @@ static int setup_machine_raw(uint64_t size, sd_bus_error *error) {
 
                 /* Child */
 
-                reset_all_signal_handlers();
-                reset_signal_mask();
+                (void) reset_all_signal_handlers();
+                (void) reset_signal_mask();
                 assert_se(prctl(PR_SET_PDEATHSIG, SIGTERM) == 0);
 
                 fd = safe_close(fd);

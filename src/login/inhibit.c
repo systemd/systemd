@@ -274,6 +274,9 @@ int main(int argc, char *argv[]) {
                 if (pid == 0) {
                         /* Child */
 
+                        (void) reset_all_signal_handlers();
+                        (void) reset_signal_mask();
+
                         close_all_fds(NULL, 0);
 
                         execvp(argv[optind], argv + optind);

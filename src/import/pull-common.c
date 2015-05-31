@@ -339,8 +339,8 @@ int pull_verify(
 
                 /* Child */
 
-                reset_all_signal_handlers();
-                reset_signal_mask();
+                (void) reset_all_signal_handlers();
+                (void) reset_signal_mask();
                 assert_se(prctl(PR_SET_PDEATHSIG, SIGTERM) == 0);
 
                 gpg_pipe[1] = safe_close(gpg_pipe[1]);

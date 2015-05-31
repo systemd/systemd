@@ -85,6 +85,9 @@ int pager_open(bool jump_to_end) {
         if (pager_pid == 0) {
                 const char* less_opts;
 
+                (void) reset_all_signal_handlers();
+                (void) reset_signal_mask();
+
                 dup2(fd[0], STDIN_FILENO);
                 safe_close_pair(fd);
 
@@ -178,6 +181,10 @@ int show_man_page(const char *desc, bool null_stdio) {
 
         if (pid == 0) {
                 /* Child */
+
+                (void) reset_all_signal_handlers();
+                (void) reset_signal_mask();
+
                 if (null_stdio) {
                         r = make_null_stdio();
                         if (r < 0) {

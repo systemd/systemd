@@ -239,7 +239,7 @@ int pty_setup_child(Pty *pty) {
         assert_return(pty_is_child(pty), -EINVAL);
         assert_return(pty_is_open(pty), -EALREADY);
 
-        r = sigprocmask_many(SIG_SETMASK, -1);
+        r = reset_signal_mask();
         if (r < 0)
                 return r;
 

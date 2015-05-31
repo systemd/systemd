@@ -738,7 +738,8 @@ int bus_socket_exec(sd_bus *b) {
         if (pid == 0) {
                 /* Child */
 
-                reset_all_signal_handlers();
+                (void) reset_all_signal_handlers();
+                (void) reset_signal_mask();
 
                 close_all_fds(s+1, 1);
 

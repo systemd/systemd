@@ -3656,7 +3656,8 @@ static int spawn_getent(const char *database, const char *key, pid_t *rpid) {
                 if (nullfd > 2)
                         safe_close(nullfd);
 
-                reset_all_signal_handlers();
+                (void) reset_all_signal_handlers();
+                (void) reset_signal_mask();
                 close_all_fds(NULL, 0);
 
                 execle("/usr/bin/getent", "getent", database, key, NULL, &empty_env);
@@ -4739,8 +4740,8 @@ int main(int argc, char *argv[]) {
                         rtnl_socket_pair[0] = safe_close(rtnl_socket_pair[0]);
                         pid_socket_pair[0] = safe_close(pid_socket_pair[0]);
 
-                        reset_all_signal_handlers();
-                        reset_signal_mask();
+                        (void) reset_all_signal_handlers();
+                        (void) reset_signal_mask();
 
                         r = outer_child(&barrier,
                                         arg_directory,

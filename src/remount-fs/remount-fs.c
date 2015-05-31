@@ -95,6 +95,9 @@ int main(int argc, char *argv[]) {
                         const char *arguments[5];
                         /* Child */
 
+                        (void) reset_all_signal_handlers();
+                        (void) reset_signal_mask();
+
                         arguments[0] = MOUNT_PATH;
                         arguments[1] = me->mnt_dir;
                         arguments[2] = "-o";

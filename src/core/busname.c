@@ -408,8 +408,8 @@ static int busname_make_starter(BusName *n, pid_t *_pid) {
         if (pid == 0) {
                 int ret;
 
-                default_signals(SIGNALS_CRASH_HANDLER, SIGNALS_IGNORE, -1);
-                ignore_signals(SIGPIPE, -1);
+                (void) default_signals(SIGNALS_CRASH_HANDLER, SIGNALS_IGNORE, -1);
+                (void) ignore_signals(SIGPIPE, -1);
                 log_forget_fds();
 
                 r = bus_kernel_make_starter(n->starter_fd, n->name, n->activating, n->accept_fd, n->policy, n->policy_world);

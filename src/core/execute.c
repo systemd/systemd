@@ -823,6 +823,7 @@ static int setup_pam(
 
         /* Block SIGTERM, so that we know that it won't get lost in
          * the child */
+
         if (sigemptyset(&ss) < 0 ||
             sigaddset(&ss, SIGTERM) < 0 ||
             sigprocmask(SIG_BLOCK, &ss, &old_ss) < 0)
@@ -856,6 +857,8 @@ static int setup_pam(
                  * to fail to exit normally */
                 if (setresuid(uid, uid, uid) < 0)
                         log_error_errno(r, "Error: Failed to setresuid() in sd-pam: %m");
+
+                (void) ignore_signals(SIGPIPE, -1);
 
                 /* Wait until our parent died. This will only work if
                  * the above setresuid() succeeds, otherwise the kernel
@@ -1324,11 +1327,11 @@ static int exec_child(
          * others we leave untouched because we set them to
          * SIG_DFL or a valid handler initially, both of which
          * will be demoted to SIG_DFL. */
-        default_signals(SIGNALS_CRASH_HANDLER,
-                        SIGNALS_IGNORE, -1);
+        (void) default_signals(SIGNALS_CRASH_HANDLER,
+                               SIGNALS_IGNORE, -1);
 
         if (context->ignore_sigpipe)
-                ignore_signals(SIGPIPE, -1);
+                (void) ignore_signals(SIGPIPE, -1);
 
         r = reset_signal_mask();
         if (r < 0) {

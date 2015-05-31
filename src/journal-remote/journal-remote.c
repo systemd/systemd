@@ -96,6 +96,10 @@ static int spawn_child(const char* child, char** argv) {
 
         /* In the child */
         if (child_pid == 0) {
+
+                (void) reset_all_signal_handlers();
+                (void) reset_signal_mask();
+
                 r = dup2(fd[1], STDOUT_FILENO);
                 if (r < 0) {
                         log_error_errno(errno, "Failed to dup pipe to stdout: %m");
