@@ -23,13 +23,13 @@
 #include "signal-util.h"
 
 int reset_all_signal_handlers(void) {
+        static const struct sigaction sa = {
+                .sa_handler = SIG_DFL,
+                .sa_flags = SA_RESTART,
+        };
         int sig, r = 0;
 
         for (sig = 1; sig < _NSIG; sig++) {
-                static const struct sigaction sa = {
-                        .sa_handler = SIG_DFL,
-                        .sa_flags = SA_RESTART,
-                };
 
                 /* These two cannot be caught... */
                 if (sig == SIGKILL || sig == SIGSTOP)
@@ -38,7 +38,7 @@ int reset_all_signal_handlers(void) {
                 /* On Linux the first two RT signals are reserved by
                  * glibc, and sigaction() will return EINVAL for them. */
                 if ((sigaction(sig, &sa, NULL) < 0))
-                        if (errno != EINVAL && r == 0)
+                        if (errno != EINVAL && r >= 0)
                                 r = -errno;
         }
 
@@ -57,82 +57,122 @@ int reset_signal_mask(void) {
         return 0;
 }
 
-int sigaction_many(const struct sigaction *sa, ...) {
-        va_list ap;
-        int r = 0, sig;
+static int sigaction_many_ap(const struct sigaction *sa, int sig, va_list ap) {
+        int r = 0;
 
-        va_start(ap, sa);
-        while ((sig = va_arg(ap, int)) > 0)
+        /* negative signal ends the list. 0 signal is skipped. */
+
+        if (sig < 0)
+                return 0;
+
+        if (sig > 0) {
                 if (sigaction(sig, sa, NULL) < 0)
                         r = -errno;
+        }
+
+        while ((sig = va_arg(ap, int)) >= 0) {
+
+                if (sig == 0)
+                        continue;
+
+                if (sigaction(sig, sa, NULL) < 0) {
+                        if (r >= 0)
+                                r = -errno;
+                }
+        }
+
+        return r;
+}
+
+int sigaction_many(const struct sigaction *sa, ...) {
+        va_list ap;
+        int r;
+
+        va_start(ap, sa);
+        r = sigaction_many_ap(sa, 0, ap);
         va_end(ap);
 
         return r;
 }
 
 int ignore_signals(int sig, ...) {
+
         static const struct sigaction sa = {
                 .sa_handler = SIG_IGN,
                 .sa_flags = SA_RESTART,
         };
-        va_list ap;
-        int r = 0;
 
-        if (sigaction(sig, &sa, NULL) < 0)
-                r = -errno;
+        va_list ap;
+        int r;
 
         va_start(ap, sig);
-        while ((sig = va_arg(ap, int)) > 0)
-                if (sigaction(sig, &sa, NULL) < 0)
-                        r = -errno;
+        r = sigaction_many_ap(&sa, sig, ap);
         va_end(ap);
 
         return r;
 }
 
 int default_signals(int sig, ...) {
+
         static const struct sigaction sa = {
                 .sa_handler = SIG_DFL,
                 .sa_flags = SA_RESTART,
         };
-        va_list ap;
-        int r = 0;
 
-        if (sigaction(sig, &sa, NULL) < 0)
-                r = -errno;
+        va_list ap;
+        int r;
 
         va_start(ap, sig);
-        while ((sig = va_arg(ap, int)) > 0)
-                if (sigaction(sig, &sa, NULL) < 0)
-                        r = -errno;
+        r = sigaction_many_ap(&sa, sig, ap);
         va_end(ap);
 
         return r;
 }
 
-void sigset_add_many(sigset_t *ss, ...) {
-        va_list ap;
-        int sig;
+static int sigset_add_many_ap(sigset_t *ss, va_list ap) {
+        int sig, r = 0;
 
         assert(ss);
 
+        while ((sig = va_arg(ap, int)) >= 0) {
+
+                if (sig == 0)
+                        continue;
+
+                if (sigaddset(ss, sig) < 0) {
+                        if (r >= 0)
+                                r = -errno;
+                }
+        }
+
+        return r;
+}
+
+int sigset_add_many(sigset_t *ss, ...) {
+        va_list ap;
+        int r;
+
         va_start(ap, ss);
-        while ((sig = va_arg(ap, int)) > 0)
-                assert_se(sigaddset(ss, sig) == 0);
+        r = sigset_add_many_ap(ss, ap);
         va_end(ap);
+
+        return r;
 }
 
 int sigprocmask_many(int how, ...) {
         va_list ap;
         sigset_t ss;
-        int sig;
+        int r;
 
-        assert_se(sigemptyset(&ss) == 0);
+        if (sigemptyset(&ss) < 0)
+                return -errno;
 
         va_start(ap, how);
-        while ((sig = va_arg(ap, int)) > 0)
-                assert_se(sigaddset(&ss, sig) == 0);
+        r = sigset_add_many_ap(&ss, ap);
         va_end(ap);
+
+        if (r < 0)
+                return r;
 
         if (sigprocmask(how, &ss, NULL) < 0)
                 return -errno;

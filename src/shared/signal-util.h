@@ -32,7 +32,7 @@ int ignore_signals(int sig, ...);
 int default_signals(int sig, ...);
 int sigaction_many(const struct sigaction *sa, ...);
 
-void sigset_add_many(sigset_t *ss, ...);
+int sigset_add_many(sigset_t *ss, ...);
 int sigprocmask_many(int how, ...);
 
 const char *signal_to_string(int i) _const_;
