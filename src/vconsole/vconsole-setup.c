@@ -37,6 +37,7 @@
 #include "fileio.h"
 #include "process-util.h"
 #include "terminal-util.h"
+#include "signal-util.h"
 
 static bool is_vconsole(int fd) {
         unsigned char data[1];
@@ -122,6 +123,10 @@ static int keyboard_load_and_wait(const char *vc, const char *map, const char *m
         if (pid < 0)
                 return log_error_errno(errno, "Failed to fork: %m");
         else if (pid == 0) {
+
+                (void) reset_all_signal_handlers();
+                (void) reset_signal_mask();
+
                 execv(args[0], (char **) args);
                 _exit(EXIT_FAILURE);
         }
@@ -160,6 +165,10 @@ static int font_load_and_wait(const char *vc, const char *font, const char *map,
         if (pid < 0)
                 return log_error_errno(errno, "Failed to fork: %m");
         else if (pid == 0) {
+
+                (void) reset_all_signal_handlers();
+                (void) reset_signal_mask();
+
                 execv(args[0], (char **) args);
                 _exit(EXIT_FAILURE);
         }

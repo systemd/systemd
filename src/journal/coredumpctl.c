@@ -757,6 +757,9 @@ static int run_gdb(sd_journal *j) {
                 goto finish;
         }
         if (pid == 0) {
+                (void) reset_all_signal_handlers();
+                (void) reset_signal_mask();
+
                 execlp("gdb", "gdb", exe, path, NULL);
 
                 log_error_errno(errno, "Failed to invoke gdb: %m");

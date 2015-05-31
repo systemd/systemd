@@ -24,6 +24,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <getopt.h>
+#include <sys/prctl.h>
 
 #include "hashmap.h"
 #include "util.h"
@@ -34,6 +35,7 @@
 #include "strv.h"
 #include "process-util.h"
 #include "terminal-util.h"
+#include "signal-util.h"
 
 static const char prefixes[] =
         "/etc\0"
@@ -189,9 +191,14 @@ static int found_override(const char *top, const char *bottom) {
         if (pid < 0)
                 return log_error_errno(errno, "Failed to fork off diff: %m");
         else if (pid == 0) {
+
+                (void) reset_all_signal_handlers();
+                (void) reset_signal_mask();
+                assert_se(prctl(PR_SET_PDEATHSIG, SIGTERM) == 0);
+
                 execlp("diff", "diff", "-us", "--", bottom, top, NULL);
                 log_error_errno(errno, "Failed to execute diff: %m");
-                _exit(1);
+                _exit(EXIT_FAILURE);
         }
 
         wait_for_terminate_and_warn("diff", pid, false);

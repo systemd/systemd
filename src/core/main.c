@@ -1405,9 +1405,8 @@ int main(int argc, char *argv[]) {
         }
 
         /* Reset all signal handlers. */
-        assert_se(reset_all_signal_handlers() == 0);
-
-        ignore_signals(SIGNALS_IGNORE, -1);
+        (void) reset_all_signal_handlers();
+        (void) ignore_signals(SIGNALS_IGNORE, -1);
 
         if (parse_config_file() < 0) {
                 error_message = "Failed to parse config file";
@@ -1931,8 +1930,8 @@ finish:
 
                 /* Reenable any blocked signals, especially important
                  * if we switch from initial ramdisk to init=... */
-                reset_all_signal_handlers();
-                reset_signal_mask();
+                (void) reset_all_signal_handlers();
+                (void) reset_signal_mask();
 
                 if (switch_root_init) {
                         args[0] = switch_root_init;

@@ -2301,8 +2301,8 @@ static int do_execute(char **directories, usec_t timeout, char *argv[]) {
         /* We fork this all off from a child process so that we can
          * somewhat cleanly make use of SIGALRM to set a time limit */
 
-        reset_all_signal_handlers();
-        reset_signal_mask();
+        (void) reset_all_signal_handlers();
+        (void) reset_signal_mask();
 
         assert_se(prctl(PR_SET_PDEATHSIG, SIGTERM) == 0);
 
@@ -3344,8 +3344,8 @@ int fork_agent(pid_t *pid, const int except[], unsigned n_except, const char *pa
         /* Make sure we actually can kill the agent, if we need to, in
          * case somebody invoked us from a shell script that trapped
          * SIGTERM or so... */
-        reset_all_signal_handlers();
-        reset_signal_mask();
+        (void) reset_all_signal_handlers();
+        (void) reset_signal_mask();
 
         /* Check whether our parent died before we were able
          * to set the death signal and unblock the signals */

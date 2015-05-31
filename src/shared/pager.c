@@ -30,6 +30,7 @@
 #include "process-util.h"
 #include "macro.h"
 #include "terminal-util.h"
+#include "signal-util.h"
 
 static pid_t pager_pid = 0;
 
@@ -84,6 +85,9 @@ int pager_open(bool jump_to_end) {
         /* In the child start the pager */
         if (pager_pid == 0) {
                 const char* less_opts;
+
+                (void) reset_all_signal_handlers();
+                (void) reset_signal_mask();
 
                 dup2(fd[0], STDIN_FILENO);
                 safe_close_pair(fd);
@@ -178,6 +182,10 @@ int show_man_page(const char *desc, bool null_stdio) {
 
         if (pid == 0) {
                 /* Child */
+
+                (void) reset_all_signal_handlers();
+                (void) reset_signal_mask();
+
                 if (null_stdio) {
                         r = make_null_stdio();
                         if (r < 0) {

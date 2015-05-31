@@ -23,9 +23,11 @@
 #include <stdbool.h>
 #include <errno.h>
 #include <unistd.h>
+#include <sys/prctl.h>
 
 #include "util.h"
 #include "process-util.h"
+#include "signal-util.h"
 
 static bool arg_skip = false;
 static bool arg_force = false;
@@ -105,7 +107,13 @@ int main(int argc, char *argv[]) {
                 log_error_errno(errno, "fork(): %m");
                 return EXIT_FAILURE;
         } else if (pid == 0) {
+
                 /* Child */
+
+                (void) reset_all_signal_handlers();
+                (void) reset_signal_mask();
+                assert_se(prctl(PR_SET_PDEATHSIG, SIGTERM) == 0);
+
                 execv(cmdline[0], (char**) cmdline);
                 _exit(1); /* Operational error */
         }

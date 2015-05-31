@@ -33,6 +33,7 @@
 #include "log.h"
 #include "strv.h"
 #include "macro.h"
+#include "signal-util.h"
 
 static char** arg_listen = NULL;
 static bool arg_accept = false;
@@ -192,6 +193,10 @@ static int launch1(const char* child, char** argv, char **env, int fd) {
 
         /* In the child */
         if (child_pid == 0) {
+
+                (void) reset_all_signal_handlers();
+                (void) reset_signal_mask();
+
                 r = dup2(fd, STDIN_FILENO);
                 if (r < 0) {
                         log_error_errno(errno, "Failed to dup connection to stdin: %m");

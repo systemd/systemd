@@ -5189,6 +5189,9 @@ static int enable_sysv_units(const char *verb, char **args) {
                 else if (pid == 0) {
                         /* Child */
 
+                        (void) reset_all_signal_handlers();
+                        (void) reset_signal_mask();
+
                         execv(argv[0], (char**) argv);
                         log_error("Failed to execute %s: %m", argv[0]);
                         _exit(EXIT_FAILURE);
@@ -5853,6 +5856,9 @@ static int run_editor(char **paths) {
                 char **tmp_path, **original_path, *p;
                 unsigned i = 1;
                 size_t argc;
+
+                (void) reset_all_signal_handlers();
+                (void) reset_signal_mask();
 
                 argc = strv_length(paths)/2 + 1;
                 args = newa(const char*, argc + 1);

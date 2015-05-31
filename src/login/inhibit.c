@@ -33,6 +33,7 @@
 #include "strv.h"
 #include "formats-util.h"
 #include "process-util.h"
+#include "signal-util.h"
 
 static const char* arg_what = "idle:sleep:shutdown";
 static const char* arg_who = NULL;
@@ -273,6 +274,9 @@ int main(int argc, char *argv[]) {
 
                 if (pid == 0) {
                         /* Child */
+
+                        (void) reset_all_signal_handlers();
+                        (void) reset_signal_mask();
 
                         close_all_fds(NULL, 0);
 
