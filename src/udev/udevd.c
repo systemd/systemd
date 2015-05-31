@@ -1628,23 +1628,6 @@ int main(int argc, char *argv[]) {
                 log_debug("set children_max to %u", arg_children_max);
         }
 
-        /* before opening new files, make sure std{in,out,err} fds are in a sane state */
-        if (arg_daemonize) {
-                int fd;
-
-                fd = open("/dev/null", O_RDWR);
-                if (fd < 0)
-                        log_error("cannot open /dev/null");
-                else {
-                        if (write(STDOUT_FILENO, 0, 0) < 0)
-                                dup2(fd, STDOUT_FILENO);
-                        if (write(STDERR_FILENO, 0, 0) < 0)
-                                dup2(fd, STDERR_FILENO);
-                        if (fd > STDERR_FILENO)
-                                close(fd);
-                }
-        }
-
         /* set umask before creating any file/directory */
         r = chdir("/");
         if (r < 0) {
