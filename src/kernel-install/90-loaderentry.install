@@ -43,14 +43,14 @@ fi
 declare -a BOOT_OPTIONS
 
 if [[ -f /etc/kernel/cmdline ]]; then
-    readarray -t BOOT_OPTIONS < /etc/kernel/cmdline
+    read -r -d '' -a BOOT_OPTIONS < /etc/kernel/cmdline
 fi
 
 if ! [[ ${BOOT_OPTIONS[*]} ]]; then
-    read -a line -r < /proc/cmdline
+    read -r -d '' -a line < /proc/cmdline
     for i in "${line[@]}"; do
         [[ "${i#initrd=*}" != "$i" ]] && continue
-        BOOT_OPTIONS[${#BOOT_OPTIONS[@]}]="$i"
+        BOOT_OPTIONS+=("$i")
     done
 fi
 
