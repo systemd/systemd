@@ -393,6 +393,8 @@ int mount_setup(bool loaded_policy) {
         mkdir_label("/run/systemd", 0755);
         mkdir_label("/run/systemd/system", 0755);
         mkdir_label("/run/systemd/inaccessible", 0000);
+	mkdir_label("/run/systemd/netif", 0755);
+	mkdir_label("/run/systemd/netif/links", 0755);
 
         return 0;
 }
