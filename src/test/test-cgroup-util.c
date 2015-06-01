@@ -244,16 +244,16 @@ static void test_escape(void) {
 }
 
 static void test_controller_is_valid(void) {
-        assert_se(cg_controller_is_valid("foobar", false));
-        assert_se(cg_controller_is_valid("foo_bar", false));
-        assert_se(cg_controller_is_valid("name=foo", true));
-        assert_se(!cg_controller_is_valid("", false));
-        assert_se(!cg_controller_is_valid("name=", true));
-        assert_se(!cg_controller_is_valid("=", false));
-        assert_se(!cg_controller_is_valid("cpu,cpuacct", false));
-        assert_se(!cg_controller_is_valid("_", false));
-        assert_se(!cg_controller_is_valid("_foobar", false));
-        assert_se(!cg_controller_is_valid("tatü", false));
+        assert_se(cg_controller_is_valid("foobar"));
+        assert_se(cg_controller_is_valid("foo_bar"));
+        assert_se(cg_controller_is_valid("name=foo"));
+        assert_se(!cg_controller_is_valid(""));
+        assert_se(!cg_controller_is_valid("name="));
+        assert_se(!cg_controller_is_valid("="));
+        assert_se(!cg_controller_is_valid("cpu,cpuacct"));
+        assert_se(!cg_controller_is_valid("_"));
+        assert_se(!cg_controller_is_valid("_foobar"));
+        assert_se(!cg_controller_is_valid("tatü"));
 }
 
 static void test_slice_to_path_one(const char *unit, const char *path, int error) {
