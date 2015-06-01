@@ -1839,15 +1839,6 @@ static int setup_kmsg(const char *dest, int kmsg_socket) {
         const char *from, *to;
         _cleanup_umask_ mode_t u;
         int fd, k;
-        union {
-                struct cmsghdr cmsghdr;
-                uint8_t buf[CMSG_SPACE(sizeof(int))];
-        } control = {};
-        struct msghdr mh = {
-                .msg_control = &control,
-                .msg_controllen = sizeof(control),
-        };
-        struct cmsghdr *cmsg;
 
         assert(kmsg_socket >= 0);
 
@@ -1872,17 +1863,9 @@ static int setup_kmsg(const char *dest, int kmsg_socket) {
         if (fd < 0)
                 return log_error_errno(errno, "Failed to open fifo: %m");
 
-        cmsg = CMSG_FIRSTHDR(&mh);
-        cmsg->cmsg_level = SOL_SOCKET;
-        cmsg->cmsg_type = SCM_RIGHTS;
-        cmsg->cmsg_len = CMSG_LEN(sizeof(int));
-        memcpy(CMSG_DATA(cmsg), &fd, sizeof(int));
-
-        mh.msg_controllen = cmsg->cmsg_len;
-
         /* Store away the fd in the socket, so that it stays open as
          * long as we run the child */
-        k = sendmsg(kmsg_socket, &mh, MSG_NOSIGNAL);
+        k = send_fd(kmsg_socket, fd);
         safe_close(fd);
 
         if (k < 0)
@@ -1894,20 +1877,11 @@ static int setup_kmsg(const char *dest, int kmsg_socket) {
         return 0;
 }
 
-static int send_rtnl(int send_fd) {
-        union {
-                struct cmsghdr cmsghdr;
-                uint8_t buf[CMSG_SPACE(sizeof(int))];
-        } control = {};
-        struct msghdr mh = {
-                .msg_control = &control,
-                .msg_controllen = sizeof(control),
-        };
-        struct cmsghdr *cmsg;
+static int send_rtnl(int sender_fd) {
         _cleanup_close_ int fd = -1;
-        ssize_t k;
+        int r;
 
-        assert(send_fd >= 0);
+        assert(sender_fd >= 0);
 
         if (!arg_expose_ports)
                 return 0;
@@ -1916,18 +1890,10 @@ static int send_rtnl(int send_fd) {
         if (fd < 0)
                 return log_error_errno(errno, "Failed to allocate container netlink: %m");
 
-        cmsg = CMSG_FIRSTHDR(&mh);
-        cmsg->cmsg_level = SOL_SOCKET;
-        cmsg->cmsg_type = SCM_RIGHTS;
-        cmsg->cmsg_len = CMSG_LEN(sizeof(int));
-        memcpy(CMSG_DATA(cmsg), &fd, sizeof(int));
-
-        mh.msg_controllen = cmsg->cmsg_len;
-
         /* Store away the fd in the socket, so that it stays open as
          * long as we run the child */
-        k = sendmsg(send_fd, &mh, MSG_NOSIGNAL);
-        if (k < 0)
+        r = send_fd(sender_fd, fd);
+        if (r < 0)
                 return log_error_errno(errno, "Failed to send netlink fd: %m");
 
         return 0;
@@ -2032,18 +1998,8 @@ static int on_address_change(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) 
 }
 
 static int watch_rtnl(sd_event *event, int recv_fd, union in_addr_union *exposed, sd_rtnl **ret) {
-        union {
-                struct cmsghdr cmsghdr;
-                uint8_t buf[CMSG_SPACE(sizeof(int))];
-        } control = {};
-        struct msghdr mh = {
-                .msg_control = &control,
-                .msg_controllen = sizeof(control),
-        };
-        struct cmsghdr *cmsg;
         _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
         int fd, r;
-        ssize_t k;
 
         assert(event);
         assert(recv_fd >= 0);
@@ -2052,15 +2008,9 @@ static int watch_rtnl(sd_event *event, int recv_fd, union in_addr_union *exposed
         if (!arg_expose_ports)
                 return 0;
 
-        k = recvmsg(recv_fd, &mh, MSG_NOSIGNAL);
-        if (k < 0)
+        r = receive_fd(recv_fd, &fd);
+        if (r < 0)
                 return log_error_errno(errno, "Failed to recv netlink fd: %m");
-
-        cmsg = CMSG_FIRSTHDR(&mh);
-        assert(cmsg->cmsg_level == SOL_SOCKET);
-        assert(cmsg->cmsg_type == SCM_RIGHTS);
-        assert(cmsg->cmsg_len == CMSG_LEN(sizeof(int)));
-        memcpy(&fd, CMSG_DATA(cmsg), sizeof(int));
 
         r = sd_rtnl_open_fd(&rtnl, fd, 1, RTNLGRP_IPV4_IFADDR);
         if (r < 0) {
