@@ -21,5 +21,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "journal-dir.h"
 
-int journal_directory_vacuum(const char *directory, uint64_t max_use, usec_t max_retention_usec, usec_t *oldest_usec, bool vacuum);
+int journal_directory_vacuum(JournalDirectory *directory, uint64_t max_use, usec_t max_retention_usec, usec_t *oldest_usec, bool vacuum);

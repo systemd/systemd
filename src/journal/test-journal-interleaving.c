@@ -49,14 +49,25 @@ noreturn static void log_assert_errno(const char *text, int eno, const char *fil
                         log_assert_errno(#expr, -_r_, __FILE__, __LINE__, __PRETTY_FUNCTION__); \
         } while (false)
 
-static JournalFile *test_open(const char *name) {
+static JournalFile *test_open(JournalDirectory *dir, const char *filename) {
         JournalFile *f;
-        assert_ret(journal_file_open(name, O_RDWR|O_CREAT, 0644, true, false, NULL, NULL, NULL, &f));
+        assert_ret(journal_file_open(dir, filename, O_RDWR|O_CREAT, 0644, true, false, NULL, NULL, NULL, &f));
         return f;
+}
+
+static JournalDirectory *test_open_dir(const char *dirname) {
+        JournalDirectory *dir;
+
+        assert_ret(journal_directory_open(dirname, &dir));
+        return dir;
 }
 
 static void test_close(JournalFile *f) {
         journal_file_close (f);
+}
+
+static void test_close_dir(JournalDirectory *dir) {
+        journal_directory_unref(dir);
 }
 
 static void append_number(JournalFile *f, int n, uint64_t *seqnum) {
@@ -115,39 +126,48 @@ static void test_check_numbers_up (sd_journal *j, int count) {
 
 }
 
-static void setup_sequential(void) {
+static JournalDirectory* setup_sequential(void) {
         JournalFile *one, *two;
-        one = test_open("one.journal");
-        two = test_open("two.journal");
+        JournalDirectory *dir;
+
+        dir = test_open_dir(".");
+        one = test_open(dir, "one.journal");
+        two = test_open(dir, "two.journal");
         append_number(one, 1, NULL);
         append_number(one, 2, NULL);
         append_number(two, 3, NULL);
         append_number(two, 4, NULL);
         test_close(one);
         test_close(two);
+        return dir;
 }
 
-static void setup_interleaved(void) {
+static JournalDirectory* setup_interleaved(void) {
         JournalFile *one, *two;
-        one = test_open("one.journal");
-        two = test_open("two.journal");
+        JournalDirectory *dir;
+
+        dir = test_open_dir(".");
+        one = test_open(dir, "one.journal");
+        two = test_open(dir, "two.journal");
         append_number(one, 1, NULL);
         append_number(two, 2, NULL);
         append_number(one, 3, NULL);
         append_number(two, 4, NULL);
         test_close(one);
         test_close(two);
+        return dir;
 }
 
-static void test_skip(void (*setup)(void)) {
+static void test_skip(JournalDirectory* (*setup)(void)) {
         char t[] = "/tmp/journal-skip-XXXXXX";
         sd_journal *j;
         int r;
+        JournalDirectory *dir;
 
         assert_se(mkdtemp(t));
         assert_se(chdir(t) >= 0);
 
-        setup();
+        dir = setup();
 
         /* Seek to head, iterate down.
          */
@@ -188,10 +208,11 @@ static void test_skip(void (*setup)(void)) {
         if (arg_keep)
                 log_info("Not removing %s", t);
         else {
-                journal_directory_vacuum(".", 3000000, 0, NULL, true);
+                journal_directory_vacuum(dir, 3000000, 0, NULL, true);
 
                 assert_se(rm_rf(t, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
         }
+        test_close_dir(dir);
 
         puts("------------------------------------------------------------");
 }
@@ -200,14 +221,15 @@ static void test_sequence_numbers(void) {
 
         char t[] = "/tmp/journal-seq-XXXXXX";
         JournalFile *one, *two;
+        JournalDirectory *dir;
         uint64_t seqnum = 0;
         sd_id128_t seqnum_id;
 
         assert_se(mkdtemp(t));
         assert_se(chdir(t) >= 0);
 
-        assert_se(journal_file_open("one.journal", O_RDWR|O_CREAT, 0644,
-                                    true, false, NULL, NULL, NULL, &one) == 0);
+        dir = test_open_dir(".");
+        one = test_open(dir, "one.journal");
 
         append_number(one, 1, &seqnum);
         printf("seqnum=%"PRIu64"\n", seqnum);
@@ -223,7 +245,7 @@ static void test_sequence_numbers(void) {
 
         memcpy(&seqnum_id, &one->header->seqnum_id, sizeof(sd_id128_t));
 
-        assert_se(journal_file_open("two.journal", O_RDWR|O_CREAT, 0644,
+        assert_se(journal_file_open(dir, "two.journal", O_RDWR|O_CREAT, 0644,
                                     true, false, NULL, NULL, one, &two) == 0);
 
         assert_se(two->header->state == STATE_ONLINE);
@@ -254,7 +276,7 @@ static void test_sequence_numbers(void) {
         /* restart server */
         seqnum = 0;
 
-        assert_se(journal_file_open("two.journal", O_RDWR, 0,
+        assert_se(journal_file_open(dir, "two.journal", O_RDWR, 0,
                                     true, false, NULL, NULL, NULL, &two) == 0);
 
         assert_se(sd_id128_equal(two->header->seqnum_id, seqnum_id));
@@ -273,10 +295,11 @@ static void test_sequence_numbers(void) {
         if (arg_keep)
                 log_info("Not removing %s", t);
         else {
-                journal_directory_vacuum(".", 3000000, 0, NULL, true);
+                journal_directory_vacuum(dir, 3000000, 0, NULL, true);
 
                 assert_se(rm_rf(t, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
         }
+        test_close_dir(dir);
 }
 
 int main(int argc, char *argv[]) {

@@ -1791,6 +1791,26 @@ int dir_is_empty(const char *path) {
         }
 }
 
+char* basename_malloc(const char *path) {
+        char *b, *base, *base2;
+
+        assert(path);
+
+        b = strdup(path);
+        if (!b)
+                return NULL;
+        base = basename(b);
+        assert(base);
+
+        if (base != b) {
+                base2 = strdup(base);
+                free(b);
+                return base2;
+        }
+
+        return base;
+}
+
 char* dirname_malloc(const char *path) {
         char *d, *dir, *dir2;
 

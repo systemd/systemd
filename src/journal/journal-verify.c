@@ -1265,8 +1265,8 @@ fail:
         if (show_progress)
                 flush_progress();
 
-        log_error("File corruption detected at %s:"OFSfmt" (of %llu bytes, %"PRIu64"%%).",
-                  f->path,
+        log_error("File corruption detected at %s/%s:"OFSfmt" (of %llu bytes, %"PRIu64"%%).",
+                  f->directory->path, f->filename,
                   p,
                   (unsigned long long) f->last_stat.st_size,
                   100 * p / f->last_stat.st_size);

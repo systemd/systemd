@@ -154,8 +154,9 @@ void journal_file_close(JournalFile *f) {
                 (void) btrfs_defrag_fd(f->fd);
         }
 
+        free(f->filename);
+        journal_directory_unref(f->directory);
         safe_close(f->fd);
-        free(f->path);
 
         if (f->mmap)
                 mmap_cache_unref(f->mmap);
@@ -258,12 +259,14 @@ static int journal_file_verify_header(JournalFile *f) {
         flags = le32toh(f->header->incompatible_flags);
         if (flags & ~HEADER_INCOMPATIBLE_SUPPORTED) {
                 if (flags & ~HEADER_INCOMPATIBLE_ANY)
-                        log_debug("Journal file %s has unknown incompatible flags %"PRIx32,
-                                  f->path, flags & ~HEADER_INCOMPATIBLE_ANY);
+                        log_debug("Journal file %s/%s has unknown incompatible flags %"PRIx32,
+                                  f->directory->path, f->filename,
+                                  flags & ~HEADER_INCOMPATIBLE_ANY);
                 flags = (flags & HEADER_INCOMPATIBLE_ANY) & ~HEADER_INCOMPATIBLE_SUPPORTED;
                 if (flags)
-                        log_debug("Journal file %s uses incompatible flags %"PRIx32
-                                  " disabled at compilation time.", f->path, flags);
+                        log_debug("Journal file %s/%s uses incompatible flags %"PRIx32
+                                  " disabled at compilation time.", f->directory->path,
+                                  f->filename, flags);
                 return -EPROTONOSUPPORT;
         }
 
@@ -272,12 +275,14 @@ static int journal_file_verify_header(JournalFile *f) {
         flags = le32toh(f->header->compatible_flags);
         if (f->writable && (flags & ~HEADER_COMPATIBLE_SUPPORTED)) {
                 if (flags & ~HEADER_COMPATIBLE_ANY)
-                        log_debug("Journal file %s has unknown compatible flags %"PRIx32,
-                                  f->path, flags & ~HEADER_COMPATIBLE_ANY);
+                        log_debug("Journal file %s/%s has unknown compatible flags %"PRIx32,
+                                  f->directory->path, f->filename,
+                                  flags & ~HEADER_COMPATIBLE_ANY);
                 flags = (flags & HEADER_COMPATIBLE_ANY) & ~HEADER_COMPATIBLE_SUPPORTED;
                 if (flags)
-                        log_debug("Journal file %s uses compatible flags %"PRIx32
-                                  " disabled at compilation time.", f->path, flags);
+                        log_debug("Journal file %s/%s uses compatible flags %"PRIx32
+                                  " disabled at compilation time.", f->directory->path,
+                                  f->filename, flags);
                 return -EPROTONOSUPPORT;
         }
 
@@ -318,12 +323,14 @@ static int journal_file_verify_header(JournalFile *f) {
                 state = f->header->state;
 
                 if (state == STATE_ONLINE) {
-                        log_debug("Journal file %s is already online. Assuming unclean closing.", f->path);
+                        log_debug("Journal file %s/%s is already online. Assuming unclean closing.",
+                                  f->directory->path, f->filename);
                         return -EBUSY;
                 } else if (state == STATE_ARCHIVED)
                         return -ESHUTDOWN;
                 else if (state != STATE_OFFLINE) {
-                        log_debug("Journal file %s has unknown state %i.", f->path, state);
+                        log_debug("Journal file %s/%s has unknown state %i.",
+                                  f->directory->path, f->filename, state);
                         return -EBUSY;
                 }
         }
@@ -2128,8 +2135,8 @@ int journal_file_next_entry(
 
         if (p > 0 &&
             (direction == DIRECTION_DOWN ? ofs <= p : ofs >= p)) {
-                log_debug("%s: entry array corrupted at entry %"PRIu64,
-                          f->path, i);
+                log_debug("%s/%s: entry array corrupted at entry %"PRIu64,
+                          f->directory->path, f->filename, i);
                 return -EBADMSG;
         }
 
@@ -2453,7 +2460,7 @@ void journal_file_print_header(JournalFile *f) {
 
         assert(f);
 
-        printf("File Path: %s\n"
+        printf("File Path: %s/%s\n"
                "File ID: %s\n"
                "Machine ID: %s\n"
                "Boot ID: %s\n"
@@ -2473,7 +2480,7 @@ void journal_file_print_header(JournalFile *f) {
                "Tail Monotonic Timestamp: %s\n"
                "Objects: %"PRIu64"\n"
                "Entry Objects: %"PRIu64"\n",
-               f->path,
+               f->directory->path, f->filename,
                sd_id128_to_string(f->header->file_id, a),
                sd_id128_to_string(f->header->machine_id, b),
                sd_id128_to_string(f->header->boot_id, c),
@@ -2550,15 +2557,16 @@ static int journal_file_warn_btrfs(JournalFile *f) {
                 return 0;
         }
 
-        log_notice("Creating journal file %s on a btrfs file system, and copy-on-write is enabled. "
+        log_notice("Creating journal file %s/%s on a btrfs file system, and copy-on-write is enabled. "
                    "This is likely to slow down journal access substantially, please consider turning "
-                   "off the copy-on-write file attribute on the journal directory, using chattr +C.", f->path);
+                   "off the copy-on-write file attribute on the journal directory, using chattr +C.", f->directory->path, f->filename);
 
         return 1;
 }
 
 int journal_file_open(
-                const char *fname,
+                JournalDirectory *dir,
+                const char *filename,
                 int flags,
                 mode_t mode,
                 bool compress,
@@ -2568,20 +2576,21 @@ int journal_file_open(
                 JournalFile *template,
                 JournalFile **ret) {
 
+
         bool newly_created = false;
         JournalFile *f;
         void *h;
         int r;
 
-        assert(fname);
+        assert(filename);
         assert(ret);
 
         if ((flags & O_ACCMODE) != O_RDONLY &&
             (flags & O_ACCMODE) != O_RDWR)
                 return -EINVAL;
 
-        if (!endswith(fname, ".journal") &&
-            !endswith(fname, ".journal~"))
+        if (!endswith(filename, ".journal") &&
+            !endswith(filename, ".journal~"))
                 return -EINVAL;
 
         f = new0(JournalFile, 1);
@@ -2613,19 +2622,19 @@ int journal_file_open(
                 }
         }
 
-        f->path = strdup(fname);
-        if (!f->path) {
-                r = -ENOMEM;
-                goto fail;
-        }
-
         f->chain_cache = ordered_hashmap_new(&uint64_hash_ops);
         if (!f->chain_cache) {
                 r = -ENOMEM;
                 goto fail;
         }
 
-        f->fd = open(f->path, f->flags|O_CLOEXEC, f->mode);
+        f->filename = strdup(filename);
+        if (!f->filename) {
+                r = -ENOMEM;
+                goto fail;
+        }
+        f->directory = journal_directory_ref(dir);
+        f->fd = openat(f->directory->fd, f->filename, f->flags|O_CLOEXEC, f->mode);
         if (f->fd < 0) {
                 r = -errno;
                 goto fail;
@@ -2770,12 +2779,12 @@ int journal_file_rotate(JournalFile **f, bool compress, bool seal) {
         if (!old_file->writable)
                 return -EINVAL;
 
-        if (!endswith(old_file->path, ".journal"))
+        if (!endswith(old_file->filename, ".journal"))
                 return -EINVAL;
 
-        l = strlen(old_file->path);
+        l = strlen(old_file->filename);
         r = asprintf(&p, "%.*s@" SD_ID128_FORMAT_STR "-%016"PRIx64"-%016"PRIx64".journal",
-                     (int) l - 8, old_file->path,
+                     (int) l - 8, old_file->filename,
                      SD_ID128_FORMAT_VAL(old_file->header->seqnum_id),
                      le64toh((*f)->header->head_entry_seqnum),
                      le64toh((*f)->header->head_entry_realtime));
@@ -2785,7 +2794,8 @@ int journal_file_rotate(JournalFile **f, bool compress, bool seal) {
         /* Try to rename the file to the archived version. If the file
          * already was deleted, we'll get ENOENT, let's ignore that
          * case. */
-        r = rename(old_file->path, p);
+        r = renameat(old_file->directory->fd, old_file->filename,
+                     old_file->directory->fd, p);
         if (r < 0 && errno != ENOENT)
                 return -errno;
 
@@ -2796,7 +2806,7 @@ int journal_file_rotate(JournalFile **f, bool compress, bool seal) {
          * we archive them */
         old_file->defrag_on_close = true;
 
-        r = journal_file_open(old_file->path, old_file->flags, old_file->mode, compress, seal, NULL, old_file->mmap, old_file, &new_file);
+        r = journal_file_open(old_file->directory, old_file->filename, old_file->flags, old_file->mode, compress, seal, NULL, old_file->mmap, old_file, &new_file);
         journal_file_close(old_file);
 
         *f = new_file;
@@ -2804,7 +2814,8 @@ int journal_file_rotate(JournalFile **f, bool compress, bool seal) {
 }
 
 int journal_file_open_reliably(
-                const char *fname,
+                JournalDirectory *dir,
+                const char *filename,
                 int flags,
                 mode_t mode,
                 bool compress,
@@ -2813,12 +2824,11 @@ int journal_file_open_reliably(
                 MMapCache *mmap_cache,
                 JournalFile *template,
                 JournalFile **ret) {
-
         int r;
         size_t l;
         _cleanup_free_ char *p = NULL;
 
-        r = journal_file_open(fname, flags, mode, compress, seal,
+        r = journal_file_open(dir, filename, flags, mode, compress, seal,
                               metrics, mmap_cache, template, ret);
         if (!IN_SET(r,
                     -EBADMSG,           /* corrupted */
@@ -2837,19 +2847,20 @@ int journal_file_open_reliably(
         if (!(flags & O_CREAT))
                 return r;
 
-        if (!endswith(fname, ".journal"))
+        if (!endswith(filename, ".journal"))
                 return r;
 
         /* The file is corrupted. Rotate it away and try it again (but only once) */
 
-        l = strlen(fname);
+        l = strlen(filename);
         if (asprintf(&p, "%.*s@%016"PRIx64 "-%016"PRIx64 ".journal~",
-                     (int) l - 8, fname,
+                     (int) l - 8, filename,
                      now(CLOCK_REALTIME),
                      random_u64()) < 0)
                 return -ENOMEM;
 
-        r = rename(fname, p);
+        r = renameat(dir->fd, filename,
+                     dir->fd, p);
         if (r < 0)
                 return -errno;
 
@@ -2859,10 +2870,10 @@ int journal_file_open_reliably(
         (void) chattr_path(p, false, FS_NOCOW_FL);
         (void) btrfs_defrag(p);
 
-        log_warning("File %s corrupted or uncleanly shut down, renaming and replacing.", fname);
+        log_warning("File %s/%s corrupted or uncleanly shut down, renaming and replacing.", dir->path, filename);
 
-        return journal_file_open(fname, flags, mode, compress, seal,
-                                 metrics, mmap_cache, template, ret);
+        return journal_file_open(dir, filename, flags, mode, compress,
+                                 seal, metrics, mmap_cache, template, ret);
 }
 
 int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint64_t p, uint64_t *seqnum, Object **ret, uint64_t *offset) {
@@ -3093,7 +3104,8 @@ bool journal_file_rotate_suggested(JournalFile *f, usec_t max_file_usec) {
         /* If we gained new header fields we gained new features,
          * hence suggest a rotation */
         if (le64toh(f->header->header_size) < sizeof(Header)) {
-                log_debug("%s uses an outdated header, suggesting rotation.", f->path);
+                log_debug("%s/%s uses an outdated header, suggesting rotation.",
+                          f->directory->path, f->filename);
                 return true;
         }
 
@@ -3105,8 +3117,9 @@ bool journal_file_rotate_suggested(JournalFile *f, usec_t max_file_usec) {
 
         if (JOURNAL_HEADER_CONTAINS(f->header, n_data))
                 if (le64toh(f->header->n_data) * 4ULL > (le64toh(f->header->data_hash_table_size) / sizeof(HashItem)) * 3ULL) {
-                        log_debug("Data hash table of %s has a fill level at %.1f (%"PRIu64" of %"PRIu64" items, %llu file size, %"PRIu64" bytes per hash table item), suggesting rotation.",
-                                  f->path,
+                        log_debug("Data hash table of %s/%s has a fill level at %.1f (%"PRIu64" of %"PRIu64" items, %llu file size, %"PRIu64" bytes per hash table item), suggesting rotation.",
+                                  f->directory->path,
+                                  f->filename,
                                   100.0 * (double) le64toh(f->header->n_data) / ((double) (le64toh(f->header->data_hash_table_size) / sizeof(HashItem))),
                                   le64toh(f->header->n_data),
                                   le64toh(f->header->data_hash_table_size) / sizeof(HashItem),
@@ -3117,8 +3130,9 @@ bool journal_file_rotate_suggested(JournalFile *f, usec_t max_file_usec) {
 
         if (JOURNAL_HEADER_CONTAINS(f->header, n_fields))
                 if (le64toh(f->header->n_fields) * 4ULL > (le64toh(f->header->field_hash_table_size) / sizeof(HashItem)) * 3ULL) {
-                        log_debug("Field hash table of %s has a fill level at %.1f (%"PRIu64" of %"PRIu64" items), suggesting rotation.",
-                                  f->path,
+                        log_debug("Field hash table of %s/%s has a fill level at %.1f (%"PRIu64" of %"PRIu64" items), suggesting rotation.",
+                                  f->directory->path,
+                                  f->filename,
                                   100.0 * (double) le64toh(f->header->n_fields) / ((double) (le64toh(f->header->field_hash_table_size) / sizeof(HashItem))),
                                   le64toh(f->header->n_fields),
                                   le64toh(f->header->field_hash_table_size) / sizeof(HashItem));
