@@ -28,6 +28,8 @@
 #include <sys/vfs.h>
 #include <linux/magic.h>
 
+#include "bus-error.h"
+#include "bus-util.h"
 #include "sd-journal.h"
 #include "journal-def.h"
 #include "journal-file.h"
@@ -1701,6 +1703,52 @@ fail:
         return r;
 }
 
+static int try_journal_fd(sd_journal *j, const char *machine) {
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_bus_close_unref_ sd_bus *bus = NULL;
+        _cleanup_free_ char *p = NULL;
+        int fd;
+        int r;
+
+        r = sd_bus_default_system(&bus);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get D-Bus connection: %m");
+
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.machine1",
+                        "/org/freedesktop/machine1",
+                        "org.freedesktop.machine1.Manager",
+                        "GetJournal",
+                        &error,
+                        &reply,
+                        "s", machine);
+        if (r < 0) {
+                log_error("Failed to get journal fd from machined: %s", bus_error_message(&error, r));
+                return r;
+        }
+
+        r = sd_bus_message_read(reply, "h", &fd);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        if (fd < 0)
+                return -ENODATA;
+
+        /* TODO: Just some bogus directory name with machine id in it,
+         * so it will look semi-nicely in logs. Is that alright? */
+        p = strjoin("machine://", machine, "/journal", NULL);
+        if (!p)
+                return -ENOMEM;
+
+        r = add_root_directory_with_fd(j, p, fd);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 _public_ int sd_journal_open_container(sd_journal **ret, const char *machine, int flags) {
         _cleanup_free_ char *root = NULL, *class = NULL;
         sd_journal *j;
@@ -1731,7 +1779,9 @@ _public_ int sd_journal_open_container(sd_journal **ret, const char *machine, in
         j->prefix = root;
         root = NULL;
 
-        r = add_search_paths(j);
+        r = try_journal_fd(j, machine);
+        if (r == -ENODATA)
+                r = add_search_paths(j);
         if (r < 0)
                 goto fail;
 

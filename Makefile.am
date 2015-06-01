@@ -4399,8 +4399,8 @@ systemd_journal_upload_CFLAGS = \
 	$(LIBCURL_CFLAGS)
 
 systemd_journal_upload_LDADD = \
-	libsystemd-internal.la \
 	libsystemd-journal-internal.la \
+	libsystemd-internal.la \
 	libsystemd-shared.la \
 	$(LIBCURL_LIBS)
 
