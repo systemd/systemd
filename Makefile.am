@@ -1354,7 +1354,8 @@ systemd_SOURCES = \
 
 systemd_CFLAGS = \
 	$(AM_CFLAGS) \
-	$(SECCOMP_CFLAGS)
+	$(SECCOMP_CFLAGS) \
+	$(MOUNT_CFLAGS)
 
 systemd_LDADD = \
 	libsystemd-core.la \
@@ -1557,7 +1558,8 @@ test_engine_SOURCES = \
 
 test_engine_CFLAGS = \
 	$(AM_CFLAGS) \
-	$(SECCOMP_CFLAGS)
+	$(SECCOMP_CFLAGS) \
+	$(MOUNT_CFLAGS)
 
 test_engine_LDADD = \
 	libsystemd-core.la \
@@ -1568,7 +1570,8 @@ test_job_type_SOURCES = \
 
 test_job_type_CFLAGS = \
 	$(AM_CFLAGS) \
-	$(SECCOMP_CFLAGS)
+	$(SECCOMP_CFLAGS) \
+	$(MOUNT_CFLAGS)
 
 test_job_type_LDADD = \
 	libsystemd-core.la \
@@ -1612,7 +1615,8 @@ test_unit_name_SOURCES = \
 
 test_unit_name_CFLAGS = \
 	$(AM_CFLAGS) \
-	$(SECCOMP_CFLAGS)
+	$(SECCOMP_CFLAGS) \
+	$(MOUNT_CFLAGS)
 
 test_unit_name_LDADD = \
 	libsystemd-core.la \
@@ -1623,7 +1627,8 @@ test_unit_file_SOURCES = \
 
 test_unit_file_CFLAGS = \
 	$(AM_CFLAGS) \
-	$(SECCOMP_CFLAGS)
+	$(SECCOMP_CFLAGS) \
+	$(MOUNT_CFLAGS)
 
 test_unit_file_LDADD = \
 	libsystemd-core.la \
@@ -1841,7 +1846,8 @@ test_tables_CPPFLAGS = \
 
 test_tables_CFLAGS = \
 	$(AM_CFLAGS) \
-	$(SECCOMP_CFLAGS)
+	$(SECCOMP_CFLAGS) \
+	$(MOUNT_CFLAGS)
 
 test_tables_LDADD = \
 	libsystemd-logs.la \
@@ -1976,7 +1982,8 @@ test_cgroup_mask_SOURCES = \
 	src/test/test-cgroup-mask.c
 
 test_cgroup_mask_CPPFLAGS = \
-	$(AM_CPPFLAGS)
+	$(AM_CPPFLAGS) \
+	$(MOUNT_CFLAGS)
 
 test_cgroup_mask_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -2025,7 +2032,8 @@ test_path_SOURCES = \
 	src/test/test-path.c
 
 test_path_CFLAGS = \
-	$(AM_CFLAGS)
+	$(AM_CFLAGS) \
+	$(MOUNT_CFLAGS)
 
 test_path_LDADD = \
 	libsystemd-core.la
@@ -2034,7 +2042,8 @@ test_execute_SOURCES = \
 	src/test/test-execute.c
 
 test_execute_CFLAGS = \
-	$(AM_CFLAGS)
+	$(AM_CFLAGS) \
+	$(MOUNT_CFLAGS)
 
 test_execute_LDADD = \
 	libsystemd-core.la
@@ -2064,7 +2073,8 @@ test_sched_prio_SOURCES = \
 	src/test/test-sched-prio.c
 
 test_sched_prio_CPPFLAGS = \
-	$(AM_CPPFLAGS)
+	$(AM_CPPFLAGS) \
+	$(MOUNT_CFLAGS)
 
 test_sched_prio_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -2142,7 +2152,8 @@ systemd_analyze_SOURCES = \
 
 systemd_analyze_CFLAGS = \
 	$(AM_CFLAGS) \
-	$(SECCOMP_CFLAGS)
+	$(SECCOMP_CFLAGS) \
+	$(MOUNT_CFLAGS)
 
 systemd_analyze_LDADD = \
 	libsystemd-core.la \
