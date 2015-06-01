@@ -225,6 +225,15 @@ static void test_config_parse_exec(void) {
         check_execcommand(c1,
                           "/sbin/find", NULL, ";", "x", false);
 
+        log_info("/* encoded semicolon */");
+        r = config_parse_exec(NULL, "fake", 5, "section", 1,
+                              "LValue", 0,
+                              "/bin/find \\073",
+                              &c, NULL);
+        assert_se(r >= 0);
+        c1 = c1->command_next;
+        check_execcommand(c1, "/bin/find", NULL, "\\073", NULL, false);
+
         log_info("/* spaces in the filename */");
         r = config_parse_exec(NULL, "fake", 5, "section", 1,
                               "LValue", 0,
@@ -295,6 +304,16 @@ static void test_config_parse_exec(void) {
         assert_se(r >= 0);
         c1 = c1->command_next;
         check_execcommand(c1, "/path ", NULL, NULL, NULL, false);
+
+        log_info("/* quoted backslashes */");
+        r = config_parse_exec(NULL, "fake", 5, "section", 1,
+                              "LValue", 0,
+                              "/bin/grep '\\w+\\K'",
+                              &c, NULL);
+        assert_se(r >= 0);
+        c1 = c1->command_next;
+        check_execcommand(c1, "/bin/grep", NULL, "\\w+\\K", NULL, false);
+
 
         log_info("/* trailing backslash: \\ */");
         /* backslash is invalid */
