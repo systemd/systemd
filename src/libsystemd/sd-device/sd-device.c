@@ -901,8 +901,11 @@ _public_ int sd_device_get_driver(sd_device *device, const char **ret) {
                 if (r >= 0) {
                         r = device_set_driver(device, driver);
                         if (r < 0)
-                                return r;
-                }
+                                return log_debug_errno(r, "sd-device: could not set driver for %s: %m", device->devpath);
+                } else if (r == -ENOENT)
+                        device->driver_set = true;
+                else
+                        return log_debug_errno(r, "sd-device: could not set driver for %s: %m", device->devpath);
         }
 
         *ret = device->driver;
