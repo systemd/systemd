@@ -171,6 +171,10 @@ static bool test_pointers(struct udev_device *dev,
         has_mouse_button = test_bit(BTN_LEFT, bitmask_key);
         has_rel_coordinates = test_bit(EV_REL, bitmask_ev) && test_bit(REL_X, bitmask_rel) && test_bit(REL_Y, bitmask_rel);
         has_mt_coordinates = test_bit(ABS_MT_POSITION_X, bitmask_abs) && test_bit(ABS_MT_POSITION_Y, bitmask_abs);
+
+        /* unset has_mt_coordinates if devices claims to have all abs axis */
+        if(has_mt_coordinates && test_bit(ABS_MT_SLOT, bitmask_abs) && test_bit(ABS_MT_SLOT - 1, bitmask_abs))
+                has_mt_coordinates = false;
         is_direct = test_bit(INPUT_PROP_DIRECT, bitmask_props);
         has_touch = test_bit(BTN_TOUCH, bitmask_key);
         /* joysticks don't necessarily have buttons; e. g.
