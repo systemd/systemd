@@ -5,7 +5,7 @@
     local -a _bootctl_cmds
     _bootctl_cmds=(
         "status:Show status of installed systemd-boot and EFI variables"
-        "instal:Install systemd-boot to the ESP and EFI variables"
+        "install:Install systemd-boot to the ESP and EFI variables"
         "update:Update systemd-boot in the ESP and EFI variables"
         "remove:Remove systemd-boot from the ESP and EFI variables"
     )
