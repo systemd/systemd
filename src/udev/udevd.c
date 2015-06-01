@@ -43,6 +43,7 @@
 #include "sd-daemon.h"
 #include "sd-event.h"
 
+#include "barrier.h"
 #include "signal-util.h"
 #include "event-util.h"
 #include "netlink-util.h"
@@ -1607,42 +1608,10 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cg
         return 0;
 }
 
-int main(int argc, char *argv[]) {
+static int main_notify(Barrier *barrier) {
         _cleanup_(manager_freep) Manager *manager = NULL;
         _cleanup_free_ char *cgroup = NULL;
         int r, fd_ctrl, fd_uevent;
-
-        log_set_target(LOG_TARGET_AUTO);
-        log_parse_environment();
-        log_open();
-
-        r = parse_argv(argc, argv);
-        if (r <= 0)
-                goto exit;
-
-        r = parse_proc_cmdline(parse_proc_cmdline_item);
-        if (r < 0)
-                log_warning_errno(r, "failed to parse kernel command line, ignoring: %m");
-
-        if (arg_debug)
-                log_set_max_level(LOG_DEBUG);
-
-        if (getuid() != 0) {
-                r = log_error_errno(EPERM, "root privileges required");
-                goto exit;
-        }
-
-        if (arg_children_max == 0) {
-                cpu_set_t cpu_set;
-
-                arg_children_max = 8;
-
-                if (sched_getaffinity(0, sizeof (cpu_set), &cpu_set) == 0) {
-                        arg_children_max += CPU_COUNT(&cpu_set) * 2;
-                }
-
-                log_debug("set children_max to %u", arg_children_max);
-        }
 
         /* set umask before creating any file/directory */
         r = chdir("/");
@@ -1682,29 +1651,6 @@ int main(int argc, char *argv[]) {
                 goto exit;
         }
 
-        if (arg_daemonize) {
-                pid_t pid;
-
-                log_info("starting version " VERSION);
-
-                pid = fork();
-                switch (pid) {
-                case 0:
-                        break;
-                case -1:
-                        r = log_error_errno(errno, "fork of daemon failed: %m");
-                        goto exit;
-                default:
-                        mac_selinux_finish();
-                        log_close();
-                        _exit(EXIT_SUCCESS);
-                }
-
-                setsid();
-
-                write_string_file("/proc/self/oom_score_adj", "-1000");
-        }
-
         r = manager_new(&manager, fd_ctrl, fd_uevent, cgroup);
         if (r < 0) {
                 r = log_error_errno(r, "failed to allocate manager object: %m");
@@ -1718,6 +1664,16 @@ int main(int argc, char *argv[]) {
         (void) sd_notify(false,
                          "READY=1\n"
                          "STATUS=Processing...");
+
+        /* tell grand-parent process that we are ready, if in forking mode */
+        if (barrier) {
+                if (!barrier_place(barrier)) {
+                        r = log_error_errno(EIO, "failed to place barrier in daemon-mode");
+                        goto exit;
+                }
+
+                barrier_destroy(barrier);
+        }
 
         r = sd_event_loop(manager->event);
         if (r < 0) {
@@ -1735,6 +1691,147 @@ exit:
         if (manager)
                 udev_ctrl_cleanup(manager->ctrl);
         mac_selinux_finish();
+
+        return r;
+}
+
+static int main_forking(void) {
+        Barrier barrier = {};
+        _cleanup_(barrier_destroyp) Barrier *b = &barrier;
+        int keep_fds[] = { STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO };
+        pid_t pid;
+        int r;
+
+        /* This implements the double-forking logic as described in daemon(7) */
+
+        r = close_all_fds(keep_fds, sizeof(keep_fds));
+        if (r < 0)
+                return log_error_errno(r, "failed to close excess fds: %m");
+
+        r = reset_all_signal_handlers();
+        if (r < 0)
+                return log_error_errno(r, "failed to reset signal handlers: %m");
+
+        r = reset_signal_mask();
+        if (r < 0)
+                return log_error_errno(r, "failed to reset signal mask: %m");
+
+        /* we don't reset any env vars */
+
+        /* create a barrier to wait for the daemon to be ready */
+        r = barrier_create(&barrier);
+        if (r < 0)
+                return log_error_errno(r, "failed to create barrier objcet: %m");
+
+        pid = fork();
+        switch (pid) {
+        case -1:
+                return log_error_errno(errno, "failed to fork off child: %m");
+        case 0:
+                /* child */
+                setsid();
+
+                pid = fork();
+                switch (pid) {
+                case -1:
+                        return log_error_errno(errno, "failed to fork off grandchild: %m");
+                case 0:
+                        /* grandchild (daemon) */
+                        barrier_set_role(&barrier, BARRIER_CHILD);
+
+                        /* connect /dev/null to stdin, stdout, stderr */
+                        if (log_get_max_level() < LOG_DEBUG) {
+                                _cleanup_close_ int null_fd = -1;
+                                null_fd = open("/dev/null", O_RDWR);
+                                if (null_fd >= 0) {
+                                        dup2(null_fd, STDIN_FILENO);
+                                        dup2(null_fd, STDOUT_FILENO);
+                                        dup2(null_fd, STDERR_FILENO);
+                                }
+                        }
+
+                        (void) umask(0);
+
+                        r = chdir("/");
+                        if (r < 0) {
+                                r = log_error_errno(errno, "could not change dir to /: %m");
+                                goto exit;
+                        }
+
+                        /* we do not write out a pidfile and we do not drop privileges */
+
+                        /* protect main daemon against the OOM killer */
+                        write_string_file("/proc/self/oom_score_adj", "-1000");
+
+                        /* start the actual daemon */
+                        r = main_notify(&barrier);
+                        if (r < 0)
+                                goto exit;
+
+exit:
+                        log_close();
+                        _exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
+                default:
+                        /* child */
+                        log_close();
+                        _exit(EXIT_SUCCESS);
+                }
+                break;
+        default:
+                /* parent */
+                barrier_set_role(&barrier, BARRIER_PARENT);
+
+                r = barrier_wait_next(&barrier);
+                if (r < 0)
+                        return r;
+
+                log_info("starting version " VERSION);
+        }
+
+        return 0;
+}
+
+int main(int argc, char *argv[]) {
+        int r;
+
+        log_set_target(LOG_TARGET_AUTO);
+        log_parse_environment();
+        log_open();
+
+        r = parse_argv(argc, argv);
+        if (r <= 0)
+                goto exit;
+
+        r = parse_proc_cmdline(parse_proc_cmdline_item);
+        if (r < 0)
+                log_warning_errno(r, "failed to parse kernel command line, ignoring: %m");
+
+        if (arg_debug)
+                log_set_max_level(LOG_DEBUG);
+
+        if (getuid() != 0) {
+                r = log_error_errno(EPERM, "root privileges required");
+                goto exit;
+        }
+
+        if (arg_children_max == 0) {
+                cpu_set_t cpu_set;
+
+                arg_children_max = 8;
+
+                if (sched_getaffinity(0, sizeof (cpu_set), &cpu_set) == 0) {
+                        arg_children_max += CPU_COUNT(&cpu_set) * 2;
+                }
+
+                log_debug("set children_max to %u", arg_children_max);
+        }
+
+        if (arg_daemonize)
+                r = main_forking();
+        else
+                r = main_notify(NULL);
+
+exit:
         log_close();
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
