@@ -24,9 +24,10 @@
 #include <unistd.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/mman.h>
 
 #include "ima-setup.h"
-#include "copy.h"
 #include "util.h"
 #include "log.h"
 
@@ -39,6 +40,8 @@ int ima_setup(void) {
 
 #ifdef HAVE_IMA
         _cleanup_close_ int policyfd = -1, imafd = -1;
+        struct stat st;
+        char *policy;
 
         if (access(IMA_SECFS_DIR, F_OK) < 0) {
                 log_debug("IMA support is disabled in the kernel, ignoring.");
@@ -63,12 +66,20 @@ int ima_setup(void) {
                 return 0;
         }
 
-        r = copy_bytes(policyfd, imafd, (off_t) -1, false);
+        if (fstat(policyfd, &st) < 0)
+                return log_error_errno(errno, "Failed to fstat "IMA_POLICY_PATH": %m");
+
+        policy = mmap(NULL, st.st_size, PROT_READ, MAP_PRIVATE, policyfd, 0);
+        if (policy == MAP_FAILED)
+                return log_error_errno(errno, "Failed to mmap "IMA_POLICY_PATH": %m");
+
+        r = loop_write(imafd, policy, (size_t) st.st_size, false);
         if (r < 0)
                 log_error_errno(r, "Failed to load the IMA custom policy file "IMA_POLICY_PATH": %m");
         else
                 log_info("Successfully loaded the IMA custom policy "IMA_POLICY_PATH".");
 
+        munmap(policy, st.st_size);
 #endif /* HAVE_IMA */
         return r;
 }
