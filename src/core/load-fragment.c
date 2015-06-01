@@ -610,7 +610,7 @@ int config_parse_exec(
                         else
                                 skip = strneq(word, "\\;", MAX(l, 1U));
 
-                        r = cunescape_length(word + skip, l - skip, 0, &c);
+                        r = cunescape_length(word + skip, l - skip, UNESCAPE_RELAX, &c);
                         if (r < 0) {
                                 log_syntax(unit, LOG_ERR, filename, line, r, "Failed to unescape command line, ignoring: %s", rvalue);
                                 r = 0;
