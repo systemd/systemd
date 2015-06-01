@@ -785,7 +785,7 @@ _public_ int sd_device_get_subsystem(sd_device *device, const char **ret) {
                          path_startswith(device->devpath, "/class/") ||
                          path_startswith(device->devpath, "/bus/"))
                         r = device_set_subsystem(device, "subsystem");
-                if (r < 0)
+                if (r < 0 && r != -ENOENT)
                         return log_debug_errno(r, "sd-device: could not set subsystem for %s: %m", device->devpath);
 
                 device->subsystem_set = true;
@@ -1188,6 +1188,8 @@ int device_get_id_filename(sd_device *device, const char **ret) {
                         return r;
 
                 if (major(devnum) > 0) {
+                        assert(subsystem);
+
                         /* use dev_t -- b259:131072, c254:0 */
                         r = asprintf(&id, "%c%u:%u",
                                      streq(subsystem, "block") ? 'b' : 'c',
@@ -1207,6 +1209,9 @@ int device_get_id_filename(sd_device *device, const char **ret) {
 
                         sysname = basename(device->devpath);
                         if (!sysname)
+                                return -EINVAL;
+
+                        if (!subsystem)
                                 return -EINVAL;
 
                         r = asprintf(&id, "+%s:%s", subsystem, sysname);

@@ -178,7 +178,8 @@ _public_ const char *udev_device_get_subsystem(struct udev_device *udev_device)
         if (r < 0) {
                 errno = -r;
                 return NULL;
-        }
+        } else if (!subsystem)
+                errno = ENODATA;
 
         return subsystem;
 }
