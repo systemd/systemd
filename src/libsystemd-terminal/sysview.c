@@ -196,7 +196,7 @@ int sysview_session_new(sysview_session **out, sysview_seat *seat, const char *n
                 if (r < 0)
                         return r;
 
-                session->custom = false;;
+                session->custom = false;
         } else {
                 /*
                  * No session name was given. We assume this is an unmanaged

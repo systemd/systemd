@@ -1270,7 +1270,7 @@ int device_read_db_aux(sd_device *device, bool force) {
         }
 
         /* devices with a database entry are initialized */
-        device->is_initialized = true;;
+        device->is_initialized = true;
 
         for (i = 0; i < db_len; i++) {
                 switch (state) {

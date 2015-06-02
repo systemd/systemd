@@ -317,7 +317,7 @@ _public_ int sd_hwdb_new(sd_hwdb **ret) {
         if (memcmp(hwdb->map, sig, sizeof(hwdb->head->signature)) != 0 ||
             (size_t)hwdb->st.st_size != le64toh(hwdb->head->file_size)) {
                 log_debug("error recognizing the format of %s", hwdb_bin_path);
-                return -EINVAL;;
+                return -EINVAL;
         }
 
         log_debug("=== trie on-disk ===");
