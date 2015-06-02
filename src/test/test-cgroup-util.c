@@ -247,7 +247,7 @@ static void test_controller_is_valid(void) {
         assert_se(cg_controller_is_valid("foobar", false));
         assert_se(cg_controller_is_valid("foo_bar", false));
         assert_se(cg_controller_is_valid("name=foo", true));
-        assert_se(!cg_controller_is_valid("", false));
+        assert_se(cg_controller_is_valid("", true));
         assert_se(!cg_controller_is_valid("name=", true));
         assert_se(!cg_controller_is_valid("=", false));
         assert_se(!cg_controller_is_valid("cpu,cpuacct", false));
