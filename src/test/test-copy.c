@@ -133,10 +133,45 @@ static void test_copy_tree(void) {
         (void) rm_rf(original_dir, REMOVE_ROOT|REMOVE_PHYSICAL);
 }
 
+static void test_copy_bytes(void) {
+        _cleanup_close_pair_ int pipefd[2] = {-1, -1};
+        _cleanup_close_ int infd = -1;
+        int r, r2;
+        char buf[1024], buf2[1024];
+
+        infd = open("/etc/os-release", O_RDONLY|O_CLOEXEC);
+        assert_se(infd >= 0);
+
+        assert_se(pipe2(pipefd, O_CLOEXEC) == 0);
+
+        r = copy_bytes(infd, pipefd[1], (off_t) -1, false);
+        assert_se(r == 0);
+
+        r = read(pipefd[0], buf, sizeof(buf));
+        assert_se(r >= 0);
+
+        assert_se(lseek(infd, 0, SEEK_SET) == 0);
+        r2 = read(infd, buf2, sizeof(buf2));
+        assert_se(r == r2);
+
+        assert_se(strneq(buf, buf2, r));
+
+        /* test copy_bytes with invalid descriptors */
+        r = copy_bytes(pipefd[0], pipefd[0], 1, false);
+        assert_se(r == -EBADF);
+
+        r = copy_bytes(pipefd[1], pipefd[1], 1, false);
+        assert_se(r == -EBADF);
+
+        r = copy_bytes(pipefd[1], infd, 1, false);
+        assert_se(r == -EBADF);
+}
+
 int main(int argc, char *argv[]) {
         test_copy_file();
         test_copy_file_fd();
         test_copy_tree();
+        test_copy_bytes();
 
         return 0;
 }
