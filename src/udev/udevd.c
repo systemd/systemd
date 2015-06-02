@@ -69,7 +69,7 @@ typedef struct Manager {
         sd_event *event;
         Hashmap *workers;
         struct udev_list_node events;
-        char *cgroup;
+        const char *cgroup;
         pid_t pid; /* the process that originally allocated the manager object */
 
         struct udev_rules *rules;
@@ -307,7 +307,6 @@ static void manager_free(Manager *manager) {
 
         udev_list_cleanup(&manager->properties);
         udev_rules_unref(manager->rules);
-        free(manager->cgroup);
 
         safe_close(manager->fd_inotify);
         safe_close_pair(manager->worker_watch);
@@ -1443,7 +1442,7 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-static int manager_new(Manager **ret) {
+static int manager_new(Manager **ret, const char *cgroup) {
         _cleanup_(manager_freep) Manager *manager = NULL;
         int r, fd_ctrl, fd_uevent;
 
@@ -1470,6 +1469,8 @@ static int manager_new(Manager **ret) {
         udev_list_node_init(&manager->events);
         udev_list_init(manager->udev, &manager->properties, true);
 
+        manager->cgroup = cgroup;
+
         r = listen_fds(&fd_ctrl, &fd_uevent);
         if (r >= 0) {
                 /* get control and netlink socket from systemd */
@@ -1480,11 +1481,6 @@ static int manager_new(Manager **ret) {
                 manager->monitor = udev_monitor_new_from_netlink_fd(manager->udev, "kernel", fd_uevent);
                 if (!manager->monitor)
                         return log_error_errno(EINVAL, "error taking over netlink socket");
-
-                /* get our own cgroup, we regularly kill everything udev has left behind */
-                r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, 0, &manager->cgroup);
-                if (r < 0)
-                        log_warning_errno(r, "failed to get cgroup: %m");
         } else {
                 /* open control and netlink socket */
                 manager->ctrl = udev_ctrl_new(manager->udev);
@@ -1598,6 +1594,7 @@ static int manager_listen(Manager *manager) {
 
 int main(int argc, char *argv[]) {
         _cleanup_(manager_freep) Manager *manager = NULL;
+        _cleanup_free_ char *cgroup = NULL;
         int r;
 
         log_set_target(LOG_TARGET_AUTO);
@@ -1655,7 +1652,16 @@ int main(int argc, char *argv[]) {
 
         dev_setup(NULL, UID_INVALID, GID_INVALID);
 
-        r = manager_new(&manager);
+        if (getppid() == 1) {
+                /* get our own cgroup, we regularly kill everything udev has left behind
+                   we only do this on systemd systems, and only if we are directly spawned
+                   by PID1. otherwise we are not guaranteed to have a dedicated cgroup */
+                r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, 0, &cgroup);
+                if (r < 0)
+                        log_warning_errno(r, "failed to get cgroup: %m");
+        }
+
+        r = manager_new(&manager, cgroup);
         if (r < 0)
                 goto exit;
 
