@@ -385,7 +385,7 @@ out:
 }
 
 static int spawn_exec(struct udev_event *event,
-                      const char *cmd, char *const argv[], char **envp, const sigset_t *sigmask,
+                      const char *cmd, char *const argv[], char **envp,
                       int fd_stdout, int fd_stderr) {
         _cleanup_close_ int fd = -1;
 
@@ -413,9 +413,8 @@ static int spawn_exec(struct udev_event *event,
         /* terminate child in case parent goes away */
         prctl(PR_SET_PDEATHSIG, SIGTERM);
 
-        /* restore original udev sigmask before exec */
-        if (sigmask)
-                sigprocmask(SIG_SETMASK, sigmask, NULL);
+        /* restore sigmask before exec */
+        (void) reset_signal_mask();
 
         execve(argv[0], argv, envp);
 
@@ -699,7 +698,7 @@ out:
 int udev_event_spawn(struct udev_event *event,
                      usec_t timeout_usec,
                      usec_t timeout_warn_usec,
-                     const char *cmd, char **envp, const sigset_t *sigmask,
+                     const char *cmd, char **envp,
                      char *result, size_t ressize) {
         int outpipe[2] = {-1, -1};
         int errpipe[2] = {-1, -1};
@@ -749,7 +748,7 @@ int udev_event_spawn(struct udev_event *event,
 
                 log_debug("starting '%s'", cmd);
 
-                spawn_exec(event, cmd, argv, envp, sigmask,
+                spawn_exec(event, cmd, argv, envp,
                            outpipe[WRITE_END], errpipe[WRITE_END]);
 
                 _exit(2 );
@@ -811,8 +810,7 @@ static int rename_netif(struct udev_event *event) {
 void udev_event_execute_rules(struct udev_event *event,
                               usec_t timeout_usec, usec_t timeout_warn_usec,
                               struct udev_list *properties_list,
-                              struct udev_rules *rules,
-                              const sigset_t *sigmask) {
+                              struct udev_rules *rules) {
         struct udev_device *dev = event->dev;
 
         if (udev_device_get_subsystem(dev) == NULL)
@@ -828,8 +826,7 @@ void udev_event_execute_rules(struct udev_event *event,
 
                 udev_rules_apply_to_event(rules, event,
                                           timeout_usec, timeout_warn_usec,
-                                          properties_list,
-                                          sigmask);
+                                          properties_list);
 
                 if (major(udev_device_get_devnum(dev)) != 0)
                         udev_node_remove(dev);
@@ -847,8 +844,7 @@ void udev_event_execute_rules(struct udev_event *event,
 
                 udev_rules_apply_to_event(rules, event,
                                           timeout_usec, timeout_warn_usec,
-                                          properties_list,
-                                          sigmask);
+                                          properties_list);
 
                 /* rename a new network interface, if needed */
                 if (udev_device_get_ifindex(dev) > 0 && streq(udev_device_get_action(dev), "add") &&
@@ -911,7 +907,7 @@ void udev_event_execute_rules(struct udev_event *event,
         }
 }
 
-void udev_event_execute_run(struct udev_event *event, usec_t timeout_usec, usec_t timeout_warn_usec, const sigset_t *sigmask) {
+void udev_event_execute_run(struct udev_event *event, usec_t timeout_usec, usec_t timeout_warn_usec) {
         struct udev_list_entry *list_entry;
 
         udev_list_entry_foreach(list_entry, udev_list_get_entry(&event->run_list)) {
@@ -934,7 +930,7 @@ void udev_event_execute_run(struct udev_event *event, usec_t timeout_usec, usec_
 
                         udev_event_apply_format(event, cmd, program, sizeof(program));
                         envp = udev_device_get_properties_envp(event->dev);
-                        udev_event_spawn(event, timeout_usec, timeout_warn_usec, program, envp, sigmask, NULL, 0);
+                        udev_event_spawn(event, timeout_usec, timeout_warn_usec, program, envp, NULL, 0);
                 }
         }
 }

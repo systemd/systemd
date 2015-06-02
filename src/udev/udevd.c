@@ -42,6 +42,8 @@
 
 #include "sd-daemon.h"
 #include "sd-event.h"
+
+#include "signal-util.h"
 #include "event-util.h"
 #include "rtnl-util.h"
 #include "cgroup-util.h"
@@ -69,7 +71,6 @@ typedef struct Manager {
         struct udev_list_node events;
         char *cgroup;
         pid_t pid; /* the process that originally allocated the manager object */
-        sigset_t sigmask_orig;
 
         struct udev_rules *rules;
         struct udev_list properties;
@@ -448,12 +449,10 @@ static void worker_spawn(Manager *manager, struct event *event) {
                         udev_event_execute_rules(udev_event,
                                                  arg_event_timeout_usec, arg_event_timeout_warn_usec,
                                                  &manager->properties,
-                                                 manager->rules,
-                                                 &manager->sigmask_orig);
+                                                 manager->rules);
 
                         udev_event_execute_run(udev_event,
-                                               arg_event_timeout_usec, arg_event_timeout_warn_usec,
-                                               &manager->sigmask_orig);
+                                               arg_event_timeout_usec, arg_event_timeout_warn_usec);
 
                         if (udev_event->rtnl)
                                 /* in case rtnl was initialized */
@@ -1513,7 +1512,6 @@ static int manager_new(Manager **ret) {
 }
 
 static int manager_listen(Manager *manager) {
-        sigset_t mask;
         int r, fd_worker, one = 1;
 
         assert(manager);
@@ -1536,8 +1534,7 @@ static int manager_listen(Manager *manager) {
         udev_watch_restore(manager->udev);
 
         /* block and listen to all signals on signalfd */
-        sigfillset(&mask);
-        sigprocmask(SIG_SETMASK, &mask, &manager->sigmask_orig);
+        assert_se(sigprocmask_many(SIG_BLOCK, SIGTERM, SIGINT, SIGHUP, SIGCHLD, -1) == 0);
 
         r = sd_event_default(&manager->event);
         if (r < 0)
