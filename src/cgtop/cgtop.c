@@ -281,11 +281,10 @@ static int process(const char *controller, const char *path, Hashmap *a, Hashmap
                         yr = rd - g->io_input;
                         yw = wr - g->io_output;
 
-                        if (yr > 0 || yw > 0) {
+                        if (g->io_input > 0 || g->io_output > 0) {
                                 g->io_input_bps = (yr * 1000000000ULL) / x;
                                 g->io_output_bps = (yw * 1000000000ULL) / x;
                                 g->io_valid = true;
-
                         }
                 }
 
