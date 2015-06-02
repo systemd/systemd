@@ -122,7 +122,7 @@ int cg_path_decode_unit(const char *cgroup, char **unit);
 char *cg_escape(const char *p);
 char *cg_unescape(const char *p) _pure_;
 
-bool cg_controller_is_valid(const char *p, bool allow_named);
+bool cg_controller_is_valid(const char *p);
 
 int cg_slice_to_path(const char *unit, char **ret);
 
