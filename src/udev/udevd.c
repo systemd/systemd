@@ -1500,15 +1500,15 @@ static int manager_new(Manager **ret) {
                 fd_uevent = udev_monitor_get_fd(manager->monitor);
 
                 (void) udev_monitor_set_receive_buffer_size(manager->monitor, 128 * 1024 * 1024);
+
+                r = udev_monitor_enable_receiving(manager->monitor);
+                if (r < 0)
+                        return log_error_errno(EINVAL, "error binding netlink socket");
+
+                r = udev_ctrl_enable_receiving(manager->ctrl);
+                if (r < 0)
+                        return log_error_errno(EINVAL, "error binding udev control socket");
         }
-
-        r = udev_monitor_enable_receiving(manager->monitor);
-        if (r < 0)
-                return log_error_errno(EINVAL, "error binding netlink socket");
-
-        r = udev_ctrl_enable_receiving(manager->ctrl);
-        if (r < 0)
-                return log_error_errno(EINVAL, "error binding udev control socket");
 
         *ret = manager;
         manager = NULL;
