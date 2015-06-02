@@ -23,7 +23,9 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <time.h>
+#ifdef HAVE_SYS_AUXV_H
 #include <sys/auxv.h>
+#endif
 #include <linux/random.h>
 
 #include "random-util.h"
