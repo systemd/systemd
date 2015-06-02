@@ -1492,8 +1492,11 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cgroup) {
         _cleanup_(manager_freep) Manager *manager = NULL;
+        int r, fd_worker, one = 1;
 
         assert(ret);
+        assert(fd_ctrl >= 0);
+        assert(fd_uevent >= 0);
 
         manager = new0(Manager, 1);
         if (!manager)
@@ -1525,17 +1528,6 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cg
         manager->monitor = udev_monitor_new_from_netlink_fd(manager->udev, "kernel", fd_uevent);
         if (!manager->monitor)
                 return log_error_errno(EINVAL, "error taking over netlink socket");
-
-        *ret = manager;
-        manager = NULL;
-
-        return 0;
-}
-
-static int manager_listen(Manager *manager) {
-        int r, fd_worker, one = 1;
-
-        assert(manager);
 
         /* unnamed socket from workers to the main daemon */
         r = socketpair(AF_LOCAL, SOCK_DGRAM|SOCK_CLOEXEC, 0, manager->worker_watch);
@@ -1581,7 +1573,7 @@ static int manager_listen(Manager *manager) {
         if (r < 0)
                 return log_error_errno(r, "error creating watchdog event source: %m");
 
-        r = sd_event_add_io(manager->event, &manager->ctrl_event, udev_ctrl_get_fd(manager->ctrl), EPOLLIN, on_ctrl_msg, manager);
+        r = sd_event_add_io(manager->event, &manager->ctrl_event, fd_ctrl, EPOLLIN, on_ctrl_msg, manager);
         if (r < 0)
                 return log_error_errno(r, "error creating ctrl event source: %m");
 
@@ -1597,7 +1589,7 @@ static int manager_listen(Manager *manager) {
         if (r < 0)
                 return log_error_errno(r, "error creating inotify event source: %m");
 
-        r = sd_event_add_io(manager->event, &manager->uevent_event, udev_monitor_get_fd(manager->monitor), EPOLLIN, on_uevent, manager);
+        r = sd_event_add_io(manager->event, &manager->uevent_event, fd_uevent, EPOLLIN, on_uevent, manager);
         if (r < 0)
                 return log_error_errno(r, "error creating uevent event source: %m");
 
@@ -1608,6 +1600,9 @@ static int manager_listen(Manager *manager) {
         r = sd_event_add_post(manager->event, NULL, on_post, manager);
         if (r < 0)
                 return log_error_errno(r, "error creating post event source: %m");
+
+        *ret = manager;
+        manager = NULL;
 
         return 0;
 }
@@ -1687,14 +1682,6 @@ int main(int argc, char *argv[]) {
                 goto exit;
         }
 
-        r = manager_new(&manager, fd_ctrl, fd_uevent, cgroup);
-        if (r < 0)
-                goto exit;
-
-        r = udev_rules_apply_static_dev_perms(manager->rules);
-        if (r < 0)
-                log_error_errno(r, "failed to apply permissions on static device nodes: %m");
-
         if (arg_daemonize) {
                 pid_t pid;
 
@@ -1718,9 +1705,15 @@ int main(int argc, char *argv[]) {
                 write_string_file("/proc/self/oom_score_adj", "-1000");
         }
 
-        r = manager_listen(manager);
+        r = manager_new(&manager, fd_ctrl, fd_uevent, cgroup);
+        if (r < 0) {
+                r = log_error_errno(r, "failed to allocate manager object: %m");
+                goto exit;
+        }
+
+        r = udev_rules_apply_static_dev_perms(manager->rules);
         if (r < 0)
-                return log_error_errno(r, "failed to set up fds and listen for events: %m");
+                log_error_errno(r, "failed to apply permissions on static device nodes: %m");
 
         (void) sd_notify(false,
                          "READY=1\n"
