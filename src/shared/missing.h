@@ -269,6 +269,11 @@ struct btrfs_qgroup_inherit {
         __u64 qgroups[0];
 };
 
+struct btrfs_ioctl_qgroup_limit_args {
+        __u64 qgroupid;
+        struct btrfs_qgroup_limit lim;
+};
+
 struct btrfs_ioctl_vol_args_v2 {
         __s64 fd;
         __u64 transid;
@@ -360,10 +365,23 @@ struct btrfs_ioctl_clone_range_args {
         __u64 src_offset, src_length;
         __u64 dest_offset;
 };
+
+#define BTRFS_QUOTA_CTL_ENABLE  1
+#define BTRFS_QUOTA_CTL_DISABLE 2
+#define BTRFS_QUOTA_CTL_RESCAN__NOTUSED 3
+struct btrfs_ioctl_quota_ctl_args {
+        __u64 cmd;
+        __u64 status;
+};
 #endif
 
 #ifndef BTRFS_IOC_DEFRAG
 #define BTRFS_IOC_DEFRAG _IOW(BTRFS_IOCTL_MAGIC, 2, \
+                                 struct btrfs_ioctl_vol_args)
+#endif
+
+#ifndef BTRFS_IOC_RESIZE
+#define BTRFS_IOC_RESIZE _IOW(BTRFS_IOCTL_MAGIC, 3, \
                                  struct btrfs_ioctl_vol_args)
 #endif
 
@@ -422,6 +440,16 @@ struct btrfs_ioctl_clone_range_args {
 #ifndef BTRFS_IOC_DEVICES_READY
 #define BTRFS_IOC_DEVICES_READY _IOR(BTRFS_IOCTL_MAGIC, 39, \
                                  struct btrfs_ioctl_vol_args)
+#endif
+
+#ifndef BTRFS_IOC_QUOTA_CTL
+#define BTRFS_IOC_QUOTA_CTL _IOWR(BTRFS_IOCTL_MAGIC, 40, \
+                               struct btrfs_ioctl_quota_ctl_args)
+#endif
+
+#ifndef BTRFS_IOC_QGROUP_LIMIT
+#define BTRFS_IOC_QGROUP_LIMIT _IOR(BTRFS_IOCTL_MAGIC, 43, \
+                               struct btrfs_ioctl_qgroup_limit_args)
 #endif
 
 #ifndef BTRFS_FIRST_FREE_OBJECTID
