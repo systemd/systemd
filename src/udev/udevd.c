@@ -1716,14 +1716,15 @@ int main(int argc, char *argv[]) {
                 setsid();
 
                 write_string_file("/proc/self/oom_score_adj", "-1000");
-        } else
-                sd_notify(false,
-                          "READY=1\n"
-                          "STATUS=Processing...");
+        }
 
         r = manager_listen(manager);
         if (r < 0)
                 return log_error_errno(r, "failed to set up fds and listen for events: %m");
+
+        (void) sd_notify(false,
+                         "READY=1\n"
+                         "STATUS=Processing...");
 
         r = sd_event_loop(manager->event);
         if (r < 0) {
