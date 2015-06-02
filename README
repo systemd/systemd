@@ -7,11 +7,11 @@ WEB SITE:
         http://www.freedesktop.org/wiki/Software/systemd
 
 GIT:
-        git://anongit.freedesktop.org/systemd/systemd
-        ssh://git.freedesktop.org/git/systemd/systemd
+        git@github.com:systemd/systemd.git
+        https://github.com/systemd/systemd.git
 
 GITWEB:
-        http://cgit.freedesktop.org/systemd/systemd
+        https://github.com/systemd/systemd
 
 MAILING LIST:
         http://lists.freedesktop.org/mailman/listinfo/systemd-devel
@@ -22,6 +22,7 @@ IRC:
 
 BUG REPORTS:
         https://bugs.freedesktop.org/enter_bug.cgi?product=systemd
+        https://github.com/systemd/systemd/issues
 
 AUTHOR:
         Lennart Poettering
