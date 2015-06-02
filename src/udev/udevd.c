@@ -1262,8 +1262,9 @@ static int on_post(sd_event_source *s, void *userdata) {
 }
 
 static int listen_fds(int *rctrl, int *rnetlink) {
+        _cleanup_udev_unref_ struct udev *udev = NULL;
         int ctrl_fd = -1, netlink_fd = -1;
-        int fd, n;
+        int fd, n, r;
 
         assert(rctrl);
         assert(rnetlink);
@@ -1290,10 +1291,57 @@ static int listen_fds(int *rctrl, int *rnetlink) {
                 return -EINVAL;
         }
 
-        if (ctrl_fd < 0 || netlink_fd < 0)
-                return -EINVAL;
+        if (ctrl_fd < 0) {
+                _cleanup_udev_ctrl_unref_ struct udev_ctrl *ctrl = NULL;
 
-        log_debug("ctrl=%i netlink=%i", ctrl_fd, netlink_fd);
+                udev = udev_new();
+                if (!udev)
+                        return -ENOMEM;
+
+                ctrl = udev_ctrl_new(udev);
+                if (!ctrl)
+                        return log_error_errno(EINVAL, "error initializing udev control socket");
+
+                r = udev_ctrl_enable_receiving(ctrl);
+                if (r < 0)
+                        return log_error_errno(EINVAL, "error binding udev control socket");
+
+                fd = udev_ctrl_get_fd(ctrl);
+                if (fd < 0)
+                        return log_error_errno(EIO, "could not get ctrl fd");
+
+                ctrl_fd = fcntl(fd, F_DUPFD_CLOEXEC, 3);
+                if (ctrl_fd < 0)
+                        return log_error_errno(errno, "could not dup ctrl fd: %m");
+        }
+
+        if (netlink_fd < 0) {
+                _cleanup_udev_monitor_unref_ struct udev_monitor *monitor = NULL;
+
+                if (!udev) {
+                        udev = udev_new();
+                        if (!udev)
+                                return -ENOMEM;
+                }
+
+                monitor = udev_monitor_new_from_netlink(udev, "kernel");
+                if (!monitor)
+                        return log_error_errno(EINVAL, "error initializing netlink socket");
+
+                (void) udev_monitor_set_receive_buffer_size(monitor, 128 * 1024 * 1024);
+
+                r = udev_monitor_enable_receiving(monitor);
+                if (r < 0)
+                        return log_error_errno(EINVAL, "error binding netlink socket");
+
+                fd = udev_monitor_get_fd(monitor);
+                if (fd < 0)
+                        return log_error_errno(netlink_fd, "could not get uevent fd: %m");
+
+                netlink_fd = fcntl(fd, F_DUPFD_CLOEXEC, 3);
+                if (ctrl_fd < 0)
+                        return log_error_errno(errno, "could not dup netlink fd: %m");
+        }
 
         *rctrl = ctrl_fd;
         *rnetlink = netlink_fd;
@@ -1472,39 +1520,16 @@ static int manager_new(Manager **ret, const char *cgroup) {
         manager->cgroup = cgroup;
 
         r = listen_fds(&fd_ctrl, &fd_uevent);
-        if (r >= 0) {
-                /* get control and netlink socket from systemd */
-                manager->ctrl = udev_ctrl_new_from_fd(manager->udev, fd_ctrl);
-                if (!manager->ctrl)
-                        return log_error_errno(EINVAL, "error taking over udev control socket");
+        if (r < 0)
+                return log_error_errno(r, "could not listen on fds: %m");
 
-                manager->monitor = udev_monitor_new_from_netlink_fd(manager->udev, "kernel", fd_uevent);
-                if (!manager->monitor)
-                        return log_error_errno(EINVAL, "error taking over netlink socket");
-        } else {
-                /* open control and netlink socket */
-                manager->ctrl = udev_ctrl_new(manager->udev);
-                if (!manager->ctrl)
-                        return log_error_errno(EINVAL, "error initializing udev control socket");
+        manager->ctrl = udev_ctrl_new_from_fd(manager->udev, fd_ctrl);
+        if (!manager->ctrl)
+                return log_error_errno(EINVAL, "error taking over udev control socket");
 
-                fd_ctrl = udev_ctrl_get_fd(manager->ctrl);
-
-                manager->monitor = udev_monitor_new_from_netlink(manager->udev, "kernel");
-                if (!manager->monitor)
-                        return log_error_errno(EINVAL, "error initializing netlink socket");
-
-                fd_uevent = udev_monitor_get_fd(manager->monitor);
-
-                (void) udev_monitor_set_receive_buffer_size(manager->monitor, 128 * 1024 * 1024);
-
-                r = udev_monitor_enable_receiving(manager->monitor);
-                if (r < 0)
-                        return log_error_errno(EINVAL, "error binding netlink socket");
-
-                r = udev_ctrl_enable_receiving(manager->ctrl);
-                if (r < 0)
-                        return log_error_errno(EINVAL, "error binding udev control socket");
-        }
+        manager->monitor = udev_monitor_new_from_netlink_fd(manager->udev, "kernel", fd_uevent);
+        if (!manager->monitor)
+                return log_error_errno(EINVAL, "error taking over netlink socket");
 
         *ret = manager;
         manager = NULL;
