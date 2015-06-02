@@ -1262,38 +1262,43 @@ static int on_post(sd_event_source *s, void *userdata) {
         return 1;
 }
 
-static int systemd_fds(int *rctrl, int *rnetlink) {
-        int ctrl = -1, netlink = -1;
+static int listen_fds(int *rctrl, int *rnetlink) {
+        int ctrl_fd = -1, netlink_fd = -1;
         int fd, n;
 
+        assert(rctrl);
+        assert(rnetlink);
+
         n = sd_listen_fds(true);
-        if (n <= 0)
-                return -1;
+        if (n < 0)
+                return n;
 
         for (fd = SD_LISTEN_FDS_START; fd < n + SD_LISTEN_FDS_START; fd++) {
                 if (sd_is_socket(fd, AF_LOCAL, SOCK_SEQPACKET, -1)) {
-                        if (ctrl >= 0)
-                                return -1;
-                        ctrl = fd;
+                        if (ctrl_fd >= 0)
+                                return -EINVAL;
+                        ctrl_fd = fd;
                         continue;
                 }
 
                 if (sd_is_socket(fd, AF_NETLINK, SOCK_RAW, -1)) {
-                        if (netlink >= 0)
-                                return -1;
-                        netlink = fd;
+                        if (netlink_fd >= 0)
+                                return -EINVAL;
+                        netlink_fd = fd;
                         continue;
                 }
 
-                return -1;
+                return -EINVAL;
         }
 
-        if (ctrl < 0 || netlink < 0)
-                return -1;
+        if (ctrl_fd < 0 || netlink_fd < 0)
+                return -EINVAL;
 
-        log_debug("ctrl=%i netlink=%i", ctrl, netlink);
-        *rctrl = ctrl;
-        *rnetlink = netlink;
+        log_debug("ctrl=%i netlink=%i", ctrl_fd, netlink_fd);
+
+        *rctrl = ctrl_fd;
+        *rnetlink = netlink_fd;
+
         return 0;
 }
 
@@ -1465,7 +1470,7 @@ static int manager_new(Manager **ret) {
         udev_list_node_init(&manager->events);
         udev_list_init(manager->udev, &manager->properties, true);
 
-        r = systemd_fds(&fd_ctrl, &fd_uevent);
+        r = listen_fds(&fd_ctrl, &fd_uevent);
         if (r >= 0) {
                 /* get control and netlink socket from systemd */
                 manager->ctrl = udev_ctrl_new_from_fd(manager->udev, fd_ctrl);
