@@ -27,7 +27,7 @@
 #include "af-list.h"
 #include "random-util.h"
 #include "hostname-util.h"
-#include "resolved-dns-domain.h"
+#include "dns-domain.h"
 #include "resolved-dns-scope.h"
 
 #define MULTICAST_RATELIMIT_INTERVAL_USEC (1*USEC_PER_SEC)

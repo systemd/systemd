@@ -20,7 +20,7 @@
 ***/
 
 #include "resolved-dns-answer.h"
-#include "resolved-dns-domain.h"
+#include "dns-domain.h"
 
 DnsAnswer *dns_answer_new(unsigned n) {
         DnsAnswer *a;

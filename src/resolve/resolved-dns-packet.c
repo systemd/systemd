@@ -23,7 +23,7 @@
 #include "util.h"
 #include "strv.h"
 #include "unaligned.h"
-#include "resolved-dns-domain.h"
+#include "dns-domain.h"
 #include "resolved-dns-packet.h"
 
 int dns_packet_new(DnsPacket **ret, DnsProtocol protocol, size_t mtu) {
