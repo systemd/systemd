@@ -77,6 +77,9 @@ static int format_lun_number(struct udev_device *dev, char **path) {
 static struct udev_device *skip_subsystem(struct udev_device *dev, const char *subsys) {
         struct udev_device *parent = dev;
 
+        assert(dev);
+        assert(subsys);
+
         while (parent != NULL) {
                 const char *subsystem;
 
@@ -95,6 +98,9 @@ static struct udev_device *handle_scsi_fibre_channel(struct udev_device *parent,
         struct udev_device *fcdev = NULL;
         const char *port;
         char *lun = NULL;
+
+        assert(parent);
+        assert(path);
 
         targetdev = udev_device_get_parent_with_subsystem_devtype(parent, "scsi", "scsi_target");
         if (targetdev == NULL)
@@ -125,6 +131,9 @@ static struct udev_device *handle_scsi_sas_wide_port(struct udev_device *parent,
         struct udev_device *sasdev;
         const char *sas_address;
         char *lun = NULL;
+
+        assert(parent);
+        assert(path);
 
         targetdev = udev_device_get_parent_with_subsystem_devtype(parent, "scsi", "scsi_target");
         if (targetdev == NULL)
@@ -168,6 +177,9 @@ static struct udev_device *handle_scsi_sas(struct udev_device *parent, char **pa
         const char *phy_id;
         const char *phy_count;
         char *lun = NULL;
+
+        assert(parent);
+        assert(path);
 
         targetdev = udev_device_get_parent_with_subsystem_devtype(parent, "scsi", "scsi_target");
         if (targetdev == NULL)
@@ -259,6 +271,9 @@ static struct udev_device *handle_scsi_iscsi(struct udev_device *parent, char **
         const char *port;
         char *lun = NULL;
 
+        assert(parent);
+        assert(path);
+
         /* find iscsi session */
         transportdev = parent;
         for (;;) {
@@ -315,6 +330,9 @@ static struct udev_device *handle_scsi_default(struct udev_device *parent, char 
         DIR *dir;
         struct dirent *dent;
         int basenum;
+
+        assert(parent);
+        assert(path);
 
         hostdev = udev_device_get_parent_with_subsystem_devtype(parent, "scsi", "scsi_host");
         if (hostdev == NULL)
@@ -397,6 +415,9 @@ static struct udev_device *handle_scsi_hyperv(struct udev_device *parent, char *
         char *lun = NULL;
         char guid[38];
         size_t i, k;
+
+        assert(parent);
+        assert(path);
 
         hostdev = udev_device_get_parent_with_subsystem_devtype(parent, "scsi", "scsi_host");
         if (!hostdev)
@@ -555,6 +576,10 @@ static struct udev_device *handle_bcma(struct udev_device *parent, char **path) 
 static struct udev_device *handle_ccw(struct udev_device *parent, struct udev_device *dev, char **path) {
         struct udev_device *scsi_dev;
 
+        assert(parent);
+        assert(dev);
+        assert(path);
+
         scsi_dev = udev_device_get_parent_with_subsystem_devtype(dev, "scsi", "scsi_device");
         if (scsi_dev != NULL) {
                 const char *wwpn;
@@ -581,6 +606,8 @@ static int builtin_path_id(struct udev_device *dev, int argc, char *argv[], bool
         char *path = NULL;
         bool supported_transport = false;
         bool supported_parent = false;
+
+        assert(dev);
 
         /* S390 ccw bus */
         parent = udev_device_get_parent_with_subsystem_devtype(dev, "ccw", NULL);

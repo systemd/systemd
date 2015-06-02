@@ -401,6 +401,8 @@ static void worker_spawn(Manager *manager, struct event *event) {
                         struct udev_event *udev_event;
                         int fd_lock = -1;
 
+                        assert(dev);
+
                         log_debug("seq %llu running", udev_device_get_seqnum(dev));
                         udev_event = udev_event_new(dev);
                         if (udev_event == NULL) {

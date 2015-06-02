@@ -85,6 +85,8 @@ static int udev_builtin_hwdb_search(struct udev_device *dev, struct udev_device 
         bool last = false;
         int r = 0;
 
+        assert(dev);
+
         for (d = srcdev; d && !last; d = udev_device_get_parent(d)) {
                 const char *dsubsys;
                 const char *modalias = NULL;

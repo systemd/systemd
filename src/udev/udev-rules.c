@@ -664,6 +664,9 @@ static int import_parent_into_properties(struct udev_device *dev, const char *fi
         struct udev_device *dev_parent;
         struct udev_list_entry *list_entry;
 
+        assert(dev);
+        assert(filter);
+
         dev_parent = udev_device_get_parent(dev);
         if (dev_parent == NULL)
                 return -1;

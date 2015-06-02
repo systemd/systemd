@@ -268,6 +268,8 @@ static int builtin_input_id(struct udev_device *dev, int argc, char *argv[], boo
         bool is_pointer;
         bool is_key;
 
+        assert(dev);
+
         /* walk up the parental chain until we find the real input device; the
          * argument is very likely a subdevice of this, like eventN */
         pdev = dev;

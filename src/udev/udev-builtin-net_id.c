@@ -276,6 +276,9 @@ out:
 static int names_pci(struct udev_device *dev, struct netnames *names) {
         struct udev_device *parent;
 
+        assert(dev);
+        assert(names);
+
         parent = udev_device_get_parent(dev);
         if (!parent)
                 return -ENOENT;
@@ -301,6 +304,9 @@ static int names_usb(struct udev_device *dev, struct netnames *names) {
         char *interf;
         size_t l;
         char *s;
+
+        assert(dev);
+        assert(names);
 
         usbdev = udev_device_get_parent_with_subsystem_devtype(dev, "usb", "usb_interface");
         if (!usbdev)
@@ -350,6 +356,9 @@ static int names_bcma(struct udev_device *dev, struct netnames *names) {
         struct udev_device *bcmadev;
         unsigned int core;
 
+        assert(dev);
+        assert(names);
+
         bcmadev = udev_device_get_parent_with_subsystem_devtype(dev, "bcma", NULL);
         if (!bcmadev)
                 return -ENOENT;
@@ -370,6 +379,9 @@ static int names_ccw(struct  udev_device *dev, struct netnames *names) {
         const char *bus_id;
         size_t bus_id_len;
         int rc;
+
+        assert(dev);
+        assert(names);
 
         /* Retrieve the associated CCW device */
         cdev = udev_device_get_parent(dev);

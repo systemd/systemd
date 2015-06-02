@@ -240,6 +240,10 @@ int link_config_get(link_config_ctx *ctx, struct udev_device *device,
                     link_config **ret) {
         link_config *link;
 
+        assert(ctx);
+        assert(device);
+        assert(ret);
+
         LIST_FOREACH(links, link, ctx->links) {
                 const char* attr_value;
 

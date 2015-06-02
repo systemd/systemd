@@ -119,6 +119,8 @@ size_t udev_event_apply_format(struct udev_event *event, const char *src, char *
         char *s;
         size_t l;
 
+        assert(dev);
+
         from = src;
         s = dest;
         l = size;

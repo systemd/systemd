@@ -37,6 +37,9 @@ static int install_force_release(struct udev_device *dev, const unsigned *releas
         unsigned i;
         int ret;
 
+        assert(dev);
+        assert(release);
+
         atkbd = udev_device_get_parent_with_subsystem_devtype(dev, "serio", NULL);
         if (!atkbd)
                 return -ENODEV;
@@ -151,6 +154,9 @@ static void set_trackpoint_sensitivity(struct udev_device *dev, const char *valu
         struct udev_device *pdev;
         char val_s[DECIMAL_STR_MAX(int)];
         int r, val_i;
+
+        assert(dev);
+        assert(value);
 
         /* The sensitivity sysfs attr belongs to the serio parent device */
         pdev = udev_device_get_parent_with_subsystem_devtype(dev, "serio", NULL);
