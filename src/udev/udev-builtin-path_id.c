@@ -665,7 +665,8 @@ static int builtin_path_id(struct udev_device *dev, int argc, char *argv[], bool
                         supported_parent = true;
                 }
 
-                parent = udev_device_get_parent(parent);
+                if (parent)
+                        parent = udev_device_get_parent(parent);
         }
 
         /*
