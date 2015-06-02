@@ -133,79 +133,96 @@ static bool test_pointers(struct udev_device *dev,
                           const unsigned long* bitmask_rel,
                           const unsigned long* bitmask_props,
                           bool test) {
-        int is_mouse = 0;
-        int is_touchpad = 0;
-        bool ret = false;
+        bool has_abs_coordinates = false;
+        bool has_rel_coordinates = false;
+        bool has_mt_coordinates = false;
+        bool has_joystick_axes_or_buttons = false;
+        bool is_direct = false;
+        bool has_touch = false;
+        bool has_3d_coordinates = false;
+        bool has_keys = false;
+        bool stylus_or_pen = false;
+        bool finger_but_no_pen = false;
+        bool has_mouse_button = false;
+        bool is_mouse = false;
+        bool is_touchpad = false;
+        bool is_touchscreen = false;
+        bool is_tablet = false;
+        bool is_joystick = false;
+        bool is_accelerometer = false;
+        bool is_pointing_stick= false;
 
-        if (test_bit(INPUT_PROP_ACCELEROMETER, bitmask_props)) {
+        has_keys = test_bit(EV_KEY, bitmask_ev);
+        has_abs_coordinates = test_bit(ABS_X, bitmask_abs) && test_bit(ABS_Y, bitmask_abs);
+        has_3d_coordinates = has_abs_coordinates && test_bit(ABS_Z, bitmask_abs);
+        is_accelerometer = test_bit(INPUT_PROP_ACCELEROMETER, bitmask_props);
+
+        if (!has_keys && has_3d_coordinates)
+                is_accelerometer = true;
+
+        if (is_accelerometer) {
                 udev_builtin_add_property(dev, test, "ID_INPUT_ACCELEROMETER", "1");
                 return true;
         }
 
-        if (!test_bit(EV_KEY, bitmask_ev)) {
-                if (test_bit(EV_ABS, bitmask_ev) &&
-                    test_bit(ABS_X, bitmask_abs) &&
-                    test_bit(ABS_Y, bitmask_abs) &&
-                    test_bit(ABS_Z, bitmask_abs)) {
-                        udev_builtin_add_property(dev, test, "ID_INPUT_ACCELEROMETER", "1");
-                        ret = true;
-                }
-                return ret;
-        }
+        is_pointing_stick = test_bit(INPUT_PROP_POINTING_STICK, bitmask_props);
+        stylus_or_pen = test_bit(BTN_STYLUS, bitmask_key) || test_bit(BTN_TOOL_PEN, bitmask_key);
+        finger_but_no_pen = test_bit(BTN_TOOL_FINGER, bitmask_key) && !test_bit(BTN_TOOL_PEN, bitmask_key);
+        has_mouse_button = test_bit(BTN_LEFT, bitmask_key);
+        has_rel_coordinates = test_bit(EV_REL, bitmask_ev) && test_bit(REL_X, bitmask_rel) && test_bit(REL_Y, bitmask_rel);
+        has_mt_coordinates = test_bit(ABS_MT_POSITION_X, bitmask_abs) && test_bit(ABS_MT_POSITION_Y, bitmask_abs) &&
+                             test_bit(ABS_MT_SLOT, bitmask_abs) && !test_bit(ABS_MT_SLOT - 1, bitmask_abs);
+        is_direct = test_bit(INPUT_PROP_DIRECT, bitmask_props);
+        has_touch = test_bit(BTN_TOUCH, bitmask_key);
+        /* joysticks don't necessarily have buttons; e. g.
+         * rudders/pedals are joystick-like, but buttonless; they have
+         * other fancy axes */
+        has_joystick_axes_or_buttons = test_bit(BTN_TRIGGER, bitmask_key) ||
+                                       test_bit(BTN_A, bitmask_key) ||
+                                       test_bit(BTN_1, bitmask_key) ||
+                                       test_bit(ABS_RX, bitmask_abs) ||
+                                       test_bit(ABS_RY, bitmask_abs) ||
+                                       test_bit(ABS_RZ, bitmask_abs) ||
+                                       test_bit(ABS_THROTTLE, bitmask_abs) ||
+                                       test_bit(ABS_RUDDER, bitmask_abs) ||
+                                       test_bit(ABS_WHEEL, bitmask_abs) ||
+                                       test_bit(ABS_GAS, bitmask_abs) ||
+                                       test_bit(ABS_BRAKE, bitmask_abs);
 
-        if (test_bit(EV_ABS, bitmask_ev) &&
-            test_bit(ABS_X, bitmask_abs) && test_bit(ABS_Y, bitmask_abs)) {
-                if (test_bit(BTN_STYLUS, bitmask_key) || test_bit(BTN_TOOL_PEN, bitmask_key)) {
-                        udev_builtin_add_property(dev, test, "ID_INPUT_TABLET", "1");
-                        ret = true;
-                } else if (test_bit(BTN_TOOL_FINGER, bitmask_key) && !test_bit(BTN_TOOL_PEN, bitmask_key)) {
-                        is_touchpad = 1;
-                } else if (test_bit(BTN_MOUSE, bitmask_key)) {
+        if (has_abs_coordinates) {
+                if (stylus_or_pen)
+                        is_tablet = true;
+                else if (finger_but_no_pen && !is_direct)
+                        is_touchpad = true;
+                else if (has_mouse_button)
                         /* This path is taken by VMware's USB mouse, which has
                          * absolute axes, but no touch/pressure button. */
-                        is_mouse = 1;
-                } else if (test_bit(BTN_TOUCH, bitmask_key)) {
-                        udev_builtin_add_property(dev, test, "ID_INPUT_TOUCHSCREEN", "1");
-                        ret = true;
-                /* joysticks don't necessarily have to have buttons; e. g.
-                 * rudders/pedals are joystick-like, but buttonless; they have
-                 * other fancy axes */
-                } else if (test_bit(BTN_TRIGGER, bitmask_key) ||
-                           test_bit(BTN_A, bitmask_key) ||
-                           test_bit(BTN_1, bitmask_key) ||
-                           test_bit(ABS_RX, bitmask_abs) ||
-                           test_bit(ABS_RY, bitmask_abs) ||
-                           test_bit(ABS_RZ, bitmask_abs) ||
-                           test_bit(ABS_THROTTLE, bitmask_abs) ||
-                           test_bit(ABS_RUDDER, bitmask_abs) ||
-                           test_bit(ABS_WHEEL, bitmask_abs) ||
-                           test_bit(ABS_GAS, bitmask_abs) ||
-                           test_bit(ABS_BRAKE, bitmask_abs)) {
-                        udev_builtin_add_property(dev, test, "ID_INPUT_JOYSTICK", "1");
-                        ret = true;
-                }
+                        is_mouse = true;
+                else if (has_touch)
+                        is_touchscreen = true;
+                else if (has_joystick_axes_or_buttons)
+                        is_joystick = true;
         }
+        if (has_mt_coordinates && is_direct)
+                is_touchscreen = true;
 
-        if (test_bit(INPUT_PROP_POINTING_STICK, bitmask_props)) {
+        if (has_rel_coordinates && has_mouse_button)
+                is_mouse = true;
+
+        if (is_pointing_stick)
                 udev_builtin_add_property(dev, test, "ID_INPUT_POINTINGSTICK", "1");
-                ret = true;
-        }
-
-        if (test_bit(EV_REL, bitmask_ev) &&
-            test_bit(REL_X, bitmask_rel) && test_bit(REL_Y, bitmask_rel) &&
-            test_bit(BTN_MOUSE, bitmask_key))
-                is_mouse = 1;
-
-        if (is_mouse) {
+        if (is_mouse)
                 udev_builtin_add_property(dev, test, "ID_INPUT_MOUSE", "1");
-                ret = true;
-        }
-        if (is_touchpad) {
+        if (is_touchpad)
                 udev_builtin_add_property(dev, test, "ID_INPUT_TOUCHPAD", "1");
-                ret = true;
-        }
+        if (is_touchscreen)
+                udev_builtin_add_property(dev, test, "ID_INPUT_TOUCHSCREEN", "1");
+        if (is_joystick)
+                udev_builtin_add_property(dev, test, "ID_INPUT_JOYSTICK", "1");
+        if (is_tablet)
+                udev_builtin_add_property(dev, test, "ID_INPUT_TABLET", "1");
 
-        return ret;
+        return is_tablet || is_mouse || is_touchpad || is_touchscreen || is_joystick || is_pointing_stick;
 }
 
 /* key like devices */
