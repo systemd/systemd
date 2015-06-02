@@ -10,8 +10,6 @@ $ sudo make clean check
 make[1]: Entering directory `/mnt/data/harald/git/systemd/test/TEST-01-BASIC'
 Making all in .
 Making all in po
-Making all in docs/libudev
-Making all in docs/gudev
 TEST: Basic systemd setup [OK]
 make[1]: Leaving directory `/mnt/data/harald/git/systemd/test/TEST-01-BASIC'
 ...

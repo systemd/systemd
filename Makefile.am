@@ -42,10 +42,6 @@ LIBUDEV_CURRENT=7
 LIBUDEV_REVISION=3
 LIBUDEV_AGE=6
 
-LIBGUDEV_CURRENT=2
-LIBGUDEV_REVISION=0
-LIBGUDEV_AGE=2
-
 LIBSYSTEMD_CURRENT=7
 LIBSYSTEMD_REVISION=0
 LIBSYSTEMD_AGE=7
@@ -3667,15 +3663,6 @@ src/libsystemd-terminal/unifont-glyph-array.bin: tools/compile-unifont.py $(UNIF
 	$(AM_V_GEN)$(PYTHON) $< <$(UNIFONT) >$@
 
 # ------------------------------------------------------------------------------
-if ENABLE_GTK_DOC
-SUBDIRS += \
-	docs/libudev
-
-noinst_DATA += \
-	docs/html/libudev \
-	docs/html/gudev
-endif
-
 include_HEADERS += \
 	src/libudev/libudev.h
 
@@ -3716,16 +3703,11 @@ EXTRA_DIST += \
 	src/libudev/libudev.pc.in
 
 CLEANFILES += \
-	docs/html/libudev \
-	docs/html/gudev
+	docs/html/libudev
 
 docs/html/libudev:
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
 	$(AM_V_LN)$(LN_S) -f ../libudev/html $@
-
-docs/html/gudev:
-	$(AM_V_at)$(MKDIR_P) $(dir $@)
-	$(AM_V_LN)$(LN_S) -f ../gudev/html $@
 
 # move lib from $(libdir) to $(rootlibdir) and update devel link, if needed
 libudev-install-hook:
@@ -4121,151 +4103,6 @@ udevlibexec_PROGRAMS += \
 
 dist_udevrules_DATA += \
 	rules/61-accelerometer.rules
-
-# ------------------------------------------------------------------------------
-if ENABLE_GUDEV
-if ENABLE_GTK_DOC
-SUBDIRS += \
-	docs/gudev
-endif
-
-libgudev_includedir = \
-	$(includedir)/gudev-1.0/gudev
-
-libgudev_include_HEADERS = \
-	src/gudev/gudev.h \
-	src/gudev/gudevenums.h \
-	src/gudev/gudevenumtypes.h \
-	src/gudev/gudevtypes.h \
-	src/gudev/gudevclient.h \
-	src/gudev/gudevdevice.h \
-	src/gudev/gudevenumerator.h
-
-lib_LTLIBRARIES += libgudev-1.0.la
-
-pkgconfiglib_DATA += \
-	src/gudev/gudev-1.0.pc
-
-libgudev_1_0_la_SOURCES = \
-	src/gudev/libgudev-1.0.sym \
-	src/gudev/gudevenums.h \
-	src/gudev/gudevenumtypes.h \
-	src/gudev/gudevenumtypes.h\
-	src/gudev/gudevtypes.h \
-	src/gudev/gudevclient.h \
-	src/gudev/gudevclient.c \
-	src/gudev/gudevdevice.h \
-	src/gudev/gudevdevice.c \
-	src/gudev/gudevenumerator.h \
-	src/gudev/gudevenumerator.c \
-	src/gudev/gudevprivate.h
-
-nodist_libgudev_1_0_la_SOURCES = \
-	src/gudev/gudevmarshal.h \
-	src/gudev/gudevmarshal.c \
-	src/gudev/gudevenumtypes.h \
-	src/gudev/gudevenumtypes.c
-
-BUILT_SOURCES += \
-	$(nodist_libgudev_1_0_la_SOURCES)
-
-libgudev_1_0_la_CPPFLAGS = \
-	$(AM_CPPFLAGS) \
-	-I$(top_builddir)/src\
-	-I$(top_srcdir)/src\
-	-I$(top_builddir)/src/gudev \
-	-I$(top_srcdir)/src/gudev \
-	-D_POSIX_PTHREAD_SEMANTICS -D_REENTRANT \
-	-D_GUDEV_COMPILATION \
-	-DG_LOG_DOMAIN=\"GUdev\"
-
-libgudev_1_0_la_CFLAGS = \
-	$(AM_CFLAGS) \
-	-fvisibility=default \
-	$(GLIB_CFLAGS)
-
-libgudev_1_0_la_LIBADD = \
-	libudev.la \
-	$(GLIB_LIBS)
-
-libgudev_1_0_la_LDFLAGS = \
-	$(AM_LDFLAGS) \
-	-version-info $(LIBGUDEV_CURRENT):$(LIBGUDEV_REVISION):$(LIBGUDEV_AGE) \
-	-export-dynamic \
-	-no-undefined \
-	-Wl,--version-script=$(top_srcdir)/src/gudev/libgudev-1.0.sym
-
-src/gudev/gudevmarshal.h: src/gudev/gudevmarshal.list
-	$(AM_V_at)$(MKDIR_P) $(dir $@)
-	$(AM_V_GEN)glib-genmarshal $< --prefix=g_udev_marshal --header > $@
-
-src/gudev/gudevmarshal.c: src/gudev/gudevmarshal.list
-	$(AM_V_at)$(MKDIR_P) $(dir $@)
-	$(AM_V_GEN)echo '#include "gudevmarshal.h"' > $@ && \
-	glib-genmarshal $< --prefix=g_udev_marshal --body >> $@
-
-src/gudev/gudevenumtypes.%: src/gudev/gudevenumtypes.%.template src/gudev/gudevenums.h
-	$(AM_V_at)$(MKDIR_P) $(dir $@)
-	$(AM_V_GEN)glib-mkenums --template $^ > $@
-
-if HAVE_INTROSPECTION
--include $(INTROSPECTION_MAKEFILE)
-
-src/gudev/GUdev-1.0.gir: libgudev-1.0.la
-
-src_gudev_GUdev_1_0_gir_INCLUDES = GObject-2.0
-
-src_gudev_GUdev_1_0_gir_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(INCLUDES) \
-	-D_GUDEV_COMPILATION \
-	-D_GUDEV_WORK_AROUND_DEV_T_BUG \
-	-I$(top_srcdir)/src \
-	-I$(top_builddir)/src \
-	-I$(top_srcdir)/src/gudev \
-	-I$(top_builddir)/src/gudev
-
-src_gudev_GUdev_1_0_gir_LIBS = libgudev-1.0.la
-
-src_gudev_GUdev_1_0_gir_SCANNERFLAGS = \
-	--pkg-export=gudev-1.0 \
-	--warn-all
-
-src_gudev_GUdev_1_0_gir_FILES = \
-	src/gudev/gudev.h \
-	src/gudev/gudevtypes.h \
-	src/gudev/gudevenums.h \
-	src/gudev/gudevenumtypes.h \
-	src/gudev/gudevclient.h \
-	src/gudev/gudevdevice.h \
-	src/gudev/gudevenumerator.h \
-	src/gudev/gudevclient.c \
-	src/gudev/gudevdevice.c \
-	src/gudev/gudevenumerator.c
-
-INTROSPECTION_GIRS = src/gudev/GUdev-1.0.gir
-INTROSPECTION_SCANNER_ARGS = --c-include=gudev/gudev.h
-
-girdir = $(datadir)/gir-1.0
-gir_DATA = \
-	src/gudev/GUdev-1.0.gir
-
-typelibsdir = $(libdir)/girepository-1.0
-typelibs_DATA = \
-	src/gudev/GUdev-1.0.typelib
-
-CLEANFILES += $(gir_DATA) $(typelibs_DATA)
-endif # HAVE_INTROSPECTION
-endif
-
-EXTRA_DIST += \
-	src/gudev/gudev-1.0.pc.in \
-	src/gudev/gudevmarshal.list \
-	src/gudev/gudevenumtypes.h.template \
-	src/gudev/gudevenumtypes.c.template \
-	src/gudev/gjs-example.js \
-	src/gudev/seed-example-enum.js \
-	src/gudev/seed-example.js
 
 # ------------------------------------------------------------------------------
 mtd_probe_SOURCES =  \
@@ -6826,11 +6663,6 @@ DISTCHECK_CONFIGURE_FLAGS += \
 	--with-python
 endif
 
-if ENABLE_GTK_DOC
-DISTCHECK_CONFIGURE_FLAGS += \
-	--enable-gtk-doc
-endif
-
 if ENABLE_SPLIT_USR
 DISTCHECK_CONFIGURE_FLAGS += \
 	--enable-split-usr
@@ -6895,10 +6727,6 @@ upload: all check dist
 
 .PHONY: doc-sync
 doc-sync: all destdir-sphinx
-	gtkdoc-rebase --html-dir=docs/libudev/html --online
-	rsync -rlv --delete docs/libudev/html/ --omit-dir-times $(www_target)/libudev/
-	gtkdoc-rebase --html-dir=docs/gudev/html --online
-	rsync -rlv --delete docs/gudev/html/ --omit-dir-times $(www_target)/gudev/
 	rsync -rlv --delete-excluded --include="*.html" --exclude="*" --omit-dir-times man/ $(www_target)/man/
 	rsync -rlv --delete --omit-dir-times docs/html/python-systemd/ $(www_target)/python-systemd/
 

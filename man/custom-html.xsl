@@ -232,18 +232,6 @@
     </xsl:attribute>
     <xsl:text>Python </xsl:text>
   </a>·
-  <a>
-    <xsl:attribute name="href">
-      <xsl:text>../libudev/index.html</xsl:text>
-    </xsl:attribute>
-    <xsl:text>libudev </xsl:text>
-  </a>·
-  <a>
-    <xsl:attribute name="href">
-      <xsl:text>../libudev/index.html</xsl:text>
-    </xsl:attribute>
-    <xsl:text>gudev </xsl:text>
-  </a>
 
   <span style="float:right">
     <xsl:text>systemd </xsl:text>

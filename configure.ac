@@ -107,22 +107,6 @@ AS_IF([! ln --relative --help > /dev/null 2>&1], [AC_MSG_ERROR([*** ln doesn't s
 
 M4_DEFINES=
 
-# gtkdocize greps for '^GTK_DOC_CHECK', so it needs to be on its own line
-m4_ifdef([GTK_DOC_CHECK], [
-GTK_DOC_CHECK([1.18],[--flavour no-tmpl])],
-         [AM_CONDITIONAL([ENABLE_GTK_DOC], [false])
-          enable_gtk_doc=no])
-
-AS_IF([test "x$enable_gtk_doc" = "xyes" -a "x$XSLTPROC" = x], [
-        AC_MSG_ERROR([*** GTK doc requested but xsltproc not found])
-])
-
-m4_ifdef([GOBJECT_INTROSPECTION_CHECK], [
-GOBJECT_INTROSPECTION_CHECK([1.31.1])
-], [
-   AM_CONDITIONAL([HAVE_INTROSPECTION], [false])
-   enable_introspection=no])
-
 AC_CHECK_TOOL(OBJCOPY, objcopy)
 AC_CHECK_TOOL(STRINGS, strings)
 AC_CHECK_TOOL(GPERF, gperf)
@@ -1294,14 +1278,6 @@ fi
 AM_CONDITIONAL(HAVE_MYHOSTNAME, [test "$have_myhostname" = "yes"])
 
 # ------------------------------------------------------------------------------
-AC_ARG_ENABLE([gudev],
-       AS_HELP_STRING([--disable-gudev], [disable Gobject libudev support @<:@default=enabled@:>@]),
-       [], [enable_gudev=yes])
-AS_IF([test "x$enable_gudev" = "xyes"], [ PKG_CHECK_MODULES([GLIB], [glib-2.0 >= 2.22.0 gobject-2.0 >= 2.22.0 gio-2.0]) ])
-AM_CONDITIONAL([ENABLE_GUDEV], [test "x$enable_gudev" = "xyes"])
-AS_IF([test "x$enable_gudev" = "xyes"], [ AC_DEFINE(HAVE_GLIB, 1, [Define if glib is available]) ])
-
-# ------------------------------------------------------------------------------
 AC_ARG_ENABLE(hwdb, [AC_HELP_STRING([--disable-hwdb], [disable hardware database support])],
        enable_hwdb=$enableval, enable_hwdb=yes)
 AM_CONDITIONAL(ENABLE_HWDB, [test x$enable_hwdb = xyes])
@@ -1444,13 +1420,6 @@ AS_IF([test "x${enable_split_usr}" = "xyes"], [
 ])
 AM_CONDITIONAL(ENABLE_SPLIT_USR, [test "x${enable_split_usr}" = "xyes"])
 
-# Work around intltoolize and gtk-doc problems in VPATH builds
-AM_CONDITIONAL([ENABLE_GTK_DOC_TESTS], [test "x$0" = "x./configure"],
-                                       [Define to do gtk-doc tests])
-AS_IF([test "x$0" != "x./configure"], [
-        AC_SUBST([INTLTOOL_UPDATE], [/bin/true])
-])
-
 # QEMU and OVMF UEFI firmware
 AS_IF([test x"$cross_compiling" = "xyes"], [], [
         AC_PATH_PROG([QEMU], [qemu-system-x86_64])
@@ -1505,11 +1474,8 @@ AC_SUBST([rootprefix], [$with_rootprefix])
 AC_SUBST([rootlibdir], [$with_rootlibdir])
 
 AC_CONFIG_FILES([
-        Makefile po/Makefile.in
-        docs/libudev/Makefile
-        docs/libudev/version.xml
-        docs/gudev/Makefile
-        docs/gudev/version.xml
+        Makefile
+        po/Makefile.in
 ])
 
 AC_OUTPUT
@@ -1575,7 +1541,6 @@ AC_MSG_RESULT([
         libmount:                ${have_libmount}
         dbus:                    ${have_dbus}
         nss-myhostname:          ${have_myhostname}
-        gudev:                   ${enable_gudev}
         hwdb:                    ${enable_hwdb}
         gintrospection:          ${enable_introspection}
         terminal:                ${have_terminal}
@@ -1583,7 +1548,6 @@ AC_MSG_RESULT([
         Python:                  ${have_python}
         Python Headers:          ${have_python_devel}
         man pages:               ${have_manpages}
-        gtk-doc:                 ${enable_gtk_doc}
         test coverage:           ${have_coverage}
         Split /usr:              ${enable_split_usr}
         SysV compatibility:      ${SYSTEM_SYSV_COMPAT}

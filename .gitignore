@@ -38,7 +38,6 @@
 /defined
 /exported
 /exported-*
-/gtk-doc.make
 /hostnamectl
 /install-tree
 /journalctl

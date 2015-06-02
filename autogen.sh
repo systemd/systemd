@@ -28,15 +28,6 @@ if [ -f .git/hooks/pre-commit.sample ] && [ ! -f .git/hooks/pre-commit ]; then
         echo "Activated pre-commit hook." || :
 fi
 
-if which gtkdocize >/dev/null 2>/dev/null; then
-        gtkdocize --docdir docs/ --flavour no-tmpl
-        gtkdocargs=--enable-gtk-doc
-else
-        echo "You don't have gtk-doc installed, and thus won't be able to generate the documentation."
-        rm -f docs/gtk-doc.make
-        echo 'EXTRA_DIST =' > docs/gtk-doc.make
-fi
-
 intltoolize --force --automake
 autoreconf --force --install --symlink
 
@@ -48,7 +39,7 @@ args="\
 --sysconfdir=/etc \
 --localstatedir=/var \
 --libdir=$(libdir /usr/lib) \
-$gtkdocargs"
+"
 
 if [ -f "$topdir/.config.args" ]; then
         args="$args $(cat $topdir/.config.args)"

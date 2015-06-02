@@ -125,7 +125,7 @@ install_systemd() {
     # install compiled files
     (cd $TEST_BASE_DIR/..; set -x; make DESTDIR=$initdir install)
     # remove unneeded documentation
-    rm -fr $initdir/usr/share/{man,doc,gtk-doc}
+    rm -fr $initdir/usr/share/{man,doc}
     # we strip binaries since debug symbols increase binaries size a lot
     # and it could fill the available space
     strip_binaries

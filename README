@@ -152,7 +152,6 @@ REQUIREMENTS:
         libtool
         intltool
         gperf
-        gtkdocize (optional)
         python (optional)
         python-lxml (optional, but required to build the indices)
         sphinx (optional)
