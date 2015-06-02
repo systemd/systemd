@@ -35,6 +35,9 @@ int dns_label_apply_idna(const char *encoded, size_t encoded_size, char *decoded
 int dns_label_undo_idna(const char *encoded, size_t encoded_size, char *decoded, size_t decoded_max);
 
 int dns_name_normalize(const char *s, char **_ret);
+static inline bool dns_name_is_valid(const char *s) {
+        return dns_name_normalize(s, NULL) == 0;
+}
 
 unsigned long dns_name_hash_func(const void *s, const uint8_t hash_key[HASH_KEY_SIZE]);
 int dns_name_compare_func(const void *a, const void *b);
