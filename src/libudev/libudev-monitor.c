@@ -144,6 +144,22 @@ static bool udev_has_devtmpfs(struct udev *udev) {
         return false;
 }
 
+static void monitor_set_nl_address(struct udev_monitor *udev_monitor) {
+        union sockaddr_union snl;
+        socklen_t addrlen;
+        int r;
+
+        assert(udev_monitor);
+
+        /* get the address the kernel has assigned us
+         * it is usually, but not necessarily the pid
+         */
+        addrlen = sizeof(struct sockaddr_nl);
+        r = getsockname(udev_monitor->sock, &snl.sa, &addrlen);
+        if (r >= 0)
+                udev_monitor->snl.nl.nl_pid = snl.nl.nl_pid;
+}
+
 struct udev_monitor *udev_monitor_new_from_netlink_fd(struct udev *udev, const char *name, int fd)
 {
         struct udev_monitor *udev_monitor;
@@ -183,7 +199,7 @@ struct udev_monitor *udev_monitor_new_from_netlink_fd(struct udev *udev, const c
 
         if (fd < 0) {
                 udev_monitor->sock = socket(PF_NETLINK, SOCK_RAW|SOCK_CLOEXEC|SOCK_NONBLOCK, NETLINK_KOBJECT_UEVENT);
-                if (udev_monitor->sock == -1) {
+                if (udev_monitor->sock < 0) {
                         log_debug_errno(errno, "error getting socket: %m");
                         free(udev_monitor);
                         return NULL;
@@ -191,6 +207,7 @@ struct udev_monitor *udev_monitor_new_from_netlink_fd(struct udev *udev, const c
         } else {
                 udev_monitor->bound = true;
                 udev_monitor->sock = fd;
+                monitor_set_nl_address(udev_monitor);
         }
 
         udev_monitor->snl.nl.nl_family = AF_NETLINK;
@@ -366,6 +383,7 @@ int udev_monitor_allow_unicast_sender(struct udev_monitor *udev_monitor, struct 
         udev_monitor->snl_trusted_sender.nl.nl_pid = sender->snl.nl.nl_pid;
         return 0;
 }
+
 /**
  * udev_monitor_enable_receiving:
  * @udev_monitor: the monitor which should receive events
@@ -388,19 +406,9 @@ _public_ int udev_monitor_enable_receiving(struct udev_monitor *udev_monitor)
                         udev_monitor->bound = true;
         }
 
-        if (err >= 0) {
-                union sockaddr_union snl;
-                socklen_t addrlen;
-
-                /*
-                 * get the address the kernel has assigned us
-                 * it is usually, but not necessarily the pid
-                 */
-                addrlen = sizeof(struct sockaddr_nl);
-                err = getsockname(udev_monitor->sock, &snl.sa, &addrlen);
-                if (err == 0)
-                        udev_monitor->snl.nl.nl_pid = snl.nl.nl_pid;
-        } else {
+        if (err >= 0)
+                monitor_set_nl_address(udev_monitor);
+        else {
                 log_debug_errno(errno, "bind failed: %m");
                 return -errno;
         }
