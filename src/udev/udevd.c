@@ -1490,9 +1490,8 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-static int manager_new(Manager **ret, const char *cgroup) {
+static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cgroup) {
         _cleanup_(manager_freep) Manager *manager = NULL;
-        int r, fd_ctrl, fd_uevent;
 
         assert(ret);
 
@@ -1518,10 +1517,6 @@ static int manager_new(Manager **ret, const char *cgroup) {
         udev_list_init(manager->udev, &manager->properties, true);
 
         manager->cgroup = cgroup;
-
-        r = listen_fds(&fd_ctrl, &fd_uevent);
-        if (r < 0)
-                return log_error_errno(r, "could not listen on fds: %m");
 
         manager->ctrl = udev_ctrl_new_from_fd(manager->udev, fd_ctrl);
         if (!manager->ctrl)
@@ -1620,7 +1615,7 @@ static int manager_listen(Manager *manager) {
 int main(int argc, char *argv[]) {
         _cleanup_(manager_freep) Manager *manager = NULL;
         _cleanup_free_ char *cgroup = NULL;
-        int r;
+        int r, fd_ctrl, fd_uevent;
 
         log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();
@@ -1686,7 +1681,13 @@ int main(int argc, char *argv[]) {
                         log_warning_errno(r, "failed to get cgroup: %m");
         }
 
-        r = manager_new(&manager, cgroup);
+        r = listen_fds(&fd_ctrl, &fd_uevent);
+        if (r < 0) {
+                r = log_error_errno(r, "could not listen on fds: %m");
+                goto exit;
+        }
+
+        r = manager_new(&manager, fd_ctrl, fd_uevent, cgroup);
         if (r < 0)
                 goto exit;
 
