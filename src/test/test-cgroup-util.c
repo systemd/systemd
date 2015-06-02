@@ -219,6 +219,22 @@ static void test_proc(void) {
         }
 }
 
+static void test_cg_pid_get_path(void) {
+        _cleanup_free_ char *path = NULL;
+
+        assert_se(cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, 0, &path) == 0);
+
+        assert_se(cg_pid_get_path("", 0, &path) == 0);
+
+        assert_se(cg_pid_get_path(NULL, 0, &path) == 0);
+}
+
+static void test_cg_get_path(void) {
+        _cleanup_free_ char *path = NULL;
+
+        assert_se(cg_get_path(SYSTEMD_CGROUP_CONTROLLER, "", "", &path) == 0);
+}
+
 static void test_escape_one(const char *s, const char *r) {
         _cleanup_free_ char *b;
 
@@ -247,7 +263,8 @@ static void test_controller_is_valid(void) {
         assert_se(cg_controller_is_valid("foobar", false));
         assert_se(cg_controller_is_valid("foo_bar", false));
         assert_se(cg_controller_is_valid("name=foo", true));
-        assert_se(!cg_controller_is_valid("", false));
+        assert_se(cg_controller_is_valid("", true));
+        assert_se(cg_controller_is_valid("", false));
         assert_se(!cg_controller_is_valid("name=", true));
         assert_se(!cg_controller_is_valid("=", false));
         assert_se(!cg_controller_is_valid("cpu,cpuacct", false));
@@ -305,6 +322,8 @@ int main(void) {
         test_path_get_user_slice();
         TEST_REQ_RUNNING_SYSTEMD(test_get_paths());
         test_proc();
+        test_cg_pid_get_path();
+        test_cg_get_path();
         TEST_REQ_RUNNING_SYSTEMD(test_escape());
         test_controller_is_valid();
         test_slice_to_path();
