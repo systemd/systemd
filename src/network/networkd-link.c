@@ -1481,6 +1481,9 @@ static int link_set_ipv4_forward(Link *link) {
         const char *p = NULL;
         int r;
 
+        if (link->network->ip_forward == ADDRESS_FAMILY_KERNEL)
+                return 0;
+
         p = strjoina("/proc/sys/net/ipv4/conf/", link->ifname, "/forwarding");
         r = write_string_file_no_create(p, one_zero(link_ipv4_forward_enabled(link)));
         if (r < 0)
@@ -1495,6 +1498,9 @@ static int link_set_ipv6_forward(Link *link) {
 
         /* Make this a NOP if IPv6 is not available */
         if (!socket_ipv6_is_supported())
+                return 0;
+
+        if (link->network->ip_forward == ADDRESS_FAMILY_KERNEL)
                 return 0;
 
         p = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/forwarding");
