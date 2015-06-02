@@ -34,7 +34,7 @@
 #include "random-util.h"
 #include "hostname-util.h"
 
-#include "resolved-dns-domain.h"
+#include "dns-domain.h"
 #include "resolved-conf.h"
 #include "resolved-bus.h"
 #include "resolved-manager.h"
