@@ -3702,13 +3702,6 @@ pkgconfiglib_DATA += \
 EXTRA_DIST += \
 	src/libudev/libudev.pc.in
 
-CLEANFILES += \
-	docs/html/libudev
-
-docs/html/libudev:
-	$(AM_V_at)$(MKDIR_P) $(dir $@)
-	$(AM_V_LN)$(LN_S) -f ../libudev/html $@
-
 # move lib from $(libdir) to $(rootlibdir) and update devel link, if needed
 libudev-install-hook:
 	libname=libudev.so && $(move-to-rootlibdir)
