@@ -232,7 +232,7 @@ static void test_config_parse_exec(void) {
                               &c, NULL);
         assert_se(r >= 0);
         c1 = c1->command_next;
-        check_execcommand(c1, "/bin/find", NULL, "\\073", NULL, false);
+        check_execcommand(c1, "/bin/find", NULL, ";", NULL, false);
 
         log_info("/* spaces in the filename */");
         r = config_parse_exec(NULL, "fake", 5, "section", 1,
