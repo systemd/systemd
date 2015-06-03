@@ -1770,32 +1770,6 @@ int bus_kernel_realize_attach_flags(sd_bus *bus) {
         return 0;
 }
 
-int bus_kernel_fix_attach_mask(void) {
-        _cleanup_free_ char *mask = NULL;
-        uint64_t m = (uint64_t) -1;
-        char buf[2+16+2];
-        int r;
-
-        /* By default we don't want any kdbus metadata fields to be
-         * suppressed, hence we reset the kernel mask for it to
-         * (uint64_t) -1. If the module argument was overwritten by
-         * the kernel cmdline, we leave it as is. */
-
-        r = get_proc_cmdline_key("kdbus.attach_flags_mask=", &mask);
-        if (r < 0)
-                return log_warning_errno(r, "Failed to read kernel command line: %m");
-
-        if (r == 0) {
-                sprintf(buf, "0x%" PRIx64 "\n", m);
-                r = write_string_file("/sys/module/kdbus/parameters/attach_flags_mask", buf);
-                if (r < 0)
-                        return log_full_errno(IN_SET(r, -ENOENT, -EROFS) ? LOG_DEBUG : LOG_WARNING, r,
-                                              "Failed to write kdbus attach mask: %m");
-        }
-
-        return 0;
-}
-
 int bus_kernel_get_bus_name(sd_bus *bus, char **name) {
         struct kdbus_cmd_info cmd = {
                 .size = sizeof(struct kdbus_cmd_info),

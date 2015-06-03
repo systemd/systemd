@@ -43,8 +43,6 @@ int main(int argc, char *argv[]) {
 
         assert_se(asprintf(&name, "deine-mutter-%u", (unsigned) getpid()) >= 0);
 
-        bus_kernel_fix_attach_mask();
-
         bus_ref = bus_kernel_create_bus(name, false, &bus_name);
         if (bus_ref == -ENOENT)
                 return EXIT_TEST_SKIP;

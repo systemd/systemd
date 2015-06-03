@@ -741,9 +741,6 @@ static int manager_setup_kdbus(Manager *m) {
         if (!is_kdbus_available())
                 return -ESOCKTNOSUPPORT;
 
-        if (m->running_as == MANAGER_SYSTEM && detect_container(NULL) <= 0)
-                bus_kernel_fix_attach_mask();
-
         m->kdbus_fd = bus_kernel_create_bus(
                         m->running_as == MANAGER_SYSTEM ? "system" : "user",
                         m->running_as == MANAGER_SYSTEM, &p);
