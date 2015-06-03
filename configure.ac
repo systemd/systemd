@@ -183,8 +183,6 @@ CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
         -fdiagnostics-show-option \
         -fno-strict-aliasing \
         -fvisibility=hidden \
-        -ffunction-sections \
-        -fdata-sections \
         -fstack-protector \
         -fstack-protector-strong \
         -fPIE \
@@ -208,10 +206,21 @@ AS_CASE([$CFLAGS], [*-O[[12345sz\ ]]*],
         [AC_MSG_RESULT([skipping -D_FORTIFY_SOURCE, optimization not enabled])])
 AC_SUBST([OUR_CPPFLAGS], "$with_cppflags $sanitizer_cppflags")
 
+AS_CASE([$CFLAGS], [*-O[[12345sz\ ]]*],
+        [CC_CHECK_FLAGS_APPEND([with_ldflags], [LDFLAGS], [\
+               -Wl,--gc-sections])],
+        [AC_MSG_RESULT([skipping --gc-sections, optimization not enabled])])
+AC_SUBST([OUR_CFLAGS], "$with_ldflags $sanitizer_cflags")
+
+AS_CASE([$CFLAGS], [*-O[[12345sz\ ]]*],
+        [CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
+               -ffunction-sections -fdata-sections])],
+        [AC_MSG_RESULT([skipping -ffunction/data-section, optimization not enabled])])
+AC_SUBST([OUR_CFLAGS], "$with_cflags $sanitizer_cflags")
+
 CC_CHECK_FLAGS_APPEND([with_ldflags], [LDFLAGS], [\
         -Wl,--as-needed \
         -Wl,--no-undefined \
-        -Wl,--gc-sections \
         -Wl,-z,relro \
         -Wl,-z,now \
         -pie \

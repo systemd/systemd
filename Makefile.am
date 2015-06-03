@@ -6549,9 +6549,7 @@ clean-local: $(CLEAN_LOCAL_HOOKS)
 	rm -f $(abs_srcdir)/hwdb/usb.ids $(abs_srcdir)/hwdb/pci.ids $(abs_srcdir)/hwdb/oui.txt \
 	      $(abs_srcdir)/hwdb/iab.txt
 
-# disable gc-sections to check limited toolchains for link breakage
 DISTCHECK_CONFIGURE_FLAGS = \
-	 CFLAGS='-fno-lto' LDFLAGS='-Wl,--as-needed -Wl,--no-gc-sections' \
 	--with-dbuspolicydir=$$dc_install_base/$(dbuspolicydir) \
 	--with-dbussessionservicedir=$$dc_install_base/$(dbussessionservicedir) \
 	--with-dbussystemservicedir=$$dc_install_base/$(dbussystemservicedir) \
