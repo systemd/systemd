@@ -942,10 +942,6 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/btrfs-ctree.h \
 	src/shared/rm-rf.c \
 	src/shared/rm-rf.h \
-	src/shared/machine-image.c \
-	src/shared/machine-image.h \
-	src/shared/machine-pool.c \
-	src/shared/machine-pool.h \
 	src/shared/copy.c \
 	src/shared/copy.h \
 	src/shared/install.c \
@@ -983,6 +979,16 @@ libsystemd_shared_la_LIBADD = \
 	$(SELINUX_LIBS) \
 	$(CAP_LIBS) \
 	-lm
+
+# -----------------------------------------------------------------------------
+noinst_LTLIBRARIES += \
+	libsystemd-machine.la
+
+libsystemd_machine_la_SOURCES = \
+	src/shared/machine-image.c \
+	src/shared/machine-image.h \
+	src/shared/machine-pool.c \
+	src/shared/machine-pool.h
 
 # -----------------------------------------------------------------------------
 if HAVE_LIBIPTC
@@ -2678,8 +2684,8 @@ systemd_dbus1_generator_SOURCES = \
 	src/dbus1-generator/dbus1-generator.c
 
 systemd_dbus1_generator_LDADD = \
-	libsystemd-shared.la \
-	libsystemd-internal.la
+	libsystemd-internal.la \
+	libsystemd-shared.la
 
 dbus1-generator-install-hook:
 	$(AM_V_at)$(MKDIR_P) $(DESTDIR)$(usergeneratordir)
@@ -2806,6 +2812,7 @@ systemd_nspawn_CFLAGS = \
 systemd_nspawn_LDADD = \
 	libudev-internal.la \
 	libsystemd-internal.la \
+	libsystemd-machine.la \
 	libsystemd-shared.la \
 	$(BLKID_LIBS)
 
@@ -5121,6 +5128,7 @@ libsystemd_machine_core_la_SOURCES = \
 libsystemd_machine_core_la_LIBADD = \
 	libudev-internal.la \
 	libsystemd-internal.la \
+	libsystemd-machine.la \
 	libsystemd-shared.la
 
 noinst_LTLIBRARIES += \
@@ -5231,6 +5239,7 @@ systemd_importd_CFLAGS = \
 	-D SYSTEMD_EXPORT_PATH=\"$(rootlibexecdir)/systemd-export\"
 
 systemd_importd_LDADD = \
+	libsystemd-machine.la \
 	libsystemd-internal.la \
 	libsystemd-shared.la
 
@@ -5267,6 +5276,7 @@ systemd_pull_CFLAGS = \
 	-D USER_KEYRING_PATH=\"$(pkgsysconfdir)/import-pubring.gpg\"
 
 systemd_pull_LDADD = \
+	libsystemd-machine.la \
 	libsystemd-internal.la \
 	libsystemd-shared.la \
 	$(LIBCURL_LIBS) \
@@ -5294,6 +5304,7 @@ systemd_import_CFLAGS = \
 	$(ZLIB_CFLAGS)
 
 systemd_import_LDADD = \
+	libsystemd-machine.la \
 	libsystemd-internal.la \
 	libsystemd-shared.la \
 	$(XZ_LIBS) \
@@ -5317,6 +5328,7 @@ systemd_export_CFLAGS = \
 	$(ZLIB_CFLAGS)
 
 systemd_export_LDADD = \
+	libsystemd-machine.la \
 	libsystemd-internal.la \
 	libsystemd-shared.la \
 	$(XZ_LIBS) \
