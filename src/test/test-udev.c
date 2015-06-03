@@ -28,6 +28,7 @@
 
 #include "missing.h"
 #include "selinux-util.h"
+#include "signal-util.h"
 #include "udev.h"
 #include "udev-util.h"
 
@@ -79,7 +80,6 @@ int main(int argc, char *argv[]) {
         char syspath[UTIL_PATH_SIZE];
         const char *devpath;
         const char *action;
-        sigset_t mask, sigmask_orig;
         int err;
 
         err = fake_filesystems();
@@ -92,8 +92,6 @@ int main(int argc, char *argv[]) {
 
         log_debug("version %s", VERSION);
         mac_selinux_init("/dev");
-
-        sigprocmask(SIG_SETMASK, NULL, &sigmask_orig);
 
         action = argv[1];
         if (action == NULL) {
@@ -118,8 +116,7 @@ int main(int argc, char *argv[]) {
 
         event = udev_event_new(dev);
 
-        sigfillset(&mask);
-        sigprocmask(SIG_SETMASK, &mask, &sigmask_orig);
+        assert_se(sigprocmask_many(SIG_BLOCK, SIGTERM, SIGINT, SIGHUP, SIGCHLD, -1) == 0);
 
         /* do what devtmpfs usually provides us */
         if (udev_device_get_devnode(dev) != NULL) {
@@ -142,11 +139,9 @@ int main(int argc, char *argv[]) {
         udev_event_execute_rules(event,
                                  3 * USEC_PER_SEC, USEC_PER_SEC,
                                  NULL,
-                                 rules,
-                                 &sigmask_orig);
+                                 rules);
         udev_event_execute_run(event,
-                               3 * USEC_PER_SEC, USEC_PER_SEC,
-                               NULL);
+                               3 * USEC_PER_SEC, USEC_PER_SEC);
 out:
         mac_selinux_finish();
 

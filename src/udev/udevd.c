@@ -42,6 +42,8 @@
 
 #include "sd-daemon.h"
 #include "sd-event.h"
+
+#include "signal-util.h"
 #include "event-util.h"
 #include "rtnl-util.h"
 #include "cgroup-util.h"
@@ -67,9 +69,8 @@ typedef struct Manager {
         sd_event *event;
         Hashmap *workers;
         struct udev_list_node events;
-        char *cgroup;
+        const char *cgroup;
         pid_t pid; /* the process that originally allocated the manager object */
-        sigset_t sigmask_orig;
 
         struct udev_rules *rules;
         struct udev_list properties;
@@ -306,7 +307,6 @@ static void manager_free(Manager *manager) {
 
         udev_list_cleanup(&manager->properties);
         udev_rules_unref(manager->rules);
-        free(manager->cgroup);
 
         safe_close(manager->fd_inotify);
         safe_close_pair(manager->worker_watch);
@@ -448,12 +448,10 @@ static void worker_spawn(Manager *manager, struct event *event) {
                         udev_event_execute_rules(udev_event,
                                                  arg_event_timeout_usec, arg_event_timeout_warn_usec,
                                                  &manager->properties,
-                                                 manager->rules,
-                                                 &manager->sigmask_orig);
+                                                 manager->rules);
 
                         udev_event_execute_run(udev_event,
-                                               arg_event_timeout_usec, arg_event_timeout_warn_usec,
-                                               &manager->sigmask_orig);
+                                               arg_event_timeout_usec, arg_event_timeout_warn_usec);
 
                         if (udev_event->rtnl)
                                 /* in case rtnl was initialized */
@@ -1263,38 +1261,91 @@ static int on_post(sd_event_source *s, void *userdata) {
         return 1;
 }
 
-static int systemd_fds(int *rctrl, int *rnetlink) {
-        int ctrl = -1, netlink = -1;
-        int fd, n;
+static int listen_fds(int *rctrl, int *rnetlink) {
+        _cleanup_udev_unref_ struct udev *udev = NULL;
+        int ctrl_fd = -1, netlink_fd = -1;
+        int fd, n, r;
+
+        assert(rctrl);
+        assert(rnetlink);
 
         n = sd_listen_fds(true);
-        if (n <= 0)
-                return -1;
+        if (n < 0)
+                return n;
 
         for (fd = SD_LISTEN_FDS_START; fd < n + SD_LISTEN_FDS_START; fd++) {
                 if (sd_is_socket(fd, AF_LOCAL, SOCK_SEQPACKET, -1)) {
-                        if (ctrl >= 0)
-                                return -1;
-                        ctrl = fd;
+                        if (ctrl_fd >= 0)
+                                return -EINVAL;
+                        ctrl_fd = fd;
                         continue;
                 }
 
                 if (sd_is_socket(fd, AF_NETLINK, SOCK_RAW, -1)) {
-                        if (netlink >= 0)
-                                return -1;
-                        netlink = fd;
+                        if (netlink_fd >= 0)
+                                return -EINVAL;
+                        netlink_fd = fd;
                         continue;
                 }
 
-                return -1;
+                return -EINVAL;
         }
 
-        if (ctrl < 0 || netlink < 0)
-                return -1;
+        if (ctrl_fd < 0) {
+                _cleanup_udev_ctrl_unref_ struct udev_ctrl *ctrl = NULL;
 
-        log_debug("ctrl=%i netlink=%i", ctrl, netlink);
-        *rctrl = ctrl;
-        *rnetlink = netlink;
+                udev = udev_new();
+                if (!udev)
+                        return -ENOMEM;
+
+                ctrl = udev_ctrl_new(udev);
+                if (!ctrl)
+                        return log_error_errno(EINVAL, "error initializing udev control socket");
+
+                r = udev_ctrl_enable_receiving(ctrl);
+                if (r < 0)
+                        return log_error_errno(EINVAL, "error binding udev control socket");
+
+                fd = udev_ctrl_get_fd(ctrl);
+                if (fd < 0)
+                        return log_error_errno(EIO, "could not get ctrl fd");
+
+                ctrl_fd = fcntl(fd, F_DUPFD_CLOEXEC, 3);
+                if (ctrl_fd < 0)
+                        return log_error_errno(errno, "could not dup ctrl fd: %m");
+        }
+
+        if (netlink_fd < 0) {
+                _cleanup_udev_monitor_unref_ struct udev_monitor *monitor = NULL;
+
+                if (!udev) {
+                        udev = udev_new();
+                        if (!udev)
+                                return -ENOMEM;
+                }
+
+                monitor = udev_monitor_new_from_netlink(udev, "kernel");
+                if (!monitor)
+                        return log_error_errno(EINVAL, "error initializing netlink socket");
+
+                (void) udev_monitor_set_receive_buffer_size(monitor, 128 * 1024 * 1024);
+
+                r = udev_monitor_enable_receiving(monitor);
+                if (r < 0)
+                        return log_error_errno(EINVAL, "error binding netlink socket");
+
+                fd = udev_monitor_get_fd(monitor);
+                if (fd < 0)
+                        return log_error_errno(netlink_fd, "could not get uevent fd: %m");
+
+                netlink_fd = fcntl(fd, F_DUPFD_CLOEXEC, 3);
+                if (ctrl_fd < 0)
+                        return log_error_errno(errno, "could not dup netlink fd: %m");
+        }
+
+        *rctrl = ctrl_fd;
+        *rnetlink = netlink_fd;
+
         return 0;
 }
 
@@ -1439,11 +1490,13 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-static int manager_new(Manager **ret) {
+static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cgroup) {
         _cleanup_(manager_freep) Manager *manager = NULL;
-        int r, fd_ctrl, fd_uevent;
+        int r, fd_worker, one = 1;
 
         assert(ret);
+        assert(fd_ctrl >= 0);
+        assert(fd_uevent >= 0);
 
         manager = new0(Manager, 1);
         if (!manager)
@@ -1466,57 +1519,15 @@ static int manager_new(Manager **ret) {
         udev_list_node_init(&manager->events);
         udev_list_init(manager->udev, &manager->properties, true);
 
-        r = systemd_fds(&fd_ctrl, &fd_uevent);
-        if (r >= 0) {
-                /* get control and netlink socket from systemd */
-                manager->ctrl = udev_ctrl_new_from_fd(manager->udev, fd_ctrl);
-                if (!manager->ctrl)
-                        return log_error_errno(EINVAL, "error taking over udev control socket");
+        manager->cgroup = cgroup;
 
-                manager->monitor = udev_monitor_new_from_netlink_fd(manager->udev, "kernel", fd_uevent);
-                if (!manager->monitor)
-                        return log_error_errno(EINVAL, "error taking over netlink socket");
+        manager->ctrl = udev_ctrl_new_from_fd(manager->udev, fd_ctrl);
+        if (!manager->ctrl)
+                return log_error_errno(EINVAL, "error taking over udev control socket");
 
-                /* get our own cgroup, we regularly kill everything udev has left behind */
-                r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, 0, &manager->cgroup);
-                if (r < 0)
-                        log_warning_errno(r, "failed to get cgroup: %m");
-        } else {
-                /* open control and netlink socket */
-                manager->ctrl = udev_ctrl_new(manager->udev);
-                if (!manager->ctrl)
-                        return log_error_errno(EINVAL, "error initializing udev control socket");
-
-                fd_ctrl = udev_ctrl_get_fd(manager->ctrl);
-
-                manager->monitor = udev_monitor_new_from_netlink(manager->udev, "kernel");
-                if (!manager->monitor)
-                        return log_error_errno(EINVAL, "error initializing netlink socket");
-
-                fd_uevent = udev_monitor_get_fd(manager->monitor);
-
-                (void) udev_monitor_set_receive_buffer_size(manager->monitor, 128 * 1024 * 1024);
-        }
-
-        r = udev_monitor_enable_receiving(manager->monitor);
-        if (r < 0)
-                return log_error_errno(EINVAL, "error binding netlink socket");
-
-        r = udev_ctrl_enable_receiving(manager->ctrl);
-        if (r < 0)
-                return log_error_errno(EINVAL, "error binding udev control socket");
-
-        *ret = manager;
-        manager = NULL;
-
-        return 0;
-}
-
-static int manager_listen(Manager *manager) {
-        sigset_t mask;
-        int r, fd_worker, one = 1;
-
-        assert(manager);
+        manager->monitor = udev_monitor_new_from_netlink_fd(manager->udev, "kernel", fd_uevent);
+        if (!manager->monitor)
+                return log_error_errno(EINVAL, "error taking over netlink socket");
 
         /* unnamed socket from workers to the main daemon */
         r = socketpair(AF_LOCAL, SOCK_DGRAM|SOCK_CLOEXEC, 0, manager->worker_watch);
@@ -1536,8 +1547,7 @@ static int manager_listen(Manager *manager) {
         udev_watch_restore(manager->udev);
 
         /* block and listen to all signals on signalfd */
-        sigfillset(&mask);
-        sigprocmask(SIG_SETMASK, &mask, &manager->sigmask_orig);
+        assert_se(sigprocmask_many(SIG_BLOCK, SIGTERM, SIGINT, SIGHUP, SIGCHLD, -1) == 0);
 
         r = sd_event_default(&manager->event);
         if (r < 0)
@@ -1563,7 +1573,7 @@ static int manager_listen(Manager *manager) {
         if (r < 0)
                 return log_error_errno(r, "error creating watchdog event source: %m");
 
-        r = sd_event_add_io(manager->event, &manager->ctrl_event, udev_ctrl_get_fd(manager->ctrl), EPOLLIN, on_ctrl_msg, manager);
+        r = sd_event_add_io(manager->event, &manager->ctrl_event, fd_ctrl, EPOLLIN, on_ctrl_msg, manager);
         if (r < 0)
                 return log_error_errno(r, "error creating ctrl event source: %m");
 
@@ -1579,7 +1589,7 @@ static int manager_listen(Manager *manager) {
         if (r < 0)
                 return log_error_errno(r, "error creating inotify event source: %m");
 
-        r = sd_event_add_io(manager->event, &manager->uevent_event, udev_monitor_get_fd(manager->monitor), EPOLLIN, on_uevent, manager);
+        r = sd_event_add_io(manager->event, &manager->uevent_event, fd_uevent, EPOLLIN, on_uevent, manager);
         if (r < 0)
                 return log_error_errno(r, "error creating uevent event source: %m");
 
@@ -1591,12 +1601,16 @@ static int manager_listen(Manager *manager) {
         if (r < 0)
                 return log_error_errno(r, "error creating post event source: %m");
 
+        *ret = manager;
+        manager = NULL;
+
         return 0;
 }
 
 int main(int argc, char *argv[]) {
         _cleanup_(manager_freep) Manager *manager = NULL;
-        int r;
+        _cleanup_free_ char *cgroup = NULL;
+        int r, fd_ctrl, fd_uevent;
 
         log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();
@@ -1653,13 +1667,20 @@ int main(int argc, char *argv[]) {
 
         dev_setup(NULL, UID_INVALID, GID_INVALID);
 
-        r = manager_new(&manager);
-        if (r < 0)
-                goto exit;
+        if (getppid() == 1) {
+                /* get our own cgroup, we regularly kill everything udev has left behind
+                   we only do this on systemd systems, and only if we are directly spawned
+                   by PID1. otherwise we are not guaranteed to have a dedicated cgroup */
+                r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, 0, &cgroup);
+                if (r < 0)
+                        log_warning_errno(r, "failed to get cgroup: %m");
+        }
 
-        r = udev_rules_apply_static_dev_perms(manager->rules);
-        if (r < 0)
-                log_error_errno(r, "failed to apply permissions on static device nodes: %m");
+        r = listen_fds(&fd_ctrl, &fd_uevent);
+        if (r < 0) {
+                r = log_error_errno(r, "could not listen on fds: %m");
+                goto exit;
+        }
 
         if (arg_daemonize) {
                 pid_t pid;
@@ -1682,14 +1703,21 @@ int main(int argc, char *argv[]) {
                 setsid();
 
                 write_string_file("/proc/self/oom_score_adj", "-1000");
-        } else
-                sd_notify(false,
-                          "READY=1\n"
-                          "STATUS=Processing...");
+        }
 
-        r = manager_listen(manager);
+        r = manager_new(&manager, fd_ctrl, fd_uevent, cgroup);
+        if (r < 0) {
+                r = log_error_errno(r, "failed to allocate manager object: %m");
+                goto exit;
+        }
+
+        r = udev_rules_apply_static_dev_perms(manager->rules);
         if (r < 0)
-                return log_error_errno(r, "failed to set up fds and listen for events: %m");
+                log_error_errno(r, "failed to apply permissions on static device nodes: %m");
+
+        (void) sd_notify(false,
+                         "READY=1\n"
+                         "STATUS=Processing...");
 
         r = sd_event_loop(manager->event);
         if (r < 0) {
