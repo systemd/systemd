@@ -1733,6 +1733,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
         <varname>$VISUAL</varname> are present or if it is set to an empty
         string or if their execution failed, systemctl will try to execute well
         known editors in this order:
+        <citerefentry project='die-net'><refentrytitle>editor</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
         <citerefentry project='die-net'><refentrytitle>nano</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
         <citerefentry project='die-net'><refentrytitle>vim</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
         <citerefentry project='die-net'><refentrytitle>vi</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
