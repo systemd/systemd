@@ -5879,7 +5879,7 @@ static int run_editor(char **paths) {
                         execvp(editor, (char* const*) args);
                 }
 
-                FOREACH_STRING(p, "nano", "vim", "vi") {
+                FOREACH_STRING(p, "editor", "nano", "vim", "vi") {
                         args[0] = p;
                         execvp(p, (char* const*) args);
                         /* We do not fail if the editor doesn't exist
