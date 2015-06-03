@@ -137,7 +137,6 @@ _public_ int sd_device_enumerator_add_match_sysattr(sd_device_enumerator *enumer
 
         assert_return(enumerator, -EINVAL);
         assert_return(_sysattr, -EINVAL);
-        assert_return(_value, -EINVAL);
 
         if (match)
                 hashmap = &enumerator->match_sysattr;
@@ -152,9 +151,11 @@ _public_ int sd_device_enumerator_add_match_sysattr(sd_device_enumerator *enumer
         if (!sysattr)
                 return -ENOMEM;
 
-        value = strdup(_value);
-        if (!value)
-                return -ENOMEM;
+        if (_value) {
+                value = strdup(_value);
+                if (!value)
+                        return -ENOMEM;
+        }
 
         r = hashmap_put(*hashmap, sysattr, value);
         if (r < 0)
@@ -174,7 +175,6 @@ _public_ int sd_device_enumerator_add_match_property(sd_device_enumerator *enume
 
         assert_return(enumerator, -EINVAL);
         assert_return(_property, -EINVAL);
-        assert_return(_value, -EINVAL);
 
         r = hashmap_ensure_allocated(&enumerator->match_property, NULL);
         if (r < 0)
@@ -184,9 +184,11 @@ _public_ int sd_device_enumerator_add_match_property(sd_device_enumerator *enume
         if (!property)
                 return -ENOMEM;
 
-        value = strdup(_value);
-        if (!value)
-                return -ENOMEM;
+        if (_value) {
+                value = strdup(_value);
+                if (!value)
+                        return -ENOMEM;
+        }
 
         r = hashmap_put(enumerator->match_property, property, value);
         if (r < 0)

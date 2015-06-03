@@ -196,6 +196,9 @@ _public_ struct udev_list_entry *udev_enumerate_get_list_entry(struct udev_enume
 _public_ int udev_enumerate_add_match_subsystem(struct udev_enumerate *udev_enumerate, const char *subsystem) {
         assert_return(udev_enumerate, -EINVAL);
 
+        if (!subsystem)
+                return 0;
+
         return sd_device_enumerator_add_match_subsystem(udev_enumerate->enumerator, subsystem, true);
 }
 
@@ -210,6 +213,9 @@ _public_ int udev_enumerate_add_match_subsystem(struct udev_enumerate *udev_enum
  */
 _public_ int udev_enumerate_add_nomatch_subsystem(struct udev_enumerate *udev_enumerate, const char *subsystem) {
         assert_return(udev_enumerate, -EINVAL);
+
+        if (!subsystem)
+                return 0;
 
         return sd_device_enumerator_add_match_subsystem(udev_enumerate->enumerator, subsystem, false);
 }
@@ -227,6 +233,9 @@ _public_ int udev_enumerate_add_nomatch_subsystem(struct udev_enumerate *udev_en
 _public_ int udev_enumerate_add_match_sysattr(struct udev_enumerate *udev_enumerate, const char *sysattr, const char *value) {
         assert_return(udev_enumerate, -EINVAL);
 
+        if (!sysattr)
+                return 0;
+
         return sd_device_enumerator_add_match_sysattr(udev_enumerate->enumerator, sysattr, value, true);
 }
 
@@ -242,6 +251,9 @@ _public_ int udev_enumerate_add_match_sysattr(struct udev_enumerate *udev_enumer
  */
 _public_ int udev_enumerate_add_nomatch_sysattr(struct udev_enumerate *udev_enumerate, const char *sysattr, const char *value) {
         assert_return(udev_enumerate, -EINVAL);
+
+        if (!sysattr)
+                return 0;
 
         return sd_device_enumerator_add_match_sysattr(udev_enumerate->enumerator, sysattr, value, false);
 }
@@ -259,6 +271,9 @@ _public_ int udev_enumerate_add_nomatch_sysattr(struct udev_enumerate *udev_enum
 _public_ int udev_enumerate_add_match_property(struct udev_enumerate *udev_enumerate, const char *property, const char *value) {
         assert_return(udev_enumerate, -EINVAL);
 
+        if (!property)
+                return 0;
+
         return sd_device_enumerator_add_match_property(udev_enumerate->enumerator, property, value);
 }
 
@@ -273,6 +288,9 @@ _public_ int udev_enumerate_add_match_property(struct udev_enumerate *udev_enume
  */
 _public_ int udev_enumerate_add_match_tag(struct udev_enumerate *udev_enumerate, const char *tag) {
         assert_return(udev_enumerate, -EINVAL);
+
+        if (!tag)
+                return 0;
 
         return sd_device_enumerator_add_match_tag(udev_enumerate->enumerator, tag);
 }
@@ -334,6 +352,9 @@ _public_ int udev_enumerate_add_match_is_initialized(struct udev_enumerate *udev
  */
 _public_ int udev_enumerate_add_match_sysname(struct udev_enumerate *udev_enumerate, const char *sysname) {
         assert_return(udev_enumerate, -EINVAL);
+
+        if (!sysname)
+                return 0;
 
         return sd_device_enumerator_add_match_sysname(udev_enumerate->enumerator, sysname);
 }
