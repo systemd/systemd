@@ -1152,7 +1152,7 @@ static int cunescape_one(const char *p, size_t length, char *ret, uint32_t *ret_
                 int a, b, c;
                 uint32_t m;
 
-                if (length != (size_t) -1 && length < 4)
+                if (length != (size_t) -1 && length < 3)
                         return -EINVAL;
 
                 a = unoctchar(p[0]);
