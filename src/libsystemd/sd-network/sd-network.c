@@ -310,8 +310,10 @@ _public_ int sd_network_monitor_new(sd_network_monitor **m, const char *category
         if (!category || streq(category, "links")) {
                 k = inotify_add_watch(fd, "/run/systemd/netif/links/", IN_MOVED_TO|IN_DELETE);
                 if (k < 0) {
+#ifdef ENABLE_NETWORKD
                         safe_close(fd);
                         return -errno;
+#endif
                 }
 
                 good = true;
