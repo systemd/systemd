@@ -460,6 +460,9 @@ static void test_cunescape(void) {
         assert_se(cunescape("\\u0000", 0, &unescaped) < 0);
         assert_se(cunescape("\\u00DF\\U000000df\\u03a0\\U00000041", UNESCAPE_RELAX, &unescaped) >= 0);
         assert_se(streq_ptr(unescaped, "ßßΠA"));
+
+        assert_se(cunescape("\\073", 0, &unescaped) >= 0);
+        assert_se(streq_ptr(unescaped, ";"));
 }
 
 static void test_foreach_word(void) {
