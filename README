@@ -21,7 +21,6 @@ IRC:
         #systemd on irc.freenode.org
 
 BUG REPORTS:
-        https://bugs.freedesktop.org/enter_bug.cgi?product=systemd
         https://github.com/systemd/systemd/issues
 
 AUTHOR:
