@@ -129,7 +129,6 @@ REQUIREMENTS:
         libmicrohttpd (optional)
         libpython (optional)
         libidn (optional)
-        gobject-introspection > 1.40.0 (optional)
         elfutils >= 158 (optional)
         make, gcc, and similar tools
 

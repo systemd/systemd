@@ -1542,7 +1542,6 @@ AC_MSG_RESULT([
         dbus:                    ${have_dbus}
         nss-myhostname:          ${have_myhostname}
         hwdb:                    ${enable_hwdb}
-        gintrospection:          ${enable_introspection}
         terminal:                ${have_terminal}
         kdbus:                   ${have_kdbus}
         Python:                  ${have_python}
