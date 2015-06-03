@@ -47,7 +47,7 @@ fi
 
 if [ ! -L /bin ]; then
 args="$args \
---with-rootprefix= \
+--with-rootprefix=/ \
 --with-rootlibdir=$(libdir /lib) \
 "
 fi
