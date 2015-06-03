@@ -77,6 +77,15 @@ static enum {
         CPU_TIME,
 } arg_cpu_type = CPU_PERCENT;
 
+enum ByteRepresentation {
+        BYTES_HUMAN,
+        BYTES_RAW,
+};
+typedef enum ByteRepresentation ByteRepresentation;
+
+static ByteRepresentation arg_memory_type = BYTES_HUMAN;
+static ByteRepresentation arg_io_type = BYTES_HUMAN;
+
 static void group_free(Group *g) {
         assert(g);
 
@@ -94,6 +103,16 @@ static void group_hashmap_clear(Hashmap *h) {
 static void group_hashmap_free(Hashmap *h) {
         group_hashmap_clear(h);
         hashmap_free(h);
+}
+
+static char *cond_format_bytes(char *buf, size_t l, off_t t, ByteRepresentation r, bool is_valid) {
+        if (!is_valid)
+                return (char*)"       -";
+        if (r == BYTES_HUMAN)
+                return format_bytes(buf, l, t);
+        snprintf(buf, l, "%lu8", t);
+        buf[l-1] = 0;
+        return buf;
 }
 
 static int process(const char *controller, const char *path, Hashmap *a, Hashmap *b, unsigned iteration) {
@@ -532,18 +551,9 @@ static int display(Hashmap *a) {
                 } else
                         printf(" %*s", maxtcpu, format_timespan(buffer, sizeof(buffer), (nsec_t) (g->cpu_usage / NSEC_PER_USEC), 0));
 
-                if (g->memory_valid)
-                        printf(" %8s", format_bytes(buffer, sizeof(buffer), g->memory));
-                else
-                        fputs("        -", stdout);
-
-                if (g->io_valid) {
-                        printf(" %8s",
-                               format_bytes(buffer, sizeof(buffer), g->io_input_bps));
-                        printf(" %8s",
-                               format_bytes(buffer, sizeof(buffer), g->io_output_bps));
-                } else
-                        fputs("        -        -", stdout);
+                printf(" %8s", cond_format_bytes(buffer, sizeof(buffer), g->memory, arg_memory_type, g->memory_valid));
+                printf(" %8s", cond_format_bytes(buffer, sizeof(buffer), g->io_input_bps, arg_io_type, g->io_valid));
+                printf(" %8s", cond_format_bytes(buffer, sizeof(buffer), g->io_output_bps, arg_io_type, g->io_valid));
 
                 putchar('\n');
         }
@@ -562,6 +572,8 @@ static void help(void) {
                "  -m                  Order by memory load\n"
                "  -i                  Order by IO load\n"
                "     --cpu[=TYPE]     Show CPU usage as time or percentage (default)\n"
+               "     --memory[=TYPE]  Show memory usage as bytes or human (default)\n"
+               "     --io[=TYPE]      Show memory usage as bytes or human (default)\n"
                "  -d --delay=DELAY    Delay between updates\n"
                "  -n --iterations=N   Run for N iterations before exiting\n"
                "  -b --batch          Run in batch mode, accepting no input\n"
@@ -574,7 +586,9 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
                 ARG_DEPTH,
-                ARG_CPU_TYPE
+                ARG_CPU_TYPE,
+                ARG_MEM_TYPE,
+                ARG_IO_TYPE,
         };
 
         static const struct option options[] = {
@@ -585,6 +599,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "batch",      no_argument,       NULL, 'b'         },
                 { "depth",      required_argument, NULL, ARG_DEPTH   },
                 { "cpu",        optional_argument, NULL, ARG_CPU_TYPE},
+                { "memory",     optional_argument, NULL, ARG_MEM_TYPE},
+                { "io",         optional_argument, NULL, ARG_IO_TYPE },
                 {}
         };
 
@@ -613,6 +629,28 @@ static int parse_argv(int argc, char *argv[]) {
                                         arg_cpu_type = CPU_TIME;
                                 else if (strcmp(optarg, "percentage") == 0)
                                         arg_cpu_type = CPU_PERCENT;
+                                else
+                                        return -EINVAL;
+                        }
+                        break;
+
+                case ARG_MEM_TYPE:
+                        if (optarg) {
+                                if (strcmp(optarg, "human") == 0)
+                                        arg_memory_type = BYTES_HUMAN;
+                                else if (strcmp(optarg, "bytes") == 0)
+                                        arg_memory_type = BYTES_RAW;
+                                else
+                                        return -EINVAL;
+                        }
+                        break;
+
+                case ARG_IO_TYPE:
+                        if (optarg) {
+                                if (strcmp(optarg, "human") == 0)
+                                        arg_io_type = BYTES_HUMAN;
+                                else if (strcmp(optarg, "bytes") == 0)
+                                        arg_io_type = BYTES_RAW;
                                 else
                                         return -EINVAL;
                         }
