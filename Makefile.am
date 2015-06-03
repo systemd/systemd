@@ -6629,7 +6629,9 @@ clean-local: $(CLEAN_LOCAL_HOOKS)
 	rm -f $(abs_srcdir)/hwdb/usb.ids $(abs_srcdir)/hwdb/pci.ids $(abs_srcdir)/hwdb/oui.txt \
 	      $(abs_srcdir)/hwdb/iab.txt
 
+# disable gc-sections to check limited toolchains for link breakage
 DISTCHECK_CONFIGURE_FLAGS = \
+	 CFLAGS='-fno-lto' LDFLAGS='-Wl,--as-needed -Wl,--no-gc-sections' \
 	--with-dbuspolicydir=$$dc_install_base/$(dbuspolicydir) \
 	--with-dbussessionservicedir=$$dc_install_base/$(dbussessionservicedir) \
 	--with-dbussystemservicedir=$$dc_install_base/$(dbussystemservicedir) \
@@ -6689,11 +6691,6 @@ dist-check-help: $(rootbin_PROGRAMS) $(bin_PROGRAMS)
             fi; done
 
 dist: dist-check-python dist-check-compat-libs
-
-# check "broken" platforms limited toolchains for link breakage before we release
-.PHONY: linkcheck
-linkcheck:
-	$(MAKE) CFLAGS='-fno-lto' LDFLAGS='-Wl,-fuse-ld=gold -Wl,--as-needed -Wl,--no-gc-sections' distcheck
 
 .PHONY: hwdb-update
 hwdb-update:
