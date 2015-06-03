@@ -35,6 +35,9 @@
 /* Enforce upper limit how many names we allow */
 #define MANAGER_MAX_NAMES 131072 /* 128K */
 
+/* forward declaration to avoid pulling in libmount into our test-suite */
+struct libmnt_monitor;
+
 typedef struct Manager Manager;
 
 typedef enum ManagerState {
@@ -176,10 +179,8 @@ struct Manager {
         Hashmap *devices_by_sysfs;
 
         /* Data specific to the mount subsystem */
-        FILE *proc_self_mountinfo;
+        struct libmnt_monitor *mount_monitor;
         sd_event_source *mount_event_source;
-        int utab_inotify_fd;
-        sd_event_source *mount_utab_event_source;
 
         /* Data specific to the swap filesystem */
         FILE *proc_swaps;
