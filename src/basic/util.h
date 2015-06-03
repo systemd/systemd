@@ -839,8 +839,9 @@ int is_dir(const char *path, bool follow);
 int is_device_node(const char *path);
 
 typedef enum UnquoteFlags {
-        UNQUOTE_RELAX     = 1,
-        UNQUOTE_CUNESCAPE = 2,
+        UNQUOTE_RELAX           = 1,
+        UNQUOTE_CUNESCAPE       = 2,
+        UNQUOTE_CUNESCAPE_RELAX = 4,
 } UnquoteFlags;
 
 int unquote_first_word(const char **p, char **ret, UnquoteFlags flags);

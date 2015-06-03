@@ -5246,21 +5246,39 @@ int unquote_first_word(const char **p, char **ret, UnquoteFlags flags) {
                 case SINGLE_QUOTE_ESCAPE:
                 case DOUBLE_QUOTE_ESCAPE:
                 case VALUE_ESCAPE:
+                        if (!GREEDY_REALLOC(s, allocated, sz+7))
+                                return -ENOMEM;
+
                         if (c == 0) {
+                                if ((flags & UNQUOTE_CUNESCAPE_RELAX) &&
+                                    (state == VALUE_ESCAPE || flags & UNQUOTE_RELAX)) {
+                                        /* If we find an unquoted trailing backslash and we're in
+                                         * UNQUOTE_CUNESCAPE_RELAX mode, keep it verbatim in the
+                                         * output.
+                                         *
+                                         * Unbalanced quotes will only be allowed in UNQUOTE_RELAX
+                                         * mode, UNQUOTE_CUNESCAP_RELAX mode does not allow them.
+                                         */
+                                        s[sz++] = '\\';
+                                        goto finish;
+                                }
                                 if (flags & UNQUOTE_RELAX)
                                         goto finish;
                                 return -EINVAL;
                         }
 
-                        if (!GREEDY_REALLOC(s, allocated, sz+7))
-                                return -ENOMEM;
-
                         if (flags & UNQUOTE_CUNESCAPE) {
                                 uint32_t u;
 
                                 r = cunescape_one(*p, (size_t) -1, &c, &u);
-                                if (r < 0)
+                                if (r < 0) {
+                                        if (flags & UNQUOTE_CUNESCAPE_RELAX) {
+                                                s[sz++] = '\\';
+                                                s[sz++] = c;
+                                                goto end_escape;
+                                        }
                                         return -EINVAL;
+                                }
 
                                 (*p) += r - 1;
 
@@ -5271,6 +5289,7 @@ int unquote_first_word(const char **p, char **ret, UnquoteFlags flags) {
                         } else
                                 s[sz++] = c;
 
+end_escape:
                         state = (state == SINGLE_QUOTE_ESCAPE) ? SINGLE_QUOTE :
                                 (state == DOUBLE_QUOTE_ESCAPE) ? DOUBLE_QUOTE :
                                 VALUE;
