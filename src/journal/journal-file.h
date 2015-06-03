@@ -34,6 +34,7 @@
 #include "macro.h"
 #include "mmap-cache.h"
 #include "hashmap.h"
+#include "journal-dir.h"
 
 typedef struct JournalMetrics {
         uint64_t max_use;
@@ -81,7 +82,8 @@ typedef struct JournalFile {
         LocationType location_type;
         uint64_t last_n_entries;
 
-        char *path;
+        JournalDirectory *directory;
+        char *filename;
         struct stat last_stat;
         usec_t last_stat_usec;
 
@@ -125,7 +127,8 @@ typedef struct JournalFile {
 } JournalFile;
 
 int journal_file_open(
-                const char *fname,
+                JournalDirectory *dir,
+                const char *filename,
                 int flags,
                 mode_t mode,
                 bool compress,
@@ -139,7 +142,8 @@ int journal_file_set_offline(JournalFile *f);
 void journal_file_close(JournalFile *j);
 
 int journal_file_open_reliably(
-                const char *fname,
+                JournalDirectory *dir,
+                const char *filename,
                 int flags,
                 mode_t mode,
                 bool compress,

@@ -162,14 +162,20 @@ static int spawn_getter(const char *getter, const char *url) {
 #define filename_escape(s) xescape((s), "/ ")
 
 static int open_output(Writer *w, const char* host) {
-        _cleanup_free_ char *_output = NULL;
-        const char *output;
+        _cleanup_free_ char *directory = NULL;
+        _cleanup_free_ char *filename = NULL;
+        JournalDirectory *dir;
         int r;
 
         switch (arg_split_mode) {
-        case JOURNAL_WRITE_SPLIT_NONE:
+        case JOURNAL_WRITE_SPLIT_NONE: {
+                const char *output;
+
                 output = arg_output ?: REMOTE_JOURNAL_PATH "/remote.journal";
+                directory = dirname_malloc(output);
+                filename = basename_malloc(output);
                 break;
+        }
 
         case JOURNAL_WRITE_SPLIT_HOST: {
                 _cleanup_free_ char *name;
@@ -180,13 +186,10 @@ static int open_output(Writer *w, const char* host) {
                 if (!name)
                         return log_oom();
 
-                r = asprintf(&_output, "%s/remote-%s.journal",
-                             arg_output ?: REMOTE_JOURNAL_PATH,
-                             name);
+                directory = strdup(arg_output ?: REMOTE_JOURNAL_PATH);
+                r = asprintf(&filename, "remote-%s.journal", name);
                 if (r < 0)
                         return log_oom();
-
-                output = _output;
                 break;
         }
 
@@ -194,17 +197,24 @@ static int open_output(Writer *w, const char* host) {
                 assert_not_reached("what?");
         }
 
-        r = journal_file_open_reliably(output,
+        r = journal_directory_open(directory, &dir);
+        if (r < 0) {
+                log_error_errno(r, "Failed to open journal directory %s: %m",
+                                directory);
+                return r;
+        }
+        r = journal_file_open_reliably(dir, filename,
                                        O_RDWR|O_CREAT, 0640,
                                        arg_compress, arg_seal,
                                        &w->metrics,
                                        w->mmap,
                                        NULL, &w->journal);
+        dir = journal_directory_unref(dir);
         if (r < 0)
-                log_error_errno(r, "Failed to open output journal %s: %m",
-                                output);
+                log_error_errno(r, "Failed to open output journal %s/%s: %m",
+                                directory, filename);
         else
-                log_debug("Opened output file %s", w->journal->path);
+                log_debug("Opened output file %s/%s", w->journal->directory->path, w->journal->filename);
         return r;
 }
 

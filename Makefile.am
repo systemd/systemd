@@ -4229,8 +4229,8 @@ systemd_journal_upload_CFLAGS = \
 	$(LIBCURL_CFLAGS)
 
 systemd_journal_upload_LDADD = \
-	libsystemd-internal.la \
 	libsystemd-journal-internal.la \
+	libsystemd-internal.la \
 	libsystemd-shared.la \
 	$(LIBCURL_LIBS)
 
@@ -4474,6 +4474,8 @@ libsystemd_journal_internal_la_SOURCES = \
 	src/systemd/_sd-common.h \
 	src/journal/journal-file.c \
 	src/journal/journal-file.h \
+	src/journal/journal-dir.c \
+	src/journal/journal-dir.h \
 	src/journal/journal-vacuum.c \
 	src/journal/journal-vacuum.h \
 	src/journal/journal-verify.c \

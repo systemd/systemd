@@ -1791,6 +1791,26 @@ int dir_is_empty(const char *path) {
         }
 }
 
+char* basename_malloc(const char *path) {
+        char *b, *base, *base2;
+
+        assert(path);
+
+        b = strdup(path);
+        if (!b)
+                return NULL;
+        base = basename(b);
+        assert(base);
+
+        if (base != b) {
+                base2 = strdup(base);
+                free(b);
+                return base2;
+        }
+
+        return base;
+}
+
 char* dirname_malloc(const char *path) {
         char *d, *dir, *dir2;
 
@@ -6043,6 +6063,62 @@ int reset_uid_gid(void) {
 
         if (setresuid(0, 0, 0) < 0)
                 return -errno;
+
+        return 0;
+}
+
+int send_fd(int sender_fd, int fd) {
+        union {
+                struct cmsghdr cmsghdr;
+                uint8_t buf[CMSG_SPACE(sizeof(int))];
+        } control = {};
+        struct msghdr mh = {
+                .msg_control = &control,
+                .msg_controllen = sizeof(control),
+        };
+        struct cmsghdr *cmsg;
+        ssize_t k;
+
+        assert(sender_fd >= 0);
+
+        cmsg = CMSG_FIRSTHDR(&mh);
+        cmsg->cmsg_level = SOL_SOCKET;
+        cmsg->cmsg_type = SCM_RIGHTS;
+        cmsg->cmsg_len = CMSG_LEN(sizeof(int));
+        memcpy(CMSG_DATA(cmsg), &fd, sizeof(int));
+
+        mh.msg_controllen = cmsg->cmsg_len;
+        k = sendmsg(sender_fd, &mh, MSG_NOSIGNAL);
+
+        if (k < 0)
+                return -1;
+        return 0;
+}
+
+int receive_fd(int recv_fd, int *fd) {
+        union {
+                struct cmsghdr cmsghdr;
+                uint8_t buf[CMSG_SPACE(sizeof(int))];
+        } control = {};
+        struct msghdr mh = {
+                .msg_control = &control,
+                .msg_controllen = sizeof(control),
+        };
+        struct cmsghdr *cmsg;
+        ssize_t k;
+
+        assert(recv_fd >= 0);
+        assert(fd != NULL);
+
+        k = recvmsg(recv_fd, &mh, MSG_NOSIGNAL);
+        if (k < 0)
+                return -1;
+
+        cmsg = CMSG_FIRSTHDR(&mh);
+        assert(cmsg->cmsg_level == SOL_SOCKET);
+        assert(cmsg->cmsg_type == SCM_RIGHTS);
+        assert(cmsg->cmsg_len == CMSG_LEN(sizeof(int)));
+        memcpy(fd, CMSG_DATA(cmsg), sizeof(int));
 
         return 0;
 }

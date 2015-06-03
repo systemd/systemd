@@ -74,6 +74,7 @@ static void verify_contents(sd_journal *j, unsigned skip) {
 
 int main(int argc, char *argv[]) {
         JournalFile *one, *two, *three;
+        JournalDirectory *dir;
         char t[] = "/tmp/journal-stream-XXXXXX";
         unsigned i;
         _cleanup_journal_close_ sd_journal *j = NULL;
@@ -90,9 +91,12 @@ int main(int argc, char *argv[]) {
         assert_se(mkdtemp(t));
         assert_se(chdir(t) >= 0);
 
-        assert_se(journal_file_open("one.journal", O_RDWR|O_CREAT, 0666, true, false, NULL, NULL, NULL, &one) == 0);
-        assert_se(journal_file_open("two.journal", O_RDWR|O_CREAT, 0666, true, false, NULL, NULL, NULL, &two) == 0);
-        assert_se(journal_file_open("three.journal", O_RDWR|O_CREAT, 0666, true, false, NULL, NULL, NULL, &three) == 0);
+        assert_se(journal_directory_open(".", &dir) == 0);
+
+        assert_se(journal_file_open(dir, "one.journal", O_RDWR|O_CREAT, 0666, true, false, NULL, NULL, NULL, &one) == 0);
+        assert_se(journal_file_open(dir, "two.journal", O_RDWR|O_CREAT, 0666, true, false, NULL, NULL, NULL, &two) == 0);
+        assert_se(journal_file_open(dir, "three.journal", O_RDWR|O_CREAT, 0666, true, false, NULL, NULL, NULL, &three) == 0);
+        dir = journal_directory_unref(dir);
 
         for (i = 0; i < N_ENTRIES; i++) {
                 char *p, *q;
