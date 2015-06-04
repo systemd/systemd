@@ -2522,6 +2522,7 @@ int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *err
                 session_jobs_reply(session, unit, result);
 
                 session_save(session);
+                user_save(session->user);
                 session_add_to_gc_queue(session);
         }
 
