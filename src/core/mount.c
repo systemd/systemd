@@ -1522,6 +1522,9 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
                 options = mnt_fs_get_options(fs);
                 fstype = mnt_fs_get_fstype(fs);
 
+                if (!device || !path)
+                        continue;
+
                 if (cunescape(device, UNESCAPE_RELAX, &d) < 0)
                         return log_oom();
 
