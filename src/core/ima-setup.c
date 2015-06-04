@@ -56,7 +56,7 @@ int ima_setup(void) {
         }
 
         if (access(IMA_SECFS_POLICY, F_OK) < 0) {
-                log_warning("Another IMA custom policy has already been loaded, ignoring.");
+                log_error("Another IMA custom policy has already been loaded, ignoring.");
                 return 0;
         }
 
