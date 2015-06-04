@@ -102,6 +102,16 @@
 # For mice with switchable resolution, sort by the starred entry.
 
 ##########################################
+# Apple
+##########################################
+
+# Apple MagicMouse
+# Note: this device changes name once connected to a mac, the name ends up
+# as $username`s mouse
+mouse:bluetooth:v05acp030d:name:*:
+ MOUSE_DPI=1300@1000
+
+##########################################
 # Chicony
 ##########################################
 
