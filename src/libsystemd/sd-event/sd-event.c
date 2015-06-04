@@ -474,6 +474,9 @@ static int source_io_unregister(sd_event_source *s) {
         assert(s);
         assert(s->type == SOURCE_IO);
 
+        if (event_pid_changed(s->event))
+                return 0;
+
         if (!s->io.registered)
                 return 0;
 
@@ -603,6 +606,9 @@ static int event_update_signal_fd(sd_event *e) {
         int r;
 
         assert(e);
+
+        if (event_pid_changed(e))
+                return 0;
 
         add_to_epoll = e->signal_fd < 0;
 
