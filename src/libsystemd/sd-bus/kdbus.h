@@ -5,8 +5,8 @@
  * your option) any later version.
  */
 
-#ifndef _KDBUS_UAPI_H_
-#define _KDBUS_UAPI_H_
+#ifndef _UAPI_KDBUS_H_
+#define _UAPI_KDBUS_H_
 
 #include <linux/ioctl.h>
 #include <linux/types.h>
@@ -544,7 +544,7 @@ struct kdbus_msg_info {
  *				reply to this message. The
  *				KDBUS_CMD_SEND ioctl() will block
  *				until the reply is received, and
- *				offset_reply in struct kdbus_msg will
+ *				reply in struct kdbus_cmd_send will
  *				yield the offset in the sender's pool
  *				where the reply can be found.
  *				This flag is only valid if
@@ -976,4 +976,4 @@ enum kdbus_ioctl_type {
 					     struct kdbus_cmd_match),
 };
 
-#endif /* _KDBUS_UAPI_H_ */
+#endif /* _UAPI_KDBUS_H_ */
