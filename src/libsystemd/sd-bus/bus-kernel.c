@@ -1574,7 +1574,6 @@ int bus_kernel_create_bus(const char *name, bool world, char **s) {
         make = alloca0_align(offsetof(struct kdbus_cmd, items) +
                              ALIGN8(offsetof(struct kdbus_item, bloom_parameter) + sizeof(struct kdbus_bloom_parameter)) +
                              ALIGN8(offsetof(struct kdbus_item, data64) + sizeof(uint64_t)) +
-                             ALIGN8(offsetof(struct kdbus_item, data64) + sizeof(uint64_t)) +
                              ALIGN8(offsetof(struct kdbus_item, str) + DECIMAL_STR_MAX(uid_t) + 1 + l + 1),
                              8);
 
@@ -1591,14 +1590,6 @@ int bus_kernel_create_bus(const char *name, bool world, char **s) {
         assert_cc(DEFAULT_BLOOM_SIZE > 0);
         assert_cc(DEFAULT_BLOOM_N_HASH > 0);
 
-        make->size += ALIGN8(n->size);
-
-        /* The buses we create make no restrictions on what metadata
-         * peers can read from incoming messages. */
-        n = KDBUS_ITEM_NEXT(n);
-        n->type = KDBUS_ITEM_ATTACH_FLAGS_RECV;
-        n->size = offsetof(struct kdbus_item, data64) + sizeof(uint64_t);
-        n->data64[0] = _KDBUS_ATTACH_ANY;
         make->size += ALIGN8(n->size);
 
         /* Provide all metadata via bus-owner queries */
