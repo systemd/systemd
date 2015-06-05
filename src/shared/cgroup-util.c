@@ -591,8 +591,9 @@ int cg_delete(const char *controller, const char *path) {
         return r == -ENOENT ? 0 : r;
 }
 
-int cg_create(const char *controller, const char *path) {
+int cg_create(const char *controller, const char *path, const int inotify_fd, int *wd) {
         _cleanup_free_ char *fs = NULL;
+        _cleanup_free_ char *populated = NULL;
         int r;
 
         r = cg_get_path_and_check(controller, path, NULL, &fs);
@@ -611,15 +612,30 @@ int cg_create(const char *controller, const char *path) {
                 return -errno;
         }
 
+        if (inotify_fd < 0 || !wd)
+                goto out;
+
+        r = cg_get_path(controller, path, "cgroup.populated", &populated);
+        if (r < 0) {
+                log_warning_errno(r, "Failed to get 'cgroup.populated' file, ignoring: %m");
+                goto out;
+        }
+
+        *wd = inotify_add_watch(inotify_fd, populated, IN_MODIFY);
+
+        if (*wd < 0)
+                log_warning_errno(errno, "Failed to add 'cgroup.populated' watch, ignoring: %m");
+
+out:
         return 1;
 }
 
-int cg_create_and_attach(const char *controller, const char *path, pid_t pid) {
+int cg_create_and_attach(const char *controller, const char *path, pid_t pid, const int inotify_fd, int *wd) {
         int r, q;
 
         assert(pid >= 0);
 
-        r = cg_create(controller, path);
+        r = cg_create(controller, path, inotify_fd, wd);
         if (r < 0)
                 return r;
 
@@ -749,6 +765,11 @@ int cg_pid_get_path(const char *controller, pid_t pid, char **path) {
         } else
                 controller = SYSTEMD_CGROUP_CONTROLLER;
 
+#ifdef HAVE_UNIFIED_CGROUP
+        if (!strcmp("systemd", controller))
+                controller = "";
+#endif
+
         fs = procfs_file_alloca(pid, "cgroup");
 
         f = fopen(fs, "re");
@@ -773,6 +794,9 @@ int cg_pid_get_path(const char *controller, pid_t pid, char **path) {
                 e = strchr(l, ':');
                 if (!e)
                         continue;
+
+                if (cs == 0 && e == l)
+                        found = true;
 
                 *e = 0;
 
@@ -1616,6 +1640,10 @@ bool cg_controller_is_valid(const char *p, bool allow_named) {
         if (!p)
                 return false;
 
+        /* Unified cgroup */
+        if (*p == 0)
+                return true;
+
         if (allow_named) {
                 s = startswith(p, "name=");
                 if (s)
@@ -1733,7 +1761,7 @@ static const char mask_names[] =
         "memory\0"
         "devices\0";
 
-int cg_create_everywhere(CGroupControllerMask supported, CGroupControllerMask mask, const char *path) {
+int cg_create_everywhere(CGroupControllerMask supported, CGroupControllerMask mask, const char *path, const int inotify_fd, int *wd) {
         CGroupControllerMask bit = 1;
         const char *n;
         int r;
@@ -1743,14 +1771,14 @@ int cg_create_everywhere(CGroupControllerMask supported, CGroupControllerMask ma
          * in all others */
 
         /* First create the cgroup in our own hierarchy. */
-        r = cg_create(SYSTEMD_CGROUP_CONTROLLER, path);
+        r = cg_create(SYSTEMD_CGROUP_CONTROLLER, path, inotify_fd, wd);
         if (r < 0)
                 return r;
 
         /* Then, do the same in the other hierarchies */
         NULSTR_FOREACH(n, mask_names) {
                 if (mask & bit)
-                        cg_create(n, path);
+                        cg_create(n, path, -1, NULL);
                 else if (supported & bit)
                         cg_trim(n, path, true);
 

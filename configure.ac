@@ -1310,6 +1310,16 @@ AC_ARG_ENABLE(ldconfig,
 AM_CONDITIONAL(ENABLE_LDCONFIG, [test x$enable_ldconfig = xyes])
 
 # ------------------------------------------------------------------------------
+have_unified_cgroup=no
+AC_ARG_ENABLE([unified-cgroup], AS_HELP_STRING([--enable-unified-cgroup], [enable experimental support for unified cgroup hierchy handling]),
+        AS_CASE("x${enableval}",
+                [xyes], [have_unified_cgroup=yes],
+                [xno],  [have_unified_cgroup=no],
+                AC_MSG_ERROR(bad value ${enableval} for --enable-unified-cgroup)))
+AS_IF([test "x$have_unified_cgroup" = "xyes"], [AC_DEFINE(HAVE_UNIFIED_CGROUP, 1, [Define if unified cgroup hierchy handling is desired])])
+AM_CONDITIONAL([HAVE_UNIFIED_CGROUP], [test "x$have_unified_cgroup" = "xyes"])
+
+# ------------------------------------------------------------------------------
 # Location of the init scripts as mandated by LSB
 SYSTEM_SYSVINIT_PATH=/etc/init.d
 SYSTEM_SYSVRCND_PATH=/etc/rc.d
@@ -1560,6 +1570,7 @@ AC_MSG_RESULT([
         hwdb:                    ${enable_hwdb}
         terminal:                ${have_terminal}
         kdbus:                   ${have_kdbus}
+        unified-cgroup:          ${have_unified_cgroup}
         Python:                  ${have_python}
         Python Headers:          ${have_python_devel}
         man pages:               ${have_manpages}
