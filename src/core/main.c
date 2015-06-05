@@ -1606,14 +1606,10 @@ int main(int argc, char *argv[]) {
                 }
         }
 
-        if (arg_running_as == MANAGER_USER) {
+        if (arg_running_as == MANAGER_USER)
                 /* Become reaper of our children */
-                if (prctl(PR_SET_CHILD_SUBREAPER, 1) < 0) {
+                if (prctl(PR_SET_CHILD_SUBREAPER, 1) < 0)
                         log_warning_errno(errno, "Failed to make us a subreaper: %m");
-                        if (errno == EINVAL)
-                                log_info("Perhaps the kernel version is too old (< 3.4?)");
-                }
-        }
 
         if (arg_running_as == MANAGER_SYSTEM) {
                 bump_rlimit_nofile(&saved_rlimit_nofile);
