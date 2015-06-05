@@ -34,8 +34,13 @@
 static int write_fsck_sysroot_service(const char *dir, const char *what) {
         const char *unit;
         _cleanup_free_ char *device = NULL;
+        _cleanup_free_ char *escaped;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
+
+        escaped = cescape(what);
+        if (!escaped)
+                return log_oom();
 
         unit = strjoina(dir, "/systemd-fsck-root.service");
         log_debug("Creating %s", unit);
@@ -61,11 +66,12 @@ static int write_fsck_sysroot_service(const char *dir, const char *what) {
                 "[Service]\n"
                 "Type=oneshot\n"
                 "RemainAfterExit=yes\n"
-                "ExecStart=" SYSTEMD_FSCK_PATH " %2$s\n"
+                "ExecStart=" SYSTEMD_FSCK_PATH " %4$s\n"
                 "TimeoutSec=0\n",
                 program_invocation_short_name,
                 what,
-                device);
+                device,
+                escaped);
 
         r = fflush_and_check(f);
         if (r < 0)
