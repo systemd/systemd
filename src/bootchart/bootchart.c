@@ -531,7 +531,7 @@ int main(int argc, char *argv[]) {
 
         /* don't complain when overrun once, happens most commonly on 1st sample */
         if (overrun > 1)
-                log_warning("systemd-boochart: sample time overrun %i times\n", overrun);
+                log_warning("systemd-bootchart: sample time overrun %i times\n", overrun);
 
         return 0;
 }
