@@ -500,9 +500,7 @@ static int bus_socket_read_auth(sd_bus *b) {
         void *p;
         union {
                 struct cmsghdr cmsghdr;
-                uint8_t buf[CMSG_SPACE(sizeof(int) * BUS_FDS_MAX) +
-                            CMSG_SPACE(sizeof(struct ucred)) +
-                            CMSG_SPACE(NAME_MAX)]; /*selinux label */
+                uint8_t buf[CMSG_SPACE(sizeof(int) * BUS_FDS_MAX)];
         } control;
         struct cmsghdr *cmsg;
         bool handle_cmsg = false;
@@ -554,8 +552,8 @@ static int bus_socket_read_auth(sd_bus *b) {
 
         b->rbuffer_size += k;
 
-        if (handle_cmsg) {
-                for (cmsg = CMSG_FIRSTHDR(&mh); cmsg; cmsg = CMSG_NXTHDR(&mh, cmsg)) {
+        if (handle_cmsg)
+                for (cmsg = CMSG_FIRSTHDR(&mh); cmsg; cmsg = CMSG_NXTHDR(&mh, cmsg))
                         if (cmsg->cmsg_level == SOL_SOCKET &&
                             cmsg->cmsg_type == SCM_RIGHTS) {
                                 int j;
@@ -566,31 +564,9 @@ static int bus_socket_read_auth(sd_bus *b) {
                                 j = (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int);
                                 close_many((int*) CMSG_DATA(cmsg), j);
                                 return -EIO;
-
-                        } else if (cmsg->cmsg_level == SOL_SOCKET &&
-                                   cmsg->cmsg_type == SCM_CREDENTIALS &&
-                                   cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred))) {
-
-                                /* Ignore bogus data, which we might
-                                 * get on socketpair() sockets */
-                                if (((struct ucred*) CMSG_DATA(cmsg))->pid != 0) {
-                                        memcpy(&b->ucred, CMSG_DATA(cmsg), sizeof(struct ucred));
-                                        b->ucred_valid = true;
-                                }
-
-                        } else if (cmsg->cmsg_level == SOL_SOCKET &&
-                                   cmsg->cmsg_type == SCM_SECURITY) {
-
-                                size_t l;
-
-                                l = cmsg->cmsg_len - CMSG_LEN(0);
-                                if (l > 0) {
-                                        memcpy(&b->label, CMSG_DATA(cmsg), l);
-                                        b->label[l] = 0;
-                                }
-                        }
-                }
-        }
+                        } else
+                                log_debug("Got unexpected auxiliary data with level=%d and type=%d",
+                                          cmsg->cmsg_level, cmsg->cmsg_type);
 
         r = bus_socket_auth_verify(b);
         if (r != 0)
@@ -600,17 +576,7 @@ static int bus_socket_read_auth(sd_bus *b) {
 }
 
 void bus_socket_setup(sd_bus *b) {
-        int enable;
-
         assert(b);
-
-        /* Enable SO_PASSCRED + SO_PASSEC. We try this on any
-         * socket, just in case. */
-        enable = !b->bus_client;
-        (void) setsockopt(b->input_fd, SOL_SOCKET, SO_PASSCRED, &enable, sizeof(enable));
-
-        enable = !b->bus_client && (b->attach_flags & KDBUS_ATTACH_SECLABEL);
-        (void) setsockopt(b->input_fd, SOL_SOCKET, SO_PASSSEC, &enable, sizeof(enable));
 
         /* Increase the buffers to 8 MB */
         fd_inc_rcvbuf(b->input_fd, SNDBUF_SIZE);
@@ -941,9 +907,7 @@ int bus_socket_read_message(sd_bus *bus) {
         void *b;
         union {
                 struct cmsghdr cmsghdr;
-                uint8_t buf[CMSG_SPACE(sizeof(int) * BUS_FDS_MAX) +
-                            CMSG_SPACE(sizeof(struct ucred)) +
-                            CMSG_SPACE(NAME_MAX)]; /*selinux label */
+                uint8_t buf[CMSG_SPACE(sizeof(int) * BUS_FDS_MAX)];
         } control;
         struct cmsghdr *cmsg;
         bool handle_cmsg = false;
@@ -990,8 +954,8 @@ int bus_socket_read_message(sd_bus *bus) {
 
         bus->rbuffer_size += k;
 
-        if (handle_cmsg) {
-                for (cmsg = CMSG_FIRSTHDR(&mh); cmsg; cmsg = CMSG_NXTHDR(&mh, cmsg)) {
+        if (handle_cmsg)
+                for (cmsg = CMSG_FIRSTHDR(&mh); cmsg; cmsg = CMSG_NXTHDR(&mh, cmsg))
                         if (cmsg->cmsg_level == SOL_SOCKET &&
                             cmsg->cmsg_type == SCM_RIGHTS) {
                                 int n, *f;
@@ -1016,29 +980,9 @@ int bus_socket_read_message(sd_bus *bus) {
                                 memcpy(f + bus->n_fds, CMSG_DATA(cmsg), n * sizeof(int));
                                 bus->fds = f;
                                 bus->n_fds += n;
-                        } else if (cmsg->cmsg_level == SOL_SOCKET &&
-                                   cmsg->cmsg_type == SCM_CREDENTIALS &&
-                                   cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred))) {
-
-                                /* Ignore bogus data, which we might
-                                 * get on socketpair() sockets */
-                                if (((struct ucred*) CMSG_DATA(cmsg))->pid != 0) {
-                                        memcpy(&bus->ucred, CMSG_DATA(cmsg), sizeof(struct ucred));
-                                        bus->ucred_valid = true;
-                                }
-
-                        } else if (cmsg->cmsg_level == SOL_SOCKET &&
-                                   cmsg->cmsg_type == SCM_SECURITY) {
-
-                                size_t l;
-                                l = cmsg->cmsg_len - CMSG_LEN(0);
-                                if (l > 0) {
-                                        memcpy(&bus->label, CMSG_DATA(cmsg), l);
-                                        bus->label[l] = 0;
-                                }
-                        }
-                }
-        }
+                        } else
+                                log_debug("Got unexpected auxiliary data with level=%d and type=%d",
+                                          cmsg->cmsg_level, cmsg->cmsg_type);
 
         r = bus_socket_read_message_need(bus, &need);
         if (r < 0)
