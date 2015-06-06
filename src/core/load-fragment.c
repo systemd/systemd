@@ -532,16 +532,14 @@ int config_parse_exec(
 
         e += ltype;
 
-        /* FIXME: ExecStart=<empty> clears the list, but ExecStart=<whitespace>
-         * doesn't, they should behave the same.  */
+        rvalue += strspn(rvalue, WHITESPACE);
+        p = rvalue;
+
         if (isempty(rvalue)) {
                 /* An empty assignment resets the list */
                 *e = exec_command_free_list(*e);
                 return 0;
         }
-
-        rvalue += strspn(rvalue, WHITESPACE);
-        p = rvalue;
 
         do {
                 int i;

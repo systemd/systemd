@@ -145,19 +145,19 @@ static void test_config_parse_exec(void) {
         assert_se(r == 0);
         assert_se(c1->command_next == NULL);
 
-        log_info("/* no command, check for bad memory access */");
+        log_info("/* no command, whitespace only, reset */");
         r = config_parse_exec(NULL, "fake", 3, "section", 1,
                               "LValue", 0, "    ",
                               &c, NULL);
         assert_se(r == 0);
-        assert_se(c1->command_next == NULL);
+        assert_se(c == NULL);
 
         log_info("/* ignore && honour_argv0 */");
         r = config_parse_exec(NULL, "fake", 4, "section", 1,
                               "LValue", 0, "-@/RValue///slashes3 argv0a r1",
                               &c, NULL);
         assert_se(r >= 0);
-        c1 = c1->command_next;
+        c1 = c;
         check_execcommand(c1, "/RValue/slashes3", "argv0a", "r1", NULL, true);
 
         log_info("/* ignore && honour_argv0 */");
