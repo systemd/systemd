@@ -261,7 +261,7 @@ struct sd_bus {
         usec_t auth_timeout;
 
         struct ucred ucred;
-        char label[NAME_MAX];
+        char *label;
 
         uint64_t creds_mask;
 
