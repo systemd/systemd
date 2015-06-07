@@ -59,10 +59,7 @@ struct StdoutStream {
         int fd;
 
         struct ucred ucred;
-#ifdef HAVE_SELINUX
-        security_context_t security_context;
-#endif
-
+        char *label;
         char *identifier;
         char *unit_id;
         int priority;
@@ -99,12 +96,7 @@ void stdout_stream_free(StdoutStream *s) {
         }
 
         safe_close(s->fd);
-
-#ifdef HAVE_SELINUX
-        if (s->security_context)
-                freecon(s->security_context);
-#endif
-
+        free(s->label);
         free(s->identifier);
         free(s->unit_id);
         free(s->state_file);
@@ -225,8 +217,7 @@ static int stdout_stream_log(StdoutStream *s, const char *p) {
         char syslog_facility[sizeof("SYSLOG_FACILITY=")-1 + DECIMAL_STR_MAX(int) + 1];
         _cleanup_free_ char *message = NULL, *syslog_identifier = NULL;
         unsigned n = 0;
-        char *label = NULL;
-        size_t label_len = 0;
+        size_t label_len;
 
         assert(s);
         assert(p);
@@ -271,14 +262,8 @@ static int stdout_stream_log(StdoutStream *s, const char *p) {
         if (message)
                 IOVEC_SET_STRING(iovec[n++], message);
 
-#ifdef HAVE_SELINUX
-        if (s->security_context) {
-                label = (char*) s->security_context;
-                label_len = strlen((char*) s->security_context);
-        }
-#endif
-
-        server_dispatch_message(s->server, iovec, n, ELEMENTSOF(iovec), &s->ucred, NULL, label, label_len, s->unit_id, priority, 0);
+        label_len = s->label ? strlen(s->label) : 0;
+        server_dispatch_message(s->server, iovec, n, ELEMENTSOF(iovec), &s->ucred, NULL, s->label, label_len, s->unit_id, priority, 0);
         return 0;
 }
 
@@ -489,12 +474,11 @@ static int stdout_stream_install(Server *s, int fd, StdoutStream **ret) {
         if (r < 0)
                 return log_error_errno(r, "Failed to determine peer credentials: %m");
 
-#ifdef HAVE_SELINUX
         if (mac_selinux_use()) {
-                if (getpeercon(fd, &stream->security_context) < 0 && errno != ENOPROTOOPT)
-                        log_error_errno(errno, "Failed to determine peer security context: %m");
+                r = getpeersec(fd, &stream->label);
+                if (r < 0 && r != -EOPNOTSUPP)
+                        (void) log_warning_errno(r, "Failed to determine peer security context: %m");
         }
-#endif
 
         (void) shutdown(fd, SHUT_WR);
 
