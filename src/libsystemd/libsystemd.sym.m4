@@ -320,6 +320,7 @@ global:
         sd_bus_get_name_creds;
         sd_bus_get_name_machine_id;
         sd_bus_call_method;
+        sd_bus_call_method_async;
         sd_bus_get_property;
         sd_bus_get_property_trivial;
         sd_bus_get_property_string;
