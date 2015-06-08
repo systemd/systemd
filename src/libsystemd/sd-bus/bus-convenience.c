@@ -60,6 +60,7 @@ _public_ int sd_bus_emit_signal(
 
 _public_ int sd_bus_call_method_async(
                 sd_bus *bus,
+                sd_bus_slot **slot,
                 const char *destination,
                 const char *path,
                 const char *interface,
@@ -92,7 +93,7 @@ _public_ int sd_bus_call_method_async(
                         return r;
         }
 
-        return sd_bus_call_async(bus, NULL, m, callback, userdata, usec);
+        return sd_bus_call_async(bus, slot, m, callback, userdata, usec);
 }
 
 _public_ int sd_bus_call_method(
