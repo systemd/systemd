@@ -678,8 +678,7 @@ int manager_read_resolv_conf(Manager *m) {
         return 0;
 
 clear:
-        while (m->dns_servers)
-                dns_server_free(m->dns_servers);
+        m->dns_servers = dns_server_free(m->dns_servers);
 
         return r;
 }
@@ -1830,12 +1829,10 @@ void manager_flush_dns_servers(Manager *m, DnsServerType t) {
         assert(m);
 
         if (t == DNS_SERVER_SYSTEM)
-                while (m->dns_servers)
-                        dns_server_free(m->dns_servers);
+                m->dns_servers = dns_server_free(m->dns_servers);
 
         if (t == DNS_SERVER_FALLBACK)
-                while (m->fallback_dns_servers)
-                        dns_server_free(m->fallback_dns_servers);
+                m->fallback_dns_servers = dns_server_free(m->fallback_dns_servers);
 }
 
 static const char* const support_table[_SUPPORT_MAX] = {
