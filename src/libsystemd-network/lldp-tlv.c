@@ -221,7 +221,7 @@ int tlv_packet_read_string(tlv_packet *m, char **data, uint16_t *data_length) {
                 return r;
 
         *data = (char *) val;
-        *data_length =  m->container->length;
+        *data_length = m->container->length;
 
         m->container->read_pos += m->container->length;
 

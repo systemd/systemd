@@ -832,7 +832,7 @@ static void socket_apply_socket_options(Socket *s, int fd) {
         }
 
         if (s->keep_alive_interval) {
-                int value =  s->keep_alive_interval / USEC_PER_SEC;
+                int value = s->keep_alive_interval / USEC_PER_SEC;
                 if (setsockopt(fd, SOL_TCP, TCP_KEEPINTVL, &value, sizeof(value)) < 0)
                         log_unit_warning_errno(UNIT(s), errno, "TCP_KEEPINTVL failed: %m");
         }
@@ -2589,7 +2589,7 @@ static void socket_trigger_notify(Unit *u, Unit *other) {
 
         /* Don't propagate state changes from the service if we are
            already down or accepting connections */
-        if ((s->state !=  SOCKET_RUNNING &&
+        if ((s->state != SOCKET_RUNNING &&
             s->state != SOCKET_LISTENING) ||
             s->accept)
                 return;

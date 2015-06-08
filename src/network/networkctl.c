@@ -814,7 +814,7 @@ static char *lldp_system_caps(uint16_t cap) {
         }
 
         if (cap & LLDP_SYSTEM_CAPABILITIES_ROUTER) {
-                s =  strjoin(t, lldp_system_capability_to_string(LLDP_SYSTEM_CAPABILITIES_ROUTER), " ", NULL);
+                s = strjoin(t, lldp_system_capability_to_string(LLDP_SYSTEM_CAPABILITIES_ROUTER), " ", NULL);
                 if (!s)
                         return NULL;
 

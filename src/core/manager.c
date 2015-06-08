@@ -665,7 +665,7 @@ static int manager_setup_notify(Manager *m) {
 
         if (m->notify_fd < 0) {
                 _cleanup_close_ int fd = -1;
-                union sockaddr_union sa =  {
+                union sockaddr_union sa = {
                         .sa.sa_family = AF_UNIX,
                 };
                 static const int one = 1;

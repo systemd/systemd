@@ -365,13 +365,13 @@ enum nss_status _nss_resolve_gethostbyname3_r(
                                         int32_t *ttlp,
                                         char **canonp);
 
-                        fallback =  (enum nss_status (*)(const char *name,
-                                                         int af,
-                                                         struct hostent *result,
-                                                         char *buffer, size_t buflen,
-                                                         int *errnop, int *h_errnop,
-                                                         int32_t *ttlp,
-                                                         char **canonp))
+                        fallback = (enum nss_status (*)(const char *name,
+                                                        int af,
+                                                        struct hostent *result,
+                                                        char *buffer, size_t buflen,
+                                                        int *errnop, int *h_errnop,
+                                                        int32_t *ttlp,
+                                                        char **canonp))
                                 find_fallback("libnss_dns.so.2", "_nss_dns_gethostbyname3_r");
                         if (fallback)
                                 return fallback(name, af, result, buffer, buflen, errnop, h_errnop, ttlp, canonp);

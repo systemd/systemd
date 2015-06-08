@@ -631,9 +631,9 @@ static int spawn_wait(struct udev_event *event,
                         if (timeout_warn_usec > 0 && timeout_warn_usec < timeout_usec && age_usec < timeout_warn_usec) {
                                 spawn.timeout_warn = timeout_warn_usec - age_usec;
 
-                                r =  sd_event_add_time(e, NULL, clock_boottime_or_monotonic(),
-                                                       usec + spawn.timeout_warn, USEC_PER_SEC,
-                                                       on_spawn_timeout_warning, &spawn);
+                                r = sd_event_add_time(e, NULL, clock_boottime_or_monotonic(),
+                                                      usec + spawn.timeout_warn, USEC_PER_SEC,
+                                                      on_spawn_timeout_warning, &spawn);
                                 if (r < 0)
                                         return r;
                         }
