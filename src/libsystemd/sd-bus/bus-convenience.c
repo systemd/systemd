@@ -67,7 +67,6 @@ _public_ int sd_bus_call_method_async(
                 const char *member,
                 sd_bus_message_handler_t callback,
                 void *userdata,
-                uint64_t usec,
                 const char *types, ...) {
 
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
@@ -93,7 +92,7 @@ _public_ int sd_bus_call_method_async(
                         return r;
         }
 
-        return sd_bus_call_async(bus, slot, m, callback, userdata, usec);
+        return sd_bus_call_async(bus, slot, m, callback, userdata, 0);
 }
 
 _public_ int sd_bus_call_method(
