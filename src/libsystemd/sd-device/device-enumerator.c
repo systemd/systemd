@@ -398,10 +398,7 @@ static bool match_property(sd_device_enumerator *enumerator, sd_device *device) 
                         if (fnmatch(property, property_dev, 0) != 0)
                                 continue;
 
-                        if (!value && !value_dev)
-                                return true;
-
-                        if (!value || !value_dev)
+                        if (!value_dev)
                                 continue;
 
                         if (fnmatch(value, value_dev, 0) == 0)
