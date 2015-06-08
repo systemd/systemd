@@ -40,7 +40,7 @@ bool link_dhcp6_enabled(Link *link) {
         if (!link->network)
                 return false;
 
-        return IN_SET(link->network->dhcp, ADDRESS_FAMILY_IPV6, ADDRESS_FAMILY_YES);
+        return link->network->dhcp & ADDRESS_FAMILY_IPV6;
 }
 
 bool link_dhcp4_enabled(Link *link) {
@@ -50,7 +50,7 @@ bool link_dhcp4_enabled(Link *link) {
         if (!link->network)
                 return false;
 
-        return IN_SET(link->network->dhcp, ADDRESS_FAMILY_IPV4, ADDRESS_FAMILY_YES);
+        return link->network->dhcp & ADDRESS_FAMILY_IPV4;
 }
 
 bool link_dhcp4_server_enabled(Link *link) {
@@ -70,7 +70,7 @@ bool link_ipv4ll_enabled(Link *link) {
         if (!link->network)
                 return false;
 
-        return IN_SET(link->network->link_local, ADDRESS_FAMILY_IPV4, ADDRESS_FAMILY_YES);
+        return link->network->link_local & ADDRESS_FAMILY_IPV4;
 }
 
 bool link_ipv6ll_enabled(Link *link) {
@@ -80,7 +80,7 @@ bool link_ipv6ll_enabled(Link *link) {
         if (!link->network)
                 return false;
 
-        return IN_SET(link->network->link_local, ADDRESS_FAMILY_IPV6, ADDRESS_FAMILY_YES);
+        return link->network->link_local & ADDRESS_FAMILY_IPV6;
 }
 
 bool link_lldp_enabled(Link *link) {
@@ -103,7 +103,7 @@ static bool link_ipv4_forward_enabled(Link *link) {
         if (!link->network)
                 return false;
 
-        return IN_SET(link->network->ip_forward, ADDRESS_FAMILY_IPV4, ADDRESS_FAMILY_YES);
+        return link->network->ip_forward & ADDRESS_FAMILY_IPV4;
 }
 
 static bool link_ipv6_forward_enabled(Link *link) {
@@ -113,7 +113,7 @@ static bool link_ipv6_forward_enabled(Link *link) {
         if (!link->network)
                 return false;
 
-        return IN_SET(link->network->ip_forward, ADDRESS_FAMILY_IPV6, ADDRESS_FAMILY_YES);
+        return link->network->ip_forward & ADDRESS_FAMILY_IPV6;
 }
 
 #define FLAG_STRING(string, flag, old, new) \

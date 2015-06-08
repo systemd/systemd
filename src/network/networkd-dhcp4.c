@@ -561,7 +561,7 @@ int dhcp4_configure(Link *link) {
 
         assert(link);
         assert(link->network);
-        assert(IN_SET(link->network->dhcp, ADDRESS_FAMILY_YES, ADDRESS_FAMILY_IPV4));
+        assert(link->network->dhcp & ADDRESS_FAMILY_IPV4);
 
         r = sd_dhcp_client_new(&link->dhcp_client);
         if (r < 0)
