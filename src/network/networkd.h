@@ -60,7 +60,6 @@ typedef enum AddressFamilyBoolean {
         ADDRESS_FAMILY_IPV4 = 1,
         ADDRESS_FAMILY_IPV6 = 2,
         ADDRESS_FAMILY_YES = 3,
-        ADDRESS_FAMILY_KERNEL = 4,
         _ADDRESS_FAMILY_BOOLEAN_MAX,
         _ADDRESS_FAMILY_BOOLEAN_INVALID = -1,
 } AddressFamilyBoolean;
