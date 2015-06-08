@@ -1486,24 +1486,22 @@ static int execute_shutdown_or_sleep(
         return 0;
 }
 
-static int manager_inhibit_timeout_handler(
-                        sd_event_source *s,
-                        uint64_t usec,
-                        void *userdata) {
+int manager_dispatch_delayed(Manager *manager, bool timeout) {
 
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         Inhibitor *offending = NULL;
-        Manager *manager = userdata;
         int r;
 
         assert(manager);
-        assert(manager->inhibit_timeout_source == s);
 
         if (manager->action_what == 0 || manager->action_job)
                 return 0;
 
         if (manager_is_inhibited(manager, manager->action_what, INHIBIT_DELAY, NULL, false, false, 0, &offending)) {
                 _cleanup_free_ char *comm = NULL, *u = NULL;
+
+                if (!timeout)
+                        return 0;
 
                 (void) get_process_comm(offending->pid, &comm);
                 u = uid_to_name(offending->uid);
@@ -1520,9 +1518,25 @@ static int manager_inhibit_timeout_handler(
 
                 manager->action_unit = NULL;
                 manager->action_what = 0;
+                return r;
         }
 
-        return 0;
+        return 1;
+}
+
+static int manager_inhibit_timeout_handler(
+                        sd_event_source *s,
+                        uint64_t usec,
+                        void *userdata) {
+
+        Manager *manager = userdata;
+        int r;
+
+        assert(manager);
+        assert(manager->inhibit_timeout_source == s);
+
+        r = manager_dispatch_delayed(manager, true);
+        return (r < 0) ? r : 0;
 }
 
 static int delay_shutdown_or_sleep(

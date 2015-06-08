@@ -194,3 +194,5 @@ int manager_get_seat_from_creds(Manager *m, sd_bus_message *message, const char 
 
 int manager_setup_wall_message_timer(Manager *m);
 bool logind_wall_tty_filter(const char *tty, void *userdata);
+
+int manager_dispatch_delayed(Manager *manager, bool timeout);
