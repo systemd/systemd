@@ -232,7 +232,9 @@
                 <para>If the kernel is using a random MAC address,
                 nothing is done. Otherwise, a new address is randomly
                 generated each time the device appears, typically at
-                boot.</para>
+                boot. Either way the random address will have the
+                <literal>unicast</literal> and
+                <literal>locally administered</literal> bits set.</para>
               </listitem>
             </varlistentry>
           </variablelist>
