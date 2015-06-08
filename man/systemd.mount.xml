@@ -228,7 +228,9 @@
         <filename>local-fs.target</filename> or
         <filename>remote-fs.target</filename>. This means that the
         boot will continue even if this mount point is not mounted
-        successfully.</para>
+        successfully. Removable media which is mounted below /media
+        will be treated as non-essential and nofail is the default
+        unless explicitly configured as <option>fail</option>.</para>
         </listitem>
       </varlistentry>
 

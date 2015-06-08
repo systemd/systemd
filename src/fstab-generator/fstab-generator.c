@@ -441,7 +441,11 @@ static int parse_fstab(bool initrd) {
                         path_kill_slashes(where);
 
                 noauto = fstab_test_yes_no_option(me->mnt_opts, "noauto\0" "auto\0");
-                nofail = fstab_test_yes_no_option(me->mnt_opts, "nofail\0" "fail\0");
+                /* Treat any mounts below /media as non-essential unless explicitly configured as fail */
+                if (startswith(where, "/media/") || streq(where, "/media"))
+                        nofail = !fstab_test_yes_no_option(me->mnt_opts, "fail\0");
+                else
+                        nofail = fstab_test_yes_no_option(me->mnt_opts, "nofail\0" "fail\0");
                 log_debug("Found entry what=%s where=%s type=%s nofail=%s noauto=%s",
                           what, where, me->mnt_type,
                           yes_no(noauto), yes_no(nofail));
