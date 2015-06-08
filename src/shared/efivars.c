@@ -483,7 +483,7 @@ int efi_add_boot_option(uint16_t id, const char *title,
         devicep->length = offsetof(struct device_path, drive) + sizeof(struct drive_path);
         devicep->drive.part_nr = part;
         devicep->drive.part_start = pstart;
-        devicep->drive.part_size =  psize;
+        devicep->drive.part_size = psize;
         devicep->drive.signature_type = SIGNATURE_TYPE_GUID;
         devicep->drive.mbr_type = MBR_TYPE_EFI_PARTITION_TABLE_HEADER;
         id128_to_efi_guid(part_uuid, devicep->drive.signature);

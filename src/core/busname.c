@@ -125,7 +125,7 @@ static int busname_arm_timer(BusName *n) {
                 return sd_event_source_set_enabled(n->timer_event_source, SD_EVENT_ONESHOT);
         }
 
-        r =  sd_event_add_time(
+        r = sd_event_add_time(
                         UNIT(n)->manager->event,
                         &n->timer_event_source,
                         CLOCK_MONOTONIC,

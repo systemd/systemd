@@ -1941,7 +1941,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules,
                         udev_list_entry_foreach(list_entry, udev_device_get_devlinks_list_entry(event->dev)) {
                                 const char *devlink;
 
-                                devlink =  udev_list_entry_get_name(list_entry) + strlen("/dev/");
+                                devlink = udev_list_entry_get_name(list_entry) + strlen("/dev/");
                                 if (match_key(rules, cur, devlink) == 0) {
                                         match = true;
                                         break;

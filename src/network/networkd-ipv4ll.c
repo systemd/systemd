@@ -34,7 +34,7 @@ static int ipv4ll_address_lost(Link *link) {
         assert(link);
 
         link->ipv4ll_route = false;
-        link->ipv4ll_address =  false;
+        link->ipv4ll_address = false;
 
         r = sd_ipv4ll_get_address(link->ipv4ll, &addr);
         if (r < 0)
