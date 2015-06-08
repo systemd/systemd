@@ -853,8 +853,6 @@ const char *address_family_boolean_to_string(AddressFamilyBoolean b) {
                 return "ipv4";
         if (b == ADDRESS_FAMILY_IPV6)
                 return "ipv6";
-        if (b == ADDRESS_FAMILY_KERNEL)
-                return "kernel";
 
         return NULL;
 }
@@ -874,8 +872,6 @@ AddressFamilyBoolean address_family_boolean_from_string(const char *s) {
                 return ADDRESS_FAMILY_IPV4;
         if (streq(s, "ipv6"))
                 return ADDRESS_FAMILY_IPV6;
-        if (streq(s, "kernel"))
-                return ADDRESS_FAMILY_KERNEL;
 
         return _ADDRESS_FAMILY_BOOLEAN_INVALID;
 }

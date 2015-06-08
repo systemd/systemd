@@ -366,8 +366,7 @@
           the routing table. Takes either a boolean argument, or the
           values <literal>ipv4</literal> or <literal>ipv6</literal>,
           which only enables IP forwarding for the specified address
-          family, or <literal>kernel</literal>, which preserves existing sysctl settings.
-          This controls the
+          family. This controls the
           <filename>net.ipv4.conf.&lt;interface&gt;.forwarding</filename>
           and
           <filename>net.ipv6.conf.&lt;interface&gt;.forwarding</filename>
@@ -376,8 +375,8 @@
           for details about sysctl options). Defaults to
           <literal>no</literal>.</para>
 
-         <para>Note: unless this option is turned on, or set to <literal>kernel</literal>,
-          no IP forwarding is done on this interface, even if this is
+          <para>Note: unless this option is turned on, no IP
+          forwarding is done on this interface, even if this is
           globally turned on in the kernel, with the
           <filename>net.ipv4.ip_forward</filename> and
           <filename>net.ipv4.ip_forward</filename> sysctl
