@@ -158,6 +158,7 @@ static int killall(int sig, Set *pids, bool send_sighup) {
 
         while ((d = readdir(dir))) {
                 pid_t pid;
+                int r;
 
                 if (d->d_type != DT_DIR &&
                     d->d_type != DT_UNKNOWN)
@@ -177,8 +178,11 @@ static int killall(int sig, Set *pids, bool send_sighup) {
                 }
 
                 if (kill(pid, sig) >= 0) {
-                        if (pids)
-                                set_put(pids, ULONG_TO_PTR(pid));
+                        if (pids) {
+                                r = set_put(pids, ULONG_TO_PTR(pid));
+                                if (r < 0)
+                                        log_oom();
+                        }
                 } else if (errno != ENOENT)
                         log_warning_errno(errno, "Could not kill %d: %m", pid);
 
