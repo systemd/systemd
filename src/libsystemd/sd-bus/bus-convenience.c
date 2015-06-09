@@ -58,6 +58,43 @@ _public_ int sd_bus_emit_signal(
         return sd_bus_send(bus, m, NULL);
 }
 
+_public_ int sd_bus_call_method_async(
+                sd_bus *bus,
+                sd_bus_slot **slot,
+                const char *destination,
+                const char *path,
+                const char *interface,
+                const char *member,
+                sd_bus_message_handler_t callback,
+                void *userdata,
+                const char *types, ...) {
+
+        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        int r;
+
+        assert_return(bus, -EINVAL);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
+
+        if (!BUS_IS_OPEN(bus->state))
+                return -ENOTCONN;
+
+        r = sd_bus_message_new_method_call(bus, &m, destination, path, interface, member);
+        if (r < 0)
+                return r;
+
+        if (!isempty(types)) {
+                va_list ap;
+
+                va_start(ap, types);
+                r = bus_message_append_ap(m, types, ap);
+                va_end(ap);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_bus_call_async(bus, slot, m, callback, userdata, 0);
+}
+
 _public_ int sd_bus_call_method(
                 sd_bus *bus,
                 const char *destination,
