@@ -968,12 +968,6 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*300E[457]*:pvr
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*200E[45]*:pvr*
  KEYBOARD_KEY_ce=!                                      # Fn+F1  launch control setting
 
-evdev:atkbd:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*350V*:pvr*
- KEYBOARD_KEY_ce=!prog1                                 # Fn+F1  Custom - launch control setting
- KEYBOARD_KEY_a0=!mute                                  # Fn+F6
- KEYBOARD_KEY_ae=!volumedown                            # Fn+F7
- KEYBOARD_KEY_b0=!volumeup                              # Fn+F8
-
 # Series 5
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*530U*:pvr*
  KEYBOARD_KEY_ce=!prog1                                 # Fn+F1 launch settings
@@ -986,6 +980,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*550P*:pvr*
  KEYBOARD_KEY_a9=!                                      # Fn Lock - Function lock off
  
 # Series 7 / 9
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*350V*:pvr*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*670Z*:pvr*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*700Z*:pvr*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*700G*:pvr*
