@@ -149,7 +149,6 @@ CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
         -pipe \
         -Wall \
         -Wextra \
-        -Wno-inline \
         -Wundef \
         "-Wformat=2 -Wformat-security -Wformat-nonliteral" \
         -Wlogical-op \
@@ -169,11 +168,8 @@ CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
         -Wendif-labels \
         -Wstrict-aliasing=2 \
         -Wwrite-strings \
-        -Wno-long-long \
-        -Wno-overlength-strings \
         -Wno-unused-parameter \
         -Wno-missing-field-initializers \
-        -Wno-unused-result \
         -Wno-format-signedness \
         -Werror=overflow \
         -Wdate-time \
