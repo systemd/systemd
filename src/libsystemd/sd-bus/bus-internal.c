@@ -19,6 +19,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "bus-message.h"
 #include "bus-internal.h"
 
 bool object_path_is_valid(const char *p) {
@@ -344,4 +345,29 @@ char *bus_address_escape(const char *v) {
 
         *b = 0;
         return r;
+}
+
+int bus_maybe_reply_error(sd_bus_message *m, int r, sd_bus_error *error) {
+        assert(m);
+
+        if (r < 0) {
+                if (m->header->type == SD_BUS_MESSAGE_METHOD_CALL)
+                        sd_bus_reply_method_errno(m, r, error);
+
+        } else if (sd_bus_error_is_set(error)) {
+                if (m->header->type == SD_BUS_MESSAGE_METHOD_CALL)
+                        sd_bus_reply_method_error(m, error);
+        } else
+                return r;
+
+        log_debug("Failed to process message [type=%s sender=%s path=%s interface=%s member=%s signature=%s]: %s",
+                  bus_message_type_to_string(m->header->type),
+                  strna(m->sender),
+                  strna(m->path),
+                  strna(m->interface),
+                  strna(m->member),
+                  strna(m->root_container.signature),
+                  bus_error_message(error, r));
+
+        return 1;
 }

@@ -40,7 +40,7 @@
 #include "fileio.h"
 #include "special.h"
 #include "mkdir.h"
-#include "login-shared.h"
+#include "login-util.h"
 
 int cg_enumerate_processes(const char *controller, const char *path, FILE **_f) {
         _cleanup_free_ char *fs = NULL;

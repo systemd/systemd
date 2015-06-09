@@ -20,7 +20,7 @@
 ***/
 
 #include "macro.h"
-#include "login-shared.h"
+#include "login-util.h"
 
 static void test_session_id_valid(void) {
         assert_se(session_id_valid("c1"));
