@@ -238,6 +238,23 @@ static void log_glue(int level, const char *msg, void *usrptr) {
         log_debug("%s", msg);
 }
 
+static int disk_major_minor(const char *path, char **ret) {
+        struct stat st;
+
+        assert(path);
+
+        if (stat(path, &st) < 0)
+                return -errno;
+
+        if (!S_ISBLK(st.st_mode))
+                return -EINVAL;
+
+        if (asprintf(ret, "/dev/block/%d:%d", major(st.st_rdev), minor(st.st_rdev)) < 0)
+                return -errno;
+
+        return 0;
+}
+
 static char* disk_description(const char *path) {
 
         static const char name_fields[] =
@@ -295,20 +312,55 @@ static char *disk_mount_point(const char *label) {
         return NULL;
 }
 
-static int get_password(const char *name, usec_t until, bool accept_cached, char ***passwords) {
-        int r;
+static int get_password(const char *vol, const char *src, usec_t until, bool accept_cached, char ***passwords) {
+        int r = 0;
         char **p;
         _cleanup_free_ char *text = NULL;
         _cleanup_free_ char *escaped_name = NULL;
         char *id;
+        const char *name = NULL;
+        _cleanup_free_ char *description = NULL, *name_buffer = NULL,
+                *mount_point = NULL, *maj_min = NULL;
 
-        assert(name);
+        assert(vol);
+        assert(src);
         assert(passwords);
+
+        description = disk_description(src);
+        mount_point = disk_mount_point(vol);
+
+        if (description && streq(vol, description)) {
+                /* If the description string is simply the
+                 * volume name, then let's not show this
+                 * twice */
+                free(description);
+                description = NULL;
+        }
+
+        if (mount_point && description)
+                r = asprintf(&name_buffer, "%s (%s) on %s", description, vol, mount_point);
+        else if (mount_point)
+                r = asprintf(&name_buffer, "%s on %s", vol, mount_point);
+        else if (description)
+                r = asprintf(&name_buffer, "%s (%s)", description, vol);
+
+        if (r < 0)
+                return log_oom();
+
+        name = name_buffer ? name_buffer : vol;
 
         if (asprintf(&text, "Please enter passphrase for disk %s!", name) < 0)
                 return log_oom();
 
-        escaped_name = cescape(name);
+        if (src)
+                (void) disk_major_minor(src, &maj_min);
+
+        if (maj_min) {
+                escaped_name = maj_min;
+                maj_min = NULL;
+        } else
+                escaped_name = cescape(name);
+
         if (!escaped_name)
                 return log_oom();
 
@@ -552,8 +604,7 @@ int main(int argc, char *argv[]) {
                 unsigned tries;
                 usec_t until;
                 crypt_status_info status;
-                const char *key_file = NULL, *name = NULL;
-                _cleanup_free_ char *description = NULL, *name_buffer = NULL, *mount_point = NULL;
+                const char *key_file = NULL;
 
                 /* Arguments: systemd-cryptsetup attach VOLUME SOURCE-DEVICE [PASSWORD] [OPTIONS] */
 
@@ -580,31 +631,6 @@ int main(int argc, char *argv[]) {
 
                 /* A delicious drop of snake oil */
                 mlockall(MCL_FUTURE);
-
-                description = disk_description(argv[3]);
-                mount_point = disk_mount_point(argv[2]);
-
-                if (description && streq(argv[2], description)) {
-                        /* If the description string is simply the
-                         * volume name, then let's not show this
-                         * twice */
-                        free(description);
-                        description = NULL;
-                }
-
-                k = 0;
-                if (mount_point && description)
-                        k = asprintf(&name_buffer, "%s (%s) on %s", description, argv[2], mount_point);
-                else if (mount_point)
-                        k = asprintf(&name_buffer, "%s on %s", argv[2], mount_point);
-                else if (description)
-                        k = asprintf(&name_buffer, "%s (%s)", description, argv[2]);
-
-                if (k < 0) {
-                        log_oom();
-                        goto finish;
-                }
-                name = name_buffer ? name_buffer : argv[2];
 
                 if (arg_header) {
                         log_debug("LUKS header: %s", arg_header);
@@ -652,7 +678,7 @@ int main(int argc, char *argv[]) {
                         _cleanup_strv_free_ char **passwords = NULL;
 
                         if (!key_file) {
-                                k = get_password(name, until, tries == 0 && !arg_verify, &passwords);
+                                k = get_password(argv[2], argv[3], until, tries == 0 && !arg_verify, &passwords);
                                 if (k == -EAGAIN)
                                         continue;
                                 else if (k < 0)
