@@ -5320,6 +5320,36 @@ finish:
         return 1;
 }
 
+int unquote_first_word_and_warn(
+                const char **p,
+                char **ret,
+                UnquoteFlags flags,
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *rvalue) {
+        /* Try to unquote it, if it fails, warn about it and try again but this
+         * time using UNQUOTE_CUNESCAPE_RELAX to keep the backslashes verbatim
+         * in invalid escape sequences. */
+        const char *save;
+        int r;
+
+        save = *p;
+        r = unquote_first_word(p, ret, flags);
+        if (r < 0 && !(flags&UNQUOTE_CUNESCAPE_RELAX)) {
+                /* Retry it with UNQUOTE_CUNESCAPE_RELAX. */
+                *p = save;
+                r = unquote_first_word(p, ret, flags|UNQUOTE_CUNESCAPE_RELAX);
+                if (r < 0)
+                        log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                                   "Unbalanced quoting in command line, ignoring: \"%s\"", rvalue);
+                else
+                        log_syntax(unit, LOG_WARNING, filename, line, EINVAL,
+                                   "Invalid escape sequences in command line: \"%s\"", rvalue);
+        }
+        return r;
+}
+
 int unquote_many_words(const char **p, UnquoteFlags flags, ...) {
         va_list ap;
         char **l;

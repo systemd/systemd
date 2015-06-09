@@ -845,6 +845,7 @@ typedef enum UnquoteFlags {
 } UnquoteFlags;
 
 int unquote_first_word(const char **p, char **ret, UnquoteFlags flags);
+int unquote_first_word_and_warn(const char **p, char **ret, UnquoteFlags flags, const char *unit, const char *filename, unsigned line, const char *rvalue);
 int unquote_many_words(const char **p, UnquoteFlags flags, ...) _sentinel_;
 
 int free_and_strdup(char **p, const char *s);
