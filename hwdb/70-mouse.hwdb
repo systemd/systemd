@@ -169,6 +169,8 @@ mouse:usb:v046dpc00e:name:Logitech USB-PS/2 Optical Mouse:
 mouse:usb:v046dpc01b:name:Logitech USB-PS/2 Optical Mouse:
 # Logitech USB-PS/2 M-BT58
 mouse:usb:v046dpc03e:name:Logitech USB-PS/2 Optical Mouse:
+# Logitech TrackMan Marble Wheel USB
+mouse:usb:v046dpc401:name:Logitech USB-PS/2 Trackball:
  MOUSE_DPI=400@125
 
 # Lenovo USB mouse model MO28UOL
