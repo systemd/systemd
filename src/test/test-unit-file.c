@@ -195,6 +195,19 @@ static void test_config_parse_exec(void) {
         c1 = c1->command_next;
         check_execcommand(c1, "/goo/goo", NULL, "boo", NULL, false);
 
+        log_info("/* two semicolons in a row */");
+        r = config_parse_exec(NULL, "fake", 5, "section", 1,
+                              "LValue", 0,
+                              "-@/RValue argv0 r1 ; ; "
+                              "/goo/goo boo",
+                              &c, NULL);
+        assert_se(r >= 0);
+        c1 = c1->command_next;
+        check_execcommand(c1, "/RValue", "argv0", "r1", NULL, true);
+
+        /* second command fails because the executable name is ";" */
+        assert_se(c1->command_next == NULL);
+
         log_info("/* trailing semicolon */");
         r = config_parse_exec(NULL, "fake", 5, "section", 1,
                               "LValue", 0,
@@ -205,6 +218,26 @@ static void test_config_parse_exec(void) {
         check_execcommand(c1, "/RValue", "argv0", "r1", NULL, true);
 
         assert_se(c1->command_next == NULL);
+
+        log_info("/* trailing semicolon, no whitespace */");
+        r = config_parse_exec(NULL, "fake", 5, "section", 1,
+                              "LValue", 0,
+                              "-@/RValue argv0 r1 ;",
+                              &c, NULL);
+        assert_se(r >= 0);
+        c1 = c1->command_next;
+        check_execcommand(c1, "/RValue", "argv0", "r1", NULL, true);
+
+        assert_se(c1->command_next == NULL);
+
+        log_info("/* trailing semicolon in single quotes */");
+        r = config_parse_exec(NULL, "fake", 5, "section", 1,
+                              "LValue", 0,
+                              "-@/RValue argv0 r1 ';'",
+                              &c, NULL);
+        assert_se(r >= 0);
+        c1 = c1->command_next;
+        check_execcommand(c1, "/RValue", "argv0", "r1", NULL, true);
 
         log_info("/* escaped semicolon */");
         r = config_parse_exec(NULL, "fake", 5, "section", 1,
@@ -218,12 +251,22 @@ static void test_config_parse_exec(void) {
         log_info("/* escaped semicolon with following arg */");
         r = config_parse_exec(NULL, "fake", 5, "section", 1,
                               "LValue", 0,
-                              "/sbin/find \\; x",
+                              "/sbin/find \\; /x",
                               &c, NULL);
         assert_se(r >= 0);
         c1 = c1->command_next;
         check_execcommand(c1,
-                          "/sbin/find", NULL, ";", "x", false);
+                          "/sbin/find", NULL, ";", "/x", false);
+
+        log_info("/* escaped semicolon as part of an expression */");
+        r = config_parse_exec(NULL, "fake", 5, "section", 1,
+                              "LValue", 0,
+                              "/sbin/find \\;x",
+                              &c, NULL);
+        assert_se(r >= 0);
+        c1 = c1->command_next;
+        check_execcommand(c1,
+                          "/sbin/find", NULL, "\\;x", NULL, false);
 
         log_info("/* encoded semicolon */");
         r = config_parse_exec(NULL, "fake", 5, "section", 1,
@@ -233,6 +276,29 @@ static void test_config_parse_exec(void) {
         assert_se(r >= 0);
         c1 = c1->command_next;
         check_execcommand(c1, "/bin/find", NULL, ";", NULL, false);
+
+        log_info("/* quoted semicolon */");
+        r = config_parse_exec(NULL, "fake", 5, "section", 1,
+                              "LValue", 0,
+                              "/bin/find \";\"",
+                              &c, NULL);
+        assert_se(r >= 0);
+        c1 = c1->command_next;
+        check_execcommand(c1, "/bin/find", NULL, NULL, NULL, false);
+
+        log_info("/* quoted semicolon with following arg */");
+        r = config_parse_exec(NULL, "fake", 5, "section", 1,
+                              "LValue", 0,
+                              "/sbin/find \";\" /x",
+                              &c, NULL);
+        assert_se(r >= 0);
+        c1 = c1->command_next;
+        check_execcommand(c1,
+                          "/sbin/find", NULL, NULL, NULL, false);
+
+        c1 = c1->command_next;
+        check_execcommand(c1,
+                          "/x", NULL, NULL, NULL, false);
 
         log_info("/* spaces in the filename */");
         r = config_parse_exec(NULL, "fake", 5, "section", 1,
