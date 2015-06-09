@@ -16,7 +16,6 @@ ConditionNeedsUpdate=/etc
 ConditionPathExists=|!@udevlibexecdir@/hwdb.bin
 ConditionPathExists=|/etc/udev/hwdb.bin
 ConditionDirectoryNotEmpty=|/etc/udev/hwdb.d/
-ConditionDirectoryNotEmpty=|/run/udev/hwdb.d/
 
 [Service]
 Type=oneshot
