@@ -4931,15 +4931,11 @@ int bind_remount_recursive(const char *prefix, bool ro) {
 
                 while ((x = set_steal_first(todo))) {
 
-                        r = set_put(done, x);
-                        if (r == -EEXIST) {
-                                free(x);
+                        r = set_consume(done, x);
+                        if (r == -EEXIST || r == 0)
                                 continue;
-                        }
-                        if (r < 0) {
-                                free(x);
+                        if (r < 0)
                                 return r;
-                        }
 
                         /* Try to reuse the original flag set, but
                          * don't care for errors, in case of
@@ -4949,15 +4945,14 @@ int bind_remount_recursive(const char *prefix, bool ro) {
                         orig_flags &= ~MS_RDONLY;
 
                         if (mount(NULL, x, NULL, orig_flags|MS_BIND|MS_REMOUNT|(ro ? MS_RDONLY : 0), NULL) < 0) {
+
                                 /* Deal with mount points that are
                                  * obstructed by a later mount */
 
-                                if (errno != ENOENT) {
-                                        free(x);
+                                if (errno != ENOENT)
                                         return -errno;
-                                }
                         }
-                        free(x);
+
                 }
         }
 }
