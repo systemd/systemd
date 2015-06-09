@@ -5176,9 +5176,6 @@ dist_dbuspolicy_DATA += \
 polkitpolicy_files += \
 	src/machine/org.freedesktop.machine1.policy
 
-polkitpolicy_in_files += \
-	src/machine/org.freedesktop.machine1.policy.in
-
 dist_zshcompletion_DATA += \
 	shell-completion/zsh/_machinectl \
 	shell-completion/zsh/_sd_machines
@@ -5210,6 +5207,9 @@ lib_LTLIBRARIES += \
 	libnss_mymachines.la
 
 endif
+
+polkitpolicy_in_files += \
+	src/machine/org.freedesktop.machine1.policy.in
 
 EXTRA_DIST += \
 	units/systemd-machined.service.in
@@ -5359,9 +5359,6 @@ dist_dbuspolicy_DATA += \
 polkitpolicy_files += \
 	src/import/org.freedesktop.import1.policy
 
-polkitpolicy_in_files += \
-	src/import/org.freedesktop.import1.policy.in
-
 manual_tests += \
 	test-qcow2
 
@@ -5386,6 +5383,9 @@ endif
 endif
 
 endif
+
+polkitpolicy_in_files += \
+	src/import/org.freedesktop.import1.policy.in
 
 EXTRA_DIST += \
 	units/systemd-importd.service.in \
