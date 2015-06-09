@@ -23,7 +23,7 @@
 
 #include "strv.h"
 
-#include "resolved-dns-domain.h"
+#include "dns-domain.h"
 #include "resolved-dns-rr.h"
 #include "resolved-dns-packet.h"
 #include "dns-type.h"

@@ -24,7 +24,7 @@
 #include <stringprep.h>
 #endif
 
-#include "resolved-dns-domain.h"
+#include "dns-domain.h"
 
 int dns_label_unescape(const char **name, char *dest, size_t sz) {
         const char *n;

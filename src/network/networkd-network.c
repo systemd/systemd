@@ -466,7 +466,7 @@ int config_parse_domains(const char *unit,
         STRV_FOREACH(domain, *domains) {
                 if (is_localhost(*domain))
                         log_syntax(unit, LOG_ERR, filename, line, EINVAL, "'localhost' domain names may not be configured, ignoring assignment: %s", *domain);
-                else if (!hostname_is_valid(*domain)) {
+                else if (!dns_name_is_valid(*domain)) {
                         if (!streq(*domain, "*"))
                                 log_syntax(unit, LOG_ERR, filename, line, EINVAL, "domain name is not valid, ignoring assignment: %s", *domain);
                 } else

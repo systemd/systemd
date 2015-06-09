@@ -22,7 +22,7 @@
 #include "list.h"
 
 #include "resolved-dns-zone.h"
-#include "resolved-dns-domain.h"
+#include "dns-domain.h"
 #include "resolved-dns-packet.h"
 
 /* Never allow more than 1K entries */

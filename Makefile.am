@@ -762,6 +762,8 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/udev-util.h \
 	src/shared/device-nodes.c \
 	src/shared/device-nodes.h \
+	src/shared/dns-domain.c \
+	src/shared/dns-domain.h \
 	src/shared/util.c \
 	src/shared/util.h \
 	src/shared/virt.c \
@@ -1446,7 +1448,8 @@ tests += \
 	test-copy \
 	test-cap-list \
 	test-sigbus \
-	test-verbs
+	test-verbs \
+	test-dns-domain
 
 EXTRA_DIST += \
 	test/a.service \
@@ -1576,6 +1579,15 @@ test_hostname_SOURCES = \
 
 test_hostname_LDADD = \
 	libsystemd-core.la
+
+test_dns_domain_SOURCES = \
+	src/test/test-dns-domain.c
+
+test_dns_domain_LDADD = \
+	libsystemd-network.la \
+	libsystemd-internal.la \
+	libsystemd-shared.la \
+	$(LIBIDN_LIBS)
 
 if ENABLE_EFI
 manual_tests += \
@@ -3382,7 +3394,8 @@ test_dhcp_client_SOURCES = \
 test_dhcp_client_LDADD = \
 	libsystemd-network.la \
 	libsystemd-internal.la \
-	libsystemd-shared.la
+	libsystemd-shared.la \
+	$(LIBIDN_LIBS)
 
 test_dhcp_server_SOURCES = \
 	src/libsystemd-network/test-dhcp-server.c
@@ -5405,8 +5418,6 @@ systemd_resolved_SOURCES = \
 	src/resolve/resolved-link.h \
 	src/resolve/resolved-link.c \
 	src/resolve/resolved-def.h \
-	src/resolve/resolved-dns-domain.h \
-	src/resolve/resolved-dns-domain.c \
 	src/resolve/resolved-dns-rr.h \
 	src/resolve/resolved-dns-rr.c \
 	src/resolve/resolved-dns-question.h \
@@ -5476,20 +5487,6 @@ GENERAL_ALIASES += \
 nodist_pkgsysconf_DATA += \
 	src/resolve/resolved.conf
 
-tests += \
-	test-dns-domain
-
-test_dns_domain_SOURCES = \
-	src/resolve/resolved-dns-domain.h \
-	src/resolve/resolved-dns-domain.c \
-	src/resolve/test-dns-domain.c
-
-test_dns_domain_LDADD = \
-	libsystemd-network.la \
-	libsystemd-internal.la \
-	libsystemd-shared.la \
-	$(LIBIDN_LIBS)
-
 libnss_resolve_la_SOURCES = \
 	src/nss-resolve/nss-resolve.sym \
 	src/nss-resolve/nss-resolve.c
@@ -5520,8 +5517,6 @@ systemd_resolve_host_SOURCES = \
 	src/resolve/resolved-dns-answer.h \
 	src/resolve/resolved-dns-question.c \
 	src/resolve/resolved-dns-question.h \
-	src/resolve/resolved-dns-domain.c \
-	src/resolve/resolved-dns-domain.h \
 	src/resolve/dns-type.c \
 	src/resolve/dns-type.h
 
@@ -5551,7 +5546,8 @@ systemd_networkd_SOURCES = \
 	src/network/networkd.c
 
 systemd_networkd_LDADD = \
-	libsystemd-networkd-core.la
+	libsystemd-networkd-core.la \
+	$(LIBIDN_LIBS)
 
 if HAVE_LIBIPTC
 systemd_networkd_LDADD += \
@@ -5650,7 +5646,8 @@ test_network_SOURCES = \
 	src/network/test-network.c
 
 test_network_LDADD = \
-	libsystemd-networkd-core.la
+	libsystemd-networkd-core.la \
+	$(LIBIDN_LIBS)
 
 if HAVE_LIBIPTC
 test_network_LDADD += \
