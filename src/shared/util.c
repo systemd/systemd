@@ -4932,7 +4932,7 @@ int bind_remount_recursive(const char *prefix, bool ro) {
                 while ((x = set_steal_first(todo))) {
 
                         r = set_consume(done, x);
-                        if (r == -EEXIST)
+                        if (r == -EEXIST || r == 0)
                                 continue;
                         if (r < 0)
                                 return r;
