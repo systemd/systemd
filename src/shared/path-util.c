@@ -640,7 +640,7 @@ fallback_fstat:
 /* flags can be AT_SYMLINK_FOLLOW or 0 */
 int path_is_mount_point(const char *t, int flags) {
         _cleanup_close_ int fd = -1;
-        _cleanup_free_ char *parent = NULL;
+        _cleanup_free_ char *canonical = NULL, *parent = NULL;
         int r;
 
         assert(t);
@@ -648,7 +648,17 @@ int path_is_mount_point(const char *t, int flags) {
         if (path_equal(t, "/"))
                 return 1;
 
-        r = path_get_parent(t, &parent);
+        /* we need to resolve symlinks manually, we can't just rely on
+         * fd_is_mount_point() to do that for us; if we have a structure like
+         * /bin -> /usr/bin/ and /usr is a mount point, then the parent that we
+         * look at needs to be /usr, not /. */
+        if (flags & AT_SYMLINK_FOLLOW) {
+                canonical = canonicalize_file_name(t);
+                if (!canonical)
+                        return -errno;
+        }
+
+        r = path_get_parent(canonical ?: t, &parent);
         if (r < 0)
                 return r;
 
@@ -656,7 +666,7 @@ int path_is_mount_point(const char *t, int flags) {
         if (fd < 0)
                 return -errno;
 
-        return fd_is_mount_point(fd, basename(t), flags);
+        return fd_is_mount_point(fd, basename(canonical ?: t), flags);
 }
 
 int path_is_read_only_fs(const char *path) {
