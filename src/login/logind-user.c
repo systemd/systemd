@@ -738,8 +738,7 @@ int user_kill(User *u, int signo) {
         return manager_kill_unit(u->manager, u->slice, KILL_ALL, signo, NULL);
 }
 
-static bool
-elect_display_filter(Session *s) {
+static bool elect_display_filter(Session *s) {
         /* Return true if the session is a candidate for the user’s ‘primary
          * session’ or ‘display’. */
         assert(s);
@@ -747,8 +746,7 @@ elect_display_filter(Session *s) {
         return (s->class == SESSION_USER && !s->stopping);
 }
 
-static int
-elect_display_compare(Session *s1, Session *s2) {
+static int elect_display_compare(Session *s1, Session *s2) {
         /* Indexed by SessionType. Lower numbers mean more preferred. */
         const int type_ranks[_SESSION_TYPE_MAX] = {
                 [SESSION_UNSPECIFIED] = 0,

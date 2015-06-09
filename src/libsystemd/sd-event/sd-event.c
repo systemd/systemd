@@ -2384,7 +2384,6 @@ _public_ int sd_event_wait(sd_event *e, uint64_t timeout) {
                 }
 
                 r = -errno;
-
                 goto finish;
         }
 
