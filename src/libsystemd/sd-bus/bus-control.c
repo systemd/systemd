@@ -1310,11 +1310,18 @@ int bus_add_match_internal_kernel(
                 }
 
                 case BUS_MATCH_ARG_PATH...BUS_MATCH_ARG_PATH_LAST: {
-                        char buf[sizeof("arg")-1 + 2 + sizeof("-slash-prefix")];
-
-                        xsprintf(buf, "arg%i-slash-prefix", c->type - BUS_MATCH_ARG_PATH);
-                        bloom_add_pair(bloom, bus->bloom_size, bus->bloom_n_hash, buf, c->value_str);
-                        using_bloom = true;
+                        /*
+                         * XXX: DBus spec defines arg[0..63]path= matching to be
+                         * a two-way glob. That is, if either string is a prefix
+                         * of the other, it matches.
+                         * This is really hard to realize in bloom-filters, as
+                         * we would have to create a bloom-match for each prefix
+                         * of @c->value_str. This is excessive, hence we just
+                         * ignore all those matches and accept everything from
+                         * the kernel. People should really avoid those matches.
+                         * If they're used in real-life some day, we will have
+                         * to properly support multiple-matches here.
+                         */
                         break;
                 }
 
