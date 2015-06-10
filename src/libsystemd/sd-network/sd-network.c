@@ -297,8 +297,31 @@ static inline sd_network_monitor* FD_TO_MONITOR(int fd) {
         return (sd_network_monitor*) (unsigned long) (fd + 1);
 }
 
+static int monitor_add_inotify_watch(int fd) {
+        int k;
+
+        k = inotify_add_watch(fd, "/run/systemd/netif/links/", IN_MOVED_TO|IN_DELETE);
+        if (k >= 0)
+                return 0;
+        else if (errno != ENOENT)
+                return -errno;
+
+        k = inotify_add_watch(fd, "/run/systemd/netif/", IN_CREATE|IN_ISDIR);
+        if (k >= 0)
+                return 0;
+        else if (errno != ENOENT)
+                return -errno;
+
+        k = inotify_add_watch(fd, "/run/systemd/", IN_CREATE|IN_ISDIR);
+        if (k < 0)
+                return -errno;
+
+        return 0;
+}
+
 _public_ int sd_network_monitor_new(sd_network_monitor **m, const char *category) {
-        int fd, k;
+        _cleanup_close_ int fd = -1;
+        int k;
         bool good = false;
 
         assert_return(m, -EINVAL);
@@ -308,11 +331,9 @@ _public_ int sd_network_monitor_new(sd_network_monitor **m, const char *category
                 return -errno;
 
         if (!category || streq(category, "links")) {
-                k = inotify_add_watch(fd, "/run/systemd/netif/links/", IN_MOVED_TO|IN_DELETE);
-                if (k < 0) {
-                        safe_close(fd);
-                        return -errno;
-                }
+                k = monitor_add_inotify_watch(fd);
+                if (k < 0)
+                        return k;
 
                 good = true;
         }
@@ -323,6 +344,8 @@ _public_ int sd_network_monitor_new(sd_network_monitor **m, const char *category
         }
 
         *m = FD_TO_MONITOR(fd);
+        fd = -1;
+
         return 0;
 }
 
@@ -338,10 +361,36 @@ _public_ sd_network_monitor* sd_network_monitor_unref(sd_network_monitor *m) {
 }
 
 _public_ int sd_network_monitor_flush(sd_network_monitor *m) {
+        union inotify_event_buffer buffer;
+        struct inotify_event *e;
+        ssize_t l;
+        int fd, k;
 
         assert_return(m, -EINVAL);
 
-        return flush_fd(MONITOR_TO_FD(m));
+        fd = MONITOR_TO_FD(m);
+
+        l = read(fd, &buffer, sizeof(buffer));
+        if (l < 0) {
+                if (errno == EAGAIN || errno == EINTR)
+                        return 0;
+
+                return -errno;
+        }
+
+        FOREACH_INOTIFY_EVENT(e, buffer, l) {
+                if (e->mask & IN_ISDIR) {
+                        k = monitor_add_inotify_watch(fd);
+                        if (k < 0)
+                                return k;
+
+                        k = inotify_rm_watch(fd, e->wd);
+                        if (k < 0)
+                                return -errno;
+                }
+        }
+
+        return 0;
 }
 
 _public_ int sd_network_monitor_get_fd(sd_network_monitor *m) {
