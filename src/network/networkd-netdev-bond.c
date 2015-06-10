@@ -242,7 +242,7 @@ static int netdev_bond_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_m
         }
 
         if (b->ad_select != _NETDEV_BOND_AD_SELECT_INVALID &&
-            b->mode == BOND_MODE_8023AD) {
+            b->mode == NETDEV_BOND_MODE_802_3AD) {
                 r = sd_rtnl_message_append_u8(m, IFLA_BOND_AD_SELECT, b->ad_select);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_AD_SELECT attribute: %m");
@@ -279,7 +279,8 @@ static int netdev_bond_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_m
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_RESEND_IGMP attribute: %m");
         }
 
-        if (b->packets_per_slave <= PACKETS_PER_SLAVE_MAX) {
+        if (b->packets_per_slave <= PACKETS_PER_SLAVE_MAX &&
+            b->mode == NETDEV_BOND_MODE_BALANCE_RR) {
                 r = sd_rtnl_message_append_u32(m, IFLA_BOND_PACKETS_PER_SLAVE, b->packets_per_slave);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_PACKETS_PER_SLAVE attribute: %m");
