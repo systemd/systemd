@@ -192,9 +192,7 @@ static int netdev_bond_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_m
                 r = sd_rtnl_message_append_u8(m, IFLA_BOND_MODE,
                                               bond_mode_to_kernel(b->mode));
                 if (r < 0) {
-                        log_netdev_error(netdev,
-                                         "Could not append IFLA_BOND_MODE attribute: %s",
-                                         strerror(-r));
+                        log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_MODE attribute: %m");
                         return r;
                 }
         }
@@ -203,9 +201,7 @@ static int netdev_bond_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_m
                 r = sd_rtnl_message_append_u8(m, IFLA_BOND_XMIT_HASH_POLICY,
                                               bond_xmit_hash_policy_to_kernel(b->xmit_hash_policy));
                 if (r < 0) {
-                        log_netdev_error(netdev,
-                                         "Could not append IFLA_BOND_XMIT_HASH_POLICY attribute: %s",
-                                         strerror(-r));
+                        log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_XMIT_HASH_POLICY attribute: %m");
                         return r;
                 }
         }
@@ -214,9 +210,7 @@ static int netdev_bond_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_m
             b->mode == NETDEV_BOND_MODE_802_3AD) {
                 r = sd_rtnl_message_append_u8(m, IFLA_BOND_AD_LACP_RATE, b->lacp_rate );
                 if (r < 0) {
-                        log_netdev_error(netdev,
-                                         "Could not append IFLA_BOND_AD_LACP_RATE attribute: %s",
-                                         strerror(-r));
+                        log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_AD_LACP_RATE attribute: %m");
                         return r;
                 }
         }
@@ -224,9 +218,7 @@ static int netdev_bond_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_m
         if (b->miimon != 0) {
                 r = sd_rtnl_message_append_u32(m, IFLA_BOND_MIIMON, b->miimon / USEC_PER_MSEC);
                 if (r < 0) {
-                        log_netdev_error(netdev,
-                                         "Could not append IFLA_BOND_BOND_MIIMON attribute: %s",
-                                         strerror(-r));
+                        log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_BOND_MIIMON attribute: %m");
                         return r;
                 }
         }
@@ -234,9 +226,7 @@ static int netdev_bond_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_m
         if (b->downdelay != 0) {
                 r = sd_rtnl_message_append_u32(m, IFLA_BOND_DOWNDELAY, b->downdelay / USEC_PER_MSEC);
                 if (r < 0) {
-                        log_netdev_error(netdev,
-                                         "Could not append IFLA_BOND_DOWNDELAY attribute: %s",
-                                         strerror(-r));
+                        log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_DOWNDELAY attribute: %m");
                         return r;
                 }
         }
@@ -244,9 +234,7 @@ static int netdev_bond_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_m
         if (b->updelay != 0) {
                 r = sd_rtnl_message_append_u32(m, IFLA_BOND_UPDELAY, b->updelay / USEC_PER_MSEC);
                 if (r < 0) {
-                        log_netdev_error(netdev,
-                                         "Could not append IFLA_BOND_UPDELAY attribute: %s",
-                                         strerror(-r));
+                        log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_UPDELAY attribute: %m");
                         return r;
                 }
         }
@@ -254,9 +242,7 @@ static int netdev_bond_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_m
         if (b->arp_interval != 0) {
                 r = sd_rtnl_message_append_u32(m, IFLA_BOND_ARP_INTERVAL, b->arp_interval / USEC_PER_MSEC);
                 if (r < 0) {
-                        log_netdev_error(netdev,
-                                         "Could not append IFLA_BOND_ARP_INTERVAL attribute: %s",
-                                         strerror(-r));
+                        log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_ARP_INTERVAL attribute: %m");
                         return r;
                 }
         }
@@ -265,9 +251,7 @@ static int netdev_bond_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_m
             (b->lp_interval <= LEARNING_PACKETS_INTERVAL_MAX_SEC)) {
                 r = sd_rtnl_message_append_u32(m, IFLA_BOND_LP_INTERVAL, b->lp_interval / USEC_PER_SEC);
                 if (r < 0) {
-                        log_netdev_error(netdev,
-                                         "Could not append IFLA_BOND_LP_INTERVAL attribute: %s",
-                                         strerror(-r));
+                        log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_LP_INTERVAL attribute: %m");
                         return r;
                 }
         }
@@ -276,9 +260,7 @@ static int netdev_bond_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_m
             b->mode == BOND_MODE_8023AD) {
                 r = sd_rtnl_message_append_u8(m, IFLA_BOND_AD_SELECT, b->ad_select);
                 if (r < 0) {
-                        log_netdev_error(netdev,
-                                         "Could not append IFLA_BOND_AD_SELECT attribute: %s",
-                                         strerror(-r));
+                        log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_AD_SELECT attribute: %m");
                         return r;
                 }
         }
@@ -287,9 +269,8 @@ static int netdev_bond_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_m
             b->mode == NETDEV_BOND_MODE_ACTIVE_BACKUP) {
                 r = sd_rtnl_message_append_u8(m, IFLA_BOND_FAIL_OVER_MAC, b->fail_over_mac);
                 if (r < 0) {
-                        log_netdev_error(netdev,
-                                         "Could not append IFLA_BOND_FAIL_OVER_MAC attribute: %s",
-                                         strerror(-r));
+                        log_netdev_error_errno(netdev, r,
+                                         "Could not append IFLA_BOND_FAIL_OVER_MAC attribute: %m");
                         return r;
                 }
         }
@@ -297,9 +278,7 @@ static int netdev_bond_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_m
         if (b->arp_validate != _NETDEV_BOND_ARP_VALIDATE_INVALID) {
                 r = sd_rtnl_message_append_u32(m, IFLA_BOND_ARP_VALIDATE, b->arp_validate);
                 if (r < 0) {
-                        log_netdev_error(netdev,
-                                         "Could not append IFLA_BOND_ARP_VALIDATE attribute: %s",
-                                         strerror(-r));
+                        log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_ARP_VALIDATE attribute: %m");
                         return r;
                 }
         }
@@ -307,9 +286,7 @@ static int netdev_bond_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_m
         if (b->arp_all_targets != _NETDEV_BOND_ARP_ALL_TARGETS_INVALID) {
                 r = sd_rtnl_message_append_u32(m, IFLA_BOND_ARP_ALL_TARGETS, b->arp_all_targets);
                 if (r < 0) {
-                        log_netdev_error(netdev,
-                                         "Could not append IFLA_BOND_ARP_VALIDATE attribute: %s",
-                                         strerror(-r));
+                        log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_ARP_VALIDATE attribute: %m");
                         return r;
                 }
         }
@@ -317,9 +294,7 @@ static int netdev_bond_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_m
         if (b->primary_reselect != _NETDEV_BOND_PRIMARY_RESELECT_INVALID) {
                 r = sd_rtnl_message_append_u32(m, IFLA_BOND_ARP_ALL_TARGETS, b->primary_reselect);
                 if (r < 0) {
-                        log_netdev_error(netdev,
-                                         "Could not append IFLA_BOND_ARP_ALL_TARGETS attribute: %s",
-                                         strerror(-r));
+                        log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_ARP_ALL_TARGETS attribute: %m");
                         return r;
                 }
         }
@@ -327,9 +302,7 @@ static int netdev_bond_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_m
         if (b->resend_igmp <= RESEND_IGMP_MAX) {
                 r = sd_rtnl_message_append_u32(m, IFLA_BOND_RESEND_IGMP, b->resend_igmp);
                 if (r < 0) {
-                        log_netdev_error(netdev,
-                                         "Could not append IFLA_BOND_RESEND_IGMP attribute: %s",
-                                         strerror(-r));
+                        log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_RESEND_IGMP attribute: %m");
                         return r;
                 }
         }
@@ -337,9 +310,7 @@ static int netdev_bond_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_m
         if (b->packets_per_slave <= PACKETS_PER_SLAVE_MAX) {
                 r = sd_rtnl_message_append_u32(m, IFLA_BOND_PACKETS_PER_SLAVE, b->packets_per_slave);
                 if (r < 0) {
-                        log_netdev_error(netdev,
-                                         "Could not append IFLA_BOND_PACKETS_PER_SLAVE attribute: %s",
-                                         strerror(-r));
+                        log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_PACKETS_PER_SLAVE attribute: %m");
                         return r;
                 }
         }
@@ -347,9 +318,7 @@ static int netdev_bond_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_m
         if (b->num_grat_arp <= GRATUITOUS_ARP_MAX) {
                 r = sd_rtnl_message_append_u8(m, IFLA_BOND_NUM_PEER_NOTIF, b->num_grat_arp);
                 if (r < 0) {
-                        log_netdev_error(netdev,
-                                         "Could not append IFLA_BOND_NUM_PEER_NOTIF attribute: %s",
-                                         strerror(-r));
+                        log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_NUM_PEER_NOTIF attribute: %m");
                         return r;
                 }
         }
@@ -357,18 +326,14 @@ static int netdev_bond_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_m
         if (b->min_links != 0) {
                 r = sd_rtnl_message_append_u32(m, IFLA_BOND_MIN_LINKS, b->min_links);
                 if (r < 0) {
-                        log_netdev_error(netdev,
-                                         "Could not append IFLA_BOND_MIN_LINKS attribute: %s",
-                                         strerror(-r));
+                        log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_MIN_LINKS attribute: %m");
                         return r;
                 }
         }
 
         r = sd_rtnl_message_append_u8(m, IFLA_BOND_ALL_SLAVES_ACTIVE, b->all_slaves_active);
         if (r < 0) {
-                log_netdev_error(netdev,
-                                 "Could not append IFLA_BOND_ALL_SLAVES_ACTIVE attribute: %s",
-                                 strerror(-r));
+                log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_ALL_SLAVES_ACTIVE attribute: %m");
                 return r;
         }
 
@@ -377,27 +342,21 @@ static int netdev_bond_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_m
 
                         r = sd_rtnl_message_open_container(m, IFLA_BOND_ARP_IP_TARGET);
                         if (r < 0) {
-                                log_netdev_error(netdev,
-                                                 "Could not open contaniner IFLA_BOND_ARP_IP_TARGET : %s",
-                                                 strerror(-r));
+                                log_netdev_error_errno(netdev, r, "Could not open contaniner IFLA_BOND_ARP_IP_TARGET : %m");
                                 return r;
                         }
 
                         LIST_FOREACH(arp_ip_target, target, b->arp_ip_targets) {
                                 r = sd_rtnl_message_append_u32(m, i++, target->ip.in.s_addr);
                                 if (r < 0) {
-                                        log_netdev_error(netdev,
-                                                         "Could not append IFLA_BOND_ARP_ALL_TARGETS attribute: %s",
-                                                         strerror(-r));
+                                        log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_ARP_ALL_TARGETS attribute: %m");
                                         return r;
                                 }
                         }
 
                         r = sd_rtnl_message_close_container(m);
                         if (r < 0) {
-                                log_netdev_error(netdev,
-                                                 "Could not close contaniner IFLA_BOND_ARP_IP_TARGET : %s",
-                                                 strerror(-r));
+                                log_netdev_error_errno(netdev, r, "Could not close contaniner IFLA_BOND_ARP_IP_TARGET : %m");
                                 return r;
                         }
                 }
