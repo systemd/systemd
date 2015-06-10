@@ -65,10 +65,12 @@
     groups of the local Linux control group hierarchy, ordered by
     their CPU, memory, or disk I/O load. The display is refreshed in
     regular intervals (by default every 1s), similar in style to
-    <citerefentry project='man-pages'><refentrytitle>top</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
-    If <command>systemd-cgtop</command> is not connected to a tty,
-    only one iteration is performed and no columns headers are
-    printed. This mode is suitable for scripting.</para>
+    <citerefentry project='man-pages'><refentrytitle>top</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+    <para>If <command>systemd-cgtop</command> is not connected to a tty, no
+    column headers are printed and the default is to only run one iteration.
+    The <varname>--iterations</varname> argument, if given, is still honored.
+    This mode is suitable for scripting.</para>
 
     <para>Resource usage is only accounted for control groups in the
     relevant hierarchy, i.e. CPU usage is only accounted for control
@@ -143,11 +145,20 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>-r</option></term>
+        <term><option>--raw</option></term>
+
+	<listitem><para>Format byte counts (as in memory usage and IO metrics)
+	with raw numeric values rather than human-readable
+        numbers.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>-n</option></term>
         <term><option>--iterations=</option></term>
 
-        <listitem><para>Perform only this many iterations.
-        </para></listitem>
+        <listitem><para>Perform only this many iterations. A value of 0
+        indicates that the program should run indefinitely.</para></listitem>
       </varlistentry>
 
       <varlistentry>

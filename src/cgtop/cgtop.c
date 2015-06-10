@@ -60,8 +60,9 @@ typedef struct Group {
 } Group;
 
 static unsigned arg_depth = 3;
-static unsigned arg_iterations = 0;
+static unsigned arg_iterations = (unsigned)-1;
 static bool arg_batch = false;
+static bool arg_raw = false;
 static usec_t arg_delay = 1*USEC_PER_SEC;
 
 static enum {
@@ -94,6 +95,16 @@ static void group_hashmap_clear(Hashmap *h) {
 static void group_hashmap_free(Hashmap *h) {
         group_hashmap_clear(h);
         hashmap_free(h);
+}
+
+static const char *maybe_format_bytes(char *buf, size_t l, bool is_valid, off_t t) {
+        if (!is_valid)
+                return "-";
+        if (arg_raw) {
+                snprintf(buf, l, "%jd", t);
+                return buf;
+        }
+        return format_bytes(buf, l, t);
 }
 
 static int process(const char *controller, const char *path, Hashmap *a, Hashmap *b, unsigned iteration) {
@@ -270,11 +281,10 @@ static int process(const char *controller, const char *path, Hashmap *a, Hashmap
                         yr = rd - g->io_input;
                         yw = wr - g->io_output;
 
-                        if (yr > 0 || yw > 0) {
+                        if (g->io_input > 0 || g->io_output > 0) {
                                 g->io_input_bps = (yr * 1000000000ULL) / x;
                                 g->io_output_bps = (yw * 1000000000ULL) / x;
                                 g->io_valid = true;
-
                         }
                 }
 
@@ -532,18 +542,9 @@ static int display(Hashmap *a) {
                 } else
                         printf(" %*s", maxtcpu, format_timespan(buffer, sizeof(buffer), (nsec_t) (g->cpu_usage / NSEC_PER_USEC), 0));
 
-                if (g->memory_valid)
-                        printf(" %8s", format_bytes(buffer, sizeof(buffer), g->memory));
-                else
-                        fputs("        -", stdout);
-
-                if (g->io_valid) {
-                        printf(" %8s",
-                               format_bytes(buffer, sizeof(buffer), g->io_input_bps));
-                        printf(" %8s",
-                               format_bytes(buffer, sizeof(buffer), g->io_output_bps));
-                } else
-                        fputs("        -        -", stdout);
+                printf(" %8s", maybe_format_bytes(buffer, sizeof(buffer), g->memory_valid, g->memory));
+                printf(" %8s", maybe_format_bytes(buffer, sizeof(buffer), g->io_valid, g->io_input_bps));
+                printf(" %8s", maybe_format_bytes(buffer, sizeof(buffer), g->io_valid, g->io_output_bps));
 
                 putchar('\n');
         }
@@ -561,6 +562,7 @@ static void help(void) {
                "  -c                  Order by CPU load\n"
                "  -m                  Order by memory load\n"
                "  -i                  Order by IO load\n"
+               "  -r --raw            Provide raw (not human-readable) numbers\n"
                "     --cpu[=TYPE]     Show CPU usage as time or percentage (default)\n"
                "  -d --delay=DELAY    Delay between updates\n"
                "  -n --iterations=N   Run for N iterations before exiting\n"
@@ -583,6 +585,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "delay",      required_argument, NULL, 'd'         },
                 { "iterations", required_argument, NULL, 'n'         },
                 { "batch",      no_argument,       NULL, 'b'         },
+                { "raw",        no_argument,       NULL, 'r'         },
                 { "depth",      required_argument, NULL, ARG_DEPTH   },
                 { "cpu",        optional_argument, NULL, ARG_CPU_TYPE},
                 {}
@@ -594,7 +597,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 1);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hptcmin:bd:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hptcmin:brd:", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -647,6 +650,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'b':
                         arg_batch = true;
+                        break;
+
+                case 'r':
+                        arg_raw = true;
                         break;
 
                 case 'p':
@@ -707,8 +714,8 @@ int main(int argc, char *argv[]) {
 
         signal(SIGWINCH, columns_lines_cache_reset);
 
-        if (!on_tty())
-                arg_iterations = 1;
+        if (arg_iterations == (unsigned)-1)
+                arg_iterations = on_tty() ? 0 : 1;
 
         while (!quit) {
                 Hashmap *c;
@@ -741,6 +748,10 @@ int main(int argc, char *argv[]) {
                 if (arg_iterations && iteration >= arg_iterations)
                         break;
 
+                if (!on_tty()) /* non-TTY: Empty newline as delimiter between polls */
+                        fputs("\n", stdout);
+                fflush(stdout);
+
                 if (arg_batch) {
                         usleep(last_refresh + arg_delay - t);
                 } else {
@@ -754,8 +765,10 @@ int main(int argc, char *argv[]) {
                         }
                 }
 
-                fputs("\r \r", stdout);
-                fflush(stdout);
+                if (on_tty()) { /* TTY: Clear any user keystroke */
+                        fputs("\r \r", stdout);
+                        fflush(stdout);
+                }
 
                 if (arg_batch)
                         continue;
