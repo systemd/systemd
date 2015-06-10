@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2015-02-19 16:03+0100\n"
-"PO-Revision-Date: 2015-02-19 16:34+0100\n"
+"POT-Creation-Date: 2015-06-10 23:04+0200\n"
+"PO-Revision-Date: 2015-06-10 23:10+0100\n"
 "Last-Translator: Daniele Medri <dmedri@gmail.com>\n"
 "Language-Team: Italian\n"
 "Language: it\n"
@@ -16,7 +16,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
-"X-Generator: Poedit 1.7.3\n"
+"X-Generator: Poedit 1.7.6\n"
 
 #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:1
 msgid "Send passphrase back to system"
@@ -100,10 +100,26 @@ msgstr ""
 "locale."
 
 #: ../src/import/org.freedesktop.import1.policy.in.h:1
+msgid "Import a VM or container image"
+msgstr "Importa un'immagine VM o un container"
+
+#: ../src/import/org.freedesktop.import1.policy.in.h:2
+msgid "Authentication is required to import a VM or container image"
+msgstr "Autenticazione richiesta per importare un'immagine VM o un container"
+
+#: ../src/import/org.freedesktop.import1.policy.in.h:3
+msgid "Export a VM or container image"
+msgstr "Esporta un'immagine VM o un container"
+
+#: ../src/import/org.freedesktop.import1.policy.in.h:4
+msgid "Authentication is required to export a VM or container image"
+msgstr "Autenticazione richiesta per esportare un'immagine VM o un container"
+
+#: ../src/import/org.freedesktop.import1.policy.in.h:5
 msgid "Download a VM or container image"
 msgstr "Scarica un'immagine VM o un container"
 
-#: ../src/import/org.freedesktop.import1.policy.in.h:2
+#: ../src/import/org.freedesktop.import1.policy.in.h:6
 msgid "Authentication is required to download a VM or container image"
 msgstr "Autenticazione richiesta per scaricare un'immagine VM o un container"
 
@@ -413,6 +429,20 @@ msgstr "Blocca/sblocca sessioni attive"
 msgid "Authentication is required to lock or unlock active sessions."
 msgstr "Autenticazione richiesta per bloccare o sbloccare le sessioni attive."
 
+#: ../src/login/org.freedesktop.login1.policy.in.h:53
+msgid "Allow indication to the firmware to boot to setup interface"
+msgstr ""
+"Permette indicazioni per il firmware per avviare l'interfaccia di "
+"configurazione"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:54
+msgid ""
+"Authentication is required to indicate to the firmware to boot to setup "
+"interface."
+msgstr ""
+"Autenticazione richiesta per indicare al firmware di avviare l'interfaccia "
+"di configurazione."
+
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:1
 msgid "Log into a local container"
 msgstr "Accedi in un container locale"
@@ -484,14 +514,3 @@ msgid ""
 msgstr ""
 "Autenticazione richiesta per verificare se la sincronizzazione dell'orario "
 "in rete possa essere attivata."
-
-#: ../src/fsckd/fsckd.c:186
-msgid "Press Ctrl+C to cancel all filesystem checks in progress"
-msgstr "Premere Ctrl+C per annullare i controlli in corso sul filesystem"
-
-#: ../src/fsckd/fsckd.c:227
-#, c-format
-msgid "Checking in progress on %d disk (%3.1f%% complete)"
-msgid_plural "Checking in progress on %d disks (%3.1f%% complete)"
-msgstr[0] "Controllo in corso sul disco %d (%3.1f%% completato)"
-msgstr[1] "Controllo in corso sui dischi %d (%3.1f%% completato)"
