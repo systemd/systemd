@@ -7,9 +7,8 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: systemd master\n"
-"Report-Msgid-Bugs-To: https://bugs.freedesktop.org/enter_bug.cgi?"
-"product=systemd&keywords=I18N+L10N&component=general\n"
-"POT-Creation-Date: 2015-01-01 21:18+0000\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2015-06-10 23:25+0200\n"
 "PO-Revision-Date: 2015-01-10 12:23-0300\n"
 "Last-Translator: Rafael Ferreira <rafael.f.f1@gmail.com>\n"
 "Language-Team: Brazilian Portuguese <gnome-pt_br-list@gnome.org>\n"
@@ -19,6 +18,60 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n > 1);\n"
 "X-Generator: Poedit 1.7.1\n"
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:1
+msgid "Send passphrase back to system"
+msgstr "Enviar frase secreta de volta ao sistema"
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:2
+msgid ""
+"Authentication is required to send the entered passphrase back to the system."
+msgstr ""
+"É necessária autenticação para enviar a frase secreta informada de volta ao "
+"sistema."
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:3
+#, fuzzy
+msgid "Manage system services or other units"
+msgstr "Gerenciar unidades e serviços do sistema"
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:4
+#, fuzzy
+msgid "Authentication is required to manage system services or other units."
+msgstr ""
+"É necessária autenticação para gerenciar unidades e serviços do sistema."
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:5
+msgid "Manage system service or unit files"
+msgstr "Gerenciar arquivos de unidades e serviços do sistema"
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:6
+msgid "Authentication is required to manage system service or unit files."
+msgstr ""
+"É necessária autenticação para gerenciar arquivos \"unit\" e \"service\" do "
+"sistema."
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:7
+#, fuzzy
+msgid "Set or unset system and service manager environment variables"
+msgstr "Acesso privilegiado ao gerenciador de serviço e de sistema"
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:8
+#, fuzzy
+msgid ""
+"Authentication is required to set or unset system and service manager "
+"environment variables."
+msgstr ""
+"É necessária autenticação para gerenciar arquivos \"unit\" e \"service\" do "
+"sistema."
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:9
+msgid "Reload the systemd state"
+msgstr "Recarregar o estado do sistema"
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:10
+msgid "Authentication is required to reload the systemd state."
+msgstr "É necessária autenticação para recarregar o estado do sistema."
 
 #: ../src/hostname/org.freedesktop.hostname1.policy.in.h:1
 msgid "Set host name"
@@ -47,6 +100,33 @@ msgstr "Definir informações da máquina"
 #: ../src/hostname/org.freedesktop.hostname1.policy.in.h:6
 msgid "Authentication is required to set local machine information."
 msgstr "É necessária autenticação para definir informações de máquina local."
+
+#: ../src/import/org.freedesktop.import1.policy.in.h:1
+msgid "Import a VM or container image"
+msgstr ""
+
+#: ../src/import/org.freedesktop.import1.policy.in.h:2
+#, fuzzy
+msgid "Authentication is required to import a VM or container image"
+msgstr "É necessária autenticação para se conectar a um contêiner local."
+
+#: ../src/import/org.freedesktop.import1.policy.in.h:3
+msgid "Export a VM or container image"
+msgstr ""
+
+#: ../src/import/org.freedesktop.import1.policy.in.h:4
+#, fuzzy
+msgid "Authentication is required to export a VM or container image"
+msgstr "É necessária autenticação para se conectar a um contêiner local."
+
+#: ../src/import/org.freedesktop.import1.policy.in.h:5
+msgid "Download a VM or container image"
+msgstr ""
+
+#: ../src/import/org.freedesktop.import1.policy.in.h:6
+#, fuzzy
+msgid "Authentication is required to download a VM or container image"
+msgstr "É necessária autenticação para se conectar a um contêiner local."
 
 #: ../src/locale/org.freedesktop.locale1.policy.in.h:1
 msgid "Set system locale"
@@ -331,13 +411,65 @@ msgstr ""
 "É necessária autenticação para hibernar o sistema enquanto um aplicativo "
 "solicitou inibição."
 
+#: ../src/login/org.freedesktop.login1.policy.in.h:49
+msgid "Manage active sessions, users and seats"
+msgstr ""
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:50
+#, fuzzy
+msgid ""
+"Authentication is required for managing active sessions, users and seats."
+msgstr "É necessária autenticação para conectar um dispositivo em uma estação."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:51
+msgid "Lock or unlock active sessions"
+msgstr ""
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:52
+#, fuzzy
+msgid "Authentication is required to lock or unlock active sessions."
+msgstr "É necessária autenticação para se conectar a um contêiner local."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:53
+msgid "Allow indication to the firmware to boot to setup interface"
+msgstr ""
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:54
+#, fuzzy
+msgid ""
+"Authentication is required to indicate to the firmware to boot to setup "
+"interface."
+msgstr "É necessária autenticação para definir nome de máquina local."
+
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:1
 msgid "Log into a local container"
 msgstr "Conectar a um contêiner local"
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:2
-msgid "Authentication is required to log into a local container"
+#, fuzzy
+msgid "Authentication is required to log into a local container."
 msgstr "É necessária autenticação para se conectar a um contêiner local."
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:3
+msgid "Manage local virtual machines and containers"
+msgstr ""
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:4
+#, fuzzy
+msgid ""
+"Authentication is required to manage local virtual machines and containers."
+msgstr "É necessária autenticação para definir informações de máquina local."
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:5
+msgid "Manage local virtual machine and container images"
+msgstr ""
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:6
+#, fuzzy
+msgid ""
+"Authentication is required to manage local virtual machine and container "
+"images."
+msgstr "É necessária autenticação para definir informações de máquina local."
 
 #: ../src/timedate/org.freedesktop.timedate1.policy.in.h:1
 msgid "Set system time"
@@ -378,55 +510,3 @@ msgid ""
 msgstr ""
 "É necessária autenticação para controlar se deve ser habilitada, ou não, a "
 "sincronização de horário através de rede."
-
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:1
-msgid "Send passphrase back to system"
-msgstr "Enviar frase secreta de volta ao sistema"
-
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:2
-msgid ""
-"Authentication is required to send the entered passphrase back to the system."
-msgstr ""
-"É necessária autenticação para enviar a frase secreta informada de volta ao "
-"sistema."
-
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:3
-msgid "Manage system services or units"
-msgstr "Gerenciar unidades e serviços do sistema"
-
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:4
-msgid "Authentication is required to manage system services or units."
-msgstr ""
-"É necessária autenticação para gerenciar unidades e serviços do sistema."
-
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:5
-msgid "Manage system service or unit files"
-msgstr "Gerenciar arquivos de unidades e serviços do sistema"
-
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:6
-msgid "Authentication is required to manage system service or unit files."
-msgstr ""
-"É necessária autenticação para gerenciar arquivos \"unit\" e \"service\" do "
-"sistema."
-
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:7
-msgid "Reload the systemd state"
-msgstr "Recarregar o estado do sistema"
-
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:8
-msgid "Authentication is required to reload the systemd state."
-msgstr "É necessária autenticação para recarregar o estado do sistema."
-
-#~ msgid "Privileged system and service manager access"
-#~ msgstr "Acesso privilegiado ao gerenciador de serviço e de sistema"
-
-#: ../src/fsckd/fsckd.c:186
-msgid "Press Ctrl+C to cancel all filesystem checks in progress"
-msgstr ""
-
-#: ../src/fsckd/fsckd.c:227
-#, c-format
-msgid "Checking in progress on %d disk (%3.1f%% complete)"
-msgid_plural "Checking in progress on %d disks (%3.1f%% complete)"
-msgstr[0] ""
-msgstr[1] ""
