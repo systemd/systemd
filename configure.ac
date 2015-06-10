@@ -159,10 +159,12 @@ CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
         -Wdeclaration-after-statement \
         -Wfloat-equal \
         -Wsuggest-attribute=noreturn \
-        -Wmissing-prototypes \
+        -Werror=missing-prototypes \
+        -Werror=implicit-function-declaration \
+        -Werror=missing-declarations \
+        -Werror=return-type \
         -Wstrict-prototypes \
         -Wredundant-decls \
-        -Wmissing-declarations \
         -Wmissing-noreturn \
         -Wshadow \
         -Wendif-labels \
