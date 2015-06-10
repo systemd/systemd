@@ -35,12 +35,8 @@ static int netdev_veth_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_m
         assert(m);
 
         r = sd_rtnl_message_open_container(m, VETH_INFO_PEER);
-        if (r < 0) {
-                log_netdev_error(netdev,
-                                 "Could not append VETH_INFO_PEER attribute: %s",
-                                 strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_netdev_error_errno(netdev, r, "Could not append VETH_INFO_PEER attribute: %m");
 
         if (v->ifname_peer) {
                 r = sd_rtnl_message_append_string(m, IFLA_IFNAME, v->ifname_peer);
@@ -50,21 +46,13 @@ static int netdev_veth_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_m
 
         if (v->mac_peer) {
                 r = sd_rtnl_message_append_ether_addr(m, IFLA_ADDRESS, v->mac_peer);
-                if (r < 0) {
-                        log_netdev_error(netdev,
-                                         "Could not append IFLA_ADDRESS attribute: %s",
-                                         strerror(-r));
-                    return r;
-                }
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_ADDRESS attribute: %m");
         }
 
         r = sd_rtnl_message_close_container(m);
-        if (r < 0) {
-                log_netdev_error(netdev,
-                                 "Could not append IFLA_INFO_DATA attribute: %s",
-                                 strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_netdev_error_errno(netdev, r, "Could not append IFLA_INFO_DATA attribute: %m");
 
         return r;
 }
