@@ -182,6 +182,7 @@ mouse:usb:v046dpc045:name:Logitech USB-PS/2 Optical Mouse:
  MOUSE_DPI=600@125
 
 # Logitech Wireless Mouse M325
+mouse:usb:v046dp400a:name:Logitech M325:
 mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:400a:
  MOUSE_DPI=600@166
  MOUSE_WHEEL_CLICK_ANGLE=20
@@ -215,8 +216,10 @@ mouse:usb:v046dp1028:name:Logitech M570:
  MOUSE_DPI=540@167
 
 # Logitech Wireless Mouse M185
+mouse:usb:v046dp4008:name:Logitech M185:
 mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:4008:
 # Logitech M705 (marathon mouse)
+mouse:usb:v046dp101b:name:Logitech M705:
 mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:101b:
  MOUSE_DPI=800@166
 
@@ -227,6 +230,8 @@ mouse:usb:v046dpc24e:name:Logitech G500s Laser Gaming Mouse:
  MOUSE_DPI=400@500 *800@500 2000@500
 
 # Logitech B605 Wireless Mouse (also M505)
+mouse:usb:v046dp101d:name:Logitech B605:
+mouse:usb:v046dp101d:name:Logitech M505:
 mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:101d:
  MOUSE_DPI=900@166
 
@@ -255,10 +260,12 @@ mouse:usb:v046dpc069:name:Logitech USB Laser Mouse:
  MOUSE_DPI=1200@125
 
 # Logitech T620 (or, the soap)
+mouse:usb:v046dp4027:name:Logitech T620:
 mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:4027:
  MOUSE_DPI=1200@250
 
 # Logitech ZoneTouch Mouse T400
+mouse:usb:v046dp4026:name:Logitech T400:
 mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:4026:
  MOUSE_DPI=1300@166
 
