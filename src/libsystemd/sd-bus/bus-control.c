@@ -979,8 +979,10 @@ static int bus_get_owner_creds_dbus1(sd_bus *bus, uint64_t mask, sd_bus_creds **
         _cleanup_bus_creds_unref_ sd_bus_creds *c = NULL;
         pid_t pid = 0;
         int r;
+        bool do_label = bus->label && (mask & SD_BUS_CREDS_SELINUX_CONTEXT);
 
-        if (!bus->ucred_valid && isempty(bus->label))
+        /* Avoid allocating anything if we have no chance of returning useful data */
+        if (!bus->ucred_valid && !do_label)
                 return -ENODATA;
 
         c = bus_creds_new();
@@ -1004,7 +1006,7 @@ static int bus_get_owner_creds_dbus1(sd_bus *bus, uint64_t mask, sd_bus_creds **
                 }
         }
 
-        if (!isempty(bus->label) && (mask & SD_BUS_CREDS_SELINUX_CONTEXT)) {
+        if (do_label) {
                 c->label = strdup(bus->label);
                 if (!c->label)
                         return -ENOMEM;

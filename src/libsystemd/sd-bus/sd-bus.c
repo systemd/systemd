@@ -131,6 +131,7 @@ static void bus_free(sd_bus *b) {
         if (b->kdbus_buffer)
                 munmap(b->kdbus_buffer, KDBUS_POOL_SIZE);
 
+        free(b->label);
         free(b->rbuffer);
         free(b->unique_name);
         free(b->auth_buffer);
