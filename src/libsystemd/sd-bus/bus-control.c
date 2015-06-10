@@ -980,7 +980,7 @@ static int bus_get_owner_creds_dbus1(sd_bus *bus, uint64_t mask, sd_bus_creds **
         pid_t pid = 0;
         int r;
 
-        if (!bus->ucred_valid && !isempty(bus->label))
+        if (!bus->ucred_valid && isempty(bus->label))
                 return -ENODATA;
 
         c = bus_creds_new();
