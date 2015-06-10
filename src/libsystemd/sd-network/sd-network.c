@@ -329,10 +329,10 @@ _public_ int sd_network_monitor_new(sd_network_monitor **m, const char *category
 _public_ sd_network_monitor* sd_network_monitor_unref(sd_network_monitor *m) {
         int fd;
 
-        assert_return(m, NULL);
-
-        fd = MONITOR_TO_FD(m);
-        close_nointr(fd);
+        if (m) {
+                fd = MONITOR_TO_FD(m);
+                close_nointr(fd);
+        }
 
         return NULL;
 }
