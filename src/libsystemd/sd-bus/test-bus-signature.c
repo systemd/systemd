@@ -95,23 +95,28 @@ int main(int argc, char *argv[]) {
         assert_se(!namespace_complex_pattern("foo.", ""));
 
         assert_se(path_complex_pattern("", ""));
-        assert_se(path_complex_pattern("", "/"));
-        assert_se(path_complex_pattern("/", ""));
+        assert_se(!path_complex_pattern("", "/"));
+        assert_se(!path_complex_pattern("/", ""));
         assert_se(path_complex_pattern("/", "/"));
         assert_se(path_complex_pattern("/foobar/", "/"));
-        assert_se(path_complex_pattern("/foobar/", "/foobar"));
+        assert_se(!path_complex_pattern("/foobar/", "/foobar"));
         assert_se(path_complex_pattern("/foobar", "/foobar"));
-        assert_se(path_complex_pattern("/foobar", "/foobar/"));
+        assert_se(!path_complex_pattern("/foobar", "/foobar/"));
         assert_se(!path_complex_pattern("/foobar", "/foobar/waldo"));
         assert_se(path_complex_pattern("/foobar/", "/foobar/waldo"));
+        assert_se(path_complex_pattern("/foobar/waldo", "/foobar/"));
+
+        assert_se(path_simple_pattern("/foo/", "/foo/bar/waldo"));
 
         assert_se(namespace_simple_pattern("", ""));
+        assert_se(namespace_simple_pattern("", ".foobar"));
         assert_se(namespace_simple_pattern("foobar", "foobar"));
         assert_se(namespace_simple_pattern("foobar.waldo", "foobar.waldo"));
         assert_se(namespace_simple_pattern("foobar", "foobar.waldo"));
         assert_se(!namespace_simple_pattern("foobar.waldo", "foobar"));
         assert_se(!namespace_simple_pattern("", "foo"));
         assert_se(!namespace_simple_pattern("foo", ""));
+        assert_se(namespace_simple_pattern("foo.", "foo.bar.waldo"));
 
         assert_se(streq(object_path_startswith("/foo/bar", "/foo"), "bar"));
         assert_se(streq(object_path_startswith("/foo", "/foo"), ""));
