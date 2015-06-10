@@ -68,7 +68,7 @@ static void help(void) {
         printf("%s [OPTIONS...] {COMMAND} [ARGS...]\n\n"
                "Run the specified command in a transient scope or service or timer\n"
                "unit. If timer option is specified and unit is exist which is\n"
-               "specified with --unit option then command can be ommited.\n\n"
+               "specified with --unit option then command can be omitted.\n\n"
                "  -h --help                       Show this help\n"
                "     --version                    Show package version\n"
                "     --user                       Run as user unit\n"
