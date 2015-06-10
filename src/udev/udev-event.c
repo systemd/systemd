@@ -42,6 +42,7 @@ typedef struct Spawn {
         pid_t pid;
         usec_t timeout_warn;
         usec_t timeout;
+        bool accept_failure;
 } Spawn;
 
 struct udev_event *udev_event_new(struct udev_device *dev) {
@@ -583,14 +584,16 @@ static int on_spawn_sigchld(sd_event_source *s, const siginfo_t *si, void *userd
 
         switch (si->si_code) {
         case CLD_EXITED:
-                if (si->si_status != 0)
-                        log_warning("process '%s' failed with exit code %i.", spawn->cmd, si->si_status);
-                else {
+                if (si->si_status == 0) {
                         log_debug("process '%s' succeeded.", spawn->cmd);
                         sd_event_exit(sd_event_source_get_event(s), 0);
 
                         return 1;
                 }
+                if (spawn->accept_failure)
+                        log_debug("process '%s' failed with exit code %i.", spawn->cmd, si->si_status);
+                else
+                        log_warning("process '%s' failed with exit code %i.", spawn->cmd, si->si_status);
 
                 break;
         case CLD_KILLED:
@@ -610,10 +613,12 @@ static int on_spawn_sigchld(sd_event_source *s, const siginfo_t *si, void *userd
 static int spawn_wait(struct udev_event *event,
                       usec_t timeout_usec,
                       usec_t timeout_warn_usec,
-                      const char *cmd, pid_t pid) {
+                      const char *cmd, pid_t pid,
+                      bool accept_failure) {
         Spawn spawn = {
                 .cmd = cmd,
                 .pid = pid,
+                .accept_failure = accept_failure,
         };
         _cleanup_event_unref_ sd_event *e = NULL;
         int r, ret;
@@ -698,6 +703,7 @@ out:
 int udev_event_spawn(struct udev_event *event,
                      usec_t timeout_usec,
                      usec_t timeout_warn_usec,
+                     bool accept_failure,
                      const char *cmd, char **envp,
                      char *result, size_t ressize) {
         int outpipe[2] = {-1, -1};
@@ -773,7 +779,7 @@ int udev_event_spawn(struct udev_event *event,
                            outpipe[READ_END], errpipe[READ_END],
                            result, ressize);
 
-                err = spawn_wait(event, timeout_usec, timeout_warn_usec, cmd, pid);
+                err = spawn_wait(event, timeout_usec, timeout_warn_usec, cmd, pid, accept_failure);
         }
 
 out:
@@ -930,7 +936,7 @@ void udev_event_execute_run(struct udev_event *event, usec_t timeout_usec, usec_
 
                         udev_event_apply_format(event, cmd, program, sizeof(program));
                         envp = udev_device_get_properties_envp(event->dev);
-                        udev_event_spawn(event, timeout_usec, timeout_warn_usec, program, envp, NULL, 0);
+                        udev_event_spawn(event, timeout_usec, timeout_warn_usec, false, program, envp, NULL, 0);
                 }
         }
 }

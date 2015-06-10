@@ -641,7 +641,7 @@ static int import_program_into_properties(struct udev_event *event,
         int err;
 
         envp = udev_device_get_properties_envp(dev);
-        err = udev_event_spawn(event, timeout_usec, timeout_warn_usec, program, envp, result, sizeof(result));
+        err = udev_event_spawn(event, timeout_usec, timeout_warn_usec, true, program, envp, result, sizeof(result));
         if (err < 0)
                 return err;
 
@@ -2131,7 +2131,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules,
                                   rules_str(rules, rule->rule.filename_off),
                                   rule->rule.filename_line);
 
-                        if (udev_event_spawn(event, timeout_usec, timeout_warn_usec, program, envp, result, sizeof(result)) < 0) {
+                        if (udev_event_spawn(event, timeout_usec, timeout_warn_usec, true, program, envp, result, sizeof(result)) < 0) {
                                 if (cur->key.op != OP_NOMATCH)
                                         goto nomatch;
                         } else {
