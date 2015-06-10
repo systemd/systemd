@@ -26,6 +26,14 @@
 #include "bus-kernel.h"
 #include "bus-util.h"
 
+static int test_match(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+        int *found = userdata;
+
+        *found = 1;
+
+        return 0;
+}
+
 static void test_one(
                 const char *path,
                 const char *interface,
@@ -39,7 +47,7 @@ static void test_one(
         _cleanup_free_ char *name = NULL, *bus_name = NULL, *address = NULL;
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
         sd_bus *a, *b;
-        int r;
+        int r, found = 0;
 
         assert_se(asprintf(&name, "deine-mutter-%u", (unsigned) getpid()) >= 0);
 
@@ -71,7 +79,7 @@ static void test_one(
         assert_se(r >= 0);
 
         log_debug("match");
-        r = sd_bus_add_match(b, NULL, match, NULL, NULL);
+        r = sd_bus_add_match(b, NULL, match, test_match, &found);
         assert_se(r >= 0);
 
         log_debug("signal");
@@ -83,7 +91,7 @@ static void test_one(
         assert_se(r >= 0);
 
         r = sd_bus_process(b, &m);
-        assert_se(r >= 0 && (good == !!m));
+        assert_se(r >= 0 && good == !!found);
 
         sd_bus_unref(a);
         sd_bus_unref(b);
