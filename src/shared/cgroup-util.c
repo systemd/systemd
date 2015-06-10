@@ -441,9 +441,7 @@ static const char *normalize_controller(const char *controller) {
 
         assert(controller);
 
-        if (streq(controller, SYSTEMD_CGROUP_CONTROLLER))
-                return "systemd";
-        else if (startswith(controller, "name="))
+        if (startswith(controller, "name="))
                 return controller + 5;
         else
                 return controller;
@@ -483,7 +481,7 @@ int cg_get_path(const char *controller, const char *path, const char *suffix, ch
 
         assert(fs);
 
-        if (controller && !cg_controller_is_valid(controller, true))
+        if (controller && !cg_controller_is_valid(controller))
                 return -EINVAL;
 
         if (_unlikely_(!good)) {
@@ -526,7 +524,7 @@ int cg_get_path_and_check(const char *controller, const char *path, const char *
 
         assert(fs);
 
-        if (!cg_controller_is_valid(controller, true))
+        if (!cg_controller_is_valid(controller))
                 return -EINVAL;
 
         /* Normalize the controller syntax */
@@ -742,7 +740,7 @@ int cg_pid_get_path(const char *controller, pid_t pid, char **path) {
         assert(pid >= 0);
 
         if (controller) {
-                if (!cg_controller_is_valid(controller, true))
+                if (!cg_controller_is_valid(controller))
                         return -EINVAL;
 
                 controller = normalize_controller(controller);
@@ -971,7 +969,7 @@ int cg_split_spec(const char *spec, char **controller, char **path) {
 
         e = strchr(spec, ':');
         if (!e) {
-                if (!cg_controller_is_valid(spec, true))
+                if (!cg_controller_is_valid(spec))
                         return -EINVAL;
 
                 if (controller) {
@@ -994,7 +992,7 @@ int cg_split_spec(const char *spec, char **controller, char **path) {
         t = strdup(normalize_controller(v));
         if (!t)
                 return -ENOMEM;
-        if (!cg_controller_is_valid(t, true)) {
+        if (!cg_controller_is_valid(t)) {
                 free(t);
                 return -EINVAL;
         }
@@ -1610,17 +1608,15 @@ char *cg_unescape(const char *p) {
         DIGITS LETTERS                          \
         "_"
 
-bool cg_controller_is_valid(const char *p, bool allow_named) {
+bool cg_controller_is_valid(const char *p) {
         const char *t, *s;
 
         if (!p)
                 return false;
 
-        if (allow_named) {
-                s = startswith(p, "name=");
-                if (s)
-                        p = s;
-        }
+        s = startswith(p, "name=");
+        if (s)
+                p = s;
 
         if (*p == 0 || *p == '_')
                 return false;
