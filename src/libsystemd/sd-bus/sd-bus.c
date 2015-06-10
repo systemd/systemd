@@ -49,19 +49,20 @@
 #include "bus-track.h"
 #include "bus-slot.h"
 
-#define log_debug_bus_message(m) do { \
-                  sd_bus_message *_m = (m); \
-                  log_debug("Got message type=%s sender=%s destination=%s object=%s interface=%s member=%s cookie=%" PRIu64 " reply_cookie=%" PRIu64 " error=%s", \
-                  bus_message_type_to_string(_m->header->type), \
-                  strna(sd_bus_message_get_sender(_m)), \
-                  strna(sd_bus_message_get_destination(_m)), \
-                  strna(sd_bus_message_get_path(_m)), \
-                  strna(sd_bus_message_get_interface(_m)), \
-                  strna(sd_bus_message_get_member(_m)), \
-                  BUS_MESSAGE_COOKIE(_m), \
-                  _m->reply_cookie, \
-                  strna(_m->error.message)); \
-                  } while (false)
+#define log_debug_bus_message(m)                                         \
+        do {                                                             \
+                sd_bus_message *_mm = (m);                               \
+                log_debug("Got message type=%s sender=%s destination=%s object=%s interface=%s member=%s cookie=%" PRIu64 " reply_cookie=%" PRIu64 " error=%s", \
+                          bus_message_type_to_string(_mm->header->type), \
+                          strna(sd_bus_message_get_sender(_mm)),         \
+                          strna(sd_bus_message_get_destination(_mm)),    \
+                          strna(sd_bus_message_get_path(_mm)),           \
+                          strna(sd_bus_message_get_interface(_mm)),      \
+                          strna(sd_bus_message_get_member(_mm)),         \
+                          BUS_MESSAGE_COOKIE(_mm),                       \
+                          _mm->reply_cookie,                             \
+                          strna(_mm->error.message));                    \
+        } while (false)
 
 static int bus_poll(sd_bus *bus, bool need_more, uint64_t timeout_usec);
 static int attach_io_events(sd_bus *b);
