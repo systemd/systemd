@@ -599,7 +599,7 @@ static int manager_on_notify(sd_event_source *s, int fd, uint32_t revents, void 
 
         cmsg_close_all(&msghdr);
 
-        for (cmsg = CMSG_FIRSTHDR(&msghdr); cmsg; cmsg = CMSG_NXTHDR(&msghdr, cmsg)) {
+        CMSG_FOREACH(cmsg, &msghdr) {
                 if (cmsg->cmsg_level == SOL_SOCKET &&
                            cmsg->cmsg_type == SCM_CREDENTIALS &&
                            cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred))) {

@@ -113,7 +113,8 @@ static int dns_stream_identify(DnsStream *s) {
 
         mh.msg_control = &control;
         mh.msg_controllen = sl;
-        for (cmsg = CMSG_FIRSTHDR(&mh); cmsg; cmsg = CMSG_NXTHDR(&mh, cmsg)) {
+
+        CMSG_FOREACH(cmsg, &mh) {
 
                 if (cmsg->cmsg_level == IPPROTO_IPV6) {
                         assert(s->peer.sa.sa_family == AF_INET6);

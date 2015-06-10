@@ -502,7 +502,6 @@ static int bus_socket_read_auth(sd_bus *b) {
                 struct cmsghdr cmsghdr;
                 uint8_t buf[CMSG_SPACE(sizeof(int) * BUS_FDS_MAX)];
         } control;
-        struct cmsghdr *cmsg;
         bool handle_cmsg = false;
 
         assert(b);
@@ -552,8 +551,10 @@ static int bus_socket_read_auth(sd_bus *b) {
 
         b->rbuffer_size += k;
 
-        if (handle_cmsg)
-                for (cmsg = CMSG_FIRSTHDR(&mh); cmsg; cmsg = CMSG_NXTHDR(&mh, cmsg))
+        if (handle_cmsg) {
+                struct cmsghdr *cmsg;
+
+                CMSG_FOREACH(cmsg, &mh)
                         if (cmsg->cmsg_level == SOL_SOCKET &&
                             cmsg->cmsg_type == SCM_RIGHTS) {
                                 int j;
@@ -567,6 +568,7 @@ static int bus_socket_read_auth(sd_bus *b) {
                         } else
                                 log_debug("Got unexpected auxiliary data with level=%d and type=%d",
                                           cmsg->cmsg_level, cmsg->cmsg_type);
+        }
 
         r = bus_socket_auth_verify(b);
         if (r != 0)
@@ -916,7 +918,6 @@ int bus_socket_read_message(sd_bus *bus) {
                 struct cmsghdr cmsghdr;
                 uint8_t buf[CMSG_SPACE(sizeof(int) * BUS_FDS_MAX)];
         } control;
-        struct cmsghdr *cmsg;
         bool handle_cmsg = false;
 
         assert(bus);
@@ -961,8 +962,10 @@ int bus_socket_read_message(sd_bus *bus) {
 
         bus->rbuffer_size += k;
 
-        if (handle_cmsg)
-                for (cmsg = CMSG_FIRSTHDR(&mh); cmsg; cmsg = CMSG_NXTHDR(&mh, cmsg))
+        if (handle_cmsg) {
+                struct cmsghdr *cmsg;
+
+                CMSG_FOREACH(cmsg, &mh)
                         if (cmsg->cmsg_level == SOL_SOCKET &&
                             cmsg->cmsg_type == SCM_RIGHTS) {
                                 int n, *f;
@@ -990,6 +993,7 @@ int bus_socket_read_message(sd_bus *bus) {
                         } else
                                 log_debug("Got unexpected auxiliary data with level=%d and type=%d",
                                           cmsg->cmsg_level, cmsg->cmsg_type);
+        }
 
         r = bus_socket_read_message_need(bus, &need);
         if (r < 0)

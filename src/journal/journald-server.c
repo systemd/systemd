@@ -1177,7 +1177,7 @@ int server_process_datagram(sd_event_source *es, int fd, uint32_t revents, void 
                         return -errno;
                 }
 
-                for (cmsg = CMSG_FIRSTHDR(&msghdr); cmsg; cmsg = CMSG_NXTHDR(&msghdr, cmsg)) {
+                CMSG_FOREACH(cmsg, &msghdr) {
 
                         if (cmsg->cmsg_level == SOL_SOCKET &&
                             cmsg->cmsg_type == SCM_CREDENTIALS &&

@@ -696,12 +696,11 @@ int setup_netns(int netns_storage_socket[2]) {
         } else {
                 /* Yay, found something, so let's join the namespace */
 
-                for (cmsg = CMSG_FIRSTHDR(&mh); cmsg; cmsg = CMSG_NXTHDR(&mh, cmsg)) {
+                CMSG_FOREACH(cmsg, &mh)
                         if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_RIGHTS) {
                                 assert(cmsg->cmsg_len == CMSG_LEN(sizeof(int)));
                                 netns = *(int*) CMSG_DATA(cmsg);
                         }
-                }
 
                 if (setns(netns, CLONE_NEWNET) < 0) {
                         r = -errno;
