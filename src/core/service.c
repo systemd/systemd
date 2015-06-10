@@ -2008,6 +2008,7 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
                 unit_serialize_item_format(u, f, "main-pid", PID_FMT, s->main_pid);
 
         unit_serialize_item(u, f, "main-pid-known", yes_no(s->main_pid_known));
+        unit_serialize_item(u, f, "bus-name-good", yes_no(s->bus_name_good));
 
         if (s->status_text) {
                 _cleanup_free_ char *c = NULL;
@@ -2131,6 +2132,14 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                         log_unit_debug(u, "Failed to parse main-pid-known value: %s", value);
                 else
                         s->main_pid_known = b;
+        } else if (streq(key, "bus-name-good")) {
+                int b;
+
+                b = parse_boolean(value);
+                if (b < 0)
+                        log_unit_debug(u, "Failed to parse bus-name-good value: %s", value);
+                else
+                        s->bus_name_good = b;
         } else if (streq(key, "status-text")) {
                 char *t;
 
