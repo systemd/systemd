@@ -1291,10 +1291,8 @@ int bus_add_match_internal_kernel(
                         break;
 
                 case BUS_MATCH_PATH_NAMESPACE:
-                        if (!streq(c->value_str, "/")) {
-                                bloom_add_pair(bloom, bus->bloom_size, bus->bloom_n_hash, "path-slash-prefix", c->value_str);
-                                using_bloom = true;
-                        }
+                        bloom_add_pair(bloom, bus->bloom_size, bus->bloom_n_hash, "path-slash-prefix", c->value_str);
+                        using_bloom = true;
                         break;
 
                 case BUS_MATCH_ARG...BUS_MATCH_ARG_LAST: {

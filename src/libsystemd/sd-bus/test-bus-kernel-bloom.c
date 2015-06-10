@@ -123,6 +123,7 @@ int main(int argc, char *argv[]) {
         test_one("/foo/bar/waldo", "waldo.com", "Piep", false, "foobar", "path_namespace='/foo'", true);
         test_one("/foo/bar/waldo", "waldo.com", "Piep", false, "foobar", "path_namespace='/'", true);
         test_one("/foo/bar/waldo", "waldo.com", "Piep", false, "foobar", "path_namespace='/quux'", false);
+        test_one("/", "waldo.com", "Piep", false, "foobar", "path_namespace='/'", true);
 
         test_one("/foo/bar/waldo", "waldo.com", "Piep", false, "foobar", "path='/foo/bar/waldo/'", false);
         test_one("/foo/bar/waldo", "waldo.com", "Piep", false, "foobar", "path='/foo/'", false);
