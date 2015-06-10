@@ -198,7 +198,7 @@ static void test_marshal(void) {
         }
 #endif
 
-        assert_se(bus_message_from_malloc(bus, blob, sz, NULL, 0, NULL, NULL, &n) >= 0);
+        assert_se(bus_message_from_malloc(bus, blob, sz, NULL, 0, NULL, &n) >= 0);
         blob = NULL;
 
         assert_se(bus_message_dump(n, NULL, BUS_MESSAGE_DUMP_WITH_HEADER) >= 0);

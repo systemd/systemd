@@ -435,7 +435,6 @@ int bus_message_from_header(
                 size_t message_size,
                 int *fds,
                 unsigned n_fds,
-                const struct ucred *ucred,
                 const char *label,
                 size_t extra,
                 sd_bus_message **ret) {
@@ -528,23 +527,6 @@ int bus_message_from_header(
         m->fds = fds;
         m->n_fds = n_fds;
 
-        if (ucred) {
-                m->creds.pid = ucred->pid;
-                m->creds.euid = ucred->uid;
-                m->creds.egid = ucred->gid;
-
-                /* Due to namespace translations some data might be
-                 * missing from this ucred record. */
-                if (m->creds.pid > 0)
-                        m->creds.mask |= SD_BUS_CREDS_PID;
-
-                if (m->creds.euid != UID_INVALID)
-                        m->creds.mask |= SD_BUS_CREDS_EUID;
-
-                if (m->creds.egid != GID_INVALID)
-                        m->creds.mask |= SD_BUS_CREDS_EGID;
-        }
-
         if (label) {
                 m->creds.label = (char*) m + ALIGN(sizeof(sd_bus_message)) + ALIGN(extra);
                 memcpy(m->creds.label, label, label_sz + 1);
@@ -565,7 +547,6 @@ int bus_message_from_malloc(
                 size_t length,
                 int *fds,
                 unsigned n_fds,
-                const struct ucred *ucred,
                 const char *label,
                 sd_bus_message **ret) {
 
@@ -579,7 +560,7 @@ int bus_message_from_malloc(
                         buffer, length,
                         length,
                         fds, n_fds,
-                        ucred, label,
+                        label,
                         0, &m);
         if (r < 0)
                 return r;

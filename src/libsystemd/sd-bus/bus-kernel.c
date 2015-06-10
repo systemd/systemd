@@ -498,7 +498,6 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
                         footer, footer_size,
                         n_bytes,
                         fds, n_fds,
-                        NULL,
                         seclabel, 0, &m);
         if (r < 0)
                 return r;

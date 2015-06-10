@@ -915,7 +915,6 @@ static int bus_socket_make_message(sd_bus *bus, size_t size) {
                                     bus->rbuffer, size,
                                     bus->fds, bus->n_fds,
                                     NULL,
-                                    NULL,
                                     &t);
         if (r < 0) {
                 free(b);

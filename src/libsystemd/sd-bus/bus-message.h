@@ -205,7 +205,6 @@ int bus_message_from_header(
                 size_t message_size,
                 int *fds,
                 unsigned n_fds,
-                const struct ucred *ucred,
                 const char *label,
                 size_t extra,
                 sd_bus_message **ret);
@@ -216,7 +215,6 @@ int bus_message_from_malloc(
                 size_t length,
                 int *fds,
                 unsigned n_fds,
-                const struct ucred *ucred,
                 const char *label,
                 sd_bus_message **ret);
 
