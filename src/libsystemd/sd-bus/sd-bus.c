@@ -51,7 +51,7 @@
 
 #define log_debug_bus_message(m) do { \
                   sd_bus_message *_m = (m); \
-                  log_debug("1Got message type=%s sender=%s destination=%s object=%s interface=%s member=%s cookie=%" PRIu64 " reply_cookie=%" PRIu64 " error=%s", \
+                  log_debug("Got message type=%s sender=%s destination=%s object=%s interface=%s member=%s cookie=%" PRIu64 " reply_cookie=%" PRIu64 " error=%s", \
                   bus_message_type_to_string(_m->header->type), \
                   strna(sd_bus_message_get_sender(_m)), \
                   strna(sd_bus_message_get_destination(_m)), \
