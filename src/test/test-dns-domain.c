@@ -20,7 +20,7 @@
  ***/
 
 #include "macro.h"
-#include "resolved-dns-domain.h"
+#include "dns-domain.h"
 
 static void test_dns_label_unescape_one(const char *what, const char *expect, size_t buffer_sz, int ret) {
         char buffer[buffer_sz];

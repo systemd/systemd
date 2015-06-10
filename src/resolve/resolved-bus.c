@@ -22,7 +22,7 @@
 #include "bus-common-errors.h"
 #include "bus-util.h"
 
-#include "resolved-dns-domain.h"
+#include "dns-domain.h"
 #include "resolved-bus.h"
 #include "resolved-def.h"
 

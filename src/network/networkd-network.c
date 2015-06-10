@@ -30,6 +30,7 @@
 #include "networkd-netdev.h"
 #include "networkd-link.h"
 #include "network-internal.h"
+#include "dns-domain.h"
 
 static int network_load_one(Manager *manager, const char *filename) {
         _cleanup_network_free_ Network *network = NULL;
@@ -466,9 +467,13 @@ int config_parse_domains(const char *unit,
         STRV_FOREACH(domain, *domains) {
                 if (is_localhost(*domain))
                         log_syntax(unit, LOG_ERR, filename, line, EINVAL, "'localhost' domain names may not be configured, ignoring assignment: %s", *domain);
-                else if (!hostname_is_valid(*domain)) {
-                        if (!streq(*domain, "*"))
-                                log_syntax(unit, LOG_ERR, filename, line, EINVAL, "domain name is not valid, ignoring assignment: %s", *domain);
+                else if ((r = dns_name_is_valid(*domain)) != 1) {
+                        if (!streq(*domain, "*")){
+                               if(r < 0)
+                                      log_error_errno(r, "failed to validate domain name: %s: %m", *domain);
+                               if(r == 0)
+                                      log_error("domain name is not valid, ignoring assignment: %s", *domain);
+                        }
                 } else
                         continue;
 
