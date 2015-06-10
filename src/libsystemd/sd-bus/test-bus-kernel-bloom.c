@@ -135,5 +135,15 @@ int main(int argc, char *argv[]) {
         test_one("/foo/bar/waldo", "waldo.com", "Piep", false, "/foo", "arg0path='/foo/bar/waldo'", false);
         test_one("/foo/bar/waldo", "waldo.com", "Piep", false, "/foo/", "arg0path='/foo/bar/waldo'", true);
 
+        test_one("/foo/bar/waldo", "waldo.com", "Piep", false, "foobar", "path='/foo/bar/waldo/'", false);
+        test_one("/foo/bar/waldo", "waldo.com", "Piep", false, "foobar", "path='/foo/'", false);
+        test_one("/foo/bar/waldo", "waldo.com", "Piep", false, "foobar", "path_namespace='/foo/bar/waldo/'", false);
+        test_one("/foo/bar/waldo", "waldo.com", "Piep", false, "foobar", "path_namespace='/foo/'", true);
+
+        test_one("/foo/bar/waldo", "waldo.com", "Piep", false, "/foo/bar/waldo", "arg0path='/foo/'", true);
+        test_one("/foo/bar/waldo", "waldo.com", "Piep", false, "/foo", "arg0path='/foo'", true);
+        test_one("/foo/bar/waldo", "waldo.com", "Piep", false, "/foo", "arg0path='/foo/bar/waldo'", false);
+        test_one("/foo/bar/waldo", "waldo.com", "Piep", false, "/foo/", "arg0path='/foo/bar/waldo'", true);
+
         return 0;
 }
