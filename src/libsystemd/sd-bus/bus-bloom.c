@@ -116,11 +116,19 @@ void bloom_add_prefixes(uint64_t filter[], size_t size, unsigned k, const char *
         p = stpcpy(stpcpy(c, a), ":");
         strcpy(p, b);
 
+        bloom_add_data(filter, size, k, c, n);
+
         for (;;) {
                 char *e;
 
                 e = strrchr(p, sep);
-                if (!e || e == p)
+                if (!e)
+                        break;
+
+                *(e + 1) = 0;
+                bloom_add_data(filter, size, k, c, e - c + 1);
+
+                if (e == p)
                         break;
 
                 *e = 0;
