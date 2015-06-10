@@ -749,7 +749,6 @@ static int set_hostname_handler(sd_bus_message *m, void *userdata, sd_bus_error 
 }
 
 int link_set_hostname(Link *link, const char *hostname) {
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
         int r = 0;
 
         assert(link);
@@ -764,22 +763,19 @@ int link_set_hostname(Link *link, const char *hostname) {
                 return 0;
         }
 
-        r = sd_bus_message_new_method_call(
+        r = sd_bus_call_method_async(
                         link->manager->bus,
-                        &m,
+                        NULL,
                         "org.freedesktop.hostname1",
                         "/org/freedesktop/hostname1",
                         "org.freedesktop.hostname1",
-                        "SetHostname");
-        if (r < 0)
-                return r;
+                        "SetHostname",
+                        set_hostname_handler,
+                        link,
+                        "sb",
+                        hostname,
+                        false);
 
-        r = sd_bus_message_append(m, "sb", hostname, false);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_call_async(link->manager->bus, NULL, m, set_hostname_handler,
-                              link, 0);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not set transient hostname: %m");
 
