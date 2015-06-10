@@ -3603,6 +3603,9 @@ test_unifont_LDADD = \
 src/libsystemd-terminal/unifont-glyph-array.bin: tools/compile-unifont.py $(UNIFONT)
 	$(AM_V_GEN)$(PYTHON) $< <$(UNIFONT) >$@
 
+EXTRA_DIST += \
+	tools/compile-unifont.py
+
 # ------------------------------------------------------------------------------
 include_HEADERS += \
 	src/libudev/libudev.h
