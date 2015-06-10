@@ -163,6 +163,7 @@ CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
         -Werror=implicit-function-declaration \
         -Werror=missing-declarations \
         -Werror=return-type \
+        -Werror=shadow \
         -Wstrict-prototypes \
         -Wredundant-decls \
         -Wmissing-noreturn \
