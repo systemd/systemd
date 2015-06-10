@@ -920,7 +920,7 @@ int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret) {
         } else
                 return -EAFNOSUPPORT;
 
-        for (cmsg = CMSG_FIRSTHDR(&mh); cmsg; cmsg = CMSG_NXTHDR(&mh, cmsg)) {
+        CMSG_FOREACH(cmsg, &mh) {
 
                 if (cmsg->cmsg_level == IPPROTO_IPV6) {
                         assert(p->family == AF_INET6);

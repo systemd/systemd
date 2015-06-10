@@ -1546,7 +1546,7 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
                         return -errno;
                 }
 
-                for (cmsg = CMSG_FIRSTHDR(&msghdr); cmsg; cmsg = CMSG_NXTHDR(&msghdr, cmsg)) {
+                CMSG_FOREACH(cmsg, &msghdr) {
                         if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_RIGHTS) {
 
                                 fd_array = (int*) CMSG_DATA(cmsg);

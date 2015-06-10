@@ -1442,7 +1442,7 @@ static int socket_recv_message(int fd, struct iovec *iov, uint32_t *_group, bool
                 return (errno == EAGAIN || errno == EINTR) ? 0 : -errno;
         }
 
-        for (cmsg = CMSG_FIRSTHDR(&msg); cmsg; cmsg = CMSG_NXTHDR(&msg, cmsg)) {
+        CMSG_FOREACH(cmsg, &msg) {
                 if (cmsg->cmsg_level == SOL_SOCKET &&
                     cmsg->cmsg_type == SCM_CREDENTIALS &&
                     cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred))) {

@@ -528,7 +528,7 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
         }
 
         recv_time = NULL;
-        for (cmsg = CMSG_FIRSTHDR(&msghdr); cmsg; cmsg = CMSG_NXTHDR(&msghdr, cmsg)) {
+        CMSG_FOREACH(cmsg, &msghdr) {
                 if (cmsg->cmsg_level != SOL_SOCKET)
                         continue;
 
