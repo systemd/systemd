@@ -472,7 +472,8 @@
               <varlistentry>
                 <term><literal>program</literal></term>
                 <listitem>
-                  <para>Execute an external program specified as the assigned value and
+                  <para>Execute an external program specified as the assigned
+                  value and if it returns successfully
                   import its output, which must be in environment key
                   format. Path specification, command/argument separation,
                   and quoting work like in <varname>RUN</varname>.</para>
