@@ -20,7 +20,7 @@
 ***/
 
 #include "resolved-dns-question.h"
-#include "resolved-dns-domain.h"
+#include "dns-domain.h"
 
 DnsQuestion *dns_question_new(unsigned n) {
         DnsQuestion *q;
