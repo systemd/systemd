@@ -338,10 +338,8 @@ _public_ int sd_network_monitor_new(sd_network_monitor **m, const char *category
                 good = true;
         }
 
-        if (!good) {
-                close_nointr(fd);
+        if (!good)
                 return -EINVAL;
-        }
 
         *m = FD_TO_MONITOR(fd);
         fd = -1;
