@@ -5,7 +5,7 @@
 /***
   This file is part of systemd.
 
-  Copyright 2011 Lennart Poettering
+  Copyright 2015 Endocode AG
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -21,6 +21,17 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "journal-dir.h"
+#include <sys/types.h>
+#include <dirent.h>
 
-int journal_directory_vacuum(JournalDirectory *directory, uint64_t max_use, usec_t max_retention_usec, usec_t *oldest_usec, bool vacuum);
+typedef struct JournalDirectory {
+        char *path;
+        int fd;
+        int n_ref;
+} JournalDirectory;
+
+int journal_directory_open(const char *path, JournalDirectory **dir);
+int journal_directory_new(const char *path, int fd, JournalDirectory **dir);
+JournalDirectory *journal_directory_ref(JournalDirectory *dir);
+JournalDirectory *journal_directory_unref(JournalDirectory *dir);
+int journal_directory_opendir(JournalDirectory *dir, DIR **de);

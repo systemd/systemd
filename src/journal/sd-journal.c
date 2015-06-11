@@ -28,6 +28,8 @@
 #include <sys/vfs.h>
 #include <linux/magic.h>
 
+#include "bus-error.h"
+#include "bus-util.h"
 #include "sd-journal.h"
 #include "journal-def.h"
 #include "journal-file.h"
@@ -798,7 +800,8 @@ static int real_journal_next(sd_journal *j, direction_t direction) {
 
                 r = next_beyond_location(j, f, direction);
                 if (r < 0) {
-                        log_debug_errno(r, "Can't iterate through %s, ignoring: %m", f->path);
+                        log_debug_errno(r, "Can't iterate through %s/%s, ignoring: %m",
+                                        f->directory->path, f->filename);
                         remove_file_real(j, f);
                         continue;
                 } else if (r == 0) {
@@ -1194,12 +1197,19 @@ static bool file_type_wanted(int flags, const char *filename) {
         return false;
 }
 
-static int add_any_file(sd_journal *j, const char *path) {
+static int add_any_file(sd_journal *j, JournalDirectory *d, const char *filename) {
+        _cleanup_free_ char *path = NULL;
         JournalFile *f = NULL;
         int r;
+        _cleanup_free_ char *fpath = NULL;
 
         assert(j);
-        assert(path);
+        assert(d);
+        assert(filename);
+
+        path = strjoin(d->path, "/", filename, NULL);
+        if (!path)
+                return -ENOMEM;
 
         if (ordered_hashmap_get(j->files, path))
                 return 0;
@@ -1209,19 +1219,23 @@ static int add_any_file(sd_journal *j, const char *path) {
                 return set_put_error(j, -ETOOMANYREFS);
         }
 
-        r = journal_file_open(path, O_RDONLY, 0, false, false, NULL, j->mmap, NULL, &f);
+        r = journal_file_open(d, filename, O_RDONLY, 0, false, false, NULL, j->mmap, NULL, &f);
         if (r < 0)
                 return r;
 
         /* journal_file_dump(f); */
 
-        r = ordered_hashmap_put(j->files, f->path, f);
+        fpath = strjoin(f->directory->path, "/", f->filename, NULL);
+        if (!fpath)
+                return -ENOMEM;
+        r = ordered_hashmap_put(j->files, fpath, f);
         if (r < 0) {
                 journal_file_close(f);
                 return r;
         }
+        fpath = NULL;
 
-        log_debug("File %s added.", f->path);
+        log_debug("File %s/%s added.", f->directory->path, f->filename);
 
         check_network(j, f->fd);
 
@@ -1230,37 +1244,32 @@ static int add_any_file(sd_journal *j, const char *path) {
         return 0;
 }
 
-static int add_file(sd_journal *j, const char *prefix, const char *filename) {
-        _cleanup_free_ char *path = NULL;
+static int add_file(sd_journal *j, JournalDirectory *d, const char *filename) {
         int r;
 
         assert(j);
-        assert(prefix);
+        assert(d);
         assert(filename);
 
         if (j->no_new_files ||
             !file_type_wanted(j->flags, filename))
                 return 0;
 
-        path = strjoin(prefix, "/", filename, NULL);
-        if (!path)
-                return -ENOMEM;
-
-        r = add_any_file(j, path);
+        r = add_any_file(j, d, filename);
         if (r == -ENOENT)
                 return 0;
         return r;
 }
 
-static int remove_file(sd_journal *j, const char *prefix, const char *filename) {
+static int remove_file(sd_journal *j, JournalDirectory *d, const char *filename) {
         _cleanup_free_ char *path;
         JournalFile *f;
 
         assert(j);
-        assert(prefix);
+        assert(d);
         assert(filename);
 
-        path = strjoin(prefix, "/", filename, NULL);
+        path = strjoin(d->path, "/", filename, NULL);
         if (!path)
                 return -ENOMEM;
 
@@ -1273,12 +1282,21 @@ static int remove_file(sd_journal *j, const char *prefix, const char *filename) 
 }
 
 static void remove_file_real(sd_journal *j, JournalFile *f) {
+        char *fpath;
+        _cleanup_free_ char *path = NULL;
+
         assert(j);
         assert(f);
 
-        ordered_hashmap_remove(j->files, f->path);
+        path = strjoin(f->directory->path, "/", f->filename, NULL);
+        if (!path) {
+                log_warning("Failed to remove %s/%s.", f->directory->path, f->filename);
+                return;
+        }
+        ordered_hashmap_remove2(j->files, path, (void**)&fpath);
+        free(fpath);
 
-        log_debug("File %s removed.", f->path);
+        log_debug("File %s removed.", path);
 
         if (j->current_file == f) {
                 j->current_file = NULL;
@@ -1287,7 +1305,7 @@ static void remove_file_real(sd_journal *j, JournalFile *f) {
 
         if (j->unique_file == f) {
                 /* Jump to the next unique_file or NULL if that one was last */
-                j->unique_file = ordered_hashmap_next(j->files, j->unique_file->path);
+                j->unique_file = ordered_hashmap_next(j->files, path);
                 j->unique_offset = 0;
                 if (!j->unique_file)
                         j->unique_file_lost = true;
@@ -1298,7 +1316,39 @@ static void remove_file_real(sd_journal *j, JournalFile *f) {
         j->current_invalidate_counter ++;
 }
 
-static int add_directory(sd_journal *j, const char *prefix, const char *dirname) {
+static int new_directory(const char* path, int fd, bool is_root, Directory **ret) {
+        Directory *m;
+        JournalDirectory *d;
+        int r;
+
+        assert(path);
+        assert(ret);
+
+        r = journal_directory_new(path, fd, &d);
+        if (r < 0)
+                return r;
+
+        m = new0(Directory, 1);
+        if (!m) {
+                d = journal_directory_unref(d);
+                return -ENOMEM;
+        }
+
+        m->is_root = is_root;
+        m->d = d;
+        *ret = m;
+
+        return 0;
+}
+
+static void free_directory(Directory *d) {
+        if (d) {
+                journal_directory_unref(d->d);
+                free(d);
+        }
+}
+
+static int add_directory(sd_journal *j, JournalDirectory *directory, const char *dirname) {
         _cleanup_free_ char *path = NULL;
         int r;
         _cleanup_closedir_ DIR *d = NULL;
@@ -1306,54 +1356,59 @@ static int add_directory(sd_journal *j, const char *prefix, const char *dirname)
         Directory *m;
 
         assert(j);
-        assert(prefix);
+        assert(directory);
         assert(dirname);
 
-        log_debug("Considering %s/%s.", prefix, dirname);
+        log_debug("Considering %s/%s.", directory->path, dirname);
 
         if ((j->flags & SD_JOURNAL_LOCAL_ONLY) &&
             (sd_id128_from_string(dirname, &id) < 0 ||
              sd_id128_get_machine(&mid) < 0 ||
-             !(sd_id128_equal(id, mid) || path_startswith(prefix, "/run"))))
+             !(sd_id128_equal(id, mid) || path_startswith(directory->path, "/run"))))
             return 0;
 
-        path = strjoin(prefix, "/", dirname, NULL);
+        path = strjoin(directory->path, "/", dirname, NULL);
         if (!path)
                 return -ENOMEM;
 
-        d = opendir(path);
-        if (!d) {
-                log_debug_errno(errno, "Failed to open %s: %m", path);
-                if (errno == ENOENT)
-                        return 0;
-                return -errno;
-        }
-
         m = hashmap_get(j->directories_by_path, path);
         if (!m) {
-                m = new0(Directory, 1);
-                if (!m)
-                        return -ENOMEM;
+                _cleanup_close_ int fd = -1;
 
-                m->is_root = false;
-                m->path = path;
+                fd = openat(directory->fd, dirname, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
+                if (fd < 0)
+                        return -errno;
 
-                if (hashmap_put(j->directories_by_path, m->path, m) < 0) {
-                        free(m);
+                r = new_directory(path, fd, false, &m);
+                if (r < 0)
+                        return r;
+
+                if (hashmap_put(j->directories_by_path, m->d->path, m) < 0) {
+                        free_directory(m);
                         return -ENOMEM;
                 }
 
-                path = NULL; /* avoid freeing in cleanup */
                 j->current_invalidate_counter ++;
 
-                log_debug("Directory %s added.", m->path);
+                log_debug("Directory %s added.", m->d->path);
 
         } else if (m->is_root)
                 return 0;
 
+        r = journal_directory_opendir(m->d, &d);
+        if (r < 0) {
+                log_debug_errno(errno, "Failed to open %s: %m", m->d->path);
+                if (r == -ENOENT)
+                        return 0;
+                return r;
+        }
+
+        /* TODO: we can't watch changes happening in overlayfs in
+           other mount namespace, unless we get something like
+           inotify_add_watch_dirfd. */
         if (m->wd <= 0 && j->inotify_fd >= 0) {
 
-                m->wd = inotify_add_watch(j->inotify_fd, m->path,
+                m->wd = inotify_add_watch(j->inotify_fd, m->d->path,
                                           IN_CREATE|IN_MOVED_TO|IN_MODIFY|IN_ATTRIB|IN_DELETE|
                                           IN_DELETE_SELF|IN_MOVE_SELF|IN_UNMOUNT|IN_MOVED_FROM|
                                           IN_ONLYDIR);
@@ -1369,7 +1424,7 @@ static int add_directory(sd_journal *j, const char *prefix, const char *dirname)
                 de = readdir(d);
                 if (!de && errno != 0) {
                         r = -errno;
-                        log_debug_errno(errno, "Failed to read directory %s: %m", m->path);
+                        log_debug_errno(errno, "Failed to read directory %s: %m", m->d->path);
                         return r;
                 }
                 if (!de)
@@ -1377,10 +1432,10 @@ static int add_directory(sd_journal *j, const char *prefix, const char *dirname)
 
                 if (dirent_is_file_with_suffix(de, ".journal") ||
                     dirent_is_file_with_suffix(de, ".journal~")) {
-                        r = add_file(j, m->path, de->d_name);
+                        r = add_file(j, m->d, de->d_name);
                         if (r < 0) {
                                 log_debug_errno(r, "Failed to add file %s/%s: %m",
-                                                m->path, de->d_name);
+                                                m->d->path, de->d_name);
                                 r = set_put_error(j, r);
                                 if (r < 0)
                                         return r;
@@ -1393,54 +1448,43 @@ static int add_directory(sd_journal *j, const char *prefix, const char *dirname)
         return 0;
 }
 
-static int add_root_directory(sd_journal *j, const char *p) {
+static int add_root_directory_with_fd(sd_journal *j, const char *p, int fd) {
         _cleanup_closedir_ DIR *d = NULL;
         Directory *m;
         int r;
 
         assert(j);
         assert(p);
-
-        if ((j->flags & SD_JOURNAL_RUNTIME_ONLY) &&
-            !path_startswith(p, "/run"))
-                return -EINVAL;
-
-        if (j->prefix)
-                p = strjoina(j->prefix, p);
-
-        d = opendir(p);
-        if (!d)
-                return -errno;
+        assert(fd >= 0);
 
         m = hashmap_get(j->directories_by_path, p);
         if (!m) {
-                m = new0(Directory, 1);
-                if (!m)
-                        return -ENOMEM;
+                r = new_directory(p, fd, true, &m);
+                if (r < 0)
+                        return r;
 
-                m->is_root = true;
-                m->path = strdup(p);
-                if (!m->path) {
-                        free(m);
-                        return -ENOMEM;
-                }
-
-                if (hashmap_put(j->directories_by_path, m->path, m) < 0) {
-                        free(m->path);
-                        free(m);
+                if (hashmap_put(j->directories_by_path, m->d->path, m) < 0) {
+                        free_directory(m);
                         return -ENOMEM;
                 }
 
                 j->current_invalidate_counter ++;
 
-                log_debug("Root directory %s added.", m->path);
+                log_debug("Root directory %s added.", m->d->path);
 
         } else if (!m->is_root)
                 return 0;
 
+        r = journal_directory_opendir(m->d, &d);
+        if (r < 0)
+                return r;
+
+        /* TODO: we can't watch changes happening in overlayfs in
+           other mount namespace, unless we get something like
+           inotify_add_watch_dirfd. */
         if (m->wd <= 0 && j->inotify_fd >= 0) {
 
-                m->wd = inotify_add_watch(j->inotify_fd, m->path,
+                m->wd = inotify_add_watch(j->inotify_fd, m->d->path,
                                           IN_CREATE|IN_MOVED_TO|IN_MODIFY|IN_ATTRIB|IN_DELETE|
                                           IN_ONLYDIR);
 
@@ -1459,7 +1503,7 @@ static int add_root_directory(sd_journal *j, const char *p) {
                 de = readdir(d);
                 if (!de && errno != 0) {
                         r = -errno;
-                        log_debug_errno(errno, "Failed to read directory %s: %m", m->path);
+                        log_debug_errno(errno, "Failed to read directory %s: %m", m->d->path);
                         return r;
                 }
                 if (!de)
@@ -1467,10 +1511,10 @@ static int add_root_directory(sd_journal *j, const char *p) {
 
                 if (dirent_is_file_with_suffix(de, ".journal") ||
                     dirent_is_file_with_suffix(de, ".journal~")) {
-                        r = add_file(j, m->path, de->d_name);
+                        r = add_file(j, m->d, de->d_name);
                         if (r < 0) {
                                 log_debug_errno(r, "Failed to add file %s/%s: %m",
-                                                m->path, de->d_name);
+                                                m->d->path, de->d_name);
                                 r = set_put_error(j, r);
                                 if (r < 0)
                                         return r;
@@ -1478,15 +1522,35 @@ static int add_root_directory(sd_journal *j, const char *p) {
                 } else if ((de->d_type == DT_DIR || de->d_type == DT_LNK || de->d_type == DT_UNKNOWN) &&
                            sd_id128_from_string(de->d_name, &id) >= 0) {
 
-                        r = add_directory(j, m->path, de->d_name);
+                        r = add_directory(j, m->d, de->d_name);
                         if (r < 0)
-                                log_debug_errno(r, "Failed to add directory %s/%s: %m", m->path, de->d_name);
+                                log_debug_errno(r, "Failed to add directory %s/%s: %m", m->d->path, de->d_name);
                 }
         }
 
         check_network(j, dirfd(d));
 
         return 0;
+}
+
+static int add_root_directory(sd_journal *j, const char *p) {
+        _cleanup_close_ int fd = -1;
+
+        assert(j);
+        assert(p);
+
+        if ((j->flags & SD_JOURNAL_RUNTIME_ONLY) &&
+            !path_startswith(p, "/run"))
+                return -EINVAL;
+
+        if (j->prefix)
+                p = strjoina(j->prefix, p);
+
+        fd = open(p, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
+        if (fd < 0)
+                return -errno;
+
+        return add_root_directory_with_fd(j, p, fd);
 }
 
 static int remove_directory(sd_journal *j, Directory *d) {
@@ -1499,15 +1563,14 @@ static int remove_directory(sd_journal *j, Directory *d) {
                         inotify_rm_watch(j->inotify_fd, d->wd);
         }
 
-        hashmap_remove(j->directories_by_path, d->path);
+        hashmap_remove(j->directories_by_path, d->d->path);
 
         if (d->is_root)
-                log_debug("Root directory %s removed.", d->path);
+                log_debug("Root directory %s removed.", d->d->path);
         else
-                log_debug("Directory %s removed.", d->path);
+                log_debug("Directory %s removed.", d->d->path);
 
-        free(d->path);
-        free(d);
+        free_directory(d);
 
         return 0;
 }
@@ -1539,6 +1602,7 @@ static int add_search_paths(sd_journal *j) {
 static int add_current_paths(sd_journal *j) {
         Iterator i;
         JournalFile *f;
+        const char *p;
 
         assert(j);
         assert(j->no_new_files);
@@ -1547,11 +1611,11 @@ static int add_current_paths(sd_journal *j) {
          * "root" directories. We don't expect errors here, so we
          * treat them as fatal. */
 
-        ORDERED_HASHMAP_FOREACH(f, j->files, i) {
+        ORDERED_HASHMAP_FOREACH_KEY(f, p, j->files, i) {
                 _cleanup_free_ char *dir;
                 int r;
 
-                dir = dirname_malloc(f->path);
+                dir = dirname_malloc(p);
                 if (!dir)
                         return -ENOMEM;
 
@@ -1639,6 +1703,52 @@ fail:
         return r;
 }
 
+static int try_journal_fd(sd_journal *j, const char *machine) {
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_bus_close_unref_ sd_bus *bus = NULL;
+        _cleanup_free_ char *p = NULL;
+        int fd;
+        int r;
+
+        r = sd_bus_default_system(&bus);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get D-Bus connection: %m");
+
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.machine1",
+                        "/org/freedesktop/machine1",
+                        "org.freedesktop.machine1.Manager",
+                        "GetJournal",
+                        &error,
+                        &reply,
+                        "s", machine);
+        if (r < 0) {
+                log_error("Failed to get journal fd from machined: %s", bus_error_message(&error, r));
+                return r;
+        }
+
+        r = sd_bus_message_read(reply, "h", &fd);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        if (fd < 0)
+                return -ENODATA;
+
+        /* TODO: Just some bogus directory name with machine id in it,
+         * so it will look semi-nicely in logs. Is that alright? */
+        p = strjoin("machine://", machine, "/journal", NULL);
+        if (!p)
+                return -ENOMEM;
+
+        r = add_root_directory_with_fd(j, p, fd);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 _public_ int sd_journal_open_container(sd_journal **ret, const char *machine, int flags) {
         _cleanup_free_ char *root = NULL, *class = NULL;
         sd_journal *j;
@@ -1669,7 +1779,9 @@ _public_ int sd_journal_open_container(sd_journal **ret, const char *machine, in
         j->prefix = root;
         root = NULL;
 
-        r = add_search_paths(j);
+        r = try_journal_fd(j, machine);
+        if (r == -ENODATA)
+                r = add_search_paths(j);
         if (r < 0)
                 goto fail;
 
@@ -1712,6 +1824,8 @@ _public_ int sd_journal_open_files(sd_journal **ret, const char **paths, int fla
         sd_journal *j;
         const char **path;
         int r;
+        Hashmap *dirs;
+        Directory *dir;
 
         assert_return(ret, -EINVAL);
         assert_return(flags == 0, -EINVAL);
@@ -1719,14 +1833,52 @@ _public_ int sd_journal_open_files(sd_journal **ret, const char **paths, int fla
         j = journal_new(flags, NULL);
         if (!j)
                 return -ENOMEM;
+        dirs = hashmap_new(&string_hash_ops);
+        if (!dirs) {
+                r = -ENOMEM;
+                goto fail;
+        }
 
         STRV_FOREACH(path, paths) {
-                r = add_any_file(j, *path);
+                _cleanup_free_ char *d = NULL;
+                _cleanup_free_ char *b = NULL;
+
+                d = dirname_malloc(*path);
+                b = basename_malloc(*path);
+                if (!d || !b)
+                        goto fail;
+
+                dir = hashmap_get(dirs, d);
+                if (!dir) {
+                        _cleanup_close_ int dirfd = -1;
+
+                        dirfd = open(d, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
+                        if (dirfd < 0) {
+                                r = -errno;
+                                log_error_errno(errno, "Failed to open directory %s: %m", d);
+                                goto fail;
+                        }
+                        r = new_directory(d, dirfd, false, &dir);
+                        if (r < 0)
+                                goto fail;
+
+                        r = hashmap_put(dirs, dir->d->path, dir);
+                        if (r < 0) {
+                                free_directory(dir);
+                                goto fail;
+                        }
+                }
+
+                r = add_any_file(j, dir->d, b);
                 if (r < 0) {
                         log_error_errno(r, "Failed to open %s: %m", *path);
                         goto fail;
                 }
         }
+
+        while ((dir = hashmap_steal_first(dirs)))
+                free_directory(dir);
+        hashmap_free(dirs);
 
         j->no_new_files = true;
 
@@ -1736,20 +1888,30 @@ _public_ int sd_journal_open_files(sd_journal **ret, const char **paths, int fla
 fail:
         sd_journal_close(j);
 
+        while ((dir = hashmap_steal_first(dirs)))
+                free_directory(dir);
+        hashmap_free(dirs);
+
         return r;
 }
 
 _public_ void sd_journal_close(sd_journal *j) {
         Directory *d;
-        JournalFile *f;
 
         if (!j)
                 return;
 
         sd_journal_flush_matches(j);
 
-        while ((f = ordered_hashmap_steal_first(j->files)))
+        while (!ordered_hashmap_isempty(j->files)) {
+                char *p;
+                JournalFile *f;
+
+                p = ordered_hashmap_first_key(j->files);
+                f = ordered_hashmap_steal_first(j->files);
+                free(p);
                 journal_file_close(f);
+        }
 
         ordered_hashmap_free(j->files);
 
@@ -2129,18 +2291,18 @@ static void process_inotify_event(sd_journal *j, struct inotify_event *e) {
                         /* Event for a journal file */
 
                         if (e->mask & (IN_CREATE|IN_MOVED_TO|IN_MODIFY|IN_ATTRIB)) {
-                                r = add_file(j, d->path, e->name);
+                                r = add_file(j, d->d, e->name);
                                 if (r < 0) {
                                         log_debug_errno(r, "Failed to add file %s/%s: %m",
-                                                        d->path, e->name);
+                                                        d->d->path, e->name);
                                         set_put_error(j, r);
                                 }
 
                         } else if (e->mask & (IN_DELETE|IN_MOVED_FROM|IN_UNMOUNT)) {
 
-                                r = remove_file(j, d->path, e->name);
+                                r = remove_file(j, d->d, e->name);
                                 if (r < 0)
-                                        log_debug_errno(r, "Failed to remove file %s/%s: %m", d->path, e->name);
+                                        log_debug_errno(r, "Failed to remove file %s/%s: %m", d->d->path, e->name);
                         }
 
                 } else if (!d->is_root && e->len == 0) {
@@ -2150,7 +2312,7 @@ static void process_inotify_event(sd_journal *j, struct inotify_event *e) {
                         if (e->mask & (IN_DELETE_SELF|IN_MOVE_SELF|IN_UNMOUNT)) {
                                 r = remove_directory(j, d);
                                 if (r < 0)
-                                        log_debug_errno(r, "Failed to remove directory %s: %m", d->path);
+                                        log_debug_errno(r, "Failed to remove directory %s: %m", d->d->path);
                         }
 
 
@@ -2159,9 +2321,9 @@ static void process_inotify_event(sd_journal *j, struct inotify_event *e) {
                         /* Event for root directory */
 
                         if (e->mask & (IN_CREATE|IN_MOVED_TO|IN_MODIFY|IN_ATTRIB)) {
-                                r = add_directory(j, d->path, e->name);
+                                r = add_directory(j, d->d, e->name);
                                 if (r < 0)
-                                        log_debug_errno(r, "Failed to add directory %s/%s: %m", d->path, e->name);
+                                        log_debug_errno(r, "Failed to add directory %s/%s: %m", d->d->path, e->name);
                         }
                 }
 
@@ -2447,7 +2609,12 @@ _public_ int sd_journal_enumerate_unique(sd_journal *j, const void **data, size_
 
                 /* We reached the end of the list? Then start again, with the next file */
                 if (j->unique_offset == 0) {
-                        j->unique_file = ordered_hashmap_next(j->files, j->unique_file->path);
+                        char *p = strjoin(j->unique_file->directory->path, "/", j->unique_file->filename, NULL);
+
+                        if (!p)
+                                return -ENOMEM;
+                        j->unique_file = ordered_hashmap_next(j->files, p);
+                        free(p);
                         if (!j->unique_file)
                                 return 0;
 
@@ -2463,8 +2630,9 @@ _public_ int sd_journal_enumerate_unique(sd_journal *j, const void **data, size_
 
                 /* Let's do the type check by hand, since we used 0 context above. */
                 if (o->object.type != OBJECT_DATA) {
-                        log_debug("%s:offset " OFSfmt ": object has type %d, expected %d",
-                                  j->unique_file->path, j->unique_offset,
+                        log_debug("%s/%s:offset " OFSfmt ": object has type %d, expected %d",
+                                  j->unique_file->directory->path, j->unique_file->filename,
+                                  j->unique_offset,
                                   o->object.type, OBJECT_DATA);
                         return -EBADMSG;
                 }
@@ -2475,15 +2643,17 @@ _public_ int sd_journal_enumerate_unique(sd_journal *j, const void **data, size_
 
                 /* Check if we have at least the field name and "=". */
                 if (ol <= k) {
-                        log_debug("%s:offset " OFSfmt ": object has size %zu, expected at least %zu",
-                                  j->unique_file->path, j->unique_offset,
+                        log_debug("%s/%s:offset " OFSfmt ": object has size %zu, expected at least %zu",
+                                  j->unique_file->directory->path, j->unique_file->filename,
+                                  j->unique_offset,
                                   ol, k + 1);
                         return -EBADMSG;
                 }
 
                 if (memcmp(odata, j->unique_field, k) || ((const char*) odata)[k] != '=') {
-                        log_debug("%s:offset " OFSfmt ": object does not start with \"%s=\"",
-                                  j->unique_file->path, j->unique_offset,
+                        log_debug("%s/%s:offset " OFSfmt ": object does not start with \"%s=\"",
+                                  j->unique_file->directory->path, j->unique_file->filename,
+                                  j->unique_offset,
                                   j->unique_field);
                         return -EBADMSG;
                 }

@@ -67,7 +67,7 @@ static int vacuum_compare(const void *_a, const void *_b) {
 }
 
 static void patch_realtime(
-                const char *dir,
+                JournalDirectory *dir,
                 const char *fn,
                 const struct stat *st,
                 unsigned long long *realtime) {
@@ -101,14 +101,7 @@ static void patch_realtime(
          * unfortunately there's currently no sane API to query
          * it. Hence let's implement this manually... */
 
-        /* Unfortunately there is is not fgetxattrat(), so we need to
-         * go via path here. :-( */
-
-        path = strjoin(dir, "/", fn, NULL);
-        if (!path)
-                return;
-
-        if (path_getcrtime(path, &crtime) >= 0) {
+        if (fd_getcrtime_at(dir->fd, fn, &crtime, 0) >= 0) {
                 if (crtime < *realtime)
                         *realtime = crtime;
         }
@@ -142,7 +135,7 @@ static int journal_file_empty(int dir_fd, const char *name) {
 }
 
 int journal_directory_vacuum(
-                const char *directory,
+                JournalDirectory *directory,
                 uint64_t max_use,
                 usec_t max_retention_usec,
                 usec_t *oldest_usec,
@@ -170,9 +163,9 @@ int journal_directory_vacuum(
                         max_retention_usec = retention_limit = 0;
         }
 
-        d = opendir(directory);
-        if (!d)
-                return -errno;
+        r = journal_directory_opendir(directory, &d);
+        if (r < 0)
+                return r;
 
         for (;;) {
                 struct dirent *de;
@@ -266,10 +259,10 @@ int journal_directory_vacuum(
                         uint64_t size = 512UL * (uint64_t) st.st_blocks;
 
                         if (unlinkat(dirfd(d), p, 0) >= 0) {
-                                log_full(verbose ? LOG_INFO : LOG_DEBUG, "Deleted empty archived journal %s/%s (%s).", directory, p, format_bytes(sbytes, sizeof(sbytes), size));
+                                log_full(verbose ? LOG_INFO : LOG_DEBUG, "Deleted empty archived journal %s/%s (%s).", directory->path, p, format_bytes(sbytes, sizeof(sbytes), size));
                                 freed += size;
                         } else if (errno != ENOENT)
-                                log_warning_errno(errno, "Failed to delete empty archived journal %s/%s: %m", directory, p);
+                                log_warning_errno(errno, "Failed to delete empty archived journal %s/%s: %m", directory->path, p);
 
                         free(p);
                         continue;
@@ -303,7 +296,7 @@ int journal_directory_vacuum(
                         break;
 
                 if (unlinkat(dirfd(d), list[i].filename, 0) >= 0) {
-                        log_full(verbose ? LOG_INFO : LOG_DEBUG, "Deleted archived journal %s/%s (%s).", directory, list[i].filename, format_bytes(sbytes, sizeof(sbytes), list[i].usage));
+                        log_full(verbose ? LOG_INFO : LOG_DEBUG, "Deleted archived journal %s/%s (%s).", directory->path, list[i].filename, format_bytes(sbytes, sizeof(sbytes), list[i].usage));
                         freed += list[i].usage;
 
                         if (list[i].usage < sum)
@@ -312,7 +305,7 @@ int journal_directory_vacuum(
                                 sum = 0;
 
                 } else if (errno != ENOENT)
-                        log_warning_errno(errno, "Failed to delete archived journal %s/%s: %m", directory, list[i].filename);
+                        log_warning_errno(errno, "Failed to delete archived journal %s/%s: %m", directory->path, list[i].filename);
         }
 
         if (oldest_usec && i < n_list && (*oldest_usec == 0 || list[i].realtime < *oldest_usec))

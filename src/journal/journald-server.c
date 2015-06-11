@@ -200,7 +200,8 @@ void server_fix_perms(Server *s, JournalFile *f, uid_t uid) {
 
         r = fchmod(f->fd, 0640);
         if (r < 0)
-                log_warning_errno(r, "Failed to fix access mode on %s, ignoring: %m", f->path);
+                log_warning_errno(r, "Failed to fix access mode on %s/%s, ignoring: %m",
+                                  f->directory->path, f->filename);
 
 #ifdef HAVE_ACL
         if (uid <= SYSTEM_UID_MAX)
@@ -208,7 +209,8 @@ void server_fix_perms(Server *s, JournalFile *f, uid_t uid) {
 
         acl = acl_get_fd(f->fd);
         if (!acl) {
-                log_warning_errno(errno, "Failed to read ACL on %s, ignoring: %m", f->path);
+                log_warning_errno(errno, "Failed to read ACL on %s/%s, ignoring: %m",
+                                  f->directory->path, f->filename);
                 return;
         }
 
@@ -218,7 +220,8 @@ void server_fix_perms(Server *s, JournalFile *f, uid_t uid) {
                 if (acl_create_entry(&acl, &entry) < 0 ||
                     acl_set_tag_type(entry, ACL_USER) < 0 ||
                     acl_set_qualifier(entry, &uid) < 0) {
-                        log_warning_errno(errno, "Failed to patch ACL on %s, ignoring: %m", f->path);
+                        log_warning_errno(errno, "Failed to patch ACL on %s/%s, ignoring: %m",
+                                          f->directory->path, f->filename);
                         goto finish;
                 }
         }
@@ -228,12 +231,13 @@ void server_fix_perms(Server *s, JournalFile *f, uid_t uid) {
         if (acl_get_permset(entry, &permset) < 0 ||
             acl_add_perm(permset, ACL_READ) < 0 ||
             calc_acl_mask_if_needed(&acl) < 0) {
-                log_warning_errno(errno, "Failed to patch ACL on %s, ignoring: %m", f->path);
+                log_warning_errno(errno, "Failed to patch ACL on %s/%s, ignoring: %m",
+                                  f->directory->path, f->filename);
                 goto finish;
         }
 
         if (acl_set_fd(f->fd, acl) < 0)
-                log_warning_errno(errno, "Failed to set ACL on %s, ignoring: %m", f->path);
+                log_warning_errno(errno, "Failed to set ACL on %s/%s, ignoring: %m", f->directory->path, f->filename);
 
 finish:
         acl_free(acl);
@@ -241,7 +245,9 @@ finish:
 }
 
 static JournalFile* find_journal(Server *s, uid_t uid) {
-        _cleanup_free_ char *p = NULL;
+        _cleanup_free_ char *directory = NULL;
+        _cleanup_free_ char *filename = NULL;
+        JournalDirectory *dir;
         int r;
         JournalFile *f;
         sd_id128_t machine;
@@ -267,8 +273,15 @@ static JournalFile* find_journal(Server *s, uid_t uid) {
         if (f)
                 return f;
 
-        if (asprintf(&p, "/var/log/journal/" SD_ID128_FORMAT_STR "/user-"UID_FMT".journal",
-                     SD_ID128_FORMAT_VAL(machine), uid) < 0)
+        if (asprintf(&directory, "/var/log/journal/" SD_ID128_FORMAT_STR,
+                     SD_ID128_FORMAT_VAL(machine)) < 0)
+                return s->system_journal;
+
+        if (asprintf(&filename, "user-" UID_FMT ".journal", uid) < 0)
+                return s->system_journal;
+
+        r = journal_directory_open(directory, &dir);
+        if (r < 0)
                 return s->system_journal;
 
         while (ordered_hashmap_size(s->user_journals) >= USER_JOURNALS_MAX) {
@@ -278,7 +291,8 @@ static JournalFile* find_journal(Server *s, uid_t uid) {
                 journal_file_close(f);
         }
 
-        r = journal_file_open_reliably(p, O_RDWR|O_CREAT, 0640, s->compress, s->seal, &s->system_metrics, s->mmap, NULL, &f);
+        r = journal_file_open_reliably(dir, filename, O_RDWR|O_CREAT, 0640, s->compress, s->seal, &s->system_metrics, s->mmap, NULL, &f);
+        dir = journal_directory_unref(dir);
         if (r < 0)
                 return s->system_journal;
 
@@ -309,7 +323,8 @@ static int do_rotate(
         r = journal_file_rotate(f, s->compress, seal);
         if (r < 0)
                 if (*f)
-                        log_error_errno(r, "Failed to rotate %s: %m", (*f)->path);
+                        log_error_errno(r, "Failed to rotate %s/%s: %m",
+                                        (*f)->directory->path, (*f)->filename);
                 else
                         log_error_errno(r, "Failed to create new %s journal: %m", name);
         else
@@ -374,13 +389,20 @@ static void do_vacuum(
                 JournalMetrics *metrics) {
 
         const char *p;
+        JournalDirectory *dir;
         int r;
 
         if (!f)
                 return;
 
         p = strjoina(path, id);
-        r = journal_directory_vacuum(p, metrics->max_use, s->max_retention_usec, &s->oldest_file_usec, false);
+        r = journal_directory_open(p, &dir);
+        if (r < 0 && r != -ENOENT) {
+                log_error_errno(r, "Failed to vacuum %s: %m", p);
+                return;
+        }
+        r = journal_directory_vacuum(dir, metrics->max_use, s->max_retention_usec, &s->oldest_file_usec, false);
+        dir = journal_directory_unref(dir);
         if (r < 0 && r != -ENOENT)
                 log_error_errno(r, "Failed to vacuum %s: %m", p);
 }
@@ -467,19 +489,19 @@ static bool shall_try_append_again(JournalFile *f, int r) {
            -EIDRM            Journal file has been deleted */
 
         if (r == -E2BIG || r == -EFBIG || r == -EDQUOT || r == -ENOSPC)
-                log_debug("%s: Allocation limit reached, rotating.", f->path);
+                log_debug("%s/%s: Allocation limit reached, rotating.", f->directory->path, f->filename);
         else if (r == -EHOSTDOWN)
-                log_info("%s: Journal file from other machine, rotating.", f->path);
+                log_info("%s/%s: Journal file from other machine, rotating.", f->directory->path, f->filename);
         else if (r == -EBUSY)
-                log_info("%s: Unclean shutdown, rotating.", f->path);
+                log_info("%s/%s: Unclean shutdown, rotating.", f->directory->path, f->filename);
         else if (r == -EPROTONOSUPPORT)
-                log_info("%s: Unsupported feature, rotating.", f->path);
+                log_info("%s/%s: Unsupported feature, rotating.", f->directory->path, f->filename);
         else if (r == -EBADMSG || r == -ENODATA || r == ESHUTDOWN)
-                log_warning("%s: Journal file corrupted, rotating.", f->path);
+                log_warning("%s/%s: Journal file corrupted, rotating.", f->directory->path, f->filename);
         else if (r == -EIO)
-                log_warning("%s: IO error, rotating.", f->path);
+                log_warning("%s/%s: IO error, rotating.", f->directory->path, f->filename);
         else if (r == -EIDRM)
-                log_warning("%s: Journal file has been deleted, rotating.", f->path);
+                log_warning("%s/%s: Journal file has been deleted, rotating.", f->directory->path, f->filename);
         else
                 return false;
 
@@ -500,7 +522,7 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, unsigned
                 return;
 
         if (journal_file_rotate_suggested(f, s->max_file_usec)) {
-                log_debug("%s: Journal header limits reached or header out-of-date, rotating.", f->path);
+                log_debug("%s/%s: Journal header limits reached or header out-of-date, rotating.", f->directory->path, f->filename);
                 server_rotate(s);
                 server_vacuum(s);
                 vacuumed = true;
@@ -936,6 +958,8 @@ static int system_journal_open(Server *s, bool flush_requested) {
             (flush_requested
              || access("/run/systemd/journal/flushed", F_OK) >= 0)) {
 
+                JournalDirectory *dir;
+
                 /* If in auto mode: first try to create the machine
                  * path, but not the prefix.
                  *
@@ -947,54 +971,75 @@ static int system_journal_open(Server *s, bool flush_requested) {
 
                 fn = strjoina("/var/log/journal/", ids);
                 (void) mkdir(fn, 0755);
+                r = journal_directory_open(fn, &dir);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to open system journal: %m");
+                } else {
 
-                fn = strjoina(fn, "/system.journal");
-                r = journal_file_open_reliably(fn, O_RDWR|O_CREAT, 0640, s->compress, s->seal, &s->system_metrics, s->mmap, NULL, &s->system_journal);
+                        r = journal_file_open_reliably(dir, "system.journal", O_RDWR|O_CREAT, 0640, s->compress, s->seal, &s->system_metrics, s->mmap, NULL, &s->system_journal);
+                        dir = journal_directory_unref(dir);
 
-                if (r >= 0)
-                        server_fix_perms(s, s->system_journal, 0);
-                else if (r < 0) {
-                        if (r != -ENOENT && r != -EROFS)
-                                log_warning_errno(r, "Failed to open system journal: %m");
+                        if (r >= 0)
+                                server_fix_perms(s, s->system_journal, 0);
+                        else if (r < 0) {
+                                if (r != -ENOENT && r != -EROFS)
+                                        log_warning_errno(r, "Failed to open system journal: %m");
 
-                        r = 0;
+                                r = 0;
+                        }
                 }
         }
 
         if (!s->runtime_journal &&
             (s->storage != STORAGE_NONE)) {
 
-                fn = strjoin("/run/log/journal/", ids, "/system.journal", NULL);
+                fn = strjoin("/run/log/journal/", ids, NULL);
                 if (!fn)
                         return -ENOMEM;
 
                 if (s->system_journal) {
 
+                        JournalDirectory *dir;
+
                         /* Try to open the runtime journal, but only
                          * if it already exists, so that we can flush
                          * it into the system journal */
 
-                        r = journal_file_open(fn, O_RDWR, 0640, s->compress, false, &s->runtime_metrics, s->mmap, NULL, &s->runtime_journal);
-                        free(fn);
-
+                        r = journal_directory_open(fn, &dir);
                         if (r < 0) {
                                 if (r != -ENOENT)
                                         log_warning_errno(r, "Failed to open runtime journal: %m");
-
                                 r = 0;
+                        } else {
+                                r = journal_file_open(dir, "system.journal", O_RDWR, 0640, s->compress, false, &s->runtime_metrics, s->mmap, NULL, &s->runtime_journal);
+                                free(fn);
+                                dir = journal_directory_unref(dir);
+
+                                if (r < 0) {
+                                        if (r != -ENOENT)
+                                                log_warning_errno(r, "Failed to open runtime journal: %m");
+
+                                        r = 0;
+                                }
                         }
 
                 } else {
+
+                        JournalDirectory *dir;
 
                         /* OK, we really need the runtime journal, so create
                          * it if necessary. */
 
                         (void) mkdir("/run/log", 0755);
                         (void) mkdir("/run/log/journal", 0755);
-                        (void) mkdir_parents(fn, 0750);
+                        (void) mkdir_p(fn, 0750);
 
-                        r = journal_file_open_reliably(fn, O_RDWR|O_CREAT, 0640, s->compress, false, &s->runtime_metrics, s->mmap, NULL, &s->runtime_journal);
+                        r = journal_directory_open(fn, &dir);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to open runtime journal: %m");
+                        r = journal_file_open_reliably(dir, "system.journal", O_RDWR|O_CREAT, 0640, s->compress, false, &s->runtime_metrics, s->mmap, NULL, &s->runtime_journal);
                         free(fn);
+                        dir = journal_directory_unref(dir);
 
                         if (r < 0)
                                 return log_error_errno(r, "Failed to open runtime journal: %m");

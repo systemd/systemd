@@ -59,7 +59,7 @@ static int do_rotate(JournalFile **f, bool compress, bool seal) {
         int r = journal_file_rotate(f, compress, seal);
         if (r < 0) {
                 if (*f)
-                        log_error_errno(r, "Failed to rotate %s: %m", (*f)->path);
+                        log_error_errno(r, "Failed to rotate %s/%s: %m", (*f)->directory->path, (*f)->filename);
                 else
                         log_error_errno(r, "Failed to create rotated journal: %m");
         }
@@ -93,7 +93,7 @@ Writer* writer_free(Writer *w) {
                 return NULL;
 
         if (w->journal) {
-                log_debug("Closing journal file %s.", w->journal->path);
+                log_debug("Closing journal file %s/%s.", w->journal->directory->path, w->journal->filename);
                 journal_file_close(w->journal);
         }
 
@@ -136,8 +136,8 @@ int writer_write(Writer *w,
         assert(iovw->count > 0);
 
         if (journal_file_rotate_suggested(w->journal, 0)) {
-                log_info("%s: Journal header limits reached or header out-of-date, rotating",
-                         w->journal->path);
+                log_info("%s/%s: Journal header limits reached or header out-of-date, rotating",
+                         w->journal->directory->path, w->journal->filename);
                 r = do_rotate(&w->journal, compress, seal);
                 if (r < 0)
                         return r;
@@ -151,12 +151,12 @@ int writer_write(Writer *w,
                 return 1;
         }
 
-        log_debug_errno(r, "%s: Write failed, rotating: %m", w->journal->path);
+        log_debug_errno(r, "%s/%s: Write failed, rotating: %m", w->journal->directory->path, w->journal->filename);
         r = do_rotate(&w->journal, compress, seal);
         if (r < 0)
                 return r;
         else
-                log_debug("%s: Successfully rotated journal", w->journal->path);
+                log_debug("%s/%s: Successfully rotated journal", w->journal->directory->path, w->journal->filename);
 
         log_debug("Retrying write.");
         r = journal_file_append_entry(w->journal, ts, iovw->iovec, iovw->count,
