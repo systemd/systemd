@@ -66,7 +66,7 @@ int local_addresses(sd_rtnl *context, int ifindex, int af, struct local_address 
         if (context)
                 rtnl = sd_rtnl_ref(context);
         else {
-                r = sd_rtnl_open(&rtnl, 0);
+                r = sd_rtnl_open(&rtnl);
                 if (r < 0)
                         return r;
         }
@@ -177,7 +177,7 @@ int local_gateways(sd_rtnl *context, int ifindex, int af, struct local_address *
         if (context)
                 rtnl = sd_rtnl_ref(context);
         else {
-                r = sd_rtnl_open(&rtnl, 0);
+                r = sd_rtnl_open(&rtnl);
                 if (r < 0)
                         return r;
         }
