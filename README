@@ -30,8 +30,8 @@ AUTHOR:
 
 LICENSE:
         LGPLv2.1+ for all code
-        - except src/shared/MurmurHash2.c which is Public Domain
-        - except src/shared/siphash24.c which is CC0 Public Domain
+        - except src/basic/MurmurHash2.c which is Public Domain
+        - except src/basic/siphash24.c which is CC0 Public Domain
         - except src/journal/lookup3.c which is Public Domain
         - except src/udev/* which is (currently still) GPLv2, GPLv2+
 

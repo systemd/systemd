@@ -188,8 +188,6 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(sd_bus_track*, sd_bus_track_unref);
         SD_BUS_PROPERTY(name, "t", bus_property_get_usec, (offset) + offsetof(struct dual_timestamp, realtime), (flags)), \
         SD_BUS_PROPERTY(name "Monotonic", "t", bus_property_get_usec, (offset) + offsetof(struct dual_timestamp, monotonic), (flags))
 
-int bus_maybe_reply_error(sd_bus_message *m, int r, sd_bus_error *error);
-
 int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignment);
 
 typedef struct BusWaitForJobs BusWaitForJobs;

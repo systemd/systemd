@@ -25,7 +25,7 @@
 #include "sd-bus.h"
 #include "sd-event.h"
 #include "hashmap.h"
-#include "login-shared.h"
+#include "login-util.h"
 #include "macro.h"
 #include "util.h"
 #include "idev.h"

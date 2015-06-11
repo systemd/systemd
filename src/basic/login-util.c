@@ -19,7 +19,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "login-shared.h"
+#include "login-util.h"
 #include "def.h"
 
 bool session_id_valid(const char *id) {

@@ -1330,31 +1330,6 @@ int bus_parse_unit_info(sd_bus_message *message, UnitInfo *u) {
                         &u->job_path);
 }
 
-int bus_maybe_reply_error(sd_bus_message *m, int r, sd_bus_error *error) {
-        assert(m);
-
-        if (r < 0) {
-                if (m->header->type == SD_BUS_MESSAGE_METHOD_CALL)
-                        sd_bus_reply_method_errno(m, r, error);
-
-        } else if (sd_bus_error_is_set(error)) {
-                if (m->header->type == SD_BUS_MESSAGE_METHOD_CALL)
-                        sd_bus_reply_method_error(m, error);
-        } else
-                return r;
-
-        log_debug("Failed to process message [type=%s sender=%s path=%s interface=%s member=%s signature=%s]: %s",
-                  bus_message_type_to_string(m->header->type),
-                  strna(m->sender),
-                  strna(m->path),
-                  strna(m->interface),
-                  strna(m->member),
-                  strna(m->root_container.signature),
-                  bus_error_message(error, r));
-
-        return 1;
-}
-
 int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignment) {
         const char *eq, *field;
         int r;

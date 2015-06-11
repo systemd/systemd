@@ -30,7 +30,7 @@
 #include <unistd.h>
 
 /* Yuck! DRM headers need system headers included first.. but we have to
- * include it before shared/missing.h to avoid redefining ioctl bits */
+ * include it before util/missing.h to avoid redefining ioctl bits */
 #include <drm.h>
 #include <drm_fourcc.h>
 #include <drm_mode.h>

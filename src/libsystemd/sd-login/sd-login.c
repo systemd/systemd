@@ -30,7 +30,7 @@
 #include "macro.h"
 #include "strv.h"
 #include "fileio.h"
-#include "login-shared.h"
+#include "login-util.h"
 #include "formats-util.h"
 #include "sd-login.h"
 
