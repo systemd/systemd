@@ -118,8 +118,9 @@ int kmod_setup(void) {
                 else if (r == KMOD_PROBE_APPLY_BLACKLIST)
                         log_info("Module '%s' is blacklisted", kmod_module_get_name(mod));
                 else
-                        log_full((kmod_table[i].warn_if_unavailable || (r < 0 && r != -ENOENT)) ? LOG_ERR : LOG_DEBUG,
-                                 "Failed to insert module '%s'", kmod_module_get_name(mod));
+                        log_full_errno((kmod_table[i].warn_if_unavailable || (r < 0 && r != -ENOENT)) ? LOG_WARNING : LOG_DEBUG,
+                                       r,
+                                       "Failed to insert module '%s': %m", kmod_module_get_name(mod));
 
                 kmod_module_unref(mod);
         }
