@@ -184,8 +184,8 @@ static void test_route(void) {
 static void test_multiple(void) {
         sd_rtnl *rtnl1, *rtnl2;
 
-        assert_se(sd_rtnl_open(&rtnl1, 0) >= 0);
-        assert_se(sd_rtnl_open(&rtnl2, 0) >= 0);
+        assert_se(sd_rtnl_open(&rtnl1) >= 0);
+        assert_se(sd_rtnl_open(&rtnl2) >= 0);
 
         rtnl1 = sd_rtnl_unref(rtnl1);
         rtnl2 = sd_rtnl_unref(rtnl2);
@@ -216,7 +216,7 @@ static void test_event_loop(int ifindex) {
         ifname = strdup("lo2");
         assert_se(ifname);
 
-        assert_se(sd_rtnl_open(&rtnl, 0) >= 0);
+        assert_se(sd_rtnl_open(&rtnl) >= 0);
         assert_se(sd_rtnl_message_new_link(rtnl, &m, RTM_GETLINK, ifindex) >= 0);
 
         assert_se(sd_rtnl_call_async(rtnl, m, &link_handler, ifname, 0, NULL) >= 0);
@@ -256,7 +256,7 @@ static void test_async(int ifindex) {
         ifname = strdup("lo");
         assert_se(ifname);
 
-        assert_se(sd_rtnl_open(&rtnl, 0) >= 0);
+        assert_se(sd_rtnl_open(&rtnl) >= 0);
 
         assert_se(sd_rtnl_message_new_link(rtnl, &m, RTM_GETLINK, ifindex) >= 0);
 
@@ -273,7 +273,7 @@ static void test_pipe(int ifindex) {
         _cleanup_rtnl_message_unref_ sd_rtnl_message *m1 = NULL, *m2 = NULL;
         int counter = 0;
 
-        assert_se(sd_rtnl_open(&rtnl, 0) >= 0);
+        assert_se(sd_rtnl_open(&rtnl) >= 0);
 
         assert_se(sd_rtnl_message_new_link(rtnl, &m1, RTM_GETLINK, ifindex) >= 0);
         assert_se(sd_rtnl_message_new_link(rtnl, &m2, RTM_GETLINK, ifindex) >= 0);
@@ -330,7 +330,7 @@ static void test_container(void) {
 static void test_match(void) {
         _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
 
-        assert_se(sd_rtnl_open(&rtnl, 0) >= 0);
+        assert_se(sd_rtnl_open(&rtnl) >= 0);
 
         assert_se(sd_rtnl_add_match(rtnl, RTM_NEWLINK, &link_handler, NULL) >= 0);
         assert_se(sd_rtnl_add_match(rtnl, RTM_NEWLINK, &link_handler, NULL) >= 0);
@@ -395,7 +395,7 @@ int main(void) {
 
         test_container();
 
-        assert_se(sd_rtnl_open(&rtnl, 0) >= 0);
+        assert_se(sd_rtnl_open(&rtnl) >= 0);
         assert_se(rtnl);
 
         if_loopback = (int) if_nametoindex("lo");

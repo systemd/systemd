@@ -34,7 +34,7 @@ int rtnl_set_link_name(sd_rtnl **rtnl, int ifindex, const char *name) {
         assert(name);
 
         if (!*rtnl) {
-                r = sd_rtnl_open(rtnl, 0);
+                r = sd_rtnl_open(rtnl);
                 if (r < 0)
                         return r;
         }
@@ -66,7 +66,7 @@ int rtnl_set_link_properties(sd_rtnl **rtnl, int ifindex, const char *alias,
                 return 0;
 
         if (!*rtnl) {
-                r = sd_rtnl_open(rtnl, 0);
+                r = sd_rtnl_open(rtnl);
                 if (r < 0)
                         return r;
         }
