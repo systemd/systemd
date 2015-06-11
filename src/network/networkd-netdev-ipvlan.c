@@ -42,13 +42,9 @@ static int netdev_ipvlan_fill_message_create(NetDev *netdev, Link *link, sd_rtnl
         assert(netdev->ifname);
 
         if (m->mode != _NETDEV_IPVLAN_MODE_INVALID) {
-        r = sd_rtnl_message_append_u16(req, IFLA_IPVLAN_MODE, m->mode);
-        if (r < 0) {
-                log_netdev_error(netdev,
-                                 "Could not append IFLA_IPVLAN_MODE attribute: %s",
-                                 strerror(-r));
-                        return r;
-                }
+                r = sd_rtnl_message_append_u16(req, IFLA_IPVLAN_MODE, m->mode);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPVLAN_MODE attribute: %m");
         }
 
         return 0;
