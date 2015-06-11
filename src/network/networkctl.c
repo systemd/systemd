@@ -199,7 +199,7 @@ static int list_links(int argc, char *argv[], void *userdata) {
 
         pager_open_if_enabled();
 
-        r = sd_rtnl_open(&rtnl, 0);
+        r = sd_rtnl_open(&rtnl);
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to netlink: %m");
 
@@ -670,7 +670,7 @@ static int link_status(int argc, char *argv[], void *userdata) {
         char **name;
         int r;
 
-        r = sd_rtnl_open(&rtnl, 0);
+        r = sd_rtnl_open(&rtnl);
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to netlink: %m");
 
@@ -910,7 +910,7 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
 
         pager_open_if_enabled();
 
-        r = sd_rtnl_open(&rtnl, 0);
+        r = sd_rtnl_open(&rtnl);
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to netlink: %m");
 

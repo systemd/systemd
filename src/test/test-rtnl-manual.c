@@ -136,7 +136,7 @@ int main(int argc, char *argv[]) {
         sd_rtnl *rtnl;
         int r;
 
-        assert_se(sd_rtnl_open(&rtnl, 0) >= 0);
+        assert_se(sd_rtnl_open(&rtnl) >= 0);
         assert_se(rtnl);
 
         r = test_tunnel_configure(rtnl);

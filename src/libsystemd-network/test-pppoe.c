@@ -94,7 +94,7 @@ static int test_pppoe_server(sd_event *e) {
 
         assert_se(r >= 0);
 
-        assert_se(sd_rtnl_open(&rtnl, 0) >= 0);
+        assert_se(sd_rtnl_open(&rtnl) >= 0);
         assert_se(sd_rtnl_attach_event(rtnl, e, 0) >= 0);
 
         assert_se(sd_rtnl_message_new_link(rtnl, &m, RTM_NEWLINK, 0) >= 0);

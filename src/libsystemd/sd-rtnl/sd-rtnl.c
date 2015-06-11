@@ -106,25 +106,7 @@ static bool rtnl_pid_changed(sd_rtnl *rtnl) {
         return rtnl->original_pid != getpid();
 }
 
-static int rtnl_compute_groups_ap(uint32_t *_groups, unsigned n_groups, va_list ap) {
-        uint32_t groups = 0;
-        unsigned i;
-
-        for (i = 0; i < n_groups; i++) {
-                unsigned group;
-
-                group = va_arg(ap, unsigned);
-                assert_return(group < 32, -EINVAL);
-
-                groups |= group ? (1 << (group - 1)) : 0;
-        }
-
-        *_groups = groups;
-
-        return 0;
-}
-
-static int rtnl_open_fd_ap(sd_rtnl **ret, int fd, unsigned n_groups, va_list ap) {
+int sd_rtnl_open_fd(sd_rtnl **ret, int fd) {
         _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
         socklen_t addrlen;
         int r, one = 1;
@@ -143,10 +125,6 @@ static int rtnl_open_fd_ap(sd_rtnl **ret, int fd, unsigned n_groups, va_list ap)
         r = setsockopt(fd, SOL_NETLINK, NETLINK_PKTINFO, &one, sizeof(one));
         if (r < 0)
                 return -errno;
-
-        r = rtnl_compute_groups_ap(&rtnl->sockaddr.nl.nl_groups, n_groups, ap);
-        if (r < 0)
-                return r;
 
         addrlen = sizeof(rtnl->sockaddr);
 
@@ -167,33 +145,33 @@ static int rtnl_open_fd_ap(sd_rtnl **ret, int fd, unsigned n_groups, va_list ap)
         return 0;
 }
 
-int sd_rtnl_open_fd(sd_rtnl **ret, int fd, unsigned n_groups, ...) {
-        va_list ap;
+int sd_rtnl_open(sd_rtnl **ret) {
+        _cleanup_close_ int fd = -1;
         int r;
-
-        va_start(ap, n_groups);
-        r = rtnl_open_fd_ap(ret, fd, n_groups, ap);
-        va_end(ap);
-
-        return r;
-}
-
-int sd_rtnl_open(sd_rtnl **ret, unsigned n_groups, ...) {
-        va_list ap;
-        int fd, r;
 
         fd = socket(PF_NETLINK, SOCK_RAW|SOCK_CLOEXEC|SOCK_NONBLOCK, NETLINK_ROUTE);
         if (fd < 0)
                 return -errno;
 
-        va_start(ap, n_groups);
-        r = rtnl_open_fd_ap(ret, fd, n_groups, ap);
-        va_end(ap);
-
-        if (r < 0) {
-                safe_close(fd);
+        r = sd_rtnl_open_fd(ret, fd);
+        if (r < 0)
                 return r;
-        }
+
+        fd = -1;
+
+        return 0;
+}
+
+static int rtnl_join_broadcast_group(sd_rtnl *rtnl, unsigned group) {
+        int r;
+
+        assert(rtnl);
+        assert(rtnl->fd >= 0);
+        assert(group > 0);
+
+        r = setsockopt(rtnl->fd, SOL_NETLINK, NETLINK_ADD_MEMBERSHIP, &group, sizeof(group));
+        if (r < 0)
+                return -errno;
 
         return 0;
 }
@@ -1005,14 +983,12 @@ int sd_rtnl_add_match(sd_rtnl *rtnl,
                       uint16_t type,
                       sd_rtnl_message_handler_t callback,
                       void *userdata) {
-        struct match_callback *c;
+        _cleanup_free_ struct match_callback *c = NULL;
+        int r;
 
         assert_return(rtnl, -EINVAL);
         assert_return(callback, -EINVAL);
         assert_return(!rtnl_pid_changed(rtnl), -ECHILD);
-        assert_return(rtnl_message_type_is_link(type) ||
-                      rtnl_message_type_is_addr(type) ||
-                      rtnl_message_type_is_route(type), -EOPNOTSUPP);
 
         c = new0(struct match_callback, 1);
         if (!c)
@@ -1022,7 +998,35 @@ int sd_rtnl_add_match(sd_rtnl *rtnl,
         c->type = type;
         c->userdata = userdata;
 
+        switch (type) {
+                case RTM_NEWLINK:
+                case RTM_SETLINK:
+                case RTM_GETLINK:
+                case RTM_DELLINK:
+                        r = rtnl_join_broadcast_group(rtnl, RTNLGRP_LINK);
+                        if (r < 0)
+                                return r;
+
+                        break;
+                case RTM_NEWADDR:
+                case RTM_GETADDR:
+                case RTM_DELADDR:
+                        r = rtnl_join_broadcast_group(rtnl, RTNLGRP_IPV4_IFADDR);
+                        if (r < 0)
+                                return r;
+
+                        r = rtnl_join_broadcast_group(rtnl, RTNLGRP_IPV6_IFADDR);
+                        if (r < 0)
+                                return r;
+
+                        break;
+                default:
+                        return -EOPNOTSUPP;
+        }
+
         LIST_PREPEND(match_callbacks, rtnl->match_callbacks, c);
+
+        c = NULL;
 
         return 0;
 }
@@ -1037,6 +1041,13 @@ int sd_rtnl_remove_match(sd_rtnl *rtnl,
         assert_return(callback, -EINVAL);
         assert_return(!rtnl_pid_changed(rtnl), -ECHILD);
 
+        /* we should unsubscribe from the broadcast groups at this point, but it is not so
+           trivial for a few reasons: the refcounting is a bit of a mess and not obvious
+           how it will look like after we add genetlink support, and it is also not possible
+           to query what broadcast groups were subscribed to when we inherit the socket to get
+           the initial refcount. The latter could indeed be done for the first 32 broadcast
+           groups (which incidentally is all we currently support in .socket units anyway),
+           but we better not rely on only ever using 32 groups. */
         LIST_FOREACH(match_callbacks, c, rtnl->match_callbacks)
                 if (c->callback == callback && c->type == type && c->userdata == userdata) {
                         LIST_REMOVE(match_callbacks, rtnl->match_callbacks, c);
