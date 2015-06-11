@@ -717,3 +717,38 @@ int config_parse_ipv6token(
 
         return 0;
 }
+
+int
+config_parse_address_family_boolean_with_kernel(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        AddressFamilyBoolean *fwd = data, s;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        s = address_family_boolean_from_string(rvalue);
+        if (s < 0) {
+                if (streq(rvalue, "kernel"))
+                        s = _ADDRESS_FAMILY_BOOLEAN_INVALID;
+                else {
+                        log_syntax(unit, LOG_ERR, filename, line, s, "Failed to parse IPForwarding option, ignoring: %s", rvalue);
+                        return 0;
+                }
+        }
+
+        *fwd = s;
+
+        return 0;
+}
