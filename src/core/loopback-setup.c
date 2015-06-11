@@ -70,7 +70,7 @@ int loopback_setup(void) {
         _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
         int r;
 
-        r = sd_rtnl_open(&rtnl, 0);
+        r = sd_rtnl_open(&rtnl);
         if (r < 0)
                 return r;
 

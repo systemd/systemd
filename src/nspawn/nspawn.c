@@ -2062,7 +2062,7 @@ static int watch_rtnl(sd_event *event, int recv_fd, union in_addr_union *exposed
         assert(cmsg->cmsg_len == CMSG_LEN(sizeof(int)));
         memcpy(&fd, CMSG_DATA(cmsg), sizeof(int));
 
-        r = sd_rtnl_open_fd(&rtnl, fd, 1, RTNLGRP_IPV4_IFADDR);
+        r = sd_rtnl_open_fd(&rtnl, fd);
         if (r < 0) {
                 safe_close(fd);
                 return log_error_errno(r, "Failed to create rtnl object: %m");
@@ -2574,7 +2574,7 @@ static int setup_veth(pid_t pid, char iface_name[IFNAMSIZ], int *ifi) {
         if (r < 0)
                 return log_error_errno(r, "Failed to generate predictable MAC address for host side: %m");
 
-        r = sd_rtnl_open(&rtnl, 0);
+        r = sd_rtnl_open(&rtnl);
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to netlink: %m");
 
@@ -2659,7 +2659,7 @@ static int setup_bridge(const char veth_name[], int *ifi) {
 
         *ifi = bridge;
 
-        r = sd_rtnl_open(&rtnl, 0);
+        r = sd_rtnl_open(&rtnl);
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to netlink: %m");
 
@@ -2720,7 +2720,7 @@ static int move_network_interfaces(pid_t pid) {
         if (strv_isempty(arg_network_interfaces))
                 return 0;
 
-        r = sd_rtnl_open(&rtnl, 0);
+        r = sd_rtnl_open(&rtnl);
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to netlink: %m");
 
@@ -2767,7 +2767,7 @@ static int setup_macvlan(pid_t pid) {
         if (strv_isempty(arg_network_macvlan))
                 return 0;
 
-        r = sd_rtnl_open(&rtnl, 0);
+        r = sd_rtnl_open(&rtnl);
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to netlink: %m");
 
@@ -2857,7 +2857,7 @@ static int setup_ipvlan(pid_t pid) {
         if (strv_isempty(arg_network_ipvlan))
                 return 0;
 
-        r = sd_rtnl_open(&rtnl, 0);
+        r = sd_rtnl_open(&rtnl);
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to netlink: %m");
 

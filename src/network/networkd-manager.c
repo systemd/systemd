@@ -385,9 +385,9 @@ static int manager_connect_rtnl(Manager *m) {
 
         fd = systemd_netlink_fd();
         if (fd < 0)
-                r = sd_rtnl_open(&m->rtnl, 3, RTNLGRP_LINK, RTNLGRP_IPV4_IFADDR, RTNLGRP_IPV6_IFADDR);
+                r = sd_rtnl_open(&m->rtnl);
         else
-                r = sd_rtnl_open_fd(&m->rtnl, fd, 0);
+                r = sd_rtnl_open_fd(&m->rtnl, fd);
         if (r < 0)
                 return r;
 

@@ -177,7 +177,7 @@ static int manager_rtnl_listen(Manager *m) {
         assert(m);
 
         /* First, subscribe to interfaces coming and going */
-        r = sd_rtnl_open(&m->rtnl, 3, RTNLGRP_LINK, RTNLGRP_IPV4_IFADDR, RTNLGRP_IPV6_IFADDR);
+        r = sd_rtnl_open(&m->rtnl);
         if (r < 0)
                 return r;
 
