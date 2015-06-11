@@ -144,6 +144,12 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnAOA*:pvr*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAlienware*:pn*
  KEYBOARD_KEY_8a=ejectcd
 
+# Alienware/Dell reserves these keys; safe to apply on all their devices
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAlienware*:pn*:pvr*
+ KEYBOARD_KEY_bf=!prog1                                 #graphics amplifier, cable plug-in event
+ KEYBOARD_KEY_c1=!prog2                                 #graphics amplifier, undock-button event
+ KEYBOARD_KEY_c2=!power                                 #graphics amplifier, surprise undock event
+
 ###########################################################
 # Asus
 ###########################################################
