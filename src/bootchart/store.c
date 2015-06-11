@@ -409,6 +409,49 @@ schedstat_next:
                 ps->total = (ps->last->runtime - ps->first->runtime)
                             / 1000000000.0;
 
+                // Take into account CPU runtime/waittime spent in non-main threads of the process
+                // by parsing "/proc/[pid]/task/[tid]/schedstat" for all [tid] != [pid]
+                // See https://github.com/systemd/systemd/issues/139
+
+                // Browse directory "/proc/[pid]/task" to know the thread ids of process [pid]
+                sprintf(filename, "%d/task", pid);
+                {
+                        int taskfd = openat(procfd, filename, O_RDONLY|O_DIRECTORY);
+                        DIR *taskdir = fdopendir(taskfd);
+
+                        while ((ent = readdir(taskdir)) != NULL) {
+                                if ((ent->d_name[0] < '0') || (ent->d_name[0] > '9'))
+                                        continue;
+
+                                // Skip main thread as it was already accounted
+                                int tid = atoi(ent->d_name);
+                                if (tid == pid)
+                                        continue;
+
+                                // Parse "/proc/[pid]/task/[tid]/schedstat"
+                                sprintf(filename, "%d/schedstat", tid);
+                                int tid_schedstat = openat(taskfd, filename, O_RDONLY|O_CLOEXEC);
+
+                                s = pread(tid_schedstat, buf, sizeof(buf) - 1, 0);
+                                if (s <= 0) {
+                                        close(tid_schedstat);
+                                        continue;
+                                }
+                                buf[s] = '\0';
+
+                                if (!sscanf(buf, "%s %s %*s", rt, wt))
+                                        continue;
+
+                                ps->sample->runtime  += atoll(rt);
+                                ps->sample->waittime += atoll(wt);
+
+                                close(tid_schedstat);
+                        }
+                        closedir(taskdir);
+                        close(taskfd);
+                        taskfd = -1;
+                }
+
                 if (!arg_pss)
                         goto catch_rename;
 
