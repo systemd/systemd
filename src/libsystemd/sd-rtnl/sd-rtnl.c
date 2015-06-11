@@ -136,10 +136,6 @@ static int rtnl_open_fd_ap(sd_rtnl **ret, int fd, unsigned n_groups, va_list ap)
         if (r < 0)
                 return r;
 
-        r = setsockopt(fd, SOL_SOCKET, SO_PASSCRED, &one, sizeof(one));
-        if (r < 0)
-                return -errno;
-
         r = setsockopt(fd, SOL_NETLINK, NETLINK_PKTINFO, &one, sizeof(one));
         if (r < 0)
                 return -errno;

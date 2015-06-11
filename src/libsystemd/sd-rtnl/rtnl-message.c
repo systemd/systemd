@@ -24,6 +24,7 @@
 #include <unistd.h>
 
 #include "util.h"
+#include "socket-util.h"
 #include "formats-util.h"
 #include "refcnt.h"
 #include "missing.h"
@@ -1415,17 +1416,18 @@ int socket_write_message(sd_rtnl *nl, sd_rtnl_message *m) {
 }
 
 static int socket_recv_message(int fd, struct iovec *iov, uint32_t *_group, bool peek) {
-        uint8_t cred_buffer[CMSG_SPACE(sizeof(struct ucred)) +
-                            CMSG_SPACE(sizeof(struct nl_pktinfo))];
+        union sockaddr_union sender;
+        uint8_t cmsg_buffer[CMSG_SPACE(sizeof(struct nl_pktinfo))];
         struct msghdr msg = {
                 .msg_iov = iov,
                 .msg_iovlen = 1,
-                .msg_control = cred_buffer,
-                .msg_controllen = sizeof(cred_buffer),
+                .msg_name = &sender,
+                .msg_namelen = sizeof(sender),
+                .msg_control = cmsg_buffer,
+                .msg_controllen = sizeof(cmsg_buffer),
         };
         struct cmsghdr *cmsg;
         uint32_t group = 0;
-        bool auth = false;
         int r;
 
         assert(fd >= 0);
@@ -1442,29 +1444,10 @@ static int socket_recv_message(int fd, struct iovec *iov, uint32_t *_group, bool
                 return (errno == EAGAIN || errno == EINTR) ? 0 : -errno;
         }
 
-        CMSG_FOREACH(cmsg, &msg) {
-                if (cmsg->cmsg_level == SOL_SOCKET &&
-                    cmsg->cmsg_type == SCM_CREDENTIALS &&
-                    cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred))) {
-                        struct ucred *ucred = (void *)CMSG_DATA(cmsg);
-
-                        /* from the kernel */
-                        if (ucred->pid == 0)
-                                auth = true;
-                        else
-                                log_debug("rtnl: ignoring message from PID "PID_FMT, ucred->pid);
-                } else if (cmsg->cmsg_level == SOL_NETLINK &&
-                           cmsg->cmsg_type == NETLINK_PKTINFO &&
-                           cmsg->cmsg_len == CMSG_LEN(sizeof(struct nl_pktinfo))) {
-                        struct nl_pktinfo *pktinfo = (void *)CMSG_DATA(cmsg);
-
-                        /* multi-cast group */
-                        group = pktinfo->group;
-                }
-        }
-
-        if (!auth) {
+        if (sender.nl.nl_pid != 0) {
                 /* not from the kernel, ignore */
+                log_debug("rtnl: ignoring message from portid %"PRIu32, sender.nl.nl_pid);
+
                 if (peek) {
                         /* drop the message */
                         r = recvmsg(fd, &msg, 0);
@@ -1473,6 +1456,17 @@ static int socket_recv_message(int fd, struct iovec *iov, uint32_t *_group, bool
                 }
 
                 return 0;
+        }
+
+        CMSG_FOREACH(cmsg, &msg) {
+                if (cmsg->cmsg_level == SOL_NETLINK &&
+                    cmsg->cmsg_type == NETLINK_PKTINFO &&
+                    cmsg->cmsg_len == CMSG_LEN(sizeof(struct nl_pktinfo))) {
+                        struct nl_pktinfo *pktinfo = (void *)CMSG_DATA(cmsg);
+
+                        /* multi-cast group */
+                        group = pktinfo->group;
+                }
         }
 
         if (_group)
