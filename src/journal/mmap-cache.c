@@ -365,6 +365,8 @@ static int make_room(MMapCache *m) {
                 return 0;
 
         window_free(m->last_unused);
+        m->last_unused = NULL;
+
         return 1;
 }
 
