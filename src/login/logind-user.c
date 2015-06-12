@@ -763,6 +763,9 @@ static int elect_display_compare(Session *s1, Session *s2) {
          * is preferred.
          *
          * s1 or s2 may be NULL. */
+        if (!s1 && !s2)
+                return 0;
+
         if ((s1 == NULL) != (s2 == NULL))
                 return (s1 == NULL) - (s2 == NULL);
 
