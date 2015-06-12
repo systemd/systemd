@@ -82,11 +82,19 @@ static int audit_callback(
 
 static int callback_type_to_priority(int type) {
         switch(type) {
-        case SELINUX_ERROR:   return LOG_ERR;
-        case SELINUX_WARNING: return LOG_WARNING;
-        case SELINUX_INFO:    return LOG_INFO;
+
+        case SELINUX_ERROR:
+                return LOG_ERR;
+
+        case SELINUX_WARNING:
+                return LOG_WARNING;
+
+        case SELINUX_INFO:
+                return LOG_INFO;
+
         case SELINUX_AVC:
-        default:              return LOG_NOTICE;
+        default:
+                return LOG_NOTICE;
         }
 }
 
@@ -281,11 +289,13 @@ finish:
 #endif
 }
 
-int mac_selinux_unit_access_check_strv(char **units,
-                                sd_bus_message *message,
-                                Manager *m,
-                                const char *permission,
-                                sd_bus_error *error) {
+int mac_selinux_unit_access_check_strv(
+                char **units,
+                sd_bus_message *message,
+                Manager *m,
+                const char *permission,
+                sd_bus_error *error) {
+
 #ifdef HAVE_SELINUX
         char **i;
         Unit *u;
