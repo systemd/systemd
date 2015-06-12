@@ -385,7 +385,7 @@ static int mount_points_list_umount(MountPoint **head, bool *changed, bool log_e
                          * alias read-only we hence should be
                          * relatively safe regarding keeping the fs we
                          * can otherwise not see dirty. */
-                        mount(NULL, m->path, NULL, MS_REMOUNT|MS_RDONLY, NULL);
+                        (void) mount(NULL, m->path, NULL, MS_REMOUNT|MS_RDONLY, NULL);
                 }
 
                 /* Skip / and /usr since we cannot unmount that
