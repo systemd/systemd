@@ -69,18 +69,12 @@ static int netdev_tuntap_add(NetDev *netdev, struct ifreq *ifr) {
         assert(ifr);
 
         fd = open(TUN_DEV, O_RDWR);
-        if (fd < 0) {
-                log_netdev_error(netdev, "Failed to open tun dev: %m");
-                return -errno;
-        }
+        if (fd < 0)
+                return log_netdev_error_errno(netdev, -errno,  "Failed to open tun dev: %m");
 
         r = ioctl(fd, TUNSETIFF, ifr);
-        if (r < 0) {
-                log_netdev_error(netdev,
-                                 "TUNSETIFF failed on tun dev: %s",
-                                 strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_netdev_error_errno(netdev, -errno, "TUNSETIFF failed on tun dev: %m");
 
         if (netdev->kind == NETDEV_KIND_TAP)
                 t = TAP(netdev);
@@ -94,18 +88,12 @@ static int netdev_tuntap_add(NetDev *netdev, struct ifreq *ifr) {
                 user = t->user_name;
 
                 r = get_user_creds(&user, &uid, NULL, NULL, NULL);
-                if (r < 0) {
-                        log_error_errno(r, "Cannot resolve user name %s: %m",
-                                        t->user_name);
-                        return 0;
-                }
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Cannot resolve user name %s: %m", t->user_name);
 
                 r = ioctl(fd, TUNSETOWNER, uid);
-                if ( r < 0) {
-                        log_netdev_error(netdev,
-                                         "TUNSETOWNER failed on tun dev: %s",
-                                         strerror(-r));
-                }
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, -errno, "TUNSETOWNER failed on tun dev: %m");
         }
 
         if (t->group_name) {
@@ -113,29 +101,18 @@ static int netdev_tuntap_add(NetDev *netdev, struct ifreq *ifr) {
                 group = t->group_name;
 
                 r = get_group_creds(&group, &gid);
-                if (r < 0) {
-                        log_error_errno(r, "Cannot resolve group name %s: %m",
-                                        t->group_name);
-                        return 0;
-                }
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Cannot resolve group name %s: %m", t->group_name);
 
                 r = ioctl(fd, TUNSETGROUP, gid);
-                if( r < 0) {
-                        log_netdev_error(netdev,
-                                         "TUNSETGROUP failed on tun dev: %s",
-                                         strerror(-r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, -errno, "TUNSETGROUP failed on tun dev: %m");
 
         }
 
         r = ioctl(fd, TUNSETPERSIST, 1);
-        if (r < 0) {
-                log_netdev_error(netdev,
-                                 "TUNSETPERSIST failed on tun dev: %s",
-                                 strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_netdev_error_errno(netdev, -errno, "TUNSETPERSIST failed on tun dev: %m");
 
         return 0;
 }
