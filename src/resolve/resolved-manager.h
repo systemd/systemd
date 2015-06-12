@@ -23,7 +23,7 @@
 
 #include "sd-event.h"
 #include "sd-network.h"
-#include "sd-rtnl.h"
+#include "sd-netlink.h"
 #include "list.h"
 #include "hashmap.h"
 
@@ -50,7 +50,7 @@ struct Manager {
         /* Network */
         Hashmap *links;
 
-        sd_rtnl *rtnl;
+        sd_netlink *rtnl;
         sd_event_source *rtnl_event_source;
 
         sd_network_monitor *network_monitor;

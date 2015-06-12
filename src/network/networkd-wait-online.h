@@ -22,7 +22,7 @@
 #pragma once
 
 #include "sd-event.h"
-#include "sd-rtnl.h"
+#include "sd-netlink.h"
 #include "sd-network.h"
 
 #include "hashmap.h"
@@ -38,7 +38,7 @@ struct Manager {
         char **interfaces;
         char **ignore;
 
-        sd_rtnl *rtnl;
+        sd_netlink *rtnl;
         sd_event_source *rtnl_event_source;
 
         sd_network_monitor *network_monitor;

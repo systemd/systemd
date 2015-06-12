@@ -30,7 +30,7 @@
 #include <sys/wait.h>
 #include <sys/signalfd.h>
 
-#include "rtnl-util.h"
+#include "netlink-util.h"
 #include "event-util.h"
 #include "formats-util.h"
 #include "process-util.h"
@@ -62,7 +62,7 @@ struct udev_event *udev_event_new(struct udev_device *dev) {
 void udev_event_unref(struct udev_event *event) {
         if (event == NULL)
                 return;
-        sd_rtnl_unref(event->rtnl);
+        sd_netlink_unref(event->rtnl);
         udev_list_cleanup(&event->run_list);
         udev_list_cleanup(&event->seclabel_list);
         free(event->program_result);

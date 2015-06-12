@@ -151,8 +151,8 @@ int address_release(Address *address, Link *link) {
 }
 
 int address_drop(Address *address, Link *link,
-                 sd_rtnl_message_handler_t callback) {
-        _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL;
+                 sd_netlink_message_handler_t callback) {
+        _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL;
         int r;
 
         assert(address);
@@ -174,13 +174,13 @@ int address_drop(Address *address, Link *link,
                 return log_error_errno(r, "Could not set prefixlen: %m");
 
         if (address->family == AF_INET)
-                r = sd_rtnl_message_append_in_addr(req, IFA_LOCAL, &address->in_addr.in);
+                r = sd_netlink_message_append_in_addr(req, IFA_LOCAL, &address->in_addr.in);
         else if (address->family == AF_INET6)
-                r = sd_rtnl_message_append_in6_addr(req, IFA_LOCAL, &address->in_addr.in6);
+                r = sd_netlink_message_append_in6_addr(req, IFA_LOCAL, &address->in_addr.in6);
         if (r < 0)
                 return log_error_errno(r, "Could not append IFA_LOCAL attribute: %m");
 
-        r = sd_rtnl_call_async(link->manager->rtnl, req, callback, link, 0, NULL);
+        r = sd_netlink_call_async(link->manager->rtnl, req, callback, link, 0, NULL);
         if (r < 0)
                 return log_error_errno(r, "Could not send rtnetlink message: %m");
 
@@ -190,8 +190,8 @@ int address_drop(Address *address, Link *link,
 }
 
 int address_update(Address *address, Link *link,
-                   sd_rtnl_message_handler_t callback) {
-        _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL;
+                   sd_netlink_message_handler_t callback) {
+        _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL;
         int r;
 
         assert(address);
@@ -216,7 +216,7 @@ int address_update(Address *address, Link *link,
                 return log_error_errno(r, "Could not set flags: %m");
 
         if (address->flags & ~0xff && link->rtnl_extended_attrs) {
-                r = sd_rtnl_message_append_u32(req, IFA_FLAGS, address->flags);
+                r = sd_netlink_message_append_u32(req, IFA_FLAGS, address->flags);
                 if (r < 0)
                         return log_error_errno(r, "Could not set extended flags: %m");
         }
@@ -226,29 +226,29 @@ int address_update(Address *address, Link *link,
                 return log_error_errno(r, "Could not set scope: %m");
 
         if (address->family == AF_INET)
-                r = sd_rtnl_message_append_in_addr(req, IFA_LOCAL, &address->in_addr.in);
+                r = sd_netlink_message_append_in_addr(req, IFA_LOCAL, &address->in_addr.in);
         else if (address->family == AF_INET6)
-                r = sd_rtnl_message_append_in6_addr(req, IFA_LOCAL, &address->in_addr.in6);
+                r = sd_netlink_message_append_in6_addr(req, IFA_LOCAL, &address->in_addr.in6);
         if (r < 0)
                 return log_error_errno(r, "Could not append IFA_LOCAL attribute: %m");
 
         if (address->family == AF_INET) {
-                r = sd_rtnl_message_append_in_addr(req, IFA_BROADCAST, &address->broadcast);
+                r = sd_netlink_message_append_in_addr(req, IFA_BROADCAST, &address->broadcast);
                 if (r < 0)
                         return log_error_errno(r, "Could not append IFA_BROADCAST attribute: %m");
         }
 
         if (address->label) {
-                r = sd_rtnl_message_append_string(req, IFA_LABEL, address->label);
+                r = sd_netlink_message_append_string(req, IFA_LABEL, address->label);
                 if (r < 0)
                         return log_error_errno(r, "Could not append IFA_LABEL attribute: %m");
         }
 
-        r = sd_rtnl_message_append_cache_info(req, IFA_CACHEINFO, &address->cinfo);
+        r = sd_netlink_message_append_cache_info(req, IFA_CACHEINFO, &address->cinfo);
         if (r < 0)
                 return log_error_errno(r, "Could not append IFA_CACHEINFO attribute: %m");
 
-        r = sd_rtnl_call_async(link->manager->rtnl, req, callback, link, 0, NULL);
+        r = sd_netlink_call_async(link->manager->rtnl, req, callback, link, 0, NULL);
         if (r < 0)
                 return log_error_errno(r, "Could not send rtnetlink message: %m");
 
@@ -317,8 +317,8 @@ static int address_acquire(Link *link, Address *original, Address **ret) {
 }
 
 int address_configure(Address *address, Link *link,
-                      sd_rtnl_message_handler_t callback) {
-        _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL;
+                      sd_netlink_message_handler_t callback) {
+        _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL;
         int r;
 
         assert(address);
@@ -348,7 +348,7 @@ int address_configure(Address *address, Link *link,
                 return log_error_errno(r, "Could not set flags: %m");
 
         if (address->flags & ~0xff) {
-                r = sd_rtnl_message_append_u32(req, IFA_FLAGS, address->flags);
+                r = sd_netlink_message_append_u32(req, IFA_FLAGS, address->flags);
                 if (r < 0)
                         return log_error_errno(r, "Could not set extended flags: %m");
         }
@@ -358,39 +358,39 @@ int address_configure(Address *address, Link *link,
                 return log_error_errno(r, "Could not set scope: %m");
 
         if (address->family == AF_INET)
-                r = sd_rtnl_message_append_in_addr(req, IFA_LOCAL, &address->in_addr.in);
+                r = sd_netlink_message_append_in_addr(req, IFA_LOCAL, &address->in_addr.in);
         else if (address->family == AF_INET6)
-                r = sd_rtnl_message_append_in6_addr(req, IFA_LOCAL, &address->in_addr.in6);
+                r = sd_netlink_message_append_in6_addr(req, IFA_LOCAL, &address->in_addr.in6);
         if (r < 0)
                 return log_error_errno(r, "Could not append IFA_LOCAL attribute: %m");
 
         if (!in_addr_is_null(address->family, &address->in_addr_peer)) {
                 if (address->family == AF_INET)
-                        r = sd_rtnl_message_append_in_addr(req, IFA_ADDRESS, &address->in_addr_peer.in);
+                        r = sd_netlink_message_append_in_addr(req, IFA_ADDRESS, &address->in_addr_peer.in);
                 else if (address->family == AF_INET6)
-                        r = sd_rtnl_message_append_in6_addr(req, IFA_ADDRESS, &address->in_addr_peer.in6);
+                        r = sd_netlink_message_append_in6_addr(req, IFA_ADDRESS, &address->in_addr_peer.in6);
                 if (r < 0)
                         return log_error_errno(r, "Could not append IFA_ADDRESS attribute: %m");
         } else {
                 if (address->family == AF_INET) {
-                        r = sd_rtnl_message_append_in_addr(req, IFA_BROADCAST, &address->broadcast);
+                        r = sd_netlink_message_append_in_addr(req, IFA_BROADCAST, &address->broadcast);
                         if (r < 0)
                                 return log_error_errno(r, "Could not append IFA_BROADCAST attribute: %m");
                 }
         }
 
         if (address->label) {
-                r = sd_rtnl_message_append_string(req, IFA_LABEL, address->label);
+                r = sd_netlink_message_append_string(req, IFA_LABEL, address->label);
                 if (r < 0)
                         return log_error_errno(r, "Could not append IFA_LABEL attribute: %m");
         }
 
-        r = sd_rtnl_message_append_cache_info(req, IFA_CACHEINFO,
+        r = sd_netlink_message_append_cache_info(req, IFA_CACHEINFO,
                                               &address->cinfo);
         if (r < 0)
                 return log_error_errno(r, "Could not append IFA_CACHEINFO attribute: %m");
 
-        r = sd_rtnl_call_async(link->manager->rtnl, req, callback, link, 0, NULL);
+        r = sd_netlink_call_async(link->manager->rtnl, req, callback, link, 0, NULL);
         if (r < 0)
                 return log_error_errno(r, "Could not send rtnetlink message: %m");
 

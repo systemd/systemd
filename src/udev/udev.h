@@ -22,7 +22,7 @@
 #include <sys/param.h>
 
 #include "macro.h"
-#include "sd-rtnl.h"
+#include "sd-netlink.h"
 #include "libudev.h"
 #include "libudev-private.h"
 #include "util.h"
@@ -43,7 +43,7 @@ struct udev_event {
         struct udev_list run_list;
         int exec_delay;
         usec_t birth_usec;
-        sd_rtnl *rtnl;
+        sd_netlink *rtnl;
         unsigned int builtin_run;
         unsigned int builtin_ret;
         bool inotify_watch;

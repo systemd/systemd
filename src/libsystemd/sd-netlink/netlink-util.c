@@ -20,13 +20,13 @@
 ***/
 
 
-#include "sd-rtnl.h"
+#include "sd-netlink.h"
 
-#include "rtnl-util.h"
-#include "rtnl-internal.h"
+#include "netlink-util.h"
+#include "netlink-internal.h"
 
-int rtnl_set_link_name(sd_rtnl **rtnl, int ifindex, const char *name) {
-        _cleanup_rtnl_message_unref_ sd_rtnl_message *message = NULL;
+int rtnl_set_link_name(sd_netlink **rtnl, int ifindex, const char *name) {
+        _cleanup_netlink_message_unref_ sd_netlink_message *message = NULL;
         int r;
 
         assert(rtnl);
@@ -34,7 +34,7 @@ int rtnl_set_link_name(sd_rtnl **rtnl, int ifindex, const char *name) {
         assert(name);
 
         if (!*rtnl) {
-                r = sd_rtnl_open(rtnl);
+                r = sd_netlink_open(rtnl);
                 if (r < 0)
                         return r;
         }
@@ -43,20 +43,20 @@ int rtnl_set_link_name(sd_rtnl **rtnl, int ifindex, const char *name) {
         if (r < 0)
                 return r;
 
-        r = sd_rtnl_message_append_string(message, IFLA_IFNAME, name);
+        r = sd_netlink_message_append_string(message, IFLA_IFNAME, name);
         if (r < 0)
                 return r;
 
-        r = sd_rtnl_call(*rtnl, message, 0, NULL);
+        r = sd_netlink_call(*rtnl, message, 0, NULL);
         if (r < 0)
                 return r;
 
         return 0;
 }
 
-int rtnl_set_link_properties(sd_rtnl **rtnl, int ifindex, const char *alias,
+int rtnl_set_link_properties(sd_netlink **rtnl, int ifindex, const char *alias,
                              const struct ether_addr *mac, unsigned mtu) {
-        _cleanup_rtnl_message_unref_ sd_rtnl_message *message = NULL;
+        _cleanup_netlink_message_unref_ sd_netlink_message *message = NULL;
         int r;
 
         assert(rtnl);
@@ -66,7 +66,7 @@ int rtnl_set_link_properties(sd_rtnl **rtnl, int ifindex, const char *alias,
                 return 0;
 
         if (!*rtnl) {
-                r = sd_rtnl_open(rtnl);
+                r = sd_netlink_open(rtnl);
                 if (r < 0)
                         return r;
         }
@@ -76,31 +76,31 @@ int rtnl_set_link_properties(sd_rtnl **rtnl, int ifindex, const char *alias,
                 return r;
 
         if (alias) {
-                r = sd_rtnl_message_append_string(message, IFLA_IFALIAS, alias);
+                r = sd_netlink_message_append_string(message, IFLA_IFALIAS, alias);
                 if (r < 0)
                         return r;
         }
 
         if (mac) {
-                r = sd_rtnl_message_append_ether_addr(message, IFLA_ADDRESS, mac);
+                r = sd_netlink_message_append_ether_addr(message, IFLA_ADDRESS, mac);
                 if (r < 0)
                         return r;
         }
 
         if (mtu > 0) {
-                r = sd_rtnl_message_append_u32(message, IFLA_MTU, mtu);
+                r = sd_netlink_message_append_u32(message, IFLA_MTU, mtu);
                 if (r < 0)
                         return r;
         }
 
-        r = sd_rtnl_call(*rtnl, message, 0, NULL);
+        r = sd_netlink_call(*rtnl, message, 0, NULL);
         if (r < 0)
                 return r;
 
         return 0;
 }
 
-int rtnl_message_new_synthetic_error(int error, uint32_t serial, sd_rtnl_message **ret) {
+int rtnl_message_new_synthetic_error(int error, uint32_t serial, sd_netlink_message **ret) {
         struct nlmsgerr *err;
         int r;
 

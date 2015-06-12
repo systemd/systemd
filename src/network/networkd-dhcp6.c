@@ -35,14 +35,14 @@ static int dhcp6_lease_information_acquired(sd_dhcp6_client *client,
         return 0;
 }
 
-static int dhcp6_address_handler(sd_rtnl *rtnl, sd_rtnl_message *m,
+static int dhcp6_address_handler(sd_netlink *rtnl, sd_netlink_message *m,
                                  void *userdata) {
         _cleanup_link_unref_ Link *link = userdata;
         int r;
 
         assert(link);
 
-        r = sd_rtnl_message_get_errno(m);
+        r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
                 if (link->rtnl_extended_attrs) {
                         log_link_warning(link, "Could not set extended netlink attributes, reverting to fallback mechanism");

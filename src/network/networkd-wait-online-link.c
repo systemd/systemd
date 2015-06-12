@@ -82,7 +82,7 @@ Link *link_free(Link *l) {
         return NULL;
  }
 
-int link_update_rtnl(Link *l, sd_rtnl_message *m) {
+int link_update_rtnl(Link *l, sd_netlink_message *m) {
         const char *ifname;
         int r;
 
@@ -94,7 +94,7 @@ int link_update_rtnl(Link *l, sd_rtnl_message *m) {
         if (r < 0)
                 return r;
 
-        r = sd_rtnl_message_read_string(m, IFLA_IFNAME, &ifname);
+        r = sd_netlink_message_read_string(m, IFLA_IFNAME, &ifname);
         if (r < 0)
                 return r;
 

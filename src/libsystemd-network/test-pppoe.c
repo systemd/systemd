@@ -29,7 +29,7 @@
 #include "util.h"
 #include "sd-event.h"
 #include "event-util.h"
-#include "sd-rtnl.h"
+#include "sd-netlink.h"
 #include "sd-pppoe.h"
 #include "process-util.h"
 
@@ -83,8 +83,8 @@ static int client_run(const char *client_name, sd_event *e) {
 }
 
 static int test_pppoe_server(sd_event *e) {
-        sd_rtnl *rtnl;
-        sd_rtnl_message *m;
+        sd_netlink *rtnl;
+        sd_netlink_message *m;
         pid_t pid;
         int r, client_ifindex, server_ifindex;
 
@@ -94,34 +94,34 @@ static int test_pppoe_server(sd_event *e) {
 
         assert_se(r >= 0);
 
-        assert_se(sd_rtnl_open(&rtnl) >= 0);
-        assert_se(sd_rtnl_attach_event(rtnl, e, 0) >= 0);
+        assert_se(sd_netlink_open(&rtnl) >= 0);
+        assert_se(sd_netlink_attach_event(rtnl, e, 0) >= 0);
 
         assert_se(sd_rtnl_message_new_link(rtnl, &m, RTM_NEWLINK, 0) >= 0);
-        assert_se(sd_rtnl_message_append_string(m, IFLA_IFNAME, "pppoe-server") >= 0);
-        assert_se(sd_rtnl_message_open_container(m, IFLA_LINKINFO) >= 0);
-        assert_se(sd_rtnl_message_open_container_union(m, IFLA_INFO_DATA, "veth") >= 0);
-        assert_se(sd_rtnl_message_open_container(m, VETH_INFO_PEER) >= 0);
-        assert_se(sd_rtnl_message_append_string(m, IFLA_IFNAME, "pppoe-client") >= 0);
-        assert_se(sd_rtnl_message_close_container(m) >= 0);
-        assert_se(sd_rtnl_message_close_container(m) >= 0);
-        assert_se(sd_rtnl_message_close_container(m) >= 0);
-        assert_se(sd_rtnl_call(rtnl, m, 0, NULL) >= 0);
+        assert_se(sd_netlink_message_append_string(m, IFLA_IFNAME, "pppoe-server") >= 0);
+        assert_se(sd_netlink_message_open_container(m, IFLA_LINKINFO) >= 0);
+        assert_se(sd_netlink_message_open_container_union(m, IFLA_INFO_DATA, "veth") >= 0);
+        assert_se(sd_netlink_message_open_container(m, VETH_INFO_PEER) >= 0);
+        assert_se(sd_netlink_message_append_string(m, IFLA_IFNAME, "pppoe-client") >= 0);
+        assert_se(sd_netlink_message_close_container(m) >= 0);
+        assert_se(sd_netlink_message_close_container(m) >= 0);
+        assert_se(sd_netlink_message_close_container(m) >= 0);
+        assert_se(sd_netlink_call(rtnl, m, 0, NULL) >= 0);
 
         client_ifindex = (int) if_nametoindex("pppoe-client");
         assert_se(client_ifindex > 0);
         server_ifindex = (int) if_nametoindex("pppoe-server");
         assert_se(server_ifindex > 0);
 
-        m = sd_rtnl_message_unref(m);
+        m = sd_netlink_message_unref(m);
         assert_se(sd_rtnl_message_new_link(rtnl, &m, RTM_SETLINK, client_ifindex) >= 0);
         assert_se(sd_rtnl_message_link_set_flags(m, IFF_UP, IFF_UP) >= 0);
-        assert_se(sd_rtnl_call(rtnl, m, 0, NULL) >= 0);
+        assert_se(sd_netlink_call(rtnl, m, 0, NULL) >= 0);
 
-        m = sd_rtnl_message_unref(m);
+        m = sd_netlink_message_unref(m);
         assert_se(sd_rtnl_message_new_link(rtnl, &m, RTM_SETLINK, server_ifindex) >= 0);
         assert_se(sd_rtnl_message_link_set_flags(m, IFF_UP, IFF_UP) >= 0);
-        assert_se(sd_rtnl_call(rtnl, m, 0, NULL) >= 0);
+        assert_se(sd_netlink_call(rtnl, m, 0, NULL) >= 0);
 
         pid = fork();
         assert_se(pid >= 0);
@@ -145,8 +145,8 @@ static int test_pppoe_server(sd_event *e) {
         assert_se(kill(pid, SIGTERM) >= 0);
         assert_se(wait_for_terminate(pid, NULL) >= 0);
 
-        assert_se(!sd_rtnl_message_unref(m));
-        assert_se(!sd_rtnl_unref(rtnl));
+        assert_se(!sd_netlink_message_unref(m));
+        assert_se(!sd_netlink_unref(rtnl));
 
         return EXIT_SUCCESS;
 }

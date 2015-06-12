@@ -55,7 +55,7 @@
 #include "sd-daemon.h"
 #include "sd-bus.h"
 #include "sd-id128.h"
-#include "sd-rtnl.h"
+#include "sd-netlink.h"
 #include "random-util.h"
 #include "log.h"
 #include "util.h"
@@ -75,7 +75,7 @@
 #include "bus-error.h"
 #include "ptyfwd.h"
 #include "env-util.h"
-#include "rtnl-util.h"
+#include "netlink-util.h"
 #include "udev-util.h"
 #include "blkid-util.h"
 #include "gpt.h"
@@ -1966,7 +1966,7 @@ static int flush_ports(union in_addr_union *exposed) {
         return 0;
 }
 
-static int expose_ports(sd_rtnl *rtnl, union in_addr_union *exposed) {
+static int expose_ports(sd_netlink *rtnl, union in_addr_union *exposed) {
         _cleanup_free_ struct local_address *addresses = NULL;
         _cleanup_free_ char *pretty = NULL;
         union in_addr_union new_exposed;
@@ -2020,7 +2020,7 @@ static int expose_ports(sd_rtnl *rtnl, union in_addr_union *exposed) {
         return 0;
 }
 
-static int on_address_change(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
+static int on_address_change(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
         union in_addr_union *exposed = userdata;
 
         assert(rtnl);
@@ -2031,7 +2031,7 @@ static int on_address_change(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) 
         return 0;
 }
 
-static int watch_rtnl(sd_event *event, int recv_fd, union in_addr_union *exposed, sd_rtnl **ret) {
+static int watch_rtnl(sd_event *event, int recv_fd, union in_addr_union *exposed, sd_netlink **ret) {
         union {
                 struct cmsghdr cmsghdr;
                 uint8_t buf[CMSG_SPACE(sizeof(int))];
@@ -2041,7 +2041,7 @@ static int watch_rtnl(sd_event *event, int recv_fd, union in_addr_union *exposed
                 .msg_controllen = sizeof(control),
         };
         struct cmsghdr *cmsg;
-        _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
+        _cleanup_netlink_unref_ sd_netlink *rtnl = NULL;
         int fd, r;
         ssize_t k;
 
@@ -2062,21 +2062,21 @@ static int watch_rtnl(sd_event *event, int recv_fd, union in_addr_union *exposed
         assert(cmsg->cmsg_len == CMSG_LEN(sizeof(int)));
         memcpy(&fd, CMSG_DATA(cmsg), sizeof(int));
 
-        r = sd_rtnl_open_fd(&rtnl, fd);
+        r = sd_netlink_open_fd(&rtnl, fd);
         if (r < 0) {
                 safe_close(fd);
                 return log_error_errno(r, "Failed to create rtnl object: %m");
         }
 
-        r = sd_rtnl_add_match(rtnl, RTM_NEWADDR, on_address_change, exposed);
+        r = sd_netlink_add_match(rtnl, RTM_NEWADDR, on_address_change, exposed);
         if (r < 0)
                 return log_error_errno(r, "Failed to subscribe to RTM_NEWADDR messages: %m");
 
-        r = sd_rtnl_add_match(rtnl, RTM_DELADDR, on_address_change, exposed);
+        r = sd_netlink_add_match(rtnl, RTM_DELADDR, on_address_change, exposed);
         if (r < 0)
                 return log_error_errno(r, "Failed to subscribe to RTM_DELADDR messages: %m");
 
-        r = sd_rtnl_attach_event(rtnl, event, 0);
+        r = sd_netlink_attach_event(rtnl, event, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to add to even loop: %m");
 
@@ -2550,8 +2550,8 @@ static int generate_mac(struct ether_addr *mac, sd_id128_t hash_key, uint64_t id
 }
 
 static int setup_veth(pid_t pid, char iface_name[IFNAMSIZ], int *ifi) {
-        _cleanup_rtnl_message_unref_ sd_rtnl_message *m = NULL;
-        _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
+        _cleanup_netlink_message_unref_ sd_netlink_message *m = NULL;
+        _cleanup_netlink_unref_ sd_netlink *rtnl = NULL;
         struct ether_addr mac_host, mac_container;
         int r, i;
 
@@ -2574,7 +2574,7 @@ static int setup_veth(pid_t pid, char iface_name[IFNAMSIZ], int *ifi) {
         if (r < 0)
                 return log_error_errno(r, "Failed to generate predictable MAC address for host side: %m");
 
-        r = sd_rtnl_open(&rtnl);
+        r = sd_netlink_open(&rtnl);
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to netlink: %m");
 
@@ -2582,51 +2582,51 @@ static int setup_veth(pid_t pid, char iface_name[IFNAMSIZ], int *ifi) {
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate netlink message: %m");
 
-        r = sd_rtnl_message_append_string(m, IFLA_IFNAME, iface_name);
+        r = sd_netlink_message_append_string(m, IFLA_IFNAME, iface_name);
         if (r < 0)
                 return log_error_errno(r, "Failed to add netlink interface name: %m");
 
-        r = sd_rtnl_message_append_ether_addr(m, IFLA_ADDRESS, &mac_host);
+        r = sd_netlink_message_append_ether_addr(m, IFLA_ADDRESS, &mac_host);
         if (r < 0)
                 return log_error_errno(r, "Failed to add netlink MAC address: %m");
 
-        r = sd_rtnl_message_open_container(m, IFLA_LINKINFO);
+        r = sd_netlink_message_open_container(m, IFLA_LINKINFO);
         if (r < 0)
                 return log_error_errno(r, "Failed to open netlink container: %m");
 
-        r = sd_rtnl_message_open_container_union(m, IFLA_INFO_DATA, "veth");
+        r = sd_netlink_message_open_container_union(m, IFLA_INFO_DATA, "veth");
         if (r < 0)
                 return log_error_errno(r, "Failed to open netlink container: %m");
 
-        r = sd_rtnl_message_open_container(m, VETH_INFO_PEER);
+        r = sd_netlink_message_open_container(m, VETH_INFO_PEER);
         if (r < 0)
                 return log_error_errno(r, "Failed to open netlink container: %m");
 
-        r = sd_rtnl_message_append_string(m, IFLA_IFNAME, "host0");
+        r = sd_netlink_message_append_string(m, IFLA_IFNAME, "host0");
         if (r < 0)
                 return log_error_errno(r, "Failed to add netlink interface name: %m");
 
-        r = sd_rtnl_message_append_ether_addr(m, IFLA_ADDRESS, &mac_container);
+        r = sd_netlink_message_append_ether_addr(m, IFLA_ADDRESS, &mac_container);
         if (r < 0)
                 return log_error_errno(r, "Failed to add netlink MAC address: %m");
 
-        r = sd_rtnl_message_append_u32(m, IFLA_NET_NS_PID, pid);
+        r = sd_netlink_message_append_u32(m, IFLA_NET_NS_PID, pid);
         if (r < 0)
                 return log_error_errno(r, "Failed to add netlink namespace field: %m");
 
-        r = sd_rtnl_message_close_container(m);
+        r = sd_netlink_message_close_container(m);
         if (r < 0)
                 return log_error_errno(r, "Failed to close netlink container: %m");
 
-        r = sd_rtnl_message_close_container(m);
+        r = sd_netlink_message_close_container(m);
         if (r < 0)
                 return log_error_errno(r, "Failed to close netlink container: %m");
 
-        r = sd_rtnl_message_close_container(m);
+        r = sd_netlink_message_close_container(m);
         if (r < 0)
                 return log_error_errno(r, "Failed to close netlink container: %m");
 
-        r = sd_rtnl_call(rtnl, m, 0, NULL);
+        r = sd_netlink_call(rtnl, m, 0, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to add new veth interfaces (host0, %s): %m", iface_name);
 
@@ -2640,8 +2640,8 @@ static int setup_veth(pid_t pid, char iface_name[IFNAMSIZ], int *ifi) {
 }
 
 static int setup_bridge(const char veth_name[], int *ifi) {
-        _cleanup_rtnl_message_unref_ sd_rtnl_message *m = NULL;
-        _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
+        _cleanup_netlink_message_unref_ sd_netlink_message *m = NULL;
+        _cleanup_netlink_unref_ sd_netlink *rtnl = NULL;
         int r, bridge;
 
         if (!arg_private_network)
@@ -2659,7 +2659,7 @@ static int setup_bridge(const char veth_name[], int *ifi) {
 
         *ifi = bridge;
 
-        r = sd_rtnl_open(&rtnl);
+        r = sd_netlink_open(&rtnl);
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to netlink: %m");
 
@@ -2671,15 +2671,15 @@ static int setup_bridge(const char veth_name[], int *ifi) {
         if (r < 0)
                 return log_error_errno(r, "Failed to set IFF_UP flag: %m");
 
-        r = sd_rtnl_message_append_string(m, IFLA_IFNAME, veth_name);
+        r = sd_netlink_message_append_string(m, IFLA_IFNAME, veth_name);
         if (r < 0)
                 return log_error_errno(r, "Failed to add netlink interface name field: %m");
 
-        r = sd_rtnl_message_append_u32(m, IFLA_MASTER, bridge);
+        r = sd_netlink_message_append_u32(m, IFLA_MASTER, bridge);
         if (r < 0)
                 return log_error_errno(r, "Failed to add netlink master field: %m");
 
-        r = sd_rtnl_call(rtnl, m, 0, NULL);
+        r = sd_netlink_call(rtnl, m, 0, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to add veth interface to bridge: %m");
 
@@ -2710,7 +2710,7 @@ static int parse_interface(struct udev *udev, const char *name) {
 
 static int move_network_interfaces(pid_t pid) {
         _cleanup_udev_unref_ struct udev *udev = NULL;
-        _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
+        _cleanup_netlink_unref_ sd_netlink *rtnl = NULL;
         char **i;
         int r;
 
@@ -2720,7 +2720,7 @@ static int move_network_interfaces(pid_t pid) {
         if (strv_isempty(arg_network_interfaces))
                 return 0;
 
-        r = sd_rtnl_open(&rtnl);
+        r = sd_netlink_open(&rtnl);
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to netlink: %m");
 
@@ -2731,7 +2731,7 @@ static int move_network_interfaces(pid_t pid) {
         }
 
         STRV_FOREACH(i, arg_network_interfaces) {
-                _cleanup_rtnl_message_unref_ sd_rtnl_message *m = NULL;
+                _cleanup_netlink_message_unref_ sd_netlink_message *m = NULL;
                 int ifi;
 
                 ifi = parse_interface(udev, *i);
@@ -2742,11 +2742,11 @@ static int move_network_interfaces(pid_t pid) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to allocate netlink message: %m");
 
-                r = sd_rtnl_message_append_u32(m, IFLA_NET_NS_PID, pid);
+                r = sd_netlink_message_append_u32(m, IFLA_NET_NS_PID, pid);
                 if (r < 0)
                         return log_error_errno(r, "Failed to append namespace PID to netlink message: %m");
 
-                r = sd_rtnl_call(rtnl, m, 0, NULL);
+                r = sd_netlink_call(rtnl, m, 0, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to move interface %s to namespace: %m", *i);
         }
@@ -2756,7 +2756,7 @@ static int move_network_interfaces(pid_t pid) {
 
 static int setup_macvlan(pid_t pid) {
         _cleanup_udev_unref_ struct udev *udev = NULL;
-        _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
+        _cleanup_netlink_unref_ sd_netlink *rtnl = NULL;
         unsigned idx = 0;
         char **i;
         int r;
@@ -2767,7 +2767,7 @@ static int setup_macvlan(pid_t pid) {
         if (strv_isempty(arg_network_macvlan))
                 return 0;
 
-        r = sd_rtnl_open(&rtnl);
+        r = sd_netlink_open(&rtnl);
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to netlink: %m");
 
@@ -2778,7 +2778,7 @@ static int setup_macvlan(pid_t pid) {
         }
 
         STRV_FOREACH(i, arg_network_macvlan) {
-                _cleanup_rtnl_message_unref_ sd_rtnl_message *m = NULL;
+                _cleanup_netlink_message_unref_ sd_netlink_message *m = NULL;
                 _cleanup_free_ char *n = NULL;
                 struct ether_addr mac;
                 int ifi;
@@ -2795,7 +2795,7 @@ static int setup_macvlan(pid_t pid) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to allocate netlink message: %m");
 
-                r = sd_rtnl_message_append_u32(m, IFLA_LINK, ifi);
+                r = sd_netlink_message_append_u32(m, IFLA_LINK, ifi);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add netlink interface index: %m");
 
@@ -2805,39 +2805,39 @@ static int setup_macvlan(pid_t pid) {
 
                 strshorten(n, IFNAMSIZ-1);
 
-                r = sd_rtnl_message_append_string(m, IFLA_IFNAME, n);
+                r = sd_netlink_message_append_string(m, IFLA_IFNAME, n);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add netlink interface name: %m");
 
-                r = sd_rtnl_message_append_ether_addr(m, IFLA_ADDRESS, &mac);
+                r = sd_netlink_message_append_ether_addr(m, IFLA_ADDRESS, &mac);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add netlink MAC address: %m");
 
-                r = sd_rtnl_message_append_u32(m, IFLA_NET_NS_PID, pid);
+                r = sd_netlink_message_append_u32(m, IFLA_NET_NS_PID, pid);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add netlink namespace field: %m");
 
-                r = sd_rtnl_message_open_container(m, IFLA_LINKINFO);
+                r = sd_netlink_message_open_container(m, IFLA_LINKINFO);
                 if (r < 0)
                         return log_error_errno(r, "Failed to open netlink container: %m");
 
-                r = sd_rtnl_message_open_container_union(m, IFLA_INFO_DATA, "macvlan");
+                r = sd_netlink_message_open_container_union(m, IFLA_INFO_DATA, "macvlan");
                 if (r < 0)
                         return log_error_errno(r, "Failed to open netlink container: %m");
 
-                r = sd_rtnl_message_append_u32(m, IFLA_MACVLAN_MODE, MACVLAN_MODE_BRIDGE);
+                r = sd_netlink_message_append_u32(m, IFLA_MACVLAN_MODE, MACVLAN_MODE_BRIDGE);
                 if (r < 0)
                         return log_error_errno(r, "Failed to append macvlan mode: %m");
 
-                r = sd_rtnl_message_close_container(m);
+                r = sd_netlink_message_close_container(m);
                 if (r < 0)
                         return log_error_errno(r, "Failed to close netlink container: %m");
 
-                r = sd_rtnl_message_close_container(m);
+                r = sd_netlink_message_close_container(m);
                 if (r < 0)
                         return log_error_errno(r, "Failed to close netlink container: %m");
 
-                r = sd_rtnl_call(rtnl, m, 0, NULL);
+                r = sd_netlink_call(rtnl, m, 0, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add new macvlan interfaces: %m");
         }
@@ -2847,7 +2847,7 @@ static int setup_macvlan(pid_t pid) {
 
 static int setup_ipvlan(pid_t pid) {
         _cleanup_udev_unref_ struct udev *udev = NULL;
-        _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
+        _cleanup_netlink_unref_ sd_netlink *rtnl = NULL;
         char **i;
         int r;
 
@@ -2857,7 +2857,7 @@ static int setup_ipvlan(pid_t pid) {
         if (strv_isempty(arg_network_ipvlan))
                 return 0;
 
-        r = sd_rtnl_open(&rtnl);
+        r = sd_netlink_open(&rtnl);
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to netlink: %m");
 
@@ -2868,7 +2868,7 @@ static int setup_ipvlan(pid_t pid) {
         }
 
         STRV_FOREACH(i, arg_network_ipvlan) {
-                _cleanup_rtnl_message_unref_ sd_rtnl_message *m = NULL;
+                _cleanup_netlink_message_unref_ sd_netlink_message *m = NULL;
                 _cleanup_free_ char *n = NULL;
                 int ifi;
 
@@ -2880,7 +2880,7 @@ static int setup_ipvlan(pid_t pid) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to allocate netlink message: %m");
 
-                r = sd_rtnl_message_append_u32(m, IFLA_LINK, ifi);
+                r = sd_netlink_message_append_u32(m, IFLA_LINK, ifi);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add netlink interface index: %m");
 
@@ -2890,35 +2890,35 @@ static int setup_ipvlan(pid_t pid) {
 
                 strshorten(n, IFNAMSIZ-1);
 
-                r = sd_rtnl_message_append_string(m, IFLA_IFNAME, n);
+                r = sd_netlink_message_append_string(m, IFLA_IFNAME, n);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add netlink interface name: %m");
 
-                r = sd_rtnl_message_append_u32(m, IFLA_NET_NS_PID, pid);
+                r = sd_netlink_message_append_u32(m, IFLA_NET_NS_PID, pid);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add netlink namespace field: %m");
 
-                r = sd_rtnl_message_open_container(m, IFLA_LINKINFO);
+                r = sd_netlink_message_open_container(m, IFLA_LINKINFO);
                 if (r < 0)
                         return log_error_errno(r, "Failed to open netlink container: %m");
 
-                r = sd_rtnl_message_open_container_union(m, IFLA_INFO_DATA, "ipvlan");
+                r = sd_netlink_message_open_container_union(m, IFLA_INFO_DATA, "ipvlan");
                 if (r < 0)
                         return log_error_errno(r, "Failed to open netlink container: %m");
 
-                r = sd_rtnl_message_append_u16(m, IFLA_IPVLAN_MODE, IPVLAN_MODE_L2);
+                r = sd_netlink_message_append_u16(m, IFLA_IPVLAN_MODE, IPVLAN_MODE_L2);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add ipvlan mode: %m");
 
-                r = sd_rtnl_message_close_container(m);
+                r = sd_netlink_message_close_container(m);
                 if (r < 0)
                         return log_error_errno(r, "Failed to close netlink container: %m");
 
-                r = sd_rtnl_message_close_container(m);
+                r = sd_netlink_message_close_container(m);
                 if (r < 0)
                         return log_error_errno(r, "Failed to close netlink container: %m");
 
-                r = sd_rtnl_call(rtnl, m, 0, NULL);
+                r = sd_netlink_call(rtnl, m, 0, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add new ipvlan interfaces: %m");
         }
@@ -4681,7 +4681,7 @@ int main(int argc, char *argv[]) {
                 ssize_t l;
                                 _cleanup_event_unref_ sd_event *event = NULL;
                                 _cleanup_(pty_forward_freep) PTYForward *forward = NULL;
-                                _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
+                                _cleanup_netlink_unref_ sd_netlink *rtnl = NULL;
                                 char last_char = 0;
 
                 r = barrier_create(&barrier);

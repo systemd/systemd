@@ -22,13 +22,13 @@
 #include <net/if.h>
 #include <stdlib.h>
 
-#include "sd-rtnl.h"
-#include "rtnl-util.h"
+#include "sd-netlink.h"
+#include "netlink-util.h"
 #include "missing.h"
 #include "loopback-setup.h"
 
-static int start_loopback(sd_rtnl *rtnl) {
-        _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL;
+static int start_loopback(sd_netlink *rtnl) {
+        _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL;
         int r;
 
         r = sd_rtnl_message_new_link(rtnl, &req, RTM_SETLINK, LOOPBACK_IFINDEX);
@@ -39,15 +39,15 @@ static int start_loopback(sd_rtnl *rtnl) {
         if (r < 0)
                 return r;
 
-        r = sd_rtnl_call(rtnl, req, 0, NULL);
+        r = sd_netlink_call(rtnl, req, 0, NULL);
         if (r < 0)
                 return r;
 
         return 0;
 }
 
-static bool check_loopback(sd_rtnl *rtnl) {
-        _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL, *reply = NULL;
+static bool check_loopback(sd_netlink *rtnl) {
+        _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL, *reply = NULL;
         unsigned flags;
         int r;
 
@@ -55,7 +55,7 @@ static bool check_loopback(sd_rtnl *rtnl) {
         if (r < 0)
                 return false;
 
-        r = sd_rtnl_call(rtnl, req, 0, &reply);
+        r = sd_netlink_call(rtnl, req, 0, &reply);
         if (r < 0)
                 return false;
 
@@ -67,10 +67,10 @@ static bool check_loopback(sd_rtnl *rtnl) {
 }
 
 int loopback_setup(void) {
-        _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
+        _cleanup_netlink_unref_ sd_netlink *rtnl = NULL;
         int r;
 
-        r = sd_rtnl_open(&rtnl);
+        r = sd_netlink_open(&rtnl);
         if (r < 0)
                 return r;
 

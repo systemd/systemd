@@ -28,14 +28,14 @@
 #include "ethtool-util.h"
 
 #include "libudev-private.h"
-#include "sd-rtnl.h"
+#include "sd-netlink.h"
 #include "util.h"
 #include "log.h"
 #include "strv.h"
 #include "path-util.h"
 #include "conf-parser.h"
 #include "conf-files.h"
-#include "rtnl-util.h"
+#include "netlink-util.h"
 #include "network-internal.h"
 #include "random-util.h"
 
@@ -46,7 +46,7 @@ struct link_config_ctx {
 
         bool enable_name_policy;
 
-        sd_rtnl *rtnl;
+        sd_netlink *rtnl;
 
         usec_t link_dirs_ts_usec;
 };
@@ -103,7 +103,7 @@ void link_config_ctx_free(link_config_ctx *ctx) {
 
         safe_close(ctx->ethtool_fd);
 
-        sd_rtnl_unref(ctx->rtnl);
+        sd_netlink_unref(ctx->rtnl);
 
         link_configs_free(ctx);
 

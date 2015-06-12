@@ -24,7 +24,7 @@
 #include <poll.h>
 #include <netinet/in.h>
 
-#include "rtnl-util.h"
+#include "netlink-util.h"
 #include "network-internal.h"
 #include "socket-util.h"
 #include "af-list.h"
@@ -41,7 +41,7 @@
 
 #define SEND_TIMEOUT_USEC (200 * USEC_PER_MSEC)
 
-static int manager_process_link(sd_rtnl *rtnl, sd_rtnl_message *mm, void *userdata) {
+static int manager_process_link(sd_netlink *rtnl, sd_netlink_message *mm, void *userdata) {
         Manager *m = userdata;
         uint16_t type;
         Link *l;
@@ -51,7 +51,7 @@ static int manager_process_link(sd_rtnl *rtnl, sd_rtnl_message *mm, void *userda
         assert(m);
         assert(mm);
 
-        r = sd_rtnl_message_get_type(mm, &type);
+        r = sd_netlink_message_get_type(mm, &type);
         if (r < 0)
                 goto fail;
 
@@ -102,7 +102,7 @@ fail:
         return 0;
 }
 
-static int manager_process_address(sd_rtnl *rtnl, sd_rtnl_message *mm, void *userdata) {
+static int manager_process_address(sd_netlink *rtnl, sd_netlink_message *mm, void *userdata) {
         Manager *m = userdata;
         union in_addr_union address;
         uint16_t type;
@@ -114,7 +114,7 @@ static int manager_process_address(sd_rtnl *rtnl, sd_rtnl_message *mm, void *use
         assert(mm);
         assert(m);
 
-        r = sd_rtnl_message_get_type(mm, &type);
+        r = sd_netlink_message_get_type(mm, &type);
         if (r < 0)
                 goto fail;
 
@@ -133,9 +133,9 @@ static int manager_process_address(sd_rtnl *rtnl, sd_rtnl_message *mm, void *use
         switch (family) {
 
         case AF_INET:
-                r = sd_rtnl_message_read_in_addr(mm, IFA_LOCAL, &address.in);
+                r = sd_netlink_message_read_in_addr(mm, IFA_LOCAL, &address.in);
                 if (r < 0) {
-                        r = sd_rtnl_message_read_in_addr(mm, IFA_ADDRESS, &address.in);
+                        r = sd_netlink_message_read_in_addr(mm, IFA_ADDRESS, &address.in);
                         if (r < 0)
                                 goto fail;
                 }
@@ -143,9 +143,9 @@ static int manager_process_address(sd_rtnl *rtnl, sd_rtnl_message *mm, void *use
                 break;
 
         case AF_INET6:
-                r = sd_rtnl_message_read_in6_addr(mm, IFA_LOCAL, &address.in6);
+                r = sd_netlink_message_read_in6_addr(mm, IFA_LOCAL, &address.in6);
                 if (r < 0) {
-                        r = sd_rtnl_message_read_in6_addr(mm, IFA_ADDRESS, &address.in6);
+                        r = sd_netlink_message_read_in6_addr(mm, IFA_ADDRESS, &address.in6);
                         if (r < 0)
                                 goto fail;
                 }
@@ -188,34 +188,34 @@ fail:
 }
 
 static int manager_rtnl_listen(Manager *m) {
-        _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL, *reply = NULL;
-        sd_rtnl_message *i;
+        _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL, *reply = NULL;
+        sd_netlink_message *i;
         int r;
 
         assert(m);
 
         /* First, subscribe to interfaces coming and going */
-        r = sd_rtnl_open(&m->rtnl);
+        r = sd_netlink_open(&m->rtnl);
         if (r < 0)
                 return r;
 
-        r = sd_rtnl_attach_event(m->rtnl, m->event, 0);
+        r = sd_netlink_attach_event(m->rtnl, m->event, 0);
         if (r < 0)
                 return r;
 
-        r = sd_rtnl_add_match(m->rtnl, RTM_NEWLINK, manager_process_link, m);
+        r = sd_netlink_add_match(m->rtnl, RTM_NEWLINK, manager_process_link, m);
         if (r < 0)
                 return r;
 
-        r = sd_rtnl_add_match(m->rtnl, RTM_DELLINK, manager_process_link, m);
+        r = sd_netlink_add_match(m->rtnl, RTM_DELLINK, manager_process_link, m);
         if (r < 0)
                 return r;
 
-        r = sd_rtnl_add_match(m->rtnl, RTM_NEWADDR, manager_process_address, m);
+        r = sd_netlink_add_match(m->rtnl, RTM_NEWADDR, manager_process_address, m);
         if (r < 0)
                 return r;
 
-        r = sd_rtnl_add_match(m->rtnl, RTM_DELADDR, manager_process_address, m);
+        r = sd_netlink_add_match(m->rtnl, RTM_DELADDR, manager_process_address, m);
         if (r < 0)
                 return r;
 
@@ -224,37 +224,37 @@ static int manager_rtnl_listen(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = sd_rtnl_message_request_dump(req, true);
+        r = sd_netlink_message_request_dump(req, true);
         if (r < 0)
                 return r;
 
-        r = sd_rtnl_call(m->rtnl, req, 0, &reply);
+        r = sd_netlink_call(m->rtnl, req, 0, &reply);
         if (r < 0)
                 return r;
 
-        for (i = reply; i; i = sd_rtnl_message_next(i)) {
+        for (i = reply; i; i = sd_netlink_message_next(i)) {
                 r = manager_process_link(m->rtnl, i, m);
                 if (r < 0)
                         return r;
         }
 
-        req = sd_rtnl_message_unref(req);
-        reply = sd_rtnl_message_unref(reply);
+        req = sd_netlink_message_unref(req);
+        reply = sd_netlink_message_unref(reply);
 
         /* Finally, enumerate all addresses, too */
         r = sd_rtnl_message_new_addr(m->rtnl, &req, RTM_GETADDR, 0, AF_UNSPEC);
         if (r < 0)
                 return r;
 
-        r = sd_rtnl_message_request_dump(req, true);
+        r = sd_netlink_message_request_dump(req, true);
         if (r < 0)
                 return r;
 
-        r = sd_rtnl_call(m->rtnl, req, 0, &reply);
+        r = sd_netlink_call(m->rtnl, req, 0, &reply);
         if (r < 0)
                 return r;
 
-        for (i = reply; i; i = sd_rtnl_message_next(i)) {
+        for (i = reply; i; i = sd_netlink_message_next(i)) {
                 r = manager_process_address(m->rtnl, i, m);
                 if (r < 0)
                         return r;

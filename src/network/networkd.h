@@ -24,7 +24,7 @@
 #include <arpa/inet.h>
 
 #include "sd-event.h"
-#include "sd-rtnl.h"
+#include "sd-netlink.h"
 #include "sd-bus.h"
 #include "sd-dhcp-client.h"
 #include "sd-dhcp-server.h"
@@ -34,7 +34,7 @@
 #include "udev.h"
 #include "sd-lldp.h"
 
-#include "rtnl-util.h"
+#include "netlink-util.h"
 #include "hashmap.h"
 #include "list.h"
 #include "set.h"
@@ -218,7 +218,7 @@ struct AddressPool {
 };
 
 struct Manager {
-        sd_rtnl *rtnl;
+        sd_netlink *rtnl;
         sd_event *event;
         sd_event_source *bus_retry_event_source;
         sd_bus *bus;
@@ -342,8 +342,8 @@ const struct ConfigPerfItem* network_network_gperf_lookup(const char *key, unsig
 int route_new_static(Network *network, unsigned section, Route **ret);
 int route_new_dynamic(Route **ret, unsigned char rtm_protocol);
 void route_free(Route *route);
-int route_configure(Route *route, Link *link, sd_rtnl_message_handler_t callback);
-int route_drop(Route *route, Link *link, sd_rtnl_message_handler_t callback);
+int route_configure(Route *route, Link *link, sd_netlink_message_handler_t callback);
+int route_drop(Route *route, Link *link, sd_netlink_message_handler_t callback);
 
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Route*, route_free);
@@ -368,9 +368,9 @@ int config_parse_route_scope(const char *unit, const char *filename, unsigned li
 int address_new_static(Network *network, unsigned section, Address **ret);
 int address_new_dynamic(Address **ret);
 void address_free(Address *address);
-int address_configure(Address *address, Link *link, sd_rtnl_message_handler_t callback);
-int address_update(Address *address, Link *link, sd_rtnl_message_handler_t callback);
-int address_drop(Address *address, Link *link, sd_rtnl_message_handler_t callback);
+int address_configure(Address *address, Link *link, sd_netlink_message_handler_t callback);
+int address_update(Address *address, Link *link, sd_netlink_message_handler_t callback);
+int address_drop(Address *address, Link *link, sd_netlink_message_handler_t callback);
 int address_establish(Address *address, Link *link);
 int address_release(Address *address, Link *link);
 bool address_equal(Address *a1, Address *a2);
