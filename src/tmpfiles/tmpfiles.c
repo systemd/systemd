@@ -420,13 +420,6 @@ static int dir_cleanup(
 
                 if (S_ISDIR(s.st_mode)) {
 
-                        if (mountpoint &&
-                            streq(dent->d_name, "lost+found") &&
-                            s.st_uid == 0) {
-                                log_debug("Ignoring \"%s\".", sub_path);
-                                continue;
-                        }
-
                         if (maxdepth <= 0)
                                 log_warning("Reached max depth on \"%s\".", sub_path);
                         else {
@@ -453,7 +446,9 @@ static int dir_cleanup(
                          * bit already has a meaning for directories,
                          * so we don't want to overload that. */
 
-                        if (keep_this_level) {
+                        if (keep_this_level ||
+                            (mountpoint && streq(dent->d_name, "lost+found") && s.st_uid == 0)) {
+
                                 log_debug("Keeping \"%s\".", sub_path);
                                 continue;
                         }
