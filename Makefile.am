@@ -2913,6 +2913,8 @@ libsystemd_internal_la_SOURCES = \
 	src/libsystemd/sd-netlink/sd-netlink.c \
 	src/libsystemd/sd-netlink/netlink-internal.h \
 	src/libsystemd/sd-netlink/netlink-message.c \
+	src/libsystemd/sd-netlink/netlink-socket.c \
+	src/libsystemd/sd-netlink/rtnl-message.c \
 	src/libsystemd/sd-netlink/netlink-types.h \
 	src/libsystemd/sd-netlink/netlink-types.c \
 	src/libsystemd/sd-netlink/netlink-util.h \
