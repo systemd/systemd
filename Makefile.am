@@ -905,6 +905,8 @@ libbasic_la_CFLAGS = \
 libbasic_la_LIBADD = \
 	$(SELINUX_LIBS) \
 	$(CAP_LIBS) \
+	-ldl \
+	-lrt \
 	-lm
 
 # -----------------------------------------------------------------------------
@@ -1012,21 +1014,16 @@ endif
 
 libshared_la_CFLAGS = \
 	$(AM_CFLAGS) \
-	$(SELINUX_CFLAGS) \
-	$(CAP_CFLAGS) \
 	$(ACL_CFLAGS) \
-	$(SECCOMP_CFLAGS) \
-	-pthread
+	$(LIBIDN_CFLAGS) \
+	$(SECCOMP_CFLAGS)
 
 libshared_la_LIBADD = \
 	libsystemd-internal.la \
 	libsystemd-journal-internal.la \
-	$(SELINUX_LIBS) \
-	$(CAP_LIBS) \
 	$(ACL_LIBS) \
 	$(LIBIDN_LIBS) \
-	$(SECCOMP_LIBS) \
-	-lm
+	$(SECCOMP_LIBS)
 
 # -----------------------------------------------------------------------------
 if HAVE_LIBIPTC
@@ -1190,8 +1187,7 @@ libcore_la_CFLAGS = \
 	$(AUDIT_CFLAGS) \
 	$(KMOD_CFLAGS) \
 	$(APPARMOR_CFLAGS) \
-	$(MOUNT_CFLAGS) \
-	-pthread
+	$(MOUNT_CFLAGS)
 
 libcore_la_LIBADD = \
 	libudev-internal.la \
@@ -1321,8 +1317,7 @@ systemd_SOURCES = \
 	src/core/main.c
 
 systemd_LDADD = \
-	libcore.la \
-	$(RT_LIBS)
+	libcore.la
 
 dist_pkgsysconf_DATA += \
 	src/core/system.conf \
@@ -1525,8 +1520,7 @@ test_engine_CFLAGS = \
 	$(SECCOMP_CFLAGS)
 
 test_engine_LDADD = \
-	libcore.la \
-	$(RT_LIBS)
+	libcore.la
 
 test_job_type_SOURCES = \
 	src/test/test-job-type.c
@@ -1536,8 +1530,7 @@ test_job_type_CFLAGS = \
 	$(SECCOMP_CFLAGS)
 
 test_job_type_LDADD = \
-	libcore.la \
-	$(RT_LIBS)
+	libcore.la
 
 test_ns_SOURCES = \
 	src/test/test-ns.c
@@ -1566,8 +1559,7 @@ test_dns_domain_SOURCES = \
 
 test_dns_domain_LDADD = \
 	libsystemd-network.la \
-	libshared.la \
-	$(LIBIDN_LIBS)
+	libshared.la
 
 if ENABLE_EFI
 manual_tests += \
@@ -1588,8 +1580,7 @@ test_unit_name_CFLAGS = \
 	$(SECCOMP_CFLAGS)
 
 test_unit_name_LDADD = \
-	libcore.la \
-	$(RT_LIBS)
+	libcore.la
 
 test_unit_file_SOURCES = \
 	src/test/test-unit-file.c
@@ -1599,8 +1590,7 @@ test_unit_file_CFLAGS = \
 	$(SECCOMP_CFLAGS)
 
 test_unit_file_LDADD = \
-	libcore.la \
-	$(RT_LIBS)
+	libcore.la
 
 test_utf8_SOURCES = \
 	src/test/test-utf8.c
@@ -1684,7 +1674,6 @@ test_path_lookup_SOURCES = \
 	src/test/test-path-lookup.c
 
 test_path_lookup_LDADD = \
-	-lm \
 	libshared.la
 
 test_uid_range_SOURCES = \
@@ -1813,8 +1802,7 @@ test_tables_LDADD = \
 	libsystemd-journal-internal.la \
 	libjournal-core.la \
 	libcore.la \
-	libudev-core.la \
-	$(RT_LIBS)
+	libudev-core.la
 
 test_prioq_SOURCES = \
 	src/test/test-prioq.c
@@ -1850,8 +1838,7 @@ test_ipcrm_SOURCES = \
 	src/test/test-ipcrm.c
 
 test_ipcrm_LDADD = \
-	libshared.la \
-	-lrt
+	libshared.la
 
 test_btrfs_SOURCES = \
 	src/test/test-btrfs.c
@@ -1943,8 +1930,7 @@ test_cgroup_mask_CFLAGS = \
 	$(SECCOMP_CFLAGS)
 
 test_cgroup_mask_LDADD = \
-	libcore.la \
-	$(RT_LIBS)
+	libcore.la
 
 test_cgroup_util_SOURCES = \
 	src/test/test-cgroup-util.c
@@ -2023,8 +2009,7 @@ test_sched_prio_CFLAGS = \
 	$(SECCOMP_CFLAGS)
 
 test_sched_prio_LDADD = \
-	libcore.la \
-	$(RT_LIBS)
+	libcore.la
 
 test_conf_files_SOURCES = \
 	src/test/test-conf-files.c
@@ -2095,8 +2080,7 @@ systemd_analyze_CFLAGS = \
 	$(SECCOMP_CFLAGS)
 
 systemd_analyze_LDADD = \
-	libcore.la \
-	$(RT_LIBS)
+	libcore.la
 
 # ------------------------------------------------------------------------------
 systemd_initctl_SOURCES = \
@@ -2792,19 +2776,11 @@ libbus_proxy_core_la_SOURCES = \
 	src/bus-proxyd/synthesize.c \
 	src/bus-proxyd/synthesize.h
 
-libbus_proxy_core_la_CFLAGS = \
-	$(AM_CFLAGS) \
-	-pthread
-
 libbus_proxy_core_la_LIBADD = \
 	libshared.la
 
 systemd_bus_proxyd_SOURCES = \
 	src/bus-proxyd/bus-proxyd.c
-
-systemd_bus_proxyd_CFLAGS = \
-	$(AM_CFLAGS) \
-	-pthread
 
 systemd_bus_proxyd_LDADD = \
 	libbus-proxy-core.la \
@@ -2940,21 +2916,12 @@ libsystemd_internal_la_SOURCES = \
 nodist_libsystemd_internal_la_SOURCES = \
 	src/libsystemd/libsystemd.sym
 
-libsystemd_internal_la_CFLAGS = \
-	$(AM_CFLAGS) \
-	-pthread
-
 libsystemd_internal_la_LIBADD = \
-	libbasic.la \
-	$(RT_LIBS)
+	libbasic.la
 
 libsystemd_resolve_la_SOURCES = \
 	src/libsystemd/sd-resolve/sd-resolve.c \
 	src/libsystemd/sd-resolve/resolve-util.h
-
-libsystemd_resolve_la_CFLAGS = \
-	$(AM_CFLAGS) \
-	-pthread
 
 libsystemd_resolve_la_LIBADD = \
 	-lresolv
@@ -3073,10 +3040,6 @@ test_bus_signature_LDADD = \
 test_bus_chat_SOURCES = \
 	src/libsystemd/sd-bus/test-bus-chat.c
 
-test_bus_chat_CFLAGS = \
-	$(AM_CFLAGS) \
-	-pthread
-
 test_bus_chat_LDADD = \
 	libshared.la
 
@@ -3093,19 +3056,11 @@ test_bus_cleanup_LDADD = \
 test_bus_server_SOURCES = \
 	src/libsystemd/sd-bus/test-bus-server.c
 
-test_bus_server_CFLAGS = \
-	$(AM_CFLAGS) \
-	-pthread
-
 test_bus_server_LDADD = \
 	libshared.la
 
 test_bus_objects_SOURCES = \
 	src/libsystemd/sd-bus/test-bus-objects.c
-
-test_bus_objects_CFLAGS = \
-	$(AM_CFLAGS) \
-	-pthread
 
 test_bus_objects_LDADD = \
 	libshared.la
@@ -3194,10 +3149,6 @@ test_resolve_LDADD = \
 	libsystemd-resolve.la \
 	libshared.la
 
-test_resolve_CFLAGS = \
-	$(AM_CFLAGS) \
-	-pthread
-
 busctl_SOURCES = \
 	src/libsystemd/sd-bus/busctl.c \
 	src/libsystemd/sd-bus/busctl-introspect.c \
@@ -3284,8 +3235,7 @@ test_dhcp_client_SOURCES = \
 test_dhcp_client_LDADD = \
 	libsystemd-network.la \
 	libudev-internal.la \
-	libshared.la \
-	$(LIBIDN_LIBS)
+	libshared.la
 
 test_dhcp_server_SOURCES = \
 	src/libsystemd-network/test-dhcp-server.c
@@ -3800,8 +3750,7 @@ test_libudev_SOURCES = \
 
 test_libudev_LDADD = \
 	libudev-internal.la \
-	libshared.la \
-	$(ACL_LIBS)
+	libshared.la
 
 test_udev_SOURCES = \
 	src/test/test-udev.c
@@ -3809,9 +3758,7 @@ test_udev_SOURCES = \
 test_udev_LDADD = \
 	libudev-core.la  \
 	$(BLKID_LIBS) \
-	$(KMOD_LIBS) \
-	$(SELINUX_LIBS) \
-	$(ACL_LIBS)
+	$(KMOD_LIBS)
 
 check_DATA += \
 	test/sys
@@ -4938,7 +4885,6 @@ libnss_myhostname_la_LDFLAGS = \
 
 libnss_myhostname_la_LIBADD = \
 	libshared.la
-#libsystemd-network.la
 
 lib_LTLIBRARIES += \
 	libnss_myhostname.la
@@ -5269,8 +5215,7 @@ gperf_txt_sources += \
 
 systemd_resolved_LDADD = \
 	libsystemd-network.la \
-	libshared.la \
-	$(LIBIDN_LIBS)
+	libshared.la
 
 rootlibexec_PROGRAMS += \
 	systemd-resolved
@@ -5339,8 +5284,7 @@ nodist_systemd_resolve_host_SOURCES = \
 	src/resolve/dns_type-to-name.h
 
 systemd_resolve_host_LDADD = \
-	libshared.la \
-	$(LIBIDN_LIBS)
+	libshared.la
 
 rootlibexec_PROGRAMS += \
 	systemd-resolve-host
@@ -5359,8 +5303,7 @@ systemd_networkd_SOURCES = \
 	src/network/networkd.c
 
 systemd_networkd_LDADD = \
-	libnetworkd-core.la \
-	$(LIBIDN_LIBS)
+	libnetworkd-core.la
 
 if HAVE_LIBIPTC
 systemd_networkd_LDADD += \
@@ -5456,8 +5399,7 @@ test_network_SOURCES = \
 	src/network/test-network.c
 
 test_network_LDADD = \
-	libnetworkd-core.la \
-	$(LIBIDN_LIBS)
+	libnetworkd-core.la
 
 if HAVE_LIBIPTC
 test_network_LDADD += \
