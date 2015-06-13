@@ -34,6 +34,53 @@
 #include "netlink-internal.h"
 #include "netlink-types.h"
 
+int socket_open(int family) {
+        int fd;
+
+        fd = socket(PF_NETLINK, SOCK_RAW|SOCK_CLOEXEC|SOCK_NONBLOCK, family);
+        if (fd < 0)
+                return -errno;
+
+        return fd;
+}
+
+int socket_bind(sd_netlink *nl) {
+        socklen_t addrlen;
+        int r, one = 1;
+
+        r = setsockopt(nl->fd, SOL_NETLINK, NETLINK_PKTINFO, &one, sizeof(one));
+        if (r < 0)
+                return -errno;
+
+        addrlen = sizeof(nl->sockaddr);
+
+        r = bind(nl->fd, &nl->sockaddr.sa, addrlen);
+        /* ignore EINVAL to allow opening an already bound socket */
+        if (r < 0 && errno != EINVAL)
+                return -errno;
+
+        r = getsockname(nl->fd, &nl->sockaddr.sa, &addrlen);
+        if (r < 0)
+                return -errno;
+
+        return 0;
+}
+
+
+int socket_join_broadcast_group(sd_netlink *nl, unsigned group) {
+        int r;
+
+        assert(nl);
+        assert(nl->fd >= 0);
+        assert(group > 0);
+
+        r = setsockopt(nl->fd, SOL_NETLINK, NETLINK_ADD_MEMBERSHIP, &group, sizeof(group));
+        if (r < 0)
+                return -errno;
+
+        return 0;
+}
+
 /* returns the number of bytes sent, or a negative error code */
 int socket_write_message(sd_netlink *nl, sd_netlink_message *m) {
         union {

@@ -103,8 +103,7 @@ static bool rtnl_pid_changed(sd_netlink *rtnl) {
 
 int sd_netlink_open_fd(sd_netlink **ret, int fd) {
         _cleanup_netlink_unref_ sd_netlink *rtnl = NULL;
-        socklen_t addrlen;
-        int r, one = 1;
+        int r;
 
         assert_return(ret, -EINVAL);
         assert_return(fd >= 0, -EINVAL);
@@ -113,22 +112,11 @@ int sd_netlink_open_fd(sd_netlink **ret, int fd) {
         if (r < 0)
                 return r;
 
-        r = setsockopt(fd, SOL_NETLINK, NETLINK_PKTINFO, &one, sizeof(one));
-        if (r < 0)
-                return -errno;
-
-        addrlen = sizeof(rtnl->sockaddr);
-
-        r = bind(fd, &rtnl->sockaddr.sa, addrlen);
-        /* ignore EINVAL to allow opening an already bound socket */
-        if (r < 0 && errno != EINVAL)
-                return -errno;
-
-        r = getsockname(fd, &rtnl->sockaddr.sa, &addrlen);
-        if (r < 0)
-                return -errno;
-
         rtnl->fd = fd;
+
+        r = socket_bind(rtnl);
+        if (r < 0)
+                return r;
 
         *ret = rtnl;
         rtnl = NULL;
@@ -140,29 +128,15 @@ int sd_netlink_open(sd_netlink **ret) {
         _cleanup_close_ int fd = -1;
         int r;
 
-        fd = socket(PF_NETLINK, SOCK_RAW|SOCK_CLOEXEC|SOCK_NONBLOCK, NETLINK_ROUTE);
+        fd = socket_open(NETLINK_ROUTE);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         r = sd_netlink_open_fd(ret, fd);
         if (r < 0)
                 return r;
 
         fd = -1;
-
-        return 0;
-}
-
-static int rtnl_join_broadcast_group(sd_netlink *rtnl, unsigned group) {
-        int r;
-
-        assert(rtnl);
-        assert(rtnl->fd >= 0);
-        assert(group > 0);
-
-        r = setsockopt(rtnl->fd, SOL_NETLINK, NETLINK_ADD_MEMBERSHIP, &group, sizeof(group));
-        if (r < 0)
-                return -errno;
 
         return 0;
 }
@@ -885,7 +859,7 @@ int sd_netlink_add_match(sd_netlink *rtnl,
                 case RTM_SETLINK:
                 case RTM_GETLINK:
                 case RTM_DELLINK:
-                        r = rtnl_join_broadcast_group(rtnl, RTNLGRP_LINK);
+                        r = socket_join_broadcast_group(rtnl, RTNLGRP_LINK);
                         if (r < 0)
                                 return r;
 
@@ -893,11 +867,11 @@ int sd_netlink_add_match(sd_netlink *rtnl,
                 case RTM_NEWADDR:
                 case RTM_GETADDR:
                 case RTM_DELADDR:
-                        r = rtnl_join_broadcast_group(rtnl, RTNLGRP_IPV4_IFADDR);
+                        r = socket_join_broadcast_group(rtnl, RTNLGRP_IPV4_IFADDR);
                         if (r < 0)
                                 return r;
 
-                        r = rtnl_join_broadcast_group(rtnl, RTNLGRP_IPV6_IFADDR);
+                        r = socket_join_broadcast_group(rtnl, RTNLGRP_IPV6_IFADDR);
                         if (r < 0)
                                 return r;
 

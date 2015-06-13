@@ -113,6 +113,9 @@ struct sd_netlink_message {
 int message_new(sd_netlink *rtnl, sd_netlink_message **ret, uint16_t type);
 int message_new_empty(sd_netlink *rtnl, sd_netlink_message **ret);
 
+int socket_open(int family);
+int socket_bind(sd_netlink *nl);
+int socket_join_broadcast_group(sd_netlink *nl, unsigned group);
 int socket_write_message(sd_netlink *nl, sd_netlink_message *m);
 int socket_read_message(sd_netlink *nl);
 
