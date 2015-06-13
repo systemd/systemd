@@ -496,9 +496,10 @@ static int dir_cleanup(
                         }
 
                         if (mountpoint && S_ISREG(s.st_mode))
-                                if ((streq(dent->d_name, ".journal") && s.st_uid == 0) ||
-                                    streq(dent->d_name, "aquota.user") ||
-                                    streq(dent->d_name, "aquota.group")) {
+                                if (s.st_uid == 0 && STR_IN_SET(dent->d_name,
+                                                                ".journal",
+                                                                "aquota.user",
+                                                                "aquota.group")) {
                                         log_debug("Skipping \"%s\".", sub_path);
                                         continue;
                                 }
