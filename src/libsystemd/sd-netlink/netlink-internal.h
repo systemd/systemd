@@ -72,10 +72,6 @@ struct sd_netlink {
         unsigned rqueue_partial_size;
         size_t rqueue_partial_allocated;
 
-        sd_netlink_message **wqueue;
-        unsigned wqueue_size;
-        size_t wqueue_allocated;
-
         struct nlmsghdr *rbuffer;
         size_t rbuffer_allocated;
 

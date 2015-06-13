@@ -115,7 +115,6 @@ static void test_link_get(sd_netlink *rtnl, int ifindex) {
 
         assert_se(sd_netlink_message_read_ether_addr(r, IFLA_ADDRESS, &eth_data) == 0);
 
-        assert_se(sd_netlink_flush(rtnl) >= 0);
         assert_se((m = sd_netlink_message_unref(m)) == NULL);
         assert_se((r = sd_netlink_message_unref(r)) == NULL);
 }
@@ -138,7 +137,6 @@ static void test_address_get(sd_netlink *rtnl, int ifindex) {
         assert_se(sd_netlink_message_read_string(r, IFA_LABEL, &label) == 0);
         assert_se(sd_netlink_message_read_cache_info(r, IFA_CACHEINFO, &cache) == 0);
 
-        assert_se(sd_netlink_flush(rtnl) >= 0);
         assert_se((m = sd_netlink_message_unref(m)) == NULL);
         assert_se((r = sd_netlink_message_unref(r)) == NULL);
 
@@ -434,7 +432,6 @@ int main(void) {
         test_link_get(rtnl, if_loopback);
         test_address_get(rtnl, if_loopback);
 
-        assert_se(sd_netlink_flush(rtnl) >= 0);
         assert_se((m = sd_netlink_message_unref(m)) == NULL);
         assert_se((r = sd_netlink_message_unref(r)) == NULL);
         assert_se((rtnl = sd_netlink_unref(rtnl)) == NULL);

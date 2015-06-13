@@ -1410,7 +1410,7 @@ int socket_write_message(sd_netlink *nl, sd_netlink_message *m) {
         k = sendto(nl->fd, m->hdr, m->hdr->nlmsg_len,
                         0, &addr.sa, sizeof(addr));
         if (k < 0)
-                return (errno == EAGAIN) ? 0 : -errno;
+                return -errno;
 
         return k;
 }
