@@ -65,6 +65,7 @@ typedef struct {
 } Iterator;
 
 #define _IDX_ITERATOR_FIRST (UINT_MAX - 1)
+#define _IDX_ITERATOR_NIL (UINT_MAX)
 #define ITERATOR_FIRST ((Iterator) { .idx = _IDX_ITERATOR_FIRST, .next_key = NULL })
 
 typedef unsigned long (*hash_func_t)(const void *p, const uint8_t hash_key[HASH_KEY_SIZE]);
@@ -296,12 +297,12 @@ static inline unsigned ordered_hashmap_buckets(OrderedHashmap *h) {
         return internal_hashmap_buckets(HASHMAP_BASE(h));
 }
 
-void *internal_hashmap_iterate(HashmapBase *h, Iterator *i, const void **key);
-static inline void *hashmap_iterate(Hashmap *h, Iterator *i, const void **key) {
-        return internal_hashmap_iterate(HASHMAP_BASE(h), i, key);
+bool internal_hashmap_iterate(HashmapBase *h, Iterator *i, void **value, const void **key);
+static inline bool hashmap_iterate(Hashmap *h, Iterator *i, void **value, const void **key) {
+        return internal_hashmap_iterate(HASHMAP_BASE(h), i, value, key);
 }
-static inline void *ordered_hashmap_iterate(OrderedHashmap *h, Iterator *i, const void **key) {
-        return internal_hashmap_iterate(HASHMAP_BASE(h), i, key);
+static inline bool ordered_hashmap_iterate(OrderedHashmap *h, Iterator *i, void **value, const void **key) {
+        return internal_hashmap_iterate(HASHMAP_BASE(h), i, value, key);
 }
 
 void internal_hashmap_clear(HashmapBase *h);
@@ -386,24 +387,16 @@ static inline char **ordered_hashmap_get_strv(OrderedHashmap *h) {
  * It is safe to remove the current entry.
  */
 #define HASHMAP_FOREACH(e, h, i) \
-        for ((i) = ITERATOR_FIRST, (e) = hashmap_iterate((h), &(i), NULL); \
-             (e); \
-             (e) = hashmap_iterate((h), &(i), NULL))
+        for ((i) = ITERATOR_FIRST; hashmap_iterate((h), &(i), (void**)&(e), NULL); )
 
 #define ORDERED_HASHMAP_FOREACH(e, h, i) \
-        for ((i) = ITERATOR_FIRST, (e) = ordered_hashmap_iterate((h), &(i), NULL); \
-             (e); \
-             (e) = ordered_hashmap_iterate((h), &(i), NULL))
+        for ((i) = ITERATOR_FIRST; ordered_hashmap_iterate((h), &(i), (void**)&(e), NULL); )
 
 #define HASHMAP_FOREACH_KEY(e, k, h, i) \
-        for ((i) = ITERATOR_FIRST, (e) = hashmap_iterate((h), &(i), (const void**) &(k)); \
-             (e); \
-             (e) = hashmap_iterate((h), &(i), (const void**) &(k)))
+        for ((i) = ITERATOR_FIRST; hashmap_iterate((h), &(i), (void**)&(e), (const void**) &(k)); )
 
 #define ORDERED_HASHMAP_FOREACH_KEY(e, k, h, i) \
-        for ((i) = ITERATOR_FIRST, (e) = ordered_hashmap_iterate((h), &(i), (const void**) &(k)); \
-             (e); \
-             (e) = ordered_hashmap_iterate((h), &(i), (const void**) &(k)))
+        for ((i) = ITERATOR_FIRST; ordered_hashmap_iterate((h), &(i), (void**)&(e), (const void**) &(k)); )
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Hashmap*, hashmap_free);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Hashmap*, hashmap_free_free);

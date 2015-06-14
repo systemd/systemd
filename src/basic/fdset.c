@@ -267,8 +267,7 @@ bool fdset_isempty(FDSet *fds) {
 int fdset_iterate(FDSet *s, Iterator *i) {
         void *p;
 
-        p = set_iterate(MAKE_SET(s), i);
-        if (!p)
+        if (!set_iterate(MAKE_SET(s), i, &p))
                 return -ENOENT;
 
         return PTR_TO_FD(p);

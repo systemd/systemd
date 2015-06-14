@@ -449,7 +449,8 @@ _public_ int sd_hwdb_seek(sd_hwdb *hwdb, const char *modalias) {
 }
 
 _public_ int sd_hwdb_enumerate(sd_hwdb *hwdb, const char **key, const char **value) {
-        const void *k, *v;
+        const void *k;
+        void *v;
 
         assert_return(hwdb, -EINVAL);
         assert_return(key, -EINVAL);
@@ -458,7 +459,7 @@ _public_ int sd_hwdb_enumerate(sd_hwdb *hwdb, const char **key, const char **val
         if (hwdb->properties_modified)
                 return -EAGAIN;
 
-        v = ordered_hashmap_iterate(hwdb->properties, &hwdb->properties_iterator, &k);
+        ordered_hashmap_iterate(hwdb->properties, &hwdb->properties_iterator, &v, &k);
         if (!k)
                 return 0;
 

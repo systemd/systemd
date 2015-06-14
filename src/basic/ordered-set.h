@@ -47,12 +47,12 @@ static inline bool ordered_set_isempty(OrderedSet *s) {
         return ordered_hashmap_isempty((OrderedHashmap*) s);
 }
 
-static inline void *ordered_set_iterate(OrderedSet *s, Iterator *i) {
-        return ordered_hashmap_iterate((OrderedHashmap*) s, i, NULL);
+static inline bool ordered_set_iterate(OrderedSet *s, Iterator *i, void **value) {
+        return ordered_hashmap_iterate((OrderedHashmap*) s, i, value, NULL);
 }
 
 #define ORDERED_SET_FOREACH(e, s, i)                                    \
-        for ((i) = ITERATOR_FIRST, (e) = ordered_set_iterate((s), &(i)); (e); (e) = ordered_set_iterate((s), &(i)))
+        for ((i) = ITERATOR_FIRST; ordered_set_iterate((s), &(i), (void**)&(e)); )
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(OrderedSet*, ordered_set_free);
 

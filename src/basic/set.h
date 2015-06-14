@@ -91,7 +91,7 @@ static inline unsigned set_buckets(Set *s) {
         return internal_hashmap_buckets(HASHMAP_BASE(s));
 }
 
-void *set_iterate(Set *s, Iterator *i);
+bool set_iterate(Set *s, Iterator *i, void **value);
 
 static inline void set_clear(Set *s) {
         internal_hashmap_clear(HASHMAP_BASE(s));
@@ -125,7 +125,7 @@ int set_put_strdup(Set *s, const char *p);
 int set_put_strdupv(Set *s, char **l);
 
 #define SET_FOREACH(e, s, i) \
-        for ((i) = ITERATOR_FIRST, (e) = set_iterate((s), &(i)); (e); (e) = set_iterate((s), &(i)))
+        for ((i) = ITERATOR_FIRST; set_iterate((s), &(i), (void**)&(e)); )
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Set*, set_free);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Set*, set_free_free);

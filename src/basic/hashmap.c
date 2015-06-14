@@ -733,29 +733,33 @@ static unsigned hashmap_iterate_entry(HashmapBase *h, Iterator *i) {
                                                : hashmap_iterate_in_internal_order(h, i);
 }
 
-void *internal_hashmap_iterate(HashmapBase *h, Iterator *i, const void **key) {
+bool internal_hashmap_iterate(HashmapBase *h, Iterator *i, void **value, const void **key) {
         struct hashmap_base_entry *e;
         void *data;
         unsigned idx;
 
         idx = hashmap_iterate_entry(h, i);
         if (idx == IDX_NIL) {
+                if (value)
+                        *value = NULL;
                 if (key)
                         *key = NULL;
 
-                return NULL;
+                return false;
         }
 
         e = bucket_at(h, idx);
         data = entry_value(h, e);
+        if (value)
+                *value = data;
         if (key)
                 *key = e->key;
 
-        return data;
+        return true;
 }
 
-void *set_iterate(Set *s, Iterator *i) {
-        return internal_hashmap_iterate(HASHMAP_BASE(s), i, NULL);
+bool set_iterate(Set *s, Iterator *i, void **value) {
+        return internal_hashmap_iterate(HASHMAP_BASE(s), i, value, NULL);
 }
 
 #define HASHMAP_FOREACH_IDX(idx, h, i) \
