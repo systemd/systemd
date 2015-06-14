@@ -1571,7 +1571,6 @@ AC_MSG_RESULT([
         sysconf dir:             ${sysconfdir}
         datarootdir:             ${datarootdir}
         includedir:              ${includedir}
-        include_prefix:          ${INCLUDE_PREFIX}
         lib dir:                 ${libdir}
         rootlib dir:             ${with_rootlibdir}
         SysV init scripts:       ${SYSTEM_SYSVINIT_PATH}
