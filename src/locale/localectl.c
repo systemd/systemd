@@ -69,13 +69,26 @@ static void polkit_agent_open_if_enabled(void) {
 
 typedef struct StatusInfo {
         char **locale;
-        const char *vconsole_keymap;
-        const char *vconsole_keymap_toggle;
-        const char *x11_layout;
-        const char *x11_model;
-        const char *x11_variant;
-        const char *x11_options;
+        char *vconsole_keymap;
+        char *vconsole_keymap_toggle;
+        char *x11_layout;
+        char *x11_model;
+        char *x11_variant;
+        char *x11_options;
 } StatusInfo;
+
+static void status_info_clear(StatusInfo *info) {
+        if (info) {
+                strv_free(info->locale);
+                free(info->vconsole_keymap);
+                free(info->vconsole_keymap_toggle);
+                free(info->x11_layout);
+                free(info->x11_model);
+                free(info->x11_variant);
+                free(info->x11_options);
+                zero(*info);
+        }
+}
 
 static void print_overridden_variables(void) {
         int r;
@@ -150,7 +163,7 @@ static void print_status_info(StatusInfo *i) {
 }
 
 static int show_status(sd_bus *bus, char **args, unsigned n) {
-        StatusInfo info = {};
+        _cleanup_(status_info_clear) StatusInfo info = {};
         static const struct bus_properties_map map[]  = {
                 { "VConsoleKeymap",       "s",  NULL, offsetof(StatusInfo, vconsole_keymap) },
                 { "VConsoleKeymap",       "s",  NULL, offsetof(StatusInfo, vconsole_keymap) },
@@ -171,16 +184,12 @@ static int show_status(sd_bus *bus, char **args, unsigned n) {
                                    "/org/freedesktop/locale1",
                                    map,
                                    &info);
-        if (r < 0) {
-                log_error_errno(r, "Could not get properties: %m");
-                goto fail;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Could not get properties: %m");
 
         print_overridden_variables();
         print_status_info(&info);
 
-fail:
-        strv_free(info.locale);
         return r;
 }
 

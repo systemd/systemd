@@ -73,6 +73,13 @@ typedef struct StatusInfo {
         bool ntp_synced;
 } StatusInfo;
 
+static void status_info_clear(StatusInfo *info) {
+        if (info) {
+                free(info->timezone);
+                zero(*info);
+        }
+}
+
 static void print_status_info(const StatusInfo *i) {
         char a[FORMAT_TIMESTAMP_MAX];
         struct tm tm;
@@ -155,7 +162,7 @@ static void print_status_info(const StatusInfo *i) {
 }
 
 static int show_status(sd_bus *bus, char **args, unsigned n) {
-        StatusInfo info = {};
+        _cleanup_(status_info_clear) StatusInfo info = {};
         static const struct bus_properties_map map[]  = {
                 { "Timezone",        "s", NULL, offsetof(StatusInfo, timezone) },
                 { "LocalRTC",        "b", NULL, offsetof(StatusInfo, rtc_local) },
@@ -175,15 +182,11 @@ static int show_status(sd_bus *bus, char **args, unsigned n) {
                                    "/org/freedesktop/timedate1",
                                    map,
                                    &info);
-        if (r < 0) {
-                log_error_errno(r, "Failed to query server: %m");
-                goto fail;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to query server: %m");
 
         print_status_info(&info);
 
-fail:
-        free(info.timezone);
         return r;
 }
 
