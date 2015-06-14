@@ -1,0 +1,260 @@
+#  This file is part of systemd.
+#
+#  Copyright 2012 Lennart Poettering
+#  Copyright 2015 Viktar Vaŭčkievič
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+#
+#  systemd is distributed in the hope that it will be useful, but
+#  WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+#  Lesser General Public License for more details.
+#
+#  You should have received a copy of the GNU Lesser General Public License
+#  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+
+# Message catalog for systemd's own messages
+# Belarusian Latin translation
+
+# The catalog format is documented on
+# Farmat kataloha apisany na staroncy
+# http://www.freedesktop.org/wiki/Software/systemd/catalog
+
+# For an explanation why we do all this, see https://xkcd.com/1024/
+
+-- f77379a8490b408bbe5f6940505a777b
+Subject: Servis žurnaliavannia zapusciŭsia
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Praces sistemnaha žurnaliavannia zapusciŭsia, adkryŭ fajly dlia
+zapisu i hatovy apracoŭvać zapyty.
+
+-- d93fb3c9c24d451a97cea615ce59c00b
+Subject: Servis žurnaliavannia spyniŭsia
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Praces sistemnaha žurnaliavannia spyniŭsia i zakryŭ usie fajly.
+
+-- a596d6fe7bfa4994828e72309e95d61e
+Subject: Paviedamlienni z servisu adkinuty
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: man:journald.conf(5)
+
+Servis adpraviŭ zanadta štat paviedamlienniaŭ za karotki pramiežak času.
+Častka paviedamlienniaŭ byla adkinuta.
+
+Majcie na ŭvazie, što byli adkinuty paviedamliennia toĺki hetaha servisu.
+Paviedamlienni inšych servisaŭ zastalisia.
+
+Miaža, paslia jakoj paviedamlienni buduć adkinuty, naladžvajecca z
+dapamohaj RateLimitInterval= i RateLimitBurst= u fajlie
+/etc/systemd/journald.conf. Hliadzicie journald.conf(5) dlia detaliej.
+
+-- e9bf28e6e834481bb6f48f548ad13606
+Subject: Paviedamlienni stračany
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Paviedamlienni jadra byli stračany, tak jak sistema žurnaliavannia nie paspiela
+ich apracavać.
+
+-- fc2e22bc6ee647b6b90729ab34a250b1
+Subject: Praces @COREDUMP_PID@ (@COREDUMP_COMM@) skinuŭ damp pamiaci
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: man:core(5)
+
+Praces @COREDUMP_PID@ (@COREDUMP_COMM@) razbiŭsia i skinuŭ damp pamiaci.
+
+Zvyčajna heta sviedčyć ab pamylcy ŭ prahramnym kodzie.
+Rekamiendujecca paviedamić ab hetym raspracoŭnikam.
+
+-- 8d45620c1a4348dbb17410da57c60c66
+Subject: Novaja siesija № @SESSION_ID@ stvorana dlia karystaĺnika @USER_ID@
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+
+Novaja siesija z № @SESSION_ID@ stvorana dlia karystaĺnika @USER_ID@.
+
+Lidar hetaj siesii pad № @LEADER@.
+
+-- 3354939424b4456d9802ca8333ed424a
+Subject: Siesija № @SESSION_ID@ spyniena
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+
+Siesija № @SESSION_ID@ spyniena.
+
+-- fcbefc5da23d428093f97c82a9290f7b
+Subject: Dastupna novaje pracoŭnaje miesca № @SEAT_ID@
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+
+Novaje pracoŭnaje miesca № @SEAT_ID@ naladžana i dastupna dlia vykarystannia.
+
+-- e7852bfe46784ed0accde04bc864c2d5
+Subject: Pracoŭnaje miesca № @SEAT_ID@ vydaliena
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+
+Pracoŭnaje miesca № @SEAT_ID@ vydaliena i boĺš nie dastupna.
+
+-- c7a787079b354eaaa9e77b371893cd27
+Subject: Čas zmienieny
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Sistemny hadzinnik zmienieny na @REALTIME@ mikrasiekund ad 1 studzienia 1970.
+
+-- 45f82f4aef7a4bbf942ce861d1f20990
+Subject: Časavy pojas zmienieny na @TIMEZONE@
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Sistemny časavy pojas zmienieny na @TIMEZONE@.
+
+-- b07a249cd024414a82dd00cd181378ff
+Subject: Zapusk sistemy zaviaršyŭsia
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Usie sistemnyja servisy, nieabchodnyja dlia zahruzki sistemy, paspiachova
+zapuscilisia. Majcie na ŭvazie, što heta nie značyć, što mašyna ničoha nie
+robić. Mahčyma, niekatoryja servisy jašče inicyjalizirujucca.
+
+Na zapusk jadra spatrebilasia @KERNEL_USEC@ mikrasiekund.
+
+Na zapusk pačatkovaha RAM-dyska spatrebilasia @INITRD_USEC@ mikrasiekund.
+
+Na zapusk sistemnych servisaŭ spatrebilasia @USERSPACE_USEC@ mikrasiekund.
+
+-- 6bbd95ee977941e497c48be27c254128
+Subject: Sistema pierajšla ŭ stan snu @SLEEP@
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Ciapier sistema pierajšla u stan snu @SLEEP@.
+
+-- 8811e6df2a8e40f58a94cea26f8ebf14
+Subject: Sistema vyjšla sa stana snu @SLEEP@
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Ciapier sistema vyjšla sa stana snu @SLEEP@.
+
+-- 98268866d1d54a499c4e98921d93bc40
+Subject: Sistema zaviaršaje rabotu
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Pačaŭsia praces vykliučennia sistemy.
+Spyniajucca ŭsie sistemnyja servisy i demantujucca fajlavyja sistemy.
+
+-- 7d4958e842da4a758f6c1cdc7b36dcc5
+Subject: Junit @UNIT@ zapuskajecca
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Pačaŭsia praces zapusku junita @UNIT@.
+
+-- 39f53479d3a045ac8e11786248231fbf
+Subject: Junit @UNIT@ zapusciŭsia
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Praces zapusku junita @UNIT@ zavieršany.
+
+Vynik: @RESULT@.
+
+-- de5b426a63be47a7b6ac3eaac82e2f6f
+Subject: Junit @UNIT@ spyniajecca
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Pačaŭsia praces spyniennia junita @UNIT@.
+
+-- 9d1aaa27d60140bd96365438aad20286
+Subject: Junit @UNIT@ spynieny
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Praces spyniennia junita @UNIT@ zavieršany.
+
+-- be02cf6855d2428ba40df7e9d022f03d
+Subject: Zboj junita @UNIT@
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Zboj junita @UNIT@.
+
+Vynik: @RESULT@.
+
+-- d34d037fff1847e6ae669a370e694725
+Subject: Junit @UNIT@ pieračytvaje svaju kanfihuracyju
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Junit @UNIT@ pačaŭ pieračytvać svaju kanfihuracyju.
+
+-- 7b05ebc668384222baa8881179cfda54
+Subject: Junit @UNIT@ pieračytaŭ svaju kanfihuracyju
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Junit @UNIT@ pieračytaŭ svaju kanfihuracyju.
+
+Vynik: @RESULT@.
+
+-- 641257651c1b4ec9a8624d7a40a9e1e7
+Subject: Praces @EXECUTABLE@ nie moža być vykanany
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Praces @EXECUTABLE@ nie moža być vykanany ŭ vyniku zboju.
+
+Jon viarnuŭ pamylku numar @ERRNO@.
+
+-- 0027229ca0644181a76c4e92458afa2e
+Sibject: Adno ci boĺš paviedamlienniaŭ nie byli nakiravany ŭ syslog
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Adno ci boĺš paviedamlienniaŭ nie byli nakiravany ŭ syslog servis, jaki
+vykonvajecca paralieĺna z journald. Zvyčajna heta značyć, što
+realizacyja syslog nie paspiavaje apracavać paviedamlienni z nieabchodnaj
+chutkasciu.
+
+-- 1dee0369c7fc4736b7099b38ecb46ee7
+Subject: Kropka mantavannia nie pustaja
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Kataloh @WHERE@ ukazany jak kropka mantavannia (druhoje polie ŭ /etc/fstab
+ci Where= polie ŭ fajlie junita systemd) i nie pusty. Heta nie pieraškadžaje
+mantavanniu, alie isnujučyja ŭ im fajly buduć niedastupny. Dlia dostupu da
+ich, kali laska, zmantujcie hetuju fajlavuju sistemu ŭ inšaje miesca.
+
+-- 24d8d4452573402496068381a6312df2
+Subject: Virtuaĺnaja mašyna abo kantejnier zapusciŭsia
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Virtuaĺnaja mašyna @NAME@ z lidaram № @LEADER@ zapuscilasia i
+hatova dlia vykarystannia.
+
+-- 58432bd3bace477cb514b56381b8a758
+Subject: Virtuaĺnaja mašyna abo kantejnier spynieny
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Virtuaĺnaja mašyna @NAME@ z lidaram № @LEADER@ spyniena.

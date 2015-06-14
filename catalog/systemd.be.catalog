@@ -1,0 +1,260 @@
+#  This file is part of systemd.
+#
+#  Copyright 2012 Lennart Poettering
+#  Copyright 2015 Viktar Vaŭčkievič
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+#
+#  systemd is distributed in the hope that it will be useful, but
+#  WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+#  Lesser General Public License for more details.
+#
+#  You should have received a copy of the GNU Lesser General Public License
+#  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+
+# Message catalog for systemd's own messages
+# Belarusian translation
+
+# The catalog format is documented on
+# Фармат каталога апісаны на старонцы
+# http://www.freedesktop.org/wiki/Software/systemd/catalog
+
+# For an explanation why we do all this, see https://xkcd.com/1024/
+
+-- f77379a8490b408bbe5f6940505a777b
+Subject: Сэрвіс журналявання запусціўся
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Працэс сістэмнага журналявання запусціўся, адкрыў файлы для
+запісу і гатовы апрацоўваць запыты.
+
+-- d93fb3c9c24d451a97cea615ce59c00b
+Subject: Сэрвіс журналявання спыніўся
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Працэс сістэмнага журналявання спыніўся і закрыў усе файлы.
+
+-- a596d6fe7bfa4994828e72309e95d61e
+Subject: Паведамленні з сэрвісу адкінуты
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: man:journald.conf(5)
+
+Сэрвіс адправіў занадта штат паведамленняў за кароткі прамежак часу.
+Частка паведамленняў была адкінута.
+
+Майце на ўвазе, што былі адкінуты паведамлення толькі гэтага сэрвісу.
+Паведамленні іншых сэрвісаў засталіся.
+
+Мяжа, пасля якой паведамленні будуць адкінуты, наладжваецца з
+дапамогай RateLimitInterval= і RateLimitBurst= у файле
+/etc/systemd/journald.conf. Глядзіце journald.conf(5) для дэталей.
+
+-- e9bf28e6e834481bb6f48f548ad13606
+Subject: Паведамленні страчаны
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Паведамленні ядра былі страчаны, так як сістэма журналявання не паспела
+іх апрацаваць.
+
+-- fc2e22bc6ee647b6b90729ab34a250b1
+Subject: Працэс @COREDUMP_PID@ (@COREDUMP_COMM@) скінуў дамп памяці
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: man:core(5)
+
+Працэс @COREDUMP_PID@ (@COREDUMP_COMM@) разбіўся і скінуў дамп памяці.
+
+Звычайна гэта сведчыць аб памылцы ў праграмным кодзе.
+Рэкамендуецца паведаміць аб гэтым распрацоўнікам.
+
+-- 8d45620c1a4348dbb17410da57c60c66
+Subject: Новая сесія № @SESSION_ID@ створана для карыстальніка @USER_ID@
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+
+Новая сесія з № @SESSION_ID@ створана для карыстальніка @USER_ID@.
+
+Лідар гэтай сесіі пад № @LEADER@.
+
+-- 3354939424b4456d9802ca8333ed424a
+Subject: Сесія № @SESSION_ID@ спынена
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+
+Сесія № @SESSION_ID@ спынена.
+
+-- fcbefc5da23d428093f97c82a9290f7b
+Subject: Даступна новае працоўнае месца № @SEAT_ID@
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+
+Новае працоўнае месца № @SEAT_ID@ наладжана і даступна для выкарыстання.
+
+-- e7852bfe46784ed0accde04bc864c2d5
+Subject: Працоўнае месца № @SEAT_ID@ выдалена
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+
+Працоўнае месца № @SEAT_ID@ выдалена і больш не даступна.
+
+-- c7a787079b354eaaa9e77b371893cd27
+Subject: Час зменены
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Сістэмны гадзіннік зменены на @REALTIME@ мікрасекунд ад 1 студзеня 1970.
+
+-- 45f82f4aef7a4bbf942ce861d1f20990
+Subject: Часавы пояс зменены на @TIMEZONE@
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Сістэмны часавы пояс зменены на @TIMEZONE@.
+
+-- b07a249cd024414a82dd00cd181378ff
+Subject: Запуск сістэмы завяршыўся
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Усе сістэмныя сэрвісы, неабходныя для загрузкі сістэмы, паспяхова
+запусціліся. Майце на ўвазе, што гэта не значыць, што машына нічога не
+робіць. Магчыма, некаторыя сэрвісы яшчэ ініцыялізіруюцца.
+
+На запуск ядра спатрэбілася @KERNEL_USEC@ мікрасекунд.
+
+На запуск пачатковага RAM-дыска спатрэбілася @INITRD_USEC@ мікрасекунд.
+
+На запуск сістэмных сэрвісаў спатрэбілася @USERSPACE_USEC@ мікрасекунд.
+
+-- 6bbd95ee977941e497c48be27c254128
+Subject: Сістэма перайшла ў стан сну @SLEEP@
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Цяпер сістэма перайшла у стан сну @SLEEP@.
+
+-- 8811e6df2a8e40f58a94cea26f8ebf14
+Subject: Сістэма выйшла са стана сну @SLEEP@
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Цяпер сістэма выйшла са стана сну @SLEEP@.
+
+-- 98268866d1d54a499c4e98921d93bc40
+Subject: Сістэма завяршае работу
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Пачаўся працэс выключэння сістэмы.
+Спыняюцца ўсе сістэмныя сэрвісы і дэмантуюцца файлавыя сістэмы.
+
+-- 7d4958e842da4a758f6c1cdc7b36dcc5
+Subject: Юніт @UNIT@ запускаецца
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Пачаўся працэс запуску юніта @UNIT@.
+
+-- 39f53479d3a045ac8e11786248231fbf
+Subject: Юніт @UNIT@ запусціўся
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Працэс запуску юніта @UNIT@ завершаны.
+
+Вынік: @RESULT@.
+
+-- de5b426a63be47a7b6ac3eaac82e2f6f
+Subject: Юніт @UNIT@ спыняецца
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Пачаўся працэс спынення юніта @UNIT@.
+
+-- 9d1aaa27d60140bd96365438aad20286
+Subject: Юніт @UNIT@ спынены
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Працэс спынення юніта @UNIT@ завершаны.
+
+-- be02cf6855d2428ba40df7e9d022f03d
+Subject: Збой юніта @UNIT@
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Збой юніта @UNIT@.
+
+Вынік: @RESULT@.
+
+-- d34d037fff1847e6ae669a370e694725
+Subject: Юніт @UNIT@ перачытвае сваю канфігурацыю
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Юніт @UNIT@ пачаў перачытваць сваю канфігурацыю.
+
+-- 7b05ebc668384222baa8881179cfda54
+Subject: Юніт @UNIT@ перачытаў сваю канфігурацыю
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Юніт @UNIT@ перачытаў сваю канфігурацыю.
+
+Вынік: @RESULT@.
+
+-- 641257651c1b4ec9a8624d7a40a9e1e7
+Subject: Працэс @EXECUTABLE@ не можа быць выкананы
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Працэс @EXECUTABLE@ не можа быць выкананы ў выніку збою.
+
+Ён вярнуў памылку нумар @ERRNO@.
+
+-- 0027229ca0644181a76c4e92458afa2e
+Sibject: Адно ці больш паведамленняў не былі накіраваны ў syslog
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Адно ці больш паведамленняў не былі накіраваны ў syslog сэрвіс, які
+выконваецца паралельна з journald. Звычайна гэта значыць, што
+рэалізацыя syslog не паспявае апрацаваць паведамленні з неабходнай
+хуткасцю.
+
+-- 1dee0369c7fc4736b7099b38ecb46ee7
+Subject: Кропка мантавання не пустая
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Каталог @WHERE@ указаны як кропка мантавання (другое поле ў /etc/fstab
+ці Where= поле ў файле юніта systemd) і не пусты. Гэта не перашкаджае
+мантаванню, але існуючыя ў ім файлы будуць недаступны. Для доступу да
+іх, калі ласка, змантуйце гэтую файлавую сістэму ў іншае месца.
+
+-- 24d8d4452573402496068381a6312df2
+Subject: Віртуальная машына або кантэйнер запусціўся
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Віртуальная машына @NAME@ з лідарам № @LEADER@ запусцілася і
+гатова для выкарыстання.
+
+-- 58432bd3bace477cb514b56381b8a758
+Subject: Віртуальная машына або кантэйнер спынены
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Віртуальная машына @NAME@ з лідарам № @LEADER@ спынена.
