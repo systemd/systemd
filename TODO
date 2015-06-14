@@ -26,6 +26,8 @@ External:
 
 Features:
 
+* install: include generator dirs in unit file search paths
+
 * networkd: add ipv6 privacy extensions
 
 * introduce an NSS module that uses machined info to give container UIDs pretty names when user namespacing is used.
