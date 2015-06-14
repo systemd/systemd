@@ -75,13 +75,13 @@
 
       <varlistentry>
         <term><varname>NTP=</varname></term>
-        <listitem><para>A space separated list of NTP servers host
+        <listitem><para>A space separated list of NTP server host
         names or IP addresses. During runtime this list is combined
         with any per-interface NTP servers acquired from
         <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
         systemd-timesyncd will contact all configured system or
         per-interface servers in turn until one is found that
-        responds. This setting defaults to the empty
+        responds. This setting defaults to an empty
         list.</para></listitem>
       </varlistentry>
 
