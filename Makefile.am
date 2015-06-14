@@ -1021,6 +1021,7 @@ libshared_la_CFLAGS = \
 libshared_la_LIBADD = \
 	libsystemd-internal.la \
 	libsystemd-journal-internal.la \
+	libudev-internal.la \
 	$(ACL_LIBS) \
 	$(LIBIDN_LIBS) \
 	$(SECCOMP_LIBS)
@@ -1190,7 +1191,6 @@ libcore_la_CFLAGS = \
 	$(MOUNT_CFLAGS)
 
 libcore_la_LIBADD = \
-	libudev-internal.la \
 	libshared.la \
 	$(PAM_LIBS) \
 	$(AUDIT_LIBS) \
@@ -1799,7 +1799,6 @@ test_tables_CFLAGS = \
 	$(SECCOMP_CFLAGS)
 
 test_tables_LDADD = \
-	libsystemd-journal-internal.la \
 	libjournal-core.la \
 	libcore.la \
 	libudev-core.la
@@ -2119,7 +2118,6 @@ systemd_shutdown_SOURCES = \
 	src/core/killall.c
 
 systemd_shutdown_LDADD = \
-	libudev-internal.la \
 	libshared.la
 
 # ------------------------------------------------------------------------------
@@ -2304,7 +2302,6 @@ systemd_fsck_SOURCES = \
 	src/fsck/fsck.c
 
 systemd_fsck_LDADD = \
-	libudev-internal.la \
 	libshared.la
 
 # ------------------------------------------------------------------------------
@@ -2324,7 +2321,6 @@ systemd_ac_power_SOURCES = \
 	src/ac-power/ac-power.c
 
 systemd_ac_power_LDADD = \
-	libudev-internal.la \
 	libshared.la
 
 # ------------------------------------------------------------------------------
@@ -2611,7 +2607,6 @@ systemd_gpt_auto_generator_SOURCES = \
 	src/basic/blkid-util.h
 
 systemd_gpt_auto_generator_LDADD = \
-	libudev-internal.la \
 	libshared.la \
 	$(BLKID_LIBS)
 
@@ -2688,7 +2683,6 @@ systemctl_SOURCES = \
 	src/systemctl/systemctl.c
 
 systemctl_LDADD = \
-	libsystemd-journal-internal.la \
 	libshared.la
 
 # ------------------------------------------------------------------------------
@@ -2746,7 +2740,6 @@ systemd_nspawn_CFLAGS = \
 	$(BLKID_CFLAGS)
 
 systemd_nspawn_LDADD = \
-	libudev-internal.la \
 	libshared.la \
 	$(BLKID_LIBS)
 
@@ -3227,7 +3220,6 @@ test_dhcp_client_SOURCES = \
 
 test_dhcp_client_LDADD = \
 	libsystemd-network.la \
-	libudev-internal.la \
 	libshared.la
 
 test_dhcp_server_SOURCES = \
@@ -3361,7 +3353,6 @@ libsystemd_terminal_la_SOURCES = \
 	src/libsystemd-terminal/unifont.c
 
 libsystemd_terminal_la_LIBADD = \
-	libudev-internal.la \
 	libshared.la \
 	$(TERMINAL_LIBS)
 
@@ -3615,7 +3606,6 @@ libudev_core_la_CFLAGS = \
 	$(KMOD_CFLAGS)
 
 libudev_core_la_LIBADD = \
-	libudev-internal.la \
 	libsystemd-network.la \
 	libshared.la \
 	$(BLKID_LIBS) \
@@ -3674,7 +3664,6 @@ systemd_hwdb_SOURCES = \
 	src/hwdb/hwdb.c
 
 systemd_hwdb_LDADD = \
-	libudev-internal.la \
 	libshared.la
 
 rootbin_PROGRAMS += \
@@ -3742,7 +3731,6 @@ test_libudev_SOURCES = \
 	src/test/test-libudev.c
 
 test_libudev_LDADD = \
-	libudev-internal.la \
 	libshared.la
 
 test_udev_SOURCES = \
@@ -3779,7 +3767,6 @@ ata_id_SOURCES = \
 	src/udev/ata_id/ata_id.c
 
 ata_id_LDADD = \
-	libudev-internal.la \
 	libshared.la
 
 udevlibexec_PROGRAMS += \
@@ -3790,7 +3777,6 @@ cdrom_id_SOURCES = \
 	src/udev/cdrom_id/cdrom_id.c
 
 cdrom_id_LDADD = \
-	libudev-internal.la \
 	libshared.la
 
 udevlibexec_PROGRAMS += \
@@ -3804,7 +3790,6 @@ collect_SOURCES = \
 	src/udev/collect/collect.c
 
 collect_LDADD = \
-	libudev-internal.la \
 	libshared.la
 
 udevlibexec_PROGRAMS += \
@@ -3818,7 +3803,6 @@ scsi_id_SOURCES =\
 	src/udev/scsi_id/scsi_id.h
 
 scsi_id_LDADD = \
-	libudev-internal.la \
 	libshared.la
 
 udevlibexec_PROGRAMS += \
@@ -3832,7 +3816,6 @@ v4l_id_SOURCES = \
 	src/udev/v4l_id/v4l_id.c
 
 v4l_id_LDADD = \
-	libudev-internal.la \
 	libshared.la
 
 udevlibexec_PROGRAMS += \
@@ -3846,7 +3829,6 @@ accelerometer_SOURCES = \
 	src/udev/accelerometer/accelerometer.c
 
 accelerometer_LDADD = \
-	libudev-internal.la \
 	libshared.la
 
 udevlibexec_PROGRAMS += \
@@ -3982,7 +3964,6 @@ systemd_journal_upload_CFLAGS = \
 	$(LIBCURL_CFLAGS)
 
 systemd_journal_upload_LDADD = \
-	libsystemd-journal-internal.la \
 	libshared.la \
 	$(LIBCURL_LIBS)
 
@@ -4006,7 +3987,6 @@ journalctl_SOURCES = \
 	src/journal/journalctl.c
 
 journalctl_LDADD = \
-	libsystemd-journal-internal.la \
 	libshared.la
 
 if HAVE_QRENCODE
@@ -4101,14 +4081,12 @@ test_compress_SOURCES = \
 	src/journal/test-compress.c
 
 test_compress_LDADD = \
-	libsystemd-journal-internal.la \
 	libshared.la
 
 test_compress_benchmark_SOURCES = \
 	src/journal/test-compress-benchmark.c
 
 test_compress_benchmark_LDADD = \
-	libsystemd-journal-internal.la \
 	libshared.la
 
 test_audit_type_SOURCES = \
@@ -4142,8 +4120,6 @@ nodist_libjournal_core_la_SOURCES = \
 	src/journal/journald-gperf.c
 
 libjournal_core_la_LIBADD = \
-	libsystemd-journal-internal.la \
-	libudev-internal.la \
 	libshared.la
 
 noinst_LTLIBRARIES += \
@@ -4335,7 +4311,6 @@ systemd_journal_gatewayd_SOURCES = \
 	src/journal-remote/microhttpd-util.c
 
 systemd_journal_gatewayd_LDADD = \
-	libsystemd-journal-internal.la \
 	libshared.la \
 	$(MICROHTTPD_LIBS)
 
@@ -4372,7 +4347,6 @@ systemd_socket_proxyd_SOURCES = \
 	src/socket-proxy/socket-proxyd.c
 
 systemd_socket_proxyd_LDADD = \
-	libsystemd-journal-internal.la \
 	libshared.la
 
 # ------------------------------------------------------------------------------
@@ -4383,7 +4357,6 @@ systemd_coredump_SOURCES = \
 	src/journal/coredump-vacuum.h
 
 systemd_coredump_LDADD = \
-	libsystemd-journal-internal.la \
 	libshared.la
 
 if HAVE_ELFUTILS
@@ -4405,7 +4378,6 @@ coredumpctl_SOURCES = \
 	src/journal/coredumpctl.c
 
 coredumpctl_LDADD = \
-	libsystemd-journal-internal.la \
 	libshared.la
 
 bin_PROGRAMS += \
@@ -4505,7 +4477,6 @@ systemd_bootchart_SOURCES = \
 	src/bootchart/svg.h
 
 systemd_bootchart_LDADD = \
-	libsystemd-journal-internal.la \
 	libshared.la
 
 rootlibexec_PROGRAMS += \
@@ -4576,7 +4547,6 @@ systemd_backlight_SOURCES = \
 	src/backlight/backlight.c
 
 systemd_backlight_LDADD = \
-	libudev-internal.la \
 	libshared.la
 endif
 
@@ -4595,7 +4565,6 @@ systemd_rfkill_SOURCES = \
 	src/rfkill/rfkill.c
 
 systemd_rfkill_LDADD = \
-	libudev-internal.la \
 	libshared.la
 endif
 
@@ -4622,7 +4591,6 @@ systemd_cryptsetup_CFLAGS = \
 	$(LIBCRYPTSETUP_CFLAGS)
 
 systemd_cryptsetup_LDADD = \
-	libudev-internal.la \
 	libshared.la \
 	$(LIBCRYPTSETUP_LIBS)
 
@@ -4903,7 +4871,6 @@ libmachine_core_la_SOURCES = \
 	src/machine/image-dbus.h
 
 libmachine_core_la_LIBADD = \
-	libudev-internal.la \
 	libshared.la
 
 noinst_LTLIBRARIES += \
@@ -4913,7 +4880,6 @@ machinectl_SOURCES = \
 	src/machine/machinectl.c
 
 machinectl_LDADD = \
-	libsystemd-journal-internal.la \
 	libshared.la
 
 rootbin_PROGRAMS += \
@@ -5352,7 +5318,6 @@ nodist_libnetworkd_core_la_SOURCES = \
 	src/network/networkd-netdev-gperf.c
 
 libnetworkd_core_la_LIBADD = \
-	libudev-internal.la \
 	libsystemd-network.la \
 	libshared.la
 
@@ -5372,7 +5337,6 @@ systemd_networkd_wait_online_SOURCES = \
 
 systemd_networkd_wait_online_LDADD = \
 	libsystemd-network.la \
-	libudev-internal.la \
 	libshared.la
 
 rootbin_PROGRAMS += \
@@ -5382,7 +5346,6 @@ networkctl_SOURCES = \
 	src/network/networkctl.c
 
 networkctl_LDADD = \
-	libudev-internal.la \
 	libshared.la \
 	libsystemd-network.la
 
@@ -5488,7 +5451,6 @@ liblogind_core_la_SOURCES = \
 	src/login/logind-acl.h
 
 liblogind_core_la_LIBADD = \
-	libudev-internal.la \
 	libshared.la
 
 if HAVE_ACL
@@ -5508,8 +5470,6 @@ loginctl_SOURCES = \
 	src/login/sysfs-show.c
 
 loginctl_LDADD = \
-	libudev-internal.la \
-	libsystemd-journal-internal.la \
 	libshared.la
 
 rootbin_PROGRAMS += \
@@ -5872,7 +5832,7 @@ libsystemd_login_la_LDFLAGS = \
 	-Wl,--version-script=$(top_srcdir)/src/compat-libs/libsystemd-login.sym
 
 libsystemd_login_la_LIBADD = \
-	libshared.la
+	libsystemd-internal.la
 
 libsystemd_id128_la_SOURCES = \
 	libsystemd-id128.c \
@@ -5888,7 +5848,7 @@ libsystemd_id128_la_LDFLAGS = \
 	-Wl,--version-script=$(top_srcdir)/src/compat-libs/libsystemd-id128.sym
 
 libsystemd_id128_la_LIBADD = \
-	libshared.la
+	libsystemd-internal.la
 
 libsystemd_daemon_la_SOURCES = \
 	libsystemd-daemon.c \
@@ -5904,7 +5864,7 @@ libsystemd_daemon_la_LDFLAGS = \
 	-Wl,--version-script=$(top_srcdir)/src/compat-libs/libsystemd-daemon.sym
 
 libsystemd_daemon_la_LIBADD = \
-	libshared.la
+	libsystemd-internal.la
 
 lib_LTLIBRARIES += \
 	libsystemd-journal.la \
