@@ -3,7 +3,7 @@
 #include "networkd-netdev-macvlan.h"
 #include "dhcp6-internal.h"
 #include "dhcp6-protocol.h"
-#include "rtnl-internal.h"
+#include "netlink-internal.h"
 #include "ethtool-util.h"
 
 #include "test-tables.h"

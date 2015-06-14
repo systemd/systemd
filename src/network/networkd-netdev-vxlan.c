@@ -21,13 +21,13 @@
 
 #include <net/if.h>
 
-#include "sd-rtnl.h"
+#include "sd-netlink.h"
 #include "networkd-netdev-vxlan.h"
 #include "networkd-link.h"
 #include "conf-parser.h"
 #include "missing.h"
 
-static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_message *m) {
+static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
         VxLan *v = VXLAN(netdev);
         int r;
 
@@ -38,66 +38,66 @@ static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_
 
 
         if (v->id <= VXLAN_VID_MAX) {
-                r = sd_rtnl_message_append_u32(m, IFLA_VXLAN_ID, v->id);
+                r = sd_netlink_message_append_u32(m, IFLA_VXLAN_ID, v->id);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_ID attribute: %m");
         }
 
-        r = sd_rtnl_message_append_in_addr(m, IFLA_VXLAN_GROUP, &v->group.in);
+        r = sd_netlink_message_append_in_addr(m, IFLA_VXLAN_GROUP, &v->group.in);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_GROUP attribute: %m");
 
-        r = sd_rtnl_message_append_u32(m, IFLA_VXLAN_LINK, link->ifindex);
+        r = sd_netlink_message_append_u32(m, IFLA_VXLAN_LINK, link->ifindex);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_LINK attribute: %m");
 
         if(v->ttl) {
-                r = sd_rtnl_message_append_u8(m, IFLA_VXLAN_TTL, v->ttl);
+                r = sd_netlink_message_append_u8(m, IFLA_VXLAN_TTL, v->ttl);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_TTL attribute: %m");
         }
 
         if(v->tos) {
-                r = sd_rtnl_message_append_u8(m, IFLA_VXLAN_TOS, v->tos);
+                r = sd_netlink_message_append_u8(m, IFLA_VXLAN_TOS, v->tos);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_TOS attribute: %m");
         }
 
-        r = sd_rtnl_message_append_u8(m, IFLA_VXLAN_LEARNING, v->learning);
+        r = sd_netlink_message_append_u8(m, IFLA_VXLAN_LEARNING, v->learning);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_LEARNING attribute: %m");
 
-        r = sd_rtnl_message_append_u8(m, IFLA_VXLAN_RSC, v->route_short_circuit);
+        r = sd_netlink_message_append_u8(m, IFLA_VXLAN_RSC, v->route_short_circuit);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_RSC attribute: %m");
 
-        r = sd_rtnl_message_append_u8(m, IFLA_VXLAN_PROXY, v->arp_proxy);
+        r = sd_netlink_message_append_u8(m, IFLA_VXLAN_PROXY, v->arp_proxy);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_PROXY attribute: %m");
 
-        r = sd_rtnl_message_append_u8(m, IFLA_VXLAN_L2MISS, v->l2miss);
+        r = sd_netlink_message_append_u8(m, IFLA_VXLAN_L2MISS, v->l2miss);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_L2MISS attribute: %m");
 
-        r = sd_rtnl_message_append_u8(m, IFLA_VXLAN_L3MISS, v->l3miss);
+        r = sd_netlink_message_append_u8(m, IFLA_VXLAN_L3MISS, v->l3miss);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_L3MISS attribute: %m");
 
         if(v->fdb_ageing) {
-                r = sd_rtnl_message_append_u32(m, IFLA_VXLAN_AGEING, v->fdb_ageing / USEC_PER_SEC);
+                r = sd_netlink_message_append_u32(m, IFLA_VXLAN_AGEING, v->fdb_ageing / USEC_PER_SEC);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_AGEING attribute: %m");
         }
 
-        r = sd_rtnl_message_append_u8(m, IFLA_VXLAN_UDP_CSUM, v->udpcsum);
+        r = sd_netlink_message_append_u8(m, IFLA_VXLAN_UDP_CSUM, v->udpcsum);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_UDP_CSUM attribute: %m");
 
-        r = sd_rtnl_message_append_u8(m, IFLA_VXLAN_UDP_ZERO_CSUM6_TX, v->udp6zerocsumtx);
+        r = sd_netlink_message_append_u8(m, IFLA_VXLAN_UDP_ZERO_CSUM6_TX, v->udp6zerocsumtx);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_UDP_ZERO_CSUM6_TX attribute: %m");
 
-        r = sd_rtnl_message_append_u8(m, IFLA_VXLAN_UDP_ZERO_CSUM6_RX, v->udp6zerocsumrx);
+        r = sd_netlink_message_append_u8(m, IFLA_VXLAN_UDP_ZERO_CSUM6_RX, v->udp6zerocsumrx);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_UDP_ZERO_CSUM6_RX attribute: %m");
 

@@ -244,8 +244,8 @@
 /test-replace-var
 /test-resolve
 /test-ring
-/test-rtnl
-/test-rtnl-manual
+/test-netlink
+/test-netlink-manual
 /test-sched-prio
 /test-set
 /test-sigbus

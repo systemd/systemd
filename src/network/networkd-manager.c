@@ -29,12 +29,12 @@
 #include "networkd-link.h"
 #include "libudev-private.h"
 #include "udev-util.h"
-#include "rtnl-util.h"
+#include "netlink-util.h"
 #include "bus-util.h"
 #include "def.h"
 #include "virt.h"
 
-#include "sd-rtnl.h"
+#include "sd-netlink.h"
 #include "sd-daemon.h"
 
 /* use 8 MB for receive socket kernel queue. */
@@ -274,7 +274,7 @@ static int manager_connect_udev(Manager *m) {
         return 0;
 }
 
-static int manager_rtnl_process_link(sd_rtnl *rtnl, sd_rtnl_message *message, void *userdata) {
+static int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *message, void *userdata) {
         Manager *m = userdata;
         Link *link = NULL;
         NetDev *netdev = NULL;
@@ -286,15 +286,15 @@ static int manager_rtnl_process_link(sd_rtnl *rtnl, sd_rtnl_message *message, vo
         assert(message);
         assert(m);
 
-        if (sd_rtnl_message_is_error(message)) {
-                r = sd_rtnl_message_get_errno(message);
+        if (sd_netlink_message_is_error(message)) {
+                r = sd_netlink_message_get_errno(message);
                 if (r < 0)
                         log_warning_errno(r, "rtnl: could not receive link: %m");
 
                 return 0;
         }
 
-        r = sd_rtnl_message_get_type(message, &type);
+        r = sd_netlink_message_get_type(message, &type);
         if (r < 0) {
                 log_warning_errno(r, "rtnl: could not get message type: %m");
                 return 0;
@@ -313,7 +313,7 @@ static int manager_rtnl_process_link(sd_rtnl *rtnl, sd_rtnl_message *message, vo
         } else
                 link_get(m, ifindex, &link);
 
-        r = sd_rtnl_message_read_string(message, IFLA_IFNAME, &name);
+        r = sd_netlink_message_read_string(message, IFLA_IFNAME, &name);
         if (r < 0) {
                 log_warning_errno(r, "rtnl: received link message without ifname: %m");
                 return 0;
@@ -385,33 +385,33 @@ static int manager_connect_rtnl(Manager *m) {
 
         fd = systemd_netlink_fd();
         if (fd < 0)
-                r = sd_rtnl_open(&m->rtnl);
+                r = sd_netlink_open(&m->rtnl);
         else
-                r = sd_rtnl_open_fd(&m->rtnl, fd);
+                r = sd_netlink_open_fd(&m->rtnl, fd);
         if (r < 0)
                 return r;
 
-        r = sd_rtnl_inc_rcvbuf(m->rtnl, RCVBUF_SIZE);
+        r = sd_netlink_inc_rcvbuf(m->rtnl, RCVBUF_SIZE);
         if (r < 0)
                 return r;
 
-        r = sd_rtnl_attach_event(m->rtnl, m->event, 0);
+        r = sd_netlink_attach_event(m->rtnl, m->event, 0);
         if (r < 0)
                 return r;
 
-        r = sd_rtnl_add_match(m->rtnl, RTM_NEWLINK, &manager_rtnl_process_link, m);
+        r = sd_netlink_add_match(m->rtnl, RTM_NEWLINK, &manager_rtnl_process_link, m);
         if (r < 0)
                 return r;
 
-        r = sd_rtnl_add_match(m->rtnl, RTM_DELLINK, &manager_rtnl_process_link, m);
+        r = sd_netlink_add_match(m->rtnl, RTM_DELLINK, &manager_rtnl_process_link, m);
         if (r < 0)
                 return r;
 
-        r = sd_rtnl_add_match(m->rtnl, RTM_NEWADDR, &link_rtnl_process_address, m);
+        r = sd_netlink_add_match(m->rtnl, RTM_NEWADDR, &link_rtnl_process_address, m);
         if (r < 0)
                 return r;
 
-        r = sd_rtnl_add_match(m->rtnl, RTM_DELADDR, &link_rtnl_process_address, m);
+        r = sd_netlink_add_match(m->rtnl, RTM_DELADDR, &link_rtnl_process_address, m);
         if (r < 0)
                 return r;
 
@@ -498,7 +498,7 @@ void manager_free(Manager *m) {
         while ((pool = m->address_pools))
                 address_pool_free(pool);
 
-        sd_rtnl_unref(m->rtnl);
+        sd_netlink_unref(m->rtnl);
 
         free(m);
 }
@@ -570,8 +570,8 @@ bool manager_should_reload(Manager *m) {
 }
 
 int manager_rtnl_enumerate_links(Manager *m) {
-        _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL, *reply = NULL;
-        sd_rtnl_message *link;
+        _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL, *reply = NULL;
+        sd_netlink_message *link;
         int r;
 
         assert(m);
@@ -581,15 +581,15 @@ int manager_rtnl_enumerate_links(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = sd_rtnl_message_request_dump(req, true);
+        r = sd_netlink_message_request_dump(req, true);
         if (r < 0)
                 return r;
 
-        r = sd_rtnl_call(m->rtnl, req, 0, &reply);
+        r = sd_netlink_call(m->rtnl, req, 0, &reply);
         if (r < 0)
                 return r;
 
-        for (link = reply; link; link = sd_rtnl_message_next(link)) {
+        for (link = reply; link; link = sd_netlink_message_next(link)) {
                 int k;
 
                 m->enumerating = true;
@@ -605,8 +605,8 @@ int manager_rtnl_enumerate_links(Manager *m) {
 }
 
 int manager_rtnl_enumerate_addresses(Manager *m) {
-        _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL, *reply = NULL;
-        sd_rtnl_message *addr;
+        _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL, *reply = NULL;
+        sd_netlink_message *addr;
         int r;
 
         assert(m);
@@ -616,15 +616,15 @@ int manager_rtnl_enumerate_addresses(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = sd_rtnl_message_request_dump(req, true);
+        r = sd_netlink_message_request_dump(req, true);
         if (r < 0)
                 return r;
 
-        r = sd_rtnl_call(m->rtnl, req, 0, &reply);
+        r = sd_netlink_call(m->rtnl, req, 0, &reply);
         if (r < 0)
                 return r;
 
-        for (addr = reply; addr; addr = sd_rtnl_message_next(addr)) {
+        for (addr = reply; addr; addr = sd_netlink_message_next(addr)) {
                 int k;
 
                 m->enumerating = true;

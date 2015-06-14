@@ -45,7 +45,7 @@
 
 #include "signal-util.h"
 #include "event-util.h"
-#include "rtnl-util.h"
+#include "netlink-util.h"
 #include "cgroup-util.h"
 #include "process-util.h"
 #include "dev-setup.h"
@@ -339,7 +339,7 @@ static void worker_spawn(Manager *manager, struct event *event) {
         switch (pid) {
         case 0: {
                 struct udev_device *dev = NULL;
-                _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
+                _cleanup_netlink_unref_ sd_netlink *rtnl = NULL;
                 int fd_monitor;
                 _cleanup_close_ int fd_signal = -1, fd_ep = -1;
                 struct epoll_event ep_signal = { .events = EPOLLIN };
@@ -455,7 +455,7 @@ static void worker_spawn(Manager *manager, struct event *event) {
 
                         if (udev_event->rtnl)
                                 /* in case rtnl was initialized */
-                                rtnl = sd_rtnl_ref(udev_event->rtnl);
+                                rtnl = sd_netlink_ref(udev_event->rtnl);
 
                         /* apply/restore inotify watch */
                         if (udev_event->inotify_watch) {

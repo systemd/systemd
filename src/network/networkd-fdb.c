@@ -80,13 +80,13 @@ int fdb_entry_new_static(Network *const network,
         return 0;
 }
 
-static int set_fdb_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
+static int set_fdb_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
         Link *link = userdata;
         int r;
 
         assert(link);
 
-        r = sd_rtnl_message_get_errno(m);
+        r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST)
                 log_link_error_errno(link, r, "Could not add FDB entry: %m");
 
@@ -95,8 +95,8 @@ static int set_fdb_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
 
 /* send a request to the kernel to add a FDB entry in its static MAC table. */
 int fdb_entry_configure(Link *const link, FdbEntry *const fdb_entry) {
-        _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL;
-        sd_rtnl *rtnl;
+        _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL;
+        sd_netlink *rtnl;
         int r;
 
         assert(link);
@@ -120,19 +120,19 @@ int fdb_entry_configure(Link *const link, FdbEntry *const fdb_entry) {
         if (r < 0)
                 return rtnl_log_create_error(r);
 
-        r = sd_rtnl_message_append_ether_addr(req, NDA_LLADDR, fdb_entry->mac_addr);
+        r = sd_netlink_message_append_ether_addr(req, NDA_LLADDR, fdb_entry->mac_addr);
         if (r < 0)
                 return rtnl_log_create_error(r);
 
         /* VLAN Id is optional. We'll add VLAN Id only if it's specified. */
         if (0 != fdb_entry->vlan_id) {
-                r = sd_rtnl_message_append_u16(req, NDA_VLAN, fdb_entry->vlan_id);
+                r = sd_netlink_message_append_u16(req, NDA_VLAN, fdb_entry->vlan_id);
                 if (r < 0)
                         return rtnl_log_create_error(r);
         }
 
         /* send message to the kernel to update its internal static MAC table. */
-        r = sd_rtnl_call_async(rtnl, req, set_fdb_handler, link, 0, NULL);
+        r = sd_netlink_call_async(rtnl, req, set_fdb_handler, link, 0, NULL);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 

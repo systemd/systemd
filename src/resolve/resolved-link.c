@@ -124,7 +124,7 @@ void link_add_rrs(Link *l, bool force_remove) {
                 link_address_add_rrs(a, force_remove);
 }
 
-int link_update_rtnl(Link *l, sd_rtnl_message *m) {
+int link_update_rtnl(Link *l, sd_netlink_message *m) {
         const char *n = NULL;
         int r;
 
@@ -135,9 +135,9 @@ int link_update_rtnl(Link *l, sd_rtnl_message *m) {
         if (r < 0)
                 return r;
 
-        sd_rtnl_message_read_u32(m, IFLA_MTU, &l->mtu);
+        sd_netlink_message_read_u32(m, IFLA_MTU, &l->mtu);
 
-        if (sd_rtnl_message_read_string(m, IFLA_IFNAME, &n) >= 0) {
+        if (sd_netlink_message_read_string(m, IFLA_IFNAME, &n) >= 0) {
                 strncpy(l->name, n, sizeof(l->name)-1);
                 char_array_0(l->name);
         }
@@ -522,7 +522,7 @@ fail:
         log_debug_errno(r, "Failed to update address RRs: %m");
 }
 
-int link_address_update_rtnl(LinkAddress *a, sd_rtnl_message *m) {
+int link_address_update_rtnl(LinkAddress *a, sd_netlink_message *m) {
         int r;
         assert(a);
         assert(m);

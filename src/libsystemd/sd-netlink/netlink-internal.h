@@ -27,9 +27,9 @@
 #include "prioq.h"
 #include "list.h"
 
-#include "sd-rtnl.h"
+#include "sd-netlink.h"
 
-#include "rtnl-types.h"
+#include "netlink-types.h"
 
 #define RTNL_DEFAULT_TIMEOUT ((usec_t) (25 * USEC_PER_SEC))
 
@@ -39,7 +39,7 @@
 #define RTNL_CONTAINER_DEPTH 32
 
 struct reply_callback {
-        sd_rtnl_message_handler_t callback;
+        sd_netlink_message_handler_t callback;
         void *userdata;
         usec_t timeout;
         uint64_t serial;
@@ -47,14 +47,14 @@ struct reply_callback {
 };
 
 struct match_callback {
-        sd_rtnl_message_handler_t callback;
+        sd_netlink_message_handler_t callback;
         uint16_t type;
         void *userdata;
 
         LIST_FIELDS(struct match_callback, match_callbacks);
 };
 
-struct sd_rtnl {
+struct sd_netlink {
         RefCount n_ref;
 
         int fd;
@@ -64,17 +64,13 @@ struct sd_rtnl {
                 struct sockaddr_nl nl;
         } sockaddr;
 
-        sd_rtnl_message **rqueue;
+        sd_netlink_message **rqueue;
         unsigned rqueue_size;
         size_t rqueue_allocated;
 
-        sd_rtnl_message **rqueue_partial;
+        sd_netlink_message **rqueue_partial;
         unsigned rqueue_partial_size;
         size_t rqueue_partial_allocated;
-
-        sd_rtnl_message **wqueue;
-        unsigned wqueue_size;
-        size_t wqueue_allocated;
 
         struct nlmsghdr *rbuffer;
         size_t rbuffer_allocated;
@@ -96,10 +92,10 @@ struct sd_rtnl {
         sd_event *event;
 };
 
-struct sd_rtnl_message {
+struct sd_netlink_message {
         RefCount n_ref;
 
-        sd_rtnl *rtnl;
+        sd_netlink *rtnl;
 
         struct nlmsghdr *hdr;
         const struct NLTypeSystem *(container_type_system[RTNL_CONTAINER_DEPTH]); /* the type of the container and all its parents */
@@ -111,19 +107,23 @@ struct sd_rtnl_message {
         bool sealed:1;
         bool broadcast:1;
 
-        sd_rtnl_message *next; /* next in a chain of multi-part messages */
+        sd_netlink_message *next; /* next in a chain of multi-part messages */
 };
 
-int message_new(sd_rtnl *rtnl, sd_rtnl_message **ret, uint16_t type);
+int message_new(sd_netlink *rtnl, sd_netlink_message **ret, uint16_t type);
+int message_new_empty(sd_netlink *rtnl, sd_netlink_message **ret);
 
-int socket_write_message(sd_rtnl *nl, sd_rtnl_message *m);
-int socket_read_message(sd_rtnl *nl);
+int socket_open(int family);
+int socket_bind(sd_netlink *nl);
+int socket_join_broadcast_group(sd_netlink *nl, unsigned group);
+int socket_write_message(sd_netlink *nl, sd_netlink_message *m);
+int socket_read_message(sd_netlink *nl);
 
-int rtnl_rqueue_make_room(sd_rtnl *rtnl);
-int rtnl_rqueue_partial_make_room(sd_rtnl *rtnl);
+int rtnl_rqueue_make_room(sd_netlink *rtnl);
+int rtnl_rqueue_partial_make_room(sd_netlink *rtnl);
 
-int rtnl_message_read_internal(sd_rtnl_message *m, unsigned short type, void **data);
-int rtnl_message_parse(sd_rtnl_message *m,
+int rtnl_message_read_internal(sd_netlink_message *m, unsigned short type, void **data);
+int rtnl_message_parse(sd_netlink_message *m,
                        size_t **rta_offset_tb,
                        unsigned short *rta_tb_size,
                        int max,
@@ -132,4 +132,4 @@ int rtnl_message_parse(sd_rtnl_message *m,
 
 /* Make sure callbacks don't destroy the rtnl connection */
 #define RTNL_DONT_DESTROY(rtnl) \
-        _cleanup_rtnl_unref_ _unused_ sd_rtnl *_dont_destroy_##rtnl = sd_rtnl_ref(rtnl)
+        _cleanup_netlink_unref_ _unused_ sd_netlink *_dont_destroy_##rtnl = sd_netlink_ref(rtnl)

@@ -233,7 +233,7 @@ AM_CPPFLAGS = \
 	-I $(top_srcdir)/src/libsystemd/sd-bus \
 	-I $(top_srcdir)/src/libsystemd/sd-event \
 	-I $(top_srcdir)/src/libsystemd/sd-login \
-	-I $(top_srcdir)/src/libsystemd/sd-rtnl \
+	-I $(top_srcdir)/src/libsystemd/sd-netlink \
 	-I $(top_srcdir)/src/libsystemd/sd-network \
 	-I $(top_srcdir)/src/libsystemd/sd-hwdb \
 	-I $(top_srcdir)/src/libsystemd/sd-device \
@@ -1363,7 +1363,7 @@ endif
 
 if HAVE_KMOD
 manual_tests += \
-	test-rtnl-manual
+	test-netlink-manual
 endif
 
 tests += \
@@ -1860,14 +1860,14 @@ test_fw_util_LDADD = \
 	$(LIBIPTC_LIBS)
 endif
 
-test_rtnl_manual_SOURCES = \
-	src/test/test-rtnl-manual.c
+test_netlink_manual_SOURCES = \
+	src/test/test-netlink-manual.c
 
-test_rtnl_manual_CFLAGS = \
+test_netlink_manual_CFLAGS = \
 	$(AM_CFLAGS) \
 	$(KMOD_CFLAGS)
 
-test_rtnl_manual_LDADD = \
+test_netlink_manual_LDADD = \
 	libshared.la \
 	$(KMOD_LIBS)
 
@@ -2832,7 +2832,7 @@ libsystemd_internal_la_SOURCES = \
 	src/systemd/sd-bus-vtable.h \
 	src/systemd/sd-utf8.h \
 	src/systemd/sd-event.h \
-	src/systemd/sd-rtnl.h \
+	src/systemd/sd-netlink.h \
 	src/systemd/sd-resolve.h \
 	src/systemd/sd-login.h \
 	src/systemd/sd-id128.h \
@@ -2886,15 +2886,17 @@ libsystemd_internal_la_SOURCES = \
 	src/libsystemd/sd-utf8/sd-utf8.c \
 	src/libsystemd/sd-event/sd-event.c \
 	src/libsystemd/sd-event/event-util.h \
-	src/libsystemd/sd-rtnl/sd-rtnl.c \
-	src/libsystemd/sd-rtnl/rtnl-internal.h \
-	src/libsystemd/sd-rtnl/rtnl-message.c \
-	src/libsystemd/sd-rtnl/rtnl-types.h \
-	src/libsystemd/sd-rtnl/rtnl-types.c \
-	src/libsystemd/sd-rtnl/rtnl-util.h \
-	src/libsystemd/sd-rtnl/rtnl-util.c \
-	src/libsystemd/sd-rtnl/local-addresses.h \
-	src/libsystemd/sd-rtnl/local-addresses.c \
+	src/libsystemd/sd-netlink/sd-netlink.c \
+	src/libsystemd/sd-netlink/netlink-internal.h \
+	src/libsystemd/sd-netlink/netlink-message.c \
+	src/libsystemd/sd-netlink/netlink-socket.c \
+	src/libsystemd/sd-netlink/rtnl-message.c \
+	src/libsystemd/sd-netlink/netlink-types.h \
+	src/libsystemd/sd-netlink/netlink-types.c \
+	src/libsystemd/sd-netlink/netlink-util.h \
+	src/libsystemd/sd-netlink/netlink-util.c \
+	src/libsystemd/sd-netlink/local-addresses.h \
+	src/libsystemd/sd-netlink/local-addresses.c \
 	src/libsystemd/sd-id128/sd-id128.c \
 	src/libsystemd/sd-daemon/sd-daemon.c \
 	src/libsystemd/sd-login/sd-login.c \
@@ -2986,7 +2988,7 @@ pkginclude_HEADERS += \
 if ENABLE_KDBUS
 pkginclude_HEADERS += \
 	src/systemd/sd-utf8.h \
-	src/systemd/sd-rtnl.h \
+	src/systemd/sd-netlink.h \
 	src/systemd/sd-resolve.h \
 	src/systemd/sd-path.h
 endif
@@ -3011,7 +3013,7 @@ tests += \
 	test-bus-creds \
 	test-bus-gvariant \
 	test-event \
-	test-rtnl \
+	test-netlink \
 	test-local-addresses \
 	test-resolve
 
@@ -3130,14 +3132,14 @@ test_event_SOURCES = \
 test_event_LDADD = \
 	libshared.la
 
-test_rtnl_SOURCES = \
-	src/libsystemd/sd-rtnl/test-rtnl.c
+test_netlink_SOURCES = \
+	src/libsystemd/sd-netlink/test-netlink.c
 
-test_rtnl_LDADD = \
+test_netlink_LDADD = \
 	libshared.la
 
 test_local_addresses_SOURCES = \
-	src/libsystemd/sd-rtnl/test-local-addresses.c
+	src/libsystemd/sd-netlink/test-local-addresses.c
 
 test_local_addresses_LDADD = \
 	libshared.la

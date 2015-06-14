@@ -29,7 +29,7 @@ typedef struct NetDevVTable NetDevVTable;
 typedef struct netdev_join_callback netdev_join_callback;
 
 struct netdev_join_callback {
-        sd_rtnl_message_handler_t callback;
+        sd_netlink_message_handler_t callback;
         Link *link;
 
         LIST_FIELDS(netdev_join_callback, callbacks);
@@ -129,7 +129,7 @@ struct NetDevVTable {
         void (*done)(NetDev *n);
 
         /* fill in message to create netdev */
-        int (*fill_message_create)(NetDev *netdev, Link *link, sd_rtnl_message *message);
+        int (*fill_message_create)(NetDev *netdev, Link *link, sd_netlink_message *message);
 
         /* specifies if netdev is independent, or a master device or a stacked device */
         NetDevCreateType create_type;
@@ -187,10 +187,10 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(NetDev*, netdev_unref);
 #define _cleanup_netdev_unref_ _cleanup_(netdev_unrefp)
 
 int netdev_get(Manager *manager, const char *name, NetDev **ret);
-int netdev_set_ifindex(NetDev *netdev, sd_rtnl_message *newlink);
-int netdev_enslave(NetDev *netdev, Link *link, sd_rtnl_message_handler_t callback);
+int netdev_set_ifindex(NetDev *netdev, sd_netlink_message *newlink);
+int netdev_enslave(NetDev *netdev, Link *link, sd_netlink_message_handler_t callback);
 int netdev_get_mac(const char *ifname, struct ether_addr **ret);
-int netdev_join(NetDev *netdev, Link *link, sd_rtnl_message_handler_t cb);
+int netdev_join(NetDev *netdev, Link *link, sd_netlink_message_handler_t cb);
 
 const char *netdev_kind_to_string(NetDevKind d) _const_;
 NetDevKind netdev_kind_from_string(const char *d) _pure_;

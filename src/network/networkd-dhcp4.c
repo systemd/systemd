@@ -27,7 +27,7 @@
 #include "network-internal.h"
 #include "dhcp-lease-internal.h"
 
-static int dhcp4_route_handler(sd_rtnl *rtnl, sd_rtnl_message *m,
+static int dhcp4_route_handler(sd_netlink *rtnl, sd_netlink_message *m,
                                void *userdata) {
         _cleanup_link_unref_ Link *link = userdata;
         int r;
@@ -37,7 +37,7 @@ static int dhcp4_route_handler(sd_rtnl *rtnl, sd_rtnl_message *m,
 
         link->dhcp4_messages --;
 
-        r = sd_rtnl_message_get_errno(m);
+        r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
                 log_link_error(link, "could not set DHCPv4 route: %s",
                                strerror(-r));
@@ -285,14 +285,14 @@ static int dhcp_lease_lost(Link *link) {
         return 0;
 }
 
-static int dhcp4_address_handler(sd_rtnl *rtnl, sd_rtnl_message *m,
+static int dhcp4_address_handler(sd_netlink *rtnl, sd_netlink_message *m,
                                  void *userdata) {
         _cleanup_link_unref_ Link *link = userdata;
         int r;
 
         assert(link);
 
-        r = sd_rtnl_message_get_errno(m);
+        r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
                 log_link_error(link, "could not set DHCPv4 address: %s",
                                strerror(-r));

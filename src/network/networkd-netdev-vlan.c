@@ -23,7 +23,7 @@
 
 #include "networkd-netdev-vlan.h"
 
-static int netdev_vlan_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_message *req) {
+static int netdev_vlan_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *req) {
         VLan *v = VLAN(netdev);
         int r;
 
@@ -33,7 +33,7 @@ static int netdev_vlan_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_m
         assert(req);
 
         if (v->id <= VLANID_MAX) {
-                r = sd_rtnl_message_append_u16(req, IFLA_VLAN_ID, v->id);
+                r = sd_netlink_message_append_u16(req, IFLA_VLAN_ID, v->id);
                 if (r < 0) {
                         log_netdev_error(netdev,
                                          "Could not append IFLA_VLAN_ID attribute: %s",

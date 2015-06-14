@@ -22,10 +22,10 @@
 #include <net/if.h>
 #include <linux/veth.h>
 
-#include "sd-rtnl.h"
+#include "sd-netlink.h"
 #include "networkd-netdev-veth.h"
 
-static int netdev_veth_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_message *m) {
+static int netdev_veth_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
         Veth *v = VETH(netdev);
         int r;
 
@@ -34,23 +34,23 @@ static int netdev_veth_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_m
         assert(v);
         assert(m);
 
-        r = sd_rtnl_message_open_container(m, VETH_INFO_PEER);
+        r = sd_netlink_message_open_container(m, VETH_INFO_PEER);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append VETH_INFO_PEER attribute: %m");
 
         if (v->ifname_peer) {
-                r = sd_rtnl_message_append_string(m, IFLA_IFNAME, v->ifname_peer);
+                r = sd_netlink_message_append_string(m, IFLA_IFNAME, v->ifname_peer);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add netlink interface name: %m");
         }
 
         if (v->mac_peer) {
-                r = sd_rtnl_message_append_ether_addr(m, IFLA_ADDRESS, v->mac_peer);
+                r = sd_netlink_message_append_ether_addr(m, IFLA_ADDRESS, v->mac_peer);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_ADDRESS attribute: %m");
         }
 
-        r = sd_rtnl_message_close_container(m);
+        r = sd_netlink_message_close_container(m);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_INFO_DATA attribute: %m");
 

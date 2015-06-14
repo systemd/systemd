@@ -24,7 +24,7 @@
 #include <net/if.h>
 
 #include "sd-network.h"
-#include "sd-rtnl.h"
+#include "sd-netlink.h"
 #include "sd-hwdb.h"
 #include "sd-device.h"
 
@@ -33,7 +33,7 @@
 #include "util.h"
 #include "pager.h"
 #include "lldp.h"
-#include "rtnl-util.h"
+#include "netlink-util.h"
 #include "device-util.h"
 #include "hwdb-util.h"
 #include "arphrd-list.h"
@@ -112,19 +112,19 @@ static int link_info_compare(const void *a, const void *b) {
         return x->ifindex - y->ifindex;
 }
 
-static int decode_and_sort_links(sd_rtnl_message *m, LinkInfo **ret) {
+static int decode_and_sort_links(sd_netlink_message *m, LinkInfo **ret) {
         _cleanup_free_ LinkInfo *links = NULL;
         size_t size = 0, c = 0;
-        sd_rtnl_message *i;
+        sd_netlink_message *i;
         int r;
 
-        for (i = m; i; i = sd_rtnl_message_next(i)) {
+        for (i = m; i; i = sd_netlink_message_next(i)) {
                 const char *name;
                 unsigned iftype;
                 uint16_t type;
                 int ifindex;
 
-                r = sd_rtnl_message_get_type(i, &type);
+                r = sd_netlink_message_get_type(i, &type);
                 if (r < 0)
                         return r;
 
@@ -135,7 +135,7 @@ static int decode_and_sort_links(sd_rtnl_message *m, LinkInfo **ret) {
                 if (r < 0)
                         return r;
 
-                r = sd_rtnl_message_read_string(i, IFLA_IFNAME, &name);
+                r = sd_netlink_message_read_string(i, IFLA_IFNAME, &name);
                 if (r < 0)
                         return r;
 
@@ -192,14 +192,14 @@ static void setup_state_to_color(const char *state, const char **on, const char 
 }
 
 static int list_links(int argc, char *argv[], void *userdata) {
-        _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL, *reply = NULL;
-        _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
+        _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL, *reply = NULL;
+        _cleanup_netlink_unref_ sd_netlink *rtnl = NULL;
         _cleanup_free_ LinkInfo *links = NULL;
         int r, c, i;
 
         pager_open_if_enabled();
 
-        r = sd_rtnl_open(&rtnl);
+        r = sd_netlink_open(&rtnl);
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to netlink: %m");
 
@@ -207,11 +207,11 @@ static int list_links(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return rtnl_log_create_error(r);
 
-        r = sd_rtnl_message_request_dump(req, true);
+        r = sd_netlink_message_request_dump(req, true);
         if (r < 0)
                 return rtnl_log_create_error(r);
 
-        r = sd_rtnl_call(rtnl, req, 0, &reply);
+        r = sd_netlink_call(rtnl, req, 0, &reply);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate links: %m");
 
@@ -287,14 +287,14 @@ static int ieee_oui(sd_hwdb *hwdb, struct ether_addr *mac, char **ret) {
 }
 
 static int get_gateway_description(
-                sd_rtnl *rtnl,
+                sd_netlink *rtnl,
                 sd_hwdb *hwdb,
                 int ifindex,
                 int family,
                 union in_addr_union *gateway,
                 char **gateway_description) {
-        _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL, *reply = NULL;
-        sd_rtnl_message *m;
+        _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL, *reply = NULL;
+        sd_netlink_message *m;
         int r;
 
         assert(rtnl);
@@ -307,27 +307,27 @@ static int get_gateway_description(
         if (r < 0)
                 return r;
 
-        r = sd_rtnl_message_request_dump(req, true);
+        r = sd_netlink_message_request_dump(req, true);
         if (r < 0)
                 return r;
 
-        r = sd_rtnl_call(rtnl, req, 0, &reply);
+        r = sd_netlink_call(rtnl, req, 0, &reply);
         if (r < 0)
                 return r;
 
-        for (m = reply; m; m = sd_rtnl_message_next(m)) {
+        for (m = reply; m; m = sd_netlink_message_next(m)) {
                 union in_addr_union gw = {};
                 struct ether_addr mac = {};
                 uint16_t type;
                 int ifi, fam;
 
-                r = sd_rtnl_message_get_errno(m);
+                r = sd_netlink_message_get_errno(m);
                 if (r < 0) {
                         log_error_errno(r, "got error: %m");
                         continue;
                 }
 
-                r = sd_rtnl_message_get_type(m, &type);
+                r = sd_netlink_message_get_type(m, &type);
                 if (r < 0) {
                         log_error_errno(r, "could not get type: %m");
                         continue;
@@ -360,13 +360,13 @@ static int get_gateway_description(
 
                 switch (fam) {
                 case AF_INET:
-                        r = sd_rtnl_message_read_in_addr(m, NDA_DST, &gw.in);
+                        r = sd_netlink_message_read_in_addr(m, NDA_DST, &gw.in);
                         if (r < 0)
                                 continue;
 
                         break;
                 case AF_INET6:
-                        r = sd_rtnl_message_read_in6_addr(m, NDA_DST, &gw.in6);
+                        r = sd_netlink_message_read_in6_addr(m, NDA_DST, &gw.in6);
                         if (r < 0)
                                 continue;
 
@@ -378,7 +378,7 @@ static int get_gateway_description(
                 if (!in_addr_equal(fam, &gw, gateway))
                         continue;
 
-                r = sd_rtnl_message_read_ether_addr(m, NDA_LLADDR, &mac);
+                r = sd_netlink_message_read_ether_addr(m, NDA_LLADDR, &mac);
                 if (r < 0)
                         continue;
 
@@ -393,7 +393,7 @@ static int get_gateway_description(
 }
 
 static int dump_gateways(
-                sd_rtnl *rtnl,
+                sd_netlink *rtnl,
                 sd_hwdb *hwdb,
                 const char *prefix,
                 int ifindex) {
@@ -442,7 +442,7 @@ static int dump_gateways(
 }
 
 static int dump_addresses(
-                sd_rtnl *rtnl,
+                sd_netlink *rtnl,
                 const char *prefix,
                 int ifindex) {
 
@@ -493,12 +493,12 @@ static void dump_list(const char *prefix, char **l) {
 }
 
 static int link_status_one(
-                sd_rtnl *rtnl,
+                sd_netlink *rtnl,
                 sd_hwdb *hwdb,
                 const char *name) {
         _cleanup_strv_free_ char **dns = NULL, **ntp = NULL, **domains = NULL;
         _cleanup_free_ char *setup_state = NULL, *operational_state = NULL;
-        _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL, *reply = NULL;
+        _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL, *reply = NULL;
         _cleanup_device_unref_ sd_device *d = NULL;
         char devid[2 + DECIMAL_STR_MAX(int)];
         _cleanup_free_ char *t = NULL, *network = NULL;
@@ -523,13 +523,13 @@ static int link_status_one(
                 if (r < 0)
                         return rtnl_log_create_error(r);
 
-                r = sd_rtnl_message_append_string(req, IFLA_IFNAME, name);
+                r = sd_netlink_message_append_string(req, IFLA_IFNAME, name);
         }
 
         if (r < 0)
                 return rtnl_log_create_error(r);
 
-        r = sd_rtnl_call(rtnl, req, 0, &reply);
+        r = sd_netlink_call(rtnl, req, 0, &reply);
         if (r < 0)
                 return log_error_errno(r, "Failed to query link: %m");
 
@@ -537,7 +537,7 @@ static int link_status_one(
         if (r < 0)
                 return rtnl_log_parse_error(r);
 
-        r = sd_rtnl_message_read_string(reply, IFLA_IFNAME, &name);
+        r = sd_netlink_message_read_string(reply, IFLA_IFNAME, &name);
         if (r < 0)
                 return rtnl_log_parse_error(r);
 
@@ -545,7 +545,7 @@ static int link_status_one(
         if (r < 0)
                 return rtnl_log_parse_error(r);
 
-        have_mac = sd_rtnl_message_read_ether_addr(reply, IFLA_ADDRESS, &e) >= 0;
+        have_mac = sd_netlink_message_read_ether_addr(reply, IFLA_ADDRESS, &e) >= 0;
 
         if (have_mac) {
                 const uint8_t *p;
@@ -561,7 +561,7 @@ static int link_status_one(
                         have_mac = false;
         }
 
-        sd_rtnl_message_read_u32(reply, IFLA_MTU, &mtu);
+        sd_netlink_message_read_u32(reply, IFLA_MTU, &mtu);
 
         sd_network_link_get_operational_state(ifindex, &operational_state);
         operational_state_to_color(operational_state, &on_color_operational, &off_color_operational);
@@ -666,11 +666,11 @@ static int link_status_one(
 
 static int link_status(int argc, char *argv[], void *userdata) {
         _cleanup_hwdb_unref_ sd_hwdb *hwdb = NULL;
-        _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
+        _cleanup_netlink_unref_ sd_netlink *rtnl = NULL;
         char **name;
         int r;
 
-        r = sd_rtnl_open(&rtnl);
+        r = sd_netlink_open(&rtnl);
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to netlink: %m");
 
@@ -711,7 +711,7 @@ static int link_status(int argc, char *argv[], void *userdata) {
         pager_open_if_enabled();
 
         if (arg_all) {
-                _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL, *reply = NULL;
+                _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL, *reply = NULL;
                 _cleanup_free_ LinkInfo *links = NULL;
                 int c, i;
 
@@ -719,11 +719,11 @@ static int link_status(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return rtnl_log_create_error(r);
 
-                r = sd_rtnl_message_request_dump(req, true);
+                r = sd_netlink_message_request_dump(req, true);
                 if (r < 0)
                         return rtnl_log_create_error(r);
 
-                r = sd_rtnl_call(rtnl, req, 0, &reply);
+                r = sd_netlink_call(rtnl, req, 0, &reply);
                 if (r < 0)
                         return log_error_errno(r, "Failed to enumerate links: %m");
 
@@ -897,8 +897,8 @@ static char *lldp_system_caps(uint16_t cap) {
 }
 
 static int link_lldp_status(int argc, char *argv[], void *userdata) {
-        _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL, *reply = NULL;
-        _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
+        _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL, *reply = NULL;
+        _cleanup_netlink_unref_ sd_netlink *rtnl = NULL;
         _cleanup_free_ LinkInfo *links = NULL;
         const char *state, *word;
 
@@ -910,7 +910,7 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
 
         pager_open_if_enabled();
 
-        r = sd_rtnl_open(&rtnl);
+        r = sd_netlink_open(&rtnl);
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to netlink: %m");
 
@@ -918,11 +918,11 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return rtnl_log_create_error(r);
 
-        r = sd_rtnl_message_request_dump(req, true);
+        r = sd_netlink_message_request_dump(req, true);
         if (r < 0)
                 return rtnl_log_create_error(r);
 
-        r = sd_rtnl_call(rtnl, req, 0, &reply);
+        r = sd_netlink_call(rtnl, req, 0, &reply);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate links: %m");
 

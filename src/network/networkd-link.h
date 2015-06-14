@@ -94,19 +94,19 @@ struct Link {
 Link *link_unref(Link *link);
 Link *link_ref(Link *link);
 int link_get(Manager *m, int ifindex, Link **ret);
-int link_add(Manager *manager, sd_rtnl_message *message, Link **ret);
+int link_add(Manager *manager, sd_netlink_message *message, Link **ret);
 void link_drop(Link *link);
 
-int link_address_drop_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata);
-int link_route_drop_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata);
+int link_address_drop_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata);
+int link_route_drop_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata);
 
 void link_enter_failed(Link *link);
 int link_initialized(Link *link, struct udev_device *device);
 
 void link_client_handler(Link *link);
 
-int link_update(Link *link, sd_rtnl_message *message);
-int link_rtnl_process_address(sd_rtnl *rtnl, sd_rtnl_message *message, void *userdata);
+int link_update(Link *link, sd_netlink_message *message);
+int link_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, void *userdata);
 
 int link_save(Link *link);
 

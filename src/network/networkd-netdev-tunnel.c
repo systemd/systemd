@@ -25,7 +25,7 @@
 #include <linux/if_tunnel.h>
 #include <linux/ip6_tunnel.h>
 
-#include "sd-rtnl.h"
+#include "sd-netlink.h"
 #include "networkd-netdev-tunnel.h"
 #include "networkd-link.h"
 #include "util.h"
@@ -43,7 +43,7 @@ static const char* const ip6tnl_mode_table[_NETDEV_IP6_TNL_MODE_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP(ip6tnl_mode, Ip6TnlMode);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_ip6tnl_mode, ip6tnl_mode, Ip6TnlMode, "Failed to parse ip6 tunnel Mode");
 
-static int netdev_ipip_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_message *m) {
+static int netdev_ipip_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
         Tunnel *t = IPIP(netdev);
         int r;
 
@@ -53,30 +53,30 @@ static int netdev_ipip_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_m
         assert(t);
         assert(t->family == AF_INET);
 
-        r = sd_rtnl_message_append_u32(m, IFLA_IPTUN_LINK, link->ifindex);
+        r = sd_netlink_message_append_u32(m, IFLA_IPTUN_LINK, link->ifindex);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_LINK attribute: %m");
 
-        r = sd_rtnl_message_append_in_addr(m, IFLA_IPTUN_LOCAL, &t->local.in);
+        r = sd_netlink_message_append_in_addr(m, IFLA_IPTUN_LOCAL, &t->local.in);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_LOCAL attribute: %m");
 
-        r = sd_rtnl_message_append_in_addr(m, IFLA_IPTUN_REMOTE, &t->remote.in);
+        r = sd_netlink_message_append_in_addr(m, IFLA_IPTUN_REMOTE, &t->remote.in);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_REMOTE attribute: %m");
 
-        r = sd_rtnl_message_append_u8(m, IFLA_IPTUN_TTL, t->ttl);
+        r = sd_netlink_message_append_u8(m, IFLA_IPTUN_TTL, t->ttl);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_TTL  attribute: %m");
 
-        r = sd_rtnl_message_append_u8(m, IFLA_IPTUN_PMTUDISC, t->pmtudisc);
+        r = sd_netlink_message_append_u8(m, IFLA_IPTUN_PMTUDISC, t->pmtudisc);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_PMTUDISC attribute: %m");
 
         return r;
 }
 
-static int netdev_sit_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_message *m) {
+static int netdev_sit_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
         Tunnel *t = SIT(netdev);
         int r;
 
@@ -86,30 +86,30 @@ static int netdev_sit_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_me
         assert(t);
         assert(t->family == AF_INET);
 
-        r = sd_rtnl_message_append_u32(m, IFLA_IPTUN_LINK, link->ifindex);
+        r = sd_netlink_message_append_u32(m, IFLA_IPTUN_LINK, link->ifindex);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_LINK attribute: %m");
 
-        r = sd_rtnl_message_append_in_addr(m, IFLA_IPTUN_LOCAL, &t->local.in);
+        r = sd_netlink_message_append_in_addr(m, IFLA_IPTUN_LOCAL, &t->local.in);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_LOCAL attribute: %m");
 
-        r = sd_rtnl_message_append_in_addr(m, IFLA_IPTUN_REMOTE, &t->remote.in);
+        r = sd_netlink_message_append_in_addr(m, IFLA_IPTUN_REMOTE, &t->remote.in);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_REMOTE attribute: %m");
 
-        r = sd_rtnl_message_append_u8(m, IFLA_IPTUN_TTL, t->ttl);
+        r = sd_netlink_message_append_u8(m, IFLA_IPTUN_TTL, t->ttl);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_TTL attribute: %m");
 
-        r = sd_rtnl_message_append_u8(m, IFLA_IPTUN_PMTUDISC, t->pmtudisc);
+        r = sd_netlink_message_append_u8(m, IFLA_IPTUN_PMTUDISC, t->pmtudisc);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_PMTUDISC attribute: %m");
 
         return r;
 }
 
-static int netdev_gre_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_message *m) {
+static int netdev_gre_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
         Tunnel *t;
         int r;
 
@@ -125,34 +125,34 @@ static int netdev_gre_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_me
         assert(link);
         assert(m);
 
-        r = sd_rtnl_message_append_u32(m, IFLA_GRE_LINK, link->ifindex);
+        r = sd_netlink_message_append_u32(m, IFLA_GRE_LINK, link->ifindex);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_LINK attribute: %m");
 
-        r = sd_rtnl_message_append_in_addr(m, IFLA_GRE_LOCAL, &t->local.in);
+        r = sd_netlink_message_append_in_addr(m, IFLA_GRE_LOCAL, &t->local.in);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_LOCAL attribute: %m");
 
-        r = sd_rtnl_message_append_in_addr(m, IFLA_GRE_REMOTE, &t->remote.in);
+        r = sd_netlink_message_append_in_addr(m, IFLA_GRE_REMOTE, &t->remote.in);
         if (r < 0)
                 log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_REMOTE attribute: %m");
 
-        r = sd_rtnl_message_append_u8(m, IFLA_GRE_TTL, t->ttl);
+        r = sd_netlink_message_append_u8(m, IFLA_GRE_TTL, t->ttl);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_TTL attribute: %m");
 
-        r = sd_rtnl_message_append_u8(m, IFLA_GRE_TOS, t->tos);
+        r = sd_netlink_message_append_u8(m, IFLA_GRE_TOS, t->tos);
         if (r < 0)
                 log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_TOS attribute: %m");
 
-        r = sd_rtnl_message_append_u8(m, IFLA_GRE_PMTUDISC, t->pmtudisc);
+        r = sd_netlink_message_append_u8(m, IFLA_GRE_PMTUDISC, t->pmtudisc);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_PMTUDISC attribute: %m");
 
         return r;
 }
 
-static int netdev_ip6gre_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_message *m) {
+static int netdev_ip6gre_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
         Tunnel *t;
         int r;
 
@@ -168,26 +168,26 @@ static int netdev_ip6gre_fill_message_create(NetDev *netdev, Link *link, sd_rtnl
         assert(link);
         assert(m);
 
-        r = sd_rtnl_message_append_u32(m, IFLA_GRE_LINK, link->ifindex);
+        r = sd_netlink_message_append_u32(m, IFLA_GRE_LINK, link->ifindex);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_LINK attribute: %m");
 
-        r = sd_rtnl_message_append_in6_addr(m, IFLA_GRE_LOCAL, &t->local.in6);
+        r = sd_netlink_message_append_in6_addr(m, IFLA_GRE_LOCAL, &t->local.in6);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_LOCAL attribute: %m");
 
-        r = sd_rtnl_message_append_in6_addr(m, IFLA_GRE_REMOTE, &t->remote.in6);
+        r = sd_netlink_message_append_in6_addr(m, IFLA_GRE_REMOTE, &t->remote.in6);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_REMOTE attribute: %m");
 
-        r = sd_rtnl_message_append_u8(m, IFLA_GRE_TTL, t->ttl);
+        r = sd_netlink_message_append_u8(m, IFLA_GRE_TTL, t->ttl);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_TTL attribute: %m");
 
         return r;
 }
 
-static int netdev_vti_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_message *m) {
+static int netdev_vti_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
         Tunnel *t = VTI(netdev);
         int r;
 
@@ -197,22 +197,22 @@ static int netdev_vti_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_me
         assert(t);
         assert(t->family == AF_INET);
 
-        r = sd_rtnl_message_append_u32(m, IFLA_VTI_LINK, link->ifindex);
+        r = sd_netlink_message_append_u32(m, IFLA_VTI_LINK, link->ifindex);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_LINK attribute: %m");
 
-        r = sd_rtnl_message_append_in_addr(m, IFLA_VTI_LOCAL, &t->local.in);
+        r = sd_netlink_message_append_in_addr(m, IFLA_VTI_LOCAL, &t->local.in);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_LOCAL attribute: %m");
 
-        r = sd_rtnl_message_append_in_addr(m, IFLA_VTI_REMOTE, &t->remote.in);
+        r = sd_netlink_message_append_in_addr(m, IFLA_VTI_REMOTE, &t->remote.in);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_REMOTE attribute: %m");
 
         return r;
 }
 
-static int netdev_vti6_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_message *m) {
+static int netdev_vti6_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
         Tunnel *t = VTI6(netdev);
         int r;
 
@@ -222,22 +222,22 @@ static int netdev_vti6_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_m
         assert(t);
         assert(t->family == AF_INET6);
 
-        r = sd_rtnl_message_append_u32(m, IFLA_VTI_LINK, link->ifindex);
+        r = sd_netlink_message_append_u32(m, IFLA_VTI_LINK, link->ifindex);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_LINK attribute: %m");
 
-        r = sd_rtnl_message_append_in6_addr(m, IFLA_VTI_LOCAL, &t->local.in6);
+        r = sd_netlink_message_append_in6_addr(m, IFLA_VTI_LOCAL, &t->local.in6);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_LOCAL attribute: %m");
 
-        r = sd_rtnl_message_append_in6_addr(m, IFLA_VTI_REMOTE, &t->remote.in6);
+        r = sd_netlink_message_append_in6_addr(m, IFLA_VTI_REMOTE, &t->remote.in6);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_REMOTE attribute: %m");
 
         return r;
 }
 
-static int netdev_ip6tnl_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_message *m) {
+static int netdev_ip6tnl_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
         Tunnel *t = IP6TNL(netdev);
         uint8_t proto;
         int r;
@@ -248,19 +248,19 @@ static int netdev_ip6tnl_fill_message_create(NetDev *netdev, Link *link, sd_rtnl
         assert(t);
         assert(t->family == AF_INET6);
 
-        r = sd_rtnl_message_append_u32(m, IFLA_IPTUN_LINK, link->ifindex);
+        r = sd_netlink_message_append_u32(m, IFLA_IPTUN_LINK, link->ifindex);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_LINK attribute: %m");
 
-        r = sd_rtnl_message_append_in6_addr(m, IFLA_IPTUN_LOCAL, &t->local.in6);
+        r = sd_netlink_message_append_in6_addr(m, IFLA_IPTUN_LOCAL, &t->local.in6);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_LOCAL attribute: %m");
 
-        r = sd_rtnl_message_append_in6_addr(m, IFLA_IPTUN_REMOTE, &t->remote.in6);
+        r = sd_netlink_message_append_in6_addr(m, IFLA_IPTUN_REMOTE, &t->remote.in6);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_REMOTE attribute: %m");
 
-        r = sd_rtnl_message_append_u8(m, IFLA_IPTUN_TTL, t->ttl);
+        r = sd_netlink_message_append_u8(m, IFLA_IPTUN_TTL, t->ttl);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_TTL attribute: %m");
 
@@ -277,7 +277,7 @@ static int netdev_ip6tnl_fill_message_create(NetDev *netdev, Link *link, sd_rtnl
                 break;
         }
 
-        r = sd_rtnl_message_append_u8(m, IFLA_IPTUN_PROTO, proto);
+        r = sd_netlink_message_append_u8(m, IFLA_IPTUN_PROTO, proto);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_MODE attribute: %m");
 

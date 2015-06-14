@@ -23,7 +23,7 @@
 #include <linux/if.h>
 #include <fnmatch.h>
 
-#include "rtnl-util.h"
+#include "netlink-util.h"
 
 #include "network-internal.h"
 #include "networkd-wait-online-link.h"
@@ -93,7 +93,7 @@ bool manager_all_configured(Manager *m) {
         return one_ready;
 }
 
-static int manager_process_link(sd_rtnl *rtnl, sd_rtnl_message *mm, void *userdata) {
+static int manager_process_link(sd_netlink *rtnl, sd_netlink_message *mm, void *userdata) {
         Manager *m = userdata;
         uint16_t type;
         Link *l;
@@ -104,7 +104,7 @@ static int manager_process_link(sd_rtnl *rtnl, sd_rtnl_message *mm, void *userda
         assert(m);
         assert(mm);
 
-        r = sd_rtnl_message_get_type(mm, &type);
+        r = sd_netlink_message_get_type(mm, &type);
         if (r < 0)
                 goto fail;
 
@@ -112,7 +112,7 @@ static int manager_process_link(sd_rtnl *rtnl, sd_rtnl_message *mm, void *userda
         if (r < 0)
                 goto fail;
 
-        r = sd_rtnl_message_read_string(mm, IFLA_IFNAME, &ifname);
+        r = sd_netlink_message_read_string(mm, IFLA_IFNAME, &ifname);
         if (r < 0)
                 goto fail;
 
@@ -155,7 +155,7 @@ fail:
         return 0;
 }
 
-static int on_rtnl_event(sd_rtnl *rtnl, sd_rtnl_message *mm, void *userdata) {
+static int on_rtnl_event(sd_netlink *rtnl, sd_netlink_message *mm, void *userdata) {
         Manager *m = userdata;
         int r;
 
@@ -170,26 +170,26 @@ static int on_rtnl_event(sd_rtnl *rtnl, sd_rtnl_message *mm, void *userdata) {
 }
 
 static int manager_rtnl_listen(Manager *m) {
-        _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL, *reply = NULL;
-        sd_rtnl_message *i;
+        _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL, *reply = NULL;
+        sd_netlink_message *i;
         int r;
 
         assert(m);
 
         /* First, subscribe to interfaces coming and going */
-        r = sd_rtnl_open(&m->rtnl);
+        r = sd_netlink_open(&m->rtnl);
         if (r < 0)
                 return r;
 
-        r = sd_rtnl_attach_event(m->rtnl, m->event, 0);
+        r = sd_netlink_attach_event(m->rtnl, m->event, 0);
         if (r < 0)
                 return r;
 
-        r = sd_rtnl_add_match(m->rtnl, RTM_NEWLINK, on_rtnl_event, m);
+        r = sd_netlink_add_match(m->rtnl, RTM_NEWLINK, on_rtnl_event, m);
         if (r < 0)
                 return r;
 
-        r = sd_rtnl_add_match(m->rtnl, RTM_DELLINK, on_rtnl_event, m);
+        r = sd_netlink_add_match(m->rtnl, RTM_DELLINK, on_rtnl_event, m);
         if (r < 0)
                 return r;
 
@@ -198,15 +198,15 @@ static int manager_rtnl_listen(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = sd_rtnl_message_request_dump(req, true);
+        r = sd_netlink_message_request_dump(req, true);
         if (r < 0)
                 return r;
 
-        r = sd_rtnl_call(m->rtnl, req, 0, &reply);
+        r = sd_netlink_call(m->rtnl, req, 0, &reply);
         if (r < 0)
                 return r;
 
-        for (i = reply; i; i = sd_rtnl_message_next(i)) {
+        for (i = reply; i; i = sd_netlink_message_next(i)) {
                 r = manager_process_link(m->rtnl, i, m);
                 if (r < 0)
                         return r;
@@ -323,7 +323,7 @@ void manager_free(Manager *m) {
         sd_network_monitor_unref(m->network_monitor);
 
         sd_event_source_unref(m->rtnl_event_source);
-        sd_rtnl_unref(m->rtnl);
+        sd_netlink_unref(m->rtnl);
 
         sd_event_unref(m->event);
         free(m);
