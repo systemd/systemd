@@ -127,7 +127,7 @@ static int test_tunnel_configure(sd_netlink *rtnl) {
 
         assert_se(sd_netlink_call(rtnl, n, -1, 0) == 1);
 
-        assert_se((m = sd_netlink_message_unref(n)) == NULL);
+        assert_se((n = sd_netlink_message_unref(n)) == NULL);
 
         return EXIT_SUCCESS;
 }
