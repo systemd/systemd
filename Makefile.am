@@ -2911,24 +2911,19 @@ libsystemd_internal_la_SOURCES = \
 	src/libsystemd/sd-device/device-enumerator-private.h \
 	src/libsystemd/sd-device/sd-device.c \
 	src/libsystemd/sd-device/device-private.c \
-	src/libsystemd/sd-device/device-private.h
+	src/libsystemd/sd-device/device-private.h \
+	src/libsystemd/sd-resolve/sd-resolve.c \
+	src/libsystemd/sd-resolve/resolve-util.h
 
 nodist_libsystemd_internal_la_SOURCES = \
 	src/libsystemd/libsystemd.sym
 
 libsystemd_internal_la_LIBADD = \
-	libbasic.la
-
-libsystemd_resolve_la_SOURCES = \
-	src/libsystemd/sd-resolve/sd-resolve.c \
-	src/libsystemd/sd-resolve/resolve-util.h
-
-libsystemd_resolve_la_LIBADD = \
+	libbasic.la \
 	-lresolv
 
 noinst_LTLIBRARIES += \
-	libsystemd-internal.la \
-	libsystemd-resolve.la
+	libsystemd-internal.la
 
 EXTRA_DIST += \
 	src/libsystemd/libsystemd.sym.m4 \
@@ -2941,7 +2936,6 @@ BUILT_SOURCES += \
 
 libsystemd_la_SOURCES = \
 	$(libsystemd_internal_la_SOURCES) \
-	$(libsystemd_resolve_la_SOURCES) \
 	$(libsystemd_journal_internal_la_SOURCES)
 
 nodist_libsystemd_la_SOURCES = \
@@ -2949,7 +2943,6 @@ nodist_libsystemd_la_SOURCES = \
 
 libsystemd_la_CFLAGS = \
 	$(libsystemd_internal_la_CFLAGS) \
-	$(libsystemd_resolve_la_CFLAGS) \
 	$(libsystemd_journal_internal_la_CFLAGS)
 
 libsystemd_la_LDFLAGS = \
@@ -2959,8 +2952,7 @@ libsystemd_la_LDFLAGS = \
 
 libsystemd_la_LIBADD = \
 	$(libsystemd_internal_la_LIBADD) \
-	$(libsystemd_journal_internal_la_LIBADD) \
-	$(libsystemd_resolve_la_LIBADD)
+	$(libsystemd_journal_internal_la_LIBADD)
 
 libsystemd-install-hook:
 	libname=libsystemd.so && $(move-to-rootlibdir)
@@ -3146,7 +3138,6 @@ test_resolve_SOURCES = \
 	src/libsystemd/sd-resolve/test-resolve.c
 
 test_resolve_LDADD = \
-	libsystemd-resolve.la \
 	libshared.la
 
 busctl_SOURCES = \
@@ -4380,8 +4371,7 @@ systemd_socket_proxyd_SOURCES = \
 
 systemd_socket_proxyd_LDADD = \
 	libsystemd-journal-internal.la \
-	libshared.la \
-	libsystemd-resolve.la
+	libshared.la
 
 # ------------------------------------------------------------------------------
 if ENABLE_COREDUMP
@@ -4845,7 +4835,6 @@ gperf_gperf_sources += \
 	src/timesync/timesyncd-gperf.gperf
 
 systemd_timesyncd_LDADD = \
-	libsystemd-resolve.la \
 	libsystemd-network.la \
 	libshared.la
 
