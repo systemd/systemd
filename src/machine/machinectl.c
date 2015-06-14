@@ -500,6 +500,18 @@ typedef struct MachineStatusInfo {
         unsigned n_netif;
 } MachineStatusInfo;
 
+static void machine_status_info_clear(MachineStatusInfo *info) {
+        if (info) {
+                free(info->name);
+                free(info->class);
+                free(info->service);
+                free(info->unit);
+                free(info->root_directory);
+                free(info->netif);
+                zero(*info);
+        }
+}
+
 static void print_machine_status_info(sd_bus *bus, MachineStatusInfo *i) {
         char since1[FORMAT_TIMESTAMP_RELATIVE_MAX], *s1;
         char since2[FORMAT_TIMESTAMP_MAX], *s2;
@@ -636,7 +648,7 @@ static int show_machine_info(const char *verb, sd_bus *bus, const char *path, bo
                 {}
         };
 
-        MachineStatusInfo info = {};
+        _cleanup_(machine_status_info_clear) MachineStatusInfo info = {};
         int r;
 
         assert(verb);
@@ -657,13 +669,6 @@ static int show_machine_info(const char *verb, sd_bus *bus, const char *path, bo
         *new_line = true;
 
         print_machine_status_info(bus, &info);
-
-        free(info.name);
-        free(info.class);
-        free(info.service);
-        free(info.unit);
-        free(info.root_directory);
-        free(info.netif);
 
         return r;
 }
@@ -753,6 +758,15 @@ typedef struct ImageStatusInfo {
         uint64_t limit_exclusive;
 } ImageStatusInfo;
 
+static void image_status_info_clear(ImageStatusInfo *info) {
+        if (info) {
+                free(info->name);
+                free(info->path);
+                free(info->type);
+                zero(*info);
+        }
+}
+
 static void print_image_status_info(sd_bus *bus, ImageStatusInfo *i) {
         char ts_relative[FORMAT_TIMESTAMP_RELATIVE_MAX], *s1;
         char ts_absolute[FORMAT_TIMESTAMP_MAX], *s2;
@@ -823,7 +837,7 @@ static int show_image_info(sd_bus *bus, const char *path, bool *new_line) {
                 {}
         };
 
-        ImageStatusInfo info = {};
+        _cleanup_(image_status_info_clear) ImageStatusInfo info = {};
         int r;
 
         assert(bus);
@@ -844,10 +858,6 @@ static int show_image_info(sd_bus *bus, const char *path, bool *new_line) {
 
         print_image_status_info(bus, &info);
 
-        free(info.name);
-        free(info.path);
-        free(info.type);
-
         return r;
 }
 
@@ -856,6 +866,15 @@ typedef struct PoolStatusInfo {
         uint64_t usage;
         uint64_t limit;
 } PoolStatusInfo;
+
+static void pool_status_info_clear(PoolStatusInfo *info) {
+        if (info) {
+                free(info->path);
+                zero(*info);
+                info->usage = -1;
+                info->limit = -1;
+        }
+}
 
 static void print_pool_status_info(sd_bus *bus, PoolStatusInfo *i) {
         char bs[FORMAT_BYTES_MAX], *s;
@@ -881,7 +900,7 @@ static int show_pool_info(sd_bus *bus) {
                 {}
         };
 
-        PoolStatusInfo info = {
+        _cleanup_(pool_status_info_clear) PoolStatusInfo info = {
                 .usage = (uint64_t) -1,
                 .limit = (uint64_t) -1,
         };
@@ -899,7 +918,6 @@ static int show_pool_info(sd_bus *bus) {
 
         print_pool_status_info(bus, &info);
 
-        free(info.path);
         return 0;
 }
 

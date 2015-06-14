@@ -1678,17 +1678,23 @@ static const struct bus_properties_map machine_info_property_map[] = {
         {}
 };
 
+static void machine_info_clear(struct machine_info *info) {
+        if (info) {
+                free(info->name);
+                free(info->state);
+                free(info->control_group);
+                zero(*info);
+        }
+}
+
 static void free_machines_list(struct machine_info *machine_infos, int n) {
         int i;
 
         if (!machine_infos)
                 return;
 
-        for (i = 0; i < n; i++) {
-                free(machine_infos[i].name);
-                free(machine_infos[i].state);
-                free(machine_infos[i].control_group);
-        }
+        for (i = 0; i < n; i++)
+                machine_info_clear(&machine_infos[i]);
 
         free(machine_infos);
 }
@@ -4402,7 +4408,7 @@ static int show_all(
 static int show_system_status(sd_bus *bus) {
         char since1[FORMAT_TIMESTAMP_RELATIVE_MAX], since2[FORMAT_TIMESTAMP_MAX];
         _cleanup_free_ char *hn = NULL;
-        struct machine_info mi = {};
+        _cleanup_(machine_info_clear) struct machine_info mi = {};
         const char *on, *off;
         int r;
 
@@ -4448,9 +4454,6 @@ static int show_system_status(sd_bus *bus) {
 
                 show_cgroup(SYSTEMD_CGROUP_CONTROLLER, strempty(mi.control_group), prefix, c, false, get_output_flags());
         }
-
-        free(mi.state);
-        free(mi.control_group);
 
         return 0;
 }
