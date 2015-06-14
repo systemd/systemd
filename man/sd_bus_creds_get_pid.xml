@@ -299,10 +299,12 @@
     identified by the specified PID, with
     <citerefentry><refentrytitle>sd_bus_get_name_creds</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
     in which case they describe the credentials of a bus peer
-    identified by the specified bus name, or with
+    identified by the specified bus name, with
     <citerefentry><refentrytitle>sd_bus_get_owner_creds</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
     in which case they describe the credentials of the creator of a
-    bus.</para>
+    bus, or with
+    <citerefentry><refentrytitle>sd_bus_message_get_creds</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    in which case they describe the credentials of the sender of the message.</para>
 
     <para><function>sd_bus_creds_get_pid()</function> will retrieve
     the PID (process identifier). Similar,
