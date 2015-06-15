@@ -383,10 +383,21 @@
         run, all processes remaining for a service are terminated
         according to the <varname>KillMode=</varname> setting (see
         <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
-        If this option is not specified, the process is terminated
-        immediately when service stop is requested. Specifier and
-        environment variable substitution is supported (including
-        <varname>$MAINPID</varname>, see above).</para></listitem>
+        If this option is not specified, the process is terminated by
+        sending the signal specified in <varname>KillSignal=</varname>
+        when service stop is requested. Specifier and environment
+        variable substitution is supported (including
+        <varname>$MAINPID</varname>, see above).</para>
+
+        <para>Note that it is usually not sufficient to specify a
+        command for this setting that only asks the service to
+        terminate (for example by queuing some form of termination
+        signal for it), but does not wait for it to do so. Since the
+        remaining processes of the services are killed using
+        <constant>SIGKILL</constant> immediately after the command
+        exited this would not result in a clean stop. The specified
+        command should hence be a synchronous operation, not an
+        asynchronous one.</para></listitem>
       </varlistentry>
 
       <varlistentry>
