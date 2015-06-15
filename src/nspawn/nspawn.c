@@ -350,7 +350,7 @@ static int custom_mounts_prepare(void) {
                 if (m->read_only)
                         continue;
 
-                r = tempfn_random(m->source, &m->work_dir);
+                r = tempfn_random(m->source, NULL, &m->work_dir);
                 if (r < 0)
                         return log_error_errno(r, "Failed to generate work directory from %s: %m", m->source);
         }
@@ -4522,9 +4522,9 @@ int main(int argc, char *argv[]) {
                                 goto finish;
                         }
                         if (r > 0)
-                                r = tempfn_random_child(arg_directory, &np);
+                                r = tempfn_random_child(arg_directory, "machine.", &np);
                         else
-                                r = tempfn_random(arg_directory, &np);
+                                r = tempfn_random(arg_directory, "machine.", &np);
                         if (r < 0) {
                                 log_error_errno(r, "Failed to generate name for snapshot: %m");
                                 goto finish;

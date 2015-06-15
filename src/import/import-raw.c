@@ -180,7 +180,7 @@ static int raw_import_maybe_convert_qcow2(RawImport *i) {
                 return 0;
 
         /* This is a QCOW2 image, let's convert it */
-        r = tempfn_random(i->final_path, &t);
+        r = tempfn_random(i->final_path, NULL, &t);
         if (r < 0)
                 return log_oom();
 
@@ -267,7 +267,7 @@ static int raw_import_open_disk(RawImport *i) {
         if (!i->final_path)
                 return log_oom();
 
-        r = tempfn_random(i->final_path, &i->temp_path);
+        r = tempfn_random(i->final_path, NULL, &i->temp_path);
         if (r < 0)
                 return log_oom();
 

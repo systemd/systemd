@@ -324,7 +324,7 @@ static int tar_pull_job_on_open_disk(PullJob *j) {
         if (r < 0)
                 return log_oom();
 
-        r = tempfn_random(i->final_path, &i->temp_path);
+        r = tempfn_random(i->final_path, NULL, &i->temp_path);
         if (r < 0)
                 return log_oom();
 

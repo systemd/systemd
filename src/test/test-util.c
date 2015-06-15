@@ -1507,6 +1507,42 @@ static void test_parse_mode(void) {
         assert_se(parse_mode("0", &m) >= 0 && m == 0);
 }
 
+static void test_tempfn(void) {
+        char *ret = NULL, *p;
+
+        assert_se(tempfn_xxxxxx("/foo/bar/waldo", NULL, &ret) >= 0);
+        assert_se(streq_ptr(ret, "/foo/bar/.#waldoXXXXXX"));
+        free(ret);
+
+        assert_se(tempfn_xxxxxx("/foo/bar/waldo", "[miau]", &ret) >= 0);
+        assert_se(streq_ptr(ret, "/foo/bar/.#[miau]waldoXXXXXX"));
+        free(ret);
+
+        assert_se(tempfn_random("/foo/bar/waldo", NULL, &ret) >= 0);
+        assert_se(p = startswith(ret, "/foo/bar/.#waldo"));
+        assert_se(strlen(p) == 16);
+        assert_se(in_charset(p, "0123456789abcdef"));
+        free(ret);
+
+        assert_se(tempfn_random("/foo/bar/waldo", "[wuff]", &ret) >= 0);
+        assert_se(p = startswith(ret, "/foo/bar/.#[wuff]waldo"));
+        assert_se(strlen(p) == 16);
+        assert_se(in_charset(p, "0123456789abcdef"));
+        free(ret);
+
+        assert_se(tempfn_random_child("/foo/bar/waldo", NULL, &ret) >= 0);
+        assert_se(p = startswith(ret, "/foo/bar/waldo/.#"));
+        assert_se(strlen(p) == 16);
+        assert_se(in_charset(p, "0123456789abcdef"));
+        free(ret);
+
+        assert_se(tempfn_random_child("/foo/bar/waldo", "[kikiriki]", &ret) >= 0);
+        assert_se(p = startswith(ret, "/foo/bar/waldo/.#[kikiriki]"));
+        assert_se(strlen(p) == 16);
+        assert_se(in_charset(p, "0123456789abcdef"));
+        free(ret);
+}
+
 int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
@@ -1582,6 +1618,7 @@ int main(int argc, char *argv[]) {
         test_sparse_write();
         test_shell_maybe_quote();
         test_parse_mode();
+        test_tempfn();
 
         return 0;
 }

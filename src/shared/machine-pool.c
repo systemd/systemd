@@ -75,7 +75,7 @@ static int setup_machine_raw(uint64_t size, sd_bus_error *error) {
         if (errno != ENOENT)
                 return sd_bus_error_set_errnof(error, errno, "Failed to open /var/lib/machines.raw: %m");
 
-        r = tempfn_xxxxxx("/var/lib/machines.raw", &tmp);
+        r = tempfn_xxxxxx("/var/lib/machines.raw", NULL, &tmp);
         if (r < 0)
                 return r;
 

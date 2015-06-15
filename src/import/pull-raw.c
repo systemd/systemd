@@ -208,7 +208,7 @@ static int raw_pull_maybe_convert_qcow2(RawPull *i) {
                 return 0;
 
         /* This is a QCOW2 image, let's convert it */
-        r = tempfn_random(i->final_path, &t);
+        r = tempfn_random(i->final_path, NULL, &t);
         if (r < 0)
                 return log_oom();
 
@@ -280,7 +280,7 @@ static int raw_pull_make_local_copy(RawPull *i) {
         if (i->force_local)
                 (void) rm_rf(p, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
 
-        r = tempfn_random(p, &tp);
+        r = tempfn_random(p, NULL, &tp);
         if (r < 0)
                 return log_oom();
 
@@ -424,7 +424,7 @@ static int raw_pull_job_on_open_disk(PullJob *j) {
         if (r < 0)
                 return log_oom();
 
-        r = tempfn_random(i->final_path, &i->temp_path);
+        r = tempfn_random(i->final_path, NULL, &i->temp_path);
         if (r < 0)
                 return log_oom();
 

@@ -290,7 +290,7 @@ int tar_export_start(TarExport *e, const char *path, int fd, ImportCompressType 
                 free(e->temp_path);
                 e->temp_path = NULL;
 
-                r = tempfn_random(path, &e->temp_path);
+                r = tempfn_random(path, NULL, &e->temp_path);
                 if (r < 0)
                         return r;
 

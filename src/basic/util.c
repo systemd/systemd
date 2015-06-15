@@ -2521,7 +2521,7 @@ int fopen_temporary(const char *path, FILE **_f, char **_temp_path) {
         assert(_f);
         assert(_temp_path);
 
-        r = tempfn_xxxxxx(path, &t);
+        r = tempfn_xxxxxx(path, NULL, &t);
         if (r < 0)
                 return r;
 
@@ -2551,7 +2551,7 @@ int symlink_atomic(const char *from, const char *to) {
         assert(from);
         assert(to);
 
-        r = tempfn_random(to, &t);
+        r = tempfn_random(to, NULL, &t);
         if (r < 0)
                 return r;
 
@@ -2594,7 +2594,7 @@ int mknod_atomic(const char *path, mode_t mode, dev_t dev) {
 
         assert(path);
 
-        r = tempfn_random(path, &t);
+        r = tempfn_random(path, NULL, &t);
         if (r < 0)
                 return r;
 
@@ -2615,7 +2615,7 @@ int mkfifo_atomic(const char *path, mode_t mode) {
 
         assert(path);
 
-        r = tempfn_random(path, &t);
+        r = tempfn_random(path, NULL, &t);
         if (r < 0)
                 return r;
 
@@ -4969,7 +4969,7 @@ int fflush_and_check(FILE *f) {
         return 0;
 }
 
-int tempfn_xxxxxx(const char *p, char **ret) {
+int tempfn_xxxxxx(const char *p, const char *extra, char **ret) {
         const char *fn;
         char *t;
 
@@ -4981,24 +4981,27 @@ int tempfn_xxxxxx(const char *p, char **ret) {
          *         /foo/bar/waldo
          *
          * Into this:
-         *         /foo/bar/.#waldoXXXXXX
+         *         /foo/bar/.#<extra>waldoXXXXXX
          */
 
         fn = basename(p);
         if (!filename_is_valid(fn))
                 return -EINVAL;
 
-        t = new(char, strlen(p) + 2 + 6 + 1);
+        if (extra == NULL)
+                extra = "";
+
+        t = new(char, strlen(p) + 2 + strlen(extra) + 6 + 1);
         if (!t)
                 return -ENOMEM;
 
-        strcpy(stpcpy(stpcpy(mempcpy(t, p, fn - p), ".#"), fn), "XXXXXX");
+        strcpy(stpcpy(stpcpy(stpcpy(mempcpy(t, p, fn - p), ".#"), extra), fn), "XXXXXX");
 
         *ret = path_kill_slashes(t);
         return 0;
 }
 
-int tempfn_random(const char *p, char **ret) {
+int tempfn_random(const char *p, const char *extra, char **ret) {
         const char *fn;
         char *t, *x;
         uint64_t u;
@@ -5012,18 +5015,21 @@ int tempfn_random(const char *p, char **ret) {
          *         /foo/bar/waldo
          *
          * Into this:
-         *         /foo/bar/.#waldobaa2a261115984a9
+         *         /foo/bar/.#<extra>waldobaa2a261115984a9
          */
 
         fn = basename(p);
         if (!filename_is_valid(fn))
                 return -EINVAL;
 
-        t = new(char, strlen(p) + 2 + 16 + 1);
+        if (!extra)
+                extra = "";
+
+        t = new(char, strlen(p) + 2 + strlen(extra) + 16 + 1);
         if (!t)
                 return -ENOMEM;
 
-        x = stpcpy(stpcpy(mempcpy(t, p, fn - p), ".#"), fn);
+        x = stpcpy(stpcpy(stpcpy(mempcpy(t, p, fn - p), ".#"), extra), fn);
 
         u = random_u64();
         for (i = 0; i < 16; i++) {
@@ -5037,7 +5043,7 @@ int tempfn_random(const char *p, char **ret) {
         return 0;
 }
 
-int tempfn_random_child(const char *p, char **ret) {
+int tempfn_random_child(const char *p, const char *extra, char **ret) {
         char *t, *x;
         uint64_t u;
         unsigned i;
@@ -5048,14 +5054,17 @@ int tempfn_random_child(const char *p, char **ret) {
         /* Turns this:
          *         /foo/bar/waldo
          * Into this:
-         *         /foo/bar/waldo/.#3c2b6219aa75d7d0
+         *         /foo/bar/waldo/.#<extra>3c2b6219aa75d7d0
          */
 
-        t = new(char, strlen(p) + 3 + 16 + 1);
+        if (!extra)
+                extra = "";
+
+        t = new(char, strlen(p) + 3 + strlen(extra) + 16 + 1);
         if (!t)
                 return -ENOMEM;
 
-        x = stpcpy(stpcpy(t, p), "/.#");
+        x = stpcpy(stpcpy(stpcpy(t, p), "/.#"), extra);
 
         u = random_u64();
         for (i = 0; i < 16; i++) {
