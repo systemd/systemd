@@ -4471,6 +4471,8 @@ int main(int argc, char *argv[]) {
         union in_addr_union exposed = {};
         _cleanup_release_lock_file_ LockFile tree_global_lock = LOCK_FILE_INIT, tree_local_lock = LOCK_FILE_INIT;
         bool interactive;
+        char buffer[1024];
+        int sz;
 
         log_parse_environment();
         log_open();
@@ -4964,6 +4966,10 @@ int main(int argc, char *argv[]) {
         }
 
 finish:
+        while (0 < (sz = read(master, buffer, sizeof(buffer)))) {
+                printf("%.*s", sz, buffer);
+        }
+
         sd_notify(false,
                   "STOPPING=1\n"
                   "STATUS=Terminating...");
