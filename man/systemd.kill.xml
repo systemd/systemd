@@ -139,7 +139,13 @@
         by <constant>SIGKILL</constant> (see above and below). For a
         list of valid signals, see
         <citerefentry project='man-pages'><refentrytitle>signal</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
-        Defaults to <constant>SIGTERM</constant>. </para></listitem>
+        Defaults to <constant>SIGTERM</constant>. </para>
+
+        <para>Note that right after sending the signal specified in
+        this setting systemd will always send
+        <constant>SIGCONT</constant>, to ensure that even suspended
+        tasks can be terminated cleanly.</para>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
