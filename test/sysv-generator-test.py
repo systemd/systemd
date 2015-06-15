@@ -60,6 +60,7 @@ class SysvGeneratorTest(unittest.TestCase):
         '''
         env = os.environ.copy()
         env['SYSTEMD_LOG_LEVEL'] = 'debug'
+        env['SYSTEMD_LOG_TARGET'] = 'console'
         env['SYSTEMD_SYSVINIT_PATH'] = self.init_d_dir
         env['SYSTEMD_SYSVRCND_PATH'] = self.rcnd_dir
         env['SYSTEMD_UNIT_PATH'] = self.unit_dir
