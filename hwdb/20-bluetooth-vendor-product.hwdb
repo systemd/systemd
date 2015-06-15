@@ -1667,3 +1667,42 @@ bluetooth:v0228*
 
 bluetooth:v0229*
  ID_VENDOR_FROM_DATABASE=Muoverti Limited
+
+bluetooth:v022A*
+ ID_VENDOR_FROM_DATABASE=Stamer Musikanlagen GMBH
+
+bluetooth:v022B*
+ ID_VENDOR_FROM_DATABASE=Tesla Motors
+
+bluetooth:v022C*
+ ID_VENDOR_FROM_DATABASE=Pharynks Corporation
+
+bluetooth:v022D*
+ ID_VENDOR_FROM_DATABASE=Lupine
+
+bluetooth:v022E*
+ ID_VENDOR_FROM_DATABASE=Siemens AG
+
+bluetooth:v022F*
+ ID_VENDOR_FROM_DATABASE=Huami (Shanghai) Culture Communication CO., LTD
+
+bluetooth:v0230*
+ ID_VENDOR_FROM_DATABASE=Foster Electric Company, Ltd
+
+bluetooth:v0231*
+ ID_VENDOR_FROM_DATABASE=ETA SA
+
+bluetooth:v0232*
+ ID_VENDOR_FROM_DATABASE=x-Senso Solutions Kft
+
+bluetooth:v0233*
+ ID_VENDOR_FROM_DATABASE=Shenzhen SuLong Communication Ltd
+
+bluetooth:v0234*
+ ID_VENDOR_FROM_DATABASE=FengFan (BeiJing) Technology Co, Ltd
+
+bluetooth:v0235*
+ ID_VENDOR_FROM_DATABASE=Qrio Inc
+
+bluetooth:v0236*
+ ID_VENDOR_FROM_DATABASE=Pitpatpet Ltd
