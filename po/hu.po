@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd master\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2015-01-02 22:59+0100\n"
+"POT-Creation-Date: 2015-06-10 23:25+0200\n"
 "PO-Revision-Date: 2015-01-02 22:58+0100\n"
 "Last-Translator: Gabor Kelemen <kelemeng at ubuntu dot com>\n"
 "Language-Team: Hungarian <openscope at googlegroups dot com>\n"
@@ -17,6 +17,56 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 "X-Generator: Lokalize 1.5\n"
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:1
+msgid "Send passphrase back to system"
+msgstr "Jelmondat visszaküldése a rendszernek"
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:2
+msgid ""
+"Authentication is required to send the entered passphrase back to the system."
+msgstr ""
+"Hitelesítés szükséges a bevitt jelmondat visszaküldéséhez a rendszernek."
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:3
+#, fuzzy
+msgid "Manage system services or other units"
+msgstr "Rendszerszolgáltatások vagy -egységek kezelése"
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:4
+#, fuzzy
+msgid "Authentication is required to manage system services or other units."
+msgstr ""
+"Hitelesítés szükséges a rendszerszolgáltatások vagy -egységek kezeléséhez."
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:5
+msgid "Manage system service or unit files"
+msgstr "Rendszerszolgáltatás- vagy egységfájlok kezelése"
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:6
+msgid "Authentication is required to manage system service or unit files."
+msgstr ""
+"Hitelesítés szükséges a rendszerszolgáltatás- vagy egységfájlok kezeléséhez."
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:7
+msgid "Set or unset system and service manager environment variables"
+msgstr ""
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:8
+#, fuzzy
+msgid ""
+"Authentication is required to set or unset system and service manager "
+"environment variables."
+msgstr ""
+"Hitelesítés szükséges a rendszerszolgáltatás- vagy egységfájlok kezeléséhez."
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:9
+msgid "Reload the systemd state"
+msgstr "A systemd állapotának újratöltése"
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:10
+msgid "Authentication is required to reload the systemd state."
+msgstr "Hitelesítés szükséges a systemd állapotának újratöltéséhez."
 
 #: ../src/hostname/org.freedesktop.hostname1.policy.in.h:1
 msgid "Set host name"
@@ -45,6 +95,33 @@ msgstr "Gépinformációk beállítása"
 #: ../src/hostname/org.freedesktop.hostname1.policy.in.h:6
 msgid "Authentication is required to set local machine information."
 msgstr "Hitelesítés szükséges a helyi gép információinak beállításához."
+
+#: ../src/import/org.freedesktop.import1.policy.in.h:1
+msgid "Import a VM or container image"
+msgstr ""
+
+#: ../src/import/org.freedesktop.import1.policy.in.h:2
+#, fuzzy
+msgid "Authentication is required to import a VM or container image"
+msgstr "Hitelesítés szükséges a bejelentkezéshez egy helyi konténerbe."
+
+#: ../src/import/org.freedesktop.import1.policy.in.h:3
+msgid "Export a VM or container image"
+msgstr ""
+
+#: ../src/import/org.freedesktop.import1.policy.in.h:4
+#, fuzzy
+msgid "Authentication is required to export a VM or container image"
+msgstr "Hitelesítés szükséges a bejelentkezéshez egy helyi konténerbe."
+
+#: ../src/import/org.freedesktop.import1.policy.in.h:5
+msgid "Download a VM or container image"
+msgstr ""
+
+#: ../src/import/org.freedesktop.import1.policy.in.h:6
+#, fuzzy
+msgid "Authentication is required to download a VM or container image"
+msgstr "Hitelesítés szükséges a bejelentkezéshez egy helyi konténerbe."
 
 #: ../src/locale/org.freedesktop.locale1.policy.in.h:1
 msgid "Set system locale"
@@ -330,13 +407,67 @@ msgstr ""
 "Hitelesítés szükséges a rendszer hibernálásához miközben egy alkalmazás "
 "ennek meggátlását kérte."
 
+#: ../src/login/org.freedesktop.login1.policy.in.h:49
+msgid "Manage active sessions, users and seats"
+msgstr ""
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:50
+#, fuzzy
+msgid ""
+"Authentication is required for managing active sessions, users and seats."
+msgstr ""
+"Hitelesítés szükséges eszköz csatolásának engedélyezéséhez egy "
+"munkaállomáshoz"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:51
+msgid "Lock or unlock active sessions"
+msgstr ""
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:52
+#, fuzzy
+msgid "Authentication is required to lock or unlock active sessions."
+msgstr "Hitelesítés szükséges a bejelentkezéshez egy helyi konténerbe."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:53
+msgid "Allow indication to the firmware to boot to setup interface"
+msgstr ""
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:54
+#, fuzzy
+msgid ""
+"Authentication is required to indicate to the firmware to boot to setup "
+"interface."
+msgstr "Hitelesítés szükséges a helyi gépnév beállításához."
+
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:1
 msgid "Log into a local container"
 msgstr "Bejelentkezés helyi konténerbe"
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:2
-msgid "Authentication is required to log into a local container"
+#, fuzzy
+msgid "Authentication is required to log into a local container."
 msgstr "Hitelesítés szükséges a bejelentkezéshez egy helyi konténerbe."
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:3
+msgid "Manage local virtual machines and containers"
+msgstr ""
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:4
+#, fuzzy
+msgid ""
+"Authentication is required to manage local virtual machines and containers."
+msgstr "Hitelesítés szükséges a helyi gép információinak beállításához."
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:5
+msgid "Manage local virtual machine and container images"
+msgstr ""
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:6
+#, fuzzy
+msgid ""
+"Authentication is required to manage local virtual machine and container "
+"images."
+msgstr "Hitelesítés szükséges a helyi gép információinak beállításához."
 
 #: ../src/timedate/org.freedesktop.timedate1.policy.in.h:1
 msgid "Set system time"
@@ -375,50 +506,3 @@ msgid ""
 "Authentication is required to control whether network time synchronization "
 "shall be enabled."
 msgstr "Hitelesítés szükséges a hálózati időszinkronizáció engedélyezéséhez."
-
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:1
-msgid "Send passphrase back to system"
-msgstr "Jelmondat visszaküldése a rendszernek"
-
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:2
-msgid ""
-"Authentication is required to send the entered passphrase back to the system."
-msgstr ""
-"Hitelesítés szükséges a bevitt jelmondat visszaküldéséhez a rendszernek."
-
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:3
-msgid "Manage system services or units"
-msgstr "Rendszerszolgáltatások vagy -egységek kezelése"
-
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:4
-msgid "Authentication is required to manage system services or units."
-msgstr ""
-"Hitelesítés szükséges a rendszerszolgáltatások vagy -egységek kezeléséhez."
-
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:5
-msgid "Manage system service or unit files"
-msgstr "Rendszerszolgáltatás- vagy egységfájlok kezelése"
-
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:6
-msgid "Authentication is required to manage system service or unit files."
-msgstr ""
-"Hitelesítés szükséges a rendszerszolgáltatás- vagy egységfájlok kezeléséhez."
-
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:7
-msgid "Reload the systemd state"
-msgstr "A systemd állapotának újratöltése"
-
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:8
-msgid "Authentication is required to reload the systemd state."
-msgstr "Hitelesítés szükséges a systemd állapotának újratöltéséhez."
-
-#: ../src/fsckd/fsckd.c:186
-msgid "Press Ctrl+C to cancel all filesystem checks in progress"
-msgstr ""
-
-#: ../src/fsckd/fsckd.c:227
-#, c-format
-msgid "Checking in progress on %d disk (%3.1f%% complete)"
-msgid_plural "Checking in progress on %d disks (%3.1f%% complete)"
-msgstr[0] ""
-msgstr[1] ""

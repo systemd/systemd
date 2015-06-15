@@ -6,9 +6,8 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: systemd master\n"
-"Report-Msgid-Bugs-To: https://bugs.freedesktop.org/enter_bug.cgi?"
-"product=systemd&keywords=I18N+L10N&component=general\n"
-"POT-Creation-Date: 2015-03-13 23:56+0000\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2015-06-10 23:25+0200\n"
 "PO-Revision-Date: 2015-03-14 11:09+0100\n"
 "Last-Translator: Sebastian Rasmussen <sebras@gmail.com>\n"
 "Language-Team: Swedish\n"
@@ -408,6 +407,17 @@ msgstr "Lås eller lås upp aktiva sessioner"
 msgid "Authentication is required to lock or unlock active sessions."
 msgstr "Autentisering krävs för att låsa eller låsa upp aktiva sessioner."
 
+#: ../src/login/org.freedesktop.login1.policy.in.h:53
+msgid "Allow indication to the firmware to boot to setup interface"
+msgstr ""
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:54
+#, fuzzy
+msgid ""
+"Authentication is required to indicate to the firmware to boot to setup "
+"interface."
+msgstr "Autentisering krävs för att ange lokalt värdnamn."
+
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:1
 msgid "Log into a local container"
 msgstr "Logga till en lokal behållare"
@@ -480,13 +490,10 @@ msgstr ""
 "Autentisering krävs för att kontrollera huruvida synkronisering av "
 "nätverkstid ska vara aktiverat."
 
-#: ../src/fsckd/fsckd.c:291
-msgid "Press Ctrl+C to cancel all filesystem checks in progress"
-msgstr "Tryck Ctrl+C för att avbryta alla pågående filsystemskontroller."
+#~ msgid "Press Ctrl+C to cancel all filesystem checks in progress"
+#~ msgstr "Tryck Ctrl+C för att avbryta alla pågående filsystemskontroller."
 
-#: ../src/fsckd/fsckd.c:336
-#, c-format
-msgid "Checking in progress on %d disk (%3.1f%% complete)"
-msgid_plural "Checking in progress on %d disks (%3.1f%% complete)"
-msgstr[0] "Kontroll pågår på %d disk (%3.1f%% klart)"
-msgstr[1] "Kontroll pågår på %d diskar (%3.1f%% klart)"
+#~ msgid "Checking in progress on %d disk (%3.1f%% complete)"
+#~ msgid_plural "Checking in progress on %d disks (%3.1f%% complete)"
+#~ msgstr[0] "Kontroll pågår på %d disk (%3.1f%% klart)"
+#~ msgstr[1] "Kontroll pågår på %d diskar (%3.1f%% klart)"
