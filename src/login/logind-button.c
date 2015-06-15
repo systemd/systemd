@@ -70,7 +70,7 @@ void button_free(Button *b) {
                 /* If the device has been unplugged close() returns
                  * ENODEV, let's ignore this, hence we don't use
                  * safe_close() */
-                close(b->fd);
+                (void) close(b->fd);
         }
 
         free(b->name);
