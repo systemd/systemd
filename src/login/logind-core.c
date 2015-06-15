@@ -360,7 +360,7 @@ int manager_get_user_by_pid(Manager *m, pid_t pid, User **user) {
 int manager_get_idle_hint(Manager *m, dual_timestamp *t) {
         Session *s;
         bool idle_hint;
-        dual_timestamp ts = { 0, 0 };
+        dual_timestamp ts = DUAL_TIMESTAMP_NULL;
         Iterator i;
 
         assert(m);
