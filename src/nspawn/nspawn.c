@@ -3002,8 +3002,15 @@ static int setup_seccomp(void) {
         }
 
         r = seccomp_load(seccomp);
-        if (r < 0)
+        if (r == -EINVAL) {
+                log_debug("Kernel is not configured with CONFIG_SECCOMP. Disabling seccomp audit filter.");
+                r = 0;
+                goto finish;
+        }
+        if (r < 0) {
                 log_error_errno(r, "Failed to install seccomp audit filter: %m");
+                goto finish;
+        }
 
 finish:
         seccomp_release(seccomp);
