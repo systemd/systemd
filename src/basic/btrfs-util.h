@@ -61,6 +61,7 @@ int btrfs_subvol_snapshot(const char *old_path, const char *new_path, BtrfsSnaps
 int btrfs_subvol_set_read_only_fd(int fd, bool b);
 int btrfs_subvol_set_read_only(const char *path, bool b);
 int btrfs_subvol_get_read_only_fd(int fd);
+int btrfs_subvol_get_id(int fd, const char *subvolume, uint64_t *ret);
 int btrfs_subvol_get_id_fd(int fd, uint64_t *ret);
 int btrfs_subvol_get_info_fd(int fd, BtrfsSubvolInfo *info);
 int btrfs_subvol_get_quota_fd(int fd, BtrfsQuotaInfo *quota);
