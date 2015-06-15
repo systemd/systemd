@@ -856,7 +856,7 @@ static int terminal_new(Terminal **out, int in_fd, int out_fd) {
                 goto error;
         }
 
-        r = sigprocmask_many(SIG_BLOCK, SIGINT, SIGQUIT, SIGTERM, SIGWINCH, SIGCHLD, -1);
+        r = sigprocmask_many(SIG_BLOCK, NULL, SIGINT, SIGQUIT, SIGTERM, SIGWINCH, SIGCHLD, -1);
         if (r < 0) {
                 log_error_errno(r, "error: sigprocmask_many() (%d): %m", r);
                 goto error;

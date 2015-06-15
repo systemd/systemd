@@ -789,19 +789,16 @@ static int start_transient_service(
         if (master >= 0) {
                 _cleanup_(pty_forward_freep) PTYForward *forward = NULL;
                 _cleanup_event_unref_ sd_event *event = NULL;
-                sigset_t mask;
                 char last_char = 0;
 
                 r = sd_event_default(&event);
                 if (r < 0)
                         return log_error_errno(r, "Failed to get event loop: %m");
 
-                assert_se(sigemptyset(&mask) == 0);
-                sigset_add_many(&mask, SIGWINCH, SIGTERM, SIGINT, -1);
-                assert_se(sigprocmask(SIG_BLOCK, &mask, NULL) == 0);
+                assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGWINCH, SIGTERM, SIGINT, -1) >= 0);
 
-                sd_event_add_signal(event, NULL, SIGINT, NULL, NULL);
-                sd_event_add_signal(event, NULL, SIGTERM, NULL, NULL);
+                (void) sd_event_add_signal(event, NULL, SIGINT, NULL, NULL);
+                (void) sd_event_add_signal(event, NULL, SIGTERM, NULL, NULL);
 
                 if (!arg_quiet)
                         log_info("Running as unit %s.\nPress ^] three times within 1s to disconnect TTY.", service);

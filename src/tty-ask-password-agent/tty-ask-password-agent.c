@@ -485,9 +485,9 @@ static int watch_passwords(void) {
         if (inotify_add_watch(notify, "/run/systemd/ask-password", IN_CLOSE_WRITE|IN_MOVED_TO) < 0)
                 return -errno;
 
-        assert_se(sigemptyset(&mask) == 0);
-        sigset_add_many(&mask, SIGINT, SIGTERM, -1);
-        assert_se(sigprocmask(SIG_SETMASK, &mask, NULL) == 0);
+        assert_se(sigemptyset(&mask) >= 0);
+        assert_se(sigset_add_many(&mask, SIGINT, SIGTERM, -1) >= 0);
+        assert_se(sigprocmask(SIG_SETMASK, &mask, NULL) >= 0);
 
         signal_fd = signalfd(-1, &mask, SFD_NONBLOCK|SFD_CLOEXEC);
         if (signal_fd < 0)

@@ -1301,7 +1301,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        assert_se(sigprocmask_many(SIG_BLOCK, SIGCHLD, -1) >= 0);
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, -1) >= 0);
 
         r = manager_new(&m);
         if (r < 0) {

@@ -170,7 +170,7 @@ static int modeset_new(Modeset **out) {
         if (r < 0)
                 return r;
 
-        r = sigprocmask_many(SIG_BLOCK, SIGTERM, SIGINT, -1);
+        r = sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, -1);
         if (r < 0)
                 return r;
 
