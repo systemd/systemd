@@ -828,9 +828,9 @@ int bind_remount_recursive(const char *prefix, bool ro);
 
 int fflush_and_check(FILE *f);
 
-int tempfn_xxxxxx(const char *p, char **ret);
-int tempfn_random(const char *p, char **ret);
-int tempfn_random_child(const char *p, char **ret);
+int tempfn_xxxxxx(const char *p, const char *extra, char **ret);
+int tempfn_random(const char *p, const char *extra, char **ret);
+int tempfn_random_child(const char *p, const char *extra, char **ret);
 
 int take_password_lock(const char *root);
 

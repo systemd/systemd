@@ -5687,7 +5687,7 @@ static int create_edit_temp_file(const char *new_path, const char *original_path
         assert(original_path);
         assert(ret_tmp_fn);
 
-        r = tempfn_random(new_path, &t);
+        r = tempfn_random(new_path, NULL, &t);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine temporary filename for \"%s\": %m", new_path);
 

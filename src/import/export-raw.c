@@ -265,7 +265,7 @@ static int reflink_snapshot(int fd, const char *path) {
         if (new_fd < 0) {
                 _cleanup_free_ char *t = NULL;
 
-                r = tempfn_random(path, &t);
+                r = tempfn_random(path, NULL, &t);
                 if (r < 0)
                         return r;
 

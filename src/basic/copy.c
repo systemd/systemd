@@ -396,7 +396,7 @@ int copy_file_atomic(const char *from, const char *to, mode_t mode, bool replace
         assert(from);
         assert(to);
 
-        r = tempfn_random(to, &t);
+        r = tempfn_random(to, NULL, &t);
         if (r < 0)
                 return r;
 

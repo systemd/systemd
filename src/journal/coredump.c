@@ -301,7 +301,7 @@ static int save_external_coredump(
         if (r < 0)
                 return log_error_errno(r, "Failed to determine coredump file name: %m");
 
-        r = tempfn_random(fn, &tmp);
+        r = tempfn_random(fn, NULL, &tmp);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine temporary file name: %m");
 
@@ -347,7 +347,7 @@ static int save_external_coredump(
                         goto uncompressed;
                 }
 
-                r = tempfn_random(fn_compressed, &tmp_compressed);
+                r = tempfn_random(fn_compressed, NULL, &tmp_compressed);
                 if (r < 0) {
                         log_error_errno(r, "Failed to determine temporary file name for %s: %m", fn_compressed);
                         goto uncompressed;
