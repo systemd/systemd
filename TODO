@@ -17,6 +17,8 @@ Bugfixes:
 
 External:
 
+* "systemctl edit" should know a mode to create a new unit file
+
 * Fedora: add an rpmlint check that verifies that all unit files in the RPM are listed in %systemd_post macros.
 
 * wiki: update journal format documentation for lz4 additions
@@ -28,7 +30,7 @@ Features:
 
 * install: include generator dirs in unit file search paths
 
-* networkd: add ipv6 privacy extensions
+* networkd: add support for configuring ipv6 privacy extensions
 
 * introduce an NSS module that uses machined info to give container UIDs pretty names when user namespacing is used.
 
