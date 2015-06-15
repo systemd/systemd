@@ -64,13 +64,16 @@
     <filename>/home</filename>, <filename>/srv</filename> and swap
     partitions and creates mount and swap units for them, based on the
     partition type GUIDs of GUID partition tables (GPT). It implements
-    the
-    <ulink url="http://www.freedesktop.org/wiki/Specifications/DiscoverablePartitionsSpec/">Discoverable
+    the <ulink
+    url="http://www.freedesktop.org/wiki/Specifications/DiscoverablePartitionsSpec/">Discoverable
     Partitions Specification</ulink>. Note that this generator has no
-    effect on non-GPT systems, on systems where the units are
-    explicitly configured (for example, listed in
-    <citerefentry project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>),
-    or where the mount points are non-empty.</para>
+    effect on non-GPT systems, or where the directories under the
+    mount points are already non-empty. Also, on systems where the
+    units are explicitly configured (for example, listed in
+    <citerefentry
+    project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>),
+    the units this generator creates are overriden, but additional
+    automatic dependencies might be created.</para>
 
     <para>This generator will only look for root partitions on the
     same physical disk the EFI System Partition (ESP) is located on.
