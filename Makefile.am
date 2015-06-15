@@ -1316,6 +1316,10 @@ src/resolve/dns_type-from-name.gperf: src/resolve/dns_type-list.txt
 systemd_SOURCES = \
 	src/core/main.c
 
+systemd_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(MOUNT_CFLAGS)
+
 systemd_LDADD = \
 	libcore.la
 
