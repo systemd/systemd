@@ -352,6 +352,19 @@ int btrfs_subvol_get_id_fd(int fd, uint64_t *ret) {
         return 0;
 }
 
+int btrfs_subvol_get_id(int fd, const char *subvol, uint64_t *ret) {
+        _cleanup_close_ int subvol_fd = -1;
+
+        assert(fd >= 0);
+        assert(ret);
+
+        subvol_fd = openat(fd, subvol, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
+        if (subvol_fd < 0)
+                return -errno;
+
+        return btrfs_subvol_get_id_fd(subvol_fd, ret);
+}
+
 static bool btrfs_ioctl_search_args_inc(struct btrfs_ioctl_search_args *args) {
         assert(args);
 
@@ -937,7 +950,7 @@ int btrfs_subvol_remove_fd(int fd, const char *subvolume, bool recursive) {
         return subvol_remove_children(fd, subvolume, 0, recursive);
 }
 
-static int subvol_snapshot_children(int old_fd, int new_fd, const char *subvolume, uint64_t subvol_id, BtrfsSnapshotFlags flags) {
+static int subvol_snapshot_children(int old_fd, int new_fd, const char *subvolume, uint64_t old_subvol_id, BtrfsSnapshotFlags flags) {
 
         struct btrfs_ioctl_search_args args = {
                 .key.tree_id = BTRFS_ROOT_TREE_OBJECTID,
@@ -956,8 +969,9 @@ static int subvol_snapshot_children(int old_fd, int new_fd, const char *subvolum
                 .flags = flags & BTRFS_SNAPSHOT_READ_ONLY ? BTRFS_SUBVOL_RDONLY : 0,
                 .fd = old_fd,
         };
-        int r;
         _cleanup_close_ int subvolume_fd = -1;
+        uint64_t new_subvol_id;
+        int r;
 
         assert(old_fd >= 0);
         assert(new_fd >= 0);
@@ -972,13 +986,17 @@ static int subvol_snapshot_children(int old_fd, int new_fd, const char *subvolum
         if (!(flags & BTRFS_SNAPSHOT_RECURSIVE))
                 return 0;
 
-        if (subvol_id == 0) {
-                r = btrfs_subvol_get_id_fd(old_fd, &subvol_id);
+        if (old_subvol_id == 0) {
+                r = btrfs_subvol_get_id_fd(old_fd, &old_subvol_id);
                 if (r < 0)
                         return r;
         }
 
-        args.key.min_offset = args.key.max_offset = subvol_id;
+        r = btrfs_subvol_get_id(new_fd, vol_args.name, &new_subvol_id);
+        if (r < 0)
+                return r;
+
+        args.key.min_offset = args.key.max_offset = old_subvol_id;
 
         while (btrfs_ioctl_search_args_compare(&args) <= 0) {
                 const struct btrfs_ioctl_search_header *sh;
@@ -1001,17 +1019,24 @@ static int subvol_snapshot_children(int old_fd, int new_fd, const char *subvolum
 
                         if (sh->type != BTRFS_ROOT_BACKREF_KEY)
                                 continue;
-                        if (sh->offset != subvol_id)
+
+                        /* Avoid finding the source subvolume a second
+                         * time */
+                        if (sh->offset != old_subvol_id)
+                                continue;
+
+                        /* Avoid running into loops if the new
+                         * subvolume is below the old one. */
+                        if (sh->objectid == new_subvol_id)
                                 continue;
 
                         ref = BTRFS_IOCTL_SEARCH_HEADER_BODY(sh);
-
                         p = strndup((char*) ref + sizeof(struct btrfs_root_ref), le64toh(ref->name_len));
                         if (!p)
                                 return -ENOMEM;
 
                         zero(ino_args);
-                        ino_args.treeid = subvol_id;
+                        ino_args.treeid = old_subvol_id;
                         ino_args.objectid = htole64(ref->dirid);
 
                         if (ioctl(old_fd, BTRFS_IOC_INO_LOOKUP, &ino_args) < 0)
@@ -1056,7 +1081,7 @@ static int subvol_snapshot_children(int old_fd, int new_fd, const char *subvolum
                         }
 
                         /* When btrfs clones the subvolumes, child
-                         * subvolumes appear as directories. Remove
+                         * subvolumes appear as empty directories. Remove
                          * them, so that we can create a new snapshot
                          * in their place */
                         if (unlinkat(new_child_fd, p, AT_REMOVEDIR) < 0) {
