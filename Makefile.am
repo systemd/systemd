@@ -1188,7 +1188,8 @@ libcore_la_CFLAGS = \
 	$(AUDIT_CFLAGS) \
 	$(KMOD_CFLAGS) \
 	$(APPARMOR_CFLAGS) \
-	$(MOUNT_CFLAGS)
+	$(MOUNT_CFLAGS) \
+	$(SECCOMP_CFLAGS)
 
 libcore_la_LIBADD = \
 	libshared.la \
@@ -1315,6 +1316,10 @@ src/resolve/dns_type-from-name.gperf: src/resolve/dns_type-list.txt
 # ------------------------------------------------------------------------------
 systemd_SOURCES = \
 	src/core/main.c
+
+systemd_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(SECCOMP_CFLAGS)
 
 systemd_LDADD = \
 	libcore.la
@@ -2737,7 +2742,8 @@ systemd_nspawn_SOURCES = \
 
 systemd_nspawn_CFLAGS = \
 	$(AM_CFLAGS) \
-	$(BLKID_CFLAGS)
+	$(BLKID_CFLAGS) \
+	$(SECCOMP_CFLAGS)
 
 systemd_nspawn_LDADD = \
 	libshared.la \
