@@ -4522,9 +4522,9 @@ int main(int argc, char *argv[]) {
                                 goto finish;
                         }
                         if (r > 0)
-                                r = tempfn_random_child(arg_directory, NULL, &np);
+                                r = tempfn_random_child(arg_directory, "machine.", &np);
                         else
-                                r = tempfn_random(arg_directory, NULL, &np);
+                                r = tempfn_random(arg_directory, "machine.", &np);
                         if (r < 0) {
                                 log_error_errno(r, "Failed to generate name for snapshot: %m");
                                 goto finish;
