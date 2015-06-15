@@ -75,7 +75,7 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 goto out;
 
-        assert_se(sigprocmask_many(SIG_BLOCK, SIGTERM, SIGINT, -1) == 0);
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, -1) >= 0);
 
         r = manager_new(&m);
         if (r < 0) {

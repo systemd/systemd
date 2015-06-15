@@ -1219,7 +1219,7 @@ static int login_machine(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        sigprocmask_many(SIG_BLOCK, SIGWINCH, SIGTERM, SIGINT, -1);
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGWINCH, SIGTERM, SIGINT, -1) >= 0);
 
         log_info("Connected to machine %s. Press ^] three times within 1s to exit session.", argv[1]);
 
@@ -1630,7 +1630,7 @@ static int transfer_image_common(sd_bus *bus, sd_bus_message *m) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        sigprocmask_many(SIG_BLOCK, SIGTERM, SIGINT, -1);
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, -1) >= 0);
 
         if (!arg_quiet)
                 log_info("Enqueued transfer job %u. Press C-c to continue download in background.", id);

@@ -1547,7 +1547,7 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cg
         udev_watch_restore(manager->udev);
 
         /* block and listen to all signals on signalfd */
-        assert_se(sigprocmask_many(SIG_BLOCK, SIGTERM, SIGINT, SIGHUP, SIGCHLD, -1) == 0);
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, SIGHUP, SIGCHLD, -1) >= 0);
 
         r = sd_event_default(&manager->event);
         if (r < 0)

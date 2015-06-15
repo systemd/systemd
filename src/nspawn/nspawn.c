@@ -4465,7 +4465,7 @@ int main(int argc, char *argv[]) {
         int r, n_fd_passed, loop_nr = -1;
         char veth_name[IFNAMSIZ];
         bool secondary = false, remove_subvol = false;
-        sigset_t mask, mask_chld;
+        sigset_t mask_chld;
         pid_t pid = 0;
         int ret = EXIT_SUCCESS;
         union in_addr_union exposed = {};
@@ -4664,9 +4664,7 @@ int main(int argc, char *argv[]) {
                 log_info("Spawning container %s on %s.\nPress ^] three times within 1s to kill container.",
                          arg_machine, arg_image ?: arg_directory);
 
-        assert_se(sigemptyset(&mask) == 0);
-        sigset_add_many(&mask, SIGCHLD, SIGWINCH, SIGTERM, SIGINT, -1);
-        assert_se(sigprocmask(SIG_BLOCK, &mask, NULL) == 0);
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, SIGWINCH, SIGTERM, SIGINT, -1) >= 0);
 
         assert_se(sigemptyset(&mask_chld) == 0);
         assert_se(sigaddset(&mask_chld, SIGCHLD) == 0);

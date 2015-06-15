@@ -129,7 +129,7 @@ int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
 
-        assert_se(sigprocmask_many(SIG_BLOCK, SIGCHLD, -1) >= 0);
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, -1) >= 0);
 
         /* Oh, there're ugly races in the TTY layer regarding HUP vs IN. Turns
          * out they appear only 10% of the time. I fixed all of them and

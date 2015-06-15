@@ -787,13 +787,8 @@ static int manager_connect_console(Manager *m) {
                 return -EINVAL;
         }
 
-        r = ignore_signals(SIGRTMIN + 1, -1);
-        if (r < 0)
-                return log_error_errno(r, "Cannot ignore SIGRTMIN + 1: %m");
-
-        r = sigprocmask_many(SIG_BLOCK, SIGRTMIN, -1);
-        if (r < 0)
-                return log_error_errno(r, "Cannot block SIGRTMIN: %m");
+        assert_se(ignore_signals(SIGRTMIN + 1, -1) >= 0);
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGRTMIN, -1) >= 0);
 
         r = sd_event_add_signal(m->event, NULL, SIGRTMIN, manager_vt_switch, m);
         if (r < 0)

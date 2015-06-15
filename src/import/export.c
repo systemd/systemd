@@ -118,9 +118,9 @@ static int export_tar(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate event loop: %m");
 
-        assert_se(sigprocmask_many(SIG_BLOCK, SIGTERM, SIGINT, -1) == 0);
-        sd_event_add_signal(event, NULL, SIGTERM, interrupt_signal_handler,  NULL);
-        sd_event_add_signal(event, NULL, SIGINT, interrupt_signal_handler, NULL);
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, -1) >= 0);
+        (void) sd_event_add_signal(event, NULL, SIGTERM, interrupt_signal_handler,  NULL);
+        (void) sd_event_add_signal(event, NULL, SIGINT, interrupt_signal_handler, NULL);
 
         r = tar_export_new(&export, event, on_tar_finished, event);
         if (r < 0)
@@ -197,9 +197,9 @@ static int export_raw(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate event loop: %m");
 
-        assert_se(sigprocmask_many(SIG_BLOCK, SIGTERM, SIGINT, -1) == 0);
-        sd_event_add_signal(event, NULL, SIGTERM, interrupt_signal_handler,  NULL);
-        sd_event_add_signal(event, NULL, SIGINT, interrupt_signal_handler, NULL);
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, -1) >= 0);
+        (void) sd_event_add_signal(event, NULL, SIGTERM, interrupt_signal_handler,  NULL);
+        (void) sd_event_add_signal(event, NULL, SIGINT, interrupt_signal_handler, NULL);
 
         r = raw_export_new(&export, event, on_raw_finished, event);
         if (r < 0)

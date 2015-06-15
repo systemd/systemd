@@ -1264,14 +1264,11 @@ static int dispatch_sigterm(sd_event_source *es, const struct signalfd_siginfo *
 }
 
 static int setup_signals(Server *s) {
-        sigset_t mask;
         int r;
 
         assert(s);
 
-        assert_se(sigemptyset(&mask) == 0);
-        sigset_add_many(&mask, SIGINT, SIGTERM, SIGUSR1, SIGUSR2, -1);
-        assert_se(sigprocmask(SIG_SETMASK, &mask, NULL) == 0);
+        assert(sigprocmask_many(SIG_SETMASK, NULL, SIGINT, SIGTERM, SIGUSR1, SIGUSR2, -1) >= 0);
 
         r = sd_event_add_signal(s->event, &s->sigusr1_event_source, SIGUSR1, dispatch_sigusr1, s);
         if (r < 0)

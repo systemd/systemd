@@ -788,14 +788,11 @@ static int dispatch_http_event(sd_event_source *event,
  **********************************************************************/
 
 static int setup_signals(RemoteServer *s) {
-        sigset_t mask;
         int r;
 
         assert(s);
 
-        assert_se(sigemptyset(&mask) == 0);
-        sigset_add_many(&mask, SIGINT, SIGTERM, -1);
-        assert_se(sigprocmask(SIG_SETMASK, &mask, NULL) == 0);
+        assert_se(sigprocmask_many(SIG_SETMASK, NULL, SIGINT, SIGTERM, -1) >= 0);
 
         r = sd_event_add_signal(s->events, &s->sigterm_event, SIGTERM, NULL, s);
         if (r < 0)

@@ -116,7 +116,7 @@ int main(int argc, char *argv[]) {
 
         event = udev_event_new(dev);
 
-        assert_se(sigprocmask_many(SIG_BLOCK, SIGTERM, SIGINT, SIGHUP, SIGCHLD, -1) == 0);
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, SIGHUP, SIGCHLD, -1) >= 0);
 
         /* do what devtmpfs usually provides us */
         if (udev_device_get_devnode(dev) != NULL) {

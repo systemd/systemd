@@ -51,7 +51,7 @@ int manager_new(Manager **out) {
         if (r < 0)
                 return r;
 
-        r = sigprocmask_many(SIG_BLOCK, SIGTERM, SIGQUIT, SIGINT, SIGWINCH, SIGCHLD, -1);
+        r = sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGQUIT, SIGINT, SIGWINCH, SIGCHLD, -1);
         if (r < 0)
                 return r;
 

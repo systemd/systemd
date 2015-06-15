@@ -824,10 +824,7 @@ static int setup_pam(
         /* Block SIGTERM, so that we know that it won't get lost in
          * the child */
 
-        if (sigemptyset(&ss) < 0 ||
-            sigaddset(&ss, SIGTERM) < 0 ||
-            sigprocmask(SIG_BLOCK, &ss, &old_ss) < 0)
-                goto fail;
+        assert_se(sigprocmask_many(SIG_BLOCK, &old_ss, SIGTERM, -1) >= 0);
 
         parent_pid = getpid();
 
@@ -903,8 +900,7 @@ static int setup_pam(
         handle = NULL;
 
         /* Unblock SIGTERM again in the parent */
-        if (sigprocmask(SIG_SETMASK, &old_ss, NULL) < 0)
-                goto fail;
+        assert_se(sigprocmask(SIG_SETMASK, &old_ss, NULL) >= 0);
 
         /* We close the log explicitly here, since the PAM modules
          * might have opened it, but we don't want this fd around. */

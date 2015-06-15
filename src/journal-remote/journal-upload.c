@@ -396,14 +396,11 @@ static int dispatch_sigterm(sd_event_source *event,
 }
 
 static int setup_signals(Uploader *u) {
-        sigset_t mask;
         int r;
 
         assert(u);
 
-        assert_se(sigemptyset(&mask) == 0);
-        sigset_add_many(&mask, SIGINT, SIGTERM, -1);
-        assert_se(sigprocmask(SIG_SETMASK, &mask, NULL) == 0);
+        assert_se(sigprocmask_many(SIG_SETMASK, NULL, SIGINT, SIGTERM, -1) >= 0);
 
         r = sd_event_add_signal(u->events, &u->sigterm_event, SIGTERM, dispatch_sigterm, u);
         if (r < 0)

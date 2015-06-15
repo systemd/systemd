@@ -159,7 +159,7 @@ int sigset_add_many(sigset_t *ss, ...) {
         return r;
 }
 
-int sigprocmask_many(int how, ...) {
+int sigprocmask_many(int how, sigset_t *old, ...) {
         va_list ap;
         sigset_t ss;
         int r;
@@ -174,7 +174,7 @@ int sigprocmask_many(int how, ...) {
         if (r < 0)
                 return r;
 
-        if (sigprocmask(how, &ss, NULL) < 0)
+        if (sigprocmask(how, &ss, old) < 0)
                 return -errno;
 
         return 0;
