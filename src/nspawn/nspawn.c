@@ -90,7 +90,7 @@
 #include "machine-image.h"
 #include "list.h"
 #include "in-addr-util.h"
-#include "fw-util.h"
+#include "firewall-util.h"
 #include "local-addresses.h"
 #include "formats-util.h"
 #include "process-util.h"

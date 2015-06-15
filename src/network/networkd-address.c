@@ -24,7 +24,7 @@
 #include "utf8.h"
 #include "util.h"
 #include "conf-parser.h"
-#include "fw-util.h"
+#include "firewall-util.h"
 #include "networkd.h"
 #include "networkd-link.h"
 
