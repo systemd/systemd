@@ -28,7 +28,7 @@
 #include <libiptc/libiptc.h>
 
 #include "util.h"
-#include "fw-util.h"
+#include "firewall-util.h"
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct xtc_handle*, iptc_free);
 

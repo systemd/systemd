@@ -1032,8 +1032,8 @@ noinst_LTLIBRARIES += \
 	libfirewall.la
 
 libfirewall_la_SOURCES = \
-	src/shared/fw-util.h \
-	src/shared/fw-util.c
+	src/shared/firewall-util.h \
+	src/shared/firewall-util.c
 
 libfirewall_la_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -1358,7 +1358,7 @@ manual_tests += \
 
 if HAVE_LIBIPTC
 manual_tests += \
-	test-fw-util
+	test-firewall-util
 endif
 
 if HAVE_KMOD
@@ -1846,14 +1846,14 @@ test_btrfs_LDADD = \
 	libshared.la
 
 if HAVE_LIBIPTC
-test_fw_util_SOURCES = \
-	src/test/test-fw-util.c
+test_firewall_util_SOURCES = \
+	src/test/test-firewall-util.c
 
-test_fw_util_CFLAGS = \
+test_firewall_util_CFLAGS = \
 	$(AM_CFLAGS) \
 	$(LIBIPTC_CFLAGS)
 
-test_fw_util_LDADD = \
+test_firewall_util_LDADD = \
 	libfirewall.la \
 	libshared.la \
 	$(LIBIPTC_LIBS)
