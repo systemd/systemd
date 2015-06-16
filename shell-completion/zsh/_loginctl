@@ -1,15 +1,37 @@
 #compdef loginctl
 
-_loginctl_all_sessions(){_sys_all_sessions=($(loginctl --no-legend list-sessions | { while read a b; do echo " $a"; done; }) )}
-_loginctl_all_users()   {_sys_all_users=(   $(loginctl --no-legend list-users    | { while read a b; do echo " $a"; done; }) )}
-_loginctl_all_seats()   {_sys_all_seats=(   $(loginctl --no-legend list-seats    | { while read a b; do echo " $a"; done; }) )}
+_loginctl_all_sessions() {
+  local session description
+  loginctl --no-legend list-sessions | while read -r session description; do
+    _sys_all_sessions+=( "$session" )
+    _sys_all_sessions_descr+=( "${session}:$description" )
+  done
+}
 
+_loginctl_all_users() {
+  local uid description
+  loginctl --no-legend list-users | while read -r uid description; do
+    _sys_all_users+=( "$uid" )
+    _sys_all_users_descr+=( "${uid}:$description" )
+  done
+}
+
+_loginctl_all_seats() {
+  local seat description
+  loginctl --no-legend list-seats | while read -r seat description; do
+    _sys_all_seats+=( "$seat" )
+    _sys_all_seats_descr+=( "${seat}:$description" )
+  done
+}
+
+local fun
 # Completion functions for SESSIONS
 for fun in session-status show-session activate lock-session unlock-session terminate-session kill-session ; do
   (( $+functions[_loginctl_$fun] )) || _loginctl_$fun()
   {
+    local -a _sys_all_sessions{,_descr}
     _loginctl_all_sessions
-    compadd "$@" -a - _sys_all_sessions
+    _describe -t systemd-sessions session _sys_all_sessions_descr _sys_all_sessions -F "( $words[2,-1] )" "$@"
   }
 done
 
@@ -17,16 +39,19 @@ done
 for fun in user-status show-user enable-linger disable-linger terminate-user kill-user ; do
   (( $+functions[_loginctl_$fun] )) || _loginctl_$fun()
   {
+    local -a _sys_all_users{,_descr}
     _loginctl_all_users
-    compadd "$@" -a - _sys_all_users
+    # using the common tag `users' here, not rolling our own `systemd-users' tag
+    _describe -t users user  _sys_all_users_descr _sys_all_users -F "( $words[2,-1] )" "$@"
   }
 done
 
 # Completion functions for SEATS
 (( $+functions[_loginctl_seats] )) || _loginctl_seats()
 {
+  local -a _sys_all_seats{,_descr}
   _loginctl_all_seats
-  compadd "$@" -a - _sys_all_seats
+  _describe -t systemd-seats seat _sys_all_seats_descr _sys_all_seats -F "( $words[2,-1] )" "$@"
 }
 for fun in seat-status show-seat terminate-seat ; do
   (( $+functions[_loginctl_$fun] )) || _loginctl_$fun()
@@ -36,8 +61,6 @@ done
 # Completion functions for ATTACH
 (( $+functions[_loginctl_attach] )) || _loginctl_attach()
 {
-  _loginctl_all_seats
-
   _arguments -w -C -S -s \
     ':seat:_loginctl_seats' \
     '*:device:_files'
