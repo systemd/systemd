@@ -1013,6 +1013,9 @@ static int parse_argv(int argc, char *argv[]) {
                 return -EINVAL;
         }
 
+        if (arg_userns && access("/proc/self/uid_map", F_OK) < 0)
+                return log_error_errno(EOPNOTSUPP, "--private-users= is not supported, kernel compiled without user namespace support.");
+
         arg_retain = (arg_retain | plus | (arg_private_network ? 1ULL << CAP_NET_ADMIN : 0)) & ~minus;
 
         if (arg_boot && arg_kill_signal <= 0)
