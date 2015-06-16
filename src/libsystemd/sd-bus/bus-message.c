@@ -803,7 +803,7 @@ _public_ int sd_bus_message_new_method_errorf(
                 const char *format,
                 ...) {
 
-        _cleanup_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         va_list ap;
 
         assert_return(name, -EINVAL);
@@ -822,7 +822,7 @@ _public_ int sd_bus_message_new_method_errno(
                 int error,
                 const sd_bus_error *p) {
 
-        _cleanup_free_ sd_bus_error berror = SD_BUS_ERROR_NULL;
+        _cleanup_bus_error_free_ sd_bus_error berror = SD_BUS_ERROR_NULL;
 
         if (sd_bus_error_is_set(p))
                 return sd_bus_message_new_method_error(call, m, p);
@@ -839,7 +839,7 @@ _public_ int sd_bus_message_new_method_errnof(
                 const char *format,
                 ...) {
 
-        _cleanup_free_ sd_bus_error berror = SD_BUS_ERROR_NULL;
+        _cleanup_bus_error_free_ sd_bus_error berror = SD_BUS_ERROR_NULL;
         va_list ap;
 
         va_start(ap, format);
