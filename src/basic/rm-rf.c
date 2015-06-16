@@ -182,7 +182,7 @@ int rm_rf(const char *path, RemoveFlags flags) {
                 if (r >= 0)
                         return r;
 
-                if (r != -ENOTTY && r != -EINVAL)
+                if (r != -ENOTTY && r != -EINVAL && r != -ENOTDIR)
                         return r;
 
                 /* Not btrfs or not a subvolume */
