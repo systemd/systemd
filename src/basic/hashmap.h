@@ -65,7 +65,6 @@ typedef struct {
 } Iterator;
 
 #define _IDX_ITERATOR_FIRST (UINT_MAX - 1)
-#define _IDX_ITERATOR_NIL (UINT_MAX)
 #define ITERATOR_FIRST ((Iterator) { .idx = _IDX_ITERATOR_FIRST, .next_key = NULL })
 
 typedef unsigned long (*hash_func_t)(const void *p, const uint8_t hash_key[HASH_KEY_SIZE]);
