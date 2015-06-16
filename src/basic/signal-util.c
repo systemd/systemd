@@ -167,7 +167,7 @@ int sigprocmask_many(int how, sigset_t *old, ...) {
         if (sigemptyset(&ss) < 0)
                 return -errno;
 
-        va_start(ap, how);
+        va_start(ap, old);
         r = sigset_add_many_ap(&ss, ap);
         va_end(ap);
 
