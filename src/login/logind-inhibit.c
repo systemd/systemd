@@ -371,7 +371,7 @@ bool manager_is_inhibited(
 
         Inhibitor *i;
         Iterator j;
-        struct dual_timestamp ts = { 0, 0 };
+        struct dual_timestamp ts = DUAL_TIMESTAMP_NULL;
         bool inhibited = false;
 
         assert(m);

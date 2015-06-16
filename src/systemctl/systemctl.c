@@ -1183,7 +1183,7 @@ static int list_timers(sd_bus *bus, char **args) {
 
         for (u = unit_infos; u < unit_infos + n; u++) {
                 _cleanup_strv_free_ char **triggered = NULL;
-                dual_timestamp next = {};
+                dual_timestamp next = DUAL_TIMESTAMP_NULL;
                 usec_t m, last = 0;
 
                 if (!endswith(u->id, ".timer"))

@@ -599,7 +599,7 @@ bool seat_can_graphical(Seat *s) {
 int seat_get_idle_hint(Seat *s, dual_timestamp *t) {
         Session *session;
         bool idle_hint = true;
-        dual_timestamp ts = { 0, 0 };
+        dual_timestamp ts = DUAL_TIMESTAMP_NULL;
 
         assert(s);
 

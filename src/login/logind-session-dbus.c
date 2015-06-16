@@ -163,7 +163,7 @@ static int property_get_idle_since_hint(
                 sd_bus_error *error) {
 
         Session *s = userdata;
-        dual_timestamp t;
+        dual_timestamp t = DUAL_TIMESTAMP_NULL;
         uint64_t u;
         int r;
 

@@ -138,7 +138,7 @@ static int property_get_idle_since_hint(
                 sd_bus_error *error) {
 
         User *u = userdata;
-        dual_timestamp t;
+        dual_timestamp t = DUAL_TIMESTAMP_NULL;
         uint64_t k;
 
         assert(bus);

@@ -619,7 +619,7 @@ int user_finalize(User *u) {
 int user_get_idle_hint(User *u, dual_timestamp *t) {
         Session *s;
         bool idle_hint = true;
-        dual_timestamp ts = { 0, 0 };
+        dual_timestamp ts = DUAL_TIMESTAMP_NULL;
 
         assert(u);
 
