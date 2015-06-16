@@ -85,6 +85,11 @@
     <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     for details.</para>
 
+    <para>The CPU load value can be between 0 and 100 times the number of
+    processors the system has. For example, if the system has 8 processors,
+    the CPU load value is going to be between 0% and 800%. The number of
+    processors can be found in <literal>/proc/cpuinfo</literal>.</para>
+
     <para>To emphasize this: unless
     <literal>CPUAccounting=1</literal>,
     <literal>MemoryAccounting=1</literal> and
