@@ -465,6 +465,7 @@ static void test_hashmap_foreach_key(void) {
                 hashmap_put(m, key, (void*) (const char*) "my dummy val");
 
         HASHMAP_FOREACH_KEY(s, key, m, i) {
+                assert(s);
                 if (!key_found[0] && streq(key, "key 1"))
                         key_found[0] = true;
                 else if (!key_found[1] && streq(key, "key 2"))
