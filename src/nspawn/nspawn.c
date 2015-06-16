@@ -3948,7 +3948,13 @@ static int on_orderly_shutdown(sd_event_source *s, const struct signalfd_siginfo
         return 0;
 }
 
-static int determine_names(void) {
+/*
+ * nspawn uses multiple kernel and other features, some of them
+ * can be checked in their appropriate functions when we setup the
+ * feature, but there are others features that must be chcked as
+ * early as possible in order to avoid bad or generic error codes,
+ */
+static int determine_container_environment(void) {
         int r;
 
         if (!arg_image && !arg_directory) {
@@ -4009,6 +4015,18 @@ static int determine_names(void) {
 
                         free(arg_machine);
                         arg_machine = b;
+                }
+        }
+
+        if (arg_userns) {
+                /*
+                 * Check this here, otherwise clone() will fail
+                 * with a generic error
+                 */
+                r = access("/proc/self/uid_map", F_OK);
+                if (r < 0) {
+                        log_error("--private-users= is not supported, kernel compiled without user namespace support.");
+                        return -EOPNOTSUPP;
                 }
         }
 
@@ -4479,7 +4497,7 @@ int main(int argc, char *argv[]) {
         if (r <= 0)
                 goto finish;
 
-        r = determine_names();
+        r = determine_container_environment();
         if (r < 0)
                 goto finish;
 
