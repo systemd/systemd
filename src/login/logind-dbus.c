@@ -258,7 +258,7 @@ static int property_get_docked(
         assert(reply);
         assert(m);
 
-        return sd_bus_message_append(reply, "b", manager_is_docked_or_multiple_displays(m));
+        return sd_bus_message_append(reply, "b", manager_is_docked_or_external_displays(m));
 }
 
 static int method_get_session(sd_bus_message *message, void *userdata, sd_bus_error *error) {

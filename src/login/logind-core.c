@@ -477,7 +477,7 @@ int manager_spawn_autovt(Manager *m, unsigned int vtnr) {
         return r;
 }
 
-bool manager_is_docked(Manager *m) {
+static bool manager_is_docked(Manager *m) {
         Iterator i;
         Button *b;
 
@@ -488,7 +488,7 @@ bool manager_is_docked(Manager *m) {
         return false;
 }
 
-int manager_count_displays(Manager *m) {
+static int manager_count_external_displays(Manager *m) {
         _cleanup_udev_enumerate_unref_ struct udev_enumerate *e = NULL;
         struct udev_list_entry *item = NULL, *first = NULL;
         int r;
@@ -510,7 +510,8 @@ int manager_count_displays(Manager *m) {
         udev_list_entry_foreach(item, first) {
                 _cleanup_udev_device_unref_ struct udev_device *d = NULL;
                 struct udev_device *p;
-                const char *status;
+                const char *status, *enabled, *dash, *nn, *i;
+                bool external = false;
 
                 d = udev_device_new_from_syspath(m->udev, udev_list_entry_get_name(item));
                 if (!d)
@@ -526,6 +527,40 @@ int manager_count_displays(Manager *m) {
                 if (!streq_ptr(udev_device_get_subsystem(p), "drm"))
                         continue;
 
+                nn = udev_device_get_sysname(d);
+                if (!nn)
+                        continue;
+
+                /* Ignore internal displays: the type is encoded in
+                 * the sysfs name, as the second dash seperated item
+                 * (the first is the card name, the last the connector
+                 * number). We implement a whitelist of external
+                 * displays here, rather than a whitelist, to ensure
+                 * we don't block suspends too eagerly. */
+                dash = strchr(nn, '-');
+                if (!dash)
+                        continue;
+
+                dash++;
+                FOREACH_STRING(i, "VGA-", "DVI-I-", "DVI-D-", "DVI-A-"
+                               "Composite-", "SVIDEO-", "Component-",
+                               "DIN-", "DP-", "HDMI-A-", "HDMI-B-", "TV-") {
+
+                        if (startswith(dash, i)) {
+                                external = true;
+                                break;
+                        }
+                }
+                if (!external)
+                        continue;
+
+                /* Ignore ports that are not enabled */
+                enabled = udev_device_get_sysattr_value(d, "enabled");
+                if (!enabled)
+                        continue;
+                if (!streq_ptr(enabled, "enabled"))
+                        continue;
+
                 /* We count any connector which is not explicitly
                  * "disconnected" as connected. */
                 status = udev_device_get_sysattr_value(d, "status");
@@ -536,7 +571,7 @@ int manager_count_displays(Manager *m) {
         return n;
 }
 
-bool manager_is_docked_or_multiple_displays(Manager *m) {
+bool manager_is_docked_or_external_displays(Manager *m) {
         int n;
 
         /* If we are docked don't react to lid closing */
@@ -547,11 +582,11 @@ bool manager_is_docked_or_multiple_displays(Manager *m) {
 
         /* If we have more than one display connected,
          * assume that we are docked. */
-        n = manager_count_displays(m);
+        n = manager_count_external_displays(m);
         if (n < 0)
                 log_warning_errno(n, "Display counting failed: %m");
-        else if (n > 1) {
-                log_debug("Multiple (%i) displays connected.", n);
+        else if (n >= 1) {
+                log_debug("External (%i) displays connected.", n);
                 return true;
         }
 

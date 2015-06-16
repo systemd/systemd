@@ -100,7 +100,7 @@ static void button_lid_switch_handle_action(Manager *manager, bool is_edge) {
         assert(manager);
 
         /* If we are docked, handle the lid switch differently */
-        if (manager_is_docked_or_multiple_displays(manager))
+        if (manager_is_docked_or_external_displays(manager))
                 handle_action = manager->handle_lid_switch_docked;
         else
                 handle_action = manager->handle_lid_switch;
