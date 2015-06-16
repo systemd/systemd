@@ -30,8 +30,14 @@ for fun in session-status show-session activate lock-session unlock-session term
   (( $+functions[_loginctl_$fun] )) || _loginctl_$fun()
   {
     local -a _sys_all_sessions{,_descr}
+
     _loginctl_all_sessions
-    _describe -t systemd-sessions session _sys_all_sessions_descr _sys_all_sessions -F "( $words[2,-1] )" "$@"
+    for _ignore in $words[2,-1]; do
+      _sys_all_sessions[(i)$_ignore]=()
+      _sys_all_sessions_descr[(i)$_ignore:*]=()
+    done
+
+    _describe -t systemd-sessions session _sys_all_sessions_descr _sys_all_sessions "$@"
   }
 done
 
@@ -40,9 +46,18 @@ for fun in user-status show-user enable-linger disable-linger terminate-user kil
   (( $+functions[_loginctl_$fun] )) || _loginctl_$fun()
   {
     local -a _sys_all_users{,_descr}
-    _loginctl_all_users
+    zstyle -a ":completion:${curcontext}:users" users _sys_all_users
+
+    if ! (( $#_sys_all_users )); then
+      _loginctl_all_users
+    fi
+
+    for _ignore in $words[2,-1]; do
+      _sys_all_users[(i)$_ignore]=()
+      _sys_all_users_descr[(i)$_ignore:*]=()
+    done
     # using the common tag `users' here, not rolling our own `systemd-users' tag
-    _describe -t users user  _sys_all_users_descr _sys_all_users -F "( $words[2,-1] )" "$@"
+    _describe -t users user ${_sys_all_users_descr:+_sys_all_users_descr} _sys_all_users "$@"
   }
 done
 
@@ -50,8 +65,14 @@ done
 (( $+functions[_loginctl_seats] )) || _loginctl_seats()
 {
   local -a _sys_all_seats{,_descr}
+
   _loginctl_all_seats
-  _describe -t systemd-seats seat _sys_all_seats_descr _sys_all_seats -F "( $words[2,-1] )" "$@"
+  for _ignore in $words[2,-1]; do
+    _sys_all_seats[(i)$_ignore]=()
+    _sys_all_seats_descr[(i)$_ignore:*]=()
+  done
+
+  _describe -t systemd-seats seat _sys_all_seats_descr _sys_all_seats "$@"
 }
 for fun in seat-status show-seat terminate-seat ; do
   (( $+functions[_loginctl_$fun] )) || _loginctl_$fun()
@@ -101,7 +122,7 @@ done
   if (( CURRENT == 1 )); then
     _describe -t commands 'loginctl command' _loginctl_cmds || compadd "$@"
   else
-    local curcontext="$curcontext"
+    local curcontext="$curcontext" _ignore
 
     cmd="${${_loginctl_cmds[(r)$words[1]:*]%%:*}}"
 
