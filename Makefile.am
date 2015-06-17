@@ -2841,6 +2841,7 @@ libsystemd_internal_la_SOURCES = \
 	src/systemd/sd-network.h \
 	src/systemd/sd-hwdb.h \
 	src/systemd/sd-device.h \
+	src/libsystemd/libsystemd.sym \
 	src/libsystemd/sd-bus/sd-bus.c \
 	src/libsystemd/sd-bus/bus-control.c \
 	src/libsystemd/sd-bus/bus-control.h \
@@ -2917,9 +2918,6 @@ libsystemd_internal_la_SOURCES = \
 	src/libsystemd/sd-resolve/sd-resolve.c \
 	src/libsystemd/sd-resolve/resolve-util.h
 
-nodist_libsystemd_internal_la_SOURCES = \
-	src/libsystemd/libsystemd.sym
-
 libsystemd_internal_la_LIBADD = \
 	libbasic.la \
 	-lresolv
@@ -2928,13 +2926,9 @@ noinst_LTLIBRARIES += \
 	libsystemd-internal.la
 
 EXTRA_DIST += \
-	src/libsystemd/libsystemd.sym.m4 \
 	src/libsystemd/libsystemd.pc.in \
 	src/libsystemd/sd-bus/DIFFERENCES \
 	src/libsystemd/sd-bus/GVARIANT-SERIALIZATION
-
-BUILT_SOURCES += \
-	src/libsystemd/libsystemd.sym
 
 libsystemd_la_SOURCES = \
 	$(libsystemd_internal_la_SOURCES) \
@@ -2950,7 +2944,7 @@ libsystemd_la_CFLAGS = \
 libsystemd_la_LDFLAGS = \
 	$(AM_LDFLAGS) \
 	-version-info $(LIBSYSTEMD_CURRENT):$(LIBSYSTEMD_REVISION):$(LIBSYSTEMD_AGE) \
-	-Wl,--version-script=$(top_builddir)/src/libsystemd/libsystemd.sym
+	-Wl,--version-script=$(top_srcdir)/src/libsystemd/libsystemd.sym
 
 libsystemd_la_LIBADD = \
 	$(libsystemd_internal_la_LIBADD) \
