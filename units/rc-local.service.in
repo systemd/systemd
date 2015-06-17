@@ -14,6 +14,6 @@ After=network.target
 
 [Service]
 Type=forking
-ExecStart=@RC_LOCAL_SCRIPT_PATH_START@ start
+ExecStart=@RC_LOCAL_SCRIPT_PATH_START@
 TimeoutSec=0
 RemainAfterExit=yes

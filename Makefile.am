@@ -258,6 +258,7 @@ endef
 INSTALL_DIRS =
 
 SHUTDOWN_TARGET_WANTS =
+FINAL_TARGET_WANTS =
 LOCAL_FS_TARGET_WANTS =
 MULTI_USER_TARGET_WANTS =
 GRAPHICAL_TARGET_WANTS =
@@ -276,6 +277,7 @@ GENERAL_ALIASES =
 
 install-target-wants-hook:
 	what="$(SHUTDOWN_TARGET_WANTS)" && wants=shutdown.target && dir=$(systemunitdir) && $(add-wants)
+	what="$(FINAL_TARGET_WANTS)" && wants=final.target && dir=$(systemunitdir) && $(add-wants)
 	what="$(LOCAL_FS_TARGET_WANTS)" && wants=local-fs.target && dir=$(systemunitdir) && $(add-wants)
 	what="$(MULTI_USER_TARGET_WANTS)" && wants=multi-user.target && dir=$(systemunitdir) && $(add-wants)
 	what="$(GRAPHICAL_TARGET_WANTS)" && wants=graphical.target && dir=$(systemunitdir) && $(add-wants)
@@ -617,8 +619,13 @@ nodist_systemunit_DATA += \
 	units/halt-local.service
 
 systemgenerator_PROGRAMS += \
-	systemd-sysv-generator \
-	systemd-rc-local-generator
+	systemd-sysv-generator
+
+MULTI_USER_TARGET_WANTS += \
+	rc-local.service
+
+FINAL_TARGET_WANTS += \
+	halt-local.service
 endif
 
 EXTRA_DIST += \
