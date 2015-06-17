@@ -28,6 +28,8 @@ External:
 
 Features:
 
+* man: clarify that "machinectl show" shows different information than "machinectl status" (no cgroup tree, no IP addresses, ...)
+
 * "systemctl daemon-reload" should result in /etc/systemd/system.conf being reloaded by systemd
 
 * install: include generator dirs in unit file search paths
