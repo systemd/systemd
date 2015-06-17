@@ -80,6 +80,7 @@ int main(int argc, char *argv[]) {
         char *z;
         const void *data;
         size_t l;
+        dual_timestamp previous_ts = DUAL_TIMESTAMP_NULL;
 
         /* journal_file_open requires a valid machine id */
         if (access("/etc/machine-id", F_OK) != 0)
@@ -100,6 +101,14 @@ int main(int argc, char *argv[]) {
                 struct iovec iovec[2];
 
                 dual_timestamp_get(&ts);
+
+                if (ts.monotonic <= previous_ts.monotonic)
+                        ts.monotonic = previous_ts.monotonic + 1;
+
+                if (ts.realtime <= previous_ts.realtime)
+                        ts.realtime = previous_ts.realtime + 1;
+
+                previous_ts = ts;
 
                 assert_se(asprintf(&p, "NUMBER=%u", i) >= 0);
                 iovec[0].iov_base = p;
