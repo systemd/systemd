@@ -245,15 +245,15 @@ static int pull_dkr(int argc, char *argv[], void *userdata) {
         if (digest) {
                 reference = digest + 1;
                 name = strndupa(argv[1], digest - argv[1]);
-        }
-
-        reference = strchr(argv[1], ':');
-        if (reference) {
-                name = strndupa(argv[1], reference - argv[1]);
-                reference++;
         } else {
-                name = argv[1];
-                reference = "latest";
+                reference = strchr(argv[1], ':');
+                if (reference) {
+                        name = strndupa(argv[1], reference - argv[1]);
+                        reference++;
+                } else {
+                        name = argv[1];
+                        reference = "latest";
+                }
         }
 
         if (!dkr_name_is_valid(name)) {
