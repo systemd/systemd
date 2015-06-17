@@ -180,7 +180,7 @@
 
         <listitem><para>Swap priority to use when activating the swap
         device or file. This takes an integer. This setting is
-        optional and ignored when priotiry is set by <option>pri=</option> in the
+        optional and ignored when priority is set by <option>pri=</option> in the
         <varname>Options=</varname> option.</para></listitem>
       </varlistentry>
 
