@@ -1687,6 +1687,18 @@ int main(int argc, char *argv[]) {
 
                 log_info("starting version " VERSION);
 
+                /* connect /dev/null to stdin, stdout, stderr */
+                if (log_get_max_level() < LOG_DEBUG) {
+                        _cleanup_close_ int null_fd = -1;
+
+                        null_fd = open("/dev/null", O_RDWR);
+                        if (null_fd >= 0) {
+                                dup2(null_fd, STDIN_FILENO);
+                                dup2(null_fd, STDOUT_FILENO);
+                                dup2(null_fd, STDERR_FILENO);
+                        }
+                }
+
                 pid = fork();
                 switch (pid) {
                 case 0:
