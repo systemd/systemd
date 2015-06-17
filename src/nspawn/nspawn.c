@@ -4972,6 +4972,10 @@ finish:
         if (pid > 0)
                 kill(pid, SIGKILL);
 
+        /* Try to flush whatever is still queued in the pty */
+        if (master >= 0)
+                (void) copy_bytes(master, STDOUT_FILENO, (off_t) -1, false);
+
         loop_remove(loop_nr, &image_fd);
 
         if (remove_subvol && arg_directory) {
