@@ -5209,35 +5209,6 @@ int unquote_first_word(const char **p, char **ret, UnquoteFlags flags) {
 
                         break;
 
-                case VALUE_ESCAPE:
-                        if (c == 0) {
-                                if (flags & UNQUOTE_RELAX)
-                                        goto finish;
-                                return -EINVAL;
-                        }
-
-                        if (!GREEDY_REALLOC(s, allocated, sz+7))
-                                return -ENOMEM;
-
-                        if (flags & UNQUOTE_CUNESCAPE) {
-                                uint32_t u;
-
-                                r = cunescape_one(*p, (size_t) -1, &c, &u);
-                                if (r < 0)
-                                        return -EINVAL;
-
-                                (*p) += r - 1;
-
-                                if (c != 0)
-                                        s[sz++] = c; /* normal explicit char */
-                                else
-                                        sz += utf8_encode_unichar(s + sz, u); /* unicode chars we'll encode as utf8 */
-                        } else
-                                s[sz++] = c;
-
-                        state = VALUE;
-                        break;
-
                 case SINGLE_QUOTE:
                         if (c == 0) {
                                 if (flags & UNQUOTE_RELAX)
@@ -5256,35 +5227,6 @@ int unquote_first_word(const char **p, char **ret, UnquoteFlags flags) {
 
                         break;
 
-                case SINGLE_QUOTE_ESCAPE:
-                        if (c == 0) {
-                                if (flags & UNQUOTE_RELAX)
-                                        goto finish;
-                                return -EINVAL;
-                        }
-
-                        if (!GREEDY_REALLOC(s, allocated, sz+7))
-                                return -ENOMEM;
-
-                        if (flags & UNQUOTE_CUNESCAPE) {
-                                uint32_t u;
-
-                                r = cunescape_one(*p, (size_t) -1, &c, &u);
-                                if (r < 0)
-                                        return -EINVAL;
-
-                                (*p) += r - 1;
-
-                                if (c != 0)
-                                        s[sz++] = c;
-                                else
-                                        sz += utf8_encode_unichar(s + sz, u);
-                        } else
-                                s[sz++] = c;
-
-                        state = SINGLE_QUOTE;
-                        break;
-
                 case DOUBLE_QUOTE:
                         if (c == 0)
                                 return -EINVAL;
@@ -5301,33 +5243,56 @@ int unquote_first_word(const char **p, char **ret, UnquoteFlags flags) {
 
                         break;
 
+                case SINGLE_QUOTE_ESCAPE:
                 case DOUBLE_QUOTE_ESCAPE:
+                case VALUE_ESCAPE:
+                        if (!GREEDY_REALLOC(s, allocated, sz+7))
+                                return -ENOMEM;
+
                         if (c == 0) {
+                                if ((flags & UNQUOTE_CUNESCAPE_RELAX) &&
+                                    (state == VALUE_ESCAPE || flags & UNQUOTE_RELAX)) {
+                                        /* If we find an unquoted trailing backslash and we're in
+                                         * UNQUOTE_CUNESCAPE_RELAX mode, keep it verbatim in the
+                                         * output.
+                                         *
+                                         * Unbalanced quotes will only be allowed in UNQUOTE_RELAX
+                                         * mode, UNQUOTE_CUNESCAP_RELAX mode does not allow them.
+                                         */
+                                        s[sz++] = '\\';
+                                        goto finish;
+                                }
                                 if (flags & UNQUOTE_RELAX)
                                         goto finish;
                                 return -EINVAL;
                         }
 
-                        if (!GREEDY_REALLOC(s, allocated, sz+7))
-                                return -ENOMEM;
-
                         if (flags & UNQUOTE_CUNESCAPE) {
                                 uint32_t u;
 
                                 r = cunescape_one(*p, (size_t) -1, &c, &u);
-                                if (r < 0)
+                                if (r < 0) {
+                                        if (flags & UNQUOTE_CUNESCAPE_RELAX) {
+                                                s[sz++] = '\\';
+                                                s[sz++] = c;
+                                                goto end_escape;
+                                        }
                                         return -EINVAL;
+                                }
 
                                 (*p) += r - 1;
 
                                 if (c != 0)
-                                        s[sz++] = c;
+                                        s[sz++] = c; /* normal explicit char */
                                 else
-                                        sz += utf8_encode_unichar(s + sz, u);
+                                        sz += utf8_encode_unichar(s + sz, u); /* unicode chars we'll encode as utf8 */
                         } else
                                 s[sz++] = c;
 
-                        state = DOUBLE_QUOTE;
+end_escape:
+                        state = (state == SINGLE_QUOTE_ESCAPE) ? SINGLE_QUOTE :
+                                (state == DOUBLE_QUOTE_ESCAPE) ? DOUBLE_QUOTE :
+                                VALUE;
                         break;
 
                 case SPACE:
@@ -5353,6 +5318,36 @@ finish:
         s = NULL;
 
         return 1;
+}
+
+int unquote_first_word_and_warn(
+                const char **p,
+                char **ret,
+                UnquoteFlags flags,
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *rvalue) {
+        /* Try to unquote it, if it fails, warn about it and try again but this
+         * time using UNQUOTE_CUNESCAPE_RELAX to keep the backslashes verbatim
+         * in invalid escape sequences. */
+        const char *save;
+        int r;
+
+        save = *p;
+        r = unquote_first_word(p, ret, flags);
+        if (r < 0 && !(flags&UNQUOTE_CUNESCAPE_RELAX)) {
+                /* Retry it with UNQUOTE_CUNESCAPE_RELAX. */
+                *p = save;
+                r = unquote_first_word(p, ret, flags|UNQUOTE_CUNESCAPE_RELAX);
+                if (r < 0)
+                        log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                                   "Unbalanced quoting in command line, ignoring: \"%s\"", rvalue);
+                else
+                        log_syntax(unit, LOG_WARNING, filename, line, EINVAL,
+                                   "Invalid escape sequences in command line: \"%s\"", rvalue);
+        }
+        return r;
 }
 
 int unquote_many_words(const char **p, UnquoteFlags flags, ...) {

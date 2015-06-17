@@ -520,9 +520,9 @@ int config_parse_exec(
                 void *data,
                 void *userdata) {
 
-        ExecCommand **e = data, *nce;
-        char *path, **n;
-        unsigned k;
+        ExecCommand **e = data;
+        const char *p;
+        bool semicolon;
         int r;
 
         assert(filename);
@@ -532,156 +532,154 @@ int config_parse_exec(
 
         e += ltype;
 
+        rvalue += strspn(rvalue, WHITESPACE);
+        p = rvalue;
+
         if (isempty(rvalue)) {
                 /* An empty assignment resets the list */
                 *e = exec_command_free_list(*e);
                 return 0;
         }
 
-        /* We accept an absolute path as first argument, or
-         * alternatively an absolute prefixed with @ to allow
-         * overriding of argv[0]. */
-        for (;;) {
+        do {
                 int i;
-                const char *word, *state, *reason;
-                size_t l;
+                _cleanup_strv_free_ char **n = NULL;
+                size_t nlen = 0, nbufsize = 0;
+                _cleanup_free_ ExecCommand *nce = NULL;
+                _cleanup_free_ char *path = NULL, *firstword = NULL;
+                char *f;
                 bool separate_argv0 = false, ignore = false;
 
-                path = NULL;
-                nce = NULL;
-                n = NULL;
+                semicolon = false;
 
-                rvalue += strspn(rvalue, WHITESPACE);
+                r = unquote_first_word_and_warn(&p, &firstword, UNQUOTE_CUNESCAPE, unit, filename, line, rvalue);
+                if (r <= 0)
+                        return 0;
 
-                if (rvalue[0] == 0)
-                        break;
-
-                k = 0;
-                FOREACH_WORD_QUOTED(word, l, rvalue, state) {
-                        if (k == 0) {
-                                for (i = 0; i < 2; i++) {
-                                        if (*word == '-' && !ignore) {
-                                                ignore = true;
-                                                word ++;
-                                        }
-
-                                        if (*word == '@' && !separate_argv0) {
-                                                separate_argv0 = true;
-                                                word ++;
-                                        }
-                                }
-                        } else if (strneq(word, ";", MAX(l, 1U)))
-                                goto found;
-
-                        k++;
+                f = firstword;
+                for (i = 0; i < 2; i++) {
+                        /* We accept an absolute path as first argument, or
+                         * alternatively an absolute prefixed with @ to allow
+                         * overriding of argv[0]. */
+                        if (*f == '-' && !ignore)
+                                ignore = true;
+                        else if (*f == '@' && !separate_argv0)
+                                separate_argv0 = true;
+                        else
+                                break;
+                        f ++;
                 }
-                if (!isempty(state)) {
-                        log_syntax(unit, LOG_ERR, filename, line, EINVAL, "Trailing garbage, ignoring.");
+
+                if (isempty(f)) {
+                        /* First word is either "-" or "@" with no command. */
+                        log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                                   "Empty path in command line, ignoring: \"%s\"", rvalue);
                         return 0;
                 }
 
-        found:
-                /* If separate_argv0, we'll move first element to path variable */
-                n = new(char*, MAX(k + !separate_argv0, 1u));
-                if (!n)
-                        return log_oom();
-
-                k = 0;
-                FOREACH_WORD_QUOTED(word, l, rvalue, state) {
-                        char *c;
-                        unsigned skip;
-
-                        if (separate_argv0 ? path == NULL : k == 0) {
-                                /* first word, very special */
-                                skip = separate_argv0 + ignore;
-
-                                /* skip special chars in the beginning */
-                                if (l <= skip) {
-                                        log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                                                   "Empty path in command line, ignoring: \"%s\"", rvalue);
-                                        r = 0;
-                                        goto fail;
-                                }
-
-                        } else if (strneq(word, ";", MAX(l, 1U)))
-                                /* new commandline */
-                                break;
-
-                        else
-                                skip = strneq(word, "\\;", MAX(l, 1U));
-
-                        r = cunescape_length(word + skip, l - skip, UNESCAPE_RELAX, &c);
-                        if (r < 0) {
-                                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to unescape command line, ignoring: %s", rvalue);
-                                r = 0;
-                                goto fail;
-                        }
-
-                        if (!utf8_is_valid(c)) {
-                                log_invalid_utf8(unit, LOG_ERR, filename, line, EINVAL, rvalue);
-                                r = 0;
-                                goto fail;
-                        }
-
-                        /* where to stuff this? */
-                        if (separate_argv0 && path == NULL)
-                                path = c;
-                        else
-                                n[k++] = c;
+                if (!string_is_safe(f)) {
+                        log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                                        "Executable path contains special characters, ignoring: %s", rvalue);
+                        return 0;
+                }
+                if (!path_is_absolute(f)) {
+                        log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                                        "Executable path is not absolute, ignoring: %s", rvalue);
+                        return 0;
+                }
+                if (endswith(f, "/")) {
+                        log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                                        "Executable path specifies a directory, ignoring: %s", rvalue);
+                        return 0;
                 }
 
-                n[k] = NULL;
+                if (f == firstword) {
+                        path = firstword;
+                        firstword = NULL;
+                } else {
+                        path = strdup(f);
+                        if (!path)
+                                return log_oom();
+                }
 
-                if (!n[0])
-                        reason = "Empty executable name or zeroeth argument";
-                else if (!string_is_safe(path ?: n[0]))
-                        reason = "Executable path contains special characters";
-                else if (!path_is_absolute(path ?: n[0]))
-                        reason = "Executable path is not absolute";
-                else if (endswith(path ?: n[0], "/"))
-                        reason = "Executable path specifies a directory";
-                else
-                        goto ok;
+                if (!separate_argv0) {
+                        if (!GREEDY_REALLOC(n, nbufsize, nlen + 2))
+                                return log_oom();
+                        f = strdup(path);
+                        if (!f)
+                                return log_oom();
+                        n[nlen++] = f;
+                        n[nlen] = NULL;
+                }
 
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL, "%s, ignoring: %s", reason, rvalue);
-                r = 0;
-                goto fail;
+                path_kill_slashes(path);
 
-ok:
-                if (!path) {
-                        path = strdup(n[0]);
-                        if (!path) {
-                                r = log_oom();
-                                goto fail;
+                for (;;) {
+                        _cleanup_free_ char *word = NULL;
+
+                        /* Check explicitly for an unquoted semicolon as
+                         * command separator token.  */
+                        if (p[0] == ';' && (!p[1] || strchr(WHITESPACE, p[1]))) {
+                                p ++;
+                                p += strspn(p, WHITESPACE);
+                                semicolon = true;
+                                break;
                         }
+
+                        /* Check for \; explicitly, to not confuse it with \\;
+                         * or "\;" or "\\;" etc.  unquote_first_word would
+                         * return the same for all of those.  */
+                        if (p[0] == '\\' && p[1] == ';' && (!p[2] || strchr(WHITESPACE, p[2]))) {
+                                p += 2;
+                                p += strspn(p, WHITESPACE);
+                                if (!GREEDY_REALLOC(n, nbufsize, nlen + 2))
+                                        return log_oom();
+                                f = strdup(";");
+                                if (!f)
+                                        return log_oom();
+                                n[nlen++] = f;
+                                n[nlen] = NULL;
+                                continue;
+                        }
+
+                        r = unquote_first_word_and_warn(&p, &word, UNQUOTE_CUNESCAPE, unit, filename, line, rvalue);
+                        if (r == 0)
+                                break;
+                        else if (r < 0)
+                                return 0;
+
+                        if (!GREEDY_REALLOC(n, nbufsize, nlen + 2))
+                                return log_oom();
+                        n[nlen++] = word;
+                        n[nlen] = NULL;
+                        word = NULL;
+                }
+
+                if (!n || !n[0]) {
+                        log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                                        "Empty executable name or zeroeth argument, ignoring: %s", rvalue);
+                        return 0;
                 }
 
                 nce = new0(ExecCommand, 1);
-                if (!nce) {
-                        r = log_oom();
-                        goto fail;
-                }
+                if (!nce)
+                        return log_oom();
 
                 nce->argv = n;
                 nce->path = path;
                 nce->ignore = ignore;
 
-                path_kill_slashes(nce->path);
-
                 exec_command_append_list(e, nce);
 
-                rvalue = state;
-        }
+                /* Do not _cleanup_free_ these. */
+                n = NULL;
+                path = NULL;
+                nce = NULL;
+
+                rvalue = p;
+        } while (semicolon);
 
         return 0;
-
-fail:
-        n[k] = NULL;
-        strv_free(n);
-        free(path);
-        free(nce);
-
-        return r;
 }
 
 DEFINE_CONFIG_PARSE_ENUM(config_parse_service_type, service_type, ServiceType, "Failed to parse service type");
