@@ -1,0 +1,125 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
+<!ENTITY % entities SYSTEM "custom-entities.ent" >
+%entities;
+]>
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2015 David Herrmann <dh.herrmann@gmail.com>
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="libudev"
+  xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>libudev</title>
+    <productname>systemd</productname>
+
+    <authorgroup>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>David</firstname>
+        <surname>Herrmann</surname>
+        <email>dh.herrmann@gmail.com</email>
+      </author>
+    </authorgroup>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>libudev</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>libudev</refname>
+    <refpurpose>API for enumerating and introspecting local devices</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;libudev.h&gt;</funcsynopsisinfo>
+    </funcsynopsis>
+
+    <cmdsynopsis>
+      <command>pkg-config --cflags --libs libudev</command>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><filename>libudev.h</filename> provides APIs to introspect
+    and enumerate devices on the local system.</para>
+
+    <para>All functions require a libudev context to operate. This
+    context can be create via
+    <citerefentry><refentrytitle>udev_new</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+    It is used to track library state and link objects together. No
+    global state is used by libudev, everything is always linked to
+    a udev context. Furthermore, multiple different udev contexts can
+    be used in parallel by multiple threads. However, a single context
+    must not be accessed by multiple threads in parallel. The caller
+    is responsible of providing suitable locking if they intend to use
+    it from multiple threads.</para>
+
+    <para>To introspect a local device on a system, a udev device
+    object can be created via
+    <citerefentry><refentrytitle>udev_device_new_from_syspath</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    and friends. The device object allows to query current state,
+    read and write attributes and lookup properties of the device in
+    question.</para>
+
+    <para>To enumerate local devices on the system, an enumeration
+    object can be created via
+    <citerefentry><refentrytitle>udev_enumerate_new</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
+
+    <para>To monitor the local system for hotplugged or unplugged
+    devices, a monitor can be created via
+    <citerefentry><refentrytitle>udev_monitor_new_from_netlink</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
+
+    <para>Whenever libudev returns a list of objects, the
+    <citerefentry><refentrytitle>udev_list_entry</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    API should be used to iterate, access and modify those lists.</para>
+
+    <para>Furthermore, libudev also exports legacy APIs that should
+    not be used by new software (and as such are not documented as
+    part of this manual). This includes the hardware-database known
+    as <constant>udev_hwdb</constant> (please use the new
+    <citerefentry><refentrytitle>sd-hwdb</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    API instead) and the <constant>udev_queue</constant> object to
+    query the udev-daemon (which should not be used by new software
+    at all).</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>udev_new</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>udev_device_new_from_syspath</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>udev_enumerate_new</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>udev_monitor_new_from_netlink</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>udev_list_entry</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd-device</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd-hwdb</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>

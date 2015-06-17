@@ -1,0 +1,163 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
+<!ENTITY % entities SYSTEM "custom-entities.ent" >
+%entities;
+]>
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2015 David Herrmann <dh.herrmann@gmail.com>
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="udev_enumerate_add_match_subsystem"
+  xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>udev_enumerate_add_match_subsystem</title>
+    <productname>systemd</productname>
+
+    <authorgroup>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>David</firstname>
+        <surname>Herrmann</surname>
+        <email>dh.herrmann@gmail.com</email>
+      </author>
+    </authorgroup>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>udev_enumerate_add_match_subsystem</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>udev_enumerate_add_match_subsystem</refname>
+    <refname>udev_enumerate_add_nomatch_subsystem</refname>
+    <refname>udev_enumerate_add_match_sysattr</refname>
+    <refname>udev_enumerate_add_nomatch_sysattr</refname>
+    <refname>udev_enumerate_add_match_property</refname>
+    <refname>udev_enumerate_add_match_sysname</refname>
+    <refname>udev_enumerate_add_match_tag</refname>
+    <refname>udev_enumerate_add_match_parent</refname>
+    <refname>udev_enumerate_add_match_is_initialized</refname>
+
+    <refpurpose>Modify filters</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;libudev.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>udev_enumerate_add_match_subsystem</function></funcdef>
+        <paramdef>struct udev_enumerate *<parameter>udev_enumerate</parameter></paramdef>
+        <paramdef>const char *<parameter>subsystem</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>udev_enumerate_add_nomatch_subsystem</function></funcdef>
+        <paramdef>struct udev_enumerate *<parameter>udev_enumerate</parameter></paramdef>
+        <paramdef>const char *<parameter>subsystem</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>udev_enumerate_add_match_sysattr</function></funcdef>
+        <paramdef>struct udev_enumerate *<parameter>udev_enumerate</parameter></paramdef>
+        <paramdef>const char *<parameter>sysattr</parameter></paramdef>
+        <paramdef>const char *<parameter>value</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>udev_enumerate_add_nomatch_sysattr</function></funcdef>
+        <paramdef>struct udev_enumerate *<parameter>udev_enumerate</parameter></paramdef>
+        <paramdef>const char *<parameter>sysattr</parameter></paramdef>
+        <paramdef>const char *<parameter>value</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>udev_enumerate_add_match_property</function></funcdef>
+        <paramdef>struct udev_enumerate *<parameter>udev_enumerate</parameter></paramdef>
+        <paramdef>const char *<parameter>property</parameter></paramdef>
+        <paramdef>const char *<parameter>value</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>udev_enumerate_add_match_sysname</function></funcdef>
+        <paramdef>struct udev_enumerate *<parameter>udev_enumerate</parameter></paramdef>
+        <paramdef>const char *<parameter>sysname</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>udev_enumerate_add_match_tag</function></funcdef>
+        <paramdef>struct udev_enumerate *<parameter>udev_enumerate</parameter></paramdef>
+        <paramdef>const char *<parameter>tag</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>udev_enumerate_add_match_parent</function></funcdef>
+        <paramdef>struct udev_enumerate *<parameter>udev_enumerate</parameter></paramdef>
+        <paramdef>struct udev_device *<parameter>parent</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>udev_enumerate_add_match_is_initialized</function></funcdef>
+        <paramdef>struct udev_enumerate *<parameter>udev_enumerate</parameter></paramdef>
+      </funcprototype>
+
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <!--<refsect1>
+    <title>Description</title>
+
+    <para>XXX: Add short description.</para>
+  </refsect1>-->
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success,
+    <function>udev_enumerate_add_match_subsystem</function>,
+    <function>udev_enumerate_add_nomatch_subsystem</function>,
+    <function>udev_enumerate_add_match_sysattr</function>,
+    <function>udev_enumerate_add_nomatch_sysattr</function>,
+    <function>udev_enumerate_add_match_property</function>,
+    <function>udev_enumerate_add_match_sysname</function>,
+    <function>udev_enumerate_add_match_tag</function>,
+    <function>udev_enumerate_add_match_parent</function> and
+    <function>udev_enumerate_add_match_is_initialized</function>
+    return an integer greater than, or equal to,
+    <constant>0</constant>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para>
+      <citerefentry><refentrytitle>udev_new</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>udev_device_new_from_syspath</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>udev_enumerate_new</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>udev_enumerate_scan_devices</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>udev_monitor_new_from_netlink</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>udev_list_entry</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+    </para>
+  </refsect1>
+
+</refentry>
