@@ -77,6 +77,15 @@ static int match_add(sd_bus_slot *slots, struct bus_match_node *root, const char
         return r;
 }
 
+static void test_match_scope(const char *match, enum bus_match_scope scope) {
+        struct bus_match_component *components = NULL;
+        unsigned n_components = 0;
+
+        assert_se(bus_match_parse(match, &components, &n_components) >= 0);
+        assert_se(bus_match_get_scope(components, n_components) == scope);
+        bus_match_parse_free(components, n_components);
+}
+
 int main(int argc, char *argv[]) {
         struct bus_match_node root = {
                 .type = BUS_MATCH_ROOT,
@@ -141,6 +150,13 @@ int main(int argc, char *argv[]) {
         }
 
         bus_match_free(&root);
+
+        test_match_scope("interface='foobar'", BUS_MATCH_GENERIC);
+        test_match_scope("", BUS_MATCH_GENERIC);
+        test_match_scope("interface='org.freedesktop.DBus.Local'", BUS_MATCH_LOCAL);
+        test_match_scope("sender='org.freedesktop.DBus.Local'", BUS_MATCH_LOCAL);
+        test_match_scope("member='gurke',path='/org/freedesktop/DBus/Local'", BUS_MATCH_LOCAL);
+        test_match_scope("arg2='piep',sender='org.freedesktop.DBus',member='waldo'", BUS_MATCH_DRIVER);
 
         return 0;
 }

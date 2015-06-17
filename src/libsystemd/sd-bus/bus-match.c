@@ -1149,3 +1149,40 @@ void bus_match_dump(struct bus_match_node *node, unsigned level) {
         for (c = node->child; c; c = c->next)
                 bus_match_dump(c, level + 1);
 }
+
+enum bus_match_scope bus_match_get_scope(const struct bus_match_component *components, unsigned n_components) {
+        bool found_driver = false;
+        unsigned i;
+
+        if (n_components <= 0)
+                return BUS_MATCH_GENERIC;
+
+        assert(components);
+
+        /* Checks whether the specified match can only match the
+         * pseudo-service for local messages, which we detect by
+         * sender, interface or path. If a match is not restricted to
+         * local messages, then we check if it only matches on the
+         * driver. */
+
+        for (i = 0; i < n_components; i++) {
+                const struct bus_match_component *c = components + i;
+
+                if (c->type == BUS_MATCH_SENDER) {
+                        if (streq_ptr(c->value_str, "org.freedesktop.DBus.Local"))
+                                return BUS_MATCH_LOCAL;
+
+                        if (streq_ptr(c->value_str, "org.freedesktop.DBus"))
+                                found_driver = true;
+                }
+
+                if (c->type == BUS_MATCH_INTERFACE && streq_ptr(c->value_str, "org.freedesktop.DBus.Local"))
+                        return BUS_MATCH_LOCAL;
+
+                if (c->type == BUS_MATCH_PATH && streq_ptr(c->value_str, "/org/freedesktop/DBus/Local"))
+                        return BUS_MATCH_LOCAL;
+        }
+
+        return found_driver ? BUS_MATCH_DRIVER : BUS_MATCH_GENERIC;
+
+}
