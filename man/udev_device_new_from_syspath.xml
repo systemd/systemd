@@ -106,11 +106,52 @@
     </funcsynopsis>
   </refsynopsisdiv>
 
-  <!--<refsect1>
+  <refsect1>
     <title>Description</title>
 
-    <para>XXX: Add some description.</para>
-  </refsect1>-->
+    <para><function>udev_device_new_from_syspath</function>,
+    <function>udev_device_new_from_devnum</function>,
+    <function>udev_device_new_from_subsystem_sysname</function>,
+    <function>udev_device_new_from_device_id</function>, and
+    <function>udev_device_new_from_environment</function>
+    allocate a new udev device object and returns a pointer to it. This
+    object is opaque and must not be accessed by the caller via different
+    means than functions provided by libudev. Initially, the reference count
+    of the device is 1. You can acquire further references, and drop
+    gained references via <function>udev_device_ref()</function> and
+    <function>udev_device_unref()</function>. Once the reference count hits 0,
+    the device object is destroyed and freed.</para>
+
+    <para><function>udev_device_new_from_syspath</function>,
+    <function>udev_device_new_from_devnum</function>,
+    <function>udev_device_new_from_subsystem_sysname</function>, and
+    <function>udev_device_new_from_device_id</function>
+    create the device object based on information found in
+    <filename>/sys</filename> annotated with properties from the udev-internal
+    device database. A syspath is any subdirectory of <filename>/sys</filename>,
+    with the restriction that a subdirectory of <filename>/sys/devices</filename>
+    (or a symlink to one) represents a real device and as such must contain
+    a <filename>uevent</filename> file. <function>udev_device_new_from_devnum</function>
+    takes a device type, which can be <constant>b</constant> for block devices or
+    <constant>c</constant> for character devices, as well as a devnum (see
+    <citerefentry><refentrytitle>makedev</refentrytitle><manvolnum>3</manvolnum></citerefentry>).
+    <function>udev_device_new_from_subsystem_sysname</function> looks up devices based
+    on the provided subsystem and sysname and
+    <function>udev_device_new_from_device_id</function> looks up devices based on the provided
+    device id (see
+    <citerefentry><refentrytitle>udev_device_get_subsystem</refentrytitle><manvolnum>3</manvolnum></citerefentry>).
+    </para>
+
+    <para><function>udev_device_new_from_environment</function>
+    creates a device from the current environment (see
+    <citerefentry><refentrytitle>environ</refentrytitle><manvolnum>7</manvolnum></citerefentry>).
+    Each key-value pair is interpreted in the same way as if it was
+    received in an uevent (see
+    <citerefentry><refentrytitle>udev_monitor_receive_device</refentrytitle><manvolnum>3</manvolnum></citerefentry>).
+    The keys <constant>DEVPATH</constant>, <constant>SUBSYSTEM</constant>,
+    <constant>ACTION</constant>, and <constant>SEQNUM</constant> are mandatory.</para>
+
+  </refsect1>
 
   <refsect1>
     <title>Return Value</title>
