@@ -275,12 +275,16 @@ int proxy_set_policy(Proxy *p, SharedPolicy *sp, char **configuration) {
                         return log_error_errno(r, "Couldn't determine bus scope: %m");
 
                 if (streq(scope, "system"))
-                        strv = strv_new("/etc/dbus-1/system.conf",
+                        strv = strv_new("/usr/share/dbus-1/system.conf",
+                                        "/etc/dbus-1/system.conf",
+                                        "/usr/share/dbus-1/system.d/",
                                         "/etc/dbus-1/system.d/",
                                         "/etc/dbus-1/system-local.conf",
                                         NULL);
                 else if (streq(scope, "user"))
-                        strv = strv_new("/etc/dbus-1/session.conf",
+                        strv = strv_new("/usr/share/dbus-1/session.conf",
+                                        "/etc/dbus-1/session.conf",
+                                        "/usr/share/dbus-1/session.d/",
                                         "/etc/dbus-1/session.d/",
                                         "/etc/dbus-1/session-local.conf",
                                         NULL);
