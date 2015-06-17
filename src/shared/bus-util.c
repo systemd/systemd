@@ -545,7 +545,6 @@ int bus_open_system_systemd(sd_bus **_bus) {
          * directly to the system instance, instead of going via the
          * bus */
 
-#ifdef ENABLE_KDBUS
         r = sd_bus_new(&bus);
         if (r < 0)
                 return r;
@@ -564,7 +563,6 @@ int bus_open_system_systemd(sd_bus **_bus) {
         }
 
         bus = sd_bus_unref(bus);
-#endif
 
         r = sd_bus_new(&bus);
         if (r < 0)
@@ -598,7 +596,6 @@ int bus_open_user_systemd(sd_bus **_bus) {
 
         assert(_bus);
 
-#ifdef ENABLE_KDBUS
         r = sd_bus_new(&bus);
         if (r < 0)
                 return r;
@@ -616,7 +613,6 @@ int bus_open_user_systemd(sd_bus **_bus) {
         }
 
         bus = sd_bus_unref(bus);
-#endif
 
         e = secure_getenv("XDG_RUNTIME_DIR");
         if (!e)
@@ -2034,15 +2030,22 @@ int bus_path_decode_unique(const char *path, const char *prefix, char **ret_send
 
 bool is_kdbus_wanted(void) {
         _cleanup_free_ char *value = NULL;
+#ifdef ENABLE_KDBUS
+        const bool configured = true;
+#else
+        const bool configured = false;
+#endif
+
         int r;
 
-        if (get_proc_cmdline_key("kdbus", NULL) <= 0) {
-                r = get_proc_cmdline_key("kdbus=", &value);
-                if (r <= 0 || parse_boolean(value) != 1)
-                        return false;
-        }
+        if (get_proc_cmdline_key("kdbus", NULL) > 0)
+                return true;
 
-        return true;
+        r = get_proc_cmdline_key("kdbus=", &value);
+        if (r <= 0)
+                return configured;
+
+        return parse_boolean(value) == 1;
 }
 
 bool is_kdbus_available(void) {

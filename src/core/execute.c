@@ -1514,7 +1514,6 @@ static int exec_child(
                 }
         }
 
-#ifdef ENABLE_KDBUS
         if (params->bus_endpoint_fd >= 0 && context->bus_endpoint) {
                 uid_t ep_uid = (uid == UID_INVALID) ? 0 : uid;
 
@@ -1524,7 +1523,6 @@ static int exec_child(
                         return r;
                 }
         }
-#endif
 
         /* If delegation is enabled we'll pass ownership of the cgroup
          * (but only in systemd's own controller hierarchy!) to the

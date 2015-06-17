@@ -1052,7 +1052,6 @@ MANPAGES_ALIAS += \
 
 endif
 
-if ENABLE_KDBUS
 MANPAGES += \
 	man/sd_bus_creds_get_pid.3 \
 	man/sd_bus_creds_new_from_pid.3 \
@@ -1490,8 +1489,6 @@ man/sd_event_unref.html: man/sd_event_new.html
 
 man/systemd-bus-proxyd.socket.html: man/systemd-bus-proxyd@.service.html
 	$(html-alias)
-
-endif
 
 if ENABLE_LOCALED
 MANPAGES += \

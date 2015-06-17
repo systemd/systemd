@@ -177,7 +177,6 @@ static int export_legacy_dbus_address(
                 uid_t uid,
                 const char *runtime) {
 
-#ifdef ENABLE_KDBUS
         _cleanup_free_ char *s = NULL;
         int r;
 
@@ -195,7 +194,7 @@ static int export_legacy_dbus_address(
                 pam_syslog(handle, LOG_ERR, "Failed to set bus variable.");
                 return r;
         }
-#endif
+
         return PAM_SUCCESS;
 }
 

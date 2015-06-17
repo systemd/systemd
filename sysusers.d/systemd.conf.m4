@@ -6,9 +6,7 @@
 #  (at your option) any later version.
 
 g systemd-journal   - -
-m4_ifdef(`ENABLE_KDBUS',
 u systemd-bus-proxy - "systemd Bus Proxy"
-)m4_dnl
 m4_ifdef(`ENABLE_NETWORKD',
 u systemd-network   - "systemd Network Management"
 )m4_dnl

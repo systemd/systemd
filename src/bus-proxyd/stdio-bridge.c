@@ -110,11 +110,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (!e)
                                 return log_oom();
 
-#ifdef ENABLE_KDBUS
                         a = strjoin("x-machine-kernel:machine=", e, ";x-machine-unix:machine=", e, NULL);
-#else
-                        a = strjoin("x-machine-unix:machine=", e, NULL);
-#endif
                         if (!a)
                                 return log_oom();
 
