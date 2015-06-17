@@ -36,9 +36,10 @@
 #include "bus-error.h"
 #include "conf-parser.h"
 #include "clean-ipc.h"
-#include "logind-user.h"
 #include "smack-util.h"
 #include "formats-util.h"
+#include "label.h"
+#include "logind-user.h"
 
 User* user_new(Manager *m, uid_t uid, gid_t gid, const char *name) {
         User *u;
@@ -323,7 +324,7 @@ static int user_mkdir_runtime_path(User *u) {
         if (path_is_mount_point(p, 0) <= 0) {
                 _cleanup_free_ char *t = NULL;
 
-                (void) mkdir(p, 0700);
+                (void) mkdir_label(p, 0700);
 
                 if (mac_smack_use())
                         r = asprintf(&t, "mode=0700,smackfsroot=*,uid=" UID_FMT ",gid=" GID_FMT ",size=%zu", u->uid, u->gid, u->manager->runtime_dir_size);
@@ -351,6 +352,10 @@ static int user_mkdir_runtime_path(User *u) {
                                 goto fail;
                         }
                 }
+
+                r = label_fix(p, false, false);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to fix label of '%s', ignoring: %m", p);
         }
 
         u->runtime_path = p;
