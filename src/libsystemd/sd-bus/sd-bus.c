@@ -2952,22 +2952,35 @@ _public_ int sd_bus_add_match(
         s->match_callback.cookie = ++bus->match_cookie;
 
         if (bus->bus_client) {
+                enum bus_match_scope scope;
 
-                if (!bus->is_kernel) {
-                        /* When this is not a kernel transport, we
-                         * store the original match string, so that we
-                         * can use it to remove the match again */
+                scope = bus_match_get_scope(components, n_components);
 
-                        s->match_callback.match_string = strdup(match);
-                        if (!s->match_callback.match_string) {
-                                r = -ENOMEM;
-                                goto finish;
+                /* Do not install server-side matches for matches
+                 * against the local service, interface or bus
+                 * path. Also, when on kdbus don't install driver
+                 * matches server side. */
+                if (scope == BUS_MATCH_GENERIC ||
+                    (!bus->is_kernel && scope == BUS_MATCH_DRIVER)) {
+
+                        if (!bus->is_kernel) {
+                                /* When this is not a kernel transport, we
+                                 * store the original match string, so that we
+                                 * can use it to remove the match again */
+
+                                s->match_callback.match_string = strdup(match);
+                                if (!s->match_callback.match_string) {
+                                        r = -ENOMEM;
+                                        goto finish;
+                                }
                         }
-                }
 
-                r = bus_add_match_internal(bus, s->match_callback.match_string, components, n_components, s->match_callback.cookie);
-                if (r < 0)
-                        goto finish;
+                        r = bus_add_match_internal(bus, s->match_callback.match_string, components, n_components, s->match_callback.cookie);
+                        if (r < 0)
+                                goto finish;
+
+                        s->match_added = true;
+                }
         }
 
         bus->match_callbacks_modified = true;
