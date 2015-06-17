@@ -1239,18 +1239,9 @@ int bus_set_address_user(sd_bus *b) {
                 if (!ee)
                         return -ENOMEM;
 
-#ifdef ENABLE_KDBUS
                 (void) asprintf(&b->address, KERNEL_USER_BUS_ADDRESS_FMT ";" UNIX_USER_BUS_ADDRESS_FMT, getuid(), ee);
-#else
-                (void) asprintf(&b->address, UNIX_USER_BUS_ADDRESS_FMT, ee);
-#endif
-        } else {
-#ifdef ENABLE_KDBUS
+        } else
                 (void) asprintf(&b->address, KERNEL_USER_BUS_ADDRESS_FMT, getuid());
-#else
-                return -ECONNREFUSED;
-#endif
-        }
 
         if (!b->address)
                 return -ENOMEM;
@@ -1372,11 +1363,7 @@ int bus_set_address_system_machine(sd_bus *b, const char *machine) {
         if (!e)
                 return -ENOMEM;
 
-#ifdef ENABLE_KDBUS
         b->address = strjoin("x-machine-kernel:machine=", e, ";x-machine-unix:machine=", e, NULL);
-#else
-        b->address = strjoin("x-machine-unix:machine=", e, NULL);
-#endif
         if (!b->address)
                 return -ENOMEM;
 

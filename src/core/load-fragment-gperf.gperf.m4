@@ -229,9 +229,7 @@ Service.BusName,                 config_parse_bus_name,              0,         
 Service.FileDescriptorStoreMax,  config_parse_unsigned,              0,                             offsetof(Service, n_fd_store_max)
 Service.NotifyAccess,            config_parse_notify_access,         0,                             offsetof(Service, notify_access)
 Service.Sockets,                 config_parse_service_sockets,       0,                             0
-m4_ifdef(`ENABLE_KDBUS',
-`Service.BusPolicy,              config_parse_bus_endpoint_policy,   0,                             offsetof(Service, exec_context)',
-`Service.BusPolicy,              config_parse_warn_compat,           DISABLED_EXPERIMENTAL,         0')
+Service.BusPolicy,               config_parse_bus_endpoint_policy,   0,                             offsetof(Service, exec_context)
 EXEC_CONTEXT_CONFIG_ITEMS(Service)m4_dnl
 CGROUP_CONTEXT_CONFIG_ITEMS(Service)m4_dnl
 KILL_CONTEXT_CONFIG_ITEMS(Service)m4_dnl

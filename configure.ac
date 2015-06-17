@@ -1203,9 +1203,9 @@ AM_CONDITIONAL(ENABLE_TERMINAL, [test "x$have_terminal" = "xyes" -a "x$have_unif
 
 # ------------------------------------------------------------------------------
 have_kdbus=no
-AC_ARG_ENABLE(kdbus, AS_HELP_STRING([--enable-kdbus], [do connect to kdbus by default]))
-if test "x$enable_kdbus" = "xyes"; then
-        AC_DEFINE(ENABLE_KDBUS, 1, [Define if kdbus support is to be enabled])
+AC_ARG_ENABLE(kdbus, AS_HELP_STRING([--disable-kdbus], [do not connect to kdbus by default]))
+if test "x$enable_kdbus" != "xno"; then
+        AC_DEFINE(ENABLE_KDBUS, 1, [Define if kdbus is to be connected to by default])
         have_kdbus=yes
         M4_DEFINES="$M4_DEFINES -DENABLE_KDBUS"
 fi

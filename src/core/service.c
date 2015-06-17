@@ -568,14 +568,12 @@ static int service_add_extras(Service *s) {
                 s->notify_access = NOTIFY_MAIN;
 
         if (s->bus_name) {
-#ifdef ENABLE_KDBUS
                 const char *n;
 
                 n = strjoina(s->bus_name, ".busname");
                 r = unit_add_dependency_by_name(UNIT(s), UNIT_AFTER, n, NULL, true);
                 if (r < 0)
                         return r;
-#endif
 
                 r = unit_watch_bus_name(UNIT(s), s->bus_name);
                 if (r < 0)
@@ -1180,7 +1178,6 @@ static int service_spawn(
         } else
                 path = UNIT(s)->cgroup_path;
 
-#ifdef ENABLE_KDBUS
         if (s->exec_context.bus_endpoint) {
                 r = bus_kernel_create_endpoint(UNIT(s)->manager->running_as == MANAGER_SYSTEM ? "system" : "user",
                                                UNIT(s)->id, &bus_endpoint_path);
@@ -1192,7 +1189,6 @@ static int service_spawn(
                  * as the service is running. */
                 exec_params.bus_endpoint_fd = s->bus_endpoint_fd = r;
         }
-#endif
 
         exec_params.argv = argv;
         exec_params.fds = fds;

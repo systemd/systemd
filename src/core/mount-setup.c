@@ -104,10 +104,8 @@ static const MountPoint mount_table[] = {
         { "efivarfs",    "/sys/firmware/efi/efivars", "efivarfs",   NULL,                      MS_NOSUID|MS_NOEXEC|MS_NODEV,
           is_efi_boot,   MNT_NONE                   },
 #endif
-#ifdef ENABLE_KDBUS
         { "kdbusfs",    "/sys/fs/kdbus",             "kdbusfs",    NULL, MS_NOSUID|MS_NOEXEC|MS_NODEV,
           NULL,       MNT_IN_CONTAINER },
-#endif
 };
 
 /* These are API file systems that might be mounted by other software,

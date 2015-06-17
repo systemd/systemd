@@ -731,7 +731,6 @@ static int manager_setup_notify(Manager *m) {
 }
 
 static int manager_setup_kdbus(Manager *m) {
-#ifdef ENABLE_KDBUS
         _cleanup_free_ char *p = NULL;
 
         assert(m);
@@ -749,7 +748,6 @@ static int manager_setup_kdbus(Manager *m) {
                 return log_debug_errno(m->kdbus_fd, "Failed to set up kdbus: %m");
 
         log_debug("Successfully set up kdbus on %s", p);
-#endif
 
         return 0;
 }

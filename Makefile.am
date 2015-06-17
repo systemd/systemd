@@ -338,10 +338,8 @@ INSTALL_EXEC_HOOKS += \
 	install-aliases-hook \
 	install-touch-usr-hook
 
-if ENABLE_KDBUS
 INSTALL_EXEC_HOOKS += \
 	install-busnames-target-wants-hook
-endif
 
 # ------------------------------------------------------------------------------
 AM_V_M4 = $(AM_V_M4_$(V))
@@ -522,10 +520,8 @@ dist_systemunit_DATA = \
 	units/initrd-switch-root.target \
 	units/machines.target
 
-if ENABLE_KDBUS
 dist_systemunit_DATA += \
 	$(dist_systemunit_DATA_busnames)
-endif
 
 dist_systemunit_DATA_busnames += \
 	units/busnames.target
@@ -2622,7 +2618,6 @@ systemd_gpt_auto_generator_CFLAGS = \
 endif
 
 # ------------------------------------------------------------------------------
-if ENABLE_KDBUS
 systemgenerator_PROGRAMS +=  \
 	systemd-dbus1-generator
 
@@ -2645,7 +2640,6 @@ dist_xinitrc_SCRIPTS = \
 
 INSTALL_EXEC_HOOKS += dbus1-generator-install-hook
 UNINSTALL_EXEC_HOOKS += dbus1-generator-uninstall-hook
-endif
 
 # ------------------------------------------------------------------------------
 systemd_sysv_generator_SOURCES = \
@@ -2793,7 +2787,6 @@ systemd_stdio_bridge_LDADD = \
 	libbus-proxy-core.la \
 	libshared.la
 
-if ENABLE_KDBUS
 nodist_systemunit_DATA += \
 	units/systemd-bus-proxyd.service
 
@@ -2805,7 +2798,6 @@ nodist_userunit_DATA += \
 
 dist_userunit_DATA += \
 	units/user/systemd-bus-proxyd.socket
-endif
 
 EXTRA_DIST += \
 	units/systemd-bus-proxyd.service.m4.in \
@@ -2970,14 +2962,6 @@ pkginclude_HEADERS += \
 	src/systemd/sd-login.h \
 	src/systemd/sd-id128.h \
 	src/systemd/sd-daemon.h
-
-if ENABLE_KDBUS
-pkginclude_HEADERS += \
-	src/systemd/sd-utf8.h \
-	src/systemd/sd-netlink.h \
-	src/systemd/sd-resolve.h \
-	src/systemd/sd-path.h
-endif
 
 lib_LTLIBRARIES += \
 	libsystemd.la
@@ -6174,10 +6158,8 @@ USER_UNIT_ALIASES += \
 	$(systemunitdir)/sound.target sound.target \
 	$(systemunitdir)/smartcard.target smartcard.target
 
-if ENABLE_KDBUS
 USER_UNIT_ALIASES += \
 	$(systemunitdir)/busnames.target busnames.target
-endif
 
 GENERAL_ALIASES += \
 	$(systemunitdir)/remote-fs.target $(pkgsysconfdir)/system/multi-user.target.wants/remote-fs.target \
@@ -6238,7 +6220,6 @@ DISTCHECK_CONFIGURE_FLAGS = \
 	--with-pamlibdir=$$dc_install_base/$(pamlibdir) \
 	--with-pamconfdir=$$dc_install_base/$(pamconfdir) \
 	--with-rootprefix=$$dc_install_base \
-	--enable-kdbus \
 	--enable-compat-libs
 
 if HAVE_SYSV_COMPAT
@@ -6298,11 +6279,6 @@ hwdb-update:
 		http://standards.ieee.org/develop/regauth/oui/oui.txt \
 		http://standards.ieee.org/develop/regauth/iab/iab.txt && \
 	./ids-update.pl )
-
-.PHONY: kdbus-update
-kdbus-update:
-	( cd $(top_srcdir)/src/libsystemd/sd-bus/ && \
-	wget -N https://d-bus.googlecode.com/git/kdbus.h )
 
 .PHONY: git-tag
 git-tag:

@@ -10,13 +10,11 @@ Description=Network Name Resolution
 Documentation=man:systemd-resolved.service(8)
 After=systemd-networkd.service network.target
 
-m4_ifdef(`ENABLE_KDBUS',
 # On kdbus systems we pull in the busname explicitly, because it
 # carries policy that allows the daemon to acquire its name.
 Wants=org.freedesktop.resolve1.busname
 After=org.freedesktop.resolve1.busname
 
-)m4_dnl
 [Service]
 Type=notify
 Restart=always

@@ -17,13 +17,11 @@ Before=network.target multi-user.target shutdown.target
 Conflicts=shutdown.target
 Wants=network.target
 
-m4_ifdef(`ENABLE_KDBUS',
 # On kdbus systems we pull in the busname explicitly, because it
 # carries policy that allows the daemon to acquire its name.
 Wants=org.freedesktop.network1.busname
 After=org.freedesktop.network1.busname
 
-)m4_dnl
 [Service]
 Type=notify
 Restart=on-failure

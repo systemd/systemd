@@ -509,11 +509,7 @@ int bus_machine_method_open_login(sd_bus_message *message, void *userdata, sd_bu
         if (r < 0)
                 return r;
 
-#ifdef ENABLE_KDBUS
 #  define ADDRESS_FMT "x-machine-kernel:pid=%1$" PID_PRI ";x-machine-unix:pid=%1$" PID_PRI
-#else
-#  define ADDRESS_FMT "x-machine-unix:pid=%1$" PID_PRI
-#endif
         if (asprintf(&address, ADDRESS_FMT, m->leader) < 0)
                 return log_oom();
 

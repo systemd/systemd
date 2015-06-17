@@ -24,7 +24,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="systemd-bus-proxyd" conditional="ENABLE_KDBUS"
+<refentry id="systemd-bus-proxyd"
           xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
