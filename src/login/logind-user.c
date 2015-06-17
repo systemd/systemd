@@ -106,16 +106,13 @@ void user_free(User *u) {
         free(u);
 }
 
-int user_save(User *u) {
+static int user_save_internal(User *u) {
         _cleanup_free_ char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
         assert(u);
         assert(u->state_file);
-
-        if (!u->started)
-                return 0;
 
         r = mkdir_safe_label("/run/systemd/users", 0755, 0, 0);
         if (r < 0)
@@ -257,6 +254,15 @@ finish:
                 log_error_errno(r, "Failed to save user data %s: %m", u->state_file);
 
         return r;
+}
+
+int user_save(User *u) {
+        assert(u);
+
+        if (!u->started)
+                return 0;
+
+        return user_save_internal (u);
 }
 
 int user_load(User *u) {
@@ -457,6 +463,12 @@ int user_start(User *u) {
         r = user_start_slice(u);
         if (r < 0)
                 return r;
+
+        /* Save the user data so far, because pam_systemd will read the
+         * XDG_RUNTIME_DIR out of it while starting up systemd --user.
+         * We need to do user_save_internal() because we have not
+         * "officially" started yet. */
+        user_save_internal(u);
 
         /* Spawn user systemd */
         r = user_start_service(u);
@@ -709,7 +721,7 @@ UserState user_get_state(User *u) {
         if (u->stopping)
                 return USER_CLOSING;
 
-        if (u->slice_job || u->service_job)
+        if (!u->started || u->slice_job || u->service_job)
                 return USER_OPENING;
 
         if (u->sessions) {
