@@ -2,14 +2,81 @@ systemd System and Service Manager
 
 CHANGES WITH 221:
 
-        * Support for chkconfig (--enable-chkconfig) was removed in favour of
-          calling an abstraction /lib/systemd/systemd-sysv-install. This needs
-          to be implemented for your distribution. See "SYSV INIT.D SCRIPTS" in
-          README for details.
+        * The sd-bus.h and sd-event.h APIs have now been declared
+          stable and have been added the official interface of
+          libsystemd.so. sd-bus implements an alternative D-Bus client
+          library, that is relatively easy to use, very efficient and
+          supports both classic D-Bus as well as kdbus as transport
+          backend. sd-event is a generic event loop abstraction that
+          is built around Linux epoll, but adds features such as event
+          priorization or efficient timer handling. Both APIs are good
+          choices for C programs looking for a bus and/or event loop
+          implementation that is minimal and does not have to be
+          portable to other kenels.
 
-        Contributions from: ...
+        * kdbus support is no longer compile-time optional. It is now
+          always built-in. However, it can still be disabled at
+          runtime using the kdbus=0 kernel command line setting, and
+          that setting my by changed to default to off, by specifying
+          --disable-kdbus at build-time. Note though that the kernel
+          command line setting has no effect if the kdbus.ko kernel
+          module is not installed, in which case kdbus is (obviously)
+          also disabled. We encourage all downstream distributions to
+          begin testing kdbus by adding it to the kernel images if the
+          development distributions, and leaving kdbus support in
+          systemd enabled.
 
-        -- Berlin, UNRELEASED
+        * The minimal required util-linux version has been bumped to
+          2.26.
+
+        * Support for chkconfig (--enable-chkconfig) was removed in
+          favour of calling an abstraction tool
+          /lib/systemd/systemd-sysv-install. This needs to be
+          implemented for your distribution. See "SYSV INIT.D SCRIPTS"
+          in README for details.
+
+        * If there's a systemd unit and a SysV init script for the
+          same service name, and the user executes "systemctl enable"
+          for it (or a related call), then this will now enable both
+          (or execute the related operation on both), not just the
+          unit.
+
+        * The libudev API documentation has been converted from gtkdoc
+          into man pages.
+
+        * gudev has been removed from the systemd tree, it is now an
+          external project.
+
+        * The systemd-cgtop tool learnt a new --raw switch to generate
+          "raw" (machine parseable) output.
+
+        * networkd's IPForwarding= .network file setting learnt the
+          new setting "kernel", which ensures that networkd does not
+          change the IP forwarding sysctl from the default kernel
+          state.
+
+        * The systemd-logind bus API now exposes a new boolean
+          property "Docked" that reports whether logind considers the
+          system "docked", i.e. connected to a docking station or not.
+
+        Contributions from: Alex Crawford, Andreas Pokorny, Andrei
+        Borzenkov, Charles Duffy, Colin Guthrie, Cristian Rodríguez,
+        Daniele Medri, Daniel Hahler, Daniel Mack, David Herrmann,
+        David Mohr, Dimitri John Ledkov, Djalal Harouni, dslul, Ed
+        Swierk, Eric Cook, Filipe Brandenburger, Gianpaolo Macario,
+        Harald Hoyer, Iago López Galeiras, Igor Vuk, Jan Synacek,
+        Jason Pleau, Jason S. McMullan, Jean Delvare, Jeff Huang,
+        Jonathan Boulle, Karel Zak, Kay Sievers, kloun, Lennart
+        Poettering, Marc-Antoine Perennou, Marcel Holtmann, Mario
+        Limonciello, Martin Pitt, Michael Biebl, Michael Olbrich,
+        Michal Schmidt, Mike Gilbert, Nick Owens, Pablo Lezaeta Reyes,
+        Patrick Donnelly, Peter Hutterer, Philip Withnall, Ronny
+        Chevalier, Simon McVittie, Susant Sahani, Thomas Hindoe
+        Paaboel Andersen, Tom Gundersen, Torstein Husebø, Umut
+        Tezduyar Lindskog, Viktar Vauchkevich, Werner Fink, Zbigniew
+        Jędrzejewski-Szmek
+
+        -- Berlin, 2015-05-XX
 
 CHANGES WITH 220:
 
