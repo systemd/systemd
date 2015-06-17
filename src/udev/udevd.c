@@ -43,6 +43,7 @@
 #include "sd-daemon.h"
 #include "sd-event.h"
 
+#include "terminal-util.h"
 #include "signal-util.h"
 #include "event-util.h"
 #include "netlink-util.h"
@@ -1686,6 +1687,10 @@ int main(int argc, char *argv[]) {
                 pid_t pid;
 
                 log_info("starting version " VERSION);
+
+                /* connect /dev/null to stdin, stdout, stderr */
+                if (log_get_max_level() < LOG_DEBUG)
+                        (void) make_null_stdio();
 
                 pid = fork();
                 switch (pid) {
