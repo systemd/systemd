@@ -3431,7 +3431,7 @@ static int open_follow(char **filename, FILE **_f, Set *names, char **_final) {
                 *filename = target;
         }
 
-        f = fdopen(fd, "re");
+        f = fdopen(fd, "rem");
         if (!f) {
                 safe_close(fd);
                 return -errno;
