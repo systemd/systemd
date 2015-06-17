@@ -928,6 +928,8 @@ static int client_initialize_time_events(sd_dhcp_client *client) {
 
         r = sd_event_source_set_priority(client->timeout_resend,
                                          client->event_priority);
+        if (r < 0)
+                goto error;
 
         r = sd_event_source_set_description(client->timeout_resend, "dhcp4-resend-timer");
         if (r < 0)
