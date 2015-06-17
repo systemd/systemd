@@ -231,12 +231,13 @@
         eighth of the values configured with
         <varname>SystemMaxUse=</varname> and
         <varname>RuntimeMaxUse=</varname>, so that usually seven
-        rotated journal files are kept as history. Specify values in
-        bytes or use K, M, G, T, P, E as units for the specified sizes
-        (equal to 1024, 1024²,... bytes).  Note that size limits are
-        enforced synchronously when journal files are extended, and no
-        explicit rotation step triggered by time is
-        needed.</para></listitem>
+        rotated journal files are kept as history.</para></listitem>
+
+        <para>Specify values in bytes or use K, M, G, T, P, E as
+        units for the specified sizes (equal to 1024, 1024²,... bytes).
+        Note that size limits are enforced synchronously when journal
+        files are extended, and no explicit rotation step triggered by
+        time is needed.</para>
       </varlistentry>
 
       <varlistentry>
