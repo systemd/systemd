@@ -3,7 +3,7 @@ systemd System and Service Manager
 CHANGES WITH 221:
 
         * The sd-bus.h and sd-event.h APIs have now been declared
-          stable and have been added the official interface of
+          stable and have been added to the official interface of
           libsystemd.so. sd-bus implements an alternative D-Bus client
           library, that is relatively easy to use, very efficient and
           supports both classic D-Bus as well as kdbus as transport
@@ -12,7 +12,7 @@ CHANGES WITH 221:
           priorization or efficient timer handling. Both APIs are good
           choices for C programs looking for a bus and/or event loop
           implementation that is minimal and does not have to be
-          portable to other kenels.
+          portable to other kernels.
 
         * kdbus support is no longer compile-time optional. It is now
           always built-in. However, it can still be disabled at
