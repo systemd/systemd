@@ -771,7 +771,7 @@ static int setup_pam(
         };
 
         pam_handle_t *handle = NULL;
-        sigset_t ss, old_ss;
+        sigset_t old_ss;
         int pam_code = PAM_SUCCESS;
         int err;
         char **e = NULL;
@@ -868,6 +868,11 @@ static int setup_pam(
                 /* Check if our parent process might already have
                  * died? */
                 if (getppid() == parent_pid) {
+                        sigset_t ss;
+
+                        assert_se(sigemptyset(&ss) >= 0);
+                        assert_se(sigaddset(&ss, SIGTERM) >= 0);
+
                         for (;;) {
                                 if (sigwait(&ss, &sig) < 0) {
                                         if (errno == EINTR)
