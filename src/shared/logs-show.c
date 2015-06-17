@@ -274,8 +274,10 @@ static int output_short(
         if (r < 0)
                 return log_error_errno(r, "Failed to get journal fields: %m");
 
-        if (!message)
+        if (!message) {
+                log_debug("Skipping message without MESSAGE= field.");
                 return 0;
+        }
 
         if (!(flags & OUTPUT_SHOW_ALL))
                 strip_tab_ansi(&message, &message_len);
