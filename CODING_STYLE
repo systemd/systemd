@@ -210,11 +210,12 @@
   c) recvmsg() must get MSG_CMSG_CLOEXEC set
   d) F_DUPFD_CLOEXEC should be used instead of F_DUPFD, and so on
 
-- We never use the XDG version of basename(). glibc defines it in
-  libgen.h. The only reason to include that file is because dirname()
+- We never use the POSIX version of basename() (which glibc defines it in
+  libgen.h), only the GNU version (which glibc defines in string.h).
+  The only reason to include libgen.h is because dirname()
   is needed. Everytime you need that please immediately undefine
   basename(), and add a comment about it, so that no code ever ends up
-  using the XDG version!
+  using the POSIX version!
 
 - Use the bool type for booleans, not integers. One exception: in public
   headers (i.e those in src/systemd/sd-*.h) use integers after all, as "bool"
