@@ -468,24 +468,22 @@ static bool event_pid_changed(sd_event *e) {
         return e->original_pid != getpid();
 }
 
-static int source_io_unregister(sd_event_source *s) {
+static void source_io_unregister(sd_event_source *s) {
         int r;
 
         assert(s);
         assert(s->type == SOURCE_IO);
 
         if (event_pid_changed(s->event))
-                return 0;
+                return;
 
         if (!s->io.registered)
-                return 0;
+                return;
 
         r = epoll_ctl(s->event->epoll_fd, EPOLL_CTL_DEL, s->io.fd, NULL);
-        if (r < 0)
-                return -errno;
+        assert_log(r >= 0);
 
         s->io.registered = false;
-        return 0;
 }
 
 static int source_io_register(
@@ -1457,10 +1455,7 @@ _public_ int sd_event_source_set_enabled(sd_event_source *s, int m) {
                 switch (s->type) {
 
                 case SOURCE_IO:
-                        r = source_io_unregister(s);
-                        if (r < 0)
-                                return r;
-
+                        source_io_unregister(s);
                         s->enabled = m;
                         break;
 
