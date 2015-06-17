@@ -436,7 +436,6 @@ static void worker_spawn(Manager *manager, struct event *event) {
                                         if (fd_lock >= 0 && flock(fd_lock, LOCK_SH|LOCK_NB) < 0) {
                                                 log_debug_errno(errno, "Unable to flock(%s), skipping event handling: %m", udev_device_get_devnode(d));
                                                 fd_lock = safe_close(fd_lock);
-                                                r = -EAGAIN;
                                                 goto skip;
                                         }
                                 }
