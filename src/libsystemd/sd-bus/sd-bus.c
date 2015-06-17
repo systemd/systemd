@@ -2945,10 +2945,8 @@ _public_ int sd_bus_add_match(
 
                 /* Do not install server-side matches for matches
                  * against the local service, interface or bus
-                 * path. Also, when on kdbus don't install driver
-                 * matches server side. */
-                if (scope == BUS_MATCH_GENERIC ||
-                    (!bus->is_kernel && scope == BUS_MATCH_DRIVER)) {
+                 * path. */
+                if (scope != BUS_MATCH_LOCAL) {
 
                         if (!bus->is_kernel) {
                                 /* When this is not a kernel transport, we
