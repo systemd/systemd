@@ -24,7 +24,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="sd_event_add_time" conditional="ENABLE_KDBUS">
+<refentry id="sd_event_add_time">
 
   <refentryinfo>
     <title>sd_event_add_time</title>

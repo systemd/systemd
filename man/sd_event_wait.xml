@@ -24,7 +24,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="sd_event_wait" conditional="ENABLE_KDBUS">
+<refentry id="sd_event_wait">
 
   <refentryinfo>
     <title>sd_event_wait</title>
