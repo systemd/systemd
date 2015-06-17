@@ -3460,10 +3460,6 @@ libudev_la_SOURCES =\
 	src/libudev/libudev-queue.c \
 	src/libudev/libudev-hwdb.c
 
-libudev_la_CFLAGS = \
-	$(AM_CFLAGS) \
-	-fvisibility=hidden
-
 libudev_la_LDFLAGS = \
 	$(AM_LDFLAGS) \
 	-version-info $(LIBUDEV_CURRENT):$(LIBUDEV_REVISION):$(LIBUDEV_AGE) \
@@ -3494,10 +3490,6 @@ noinst_LTLIBRARIES += \
 
 libudev_internal_la_SOURCES =\
 	$(libudev_la_SOURCES)
-
-libudev_internal_la_CFLAGS = \
-	$(AM_CFLAGS) \
-	-fvisibility=default
 
 # ------------------------------------------------------------------------------
 INSTALL_DIRS += \
@@ -5539,8 +5531,7 @@ pam_systemd_la_SOURCES = \
 
 pam_systemd_la_CFLAGS = \
 	$(AM_CFLAGS) \
-	$(PAM_CFLAGS) \
-	-fvisibility=hidden
+	$(PAM_CFLAGS)
 
 pam_systemd_la_LDFLAGS = \
 	$(AM_LDFLAGS) \
