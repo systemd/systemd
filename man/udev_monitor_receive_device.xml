@@ -1,0 +1,137 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
+<!ENTITY % entities SYSTEM "custom-entities.ent" >
+%entities;
+]>
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2015 David Herrmann <dh.herrmann@gmail.com>
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="udev_monitor_receive_device"
+  xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>udev_monitor_receive_device</title>
+    <productname>systemd</productname>
+
+    <authorgroup>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>David</firstname>
+        <surname>Herrmann</surname>
+        <email>dh.herrmann@gmail.com</email>
+      </author>
+    </authorgroup>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>udev_monitor_receive_device</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>udev_monitor_receive_device</refname>
+    <refname>udev_monitor_enable_receiving</refname>
+    <refname>udev_monitor_set_receive_buffer_size</refname>
+    <refname>udev_monitor_get_fd</refname>
+    <refname>udev_monitor_get_udev</refname>
+
+    <refpurpose>Query and modify device monitor</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;libudev.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>struct udev_device *<function>udev_monitor_receive_device</function></funcdef>
+        <paramdef>struct udev_monitor *<parameter>udev_monitor</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>udev_monitor_enable_receiving</function></funcdef>
+        <paramdef>struct udev_monitor *<parameter>udev_monitor</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>udev_monitor_set_receive_buffer_size</function></funcdef>
+        <paramdef>struct udev_monitor *<parameter>udev_monitor</parameter></paramdef>
+        <paramdef>int <parameter>size</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>udev_monitor_get_fd</function></funcdef>
+        <paramdef>struct udev_monitor *<parameter>udev_monitor</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>struct udev *<function>udev_monitor_get_udev</function></funcdef>
+        <paramdef>struct udev_monitor *<parameter>udev_monitor</parameter></paramdef>
+      </funcprototype>
+
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <!--<refsect1>
+    <title>Description</title>
+
+    <para>XXX: Add short description.</para>
+  </refsect1>-->
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success,
+    <function>udev_monitor_receive_device()</function> returns a
+    pointer to a newly referenced device that was received via the
+    monitor. The caller is responsible to drop this reference when
+    done. On failure, <constant>NULL</constant> is returned.</para>
+
+    <para>On success,
+    <function>udev_monitor_enable_receiving()</function> and
+    <function>udev_monitor_set_receive_buffer_size()</function>
+    return an integer greater than, or equal to,
+    <constant>0</constant>. On failure, a negative error code is
+    returned.</para>
+
+    <para>On success, <function>udev_monitor_get_fd()</function>
+    returns the file descriptor used by this monitor. On failure,
+    a negative error code is returned.</para>
+
+    <para><function>udev_monitor_get_udev()</function> always returns
+    a pointer to the udev context that this monitor is associated
+    with.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para>
+      <citerefentry><refentrytitle>udev_new</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>udev_device_new_from_syspath</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>udev_enumerate_new</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>udev_monitor_new_from_netlink</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>udev_monitor_filter_update</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>udev_list_entry</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+    </para>
+  </refsect1>
+
+</refentry>

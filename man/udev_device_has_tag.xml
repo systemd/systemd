@@ -1,0 +1,163 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
+<!ENTITY % entities SYSTEM "custom-entities.ent" >
+%entities;
+]>
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2015 David Herrmann <dh.herrmann@gmail.com>
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="udev_device_has_tag"
+  xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>udev_device_has_tag</title>
+    <productname>systemd</productname>
+
+    <authorgroup>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>David</firstname>
+        <surname>Herrmann</surname>
+        <email>dh.herrmann@gmail.com</email>
+      </author>
+    </authorgroup>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>udev_device_has_tag</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>udev_device_has_tag</refname>
+    <refname>udev_device_get_devlinks_list_entry</refname>
+    <refname>udev_device_get_properties_list_entry</refname>
+    <refname>udev_device_get_tags_list_entry</refname>
+    <refname>udev_device_get_sysattr_list_entry</refname>
+    <refname>udev_device_get_property_value</refname>
+    <refname>udev_device_get_sysattr_value</refname>
+    <refname>udev_device_set_sysattr_value</refname>
+
+    <refpurpose>Retrieve or set device attributes</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;libudev.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>struct udev_list_entry *<function>udev_device_get_devlinks_list_entry</function></funcdef>
+        <paramdef>struct udev_device *<parameter>udev_device</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>struct udev_list_entry *<function>udev_device_get_properties_list_entry</function></funcdef>
+        <paramdef>struct udev_device *<parameter>udev_device</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>struct udev_list_entry *<function>udev_device_get_tags_list_entry</function></funcdef>
+        <paramdef>struct udev_device *<parameter>udev_device</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>struct udev_list_entry *<function>udev_device_get_sysattr_list_entry</function></funcdef>
+        <paramdef>struct udev_device *<parameter>udev_device</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>const char *<function>udev_device_get_property_value</function></funcdef>
+        <paramdef>struct udev_device *<parameter>udev_device</parameter></paramdef>
+        <paramdef>const char *<parameter>key</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>udev_device_has_tag</function></funcdef>
+        <paramdef>struct udev_device *<parameter>udev_device</parameter></paramdef>
+        <paramdef>const char *<parameter>tag</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>const char *<function>udev_device_get_sysattr_value</function></funcdef>
+        <paramdef>struct udev_device *<parameter>udev_device</parameter></paramdef>
+        <paramdef>const char *<parameter>sysattr</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>udev_device_set_sysattr_value</function></funcdef>
+        <paramdef>struct udev_device *<parameter>udev_device</parameter></paramdef>
+        <paramdef>const char *<parameter>sysattr</parameter></paramdef>
+        <paramdef>const char *<parameter>value</parameter></paramdef>
+      </funcprototype>
+
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <!--<refsect1>
+    <title>Description</title>
+
+    <para>XXX: Add short description.</para>
+  </refsect1>-->
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success,
+    <function>udev_device_get_devlinks_list_entry()</function>,
+    <function>udev_device_get_properties_list_entry()</function>,
+    <function>udev_device_get_tags_list_entry()</function> and
+    <function>udev_device_get_sysattr_list_entry()</function> return
+    a pointer to the first entry of the retrieved list. If that list
+    is empty, or if an error occurred, <constant>NULL</constant> is
+    returned.</para>
+
+    <para>On success,
+    <function>udev_device_get_property_value()</function> and
+    <function>udev_device_get_sysattr_value()</function> return a
+    pointer to a constant string of the requested value. On error,
+    <constant>NULL</constant> is returned.</para>
+
+    <para>On success,
+    <function>udev_device_set_sysattr_value()</function> returns
+    an integer greater than, or equal to, <constant>0</constant>.
+    On failure, a negative error code is returned.</para>
+
+    <para>On success, <function>udev_device_has_tag()</function>
+    returns <constant>1</constant> or <constant>0</constant>,
+    depending on whether the device has the given tag or not.
+    On failure, a negative error code is returned.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para>
+      <citerefentry><refentrytitle>udev_new</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>udev_device_new_from_syspath</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>udev_device_get_syspath</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>udev_enumerate_new</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>udev_monitor_new_from_netlink</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>udev_list_entry</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+    </para>
+  </refsect1>
+
+</refentry>

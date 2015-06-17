@@ -18,6 +18,7 @@ MANPAGES += \
 	man/journald.conf.5 \
 	man/kernel-command-line.7 \
 	man/kernel-install.8 \
+	man/libudev.3 \
 	man/locale.conf.5 \
 	man/localtime.5 \
 	man/machine-id.5 \
@@ -122,6 +123,17 @@ MANPAGES += \
 	man/tmpfiles.d.5 \
 	man/udev.7 \
 	man/udev.conf.5 \
+	man/udev_device_get_syspath.3 \
+	man/udev_device_has_tag.3 \
+	man/udev_device_new_from_syspath.3 \
+	man/udev_enumerate_add_match_subsystem.3 \
+	man/udev_enumerate_new.3 \
+	man/udev_enumerate_scan_devices.3 \
+	man/udev_list_entry.3 \
+	man/udev_monitor_filter_update.3 \
+	man/udev_monitor_new_from_netlink.3 \
+	man/udev_monitor_receive_device.3 \
+	man/udev_new.3 \
 	man/udevadm.8
 MANPAGES_ALIAS += \
 	man/SD_ALERT.3 \
@@ -233,6 +245,61 @@ MANPAGES_ALIAS += \
 	man/systemd-udevd.8 \
 	man/systemd-update-done.8 \
 	man/systemd-user.conf.5 \
+	man/udev_device_get_action.3 \
+	man/udev_device_get_devlinks_list_entry.3 \
+	man/udev_device_get_devnode.3 \
+	man/udev_device_get_devnum.3 \
+	man/udev_device_get_devpath.3 \
+	man/udev_device_get_devtype.3 \
+	man/udev_device_get_driver.3 \
+	man/udev_device_get_is_initialized.3 \
+	man/udev_device_get_parent.3 \
+	man/udev_device_get_parent_with_subsystem_devtype.3 \
+	man/udev_device_get_properties_list_entry.3 \
+	man/udev_device_get_property_value.3 \
+	man/udev_device_get_subsystem.3 \
+	man/udev_device_get_sysattr_list_entry.3 \
+	man/udev_device_get_sysattr_value.3 \
+	man/udev_device_get_sysname.3 \
+	man/udev_device_get_sysnum.3 \
+	man/udev_device_get_tags_list_entry.3 \
+	man/udev_device_get_udev.3 \
+	man/udev_device_new_from_device_id.3 \
+	man/udev_device_new_from_devnum.3 \
+	man/udev_device_new_from_environment.3 \
+	man/udev_device_new_from_subsystem_sysname.3 \
+	man/udev_device_ref.3 \
+	man/udev_device_set_sysattr_value.3 \
+	man/udev_device_unref.3 \
+	man/udev_enumerate_add_match_is_initialized.3 \
+	man/udev_enumerate_add_match_parent.3 \
+	man/udev_enumerate_add_match_property.3 \
+	man/udev_enumerate_add_match_sysattr.3 \
+	man/udev_enumerate_add_match_sysname.3 \
+	man/udev_enumerate_add_match_tag.3 \
+	man/udev_enumerate_add_nomatch_subsystem.3 \
+	man/udev_enumerate_add_nomatch_sysattr.3 \
+	man/udev_enumerate_add_syspath.3 \
+	man/udev_enumerate_get_list_entry.3 \
+	man/udev_enumerate_get_udev.3 \
+	man/udev_enumerate_ref.3 \
+	man/udev_enumerate_scan_subsystems.3 \
+	man/udev_enumerate_unref.3 \
+	man/udev_list_entry_get_by_name.3 \
+	man/udev_list_entry_get_name.3 \
+	man/udev_list_entry_get_next.3 \
+	man/udev_list_entry_get_value.3 \
+	man/udev_monitor_enable_receiving.3 \
+	man/udev_monitor_filter_add_match_subsystem_devtype.3 \
+	man/udev_monitor_filter_add_match_tag.3 \
+	man/udev_monitor_filter_remove.3 \
+	man/udev_monitor_get_fd.3 \
+	man/udev_monitor_get_udev.3 \
+	man/udev_monitor_ref.3 \
+	man/udev_monitor_set_receive_buffer_size.3 \
+	man/udev_monitor_unref.3 \
+	man/udev_ref.3 \
+	man/udev_unref.3 \
 	man/user.conf.d.5
 man/SD_ALERT.3: man/sd-daemon.3
 man/SD_CRIT.3: man/sd-daemon.3
@@ -343,6 +410,61 @@ man/systemd-udevd-kernel.socket.8: man/systemd-udevd.service.8
 man/systemd-udevd.8: man/systemd-udevd.service.8
 man/systemd-update-done.8: man/systemd-update-done.service.8
 man/systemd-user.conf.5: man/systemd-system.conf.5
+man/udev_device_get_action.3: man/udev_device_get_syspath.3
+man/udev_device_get_devlinks_list_entry.3: man/udev_device_has_tag.3
+man/udev_device_get_devnode.3: man/udev_device_get_syspath.3
+man/udev_device_get_devnum.3: man/udev_device_get_syspath.3
+man/udev_device_get_devpath.3: man/udev_device_get_syspath.3
+man/udev_device_get_devtype.3: man/udev_device_get_syspath.3
+man/udev_device_get_driver.3: man/udev_device_get_syspath.3
+man/udev_device_get_is_initialized.3: man/udev_device_get_syspath.3
+man/udev_device_get_parent.3: man/udev_device_get_syspath.3
+man/udev_device_get_parent_with_subsystem_devtype.3: man/udev_device_get_syspath.3
+man/udev_device_get_properties_list_entry.3: man/udev_device_has_tag.3
+man/udev_device_get_property_value.3: man/udev_device_has_tag.3
+man/udev_device_get_subsystem.3: man/udev_device_get_syspath.3
+man/udev_device_get_sysattr_list_entry.3: man/udev_device_has_tag.3
+man/udev_device_get_sysattr_value.3: man/udev_device_has_tag.3
+man/udev_device_get_sysname.3: man/udev_device_get_syspath.3
+man/udev_device_get_sysnum.3: man/udev_device_get_syspath.3
+man/udev_device_get_tags_list_entry.3: man/udev_device_has_tag.3
+man/udev_device_get_udev.3: man/udev_device_get_syspath.3
+man/udev_device_new_from_device_id.3: man/udev_device_new_from_syspath.3
+man/udev_device_new_from_devnum.3: man/udev_device_new_from_syspath.3
+man/udev_device_new_from_environment.3: man/udev_device_new_from_syspath.3
+man/udev_device_new_from_subsystem_sysname.3: man/udev_device_new_from_syspath.3
+man/udev_device_ref.3: man/udev_device_new_from_syspath.3
+man/udev_device_set_sysattr_value.3: man/udev_device_has_tag.3
+man/udev_device_unref.3: man/udev_device_new_from_syspath.3
+man/udev_enumerate_add_match_is_initialized.3: man/udev_enumerate_add_match_subsystem.3
+man/udev_enumerate_add_match_parent.3: man/udev_enumerate_add_match_subsystem.3
+man/udev_enumerate_add_match_property.3: man/udev_enumerate_add_match_subsystem.3
+man/udev_enumerate_add_match_sysattr.3: man/udev_enumerate_add_match_subsystem.3
+man/udev_enumerate_add_match_sysname.3: man/udev_enumerate_add_match_subsystem.3
+man/udev_enumerate_add_match_tag.3: man/udev_enumerate_add_match_subsystem.3
+man/udev_enumerate_add_nomatch_subsystem.3: man/udev_enumerate_add_match_subsystem.3
+man/udev_enumerate_add_nomatch_sysattr.3: man/udev_enumerate_add_match_subsystem.3
+man/udev_enumerate_add_syspath.3: man/udev_enumerate_scan_devices.3
+man/udev_enumerate_get_list_entry.3: man/udev_enumerate_scan_devices.3
+man/udev_enumerate_get_udev.3: man/udev_enumerate_scan_devices.3
+man/udev_enumerate_ref.3: man/udev_enumerate_new.3
+man/udev_enumerate_scan_subsystems.3: man/udev_enumerate_scan_devices.3
+man/udev_enumerate_unref.3: man/udev_enumerate_new.3
+man/udev_list_entry_get_by_name.3: man/udev_list_entry.3
+man/udev_list_entry_get_name.3: man/udev_list_entry.3
+man/udev_list_entry_get_next.3: man/udev_list_entry.3
+man/udev_list_entry_get_value.3: man/udev_list_entry.3
+man/udev_monitor_enable_receiving.3: man/udev_monitor_receive_device.3
+man/udev_monitor_filter_add_match_subsystem_devtype.3: man/udev_monitor_filter_update.3
+man/udev_monitor_filter_add_match_tag.3: man/udev_monitor_filter_update.3
+man/udev_monitor_filter_remove.3: man/udev_monitor_filter_update.3
+man/udev_monitor_get_fd.3: man/udev_monitor_receive_device.3
+man/udev_monitor_get_udev.3: man/udev_monitor_receive_device.3
+man/udev_monitor_ref.3: man/udev_monitor_new_from_netlink.3
+man/udev_monitor_set_receive_buffer_size.3: man/udev_monitor_receive_device.3
+man/udev_monitor_unref.3: man/udev_monitor_new_from_netlink.3
+man/udev_ref.3: man/udev_new.3
+man/udev_unref.3: man/udev_new.3
 man/user.conf.d.5: man/systemd-system.conf.5
 man/SD_ALERT.html: man/sd-daemon.html
 	$(html-alias)
@@ -669,6 +791,171 @@ man/systemd-update-done.html: man/systemd-update-done.service.html
 	$(html-alias)
 
 man/systemd-user.conf.html: man/systemd-system.conf.html
+	$(html-alias)
+
+man/udev_device_get_action.html: man/udev_device_get_syspath.html
+	$(html-alias)
+
+man/udev_device_get_devlinks_list_entry.html: man/udev_device_has_tag.html
+	$(html-alias)
+
+man/udev_device_get_devnode.html: man/udev_device_get_syspath.html
+	$(html-alias)
+
+man/udev_device_get_devnum.html: man/udev_device_get_syspath.html
+	$(html-alias)
+
+man/udev_device_get_devpath.html: man/udev_device_get_syspath.html
+	$(html-alias)
+
+man/udev_device_get_devtype.html: man/udev_device_get_syspath.html
+	$(html-alias)
+
+man/udev_device_get_driver.html: man/udev_device_get_syspath.html
+	$(html-alias)
+
+man/udev_device_get_is_initialized.html: man/udev_device_get_syspath.html
+	$(html-alias)
+
+man/udev_device_get_parent.html: man/udev_device_get_syspath.html
+	$(html-alias)
+
+man/udev_device_get_parent_with_subsystem_devtype.html: man/udev_device_get_syspath.html
+	$(html-alias)
+
+man/udev_device_get_properties_list_entry.html: man/udev_device_has_tag.html
+	$(html-alias)
+
+man/udev_device_get_property_value.html: man/udev_device_has_tag.html
+	$(html-alias)
+
+man/udev_device_get_subsystem.html: man/udev_device_get_syspath.html
+	$(html-alias)
+
+man/udev_device_get_sysattr_list_entry.html: man/udev_device_has_tag.html
+	$(html-alias)
+
+man/udev_device_get_sysattr_value.html: man/udev_device_has_tag.html
+	$(html-alias)
+
+man/udev_device_get_sysname.html: man/udev_device_get_syspath.html
+	$(html-alias)
+
+man/udev_device_get_sysnum.html: man/udev_device_get_syspath.html
+	$(html-alias)
+
+man/udev_device_get_tags_list_entry.html: man/udev_device_has_tag.html
+	$(html-alias)
+
+man/udev_device_get_udev.html: man/udev_device_get_syspath.html
+	$(html-alias)
+
+man/udev_device_new_from_device_id.html: man/udev_device_new_from_syspath.html
+	$(html-alias)
+
+man/udev_device_new_from_devnum.html: man/udev_device_new_from_syspath.html
+	$(html-alias)
+
+man/udev_device_new_from_environment.html: man/udev_device_new_from_syspath.html
+	$(html-alias)
+
+man/udev_device_new_from_subsystem_sysname.html: man/udev_device_new_from_syspath.html
+	$(html-alias)
+
+man/udev_device_ref.html: man/udev_device_new_from_syspath.html
+	$(html-alias)
+
+man/udev_device_set_sysattr_value.html: man/udev_device_has_tag.html
+	$(html-alias)
+
+man/udev_device_unref.html: man/udev_device_new_from_syspath.html
+	$(html-alias)
+
+man/udev_enumerate_add_match_is_initialized.html: man/udev_enumerate_add_match_subsystem.html
+	$(html-alias)
+
+man/udev_enumerate_add_match_parent.html: man/udev_enumerate_add_match_subsystem.html
+	$(html-alias)
+
+man/udev_enumerate_add_match_property.html: man/udev_enumerate_add_match_subsystem.html
+	$(html-alias)
+
+man/udev_enumerate_add_match_sysattr.html: man/udev_enumerate_add_match_subsystem.html
+	$(html-alias)
+
+man/udev_enumerate_add_match_sysname.html: man/udev_enumerate_add_match_subsystem.html
+	$(html-alias)
+
+man/udev_enumerate_add_match_tag.html: man/udev_enumerate_add_match_subsystem.html
+	$(html-alias)
+
+man/udev_enumerate_add_nomatch_subsystem.html: man/udev_enumerate_add_match_subsystem.html
+	$(html-alias)
+
+man/udev_enumerate_add_nomatch_sysattr.html: man/udev_enumerate_add_match_subsystem.html
+	$(html-alias)
+
+man/udev_enumerate_add_syspath.html: man/udev_enumerate_scan_devices.html
+	$(html-alias)
+
+man/udev_enumerate_get_list_entry.html: man/udev_enumerate_scan_devices.html
+	$(html-alias)
+
+man/udev_enumerate_get_udev.html: man/udev_enumerate_scan_devices.html
+	$(html-alias)
+
+man/udev_enumerate_ref.html: man/udev_enumerate_new.html
+	$(html-alias)
+
+man/udev_enumerate_scan_subsystems.html: man/udev_enumerate_scan_devices.html
+	$(html-alias)
+
+man/udev_enumerate_unref.html: man/udev_enumerate_new.html
+	$(html-alias)
+
+man/udev_list_entry_get_by_name.html: man/udev_list_entry.html
+	$(html-alias)
+
+man/udev_list_entry_get_name.html: man/udev_list_entry.html
+	$(html-alias)
+
+man/udev_list_entry_get_next.html: man/udev_list_entry.html
+	$(html-alias)
+
+man/udev_list_entry_get_value.html: man/udev_list_entry.html
+	$(html-alias)
+
+man/udev_monitor_enable_receiving.html: man/udev_monitor_receive_device.html
+	$(html-alias)
+
+man/udev_monitor_filter_add_match_subsystem_devtype.html: man/udev_monitor_filter_update.html
+	$(html-alias)
+
+man/udev_monitor_filter_add_match_tag.html: man/udev_monitor_filter_update.html
+	$(html-alias)
+
+man/udev_monitor_filter_remove.html: man/udev_monitor_filter_update.html
+	$(html-alias)
+
+man/udev_monitor_get_fd.html: man/udev_monitor_receive_device.html
+	$(html-alias)
+
+man/udev_monitor_get_udev.html: man/udev_monitor_receive_device.html
+	$(html-alias)
+
+man/udev_monitor_ref.html: man/udev_monitor_new_from_netlink.html
+	$(html-alias)
+
+man/udev_monitor_set_receive_buffer_size.html: man/udev_monitor_receive_device.html
+	$(html-alias)
+
+man/udev_monitor_unref.html: man/udev_monitor_new_from_netlink.html
+	$(html-alias)
+
+man/udev_ref.html: man/udev_new.html
+	$(html-alias)
+
+man/udev_unref.html: man/udev_new.html
 	$(html-alias)
 
 man/user.conf.d.html: man/systemd-system.conf.html
@@ -1708,6 +1995,7 @@ EXTRA_DIST += \
 	man/kernel-install.xml \
 	man/less-variables.xml \
 	man/libsystemd-pkgconfig.xml \
+	man/libudev.xml \
 	man/locale.conf.xml \
 	man/localectl.xml \
 	man/localtime.xml \
@@ -1891,6 +2179,17 @@ EXTRA_DIST += \
 	man/tmpfiles.d.xml \
 	man/udev.conf.xml \
 	man/udev.xml \
+	man/udev_device_get_syspath.xml \
+	man/udev_device_has_tag.xml \
+	man/udev_device_new_from_syspath.xml \
+	man/udev_enumerate_add_match_subsystem.xml \
+	man/udev_enumerate_new.xml \
+	man/udev_enumerate_scan_devices.xml \
+	man/udev_list_entry.xml \
+	man/udev_monitor_filter_update.xml \
+	man/udev_monitor_new_from_netlink.xml \
+	man/udev_monitor_receive_device.xml \
+	man/udev_new.xml \
 	man/udevadm.xml \
 	man/user-system-options.xml \
 	man/vconsole.conf.xml
