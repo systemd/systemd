@@ -24,7 +24,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="sd_bus_message_append" conditional="ENABLE_KDBUS"
+<refentry id="sd_bus_message_append"
           xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>

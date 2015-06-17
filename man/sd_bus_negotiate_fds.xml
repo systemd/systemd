@@ -24,7 +24,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="sd_bus_negotiate_fds" conditional="ENABLE_KDBUS">
+<refentry id="sd_bus_negotiate_fds">
 
   <refentryinfo>
     <title>sd_bus_negotiate_fds</title>
