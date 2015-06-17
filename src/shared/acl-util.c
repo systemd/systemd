@@ -223,7 +223,7 @@ int acl_search_groups(const char *path, char ***ret_groups) {
         return ret;
 }
 
-int parse_acl(char *text, acl_t *acl_access, acl_t *acl_default, bool want_mask) {
+int parse_acl(const char *text, acl_t *acl_access, acl_t *acl_default, bool want_mask) {
         _cleanup_free_ char **a = NULL, **d = NULL; /* strings are not be freed */
         _cleanup_strv_free_ char **split;
         char **entry;
@@ -232,7 +232,7 @@ int parse_acl(char *text, acl_t *acl_access, acl_t *acl_default, bool want_mask)
 
         split = strv_split(text, ",");
         if (!split)
-                return log_oom();
+                return -ENOMEM;
 
         STRV_FOREACH(entry, split) {
                 char *p;
@@ -245,9 +245,9 @@ int parse_acl(char *text, acl_t *acl_access, acl_t *acl_default, bool want_mask)
                         r = strv_push(&d, p);
                 else
                         r = strv_push(&a, *entry);
+                if (r < 0)
+                        return r;
         }
-        if (r < 0)
-                return r;
 
         if (!strv_isempty(a)) {
                 _cleanup_free_ char *join;
@@ -258,7 +258,7 @@ int parse_acl(char *text, acl_t *acl_access, acl_t *acl_default, bool want_mask)
 
                 a_acl = acl_from_text(join);
                 if (!a_acl)
-                        return -EINVAL;
+                        return -errno;
 
                 if (want_mask) {
                         r = calc_acl_mask_if_needed(&a_acl);
@@ -276,7 +276,7 @@ int parse_acl(char *text, acl_t *acl_access, acl_t *acl_default, bool want_mask)
 
                 d_acl = acl_from_text(join);
                 if (!d_acl)
-                        return -EINVAL;
+                        return -errno;
 
                 if (want_mask) {
                         r = calc_acl_mask_if_needed(&d_acl);
@@ -288,6 +288,7 @@ int parse_acl(char *text, acl_t *acl_access, acl_t *acl_default, bool want_mask)
         *acl_access = a_acl;
         *acl_default = d_acl;
         a_acl = d_acl = NULL;
+
         return 0;
 }
 
