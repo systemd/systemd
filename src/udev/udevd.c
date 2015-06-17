@@ -735,14 +735,14 @@ static void manager_exit(Manager *manager) {
                   "STATUS=Starting shutdown...");
 
         /* close sources of new events and discard buffered events */
-        manager->ctrl = udev_ctrl_unref(manager->ctrl);
         manager->ctrl_event = sd_event_source_unref(manager->ctrl_event);
+        manager->ctrl = udev_ctrl_unref(manager->ctrl);
 
-        manager->fd_inotify = safe_close(manager->fd_inotify);
         manager->inotify_event = sd_event_source_unref(manager->inotify_event);
+        manager->fd_inotify = safe_close(manager->fd_inotify);
 
-        manager->monitor = udev_monitor_unref(manager->monitor);
         manager->uevent_event = sd_event_source_unref(manager->uevent_event);
+        manager->monitor = udev_monitor_unref(manager->monitor);
 
         /* discard queued events and kill workers */
         event_queue_cleanup(manager, EVENT_QUEUED);
