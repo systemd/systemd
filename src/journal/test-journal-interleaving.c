@@ -62,9 +62,18 @@ static void test_close(JournalFile *f) {
 static void append_number(JournalFile *f, int n, uint64_t *seqnum) {
         char *p;
         dual_timestamp ts;
+        static dual_timestamp previous_ts = {};
         struct iovec iovec[1];
 
         dual_timestamp_get(&ts);
+
+        if (ts.monotonic <= previous_ts.monotonic)
+                ts.monotonic = previous_ts.monotonic + 1;
+
+        if (ts.realtime <= previous_ts.realtime)
+                ts.realtime = previous_ts.realtime + 1;
+
+        previous_ts = ts;
 
         assert_se(asprintf(&p, "NUMBER=%d", n) >= 0);
         iovec[0].iov_base = p;
