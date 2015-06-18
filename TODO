@@ -28,6 +28,9 @@ External:
 
 Features:
 
+* nspawn: fix logic always print a final newline on output.
+  https://github.com/systemd/systemd/pull/272#issuecomment-113153176
+
 * make nspawn's --network-veth switch more powerful:
   http://lists.freedesktop.org/archives/systemd-devel/2015-June/033121.html
 
