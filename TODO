@@ -28,6 +28,9 @@ External:
 
 Features:
 
+* make nspawn's --network-veth switch more powerful:
+  http://lists.freedesktop.org/archives/systemd-devel/2015-June/033121.html
+
 * man: document that unless you use StandardError=null the shell >/dev/stderr won't work in shell scripts in services
 
 * man: clarify that "machinectl show" shows different information than "machinectl status" (no cgroup tree, no IP addresses, ...)
