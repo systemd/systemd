@@ -28,6 +28,8 @@ External:
 
 Features:
 
+* Add PassEnvironment= setting to service units, to import select env vars from PID 1 into the service env block
+
 * nspawn: fix logic always print a final newline on output.
   https://github.com/systemd/systemd/pull/272#issuecomment-113153176
 
