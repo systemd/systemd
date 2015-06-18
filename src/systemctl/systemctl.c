@@ -5855,23 +5855,15 @@ static int run_editor(char **paths) {
 
         if (pid == 0) {
                 const char **args;
-                char *editor;
+                char *editor, **editor_args = NULL;
                 char **tmp_path, **original_path, *p;
-                unsigned i = 1;
+                unsigned n_editor_args = 0, i = 1;
                 size_t argc;
 
                 (void) reset_all_signal_handlers();
                 (void) reset_signal_mask();
 
                 argc = strv_length(paths)/2 + 1;
-                args = newa(const char*, argc + 1);
-
-                args[0] = NULL;
-                STRV_FOREACH_PAIR(original_path, tmp_path, paths) {
-                        args[i] = *tmp_path;
-                        i++;
-                }
-                args[argc] = NULL;
 
                 /* SYSTEMD_EDITOR takes precedence over EDITOR which takes precedence over VISUAL
                  * If neither SYSTEMD_EDITOR nor EDITOR nor VISUAL are present,
@@ -5884,9 +5876,30 @@ static int run_editor(char **paths) {
                         editor = getenv("VISUAL");
 
                 if (!isempty(editor)) {
-                        args[0] = editor;
-                        execvp(editor, (char* const*) args);
+                        editor_args = strv_split(editor, WHITESPACE);
+                        if (!editor_args) {
+                                (void) log_oom();
+                                _exit(EXIT_FAILURE);
+                        }
+                        n_editor_args = strv_length(editor_args);
+                        argc += n_editor_args - 1;
                 }
+                args = newa(const char*, argc + 1);
+
+                if (n_editor_args > 0) {
+                        args[0] = editor_args[0];
+                        for (; i < n_editor_args; i++)
+                                args[i] = editor_args[i];
+                }
+
+                STRV_FOREACH_PAIR(original_path, tmp_path, paths) {
+                        args[i] = *tmp_path;
+                        i++;
+                }
+                args[i] = NULL;
+
+                if (n_editor_args > 0)
+                        execvp(args[0], (char* const*) args);
 
                 FOREACH_STRING(p, "editor", "nano", "vim", "vi") {
                         args[0] = p;
