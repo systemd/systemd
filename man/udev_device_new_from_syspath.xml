@@ -136,10 +136,37 @@
     <constant>c</constant> for character devices, as well as a devnum (see
     <citerefentry><refentrytitle>makedev</refentrytitle><manvolnum>3</manvolnum></citerefentry>).
     <function>udev_device_new_from_subsystem_sysname</function> looks up devices based
-    on the provided subsystem and sysname and
-    <function>udev_device_new_from_device_id</function> looks up devices based on the provided
-    device id (see
-    <citerefentry><refentrytitle>udev_device_get_subsystem</refentrytitle><manvolnum>3</manvolnum></citerefentry>).
+    on the provided subsystem and sysname
+    (see <citerefentry><refentrytitle>udev_device_get_subsystem</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    and
+    <citerefentry><refentrytitle>udev_device_get_sysname</refentrytitle><manvolnum>3</manvolnum></citerefentry>)
+    and <function>udev_device_new_from_device_id</function> looks up devices based on the provided
+    device id which is a special string in one of the following four forms:
+    <table>
+      <title>Device ID strings</title>
+
+      <tgroup cols='2'>
+        <colspec colname='example' />
+        <colspec colname='explanation' />
+        <thead><row>
+          <entry>Example</entry>
+          <entry>Explanation</entry>
+        </row></thead>
+        <tbody>
+          <row><entry><varname>b8:2</varname></entry>
+          <entry>block device major:minor</entry></row>
+
+          <row><entry><varname>c128:1</varname></entry>
+          <entry>char device major:minor</entry></row>
+
+          <row><entry><varname>n3</varname></entry>
+          <entry>network device ifindex</entry></row>
+
+          <row><entry><varname>+sound:card29</varname></entry>
+          <entry>kernel driver core subsystem:device name</entry></row>
+        </tbody>
+      </tgroup>
+    </table>
     </para>
 
     <para><function>udev_device_new_from_environment</function>
