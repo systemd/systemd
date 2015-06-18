@@ -1,9 +1,6 @@
 <?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
-<!ENTITY % entities SYSTEM "custom-entities.ent" >
-%entities;
-]>
+"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
 <!--
   This file is part of systemd.
@@ -57,7 +54,7 @@
     <para><filename>systemd-journal-gatewayd.service</filename></para>
     <para><filename>systemd-journal-gatewayd.socket</filename></para>
     <cmdsynopsis>
-      <command>&rootlibexecdir;/systemd-journal-gatewayd</command>
+      <command>/usr/lib/systemd/systemd-journal-gatewayd</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
     </cmdsynopsis>
   </refsynopsisdiv>

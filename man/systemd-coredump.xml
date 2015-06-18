@@ -1,9 +1,6 @@
 <?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
-<!ENTITY % entities SYSTEM "custom-entities.ent" >
-%entities;
-]>
+        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
 <!--
   This file is part of systemd.
@@ -52,7 +49,7 @@
   </refnamediv>
 
   <refsynopsisdiv>
-    <para><filename>&rootlibexecdir;/systemd-coredump</filename></para>
+    <para><filename>/usr/lib/systemd/systemd-coredump</filename></para>
   </refsynopsisdiv>
 
   <refsect1>
