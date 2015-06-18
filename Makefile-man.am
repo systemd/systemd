@@ -2142,10 +2142,8 @@ EXTRA_DIST += \
 	man/systemd-vconsole-setup.service.xml \
 	man/systemd.automount.xml \
 	man/systemd.device.xml \
-	man/systemd.directives.xml \
 	man/systemd.exec.xml \
 	man/systemd.generator.xml \
-	man/systemd.index.xml \
 	man/systemd.journal-fields.xml \
 	man/systemd.kill.xml \
 	man/systemd.link.xml \

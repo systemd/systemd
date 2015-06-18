@@ -700,11 +700,10 @@ noinst_DATA += \
 CLEANFILES += \
 	man/index.html
 
-XML_GLOB = $(wildcard $(top_srcdir)/man/*.xml $(top_builddir)/man/*.xml)
 NON_INDEX_XML_FILES = $(filter-out man/systemd.index.xml,$(XML_FILES))
 SOURCE_XML_FILES = ${patsubst %,$(top_srcdir)/%,$(filter-out man/systemd.directives.xml,$(NON_INDEX_XML_FILES))}
 
-update-man-list: $(top_srcdir)/tools/make-man-rules.py $(XML_GLOB)
+update-man-list: $(top_srcdir)/tools/make-man-rules.py $(SOURCE_XML_FILES)
 	$(AM_V_GEN)$(PYTHON) $^ > $(top_srcdir)/Makefile-man.tmp
 	$(AM_V_at)mv $(top_srcdir)/Makefile-man.tmp $(top_srcdir)/Makefile-man.am
 	@echo "Makefile-man.am has been regenerated"
@@ -726,7 +725,7 @@ endif
 endif
 
 EXTRA_DIST += \
-	$(XML_FILES) \
+	$(filter-out man/systemd.directives.xml,$(XML_FILES)) \
 	$(HTML_FILES) \
 	$(HTML_ALIAS) \
 	$(man_MANS) \
@@ -735,7 +734,6 @@ EXTRA_DIST += \
 	tools/xml_helper.py \
 	man/systemd.index.xml \
 	man/index.html \
-	man/systemd.directives.xml \
 	man/glib-event-glue.c \
 	$(NULL)
 
