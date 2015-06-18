@@ -1538,7 +1538,16 @@ static int setup_resolv_conf(const char *dest) {
 
         r = copy_file("/etc/resolv.conf", where, O_TRUNC|O_NOFOLLOW, 0644, 0);
         if (r < 0) {
-                log_warning_errno(r, "Failed to copy /etc/resolv.conf to %s: %m", where);
+                /* If the file already exists as symlink, let's
+                 * suppress the warning, under the assumption that
+                 * resolved or something similar runs inside and the
+                 * symlink points there.
+                 *
+                 * If the disk image is read-only, there's also no
+                 * point in complaining.
+                 */
+                log_full_errno(IN_SET(r, -ELOOP, -EROFS) ? LOG_DEBUG : LOG_WARNING, r,
+                               "Failed to copy /etc/resolv.conf to %s: %m", where);
                 return 0;
         }
 
