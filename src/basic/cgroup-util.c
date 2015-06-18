@@ -1776,7 +1776,7 @@ int cg_attach_everywhere(CGroupControllerMask supported, const char *path, pid_t
                         if (!p)
                                 p = path;
 
-                        cg_attach_fallback(n, path, pid);
+                        cg_attach_fallback(n, p, pid);
                 }
 
                 bit <<= 1;
