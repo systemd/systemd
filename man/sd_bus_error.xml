@@ -144,7 +144,7 @@
       <funcprototype>
         <funcdef>const char *<function>sd_bus_error_strerror</function></funcdef>
         <paramdef>const sd_bus_error *<parameter>e</parameter></paramdef>
-        <paramdef>int<parameter>error</parameter></paramdef>
+        <paramdef>int <parameter>error</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
 
