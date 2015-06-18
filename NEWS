@@ -17,7 +17,7 @@ CHANGES WITH 221:
         * kdbus support is no longer compile-time optional. It is now
           always built-in. However, it can still be disabled at
           runtime using the kdbus=0 kernel command line setting, and
-          that setting my by changed to default to off, by specifying
+          that setting may be changed to default to off, by specifying
           --disable-kdbus at build-time. Note though that the kernel
           command line setting has no effect if the kdbus.ko kernel
           module is not installed, in which case kdbus is (obviously)
