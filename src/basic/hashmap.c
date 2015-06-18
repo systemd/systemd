@@ -1798,8 +1798,6 @@ void *ordered_hashmap_next(OrderedHashmap *h, const void *key) {
         struct ordered_hashmap_entry *e;
         unsigned hash, idx;
 
-        assert(key);
-
         if (!h)
                 return NULL;
 

@@ -24,38 +24,17 @@ void test_hashmap_funcs(void);
 void test_ordered_hashmap_funcs(void);
 
 static void test_ordered_hashmap_next(void) {
-        OrderedHashmap *m;
-        char *val1, *val2, *val3, *val4, *r;
+        _cleanup_ordered_hashmap_free_ OrderedHashmap *m = NULL;
+        int i;
 
-        m = ordered_hashmap_new(&string_hash_ops);
-        val1 = strdup("val1");
-        assert_se(val1);
-        val2 = strdup("val2");
-        assert_se(val2);
-        val3 = strdup("val3");
-        assert_se(val3);
-        val4 = strdup("val4");
-        assert_se(val4);
-
-        ordered_hashmap_put(m, "key 1", val1);
-        ordered_hashmap_put(m, "key 2", val2);
-        ordered_hashmap_put(m, "key 3", val3);
-        ordered_hashmap_put(m, "key 4", val4);
-
-        r = ordered_hashmap_next(m, "key 1");
-        assert_se(streq(r, val2));
-        r = ordered_hashmap_next(m, "key 2");
-        assert_se(streq(r, val3));
-        r = ordered_hashmap_next(m, "key 3");
-        assert_se(streq(r, val4));
-        r = ordered_hashmap_next(m, "key 4");
-        assert_se(!r);
-        r = ordered_hashmap_next(NULL, "key 1");
-        assert_se(!r);
-        r = ordered_hashmap_next(m, "key 5");
-        assert_se(!r);
-
-        ordered_hashmap_free_free(m);
+        assert_se(m = ordered_hashmap_new(NULL));
+        for (i = -2; i <= 2; i++)
+                assert_se(ordered_hashmap_put(m, INT_TO_PTR(i), INT_TO_PTR(i+10)) == 1);
+        for (i = -2; i <= 1; i++)
+                assert_se(ordered_hashmap_next(m, INT_TO_PTR(i)) == INT_TO_PTR(i+11));
+        assert_se(!ordered_hashmap_next(m, INT_TO_PTR(2)));
+        assert_se(!ordered_hashmap_next(NULL, INT_TO_PTR(1)));
+        assert_se(!ordered_hashmap_next(m, INT_TO_PTR(3)));
 }
 
 static void test_uint64_compare_func(void) {
