@@ -1283,14 +1283,14 @@ src/basic/cap-from-name.h: src/basic/cap-from-name.gperf
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
 	$(AM_V_GPERF)$(GPERF) -L ANSI-C -t --ignore-case -N lookup_capability -H hash_capability_name -p -C <$< >$@
 
-audit_list_includes = -include linux/audit.h missing.h
+audit_list_includes = -include linux/audit.h -include missing.h
 if HAVE_AUDIT
 audit_list_includes += -include libaudit.h
 endif
 
 src/journal/audit_type-list.txt:
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
-	$(AM_V_GEN)$(CPP) $(CFLAGS) $(AM_CPPFLAGS) $(CPPFLAGS) -dM -include linux/audit.h -include missing.h - </dev/null | grep -vE 'AUDIT_.*(FIRST|LAST)_' | $(SED) -r -n 's/^#define\s+AUDIT_(\w+)\s+([0-9]{4})\s*$$/\1\t\2/p' | sort -k2 >$@
+	$(AM_V_GEN)$(CPP) $(CFLAGS) $(AM_CPPFLAGS) $(CPPFLAGS) -dM $(audit_list_includes) - </dev/null | grep -vE 'AUDIT_.*(FIRST|LAST)_' | $(SED) -r -n 's/^#define\s+AUDIT_(\w+)\s+([0-9]{4})\s*$$/\1\t\2/p' | sort -k2 >$@
 
 src/journal/audit_type-to-name.h: src/journal/audit_type-list.txt
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
