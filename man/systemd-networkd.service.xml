@@ -1,9 +1,6 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
-<!ENTITY % entities SYSTEM "custom-entities.ent" >
-%entities;
-]>
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
 <!--
   This file is part of systemd.
@@ -53,7 +50,7 @@
 
   <refsynopsisdiv>
     <para><filename>systemd-networkd.service</filename></para>
-    <para><filename>&rootlibexecdir;/systemd-networkd</filename></para>
+    <para><filename>/usr/lib/systemd/systemd-networkd</filename></para>
   </refsynopsisdiv>
 
   <refsect1>
@@ -78,10 +75,10 @@
 
   <refsect1><title>Configuration Files</title>
     <para>The configuration files are read from the files located in the
-    system network directory <filename>&rootlibexecdir;/network</filename>,
+    system network directory <filename>/usr/lib/systemd/network</filename>,
     the volatile runtime network directory
     <filename>/run/systemd/network</filename> and the local administration
-    network directory <filename>&pkgsysconfdir;/network</filename>.</para>
+    network directory <filename>/etc/systemd/network</filename>.</para>
 
     <para>Networks are configured in <filename>.network</filename>
     files, see

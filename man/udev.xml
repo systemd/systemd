@@ -1,9 +1,6 @@
 <?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
-<!ENTITY % entities SYSTEM "custom-entities.ent" >
-%entities;
-]>
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
 <refentry id="udev">
   <refentryinfo>
@@ -58,17 +55,17 @@
 
   <refsect1><title>Rules Files</title>
       <para>The udev rules are read from the files located in the
-      system rules directory <filename>&udevlibexecdir;/rules.d</filename>,
+      system rules directory <filename>/usr/lib/udev/rules.d</filename>,
       the volatile runtime directory <filename>/run/udev/rules.d</filename>
       and the local administration directory <filename>/etc/udev/rules.d</filename>.
       All rules files are collectively sorted and processed in lexical order,
       regardless of the directories in which they live. However, files with
       identical filenames replace each other. Files in <filename>/etc</filename>
       have the highest priority, files in <filename>/run</filename> take precedence
-      over files with the same name in <filename>&rootprefix;/lib</filename>. This can be
+      over files with the same name in <filename>/usr/lib</filename>. This can be
       used to override a system-supplied rules file with a local file if needed;
       a symlink in <filename>/etc</filename> with the same name as a rules file in
-      <filename>&rootprefix;/lib</filename>, pointing to <filename>/dev/null</filename>,
+      <filename>/usr/lib</filename>, pointing to <filename>/dev/null</filename>,
       disables the rules file entirely. Rule files must have the extension
       <filename>.rules</filename>; other extensions are ignored.</para>
 
@@ -424,7 +421,7 @@
                 <listitem>
                   <para>Execute an external program specified as the assigned
                   value. If no absolute path is given, the program is expected
-                  to live in <filename>&udevlibexecdir;</filename>; otherwise, the
+                  to live in <filename>/usr/lib/udev</filename>; otherwise, the
                   absolute path must be specified.</para>
                   <para>This is the default if no <replaceable>type</replaceable>
                   is specified.</para>

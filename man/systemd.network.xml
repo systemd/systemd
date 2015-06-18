@@ -1,9 +1,6 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
-<!ENTITY % entities SYSTEM "custom-entities.ent" >
-%entities;
-]>
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
 <!--
   This file is part of systemd.
@@ -67,20 +64,20 @@
 
     <para>The <filename>.network</filename> files are read from the
     files located in the system network directory
-    <filename>&rootlibexecdir;/network</filename>, the volatile
+    <filename>/usr/lib/systemd/network</filename>, the volatile
     runtime network directory
     <filename>/run/systemd/network</filename> and the local
     administration network directory
-    <filename>&pkgsysconfdir;/network</filename>. All configuration files
+    <filename>/etc/systemd/network</filename>. All configuration files
     are collectively sorted and processed in lexical order, regardless
     of the directories in which they live. However, files with
     identical filenames replace each other. Files in
     <filename>/etc</filename> have the highest priority, files in
     <filename>/run</filename> take precedence over files with the same
-    name in <filename>&rootprefix;/lib</filename>. This can be used to
+    name in <filename>/usr/lib</filename>. This can be used to
     override a system-supplied configuration file with a local file if
     needed; a symlink in <filename>/etc</filename> with the same name
-    as a configuration file in <filename>&rootprefix;/lib</filename>, pointing
+    as a configuration file in <filename>/usr/lib</filename>, pointing
     to <filename>/dev/null</filename>, disables the configuration file
     entirely.</para>
 
@@ -687,7 +684,7 @@
   <refsect1>
     <title>Example</title>
     <example>
-      <title>&pkgsysconfdir;/network/50-static.network</title>
+      <title>/etc/systemd/network/50-static.network</title>
 
       <programlisting>[Match]
 Name=enp2s0
@@ -698,7 +695,7 @@ Gateway=192.168.0.1</programlisting>
     </example>
 
     <example>
-      <title>&pkgsysconfdir;/network/80-dhcp.network</title>
+      <title>/etc/systemd/network/80-dhcp.network</title>
 
       <programlisting>[Match]
 Name=en*
@@ -708,7 +705,7 @@ DHCP=yes</programlisting>
     </example>
 
     <example>
-      <title>&pkgsysconfdir;/network/bridge-static.network</title>
+      <title>/etc/systemd/network/bridge-static.network</title>
 
       <programlisting>[Match]
 Name=bridge0
@@ -720,7 +717,7 @@ DNS=192.168.0.1</programlisting>
     </example>
 
     <example>
-      <title>&pkgsysconfdir;/network/bridge-slave-interface.network</title>
+      <title>/etc/systemd/network/bridge-slave-interface.network</title>
 
       <programlisting>[Match]
 Name=enp2s0
@@ -729,7 +726,7 @@ Name=enp2s0
 Bridge=bridge0</programlisting>
     </example>
     <example>
-      <title>&pkgsysconfdir;/network/ipip.network</title>
+      <title>/etc/systemd/network/ipip.network</title>
 
       <programlisting>[Match]
 Name=em1
@@ -739,7 +736,7 @@ Tunnel=ipip-tun</programlisting>
     </example>
 
     <example>
-      <title>&pkgsysconfdir;/network/sit.network</title>
+      <title>/etc/systemd/network/sit.network</title>
 
       <programlisting>[Match]
 Name=em1
@@ -749,7 +746,7 @@ Tunnel=sit-tun</programlisting>
     </example>
 
     <example>
-      <title>&pkgsysconfdir;/network/gre.network</title>
+      <title>/etc/systemd/network/gre.network</title>
 
       <programlisting>[Match]
 Name=em1
@@ -759,7 +756,7 @@ Tunnel=gre-tun</programlisting>
     </example>
 
     <example>
-      <title>&pkgsysconfdir;/network/vti.network</title>
+      <title>/etc/systemd/network/vti.network</title>
 
       <programlisting>[Match]
 Name=em1
