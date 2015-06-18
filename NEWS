@@ -9,7 +9,7 @@ CHANGES WITH 221:
           supports both classic D-Bus as well as kdbus as transport
           backend. sd-event is a generic event loop abstraction that
           is built around Linux epoll, but adds features such as event
-          priorization or efficient timer handling. Both APIs are good
+          prioritization or efficient timer handling. Both APIs are good
           choices for C programs looking for a bus and/or event loop
           implementation that is minimal and does not have to be
           portable to other kernels.
@@ -22,7 +22,7 @@ CHANGES WITH 221:
           command line setting has no effect if the kdbus.ko kernel
           module is not installed, in which case kdbus is (obviously)
           also disabled. We encourage all downstream distributions to
-          begin testing kdbus by adding it to the kernel images if the
+          begin testing kdbus by adding it to the kernel images in the
           development distributions, and leaving kdbus support in
           systemd enabled.
 
@@ -30,7 +30,7 @@ CHANGES WITH 221:
           2.26.
 
         * Support for chkconfig (--enable-chkconfig) was removed in
-          favour of calling an abstraction tool
+          favor of calling an abstraction tool
           /lib/systemd/systemd-sysv-install. This needs to be
           implemented for your distribution. See "SYSV INIT.D SCRIPTS"
           in README for details.
@@ -48,7 +48,7 @@ CHANGES WITH 221:
           external project.
 
         * The systemd-cgtop tool learnt a new --raw switch to generate
-          "raw" (machine parseable) output.
+          "raw" (machine parsable) output.
 
         * networkd's IPForwarding= .network file setting learnt the
           new setting "kernel", which ensures that networkd does not
@@ -76,7 +76,7 @@ CHANGES WITH 221:
         Tezduyar Lindskog, Viktar Vauchkevich, Werner Fink, Zbigniew
         Jędrzejewski-Szmek
 
-        -- Berlin, 2015-05-XX
+        -- Berlin, 2015-06-XX
 
 CHANGES WITH 220:
 
