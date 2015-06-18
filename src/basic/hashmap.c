@@ -22,6 +22,7 @@
 
 #include <stdlib.h>
 #include <errno.h>
+#include <pthread.h>
 
 #include "util.h"
 #include "hashmap.h"
@@ -157,6 +158,7 @@ struct hashmap_debug_info {
 
 /* Tracks all existing hashmaps. Get at it from gdb. See sd_dump_hashmaps.py */
 static LIST_HEAD(struct hashmap_debug_info, hashmap_debug_list);
+static pthread_mutex_t hashmap_debug_list_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 #define HASHMAP_DEBUG_FIELDS struct hashmap_debug_info debug;
 
@@ -806,10 +808,12 @@ static struct HashmapBase *hashmap_base_new(const struct hash_ops *hash_ops, enu
         }
 
 #ifdef ENABLE_DEBUG_HASHMAP
-        LIST_PREPEND(debug_list, hashmap_debug_list, &h->debug);
         h->debug.func = func;
         h->debug.file = file;
         h->debug.line = line;
+        assert_se(pthread_mutex_lock(&hashmap_debug_list_mutex) == 0);
+        LIST_PREPEND(debug_list, hashmap_debug_list, &h->debug);
+        assert_se(pthread_mutex_unlock(&hashmap_debug_list_mutex) == 0);
 #endif
 
         return h;
@@ -861,7 +865,9 @@ static void hashmap_free_no_clear(HashmapBase *h) {
         assert(!h->n_direct_entries);
 
 #ifdef ENABLE_DEBUG_HASHMAP
+        assert_se(pthread_mutex_lock(&hashmap_debug_list_mutex) == 0);
         LIST_REMOVE(debug_list, hashmap_debug_list, &h->debug);
+        assert_se(pthread_mutex_unlock(&hashmap_debug_list_mutex) == 0);
 #endif
 
         if (h->from_pool)
