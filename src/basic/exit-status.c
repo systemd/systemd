@@ -20,6 +20,7 @@
 ***/
 
 #include <stdlib.h>
+#include <signal.h>
 
 #include "exit-status.h"
 #include "set.h"
