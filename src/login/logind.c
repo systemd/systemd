@@ -689,7 +689,7 @@ static int manager_connect_bus(Manager *m) {
                         &error,
                         NULL, NULL);
         if (r < 0) {
-                log_error("Failed to enable subscription: %s", bus_error_message(&error, r));
+                log_error("Failed to enable subscription: %s", sd_bus_error_strerror(&error, r));
                 return r;
         }
 

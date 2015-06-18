@@ -503,7 +503,7 @@ static int vconsole_reload(sd_bus *bus) {
                         "ss", "systemd-vconsole-setup.service", "replace");
 
         if (r < 0)
-                log_error("Failed to issue method call: %s", bus_error_message(&error, -r));
+                log_error("Failed to issue method call: %s", sd_bus_error_strerror(&error, -r));
         return r;
 }
 

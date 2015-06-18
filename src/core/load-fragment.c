@@ -1595,7 +1595,7 @@ int config_parse_socket_service(
 
         r = manager_load_unit(UNIT(s)->manager, p, NULL, &error, &x);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, -r, "Failed to load unit %s, ignoring: %s", rvalue, bus_error_message(&error, r));
+                log_syntax(unit, LOG_ERR, filename, line, -r, "Failed to load unit %s, ignoring: %s", rvalue, sd_bus_error_strerror(&error, r));
                 return 0;
         }
 
@@ -1765,7 +1765,7 @@ int config_parse_busname_service(
         r = manager_load_unit(UNIT(n)->manager, p, NULL, &error, &x);
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, -r,
-                           "Failed to load unit %s, ignoring: %s", rvalue, bus_error_message(&error, r));
+                           "Failed to load unit %s, ignoring: %s", rvalue, sd_bus_error_strerror(&error, r));
                 return 0;
         }
 

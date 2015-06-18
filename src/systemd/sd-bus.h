@@ -386,6 +386,7 @@ int sd_bus_error_get_errno(const sd_bus_error *e);
 int sd_bus_error_copy(sd_bus_error *dest, const sd_bus_error *e);
 int sd_bus_error_is_set(const sd_bus_error *e);
 int sd_bus_error_has_name(const sd_bus_error *e, const char *name);
+const char *sd_bus_error_strerror(const sd_bus_error *e, int error);
 
 #define SD_BUS_ERROR_MAP(_name, _code)          \
         {                                       \

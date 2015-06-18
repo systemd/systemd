@@ -232,6 +232,7 @@ MANPAGES_ALIAS += \
 	man/sd_bus_error_free.3 \
 	man/sd_bus_error_get_errno.3 \
 	man/sd_bus_error_has_name.3 \
+	man/sd_bus_error_strerror.3 \
 	man/sd_bus_error_is_set.3 \
 	man/sd_bus_error_set.3 \
 	man/sd_bus_error_set_const.3 \
@@ -479,6 +480,7 @@ man/sd_bus_error_copy.3: man/sd_bus_error.3
 man/sd_bus_error_free.3: man/sd_bus_error.3
 man/sd_bus_error_get_errno.3: man/sd_bus_error.3
 man/sd_bus_error_has_name.3: man/sd_bus_error.3
+man/sd_bus_error_strerror.3: man/sd_bus_error.3
 man/sd_bus_error_is_set.3: man/sd_bus_error.3
 man/sd_bus_error_set.3: man/sd_bus_error.3
 man/sd_bus_error_set_const.3: man/sd_bus_error.3
@@ -864,6 +866,9 @@ man/sd_bus_error_get_errno.html: man/sd_bus_error.html
 	$(html-alias)
 
 man/sd_bus_error_has_name.html: man/sd_bus_error.html
+	$(html-alias)
+
+man/sd_bus_error_strerror.html: man/sd_bus_error.html
 	$(html-alias)
 
 man/sd_bus_error_is_set.html: man/sd_bus_error.html

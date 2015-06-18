@@ -1516,7 +1516,7 @@ static int manager_inhibit_timeout_handler(
         /* Actually do the operation */
         r = execute_shutdown_or_sleep(manager, manager->action_what, manager->action_unit, &error);
         if (r < 0) {
-                log_warning("Failed to send delayed message: %s", bus_error_message(&error, r));
+                log_warning("Failed to send delayed message: %s", sd_bus_error_strerror(&error, r));
 
                 manager->action_unit = NULL;
                 manager->action_what = 0;

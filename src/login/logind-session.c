@@ -516,7 +516,7 @@ static int session_start_scope(Session *s) {
                 r = manager_start_scope(s->manager, scope, s->leader, s->user->slice, description, "systemd-logind.service", "systemd-user-sessions.service", &error, &job);
                 if (r < 0) {
                         log_error("Failed to start session scope %s: %s %s",
-                                  scope, bus_error_message(&error, r), error.name);
+                                  scope, sd_bus_error_strerror(&error, r), error.name);
                         free(scope);
                         return r;
                 } else {
@@ -603,7 +603,7 @@ static int session_stop_scope(Session *s, bool force) {
         if (force || manager_shall_kill(s->manager, s->user->name)) {
                 r = manager_stop_unit(s->manager, s->scope, &error, &job);
                 if (r < 0) {
-                        log_error("Failed to stop session scope: %s", bus_error_message(&error, r));
+                        log_error("Failed to stop session scope: %s", sd_bus_error_strerror(&error, r));
                         return r;
                 }
 
@@ -612,7 +612,7 @@ static int session_stop_scope(Session *s, bool force) {
         } else {
                 r = manager_abandon_scope(s->manager, s->scope, &error);
                 if (r < 0) {
-                        log_error("Failed to abandon session scope: %s", bus_error_message(&error, r));
+                        log_error("Failed to abandon session scope: %s", sd_bus_error_strerror(&error, r));
                         return r;
                 }
         }

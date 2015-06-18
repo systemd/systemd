@@ -155,7 +155,7 @@ int manager_handle_action(
 
         r = bus_manager_shutdown_or_sleep_now_or_later(m, target_table[handle], inhibit_operation, &error);
         if (r < 0) {
-                log_error("Failed to execute operation: %s", bus_error_message(&error, r));
+                log_error("Failed to execute operation: %s", sd_bus_error_strerror(&error, r));
                 return r;
         }
 

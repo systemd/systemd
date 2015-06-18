@@ -2411,7 +2411,7 @@ static int register_machine(pid_t pid, int local_ifindex) {
         }
 
         if (r < 0) {
-                log_error("Failed to register machine: %s", bus_error_message(&error, r));
+                log_error("Failed to register machine: %s", sd_bus_error_strerror(&error, r));
                 return r;
         }
 
@@ -2451,7 +2451,7 @@ static int terminate_machine(pid_t pid) {
                 /* Note that the machine might already have been
                  * cleaned up automatically, hence don't consider it a
                  * failure if we cannot get the machine object. */
-                log_debug("Failed to get machine: %s", bus_error_message(&error, r));
+                log_debug("Failed to get machine: %s", sd_bus_error_strerror(&error, r));
                 return 0;
         }
 
@@ -2469,7 +2469,7 @@ static int terminate_machine(pid_t pid) {
                         NULL,
                         NULL);
         if (r < 0) {
-                log_debug("Failed to terminate machine: %s", bus_error_message(&error, r));
+                log_debug("Failed to terminate machine: %s", sd_bus_error_strerror(&error, r));
                 return 0;
         }
 

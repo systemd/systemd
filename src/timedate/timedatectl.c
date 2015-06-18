@@ -216,7 +216,7 @@ static int set_time(sd_bus *bus, char **args, unsigned n) {
                                NULL,
                                "xbb", (int64_t)t, relative, interactive);
         if (r < 0)
-                log_error("Failed to set time: %s", bus_error_message(&error, -r));
+                log_error("Failed to set time: %s", sd_bus_error_strerror(&error, -r));
 
         return r;
 }
@@ -239,7 +239,7 @@ static int set_timezone(sd_bus *bus, char **args, unsigned n) {
                                NULL,
                                "sb", args[1], arg_ask_password);
         if (r < 0)
-                log_error("Failed to set time zone: %s", bus_error_message(&error, -r));
+                log_error("Failed to set time zone: %s", sd_bus_error_strerror(&error, -r));
 
         return r;
 }
@@ -268,7 +268,7 @@ static int set_local_rtc(sd_bus *bus, char **args, unsigned n) {
                                NULL,
                                "bbb", b, arg_adjust_system_clock, arg_ask_password);
         if (r < 0)
-                log_error("Failed to set local RTC: %s", bus_error_message(&error, -r));
+                log_error("Failed to set local RTC: %s", sd_bus_error_strerror(&error, -r));
 
         return r;
 }
@@ -297,7 +297,7 @@ static int set_ntp(sd_bus *bus, char **args, unsigned n) {
                                NULL,
                                "bb", b, arg_ask_password);
         if (r < 0)
-                log_error("Failed to set ntp: %s", bus_error_message(&error, -r));
+                log_error("Failed to set ntp: %s", sd_bus_error_strerror(&error, -r));
 
         return r;
 }

@@ -472,7 +472,7 @@ int manager_spawn_autovt(Manager *m, unsigned int vtnr) {
                         NULL,
                         "ss", name, "fail");
         if (r < 0)
-                log_error("Failed to start %s: %s", name, bus_error_message(&error, r));
+                log_error("Failed to start %s: %s", name, sd_bus_error_strerror(&error, r));
 
         return r;
 }

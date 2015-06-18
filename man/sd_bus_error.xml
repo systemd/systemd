@@ -56,6 +56,7 @@
     <refname>sd_bus_error_copy</refname>
     <refname>sd_bus_error_is_set</refname>
     <refname>sd_bus_error_has_name</refname>
+    <refname>sd_bus_error_strerror</refname>
 
     <refpurpose>sd-bus error handling</refpurpose>
   </refnamediv>
@@ -138,6 +139,12 @@
         <funcdef>int <function>sd_bus_error_has_name</function></funcdef>
         <paramdef>const sd_bus_error *<parameter>e</parameter></paramdef>
         <paramdef>const char *<parameter>name</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>const char *<function>sd_bus_error_strerror</function></funcdef>
+        <paramdef>const sd_bus_error *<parameter>e</parameter></paramdef>
+        <paramdef>int<parameter>error</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
 
@@ -321,6 +328,10 @@
     if <parameter>e</parameter> is non-<constant>NULL</constant> and
     an error with the same <parameter>name</parameter> has been set,
     <constant>false</constant> otherwise.</para>
+
+    <para><function>sd_bus_error_strerror</function> will return the
+    error message of <parameter>e</parameter> if there is any, otherwise
+    error message of <parameter>error</parameter>.</para>
 
     <para><function>sd_bus_error_free</function> will destroy resources
     held by <parameter>e</parameter>. The parameter itself will not

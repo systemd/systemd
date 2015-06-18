@@ -139,7 +139,7 @@ static int show_one_name(sd_bus *bus, const char* attr) {
                         attr,
                         &error, &reply, "s");
         if (r < 0) {
-                log_error("Could not get property: %s", bus_error_message(&error, -r));
+                log_error("Could not get property: %s", sd_bus_error_strerror(&error, -r));
                 return r;
         }
 
@@ -246,7 +246,7 @@ static int set_simple_string(sd_bus *bus, const char *method, const char *value)
                         &error, NULL,
                         "sb", value, arg_ask_password);
         if (r < 0)
-                log_error("Could not set property: %s", bus_error_message(&error, -r));
+                log_error("Could not set property: %s", sd_bus_error_strerror(&error, -r));
         return r;
 }
 

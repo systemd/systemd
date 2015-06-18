@@ -99,7 +99,7 @@ static int resolve_host(sd_bus *bus, const char *name) {
 
         r = sd_bus_call(bus, req, DNS_CALL_TIMEOUT_USEC, &error, &reply);
         if (r < 0) {
-                log_error("%s: resolve call failed: %s", name, bus_error_message(&error, r));
+                log_error("%s: resolve call failed: %s", name, sd_bus_error_strerror(&error, r));
                 return r;
         }
 
@@ -249,7 +249,7 @@ static int resolve_address(sd_bus *bus, int family, const union in_addr_union *a
 
         r = sd_bus_call(bus, req, DNS_CALL_TIMEOUT_USEC, &error, &reply);
         if (r < 0) {
-                log_error("%s: resolve call failed: %s", pretty, bus_error_message(&error, r));
+                log_error("%s: resolve call failed: %s", pretty, sd_bus_error_strerror(&error, r));
                 return r;
         }
 
@@ -351,7 +351,7 @@ static int resolve_record(sd_bus *bus, const char *name) {
 
         r = sd_bus_call(bus, req, DNS_CALL_TIMEOUT_USEC, &error, &reply);
         if (r < 0) {
-                log_error("%s: resolve call failed: %s", name, bus_error_message(&error, r));
+                log_error("%s: resolve call failed: %s", name, sd_bus_error_strerror(&error, r));
                 return r;
         }
 

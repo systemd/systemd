@@ -137,7 +137,7 @@ static int bus_get_uint64_property(sd_bus *bus, const char *path, const char *in
                         't', val);
 
         if (r < 0) {
-                log_error("Failed to parse reply: %s", bus_error_message(&error, -r));
+                log_error("Failed to parse reply: %s", sd_bus_error_strerror(&error, -r));
                 return r;
         }
 
@@ -162,7 +162,7 @@ static int bus_get_unit_property_strv(sd_bus *bus, const char *path, const char 
                         &error,
                         strv);
         if (r < 0) {
-                log_error("Failed to get unit property %s: %s", property, bus_error_message(&error, -r));
+                log_error("Failed to get unit property %s: %s", property, sd_bus_error_strerror(&error, -r));
                 return r;
         }
 
@@ -205,7 +205,7 @@ static int acquire_time_data(sd_bus *bus, struct unit_times **out) {
                         &error, &reply,
                         NULL);
         if (r < 0) {
-                log_error("Failed to list units: %s", bus_error_message(&error, -r));
+                log_error("Failed to list units: %s", sd_bus_error_strerror(&error, -r));
                 goto fail;
         }
 
@@ -867,7 +867,7 @@ static int list_dependencies(sd_bus *bus, const char *name) {
                         &reply,
                         "s");
         if (r < 0) {
-                log_error("Failed to get ID: %s", bus_error_message(&error, -r));
+                log_error("Failed to get ID: %s", sd_bus_error_strerror(&error, -r));
                 return r;
         }
 
@@ -1060,7 +1060,7 @@ static int dot(sd_bus *bus, char* patterns[]) {
                        &reply,
                        "");
         if (r < 0) {
-                log_error("Failed to list units: %s", bus_error_message(&error, -r));
+                log_error("Failed to list units: %s", sd_bus_error_strerror(&error, -r));
                 return r;
         }
 
@@ -1117,7 +1117,7 @@ static int dump(sd_bus *bus, char **args) {
                        &reply,
                        "");
         if (r < 0) {
-                log_error("Failed issue method call: %s", bus_error_message(&error, -r));
+                log_error("Failed issue method call: %s", sd_bus_error_strerror(&error, -r));
                 return r;
         }
 
@@ -1151,7 +1151,7 @@ static int set_log_level(sd_bus *bus, char **args) {
                         "s",
                         args[0]);
         if (r < 0) {
-                log_error("Failed to issue method call: %s", bus_error_message(&error, -r));
+                log_error("Failed to issue method call: %s", sd_bus_error_strerror(&error, -r));
                 return -EIO;
         }
 

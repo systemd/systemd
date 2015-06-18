@@ -1743,7 +1743,7 @@ static int flush_to_var(void) {
                         NULL,
                         "ssi", "systemd-journald.service", "main", SIGUSR1);
         if (r < 0) {
-                log_error("Failed to kill journal service: %s", bus_error_message(&error, r));
+                log_error("Failed to kill journal service: %s", sd_bus_error_strerror(&error, r));
                 return r;
         }
 

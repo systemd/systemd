@@ -87,7 +87,7 @@ static void start_target(const char *target) {
 
         /* Don't print a warning if we aren't called during startup */
         if (r < 0 && !sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_JOB))
-                log_error("Failed to start unit: %s", bus_error_message(&error, r));
+                log_error("Failed to start unit: %s", sd_bus_error_strerror(&error, r));
 }
 
 static int parse_proc_cmdline_item(const char *key, const char *value) {

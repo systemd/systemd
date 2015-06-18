@@ -367,7 +367,7 @@ int bus_maybe_reply_error(sd_bus_message *m, int r, sd_bus_error *error) {
                   strna(m->interface),
                   strna(m->member),
                   strna(m->root_container.signature),
-                  bus_error_message(error, r));
+                  sd_bus_error_strerror(error, r));
 
         return 1;
 }
