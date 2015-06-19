@@ -1500,11 +1500,11 @@ static void test_unquote_first_word(void) {
         assert_se(unquote_first_word(&p, &t, 0) > 0);
         assert_se(streq(t, "waldo"));
         free(t);
-        assert_se(p == original + 12);
+        assert_se(isempty(p));
 
         assert_se(unquote_first_word(&p, &t, 0) == 0);
         assert_se(!t);
-        assert_se(p == original + 12);
+        assert_se(isempty(p));
 
         p = original = "\"foobar\" \'waldo\'";
         assert_se(unquote_first_word(&p, &t, 0) > 0);
@@ -1515,11 +1515,11 @@ static void test_unquote_first_word(void) {
         assert_se(unquote_first_word(&p, &t, 0) > 0);
         assert_se(streq(t, "waldo"));
         free(t);
-        assert_se(p == original + 16);
+        assert_se(isempty(p));
 
         assert_se(unquote_first_word(&p, &t, 0) == 0);
         assert_se(!t);
-        assert_se(p == original + 16);
+        assert_se(isempty(p));
 
         p = original = "\"";
         assert_se(unquote_first_word(&p, &t, 0) == -EINVAL);
@@ -1537,31 +1537,31 @@ static void test_unquote_first_word(void) {
         assert_se(unquote_first_word(&p, &t, UNQUOTE_RELAX) > 0);
         assert_se(streq(t, "fooo"));
         free(t);
-        assert_se(p == original + 5);
+        assert_se(isempty(p));
 
         p = original = "yay\'foo\'bar";
         assert_se(unquote_first_word(&p, &t, 0) > 0);
         assert_se(streq(t, "yayfoobar"));
         free(t);
-        assert_se(p == original + 11);
+        assert_se(isempty(p));
 
         p = original = "   foobar   ";
         assert_se(unquote_first_word(&p, &t, 0) > 0);
         assert_se(streq(t, "foobar"));
         free(t);
-        assert_se(p == original + 12);
+        assert_se(isempty(p));
 
         p = original = " foo\\ba\\x6ar ";
         assert_se(unquote_first_word(&p, &t, UNQUOTE_CUNESCAPE) > 0);
         assert_se(streq(t, "foo\ba\x6ar"));
         free(t);
-        assert_se(p == original + 13);
+        assert_se(isempty(p));
 
         p = original = " foo\\ba\\x6ar ";
         assert_se(unquote_first_word(&p, &t, 0) > 0);
         assert_se(streq(t, "foobax6ar"));
         free(t);
-        assert_se(p == original + 13);
+        assert_se(isempty(p));
 
         p = original = "    f\\u00f6o \"pi\\U0001F4A9le\"   ";
         assert_se(unquote_first_word(&p, &t, UNQUOTE_CUNESCAPE) > 0);
@@ -1572,31 +1572,31 @@ static void test_unquote_first_word(void) {
         assert_se(unquote_first_word(&p, &t, UNQUOTE_CUNESCAPE) > 0);
         assert_se(streq(t, "pi\360\237\222\251le"));
         free(t);
-        assert_se(p == original + 32);
+        assert_se(isempty(p));
 
         p = original = "fooo\\";
         assert_se(unquote_first_word(&p, &t, UNQUOTE_RELAX) > 0);
         assert_se(streq(t, "fooo"));
         free(t);
-        assert_se(p == original + 5);
+        assert_se(isempty(p));
 
         p = original = "fooo\\";
         assert_se(unquote_first_word(&p, &t, UNQUOTE_CUNESCAPE_RELAX) > 0);
         assert_se(streq(t, "fooo\\"));
         free(t);
-        assert_se(p == original + 5);
+        assert_se(isempty(p));
 
         p = original = "fooo\\";
         assert_se(unquote_first_word(&p, &t, UNQUOTE_CUNESCAPE_RELAX|UNQUOTE_RELAX) > 0);
         assert_se(streq(t, "fooo\\"));
         free(t);
-        assert_se(p == original + 5);
+        assert_se(isempty(p));
 
         p = original = "fooo\\";
         assert_se(unquote_first_word(&p, &t, UNQUOTE_CUNESCAPE|UNQUOTE_CUNESCAPE_RELAX) > 0);
         assert_se(streq(t, "fooo\\"));
         free(t);
-        assert_se(p == original + 5);
+        assert_se(isempty(p));
 
         p = original = "\"foo\\";
         assert_se(unquote_first_word(&p, &t, 0) == -EINVAL);
@@ -1606,7 +1606,7 @@ static void test_unquote_first_word(void) {
         assert_se(unquote_first_word(&p, &t, UNQUOTE_RELAX) > 0);
         assert_se(streq(t, "foo"));
         free(t);
-        assert_se(p == original + 5);
+        assert_se(isempty(p));
 
         p = original = "\"foo\\";
         assert_se(unquote_first_word(&p, &t, UNQUOTE_CUNESCAPE_RELAX) == -EINVAL);
@@ -1616,13 +1616,13 @@ static void test_unquote_first_word(void) {
         assert_se(unquote_first_word(&p, &t, UNQUOTE_CUNESCAPE_RELAX|UNQUOTE_RELAX) > 0);
         assert_se(streq(t, "foo\\"));
         free(t);
-        assert_se(p == original + 5);
+        assert_se(isempty(p));
 
         p = original = "\"foo\\";
         assert_se(unquote_first_word(&p, &t, UNQUOTE_CUNESCAPE|UNQUOTE_CUNESCAPE_RELAX|UNQUOTE_RELAX) > 0);
         assert_se(streq(t, "foo\\"));
         free(t);
-        assert_se(p == original + 5);
+        assert_se(isempty(p));
 
         p = original = "fooo\\ bar quux";
         assert_se(unquote_first_word(&p, &t, UNQUOTE_RELAX) > 0);
@@ -1660,13 +1660,13 @@ static void test_unquote_first_word(void) {
         assert_se(unquote_first_word(&p, &t, UNQUOTE_CUNESCAPE|UNQUOTE_CUNESCAPE_RELAX) > 0);
         assert_se(streq(t, "\\w+@\\K[\\d.]+"));
         free(t);
-        assert_se(p == original + 12);
+        assert_se(isempty(p));
 
         p = original = "\\w+\\b";
         assert_se(unquote_first_word(&p, &t, UNQUOTE_CUNESCAPE|UNQUOTE_CUNESCAPE_RELAX) > 0);
         assert_se(streq(t, "\\w+\b"));
         free(t);
-        assert_se(p == original + 5);
+        assert_se(isempty(p));
 
         p = original = "-N ''";
         assert_se(unquote_first_word(&p, &t, UNQUOTE_CUNESCAPE) > 0);
@@ -1677,7 +1677,7 @@ static void test_unquote_first_word(void) {
         assert_se(unquote_first_word(&p, &t, UNQUOTE_CUNESCAPE) > 0);
         assert_se(streq(t, ""));
         free(t);
-        assert_se(p == original + 5);
+        assert_se(isempty(p));
 }
 
 static void test_unquote_first_word_and_warn(void) {
@@ -1693,11 +1693,11 @@ static void test_unquote_first_word_and_warn(void) {
         assert_se(unquote_first_word_and_warn(&p, &t, 0, NULL, "fake", 1, original) > 0);
         assert_se(streq(t, "waldo"));
         free(t);
-        assert_se(p == original + 12);
+        assert_se(isempty(p));
 
         assert_se(unquote_first_word_and_warn(&p, &t, 0, NULL, "fake", 1, original) == 0);
         assert_se(!t);
-        assert_se(p == original + 12);
+        assert_se(isempty(p));
 
         p = original = "\"foobar\" \'waldo\'";
         assert_se(unquote_first_word_and_warn(&p, &t, 0, NULL, "fake", 1, original) > 0);
@@ -1708,11 +1708,11 @@ static void test_unquote_first_word_and_warn(void) {
         assert_se(unquote_first_word_and_warn(&p, &t, 0, NULL, "fake", 1, original) > 0);
         assert_se(streq(t, "waldo"));
         free(t);
-        assert_se(p == original + 16);
+        assert_se(isempty(p));
 
         assert_se(unquote_first_word_and_warn(&p, &t, 0, NULL, "fake", 1, original) == 0);
         assert_se(!t);
-        assert_se(p == original + 16);
+        assert_se(isempty(p));
 
         p = original = "\"";
         assert_se(unquote_first_word_and_warn(&p, &t, 0, NULL, "fake", 1, original) == -EINVAL);
@@ -1730,19 +1730,19 @@ static void test_unquote_first_word_and_warn(void) {
         assert_se(unquote_first_word_and_warn(&p, &t, UNQUOTE_RELAX, NULL, "fake", 1, original) > 0);
         assert_se(streq(t, "fooo"));
         free(t);
-        assert_se(p == original + 5);
+        assert_se(isempty(p));
 
         p = original = " foo\\ba\\x6ar ";
         assert_se(unquote_first_word_and_warn(&p, &t, UNQUOTE_CUNESCAPE, NULL, "fake", 1, original) > 0);
         assert_se(streq(t, "foo\ba\x6ar"));
         free(t);
-        assert_se(p == original + 13);
+        assert_se(isempty(p));
 
         p = original = " foo\\ba\\x6ar ";
         assert_se(unquote_first_word_and_warn(&p, &t, 0, NULL, "fake", 1, original) > 0);
         assert_se(streq(t, "foobax6ar"));
         free(t);
-        assert_se(p == original + 13);
+        assert_se(isempty(p));
 
         p = original = "    f\\u00f6o \"pi\\U0001F4A9le\"   ";
         assert_se(unquote_first_word_and_warn(&p, &t, UNQUOTE_CUNESCAPE, NULL, "fake", 1, original) > 0);
@@ -1753,25 +1753,25 @@ static void test_unquote_first_word_and_warn(void) {
         assert_se(unquote_first_word_and_warn(&p, &t, UNQUOTE_CUNESCAPE, NULL, "fake", 1, original) > 0);
         assert_se(streq(t, "pi\360\237\222\251le"));
         free(t);
-        assert_se(p == original + 32);
+        assert_se(isempty(p));
 
         p = original = "fooo\\";
         assert_se(unquote_first_word_and_warn(&p, &t, UNQUOTE_RELAX, NULL, "fake", 1, original) > 0);
         assert_se(streq(t, "fooo"));
         free(t);
-        assert_se(p == original + 5);
+        assert_se(isempty(p));
 
         p = original = "fooo\\";
         assert_se(unquote_first_word_and_warn(&p, &t, 0, NULL, "fake", 1, original) > 0);
         assert_se(streq(t, "fooo\\"));
         free(t);
-        assert_se(p == original + 5);
+        assert_se(isempty(p));
 
         p = original = "fooo\\";
         assert_se(unquote_first_word_and_warn(&p, &t, UNQUOTE_CUNESCAPE, NULL, "fake", 1, original) > 0);
         assert_se(streq(t, "fooo\\"));
         free(t);
-        assert_se(p == original + 5);
+        assert_se(isempty(p));
 
         p = original = "\"foo\\";
         assert_se(unquote_first_word_and_warn(&p, &t, 0, NULL, "fake", 1, original) == -EINVAL);
@@ -1781,7 +1781,7 @@ static void test_unquote_first_word_and_warn(void) {
         assert_se(unquote_first_word_and_warn(&p, &t, UNQUOTE_RELAX, NULL, "fake", 1, original) > 0);
         assert_se(streq(t, "foo"));
         free(t);
-        assert_se(p == original + 5);
+        assert_se(isempty(p));
 
         p = original = "\"foo\\";
         assert_se(unquote_first_word_and_warn(&p, &t, UNQUOTE_CUNESCAPE, NULL, "fake", 1, original) == -EINVAL);
@@ -1791,7 +1791,7 @@ static void test_unquote_first_word_and_warn(void) {
         assert_se(unquote_first_word_and_warn(&p, &t, UNQUOTE_CUNESCAPE|UNQUOTE_RELAX, NULL, "fake", 1, original) > 0);
         assert_se(streq(t, "foo"));
         free(t);
-        assert_se(p == original + 5);
+        assert_se(isempty(p));
 
         p = original = "fooo\\ bar quux";
         assert_se(unquote_first_word_and_warn(&p, &t, UNQUOTE_RELAX, NULL, "fake", 1, original) > 0);
@@ -1815,13 +1815,13 @@ static void test_unquote_first_word_and_warn(void) {
         assert_se(unquote_first_word_and_warn(&p, &t, UNQUOTE_CUNESCAPE, NULL, "fake", 1, original) > 0);
         assert_se(streq(t, "\\w+@\\K[\\d.]+"));
         free(t);
-        assert_se(p == original + 12);
+        assert_se(isempty(p));
 
         p = original = "\\w+\\b";
         assert_se(unquote_first_word_and_warn(&p, &t, UNQUOTE_CUNESCAPE, NULL, "fake", 1, original) > 0);
         assert_se(streq(t, "\\w+\b"));
         free(t);
-        assert_se(p == original + 5);
+        assert_se(isempty(p));
 }
 
 static void test_unquote_many_words(void) {
@@ -1830,7 +1830,7 @@ static void test_unquote_many_words(void) {
 
         p = original = "foobar waldi piep";
         assert_se(unquote_many_words(&p, 0, &a, &b, &c, NULL) == 3);
-        assert_se(p == original + 17);
+        assert_se(isempty(p));
         assert_se(streq_ptr(a, "foobar"));
         assert_se(streq_ptr(b, "waldi"));
         assert_se(streq_ptr(c, "piep"));
@@ -1840,7 +1840,7 @@ static void test_unquote_many_words(void) {
 
         p = original = "'foobar' wa\"ld\"i   ";
         assert_se(unquote_many_words(&p, 0, &a, &b, &c, NULL) == 2);
-        assert_se(p == original + 19);
+        assert_se(isempty(p));
         assert_se(streq_ptr(a, "foobar"));
         assert_se(streq_ptr(b, "waldi"));
         assert_se(streq_ptr(c, NULL));
@@ -1849,14 +1849,14 @@ static void test_unquote_many_words(void) {
 
         p = original = "";
         assert_se(unquote_many_words(&p, 0, &a, &b, &c, NULL) == 0);
-        assert_se(p == original);
+        assert_se(isempty(p));
         assert_se(streq_ptr(a, NULL));
         assert_se(streq_ptr(b, NULL));
         assert_se(streq_ptr(c, NULL));
 
         p = original = "  ";
         assert_se(unquote_many_words(&p, 0, &a, &b, &c, NULL) == 0);
-        assert_se(p == original+2);
+        assert_se(isempty(p));
         assert_se(streq_ptr(a, NULL));
         assert_se(streq_ptr(b, NULL));
         assert_se(streq_ptr(c, NULL));
@@ -1873,7 +1873,7 @@ static void test_unquote_many_words(void) {
 
         p = original = "     foobar    ";
         assert_se(unquote_many_words(&p, 0, &a, NULL) == 1);
-        assert_se(p == original+15);
+        assert_se(isempty(p));
         assert_se(streq_ptr(a, "foobar"));
         free(a);
 }

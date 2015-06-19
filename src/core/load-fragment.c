@@ -614,7 +614,7 @@ int config_parse_exec(
 
                 path_kill_slashes(path);
 
-                for (;;) {
+                while (!isempty(p)) {
                         _cleanup_free_ char *word = NULL;
 
                         /* Check explicitly for an unquoted semicolon as

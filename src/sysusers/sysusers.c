@@ -1389,7 +1389,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 log_error("[%s:%u] Missing action and name columns.", fname, line);
                 return -EINVAL;
         }
-        if (*p != 0) {
+        if (!isempty(p)) {
                 log_error("[%s:%u] Trailing garbage.", fname, line);
                 return -EINVAL;
         }
