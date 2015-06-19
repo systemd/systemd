@@ -6,7 +6,7 @@ Bugfixes:
   automount points even when the original .automount file did not exist
   anymore. Only the .mount unit was still around.
 
-* ExecStart with unicode characters fails in strv_split_quoted:
+* ExecStart with unicode characters fails in strv_split_extract:
 
           [Service]
           Environment=ONE='one' "TWO='two two' too" THREE=

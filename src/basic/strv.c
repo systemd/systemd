@@ -278,7 +278,7 @@ char **strv_split_newlines(const char *s) {
         return l;
 }
 
-int strv_split_quoted(char ***t, const char *s, ExtractFlags flags) {
+int strv_split_extract(char ***t, const char *s, const char *separators, ExtractFlags flags) {
         size_t n = 0, allocated = 0;
         _cleanup_strv_free_ char **l = NULL;
         int r;
@@ -289,11 +289,12 @@ int strv_split_quoted(char ***t, const char *s, ExtractFlags flags) {
         for (;;) {
                 _cleanup_free_ char *word = NULL;
 
-                r = extract_first_word(&s, &word, NULL, flags|EXTRACT_QUOTES);
+                r = extract_first_word(&s, &word, separators, flags);
                 if (r < 0)
                         return r;
-                if (r == 0)
+                if (r == 0) {
                         break;
+                }
 
                 if (!GREEDY_REALLOC(l, allocated, n + 2))
                         return -ENOMEM;
