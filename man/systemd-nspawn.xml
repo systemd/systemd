@@ -578,7 +578,9 @@
         same path in the container --, or a colon-separated pair of
         paths -- in which case the first specified path is the source
         in the host, and the second path is the destination in the
-        container. This option may be specified multiple times for
+        container. Backslash escapes are interpreted so
+        <literal>\:</literal> may be used to embed colons in either path.
+        This option may be specified multiple times for
         creating multiple independent bind mount points. The
         <option>--bind-ro=</option> option creates read-only bind
         mounts.</para></listitem>
