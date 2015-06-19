@@ -597,7 +597,10 @@
         otherwise specified). This option is particularly useful for
         mounting directories such as <filename>/var</filename> as
         tmpfs, to allow state-less systems, in particular when
-        combined with <option>--read-only</option>.</para></listitem>
+        combined with <option>--read-only</option>.
+        Backslash escapes are interpreted in the path so
+        <literal>\:</literal> may be used to embed colons in the path.
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>
