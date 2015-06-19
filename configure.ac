@@ -1430,6 +1430,11 @@ AS_IF([test "x${enable_split_usr}" = "xyes"], [
 ])
 AM_CONDITIONAL(ENABLE_SPLIT_USR, [test "x${enable_split_usr}" = "xyes"])
 
+# work around intltool-update issues during 'make distcheck'
+AS_IF([test "x$0" != "x./configure"], [
+        AC_SUBST([INTLTOOL_UPDATE], [/bin/true])
+])
+
 # QEMU and OVMF UEFI firmware
 AS_IF([test x"$cross_compiling" = "xyes"], [], [
         AC_PATH_PROG([QEMU], [qemu-system-x86_64])
