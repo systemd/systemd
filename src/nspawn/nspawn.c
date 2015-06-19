@@ -655,15 +655,28 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_BIND_RO: {
                         _cleanup_free_ char *source = NULL, *destination = NULL;
                         CustomMount *m;
-                        char *e;
+                        _cleanup_strv_free_ char **strv = NULL;
 
-                        e = strchr(optarg, ':');
-                        if (e) {
-                                source = strndup(optarg, e - optarg);
-                                destination = strdup(e + 1);
-                        } else {
-                                source = strdup(optarg);
-                                destination = strdup(optarg);
+                        r = strv_split_escaped(&strv, optarg, ":", EXTRACT_SEPARATOR_SPLIT);
+                        if (r == -ENOMEM)
+                                return log_oom();
+                        else if (r < 0) {
+                                log_error("Invalid bind mount specification: %s", optarg);
+                                return r;
+                        }
+
+                        switch (strv_length(strv)) {
+                        case 1:
+                                source = strdup(strv[0]);
+                                destination = strdup(strv[0]);
+                                break;
+                        case 2:
+                                source = strdup(strv[0]);
+                                destination = strdup(strv[1]);
+                                break;
+                        default:
+                                log_error("Invalid bind mount specification: %s", optarg);
+                                return -EINVAL;
                         }
 
                         if (!source || !destination)
