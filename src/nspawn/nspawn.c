@@ -655,17 +655,22 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_BIND:
                 case ARG_BIND_RO: {
+                        const char *current = optarg;
                         _cleanup_free_ char *source = NULL, *destination = NULL;
                         CustomMount *m;
-                        char *e;
+                        _cleanup_strv_free_ char **strv = NULL;
 
-                        e = strchr(optarg, ':');
-                        if (e) {
-                                source = strndup(optarg, e - optarg);
-                                destination = strdup(e + 1);
-                        } else {
-                                source = strdup(optarg);
-                                destination = strdup(optarg);
+                        r = extract_many_words(&current, ":", EXTRACT_DONT_COALESCE_SEPARATORS, &source, &destination, NULL);
+                        switch (r) {
+                        case 1:
+                                destination = strdup(source);
+                        case 2:
+                                break;
+                        case -ENOMEM:
+                                return log_oom();
+                        default:
+                                log_error("Invalid bind mount specification: %s", optarg);
+                                return -EINVAL;
                         }
 
                         if (!source || !destination)
