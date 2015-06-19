@@ -688,18 +688,21 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 case ARG_TMPFS: {
+                        const char *current = optarg;
                         _cleanup_free_ char *path = NULL, *opts = NULL;
                         CustomMount *m;
-                        char *e;
 
-                        e = strchr(optarg, ':');
-                        if (e) {
-                                path = strndup(optarg, e - optarg);
-                                opts = strdup(e + 1);
-                        } else {
-                                path = strdup(optarg);
-                                opts = strdup("mode=0755");
+                        r = extract_first_word(&current, &path, ":", EXTRACT_SEPARATOR_SPLIT);
+                        if (r == -ENOMEM)
+                                return log_oom();
+                        else if (r < 0) {
+                                log_error("Invalid tmpfs specification: %s", optarg);
+                                return r;
                         }
+                        if (r)
+                                opts = strdup(current);
+                        else
+                                opts = strdup("mode=0755");
 
                         if (!path || !opts)
                                 return log_oom();
