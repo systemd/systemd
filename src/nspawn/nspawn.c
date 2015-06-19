@@ -745,9 +745,13 @@ static int parse_argv(int argc, char *argv[]) {
                         unsigned n = 0;
                         char **i;
 
-                        lower = strv_split(optarg, ":");
-                        if (!lower)
+                        r = strv_split_escaped(&lower, optarg, ":", EXTRACT_SEPARATOR_SPLIT);
+                        if (r == -ENOMEM)
                                 return log_oom();
+                        else if (r < 0) {
+                                log_error("Invalid overlay specification: %s", optarg);
+                                return r;
+                        }
 
                         STRV_FOREACH(i, lower) {
                                 if (!path_is_absolute(*i)) {
