@@ -5715,8 +5715,11 @@ int unquote_first_word(const char **p, char **ret, UnquoteFlags flags) {
         } state = START;
 
         assert(p);
-        assert(*p);
         assert(ret);
+
+        /* Bail early if called after last value or with no input */
+        if (!*p)
+                goto finish_force_terminate;
 
         /* Parses the first word of a string, and returns it in
          * *ret. Removes all quotes in the process. When parsing fails
@@ -5730,7 +5733,7 @@ int unquote_first_word(const char **p, char **ret, UnquoteFlags flags) {
 
                 case START:
                         if (c == 0)
-                                goto finish;
+                                goto finish_force_terminate;
                         else if (strchr(WHITESPACE, c))
                                 break;
 
@@ -5739,7 +5742,7 @@ int unquote_first_word(const char **p, char **ret, UnquoteFlags flags) {
 
                 case VALUE:
                         if (c == 0)
-                                goto finish;
+                                goto finish_force_terminate;
                         else if (c == '\'') {
                                 if (!GREEDY_REALLOC(s, allocated, sz+1))
                                         return -ENOMEM;
@@ -5766,7 +5769,7 @@ int unquote_first_word(const char **p, char **ret, UnquoteFlags flags) {
                 case SINGLE_QUOTE:
                         if (c == 0) {
                                 if (flags & UNQUOTE_RELAX)
-                                        goto finish;
+                                        goto finish_force_terminate;
                                 return -EINVAL;
                         } else if (c == '\'')
                                 state = VALUE;
@@ -5814,10 +5817,10 @@ int unquote_first_word(const char **p, char **ret, UnquoteFlags flags) {
                                          * mode, UNQUOTE_CUNESCAP_RELAX mode does not allow them.
                                          */
                                         s[sz++] = '\\';
-                                        goto finish;
+                                        goto finish_force_terminate;
                                 }
                                 if (flags & UNQUOTE_RELAX)
-                                        goto finish;
+                                        goto finish_force_terminate;
                                 return -EINVAL;
                         }
 
@@ -5861,8 +5864,11 @@ end_escape:
                 (*p) ++;
         }
 
+finish_force_terminate:
+        *p = NULL;
 finish:
         if (!s) {
+                *p = NULL;
                 *ret = NULL;
                 return 0;
         }
