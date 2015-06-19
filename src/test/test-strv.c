@@ -219,6 +219,21 @@ static void test_strv_split(void) {
         }
 }
 
+static void test_strv_split_escaped(void) {
+        _cleanup_strv_free_ char **l = NULL;
+        const char *str = ":foo\\:bar::waldo:";
+        int r;
+
+        r = strv_split_escaped(&l, str, ":", EXTRACT_SEPARATOR_SPLIT);
+        assert_se(r == 0);
+        assert_se(streq_ptr(l[0], ""));
+        assert_se(streq_ptr(l[1], "foo:bar"));
+        assert_se(streq_ptr(l[2], ""));
+        assert_se(streq_ptr(l[3], "waldo"));
+        assert_se(streq_ptr(l[4], ""));
+        assert_se(streq_ptr(l[5], NULL));
+}
+
 static void test_strv_split_newlines(void) {
         unsigned i = 0;
         char **s;
@@ -583,6 +598,7 @@ int main(int argc, char *argv[]) {
         test_invalid_unquote("'x'y'g");
 
         test_strv_split();
+        test_strv_split_escaped();
         test_strv_split_newlines();
         test_strv_split_nulstr();
         test_strv_parse_nulstr();
