@@ -77,7 +77,21 @@
     <para><function>sd_bus_new()</function> creates a new bus
     object. This object is reference-counted, and will be destroyed
     when all references are gone. Initially, the caller of this
-    function owns the sole reference.</para>
+    function owns the sole reference. The bus object will not be
+    connected to any bus initially. To connect it to a bus, make sure
+    to set an address with
+    <citerefentry><refentrytitle>sd_bus_set_address</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    or a related call, and then start the connection with
+    <citerefentry><refentrytitle>sd_bus_start</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
+
+    <para>In most cases it's a better idea to invoke
+    <citerefentry><refentrytitle>sd_bus_default_user</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>sd_bus_default_system</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    or related calls instead of the more low-level
+    <function>sd_bus_new()</function> and
+    <function>sd_bus_start()</function>. The higher-level calls not
+    only allocate a bus object but also start the connection to a
+    well-known bus in a single function invocation.</para>
 
     <para><function>sd_bus_ref()</function> creates a new reference to
     <parameter>bus</parameter>. This bus object will not be destroyed
@@ -135,10 +149,10 @@
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>sd_bus_open_user</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>sd_bus_open_system</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_bus_default_user</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>sd_bus_default_system</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>sd_bus_default_system</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_open_user</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_open_system</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     </para>
   </refsect1>
 

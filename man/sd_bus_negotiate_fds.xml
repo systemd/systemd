@@ -70,7 +70,7 @@
         <funcdef>int <function>sd_bus_negotiate_creds</function></funcdef>
         <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
         <paramdef>int <parameter>b</parameter></paramdef>
-        <paramdef>uint64_t <parameter>flags</parameter></paramdef>
+        <paramdef>uint64_t <parameter>mask</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
@@ -81,10 +81,11 @@
     <para><function>sd_bus_negotiate_fds()</function> controls whether
     file descriptor passing shall be negotiated for the specified bus
     connection. It takes a bus object and a boolean, which, when true,
-    enables file descriptor passing, and, when false, disables it. Note
-    that not all transports and servers support file descriptor
-    passing. To find out whether file descriptor passing is available
-    after negotiation, use
+    enables file descriptor passing, and, when false, disables
+    it. Note that not all transports and servers support file
+    descriptor passing. In particular, networked transports generally
+    do not support file descriptor passing. To find out whether file
+    descriptor passing is available after negotiation, use
     <citerefentry><refentrytitle>sd_bus_can_send</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     and pass <constant>SD_BUS_TYPE_UNIX_FD</constant>. Note that file
     descriptor passing is always enabled for both sending and
@@ -101,34 +102,44 @@
     <para><function>sd_bus_negotiate_timestamps()</function> controls
     whether implicit sender timestamps shall be attached automatically
     to all incoming messages. Takes a bus object and a boolean, which,
-    when true, enables timestamping, and, when false, disables it. If
-    this is disabled,
+    when true, enables timestamping, and, when false, disables it.
+    Use
     <citerefentry><refentrytitle>sd_bus_message_get_monotonic_usec</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
     <citerefentry><refentrytitle>sd_bus_message_get_realtime_usec</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
     <citerefentry><refentrytitle>sd_bus_message_get_seqnum</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-    fail with <constant>-ENODATA</constant> on incoming messages. Note
-    that not all transports support timestamping of messages. On local
-    transports, the timestamping is applied by the kernel and cannot
-    be manipulated by userspace. By default, message timestamping is
-    not negotiated for all connections.</para>
+    to query the timestamps of incoming messages. If negotiation is
+    disabled or not supported these calls will fail with
+    <constant>-ENODATA</constant>. Note that not all transports
+    support timestamping of messages. Specifically, timestamping is
+    only available on the kdbus transport, but not on dbus1. The
+    timestamping is applied by the kernel and cannot be manipulated by
+    userspace. By default, message timestamping is not negotiated for
+    connections.</para>
 
     <para><function>sd_bus_negotiate_creds()</function> controls
-    whether implicit sender credentials shall be attached
+    whether and which implicit sender credentials shall be attached
     automatically to all incoming messages. Takes a bus object, a
     boolean indicating whether to enable or disable the credential
     parts encoded in the bit mask value argument. Note that not all
     transports support attaching sender credentials to messages, or do
     not support all types of sender credential parameters, or might
     suppress them under certain circumstances for individual
-    messages. On local transports, the sender credentials are attached
-    by the kernel and cannot be manipulated by userspace. By default,
-    no sender credentials are attached.</para>
+    messages. Specifically, implicit sender credentials on messages
+    are only fully supported on kdbus transports, and dbus1 only
+    supports <constant>SD_BUS_CREDS_UNIQUE_NAME</constant>. The sender
+    credentials are attached by the kernel and cannot be manipulated
+    by userspace, and are thus suitable for authorization
+    decisions. By default, only
+    <constant>SD_BUS_CREDS_WELL_KNOWN_NAMES</constant> and
+    <constant>SD_BUS_CREDS_UNIQUE_NAME</constant> are enabled. In
+    fact, these two credential fields are always sent along and cannot
+    be turned off.</para>
 
     <para>The <function>sd_bus_negotiate_fds()</function> function may
     be called only before the connection has been started with
     <citerefentry><refentrytitle>sd_bus_start</refentrytitle><manvolnum>3</manvolnum></citerefentry>. Both
     <function>sd_bus_negotiate_timestamp()</function> and
-    <function>sd_bus_negotiate_creds()</function> also may be called
+    <function>sd_bus_negotiate_creds()</function> may also be called
     after a connection has been set up. Note that when operating on a
     connection that is shared between multiple components of the same
     program (for example via
@@ -163,7 +174,7 @@
   <refsect1>
     <title>Notes</title>
 
-    <para><function>sd_bus_negotiate_fs()</function> and the other
+    <para><function>sd_bus_negotiate_fds()</function> and the other
     functions described here are available as a shared library, which
     can be compiled and linked to with the
     <constant>libsystemd</constant> <citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
@@ -179,6 +190,8 @@
       <citerefentry><refentrytitle>sd_bus_start</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_bus_message_can_send</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_bus_message_get_monotonic_usec</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_message_get_realtime_usec</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_message_get_seqnum</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_bus_message_get_creds</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.busname</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     </para>

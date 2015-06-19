@@ -109,26 +109,30 @@
     <title>Description</title>
 
     <para><function>sd_bus_default()</function> acquires a bus
-    connection object to the user bus when invoked in user context or
+    connection object to the user bus when invoked in user context, or
     to the system bus otherwise. The connection object is associated
     to the calling thread. Each time the function is invoked from the
     same thread the same object is returned, but its reference count
-    increased by one, as long as at least one reference is kept. When
-    the last reference to the connection is dropped (using the
-    <function>sd_bus_unref()</function> call), the connection is
-    terminated. Note that the connection is not automatically
-    terminated when the associated thread ends. It is important to
-    drop the last reference to the bus connection explicitly before
-    the thread ends or otherwise the connection will be leaked.</para>
+    is increased by one, as long as at least one reference is
+    kept. When the last reference to the connection is dropped (using
+    the
+    <citerefentry><refentrytitle>sd_bus_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    call), the connection is terminated. Note that the connection is
+    not automatically terminated when the associated thread ends. It
+    is important to drop the last reference to the bus connection
+    explicitly before the thread ends or otherwise the connection will
+    be leaked.</para>
 
     <para><function>sd_bus_default_user()</function> returns a user
     bus connection object associated to the calling thread.
     <function>sd_bus_default_system()</function> is similar, but
-    connects to the system bus.</para>
+    connects to the system bus. Note that
+    <function>sd_bus_default()</function> is identical to these two
+    calls, depending on the execution context.</para>
 
     <para><function>sd_bus_open()</function> creates a new,
     independent bus connection to the user bus when invoked in user
-    context or the system bus
+    context, or the system bus
     otherwise. <function>sd_bus_open_user()</function> is similar, but
     connects only to the user bus.
     <function>sd_bus_open_system()</function> does the same, but
@@ -162,8 +166,10 @@
 
     <para><function>sd_bus_open_system_remote()</function> connects to
     the system bus on the specified <parameter>host</parameter> using
-    SSH. <parameter>host</parameter> consists of an optional user name
-    followed by the <literal>@</literal> symbol, and the hostname.
+    <citerefentry
+    project='die-net'><refentrytitle>ssh</refentrytitle><manvolnum>1</manvolnum></citerefentry>. <parameter>host</parameter>
+    consists of an optional user name followed by the
+    <literal>@</literal> symbol, and the hostname.
     </para>
 
     <para><function>sd_bus_open_system_container()</function> connects
@@ -171,7 +177,18 @@
     where <parameter>machine</parameter> is the name of a local
     container.  See
     <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    for more information about "machines".</para>
+    for more information about the "machine" concept. Note that
+    connections into local containers are only available to privileged
+    processes at this time.</para>
+
+    <para>These calls allocate a bus connection object and initiate
+    the connection ot a well-known bus of some form. An alternative to
+    using these high-level calls is to create an unconnected bus
+    object with
+    <citerefentry><refentrytitle>sd_bus_new</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    and to connect it with
+    <citerefentry><refentrytitle>sd_bus_start</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+    </para>
 
   </refsect1>
 
@@ -185,8 +202,8 @@
 
   <refsect1>
     <title>Reference ownership</title>
-    <para>The functions <function>sd_bus_open_user()</function>,
-    <function>sd_bus_open()</function>,
+    <para>The functions <function>sd_bus_open()</function>,
+    <function>sd_bus_open_user()</function>,
     <function>sd_bus_open_system()</function>,
     <function>sd_bus_open_system_remote()</function>, and
     <function>sd_bus_open_system_machine()</function> return a new
