@@ -83,7 +83,7 @@
       <varlistentry>
           <term><option>--show-machine</option></term>
 
-          <listitem><para>When showing the list of endpoints, show a
+          <listitem><para>When showing the list of peers, show a
           column containing the names of containers they belong to.
           See
           <citerefentry><refentrytitle>systemd-machined.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
@@ -93,8 +93,8 @@
       <varlistentry>
           <term><option>--unique</option></term>
 
-          <listitem><para>When showing the list of endpoints, show
-          only "unique" names (of the form
+          <listitem><para>When showing the list of peers, show only
+          "unique" names (of the form
           <literal>:<replaceable>number</replaceable>.<replaceable>number</replaceable></literal>).
           </para></listitem>
       </varlistentry>
@@ -109,9 +109,9 @@
       <varlistentry>
           <term><option>--activatable</option></term>
 
-          <listitem><para>When showing the list of endpoints, show
-          only endpoints which have actually not been activated yet,
-          but may be started automatically if accessed.</para>
+          <listitem><para>When showing the list of peers, show only
+          peers which have actually not been activated yet, but may be
+          started automatically if accessed.</para>
           </listitem>
       </varlistentry>
 
@@ -257,8 +257,11 @@
       <varlistentry>
         <term><command>list</command></term>
 
-        <listitem><para>Show service names on the bus. This is the
-        default if no command is specified.</para></listitem>
+        <listitem><para>Show all peers on the bus, by their service
+        names. By default shows both unique and well-known names, but
+        this may be changed with the <option>--unique</option> and
+        <option>--acquired</option> switches. This is the default
+        operation if no command is specified.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -276,8 +279,9 @@
 
         <listitem><para>Dump messages being exchanged. If
         <replaceable>SERVICE</replaceable> is specified, show messages
-        to or from this endpoint. Otherwise, show all messages on the
-        bus. Use Ctrl-C to terminate dump.</para></listitem>
+        to or from this peer, identified by its well-known or unique
+        name. Otherwise, show all messages on the bus. Use Ctrl-C to
+        terminate dump.</para></listitem>
       </varlistentry>
 
       <varlistentry>
