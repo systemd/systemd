@@ -1241,6 +1241,21 @@ static int mount_tmpfs(const char *dest, CustomMount *m) {
         return 0;
 }
 
+static char *joined_and_escaped_lower_dirs(char * const *lower) {
+        _cleanup_strv_free_ char **sv = NULL;
+
+        sv = strv_copy(lower);
+        if (!sv)
+                return NULL;
+
+        strv_reverse(sv);
+
+        if (!strv_shell_escape(sv, ",:"))
+                return NULL;
+
+        return strv_join(sv, ":");
+}
+
 static int mount_overlay(const char *dest, CustomMount *m) {
         _cleanup_free_ char *lower = NULL;
         const char *where, *options;
@@ -1257,19 +1272,32 @@ static int mount_overlay(const char *dest, CustomMount *m) {
 
         (void) mkdir_p_label(m->source, 0755);
 
-        strv_reverse(m->lower);
-        lower = strv_join(m->lower, ":");
-        strv_reverse(m->lower);
+        lower = joined_and_escaped_lower_dirs(m->lower);
         if (!lower)
                 return log_oom();
 
-        if (m->read_only)
-                options = strjoina("lowerdir=", m->source, ":", lower);
-        else {
+        if (m->read_only) {
+                _cleanup_free_ char *escaped_source = NULL;
+
+                escaped_source = shell_escape(m->source, ",:");
+                if (!escaped_source)
+                        return log_oom();
+
+                options = strjoina("lowerdir=", escaped_source, ":", lower);
+        } else {
+                _cleanup_free_ char *escaped_source = NULL, *escaped_work_dir = NULL;
+
                 assert(m->work_dir);
                 (void) mkdir_label(m->work_dir, 0700);
 
-                options = strjoina("lowerdir=", lower, ",upperdir=", m->source, ",workdir=", m->work_dir);
+                escaped_source = shell_escape(m->source, ",:");
+                if (!escaped_source)
+                        return log_oom();
+                escaped_work_dir = shell_escape(m->work_dir, ",:");
+                if (!escaped_work_dir)
+                        return log_oom();
+
+                options = strjoina("lowerdir=", lower, ",upperdir=", escaped_source, ",workdir=", escaped_work_dir);
         }
 
         if (mount("overlay", where, "overlay", m->read_only ? MS_RDONLY : 0, options) < 0)
