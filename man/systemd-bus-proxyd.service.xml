@@ -21,10 +21,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="systemd-bus-proxyd@.service">
+<refentry id="systemd-bus-proxyd.service">
 
   <refentryinfo>
-    <title>systemd-bus-proxyd@.service</title>
+    <title>systemd-bus-proxyd.service</title>
     <productname>systemd</productname>
 
     <authorgroup>
@@ -38,18 +38,18 @@
   </refentryinfo>
 
   <refmeta>
-    <refentrytitle>systemd-bus-proxyd@.service</refentrytitle>
+    <refentrytitle>systemd-bus-proxyd.service</refentrytitle>
     <manvolnum>8</manvolnum>
   </refmeta>
 
   <refnamediv>
-    <refname>systemd-bus-proxyd@.service</refname>
+    <refname>systemd-bus-proxyd.service</refname>
     <refname>systemd-bus-proxyd.socket</refname>
     <refpurpose>Proxy classic D-Bus clients to kdbus</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
-    <para><filename>systemd-bus-proxyd@.service</filename></para>
+    <para><filename>systemd-bus-proxyd.service</filename></para>
     <para><filename>systemd-bus-proxyd.socket</filename></para>
   </refsynopsisdiv>
 
@@ -57,11 +57,11 @@
     <title>Description</title>
 
     <para><filename>systemd-bus-proxyd.socket</filename> will launch
-    <filename>systemd-bus-proxyd@.service</filename> for connections
+    <filename>systemd-bus-proxyd.service</filename> for connections
     to the classic D-Bus socket in
     <filename>/var/run/dbus/system_bus_socket</filename>.</para>
 
-    <para><filename>systemd-bus-proxyd@.service</filename> is launched
+    <para><filename>systemd-bus-proxyd.service</filename> is launched
     for an existing D-Bus connection and will use
     <command>systemd-bus-proxyd</command> to proxy messages from this
     connection to the system bus (either kdbus or classic D-Bus).
