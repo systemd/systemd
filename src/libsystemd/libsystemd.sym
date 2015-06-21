@@ -459,3 +459,10 @@ global:
         sd_event_source_get_signal;
         sd_event_source_get_child_pid;
 } LIBSYSTEMD_220;
+
+LIBSYSTEMD_222 {
+global:
+        /* sd-bus */
+        sd_bus_emit_object_added;
+        sd_bus_emit_object_removed;
+} LIBSYSTEMD_221;
