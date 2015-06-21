@@ -181,7 +181,7 @@ static int export_legacy_dbus_address(
         int r;
 
         /* skip export if kdbus is not active */
-        if (access("/sys/fs/kdbus", F_OK) < 0)
+        if (!is_kdbus_available())
                 return PAM_SUCCESS;
 
         if (asprintf(&s, KERNEL_USER_BUS_ADDRESS_FMT ";" UNIX_USER_BUS_ADDRESS_FMT, uid, runtime) < 0) {
