@@ -54,22 +54,41 @@ int tlv_packet_new(tlv_packet **ret) {
                 return -ENOMEM;
 
         LIST_HEAD_INIT(m->sections);
+        m->n_ref = 1;
 
         *ret = m;
 
         return 0;
 }
 
-void tlv_packet_free(tlv_packet *m) {
+tlv_packet *tlv_packet_ref(tlv_packet *m) {
+
+        if (!m)
+                return NULL;
+
+        assert(m->n_ref > 0);
+        m->n_ref++;
+
+        return m;
+}
+
+tlv_packet *tlv_packet_unref(tlv_packet *m) {
         tlv_section *s, *n;
 
         if (!m)
-                return;
+                return NULL;
+
+        assert(m->n_ref > 0);
+        m->n_ref--;
+
+        if (m->n_ref > 0)
+                return m;
 
         LIST_FOREACH_SAFE(section, s, n, m->sections)
                 tlv_section_free(s);
 
         free(m);
+        return NULL;
 }
 
 int tlv_packet_append_bytes(tlv_packet *m, const void *data, size_t data_length) {
