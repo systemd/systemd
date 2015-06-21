@@ -27,6 +27,7 @@
 #include <stdio.h>
 #include <fcntl.h>
 #include <sys/statvfs.h>
+#include <sys/stat.h>
 
 #include "macro.h"
 #include "util.h"
@@ -35,6 +36,7 @@
 #include "path-util.h"
 #include "missing.h"
 #include "fileio.h"
+#include "time-util.h"
 
 bool path_is_absolute(const char *p) {
         return p[0] == '/';
