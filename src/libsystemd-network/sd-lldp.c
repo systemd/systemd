@@ -340,7 +340,7 @@ int lldp_handle_packet(tlv_packet *tlv, uint16_t length) {
                 lldp->statistics.stats_frames_in_errors_total ++;
         }
 
-        tlv_packet_free(tlv);
+        tlv_packet_unref(tlv);
 
         return 0;
 }

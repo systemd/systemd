@@ -259,7 +259,7 @@ int lldp_mib_update_objects(lldp_chassis *c, tlv_packet *tlv) {
 
                         p->until = ttl * USEC_PER_SEC + now(clock_boottime_or_monotonic());
 
-                        tlv_packet_free(p->packet);
+                        tlv_packet_unref(p->packet);
                         p->packet = tlv;
 
                         prioq_reshuffle(p->c->by_expiry, p, &p->prioq_idx);
@@ -402,7 +402,7 @@ int lldp_mib_add_objects(Prioq *by_expiry,
         return 0;
 
  drop:
-        tlv_packet_free(tlv);
+        tlv_packet_unref(tlv);
 
         if (new_chassis)
                 hashmap_remove(neighbour_mib, &c->chassis_id);
@@ -435,7 +435,7 @@ void lldp_neighbour_port_free(lldp_neighbour_port *p) {
         if(!p)
                 return;
 
-        tlv_packet_free(p->packet);
+        tlv_packet_unref(p->packet);
 
         free(p->data);
         free(p);
