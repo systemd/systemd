@@ -45,6 +45,8 @@ int tlv_section_new(tlv_section **ret);
 void tlv_section_free(tlv_section *ret);
 
 struct tlv_packet {
+        unsigned n_ref;
+
         uint16_t type;
         uint16_t length;
         usec_t ts;
@@ -61,10 +63,11 @@ struct tlv_packet {
 };
 
 int tlv_packet_new(tlv_packet **ret);
-void tlv_packet_free(tlv_packet *m);
+tlv_packet *tlv_packet_ref(tlv_packet *m);
+tlv_packet *tlv_packet_unref(tlv_packet *m);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(tlv_packet*, tlv_packet_free);
-#define _cleanup_tlv_packet_free_ _cleanup_(tlv_packet_freep)
+DEFINE_TRIVIAL_CLEANUP_FUNC(tlv_packet*, tlv_packet_unref);
+#define _cleanup_tlv_packet_free_ _cleanup_(tlv_packet_unrefp)
 
 int lldp_tlv_packet_open_container(tlv_packet *m, uint16_t type);
 int lldp_tlv_packet_close_container(tlv_packet *m);
