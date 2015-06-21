@@ -100,3 +100,5 @@ char *prefix_root(const char *root, const char *path);
                 }                                                       \
                 _ret;                                                   \
         })
+
+bool path_prefix_in_list(const char *path, const char *x, ...) _sentinel_;
