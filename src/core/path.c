@@ -485,7 +485,7 @@ static void path_enter_running(Path *p) {
         return;
 
 fail:
-        log_unit_warning(UNIT(p), "Failed to queue unit startup job: %s", bus_error_message(&error, r));
+        log_unit_warning(UNIT(p), "Failed to queue unit startup job: %s", sd_bus_error_strerror(&error, r));
         path_enter_dead(p, PATH_FAILURE_RESOURCES);
 }
 

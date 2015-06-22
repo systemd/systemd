@@ -62,7 +62,7 @@ static usec_t get_startup_time(Context *c) {
                         &error,
                         't', &t);
         if (r < 0) {
-                log_error("Failed to get timestamp: %s", bus_error_message(&error, -r));
+                log_error("Failed to get timestamp: %s", sd_bus_error_strerror(&error, -r));
                 return 0;
         }
 
@@ -106,7 +106,7 @@ static int get_current_runlevel(Context *c) {
                                 &error,
                                 &state);
                 if (r < 0) {
-                        log_warning("Failed to get state: %s", bus_error_message(&error, -r));
+                        log_warning("Failed to get state: %s", sd_bus_error_strerror(&error, -r));
                         return r;
                 }
 

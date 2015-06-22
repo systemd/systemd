@@ -399,7 +399,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                                remote_host,
                                0);
         if (r < 0) {
-                pam_syslog(handle, LOG_ERR, "Failed to create session: %s", bus_error_message(&error, r));
+                pam_syslog(handle, LOG_ERR, "Failed to create session: %s", sd_bus_error_strerror(&error, r));
                 return PAM_SYSTEM_ERR;
         }
 
@@ -531,7 +531,7 @@ _public_ PAM_EXTERN int pam_sm_close_session(
                                        "s",
                                        id);
                 if (r < 0) {
-                        pam_syslog(handle, LOG_ERR, "Failed to release session: %s", bus_error_message(&error, r));
+                        pam_syslog(handle, LOG_ERR, "Failed to release session: %s", sd_bus_error_strerror(&error, r));
                         return PAM_SESSION_ERR;
                 }
         }

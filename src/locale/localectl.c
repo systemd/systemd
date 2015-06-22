@@ -223,7 +223,7 @@ static int set_locale(sd_bus *bus, char **args, unsigned n) {
 
         r = sd_bus_call(bus, m, 0, &error, NULL);
         if (r < 0) {
-                log_error("Failed to issue method call: %s", bus_error_message(&error, -r));
+                log_error("Failed to issue method call: %s", sd_bus_error_strerror(&error, -r));
                 return r;
         }
 
@@ -274,7 +274,7 @@ static int set_vconsole_keymap(sd_bus *bus, char **args, unsigned n) {
                         NULL,
                         "ssbb", map, toggle_map, arg_convert, arg_ask_password);
         if (r < 0)
-                log_error("Failed to set keymap: %s", bus_error_message(&error, -r));
+                log_error("Failed to set keymap: %s", sd_bus_error_strerror(&error, -r));
 
         return r;
 }
@@ -380,7 +380,7 @@ static int set_x11_keymap(sd_bus *bus, char **args, unsigned n) {
                         "ssssbb", layout, model, variant, options,
                                   arg_convert, arg_ask_password);
         if (r < 0)
-                log_error("Failed to set keymap: %s", bus_error_message(&error, -r));
+                log_error("Failed to set keymap: %s", sd_bus_error_strerror(&error, -r));
 
         return r;
 }

@@ -516,7 +516,7 @@ static void timer_enter_running(Timer *t) {
         return;
 
 fail:
-        log_unit_warning(UNIT(t), "Failed to queue unit startup job: %s", bus_error_message(&error, r));
+        log_unit_warning(UNIT(t), "Failed to queue unit startup job: %s", sd_bus_error_strerror(&error, r));
         timer_enter_dead(t, TIMER_FAILURE_RESOURCES);
 }
 

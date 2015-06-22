@@ -337,9 +337,9 @@ static int find_nodes(sd_bus *bus, const char *service, const char *path, Set *p
         r = sd_bus_call_method(bus, service, path, "org.freedesktop.DBus.Introspectable", "Introspect", &error, &reply, "");
         if (r < 0) {
                 if (many)
-                        printf("Failed to introspect object %s of service %s: %s\n", path, service, bus_error_message(&error, r));
+                        printf("Failed to introspect object %s of service %s: %s\n", path, service, sd_bus_error_strerror(&error, r));
                 else
-                        log_error("Failed to introspect object %s of service %s: %s", path, service, bus_error_message(&error, r));
+                        log_error("Failed to introspect object %s of service %s: %s", path, service, sd_bus_error_strerror(&error, r));
                 return r;
         }
 
@@ -901,7 +901,7 @@ static int introspect(sd_bus *bus, char **argv) {
 
         r = sd_bus_call_method(bus, argv[1], argv[2], "org.freedesktop.DBus.Introspectable", "Introspect", &error, &reply, "");
         if (r < 0) {
-                log_error("Failed to introspect object %s of service %s: %s", argv[2], argv[1], bus_error_message(&error, r));
+                log_error("Failed to introspect object %s of service %s: %s", argv[2], argv[1], sd_bus_error_strerror(&error, r));
                 return r;
         }
 
@@ -928,7 +928,7 @@ static int introspect(sd_bus *bus, char **argv) {
 
                 r = sd_bus_call_method(bus, argv[1], argv[2], "org.freedesktop.DBus.Properties", "GetAll", &error, &reply, "s", m->interface);
                 if (r < 0) {
-                        log_error("%s", bus_error_message(&error, r));
+                        log_error("%s", sd_bus_error_strerror(&error, r));
                         return r;
                 }
 
@@ -1539,7 +1539,7 @@ static int call(sd_bus *bus, char *argv[]) {
 
         r = sd_bus_call(bus, m, arg_timeout, &error, &reply);
         if (r < 0) {
-                log_error("%s", bus_error_message(&error, r));
+                log_error("%s", sd_bus_error_strerror(&error, r));
                 return r;
         }
 
@@ -1592,7 +1592,7 @@ static int get_property(sd_bus *bus, char *argv[]) {
 
                 r = sd_bus_call_method(bus, argv[1], argv[2], "org.freedesktop.DBus.Properties", "Get", &error, &reply, "ss", argv[3], *i);
                 if (r < 0) {
-                        log_error("%s", bus_error_message(&error, r));
+                        log_error("%s", sd_bus_error_strerror(&error, r));
                         return r;
                 }
 
@@ -1672,7 +1672,7 @@ static int set_property(sd_bus *bus, char *argv[]) {
 
         r = sd_bus_call(bus, m, arg_timeout, &error, NULL);
         if (r < 0) {
-                log_error("%s", bus_error_message(&error, r));
+                log_error("%s", sd_bus_error_strerror(&error, r));
                 return r;
         }
 

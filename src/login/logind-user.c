@@ -395,7 +395,7 @@ static int user_start_slice(User *u) {
 
                 r = manager_start_unit(u->manager, slice, &error, &job);
                 if (r < 0) {
-                        log_error("Failed to start user slice: %s", bus_error_message(&error, r));
+                        log_error("Failed to start user slice: %s", sd_bus_error_strerror(&error, r));
                         free(slice);
                 } else {
                         u->slice = slice;
@@ -428,7 +428,7 @@ static int user_start_service(User *u) {
 
                 r = manager_start_unit(u->manager, service, &error, &job);
                 if (r < 0) {
-                        log_error("Failed to start user service: %s", bus_error_message(&error, r));
+                        log_error("Failed to start user service: %s", sd_bus_error_strerror(&error, r));
                         free(service);
                 } else {
                         u->service = service;
@@ -500,7 +500,7 @@ static int user_stop_slice(User *u) {
 
         r = manager_stop_unit(u->manager, u->slice, &error, &job);
         if (r < 0) {
-                log_error("Failed to stop user slice: %s", bus_error_message(&error, r));
+                log_error("Failed to stop user slice: %s", sd_bus_error_strerror(&error, r));
                 return r;
         }
 
@@ -522,7 +522,7 @@ static int user_stop_service(User *u) {
 
         r = manager_stop_unit(u->manager, u->service, &error, &job);
         if (r < 0) {
-                log_error("Failed to stop user service: %s", bus_error_message(&error, r));
+                log_error("Failed to stop user service: %s", sd_bus_error_strerror(&error, r));
                 return r;
         }
 

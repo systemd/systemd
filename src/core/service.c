@@ -1745,7 +1745,7 @@ static void service_enter_restart(Service *s) {
         return;
 
 fail:
-        log_unit_warning(UNIT(s), "Failed to schedule restart job: %s", bus_error_message(&error, -r));
+        log_unit_warning(UNIT(s), "Failed to schedule restart job: %s", sd_bus_error_strerror(&error, -r));
         service_enter_dead(s, SERVICE_FAILURE_RESOURCES, false);
 }
 

@@ -595,7 +595,7 @@ static void busname_enter_running(BusName *n) {
         return;
 
 fail:
-        log_unit_warning(UNIT(n), "Failed to queue service startup job: %s", bus_error_message(&error, r));
+        log_unit_warning(UNIT(n), "Failed to queue service startup job: %s", sd_bus_error_strerror(&error, r));
         busname_enter_dead(n, BUSNAME_FAILURE_RESOURCES);
 }
 

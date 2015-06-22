@@ -1691,7 +1691,7 @@ static int manager_start_target(Manager *m, const char *name, JobMode mode) {
 
         r = manager_add_job_by_name(m, JOB_START, name, mode, true, &error, NULL);
         if (r < 0)
-                log_error("Failed to enqueue %s job: %s", name, bus_error_message(&error, r));
+                log_error("Failed to enqueue %s job: %s", name, sd_bus_error_strerror(&error, r));
 
         return r;
 }

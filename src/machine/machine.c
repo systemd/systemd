@@ -344,7 +344,7 @@ static int machine_start_scope(Machine *m, sd_bus_message *properties, sd_bus_er
 
                 r = manager_start_scope(m->manager, scope, m->leader, SPECIAL_MACHINE_SLICE, description, properties, error, &job);
                 if (r < 0) {
-                        log_error("Failed to start machine scope: %s", bus_error_message(error, r));
+                        log_error("Failed to start machine scope: %s", sd_bus_error_strerror(error, r));
                         free(scope);
                         return r;
                 } else {
@@ -410,7 +410,7 @@ static int machine_stop_scope(Machine *m) {
 
         r = manager_stop_unit(m->manager, m->unit, &error, &job);
         if (r < 0) {
-                log_error("Failed to stop machine scope: %s", bus_error_message(&error, r));
+                log_error("Failed to stop machine scope: %s", sd_bus_error_strerror(&error, r));
                 return r;
         }
 

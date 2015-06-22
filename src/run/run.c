@@ -698,7 +698,7 @@ static int start_transient_service(
                                                &reply,
                                                "s", arg_host);
                         if (r < 0) {
-                                log_error("Failed to get machine PTY: %s", bus_error_message(&error, -r));
+                                log_error("Failed to get machine PTY: %s", sd_bus_error_strerror(&error, -r));
                                 return r;
                         }
 
@@ -770,7 +770,7 @@ static int start_transient_service(
 
         r = sd_bus_call(bus, m, 0, &error, &reply);
         if (r < 0) {
-                log_error("Failed to start transient service unit: %s", bus_error_message(&error, -r));
+                log_error("Failed to start transient service unit: %s", sd_bus_error_strerror(&error, -r));
                 return r;
         }
 
@@ -885,7 +885,7 @@ static int start_transient_scope(
 
         r = sd_bus_call(bus, m, 0, &error, &reply);
         if (r < 0) {
-                log_error("Failed to start transient scope unit: %s", bus_error_message(&error, -r));
+                log_error("Failed to start transient scope unit: %s", sd_bus_error_strerror(&error, -r));
                 return r;
         }
 
@@ -1079,7 +1079,7 @@ static int start_transient_timer(
 
         r = sd_bus_call(bus, m, 0, &error, &reply);
         if (r < 0) {
-                log_error("Failed to start transient timer unit: %s", bus_error_message(&error, -r));
+                log_error("Failed to start transient timer unit: %s", sd_bus_error_strerror(&error, -r));
                 return r;
         }
 

@@ -143,7 +143,7 @@ static int list_machines(int argc, char *argv[], void *userdata) {
                                 &reply,
                                 NULL);
         if (r < 0) {
-                log_error("Could not get machines: %s", bus_error_message(&error, -r));
+                log_error("Could not get machines: %s", sd_bus_error_strerror(&error, -r));
                 return r;
         }
 
@@ -243,7 +243,7 @@ static int list_images(int argc, char *argv[], void *userdata) {
                                 &reply,
                                 "");
         if (r < 0) {
-                log_error("Could not get images: %s", bus_error_message(&error, -r));
+                log_error("Could not get images: %s", sd_bus_error_strerror(&error, -r));
                 return r;
         }
 
@@ -360,7 +360,7 @@ static int show_unit_cgroup(sd_bus *bus, const char *unit, pid_t leader) {
                         &reply,
                         "s");
         if (r < 0) {
-                log_error("Failed to query ControlGroup: %s", bus_error_message(&error, -r));
+                log_error("Failed to query ControlGroup: %s", sd_bus_error_strerror(&error, -r));
                 return r;
         }
 
@@ -728,7 +728,7 @@ static int show_machine(int argc, char *argv[], void *userdata) {
                                         &reply,
                                         "s", argv[i]);
                 if (r < 0) {
-                        log_error("Could not get path to machine: %s", bus_error_message(&error, -r));
+                        log_error("Could not get path to machine: %s", sd_bus_error_strerror(&error, -r));
                         return r;
                 }
 
@@ -981,7 +981,7 @@ static int show_image(int argc, char *argv[], void *userdata) {
                                 &reply,
                                 "s", argv[i]);
                 if (r < 0) {
-                        log_error("Could not get path to image: %s", bus_error_message(&error, -r));
+                        log_error("Could not get path to image: %s", sd_bus_error_strerror(&error, -r));
                         return r;
                 }
 
@@ -1021,7 +1021,7 @@ static int kill_machine(int argc, char *argv[], void *userdata) {
                                 NULL,
                                 "ssi", argv[i], arg_kill_who, arg_signal);
                 if (r < 0) {
-                        log_error("Could not kill machine: %s", bus_error_message(&error, -r));
+                        log_error("Could not kill machine: %s", sd_bus_error_strerror(&error, -r));
                         return r;
                 }
         }
@@ -1063,7 +1063,7 @@ static int terminate_machine(int argc, char *argv[], void *userdata) {
                                 NULL,
                                 "s", argv[i]);
                 if (r < 0) {
-                        log_error("Could not terminate machine: %s", bus_error_message(&error, -r));
+                        log_error("Could not terminate machine: %s", sd_bus_error_strerror(&error, -r));
                         return r;
                 }
         }
@@ -1096,7 +1096,7 @@ static int copy_files(int argc, char *argv[], void *userdata) {
                         argv[2],
                         argv[3]);
         if (r < 0) {
-                log_error("Failed to copy: %s", bus_error_message(&error, -r));
+                log_error("Failed to copy: %s", sd_bus_error_strerror(&error, -r));
                 return r;
         }
 
@@ -1127,7 +1127,7 @@ static int bind_mount(int argc, char *argv[], void *userdata) {
                         arg_read_only,
                         arg_mkdir);
         if (r < 0) {
-                log_error("Failed to bind mount: %s", bus_error_message(&error, -r));
+                log_error("Failed to bind mount: %s", sd_bus_error_strerror(&error, -r));
                 return r;
         }
 
@@ -1211,7 +1211,7 @@ static int login_machine(int argc, char *argv[], void *userdata) {
                         &reply,
                         "s", argv[1]);
         if (r < 0) {
-                log_error("Failed to get machine PTY: %s", bus_error_message(&error, -r));
+                log_error("Failed to get machine PTY: %s", sd_bus_error_strerror(&error, -r));
                 return r;
         }
 
@@ -1271,7 +1271,7 @@ static int remove_image(int argc, char *argv[], void *userdata) {
                                 NULL,
                                 "s", argv[i]);
                 if (r < 0) {
-                        log_error("Could not remove image: %s", bus_error_message(&error, -r));
+                        log_error("Could not remove image: %s", sd_bus_error_strerror(&error, -r));
                         return r;
                 }
         }
@@ -1296,7 +1296,7 @@ static int rename_image(int argc, char *argv[], void *userdata) {
                         NULL,
                         "ss", argv[1], argv[2]);
         if (r < 0) {
-                log_error("Could not rename image: %s", bus_error_message(&error, -r));
+                log_error("Could not rename image: %s", sd_bus_error_strerror(&error, -r));
                 return r;
         }
 
@@ -1320,7 +1320,7 @@ static int clone_image(int argc, char *argv[], void *userdata) {
                         NULL,
                         "ssb", argv[1], argv[2], arg_read_only);
         if (r < 0) {
-                log_error("Could not clone image: %s", bus_error_message(&error, -r));
+                log_error("Could not clone image: %s", sd_bus_error_strerror(&error, -r));
                 return r;
         }
 
@@ -1352,7 +1352,7 @@ static int read_only_image(int argc, char *argv[], void *userdata) {
                         NULL,
                         "sb", argv[1], b);
         if (r < 0) {
-                log_error("Could not mark image read-only: %s", bus_error_message(&error, -r));
+                log_error("Could not mark image read-only: %s", sd_bus_error_strerror(&error, -r));
                 return r;
         }
 
@@ -1415,7 +1415,7 @@ static int start_machine(int argc, char *argv[], void *userdata) {
                                 &reply,
                                 "ss", unit, "fail");
                 if (r < 0) {
-                        log_error("Failed to start unit: %s", bus_error_message(&error, -r));
+                        log_error("Failed to start unit: %s", sd_bus_error_strerror(&error, -r));
                         return r;
                 }
 
@@ -1488,7 +1488,7 @@ static int enable_machine(int argc, char *argv[], void *userdata) {
 
         r = sd_bus_call(bus, m, 0, &error, &reply);
         if (r < 0) {
-                log_error("Failed to enable or disable unit: %s", bus_error_message(&error, -r));
+                log_error("Failed to enable or disable unit: %s", sd_bus_error_strerror(&error, -r));
                 return r;
         }
 
@@ -1512,7 +1512,7 @@ static int enable_machine(int argc, char *argv[], void *userdata) {
                         NULL,
                         NULL);
         if (r < 0) {
-                log_error("Failed to reload daemon: %s", bus_error_message(&error, -r));
+                log_error("Failed to reload daemon: %s", sd_bus_error_strerror(&error, -r));
                 return r;
         }
 
@@ -1622,7 +1622,7 @@ static int transfer_image_common(sd_bus *bus, sd_bus_message *m) {
 
         r = sd_bus_call(bus, m, 0, &error, &reply);
         if (r < 0) {
-                log_error("Failed transfer image: %s", bus_error_message(&error, -r));
+                log_error("Failed transfer image: %s", sd_bus_error_strerror(&error, -r));
                 return r;
         }
 
@@ -2132,7 +2132,7 @@ static int list_transfers(int argc, char *argv[], void *userdata) {
                                 &reply,
                                 NULL);
         if (r < 0) {
-                log_error("Could not get transfers: %s", bus_error_message(&error, -r));
+                log_error("Could not get transfers: %s", sd_bus_error_strerror(&error, -r));
                 return r;
         }
 
@@ -2226,7 +2226,7 @@ static int cancel_transfer(int argc, char *argv[], void *userdata) {
                                 NULL,
                                 "u", id);
                 if (r < 0) {
-                        log_error("Could not cancel transfer: %s", bus_error_message(&error, -r));
+                        log_error("Could not cancel transfer: %s", sd_bus_error_strerror(&error, -r));
                         return r;
                 }
         }
@@ -2277,7 +2277,7 @@ static int set_limit(int argc, char *argv[], void *userdata) {
                                 "t", limit);
 
         if (r < 0) {
-                log_error("Could not set limit: %s", bus_error_message(&error, -r));
+                log_error("Could not set limit: %s", sd_bus_error_strerror(&error, -r));
                 return r;
         }
 

@@ -185,7 +185,7 @@ failed:
         if (!sd_bus_error_is_set(&error))
                 sd_bus_error_set_errno(&error, r);
 
-        log_debug("D-Bus activation failed for %s: %s", name, bus_error_message(&error, r));
+        log_debug("D-Bus activation failed for %s: %s", name, sd_bus_error_strerror(&error, r));
 
         r = sd_bus_message_new_signal(sd_bus_message_get_bus(message), &reply, "/org/freedesktop/systemd1", "org.freedesktop.systemd1.Activator", "ActivationFailure");
         if (r < 0) {

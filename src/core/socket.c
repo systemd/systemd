@@ -1877,7 +1877,7 @@ static void socket_enter_running(Socket *s, int cfd) {
 fail:
         log_unit_warning(UNIT(s), "Failed to queue service startup job (Maybe the service file is missing or not a %s unit?): %s",
                          cfd >= 0 ? "template" : "non-template",
-                         bus_error_message(&error, r));
+                         sd_bus_error_strerror(&error, r));
 
         socket_enter_stop_pre(s, SOCKET_FAILURE_RESOURCES);
         safe_close(cfd);

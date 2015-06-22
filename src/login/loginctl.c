@@ -111,7 +111,7 @@ static int list_sessions(int argc, char *argv[], void *userdata) {
                         &error, &reply,
                         "");
         if (r < 0) {
-                log_error("Failed to list sessions: %s", bus_error_message(&error, r));
+                log_error("Failed to list sessions: %s", sd_bus_error_strerror(&error, r));
                 return r;
         }
 
@@ -158,7 +158,7 @@ static int list_users(int argc, char *argv[], void *userdata) {
                         &error, &reply,
                         "");
         if (r < 0) {
-                log_error("Failed to list users: %s", bus_error_message(&error, r));
+                log_error("Failed to list users: %s", sd_bus_error_strerror(&error, r));
                 return r;
         }
 
@@ -204,7 +204,7 @@ static int list_seats(int argc, char *argv[], void *userdata) {
                         &error, &reply,
                         "");
         if (r < 0) {
-                log_error("Failed to list seats: %s", bus_error_message(&error, r));
+                log_error("Failed to list seats: %s", sd_bus_error_strerror(&error, r));
                 return r;
         }
 
@@ -739,7 +739,7 @@ static int show_session(int argc, char *argv[], void *userdata) {
                                 &error, &reply,
                                 "s", argv[i]);
                 if (r < 0) {
-                        log_error("Failed to get session: %s", bus_error_message(&error, r));
+                        log_error("Failed to get session: %s", sd_bus_error_strerror(&error, r));
                         return r;
                 }
 
@@ -799,7 +799,7 @@ static int show_user(int argc, char *argv[], void *userdata) {
                                 &error, &reply,
                                 "u", (uint32_t) uid);
                 if (r < 0) {
-                        log_error("Failed to get user: %s", bus_error_message(&error, r));
+                        log_error("Failed to get user: %s", sd_bus_error_strerror(&error, r));
                         return r;
                 }
 
@@ -854,7 +854,7 @@ static int show_seat(int argc, char *argv[], void *userdata) {
                                 &error, &reply,
                                 "s", argv[i]);
                 if (r < 0) {
-                        log_error("Failed to get seat: %s", bus_error_message(&error, r));
+                        log_error("Failed to get seat: %s", sd_bus_error_strerror(&error, r));
                         return r;
                 }
 
@@ -912,7 +912,7 @@ static int activate(int argc, char *argv[], void *userdata) {
                                 &error, NULL,
                                 "s", argv[i]);
                 if (r < 0) {
-                        log_error("Failed to issue method call: %s", bus_error_message(&error, -r));
+                        log_error("Failed to issue method call: %s", sd_bus_error_strerror(&error, -r));
                         return r;
                 }
         }
@@ -944,7 +944,7 @@ static int kill_session(int argc, char *argv[], void *userdata) {
                         &error, NULL,
                         "ssi", argv[i], arg_kill_who, arg_signal);
                 if (r < 0) {
-                        log_error("Could not kill session: %s", bus_error_message(&error, -r));
+                        log_error("Could not kill session: %s", sd_bus_error_strerror(&error, -r));
                         return r;
                 }
         }
@@ -994,7 +994,7 @@ static int enable_linger(int argc, char *argv[], void *userdata) {
                         &error, NULL,
                         "ubb", (uint32_t) uid, b, true);
                 if (r < 0) {
-                        log_error("Could not enable linger: %s", bus_error_message(&error, -r));
+                        log_error("Could not enable linger: %s", sd_bus_error_strerror(&error, -r));
                         return r;
                 }
         }
@@ -1028,7 +1028,7 @@ static int terminate_user(int argc, char *argv[], void *userdata) {
                         &error, NULL,
                         "u", (uint32_t) uid);
                 if (r < 0) {
-                        log_error("Could not terminate user: %s", bus_error_message(&error, -r));
+                        log_error("Could not terminate user: %s", sd_bus_error_strerror(&error, -r));
                         return r;
                 }
         }
@@ -1065,7 +1065,7 @@ static int kill_user(int argc, char *argv[], void *userdata) {
                         &error, NULL,
                         "ui", (uint32_t) uid, arg_signal);
                 if (r < 0) {
-                        log_error("Could not kill user: %s", bus_error_message(&error, -r));
+                        log_error("Could not kill user: %s", sd_bus_error_strerror(&error, -r));
                         return r;
                 }
         }
@@ -1095,7 +1095,7 @@ static int attach(int argc, char *argv[], void *userdata) {
                         "ssb", argv[1], argv[i], true);
 
                 if (r < 0) {
-                        log_error("Could not attach device: %s", bus_error_message(&error, -r));
+                        log_error("Could not attach device: %s", sd_bus_error_strerror(&error, -r));
                         return r;
                 }
         }
@@ -1122,7 +1122,7 @@ static int flush_devices(int argc, char *argv[], void *userdata) {
                         &error, NULL,
                         "b", true);
         if (r < 0)
-                log_error("Could not flush devices: %s", bus_error_message(&error, -r));
+                log_error("Could not flush devices: %s", sd_bus_error_strerror(&error, -r));
 
         return r;
 }
@@ -1146,7 +1146,7 @@ static int lock_sessions(int argc, char *argv[], void *userdata) {
                         &error, NULL,
                         NULL);
         if (r < 0)
-                log_error("Could not lock sessions: %s", bus_error_message(&error, -r));
+                log_error("Could not lock sessions: %s", sd_bus_error_strerror(&error, -r));
 
         return r;
 }
@@ -1172,7 +1172,7 @@ static int terminate_seat(int argc, char *argv[], void *userdata) {
                         &error, NULL,
                         "s", argv[i]);
                 if (r < 0) {
-                        log_error("Could not terminate seat: %s", bus_error_message(&error, -r));
+                        log_error("Could not terminate seat: %s", sd_bus_error_strerror(&error, -r));
                         return r;
                 }
         }

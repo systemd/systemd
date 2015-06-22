@@ -562,7 +562,7 @@ _public_ int sd_bus_error_set_errnof(sd_bus_error *e, int error, const char *for
         return sd_bus_error_set_errno(e, error);
 }
 
-const char *bus_error_message(const sd_bus_error *e, int error) {
+_public_ const char *sd_bus_error_strerror(const sd_bus_error *e, int error) {
 
         if (e) {
                 /* Sometimes the D-Bus server is a little bit too verbose with
@@ -574,10 +574,8 @@ const char *bus_error_message(const sd_bus_error *e, int error) {
                         return e->message;
         }
 
-        if (error < 0)
-                error = -error;
-
-        return strerror(error);
+        (void) sd_bus_error_set_errno(e, error);
+        return e->message;
 }
 
 _public_ int sd_bus_error_add_map(const sd_bus_error_map *map) {

@@ -226,7 +226,7 @@ int main(int argc, char *argv[]) {
                                                 "s");
 
                                 if (r < 0) {
-                                        log_error("Failed to query ControlGroup: %s", bus_error_message(&error, -r));
+                                        log_error("Failed to query ControlGroup: %s", sd_bus_error_strerror(&error, -r));
                                         goto finish;
                                 }
 

@@ -129,7 +129,7 @@ static void change_runlevel(Server *s, int runlevel) {
                         NULL,
                         "ss", target, mode);
         if (r < 0) {
-                log_error("Failed to change runlevel: %s", bus_error_message(&error, -r));
+                log_error("Failed to change runlevel: %s", sd_bus_error_strerror(&error, -r));
                 return;
         }
 }

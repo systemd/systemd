@@ -1683,7 +1683,7 @@ int main(int argc, char *argv[]) {
 
                 r = manager_load_unit(m, arg_default_unit, NULL, &error, &target);
                 if (r < 0)
-                        log_error("Failed to load default target: %s", bus_error_message(&error, r));
+                        log_error("Failed to load default target: %s", sd_bus_error_strerror(&error, r));
                 else if (target->load_state == UNIT_ERROR || target->load_state == UNIT_NOT_FOUND)
                         log_error_errno(target->load_error, "Failed to load default target: %m");
                 else if (target->load_state == UNIT_MASKED)
@@ -1694,7 +1694,7 @@ int main(int argc, char *argv[]) {
 
                         r = manager_load_unit(m, SPECIAL_RESCUE_TARGET, NULL, &error, &target);
                         if (r < 0) {
-                                log_emergency("Failed to load rescue target: %s", bus_error_message(&error, r));
+                                log_emergency("Failed to load rescue target: %s", sd_bus_error_strerror(&error, r));
                                 error_message = "Failed to load rescue target";
                                 goto finish;
                         } else if (target->load_state == UNIT_ERROR || target->load_state == UNIT_NOT_FOUND) {
@@ -1717,16 +1717,16 @@ int main(int argc, char *argv[]) {
 
                 r = manager_add_job(m, JOB_START, target, JOB_ISOLATE, false, &error, &default_unit_job);
                 if (r == -EPERM) {
-                        log_debug("Default target could not be isolated, starting instead: %s", bus_error_message(&error, r));
+                        log_debug("Default target could not be isolated, starting instead: %s", sd_bus_error_strerror(&error, r));
 
                         r = manager_add_job(m, JOB_START, target, JOB_REPLACE, false, &error, &default_unit_job);
                         if (r < 0) {
-                                log_emergency("Failed to start default target: %s", bus_error_message(&error, r));
+                                log_emergency("Failed to start default target: %s", sd_bus_error_strerror(&error, r));
                                 error_message = "Failed to start default target";
                                 goto finish;
                         }
                 } else if (r < 0) {
-                        log_emergency("Failed to isolate default target: %s", bus_error_message(&error, r));
+                        log_emergency("Failed to isolate default target: %s", sd_bus_error_strerror(&error, r));
                         error_message = "Failed to isolate default target";
                         goto finish;
                 }
