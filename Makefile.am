@@ -734,8 +734,7 @@ EXTRA_DIST += \
 	tools/xml_helper.py \
 	man/systemd.index.xml \
 	man/index.html \
-	man/glib-event-glue.c \
-	$(NULL)
+	man/glib-event-glue.c
 
 # ------------------------------------------------------------------------------
 noinst_LTLIBRARIES += \
@@ -3683,18 +3682,15 @@ EXTRA_DIST += \
 
 # ------------------------------------------------------------------------------
 TESTS += \
-	test/udev-test.pl \
-	$(NULL)
+	test/udev-test.pl
 
 if HAVE_PYTHON
 TESTS += \
-	test/rule-syntax-check.py \
-	$(NULL)
+	test/rule-syntax-check.py
 
 if HAVE_SYSV_COMPAT
 TESTS += \
-	test/sysv-generator-test.py \
-	$(NULL)
+	test/sysv-generator-test.py
 endif
 endif
 
@@ -3733,8 +3729,7 @@ EXTRA_DIST += \
 	test/udev-test.pl \
 	test/rule-syntax-check.py \
 	test/sysv-generator-test.py \
-	test/mocks/fsck \
-	$(NULL)
+	test/mocks/fsck
 
 
 # ------------------------------------------------------------------------------
