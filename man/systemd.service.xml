@@ -243,8 +243,7 @@
       <varlistentry>
         <term><varname>BusPolicy=</varname></term>
 
-        <listitem><para>If specified, a custom
-        <ulink url="https://code.google.com/p/d-bus/">kdbus</ulink>
+        <listitem><para>If specified, a custom kdbus
         endpoint will be created and installed as the default bus node
         for the service. Such a custom endpoint can hold an own set of
         policy rules that are enforced on top of the bus-wide ones.
