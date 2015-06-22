@@ -6282,6 +6282,10 @@ hwdb-update:
 git-tag:
 	git tag -s "v$(VERSION)" -m "systemd $(VERSION)"
 
+.PHONY: git-tar
+git-tar:
+	git archive --format=tar --prefix=systemd-$(VERSION)/ v$(VERSION) | xz > systemd-$(VERSION).tar.xz
+
 www_target = www.freedesktop.org:/srv/www.freedesktop.org/www/software/systemd
 .PHONY: upload
 upload: all check dist
