@@ -5,8 +5,8 @@ case "$service" in
     systemd-ask-password)
         _arguments \
             {-h,--help}'[Show this help]' \
-            '--icon=[Icon name]' \
-            '--timeout=[Timeout in sec]' \
+            '--icon=[Icon name]:icon name:' \
+            '--timeout=[Timeout in sec]:timeout (seconds):' \
             '--no-tty[Ask question via agent even on TTY]' \
             '--accept-cached[Accept cached passwords]' \
             '--multiple[List multiple passwords if available]'
@@ -15,7 +15,7 @@ case "$service" in
         _arguments \
             {-h,--help}'[Show this help]' \
             '--version[Show package version.]' \
-            {-t+,--identifier=}'[Set syslog identifier.]' \
+            {-t+,--identifier=}'[Set syslog identifier.]:syslog identifier:' \
             {-p+,--priority=}'[Set priority value.]:value:({0..7})' \
             '--level-prefix=[Control whether level prefix shall be parsed.]:boolean:(1 0)' \
             ':Message'
@@ -38,10 +38,10 @@ case "$service" in
             '(-m -p -i -t)-c[Order by CPU load]' \
             '(-c -p -i -t)-m[Order by memory load]' \
             '(-c -m -p -t)-i[Order by IO load]' \
-            {-d+,--delay=}'[Specify delay]' \
-            {-n+,--iterations=}'[Run for N iterations before exiting]' \
+            {-d+,--delay=}'[Specify delay]:delay:' \
+            {-n+,--iterations=}'[Run for N iterations before exiting]:number of iterations:' \
             {-b,--batch}'[Run in batch mode, accepting no input]' \
-            '--depth=[Maximum traversal depth]'
+            '--depth=[Maximum traversal depth]:maximum depth:'
     ;;
     systemd-detect-virt)
         _arguments \
@@ -61,8 +61,8 @@ case "$service" in
             {-h,--help}'[Show this help]' \
             '--version[Show package version]' \
             '--ready[Inform the init system about service start-up completion.]' \
-            '--pid=[Inform the init system about the main PID of the daemon]' \
-            '--status=[Send a free-form status string for the daemon to the init systemd]' \
+            '--pid=[Inform the init system about the main PID of the daemon]:daemon main PID:_pids' \
+            '--status=[Send a free-form status string for the daemon to the init systemd]:status string:' \
             '--booted[Returns 0 if the system was booted up with systemd]'
     ;;
     systemd-tty-ask-password-agent)
