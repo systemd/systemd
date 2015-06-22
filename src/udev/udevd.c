@@ -1672,8 +1672,12 @@ int main(int argc, char *argv[]) {
                    we only do this on systemd systems, and only if we are directly spawned
                    by PID1. otherwise we are not guaranteed to have a dedicated cgroup */
                 r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, 0, &cgroup);
-                if (r < 0)
-                        log_warning_errno(r, "failed to get cgroup: %m");
+                if (r < 0) {
+                        if (r == -ENOENT)
+                                log_debug_errno(r, "did not find dedicated cgroup: %m");
+                        else
+                                log_warning_errno(r, "failed to get cgroup: %m");
+                }
         }
 
         r = listen_fds(&fd_ctrl, &fd_uevent);
