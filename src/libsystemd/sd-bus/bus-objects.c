@@ -2261,7 +2261,7 @@ static int object_added_append_all(sd_bus *bus, sd_bus_message *m, const char *p
         return 0;
 }
 
-int sd_bus_emit_object_added(sd_bus *bus, const char *path) {
+_public_ int sd_bus_emit_object_added(sd_bus *bus, const char *path) {
         BUS_DONT_DESTROY(bus);
 
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
@@ -2424,7 +2424,7 @@ static int object_removed_append_all(sd_bus *bus, sd_bus_message *m, const char 
         return 0;
 }
 
-int sd_bus_emit_object_removed(sd_bus *bus, const char *path) {
+_public_ int sd_bus_emit_object_removed(sd_bus *bus, const char *path) {
         BUS_DONT_DESTROY(bus);
 
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
