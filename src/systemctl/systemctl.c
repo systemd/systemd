@@ -100,7 +100,7 @@ static bool arg_quiet = false;
 static bool arg_full = false;
 static bool arg_recursive = false;
 static int arg_force = 0;
-static bool arg_ask_password = true;
+static bool arg_ask_password = false;
 static bool arg_runtime = false;
 static UnitFilePresetMode arg_preset_mode = UNIT_FILE_PRESET_FULL;
 static char **arg_wall = NULL;
@@ -6339,6 +6339,9 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
         assert(argc >= 0);
         assert(argv);
+
+        /* we default to allowing interactive authorization only in systemctl (not in the legacy commands) */
+        arg_ask_password = true;
 
         while ((c = getopt_long(argc, argv, "ht:p:alqfs:H:M:n:o:ir", options, NULL)) >= 0)
 
