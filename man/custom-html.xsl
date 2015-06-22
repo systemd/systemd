@@ -231,7 +231,7 @@
       <xsl:text>../python-systemd/index.html</xsl:text>
     </xsl:attribute>
     <xsl:text>Python </xsl:text>
-  </a>·
+  </a>
 
   <span style="float:right">
     <xsl:text>systemd </xsl:text>
