@@ -753,7 +753,7 @@ int sd_netlink_message_enter_container(sd_netlink_message *m, unsigned short typ
         r = rtnl_message_parse(m,
                                &m->rta_offset_tb[m->n_containers],
                                &m->rta_tb_size[m->n_containers],
-                               type_system_get_max(type_system),
+                               type_system_get_count(type_system),
                                container,
                                size);
         if (r < 0) {
@@ -811,17 +811,17 @@ int sd_netlink_message_get_errno(sd_netlink_message *m) {
 int rtnl_message_parse(sd_netlink_message *m,
                        size_t **rta_offset_tb,
                        unsigned short *rta_tb_size,
-                       int max,
+                       int count,
                        struct rtattr *rta,
                        unsigned int rt_len) {
         unsigned short type;
         size_t *tb;
 
-        tb = new0(size_t, max + 1);
+        tb = new0(size_t, count);
         if(!tb)
                 return -ENOMEM;
 
-        *rta_tb_size = max + 1;
+        *rta_tb_size = count;
 
         for (; RTA_OK(rta, rt_len); rta = RTA_NEXT(rta, rt_len)) {
                 type = RTA_TYPE(rta);
@@ -829,7 +829,7 @@ int rtnl_message_parse(sd_netlink_message *m,
                 /* if the kernel is newer than the headers we used
                    when building, we ignore out-of-range attributes
                  */
-                if (type > max)
+                if (type >= count)
                         continue;
 
                 if (tb[type])
@@ -889,7 +889,7 @@ int sd_netlink_message_rewind(sd_netlink_message *m) {
                 r = rtnl_message_parse(m,
                                        &m->rta_offset_tb[m->n_containers],
                                        &m->rta_tb_size[m->n_containers],
-                                       type_system_get_max(type_system),
+                                       type_system_get_count(type_system),
                                        (struct rtattr*)((uint8_t*)NLMSG_DATA(m->hdr) + NLMSG_ALIGN(size)),
                                        NLMSG_PAYLOAD(m->hdr, size));
                 if (r < 0)

@@ -47,7 +47,7 @@ struct NLType {
 };
 
 struct NLTypeSystem {
-        uint16_t max;
+        uint16_t count;
         const NLType *types;
 };
 
@@ -122,7 +122,7 @@ static const NLType rtnl_bond_arp_target_types[BOND_ARP_TARGETS_MAX + 1] = {
 };
 
 static const NLTypeSystem rtnl_bond_arp_type_system = {
-        .max = ELEMENTSOF(rtnl_bond_arp_target_types) - 1,
+        .count = ELEMENTSOF(rtnl_bond_arp_target_types),
         .types = rtnl_bond_arp_target_types,
 };
 
@@ -223,37 +223,37 @@ static const char* const nl_union_link_info_data_table[_NL_UNION_LINK_INFO_DATA_
 DEFINE_STRING_TABLE_LOOKUP(nl_union_link_info_data, NLUnionLinkInfoData);
 
 static const NLTypeSystem rtnl_link_info_data_type_systems[_NL_UNION_LINK_INFO_DATA_MAX] = {
-        [NL_UNION_LINK_INFO_DATA_BOND] =        { .max = ELEMENTSOF(rtnl_link_info_data_bond_types) - 1,
+        [NL_UNION_LINK_INFO_DATA_BOND] =        { .count = ELEMENTSOF(rtnl_link_info_data_bond_types),
                                                   .types = rtnl_link_info_data_bond_types },
-        [NL_UNION_LINK_INFO_DATA_BRIDGE] =      { .max = ELEMENTSOF(rtnl_link_info_data_bridge_types) - 1,
+        [NL_UNION_LINK_INFO_DATA_BRIDGE] =      { .count = ELEMENTSOF(rtnl_link_info_data_bridge_types),
                                                   .types = rtnl_link_info_data_bridge_types },
-        [NL_UNION_LINK_INFO_DATA_VLAN] =        { .max = ELEMENTSOF(rtnl_link_info_data_vlan_types) - 1,
+        [NL_UNION_LINK_INFO_DATA_VLAN] =        { .count = ELEMENTSOF(rtnl_link_info_data_vlan_types),
                                                   .types = rtnl_link_info_data_vlan_types },
-        [NL_UNION_LINK_INFO_DATA_VETH] =        { .max = ELEMENTSOF(rtnl_link_info_data_veth_types) - 1,
+        [NL_UNION_LINK_INFO_DATA_VETH] =        { .count = ELEMENTSOF(rtnl_link_info_data_veth_types),
                                                   .types = rtnl_link_info_data_veth_types },
-        [NL_UNION_LINK_INFO_DATA_MACVLAN] =     { .max = ELEMENTSOF(rtnl_link_info_data_macvlan_types) - 1,
+        [NL_UNION_LINK_INFO_DATA_MACVLAN] =     { .count = ELEMENTSOF(rtnl_link_info_data_macvlan_types),
                                                   .types = rtnl_link_info_data_macvlan_types },
-        [NL_UNION_LINK_INFO_DATA_IPVLAN] =      { .max = ELEMENTSOF(rtnl_link_info_data_ipvlan_types) - 1,
+        [NL_UNION_LINK_INFO_DATA_IPVLAN] =      { .count = ELEMENTSOF(rtnl_link_info_data_ipvlan_types),
                                                   .types = rtnl_link_info_data_ipvlan_types },
-        [NL_UNION_LINK_INFO_DATA_VXLAN] =       { .max = ELEMENTSOF(rtnl_link_info_data_vxlan_types) - 1,
+        [NL_UNION_LINK_INFO_DATA_VXLAN] =       { .count = ELEMENTSOF(rtnl_link_info_data_vxlan_types),
                                                   .types = rtnl_link_info_data_vxlan_types },
-        [NL_UNION_LINK_INFO_DATA_IPIP_TUNNEL] = { .max = ELEMENTSOF(rtnl_link_info_data_iptun_types) - 1,
+        [NL_UNION_LINK_INFO_DATA_IPIP_TUNNEL] = { .count = ELEMENTSOF(rtnl_link_info_data_iptun_types),
                                                   .types = rtnl_link_info_data_iptun_types },
-        [NL_UNION_LINK_INFO_DATA_IPGRE_TUNNEL] =  { .max = ELEMENTSOF(rtnl_link_info_data_ipgre_types) - 1,
+        [NL_UNION_LINK_INFO_DATA_IPGRE_TUNNEL] =  { .count = ELEMENTSOF(rtnl_link_info_data_ipgre_types),
                                                     .types = rtnl_link_info_data_ipgre_types },
-        [NL_UNION_LINK_INFO_DATA_IPGRETAP_TUNNEL] =  { .max = ELEMENTSOF(rtnl_link_info_data_ipgre_types) - 1,
+        [NL_UNION_LINK_INFO_DATA_IPGRETAP_TUNNEL] =  { .count = ELEMENTSOF(rtnl_link_info_data_ipgre_types),
                                                     .types = rtnl_link_info_data_ipgre_types },
-        [NL_UNION_LINK_INFO_DATA_IP6GRE_TUNNEL] =  { .max = ELEMENTSOF(rtnl_link_info_data_ipgre_types) - 1,
+        [NL_UNION_LINK_INFO_DATA_IP6GRE_TUNNEL] =  { .count = ELEMENTSOF(rtnl_link_info_data_ipgre_types),
                                                     .types = rtnl_link_info_data_ipgre_types },
-        [NL_UNION_LINK_INFO_DATA_IP6GRETAP_TUNNEL] =  { .max = ELEMENTSOF(rtnl_link_info_data_ipgre_types) - 1,
+        [NL_UNION_LINK_INFO_DATA_IP6GRETAP_TUNNEL] =  { .count = ELEMENTSOF(rtnl_link_info_data_ipgre_types),
                                                     .types = rtnl_link_info_data_ipgre_types },
-        [NL_UNION_LINK_INFO_DATA_SIT_TUNNEL] =  { .max = ELEMENTSOF(rtnl_link_info_data_iptun_types) - 1,
+        [NL_UNION_LINK_INFO_DATA_SIT_TUNNEL] =  { .count = ELEMENTSOF(rtnl_link_info_data_iptun_types),
                                                   .types = rtnl_link_info_data_iptun_types },
-        [NL_UNION_LINK_INFO_DATA_VTI_TUNNEL] =  { .max = ELEMENTSOF(rtnl_link_info_data_ipvti_types) - 1,
+        [NL_UNION_LINK_INFO_DATA_VTI_TUNNEL] =  { .count = ELEMENTSOF(rtnl_link_info_data_ipvti_types),
                                                   .types = rtnl_link_info_data_ipvti_types },
-        [NL_UNION_LINK_INFO_DATA_VTI6_TUNNEL] =  { .max = ELEMENTSOF(rtnl_link_info_data_ipvti_types) - 1,
+        [NL_UNION_LINK_INFO_DATA_VTI6_TUNNEL] =  { .count = ELEMENTSOF(rtnl_link_info_data_ipvti_types),
                                                   .types = rtnl_link_info_data_ipvti_types },
-        [NL_UNION_LINK_INFO_DATA_IP6TNL_TUNNEL] =  { .max = ELEMENTSOF(rtnl_link_info_data_ip6tnl_types) - 1,
+        [NL_UNION_LINK_INFO_DATA_IP6TNL_TUNNEL] =  { .count = ELEMENTSOF(rtnl_link_info_data_ip6tnl_types),
                                                      .types = rtnl_link_info_data_ip6tnl_types },
 
 };
@@ -277,7 +277,7 @@ static const NLType rtnl_link_info_types[IFLA_INFO_MAX + 1] = {
 };
 
 static const NLTypeSystem rtnl_link_info_type_system = {
-        .max = ELEMENTSOF(rtnl_link_info_types) - 1,
+        .count = ELEMENTSOF(rtnl_link_info_types),
         .types = rtnl_link_info_types,
 };
 
@@ -293,7 +293,7 @@ static const struct NLType rtnl_prot_info_bridge_port_types[IFLA_BRPORT_MAX + 1]
 };
 
 static const NLTypeSystem rtnl_prot_info_type_systems[AF_MAX] = {
-        [AF_BRIDGE] =   { .max = ELEMENTSOF(rtnl_prot_info_bridge_port_types) - 1,
+        [AF_BRIDGE] =   { .count = ELEMENTSOF(rtnl_prot_info_bridge_port_types),
                           .types = rtnl_prot_info_bridge_port_types },
 };
 
@@ -317,7 +317,7 @@ static const struct NLType rtnl_af_spec_inet6_types[IFLA_INET6_MAX + 1] = {
 };
 
 static const NLTypeSystem rtnl_af_spec_inet6_type_system = {
-        .max = ELEMENTSOF(rtnl_af_spec_inet6_types) - 1,
+        .count = ELEMENTSOF(rtnl_af_spec_inet6_types),
         .types = rtnl_af_spec_inet6_types,
 };
 
@@ -326,7 +326,7 @@ static const NLType rtnl_af_spec_types[AF_MAX + 1] = {
 };
 
 static const NLTypeSystem rtnl_af_spec_type_system = {
-        .max = ELEMENTSOF(rtnl_af_spec_types) - 1,
+        .count = ELEMENTSOF(rtnl_af_spec_types),
         .types = rtnl_af_spec_types,
 };
 
@@ -383,7 +383,7 @@ static const NLType rtnl_link_types[IFLA_MAX + 1 ] = {
 };
 
 static const NLTypeSystem rtnl_link_type_system = {
-        .max = ELEMENTSOF(rtnl_link_types) - 1,
+        .count = ELEMENTSOF(rtnl_link_types),
         .types = rtnl_link_types,
 };
 
@@ -403,7 +403,7 @@ static const NLType rtnl_address_types[CONST_MAX(IFA_MAX, IFA_FLAGS) + 1] = {
 };
 
 static const NLTypeSystem rtnl_address_type_system = {
-        .max = ELEMENTSOF(rtnl_address_types) - 1,
+        .count = ELEMENTSOF(rtnl_address_types),
         .types = rtnl_address_types,
 };
 
@@ -429,7 +429,7 @@ static const NLType rtnl_route_types[RTA_MAX + 1] = {
 };
 
 static const NLTypeSystem rtnl_route_type_system = {
-        .max = ELEMENTSOF(rtnl_route_types) - 1,
+        .count = ELEMENTSOF(rtnl_route_types),
         .types = rtnl_route_types,
 };
 
@@ -445,7 +445,7 @@ static const NLType rtnl_neigh_types[NDA_MAX + 1] = {
 };
 
 static const NLTypeSystem rtnl_neigh_type_system = {
-        .max = ELEMENTSOF(rtnl_neigh_types) - 1,
+        .count = ELEMENTSOF(rtnl_neigh_types),
         .types = rtnl_neigh_types,
 };
 
@@ -468,7 +468,7 @@ static const NLType rtnl_types[RTM_MAX + 1] = {
 };
 
 const NLTypeSystem rtnl_type_system = {
-        .max = ELEMENTSOF(rtnl_types) - 1,
+        .count = ELEMENTSOF(rtnl_types),
         .types = rtnl_types,
 };
 
@@ -500,9 +500,9 @@ void type_get_type_system_union(const NLType *nl_type, const NLTypeSystemUnion *
         *ret = nl_type->type_system_union;
 }
 
-uint16_t type_system_get_max(const NLTypeSystem *type_system) {
+uint16_t type_system_get_count(const NLTypeSystem *type_system) {
         assert(type_system);
-        return type_system->max;
+        return type_system->count;
 }
 
 int type_system_get_type(const NLTypeSystem *type_system, const NLType **ret, uint16_t type) {
@@ -515,7 +515,7 @@ int type_system_get_type(const NLTypeSystem *type_system, const NLType **ret, ui
 
         assert(type_system->types);
 
-        if (type > type_system->max)
+        if (type >= type_system->count)
                 return -EOPNOTSUPP;
 
         nl_type = &type_system->types[type];
@@ -589,7 +589,7 @@ int type_system_union_protocol_get_type_system(const NLTypeSystemUnion *type_sys
                 return -EOPNOTSUPP;
 
         type_system = &type_system_union->type_systems[protocol];
-        if (type_system->max == 0)
+        if (type_system->count == 0)
                 return -EOPNOTSUPP;
 
         *ret = type_system;
