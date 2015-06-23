@@ -44,11 +44,15 @@
 
   <refnamediv>
     <refname>sd_bus_error</refname>
+    <refname>SD_BUS_ERROR_MAKE_CONST</refname>
+    <refname>SD_BUS_ERROR_NULL</refname>
     <refname>sd_bus_error_free</refname>
     <refname>sd_bus_error_set</refname>
+    <refname>sd_bus_error_setf</refname>
     <refname>sd_bus_error_set_const</refname>
     <refname>sd_bus_error_set_errno</refname>
     <refname>sd_bus_error_set_errnof</refname>
+    <refname>sd_bus_error_set_errnofv</refname>
     <refname>sd_bus_error_get_errno</refname>
     <refname>sd_bus_error_copy</refname>
     <refname>sd_bus_error_is_set</refname>
@@ -75,7 +79,7 @@
       </para>
 
       <funcprototype>
-        <funcdef>int <function>sd_bus_error_free</function></funcdef>
+        <funcdef>void <function>sd_bus_error_free</function></funcdef>
         <paramdef>sd_bus_error *<parameter>e</parameter></paramdef>
       </funcprototype>
 
@@ -116,6 +120,14 @@
       </funcprototype>
 
       <funcprototype>
+        <funcdef>int <function>sd_bus_error_set_errnofv</function></funcdef>
+        <paramdef>sd_bus_error *<parameter>e</parameter></paramdef>
+        <paramdef>int <parameter>error</parameter></paramdef>
+        <paramdef>const char *<parameter>format</parameter></paramdef>
+        <paramdef>va_list ap</paramdef>
+      </funcprototype>
+
+      <funcprototype>
         <funcdef>int <function>sd_bus_error_get_errno</function></funcdef>
         <paramdef>const sd_bus_error *<parameter>e</parameter></paramdef>
       </funcprototype>
@@ -138,234 +150,194 @@
       </funcprototype>
     </funcsynopsis>
 
-    <para>
-      <constant>SD_BUS_ERROR_FAILED</constant>
-    </para>
-    <para>
-      <constant>SD_BUS_ERROR_NO_MEMORY</constant>
-    </para>
-    <para>
-      <constant>SD_BUS_ERROR_SERVICE_UNKNOWN</constant>
-    </para>
-    <para>
-      <constant>SD_BUS_ERROR_NAME_HAS_NO_OWNER</constant>
-    </para>
-    <para>
-      <constant>SD_BUS_ERROR_NO_REPLY</constant>
-    </para>
-    <para>
-      <constant>SD_BUS_ERROR_IO_ERROR</constant>
-    </para>
-    <para>
-      <constant>SD_BUS_ERROR_BAD_ADDRESS</constant>
-    </para>
-    <para>
-      <constant>SD_BUS_ERROR_NOT_SUPPORTED</constant>
-    </para>
-    <para>
-      <constant>SD_BUS_ERROR_LIMITS_EXCEEDED</constant>
-    </para>
-    <para>
-      <constant>SD_BUS_ERROR_ACCESS_DENIED</constant>
-    </para>
-    <para>
-      <constant>SD_BUS_ERROR_AUTH_FAILED</constant>
-    </para>
-    <para>
-      <constant>SD_BUS_ERROR_NO_SERVER</constant>
-    </para>
-    <para>
-      <constant>SD_BUS_ERROR_TIMEOUT</constant>
-    </para>
-    <para>
-      <constant>SD_BUS_ERROR_NO_NETWORK</constant>
-    </para>
-    <para>
-      <constant>SD_BUS_ERROR_ADDRESS_IN_USE</constant>
-    </para>
-    <para>
-      <constant>SD_BUS_ERROR_DISCONNECTED</constant>
-    </para>
-    <para>
-      <constant>SD_BUS_ERROR_INVALID_ARGS</constant>
-    </para>
-    <para>
-      <constant>SD_BUS_ERROR_FILE_NOT_FOUND</constant>
-    </para>
-    <para>
-      <constant>SD_BUS_ERROR_FILE_EXISTS</constant>
-    </para>
-    <para>
-      <constant>SD_BUS_ERROR_UNKNOWN_METHOD</constant>
-    </para>
-    <para>
-      <constant>SD_BUS_ERROR_UNKNOWN_OBJECT</constant>
-    </para>
-    <para>
-      <constant>SD_BUS_ERROR_UNKNOWN_INTERFACE</constant>
-    </para>
-    <para>
-      <constant>SD_BUS_ERROR_UNKNOWN_PROPERTY</constant>
-    </para>
-    <para>
-      <constant>SD_BUS_ERROR_PROPERTY_READ_ONLY</constant>
-    </para>
-    <para>
-      <constant>SD_BUS_ERROR_UNIX_PROCESS_ID_UNKNOWN</constant>
-    </para>
-    <para>
-      <constant>SD_BUS_ERROR_INVALID_SIGNATURE</constant>
-    </para>
-    <para>
-      <constant>SD_BUS_ERROR_INCONSISTENT_MESSAGE</constant>
-    </para>
-    <para>
-      <constant>SD_BUS_ERROR_MATCH_RULE_NOT_FOUND</constant>
-    </para>
-    <para>
-      <constant>SD_BUS_ERROR_MATCH_RULE_INVALID</constant>
-    </para>
-
   </refsynopsisdiv>
 
   <refsect1>
     <title>Description</title>
 
     <para>The <structname>sd_bus_error</structname> structure carries
-    information for a <filename>sd-bus</filename> error. The
-    functions described below can be used to set and query fields in
-    this structure. The <structfield>name</structfield> field contains a
-    short identifier of an error. It should follow the rules for error
-    names described in the D-Bus specification, subsection <ulink
+    information about a D-Bus error condition. The functions described
+    below may be used to set and query fields in this structure. The
+    <structfield>name</structfield> field contains a short identifier
+    of an error. It should follow the rules for error names described
+    in the D-Bus specification, subsection <ulink
     url="http://dbus.freedesktop.org/doc/dbus-specification.html#message-protocol-names">Valid
-    Names</ulink>. The <structfield>message</structfield> is a human
-    readable string describing the details. When no longer necessary,
-    resources held by this structure should be destroyed with
-    <function>sd_bus_error_free</function>.</para>
+    Names</ulink>. A number of common, standardized error names are
+    described in
+    <citerefentry><refentrytitle>sd-bus-errors</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    but additional domain-specific errors may be defined by
+    applications. The <structfield>message</structfield> field usually
+    contains a human readable string describing the details, but might
+    be NULL. An unset <structname>sd_bus_error</structname> structure
+    should have both fields initialized to NULL. Set an error
+    structure to <constant>SD_BUS_ERROR_NULL</constant> in order to
+    reset both fields to NULL. When no longer necessary, resources
+    held by the <structname>sd_bus_error</structname>structure should
+    be destroyed with <function>sd_bus_error_free()</function>.</para>
 
-    <para><function>sd_bus_error_set</function> will return an
-    errno-like negative value returned based on parameter
-    <parameter>name</parameter> (see
-    <citerefentry project='man-pages'><refentrytitle>errno</refentrytitle><manvolnum>3</manvolnum></citerefentry>).
-    Various well-known D-Bus errors are converted to specific values,
-    and the remaining ones to <constant>-ENXIO</constant>. Well-known
-    D-Bus error names are available as constants
-    <constant>SD_BUS_ERROR_FAILED</constant>, etc., listed above. If
+    <para><function>sd_bus_error_set()</function> sets an error
+    structure to the specified name and message strings. The strings
+    will be copied into internal, newly allocated memory. It is
+    essential to free the error structure again when it is not
+    required anymore (see above). The function will return an
+    <varname>errno</varname>-like negative value (see <citerefentry
+    project='man-pages'><refentrytitle>errno</refentrytitle><manvolnum>3</manvolnum></citerefentry>)
+    determined from the specified error name.  Various well-known
+    D-Bus errors are converted to well-known <varname>errno</varname>
+    counterparts, and the other ones to <constant>-EIO</constant>. See
+    <citerefentry><refentrytitle>sd-bus-errors</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    for a list of well-known error names. Additional error mappings
+    may be defined with
+    <citerefentry><refentrytitle>sd_bus_error_add_map</refentrytitle><manvolnum>3</manvolnum></citerefentry>. If
+    <parameter>e</parameter> is NULL no error structure is initialized
+    but the error is still converted into an
+    <varname>errno</varname>-style error. If
     <parameter>name</parameter> is <constant>NULL</constant>, it is
     assumed that no error occurred, and 0 is returned. This means that
     this function may be conveniently used in a
-    <function>return</function> statement.</para>
+    <function>return</function> statement. If
+    <parameter>message</parameter> is NULL no message is set. This
+    call can fail if no memory may be allocated for the name and
+    message strings, in which case an
+    <constant>SD_BUS_ERROR_NO_MEMORY</constant> error might be set
+    instead and -ENOMEM returned. Do not use this call on error
+    structures that are already initialized. If you intend to reuse an
+    error structure free the old data stored in it with
+    <function>sd_bus_error_free()</function> first.</para>
 
-    <para>If <parameter>e</parameter> is not
-    <constant>NULL</constant>, <structfield>name</structfield> and
-    <structfield>message</structfield> in the
-    <structname>sd_bus_error</structname> structure
-    <parameter>e</parameter> points at will be filled in. As described above,
-    <parameter>name</parameter> may be <constant>NULL</constant>,
-    which is treated as no error. Parameter
-    <parameter>message</parameter> may also be
-    <constant>NULL</constant>, in which case no message is specified.
-    <function>sd_bus_error_set</function> will make internal copies of
-    specified strings.</para>
+    <para><function>sd_bus_error_setf()</function> is similar to
+    <function>sd_bus_error_set()</function>, but takes a <citerefentry
+    project='man-pages'><refentrytitle>printf</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    format string and corresponding arguments to generate the
+    <structfield>message</structfield> field.</para>
 
-    <para><function>sd_bus_error_setf</function> is similar to
-    <function>sd_bus_error_set</function>, but takes a
-    <citerefentry project='man-pages'><refentrytitle>printf</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-    format string and corresponding arguments to generate
-    <structname>message</structname>.</para>
+    <para><function>sd_bus_error_set_const()</function> is similar to
+    <function>sd_bus_error_set()</function>, but the string parameters
+    are not copied internally, and must hence remain constant and
+    valid for the lifetime of <parameter>e</parameter>. Use this call
+    to avoid memory allocations when setting error structures. Since
+    this call does not allocate memory it will not fail with an
+    out-of-memory condition, as
+    <function>sd_bus_error_set()</function> can, as described
+    above. Alternatively, the
+    <constant>SD_BUS_ERROR_MAKE_CONST()</constant> macro may be used
+    to generate a literal, constant bus error structure
+    on-the-fly.</para>
 
-    <para><function>sd_bus_error_set_const</function> is similar to
-    <function>sd_bus_error_set</function>, but string parameters are
-    not copied internally, and must remain valid for the lifetime of
-    <parameter>e</parameter>.</para>
-
-    <para><function>sd_bus_error_set_errno</function> will set
-    <structfield>name</structfield> based on an errno-like value.
-    <citerefentry project='die-net'><refentrytitle>strerror</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    <para><function>sd_bus_error_set_errno()</function> will set
+    <structfield>name</structfield> from an
+    <varname>errno</varname>-like value that is converted to a D-Bus
+    error. <citerefentry
+    project='die-net'><refentrytitle>strerror_r</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     will be used to set <structfield>message</structfield>. Well-known
     D-Bus error names will be used for <structfield>name</structfield>
-    if available, otherwise a name in the
-    <literal>System.Error</literal> namespace will be generated.
-    </para>
+    if applicable, otherwise a name in the
+    <literal>System.Error.</literal> namespace will be generated. The
+    sign of the specified error number is ignored. The absolute value
+    is used implicitly. The call always returns a negative value, for
+    convenient usage in <function>return</function> statements. This
+    call might fail due to lack of memory, in which case an
+    <constant>SD_BUS_ERROR_NO_MEMORY</constant> error is set instead,
+    and -ENOMEM returned.</para>
 
-    <para><function>sd_bus_error_set_errnof</function> is similar to
-    <function>sd_bus_error_set_errno</function>, but in addition to
-    <parameter>name</parameter>, takes a
-    <citerefentry project='man-pages'><refentrytitle>printf</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-    format and corresponding arguments.
-    <structfield>name</structfield> will be generated from
+    <para><function>sd_bus_error_set_errnof()</function> is similar to
+    <function>sd_bus_error_set_errno()</function>, but in addition to
+    <parameter>error</parameter>, takes a <citerefentry
+    project='man-pages'><refentrytitle>printf</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    format string and corresponding arguments.  The
+    <structfield>message</structfield> field will be generated from
     <parameter>format</parameter> and the arguments.</para>
 
-    <para><function>sd_bus_error_get_errno</function> will convert
-    <structname>e-&gt;name</structname> to an errno-like value using the
-    same rules as <function>sd_bus_error_set</function>.  If
+    <para><function>sd_bus_error_set_errnofv()</function> is similar to
+    <function>sd_bus_error_set_errnof()</function> but takes the
+    format string parameters as <citerefentry
+    project='man-pages'><refentrytitle>va_arg</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    parameter list.</para>
+
+    <para><function>sd_bus_error_get_errno()</function> converts the
+    <structfield>name</structfield> field of an error structure to an
+    <varname>errno</varname>-like (positive) value using the same
+    rules as <function>sd_bus_error_set()</function>.  If
     <parameter>e</parameter> is <constant>NULL</constant>, 0 will be
     returned.</para>
 
-    <para><function>sd_bus_error_copy</function> will initialize
+    <para><function>sd_bus_error_copy()</function> will initialize
     <parameter>dst</parameter> using the values in
     <parameter>e</parameter>. If the strings in
     <parameter>e</parameter> were set using
-    <function>sd_bus_set_error_const</function>, they will be shared.
-    Otherwise, they will be copied.</para>
+    <function>sd_bus_set_error_const()</function>, they will be shared.
+    Otherwise, they will be copied. Returns a converted
+    <varname>errno</varname>-like, negative error code.</para>
 
-    <para><function>sd_bus_error_is_set</function> will return
-    <constant>true</constant> if <parameter>e</parameter> is
+    <para><function>sd_bus_error_is_set()</function> will return a
+    non-zero value if <parameter>e</parameter> is
     non-<constant>NULL</constant> and an error has been set,
     <constant>false</constant> otherwise.</para>
 
-    <para><function>sd_bus_error_has_name</function> will return true
-    if <parameter>e</parameter> is non-<constant>NULL</constant> and
-    an error with the same <parameter>name</parameter> has been set,
+    <para><function>sd_bus_error_has_name()</function> will return a
+    non-zero value if <parameter>e</parameter> is
+    non-<constant>NULL</constant> and an error with the same
+    <parameter>name</parameter> has been set,
     <constant>false</constant> otherwise.</para>
 
-    <para><function>sd_bus_error_free</function> will destroy resources
-    held by <parameter>e</parameter>. The parameter itself will not
-    be deallocated, and must be
-    <citerefentry project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>d
-    by the caller if necessary.</para>
+    <para><function>sd_bus_error_free()</function> will destroy
+    resources held by <parameter>e</parameter>. The parameter itself
+    will not be deallocated, and must be <citerefentry
+    project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>d
+    by the caller if necessary. The function may also be called safely
+    on unset errors (error structures with both fields set to NULL),
+    in which case it performs no operation. This call will reset the
+    error structure after freeing the data, so that all fields are set
+    to NULL. The structure may be reused afterwards.</para>
   </refsect1>
 
   <refsect1>
     <title>Return Value</title>
 
-    <para>Functions <function>sd_bus_error_set</function>,
-    <function>sd_bus_error_setf</function>,
-    <function>sd_bus_error_set_const</function>, when successful,
+    <para>The functions <function>sd_bus_error_set()</function>,
+    <function>sd_bus_error_setf()</function>,
+    <function>sd_bus_error_set_const()</function>, when successful,
     return the negative errno value corresponding to the
     <parameter>name</parameter> parameter. Functions
-    <function>sd_bus_error_set_errno</function> and
-    <function>sd_bus_error_set_errnof</function>, when successful,
-    return the value of the <parameter>errno</parameter> parameter. If
-    an error occurs, one of the negative error values listed below
-    will be returned.</para>
+    <function>sd_bus_error_set_errno()</function>,
+    <function>sd_bus_error_set_errnof()</function> and
+    <function>sd_bus_error_set_errnofv()</function>, when successful,
+    return the negative value of the <parameter>error</parameter>
+    parameter. If an error occurs, one of the negative error values
+    listed below will be returned.</para>
 
-    <para><function>sd_bus_error_get_errno</function> returns
+    <para><function>sd_bus_error_get_errno()</function> returns
     <constant>false</constant> when <parameter>e</parameter> is
     <constant>NULL</constant>, and a positive errno value mapped from
     <parameter>e-&gt;name</parameter> otherwise.</para>
 
-    <para><function>sd_bus_error_copy</function> returns 0 or a
-    positive integer on success, and one of the negative error values
-    listed below otherwise.</para>
+    <para><function>sd_bus_error_copy()</function> returns 0 or a
+    positive integer on success, and a negative error value converted
+    from the error name otherwise.</para>
 
-    <para><function>sd_bus_error_is_set</function> returns
-    <constant>true</constant> when <parameter>e</parameter> and
-    <parameter>e-&gt;name</parameter> are non-<constant>NULL</constant>,
-    <constant>false</constant> otherwise.</para>
+    <para><function>sd_bus_error_is_set()</function> returns a
+    non-zero value when <parameter>e</parameter> and the
+    <structfield>name</structfield> field are
+    non-<constant>NULL</constant>, zero otherwise.</para>
 
-    <para><function>sd_bus_error_has_name</function> returns
-    <constant>true</constant> when <parameter>e</parameter> is
-    non-<constant>NULL</constant> and <parameter>e-&gt;name</parameter>
-    is equal to <parameter>name</parameter>,
-    <constant>false</constant> otherwise.</para>
+    <para><function>sd_bus_error_has_name()</function> returns a
+    non-zero value when <parameter>e</parameter> is
+    non-<constant>NULL</constant> and the
+    <structfield>name</structfield> field is equal to
+    <parameter>name</parameter>, zero otherwise.</para>
   </refsect1>
 
   <refsect1>
     <title>Reference ownership</title>
     <para><structname>sd_bus_error</structname> is not reference
     counted. Users should destroy resources held by it by calling
-    <function>sd_bus_error_free</function>.</para>
+    <function>sd_bus_error_free()</function>. Usually error structures
+    are allocated on the stack or passed in as function parameters,
+    but they may also be allocated dynamically, in which case it is
+    the duty of the caller to <citerefentry
+    project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    the memory held by the structure itself after freeing its contents
+    with <function>sd_bus_error_free()</function>.</para>
   </refsect1>
 
   <refsect1>
@@ -407,8 +379,10 @@
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd-bus-errors</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_error_add_map</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>errno</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-      <citerefentry project='die-net'><refentrytitle>strerror</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+      <citerefentry project='die-net'><refentrytitle>strerror_r</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     </para>
   </refsect1>
 
