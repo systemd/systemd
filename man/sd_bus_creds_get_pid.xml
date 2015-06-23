@@ -61,8 +61,9 @@
     <refname>sd_bus_creds_get_cmdline</refname>
     <refname>sd_bus_creds_get_cgroup</refname>
     <refname>sd_bus_creds_get_unit</refname>
-    <refname>sd_bus_creds_get_user_unit</refname>
     <refname>sd_bus_creds_get_slice</refname>
+    <refname>sd_bus_creds_get_user_unit</refname>
+    <refname>sd_bus_creds_get_user_slice</refname>
     <refname>sd_bus_creds_get_session</refname>
     <refname>sd_bus_creds_get_owner_uid</refname>
     <refname>sd_bus_creds_has_effective_cap</refname>
@@ -193,13 +194,19 @@
       </funcprototype>
 
       <funcprototype>
+        <funcdef>int <function>sd_bus_creds_get_slice</function></funcdef>
+        <paramdef>sd_bus_creds *<parameter>c</parameter></paramdef>
+        <paramdef>const char **<parameter>slice</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
         <funcdef>int <function>sd_bus_creds_get_user_unit</function></funcdef>
         <paramdef>sd_bus_creds *<parameter>c</parameter></paramdef>
         <paramdef>const char **<parameter>unit</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
-        <funcdef>int <function>sd_bus_creds_get_slice</function></funcdef>
+        <funcdef>int <function>sd_bus_creds_get_user_slice</function></funcdef>
         <paramdef>sd_bus_creds *<parameter>c</parameter></paramdef>
         <paramdef>const char **<parameter>slice</parameter></paramdef>
       </funcprototype>
@@ -288,9 +295,9 @@
   <refsect1>
     <title>Description</title>
 
-    <para>These functions return information from an
-    <parameter>sd_bus_creds</parameter> credential object. Credential
-    objects may be created with
+    <para>These functions return credential information from an
+    <parameter>sd_bus_creds</parameter> object. Credential objects may
+    be created with
     <citerefentry><refentrytitle>sd_bus_creds_new_from_pid</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
     in which case they describe the credentials of the process
     identified by the specified PID, with
@@ -301,7 +308,13 @@
     in which case they describe the credentials of the creator of a
     bus, or with
     <citerefentry><refentrytitle>sd_bus_message_get_creds</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-    in which case they describe the credentials of the sender of the message.</para>
+    in which case they describe the credentials of the sender of the
+    message.</para>
+
+    <para>Not all credential fields are part of every
+    <literal>sd_bus_creds</literal> object. Use
+    <citerefentry><refentrytitle>sd_bus_creds_get_mask</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    to determine the mask of fields available.</para>
 
     <para><function>sd_bus_creds_get_pid()</function> will retrieve
     the PID (process identifier). Similar,
@@ -374,19 +387,22 @@
     <para><function>sd_bus_creds_get_slice()</function> will retrieve
     the systemd slice (a unit in the system instance of systemd) that
     the process is part of. See
-    <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>. Similar,
+    <function>sd_bus_creds_get_user_slice()</function> retrieves the
+    systemd slice of the process, in the user instance of systemd.
     </para>
 
     <para><function>sd_bus_creds_get_session()</function> will
-    retrieve the logind session that the process is part of. See
+    retrieve the identifier of the login session that the process is
+    part of. See
     <citerefentry><refentrytitle>systemd-logind.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>. For
     processes that are not part of a session returns -ENXIO.
     </para>
 
     <para><function>sd_bus_creds_get_owner_uid()</function> will
     retrieve the numeric UID (user identifier) of the user who owns
-    the session that the process is part of. See
-    <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    the login session that the process is part of. See
+    <citerefentry><refentrytitle>systemd-logind.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
     For processes that are not part of a session returns -ENXIO.
     </para>
 
@@ -395,7 +411,7 @@
     <parameter>capability</parameter> was set in the effective
     capabilities mask. A positive return value means that is was
     set, zero means that it was not set, and a negative return
-    value signifies an error. See
+    value indicates an error. See
     <citerefentry project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
     and <varname>Capabilities=</varname> and
     <varname>CapabilityBoundingSet=</varname> settings in
@@ -427,8 +443,8 @@
     processes that are not part of an audit session.</para>
 
     <para><function>sd_bus_creds_get_tty()</function> will retrieve
-    the controlling TTY. Returns -ENXIO for processes that have no
-    controlling TTY.</para>
+    the controlling TTY, without the prefixing "/dev/". Returns -ENXIO
+    for processes that have no controlling TTY.</para>
 
     <para><function>sd_bus_creds_get_unique_name()</function> will
     retrieve the D-Bus unique name. See <ulink
@@ -489,8 +505,9 @@
         <listitem><para>Given field is not specified for the described
         process or peer. This will be returned by
         <function>sd_bus_get_unit()</function>,
-        <function>sd_bus_get_user_unit()</function>,
         <function>sd_bus_get_slice()</function>,
+        <function>sd_bus_get_user_unit()</function>,
+        <function>sd_bus_get_user_slice()</function>,
         <function>sd_bus_get_session()</function>, and
         <function>sd_bus_get_owner_uid()</function> if the process is
         not part of a systemd system unit, systemd user unit, systemd
@@ -526,10 +543,11 @@
   <refsect1>
     <title>Notes</title>
 
-    <para><function>sd_bus_open_user()</function> and other functions
-    described here are available as a shared library, which can be
-    compiled and linked to with the
-    <constant>libsystemd</constant> <citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    <para><function>sd_bus_creds_get_pid()</function> and the other
+    functions described here are available as a shared library, which
+    can be compiled and linked to with the
+    <constant>libsystemd</constant> <citerefentry
+    project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     file.</para>
   </refsect1>
 
@@ -539,8 +557,9 @@
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>fork</refentrytitle><manvolnum>2</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>execve</refentrytitle><manvolnum>2</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_creds_new_from_pid</refentrytitle><manvolnum>2</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>fork</refentrytitle><manvolnum>2</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>execve</refentrytitle><manvolnum>2</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>credentials</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>proc</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
