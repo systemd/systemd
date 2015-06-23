@@ -139,7 +139,9 @@ static void test_copy_bytes(void) {
         int r, r2;
         char buf[1024], buf2[1024];
 
-        infd = open("/etc/os-release", O_RDONLY|O_CLOEXEC);
+        infd = open("/usr/lib/os-release", O_RDONLY|O_CLOEXEC);
+        if (infd < 0)
+                infd = open("/etc/os-release", O_RDONLY|O_CLOEXEC);
         assert_se(infd >= 0);
 
         assert_se(pipe2(pipefd, O_CLOEXEC) == 0);
