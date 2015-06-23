@@ -478,5 +478,6 @@ void manager_next_dns_server(Manager *m) {
 static const char* const dns_server_feature_level_table[_DNS_SERVER_FEATURE_LEVEL_MAX] = {
         [DNS_SERVER_FEATURE_LEVEL_TCP] = "TCP",
         [DNS_SERVER_FEATURE_LEVEL_UDP] = "UDP",
+        [DNS_SERVER_FEATURE_LEVEL_EDNS0] = "UDP+EDNS0",
 };
 DEFINE_STRING_TABLE_LOOKUP(dns_server_feature_level, DnsServerFeatureLevel);

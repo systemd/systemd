@@ -545,7 +545,7 @@ static int dns_transaction_emit(DnsTransaction *t) {
                 t->server = dns_server_ref(server);
         }
 
-        r = dns_scope_emit(t->scope, t->dns_udp_fd, t->sent);
+        r = dns_scope_emit(t->scope, t->dns_udp_fd, t->server, t->sent);
         if (r < 0)
                 return r;
 

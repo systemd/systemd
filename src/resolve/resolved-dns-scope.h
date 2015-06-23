@@ -80,7 +80,7 @@ DnsScope* dns_scope_free(DnsScope *s);
 void dns_scope_packet_received(DnsScope *s, usec_t rtt);
 void dns_scope_packet_lost(DnsScope *s, usec_t usec);
 
-int dns_scope_emit(DnsScope *s, int fd, DnsPacket *p);
+int dns_scope_emit(DnsScope *s, int fd, DnsServer *server, DnsPacket *p);
 int dns_scope_tcp_socket(DnsScope *s, int family, const union in_addr_union *address, uint16_t port, DnsServer **server);
 int dns_scope_udp_dns_socket(DnsScope *s, DnsServer **server);
 

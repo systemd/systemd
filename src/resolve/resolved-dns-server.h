@@ -34,6 +34,7 @@ typedef enum DnsServerType {
 typedef enum DnsServerFeatureLevel {
         DNS_SERVER_FEATURE_LEVEL_TCP,
         DNS_SERVER_FEATURE_LEVEL_UDP,
+        DNS_SERVER_FEATURE_LEVEL_EDNS0,
         _DNS_SERVER_FEATURE_LEVEL_MAX,
         _DNS_SERVER_FEATURE_LEVEL_INVALID = -1
 } DnsServerFeatureLevel;

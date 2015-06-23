@@ -267,7 +267,7 @@ static int dns_packet_extend(DnsPacket *p, size_t add, void **ret, size_t *start
         return 0;
 }
 
-static void dns_packet_truncate(DnsPacket *p, size_t sz) {
+void dns_packet_truncate(DnsPacket *p, size_t sz) {
         Iterator i;
         char *s;
         void *n;

@@ -162,6 +162,8 @@ int dns_packet_append_key(DnsPacket *p, const DnsResourceKey *key, size_t *start
 int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *start);
 int dns_packet_append_opt_rr(DnsPacket *p, uint16_t max_udp_size, size_t *start);
 
+void dns_packet_truncate(DnsPacket *p, size_t sz);
+
 int dns_packet_read(DnsPacket *p, size_t sz, const void **ret, size_t *start);
 int dns_packet_read_blob(DnsPacket *p, void *d, size_t sz, size_t *start);
 int dns_packet_read_uint8(DnsPacket *p, uint8_t *ret, size_t *start);
