@@ -26,8 +26,8 @@ _arguments \
     {-h,--help}'[Show this help]' \
     '--version[Show package version]' \
     '--what=[Operations to inhibit]:options:_inhibit_what' \
-    '--who=[A descriptive string who is inhibiting]' \
-    '--why=[A descriptive string why is being inhibited]' \
-    '--mode=[One of block or delay]' \
+    '--who=[A descriptive string who is inhibiting]:who is inhibiting:' \
+    '--why=[A descriptive string why is being inhibited]:reason for the lock:' \
+    '--mode=[One of block or delay]:lock mode:( block delay )' \
     '--list[List active inhibitors]' \
     '*:commands:_systemd_inhibit_command'
