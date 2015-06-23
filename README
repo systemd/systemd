@@ -140,8 +140,7 @@ REQUIREMENTS:
         dracut (optional)
         PolicyKit (optional)
 
-        When building from git, you need the following additional
-        dependencies:
+        When building from git, the following tools are needed:
 
         pkg-config
         docbook-xsl
@@ -154,6 +153,10 @@ REQUIREMENTS:
         python (optional)
         python-lxml (optional, but required to build the indices)
         sphinx (optional)
+
+        The build system is initialized with ./autogen.sh. A tar ball
+        can be created with:
+          git archive --format=tar --prefix=systemd-222/ v222 | xz > systemd-222.tar.xz
 
         When systemd-hostnamed is used, it is strongly recommended to
         install nss-myhostname to ensure that, in a world of
