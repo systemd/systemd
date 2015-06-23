@@ -366,11 +366,26 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
         }
 
         if (t->server) {
-                if (t->current_features >= t->server->verified_features)
-                        t->server->verified_features = t->current_features;
+                if (IN_SET(DNS_PACKET_RCODE(p), DNS_RCODE_FORMERR, DNS_RCODE_SERVFAIL, DNS_RCODE_NOTIMP)) {
 
-                if (t->current_features == t->server->possible_features)
-                        t->server->n_failed_attempts = 0;
+                        /* request failed, immediately try again with reduced features */
+                        t->server->n_failed_attempts = (unsigned) -1;
+                        t->server->last_failed_attempt = now(CLOCK_MONOTONIC);
+
+                        r = dns_transaction_go(t);
+                        if (r < 0) {
+                                dns_transaction_complete(t, DNS_TRANSACTION_RESOURCES);
+                                return;
+                        }
+
+                        return;
+                } else {
+                        if (t->current_features >= t->server->verified_features)
+                                t->server->verified_features = t->current_features;
+
+                        if (t->current_features == t->server->possible_features)
+                                t->server->n_failed_attempts = 0;
+                }
         }
 
         if (DNS_PACKET_TC(p)) {
@@ -442,13 +457,23 @@ static int on_transaction_timeout(sd_event_source *s, usec_t usec, void *userdat
 
 static int dns_transaction_make_packet(DnsTransaction *t) {
         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
+        DnsServerFeatureLevel features;
         unsigned n, added = 0;
         int r;
 
         assert(t);
 
-        if (t->sent)
-                return 0;
+        /* Determine the DNS features we want to attempt */
+        features = dns_server_possible_features(t->server);
+
+        if (t->sent) {
+                if (t->current_features == features)
+                        return 0;
+                else
+                        t->sent = dns_packet_unref(t->sent);
+        }
+
+        t->current_features = features;
 
         r = dns_packet_new_query(&p, t->scope->protocol, 0);
         if (r < 0)
@@ -472,6 +497,19 @@ static int dns_transaction_make_packet(DnsTransaction *t) {
                 return -EDOM;
 
         DNS_PACKET_HEADER(p)->qdcount = htobe16(added);
+
+        added = 0;
+
+        if (t->server && features >= DNS_SERVER_FEATURE_LEVEL_EDNS0) {
+                r = dns_packet_append_opt_rr(p, DNS_PACKET_UNICAST_SIZE_MAX, NULL);
+                if (r < 0)
+                        return r;
+
+                added ++;
+        }
+
+        DNS_PACKET_HEADER(p)->arcount = htobe16(added);
+
         DNS_PACKET_HEADER(p)->id = t->id;
 
         t->sent = p;
@@ -575,9 +613,6 @@ int dns_transaction_go(DnsTransaction *t) {
                 dns_transaction_complete(t, DNS_TRANSACTION_NO_SERVERS);
                 return 0;
         }
-
-        /* Determine the DNS features we want to attempt */
-        t->current_features = dns_server_possible_features(t->server);
 
         r = dns_transaction_make_packet(t);
         if (r == -EDOM) {
