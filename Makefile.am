@@ -6322,7 +6322,7 @@ exported-%: %
 	$(AM_V_GEN)$(NM) -g --defined-only $(builddir)/.libs/$(<:.la=.so) 2>&1 /dev/null | grep " T " | cut -d" " -f3 > $@
 
 exported: $(addprefix exported-, $(lib_LTLIBRARIES))
-	$(AM_V_GEN)cat $^ > $@
+	$(AM_V_GEN)sort -u $^ > $@
 
 .PHONY: check-api-docs
 check-api-docs: exported man
