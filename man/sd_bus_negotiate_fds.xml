@@ -44,7 +44,7 @@
 
   <refnamediv>
     <refname>sd_bus_negotiate_fds</refname>
-    <refname>sd_bus_negotiate_timestamps</refname>
+    <refname>sd_bus_negotiate_timestamp</refname>
     <refname>sd_bus_negotiate_creds</refname>
 
     <refpurpose>Control feature negotiation on bus connections</refpurpose>
