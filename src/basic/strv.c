@@ -698,6 +698,23 @@ char **strv_reverse(char **l) {
         return l;
 }
 
+char **strv_shell_escape(char **l, const char *bad) {
+        char **s;
+
+        STRV_FOREACH(s, l) {
+                char *v;
+
+                v = shell_escape(*s, bad);
+                if (!v)
+                        return NULL;
+
+                free(*s);
+                *s = v;
+        }
+
+        return l;
+}
+
 bool strv_fnmatch(char* const* patterns, const char *s, int flags) {
         char* const* p;
 
