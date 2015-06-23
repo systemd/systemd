@@ -639,8 +639,8 @@ int main(int argc, char *argv[])
                  */
                 word = identify.wyde[108];
                 if ((word & 0xf000) == 0x5000)
-                        printf("ID_WWN=0x%1$"PRIu64"x\n"
-                               "ID_WWN_WITH_EXTENSION=0x%1$"PRIu64"x\n",
+                        printf("ID_WWN=0x%1$" PRIx64 "\n"
+                               "ID_WWN_WITH_EXTENSION=0x%1$" PRIx64 "\n",
                                identify.octa[108/4]);
 
                 /* from Linux's include/linux/ata.h */
