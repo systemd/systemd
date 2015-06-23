@@ -69,7 +69,7 @@ static double esize = 0;
 static struct list_sample_data *sampledata;
 static struct list_sample_data *prev_sampledata;
 
-static void svg_header(FILE *of, struct list_sample_data *head, double graph_start) {
+static void svg_header(FILE *of, struct list_sample_data *head, double graph_start, int n_cpus) {
         double w;
         double h;
         struct list_sample_data *sampledata_last;
@@ -90,7 +90,7 @@ static void svg_header(FILE *of, struct list_sample_data *head, double graph_sta
         /* height is variable based on pss, psize, ksize */
         h = 400.0 + (arg_scale_y * 30.0) /* base graphs and title */
             + (arg_pss ? (100.0 * arg_scale_y) + (arg_scale_y * 7.0) : 0.0) /* pss estimate */
-            + psize + ksize + esize;
+            + psize + ksize + esize + (n_cpus * 15 * arg_scale_y);
 
         fprintf(of, "<?xml version=\"1.0\" standalone=\"no\"?>\n");
         fprintf(of, "<!DOCTYPE svg PUBLIC \"-//W3C//DTD SVG 1.1//EN\" ");
@@ -1314,7 +1314,7 @@ int svg_do(FILE *of,
         esize = (arg_entropy ? arg_scale_y * 7 : 0);
 
         /* after this, we can draw the header with proper sizing */
-        svg_header(of, head, graph_start);
+        svg_header(of, head, graph_start, arg_percpu ? n_cpus : 0);
         fprintf(of, "<rect class=\"bg\" width=\"100%%\" height=\"100%%\" />\n\n");
 
         fprintf(of, "<g transform=\"translate(10,400)\">\n");
