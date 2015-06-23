@@ -384,6 +384,17 @@ int server_open_dev_kmsg(Server *s) {
         if (!s->read_kmsg)
                 return 0;
 
+        if (!s->boot_kmsg) {
+                /* clear out /dev/kmsg, we don't want all its messages */
+                char buffer[40960];
+                while (1) {
+                        int ret;
+                        ret = read(s->dev_kmsg_fd, buffer, 40960);
+                        if (ret <= 0)
+                                break;
+                }
+        }
+
         r = sd_event_add_io(s->event, &s->dev_kmsg_event_source, s->dev_kmsg_fd, EPOLLIN, dispatch_dev_kmsg, s);
         if (r < 0) {
 

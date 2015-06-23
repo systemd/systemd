@@ -2237,7 +2237,7 @@ int server_init(Server *s, const char *namespace) {
                 return r;
 
         /* By default, only read from /dev/kmsg if are the main namespace */
-        s->read_kmsg = !s->namespace;
+        s->boot_kmsg = s->read_kmsg = !s->namespace;
         s->storage = s->namespace ? STORAGE_PERSISTENT : STORAGE_AUTO;
 
         journal_reset_metrics(&s->system_storage.metrics);
