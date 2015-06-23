@@ -327,6 +327,7 @@ static void worker_spawn(Manager *manager, struct event *event) {
         struct udev *udev = event->udev;
         _cleanup_udev_monitor_unref_ struct udev_monitor *worker_monitor = NULL;
         pid_t pid;
+        int r = 0;
 
         /* listen for new events */
         worker_monitor = udev_monitor_new_from_netlink(udev, NULL);
@@ -334,7 +335,9 @@ static void worker_spawn(Manager *manager, struct event *event) {
                 return;
         /* allow the main daemon netlink address to send devices to the worker */
         udev_monitor_allow_unicast_sender(worker_monitor, manager->monitor);
-        udev_monitor_enable_receiving(worker_monitor);
+        r = udev_monitor_enable_receiving(worker_monitor);
+        if (r < 0)
+                log_error_errno(r, "worker: could not enable receiving of device: %m");
 
         pid = fork();
         switch (pid) {
@@ -346,7 +349,6 @@ static void worker_spawn(Manager *manager, struct event *event) {
                 struct epoll_event ep_signal = { .events = EPOLLIN };
                 struct epoll_event ep_monitor = { .events = EPOLLIN };
                 sigset_t mask;
-                int r = 0;
 
                 /* take initial device from queue */
                 dev = event->dev;
@@ -528,7 +530,6 @@ out:
         default:
         {
                 struct worker *worker;
-                int r;
 
                 r = worker_new(&worker, manager, worker_monitor, pid);
                 if (r < 0)
