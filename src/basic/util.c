@@ -6537,6 +6537,32 @@ int rename_noreplace(int olddirfd, const char *oldpath, int newdirfd, const char
         return 0;
 }
 
+static char *strcpy_backslash_escaped(char *t, const char *s, const char *bad) {
+        assert(bad);
+
+        for (; *s; s++) {
+                if (*s == '\\' || strchr(bad, *s))
+                        *(t++) = '\\';
+
+                *(t++) = *s;
+        }
+
+        return t;
+}
+
+char *shell_escape(const char *s, const char *bad) {
+        char *r, *t;
+
+        r = new(char, strlen(s)*2+1);
+        if (!r)
+                return NULL;
+
+        t = strcpy_backslash_escaped(r, s, bad);
+        *t = 0;
+
+        return r;
+}
+
 char *shell_maybe_quote(const char *s) {
         const char *p;
         char *r, *t;
@@ -6563,13 +6589,7 @@ char *shell_maybe_quote(const char *s) {
         *(t++) = '"';
         t = mempcpy(t, s, p - s);
 
-        for (; *p; p++) {
-
-                if (strchr(SHELL_NEED_ESCAPE, *p))
-                        *(t++) = '\\';
-
-                *(t++) = *p;
-        }
+        t = strcpy_backslash_escaped(t, p, SHELL_NEED_ESCAPE);
 
         *(t++)= '"';
         *t = 0;
