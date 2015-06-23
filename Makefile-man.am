@@ -287,7 +287,7 @@ MANPAGES_ALIAS += \
 	man/sd_bus_message_get_reply_cookie.3 \
 	man/sd_bus_message_get_seqnum.3 \
 	man/sd_bus_negotiate_creds.3 \
-	man/sd_bus_negotiate_timestamps.3 \
+	man/sd_bus_negotiate_timestamp.3 \
 	man/sd_bus_open.3 \
 	man/sd_bus_open_system.3 \
 	man/sd_bus_open_system_machine.3 \
@@ -573,7 +573,7 @@ man/sd_bus_message_get_realtime_usec.3: man/sd_bus_message_get_monotonic_usec.3
 man/sd_bus_message_get_reply_cookie.3: man/sd_bus_message_get_cookie.3
 man/sd_bus_message_get_seqnum.3: man/sd_bus_message_get_monotonic_usec.3
 man/sd_bus_negotiate_creds.3: man/sd_bus_negotiate_fds.3
-man/sd_bus_negotiate_timestamps.3: man/sd_bus_negotiate_fds.3
+man/sd_bus_negotiate_timestamp.3: man/sd_bus_negotiate_fds.3
 man/sd_bus_open.3: man/sd_bus_default.3
 man/sd_bus_open_system.3: man/sd_bus_default.3
 man/sd_bus_open_system_machine.3: man/sd_bus_default.3
@@ -1105,7 +1105,7 @@ man/sd_bus_message_get_seqnum.html: man/sd_bus_message_get_monotonic_usec.html
 man/sd_bus_negotiate_creds.html: man/sd_bus_negotiate_fds.html
 	$(html-alias)
 
-man/sd_bus_negotiate_timestamps.html: man/sd_bus_negotiate_fds.html
+man/sd_bus_negotiate_timestamp.html: man/sd_bus_negotiate_fds.html
 	$(html-alias)
 
 man/sd_bus_open.html: man/sd_bus_default.html
