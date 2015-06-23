@@ -32,6 +32,7 @@ typedef struct ExposePort {
         int protocol;
         uint16_t host_port;
         uint16_t container_port;
+        uint64_t firewall_handle;
         LIST_FIELDS(struct ExposePort, ports);
 } ExposePort;
 
