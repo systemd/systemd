@@ -454,7 +454,7 @@ int sd_netlink_message_open_container_union(sd_netlink_message *m, unsigned shor
                 return r;
 
         /* do we evere need non-null size */
-        r = add_rtattr(m, type, NULL, 0);
+        r = add_rtattr(m, type | NLA_F_NESTED, NULL, 0);
         if (r < 0)
                 return r;
 
