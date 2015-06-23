@@ -476,7 +476,7 @@ static const NLType rtnl_types[RTM_MAX + 1] = {
         [RTM_GETNEIGH] = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_neigh_type_system, .size = sizeof(struct ndmsg) },
 };
 
-const NLTypeSystem rtnl_type_system = {
+const NLTypeSystem type_system_root = {
         .count = ELEMENTSOF(rtnl_types),
         .types = rtnl_types,
 };
@@ -518,10 +518,7 @@ int type_system_get_type(const NLTypeSystem *type_system, const NLType **ret, ui
         const NLType *nl_type;
 
         assert(ret);
-
-        if (!type_system)
-                type_system = &rtnl_type_system;
-
+        assert(type_system);
         assert(type_system->types);
 
         if (type >= type_system->count)

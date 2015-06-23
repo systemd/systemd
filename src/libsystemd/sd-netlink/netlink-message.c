@@ -68,7 +68,7 @@ int message_new(sd_netlink *rtnl, sd_netlink_message **ret, uint16_t type) {
         size_t size;
         int r;
 
-        r = type_system_get_type(NULL, &nl_type, type);
+        r = type_system_get_type(&type_system_root, &nl_type, type);
         if (r < 0)
                 return r;
 
@@ -874,7 +874,7 @@ int sd_netlink_message_rewind(sd_netlink_message *m) {
 
         assert(m->hdr);
 
-        r = type_system_get_type(NULL, &nl_type, m->hdr->nlmsg_type);
+        r = type_system_get_type(&type_system_root, &nl_type, m->hdr->nlmsg_type);
         if (r < 0)
                 return r;
 
