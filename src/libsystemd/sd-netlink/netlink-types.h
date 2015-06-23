@@ -23,7 +23,6 @@
 
 enum {
         NETLINK_TYPE_UNSPEC,
-        NETLINK_TYPE_META,
         NETLINK_TYPE_U8,                        /* NLA_U8 */
         NETLINK_TYPE_U16,                       /* NLA_U16 */
         NETLINK_TYPE_U32,                       /* NLA_U32 */
