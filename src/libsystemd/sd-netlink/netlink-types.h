@@ -22,18 +22,18 @@
 ***/
 
 enum {
-        NLA_UNSPEC,
-        NLA_META,
-        NLA_U8,
-        NLA_U16,
-        NLA_U32,
-        NLA_U64,
-        NLA_STRING,
-        NLA_IN_ADDR,
-        NLA_ETHER_ADDR,
-        NLA_CACHE_INFO,
-        NLA_NESTED,
-        NLA_UNION,
+        NETLINK_TYPE_UNSPEC,
+        NETLINK_TYPE_META,
+        NETLINK_TYPE_U8,                        /* NLA_U8 */
+        NETLINK_TYPE_U16,                       /* NLA_U16 */
+        NETLINK_TYPE_U32,                       /* NLA_U32 */
+        NETLINK_TYPE_U64,                       /* NLA_U64 */
+        NETLINK_TYPE_STRING,                    /* NLA_STRING */
+        NETLINK_TYPE_IN_ADDR,
+        NETLINK_TYPE_ETHER_ADDR,
+        NETLINK_TYPE_CACHE_INFO,
+        NETLINK_TYPE_NESTED,                    /* NLA_NESTED */
+        NETLINK_TYPE_UNION,
 };
 
 typedef enum NLMatchType {
