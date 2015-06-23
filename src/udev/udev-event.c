@@ -389,26 +389,44 @@ static int spawn_exec(struct udev_event *event,
                       const char *cmd, char *const argv[], char **envp,
                       int fd_stdout, int fd_stderr) {
         _cleanup_close_ int fd = -1;
+        int r;
 
         /* discard child output or connect to pipe */
         fd = open("/dev/null", O_RDWR);
         if (fd >= 0) {
-                dup2(fd, STDIN_FILENO);
-                if (fd_stdout < 0)
-                        dup2(fd, STDOUT_FILENO);
-                if (fd_stderr < 0)
-                        dup2(fd, STDERR_FILENO);
+                r = dup2(fd, STDIN_FILENO);
+                if (r < 0)
+                        log_warning_errno(errno, "redirecting stdin failed: %m");
+
+                if (fd_stdout < 0) {
+                        r = dup2(fd, STDOUT_FILENO);
+                        if (r < 0)
+                                log_warning_errno(errno, "redirecting stdout failed: %m");
+                }
+
+                if (fd_stderr < 0) {
+                        r = dup2(fd, STDERR_FILENO);
+                        if (r < 0)
+                                log_warning_errno(errno, "redirecting stderr failed: %m");
+                }
         } else
-                log_error_errno(errno, "open /dev/null failed: %m");
+                log_warning_errno(errno, "open /dev/null failed: %m");
 
         /* connect pipes to std{out,err} */
         if (fd_stdout >= 0) {
-                dup2(fd_stdout, STDOUT_FILENO);
-                safe_close(fd_stdout);
+                r = dup2(fd_stdout, STDOUT_FILENO);
+                if (r < 0)
+                        log_warning_errno(errno, "redirecting stdout failed: %m");
+
+                fd_stdout = safe_close(fd_stdout);
         }
+
         if (fd_stderr >= 0) {
-                dup2(fd_stderr, STDERR_FILENO);
-                safe_close(fd_stderr);
+                r = dup2(fd_stderr, STDERR_FILENO);
+                if (r < 0)
+                        log_warning_errno(errno, "redirecting stdout failed: %m");
+
+                fd_stderr = safe_close(fd_stderr);
         }
 
         /* terminate child in case parent goes away */
