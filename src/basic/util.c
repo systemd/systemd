@@ -5188,10 +5188,19 @@ int extract_first_word(const char **p, char **ret, const char *separators, Extra
 
                 case START:
                         if (c == 0) {
+                                if (flags & EXTRACT_SEPARATOR_SPLIT)
+                                        if (!GREEDY_REALLOC(s, allocated, sz+1))
+                                                return -ENOMEM;
                                 *p = NULL;
                                 goto finish;
-                        } else if (strchr(separators, c))
+                        } else if (strchr(separators, c)) {
+                                if (flags & EXTRACT_SEPARATOR_SPLIT) {
+                                        if (!GREEDY_REALLOC(s, allocated, sz+1))
+                                                return -ENOMEM;
+                                        state = SEPARATOR;
+                                }
                                 break;
+                        }
 
                         state = VALUE;
                         /* fallthrough */
@@ -5305,9 +5314,10 @@ end_escape:
                 case SEPARATOR:
                         if (c == 0)
                                 goto finish;
+                        if (flags & EXTRACT_SEPARATOR_SPLIT)
+                                goto finish;
                         if (!strchr(separators, c))
                                 goto finish;
-
                         break;
                 }
 
