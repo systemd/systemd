@@ -723,6 +723,14 @@ AC_SUBST(GCRYPT_CFLAGS)
 AM_CONDITIONAL([HAVE_GCRYPT], [test "x$have_gcrypt" != xno])
 
 # ------------------------------------------------------------------------------
+have_journald_authenticate=no
+AC_ARG_ENABLE(journald-authenticate, AS_HELP_STRING([--disable-journald-authenticate], [disable journal authentication (requires gcrypt)]))
+if test "x$enable_journald_authenticate" != "xno" && test "x$have_gcrypt" != "xno"; then
+        have_journald_authenticate=yes
+fi
+AM_CONDITIONAL(ENABLE_JOURNALD_AUTHENTICATE, [test "$have_journald_authenticate" = "yes"])
+
+# ------------------------------------------------------------------------------
 AC_ARG_ENABLE([audit],
         AS_HELP_STRING([--disable-audit],[Disable optional AUDIT support]),
                 [case "${enableval}" in
@@ -1534,6 +1542,7 @@ AC_MSG_RESULT([
         randomseed:              ${have_randomseed}
         backlight:               ${have_backlight}
         rfkill:                  ${have_rfkill}
+        journald-authenticate:   ${have_journald_authenticate}
         logind:                  ${have_logind}
         machined:                ${have_machined}
         importd:                 ${have_importd}
