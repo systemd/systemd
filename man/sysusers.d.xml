@@ -19,7 +19,7 @@
   You should have received a copy of the GNU Lesser General Public License
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
-<refentry id="sysusers.d"
+<refentry id="sysusers.d" conditional='ENABLE_SYSUSERS'
     xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
