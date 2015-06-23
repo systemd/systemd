@@ -289,7 +289,7 @@ int strv_split_quoted(char ***t, const char *s, ExtractFlags flags) {
         for (;;) {
                 _cleanup_free_ char *word = NULL;
 
-                r = extract_first_word(&s, &word, NULL, flags);
+                r = extract_first_word(&s, &word, NULL, flags|EXTRACT_QUOTES);
                 if (r < 0)
                         return r;
                 if (r == 0)

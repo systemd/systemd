@@ -4843,7 +4843,7 @@ int parse_proc_cmdline(int (*parse_item)(const char *key, const char *value)) {
                 _cleanup_free_ char *word = NULL;
                 char *value = NULL;
 
-                r = extract_first_word(&p, &word, NULL, EXTRACT_RELAX);
+                r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES|EXTRACT_RELAX);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -4883,7 +4883,7 @@ int get_proc_cmdline_key(const char *key, char **value) {
                 _cleanup_free_ char *word = NULL;
                 const char *e;
 
-                r = extract_first_word(&p, &word, NULL, EXTRACT_RELAX);
+                r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES|EXTRACT_RELAX);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -5746,14 +5746,14 @@ int extract_first_word(const char **p, char **ret, const char *separators, Extra
                 case VALUE:
                         if (c == 0)
                                 goto finish_force_terminate;
-                        else if (c == '\'') {
+                        else if (c == '\'' && (flags & EXTRACT_QUOTES)) {
                                 if (!GREEDY_REALLOC(s, allocated, sz+1))
                                         return -ENOMEM;
 
                                 state = SINGLE_QUOTE;
                         } else if (c == '\\')
                                 state = VALUE_ESCAPE;
-                        else if (c == '\"') {
+                        else if (c == '\"' && (flags & EXTRACT_QUOTES)) {
                                 if (!GREEDY_REALLOC(s, allocated, sz+1))
                                         return -ENOMEM;
 
