@@ -552,7 +552,7 @@ int config_parse_exec(
 
                 semicolon = false;
 
-                r = unquote_first_word_and_warn(&p, &firstword, UNQUOTE_CUNESCAPE, unit, filename, line, rvalue);
+                r = extract_first_word_and_warn(&p, &firstword, WHITESPACE, EXTRACT_CUNESCAPE, unit, filename, line, rvalue);
                 if (r <= 0)
                         return 0;
 
@@ -627,7 +627,7 @@ int config_parse_exec(
                         }
 
                         /* Check for \; explicitly, to not confuse it with \\;
-                         * or "\;" or "\\;" etc.  unquote_first_word would
+                         * or "\;" or "\\;" etc.  extract_first_word would
                          * return the same for all of those.  */
                         if (p[0] == '\\' && p[1] == ';' && (!p[2] || strchr(WHITESPACE, p[2]))) {
                                 p += 2;
@@ -642,7 +642,7 @@ int config_parse_exec(
                                 continue;
                         }
 
-                        r = unquote_first_word_and_warn(&p, &word, UNQUOTE_CUNESCAPE, unit, filename, line, rvalue);
+                        r = extract_first_word_and_warn(&p, &word, WHITESPACE, EXTRACT_CUNESCAPE, unit, filename, line, rvalue);
                         if (r == 0)
                                 break;
                         else if (r < 0)
