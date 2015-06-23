@@ -460,6 +460,24 @@ const NLTypeSystem rtnl_type_system = {
         .types = rtnl_types,
 };
 
+void type_get_type_system(const NLType *nl_type, const NLTypeSystem **ret) {
+        assert(nl_type);
+        assert(ret);
+        assert(nl_type->type == NETLINK_TYPE_NESTED);
+        assert(nl_type->type_system);
+
+        *ret = nl_type->type_system;
+}
+
+void type_get_type_system_union(const NLType *nl_type, const NLTypeSystemUnion **ret) {
+        assert(nl_type);
+        assert(ret);
+        assert(nl_type->type == NETLINK_TYPE_UNION);
+        assert(nl_type->type_system_union);
+
+        *ret = nl_type->type_system_union;
+}
+
 int type_system_get_type(const NLTypeSystem *type_system, const NLType **ret, uint16_t type) {
         const NLType *nl_type;
 
@@ -493,11 +511,7 @@ int type_system_get_type_system(const NLTypeSystem *type_system, const NLTypeSys
         if (r < 0)
                 return r;
 
-        assert(nl_type->type == NETLINK_TYPE_NESTED);
-        assert(nl_type->type_system);
-
-        *ret = nl_type->type_system;
-
+        type_get_type_system(nl_type, ret);
         return 0;
 }
 
@@ -511,11 +525,7 @@ int type_system_get_type_system_union(const NLTypeSystem *type_system, const NLT
         if (r < 0)
                 return r;
 
-        assert(nl_type->type == NETLINK_TYPE_UNION);
-        assert(nl_type->type_system_union);
-
-        *ret = nl_type->type_system_union;
-
+        type_get_type_system_union(nl_type, ret);
         return 0;
 }
 
