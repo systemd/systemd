@@ -177,6 +177,10 @@ mouse:usb:v046dpc401:name:Logitech USB-PS/2 Trackball:
 mouse:usb:v04b3p310c:name:USB Optical Mouse:
  MOUSE_DPI=400@142
 
+# Logitech M570 trackball
+mouse:usb:v046dp1028:name:Logitech M570:
+ MOUSE_DPI=540@167
+
 # Logitech USB-PS/2 M-BZ96C
 mouse:usb:v046dpc045:name:Logitech USB-PS/2 Optical Mouse:
  MOUSE_DPI=600@125
@@ -203,18 +207,6 @@ mouse:usb:v046dpc01e:name:Logitech USB-PS/2 Optical Mouse:
 mouse:usb:v046dpc050:name:Logitech USB-PS/2 Optical Mouse:
  MOUSE_DPI=800@142
 
-# Logitech G400 (Wired)
-mouse:usb:v046dpc245:name:Logitech Gaming Mouse G400:
- MOUSE_DPI=400@1000 *800@1000 1800@1000 3600@1000
-
-# Logitech G400s (Wired)
-mouse:usb:v046dpc24c:name:Logitech G400s Optical Gaming Mouse:
- MOUSE_DPI=400@1000 *800@1000 2000@1000 4000@1000
-
-# Logitech M570 trackball
-mouse:usb:v046dp1028:name:Logitech M570:
- MOUSE_DPI=540@167
-
 # Logitech Wireless Mouse M185
 mouse:usb:v046dp4008:name:Logitech M185:
 mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:4008:
@@ -223,11 +215,23 @@ mouse:usb:v046dp101b:name:Logitech M705:
 mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:101b:
  MOUSE_DPI=800@166
 
+# Logitech MX Revolution
+mouse:usb:v046dpc51a:name:Logitech USB Receiver:
+ MOUSE_DPI=800@200
+
 # Logitech G5 Laser Mouse
 mouse:usb:v046dpc049:name:Logitech USB Gaming Mouse:
 # Logitech G500s Laser Gaming Mouse
 mouse:usb:v046dpc24e:name:Logitech G500s Laser Gaming Mouse:
  MOUSE_DPI=400@500 *800@500 2000@500
+
+# Logitech G400 (Wired)
+mouse:usb:v046dpc245:name:Logitech Gaming Mouse G400:
+ MOUSE_DPI=400@1000 *800@1000 1800@1000 3600@1000
+
+# Logitech G400s (Wired)
+mouse:usb:v046dpc24c:name:Logitech G400s Optical Gaming Mouse:
+ MOUSE_DPI=400@1000 *800@1000 2000@1000 4000@1000
 
 # Logitech B605 Wireless Mouse (also M505)
 mouse:usb:v046dp101d:name:Logitech B605:
