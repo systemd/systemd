@@ -662,7 +662,7 @@ static int parse_xattrs_from_arg(Item *i) {
         for (;;) {
                 _cleanup_free_ char *name = NULL, *value = NULL, *xattr = NULL, *xattr_replaced = NULL;
 
-                r = extract_first_word(&p, &xattr, NULL, EXTRACT_CUNESCAPE);
+                r = extract_first_word(&p, &xattr, NULL, EXTRACT_QUOTES|EXTRACT_CUNESCAPE);
                 if (r < 0)
                         log_warning_errno(r, "Failed to parse extended attribute '%s', ignoring: %m", p);
                 if (r <= 0)
@@ -1762,7 +1762,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         r = extract_many_words(
                         &buffer,
                         NULL,
-                        0,
+                        EXTRACT_QUOTES,
                         &action,
                         &path,
                         &mode,
