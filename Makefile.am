@@ -4207,7 +4207,7 @@ libsystemd_journal_internal_la_LIBADD += \
 	-llz4
 endif
 
-if HAVE_GCRYPT
+if ENABLE_JOURNALD_AUTHENTICATE
 libsystemd_journal_internal_la_SOURCES += \
 	src/journal/journal-authenticate.c \
 	src/journal/journal-authenticate.h \
