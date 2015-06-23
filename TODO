@@ -269,7 +269,7 @@ Features:
 
 * maybe add support for specifier expansion in user.conf, specifically DefaultEnvironment=
 
-* code cleanup: retire FOREACH_WORD_QUOTED, port to unquote_first_word() loops instead
+* code cleanup: retire FOREACH_WORD_QUOTED, port to extract_first_word() loops instead
 
 * introduce systemd-timesync-wait.service or so to sync on an NTP fix?
 
@@ -305,7 +305,7 @@ Features:
 
 * exponential backoff in timesyncd and resolved when we cannot reach a server
 
-* unquote_many_words() should probably be used by a lot of code that
+* extract_many_words() should probably be used by a lot of code that
   currently uses FOREACH_WORD and friends. For example, most conf
   parsing callbacks should use it.
 
