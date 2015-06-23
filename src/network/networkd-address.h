@@ -50,7 +50,7 @@ struct Address {
         union in_addr_union in_addr;
         union in_addr_union in_addr_peer;
 
-        bool ip_masquerade_done;
+        uint64_t ip_masquerade_handle;
 
         LIST_FIELDS(Address, addresses);
 };
