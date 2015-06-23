@@ -229,6 +229,7 @@ MANPAGES_ALIAS += \
 	man/reboot.8 \
 	man/sd_bus_creds_get_audit_login_uid.3 \
 	man/sd_bus_creds_get_audit_session_id.3 \
+	man/sd_bus_creds_get_augmented_mask.3 \
 	man/sd_bus_creds_get_cgroup.3 \
 	man/sd_bus_creds_get_cmdline.3 \
 	man/sd_bus_creds_get_comm.3 \
@@ -254,6 +255,7 @@ MANPAGES_ALIAS += \
 	man/sd_bus_creds_get_uid.3 \
 	man/sd_bus_creds_get_unique_name.3 \
 	man/sd_bus_creds_get_unit.3 \
+	man/sd_bus_creds_get_user_slice.3 \
 	man/sd_bus_creds_get_user_unit.3 \
 	man/sd_bus_creds_get_well_known_names.3 \
 	man/sd_bus_creds_has_bounding_cap.3 \
@@ -513,6 +515,7 @@ man/poweroff.8: man/halt.8
 man/reboot.8: man/halt.8
 man/sd_bus_creds_get_audit_login_uid.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_get_audit_session_id.3: man/sd_bus_creds_get_pid.3
+man/sd_bus_creds_get_augmented_mask.3: man/sd_bus_creds_new_from_pid.3
 man/sd_bus_creds_get_cgroup.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_get_cmdline.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_get_comm.3: man/sd_bus_creds_get_pid.3
@@ -538,6 +541,7 @@ man/sd_bus_creds_get_tty.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_get_uid.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_get_unique_name.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_get_unit.3: man/sd_bus_creds_get_pid.3
+man/sd_bus_creds_get_user_slice.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_get_user_unit.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_get_well_known_names.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_has_bounding_cap.3: man/sd_bus_creds_get_pid.3
@@ -927,6 +931,9 @@ man/sd_bus_creds_get_audit_login_uid.html: man/sd_bus_creds_get_pid.html
 man/sd_bus_creds_get_audit_session_id.html: man/sd_bus_creds_get_pid.html
 	$(html-alias)
 
+man/sd_bus_creds_get_augmented_mask.html: man/sd_bus_creds_new_from_pid.html
+	$(html-alias)
+
 man/sd_bus_creds_get_cgroup.html: man/sd_bus_creds_get_pid.html
 	$(html-alias)
 
@@ -1000,6 +1007,9 @@ man/sd_bus_creds_get_unique_name.html: man/sd_bus_creds_get_pid.html
 	$(html-alias)
 
 man/sd_bus_creds_get_unit.html: man/sd_bus_creds_get_pid.html
+	$(html-alias)
+
+man/sd_bus_creds_get_user_slice.html: man/sd_bus_creds_get_pid.html
 	$(html-alias)
 
 man/sd_bus_creds_get_user_unit.html: man/sd_bus_creds_get_pid.html
