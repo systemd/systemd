@@ -754,7 +754,7 @@ int sd_netlink_message_enter_container(sd_netlink_message *m, unsigned short typ
         r = rtnl_message_parse(m,
                                &m->rta_offset_tb[m->n_containers],
                                &m->rta_tb_size[m->n_containers],
-                               type_system->max,
+                               type_system_get_max(type_system),
                                container,
                                size);
         if (r < 0) {
@@ -890,7 +890,7 @@ int sd_netlink_message_rewind(sd_netlink_message *m) {
                 r = rtnl_message_parse(m,
                                        &m->rta_offset_tb[m->n_containers],
                                        &m->rta_tb_size[m->n_containers],
-                                       type_system->max,
+                                       type_system_get_max(type_system),
                                        (struct rtattr*)((uint8_t*)NLMSG_DATA(m->hdr) + NLMSG_ALIGN(size)),
                                        NLMSG_PAYLOAD(m->hdr, size));
                 if (r < 0)

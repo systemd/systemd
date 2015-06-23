@@ -46,6 +46,11 @@ struct NLType {
         const NLTypeSystemUnion *type_system_union;
 };
 
+struct NLTypeSystem {
+        uint16_t max;
+        const NLType *types;
+};
+
 static const NLTypeSystem rtnl_link_type_system;
 
 static const NLType rtnl_link_info_data_veth_types[VETH_INFO_MAX + 1] = {
@@ -493,6 +498,11 @@ void type_get_type_system_union(const NLType *nl_type, const NLTypeSystemUnion *
         assert(nl_type->type_system_union);
 
         *ret = nl_type->type_system_union;
+}
+
+uint16_t type_system_get_max(const NLTypeSystem *type_system) {
+        assert(type_system);
+        return type_system->max;
 }
 
 int type_system_get_type(const NLTypeSystem *type_system, const NLType **ret, uint16_t type) {
