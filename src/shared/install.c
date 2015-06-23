@@ -138,10 +138,105 @@ static int mark_symlink_for_removal(
         return 0;
 }
 
+static int find_symlink_to_template(const char *root_dir, const char *config_path, const char *template, char **link_name) {
+        int r;
+        const char **l, *scope;
+        const char *vendor_lookup_paths[] = { "/usr/lib/systemd",
+#ifdef HAVE_SPLIT_USR
+                                              "/lib/systemd",
+#endif
+                                              NULL
+        };
+
+        assert(config_path);
+        assert(link_name);
+        assert(unit_name_is_valid(template, UNIT_NAME_TEMPLATE));
+
+        scope = strstr(config_path, "user") ? "/user/" : "/system/";
+
+        STRV_FOREACH(l, vendor_lookup_paths) {
+                _cleanup_free_ char *path = NULL;
+                _cleanup_closedir_ DIR *d = NULL;
+                struct dirent *de;
+
+                path = strjoin(root_dir ?: "", *l, scope, NULL);
+                if (!path)
+                        return -ENOMEM;
+
+                path_kill_slashes(path);
+
+                d = opendir(path);
+                if (!d)
+                        return -errno;
+
+                FOREACH_DIRENT(de, d, break) {
+                        _cleanup_free_ char *target = NULL, *p = NULL;
+
+                        p = strjoin(path, "/", de->d_name, NULL);
+                        if (!p)
+                                return -ENOMEM;
+
+                        r = readlink_and_canonicalize(p, &target);
+                        if (r == -EINVAL)
+                                continue;
+                        else if (r < 0)
+                                return r;
+
+                        path_kill_slashes(target);
+
+                        if (streq(template, basename(target))) {
+                                char *t;
+
+                                t = strdup(de->d_name);
+                                if (!t)
+                                        return -ENOMEM;
+
+                                *link_name = t;
+                                return 0;
+                        }
+                }
+        }
+
+        return -ENOENT;
+}
+
+/* For given instance symlink we need to figure out whether we are eligible to remove it or not. If we find symlink to corresponding
+ * template and name of the symlink is on the whitelist we can remove the former symlink. */
+static int check_whitelist_for_symlink(char **instance_whitelist, const char *root_dir, const char *config_path, const char *unit_name) {
+        int r;
+        _cleanup_free_ char *template = NULL, *link_name = NULL, *prefix = NULL, *instance = NULL;
+        const char *symlink;
+
+        assert(instance_whitelist);
+        assert(config_path);
+        assert_return(unit_name_is_valid(unit_name, UNIT_NAME_INSTANCE), -EINVAL);
+
+        r = unit_name_template(unit_name, &template);
+        if (r < 0)
+                return r;
+
+        r = find_symlink_to_template(root_dir, config_path, template, &link_name);
+        if (r < 0)
+                return r;
+
+        r = unit_name_to_instance(unit_name, &instance);
+        if (r < 0)
+                return r;
+
+        r = unit_name_to_prefix(link_name, &prefix);
+        if (r < 0)
+                return r;
+
+        symlink = strjoina(prefix, "@", instance, ".service");
+
+        return strv_contains(instance_whitelist, symlink);
+}
+
 static int remove_marked_symlinks_fd(
                 Set *remove_symlinks_to,
                 int fd,
                 const char *path,
+                const char *root_dir,
                 const char *config_path,
                 bool *deleted,
                 UnitFileChange **changes,
@@ -204,7 +299,7 @@ static int remove_marked_symlinks_fd(
                         }
 
                         /* This will close nfd, regardless whether it succeeds or not */
-                        q = remove_marked_symlinks_fd(remove_symlinks_to, nfd, p, config_path, deleted, changes, n_changes, instance_whitelist);
+                        q = remove_marked_symlinks_fd(remove_symlinks_to, nfd, p, root_dir, config_path, deleted, changes, n_changes, instance_whitelist);
                         if (q < 0 && r == 0)
                                 r = q;
 
@@ -231,8 +326,13 @@ static int remove_marked_symlinks_fd(
                                 if (r < 0)
                                         return r;
 
-                                if (!strv_contains(instance_whitelist, w))
-                                        continue;
+                                if (!strv_contains(instance_whitelist, w)) {
+                                        /* Let's see if there exists a symlink (under /usr/lib/systemd/) to the template
+                                         * and is on the whitelist. */
+                                        r = check_whitelist_for_symlink(instance_whitelist, root_dir, config_path, de->d_name);
+                                        if (r <= 0)
+                                                continue;
+                                }
                         }
 
                         p = path_make_absolute(de->d_name, path);
@@ -283,6 +383,7 @@ static int remove_marked_symlinks_fd(
 
 static int remove_marked_symlinks(
                 Set *remove_symlinks_to,
+                const char *root_dir,
                 const char *config_path,
                 UnitFileChange **changes,
                 unsigned *n_changes,
@@ -312,7 +413,7 @@ static int remove_marked_symlinks(
                 }
 
                 /* This takes possession of cfd and closes it */
-                q = remove_marked_symlinks_fd(remove_symlinks_to, cfd, config_path, config_path, &deleted, changes, n_changes, instance_whitelist);
+                q = remove_marked_symlinks_fd(remove_symlinks_to, cfd, config_path, root_dir, config_path, &deleted, changes, n_changes, instance_whitelist);
                 if (r == 0)
                         r = q;
         } while (deleted);
@@ -629,7 +730,7 @@ int unit_file_unmask(
 
 
 finish:
-        q = remove_marked_symlinks(remove_symlinks_to, config_path, changes, n_changes, files);
+        q = remove_marked_symlinks(remove_symlinks_to, root_dir, config_path, changes, n_changes, files);
         if (r == 0)
                 r = q;
 
@@ -824,12 +925,16 @@ static void install_info_free(UnitFileInstallInfo *i) {
 
 static void install_info_hashmap_free(OrderedHashmap *m) {
         UnitFileInstallInfo *i;
+        char *name;
 
         if (!m)
                 return;
 
-        while ((i = ordered_hashmap_steal_first(m)))
+        while ((name = ordered_hashmap_first_key(m))) {
+                i = ordered_hashmap_steal_first(m);
                 install_info_free(i);
+                free(name);
+        }
 
         ordered_hashmap_free(m);
 }
@@ -849,6 +954,7 @@ static int install_info_add(
                 const char *path) {
         UnitFileInstallInfo *i = NULL;
         int r;
+        char *n = NULL;
 
         assert(c);
         assert(name || path);
@@ -885,7 +991,18 @@ static int install_info_add(
                 }
         }
 
-        r = ordered_hashmap_put(c->will_install, i->name, i);
+        n = strdup(name);
+        if (!n) {
+                r = -ENOMEM;
+                goto fail;
+        }
+
+        /*
+         *  There is a possibility that i->name will be changed if we figure out that we are not
+         *  handling unit file but rather symlink to another unit file in /usr. Thus we can't use
+         *  i->name as a key.
+         */
+        r = ordered_hashmap_put(c->will_install, n, i);
         if (r < 0)
                 goto fail;
 
@@ -894,7 +1011,7 @@ static int install_info_add(
 fail:
         if (i)
                 install_info_free(i);
-
+        free(n);
         return r;
 }
 
@@ -1080,6 +1197,126 @@ static int unit_file_load(
                 (int) strv_length(info->required_by);
 }
 
+static int unit_file_load_follow(
+                InstallContext *c,
+                UnitFileInstallInfo *info,
+                const char *path,
+                const char *root_dir,
+                bool allow_symlink,
+                bool load,
+                bool *also) {
+        int r;
+        _cleanup_free_ char *dir = NULL, *target = NULL;
+        char *n;
+
+        assert(c);
+        assert(info);
+        assert(path);
+
+        /* Check if unit file is under vendor lookup dir. If so try to follow symlink if there is any, otherwise proceed with normal load */
+        if (!path_prefix_in_list(path, "/usr/lib/systemd", "/lib/systemd", NULL))
+                goto load;
+
+        r = path_get_parent(path, &dir);
+        if (r < 0)
+                return r;
+
+        r = readlink_and_canonicalize(prefix_roota(root_dir, path), &target);
+        if (r == -ENOENT) {
+                /* Examined path doesn't exist. In case user asked us to enable instance check for symlink to template */
+                char *unit, *template;
+                _cleanup_free_ char *prefix = NULL, *t = NULL;
+
+                unit = basename(path);
+
+                if (!unit_name_is_valid(unit, UNIT_NAME_INSTANCE))
+                        return -EINVAL;
+
+                r = unit_name_to_prefix(unit, &prefix);
+                if (r < 0)
+                        return r;
+
+                template = strjoina(root_dir,
+                                    dir,
+                                    "/",
+                                    prefix,
+                                    "@.service");
+
+                r = readlink_and_canonicalize(template, &t);
+                if (r == -EINVAL)
+                        goto load;
+                else if (r < 0)
+                        return r;
+
+                path_kill_slashes(t);
+
+                if (!unit_name_is_valid(basename(t), UNIT_NAME_TEMPLATE))
+                        return -EINVAL;
+
+                r = unit_name_to_prefix(basename(t), &prefix);
+                if (r < 0)
+                        return r;
+
+                target = strjoin(root_dir,
+                                 dir,
+                                 "/",
+                                 prefix,
+                                 "@.service",
+                                 NULL);
+                if (!target)
+                        return -ENOMEM;
+        } else if (r == -EINVAL)
+                /* Path is not a symlink, proceed with normal load */
+                goto load;
+        else if (r < 0)
+                return r;
+
+        path_kill_slashes(target);
+
+        /* We found symlink provided by vendor, but target is not in the same directory */
+        if (!path_prefix_in_list(target, dir, prefix_roota(root_dir, dir), NULL))
+                return -EINVAL;
+
+        path = prefix_roota(dir, basename(target));
+
+        if (unit_name_is_valid(info->name, UNIT_NAME_INSTANCE) && unit_name_is_valid(basename(target), UNIT_NAME_TEMPLATE)) {
+                _cleanup_free_ char *instance = NULL, *prefix = NULL;
+
+                r = unit_name_to_instance(info->name, &instance);
+                if (r < 0)
+                        return r;
+
+                r = unit_name_to_prefix(basename(target), &prefix);
+                if (r < 0)
+                        return r;
+
+                r = unit_name_build(prefix, instance, ".service", &n);
+                if (r < 0)
+                        return r;
+        } else
+                n = strdup(basename(target));
+
+        if (!n)
+                return -ENOMEM;
+
+        free(info->name);
+        info->name = (char *) n;
+
+load:
+        r = unit_file_load(c, info, path, root_dir, allow_symlink, load, also);
+        if (r >= 0) {
+                char *p;
+
+                p = strdup(path);
+                if (!p)
+                        return -ENOMEM;
+
+                info->path = p;
+        }
+
+        return r;
+}
+
 static int unit_file_search(
                 InstallContext *c,
                 UnitFileInstallInfo *info,
@@ -1108,12 +1345,7 @@ static int unit_file_search(
                 if (!path)
                         return -ENOMEM;
 
-                r = unit_file_load(c, info, path, root_dir, allow_symlink, load, also);
-                if (r >= 0) {
-                        info->path = path;
-                        path = NULL;
-                        return r;
-                }
+                r = unit_file_load_follow(c, info, path, root_dir, allow_symlink, load, also);
                 if (r != -ENOENT && r != -ELOOP)
                         return r;
         }
@@ -1137,12 +1369,7 @@ static int unit_file_search(
                         if (!path)
                                 return -ENOMEM;
 
-                        r = unit_file_load(c, info, path, root_dir, allow_symlink, load, also);
-                        if (r >= 0) {
-                                info->path = path;
-                                path = NULL;
-                                return r;
-                        }
+                        r = unit_file_load_follow(c, info, path, root_dir, allow_symlink, load, also);
                         if (r != -ENOENT && r != -ELOOP)
                                 return r;
                 }
@@ -1663,7 +1890,7 @@ int unit_file_disable(
 
         r = install_context_mark_for_removal(&c, &paths, &remove_symlinks_to, config_path, root_dir);
 
-        q = remove_marked_symlinks(remove_symlinks_to, config_path, changes, n_changes, files);
+        q = remove_marked_symlinks(remove_symlinks_to, root_dir, config_path, changes, n_changes, files);
         if (r >= 0)
                 r = q;
 
@@ -1791,9 +2018,17 @@ UnitFileState unit_file_lookup_state(
                 const char *name) {
 
         UnitFileState state = _UNIT_FILE_STATE_INVALID;
+        const char *n = name;
         char **i;
         _cleanup_free_ char *path = NULL;
         int r = 0;
+
+        const char *vendor_lookup_paths[] = { "/usr/lib/systemd",
+#ifdef HAVE_SPLIT_USR
+                                              "/lib/systemd",
+#endif
+                                              NULL
+        };
 
         assert(paths);
 
@@ -1804,13 +2039,14 @@ UnitFileState unit_file_lookup_state(
                 struct stat st;
                 char *partial;
                 bool also = false;
+                _cleanup_free_ char *target = NULL;
 
                 free(path);
                 path = path_join(root_dir, *i, name);
                 if (!path)
                         return -ENOMEM;
 
-                if (root_dir)
+                if (root_dir && !streq(root_dir, "/"))
                         partial = path + strlen(root_dir);
                 else
                         partial = path;
@@ -1820,12 +2056,65 @@ UnitFileState unit_file_lookup_state(
                  * be sure, that there are no broken symlinks.
                  */
                 if (lstat(path, &st) < 0) {
+                        _cleanup_free_ char *config_path = NULL, *template = NULL;
+                        const char **l;
+
                         r = -errno;
                         if (errno != ENOENT)
                                 return r;
 
                         if (!unit_name_is_valid(name, UNIT_NAME_INSTANCE))
                                 continue;
+
+                        /* Try to figure out whether prefix of the instance refers to symlink in /usr.
+                         * If so replace it with prefix of target template and proceed.
+                         */
+                        STRV_FOREACH(l, vendor_lookup_paths) {
+                                _cleanup_free_ char *link_name = NULL, *p = NULL, *t = NULL;
+
+                                r = unit_name_template(name, &link_name);
+                                if (r < 0)
+                                        return r;
+
+                                p = strjoin(root_dir ?: "", *l, scope == UNIT_FILE_USER ? "/user/" : "/system/", link_name, NULL);
+                                if (!p)
+                                        return -ENOMEM;
+
+                                path_kill_slashes(p);
+
+                                r = readlink_and_canonicalize(p, &t);
+                                if (r == -EINVAL)
+                                        continue;
+                                else if (r < 0)
+                                        return r;
+
+                                if (!unit_name_is_valid(basename(t), UNIT_NAME_TEMPLATE))
+                                        continue;
+
+                                template = strdup(basename(t));
+                                if (!template)
+                                        return -ENOMEM;
+                        }
+
+                        if (template) {
+                                _cleanup_free_ char *prefix = NULL, *instance = NULL;
+
+                                assert(unit_name_is_valid(template, UNIT_NAME_TEMPLATE));
+
+                                r = unit_name_to_prefix(template, &prefix);
+                                if (r < 0)
+                                        return r;
+
+                                r = unit_name_to_instance(name, &instance);
+                                if (r < 0)
+                                        return r;
+
+                                r = unit_name_build(prefix, instance, ".service", &target);
+                                if (r < 0)
+                                        return r;
+
+                                n = target;
+                        }
                 } else {
                         if (!S_ISREG(st.st_mode) && !S_ISLNK(st.st_mode))
                                 return -ENOENT;
@@ -1837,9 +2126,31 @@ UnitFileState unit_file_lookup_state(
                                 state = path_startswith(*i, "/run") ? UNIT_FILE_MASKED_RUNTIME : UNIT_FILE_MASKED;
                                 return state;
                         }
+
+                        if (S_ISLNK(st.st_mode) && path_prefix_in_list(path,
+                                                                       "/usr/lib/systemd",
+                                                                       "/lib/systemd",
+                                                                       prefix_roota(root_dir, "/lib/systemd"),
+                                                                       prefix_roota(root_dir, "/usr/lib/systemd"),
+                                                                       NULL)) {
+                                target = mfree(target);
+                                r = readlink_and_canonicalize(path, &target);
+                                if (r < 0)
+                                        return r;
+
+                                r = null_or_empty_path(target);
+                                if (r < 0 && r != -ENOENT)
+                                        return r;
+                                else if (r > 0) {
+                                        state = path_startswith(*i, "/run") ? UNIT_FILE_MASKED_RUNTIME : UNIT_FILE_MASKED;
+                                        return state;
+                                }
+
+                                n = basename(target);
+                        }
                 }
 
-                r = find_symlinks_in_scope(scope, root_dir, name, &state);
+                r = find_symlinks_in_scope(scope, root_dir, n, &state);
                 if (r < 0)
                         return r;
                 else if (r > 0)
@@ -2018,7 +2329,7 @@ int unit_file_preset(
 
                 r = install_context_mark_for_removal(&minus, &paths, &remove_symlinks_to, config_path, root_dir);
 
-                q = remove_marked_symlinks(remove_symlinks_to, config_path, changes, n_changes, files);
+                q = remove_marked_symlinks(remove_symlinks_to, root_dir, config_path, changes, n_changes, files);
                 if (r == 0)
                         r = q;
         }
@@ -2120,7 +2431,7 @@ int unit_file_preset_all(
 
                 r = install_context_mark_for_removal(&minus, &paths, &remove_symlinks_to, config_path, root_dir);
 
-                q = remove_marked_symlinks(remove_symlinks_to, config_path, changes, n_changes, NULL);
+                q = remove_marked_symlinks(remove_symlinks_to, root_dir, config_path, changes, n_changes, NULL);
                 if (r == 0)
                         r = q;
         }
