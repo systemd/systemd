@@ -253,7 +253,7 @@ int socket_read_message(sd_netlink *rtnl) {
                 }
 
                 /* check that the size matches the message type */
-                if (new_msg->nlmsg_len < NLMSG_LENGTH(nl_type->size)) {
+                if (new_msg->nlmsg_len < NLMSG_LENGTH(type_get_size(nl_type))) {
                         log_debug("sd-netlink: message larger than expected, dropping");
                         continue;
                 }

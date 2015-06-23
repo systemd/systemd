@@ -58,13 +58,8 @@ struct NLTypeSystem {
         const NLType *types;
 };
 
-struct NLType {
-        uint16_t type;
-        size_t size;
-        const NLTypeSystem *type_system;
-        const NLTypeSystemUnion *type_system_union;
-};
-
+uint16_t type_get_type(const NLType *type);
+size_t type_get_size(const NLType *type);
 void type_get_type_system(const NLType *type, const NLTypeSystem **ret);
 void type_get_type_system_union(const NLType *type, const NLTypeSystemUnion **ret);
 int type_system_get_type(const NLTypeSystem *type_system, const NLType **ret, uint16_t type);

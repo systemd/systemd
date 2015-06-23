@@ -76,7 +76,7 @@ int message_new(sd_netlink *rtnl, sd_netlink_message **ret, uint16_t type) {
         if (r < 0)
                 return r;
 
-        size = NLMSG_SPACE(nl_type->size);
+        size = NLMSG_SPACE(type_get_size(nl_type));
 
         assert(size >= sizeof(struct nlmsghdr));
         m->hdr = malloc0(size);
@@ -85,7 +85,7 @@ int message_new(sd_netlink *rtnl, sd_netlink_message **ret, uint16_t type) {
 
         m->hdr->nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
 
-        if (nl_type->type == NETLINK_TYPE_NESTED)
+        if (type_get_type(nl_type) == NETLINK_TYPE_NESTED)
                 type_get_type_system(nl_type, &m->container_type_system[0]);
         m->hdr->nlmsg_len = size;
         m->hdr->nlmsg_type = type;
@@ -223,10 +223,10 @@ static int message_attribute_has_type(sd_netlink_message *m, uint16_t attribute_
         if (r < 0)
                 return r;
 
-        if (type->type != data_type)
+        if (type_get_type(type) != data_type)
                 return -EINVAL;
 
-        return type->size;
+        return type_get_size(type);
 }
 
 int sd_netlink_message_append_string(sd_netlink_message *m, unsigned short type, const char *data) {
@@ -670,10 +670,11 @@ int sd_netlink_message_read_in6_addr(sd_netlink_message *m, unsigned short type,
         return 0;
 }
 
-int sd_netlink_message_enter_container(sd_netlink_message *m, unsigned short type) {
+int sd_netlink_message_enter_container(sd_netlink_message *m, unsigned short type_id) {
         const NLType *nl_type;
         const NLTypeSystem *type_system;
         void *container;
+        uint16_t type;
         size_t size;
         int r;
 
@@ -682,22 +683,24 @@ int sd_netlink_message_enter_container(sd_netlink_message *m, unsigned short typ
 
         r = type_system_get_type(m->container_type_system[m->n_containers],
                                  &nl_type,
-                                 type);
+                                 type_id);
         if (r < 0)
                 return r;
 
-        if (nl_type->type == NETLINK_TYPE_NESTED) {
+        type = type_get_type(nl_type);
+
+        if (type == NETLINK_TYPE_NESTED) {
                 r = type_system_get_type_system(m->container_type_system[m->n_containers],
                                                 &type_system,
-                                                type);
+                                                type_id);
                 if (r < 0)
                         return r;
-        } else if (nl_type->type == NETLINK_TYPE_UNION) {
+        } else if (type == NETLINK_TYPE_UNION) {
                 const NLTypeSystemUnion *type_system_union;
 
                 r = type_system_get_type_system_union(m->container_type_system[m->n_containers],
                                                       &type_system_union,
-                                                      type);
+                                                      type_id);
                 if (r < 0)
                         return r;
 
@@ -740,7 +743,7 @@ int sd_netlink_message_enter_container(sd_netlink_message *m, unsigned short typ
         } else
                 return -EINVAL;
 
-        r = rtnl_message_read_internal(m, type, &container);
+        r = rtnl_message_read_internal(m, type_id, &container);
         if (r < 0)
                 return r;
         else
@@ -842,7 +845,9 @@ int rtnl_message_parse(sd_netlink_message *m,
 }
 
 int sd_netlink_message_rewind(sd_netlink_message *m) {
-        const NLType *type;
+        const NLType *nl_type;
+        uint16_t type;
+        size_t size;
         unsigned i;
         int r;
 
@@ -868,14 +873,17 @@ int sd_netlink_message_rewind(sd_netlink_message *m) {
 
         assert(m->hdr);
 
-        r = type_system_get_type(NULL, &type, m->hdr->nlmsg_type);
+        r = type_system_get_type(NULL, &nl_type, m->hdr->nlmsg_type);
         if (r < 0)
                 return r;
 
-        if (type->type == NETLINK_TYPE_NESTED) {
+        type = type_get_type(nl_type);
+        size = type_get_size(nl_type);
+
+        if (type == NETLINK_TYPE_NESTED) {
                 const NLTypeSystem *type_system;
 
-                type_get_type_system(type, &type_system);
+                type_get_type_system(nl_type, &type_system);
 
                 m->container_type_system[0] = type_system;
 
@@ -883,9 +891,8 @@ int sd_netlink_message_rewind(sd_netlink_message *m) {
                                        &m->rta_offset_tb[m->n_containers],
                                        &m->rta_tb_size[m->n_containers],
                                        type_system->max,
-                                       (struct rtattr*)((uint8_t*)NLMSG_DATA(m->hdr) +
-                                                        NLMSG_ALIGN(type->size)),
-                                       NLMSG_PAYLOAD(m->hdr, type->size));
+                                       (struct rtattr*)((uint8_t*)NLMSG_DATA(m->hdr) + NLMSG_ALIGN(size)),
+                                       NLMSG_PAYLOAD(m->hdr, size));
                 if (r < 0)
                         return r;
         }

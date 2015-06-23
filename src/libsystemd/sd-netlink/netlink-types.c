@@ -39,6 +39,13 @@
 #include "netlink-types.h"
 #include "missing.h"
 
+struct NLType {
+        uint16_t type;
+        size_t size;
+        const NLTypeSystem *type_system;
+        const NLTypeSystemUnion *type_system_union;
+};
+
 static const NLTypeSystem rtnl_link_type_system;
 
 static const NLType rtnl_link_info_data_veth_types[VETH_INFO_MAX + 1] = {
@@ -459,6 +466,16 @@ const NLTypeSystem rtnl_type_system = {
         .max = ELEMENTSOF(rtnl_types) - 1,
         .types = rtnl_types,
 };
+
+uint16_t type_get_type(const NLType *type) {
+        assert(type);
+        return type->type;
+}
+
+size_t type_get_size(const NLType *type) {
+        assert(type);
+        return type->size;
+}
 
 void type_get_type_system(const NLType *nl_type, const NLTypeSystem **ret) {
         assert(nl_type);
