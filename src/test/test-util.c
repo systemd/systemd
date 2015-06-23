@@ -2100,6 +2100,21 @@ static void test_sparse_write(void) {
         test_sparse_write_one(fd, test_e, sizeof(test_e));
 }
 
+static void test_shell_escape_one(const char *s, const char *bad, const char *expected) {
+        _cleanup_free_ char *r;
+
+        assert_se(r = shell_escape(s, bad));
+        assert_se(streq_ptr(r, expected));
+}
+
+static void test_shell_escape(void) {
+        test_shell_escape_one("", "", "");
+        test_shell_escape_one("\\", "", "\\\\");
+        test_shell_escape_one("foobar", "", "foobar");
+        test_shell_escape_one("foobar", "o", "f\\o\\obar");
+        test_shell_escape_one("foo:bar,baz", ",:", "foo\\:bar\\,baz");
+}
+
 static void test_shell_maybe_quote_one(const char *s, const char *expected) {
         _cleanup_free_ char *r;
 
@@ -2264,6 +2279,7 @@ int main(int argc, char *argv[]) {
         test_same_fd();
         test_uid_ptr();
         test_sparse_write();
+        test_shell_escape();
         test_shell_maybe_quote();
         test_parse_mode();
         test_tempfn();
