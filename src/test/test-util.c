@@ -1744,6 +1744,38 @@ static void test_extract_first_word(void) {
         assert_se(streq(t, ""));
         free(t);
         assert_se(isempty(p));
+
+        p = original = ":foo\\:bar::waldo:";
+        assert_se(extract_first_word(&p, &t, ":", EXTRACT_DONT_COALESCE_SEPARATORS) == 1);
+        assert_se(t);
+        assert_se(streq(t, ""));
+        free(t);
+        assert_se(p == original + 1);
+
+        assert_se(extract_first_word(&p, &t, ":", EXTRACT_DONT_COALESCE_SEPARATORS) == 1);
+        assert_se(streq(t, "foo:bar"));
+        free(t);
+        assert_se(p == original + 10);
+
+        assert_se(extract_first_word(&p, &t, ":", EXTRACT_DONT_COALESCE_SEPARATORS) == 1);
+        assert_se(t);
+        assert_se(streq(t, ""));
+        free(t);
+        assert_se(p == original + 11);
+
+        assert_se(extract_first_word(&p, &t, ":", EXTRACT_DONT_COALESCE_SEPARATORS) == 1);
+        assert_se(streq(t, "waldo"));
+        free(t);
+        assert_se(p == original + 17);
+
+        assert_se(extract_first_word(&p, &t, ":", EXTRACT_DONT_COALESCE_SEPARATORS) == 1);
+        assert_se(streq(t, ""));
+        free(t);
+        assert_se(p == NULL);
+
+        assert_se(extract_first_word(&p, &t, ":", EXTRACT_DONT_COALESCE_SEPARATORS) == 0);
+        assert_se(!t);
+        assert_se(!p);
 }
 
 static void test_extract_first_word_and_warn(void) {

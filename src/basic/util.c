@@ -5735,10 +5735,20 @@ int extract_first_word(const char **p, char **ret, const char *separators, Extra
                 switch (state) {
 
                 case START:
-                        if (c == 0)
+                        if (c == 0) {
+                                if (flags & EXTRACT_DONT_COALESCE_SEPARATORS)
+                                        if (!GREEDY_REALLOC(s, allocated, sz+1))
+                                                return -ENOMEM;
                                 goto finish_force_terminate;
-                        else if (strchr(separators, c))
+                        } else if (strchr(separators, c)) {
+                                if (flags & EXTRACT_DONT_COALESCE_SEPARATORS) {
+                                        if (!GREEDY_REALLOC(s, allocated, sz+1))
+                                                return -ENOMEM;
+                                        (*p) ++;
+                                        goto finish_force_next;
+                                }
                                 break;
+                        }
 
                         state = VALUE;
                         /* fallthrough */
@@ -5758,9 +5768,13 @@ int extract_first_word(const char **p, char **ret, const char *separators, Extra
                                         return -ENOMEM;
 
                                 state = DOUBLE_QUOTE;
-                        } else if (strchr(separators, c))
+                        } else if (strchr(separators, c)) {
+                                if (flags & EXTRACT_DONT_COALESCE_SEPARATORS) {
+                                        (*p) ++;
+                                        goto finish_force_next;
+                                }
                                 state = SEPARATOR;
-                        else {
+                        } else {
                                 if (!GREEDY_REALLOC(s, allocated, sz+2))
                                         return -ENOMEM;
 
@@ -5857,10 +5871,11 @@ end_escape:
 
                 case SEPARATOR:
                         if (c == 0)
-                                goto finish;
+                                goto finish_force_terminate;
+                        if (flags & EXTRACT_DONT_COALESCE_SEPARATORS)
+                                goto finish_force_next;
                         if (!strchr(separators, c))
                                 goto finish;
-
                         break;
                 }
 
@@ -5876,6 +5891,7 @@ finish:
                 return 0;
         }
 
+finish_force_next:
         s[sz] = 0;
         *ret = s;
         s = NULL;

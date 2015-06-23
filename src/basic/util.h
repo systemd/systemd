@@ -859,6 +859,7 @@ typedef enum ExtractFlags {
         EXTRACT_CUNESCAPE       = 2,
         EXTRACT_CUNESCAPE_RELAX = 4,
         EXTRACT_QUOTES          = 8,
+        EXTRACT_DONT_COALESCE_SEPARATORS = 16,
 } ExtractFlags;
 
 int extract_first_word(const char **p, char **ret, const char *separators, ExtractFlags flags);
