@@ -302,12 +302,12 @@ int mac_selinux_unit_access_check_strv(
         int r;
 
         STRV_FOREACH(i, units) {
-                u = manager_get_unit(m, *i);
-                if (u) {
-                        r = mac_selinux_unit_access_check(u, message, permission, error);
-                        if (r < 0)
-                                return r;
-                }
+                r = manager_load_unit(m, *i, NULL, error, &u);
+                if (r < 0)
+                        return r;
+                r = mac_selinux_unit_access_check(u, message, permission, error);
+                if (r < 0)
+                        return r;
         }
 #endif
         return 0;
