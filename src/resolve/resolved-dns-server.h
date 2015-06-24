@@ -62,4 +62,6 @@ int dns_server_new(
 DnsServer* dns_server_ref(DnsServer *s);
 DnsServer* dns_server_unref(DnsServer *s);
 
+DEFINE_TRIVIAL_CLEANUP_FUNC(DnsServer*, dns_server_unref);
+
 extern const struct hash_ops dns_server_hash_ops;

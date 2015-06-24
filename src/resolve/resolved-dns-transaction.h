@@ -61,6 +61,9 @@ struct DnsTransaction {
         sd_event_source *timeout_event_source;
         unsigned n_attempts;
 
+        /* the active server */
+        DnsServer *server;
+
         /* TCP connection logic, if we need it */
         DnsStream *stream;
 
