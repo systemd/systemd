@@ -41,6 +41,7 @@ int dns_server_new(
         if (!s)
                 return -ENOMEM;
 
+        s->n_ref = 1;
         s->type = type;
         s->family = family;
         s->address = *in_addr;
@@ -74,29 +75,42 @@ int dns_server_new(
         return 0;
 }
 
-DnsServer* dns_server_free(DnsServer *s)  {
+DnsServer* dns_server_ref(DnsServer *s)  {
         if (!s)
                 return NULL;
 
-        if (s->link) {
-                if (s->type == DNS_SERVER_LINK)
-                        LIST_REMOVE(servers, s->link->dns_servers, s);
+        assert(s->n_ref > 0);
 
-                if (s->link->current_dns_server == s)
-                        link_set_dns_server(s->link, NULL);
-        }
+        s->n_ref ++;
 
-        if (s->manager) {
-                if (s->type == DNS_SERVER_SYSTEM)
-                        LIST_REMOVE(servers, s->manager->dns_servers, s);
-                else if (s->type == DNS_SERVER_FALLBACK)
-                        LIST_REMOVE(servers, s->manager->fallback_dns_servers, s);
+        return s;
+}
 
-                if (s->manager->current_dns_server == s)
-                        manager_set_dns_server(s->manager, NULL);
-        }
+static DnsServer* dns_server_free(DnsServer *s)  {
+        if (!s)
+                return NULL;
+
+        if (s->link && s->link->current_dns_server == s)
+                link_set_dns_server(s->link, NULL);
+
+        if (s->manager && s->manager->current_dns_server == s)
+                manager_set_dns_server(s->manager, NULL);
 
         free(s);
+
+        return NULL;
+}
+
+DnsServer* dns_server_unref(DnsServer *s)  {
+        if (!s)
+                return NULL;
+
+        assert(s->n_ref > 0);
+
+        if (s->n_ref == 1)
+                dns_server_free(s);
+        else
+                s->n_ref --;
 
         return NULL;
 }
