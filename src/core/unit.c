@@ -1596,7 +1596,7 @@ static void unit_check_unneeded(Unit *u) {
         static const UnitDependency needed_dependencies[] = {
                 UNIT_REQUIRED_BY,
                 UNIT_REQUIRED_BY_OVERRIDABLE,
-                UNIT_REQUISITE,
+                UNIT_REQUISITE_OF,
                 UNIT_REQUISITE_OF_OVERRIDABLE,
                 UNIT_WANTED_BY,
                 UNIT_BOUND_BY,
