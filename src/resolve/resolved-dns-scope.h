@@ -65,8 +65,8 @@ struct DnsScope {
 int dns_scope_new(Manager *m, DnsScope **ret, Link *l, DnsProtocol p, int family);
 DnsScope* dns_scope_free(DnsScope *s);
 
-int dns_scope_emit(DnsScope *s, DnsPacket *p);
-int dns_scope_tcp_socket(DnsScope *s, int family, const union in_addr_union *address, uint16_t port);
+int dns_scope_emit(DnsScope *s, DnsPacket *p, DnsServer **server);
+int dns_scope_tcp_socket(DnsScope *s, int family, const union in_addr_union *address, uint16_t port, DnsServer **server);
 
 DnsScopeMatch dns_scope_good_domain(DnsScope *s, int ifindex, uint64_t flags, const char *domain);
 int dns_scope_good_key(DnsScope *s, DnsResourceKey *key);

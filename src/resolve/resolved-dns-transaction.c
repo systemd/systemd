@@ -39,6 +39,7 @@ DnsTransaction* dns_transaction_free(DnsTransaction *t) {
         dns_packet_unref(t->received);
         dns_answer_unref(t->cached);
 
+        dns_server_unref(t->server);
         dns_stream_free(t->stream);
 
         if (t->scope) {
@@ -237,6 +238,7 @@ static int on_stream_complete(DnsStream *s, int error) {
 }
 
 static int dns_transaction_open_tcp(DnsTransaction *t) {
+        _cleanup_(dns_server_unrefp) DnsServer *server = NULL;
         _cleanup_close_ int fd = -1;
         int r;
 
@@ -246,12 +248,12 @@ static int dns_transaction_open_tcp(DnsTransaction *t) {
                 return 0;
 
         if (t->scope->protocol == DNS_PROTOCOL_DNS)
-                fd = dns_scope_tcp_socket(t->scope, AF_UNSPEC, NULL, 53);
+                fd = dns_scope_tcp_socket(t->scope, AF_UNSPEC, NULL, 53, &server);
         else if (t->scope->protocol == DNS_PROTOCOL_LLMNR) {
 
                 /* When we already received a query to this (but it was truncated), send to its sender address */
                 if (t->received)
-                        fd = dns_scope_tcp_socket(t->scope, t->received->family, &t->received->sender, t->received->sender_port);
+                        fd = dns_scope_tcp_socket(t->scope, t->received->family, &t->received->sender, t->received->sender_port, NULL);
                 else {
                         union in_addr_union address;
                         int family = AF_UNSPEC;
@@ -265,7 +267,7 @@ static int dns_transaction_open_tcp(DnsTransaction *t) {
                         if (r == 0)
                                 return -EINVAL;
 
-                        fd = dns_scope_tcp_socket(t->scope, family, &address, LLMNR_PORT);
+                        fd = dns_scope_tcp_socket(t->scope, family, &address, LLMNR_PORT, NULL);
                 }
         } else
                 return -EAFNOSUPPORT;
@@ -285,6 +287,9 @@ static int dns_transaction_open_tcp(DnsTransaction *t) {
                 return r;
         }
 
+
+        dns_server_unref(t->server);
+        t->server = dns_server_ref(server);
         t->received = dns_packet_unref(t->received);
         t->stream->complete = on_stream_complete;
         t->stream->transaction = t;
@@ -492,6 +497,7 @@ int dns_transaction_go(DnsTransaction *t) {
         }
 
         t->n_attempts++;
+        t->server = dns_server_unref(t->server);
         t->received = dns_packet_unref(t->received);
         t->cached = dns_answer_unref(t->cached);
         t->cached_rcode = 0;
@@ -571,17 +577,20 @@ int dns_transaction_go(DnsTransaction *t) {
                  * always be made via TCP on LLMNR */
                 r = dns_transaction_open_tcp(t);
         } else {
+                DnsServer *server = NULL;
+
                 /* Try via UDP, and if that fails due to large size try via TCP */
-                r = dns_scope_emit(t->scope, t->sent);
-                if (r == -EMSGSIZE)
+                r = dns_scope_emit(t->scope, t->sent, &server);
+                if (r >= 0)
+                        t->server = dns_server_ref(server);
+                else if (r == -EMSGSIZE)
                         r = dns_transaction_open_tcp(t);
         }
         if (r == -ESRCH) {
                 /* No servers to send this to? */
                 dns_transaction_complete(t, DNS_TRANSACTION_NO_SERVERS);
                 return 0;
-        }
-        if (r < 0) {
+        } else if (r < 0) {
                 if (t->scope->protocol != DNS_PROTOCOL_DNS) {
                         dns_transaction_complete(t, DNS_TRANSACTION_RESOURCES);
                         return 0;
