@@ -322,6 +322,8 @@ void manager_dump_jobs(Manager *s, FILE *f, const char *prefix);
 
 void manager_clear_jobs(Manager *m);
 
+unsigned manager_dispatch_cleanup_queue(Manager *m);
+unsigned manager_dispatch_gc_queue(Manager *m);
 unsigned manager_dispatch_load_queue(Manager *m);
 
 int manager_environment_add(Manager *m, char **minus, char **plus);

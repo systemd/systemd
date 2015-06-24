@@ -302,8 +302,24 @@ int mac_selinux_unit_access_check_strv(
         int r;
 
         STRV_FOREACH(i, units) {
-                u = manager_get_unit(m, *i);
+        retry:
+                r = manager_load_unit(m, *i, NULL, error, &u);
+                if (r < 0)
+                        return r;
                 if (u) {
+                        /* Clean up an unit object in UNIT_NOT_FOUND
+                         * load state if it's still left in m->units,
+                         * and then retry to load a given unit file.
+                         * Give up UNIT_ERROR case to avoid such as
+                         * infinite loop due to ENOMEM.
+                         */
+                        if (r == 1 && u->load_state == UNIT_NOT_FOUND) {
+                                unit_add_to_gc_queue(u);
+                                manager_dispatch_gc_queue(m);
+                                unit_add_to_cleanup_queue(u);
+                                manager_dispatch_cleanup_queue(m);
+                                goto retry;
+                        }
                         r = mac_selinux_unit_access_check(u, message, permission, error);
                         if (r < 0)
                                 return r;

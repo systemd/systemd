@@ -769,7 +769,7 @@ static int manager_connect_bus(Manager *m, bool reexecuting) {
         return bus_init(m, try_bus_connect);
 }
 
-static unsigned manager_dispatch_cleanup_queue(Manager *m) {
+unsigned manager_dispatch_cleanup_queue(Manager *m) {
         Unit *u;
         unsigned n = 0;
 
@@ -845,7 +845,7 @@ good:
         u->gc_marker = gc_marker + GC_OFFSET_GOOD;
 }
 
-static unsigned manager_dispatch_gc_queue(Manager *m) {
+unsigned manager_dispatch_gc_queue(Manager *m) {
         Unit *u;
         unsigned n = 0;
         unsigned gc_marker;
