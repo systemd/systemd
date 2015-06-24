@@ -39,6 +39,28 @@
 #include "netlink-types.h"
 #include "missing.h"
 
+/* Maximum ARP IP target defined in kernel */
+#define BOND_MAX_ARP_TARGETS    16
+
+typedef enum {
+        BOND_ARP_TARGETS_0,
+        BOND_ARP_TARGETS_1,
+        BOND_ARP_TARGETS_2,
+        BOND_ARP_TARGETS_3,
+        BOND_ARP_TARGETS_4,
+        BOND_ARP_TARGETS_5,
+        BOND_ARP_TARGETS_6,
+        BOND_ARP_TARGETS_7,
+        BOND_ARP_TARGETS_8,
+        BOND_ARP_TARGETS_9,
+        BOND_ARP_TARGETS_10,
+        BOND_ARP_TARGETS_11,
+        BOND_ARP_TARGETS_12,
+        BOND_ARP_TARGETS_13,
+        BOND_ARP_TARGETS_14,
+        BOND_ARP_TARGETS_MAX = BOND_MAX_ARP_TARGETS,
+} BondArpTargets;
+
 struct NLType {
         uint16_t type;
         size_t size;

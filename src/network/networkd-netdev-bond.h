@@ -25,6 +25,12 @@ typedef struct Bond Bond;
 
 #include "networkd-netdev.h"
 
+/*
+ * Maximum number of targets supported by the kernel for a single
+ * bond netdev.
+ */
+#define NETDEV_BOND_ARP_TARGETS_MAX 16
+
 typedef enum BondMode {
         NETDEV_BOND_MODE_BALANCE_RR,
         NETDEV_BOND_MODE_ACTIVE_BACKUP,
