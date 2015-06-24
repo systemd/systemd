@@ -159,7 +159,7 @@ int dns_packet_append_name(DnsPacket *p, const char *name,
                            bool allow_compression, size_t *start);
 int dns_packet_append_key(DnsPacket *p, const DnsResourceKey *key, size_t *start);
 int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *start);
-int dns_packet_append_opt_rr(DnsPacket *p, uint16_t max_udp_size, size_t *start);
+int dns_packet_append_opt_rr(DnsPacket *p, uint16_t max_udp_size, bool edns0_do, size_t *start);
 
 void dns_packet_truncate(DnsPacket *p, size_t sz);
 
