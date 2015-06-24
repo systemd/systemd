@@ -159,7 +159,7 @@ int dns_scope_emit(DnsScope *s, DnsPacket *p) {
                 if (p->size > DNS_PACKET_UNICAST_SIZE_MAX)
                         return -EMSGSIZE;
 
-                if (p->size > mtu)
+                if (p->size + UDP_PACKET_HEADER_SIZE > mtu)
                         return -EMSGSIZE;
 
                 if (family == AF_INET)

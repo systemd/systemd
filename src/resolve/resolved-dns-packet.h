@@ -21,6 +21,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
  ***/
 
+#include <netinet/udp.h>
+#include <netinet/ip.h>
 
 #include "macro.h"
 #include "sparse-endian.h"
@@ -53,6 +55,7 @@ struct DnsPacketHeader {
 };
 
 #define DNS_PACKET_HEADER_SIZE sizeof(DnsPacketHeader)
+#define UDP_PACKET_HEADER_SIZE (sizeof(struct iphdr) + sizeof(struct udphdr))
 
 /* The various DNS protocols deviate in how large a packet can grow,
    but the TCP transport has a 16bit size field, hence that appears to
