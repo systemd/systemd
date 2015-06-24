@@ -501,7 +501,11 @@ static int dns_transaction_make_packet(DnsTransaction *t) {
         added = 0;
 
         if (t->server && features >= DNS_SERVER_FEATURE_LEVEL_EDNS0) {
-                r = dns_packet_append_opt_rr(p, DNS_PACKET_UNICAST_SIZE_MAX, NULL);
+                bool edns_do;
+
+                edns_do = features >= DNS_SERVER_FEATURE_LEVEL_DO;
+
+                r = dns_packet_append_opt_rr(p, DNS_PACKET_UNICAST_SIZE_MAX, edns_do, NULL);
                 if (r < 0)
                         return r;
 
