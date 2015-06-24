@@ -28,6 +28,8 @@
 #include "utf8.h"
 #include "util.h"
 
+#define EDNS0_OPT_DO (1<<15)
+
 int dns_packet_new(DnsPacket **ret, DnsProtocol protocol, size_t mtu) {
         DnsPacket *p;
         size_t a;
@@ -610,7 +612,7 @@ fail:
 }
 
 /* Append the OPT pseudo-RR described in RFC6891 */
-int dns_packet_append_opt_rr(DnsPacket *p, uint16_t max_udp_size, size_t *start) {
+int dns_packet_append_opt_rr(DnsPacket *p, uint16_t max_udp_size, bool edns0_do, size_t *start) {
         size_t saved_size;
         int r;
 
@@ -640,8 +642,8 @@ int dns_packet_append_opt_rr(DnsPacket *p, uint16_t max_udp_size, size_t *start)
         if (r < 0)
                 goto fail;
 
-        /* flags */
-        r = dns_packet_append_uint16(p, 0, NULL);
+        /* flags: DNSSEC OK (DO), see RFC3225 */
+        r = dns_packet_append_uint16(p, edns0_do ? EDNS0_OPT_DO : 0, NULL);
         if (r < 0)
                 goto fail;
 

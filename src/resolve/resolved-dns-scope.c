@@ -185,7 +185,11 @@ int dns_scope_emit(DnsScope *s, int fd, DnsServer *server, DnsPacket *p) {
                         return -EOPNOTSUPP;
 
                 if (server->possible_features >= DNS_SERVER_FEATURE_LEVEL_EDNS0) {
-                        r = dns_packet_append_opt_rr(p, DNS_PACKET_UNICAST_SIZE_MAX, &saved_size);
+                        bool edns_do;
+
+                        edns_do = server->possible_features >= DNS_SERVER_FEATURE_LEVEL_DO;
+
+                        r = dns_packet_append_opt_rr(p, DNS_PACKET_UNICAST_SIZE_MAX, edns_do, &saved_size);
                         if (r < 0)
                                 return r;
 
