@@ -735,6 +735,7 @@ int cg_pid_get_path(const char *controller, pid_t pid, char **path) {
         char line[LINE_MAX];
         const char *fs;
         size_t cs;
+        bool default_cgroup = false;
 
         assert(path);
         assert(pid >= 0);
@@ -746,6 +747,13 @@ int cg_pid_get_path(const char *controller, pid_t pid, char **path) {
                 controller = normalize_controller(controller);
         } else
                 controller = SYSTEMD_CGROUP_CONTROLLER;
+
+        /* When asked for a systemd controller, and default (unified)
+         * controller is visible, use it.
+         */
+        if (streq(controller, "systemd") ||
+            streq(controller, "name=systemd"))
+                default_cgroup = true;
 
         fs = procfs_file_alloca(pid, "cgroup");
 
@@ -762,6 +770,9 @@ int cg_pid_get_path(const char *controller, pid_t pid, char **path) {
                 bool found = false;
 
                 truncate_nl(line);
+
+                if (default_cgroup && strneq("0:", line, 2))
+                        found = true;
 
                 l = strchr(line, ':');
                 if (!l)
