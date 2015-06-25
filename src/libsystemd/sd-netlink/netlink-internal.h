@@ -122,14 +122,6 @@ int socket_read_message(sd_netlink *nl);
 int rtnl_rqueue_make_room(sd_netlink *rtnl);
 int rtnl_rqueue_partial_make_room(sd_netlink *rtnl);
 
-int rtnl_message_read_internal(sd_netlink_message *m, unsigned short type, void **data);
-int rtnl_message_parse(sd_netlink_message *m,
-                       size_t **rta_offset_tb,
-                       unsigned short *rta_tb_size,
-                       int max,
-                       struct rtattr *rta,
-                       unsigned int rt_len);
-
 /* Make sure callbacks don't destroy the rtnl connection */
 #define RTNL_DONT_DESTROY(rtnl) \
         _cleanup_netlink_unref_ _unused_ sd_netlink *_dont_destroy_##rtnl = sd_netlink_ref(rtnl)

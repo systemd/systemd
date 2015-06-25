@@ -475,7 +475,7 @@ int sd_netlink_message_close_container(sd_netlink_message *m) {
         return 0;
 }
 
-int rtnl_message_read_internal(sd_netlink_message *m, unsigned short type, void **data) {
+static int netlink_message_read_internal(sd_netlink_message *m, unsigned short type, void **data) {
         struct rtattr *rta;
 
         assert_return(m, -EINVAL);
@@ -505,7 +505,7 @@ int sd_netlink_message_read_string(sd_netlink_message *m, unsigned short type, c
         if (r < 0)
                 return r;
 
-        r = rtnl_message_read_internal(m, type, &attr_data);
+        r = netlink_message_read_internal(m, type, &attr_data);
         if (r < 0)
                 return r;
         else if (strnlen(attr_data, r) >= (size_t) r)
@@ -527,7 +527,7 @@ int sd_netlink_message_read_u8(sd_netlink_message *m, unsigned short type, uint8
         if (r < 0)
                 return r;
 
-        r = rtnl_message_read_internal(m, type, &attr_data);
+        r = netlink_message_read_internal(m, type, &attr_data);
         if (r < 0)
                 return r;
         else if ((size_t) r < sizeof(uint8_t))
@@ -549,7 +549,7 @@ int sd_netlink_message_read_u16(sd_netlink_message *m, unsigned short type, uint
         if (r < 0)
                 return r;
 
-        r = rtnl_message_read_internal(m, type, &attr_data);
+        r = netlink_message_read_internal(m, type, &attr_data);
         if (r < 0)
                 return r;
         else if ((size_t) r < sizeof(uint16_t))
@@ -571,7 +571,7 @@ int sd_netlink_message_read_u32(sd_netlink_message *m, unsigned short type, uint
         if (r < 0)
                 return r;
 
-        r = rtnl_message_read_internal(m, type, &attr_data);
+        r = netlink_message_read_internal(m, type, &attr_data);
         if (r < 0)
                 return r;
         else if ((size_t)r < sizeof(uint32_t))
@@ -593,7 +593,7 @@ int sd_netlink_message_read_ether_addr(sd_netlink_message *m, unsigned short typ
         if (r < 0)
                 return r;
 
-        r = rtnl_message_read_internal(m, type, &attr_data);
+        r = netlink_message_read_internal(m, type, &attr_data);
         if (r < 0)
                 return r;
         else if ((size_t)r < sizeof(struct ether_addr))
@@ -615,7 +615,7 @@ int sd_netlink_message_read_cache_info(sd_netlink_message *m, unsigned short typ
         if (r < 0)
                 return r;
 
-        r = rtnl_message_read_internal(m, type, &attr_data);
+        r = netlink_message_read_internal(m, type, &attr_data);
         if (r < 0)
                 return r;
         else if ((size_t)r < sizeof(struct ifa_cacheinfo))
@@ -637,7 +637,7 @@ int sd_netlink_message_read_in_addr(sd_netlink_message *m, unsigned short type, 
         if (r < 0)
                 return r;
 
-        r = rtnl_message_read_internal(m, type, &attr_data);
+        r = netlink_message_read_internal(m, type, &attr_data);
         if (r < 0)
                 return r;
         else if ((size_t)r < sizeof(struct in_addr))
@@ -659,7 +659,7 @@ int sd_netlink_message_read_in6_addr(sd_netlink_message *m, unsigned short type,
         if (r < 0)
                 return r;
 
-        r = rtnl_message_read_internal(m, type, &attr_data);
+        r = netlink_message_read_internal(m, type, &attr_data);
         if (r < 0)
                 return r;
         else if ((size_t)r < sizeof(struct in6_addr))
@@ -667,6 +667,41 @@ int sd_netlink_message_read_in6_addr(sd_netlink_message *m, unsigned short type,
 
         if (data)
                 memcpy(data, attr_data, sizeof(struct in6_addr));
+
+        return 0;
+}
+
+static int netlink_message_parse(sd_netlink_message *m,
+                       size_t **rta_offset_tb,
+                       unsigned short *rta_tb_size,
+                       int count,
+                       struct rtattr *rta,
+                       unsigned int rt_len) {
+        unsigned short type;
+        size_t *tb;
+
+        tb = new0(size_t, count);
+        if(!tb)
+                return -ENOMEM;
+
+        *rta_tb_size = count;
+
+        for (; RTA_OK(rta, rt_len); rta = RTA_NEXT(rta, rt_len)) {
+                type = RTA_TYPE(rta);
+
+                /* if the kernel is newer than the headers we used
+                   when building, we ignore out-of-range attributes
+                 */
+                if (type >= count)
+                        continue;
+
+                if (tb[type])
+                        log_debug("rtnl: message parse - overwriting repeated attribute");
+
+                tb[type] = (uint8_t *) rta - (uint8_t *) m->hdr;
+        }
+
+        *rta_offset_tb = tb;
 
         return 0;
 }
@@ -744,7 +779,7 @@ int sd_netlink_message_enter_container(sd_netlink_message *m, unsigned short typ
         } else
                 return -EINVAL;
 
-        r = rtnl_message_read_internal(m, type_id, &container);
+        r = netlink_message_read_internal(m, type_id, &container);
         if (r < 0)
                 return r;
         else
@@ -752,12 +787,12 @@ int sd_netlink_message_enter_container(sd_netlink_message *m, unsigned short typ
 
         m->n_containers ++;
 
-        r = rtnl_message_parse(m,
-                               &m->rta_offset_tb[m->n_containers],
-                               &m->rta_tb_size[m->n_containers],
-                               type_system_get_count(type_system),
-                               container,
-                               size);
+        r = netlink_message_parse(m,
+                                  &m->rta_offset_tb[m->n_containers],
+                                  &m->rta_tb_size[m->n_containers],
+                                  type_system_get_count(type_system),
+                                  container,
+                                  size);
         if (r < 0) {
                 m->n_containers --;
                 return r;
@@ -810,41 +845,6 @@ int sd_netlink_message_get_errno(sd_netlink_message *m) {
         return err->error;
 }
 
-int rtnl_message_parse(sd_netlink_message *m,
-                       size_t **rta_offset_tb,
-                       unsigned short *rta_tb_size,
-                       int count,
-                       struct rtattr *rta,
-                       unsigned int rt_len) {
-        unsigned short type;
-        size_t *tb;
-
-        tb = new0(size_t, count);
-        if(!tb)
-                return -ENOMEM;
-
-        *rta_tb_size = count;
-
-        for (; RTA_OK(rta, rt_len); rta = RTA_NEXT(rta, rt_len)) {
-                type = RTA_TYPE(rta);
-
-                /* if the kernel is newer than the headers we used
-                   when building, we ignore out-of-range attributes
-                 */
-                if (type >= count)
-                        continue;
-
-                if (tb[type])
-                        log_debug("rtnl: message parse - overwriting repeated attribute");
-
-                tb[type] = (uint8_t *) rta - (uint8_t *) m->hdr;
-        }
-
-        *rta_offset_tb = tb;
-
-        return 0;
-}
-
 int sd_netlink_message_rewind(sd_netlink_message *m) {
         const NLType *nl_type;
         uint16_t type;
@@ -888,12 +888,12 @@ int sd_netlink_message_rewind(sd_netlink_message *m) {
 
                 m->container_type_system[0] = type_system;
 
-                r = rtnl_message_parse(m,
-                                       &m->rta_offset_tb[m->n_containers],
-                                       &m->rta_tb_size[m->n_containers],
-                                       type_system_get_count(type_system),
-                                       (struct rtattr*)((uint8_t*)NLMSG_DATA(m->hdr) + NLMSG_ALIGN(size)),
-                                       NLMSG_PAYLOAD(m->hdr, size));
+                r = netlink_message_parse(m,
+                                          &m->rta_offset_tb[m->n_containers],
+                                          &m->rta_tb_size[m->n_containers],
+                                          type_system_get_count(type_system),
+                                          (struct rtattr*)((uint8_t*)NLMSG_DATA(m->hdr) + NLMSG_ALIGN(size)),
+                                          NLMSG_PAYLOAD(m->hdr, size));
                 if (r < 0)
                         return r;
         }
