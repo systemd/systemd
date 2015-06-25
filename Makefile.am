@@ -6251,7 +6251,8 @@ DISTCHECK_CONFIGURE_FLAGS = \
 	--with-pamlibdir=$$dc_install_base/$(pamlibdir) \
 	--with-pamconfdir=$$dc_install_base/$(pamconfdir) \
 	--with-rootprefix=$$dc_install_base \
-	--enable-compat-libs
+	--enable-compat-libs \
+	--disable-silent-rules
 
 if HAVE_SYSV_COMPAT
 DISTCHECK_CONFIGURE_FLAGS += \
