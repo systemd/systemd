@@ -92,18 +92,26 @@ struct sd_netlink {
         sd_event *event;
 };
 
+struct netlink_attribute {
+        size_t offset; /* offset from hdr to attirubte */
+};
+
+struct netlink_container {
+        const struct NLTypeSystem *type_system; /* the type system of the container */
+        size_t offset; /* offset from hdr to the start of the container */
+        struct netlink_attribute *attributes;
+        unsigned short n_attributes; /* number of attributes in container */
+};
+
 struct sd_netlink_message {
         RefCount n_ref;
 
         sd_netlink *rtnl;
 
         struct nlmsghdr *hdr;
-        const struct NLTypeSystem *(container_type_system[RTNL_CONTAINER_DEPTH]); /* the type of the container and all its parents */
-        size_t container_offsets[RTNL_CONTAINER_DEPTH]; /* offset from hdr to each container's start */
+        struct netlink_container containers[RTNL_CONTAINER_DEPTH];
         unsigned n_containers; /* number of containers */
         size_t next_rta_offset; /* offset from hdr to next rta */
-        size_t *rta_offset_tb[RTNL_CONTAINER_DEPTH];
-        unsigned short rta_tb_size[RTNL_CONTAINER_DEPTH];
         bool sealed:1;
         bool broadcast:1;
 
