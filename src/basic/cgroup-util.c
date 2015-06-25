@@ -589,8 +589,9 @@ int cg_delete(const char *controller, const char *path) {
         return r == -ENOENT ? 0 : r;
 }
 
-int cg_create(const char *controller, const char *path) {
+int cg_create(const char *controller, const char *path, const int inotify_fd, int *wd) {
         _cleanup_free_ char *fs = NULL;
+        _cleanup_free_ char *populated = NULL;
         int r;
 
         r = cg_get_path_and_check(controller, path, NULL, &fs);
@@ -609,15 +610,30 @@ int cg_create(const char *controller, const char *path) {
                 return -errno;
         }
 
+        if (inotify_fd < 0 || !wd)
+                goto out;
+
+        r = cg_get_path(controller, path, "cgroup.populated", &populated);
+        if (r < 0) {
+                log_warning_errno(r, "Failed to get 'cgroup.populated' file, ignoring: %m");
+                goto out;
+        }
+
+        *wd = inotify_add_watch(inotify_fd, populated, IN_MODIFY);
+
+        if (*wd < 0)
+                log_warning_errno(errno, "Failed to add 'cgroup.populated' watch, ignoring: %m");
+
+out:
         return 1;
 }
 
-int cg_create_and_attach(const char *controller, const char *path, pid_t pid) {
+int cg_create_and_attach(const char *controller, const char *path, pid_t pid, const int inotify_fd, int *wd) {
         int r, q;
 
         assert(pid >= 0);
 
-        r = cg_create(controller, path);
+        r = cg_create(controller, path, inotify_fd, wd);
         if (r < 0)
                 return r;
 
@@ -735,6 +751,7 @@ int cg_pid_get_path(const char *controller, pid_t pid, char **path) {
         char line[LINE_MAX];
         const char *fs;
         size_t cs;
+        bool default_cgroup = false;
 
         assert(path);
         assert(pid >= 0);
@@ -746,6 +763,13 @@ int cg_pid_get_path(const char *controller, pid_t pid, char **path) {
                 controller = normalize_controller(controller);
         } else
                 controller = SYSTEMD_CGROUP_CONTROLLER;
+
+        /* When asked for a systemd controller, and default (unified)
+         * controller is visible, use it.
+         */
+        if (streq(controller, "systemd") ||
+            streq(controller, "name=systemd"))
+                default_cgroup = true;
 
         fs = procfs_file_alloca(pid, "cgroup");
 
@@ -762,6 +786,9 @@ int cg_pid_get_path(const char *controller, pid_t pid, char **path) {
                 bool found = false;
 
                 truncate_nl(line);
+
+                if (default_cgroup && strneq("0:", line, 2))
+                        found = true;
 
                 l = strchr(line, ':');
                 if (!l)
@@ -1729,7 +1756,7 @@ static const char mask_names[] =
         "memory\0"
         "devices\0";
 
-int cg_create_everywhere(CGroupControllerMask supported, CGroupControllerMask mask, const char *path) {
+int cg_create_everywhere(CGroupControllerMask supported, CGroupControllerMask mask, const char *path, const int inotify_fd, int *wd) {
         CGroupControllerMask bit = 1;
         const char *n;
         int r;
@@ -1739,14 +1766,14 @@ int cg_create_everywhere(CGroupControllerMask supported, CGroupControllerMask ma
          * in all others */
 
         /* First create the cgroup in our own hierarchy. */
-        r = cg_create(SYSTEMD_CGROUP_CONTROLLER, path);
+        r = cg_create(SYSTEMD_CGROUP_CONTROLLER, path, inotify_fd, wd);
         if (r < 0)
                 return r;
 
         /* Then, do the same in the other hierarchies */
         NULSTR_FOREACH(n, mask_names) {
                 if (mask & bit)
-                        cg_create(n, path);
+                        cg_create(n, path, -1, NULL);
                 else if (supported & bit)
                         cg_trim(n, path, true);
 
