@@ -25,7 +25,10 @@ SUBSYSTEM=="block", ENV{DEVTYPE}=="disk", KERNEL=="md*", ATTR{md/array_state}=="
 SUBSYSTEM=="block", KERNEL=="loop[0-9]*", ENV{DEVTYPE}=="disk", TEST!="loop/backing_file", ENV{SYSTEMD_READY}="0"
 
 # Ignore nbd devices in the "add" event, with "change" the nbd is ready
-ACTION=="add", SUBSYSTEM=="block", KERNEL=="nbd*", ENV{SYSTEMD_READY}="0"
+ACTION=="add", SUBSYSTEM=="block", KERNEL=="nbd[0-9]*", ENV{SYSTEMD_READY}="0"
+
+# Do not ignore nbd partition devices. When they appear, they are ready
+ACTION=="add", SUBSYSTEM=="block", KERNEL=="nbd[0-9]*", ENV{DEVTYPE}=="partition", ENV{SYSTEMD_READY}="1"
 
 # We need a hardware independent way to identify network devices. We
 # use the /sys/subsystem/ path for this. Kernel "bus" and "class" names
