@@ -417,7 +417,7 @@ schedstat_next:
 
                 /* Browse directory "/proc/[pid]/task" to know the thread ids of process [pid] */
                 snprintf(filename, sizeof(filename), PID_FMT "/task", pid);
-                taskfd = openat(procfd, filename, O_RDONLY|O_DIRECTORY);
+                taskfd = openat(procfd, filename, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
                 if (taskfd != -1) {
                         _cleanup_closedir_ DIR *taskdir = NULL;
 
@@ -426,13 +426,15 @@ schedstat_next:
                                 int r;
                                 int tid = -1;
                                 _cleanup_close_ int tid_schedstat = -1;
+                                long long delta_rt;
+                                long long delta_wt;
 
                                 if ((ent->d_name[0] < '0') || (ent->d_name[0] > '9'))
                                         continue;
 
                                 /* Skip main thread as it was already accounted */
                                 r = safe_atoi(ent->d_name, &tid);
-                                if (r || tid == pid)
+                                if (r < 0 || tid == pid)
                                         continue;
 
                                 /* Parse "/proc/[pid]/task/[tid]/schedstat" */
@@ -450,8 +452,14 @@ schedstat_next:
                                 if (!sscanf(buf, "%s %s %*s", rt, wt))
                                         continue;
 
-                                ps->sample->runtime  += atoll(rt);
-                                ps->sample->waittime += atoll(wt);
+                                r = safe_atolli(rt, &delta_rt);
+                                if (r < 0)
+                                    continue;
+                                r = safe_atolli(rt, &delta_wt);
+                                if (r < 0)
+                                    continue;
+                                ps->sample->runtime  += delta_rt;
+                                ps->sample->waittime += delta_wt;
                         }
 task_next:
                         taskfd = -1;
