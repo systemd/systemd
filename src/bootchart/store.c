@@ -115,6 +115,7 @@ int log_sample(DIR *proc,
         struct list_sample_data *sampledata;
         struct ps_sched_struct *ps_prev = NULL;
         int procfd;
+        _cleanup_close_ int taskfd = -1;
 
         sampledata = *ptr;
 
@@ -408,6 +409,53 @@ schedstat_next:
                 ps_prev = ps->sample;
                 ps->total = (ps->last->runtime - ps->first->runtime)
                             / 1000000000.0;
+
+                /* Take into account CPU runtime/waittime spent in non-main threads of the process
+                 * by parsing "/proc/[pid]/task/[tid]/schedstat" for all [tid] != [pid]
+                 * See https://github.com/systemd/systemd/issues/139
+                 */
+
+                /* Browse directory "/proc/[pid]/task" to know the thread ids of process [pid] */
+                snprintf(filename, sizeof(filename), PID_FMT "/task", pid);
+                taskfd = openat(procfd, filename, O_RDONLY|O_DIRECTORY);
+                if (taskfd != -1) {
+                        _cleanup_closedir_ DIR *taskdir = NULL;
+
+                        taskdir = fdopendir(taskfd);
+                        FOREACH_DIRENT(ent, taskdir, goto task_next) {
+                                int r;
+                                int tid = -1;
+                                _cleanup_close_ int tid_schedstat = -1;
+
+                                if ((ent->d_name[0] < '0') || (ent->d_name[0] > '9'))
+                                        continue;
+
+                                /* Skip main thread as it was already accounted */
+                                r = safe_atoi(ent->d_name, &tid);
+                                if (r || tid == pid)
+                                        continue;
+
+                                /* Parse "/proc/[pid]/task/[tid]/schedstat" */
+                                snprintf(filename, sizeof(filename), PID_FMT "/schedstat", tid);
+                                tid_schedstat = openat(taskfd, filename, O_RDONLY|O_CLOEXEC);
+
+                                if (tid_schedstat == -1)
+                                        continue;
+
+                                s = pread(tid_schedstat, buf, sizeof(buf) - 1, 0);
+                                if (s <= 0)
+                                        continue;
+                                buf[s] = '\0';
+
+                                if (!sscanf(buf, "%s %s %*s", rt, wt))
+                                        continue;
+
+                                ps->sample->runtime  += atoll(rt);
+                                ps->sample->waittime += atoll(wt);
+                        }
+task_next:
+                        taskfd = -1;
+                }
 
                 if (!arg_pss)
                         goto catch_rename;
