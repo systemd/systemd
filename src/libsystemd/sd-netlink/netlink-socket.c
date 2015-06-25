@@ -243,7 +243,7 @@ int socket_read_message(sd_netlink *rtnl) {
                 }
 
                 /* check that we support this message type */
-                r = type_system_get_type(NULL, &nl_type, new_msg->nlmsg_type);
+                r = type_system_get_type(&type_system_root, &nl_type, new_msg->nlmsg_type);
                 if (r < 0) {
                         if (r == -EOPNOTSUPP)
                                 log_debug("sd-netlink: ignored message with unknown type: %i",
@@ -253,7 +253,7 @@ int socket_read_message(sd_netlink *rtnl) {
                 }
 
                 /* check that the size matches the message type */
-                if (new_msg->nlmsg_len < NLMSG_LENGTH(nl_type->size)) {
+                if (new_msg->nlmsg_len < NLMSG_LENGTH(type_get_size(nl_type))) {
                         log_debug("sd-netlink: message larger than expected, dropping");
                         continue;
                 }

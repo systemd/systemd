@@ -22,18 +22,17 @@
 ***/
 
 enum {
-        NLA_UNSPEC,
-        NLA_META,
-        NLA_U8,
-        NLA_U16,
-        NLA_U32,
-        NLA_U64,
-        NLA_STRING,
-        NLA_IN_ADDR,
-        NLA_ETHER_ADDR,
-        NLA_CACHE_INFO,
-        NLA_NESTED,
-        NLA_UNION,
+        NETLINK_TYPE_UNSPEC,
+        NETLINK_TYPE_U8,                        /* NLA_U8 */
+        NETLINK_TYPE_U16,                       /* NLA_U16 */
+        NETLINK_TYPE_U32,                       /* NLA_U32 */
+        NETLINK_TYPE_U64,                       /* NLA_U64 */
+        NETLINK_TYPE_STRING,                    /* NLA_STRING */
+        NETLINK_TYPE_IN_ADDR,
+        NETLINK_TYPE_ETHER_ADDR,
+        NETLINK_TYPE_CACHE_INFO,
+        NETLINK_TYPE_NESTED,                    /* NLA_NESTED */
+        NETLINK_TYPE_UNION,
 };
 
 typedef enum NLMatchType {
@@ -53,18 +52,14 @@ struct NLTypeSystemUnion {
         const NLTypeSystem *type_systems;
 };
 
-struct NLTypeSystem {
-        uint16_t max;
-        const NLType *types;
-};
+extern const NLTypeSystem type_system_root;
 
-struct NLType {
-        uint16_t type;
-        size_t size;
-        const NLTypeSystem *type_system;
-        const NLTypeSystemUnion *type_system_union;
-};
+uint16_t type_get_type(const NLType *type);
+size_t type_get_size(const NLType *type);
+void type_get_type_system(const NLType *type, const NLTypeSystem **ret);
+void type_get_type_system_union(const NLType *type, const NLTypeSystemUnion **ret);
 
+uint16_t type_system_get_count(const NLTypeSystem *type_system);
 int type_system_get_type(const NLTypeSystem *type_system, const NLType **ret, uint16_t type);
 int type_system_get_type_system(const NLTypeSystem *type_system, const NLTypeSystem **ret, uint16_t type);
 int type_system_get_type_system_union(const NLTypeSystem *type_system, const NLTypeSystemUnion **ret, uint16_t type);
@@ -95,25 +90,3 @@ typedef enum NLUnionLinkInfoData {
 
 const char *nl_union_link_info_data_to_string(NLUnionLinkInfoData p) _const_;
 NLUnionLinkInfoData nl_union_link_info_data_from_string(const char *p) _pure_;
-
-/* Maximum ARP IP target defined in kernel */
-#define BOND_MAX_ARP_TARGETS    16
-
-typedef enum BondArpTargets {
-        BOND_ARP_TARGETS_0,
-        BOND_ARP_TARGETS_1,
-        BOND_ARP_TARGETS_2,
-        BOND_ARP_TARGETS_3,
-        BOND_ARP_TARGETS_4,
-        BOND_ARP_TARGETS_5,
-        BOND_ARP_TARGETS_6,
-        BOND_ARP_TARGETS_7,
-        BOND_ARP_TARGETS_8,
-        BOND_ARP_TARGETS_9,
-        BOND_ARP_TARGETS_10,
-        BOND_ARP_TARGETS_11,
-        BOND_ARP_TARGETS_12,
-        BOND_ARP_TARGETS_13,
-        BOND_ARP_TARGETS_14,
-        BOND_ARP_TARGETS_MAX = BOND_MAX_ARP_TARGETS,
-} BondArpTargets;
