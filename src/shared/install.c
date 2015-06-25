@@ -2263,7 +2263,7 @@ int unit_file_get_list(
                 }
         }
 
-        return r;
+        return 0;
 }
 
 static const char* const unit_file_state_table[_UNIT_FILE_STATE_MAX] = {
