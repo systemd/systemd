@@ -49,15 +49,17 @@
     <refname>sd_pid_get_owner_uid</refname>
     <refname>sd_pid_get_machine_name</refname>
     <refname>sd_pid_get_slice</refname>
+    <refname>sd_pid_get_user_slice</refname>
     <refname>sd_peer_get_session</refname>
     <refname>sd_peer_get_unit</refname>
     <refname>sd_peer_get_user_unit</refname>
     <refname>sd_peer_get_owner_uid</refname>
     <refname>sd_peer_get_machine_name</refname>
     <refname>sd_peer_get_slice</refname>
-    <refpurpose>Determine session, service, owner of a
-    session, container/VM or slice of a specific
-    PID or socket peer</refpurpose>
+    <refname>sd_peer_get_user_slice</refname>
+    <refpurpose>Determine session, unit, owner of a session,
+    container/VM or slice of a specific PID or socket
+    peer</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -101,6 +103,12 @@
       </funcprototype>
 
       <funcprototype>
+        <funcdef>int <function>sd_pid_get_user_slice</function></funcdef>
+        <paramdef>pid_t <parameter>pid</parameter></paramdef>
+        <paramdef>char **<parameter>slice</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
         <funcdef>int <function>sd_peer_get_session</function></funcdef>
         <paramdef>int <parameter>fd</parameter></paramdef>
         <paramdef>char **<parameter>session</parameter></paramdef>
@@ -135,6 +143,12 @@
         <paramdef>int <parameter>fd</parameter></paramdef>
         <paramdef>char **<parameter>slice</parameter></paramdef>
       </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_peer_get_user_slice</function></funcdef>
+        <paramdef>int <parameter>fd</parameter></paramdef>
+        <paramdef>char **<parameter>slice</parameter></paramdef>
+      </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
 
@@ -155,30 +169,29 @@
     call after use.</para>
 
     <para><function>sd_pid_get_unit()</function> may be used to
-    determine the systemd system unit (i.e. system service) identifier
-    of a process identified by the specified PID. The unit name is a
-    short string, suitable for usage in file system paths. Note that
-    not all processes are part of a system unit/service (e.g. user
-    processes, or kernel threads). For processes not being part of a
-    systemd system unit this function will fail with -ENXIO (More
-    specifically: this call will not work for processes that are part
-    of user units, use <function>sd_pid_get_user_unit()</function> for
-    that.) The returned string needs to be freed with the libc
-    <citerefentry
+    determine the systemd system unit (i.e. system service or scope
+    unit) identifier of a process identified by the specified PID. The
+    unit name is a short string, suitable for usage in file system
+    paths. Note that not all processes are part of a system
+    unit/service (e.g. user processes, or kernel threads). For
+    processes not being part of a systemd system unit this function
+    will fail with -ENXIO (More specifically: this call will not work
+    for kernel threads.) The returned string needs to be freed with
+    the libc <citerefentry
     project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     call after use.</para>
 
     <para><function>sd_pid_get_user_unit()</function> may be used to
-    determine the systemd user unit (i.e. user service) identifier of
-    a process identified by the specified PID. This is similar to
-    <function>sd_pid_get_unit()</function> but applies to user units
-    instead of system units.</para>
+    determine the systemd user unit (i.e. user service or scope unit)
+    identifier of a process identified by the specified PID. This is
+    similar to <function>sd_pid_get_unit()</function> but applies to
+    user units instead of system units.</para>
 
     <para><function>sd_pid_get_owner_uid()</function> may be used to
-    determine the Unix user identifier of the owner of the session of
-    a process identified the specified PID. Note that this function
-    will succeed for user processes which are shared between multiple
-    login sessions of the same user, where
+    determine the Unix UID (user identifier) of the owner of the
+    session of a process identified the specified PID. Note that this
+    function will succeed for user processes which are shared between
+    multiple login sessions of the same user, where
     <function>sd_pid_get_session()</function> will fail. For processes
     not being part of a login session and not being a shared process
     of a user this function will fail with -ENXIO.</para>
@@ -200,6 +213,10 @@
     <citerefentry project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     call after use.</para>
 
+    <para>Similar, <function>sd_pid_get_user_slice()</function>
+    returns the user slice (as managed by the user's systemd instance)
+    of a process.</para>
+
     <para>If the <varname>pid</varname> parameter of any of these
     functions is passed as 0, the operation is executed for the
     calling process.</para>
@@ -208,10 +225,14 @@
     <function>sd_peer_get_unit()</function>,
     <function>sd_peer_get_user_unit()</function>,
     <function>sd_peer_get_owner_uid()</function>,
-    <function>sd_peer_get_machine_name()</function> and
-    <function>sd_peer_get_slice()</function> calls operate similar to
-    their PID counterparts, but operate on a connected AF_UNIX socket
-    and retrieve information about the connected peer process.</para>
+    <function>sd_peer_get_machine_name()</function>,
+    <function>sd_peer_get_slice()</function> and
+    <function>sd_peer_get_user_slice()</function> calls operate
+    similar to their PID counterparts, but operate on a connected
+    AF_UNIX socket and retrieve information about the connected peer
+    process. Note that these fields are retrieved via
+    <filename>/proc</filename>, and hence are not suitable for
+    authorization purposes, as they are subject to races.</para>
   </refsect1>
 
   <refsect1>
@@ -262,15 +283,17 @@
     <function>sd_pid_get_owner_uid()</function>,
     <function>sd_pid_get_machine_name()</function>,
     <function>sd_pid_get_slice()</function>,
+    <function>sd_pid_get_user_slice()</function>,
     <function>sd_peer_get_session()</function>,
     <function>sd_peer_get_unit()</function>,
     <function>sd_peer_get_user_unit()</function>,
     <function>sd_peer_get_owner_uid()</function>,
-    <function>sd_peer_get_machine_name()</function> and
-    <function>sd_peer_get_slice()</function> interfaces are
-    available as a shared library, which can be compiled
-    and linked to with the
-    <constant>libsystemd</constant> <citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    <function>sd_peer_get_machine_name()</function>,
+    <function>sd_peer_get_slice()</function> and
+    <function>sd_peer_get_user_slice()</function> interfaces are
+    available as a shared library, which can be compiled and linked to
+    with the <constant>libsystemd</constant> <citerefentry
+    project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     file.</para>
 
     <para>Note that the login session identifier as
