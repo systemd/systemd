@@ -1181,9 +1181,9 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           <replaceable>NAME</replaceable>...</command></term>
 
           <listitem>
-            <para>Adds <literal>Wants=</literal> resp. <literal>Requires=</literal>
-            dependency to the specified <replaceable>TARGET</replaceable> for
-            one or more units. </para>
+            <para>Adds <literal>Wants=</literal> or <literal>Requires=</literal>
+            dependency, respectively, to the specified
+            <replaceable>TARGET</replaceable> for one or more units. </para>
 
             <para>This command honors <option>--system</option>,
             <option>--user</option>, <option>--runtime</option> and
