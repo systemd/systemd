@@ -3498,7 +3498,6 @@ dist_udevrules_DATA += \
 	rules/60-serial.rules \
 	rules/64-btrfs.rules \
 	rules/70-mouse.rules \
-	rules/70-touchpad.rules \
 	rules/75-net-description.rules \
 	rules/78-sound-card.rules \
 	rules/80-net-setup-link.rules
@@ -3667,8 +3666,7 @@ dist_udevhwdb_DATA = \
 	hwdb/60-evdev.hwdb \
 	hwdb/60-keyboard.hwdb \
 	hwdb/70-mouse.hwdb \
-	hwdb/70-pointingstick.hwdb \
-	hwdb/70-touchpad.hwdb
+	hwdb/70-pointingstick.hwdb
 
 SYSINIT_TARGET_WANTS += \
 	systemd-hwdb-update.service
