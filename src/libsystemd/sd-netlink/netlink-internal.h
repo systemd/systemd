@@ -111,7 +111,6 @@ struct sd_netlink_message {
         struct nlmsghdr *hdr;
         struct netlink_container containers[RTNL_CONTAINER_DEPTH];
         unsigned n_containers; /* number of containers */
-        size_t next_rta_offset; /* offset from hdr to next rta */
         bool sealed:1;
         bool broadcast:1;
 
