@@ -3486,7 +3486,6 @@ dist_network_DATA = \
 	network/80-container-ve.network
 
 dist_udevrules_DATA += \
-	rules/42-usb-hid-pm.rules \
 	rules/50-udev-default.rules \
 	rules/60-block.rules \
 	rules/60-drm.rules \
