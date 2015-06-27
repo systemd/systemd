@@ -226,7 +226,10 @@
         services where <varname>Type=</varname> is set to
         <option>forking</option>. systemd will read the PID of the
         main process of the daemon after start-up of the service.
-        systemd will not write to the file configured here.</para>
+        systemd will not write to the file configured here, although
+        it will remove the file after the service has shut down if it
+        still exists.
+        </para>
         </listitem>
       </varlistentry>
 
