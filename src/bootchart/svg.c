@@ -76,8 +76,6 @@ static void svg_header(FILE *of, struct list_sample_data *head, double graph_sta
 
         assert(head);
 
-        sampledata = head;
-        LIST_FIND_TAIL(link, sampledata, head);
         sampledata_last = head;
         LIST_FOREACH_BEFORE(link, sampledata, head) {
                 sampledata_last = sampledata;
@@ -1296,6 +1294,8 @@ int svg_do(FILE *of,
         double offset = 7;
         int r, c;
 
+        sampledata = head;
+        LIST_FIND_TAIL(link, sampledata, head);
         ps = ps_first;
 
         /* count initcall thread count first */
