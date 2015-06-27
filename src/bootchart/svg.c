@@ -76,8 +76,6 @@ static void svg_header(FILE *of, struct list_sample_data *head, double graph_sta
 
         assert(head);
 
-        sampledata = head;
-        LIST_FIND_TAIL(link, sampledata, head);
         sampledata_last = head;
         LIST_FOREACH_BEFORE(link, sampledata, head) {
                 sampledata_last = sampledata;
@@ -1295,6 +1293,18 @@ int svg_do(FILE *of,
         struct ps_struct *ps;
         double offset = 7;
         int r, c;
+
+        /* Quick-and-dirty fix to https://github.com/systemd/systemd/issues/341
+         *
+         * Make sure that head is actually pointing to the tail of the linked list.
+         *
+         * Until commit 1f2ecb0393bf071fcd476300e0b3f94726b01b15
+         * variable "head" was declared global and this action was performed by svg_header.
+         * Now that "head" is local and passed to each function called by svg_do(...)
+         * move the code at the beginning of svg_do(...) to restore the correct behaviour.
+         */
+        sampledata = head;
+        LIST_FIND_TAIL(link, sampledata, head);
 
         ps = ps_first;
 
