@@ -90,6 +90,10 @@ typedef enum DCHPClientIdentifier {
         _DHCP_CLIENT_ID_INVALID = -1,
 } DCHPClientIdentifier;
 
+typedef enum Ipv6PrivateExtensions {
+        _IPV6_PRIVATE_EXTENSIONS_INVALID = -1;
+} Ipv6PrivateExtensions;
+
 struct FdbEntry {
         Network *network;
         unsigned section;
@@ -144,6 +148,8 @@ struct Network {
 
         AddressFamilyBoolean ip_forward;
         bool ip_masquerade;
+
+        int ipv6_private_extensions;
 
         struct ether_addr *mac;
         unsigned mtu;

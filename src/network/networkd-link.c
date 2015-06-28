@@ -116,6 +116,19 @@ static bool link_ipv6_forward_enabled(Link *link) {
         return link->network->ip_forward & ADDRESS_FAMILY_IPV6;
 }
 
+static bool link_ipv6_private_extensions_enabled(Link *link) {
+        if (link->flags & IFF_LOOPBACK)
+                return false;
+
+        if (!link->network)
+                return false;
+
+        if (link->network->ipv6_private_extensions == _IPV6_PRIVATE_EXTENSIONS_INVALID)
+                return false;
+
+        return link->network->ipv6_private_extensions;
+}
+
 #define FLAG_STRING(string, flag, old, new) \
         (((old ^ new) & flag) \
                 ? ((old & flag) ? (" -" string) : (" +" string)) \
@@ -1507,6 +1520,28 @@ static int link_set_ipv6_forward(Link *link) {
         return 0;
 }
 
+static int link_set_ipv6_private_extensions(Link *link) {
+        char buf[2 * DECIMAL_STR_MAX(unsigned) + 1];
+        const char *p = NULL;
+        int r;
+
+        /* Make this a NOP if IPv6 is not available */
+        if (!socket_ipv6_is_supported())
+                return 0;
+
+        if (!link_ipv6_private_extensions_enabled(link))
+                return 0;
+
+        p = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/use_tempaddr");
+        snprintf(buf, sizeof(buf), "%u", link->network->ipv6_private_extensions);
+
+        r = write_string_file_no_create(p, buf);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Cannot configure IPv6 private extension for interface: %m");
+
+        return 0;
+}
+
 static int link_configure(Link *link) {
         int r;
 
@@ -1523,6 +1558,10 @@ static int link_configure(Link *link) {
                 return r;
 
         r = link_set_ipv6_forward(link);
+        if (r < 0)
+                return r;
+
+        r = link_set_ipv6_private_extensions(link);
         if (r < 0)
                 return r;
 
