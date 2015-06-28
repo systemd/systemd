@@ -241,19 +241,21 @@ static bool usage_contains_reload(const char *line) {
 
 static char *sysv_translate_name(const char *name) {
         char *r;
+        _cleanup_free_ char *c;
 
-        r = new(char, strlen(name) + strlen(".service") + 1);
-        if (!r)
-                return NULL;
+        c = strdup(name);
+        if (!c)
+            return NULL;
 
-        if (endswith(name, ".sh"))
-                /* Drop .sh suffix */
-                strcpy(stpcpy(r, name) - 3, ".service");
+        r = endswith(c, ".sh");
+        if (r) {
+            *r = '\0';
+        }
+
+        if (unit_name_mangle(c, UNIT_NAME_NOGLOB, &r) >= 0)
+            return r;
         else
-                /* Normal init script name */
-                strcpy(stpcpy(r, name), ".service");
-
-        return r;
+            return NULL;
 }
 
 static int sysv_translate_facility(const char *name, const char *filename, char **_r) {
