@@ -3627,7 +3627,7 @@ bool string_is_safe(const char *p) {
                 if (*t > 0 && *t < ' ')
                         return false;
 
-                if (strchr("\\\"\'\0x7f", *t))
+                if (strchr("\\\"\'\x7f", *t))
                         return false;
         }
 
