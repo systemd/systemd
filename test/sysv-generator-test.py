@@ -190,6 +190,15 @@ class SysvGeneratorTest(unittest.TestCase):
         self.assert_enabled('foo.service', ['multi-user', 'graphical'])
         self.assertNotIn('Overwriting', err)
 
+    def test_simple_escaped(self):
+        '''simple service without dependencies, that requires escaping the name'''
+
+        self.add_sysv('foo+', {})
+        self.add_sysv('foo-admin', {})
+        err, results = self.run_generator()
+        self.assertEqual(list(results), ['foo-admin.service', 'foo\\x2b.service'])
+        self.assertNotIn('Overwriting', err)
+
     def test_simple_enabled_some(self):
         '''simple service without dependencies, enabled in some runlevels'''
 
@@ -274,6 +283,16 @@ class SysvGeneratorTest(unittest.TestCase):
         for f in ['bar.service', 'baz.service']:
             self.assertEqual(os.readlink(os.path.join(self.out_dir, f)),
                              'foo.service')
+        self.assertNotIn('Overwriting', err)
+
+    def test_provides_escaped(self):
+        '''a script that Provides: a name that requires escaping'''
+
+        self.add_sysv('foo', {'Provides': 'foo foo+'})
+        err, results = self.run_generator()
+        self.assertEqual(list(results), ['foo.service'])
+        self.assertEqual(os.readlink(os.path.join(self.out_dir, 'foo\\x2b.service')),
+                'foo.service')
         self.assertNotIn('Overwriting', err)
 
     def test_same_provides_in_multiple_scripts(self):
