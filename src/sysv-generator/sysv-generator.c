@@ -340,6 +340,7 @@ static int handle_provides(SysvStub *s, unsigned line, const char *full_text, co
 
         FOREACH_WORD_QUOTED(word, z, text, state_) {
                 _cleanup_free_ char *n = NULL, *m = NULL;
+                UnitType t;
 
                 n = strndup(word, z);
                 if (!n)
@@ -351,7 +352,10 @@ static int handle_provides(SysvStub *s, unsigned line, const char *full_text, co
                 if (r == 0)
                         continue;
 
-                if (unit_name_to_type(m) == UNIT_SERVICE) {
+                t = unit_name_to_type(m);
+                if (t == _UNIT_TYPE_INVALID)
+                    log_warning("Unit name '%s' is invalid", m);
+                else if (t == UNIT_SERVICE) {
                         log_debug("Adding Provides: alias '%s' for '%s'", m, s->name);
                         r = add_alias(s->name, m);
                         if (r < 0)
