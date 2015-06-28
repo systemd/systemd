@@ -391,6 +391,16 @@
           <literal>no</literal>.</para></listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>IPv6PrivateExtensions=</varname></term>
+          <listitem><para>Configures IPv6 Private extentions temporary addresses.
+          Preference for Privacy Extensions (RFC3041).
+          <literal>0</literal> disable Privacy Extensions.
+          <literal>1</literal> enable Privacy Extensions, but prefer public addresses over temporary addresses.
+          greater than <literal>1</literal> enable Privacy Extensions and prefer temporary addresses over public addresses.
+          Defaults to
+          <literal>0</literal>.</para></listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>Bridge=</varname></term>
           <listitem>
             <para>The name of the bridge to add the link to.</para>

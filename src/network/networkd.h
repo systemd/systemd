@@ -91,7 +91,7 @@ typedef enum DCHPClientIdentifier {
 } DCHPClientIdentifier;
 
 typedef enum Ipv6PrivateExtensions {
-        _IPV6_PRIVATE_EXTENSIONS_INVALID = -1;
+        _IPV6_PRIVATE_EXTENSIONS_INVALID = -1 ,
 } Ipv6PrivateExtensions;
 
 struct FdbEntry {
