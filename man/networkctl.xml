@@ -64,7 +64,7 @@
     state of the network links as seen by
     <command>systemd-networkd</command>.  Please refer to
     <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-    for an introduction to the the basic concepts, functionality, and
+    for an introduction to the basic concepts, functionality, and
     configuration syntax.</para>
   </refsect1>
 

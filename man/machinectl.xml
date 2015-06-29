@@ -628,7 +628,7 @@
         <para>Image verification is identical for raw and tar images
         (see above).</para>
 
-        <para>If the the downloaded image is in
+        <para>If the downloaded image is in
         <filename>.qcow2</filename> format it is converted into a raw
         image file before it is made available.</para>
 

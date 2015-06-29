@@ -197,7 +197,7 @@
         <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         for information how to enable this functionality and
         <citerefentry><refentrytitle>sd_watchdog_enabled</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-        for the details of how the service can check if the the
+        for the details of how the service can check whether the
         watchdog is enabled. </para></listitem>
       </varlistentry>
 
