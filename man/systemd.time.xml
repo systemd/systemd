@@ -125,7 +125,7 @@
     (<literal>Wednesday</literal>) English language form (case does
     not matter), and is not subject to the locale choice of the user.
     Either the date, or the time part may be omitted, in which case
-    the current date or 00:00:00, resp., is assumed. The seconds
+    the current date or 00:00:00, respectively, is assumed. The seconds
     component of the time may also be omitted, in which case ":00" is
     assumed. Year numbers may be specified in full or may be
     abbreviated (omitting the century).</para>
