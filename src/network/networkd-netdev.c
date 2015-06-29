@@ -92,7 +92,7 @@ static void netdev_cancel_callbacks(NetDev *netdev) {
                         assert(netdev->manager);
                         assert(netdev->manager->rtnl);
 
-                        callback->callback(netdev->manager->rtnl, m, link);
+                        callback->callback(netdev->manager->rtnl, m, callback->link);
                 }
 
                 LIST_REMOVE(callbacks, netdev->callbacks, callback);
