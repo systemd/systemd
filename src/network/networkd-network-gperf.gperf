@@ -15,69 +15,70 @@ struct ConfigPerfItem;
 %struct-type
 %includes
 %%
-Match.MACAddress,            config_parse_hwaddr,                            0,                             offsetof(Network, match_mac)
-Match.Path,                  config_parse_strv,                              0,                             offsetof(Network, match_path)
-Match.Driver,                config_parse_strv,                              0,                             offsetof(Network, match_driver)
-Match.Type,                  config_parse_strv,                              0,                             offsetof(Network, match_type)
-Match.Name,                  config_parse_ifnames,                           0,                             offsetof(Network, match_name)
-Match.Host,                  config_parse_net_condition,                     CONDITION_HOST,                offsetof(Network, match_host)
-Match.Virtualization,        config_parse_net_condition,                     CONDITION_VIRTUALIZATION,      offsetof(Network, match_virt)
-Match.KernelCommandLine,     config_parse_net_condition,                     CONDITION_KERNEL_COMMAND_LINE, offsetof(Network, match_kernel)
-Match.Architecture,          config_parse_net_condition,                     CONDITION_ARCHITECTURE,        offsetof(Network, match_arch)
-Link.MACAddress,             config_parse_hwaddr,                            0,                             offsetof(Network, mac)
-Link.MTUBytes,               config_parse_iec_size,                          0,                             offsetof(Network, mtu)
-Network.Description,         config_parse_string,                            0,                             offsetof(Network, description)
-Network.Bridge,              config_parse_netdev,                            0,                             offsetof(Network, bridge)
-Network.Bond,                config_parse_netdev,                            0,                             offsetof(Network, bond)
-Network.VLAN,                config_parse_netdev,                            0,                             0
-Network.MACVLAN,             config_parse_netdev,                            0,                             0
-Network.IPVLAN,              config_parse_netdev,                            0,                             0
-Network.VXLAN,               config_parse_netdev,                            0,                             0
-Network.Tunnel,              config_parse_tunnel,                            0,                             0
-Network.DHCP,                config_parse_dhcp,                              0,                             offsetof(Network, dhcp)
-Network.DHCPServer,          config_parse_bool,                              0,                             offsetof(Network, dhcp_server)
-Network.LinkLocalAddressing, config_parse_address_family_boolean,            0,                             offsetof(Network, link_local)
-Network.IPv4LLRoute,         config_parse_bool,                              0,                             offsetof(Network, ipv4ll_route)
-Network.IPv6Token,           config_parse_ipv6token,                         0,                             offsetof(Network, ipv6_token)
-Network.LLDP,                config_parse_bool,                              0,                             offsetof(Network, lldp)
-Network.Address,             config_parse_address,                           0,                             0
-Network.Gateway,             config_parse_gateway,                           0,                             0
-Network.Domains,             config_parse_domains,                           0,                             offsetof(Network, domains)
-Network.DNS,                 config_parse_strv,                              0,                             offsetof(Network, dns)
-Network.LLMNR,               config_parse_llmnr,                             0,                             offsetof(Network, llmnr)
-Network.NTP,                 config_parse_strv,                              0,                             offsetof(Network, ntp)
-Network.IPForward,           config_parse_address_family_boolean_with_kernel,0,                             offsetof(Network, ip_forward)
-Network.IPMasquerade,        config_parse_bool,                              0,                             offsetof(Network, ip_masquerade)
-Network.BindCarrier,         config_parse_strv,                              0,                             offsetof(Network, bind_carrier)
-Address.Address,             config_parse_address,                           0,                             0
-Address.Peer,                config_parse_address,                           0,                             0
-Address.Broadcast,           config_parse_broadcast,                         0,                             0
-Address.Label,               config_parse_label,                             0,                             0
-Route.Gateway,               config_parse_gateway,                           0,                             0
-Route.Destination,           config_parse_destination,                       0,                             0
-Route.Source,                config_parse_destination,                       0,                             0
-Route.Metric,                config_parse_route_priority,                    0,                             0
-Route.Scope,                 config_parse_route_scope,                       0,                             0
-DHCP.ClientIdentifier,       config_parse_dhcp_client_identifier,            0,                             offsetof(Network, dhcp_client_identifier)
-DHCP.UseDNS,                 config_parse_bool,                              0,                             offsetof(Network, dhcp_dns)
-DHCP.UseNTP,                 config_parse_bool,                              0,                             offsetof(Network, dhcp_ntp)
-DHCP.UseMTU,                 config_parse_bool,                              0,                             offsetof(Network, dhcp_mtu)
-DHCP.UseHostname,            config_parse_bool,                              0,                             offsetof(Network, dhcp_hostname)
-DHCP.UseDomains,             config_parse_bool,                              0,                             offsetof(Network, dhcp_domains)
-DHCP.UseRoutes,              config_parse_bool,                              0,                             offsetof(Network, dhcp_routes)
-DHCP.SendHostname,           config_parse_bool,                              0,                             offsetof(Network, dhcp_sendhost)
-DHCP.RequestBroadcast,       config_parse_bool,                              0,                             offsetof(Network, dhcp_broadcast)
-DHCP.CriticalConnection,     config_parse_bool,                              0,                             offsetof(Network, dhcp_critical)
-DHCP.VendorClassIdentifier,  config_parse_string,                            0,                             offsetof(Network, dhcp_vendor_class_identifier)
-DHCP.RouteMetric,            config_parse_unsigned,                          0,                             offsetof(Network, dhcp_route_metric)
-Bridge.Cost,                 config_parse_unsigned,                          0,                             offsetof(Network, cost)
-BridgeFDB.MACAddress,        config_parse_fdb_hwaddr,                        0,                             0
-BridgeFDB.VLANId,            config_parse_fdb_vlan_id,                       0,                             0
+Match.MACAddress,              config_parse_hwaddr,                            0,                             offsetof(Network, match_mac)
+Match.Path,                    config_parse_strv,                              0,                             offsetof(Network, match_path)
+Match.Driver,                  config_parse_strv,                              0,                             offsetof(Network, match_driver)
+Match.Type,                    config_parse_strv,                              0,                             offsetof(Network, match_type)
+Match.Name,                    config_parse_ifnames,                           0,                             offsetof(Network, match_name)
+Match.Host,                    config_parse_net_condition,                     CONDITION_HOST,                offsetof(Network, match_host)
+Match.Virtualization,          config_parse_net_condition,                     CONDITION_VIRTUALIZATION,      offsetof(Network, match_virt)
+Match.KernelCommandLine,       config_parse_net_condition,                     CONDITION_KERNEL_COMMAND_LINE, offsetof(Network, match_kernel)
+Match.Architecture,            config_parse_net_condition,                     CONDITION_ARCHITECTURE,        offsetof(Network, match_arch)
+Link.MACAddress,               config_parse_hwaddr,                            0,                             offsetof(Network, mac)
+Link.MTUBytes,                 config_parse_iec_size,                          0,                             offsetof(Network, mtu)
+Network.Description,           config_parse_string,                            0,                             offsetof(Network, description)
+Network.Bridge,                config_parse_netdev,                            0,                             offsetof(Network, bridge)
+Network.Bond,                  config_parse_netdev,                            0,                             offsetof(Network, bond)
+Network.VLAN,                  config_parse_netdev,                            0,                             0
+Network.MACVLAN,               config_parse_netdev,                            0,                             0
+Network.IPVLAN,                config_parse_netdev,                            0,                             0
+Network.VXLAN,                 config_parse_netdev,                            0,                             0
+Network.Tunnel,                config_parse_tunnel,                            0,                             0
+Network.DHCP,                  config_parse_dhcp,                              0,                             offsetof(Network, dhcp)
+Network.DHCPServer,            config_parse_bool,                              0,                             offsetof(Network, dhcp_server)
+Network.LinkLocalAddressing,   config_parse_address_family_boolean,            0,                             offsetof(Network, link_local)
+Network.IPv4LLRoute,           config_parse_bool,                              0,                             offsetof(Network, ipv4ll_route)
+Network.IPv6Token,             config_parse_ipv6token,                         0,                             offsetof(Network, ipv6_token)
+Network.LLDP,                  config_parse_bool,                              0,                             offsetof(Network, lldp)
+Network.Address,               config_parse_address,                           0,                             0
+Network.Gateway,               config_parse_gateway,                           0,                             0
+Network.Domains,               config_parse_domains,                           0,                             offsetof(Network, domains)
+Network.DNS,                   config_parse_strv,                              0,                             offsetof(Network, dns)
+Network.LLMNR,                 config_parse_llmnr,                             0,                             offsetof(Network, llmnr)
+Network.NTP,                   config_parse_strv,                              0,                             offsetof(Network, ntp)
+Network.IPForward,             config_parse_address_family_boolean_with_kernel,0,                             offsetof(Network, ip_forward)
+Network.IPMasquerade,          config_parse_bool,                              0,                             offsetof(Network, ip_masquerade)
+Network.IPv6PrivacyExtensions, config_parse_ipv6_privacy_extensions,           0,                             offsetof(Network, ipv6_privacy_extensions)
+Network.BindCarrier,           config_parse_strv,                              0,                             offsetof(Network, bind_carrier)
+Address.Address,               config_parse_address,                           0,                             0
+Address.Peer,                  config_parse_address,                           0,                             0
+Address.Broadcast,             config_parse_broadcast,                         0,                             0
+Address.Label,                 config_parse_label,                             0,                             0
+Route.Gateway,                 config_parse_gateway,                           0,                             0
+Route.Destination,             config_parse_destination,                       0,                             0
+Route.Source,                  config_parse_destination,                       0,                             0
+Route.Metric,                  config_parse_route_priority,                    0,                             0
+Route.Scope,                   config_parse_route_scope,                       0,                             0
+DHCP.ClientIdentifier,         config_parse_dhcp_client_identifier,            0,                             offsetof(Network, dhcp_client_identifier)
+DHCP.UseDNS,                   config_parse_bool,                              0,                             offsetof(Network, dhcp_dns)
+DHCP.UseNTP,                   config_parse_bool,                              0,                             offsetof(Network, dhcp_ntp)
+DHCP.UseMTU,                   config_parse_bool,                              0,                             offsetof(Network, dhcp_mtu)
+DHCP.UseHostname,              config_parse_bool,                              0,                             offsetof(Network, dhcp_hostname)
+DHCP.UseDomains,               config_parse_bool,                              0,                             offsetof(Network, dhcp_domains)
+DHCP.UseRoutes,                config_parse_bool,                              0,                             offsetof(Network, dhcp_routes)
+DHCP.SendHostname,             config_parse_bool,                              0,                             offsetof(Network, dhcp_sendhost)
+DHCP.RequestBroadcast,         config_parse_bool,                              0,                             offsetof(Network, dhcp_broadcast)
+DHCP.CriticalConnection,       config_parse_bool,                              0,                             offsetof(Network, dhcp_critical)
+DHCP.VendorClassIdentifier,    config_parse_string,                            0,                             offsetof(Network, dhcp_vendor_class_identifier)
+DHCP.RouteMetric,              config_parse_unsigned,                          0,                             offsetof(Network, dhcp_route_metric)
+Bridge.Cost,                   config_parse_unsigned,                          0,                             offsetof(Network, cost)
+BridgeFDB.MACAddress,          config_parse_fdb_hwaddr,                        0,                             0
+BridgeFDB.VLANId,              config_parse_fdb_vlan_id,                       0,                             0
 /* backwards compatibility: do not add new entries to this section */
-Network.IPv4LL,              config_parse_ipv4ll,                            0,                             offsetof(Network, link_local)
-DHCPv4.UseDNS,               config_parse_bool,                              0,                             offsetof(Network, dhcp_dns)
-DHCPv4.UseMTU,               config_parse_bool,                              0,                             offsetof(Network, dhcp_mtu)
-DHCPv4.UseHostname,          config_parse_bool,                              0,                             offsetof(Network, dhcp_hostname)
-DHCP.UseDomainName,          config_parse_bool,                              0,                             offsetof(Network, dhcp_domains)
-DHCPv4.UseDomainName,        config_parse_bool,                              0,                             offsetof(Network, dhcp_domains)
-DHCPv4.CriticalConnection,   config_parse_bool,                              0,                             offsetof(Network, dhcp_critical)
+Network.IPv4LL,                config_parse_ipv4ll,                            0,                             offsetof(Network, link_local)
+DHCPv4.UseDNS,                 config_parse_bool,                              0,                             offsetof(Network, dhcp_dns)
+DHCPv4.UseMTU,                 config_parse_bool,                              0,                             offsetof(Network, dhcp_mtu)
+DHCPv4.UseHostname,            config_parse_bool,                              0,                             offsetof(Network, dhcp_hostname)
+DHCP.UseDomainName,            config_parse_bool,                              0,                             offsetof(Network, dhcp_domains)
+DHCPv4.UseDomainName,          config_parse_bool,                              0,                             offsetof(Network, dhcp_domains)
+DHCPv4.CriticalConnection,     config_parse_bool,                              0,                             offsetof(Network, dhcp_critical)

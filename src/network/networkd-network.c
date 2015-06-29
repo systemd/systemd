@@ -111,6 +111,8 @@ static int network_load_one(Manager *manager, const char *filename) {
 
         network->link_local = ADDRESS_FAMILY_IPV6;
 
+        network->ipv6_privacy_extensions = _IPV6_PRIVACY_EXTENSIONS_INVALID;
+
         r = config_parse(NULL, filename, file,
                          "Match\0"
                          "Link\0"
@@ -751,3 +753,15 @@ int config_parse_address_family_boolean_with_kernel(
 
         return 0;
 }
+
+static const char* const ipv6_privacy_extensions_table[_IPV6_PRIVACY_EXTENSIONS_MAX] = {
+        [IPV6_PRIVACY_EXTENSIONS_DISABLE] = "disable",
+        [IPV6_PRIVACY_EXTENSIONS_PREFER_PUBLIC] = "prefer-public",
+        [IPV6_PRIVACY_EXTENSIONS_PREFER_TEMPORARY] = "prefer-temporary",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(ipv6_privacy_extensions, Ipv6PrivacyExtensions);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_ipv6_privacy_extensions,
+                         ipv6_privacy_extensions,
+                         Ipv6PrivacyExtensions,
+                         "Failed to parse Ipv6 Privacy Extensions");

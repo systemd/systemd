@@ -90,6 +90,14 @@ typedef enum DCHPClientIdentifier {
         _DHCP_CLIENT_ID_INVALID = -1,
 } DCHPClientIdentifier;
 
+typedef enum Ipv6PrivacyExtensions {
+        IPV6_PRIVACY_EXTENSIONS_DISABLE,
+        IPV6_PRIVACY_EXTENSIONS_PREFER_PUBLIC,
+        IPV6_PRIVACY_EXTENSIONS_PREFER_TEMPORARY,
+        _IPV6_PRIVACY_EXTENSIONS_MAX,
+        _IPV6_PRIVACY_EXTENSIONS_INVALID = -1,
+} Ipv6PrivacyExtensions;
+
 struct FdbEntry {
         Network *network;
         unsigned section;
@@ -144,6 +152,8 @@ struct Network {
 
         AddressFamilyBoolean ip_forward;
         bool ip_masquerade;
+
+        Ipv6PrivacyExtensions ipv6_privacy_extensions;
 
         struct ether_addr *mac;
         unsigned mtu;
@@ -455,3 +465,10 @@ int config_parse_address_family_boolean_with_kernel(const char *unit, const char
 
 const char* link_operstate_to_string(LinkOperationalState s) _const_;
 LinkOperationalState link_operstate_from_string(const char *s) _pure_;
+
+/* Ipv6 privacy extensions support */
+
+const char* ipv6_privacy_extensions_to_string(Ipv6PrivacyExtensions i) _const_;
+Ipv6PrivacyExtensions ipv6_privacy_extensions_from_string(const char *s) _pure_;
+
+int config_parse_ipv6_privacy_extensions(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
