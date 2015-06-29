@@ -111,9 +111,9 @@
       <para>All users are granted access to their private per-user
       journals. However, by default, only root and users who are
       members of a few special groups are granted access to the system
-      journal and the journals of other users. Members of the the
+      journal and the journals of other users. Members of the groups
       <literal>systemd-journal</literal>, <literal>adm</literal>, and
-      <literal>wheel</literal> groups can read all journal files. Note
+      <literal>wheel</literal> can read all journal files. Note
       that the two latter groups traditionally have additional
       privileges specified by the distribution. Members of the
       <literal>wheel</literal> group can often perform administrative
