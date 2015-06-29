@@ -685,6 +685,26 @@ static int parse_config_file(void) {
         return 0;
 }
 
+static void manager_set_defaults(Manager *m) {
+
+        assert(m);
+
+        m->default_timer_accuracy_usec = arg_default_timer_accuracy_usec;
+        m->default_std_output = arg_default_std_output;
+        m->default_std_error = arg_default_std_error;
+        m->default_timeout_start_usec = arg_default_timeout_start_usec;
+        m->default_timeout_stop_usec = arg_default_timeout_stop_usec;
+        m->default_restart_usec = arg_default_restart_usec;
+        m->default_start_limit_interval = arg_default_start_limit_interval;
+        m->default_start_limit_burst = arg_default_start_limit_burst;
+        m->default_cpu_accounting = arg_default_cpu_accounting;
+        m->default_blockio_accounting = arg_default_blockio_accounting;
+        m->default_memory_accounting = arg_default_memory_accounting;
+
+        manager_set_default_rlimits(m, arg_default_rlimit);
+        manager_environment_add(m, NULL, arg_default_environment);
+}
+
 static int parse_argv(int argc, char *argv[]) {
 
         enum {
@@ -1630,28 +1650,15 @@ int main(int argc, char *argv[]) {
         }
 
         m->confirm_spawn = arg_confirm_spawn;
-        m->default_timer_accuracy_usec = arg_default_timer_accuracy_usec;
-        m->default_std_output = arg_default_std_output;
-        m->default_std_error = arg_default_std_error;
-        m->default_restart_usec = arg_default_restart_usec;
-        m->default_timeout_start_usec = arg_default_timeout_start_usec;
-        m->default_timeout_stop_usec = arg_default_timeout_stop_usec;
-        m->default_start_limit_interval = arg_default_start_limit_interval;
-        m->default_start_limit_burst = arg_default_start_limit_burst;
-        m->default_cpu_accounting = arg_default_cpu_accounting;
-        m->default_blockio_accounting = arg_default_blockio_accounting;
-        m->default_memory_accounting = arg_default_memory_accounting;
         m->runtime_watchdog = arg_runtime_watchdog;
         m->shutdown_watchdog = arg_shutdown_watchdog;
-
         m->userspace_timestamp = userspace_timestamp;
         m->kernel_timestamp = kernel_timestamp;
         m->initrd_timestamp = initrd_timestamp;
         m->security_start_timestamp = security_start_timestamp;
         m->security_finish_timestamp = security_finish_timestamp;
 
-        manager_set_default_rlimits(m, arg_default_rlimit);
-        manager_environment_add(m, NULL, arg_default_environment);
+        manager_set_defaults(m);
         manager_set_show_status(m, arg_show_status);
         manager_set_first_boot(m, empty_etc);
 
@@ -1763,6 +1770,13 @@ int main(int argc, char *argv[]) {
 
                 case MANAGER_RELOAD:
                         log_info("Reloading.");
+
+                        r = parse_config_file();
+                        if (r < 0)
+                                log_error("Failed to parse config file.");
+
+                        manager_set_defaults(m);
+
                         r = manager_reload(m);
                         if (r < 0)
                                 log_error_errno(r, "Failed to reload: %m");
