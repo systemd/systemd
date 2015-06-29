@@ -241,19 +241,20 @@ static bool usage_contains_reload(const char *line) {
 
 static char *sysv_translate_name(const char *name) {
         char *r;
+        _cleanup_free_ char *c;
 
-        r = new(char, strlen(name) + strlen(".service") + 1);
-        if (!r)
-                return NULL;
+        c = strdup(name);
+        if (!c)
+            return NULL;
+        r = endswith(c, ".sh");
+        if (r) {
+            *r = '\0';
+        }
 
-        if (endswith(name, ".sh"))
-                /* Drop .sh suffix */
-                strcpy(stpcpy(r, name) - 3, ".service");
+        if (unit_name_mangle(c, UNIT_NAME_NOGLOB, &r) >= 0)
+            return r;
         else
-                /* Normal init script name */
-                strcpy(stpcpy(r, name), ".service");
-
-        return r;
+            return NULL;
 }
 
 static int sysv_translate_facility(const char *name, const char *filename, char **_r) {
@@ -340,6 +341,7 @@ static int handle_provides(SysvStub *s, unsigned line, const char *full_text, co
 
         FOREACH_WORD_QUOTED(word, z, text, state_) {
                 _cleanup_free_ char *n = NULL, *m = NULL;
+                UnitType t;
 
                 n = strndup(word, z);
                 if (!n)
@@ -351,7 +353,10 @@ static int handle_provides(SysvStub *s, unsigned line, const char *full_text, co
                 if (r == 0)
                         continue;
 
-                if (unit_name_to_type(m) == UNIT_SERVICE) {
+                t = unit_name_to_type(m);
+                if (t == _UNIT_TYPE_INVALID)
+                    log_warning("Unit name '%s' is invalid", m);
+                else if (t == UNIT_SERVICE) {
                         log_debug("Adding Provides: alias '%s' for '%s'", m, s->name);
                         r = add_alias(s->name, m);
                         if (r < 0)
