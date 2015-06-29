@@ -3801,19 +3801,6 @@ dist_udevrules_DATA += \
 	rules/60-persistent-v4l.rules
 
 # ------------------------------------------------------------------------------
-accelerometer_SOURCES = \
-	src/udev/accelerometer/accelerometer.c
-
-accelerometer_LDADD = \
-	libshared.la
-
-udevlibexec_PROGRAMS += \
-	accelerometer
-
-dist_udevrules_DATA += \
-	rules/61-accelerometer.rules
-
-# ------------------------------------------------------------------------------
 mtd_probe_SOURCES =  \
 	src/udev/mtd_probe/mtd_probe.c \
 	src/udev/mtd_probe/mtd_probe.h \
