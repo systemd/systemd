@@ -98,7 +98,7 @@ int log_sample(DIR *proc,
 
         static int vmstat = -1;
         static int schedstat = -1;
-        char buf[4096];
+        char buf[8192];
         char key[256];
         char val[256];
         char rt[256];
@@ -163,15 +163,18 @@ vmstat_next:
                         return log_error_errno(errno, "Failed to open /proc/schedstat (requires CONFIG_SCHEDSTATS=y in kernel config): %m");
         }
 
-        n = pread(schedstat, buf, sizeof(buf) - 1, 0);
-        if (n <= 0) {
-                schedstat = safe_close(schedstat);
-                if (n < 0)
-                        return -errno;
-                return -ENODATA;
+        /* As pread may return after having read only part of file "/proc/schedstat"
+         * loop until all the file is read into the buffer
+         */
+        m = buf;
+        while ((n = pread(schedstat, m, sizeof(buf) - (m-buf) - 1, m-buf)) > 0) {
+                m += n;
         }
-
-        buf[n] = '\0';
+        if (n < 0) {
+                schedstat = safe_close(schedstat);
+                return -errno;
+        }
+        *m = '\0';
 
         m = buf;
         while (m) {
