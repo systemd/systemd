@@ -708,10 +708,14 @@ noinst_DATA += \
 CLEANFILES += \
 	man/index.html
 
+XML_GLOB = $(wildcard $(top_srcdir)/man/*.xml)
 NON_INDEX_XML_FILES = $(filter-out man/systemd.index.xml,$(XML_FILES))
 SOURCE_XML_FILES = ${patsubst %,$(top_srcdir)/%,$(filter-out man/systemd.directives.xml,$(NON_INDEX_XML_FILES))}
 
-update-man-list: $(top_srcdir)/tools/make-man-rules.py $(SOURCE_XML_FILES)
+# This target should only be run manually. It recreates Makefile-man.am
+# file in the source directory based on all man/*.xml files. Run it after
+# adding, removing, or changing the conditional in a man page.
+update-man-list: $(top_srcdir)/tools/make-man-rules.py $(XML_GLOB)
 	$(AM_V_GEN)$(PYTHON) $^ > $(top_srcdir)/Makefile-man.tmp
 	$(AM_V_at)mv $(top_srcdir)/Makefile-man.tmp $(top_srcdir)/Makefile-man.am
 	@echo "Makefile-man.am has been regenerated"
