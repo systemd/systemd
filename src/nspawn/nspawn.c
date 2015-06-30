@@ -341,6 +341,11 @@ static int custom_mounts_prepare(void) {
         for (i = 0; i < arg_n_custom_mounts; i++) {
                 CustomMount *m = &arg_custom_mounts[i];
 
+                if (arg_userns && arg_uid_shift == UID_INVALID && streq(m->destination, "/")) {
+                        log_error("--private-users with automatic UID shift may not be combined with custom root mounts.");
+                        return -EINVAL;
+                }
+
                 if (m->type != CUSTOM_MOUNT_OVERLAY)
                         continue;
 
@@ -1028,6 +1033,7 @@ static int tmpfs_patch_options(const char *options, char **ret) {
         char *buf = NULL;
 
         if (arg_userns && arg_uid_shift != 0) {
+                assert(arg_uid_shift != UID_INVALID);
 
                 if (options)
                         (void) asprintf(&buf, "%s,uid=" UID_FMT ",gid=" UID_FMT, options, arg_uid_shift, arg_uid_shift);
@@ -4417,6 +4423,16 @@ static int outer_child(
                 return -EIO;
         }
 
+        if (arg_userns) {
+                l = send(pid_socket, &arg_uid_shift, sizeof(arg_uid_shift), MSG_NOSIGNAL);
+                if (l < 0)
+                        return log_error_errno(errno, "Failed to send UID shift: %m");
+                if (l != sizeof(arg_uid_shift)) {
+                        log_error("Short write while sending UID shift.");
+                        return -EIO;
+                }
+        }
+
         pid_socket = safe_close(pid_socket);
 
         return 0;
@@ -4816,6 +4832,17 @@ int main(int argc, char *argv[]) {
                         if (!barrier_place_and_sync(&barrier)) { /* #1 */
                                 log_error("Child died too early.");
                                 r = -ESRCH;
+                                goto finish;
+                        }
+
+                        l = recv(pid_socket_pair[0], &arg_uid_shift, sizeof(arg_uid_shift), 0);
+                        if (l < 0) {
+                                r = log_error_errno(errno, "Failed to read UID shift: %m");
+                                goto finish;
+                        }
+                        if (l != sizeof(arg_uid_shift)) {
+                                log_error("Short read while reading UID shift: %m");
+                                r = EIO;
                                 goto finish;
                         }
 
