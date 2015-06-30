@@ -114,12 +114,30 @@
 
         <listitem>
           <para>When showing unit/job/manager properties with the
-          <command>show</command> command, limit display to certain
-          properties as specified as argument. If not specified, all
-          set properties are shown. The argument should be a
+          <command>show</command> command, limit display to properties
+          specified in the argument. The argument should be a
           comma-separated list of property names, such as
-          <literal>MainPID</literal>. If specified more than once, all
-          properties with the specified names are shown.</para>
+          <literal>MainPID</literal>. Unless specified, all known
+          properties are shown. If specified more than once, all
+          properties with the specified names are shown. Shell
+          completion is implemented for property names.</para>
+
+          <para>For the manager itself,
+          <command>systemctl show</command> will show all available
+          properties. Those properties are documented in
+          <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+          </para>
+
+          <para>Properties for units vary by unit type, so showing any
+          unit (even a non-existent one) is a way to list properties
+          pertaining to this type. Similarly showing any job will list
+          properties pertaining to all jobs. Properties for units are
+          documented in
+          <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+          and the pages for individual unit types
+          <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+          <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+          etc.</para>
         </listitem>
       </varlistentry>
 
