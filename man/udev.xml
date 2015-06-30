@@ -522,15 +522,6 @@
         </varlistentry>
 
         <varlistentry>
-          <term><varname>WAIT_FOR</varname></term>
-          <listitem>
-            <para>Wait for a file to become available or until a timeout of
-            10 seconds expires. The path is relative to the sysfs device;
-            if no path is specified, this waits for an attribute to appear.</para>
-          </listitem>
-        </varlistentry>
-
-        <varlistentry>
           <term><varname>OPTIONS</varname></term>
           <listitem>
             <para>Rule and device options:</para>
