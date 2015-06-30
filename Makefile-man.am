@@ -23,7 +23,6 @@ MANPAGES += \
 	man/localtime.5 \
 	man/machine-id.5 \
 	man/machine-info.5 \
-	man/networkctl.1 \
 	man/os-release.5 \
 	man/sd-daemon.3 \
 	man/sd-id128.3 \
@@ -144,7 +143,6 @@ MANPAGES += \
 	man/systemd.time.7 \
 	man/systemd.timer.5 \
 	man/systemd.unit.5 \
-	man/sysusers.d.5 \
 	man/telinit.8 \
 	man/tmpfiles.d.5 \
 	man/udev.7 \
@@ -1538,6 +1536,7 @@ endif
 
 if ENABLE_NETWORKD
 MANPAGES += \
+	man/networkctl.1 \
 	man/systemd-networkd-wait-online.service.8 \
 	man/systemd-networkd.service.8 \
 	man/systemd.netdev.5 \
@@ -1602,6 +1601,15 @@ MANPAGES_ALIAS += \
 man/systemd-rfkill.8: man/systemd-rfkill@.service.8
 man/systemd-rfkill.html: man/systemd-rfkill@.service.html
 	$(html-alias)
+
+endif
+
+if ENABLE_SYSUSERS
+MANPAGES += \
+	man/sysusers.d.5
+MANPAGES_ALIAS += \
+	#
+
 
 endif
 
