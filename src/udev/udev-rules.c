@@ -634,14 +634,11 @@ static int import_program_into_properties(struct udev_event *event,
                                           usec_t timeout_usec,
                                           usec_t timeout_warn_usec,
                                           const char *program) {
-        struct udev_device *dev = event->dev;
-        char **envp;
         char result[UTIL_LINE_SIZE];
         char *line;
         int err;
 
-        envp = udev_device_get_properties_envp(dev);
-        err = udev_event_spawn(event, timeout_usec, timeout_warn_usec, true, program, envp, result, sizeof(result));
+        err = udev_event_spawn(event, timeout_usec, timeout_warn_usec, true, program, result, sizeof(result));
         if (err < 0)
                 return err;
 
@@ -654,7 +651,7 @@ static int import_program_into_properties(struct udev_event *event,
                         pos[0] = '\0';
                         pos = &pos[1];
                 }
-                import_property_from_string(dev, line);
+                import_property_from_string(event->dev, line);
                 line = pos;
         }
         return 0;
@@ -2065,19 +2062,17 @@ int udev_rules_apply_to_event(struct udev_rules *rules,
                 }
                 case TK_M_PROGRAM: {
                         char program[UTIL_PATH_SIZE];
-                        char **envp;
                         char result[UTIL_LINE_SIZE];
 
                         free(event->program_result);
                         event->program_result = NULL;
                         udev_event_apply_format(event, rules_str(rules, cur->key.value_off), program, sizeof(program));
-                        envp = udev_device_get_properties_envp(event->dev);
                         log_debug("PROGRAM '%s' %s:%u",
                                   program,
                                   rules_str(rules, rule->rule.filename_off),
                                   rule->rule.filename_line);
 
-                        if (udev_event_spawn(event, timeout_usec, timeout_warn_usec, true, program, envp, result, sizeof(result)) < 0) {
+                        if (udev_event_spawn(event, timeout_usec, timeout_warn_usec, true, program, result, sizeof(result)) < 0) {
                                 if (cur->key.op != OP_NOMATCH)
                                         goto nomatch;
                         } else {
