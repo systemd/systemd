@@ -32,10 +32,31 @@
 #include "signal-util.h"
 #include "mount-setup.h"
 #include "exit-status.h"
+#include "fileio.h"
 
 /* Goes through /etc/fstab and remounts all API file systems, applying
  * options that are in /etc/fstab that systemd might not have
  * respected */
+
+static int check_ro_from_cmdline(void) {
+        _cleanup_free_ char *line = NULL;
+        int r;
+
+        /* check for 'ro' boot parameter  */
+        r = read_one_line_file("/proc/cmdline", &line);
+        if (r >= 0) {
+                const char *word, *state;
+                size_t l;
+
+                FOREACH_WORD_QUOTED(word, l, line, state) {
+                        if (l == 2 && memcmp(word, "ro", 2) == 0) {
+                                return 1;
+                                break;
+                        }
+                }
+        }
+        return 0;
+}
 
 int main(int argc, char *argv[]) {
         int ret = EXIT_FAILURE;
@@ -101,7 +122,10 @@ int main(int argc, char *argv[]) {
                         arguments[0] = MOUNT_PATH;
                         arguments[1] = me->mnt_dir;
                         arguments[2] = "-o";
-                        arguments[3] = "remount";
+                        if (check_ro_from_cmdline() && (path_equal(me->mnt_dir, "/") || path_equal(me->mnt_dir, "/usr")))
+                                arguments[3] = "remount,ro";
+                        else
+                                arguments[3] = "remount";
                         arguments[4] = NULL;
 
                         execv(MOUNT_PATH, (char **) arguments);
