@@ -682,41 +682,6 @@ static int import_parent_into_properties(struct udev_device *dev, const char *fi
         return 0;
 }
 
-#define WAIT_LOOP_PER_SECOND                50
-static int wait_for_file(struct udev_device *dev, const char *file, int timeout) {
-        char filepath[UTIL_PATH_SIZE];
-        char devicepath[UTIL_PATH_SIZE];
-        struct stat stats;
-        int loop = timeout * WAIT_LOOP_PER_SECOND;
-
-        /* a relative path is a device attribute */
-        devicepath[0] = '\0';
-        if (file[0] != '/') {
-                strscpyl(devicepath, sizeof(devicepath), udev_device_get_syspath(dev), NULL);
-                strscpyl(filepath, sizeof(filepath), devicepath, "/", file, NULL);
-                file = filepath;
-        }
-
-        while (--loop) {
-                const struct timespec duration = { 0, 1000 * 1000 * 1000 / WAIT_LOOP_PER_SECOND };
-
-                /* lookup file */
-                if (stat(file, &stats) == 0) {
-                        log_debug("file '%s' appeared after %i loops", file, (timeout * WAIT_LOOP_PER_SECOND) - loop-1);
-                        return 0;
-                }
-                /* make sure, the device did not disappear in the meantime */
-                if (devicepath[0] != '\0' && stat(devicepath, &stats) != 0) {
-                        log_debug("device disappeared while waiting for '%s'", file);
-                        return -2;
-                }
-                log_debug("wait for '%s' for %i mseconds", file, 1000 / WAIT_LOOP_PER_SECOND);
-                nanosleep(&duration, NULL);
-        }
-        log_debug("waiting for '%s' failed", file);
-        return -1;
-}
-
 static int attr_subst_subdir(char *attr, size_t len) {
         bool found = false;
 
@@ -1397,15 +1362,6 @@ static int add_rule(struct udev_rules *rules, char *line,
                         continue;
                 }
 
-                if (streq(key, "WAIT_FOR") || streq(key, "WAIT_FOR_SYSFS")) {
-                        if (op == OP_REMOVE) {
-                                log_error("invalid WAIT_FOR/WAIT_FOR_SYSFS operation");
-                                goto invalid;
-                        }
-                        rule_add_key(&rule_tmp, TK_M_WAITFOR, 0, value, NULL);
-                        continue;
-                }
-
                 if (streq(key, "LABEL")) {
                         if (op == OP_REMOVE) {
                                 log_error("invalid LABEL operation");
@@ -1999,16 +1955,6 @@ int udev_rules_apply_to_event(struct udev_rules *rules,
                         if (match_key(rules, cur, udev_device_get_driver(event->dev)) != 0)
                                 goto nomatch;
                         break;
-                case TK_M_WAITFOR: {
-                        char filename[UTIL_PATH_SIZE];
-                        int found;
-
-                        udev_event_apply_format(event, rules_str(rules, cur->key.value_off), filename, sizeof(filename));
-                        found = (wait_for_file(event->dev, filename, 10) == 0);
-                        if (!found && (cur->key.op != OP_NOMATCH))
-                                goto nomatch;
-                        break;
-                }
                 case TK_M_ATTR:
                         if (match_attr(rules, event->dev, event, cur) != 0)
                                 goto nomatch;
