@@ -63,3 +63,5 @@ int sd_lldp_tlv_read_port_description(sd_lldp_tlv *tlv, char **data, uint16_t *l
 
 sd_lldp_tlv *sd_lldp_tlv_ref(sd_lldp_tlv *tlv);
 sd_lldp_tlv *sd_lldp_tlv_unref(sd_lldp_tlv *tlv);
+
+int sd_lldp_get_neighbour_tlvs(sd_lldp *lldp, sd_lldp_tlv ***tlvs, unsigned max);
