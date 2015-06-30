@@ -37,6 +37,7 @@
 #include "store.h"
 #include "bootchart.h"
 #include "cgroup-util.h"
+#include "fileio.h"
 
 /*
  * Alloc a static 4k buffer for stdio - primarily used to increase
@@ -97,13 +98,14 @@ int log_sample(DIR *proc,
                int *cpus) {
 
         static int vmstat = -1;
-        static int schedstat = -1;
+        _cleanup_free_ char *buf_schedstat = NULL;
         char buf[4096];
         char key[256];
         char val[256];
         char rt[256];
         char wt[256];
         char *m;
+        int r;
         int c;
         int p;
         int mod;
@@ -156,27 +158,13 @@ vmstat_next:
                         break;
         }
 
-        if (schedstat < 0) {
-                /* overall CPU utilization */
-                schedstat = openat(procfd, "schedstat", O_RDONLY|O_CLOEXEC);
-                if (schedstat < 0)
-                        return log_error_errno(errno, "Failed to open /proc/schedstat (requires CONFIG_SCHEDSTATS=y in kernel config): %m");
-        }
+        /* Parse "/proc/schedstat" for overall CPU utilization */
+        r = read_full_file("/proc/schedstat", &buf_schedstat, NULL);
+        if (r < 0)
+            return log_error_errno(r, "Unable to read schedstat: %m");
 
-        n = pread(schedstat, buf, sizeof(buf) - 1, 0);
-        if (n <= 0) {
-                schedstat = safe_close(schedstat);
-                if (n < 0)
-                        return -errno;
-                return -ENODATA;
-        }
-
-        buf[n] = '\0';
-
-        m = buf;
+        m = buf_schedstat;
         while (m) {
-                int r;
-
                 if (sscanf(m, "%s %*s %*s %*s %*s %*s %*s %s %s", key, rt, wt) < 3)
                         goto schedstat_next;
 
@@ -238,7 +226,6 @@ schedstat_next:
                         _cleanup_fclose_ FILE *st = NULL;
                         char t[32];
                         struct ps_struct *parent;
-                        int r;
 
                         ps->next_ps = new0(struct ps_struct, 1);
                         if (!ps->next_ps)
@@ -427,7 +414,6 @@ schedstat_next:
                                 return -errno;
                         }
                         FOREACH_DIRENT(ent, taskdir, break) {
-                                int r;
                                 int tid = -1;
                                 _cleanup_close_ int tid_schedstat = -1;
                                 long long delta_rt;
