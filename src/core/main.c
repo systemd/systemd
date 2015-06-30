@@ -1995,6 +1995,10 @@ finish:
                         command_line[pos++] = "kmsg";
                         break;
 
+                case LOG_TARGET_NULL:
+                        command_line[pos++] = "null";
+                        break;
+
                 case LOG_TARGET_CONSOLE:
                 default:
                         command_line[pos++] = "console";
