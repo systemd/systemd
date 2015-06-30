@@ -63,3 +63,5 @@ int sd_lldp_tlv_packet_read_port_description(sd_lldp_tlv_packet *tlv, char **dat
 
 sd_lldp_tlv_packet *sd_lldp_tlv_packet_ref(sd_lldp_tlv_packet *tlv);
 sd_lldp_tlv_packet *sd_lldp_tlv_packet_unref(sd_lldp_tlv_packet *tlv);
+
+int sd_lldp_get_tlv_packets(sd_lldp *lldp, sd_lldp_tlv_packet ***tlvs, unsigned max);
