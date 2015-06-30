@@ -29,6 +29,8 @@
 #include "list.h"
 #include "refcnt.h"
 
+#include "sd-lldp.h"
+
 typedef struct tlv_packet tlv_packet;
 typedef struct tlv_section tlv_section;
 
@@ -64,11 +66,9 @@ struct tlv_packet {
 };
 
 int tlv_packet_new(tlv_packet **ret);
-tlv_packet *tlv_packet_ref(tlv_packet *m);
-tlv_packet *tlv_packet_unref(tlv_packet *m);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(tlv_packet*, tlv_packet_unref);
-#define _cleanup_tlv_packet_free_ _cleanup_(tlv_packet_unrefp)
+DEFINE_TRIVIAL_CLEANUP_FUNC(sd_lldp_tlv*, sd_lldp_tlv_unref);
+#define _cleanup_tlv_unref_ _cleanup_(sd_lldp_tlv_unrefp)
 
 int lldp_tlv_packet_open_container(tlv_packet *m, uint16_t type);
 int lldp_tlv_packet_close_container(tlv_packet *m);
