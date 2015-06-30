@@ -1074,18 +1074,18 @@ static int mount_all(const char *dest, bool userns) {
         } MountPoint;
 
         static const MountPoint mount_table[] = {
-                { "proc",      "/proc",          "proc",   NULL,        MS_NOSUID|MS_NOEXEC|MS_NODEV,                true,  true  },
-                { "/proc/sys", "/proc/sys",      NULL,     NULL,        MS_BIND,                                     true,  true  },   /* Bind mount first */
-                { NULL,        "/proc/sys",      NULL,     NULL,        MS_BIND|MS_RDONLY|MS_REMOUNT,                true,  true  },   /* Then, make it r/o */
-                { "sysfs",     "/sys",           "sysfs",  NULL,        MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV,      true,  false },
-                { "tmpfs",     "/sys/fs/cgroup", "tmpfs",  "mode=755",  MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME, true,  false },
-                { "tmpfs",     "/dev",           "tmpfs",  "mode=755",  MS_NOSUID|MS_STRICTATIME,                    true,  false },
-                { "tmpfs",     "/dev/shm",       "tmpfs",  "mode=1777", MS_NOSUID|MS_NODEV|MS_STRICTATIME,           true,  false },
-                { "tmpfs",     "/run",           "tmpfs",  "mode=755",  MS_NOSUID|MS_NODEV|MS_STRICTATIME,           true,  false },
-                { "tmpfs",     "/tmp",           "tmpfs",  "mode=1777", MS_STRICTATIME,                              true,  false },
+                { "proc",      "/proc",          "proc",   NULL,        MS_NOSUID|MS_NOEXEC|MS_NODEV,                              true,  true  },
+                { "/proc/sys", "/proc/sys",      NULL,     NULL,        MS_BIND,                                                   true,  true  },   /* Bind mount first */
+                { NULL,        "/proc/sys",      NULL,     NULL,        MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT, true,  true  },   /* Then, make it r/o */
+                { "sysfs",     "/sys",           "sysfs",  NULL,        MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV,                    true,  false },
+                { "tmpfs",     "/sys/fs/cgroup", "tmpfs",  "mode=755",  MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME,               true,  false },
+                { "tmpfs",     "/dev",           "tmpfs",  "mode=755",  MS_NOSUID|MS_STRICTATIME,                                  true,  false },
+                { "tmpfs",     "/dev/shm",       "tmpfs",  "mode=1777", MS_NOSUID|MS_NODEV|MS_STRICTATIME,                         true,  false },
+                { "tmpfs",     "/run",           "tmpfs",  "mode=755",  MS_NOSUID|MS_NODEV|MS_STRICTATIME,                         true,  false },
+                { "tmpfs",     "/tmp",           "tmpfs",  "mode=1777", MS_STRICTATIME,                                            true,  false },
 #ifdef HAVE_SELINUX
-                { "/sys/fs/selinux", "/sys/fs/selinux", NULL, NULL,     MS_BIND,                                     false, false },  /* Bind mount first */
-                { NULL,              "/sys/fs/selinux", NULL, NULL,     MS_BIND|MS_RDONLY|MS_REMOUNT,                false, false },  /* Then, make it r/o */
+                { "/sys/fs/selinux", "/sys/fs/selinux", NULL, NULL,     MS_BIND,                                                   false, false },  /* Bind mount first */
+                { NULL,              "/sys/fs/selinux", NULL, NULL,     MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT, false, false },  /* Then, make it r/o */
 #endif
         };
 
