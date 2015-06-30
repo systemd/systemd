@@ -55,3 +55,5 @@ int sd_lldp_packet_read_port_description(sd_lldp_packet *tlv, char **data, uint1
 
 sd_lldp_packet *sd_lldp_packet_ref(sd_lldp_packet *tlv);
 sd_lldp_packet *sd_lldp_packet_unref(sd_lldp_packet *tlv);
+
+int sd_lldp_get_packets(sd_lldp *lldp, sd_lldp_packet ***tlvs);
