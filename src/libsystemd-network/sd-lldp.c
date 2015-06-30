@@ -680,3 +680,46 @@ int sd_lldp_new(int ifindex,
 
         return 0;
 }
+
+int sd_lldp_get_tlv_packets(sd_lldp *lldp, sd_lldp_tlv_packet ***tlvs, unsigned max) {
+        lldp_neighbour_port *p;
+        lldp_chassis *c;
+        Iterator iter;
+        unsigned count = 0, i;
+        bool end = false;
+
+        assert_return(lldp, -EINVAL);
+        assert_return(tlvs, -EINVAL);
+
+        HASHMAP_FOREACH(c, lldp->neighbour_mib, iter) {
+                LIST_FOREACH(port, p, c->ports) {
+                        if (max != (unsigned) -1 && count >= max) {
+                                end = true;
+                                break;
+                        }
+                        count++;
+                }
+                if (end)
+                        break;
+        }
+
+        if (!count) {
+                *tlvs = NULL;
+                return 0;
+        }
+
+        *tlvs = new(sd_lldp_tlv_packet *, count);
+        if (!*tlvs)
+                return -ENOMEM;
+
+        i = 0;
+        HASHMAP_FOREACH(c, lldp->neighbour_mib, iter) {
+                LIST_FOREACH(port, p, c->ports) {
+                        if (i >= count)
+                                return count;
+                        (*tlvs)[i++] = sd_lldp_tlv_packet_ref(p->packet);
+                }
+        }
+
+        return count;
+}
