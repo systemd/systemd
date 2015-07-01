@@ -922,12 +922,6 @@ static void socket_apply_socket_options(Socket *s, int fd) {
                 if (setsockopt(fd, SOL_TCP, TCP_CONGESTION, s->tcp_congestion, strlen(s->tcp_congestion)+1) < 0)
                         log_unit_warning_errno(UNIT(s), errno, "TCP_CONGESTION failed: %m");
 
-        if (s->reuse_port) {
-                int b = s->reuse_port;
-                if (setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &b, sizeof(b)) < 0)
-                        log_unit_warning_errno(UNIT(s), errno, "SO_REUSEPORT failed: %m");
-        }
-
         if (s->smack_ip_in) {
                 r = mac_smack_apply_ip_in_fd(fd, s->smack_ip_in);
                 if (r < 0)
@@ -1183,6 +1177,7 @@ static int socket_open_fds(Socket *s) {
                                         s->backlog,
                                         s->bind_ipv6_only,
                                         s->bind_to_device,
+                                        s->reuse_port,
                                         s->free_bind,
                                         s->transparent,
                                         s->directory_mode,
