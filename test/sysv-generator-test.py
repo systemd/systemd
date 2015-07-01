@@ -196,7 +196,7 @@ class SysvGeneratorTest(unittest.TestCase):
         self.add_sysv('foo+', {})
         self.add_sysv('foo-admin', {})
         err, results = self.run_generator()
-        self.assertEqual(list(results), ['foo-admin.service', 'foo\\x2b.service'])
+        self.assertEqual(set(results), {'foo-admin.service', 'foo\\x2b.service'})
         self.assertNotIn('Overwriting', err)
 
     def test_simple_enabled_some(self):
