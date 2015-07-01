@@ -172,7 +172,7 @@ static int svg_title(FILE *of, const char *build, int pscount, double log_start,
 
                 r = read_one_line_file(filename, &model);
                 if (r < 0)
-                        log_warning("Error reading disk model for %s: %m\n", rootbdev);
+                        log_info("Error reading disk model for %s: %m\n", rootbdev);
         }
 
         /* various utsname parameters */
@@ -208,7 +208,8 @@ static int svg_title(FILE *of, const char *build, int pscount, double log_start,
         fprintf(of, "<text class=\"t2\" x=\"20\" y=\"50\">System: %s %s %s %s</text>\n",
                 uts.sysname, uts.release, uts.version, uts.machine);
         fprintf(of, "<text class=\"t2\" x=\"20\" y=\"65\">CPU: %s</text>\n", cpu);
-        fprintf(of, "<text class=\"t2\" x=\"20\" y=\"80\">Disk: %s</text>\n", model);
+        if (model)
+                fprintf(of, "<text class=\"t2\" x=\"20\" y=\"80\">Disk: %s</text>\n", model);
         fprintf(of, "<text class=\"t2\" x=\"20\" y=\"95\">Boot options: %s</text>\n", cmdline);
         fprintf(of, "<text class=\"t2\" x=\"20\" y=\"110\">Build: %s</text>\n", build);
         fprintf(of, "<text class=\"t2\" x=\"20\" y=\"125\">Log start time: %.03fs</text>\n", log_start);
