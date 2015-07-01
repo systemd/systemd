@@ -240,22 +240,21 @@ static bool usage_contains_reload(const char *line) {
 }
 
 static char *sysv_translate_name(const char *name) {
-        char *r;
-        _cleanup_free_ char *c;
+        _cleanup_free_ char *c = NULL;
+        char *res;
 
         c = strdup(name);
         if (!c)
-            return NULL;
+                return NULL;
 
-        r = endswith(c, ".sh");
-        if (r) {
-            *r = '\0';
-        }
+        res = endswith(c, ".sh");
+        if (res)
+                *res = 0;
 
-        if (unit_name_mangle(c, UNIT_NAME_NOGLOB, &r) >= 0)
-            return r;
-        else
-            return NULL;
+        if (unit_name_mangle(c, UNIT_NAME_NOGLOB, &res) < 0)
+                return NULL;
+
+        return res;
 }
 
 static int sysv_translate_facility(const char *name, const char *filename, char **_r) {
@@ -377,8 +376,7 @@ static int handle_provides(SysvStub *s, unsigned line, const char *full_text, co
                                 if (r < 0)
                                         return log_oom();
                         }
-                }
-                else if (t == _UNIT_TYPE_INVALID)
+                } else if (t == _UNIT_TYPE_INVALID)
                         log_warning("Unit name '%s' is invalid", m);
                 else
                         log_warning("Unknown unit type for unit '%s'", m);
