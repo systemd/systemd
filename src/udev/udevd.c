@@ -1625,8 +1625,10 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 log_warning_errno(r, "failed to parse kernel command line, ignoring: %m");
 
-        if (arg_debug)
+        if (arg_debug) {
+                log_set_target(LOG_TARGET_CONSOLE);
                 log_set_max_level(LOG_DEBUG);
+        }
 
         if (getuid() != 0) {
                 r = log_error_errno(EPERM, "root privileges required");
