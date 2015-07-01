@@ -92,10 +92,11 @@ static void netdev_cancel_callbacks(NetDev *netdev) {
                         assert(netdev->manager);
                         assert(netdev->manager->rtnl);
 
-                        callback->callback(netdev->manager->rtnl, m, link);
+                        callback->callback(netdev->manager->rtnl, m, callback->link);
                 }
 
                 LIST_REMOVE(callbacks, netdev->callbacks, callback);
+                link_unref(callback->link);
                 free(callback);
         }
 }
@@ -176,6 +177,8 @@ int netdev_get(Manager *manager, const char *name, NetDev **ret) {
 
 static int netdev_enter_failed(NetDev *netdev) {
         netdev->state = NETDEV_STATE_FAILED;
+
+        netdev_cancel_callbacks(netdev);
 
         return 0;
 }
@@ -266,12 +269,20 @@ int netdev_enslave(NetDev *netdev, Link *link, sd_netlink_message_handler_t call
         int r;
 
         assert(netdev);
+        assert(netdev->manager);
+        assert(netdev->manager->rtnl);
         assert(IN_SET(netdev->kind, NETDEV_KIND_BRIDGE, NETDEV_KIND_BOND));
 
         if (netdev->state == NETDEV_STATE_READY) {
                 r = netdev_enslave_ready(netdev, link, callback);
                 if (r < 0)
                         return r;
+        } else if (IN_SET(netdev->state, NETDEV_STATE_LINGER, NETDEV_STATE_FAILED)) {
+                _cleanup_netlink_message_unref_ sd_netlink_message *m = NULL;
+
+                r = rtnl_message_new_synthetic_error(-ENODEV, 0, &m);
+                if (r >= 0)
+                        callback(netdev->manager->rtnl, m, link);
         } else {
                 /* the netdev is not yet read, save this request for when it is */
                 netdev_join_callback *cb;

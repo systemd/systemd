@@ -1360,8 +1360,7 @@ static int link_joined(Link *link) {
         return link_enter_set_addresses(link);
 }
 
-static int netdev_join_handler(sd_netlink *rtnl, sd_netlink_message *m,
-                               void *userdata) {
+static int netdev_join_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
         _cleanup_link_unref_ Link *link = userdata;
         int r;
 
