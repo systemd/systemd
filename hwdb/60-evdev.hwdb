@@ -35,7 +35,10 @@
 # fields of the struct input_absinfo as listed in linux/input.h.
 # If a field is missing the field will be left as-is. Not all fields need to
 # be present. e.g. ::45 sets the resolution to 45 units/mm.
-
+#
+# If any element is prefixed by ?, the value is ignored if the kernel value
+# is nonzero. e.g. ::?45 sets the resolution to 45 units/mm if the kernel
+# resolution is zero or leaves it at the existing resolution otherwise.
 #
 # Sort by brand, model
 
