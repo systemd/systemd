@@ -154,11 +154,12 @@ static void print_status_info(const StatusInfo *i) {
 
         if (i->rtc_local)
                 fputs("\n" ANSI_HIGHLIGHT_ON
-                      "Warning: The system is configured to read the RTC time in the local time zone. This\n"
-                      "         mode can not be fully supported. It will create various problems with time\n"
-                      "         zone changes and daylight saving time adjustments. The RTC time is never updated,\n"
-                      "         it relies on external facilities to maintain it. If at all possible, use\n"
-                      "         RTC in UTC by calling 'timedatectl set-local-rtc 0'" ANSI_HIGHLIGHT_OFF ".\n", stdout);
+                      "Warning: The system is configured to read the RTC time in the local time zone.\n"
+                      "         This mode can not be fully supported. It will create various problems\n"
+                      "         with time zone changes and daylight saving time adjustments. The RTC\n"
+                      "         time is never updated, it relies on external facilities to maintain it.\n"
+                      "         If at all possible, use RTC in UTC by calling\n"
+                      "         'timedatectl set-local-rtc 0'" ANSI_HIGHLIGHT_OFF ".\n", stdout);
 }
 
 static int show_status(sd_bus *bus, char **args, unsigned n) {
