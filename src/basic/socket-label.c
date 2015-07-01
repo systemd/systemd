@@ -38,6 +38,7 @@ int socket_address_listen(
                 int backlog,
                 SocketAddressBindIPv6Only only,
                 const char *bind_to_device,
+                bool reuse_port,
                 bool free_bind,
                 bool transparent,
                 mode_t directory_mode,
@@ -82,6 +83,12 @@ int socket_address_listen(
                 if (bind_to_device)
                         if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, bind_to_device, strlen(bind_to_device)+1) < 0)
                                 return -errno;
+
+                if (reuse_port) {
+                        one = 1;
+                        if (setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &one, sizeof(one)) < 0)
+                                log_warning_errno(errno, "SO_REUSEPORT failed: %m");
+                }
 
                 if (free_bind) {
                         one = 1;
@@ -146,7 +153,7 @@ int make_socket_fd(int log_level, const char* address, int flags) {
         }
 
         fd = socket_address_listen(&a, flags, SOMAXCONN, SOCKET_ADDRESS_DEFAULT,
-                                   NULL, false, false, 0755, 0644, NULL);
+                                   NULL, false, false, false, 0755, 0644, NULL);
         if (fd < 0 || log_get_max_level() >= log_level) {
                 _cleanup_free_ char *p = NULL;
 

@@ -80,6 +80,7 @@ int socket_address_listen(
                 int backlog,
                 SocketAddressBindIPv6Only only,
                 const char *bind_to_device,
+                bool reuse_port,
                 bool free_bind,
                 bool transparent,
                 mode_t directory_mode,
