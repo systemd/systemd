@@ -1608,8 +1608,42 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cg
         return 0;
 }
 
-int main(int argc, char *argv[]) {
+static int run(int fd_ctrl, int fd_uevent, const char *cgroup) {
         _cleanup_(manager_freep) Manager *manager = NULL;
+        int r;
+
+        r = manager_new(&manager, fd_ctrl, fd_uevent, cgroup);
+        if (r < 0) {
+                r = log_error_errno(r, "failed to allocate manager object: %m");
+                goto exit;
+        }
+
+        r = udev_rules_apply_static_dev_perms(manager->rules);
+        if (r < 0)
+                log_error_errno(r, "failed to apply permissions on static device nodes: %m");
+
+        (void) sd_notify(false,
+                         "READY=1\n"
+                         "STATUS=Processing...");
+
+        r = sd_event_loop(manager->event);
+        if (r < 0) {
+                log_error_errno(r, "event loop failed: %m");
+                goto exit;
+        }
+
+        sd_event_get_exit_code(manager->event, &r);
+
+exit:
+        sd_notify(false,
+                  "STOPPING=1\n"
+                  "STATUS=Shutting down...");
+        if (manager)
+                udev_ctrl_cleanup(manager->ctrl);
+        return r;
+}
+
+int main(int argc, char *argv[]) {
         _cleanup_free_ char *cgroup = NULL;
         int r, fd_ctrl, fd_uevent;
 
@@ -1716,35 +1750,9 @@ int main(int argc, char *argv[]) {
                 write_string_file("/proc/self/oom_score_adj", "-1000");
         }
 
-        r = manager_new(&manager, fd_ctrl, fd_uevent, cgroup);
-        if (r < 0) {
-                r = log_error_errno(r, "failed to allocate manager object: %m");
-                goto exit;
-        }
-
-        r = udev_rules_apply_static_dev_perms(manager->rules);
-        if (r < 0)
-                log_error_errno(r, "failed to apply permissions on static device nodes: %m");
-
-        (void) sd_notify(false,
-                         "READY=1\n"
-                         "STATUS=Processing...");
-
-        r = sd_event_loop(manager->event);
-        if (r < 0) {
-                log_error_errno(r, "event loop failed: %m");
-                goto exit;
-        }
-
-        sd_event_get_exit_code(manager->event, &r);
+        r = run(fd_ctrl, fd_uevent, cgroup);
 
 exit:
-        sd_notify(false,
-                  "STOPPING=1\n"
-                  "STATUS=Shutting down...");
-
-        if (manager)
-                udev_ctrl_cleanup(manager->ctrl);
         mac_selinux_finish();
         log_close();
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
