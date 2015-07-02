@@ -113,6 +113,7 @@ int address_establish(Address *address, Link *link) {
 
         masq = link->network &&
                 link->network->ip_masquerade &&
+                link->addresses &&
                 address->family == AF_INET &&
                 address->scope < RT_SCOPE_LINK;
 
