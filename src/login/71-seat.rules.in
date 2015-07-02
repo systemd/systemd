@@ -18,7 +18,7 @@ SUBSYSTEM=="usb", ATTR{bDeviceClass}=="09", TAG+="seat"
 SUBSYSTEM=="usb", ATTR{idVendor}=="2230", ATTR{idProduct}=="000[13]", ENV{ID_AUTOSEAT}="1"
 
 # qemu (version 2.4+) has a PCI-PCI bridge (-device pci-bridge-seat) to group
-# evices belonging to one seat. See:
+# devices belonging to one seat. See:
 #     http://git.qemu.org/?p=qemu.git;a=blob;f=docs/multiseat.txt
 SUBSYSTEM=="pci", ATTR{vendor}=="0x1b36", ATTR{device}=="0x000a", TAG+="seat", ENV{ID_AUTOSEAT}="1"
 

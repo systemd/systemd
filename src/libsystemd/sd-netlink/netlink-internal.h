@@ -93,7 +93,7 @@ struct sd_netlink {
 };
 
 struct netlink_attribute {
-        size_t offset; /* offset from hdr to attirubte */
+        size_t offset; /* offset from hdr to attribute */
 };
 
 struct netlink_container {

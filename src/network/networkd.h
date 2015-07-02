@@ -466,7 +466,7 @@ int config_parse_address_family_boolean_with_kernel(const char *unit, const char
 const char* link_operstate_to_string(LinkOperationalState s) _const_;
 LinkOperationalState link_operstate_from_string(const char *s) _pure_;
 
-/* Ipv6 privacy extensions support */
+/* IPv6 privacy extensions support */
 
 const char* ipv6_privacy_extensions_to_string(IPv6PrivacyExtensions i) _const_;
 IPv6PrivacyExtensions ipv6_privacy_extensions_from_string(const char *s) _pure_;
