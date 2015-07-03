@@ -4313,6 +4313,10 @@ static int outer_child(
         if (r < 0)
                 return r;
 
+        r = determine_uid_shift(directory);
+        if (r < 0)
+                return r;
+
         /* Turn directory into bind mount */
         if (mount(directory, directory, NULL, MS_BIND|MS_REC, NULL) < 0)
                 return log_error_errno(errno, "Failed to make bind mount: %m");
@@ -4490,10 +4494,6 @@ int main(int argc, char *argv[]) {
         r = determine_names();
         if (r < 0)
                 goto finish;
-
-        r = determine_uid_shift(arg_directory);
-        if (r < 0)
-                return r;
 
         if (geteuid() != 0) {
                 log_error("Need to be root.");
