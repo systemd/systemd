@@ -943,7 +943,7 @@ static int system_journal_open(Server *s, bool flush_requested) {
                  * the machine path */
 
                 if (s->storage == STORAGE_PERSISTENT)
-                        (void) mkdir("/var/log/journal/", 0755);
+                        (void) mkdir_p("/var/log/journal/", 0755);
 
                 fn = strjoina("/var/log/journal/", ids);
                 (void) mkdir(fn, 0755);
