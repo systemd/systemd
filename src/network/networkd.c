@@ -103,7 +103,7 @@ int main(int argc, char *argv[]) {
 
         r = manager_rtnl_enumerate_addresses(m);
         if (r < 0) {
-                log_error_errno(r, "Could not enumerate links: %m");
+                log_error_errno(r, "Could not enumerate addresses: %m");
                 goto out;
         }
 
