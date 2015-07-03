@@ -4159,9 +4159,15 @@ static int inner_child(
         }
 
 #ifdef HAVE_SELINUX
-        if (arg_selinux_context)
-                if (setexeccon((security_context_t) arg_selinux_context) < 0)
+        if (arg_selinux_context) {
+                _cleanup_fclose_ FILE *f = NULL;
+                f = fopen("/proc/self/attr/exec", "we");
+                fputs(arg_selinux_context, f);
+                fflush(f);
+                if (ferror(f))
                         return log_error_errno(errno, "setexeccon(\"%s\") failed: %m", arg_selinux_context);
+
+        }
 #endif
 
         r = change_uid_gid(&home);
