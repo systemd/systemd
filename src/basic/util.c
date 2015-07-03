@@ -5925,10 +5925,9 @@ int rename_noreplace(int olddirfd, const char *oldpath, int newdirfd, const char
         if (ret >= 0)
                 return 0;
 
-        /* Even though renameat2() exists since Linux 3.15, btrfs added
-         * support for it later. If it is not implemented, fallback to another
-         * method. */
-        if (errno != EINVAL)
+        /* renameat2() exists since Linux 3.15, btrfs added support for it later.
+         * If it is not implemented, fallback to another method. */
+        if (!IN_SET(errno, EINVAL, ENOSYS))
                 return -errno;
 
         /* The link()/unlink() fallback does not work on directories. But
