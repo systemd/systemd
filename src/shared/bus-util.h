@@ -135,22 +135,15 @@ typedef struct UnitInfo {
 
 int bus_parse_unit_info(sd_bus_message *message, UnitInfo *u);
 
-static inline void sd_bus_close_unrefp(sd_bus **bus) {
-        if (*bus) {
-                sd_bus_flush(*bus);
-                sd_bus_close(*bus);
-                sd_bus_unref(*bus);
-        }
-}
-
 DEFINE_TRIVIAL_CLEANUP_FUNC(sd_bus*, sd_bus_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(sd_bus*, sd_bus_flush_close_unref);
 DEFINE_TRIVIAL_CLEANUP_FUNC(sd_bus_slot*, sd_bus_slot_unref);
 DEFINE_TRIVIAL_CLEANUP_FUNC(sd_bus_message*, sd_bus_message_unref);
 DEFINE_TRIVIAL_CLEANUP_FUNC(sd_bus_creds*, sd_bus_creds_unref);
 DEFINE_TRIVIAL_CLEANUP_FUNC(sd_bus_track*, sd_bus_track_unref);
 
 #define _cleanup_bus_unref_ _cleanup_(sd_bus_unrefp)
-#define _cleanup_bus_close_unref_ _cleanup_(sd_bus_close_unrefp)
+#define _cleanup_bus_flush_close_unref_ _cleanup_(sd_bus_flush_close_unrefp)
 #define _cleanup_bus_slot_unref_ _cleanup_(sd_bus_slot_unrefp)
 #define _cleanup_bus_message_unref_ _cleanup_(sd_bus_message_unrefp)
 #define _cleanup_bus_creds_unref_ _cleanup_(sd_bus_creds_unrefp)

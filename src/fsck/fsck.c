@@ -62,7 +62,7 @@ static const char *arg_repair = "-a";
 
 static void start_target(const char *target) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_close_unref_ sd_bus *bus = NULL;
+        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
         int r;
 
         assert(target);

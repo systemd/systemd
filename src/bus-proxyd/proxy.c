@@ -45,7 +45,7 @@
 #include "formats-util.h"
 
 static int proxy_create_destination(Proxy *p, const char *destination, const char *local_sec, bool negotiate_fds) {
-        _cleanup_bus_close_unref_ sd_bus *b = NULL;
+        _cleanup_bus_flush_close_unref_ sd_bus *b = NULL;
         int r;
 
         r = sd_bus_new(&b);
@@ -101,7 +101,7 @@ static int proxy_create_destination(Proxy *p, const char *destination, const cha
 }
 
 static int proxy_create_local(Proxy *p, int in_fd, int out_fd, bool negotiate_fds) {
-        _cleanup_bus_close_unref_ sd_bus *b = NULL;
+        _cleanup_bus_flush_close_unref_ sd_bus *b = NULL;
         sd_id128_t server_id;
         int r;
 
@@ -238,8 +238,8 @@ Proxy *proxy_free(Proxy *p) {
         if (!p)
                 return NULL;
 
-        sd_bus_close_unrefp(&p->local_bus);
-        sd_bus_close_unrefp(&p->destination_bus);
+        sd_bus_flush_close_unref(p->local_bus);
+        sd_bus_flush_close_unref(p->destination_bus);
         set_free_free(p->owned_names);
         free(p);
 

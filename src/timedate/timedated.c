@@ -660,7 +660,7 @@ static const sd_bus_vtable timedate_vtable[] = {
 };
 
 static int connect_bus(Context *c, sd_event *event, sd_bus **_bus) {
-        _cleanup_bus_close_unref_ sd_bus *bus = NULL;
+        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
         int r;
 
         assert(c);
@@ -692,7 +692,7 @@ static int connect_bus(Context *c, sd_event *event, sd_bus **_bus) {
 int main(int argc, char *argv[]) {
         Context context = {};
         _cleanup_event_unref_ sd_event *event = NULL;
-        _cleanup_bus_close_unref_ sd_bus *bus = NULL;
+        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
         int r;
 
         log_set_target(LOG_TARGET_AUTO);

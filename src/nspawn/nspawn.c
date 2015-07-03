@@ -2273,7 +2273,7 @@ static int drop_capabilities(void) {
 
 static int register_machine(pid_t pid, int local_ifindex) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_close_unref_ sd_bus *bus = NULL;
+        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
         int r;
 
         if (!arg_register)
@@ -2430,7 +2430,7 @@ static int register_machine(pid_t pid, int local_ifindex) {
 static int terminate_machine(pid_t pid) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-        _cleanup_bus_close_unref_ sd_bus *bus = NULL;
+        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
         const char *path;
         int r;
 

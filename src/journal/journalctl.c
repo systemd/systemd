@@ -1719,7 +1719,7 @@ static int access_check(sd_journal *j) {
 
 static int flush_to_var(void) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_close_unref_ sd_bus *bus = NULL;
+        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
         _cleanup_close_ int watch_fd = -1;
         int r;
 

@@ -551,8 +551,7 @@ static Manager *manager_unref(Manager *m) {
 
         bus_verify_polkit_async_registry_free(m->polkit_registry);
 
-        sd_bus_close(m->bus);
-        sd_bus_unref(m->bus);
+        m->bus = sd_bus_flush_close_unref(m->bus);
         sd_event_unref(m->event);
 
         free(m);

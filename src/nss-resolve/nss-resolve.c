@@ -122,7 +122,7 @@ enum nss_status _nss_resolve_gethostbyname4_r(
         _cleanup_bus_message_unref_ sd_bus_message *req = NULL, *reply = NULL;
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         struct gaih_addrtuple *r_tuple, *r_tuple_first = NULL;
-        _cleanup_bus_close_unref_ sd_bus *bus = NULL;
+        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
         const char *canonical = NULL;
         size_t l, ms, idx;
         char *r_name;
@@ -305,7 +305,7 @@ enum nss_status _nss_resolve_gethostbyname3_r(
         _cleanup_bus_message_unref_ sd_bus_message *req = NULL, *reply = NULL;
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         char *r_name, *r_aliases, *r_addr, *r_addr_list;
-        _cleanup_bus_close_unref_ sd_bus *bus = NULL;
+        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
         size_t l, idx, ms, alen;
         const char *canonical;
         int c, r, i = 0, ifindex;
@@ -513,7 +513,7 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
         _cleanup_bus_message_unref_ sd_bus_message *req = NULL, *reply = NULL;
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         char *r_name, *r_aliases, *r_addr, *r_addr_list;
-        _cleanup_bus_close_unref_ sd_bus *bus = NULL;
+        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
         unsigned c = 0, i = 0;
         size_t ms = 0, idx;
         const char *n;

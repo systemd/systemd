@@ -92,7 +92,7 @@ int main(int argc, char *argv[]) {
         };
 
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
-        _cleanup_bus_close_unref_ sd_bus *bus = NULL;
+        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
         enum bus_match_node_type i;
         sd_bus_slot slots[19];
         int r;
