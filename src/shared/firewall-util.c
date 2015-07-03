@@ -43,6 +43,8 @@
 #define SYSTEMD_TABLE "systemd"
 #define SYSTEMD_CHAIN_NAT_PRE_IPV4  "nat-pre-ipv4"
 #define SYSTEMD_CHAIN_NAT_POST_IPV4 "nat-post-ipv4"
+#define SYSTEMD_CHAIN_FILTER_INPUT  "input"
+#define SYSTEMD_CHAIN_FILTER_OUTPUT "output"
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct mnl_socket*, mnl_socket_close);
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct nft_table*, nft_table_free);
@@ -669,4 +671,69 @@ int fw_remove_masquerade(uint64_t handle) {
 
 int fw_remove_local_dnat(uint64_t handle) {
         return fw_remove_rule(handle, SYSTEMD_CHAIN_NAT_PRE_IPV4);
+}
+
+int fw_add_cgroup_match(uint32_t net_cls, bool input, const char *target, uint64_t *handle) {
+
+        _cleanup_(mnl_socket_closep) struct mnl_socket *nl = NULL;
+        _cleanup_(nft_rule_freep) struct nft_rule *rule = NULL;
+        struct nft_rule_expr *expr;
+        const char *chain;
+        int r;
+
+        rule = nft_rule_alloc();
+        if (!rule)
+                return -ENOMEM;
+
+        chain = input ? SYSTEMD_CHAIN_FILTER_INPUT : SYSTEMD_CHAIN_FILTER_OUTPUT;
+
+        nft_rule_attr_set(rule, NFT_RULE_ATTR_TABLE, SYSTEMD_TABLE);
+        nft_rule_attr_set(rule, NFT_RULE_ATTR_CHAIN, chain);
+        nft_rule_attr_set_u32(rule, NFT_RULE_ATTR_FAMILY, NFPROTO_IPV4);
+
+        expr = nft_rule_expr_alloc("meta");
+        if (!expr)
+                return -ENOMEM;
+
+        nft_rule_expr_set_u32(expr, NFT_EXPR_META_KEY, NFT_META_CGROUP);
+        nft_rule_expr_set_u32(expr, NFT_EXPR_META_DREG, NFT_REG_1);
+        nft_rule_add_expr(rule, expr);
+        r = add_cmp(rule, NFT_REG_1, NFT_CMP_EQ, &net_cls, sizeof(net_cls));
+        if (r < 0)
+                return r;
+
+        expr = nft_rule_expr_alloc("counter");
+        if (!expr)
+                return -ENOMEM;
+
+        nft_rule_add_expr(rule, expr);
+
+        if (target) {
+                expr = nft_rule_expr_alloc("immediate");
+                if (!expr)
+                        return -ENOMEM;
+
+                nft_rule_expr_set_u32(expr, NFT_EXPR_IMM_DREG, NFT_REG_VERDICT);
+                nft_rule_expr_set_u32(expr, NFT_EXPR_IMM_VERDICT, NF_DROP); /* FIXME */
+                nft_rule_add_expr(rule, expr);
+        }
+
+        r = socket_open_and_bind(&nl);
+        if (r < 0)
+                return r;
+
+        r = table_cmd(nl, SYSTEMD_TABLE, NFPROTO_IPV4, true);
+        if (r < 0)
+                return r;
+
+        r = chain_cmd(nl, chain, SYSTEMD_TABLE, "filter", NFPROTO_IPV4,
+                      input ? NF_INET_LOCAL_IN : NF_INET_LOCAL_OUT, 0, true);
+        if (r < 0)
+                return r;
+
+        return rule_cmd(nl, rule, NFT_MSG_NEWRULE, NFPROTO_IPV4, NLM_F_APPEND|NLM_F_CREATE|NLM_F_ACK, CALLBACK_RETURN_HANDLE, handle);
+}
+
+int fw_remove_cgroup_match(uint64_t handle, bool input) {
+        return fw_remove_rule(handle, input ? SYSTEMD_CHAIN_FILTER_INPUT : SYSTEMD_CHAIN_FILTER_OUTPUT);
 }
