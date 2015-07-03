@@ -54,6 +54,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(struct nft_rule*, nft_rule_free);
 enum CallbackReturnType {
         CALLBACK_RETURN_UNDEF,
         CALLBACK_RETURN_HANDLE,
+        CALLBACK_RETURN_BYTE_COUNTER,
         _CALLBACK_RETURN_MAX,
 };
 
@@ -62,6 +63,21 @@ struct fw_callback_data {
         uint64_t value;
         bool success;
 };
+
+static int rule_expr_callback(struct nft_rule_expr *expr, void *data) {
+
+        struct fw_callback_data *cb = data;
+        const char *name;
+
+        name = nft_rule_expr_get_str(expr, NFT_RULE_EXPR_ATTR_NAME);
+
+        if (streq(name, "counter")) {
+                cb->value = nft_rule_expr_get_u64(expr, NFT_EXPR_CTR_BYTES);
+                cb->success = true;
+        }
+
+        return 0;
+}
 
 static int events_cb(const struct nlmsghdr *nlh, void *data)
 {
@@ -89,6 +105,14 @@ static int events_cb(const struct nlmsghdr *nlh, void *data)
                         cb->value = nft_rule_attr_get_u64(rule, NFT_RULE_ATTR_HANDLE);
                         cb->success = true;
                         return MNL_CB_STOP;
+
+                case CALLBACK_RETURN_BYTE_COUNTER:
+                        nft_rule_expr_foreach(rule, rule_expr_callback, data);
+
+                        if (cb->success)
+                                return MNL_CB_STOP;
+
+                        break;
 
                 default:
                         assert_not_reached("Invalid callback type");
@@ -736,4 +760,26 @@ int fw_add_cgroup_match(uint32_t net_cls, bool input, const char *target, uint64
 
 int fw_remove_cgroup_match(uint64_t handle, bool input) {
         return fw_remove_rule(handle, input ? SYSTEMD_CHAIN_FILTER_INPUT : SYSTEMD_CHAIN_FILTER_OUTPUT);
+}
+
+int fw_get_counter_bytes(uint64_t handle, bool input, uint64_t *value) {
+
+        _cleanup_(mnl_socket_closep) struct mnl_socket *nl = NULL;
+        _cleanup_(nft_rule_freep) struct nft_rule *rule = NULL;
+        char buf[MNL_SOCKET_BUFFER_SIZE];
+        struct nlmsghdr *nlh;
+        int r;
+
+        nft_rule_attr_set(rule, NFT_RULE_ATTR_TABLE, SYSTEMD_TABLE);
+        nft_rule_attr_set(rule, NFT_RULE_ATTR_CHAIN, input ? SYSTEMD_CHAIN_FILTER_INPUT : SYSTEMD_CHAIN_FILTER_OUTPUT);
+        nft_rule_attr_set_u64(rule, NFT_RULE_ATTR_HANDLE, handle);
+
+        nlh = nft_rule_nlmsg_build_hdr(buf, NFT_MSG_GETRULE, NFPROTO_IPV4, NLM_F_ACK, 0);
+        nft_rule_nlmsg_build_payload(nlh, rule);
+
+        r = socket_open_and_bind(&nl);
+        if (r < 0)
+                return r;
+
+        return send_and_dispatch(nl, nlh, nlh->nlmsg_len, CALLBACK_RETURN_BYTE_COUNTER, value);
 }

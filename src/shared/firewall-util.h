@@ -55,6 +55,8 @@ int fw_remove_local_dnat(uint64_t handle);
 int fw_add_cgroup_match(uint32_t net_cls, bool input, const char *target, uint64_t *handle);
 int fw_remove_cgroup_match(uint64_t handle, bool input);
 
+int fw_get_counter_bytes(uint64_t handle, bool input, uint64_t *value);
+
 #else
 
 static inline int fw_add_masquerade(
@@ -97,6 +99,10 @@ static inline int fw_add_cgroup_match(uint32_t net_cls, bool input, const char *
 }
 
 static inline int fw_remove_cgroup_match(uint64_t handle, bool input) {
+        return -EOPNOTSUPP;
+}
+
+static inline int fw_get_counter_bytes(uint64_t handle, bool input, uint64_t *value) {
         return -EOPNOTSUPP;
 }
 
