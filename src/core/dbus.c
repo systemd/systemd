@@ -108,19 +108,15 @@ static int signal_agent_released(sd_bus_message *message, void *userdata, sd_bus
 
         manager_notify_cgroup_empty(m, cgroup);
 
-        /* only forward to system bus if running as system instance */
-        if (m->running_as != MANAGER_SYSTEM || !m->system_bus)
-                return 0;
+        /* if running as system-instance, forward under our name */
+        if (m->running_as == MANAGER_SYSTEM && m->system_bus) {
+                r = sd_bus_message_rewind(message, 1);
+                if (r >= 0)
+                        r = sd_bus_send(m->system_bus, message, NULL);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to forward Released message: %m");
+        }
 
-        r = sd_bus_message_rewind(message, 1);
-        if (r < 0)
-                goto exit;
-
-        r = sd_bus_send(m->system_bus, message, NULL);
-
-exit:
-        if (r < 0)
-                log_warning_errno(r, "Failed to forward Released message: %m");
         return 0;
 }
 
