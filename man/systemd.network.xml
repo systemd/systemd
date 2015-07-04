@@ -376,8 +376,9 @@
          <para>Note: unless this option is turned on, or set to <literal>kernel</literal>,
           no IP forwarding is done on this interface, even if this is
           globally turned on in the kernel, with the
-          <filename>net.ipv4.ip_forward</filename> and
-          <filename>net.ipv4.ip_forward</filename> sysctl
+          <filename>net.ipv4.ip_forward</filename>,
+          <filename>net.ipv4.conf.all.forwarding</filename>, and
+          <filename>net.ipv6.conf.all.forwarding</filename> sysctl
           options.</para>
           </listitem>
         </varlistentry>
