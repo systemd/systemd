@@ -918,7 +918,7 @@ static int install_loader_config(const char *esp_path) {
 static int help(void) {
         printf("%s [COMMAND] [OPTIONS...]\n"
                "\n"
-               "Install, update or remove the sdboot EFI boot manager.\n\n"
+               "Install, update or remove the systemd-boot EFI boot manager.\n\n"
                "  -h --help          Show this help\n"
                "     --version       Print version\n"
                "     --path=PATH     Path to the EFI System Partition (ESP)\n"
