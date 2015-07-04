@@ -69,13 +69,37 @@ int bus_send_queued_message(Manager *m) {
 }
 
 static int signal_agent_released(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+        const char *cgroup, *me;
         Manager *m = userdata;
-        const char *cgroup;
+        uid_t sender_uid;
+        sd_bus *bus;
         int r;
 
         assert(message);
         assert(m);
 
+        /* ignore recursive events sent by us on the system/user bus */
+        bus = sd_bus_message_get_bus(message);
+        if (!sd_bus_is_server(bus)) {
+                r = sd_bus_get_unique_name(bus, &me);
+                if (r < 0)
+                        return r;
+
+                if (streq_ptr(sd_bus_message_get_sender(message), me))
+                        return 0;
+        }
+
+        /* only accept org.freedesktop.systemd1.Agent from UID=0 */
+        r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_EUID, &creds);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_creds_get_euid(creds, &sender_uid);
+        if (r < 0 || sender_uid != 0)
+                return 0;
+
+        /* parse 'cgroup-empty' notification */
         r = sd_bus_message_read(message, "s", &cgroup);
         if (r < 0) {
                 bus_log_parse_error(r);
