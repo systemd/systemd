@@ -1137,6 +1137,7 @@ static int monitor(sd_bus *bus, char *argv[], int (*dump)(sd_bus_message *m, FIL
 
                 if (m) {
                         dump(m, stdout);
+                        fflush(stdout);
 
                         if (sd_bus_message_is_signal(m, "org.freedesktop.DBus.Local", "Disconnected") > 0) {
                                 log_info("Connection terminated, exiting.");
