@@ -617,7 +617,7 @@ static int get_unit_list_recursive(
                         return r;
 
                 STRV_FOREACH(i, machines) {
-                        _cleanup_bus_close_unref_ sd_bus *container = NULL;
+                        _cleanup_bus_flush_close_unref_ sd_bus *container = NULL;
                         int k;
 
                         r = sd_bus_open_system_machine(&container, *i);
@@ -1709,7 +1709,7 @@ static int compare_machine_info(const void *a, const void *b) {
 }
 
 static int get_machine_properties(sd_bus *bus, struct machine_info *mi) {
-        _cleanup_bus_close_unref_ sd_bus *container = NULL;
+        _cleanup_bus_flush_close_unref_ sd_bus *container = NULL;
         int r;
 
         assert(mi);
@@ -7340,7 +7340,7 @@ static int halt_main(sd_bus *bus) {
 
         if (arg_when > 0) {
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_bus_close_unref_ sd_bus *b = NULL;
+                _cleanup_bus_flush_close_unref_ sd_bus *b = NULL;
                 _cleanup_free_ char *m = NULL;
 
                 if (avoid_bus()) {
@@ -7449,7 +7449,7 @@ static int runlevel_main(void) {
 }
 
 int main(int argc, char*argv[]) {
-        _cleanup_bus_close_unref_ sd_bus *bus = NULL;
+        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
         int r;
 
         setlocale(LC_ALL, "");
@@ -7517,7 +7517,7 @@ int main(int argc, char*argv[]) {
 
         case ACTION_CANCEL_SHUTDOWN: {
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_bus_close_unref_ sd_bus *b = NULL;
+                _cleanup_bus_flush_close_unref_ sd_bus *b = NULL;
                 _cleanup_free_ char *m = NULL;
 
                 if (avoid_bus()) {

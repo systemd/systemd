@@ -1428,6 +1428,17 @@ _public_ void sd_bus_close(sd_bus *bus) {
          * ioctl on the fd when they are freed. */
 }
 
+_public_ sd_bus* sd_bus_flush_close_unref(sd_bus *bus) {
+
+        if (!bus)
+                return NULL;
+
+        sd_bus_flush(bus);
+        sd_bus_close(bus);
+
+        return sd_bus_unref(bus);
+}
+
 static void bus_enter_closing(sd_bus *bus) {
         assert(bus);
 

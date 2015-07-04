@@ -262,7 +262,7 @@ fail:
 
 static void* client1(void*p) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-        _cleanup_bus_close_unref_ sd_bus *bus = NULL;
+        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *hello;
         int r;
@@ -361,7 +361,7 @@ static int quit_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_er
 
 static void* client2(void*p) {
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL, *reply = NULL;
-        _cleanup_bus_close_unref_ sd_bus *bus = NULL;
+        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         bool quit = false;
         const char *mid;

@@ -465,4 +465,5 @@ global:
         /* sd-bus */
         sd_bus_emit_object_added;
         sd_bus_emit_object_removed;
+        sd_bus_flush_close_unref;
 } LIBSYSTEMD_221;

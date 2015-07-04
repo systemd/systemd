@@ -156,6 +156,7 @@ void sd_bus_close(sd_bus *bus);
 
 sd_bus *sd_bus_ref(sd_bus *bus);
 sd_bus *sd_bus_unref(sd_bus *bus);
+sd_bus *sd_bus_flush_close_unref(sd_bus *bus);
 
 int sd_bus_is_open(sd_bus *bus);
 

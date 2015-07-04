@@ -79,7 +79,7 @@ enum nss_status _nss_mymachines_gethostbyname4_r(
 
         struct gaih_addrtuple *r_tuple, *r_tuple_first = NULL;
         _cleanup_bus_message_unref_ sd_bus_message* reply = NULL;
-        _cleanup_bus_close_unref_ sd_bus *bus = NULL;
+        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
         _cleanup_free_ int *ifindices = NULL;
         _cleanup_free_ char *class = NULL;
         size_t l, ms, idx;
@@ -228,7 +228,7 @@ enum nss_status _nss_mymachines_gethostbyname3_r(
                 char **canonp) {
 
         _cleanup_bus_message_unref_ sd_bus_message* reply = NULL;
-        _cleanup_bus_close_unref_ sd_bus *bus = NULL;
+        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
         _cleanup_free_ char *class = NULL;
         unsigned c = 0, i = 0;
         char *r_name, *r_aliases, *r_addr, *r_addr_list;
