@@ -43,6 +43,8 @@
 #define SCALE_X (0.1 / 1000.0)   /* pixels per us */
 #define SCALE_Y (20.0)
 
+#define USEC_PER_MSEC_DECIMAL (USEC_PER_MSEC/10)
+
 #define compare(a, b) (((a) > (b))? 1 : (((b) > (a))? -1 : 0))
 
 #define svg(...) printf(__VA_ARGS__)
@@ -441,19 +443,19 @@ static int pretty_boot_time(sd_bus *bus, char **_buf) {
 
         size = strpcpyf(&ptr, size, "Startup finished in ");
         if (t->firmware_time)
-                size = strpcpyf(&ptr, size, "%s (firmware) + ", format_timespan(ts, sizeof(ts), t->firmware_time - t->loader_time, USEC_PER_MSEC));
+                size = strpcpyf(&ptr, size, "%s (firmware) + ", format_timespan(ts, sizeof(ts), t->firmware_time - t->loader_time, USEC_PER_MSEC_DECIMAL));
         if (t->loader_time)
-                size = strpcpyf(&ptr, size, "%s (loader) + ", format_timespan(ts, sizeof(ts), t->loader_time, USEC_PER_MSEC));
+                size = strpcpyf(&ptr, size, "%s (loader) + ", format_timespan(ts, sizeof(ts), t->loader_time, USEC_PER_MSEC_DECIMAL));
         if (t->kernel_time)
-                size = strpcpyf(&ptr, size, "%s (kernel) + ", format_timespan(ts, sizeof(ts), t->kernel_done_time, USEC_PER_MSEC));
+                size = strpcpyf(&ptr, size, "%s (kernel) + ", format_timespan(ts, sizeof(ts), t->kernel_done_time, USEC_PER_MSEC_DECIMAL));
         if (t->initrd_time > 0)
-                size = strpcpyf(&ptr, size, "%s (initrd) + ", format_timespan(ts, sizeof(ts), t->userspace_time - t->initrd_time, USEC_PER_MSEC));
+                size = strpcpyf(&ptr, size, "%s (initrd) + ", format_timespan(ts, sizeof(ts), t->userspace_time - t->initrd_time, USEC_PER_MSEC_DECIMAL));
 
-        size = strpcpyf(&ptr, size, "%s (userspace) ", format_timespan(ts, sizeof(ts), t->finish_time - t->userspace_time, USEC_PER_MSEC));
+        size = strpcpyf(&ptr, size, "%s (userspace) ", format_timespan(ts, sizeof(ts), t->finish_time - t->userspace_time, USEC_PER_MSEC_DECIMAL));
         if (t->kernel_time > 0)
-                strpcpyf(&ptr, size, "= %s", format_timespan(ts, sizeof(ts), t->firmware_time + t->finish_time, USEC_PER_MSEC));
+                strpcpyf(&ptr, size, "= %s", format_timespan(ts, sizeof(ts), t->firmware_time + t->finish_time, USEC_PER_MSEC_DECIMAL));
         else
-                strpcpyf(&ptr, size, "= %s", format_timespan(ts, sizeof(ts), t->finish_time - t->userspace_time, USEC_PER_MSEC));
+                strpcpyf(&ptr, size, "= %s", format_timespan(ts, sizeof(ts), t->finish_time - t->userspace_time, USEC_PER_MSEC_DECIMAL));
 
         ptr = strdup(buf);
         if (!ptr)
@@ -658,7 +660,7 @@ static int analyze_plot(sd_bus *bus) {
                 b = u->activating * SCALE_X < width / 2;
                 if (u->time)
                         svg_text(b, u->activating, y, "%s (%s)",
-                                 u->name, format_timespan(ts, sizeof(ts), u->time, USEC_PER_MSEC));
+                                 u->name, format_timespan(ts, sizeof(ts), u->time, USEC_PER_MSEC_DECIMAL));
                 else
                         svg_text(b, u->activating, y, "%s", u->name);
                 y++;
@@ -713,10 +715,10 @@ static int list_dependencies_print(const char *name, unsigned int level, unsigne
         if (times) {
                 if (times->time)
                         printf("%s%s @%s +%s%s", ANSI_HIGHLIGHT_RED_ON, name,
-                               format_timespan(ts, sizeof(ts), times->activating - boot->userspace_time, USEC_PER_MSEC),
-                               format_timespan(ts2, sizeof(ts2), times->time, USEC_PER_MSEC), ANSI_HIGHLIGHT_OFF);
+                               format_timespan(ts, sizeof(ts), times->activating - boot->userspace_time, USEC_PER_MSEC_DECIMAL),
+                               format_timespan(ts2, sizeof(ts2), times->time, USEC_PER_MSEC_DECIMAL), ANSI_HIGHLIGHT_OFF);
                 else if (times->activated > boot->userspace_time)
-                        printf("%s @%s", name, format_timespan(ts, sizeof(ts), times->activated - boot->userspace_time, USEC_PER_MSEC));
+                        printf("%s @%s", name, format_timespan(ts, sizeof(ts), times->activated - boot->userspace_time, USEC_PER_MSEC_DECIMAL));
                 else
                         printf("%s", name);
         } else
@@ -884,9 +886,9 @@ static int list_dependencies(sd_bus *bus, const char *name) {
         if (times) {
                 if (times->time)
                         printf("%s%s +%s%s\n", ANSI_HIGHLIGHT_RED_ON, id,
-                               format_timespan(ts, sizeof(ts), times->time, USEC_PER_MSEC), ANSI_HIGHLIGHT_OFF);
+                               format_timespan(ts, sizeof(ts), times->time, USEC_PER_MSEC_DECIMAL), ANSI_HIGHLIGHT_OFF);
                 else if (times->activated > boot->userspace_time)
-                        printf("%s @%s\n", id, format_timespan(ts, sizeof(ts), times->activated - boot->userspace_time, USEC_PER_MSEC));
+                        printf("%s @%s\n", id, format_timespan(ts, sizeof(ts), times->activated - boot->userspace_time, USEC_PER_MSEC_DECIMAL));
                 else
                         printf("%s\n", id);
         }
@@ -949,7 +951,7 @@ static int analyze_blame(sd_bus *bus) {
                 char ts[FORMAT_TIMESPAN_MAX];
 
                 if (times[i].time > 0)
-                        printf("%16s %s\n", format_timespan(ts, sizeof(ts), times[i].time, USEC_PER_MSEC), times[i].name);
+                        printf("%16s %s\n", format_timespan(ts, sizeof(ts), times[i].time, USEC_PER_MSEC_DECIMAL), times[i].name);
         }
 
         free_unit_times(times, (unsigned) n);
