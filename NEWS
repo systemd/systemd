@@ -1,5 +1,25 @@
 systemd System and Service Manager
 
+CHANGES WITH 222:
+
+        * The udev accelerometer helper was removed. The functionality
+          is now fully included in iio-sensor-proxy. But this means,
+          older iio-sensor-proxy versions will no longer provide
+          accelerometer/orientation data with this systemd version.
+          Please upgrade iio-sensor-proxy to version 1.0.
+
+        Contributions from: Abdo Roig-Maranges, Andrew Eikum, Bastien Nocera,
+        Cédric Delmas, Christian Hesse, Christos Trochalakis, Daniel Mack,
+        daurnimator, David Herrmann, Dimitri John Ledkov, Eric Biggers, Eric
+        Cook, Felipe Sateler, Geert Jansen, Gerd Hoffmann, Gianpaolo Macario,
+        Greg Kroah-Hartman, Iago López Galeiras, Jan Alexander Steffens,
+        Jan Engelhardt, Jay Strict, Kay Sievers, Lennart Poettering,
+        Markus Knetschke, Martin Pitt, Michael Biebl, Michael Marineau, Michal
+        Sekletar, Miguel Bernal Marin, Peter Hutterer, Richard Maw, rinrinne,
+        Tom Gundersen, Vedran Miletić, WaLyong Cho, Zbigniew Jędrzejewski-Szmek
+
+        -- Berlin, 2015-07-XX
+
 CHANGES WITH 221:
 
         * The sd-bus.h and sd-event.h APIs have now been declared
