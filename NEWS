@@ -1,6 +1,12 @@
 systemd System and Service Manager
 
 CHANGES WITH 222:
+        * udev does not longer support the WAIT_FOR_SYSFS= key in udev rules.
+          There are no known issues with current sysfs, and udev does not need
+          or should be used to work around such bugs.
+
+        * udev does no longer enable USB HID power management. Several reports
+          indicate, that some devices cannot handle that setting.
 
         * The udev accelerometer helper was removed. The functionality
           is now fully included in iio-sensor-proxy. But this means,
