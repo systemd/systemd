@@ -111,6 +111,8 @@ static int network_load_one(Manager *manager, const char *filename) {
 
         network->link_local = ADDRESS_FAMILY_IPV6;
 
+        network->ipv6_privacy_extensions = _IPV6_PRIVACY_EXTENSIONS_INVALID;
+
         r = config_parse(NULL, filename, file,
                          "Match\0"
                          "Link\0"
@@ -748,6 +750,57 @@ int config_parse_address_family_boolean_with_kernel(
         }
 
         *fwd = s;
+
+        return 0;
+}
+
+static const char* const ipv6_privacy_extensions_table[_IPV6_PRIVACY_EXTENSIONS_MAX] = {
+        [IPV6_PRIVACY_EXTENSIONS_DISABLE] = "no",
+        [IPV6_PRIVACY_EXTENSIONS_PREFER_PUBLIC] = "yes",
+        [IPV6_PRIVACY_EXTENSIONS_PREFER_TEMPORARY] = "prefer-temporary",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(ipv6_privacy_extensions, IPv6PrivacyExtensions);
+
+int config_parse_ipv6_privacy_extensions(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        IPv6PrivacyExtensions *ipv6_privacy_extensions = data;
+        int k;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(ipv6_privacy_extensions);
+
+        /* Our enum shall be a superset of booleans, hence first try
+         * to parse as boolean, and then as enum */
+
+        k = parse_boolean(rvalue);
+        if (k > 0)
+                *ipv6_privacy_extensions = IPV6_PRIVACY_EXTENSIONS_PREFER_PUBLIC;
+        else if (k == 0)
+                *ipv6_privacy_extensions = IPV6_PRIVACY_EXTENSIONS_DISABLE;
+        else {
+               IPv6PrivacyExtensions s;
+
+                s = ipv6_privacy_extensions_from_string(rvalue);
+                if (s < 0){
+                        log_syntax(unit, LOG_ERR, filename, line, -s, "Failed to parse IPv6 privacy extensions option, ignoring: %s", rvalue);
+                        return 0;
+                }
+
+                *ipv6_privacy_extensions = s;
+        }
 
         return 0;
 }

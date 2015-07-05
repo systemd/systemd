@@ -392,6 +392,16 @@
           <literal>no</literal>.</para></listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>IPv6PrivacyExtensions=</varname></term>
+          <listitem><para>Configures use of stateless temporary addresses that change over time
+          (see <ulink url="https://tools.ietf.org/html/rfc4941">RFC 4941</ulink>, Privacy Extensions for Stateless Address
+          Autoconfiguration in IPv6). A boolean or <literal>prefer-temporary</literal>. When true or <literal>prefer-public</literal>
+          enables privacy extensions, but prefer public addresses over temporary addresses.
+          <literal>prefer-temporary</literal> prefers temporary addresses over public addresses.
+          Defaults to
+          <literal>no</literal>.</para></listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>Bridge=</varname></term>
           <listitem>
             <para>The name of the bridge to add the link to.</para>
