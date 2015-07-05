@@ -255,6 +255,14 @@
         <option>inherit</option>.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--machine-id=</option></term>
+
+        <listitem><para>Override the machine-id set on the hard drive,
+        userful for network booting or for containers. May not be set
+        to all zeros.</para></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>
@@ -974,6 +982,15 @@
         VARIABLE=VALUE. May be used to set default environment
         variables to add to forked child processes. May be used more
         than once to set multiple variables.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>systemd.machine_id=</varname></term>
+
+        <listitem><para>Takes a 32 character hex value to be
+        used for setting the machine-id. Intended mostly for
+        network booting where the same machine-id is desired
+        for every boot.</para></listitem>
       </varlistentry>
 
       <varlistentry>

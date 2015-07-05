@@ -198,7 +198,7 @@ static int generate_machine_id(char id[34], const char *root) {
         return 0;
 }
 
-int machine_id_setup(const char *root) {
+int machine_id_setup(const char *root, sd_id128_t machine_id) {
         const char *etc_machine_id, *run_machine_id;
         _cleanup_close_ int fd = -1;
         bool writable = true;
@@ -248,15 +248,22 @@ int machine_id_setup(const char *root) {
                 }
         }
 
-        if (read_machine_id(fd, id) >= 0)
-                return 0;
+        /* A machine id argument overrides all other machined-ids */
+        if (!sd_id128_is_null(machine_id)) {
+                sd_id128_to_string(machine_id, id);
+                id[32] = '\n';
+                id[33] = 0;
+        } else {
+                if (read_machine_id(fd, id) >= 0)
+                        return 0;
 
-        /* Hmm, so, the id currently stored is not useful, then let's
-         * generate one */
+                /* Hmm, so, the id currently stored is not useful, then let's
+                 * generate one */
 
-        r = generate_machine_id(id, root);
-        if (r < 0)
-                return r;
+                r = generate_machine_id(id, root);
+                if (r < 0)
+                        return r;
+        }
 
         if (writable)
                 if (write_machine_id(fd, id) >= 0)
