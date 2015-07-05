@@ -27,6 +27,7 @@
 
 #include "mount-setup.h"
 #include "dev-setup.h"
+#include "bus-util.h"
 #include "log.h"
 #include "macro.h"
 #include "util.h"
