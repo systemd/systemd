@@ -22,6 +22,7 @@
 #include "af-list.h"
 
 #include "resolved-dns-transaction.h"
+#include "resolved-dns-server.h"
 #include "random-util.h"
 
 DnsTransaction* dns_transaction_free(DnsTransaction *t) {
@@ -364,6 +365,14 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                 }
         }
 
+        if (t->server) {
+                if (t->current_features >= t->server->verified_features)
+                        t->server->verified_features = t->current_features;
+
+                if (t->current_features == t->server->possible_features)
+                        t->server->n_failed_attempts = 0;
+        }
+
         if (DNS_PACKET_TC(p)) {
                 /* Response was truncated, let's try again with good old TCP */
                 r = dns_transaction_open_tcp(t);
@@ -415,6 +424,11 @@ static int on_transaction_timeout(sd_event_source *s, usec_t usec, void *userdat
 
         assert(s);
         assert(t);
+
+        if (t->server && t->server->possible_features == t->current_features) {
+                t->server->n_failed_attempts ++;
+                t->server->last_failed_attempt = now(CLOCK_MONOTONIC);
+        }
 
         /* Timeout reached? Try again, with a new server */
         dns_scope_next_dns_server(t->scope);
@@ -562,6 +576,9 @@ int dns_transaction_go(DnsTransaction *t) {
                 return 0;
         }
 
+        /* Determine the DNS features we want to attempt */
+        t->current_features = dns_server_possible_features(t->server);
+
         r = dns_transaction_make_packet(t);
         if (r == -EDOM) {
                 /* Not the right request to make on this network?
@@ -579,6 +596,9 @@ int dns_transaction_go(DnsTransaction *t) {
 
                 /* RFC 4795, Section 2.4. says reverse lookups shall
                  * always be made via TCP on LLMNR */
+                r = dns_transaction_open_tcp(t);
+        } else if (t->server && t->current_features <= DNS_SERVER_FEATURE_LEVEL_TCP) {
+                /* we already failed using UDP, so try again with TCP */
                 r = dns_transaction_open_tcp(t);
         } else {
                 /* Try via UDP, and if that fails due to large size try via TCP */

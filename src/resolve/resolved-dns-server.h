@@ -32,6 +32,19 @@ typedef enum DnsServerType {
         DNS_SERVER_LINK,
 } DnsServerType;
 
+typedef enum DnsServerFeatureLevel {
+        DNS_SERVER_FEATURE_LEVEL_TCP,
+        DNS_SERVER_FEATURE_LEVEL_UDP,
+        _DNS_SERVER_FEATURE_LEVEL_MAX,
+        _DNS_SERVER_FEATURE_LEVEL_INVALID = -1
+} DnsServerFeatureLevel;
+
+#define DNS_SERVER_FEATURE_LEVEL_WORST 0
+#define DNS_SERVER_FEATURE_LEVEL_BEST (_DNS_SERVER_FEATURE_LEVEL_MAX - 1)
+
+const char* dns_server_feature_level_to_string(int i) _const_;
+int dns_server_feature_level_from_string(const char *s) _pure_;
+
 #include "resolved-link.h"
 
 struct DnsServer {
@@ -47,6 +60,10 @@ struct DnsServer {
         union in_addr_union address;
 
         bool marked:1;
+        DnsServerFeatureLevel verified_features;
+        DnsServerFeatureLevel possible_features;
+        unsigned n_failed_attempts;
+        usec_t last_failed_attempt;
 
         LIST_FIELDS(DnsServer, servers);
 };
@@ -62,4 +79,12 @@ int dns_server_new(
 DnsServer* dns_server_ref(DnsServer *s);
 DnsServer* dns_server_unref(DnsServer *s);
 
+DnsServerFeatureLevel dns_server_possible_features(DnsServer *s);
+
 extern const struct hash_ops dns_server_hash_ops;
+
+/* The amount of time to wait before retrying with a full feature set */
+#define DNS_SERVER_FEATURE_RETRY_USEC (6 * USEC_PER_HOUR)
+
+/* The number of times we will attempt a certain feature set before degrading */
+#define DNS_SERVER_FEATURE_RETRY_ATTEMPTS 2
