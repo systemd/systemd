@@ -191,7 +191,7 @@ int main(int argc, char *argv[]) {
                 }
 
                 /* Flush out all rules */
-                write_string_file("/proc/sys/fs/binfmt_misc/status", "-1", WRITE_STRING_FILE_CREATE);
+                write_string_file("/proc/sys/fs/binfmt_misc/status", "-1", 0);
 
                 STRV_FOREACH(f, files) {
                         k = apply_file(*f, true);
