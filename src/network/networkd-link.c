@@ -1486,35 +1486,55 @@ static int link_enter_join_netdev(Link *link) {
 }
 
 static int link_set_ipv4_forward(Link *link) {
-        const char *p = NULL;
+        const char *p = NULL, *v;
         int r;
+
+        if (link->flags & IFF_LOOPBACK)
+                return 0;
 
         if (link->network->ip_forward == _ADDRESS_FAMILY_BOOLEAN_INVALID)
                 return 0;
 
         p = strjoina("/proc/sys/net/ipv4/conf/", link->ifname, "/forwarding");
-        r = write_string_file_no_create(p, one_zero(link_ipv4_forward_enabled(link)));
-        if (r < 0)
+        v = one_zero(link_ipv4_forward_enabled(link));
+
+        r = write_string_file_no_create(p, v);
+        if (r < 0) {
+                /* If the right value is set anyway, don't complain */
+                if (verify_one_line_file(p, v) > 0)
+                        return 0;
+
                 log_link_warning_errno(link, r, "Cannot configure IPv4 forwarding for interface %s: %m", link->ifname);
+        }
 
         return 0;
 }
 
 static int link_set_ipv6_forward(Link *link) {
-        const char *p = NULL;
+        const char *p = NULL, *v = NULL;
         int r;
 
         /* Make this a NOP if IPv6 is not available */
         if (!socket_ipv6_is_supported())
                 return 0;
 
+        if (link->flags & IFF_LOOPBACK)
+                return 0;
+
         if (link->network->ip_forward == _ADDRESS_FAMILY_BOOLEAN_INVALID)
                 return 0;
 
         p = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/forwarding");
-        r = write_string_file_no_create(p, one_zero(link_ipv6_forward_enabled(link)));
-        if (r < 0)
+        v = one_zero(link_ipv6_forward_enabled(link));
+
+        r = write_string_file_no_create(p, v);
+        if (r < 0) {
+                /* If the right value is set anyway, don't complain */
+                if (verify_one_line_file(p, v) > 0)
+                        return 0;
+
                 log_link_warning_errno(link, r, "Cannot configure IPv6 forwarding for interface: %m");
+        }
 
         return 0;
 }
