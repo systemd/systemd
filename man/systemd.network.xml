@@ -393,12 +393,19 @@
         </varlistentry>
         <varlistentry>
           <term><varname>IPv6PrivacyExtensions=</varname></term>
-          <listitem><para>Configures use of stateless temporary addresses that change over time
-          (see <ulink url="https://tools.ietf.org/html/rfc4941">RFC 4941</ulink>, Privacy Extensions for Stateless Address
-          Autoconfiguration in IPv6). A boolean or <literal>prefer-temporary</literal>. When true or <literal>prefer-public</literal>
-          enables privacy extensions, but prefer public addresses over temporary addresses.
-          <literal>prefer-temporary</literal> prefers temporary addresses over public addresses.
-          Defaults to
+          <listitem><para>Configures use of stateless temporary
+          addresses that change over time (see <ulink
+          url="https://tools.ietf.org/html/rfc4941">RFC 4941</ulink>,
+          Privacy Extensions for Stateless Address Autoconfiguration
+          in IPv6). Takes a boolean or the special values
+          <literal>prefer-public</literal> and
+          <literal>kernel</literal>. When true enables the privacy
+          extensions and prefers temporary addresses over public
+          addresses. When <literal>prefer-public</literal> enables the
+          privacy extensions, but prefers public addresses over
+          temporary addresses. When false, the privacy extensions
+          remain disabled. When <literal>kernel</literal> the kernel's
+          default setting will be left in place.  Defaults to
           <literal>no</literal>.</para></listitem>
         </varlistentry>
         <varlistentry>
