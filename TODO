@@ -26,6 +26,8 @@ External:
 
 Features:
 
+* consider throwing a warning if a service declares it wants to be "Before=" a .device unit.
+
 * "systemctl edit" should know a mode to create a new unit file
 
 * there's probably something wrong with having user mounts below /sys,
