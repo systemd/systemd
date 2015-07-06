@@ -111,7 +111,7 @@ static int network_load_one(Manager *manager, const char *filename) {
 
         network->link_local = ADDRESS_FAMILY_IPV6;
 
-        network->ipv6_privacy_extensions = _IPV6_PRIVACY_EXTENSIONS_INVALID;
+        network->ipv6_privacy_extensions = IPV6_PRIVACY_EXTENSIONS_NO;
 
         r = config_parse(NULL, filename, file,
                          "Match\0"
@@ -755,9 +755,9 @@ int config_parse_address_family_boolean_with_kernel(
 }
 
 static const char* const ipv6_privacy_extensions_table[_IPV6_PRIVACY_EXTENSIONS_MAX] = {
-        [IPV6_PRIVACY_EXTENSIONS_DISABLE] = "no",
-        [IPV6_PRIVACY_EXTENSIONS_PREFER_PUBLIC] = "yes",
-        [IPV6_PRIVACY_EXTENSIONS_PREFER_TEMPORARY] = "prefer-temporary",
+        [IPV6_PRIVACY_EXTENSIONS_NO] = "no",
+        [IPV6_PRIVACY_EXTENSIONS_PREFER_PUBLIC] = "prefer-public",
+        [IPV6_PRIVACY_EXTENSIONS_YES] = "yes",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(ipv6_privacy_extensions, IPv6PrivacyExtensions);
@@ -787,16 +787,21 @@ int config_parse_ipv6_privacy_extensions(
 
         k = parse_boolean(rvalue);
         if (k > 0)
-                *ipv6_privacy_extensions = IPV6_PRIVACY_EXTENSIONS_PREFER_PUBLIC;
+                *ipv6_privacy_extensions = IPV6_PRIVACY_EXTENSIONS_YES;
         else if (k == 0)
-                *ipv6_privacy_extensions = IPV6_PRIVACY_EXTENSIONS_DISABLE;
+                *ipv6_privacy_extensions = IPV6_PRIVACY_EXTENSIONS_NO;
         else {
-               IPv6PrivacyExtensions s;
+                IPv6PrivacyExtensions s;
 
                 s = ipv6_privacy_extensions_from_string(rvalue);
-                if (s < 0){
-                        log_syntax(unit, LOG_ERR, filename, line, -s, "Failed to parse IPv6 privacy extensions option, ignoring: %s", rvalue);
-                        return 0;
+                if (s < 0) {
+
+                        if (streq(rvalue, "kernel"))
+                                s = _IPV6_PRIVACY_EXTENSIONS_INVALID;
+                        else {
+                                log_syntax(unit, LOG_ERR, filename, line, s, "Failed to parse IPv6 privacy extensions option, ignoring: %s", rvalue);
+                                return 0;
+                        }
                 }
 
                 *ipv6_privacy_extensions = s;

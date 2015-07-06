@@ -116,15 +116,12 @@ static bool link_ipv6_forward_enabled(Link *link) {
         return link->network->ip_forward & ADDRESS_FAMILY_IPV6;
 }
 
-static bool link_ipv6_privacy_extensions_enabled(Link *link) {
+static IPv6PrivacyExtensions link_ipv6_privacy_extensions(Link *link) {
         if (link->flags & IFF_LOOPBACK)
-                return false;
+                return _IPV6_PRIVACY_EXTENSIONS_INVALID;
 
         if (!link->network)
-                return false;
-
-        if (link->network->ipv6_privacy_extensions == _IPV6_PRIVACY_EXTENSIONS_INVALID)
-                return false;
+                return _IPV6_PRIVACY_EXTENSIONS_INVALID;
 
         return link->network->ipv6_privacy_extensions;
 }
@@ -1540,7 +1537,8 @@ static int link_set_ipv6_forward(Link *link) {
 }
 
 static int link_set_ipv6_privacy_extensions(Link *link) {
-        char buf[2 * DECIMAL_STR_MAX(unsigned) + 1];
+        char buf[DECIMAL_STR_MAX(unsigned) + 1];
+        IPv6PrivacyExtensions s;
         const char *p = NULL;
         int r;
 
@@ -1548,15 +1546,21 @@ static int link_set_ipv6_privacy_extensions(Link *link) {
         if (!socket_ipv6_is_supported())
                 return 0;
 
-        if (!link_ipv6_privacy_extensions_enabled(link))
+        s = link_ipv6_privacy_extensions(link);
+        if (s == _IPV6_PRIVACY_EXTENSIONS_INVALID)
                 return 0;
 
         p = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/use_tempaddr");
         xsprintf(buf, "%u", link->network->ipv6_privacy_extensions);
 
         r = write_string_file_no_create(p, buf);
-        if (r < 0)
+        if (r < 0) {
+                /* If the right value is set anyway, don't complain */
+                if (verify_one_line_file(p, buf) > 0)
+                        return 0;
+
                 log_link_warning_errno(link, r, "Cannot configure IPv6 privacy extension for interface: %m");
+        }
 
         return 0;
 }
