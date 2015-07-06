@@ -243,6 +243,11 @@ static int dns_scope_socket(DnsScope *s, int type, int family, const union in_ad
                 if (!srv)
                         return -ESRCH;
 
+                srv->possible_features = dns_server_possible_features(srv);
+
+                if (type == SOCK_DGRAM && srv->possible_features < DNS_SERVER_FEATURE_LEVEL_UDP)
+                        return -EAGAIN;
+
                 sa.sa.sa_family = srv->family;
                 if (srv->family == AF_INET) {
                         sa.in.sin_port = htobe16(port);

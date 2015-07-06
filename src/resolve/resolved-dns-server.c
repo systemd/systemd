@@ -23,11 +23,19 @@
 #include "resolved-dns-server.h"
 #include "resolved-resolv-conf.h"
 #include "siphash24.h"
+#include "string-table.h"
 #include "string-util.h"
 
 /* After how much time to repeat classic DNS requests */
 #define DNS_TIMEOUT_MIN_USEC (500 * USEC_PER_MSEC)
 #define DNS_TIMEOUT_MAX_USEC (5 * USEC_PER_SEC)
+
+/* The amount of time to wait before retrying with a full feature set */
+#define DNS_SERVER_FEATURE_GRACE_PERIOD_MAX_USEC (6 * USEC_PER_HOUR)
+#define DNS_SERVER_FEATURE_GRACE_PERIOD_MIN_USEC (5 * USEC_PER_MINUTE)
+
+/* The number of times we will attempt a certain feature set before degrading */
+#define DNS_SERVER_FEATURE_RETRY_ATTEMPTS 3
 
 int dns_server_new(
                 Manager *m,
@@ -60,6 +68,9 @@ int dns_server_new(
 
         s->n_ref = 1;
         s->manager = m;
+        s->verified_features = _DNS_SERVER_FEATURE_LEVEL_INVALID;
+        s->possible_features = DNS_SERVER_FEATURE_LEVEL_BEST;
+        s->features_grace_period_usec = DNS_SERVER_FEATURE_GRACE_PERIOD_MIN_USEC;
         s->type = type;
         s->family = family;
         s->address = *in_addr;
@@ -212,23 +223,84 @@ void dns_server_move_back_and_unmark(DnsServer *s) {
         }
 }
 
-void dns_server_packet_received(DnsServer *s, usec_t rtt) {
+void dns_server_packet_received(DnsServer *s, DnsServerFeatureLevel features, usec_t rtt) {
         assert(s);
 
-        if (rtt <= s->max_rtt)
-                return;
+        if (s->verified_features < features) {
+                s->verified_features = features;
+                assert_se(sd_event_now(s->manager->event, clock_boottime_or_monotonic(), &s->verified_usec) >= 0);
+        }
 
-        s->max_rtt = rtt;
-        s->resend_timeout = MIN(MAX(DNS_TIMEOUT_MIN_USEC, s->max_rtt * 2), DNS_TIMEOUT_MAX_USEC);
+        if (s->possible_features == features)
+                s->n_failed_attempts = 0;
+
+        if (s->max_rtt < rtt) {
+                s->max_rtt = rtt;
+                s->resend_timeout = MIN(MAX(DNS_TIMEOUT_MIN_USEC, s->max_rtt * 2), DNS_TIMEOUT_MAX_USEC);
+        }
 }
 
-void dns_server_packet_lost(DnsServer *s, usec_t usec) {
+void dns_server_packet_lost(DnsServer *s, DnsServerFeatureLevel features, usec_t usec) {
         assert(s);
+        assert(s->manager);
+
+        if (s->possible_features == features)
+                s->n_failed_attempts ++;
 
         if (s->resend_timeout > usec)
                 return;
 
         s->resend_timeout = MIN(s->resend_timeout * 2, DNS_TIMEOUT_MAX_USEC);
+}
+
+static bool dns_server_grace_period_expired(DnsServer *s) {
+        usec_t ts;
+
+        assert(s);
+        assert(s->manager);
+
+        if (s->verified_usec == 0)
+                return false;
+
+        assert_se(sd_event_now(s->manager->event, clock_boottime_or_monotonic(), &ts) >= 0);
+
+        if (s->verified_usec + s->features_grace_period_usec > ts)
+                return false;
+
+        s->features_grace_period_usec = MIN(s->features_grace_period_usec * 2, DNS_SERVER_FEATURE_GRACE_PERIOD_MAX_USEC);
+
+        return true;
+}
+
+DnsServerFeatureLevel dns_server_possible_features(DnsServer *s) {
+        assert(s);
+
+        if (s->possible_features != DNS_SERVER_FEATURE_LEVEL_BEST &&
+            dns_server_grace_period_expired(s)) {
+                _cleanup_free_ char *ip = NULL;
+
+                s->possible_features = DNS_SERVER_FEATURE_LEVEL_BEST;
+                s->n_failed_attempts = 0;
+                s->verified_usec = 0;
+
+                in_addr_to_string(s->family, &s->address, &ip);
+                log_info("Grace period over, resuming full feature set for DNS server %s", strna(ip));
+        } else if (s->possible_features <= s->verified_features)
+                s->possible_features = s->verified_features;
+        else if (s->n_failed_attempts >= DNS_SERVER_FEATURE_RETRY_ATTEMPTS &&
+                 s->possible_features > DNS_SERVER_FEATURE_LEVEL_WORST) {
+                _cleanup_free_ char *ip = NULL;
+
+                s->possible_features --;
+                s->n_failed_attempts = 0;
+                s->verified_usec = 0;
+
+                in_addr_to_string(s->family, &s->address, &ip);
+                log_warning("Using degraded feature set (%s) for DNS server %s",
+                            dns_server_feature_level_to_string(s->possible_features), strna(ip));
+        }
+
+        return s->possible_features;
 }
 
 static void dns_server_hash_func(const void *p, struct siphash *state) {
@@ -392,3 +464,9 @@ void manager_next_dns_server(Manager *m) {
         else
                 manager_set_dns_server(m, m->dns_servers);
 }
+
+static const char* const dns_server_feature_level_table[_DNS_SERVER_FEATURE_LEVEL_MAX] = {
+        [DNS_SERVER_FEATURE_LEVEL_TCP] = "TCP",
+        [DNS_SERVER_FEATURE_LEVEL_UDP] = "UDP",
+};
+DEFINE_STRING_TABLE_LOOKUP(dns_server_feature_level, DnsServerFeatureLevel);

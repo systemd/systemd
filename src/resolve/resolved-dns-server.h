@@ -31,8 +31,21 @@ typedef enum DnsServerType {
         DNS_SERVER_LINK,
 } DnsServerType;
 
-#include "resolved-manager.h"
+typedef enum DnsServerFeatureLevel {
+        DNS_SERVER_FEATURE_LEVEL_TCP,
+        DNS_SERVER_FEATURE_LEVEL_UDP,
+        _DNS_SERVER_FEATURE_LEVEL_MAX,
+        _DNS_SERVER_FEATURE_LEVEL_INVALID = -1
+} DnsServerFeatureLevel;
+
+#define DNS_SERVER_FEATURE_LEVEL_WORST 0
+#define DNS_SERVER_FEATURE_LEVEL_BEST (_DNS_SERVER_FEATURE_LEVEL_MAX - 1)
+
+const char* dns_server_feature_level_to_string(int i) _const_;
+int dns_server_feature_level_from_string(const char *s) _pure_;
+
 #include "resolved-link.h"
+#include "resolved-manager.h"
 
 struct DnsServer {
         Manager *manager;
@@ -49,6 +62,11 @@ struct DnsServer {
         usec_t max_rtt;
 
         bool marked:1;
+        DnsServerFeatureLevel verified_features;
+        DnsServerFeatureLevel possible_features;
+        unsigned n_failed_attempts;
+        usec_t verified_usec;
+        usec_t features_grace_period_usec;
 
         /* If linked is set, then this server appears in the servers linked list */
         bool linked:1;
@@ -69,8 +87,8 @@ DnsServer* dns_server_unref(DnsServer *s);
 void dns_server_unlink(DnsServer *s);
 void dns_server_move_back_and_unmark(DnsServer *s);
 
-void dns_server_packet_received(DnsServer *s, usec_t rtt);
-void dns_server_packet_lost(DnsServer *s, usec_t usec);
+void dns_server_packet_received(DnsServer *s, DnsServerFeatureLevel features, usec_t rtt);
+void dns_server_packet_lost(DnsServer *s, DnsServerFeatureLevel features, usec_t usec);
 
 DnsServer *dns_server_find(DnsServer *first, int family, const union in_addr_union *in_addr);
 
@@ -85,5 +103,7 @@ DnsServer *manager_get_dns_server(Manager *m);
 void manager_next_dns_server(Manager *m);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsServer*, dns_server_unref);
+
+DnsServerFeatureLevel dns_server_possible_features(DnsServer *s);
 
 extern const struct hash_ops dns_server_hash_ops;
