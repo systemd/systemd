@@ -341,6 +341,11 @@ static int custom_mounts_prepare(void) {
         for (i = 0; i < arg_n_custom_mounts; i++) {
                 CustomMount *m = &arg_custom_mounts[i];
 
+                if (arg_userns && arg_uid_shift == UID_INVALID && path_equal(m->destination, "/")) {
+                        log_error("--private-users with automatic UID shift may not be combined with custom root mounts.");
+                        return -EINVAL;
+                }
+
                 if (m->type != CUSTOM_MOUNT_OVERLAY)
                         continue;
 
@@ -1028,6 +1033,7 @@ static int tmpfs_patch_options(const char *options, char **ret) {
         char *buf = NULL;
 
         if (arg_userns && arg_uid_shift != 0) {
+                assert(arg_uid_shift != UID_INVALID);
 
                 if (options)
                         (void) asprintf(&buf, "%s,uid=" UID_FMT ",gid=" UID_FMT, options, arg_uid_shift, arg_uid_shift);
@@ -4259,6 +4265,7 @@ static int outer_child(
                 int pid_socket,
                 int kmsg_socket,
                 int rtnl_socket,
+                int uid_shift_socket,
                 FDSet *fds,
                 int argc,
                 char *argv[]) {
@@ -4316,6 +4323,16 @@ static int outer_child(
         r = determine_uid_shift(directory);
         if (r < 0)
                 return r;
+
+        if (arg_userns) {
+                l = send(uid_shift_socket, &arg_uid_shift, sizeof(arg_uid_shift), MSG_NOSIGNAL);
+                if (l < 0)
+                        return log_error_errno(errno, "Failed to send UID shift: %m");
+                if (l != sizeof(arg_uid_shift)) {
+                        log_error("Short write while sending UID shift.");
+                        return -EIO;
+                }
+        }
 
         /* Turn directory into bind mount */
         if (mount(directory, directory, NULL, MS_BIND|MS_REC, NULL) < 0)
@@ -4397,6 +4414,7 @@ static int outer_child(
 
         if (pid == 0) {
                 pid_socket = safe_close(pid_socket);
+                uid_shift_socket = safe_close(uid_shift_socket);
 
                 /* The inner child has all namespaces that are
                  * requested, so that we all are owned by the user if
@@ -4687,7 +4705,8 @@ int main(int argc, char *argv[]) {
         }
 
         for (;;) {
-                _cleanup_close_pair_ int kmsg_socket_pair[2] = { -1, -1 }, rtnl_socket_pair[2] = { -1, -1 }, pid_socket_pair[2] = { -1, -1 };
+                _cleanup_close_pair_ int kmsg_socket_pair[2] = { -1, -1 }, rtnl_socket_pair[2] = { -1, -1 }, pid_socket_pair[2] = { -1, -1 },
+                                         uid_shift_socket_pair[2] = { -1, -1 };
                 ContainerStatus container_status;
                 _cleanup_(barrier_destroy) Barrier barrier = BARRIER_NULL;
                 static const struct sigaction sa = {
@@ -4721,6 +4740,12 @@ int main(int argc, char *argv[]) {
                         r = log_error_errno(errno, "Failed to create pid socket pair: %m");
                         goto finish;
                 }
+
+                if (arg_userns)
+                        if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, uid_shift_socket_pair) < 0) {
+                                r = log_error_errno(errno, "Failed to create uid shift socket pair: %m");
+                                goto finish;
+                        }
 
                 /* Child can be killed before execv(), so handle SIGCHLD
                  * in order to interrupt parent's blocking calls and
@@ -4756,6 +4781,7 @@ int main(int argc, char *argv[]) {
                         kmsg_socket_pair[0] = safe_close(kmsg_socket_pair[0]);
                         rtnl_socket_pair[0] = safe_close(rtnl_socket_pair[0]);
                         pid_socket_pair[0] = safe_close(pid_socket_pair[0]);
+                        uid_shift_socket_pair[0] = safe_close(uid_shift_socket_pair[0]);
 
                         (void) reset_all_signal_handlers();
                         (void) reset_signal_mask();
@@ -4771,6 +4797,7 @@ int main(int argc, char *argv[]) {
                                         pid_socket_pair[1],
                                         kmsg_socket_pair[1],
                                         rtnl_socket_pair[1],
+                                        uid_shift_socket_pair[1],
                                         fds,
                                         argc, argv);
                         if (r < 0)
@@ -4816,6 +4843,17 @@ int main(int argc, char *argv[]) {
                         if (!barrier_place_and_sync(&barrier)) { /* #1 */
                                 log_error("Child died too early.");
                                 r = -ESRCH;
+                                goto finish;
+                        }
+
+                        l = recv(uid_shift_socket_pair[0], &arg_uid_shift, sizeof(arg_uid_shift), 0);
+                        if (l < 0) {
+                                r = log_error_errno(errno, "Failed to read UID shift: %m");
+                                goto finish;
+                        }
+                        if (l != sizeof(arg_uid_shift)) {
+                                log_error("Short read while reading UID shift: %m");
+                                r = EIO;
                                 goto finish;
                         }
 
