@@ -189,6 +189,19 @@ static int proxy_prepare_matches(Proxy *p) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add match for NameAcquired: %m");
 
+        free(match);
+        match = strjoin("type='signal',"
+                        "destination='",
+                        unique,
+                        "'",
+                        NULL);
+        if (!match)
+                return log_oom();
+
+        r = sd_bus_add_match(p->destination_bus, NULL, match, NULL, NULL);
+        if (r < 0)
+                log_error_errno(r, "Failed to add match for NameAcquired: %m");
+
         return 0;
 }
 
