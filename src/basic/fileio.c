@@ -27,14 +27,14 @@
 #include "ctype.h"
 #include "fileio.h"
 
-int write_string_stream(FILE *f, const char *line) {
+int write_string_stream(FILE *f, const char *line, bool enforce_newline) {
         assert(f);
         assert(line);
 
         errno = 0;
 
         fputs(line, f);
-        if (!endswith(line, "\n"))
+        if (enforce_newline && !endswith(line, "\n"))
                 fputc('\n', f);
 
         fflush(f);
@@ -55,7 +55,7 @@ int write_string_file(const char *fn, const char *line) {
         if (!f)
                 return -errno;
 
-        return write_string_stream(f, line);
+        return write_string_stream(f, line, true);
 }
 
 int write_string_file_no_create(const char *fn, const char *line) {
@@ -77,7 +77,7 @@ int write_string_file_no_create(const char *fn, const char *line) {
                 return -errno;
         }
 
-        return write_string_stream(f, line);
+        return write_string_stream(f, line, true);
 }
 
 int write_string_file_atomic(const char *fn, const char *line) {
@@ -94,7 +94,7 @@ int write_string_file_atomic(const char *fn, const char *line) {
 
         fchmod_umask(fileno(f), 0644);
 
-        r = write_string_stream(f, line);
+        r = write_string_stream(f, line, true);
         if (r >= 0) {
                 if (rename(p, fn) < 0)
                         r = -errno;

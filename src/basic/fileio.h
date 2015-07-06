@@ -25,7 +25,7 @@
 
 #include "macro.h"
 
-int write_string_stream(FILE *f, const char *line);
+int write_string_stream(FILE *f, const char *line, bool enforce_newline);
 int write_string_file(const char *fn, const char *line);
 int write_string_file_no_create(const char *fn, const char *line);
 int write_string_file_atomic(const char *fn, const char *line);

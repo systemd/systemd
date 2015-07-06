@@ -302,16 +302,26 @@ static void test_write_string_stream(void) {
 
         f = fdopen(fd, "r");
         assert_se(f);
-        assert_se(write_string_stream(f, "boohoo") < 0);
+        assert_se(write_string_stream(f, "boohoo", true) < 0);
 
         f = freopen(fn, "r+", f);
         assert_se(f);
 
-        assert_se(write_string_stream(f, "boohoo") == 0);
+        assert_se(write_string_stream(f, "boohoo", true) == 0);
         rewind(f);
 
         assert_se(fgets(buf, sizeof(buf), f));
         assert_se(streq(buf, "boohoo\n"));
+
+        f = freopen(fn, "w+", f);
+        assert_se(f);
+
+        assert_se(write_string_stream(f, "boohoo", false) == 0);
+        rewind(f);
+
+        assert_se(fgets(buf, sizeof(buf), f));
+        printf(">%s<", buf);
+        assert_se(streq(buf, "boohoo"));
 
         unlink(fn);
 }
