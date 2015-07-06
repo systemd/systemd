@@ -740,12 +740,15 @@ int cg_set_task_access(
                 return r;
 
         /* Compatibility, Always keep values for "tasks" in sync with
-         * "cgroup.procs" */
+         * "cgroup.procs", if exists */
         r = cg_get_path(controller, path, "tasks", &procs);
         if (r < 0)
                 return r;
 
-        return chmod_and_chown(procs, mode, uid, gid);
+        r = chmod_and_chown(procs, mode, uid, gid);
+        if (r == -ENOENT)
+                r = 0;
+        return r;
 }
 
 int cg_pid_get_path(const char *controller, pid_t pid, char **path) {
