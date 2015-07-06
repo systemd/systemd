@@ -4696,10 +4696,10 @@ int main(int argc, char *argv[]) {
                 };
                 int ifi = 0;
                 ssize_t l;
-                                _cleanup_event_unref_ sd_event *event = NULL;
-                                _cleanup_(pty_forward_freep) PTYForward *forward = NULL;
-                                _cleanup_netlink_unref_ sd_netlink *rtnl = NULL;
-                                char last_char = 0;
+                _cleanup_event_unref_ sd_event *event = NULL;
+                _cleanup_(pty_forward_freep) PTYForward *forward = NULL;
+                _cleanup_netlink_unref_ sd_netlink *rtnl = NULL;
+                char last_char = 0;
 
                 r = barrier_create(&barrier);
                 if (r < 0) {
