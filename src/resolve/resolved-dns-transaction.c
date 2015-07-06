@@ -26,7 +26,6 @@
 #include "resolved-llmnr.h"
 #include "resolved-dns-transaction.h"
 
-
 DnsTransaction* dns_transaction_free(DnsTransaction *t) {
         DnsQuery *q;
         DnsZoneItem *i;
@@ -361,6 +360,14 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                 }
         }
 
+        if (t->server) {
+                if (t->current_features >= t->server->verified_features)
+                        t->server->verified_features = t->current_features;
+
+                if (t->current_features == t->server->possible_features)
+                        t->server->n_failed_attempts = 0;
+        }
+
         if (DNS_PACKET_TC(p)) {
                 /* Response was truncated, let's try again with good old TCP */
                 r = dns_transaction_open_tcp(t);
@@ -457,7 +464,10 @@ static int dns_transaction_emit(DnsTransaction *t) {
         fd = -1;
         t->dns_event_source = event_source;
         event_source = NULL;
-        t->server = dns_server_ref(server);
+        if (server) {
+                t->server = dns_server_ref(server);
+                t->current_features = server->possible_features;
+        }
 
         return 0;
 }
@@ -468,6 +478,11 @@ static int on_transaction_timeout(sd_event_source *s, usec_t usec, void *userdat
 
         assert(s);
         assert(t);
+
+        if (t->server && t->server->possible_features == t->current_features) {
+                t->server->n_failed_attempts ++;
+                t->server->last_failed_attempt = now(CLOCK_MONOTONIC);
+        }
 
         /* Timeout reached? Try again, with a new server */
         dns_scope_next_dns_server(t->scope);
@@ -627,11 +642,13 @@ int dns_transaction_go(DnsTransaction *t) {
                  * always be made via TCP on LLMNR */
                 r = dns_transaction_open_tcp(t);
         } else {
-                /* Try via UDP, and if that fails due to large size try via TCP */
+                /* Try via UDP, and if that fails due to large size or lack of
+                 * support try via TCP */
                 r = dns_transaction_emit(t);
-                if (r == -EMSGSIZE)
+                if (r == -EMSGSIZE || r == -EAGAIN)
                         r = dns_transaction_open_tcp(t);
         }
+
         if (r == -ESRCH) {
                 /* No servers to send this to? */
                 dns_transaction_complete(t, DNS_TRANSACTION_NO_SERVERS);

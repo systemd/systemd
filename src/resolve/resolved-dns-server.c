@@ -42,6 +42,8 @@ int dns_server_new(
                 return -ENOMEM;
 
         s->n_ref = 1;
+        s->verified_features = _DNS_SERVER_FEATURE_LEVEL_INVALID;
+        s->possible_features = DNS_SERVER_FEATURE_LEVEL_BEST;
         s->type = type;
         s->family = family;
         s->address = *in_addr;
@@ -115,6 +117,36 @@ DnsServer* dns_server_unref(DnsServer *s)  {
         return NULL;
 }
 
+DnsServerFeatureLevel dns_server_possible_features(DnsServer *s) {
+        assert(s);
+
+        if (s->last_failed_attempt != 0 &&
+            s->possible_features != DNS_SERVER_FEATURE_LEVEL_BEST &&
+            s->last_failed_attempt + DNS_SERVER_FEATURE_RETRY_USEC < now(CLOCK_MONOTONIC)) {
+                _cleanup_free_ char *ip = NULL;
+
+                s->possible_features = DNS_SERVER_FEATURE_LEVEL_BEST;
+                s->n_failed_attempts = 0;
+
+                in_addr_to_string(s->family, &s->address, &ip);
+                log_info("Grace period over, resuming full feature set for DNS server %s", strna(ip));
+        } else if (s->possible_features <= s->verified_features)
+                s->possible_features = s->verified_features;
+        else if (s->n_failed_attempts >= DNS_SERVER_FEATURE_RETRY_ATTEMPTS &&
+                 s->possible_features > DNS_SERVER_FEATURE_LEVEL_WORST) {
+                _cleanup_free_ char *ip = NULL;
+
+                s->possible_features --;
+                s->n_failed_attempts = 0;
+
+                in_addr_to_string(s->family, &s->address, &ip);
+                log_warning("Using degraded feature set (%s) for DNS server %s",
+                            dns_server_feature_level_to_string(s->possible_features), strna(ip));
+        }
+
+        return s->possible_features;
+}
+
 static unsigned long dns_server_hash_func(const void *p, const uint8_t hash_key[HASH_KEY_SIZE]) {
         const DnsServer *s = p;
         uint64_t u;
@@ -140,3 +172,9 @@ const struct hash_ops dns_server_hash_ops = {
         .hash = dns_server_hash_func,
         .compare = dns_server_compare_func
 };
+
+static const char* const dns_server_feature_level_table[_DNS_SERVER_FEATURE_LEVEL_MAX] = {
+        [DNS_SERVER_FEATURE_LEVEL_TCP] = "TCP",
+        [DNS_SERVER_FEATURE_LEVEL_UDP] = "UDP",
+};
+DEFINE_STRING_TABLE_LOOKUP(dns_server_feature_level, DnsServerFeatureLevel);
