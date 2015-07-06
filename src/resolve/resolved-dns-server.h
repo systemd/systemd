@@ -37,6 +37,7 @@ typedef enum DnsServerFeatureLevel {
         DNS_SERVER_FEATURE_LEVEL_UDP,
         DNS_SERVER_FEATURE_LEVEL_EDNS0,
         DNS_SERVER_FEATURE_LEVEL_DO,
+        DNS_SERVER_FEATURE_LEVEL_LARGE,
         _DNS_SERVER_FEATURE_LEVEL_MAX,
         _DNS_SERVER_FEATURE_LEVEL_INVALID = -1
 } DnsServerFeatureLevel;
@@ -64,6 +65,7 @@ struct DnsServer {
         bool marked:1;
         DnsServerFeatureLevel verified_features;
         DnsServerFeatureLevel possible_features;
+        size_t received_udp_packet_max;
         unsigned n_failed_attempts;
         usec_t last_failed_attempt;
 

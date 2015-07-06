@@ -44,6 +44,7 @@ int dns_server_new(
         s->n_ref = 1;
         s->verified_features = _DNS_SERVER_FEATURE_LEVEL_INVALID;
         s->possible_features = DNS_SERVER_FEATURE_LEVEL_BEST;
+        s->received_udp_packet_max = DNS_PACKET_UNICAST_SIZE_MAX;
         s->type = type;
         s->family = family;
         s->address = *in_addr;
@@ -178,5 +179,6 @@ static const char* const dns_server_feature_level_table[_DNS_SERVER_FEATURE_LEVE
         [DNS_SERVER_FEATURE_LEVEL_UDP] = "UDP",
         [DNS_SERVER_FEATURE_LEVEL_EDNS0] = "UDP+EDNS0",
         [DNS_SERVER_FEATURE_LEVEL_DO] = "UDP+EDNS0+DO",
+        [DNS_SERVER_FEATURE_LEVEL_LARGE] = "UDP+EDNS0+DO+LARGE",
 };
 DEFINE_STRING_TABLE_LOOKUP(dns_server_feature_level, DnsServerFeatureLevel);
