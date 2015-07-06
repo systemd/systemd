@@ -127,7 +127,7 @@ int main(int argc, char *argv[]) {
                         return EXIT_SUCCESS;
                 }
 
-                r = write_string_file(saved, value);
+                r = write_string_file(saved, value, WRITE_STRING_FILE_CREATE);
                 if (r < 0) {
                         log_error_errno(r, "Failed to write %s: %m", saved);
                         return EXIT_FAILURE;

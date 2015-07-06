@@ -204,7 +204,7 @@ static int drop_from_file(const char *fn, uint64_t drop) {
         if (asprintf(&p, "%u %u", lo, hi) < 0)
                 return -ENOMEM;
 
-        r = write_string_file(fn, p);
+        r = write_string_file(fn, p, WRITE_STRING_FILE_CREATE);
         free(p);
 
         return r;

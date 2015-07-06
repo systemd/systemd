@@ -415,7 +415,7 @@ static int process_hostname(void) {
                 return 0;
 
         mkdir_parents(etc_hostname, 0755);
-        r = write_string_file(etc_hostname, arg_hostname);
+        r = write_string_file(etc_hostname, arg_hostname, WRITE_STRING_FILE_CREATE);
         if (r < 0)
                 return log_error_errno(r, "Failed to write %s: %m", etc_hostname);
 
@@ -436,7 +436,7 @@ static int process_machine_id(void) {
                 return 0;
 
         mkdir_parents(etc_machine_id, 0755);
-        r = write_string_file(etc_machine_id, sd_id128_to_string(arg_machine_id, id));
+        r = write_string_file(etc_machine_id, sd_id128_to_string(arg_machine_id, id), WRITE_STRING_FILE_CREATE);
         if (r < 0)
                 return log_error_errno(r, "Failed to write machine id: %m");
 

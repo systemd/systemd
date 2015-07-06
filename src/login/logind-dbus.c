@@ -1196,7 +1196,7 @@ static int trigger_device(Manager *m, struct udev_device *d) {
                 if (!t)
                         return -ENOMEM;
 
-                write_string_file(t, "change");
+                write_string_file(t, "change", WRITE_STRING_FILE_CREATE);
         }
 
         return 0;
@@ -1795,7 +1795,7 @@ static int nologin_timeout_handler(
 
         log_info("Creating /run/nologin, blocking further logins...");
 
-        r = write_string_file_atomic("/run/nologin", "System is going down.");
+        r = write_string_file("/run/nologin", "System is going down.", WRITE_STRING_FILE_ATOMIC);
         if (r < 0)
                 log_error_errno(r, "Failed to create /run/nologin: %m");
         else

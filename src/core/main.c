@@ -1203,7 +1203,7 @@ static int write_container_id(void) {
         if (isempty(c))
                 return 0;
 
-        return write_string_file("/run/systemd/container", c);
+        return write_string_file("/run/systemd/container", c, WRITE_STRING_FILE_CREATE);
 }
 
 int main(int argc, char *argv[]) {

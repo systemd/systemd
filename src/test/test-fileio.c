@@ -334,7 +334,7 @@ static void test_write_string_file(void) {
         fd = mkostemp_safe(fn, O_RDWR);
         assert_se(fd >= 0);
 
-        assert_se(write_string_file(fn, "boohoo") == 0);
+        assert_se(write_string_file(fn, "boohoo", WRITE_STRING_FILE_CREATE) == 0);
 
         assert_se(read(fd, buf, sizeof(buf)) == 7);
         assert_se(streq(buf, "boohoo\n"));
@@ -350,8 +350,8 @@ static void test_write_string_file_no_create(void) {
         fd = mkostemp_safe(fn, O_RDWR);
         assert_se(fd >= 0);
 
-        assert_se(write_string_file_no_create("/a/file/which/does/not/exists/i/guess", "boohoo") < 0);
-        assert_se(write_string_file_no_create(fn, "boohoo") == 0);
+        assert_se(write_string_file("/a/file/which/does/not/exists/i/guess", "boohoo", 0) < 0);
+        assert_se(write_string_file(fn, "boohoo", 0) == 0);
 
         assert_se(read(fd, buf, sizeof(buf)) == strlen("boohoo\n"));
         assert_se(streq(buf, "boohoo\n"));
@@ -377,8 +377,8 @@ static void test_load_env_file_pairs(void) {
                         "ANSI_COLOR=\"0;36\"\n"
                         "HOME_URL=\"https://www.archlinux.org/\"\n"
                         "SUPPORT_URL=\"https://bbs.archlinux.org/\"\n"
-                        "BUG_REPORT_URL=\"https://bugs.archlinux.org/\"\n"
-                        );
+                        "BUG_REPORT_URL=\"https://bugs.archlinux.org/\"\n",
+                        WRITE_STRING_FILE_CREATE);
         assert_se(r == 0);
 
         f = fdopen(fd, "r");

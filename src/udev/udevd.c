@@ -398,7 +398,7 @@ static void worker_spawn(Manager *manager, struct event *event) {
                 prctl(PR_SET_PDEATHSIG, SIGTERM);
 
                 /* reset OOM score, we only protect the main daemon */
-                write_string_file("/proc/self/oom_score_adj", "0");
+                write_string_file("/proc/self/oom_score_adj", "0", WRITE_STRING_FILE_CREATE);
 
                 for (;;) {
                         struct udev_event *udev_event;
@@ -1091,7 +1091,7 @@ static int synthesize_change(struct udev_device *dev) {
                  */
                 log_debug("device %s closed, synthesising 'change'", udev_device_get_devnode(dev));
                 strscpyl(filename, sizeof(filename), udev_device_get_syspath(dev), "/uevent", NULL);
-                write_string_file(filename, "change");
+                write_string_file(filename, "change", WRITE_STRING_FILE_CREATE);
 
                 udev_list_entry_foreach(item, udev_enumerate_get_list_entry(e)) {
                         _cleanup_udev_device_unref_ struct udev_device *d = NULL;
@@ -1106,7 +1106,7 @@ static int synthesize_change(struct udev_device *dev) {
                         log_debug("device %s closed, synthesising partition '%s' 'change'",
                                   udev_device_get_devnode(dev), udev_device_get_devnode(d));
                         strscpyl(filename, sizeof(filename), udev_device_get_syspath(d), "/uevent", NULL);
-                        write_string_file(filename, "change");
+                        write_string_file(filename, "change", WRITE_STRING_FILE_CREATE);
                 }
 
                 return 0;
@@ -1114,7 +1114,7 @@ static int synthesize_change(struct udev_device *dev) {
 
         log_debug("device %s closed, synthesising 'change'", udev_device_get_devnode(dev));
         strscpyl(filename, sizeof(filename), udev_device_get_syspath(dev), "/uevent", NULL);
-        write_string_file(filename, "change");
+        write_string_file(filename, "change", WRITE_STRING_FILE_CREATE);
 
         return 0;
 }
@@ -1747,7 +1747,7 @@ int main(int argc, char *argv[]) {
 
                 setsid();
 
-                write_string_file("/proc/self/oom_score_adj", "-1000");
+                write_string_file("/proc/self/oom_score_adj", "-1000", WRITE_STRING_FILE_CREATE);
         }
 
         r = run(fd_ctrl, fd_uevent, cgroup);

@@ -43,7 +43,7 @@ static void test_copy_file(void) {
         assert_se(fd >= 0);
         close(fd);
 
-        assert_se(write_string_file(fn, "foo bar bar bar foo") == 0);
+        assert_se(write_string_file(fn, "foo bar bar bar foo", WRITE_STRING_FILE_CREATE) == 0);
 
         assert_se(copy_file(fn, fn_copy, 0, 0644, 0) == 0);
 
@@ -67,7 +67,7 @@ static void test_copy_file_fd(void) {
         out_fd = mkostemp_safe(out_fn, O_RDWR);
         assert_se(out_fd >= 0);
 
-        assert_se(write_string_file(in_fn, text) == 0);
+        assert_se(write_string_file(in_fn, text, WRITE_STRING_FILE_CREATE) == 0);
         assert_se(copy_file_fd("/a/file/which/does/not/exist/i/guess", out_fd, true) < 0);
         assert_se(copy_file_fd(in_fn, out_fd, true) >= 0);
         assert_se(lseek(out_fd, SEEK_SET, 0) == 0);
@@ -94,7 +94,7 @@ static void test_copy_tree(void) {
                 char *f = strjoina(original_dir, *p);
 
                 assert_se(mkdir_parents(f, 0755) >= 0);
-                assert_se(write_string_file(f, "file") == 0);
+                assert_se(write_string_file(f, "file", WRITE_STRING_FILE_CREATE) == 0);
         }
 
         STRV_FOREACH_PAIR(link, p, links) {

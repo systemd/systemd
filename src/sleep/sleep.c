@@ -42,7 +42,7 @@ static int write_mode(char **modes) {
         STRV_FOREACH(mode, modes) {
                 int k;
 
-                k = write_string_file("/sys/power/disk", *mode);
+                k = write_string_file("/sys/power/disk", *mode, 0);
                 if (k == 0)
                         return 0;
 

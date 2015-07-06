@@ -4716,7 +4716,7 @@ int update_reboot_param_file(const char *param) {
 
         if (param) {
 
-                r = write_string_file(REBOOT_PARAM_FILE, param);
+                r = write_string_file(REBOOT_PARAM_FILE, param, WRITE_STRING_FILE_CREATE);
                 if (r < 0)
                         log_error("Failed to write reboot param to "
                                   REBOOT_PARAM_FILE": %s", strerror(-r));
