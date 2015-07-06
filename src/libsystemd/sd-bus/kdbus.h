@@ -374,6 +374,7 @@ enum kdbus_item_type {
 	KDBUS_ITEM_ATTACH_FLAGS_RECV,
 	KDBUS_ITEM_ID,
 	KDBUS_ITEM_NAME,
+	KDBUS_ITEM_DST_ID,
 
 	/* keep these item types in sync with KDBUS_ATTACH_* flags */
 	_KDBUS_ITEM_ATTACH_BASE	= 0x1000,
