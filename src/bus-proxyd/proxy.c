@@ -144,6 +144,10 @@ static int proxy_create_local(Proxy *p, int in_fd, int out_fd, bool negotiate_fd
         return 0;
 }
 
+/*
+ * dbus-1 clients receive NameOwnerChanged and directed signals without
+ * subscribing to them; install the matches to receive them on kdbus.
+ */
 static int proxy_prepare_matches(Proxy *p) {
         _cleanup_free_ char *match = NULL;
         const char *unique;
@@ -200,7 +204,8 @@ static int proxy_prepare_matches(Proxy *p) {
 
         r = sd_bus_add_match(p->destination_bus, NULL, match, NULL, NULL);
         if (r < 0)
-                log_error_errno(r, "Failed to add match for NameAcquired: %m");
+                log_error_errno(r, "Failed to add match for directed signals: %m");
+                /* FIXME: temporarily ignore error to support older kdbus versions */
 
         return 0;
 }
