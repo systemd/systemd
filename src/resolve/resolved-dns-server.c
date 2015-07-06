@@ -71,6 +71,7 @@ int dns_server_new(
         s->verified_features = _DNS_SERVER_FEATURE_LEVEL_INVALID;
         s->possible_features = DNS_SERVER_FEATURE_LEVEL_BEST;
         s->features_grace_period_usec = DNS_SERVER_FEATURE_GRACE_PERIOD_MIN_USEC;
+        s->received_udp_packet_max = DNS_PACKET_UNICAST_SIZE_MAX;
         s->type = type;
         s->family = family;
         s->address = *in_addr;
@@ -223,16 +224,30 @@ void dns_server_move_back_and_unmark(DnsServer *s) {
         }
 }
 
-void dns_server_packet_received(DnsServer *s, DnsServerFeatureLevel features, usec_t rtt) {
+void dns_server_packet_received(DnsServer *s, DnsServerFeatureLevel features, usec_t rtt, size_t size) {
         assert(s);
 
-        if (s->verified_features < features) {
+        if (features == DNS_SERVER_FEATURE_LEVEL_LARGE) {
+                /* even if we successfully receive a reply to a request announcing
+                   support for large packets, that does not mean we can necessarily
+                   receive large packets. */
+                if (s->verified_features < DNS_SERVER_FEATURE_LEVEL_LARGE - 1) {
+                        s->verified_features = DNS_SERVER_FEATURE_LEVEL_LARGE - 1;
+                        assert_se(sd_event_now(s->manager->event, clock_boottime_or_monotonic(), &s->verified_usec) >= 0);
+                }
+        } else if (s->verified_features < features) {
                 s->verified_features = features;
                 assert_se(sd_event_now(s->manager->event, clock_boottime_or_monotonic(), &s->verified_usec) >= 0);
         }
 
         if (s->possible_features == features)
                 s->n_failed_attempts = 0;
+
+        /* Remember the size of the largest UDP packet we received from a server,
+           we know that we can always announce support for packets with at least
+           this size. */
+        if (s->received_udp_packet_max < size)
+                s->received_udp_packet_max = size;
 
         if (s->max_rtt < rtt) {
                 s->max_rtt = rtt;
@@ -480,5 +495,6 @@ static const char* const dns_server_feature_level_table[_DNS_SERVER_FEATURE_LEVE
         [DNS_SERVER_FEATURE_LEVEL_UDP] = "UDP",
         [DNS_SERVER_FEATURE_LEVEL_EDNS0] = "UDP+EDNS0",
         [DNS_SERVER_FEATURE_LEVEL_DO] = "UDP+EDNS0+DO",
+        [DNS_SERVER_FEATURE_LEVEL_LARGE] = "UDP+EDNS0+DO+LARGE",
 };
 DEFINE_STRING_TABLE_LOOKUP(dns_server_feature_level, DnsServerFeatureLevel);

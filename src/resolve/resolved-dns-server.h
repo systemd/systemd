@@ -36,6 +36,7 @@ typedef enum DnsServerFeatureLevel {
         DNS_SERVER_FEATURE_LEVEL_UDP,
         DNS_SERVER_FEATURE_LEVEL_EDNS0,
         DNS_SERVER_FEATURE_LEVEL_DO,
+        DNS_SERVER_FEATURE_LEVEL_LARGE,
         _DNS_SERVER_FEATURE_LEVEL_MAX,
         _DNS_SERVER_FEATURE_LEVEL_INVALID = -1
 } DnsServerFeatureLevel;
@@ -66,6 +67,7 @@ struct DnsServer {
         bool marked:1;
         DnsServerFeatureLevel verified_features;
         DnsServerFeatureLevel possible_features;
+        size_t received_udp_packet_max;
         unsigned n_failed_attempts;
         usec_t verified_usec;
         usec_t features_grace_period_usec;
@@ -89,7 +91,7 @@ DnsServer* dns_server_unref(DnsServer *s);
 void dns_server_unlink(DnsServer *s);
 void dns_server_move_back_and_unmark(DnsServer *s);
 
-void dns_server_packet_received(DnsServer *s, DnsServerFeatureLevel features, usec_t rtt);
+void dns_server_packet_received(DnsServer *s, DnsServerFeatureLevel features, usec_t rtt, size_t size);
 void dns_server_packet_lost(DnsServer *s, DnsServerFeatureLevel features, usec_t usec);
 void dns_server_packet_failed(DnsServer *s, DnsServerFeatureLevel features);
 

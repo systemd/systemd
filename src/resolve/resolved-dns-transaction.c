@@ -433,7 +433,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
 
                         return;
                 } else
-                        dns_server_packet_received(t->server, t->current_features, ts - t->start_usec);
+                        dns_server_packet_received(t->server, t->current_features, ts - t->start_usec, p->size);
 
                 break;
         case DNS_PROTOCOL_LLMNR:

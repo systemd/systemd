@@ -186,10 +186,16 @@ int dns_scope_emit(DnsScope *s, int fd, DnsServer *server, DnsPacket *p) {
 
                 if (server->possible_features >= DNS_SERVER_FEATURE_LEVEL_EDNS0) {
                         bool edns_do;
+                        size_t packet_size;
 
                         edns_do = server->possible_features >= DNS_SERVER_FEATURE_LEVEL_DO;
 
-                        r = dns_packet_append_opt_rr(p, DNS_PACKET_UNICAST_SIZE_MAX, edns_do, &saved_size);
+                        if (server->possible_features >= DNS_SERVER_FEATURE_LEVEL_LARGE)
+                                packet_size = DNS_PACKET_UNICAST_SIZE_LARGE_MAX;
+                        else
+                                packet_size = server->received_udp_packet_max;
+
+                        r = dns_packet_append_opt_rr(p, packet_size, edns_do, &saved_size);
                         if (r < 0)
                                 return r;
 
