@@ -350,7 +350,6 @@ Features:
   - mDNS/DNS-SD
         - avahi compat
   - DNS-SD service registration from socket units
-  - edns0
   - dname
   - cname on PTR (?)
   - maybe randomize DNS UDP source ports

@@ -380,11 +380,19 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
 
                         return;
                 } else {
-                        if (t->current_features >= t->server->verified_features)
-                                t->server->verified_features = t->current_features;
+                        if (t->current_features == DNS_SERVER_FEATURE_LEVEL_LARGE)
+                                /* even if we successfully receive a reply to a request announcing
+                                   support for large packets, that does not mean we can necessarily
+                                   receive large packets. We verify the max size of UDP packets we
+                                   can receive separately */
+                                t->server->verified_features = DNS_SERVER_FEATURE_LEVEL_LARGE - 1;
+                        else {
+                                if (t->current_features >= t->server->verified_features)
+                                        t->server->verified_features = t->current_features;
 
-                        if (t->current_features == t->server->possible_features)
-                                t->server->n_failed_attempts = 0;
+                                if (t->current_features == t->server->possible_features)
+                                        t->server->n_failed_attempts = 0;
+                        }
                 }
         }
 
@@ -423,6 +431,12 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                 dns_transaction_complete(t, DNS_TRANSACTION_INVALID_REPLY);
                 return;
         }
+
+        if (t->server)
+                /* Remember the size of the largest UDP packet we received from a server,
+                   we know that we can always announce support for packets with this size */
+                if (t->server->received_udp_packet_max < p->size)
+                        t->server->received_udp_packet_max = p->size;
 
         /* According to RFC 4795, section 2.9. only the RRs from the answer section shall be cached */
         dns_cache_put(&t->scope->cache, p->question, DNS_PACKET_RCODE(p), p->answer, DNS_PACKET_ANCOUNT(p), 0, p->family, &p->sender);
@@ -502,10 +516,16 @@ static int dns_transaction_make_packet(DnsTransaction *t) {
 
         if (t->server && features >= DNS_SERVER_FEATURE_LEVEL_EDNS0) {
                 bool edns_do;
+                size_t packet_size;
 
                 edns_do = features >= DNS_SERVER_FEATURE_LEVEL_DO;
 
-                r = dns_packet_append_opt_rr(p, DNS_PACKET_UNICAST_SIZE_MAX, edns_do, NULL);
+                if (features >= DNS_SERVER_FEATURE_LEVEL_LARGE)
+                        packet_size = DNS_PACKET_UNICAST_SIZE_LARGE_MAX;
+                else
+                        packet_size = t->server->received_udp_packet_max;
+
+                r = dns_packet_append_opt_rr(p, packet_size, edns_do, NULL);
                 if (r < 0)
                         return r;
 
