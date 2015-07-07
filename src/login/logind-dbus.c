@@ -690,8 +690,19 @@ static int method_create_session(sd_bus_message *message, void *userdata, sd_bus
         }
 
         manager_get_session_by_pid(m, leader, &session);
-        if (!session && vtnr > 0 && vtnr < m->seat0->position_count)
+        if (!session && vtnr > 0 && vtnr < m->seat0->position_count) {
                 session = m->seat0->positions[vtnr];
+                /*
+                 * Old gdm and lightdm start the user-session on the same VT as
+                 * the greeter session. But they destroy the greeter session
+                 * after the user-session and want the user-session to take
+                 * over the VT. We need to support this for
+                 * backwards-compatibility, so make sure we allow new sessions
+                 * on a VT that a greeter is running on.
+                 */
+                if (session && session->class == SESSION_GREETER)
+                        session = NULL;
+        }
         if (session) {
                 _cleanup_free_ char *path = NULL;
                 _cleanup_close_ int fifo_fd = -1;
