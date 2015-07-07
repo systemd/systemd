@@ -45,7 +45,7 @@
   <refnamediv>
     <refname>sd_bus_message_append_basic</refname>
 
-    <refpurpose>Attach a single part to a message</refpurpose>
+    <refpurpose>Attach a single field to a message</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -56,7 +56,7 @@
         <funcdef>int sd_bus_message_append_basic</funcdef>
         <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
         <paramdef>char <parameter>type</parameter></paramdef>
-        <paramdef>char void *<parameter>p</parameter></paramdef>
+        <paramdef>const void *<parameter>p</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
@@ -64,31 +64,33 @@
   <refsect1>
     <title>Description</title>
 
-    <para><function>sd_bus_message_append_basic</function> appends a
-    single item to the message <parameter>m</parameter>. Parameter
-    <parameter>type</parameter> determines how pointer
+    <para><function>sd_bus_message_append_basic()</function> appends a
+    single field to the message <parameter>m</parameter>. The
+    parameter <parameter>type</parameter> determines how the pointer
     <parameter>p</parameter> is interpreted.
-    <parameter>type</parameter> must be one of the basic types
-    as defined by the
-
-    <ulink url="http://dbus.freedesktop.org/doc/dbus-specification.html#basic-types">Basic Types</ulink>
-    section of the D-Bus specification, and listed in the table below.
+    <parameter>type</parameter> must be one of the basic types as
+    defined by the <ulink
+    url="http://dbus.freedesktop.org/doc/dbus-specification.html#basic-types">Basic
+    Types</ulink> section of the D-Bus specification, and listed in
+    the table below.
     </para>
 
     <table id='format-specifiers'>
-      <title>Item format specifiers</title>
+      <title>Item type specifiers</title>
 
-      <tgroup cols='4'>
+      <tgroup cols='5'>
         <colspec colname='specifier' />
         <colspec colname='constant' />
         <colspec colname='description' />
         <colspec colname='size' />
+        <colspec colname='ctype' />
         <thead>
           <row>
             <entry>Specifier</entry>
             <entry>Constant</entry>
             <entry>Description</entry>
             <entry>Size</entry>
+            <entry>Expected C Type</entry>
           </row>
         </thead>
         <tbody>
@@ -97,6 +99,7 @@
             <entry><constant>SD_BUS_TYPE_BYTE</constant></entry>
             <entry>unsigned integer</entry>
             <entry>1 byte</entry>
+            <entry>uint8_t</entry>
           </row>
 
           <row>
@@ -104,6 +107,7 @@
             <entry><constant>SD_BUS_TYPE_BOOLEAN</constant></entry>
             <entry>boolean</entry>
             <entry>4 bytes</entry>
+            <entry>int</entry>
           </row>
 
           <row>
@@ -111,6 +115,7 @@
             <entry><constant>SD_BUS_TYPE_INT16</constant></entry>
             <entry>signed integer</entry>
             <entry>2 bytes</entry>
+            <entry>int16_t</entry>
           </row>
 
           <row>
@@ -118,6 +123,7 @@
             <entry><constant>SD_BUS_TYPE_UINT16</constant></entry>
             <entry>unsigned integer</entry>
             <entry>2 bytes</entry>
+            <entry>uint16_t</entry>
           </row>
 
           <row>
@@ -125,6 +131,7 @@
             <entry><constant>SD_BUS_TYPE_INT32</constant></entry>
             <entry>signed integer</entry>
             <entry>4 bytes</entry>
+            <entry>int32_t</entry>
           </row>
 
           <row>
@@ -132,6 +139,7 @@
             <entry><constant>SD_BUS_TYPE_UINT32</constant></entry>
             <entry>unsigned integer</entry>
             <entry>4 bytes</entry>
+            <entry>uint32_t</entry>
           </row>
 
           <row>
@@ -139,6 +147,7 @@
             <entry><constant>SD_BUS_TYPE_INT64</constant></entry>
             <entry>signed integer</entry>
             <entry>8 bytes</entry>
+            <entry>int64_t</entry>
           </row>
 
           <row>
@@ -146,6 +155,7 @@
             <entry><constant>SD_BUS_TYPE_UINT64</constant></entry>
             <entry>unsigned integer</entry>
             <entry>8 bytes</entry>
+            <entry>uint64_t</entry>
           </row>
 
           <row>
@@ -153,6 +163,7 @@
             <entry><constant>SD_BUS_TYPE_DOUBLE</constant></entry>
             <entry>floating-point</entry>
             <entry>8 bytes</entry>
+            <entry>double</entry>
           </row>
 
           <row>
@@ -160,6 +171,7 @@
             <entry><constant>SD_BUS_TYPE_STRING</constant></entry>
             <entry>Unicode string</entry>
             <entry>variable</entry>
+            <entry>char[]</entry>
           </row>
 
           <row>
@@ -167,6 +179,7 @@
             <entry><constant>SD_BUS_TYPE_OBJECT_PATH</constant></entry>
             <entry>object path</entry>
             <entry>variable</entry>
+            <entry>char[]</entry>
           </row>
 
           <row>
@@ -174,6 +187,7 @@
             <entry><constant>SD_BUS_TYPE_SIGNATURE</constant></entry>
             <entry>signature</entry>
             <entry>variable</entry>
+            <entry>char[]</entry>
           </row>
 
           <row>
@@ -181,16 +195,19 @@
             <entry><constant>SD_BUS_TYPE_UNIX_FD</constant></entry>
             <entry>UNIX file descriptor</entry>
             <entry>4 bytes</entry>
+            <entry>int</entry>
           </row>
        </tbody>
       </tgroup>
     </table>
 
-    <para>The value of the parameter is copied into the memory area
-    containing the message and may be changed after this call. If
-    <parameter>type</parameter> is <literal>h</literal> (UNIX file
-    descriptor), it is always "consumed" by this call, and either
-    successfully appended to the message or closed.</para>
+    <para>The value of the parameter is copied into a memory area held
+    by the message object, stays in the possession of the caller and
+    may hence be freely changed after this call without affecting the
+    bus message it has been added to. If <parameter>type</parameter>
+    is <literal>h</literal> (UNIX file descriptor), the descriptor is
+    duplicated by this call and the passed descriptor stays in
+    possession of the caller.</para>
 
     <para>For types <literal>s</literal>, <literal>o</literal>, and
     <literal>g</literal>, the parameter <parameter>p</parameter> is

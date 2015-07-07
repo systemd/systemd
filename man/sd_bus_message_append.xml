@@ -46,7 +46,8 @@
   <refnamediv>
     <refname>sd_bus_message_append</refname>
 
-    <refpurpose>Attach parts of message based on a format string</refpurpose>
+    <refpurpose>Attach fields to a D-Bus message based on a type
+    string</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -65,17 +66,20 @@
   <refsect1>
     <title>Description</title>
 
-    <para>The <function>sd_bus_message_append</function> function appends
-    a sequence of items to message <parameter>m</parameter>. The
-    format string <parameter>types</parameter> describes the types of
-    arguments that follow.</para>
+    <para>The <function>sd_bus_message_append()</function> function
+    appends a sequence of fields to the D-Bus message object
+    <parameter>m</parameter>. The type string
+    <parameter>types</parameter> describes the types of the field
+    arguments that follow. For each type specified in the type string
+    one or more arguments need to be specified, in the same order as
+    declared in the type string.</para>
 
-    <para>The format string is composed of the elements shown in the
+    <para>The type string is composed of the elements shown in the
     table below. It contains zero or more single "complete types".
     Each complete type may be one of the basic types or a fully
-    described container type. A container type may be a structure, a
-    variant type code, an array with its element type, or a dictionary
-    with its entry type. The format string is
+    described container type. A container type may be a structure with
+    the contained types, a variant, an array with its element type, or
+    a dictionary entry with the contained types. The type string is
     <constant>NUL</constant>-terminated.</para>
 
     <para>In case of a basic type, one argument of the corresponding
@@ -88,27 +92,32 @@
     rules as if they were not nested.</para>
 
     <para>A variant is denoted by <literal>v</literal>. Corresponding
-    arguments must include a format string denoting a complete type,
+    arguments must begin with a type string denoting a complete type,
     and following that, arguments corresponding to the specified type.
     </para>
 
     <para>An array is denoted by <literal>a</literal> followed by a
-    complete type. Corresponding arguments must include the size of
-    the array, and then repeated this number of times, arguments
-    corresponding to the nested type.</para>
+    complete type. Corresponding arguments must begin with the number of
+    entries in the array, followed by the entries themselves,
+    matching the element type of the array.</para>
 
     <para>A dictionary is an array of dictionary entries, denoted by
     <literal>a</literal> followed by a pair of complete types between
     <literal>{</literal> and <literal>}</literal>. The first of those
-    types must be a basic type. Corresponding arguments must include
-    the size of the dictionary, and then repeated this number of
-    times, arguments corresponding to each of the two nested
-    types.</para>
+    types must be a basic type. Corresponding arguments must begin
+    with the number of dictionary entries, followed by a pair of
+    values for each entry matching the element type of
+    the dictionary entries.</para>
+
+    <para>For further details on the D-Bus type system, please consult
+    the <ulink
+    url="http://dbus.freedesktop.org/doc/dbus-specification.html#type-system">D-Bus
+    Specification</ulink>.</para>
 
     <table>
-      <title>Item format specifiers</title>
+      <title>Item type specifiers</title>
 
-      <tgroup cols='4'>
+      <tgroup cols='5'>
         <xi:include href="sd_bus_message_append_basic.xml" xpointer="xpointer(//table[@id='format-specifiers'])//colspec" />
         <xi:include href="sd_bus_message_append_basic.xml" xpointer="xpointer(//table[@id='format-specifiers']//thead)" />
 
@@ -120,6 +129,7 @@
             <entry><constant>SD_BUS_TYPE_ARRAY</constant></entry>
             <entry>array</entry>
             <entry>determined by array type and size</entry>
+            <entry>int, followed by array contents</entry>
           </row>
 
           <row>
@@ -127,6 +137,7 @@
             <entry><constant>SD_BUS_TYPE_VARIANT</constant></entry>
             <entry>variant</entry>
             <entry>determined by the type argument</entry>
+            <entry>signature string, followed by variant contents</entry>
           </row>
 
           <row>
@@ -134,6 +145,7 @@
             <entry><constant>SD_BUS_TYPE_STRUCT_BEGIN</constant></entry>
             <entry>array start</entry>
             <entry morerows="1">determined by the nested types</entry>
+            <entry morerows="1">structure contents</entry>
           </row>
           <row>
             <entry><literal>)</literal></entry>
@@ -146,6 +158,7 @@
             <entry><constant>SD_BUS_TYPE_DICT_ENTRY_BEGIN</constant></entry>
             <entry>dictionary entry start</entry>
             <entry morerows="1">determined by the nested types</entry>
+            <entry morerows="1">dictionary contents</entry>
           </row>
           <row>
             <entry><literal>}</literal></entry>
@@ -155,10 +168,11 @@
        </tbody>
       </tgroup>
     </table>
+
   </refsect1>
 
   <refsect1>
-    <title>Types string grammar</title>
+    <title>Types String Grammar</title>
 
     <programlisting>types ::= complete_type*
 complete_type ::= basic_type | variant | structure | array | dictionary
@@ -194,7 +208,7 @@ uint32_t t = 7;
 double d = 8.0;
 sd_bus_message_append(m, "ynqiuxtd", y, n, q, i, u, x, t, d);</programlisting>
 
-     <para>Append a structure composed of string and a D-Bus path:</para>
+     <para>Append a structure composed of a string and a D-Bus path:</para>
 
      <programlisting>sd_bus_message_append(m, "(so)", "a string", "/a/path");
 </programlisting>
@@ -242,12 +256,8 @@ sd_bus_message_append(m, "ynqiuxtd", y, n, q, i, u, x, t, d);</programlisting>
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>sd_bus_new</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>sd_bus_ref</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>sd_bus_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-      <citerefentry project='die-net'><refentrytitle>ssh</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-machined.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>sd_bus_message_append_basic</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_message_append_array</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     </para>
   </refsect1>
 
