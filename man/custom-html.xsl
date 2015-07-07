@@ -225,12 +225,6 @@
       <xsl:text>systemd.directives.html</xsl:text>
     </xsl:attribute>
     <xsl:text>Directives </xsl:text>
-  </a>·
-  <a>
-    <xsl:attribute name="href">
-      <xsl:text>../python-systemd/index.html</xsl:text>
-    </xsl:attribute>
-    <xsl:text>Python </xsl:text>
   </a>
 
   <span style="float:right">
