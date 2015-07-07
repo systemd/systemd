@@ -1235,7 +1235,7 @@ static int main_pid_good(Service *s) {
         /* Returns 0 if the pid is dead, 1 if it is good, -1 if we
          * don't know */
 
-        /* If we know the pid file, then lets just check if it is
+        /* If we know the pid file, then let's just check if it is
          * still valid */
         if (s->main_pid_known) {
 

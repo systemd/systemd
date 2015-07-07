@@ -133,7 +133,7 @@ int main(int argc, char *argv[]) {
 
         /* Oh, there're ugly races in the TTY layer regarding HUP vs IN. Turns
          * out they appear only 10% of the time. I fixed all of them and
-         * don't see them, anymore. But lets be safe and run this 1000 times
+         * don't see them, anymore. But let's be safe and run this 1000 times
          * so we catch any new ones, in case they appear again. */
         for (i = 0; i < 1000; ++i)
                 test_pty();

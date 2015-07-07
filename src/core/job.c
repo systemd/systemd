@@ -452,7 +452,7 @@ static bool job_is_runnable(Job *j) {
             j->type == JOB_RELOAD) {
 
                 /* Immediate result is that the job is or might be
-                 * started. In this case lets wait for the
+                 * started. In this case let's wait for the
                  * dependencies, regardless whether they are
                  * starting or stopping something. */
 
@@ -462,7 +462,7 @@ static bool job_is_runnable(Job *j) {
         }
 
         /* Also, if something else is being stopped and we should
-         * change state after it, then lets wait. */
+         * change state after it, then let's wait. */
 
         SET_FOREACH(other, j->unit->dependencies[UNIT_BEFORE], i)
                 if (other->job &&

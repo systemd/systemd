@@ -2584,7 +2584,7 @@ static int unmanaged_card_new(grdev_card **out, grdev_session *session, struct u
         } else {
                 /* We might get DRM-Master implicitly on open(); drop it immediately
                  * so we acquire it only once we're actually enabled. We don't
-                 * really care whether this call fails or not, but lets log any
+                 * really care whether this call fails or not, but let's log any
                  * weird errors, anyway. */
                 r = ioctl(fd, DRM_IOCTL_DROP_MASTER, 0);
                 if (r < 0 && errno != EACCES && errno != EINVAL)
@@ -2777,7 +2777,7 @@ static int managed_card_resume_device_fn(sd_bus_message *signal,
 
         if (cm->card.fd < 0) {
                 /* This shouldn't happen. We should already own an FD from
-                 * TakeDevice(). However, lets be safe and use this FD in case
+                 * TakeDevice(). However, let's be safe and use this FD in case
                  * we really don't have one. There is no harm in doing this
                  * and our code works fine this way. */
                 fd = fcntl(fd, F_DUPFD_CLOEXEC, 3);
