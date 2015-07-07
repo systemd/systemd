@@ -269,7 +269,7 @@ int seat_set_active(Seat *s, Session *session) {
 int seat_switch_to(Seat *s, unsigned int num) {
         /* Public session positions skip 0 (there is only F1-F12). Maybe it
          * will get reassigned in the future, so return error for now. */
-        if (!num)
+        if (num == 0)
                 return -EINVAL;
 
         if (num >= s->position_count || !s->positions[num]) {
@@ -286,7 +286,7 @@ int seat_switch_to(Seat *s, unsigned int num) {
 int seat_switch_to_next(Seat *s) {
         unsigned int start, i;
 
-        if (!s->position_count)
+        if (s->position_count == 0)
                 return -EINVAL;
 
         start = 1;
@@ -307,7 +307,7 @@ int seat_switch_to_next(Seat *s) {
 int seat_switch_to_previous(Seat *s) {
         unsigned int start, i;
 
-        if (!s->position_count)
+        if (s->position_count == 0)
                 return -EINVAL;
 
         start = 1;
@@ -476,14 +476,14 @@ void seat_evict_position(Seat *s, Session *session) {
 
         session->pos = 0;
 
-        if (!pos)
+        if (pos == 0)
                 return;
 
         if (pos < s->position_count && s->positions[pos] == session) {
                 s->positions[pos] = NULL;
 
                 /* There might be another session claiming the same
-                 * position (eg., during gdm->session transition), so lets look
+                 * position (eg., during gdm->session transition), so let's look
                  * for it and set it on the free slot. */
                 LIST_FOREACH(sessions_by_seat, iter, s->sessions) {
                         if (iter->pos == pos) {
