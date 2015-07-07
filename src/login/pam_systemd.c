@@ -31,6 +31,7 @@
 #include <security/pam_ext.h>
 #include <security/pam_misc.h>
 
+#include "bus-common-errors.h"
 #include "util.h"
 #include "audit.h"
 #include "macro.h"
@@ -399,8 +400,13 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                                remote_host,
                                0);
         if (r < 0) {
-                pam_syslog(handle, LOG_ERR, "Failed to create session: %s", bus_error_message(&error, r));
-                return PAM_SYSTEM_ERR;
+                if (sd_bus_error_has_name(&error, BUS_ERROR_SESSION_BUSY)) {
+                        pam_syslog(handle, LOG_DEBUG, "Cannot create session: %s", bus_error_message(&error, r));
+                        return PAM_SUCCESS;
+                } else {
+                        pam_syslog(handle, LOG_ERR, "Failed to create session: %s", bus_error_message(&error, r));
+                        return PAM_SYSTEM_ERR;
+                }
         }
 
         r = sd_bus_message_read(reply,

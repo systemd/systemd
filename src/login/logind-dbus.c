@@ -689,47 +689,23 @@ static int method_create_session(sd_bus_message *message, void *userdata, sd_bus
                         return r;
         }
 
-        manager_get_session_by_pid(m, leader, &session);
-        if (!session && vtnr > 0 && vtnr < m->seat0->position_count)
-                session = m->seat0->positions[vtnr];
-        if (session) {
-                _cleanup_free_ char *path = NULL;
-                _cleanup_close_ int fifo_fd = -1;
+        r = manager_get_session_by_pid(m, leader, NULL);
+        if (r > 0)
+                return sd_bus_error_setf(error, BUS_ERROR_SESSION_BUSY, "Already running in a session");
 
-                /* Session already exists, client is probably
-                 * something like "su" which changes uid but is still
-                 * the same session */
-
-                fifo_fd = session_create_fifo(session);
-                if (fifo_fd < 0)
-                        return fifo_fd;
-
-                path = session_bus_path(session);
-                if (!path)
-                        return -ENOMEM;
-
-                log_debug("Sending reply about an existing session: "
-                          "id=%s object_path=%s uid=%u runtime_path=%s "
-                          "session_fd=%d seat=%s vtnr=%u",
-                          session->id,
-                          path,
-                          (uint32_t) session->user->uid,
-                          session->user->runtime_path,
-                          fifo_fd,
-                          session->seat ? session->seat->id : "",
-                          (uint32_t) session->vtnr);
-
-                return sd_bus_reply_method_return(
-                                message, "soshusub",
-                                session->id,
-                                path,
-                                session->user->runtime_path,
-                                fifo_fd,
-                                (uint32_t) session->user->uid,
-                                session->seat ? session->seat->id : "",
-                                (uint32_t) session->vtnr,
-                                true);
-        }
+        /*
+         * Old gdm and lightdm start the user-session on the same VT as
+         * the greeter session. But they destroy the greeter session
+         * after the user-session and want the user-session to take
+         * over the VT. We need to support this for
+         * backwards-compatibility, so make sure we allow new sessions
+         * on a VT that a greeter is running on.
+         */
+        if (vtnr > 0 &&
+            vtnr < m->seat0->position_count &&
+            m->seat0->positions[vtnr] &&
+            m->seat0->positions[vtnr]->class != SESSION_GREETER)
+                return sd_bus_error_setf(error, BUS_ERROR_SESSION_BUSY, "Already occupied by a session");
 
         audit_session_from_pid(leader, &audit_id);
         if (audit_id > 0) {
