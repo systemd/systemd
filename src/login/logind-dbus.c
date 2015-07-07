@@ -690,8 +690,8 @@ static int method_create_session(sd_bus_message *message, void *userdata, sd_bus
         }
 
         manager_get_session_by_pid(m, leader, &session);
-        if (!session && vtnr > 0)
-                session = (vtnr < m->seat0->position_count) ? m->seat0->positions[vtnr] : NULL;
+        if (!session && vtnr > 0 && vtnr < m->seat0->position_count)
+                session = m->seat0->positions[vtnr];
         if (session) {
                 _cleanup_free_ char *path = NULL;
                 _cleanup_close_ int fifo_fd = -1;
