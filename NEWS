@@ -19,6 +19,14 @@ CHANGES WITH 222:
           which enables IPv6 privacy extensions (RFC 4941, "Privacy Extensions
           for Stateless Address") on selected networks.
 
+        * For the sake of fewer build-time dependencies and less code in the
+          main repository, the python bindings are about to be removed in the
+          next release. A new repository has been created which accommodates
+          the code from now on, and we kindly ask distributions to create a
+          separate package for this. The removal will take place in v223.
+
+            https://github.com/systemd/python-systemd
+
         Contributions from: Abdo Roig-Maranges, Andrew Eikum, Bastien Nocera,
         Cédric Delmas, Christian Hesse, Christos Trochalakis, Daniel Mack,
         daurnimator, David Herrmann, Dimitri John Ledkov, Eric Biggers, Eric
