@@ -756,9 +756,8 @@ static int parse_argv(int argc, char *argv[]) {
                                 /* If two parameters are specified,
                                  * the first one is the lower, the
                                  * second one the upper directory. And
-                                 * we'll also define the the
-                                 * destination mount point the same as
-                                 * the upper. */
+                                 * we'll also define the destination
+                                 * mount point the same as the upper. */
                                 upper = lower[1];
                                 lower[1] = NULL;
 

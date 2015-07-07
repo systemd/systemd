@@ -25,8 +25,8 @@ The header consists of the following:
 
     = 12 bytes
 
-This header is then followed by the the fields array, whose first
-value is a 32bit array size.
+This header is then followed by the fields array, whose first value is
+a 32bit array size.
 
 When using GVariant we keep the basic structure in place, only
 slightly alter the header, and define protocol version '2'. The new

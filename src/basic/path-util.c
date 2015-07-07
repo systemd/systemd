@@ -528,7 +528,7 @@ int fd_is_mount_point(int fd, const char *filename, int flags) {
          *
          * If that didn't work we will try to read the mount id from
          * /proc/self/fdinfo/<fd>. This is almost as good as
-         * name_to_handle_at(), however, does not return the the
+         * name_to_handle_at(), however, does not return the
          * opaque file handle. The opaque file handle is pretty useful
          * to detect the root directory, which we should always
          * consider a mount point. Hence we use this only as
