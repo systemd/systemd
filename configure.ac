@@ -690,6 +690,7 @@ fi
 AM_CONDITIONAL([HAVE_SMACK], [test "x$have_smack" = "xyes"])
 
 # ------------------------------------------------------------------------------
+m4_ifdef([AM_PATH_LIBGCRYPT], [
 AC_ARG_ENABLE([gcrypt],
         AS_HELP_STRING([--disable-gcrypt],[Disable optional GCRYPT support]),
                 [case "${enableval}" in
@@ -718,6 +719,11 @@ else
         GCRYPT_LIBS=
         GCRYPT_CFLAGS=
 fi
+],[
+GCRYPT_LIBS=
+GCRYPT_CFLAGS=
+have_gcrypt=no
+])
 AC_SUBST(GCRYPT_LIBS)
 AC_SUBST(GCRYPT_CFLAGS)
 AM_CONDITIONAL([HAVE_GCRYPT], [test "x$have_gcrypt" != xno])
