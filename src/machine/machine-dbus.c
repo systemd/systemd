@@ -212,7 +212,7 @@ int bus_machine_method_get_addresses(sd_bus_message *message, void *userdata, sd
         if (streq(us, them))
                 return sd_bus_error_setf(error, BUS_ERROR_NO_PRIVATE_NETWORKING, "Machine %s does not use private networking", m->name);
 
-        r = namespace_open(m->leader, NULL, NULL, &netns_fd, NULL);
+        r = namespace_open(m->leader, NULL, NULL, &netns_fd, NULL, NULL);
         if (r < 0)
                 return r;
 
@@ -230,7 +230,7 @@ int bus_machine_method_get_addresses(sd_bus_message *message, void *userdata, sd
 
                 pair[0] = safe_close(pair[0]);
 
-                r = namespace_enter(-1, -1, netns_fd, -1);
+                r = namespace_enter(-1, -1, netns_fd, -1, -1);
                 if (r < 0)
                         _exit(EXIT_FAILURE);
 
@@ -346,7 +346,7 @@ int bus_machine_method_get_os_release(sd_bus_message *message, void *userdata, s
         if (m->class != MACHINE_CONTAINER)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Requesting OS release data is only supported on container machines.");
 
-        r = namespace_open(m->leader, NULL, &mntns_fd, NULL, &root_fd);
+        r = namespace_open(m->leader, NULL, &mntns_fd, NULL, NULL, &root_fd);
         if (r < 0)
                 return r;
 
@@ -362,7 +362,7 @@ int bus_machine_method_get_os_release(sd_bus_message *message, void *userdata, s
 
                 pair[0] = safe_close(pair[0]);
 
-                r = namespace_enter(-1, mntns_fd, -1, root_fd);
+                r = namespace_enter(-1, mntns_fd, -1, -1, root_fd);
                 if (r < 0)
                         _exit(EXIT_FAILURE);
 
