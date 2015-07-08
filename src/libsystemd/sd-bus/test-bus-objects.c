@@ -115,14 +115,13 @@ static int set_handler(sd_bus *bus, const char *path, const char *interface, con
 
 static int value_handler(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
         _cleanup_free_ char *s = NULL;
-        const char *x;
         int r;
 
         assert_se(asprintf(&s, "object %p, path %s", userdata, path) >= 0);
         r = sd_bus_message_append(reply, "s", s);
         assert_se(r >= 0);
 
-        assert_se(x = startswith(path, "/value/"));
+        assert_se(startswith(path, "/value/") != NULL || strcmp(path, "/value") == 0);
 
         assert_se(PTR_TO_UINT(userdata) == 30);
 

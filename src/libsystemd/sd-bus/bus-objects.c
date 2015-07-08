@@ -1172,6 +1172,13 @@ static int process_get_managed_objects(
         if (r < 0)
                 return r;
 
+        r = object_manager_serialize_path_and_fallbacks(bus, reply, m->path, &error);
+        if (r < 0)
+                return r;
+
+        if (bus->nodes_modified)
+                return 0;
+
         SET_FOREACH(path, s, i) {
                 r = object_manager_serialize_path_and_fallbacks(bus, reply, path, &error);
                 if (r < 0)
