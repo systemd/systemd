@@ -42,7 +42,7 @@ static int write_mode(char **modes) {
         STRV_FOREACH(mode, modes) {
                 int k;
 
-                k = write_string_file("/sys/power/disk", *mode);
+                k = write_string_file("/sys/power/disk", *mode, 0);
                 if (k == 0)
                         return 0;
 
@@ -65,7 +65,7 @@ static int write_state(FILE **f, char **states) {
         STRV_FOREACH(state, states) {
                 int k;
 
-                k = write_string_stream(*f, *state);
+                k = write_string_stream(*f, *state, true);
                 if (k == 0)
                         return 0;
                 log_debug_errno(k, "Failed to write '%s' to /sys/power/state: %m",

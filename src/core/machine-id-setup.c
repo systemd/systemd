@@ -260,7 +260,7 @@ int machine_id_setup(const char *root) {
          * /run/machine-id as a replacement */
 
         RUN_WITH_UMASK(0022) {
-                r = write_string_file(run_machine_id, id);
+                r = write_string_file(run_machine_id, id, WRITE_STRING_FILE_CREATE);
         }
         if (r < 0) {
                 (void) unlink(run_machine_id);

@@ -25,10 +25,14 @@
 
 #include "macro.h"
 
-int write_string_stream(FILE *f, const char *line);
-int write_string_file(const char *fn, const char *line);
-int write_string_file_no_create(const char *fn, const char *line);
-int write_string_file_atomic(const char *fn, const char *line);
+typedef enum {
+        WRITE_STRING_FILE_CREATE = 1,
+        WRITE_STRING_FILE_ATOMIC = 2,
+        WRITE_STRING_FILE_AVOID_NEWLINE = 4,
+} WriteStringFileFlags;
+
+int write_string_stream(FILE *f, const char *line, bool enforce_newline);
+int write_string_file(const char *fn, const char *line, WriteStringFileFlags flags);
 
 int read_one_line_file(const char *fn, char **line);
 int read_full_file(const char *fn, char **contents, size_t *size);

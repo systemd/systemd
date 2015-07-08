@@ -66,7 +66,7 @@ int sysctl_write(const char *property, const char *value) {
         log_debug("Setting '%s' to '%s'", property, value);
 
         p = strjoina("/proc/sys/", property);
-        return write_string_file(p, value);
+        return write_string_file(p, value, 0);
 }
 
 int sysctl_read(const char *property, char **content) {

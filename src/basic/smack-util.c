@@ -139,7 +139,7 @@ int mac_smack_apply_pid(pid_t pid, const char *label) {
                 return 0;
 
         p = procfs_file_alloca(pid, "attr/current");
-        r = write_string_file(p, label);
+        r = write_string_file(p, label, 0);
         if (r < 0)
                 return r;
 #endif

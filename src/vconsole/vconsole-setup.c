@@ -56,7 +56,7 @@ static int disable_utf8(int fd) {
         if (k < 0)
                 r = k;
 
-        k = write_string_file("/sys/module/vt/parameters/default_utf8", "0");
+        k = write_string_file("/sys/module/vt/parameters/default_utf8", "0", 0);
         if (k < 0)
                 r = k;
 
@@ -89,7 +89,7 @@ static int enable_utf8(int fd) {
         if (k < 0)
                 r = k;
 
-        k = write_string_file("/sys/module/vt/parameters/default_utf8", "1");
+        k = write_string_file("/sys/module/vt/parameters/default_utf8", "1", 0);
         if (k < 0)
                 r = k;
 

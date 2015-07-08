@@ -221,7 +221,7 @@ int mac_smack_setup(bool *loaded_policy) {
         }
 
 #ifdef SMACK_RUN_LABEL
-        r = write_string_file("/proc/self/attr/current", SMACK_RUN_LABEL);
+        r = write_string_file("/proc/self/attr/current", SMACK_RUN_LABEL, 0);
         if (r)
                 log_warning("Failed to set SMACK label \"%s\" on self: %s",
                             SMACK_RUN_LABEL, strerror(-r));

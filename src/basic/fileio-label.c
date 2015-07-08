@@ -31,7 +31,7 @@ int write_string_file_atomic_label(const char *fn, const char *line) {
         if (r < 0)
                 return r;
 
-        r = write_string_file_atomic(fn, line);
+        r = write_string_file(fn, line, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC);
 
         mac_selinux_create_file_clear();
 

@@ -27,14 +27,14 @@
 #include "ctype.h"
 #include "fileio.h"
 
-int write_string_stream(FILE *f, const char *line) {
+int write_string_stream(FILE *f, const char *line, bool enforce_newline) {
         assert(f);
         assert(line);
 
         errno = 0;
 
         fputs(line, f);
-        if (!endswith(line, "\n"))
+        if (enforce_newline && !endswith(line, "\n"))
                 fputc('\n', f);
 
         fflush(f);
@@ -45,42 +45,7 @@ int write_string_stream(FILE *f, const char *line) {
         return 0;
 }
 
-int write_string_file(const char *fn, const char *line) {
-        _cleanup_fclose_ FILE *f = NULL;
-
-        assert(fn);
-        assert(line);
-
-        f = fopen(fn, "we");
-        if (!f)
-                return -errno;
-
-        return write_string_stream(f, line);
-}
-
-int write_string_file_no_create(const char *fn, const char *line) {
-        _cleanup_fclose_ FILE *f = NULL;
-        int fd;
-
-        assert(fn);
-        assert(line);
-
-        /* We manually build our own version of fopen(..., "we") that
-         * works without O_CREAT */
-        fd = open(fn, O_WRONLY|O_CLOEXEC|O_NOCTTY);
-        if (fd < 0)
-                return -errno;
-
-        f = fdopen(fd, "we");
-        if (!f) {
-                safe_close(fd);
-                return -errno;
-        }
-
-        return write_string_stream(f, line);
-}
-
-int write_string_file_atomic(const char *fn, const char *line) {
+static int write_string_file_atomic(const char *fn, const char *line, bool enforce_newline) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *p = NULL;
         int r;
@@ -94,7 +59,7 @@ int write_string_file_atomic(const char *fn, const char *line) {
 
         fchmod_umask(fileno(f), 0644);
 
-        r = write_string_stream(f, line);
+        r = write_string_stream(f, line, enforce_newline);
         if (r >= 0) {
                 if (rename(p, fn) < 0)
                         r = -errno;
@@ -104,6 +69,41 @@ int write_string_file_atomic(const char *fn, const char *line) {
                 unlink(p);
 
         return r;
+}
+
+int write_string_file(const char *fn, const char *line, WriteStringFileFlags flags) {
+        _cleanup_fclose_ FILE *f = NULL;
+
+        assert(fn);
+        assert(line);
+
+        if (flags & WRITE_STRING_FILE_ATOMIC) {
+                assert(flags & WRITE_STRING_FILE_CREATE);
+
+                return write_string_file_atomic(fn, line, !(flags & WRITE_STRING_FILE_AVOID_NEWLINE));
+        }
+
+        if (flags & WRITE_STRING_FILE_CREATE) {
+                f = fopen(fn, "we");
+                if (!f)
+                        return -errno;
+        } else {
+                int fd;
+
+                /* We manually build our own version of fopen(..., "we") that
+                 * works without O_CREAT */
+                fd = open(fn, O_WRONLY|O_CLOEXEC|O_NOCTTY);
+                if (fd < 0)
+                        return -errno;
+
+                f = fdopen(fd, "we");
+                if (!f) {
+                        safe_close(fd);
+                        return -errno;
+                }
+        }
+
+        return write_string_stream(f, line, !(flags & WRITE_STRING_FILE_AVOID_NEWLINE));
 }
 
 int read_one_line_file(const char *fn, char **line) {

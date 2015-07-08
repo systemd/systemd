@@ -565,14 +565,14 @@ static void test_read_hostname_config(void) {
         close(fd);
 
         /* simple hostname */
-        write_string_file(path, "foo");
+        write_string_file(path, "foo", WRITE_STRING_FILE_CREATE);
         assert_se(read_hostname_config(path, &hostname) == 0);
         assert_se(streq(hostname, "foo"));
         free(hostname);
         hostname = NULL;
 
         /* with comment */
-        write_string_file(path, "# comment\nfoo");
+        write_string_file(path, "# comment\nfoo", WRITE_STRING_FILE_CREATE);
         assert_se(read_hostname_config(path, &hostname) == 0);
         assert_se(hostname);
         assert_se(streq(hostname, "foo"));
@@ -580,7 +580,7 @@ static void test_read_hostname_config(void) {
         hostname = NULL;
 
         /* with comment and extra whitespace */
-        write_string_file(path, "# comment\n\n foo ");
+        write_string_file(path, "# comment\n\n foo ", WRITE_STRING_FILE_CREATE);
         assert_se(read_hostname_config(path, &hostname) == 0);
         assert_se(hostname);
         assert_se(streq(hostname, "foo"));
@@ -588,7 +588,7 @@ static void test_read_hostname_config(void) {
         hostname = NULL;
 
         /* cleans up name */
-        write_string_file(path, "!foo/bar.com");
+        write_string_file(path, "!foo/bar.com", WRITE_STRING_FILE_CREATE);
         assert_se(read_hostname_config(path, &hostname) == 0);
         assert_se(hostname);
         assert_se(streq(hostname, "foobar.com"));
@@ -597,7 +597,7 @@ static void test_read_hostname_config(void) {
 
         /* no value set */
         hostname = (char*) 0x1234;
-        write_string_file(path, "# nothing here\n");
+        write_string_file(path, "# nothing here\n", WRITE_STRING_FILE_CREATE);
         assert_se(read_hostname_config(path, &hostname) == -ENOENT);
         assert_se(hostname == (char*) 0x1234);  /* does not touch argument on error */
 
@@ -1191,11 +1191,11 @@ static void test_execute_directory(void) {
         masked = strjoina(template_lo, "/masked");
         mask = strjoina(template_hi, "/masked");
 
-        assert_se(write_string_file(name, "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/it_works") == 0);
-        assert_se(write_string_file(name2, "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/it_works2") == 0);
-        assert_se(write_string_file(overridden, "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/failed") == 0);
-        assert_se(write_string_file(override, "#!/bin/sh\necho 'Executing '$0") == 0);
-        assert_se(write_string_file(masked, "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/failed") == 0);
+        assert_se(write_string_file(name, "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/it_works", WRITE_STRING_FILE_CREATE) == 0);
+        assert_se(write_string_file(name2, "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/it_works2", WRITE_STRING_FILE_CREATE) == 0);
+        assert_se(write_string_file(overridden, "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/failed", WRITE_STRING_FILE_CREATE) == 0);
+        assert_se(write_string_file(override, "#!/bin/sh\necho 'Executing '$0", WRITE_STRING_FILE_CREATE) == 0);
+        assert_se(write_string_file(masked, "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/failed", WRITE_STRING_FILE_CREATE) == 0);
         assert_se(symlink("/dev/null", mask) == 0);
         assert_se(chmod(name, 0755) == 0);
         assert_se(chmod(name2, 0755) == 0);
