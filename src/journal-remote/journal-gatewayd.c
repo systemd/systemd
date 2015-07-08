@@ -132,7 +132,7 @@ static int request_meta_ensure_tmp(RequestMeta *m) {
                 if (fd < 0)
                         return fd;
 
-                m->tmp = fdopen(fd, "rw");
+                m->tmp = fdopen(fd, "w+");
                 if (!m->tmp) {
                         safe_close(fd);
                         return -errno;
