@@ -53,11 +53,7 @@ static int property_get_ether_addrs(
                         return r;
         }
 
-        r = sd_bus_message_close_container(reply);
-        if (r < 0)
-                return r;
-
-        return 1;
+        return sd_bus_message_close_container(reply);
 }
 
 const sd_bus_vtable network_vtable[] = {

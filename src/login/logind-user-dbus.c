@@ -103,11 +103,7 @@ static int property_get_sessions(
 
         }
 
-        r = sd_bus_message_close_container(reply);
-        if (r < 0)
-                return r;
-
-        return 1;
+        return sd_bus_message_close_container(reply);
 }
 
 static int property_get_idle_hint(
