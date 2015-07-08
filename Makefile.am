@@ -647,7 +647,9 @@ dist_doc_DATA = \
 	DISTRO_PORTING \
 	src/libsystemd/sd-bus/PORTING-DBUS1 \
 	src/libsystemd/sd-bus/DIFFERENCES \
-	src/libsystemd/sd-bus/GVARIANT-SERIALIZATION \
+	src/libsystemd/sd-bus/GVARIANT-SERIALIZATION
+
+EXTRA_DIST += \
 	autogen.sh \
 	.dir-locals.el \
 	.vimrc \
