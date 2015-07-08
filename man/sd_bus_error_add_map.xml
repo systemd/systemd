@@ -1,0 +1,173 @@
+<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2015 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="sd_bus_error_add_map">
+
+  <refentryinfo>
+    <title>sd_bus_error_add_map</title>
+    <productname>systemd</productname>
+
+    <authorgroup>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>Lennart</firstname>
+        <surname>Poettering</surname>
+        <email>lennart@poettering.net</email>
+      </author>
+    </authorgroup>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_bus_error_add_map</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_bus_error_add_map</refname>
+    <refname>sd_bus_error_map</refname>
+    <refname>SD_BUS_ERROR_MAP</refname>
+    <refname>SD_BUS_ERROR_END</refname>
+
+    <refpurpose>Additional sd-dbus error mappings</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-bus.h&gt;</funcsynopsisinfo>
+
+      <funcsynopsisinfo>typedef struct {
+        const char *name;
+        int code;
+        ...
+} sd_bus_error_map;</funcsynopsisinfo>
+
+    </funcsynopsis>
+
+      <para>
+        <constant>SD_BUS_ERROR_MAP(<replaceable>name</replaceable>, <replaceable>code</replaceable>)</constant>
+      </para>
+      <para>
+        <constant>SD_BUS_ERROR_MAP_END</constant>
+      </para>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_error_add_map</function></funcdef>
+        <paramdef>const sd_bus_map *<parameter>map</parameter></paramdef>
+      </funcprototype>
+
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>The <function>sd_bus_error_add_map()</function> call may be
+    used to register additional mappings for converting D-Bus errors
+    to Linux <varname>errno</varname>-style errors. The mappings
+    defined with this call are consulted by calls such as
+    <citerefentry><refentrytitle>sd_bus_error_set</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    or
+    <citerefentry><refentrytitle>sd_bus_error_get_errno</refentrytitle><manvolnum>3</manvolnum></citerefentry>. By
+    default a number of generic, standardized mappings are known, as
+    documented in
+    <citerefentry><refentrytitle>sd-bus-errors</refentrytitle><manvolnum>3</manvolnum></citerefentry>. Use
+    this call to add further, application-specific mappings.</para>
+
+    <para>The function takes a pointer to an array of
+    <structname>sd_bus_error_map</structname> structures. A reference
+    to the specified array is added to the lookup tables for error
+    mappings. Note that the structure is not copied, it is hence
+    essential that the array stays available and constant during the
+    entire remaining runtime of the process.</para>
+
+    <para>The mapping array should be put together with a series of
+    <constant>SD_BUS_ERROR_MAP()</constant> macro invocations, that
+    take a literal name string and a (positive)
+    <varname>errno</varname>-style error number. The last entry of the
+    array should be an invocation of the
+    <constant>SD_BUS_ERROR_MAP_END</constant> macro. The array should not be
+    put together without use of these two macros.</para>
+
+    <para>Note that the call is idempotent: it is safe to invoke it
+    multiple times with the parameter, which will only add the passed
+    mapping array once.</para>
+
+    <para>Note that the memory allocated by this call is not intended
+    to be freed during the lifetime of the process. It should not be
+    freed explicitly.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para><function>sd_bus_error_add_map()</function> returns a
+    positive value when the new array was added to the lookup
+    tables. It returns zero when the same array was already added
+    before. On error, a negative <varname>errno</varname>-style error
+    code is returned. See below for known error codes.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Errors</title>
+
+    <para>Returned errors may indicate the following problems:</para>
+
+    <variablelist>
+
+      <varlistentry>
+        <term><constant>-EINVAL</constant></term>
+
+        <listitem><para>The specified mapping array is invalid.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><constant>-ENOMEM</constant></term>
+
+        <listitem><para>Memory allocation failed.</para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Notes</title>
+
+    <para>The various error definitions described here are available
+    as a shared library, which can be compiled and linked to with the
+    <constant>libsystemd</constant> <citerefentry
+    project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    file.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_error</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd-bus-errors</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>errno</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry project='die-net'><refentrytitle>strerror_r</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>

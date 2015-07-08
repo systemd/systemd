@@ -24,6 +24,7 @@ MANPAGES += \
 	man/machine-id.5 \
 	man/machine-info.5 \
 	man/os-release.5 \
+	man/sd-bus-errors.3 \
 	man/sd-daemon.3 \
 	man/sd-id128.3 \
 	man/sd-journal.3 \
@@ -32,6 +33,7 @@ MANPAGES += \
 	man/sd_bus_creds_new_from_pid.3 \
 	man/sd_bus_default.3 \
 	man/sd_bus_error.3 \
+	man/sd_bus_error_add_map.3 \
 	man/sd_bus_message_append.3 \
 	man/sd_bus_message_append_array.3 \
 	man/sd_bus_message_append_basic.3 \
@@ -161,6 +163,40 @@ MANPAGES += \
 	man/udevadm.8
 MANPAGES_ALIAS += \
 	man/SD_ALERT.3 \
+	man/SD_BUS_ERROR_ACCESS_DENIED.3 \
+	man/SD_BUS_ERROR_ADDRESS_IN_USE.3 \
+	man/SD_BUS_ERROR_AUTH_FAILED.3 \
+	man/SD_BUS_ERROR_BAD_ADDRESS.3 \
+	man/SD_BUS_ERROR_DISCONNECTED.3 \
+	man/SD_BUS_ERROR_END.3 \
+	man/SD_BUS_ERROR_FAILED.3 \
+	man/SD_BUS_ERROR_FILE_EXISTS.3 \
+	man/SD_BUS_ERROR_FILE_NOT_FOUND.3 \
+	man/SD_BUS_ERROR_INCONSISTENT_MESSAGE.3 \
+	man/SD_BUS_ERROR_INTERACTIVE_AUTHORIZATION_REQUIRED.3 \
+	man/SD_BUS_ERROR_INVALID_ARGS.3 \
+	man/SD_BUS_ERROR_INVALID_SIGNATURE.3 \
+	man/SD_BUS_ERROR_IO_ERROR.3 \
+	man/SD_BUS_ERROR_LIMITS_EXCEEDED.3 \
+	man/SD_BUS_ERROR_MAKE_CONST.3 \
+	man/SD_BUS_ERROR_MAP.3 \
+	man/SD_BUS_ERROR_MATCH_RULE_INVALID.3 \
+	man/SD_BUS_ERROR_MATCH_RULE_NOT_FOUND.3 \
+	man/SD_BUS_ERROR_NAME_HAS_NO_OWNER.3 \
+	man/SD_BUS_ERROR_NOT_SUPPORTED.3 \
+	man/SD_BUS_ERROR_NO_MEMORY.3 \
+	man/SD_BUS_ERROR_NO_NETWORK.3 \
+	man/SD_BUS_ERROR_NO_REPLY.3 \
+	man/SD_BUS_ERROR_NO_SERVER.3 \
+	man/SD_BUS_ERROR_NULL.3 \
+	man/SD_BUS_ERROR_PROPERTY_READ_ONLY.3 \
+	man/SD_BUS_ERROR_SERVICE_UNKNOWN.3 \
+	man/SD_BUS_ERROR_TIMEOUT.3 \
+	man/SD_BUS_ERROR_UNIX_PROCESS_ID_UNKNOWN.3 \
+	man/SD_BUS_ERROR_UNKNOWN_INTERFACE.3 \
+	man/SD_BUS_ERROR_UNKNOWN_METHOD.3 \
+	man/SD_BUS_ERROR_UNKNOWN_OBJECT.3 \
+	man/SD_BUS_ERROR_UNKNOWN_PROPERTY.3 \
 	man/SD_CRIT.3 \
 	man/SD_DEBUG.3 \
 	man/SD_EMERG.3 \
@@ -191,6 +227,7 @@ MANPAGES_ALIAS += \
 	man/reboot.8 \
 	man/sd_bus_creds_get_audit_login_uid.3 \
 	man/sd_bus_creds_get_audit_session_id.3 \
+	man/sd_bus_creds_get_augmented_mask.3 \
 	man/sd_bus_creds_get_cgroup.3 \
 	man/sd_bus_creds_get_cmdline.3 \
 	man/sd_bus_creds_get_comm.3 \
@@ -216,6 +253,7 @@ MANPAGES_ALIAS += \
 	man/sd_bus_creds_get_uid.3 \
 	man/sd_bus_creds_get_unique_name.3 \
 	man/sd_bus_creds_get_unit.3 \
+	man/sd_bus_creds_get_user_slice.3 \
 	man/sd_bus_creds_get_user_unit.3 \
 	man/sd_bus_creds_get_well_known_names.3 \
 	man/sd_bus_creds_has_bounding_cap.3 \
@@ -231,10 +269,13 @@ MANPAGES_ALIAS += \
 	man/sd_bus_error_get_errno.3 \
 	man/sd_bus_error_has_name.3 \
 	man/sd_bus_error_is_set.3 \
+	man/sd_bus_error_map.3 \
 	man/sd_bus_error_set.3 \
 	man/sd_bus_error_set_const.3 \
 	man/sd_bus_error_set_errno.3 \
 	man/sd_bus_error_set_errnof.3 \
+	man/sd_bus_error_set_errnofv.3 \
+	man/sd_bus_error_setf.3 \
 	man/sd_bus_message_append_array_iovec.3 \
 	man/sd_bus_message_append_array_memfd.3 \
 	man/sd_bus_message_append_array_space.3 \
@@ -244,7 +285,7 @@ MANPAGES_ALIAS += \
 	man/sd_bus_message_get_reply_cookie.3 \
 	man/sd_bus_message_get_seqnum.3 \
 	man/sd_bus_negotiate_creds.3 \
-	man/sd_bus_negotiate_timestamps.3 \
+	man/sd_bus_negotiate_timestamp.3 \
 	man/sd_bus_open.3 \
 	man/sd_bus_open_system.3 \
 	man/sd_bus_open_system_machine.3 \
@@ -408,6 +449,40 @@ MANPAGES_ALIAS += \
 	man/udev_unref.3 \
 	man/user.conf.d.5
 man/SD_ALERT.3: man/sd-daemon.3
+man/SD_BUS_ERROR_ACCESS_DENIED.3: man/sd-bus-errors.3
+man/SD_BUS_ERROR_ADDRESS_IN_USE.3: man/sd-bus-errors.3
+man/SD_BUS_ERROR_AUTH_FAILED.3: man/sd-bus-errors.3
+man/SD_BUS_ERROR_BAD_ADDRESS.3: man/sd-bus-errors.3
+man/SD_BUS_ERROR_DISCONNECTED.3: man/sd-bus-errors.3
+man/SD_BUS_ERROR_END.3: man/sd_bus_error_add_map.3
+man/SD_BUS_ERROR_FAILED.3: man/sd-bus-errors.3
+man/SD_BUS_ERROR_FILE_EXISTS.3: man/sd-bus-errors.3
+man/SD_BUS_ERROR_FILE_NOT_FOUND.3: man/sd-bus-errors.3
+man/SD_BUS_ERROR_INCONSISTENT_MESSAGE.3: man/sd-bus-errors.3
+man/SD_BUS_ERROR_INTERACTIVE_AUTHORIZATION_REQUIRED.3: man/sd-bus-errors.3
+man/SD_BUS_ERROR_INVALID_ARGS.3: man/sd-bus-errors.3
+man/SD_BUS_ERROR_INVALID_SIGNATURE.3: man/sd-bus-errors.3
+man/SD_BUS_ERROR_IO_ERROR.3: man/sd-bus-errors.3
+man/SD_BUS_ERROR_LIMITS_EXCEEDED.3: man/sd-bus-errors.3
+man/SD_BUS_ERROR_MAKE_CONST.3: man/sd_bus_error.3
+man/SD_BUS_ERROR_MAP.3: man/sd_bus_error_add_map.3
+man/SD_BUS_ERROR_MATCH_RULE_INVALID.3: man/sd-bus-errors.3
+man/SD_BUS_ERROR_MATCH_RULE_NOT_FOUND.3: man/sd-bus-errors.3
+man/SD_BUS_ERROR_NAME_HAS_NO_OWNER.3: man/sd-bus-errors.3
+man/SD_BUS_ERROR_NOT_SUPPORTED.3: man/sd-bus-errors.3
+man/SD_BUS_ERROR_NO_MEMORY.3: man/sd-bus-errors.3
+man/SD_BUS_ERROR_NO_NETWORK.3: man/sd-bus-errors.3
+man/SD_BUS_ERROR_NO_REPLY.3: man/sd-bus-errors.3
+man/SD_BUS_ERROR_NO_SERVER.3: man/sd-bus-errors.3
+man/SD_BUS_ERROR_NULL.3: man/sd_bus_error.3
+man/SD_BUS_ERROR_PROPERTY_READ_ONLY.3: man/sd-bus-errors.3
+man/SD_BUS_ERROR_SERVICE_UNKNOWN.3: man/sd-bus-errors.3
+man/SD_BUS_ERROR_TIMEOUT.3: man/sd-bus-errors.3
+man/SD_BUS_ERROR_UNIX_PROCESS_ID_UNKNOWN.3: man/sd-bus-errors.3
+man/SD_BUS_ERROR_UNKNOWN_INTERFACE.3: man/sd-bus-errors.3
+man/SD_BUS_ERROR_UNKNOWN_METHOD.3: man/sd-bus-errors.3
+man/SD_BUS_ERROR_UNKNOWN_OBJECT.3: man/sd-bus-errors.3
+man/SD_BUS_ERROR_UNKNOWN_PROPERTY.3: man/sd-bus-errors.3
 man/SD_CRIT.3: man/sd-daemon.3
 man/SD_DEBUG.3: man/sd-daemon.3
 man/SD_EMERG.3: man/sd-daemon.3
@@ -438,6 +513,7 @@ man/poweroff.8: man/halt.8
 man/reboot.8: man/halt.8
 man/sd_bus_creds_get_audit_login_uid.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_get_audit_session_id.3: man/sd_bus_creds_get_pid.3
+man/sd_bus_creds_get_augmented_mask.3: man/sd_bus_creds_new_from_pid.3
 man/sd_bus_creds_get_cgroup.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_get_cmdline.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_get_comm.3: man/sd_bus_creds_get_pid.3
@@ -463,6 +539,7 @@ man/sd_bus_creds_get_tty.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_get_uid.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_get_unique_name.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_get_unit.3: man/sd_bus_creds_get_pid.3
+man/sd_bus_creds_get_user_slice.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_get_user_unit.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_get_well_known_names.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_has_bounding_cap.3: man/sd_bus_creds_get_pid.3
@@ -478,10 +555,13 @@ man/sd_bus_error_free.3: man/sd_bus_error.3
 man/sd_bus_error_get_errno.3: man/sd_bus_error.3
 man/sd_bus_error_has_name.3: man/sd_bus_error.3
 man/sd_bus_error_is_set.3: man/sd_bus_error.3
+man/sd_bus_error_map.3: man/sd_bus_error_add_map.3
 man/sd_bus_error_set.3: man/sd_bus_error.3
 man/sd_bus_error_set_const.3: man/sd_bus_error.3
 man/sd_bus_error_set_errno.3: man/sd_bus_error.3
 man/sd_bus_error_set_errnof.3: man/sd_bus_error.3
+man/sd_bus_error_set_errnofv.3: man/sd_bus_error.3
+man/sd_bus_error_setf.3: man/sd_bus_error.3
 man/sd_bus_message_append_array_iovec.3: man/sd_bus_message_append_array.3
 man/sd_bus_message_append_array_memfd.3: man/sd_bus_message_append_array.3
 man/sd_bus_message_append_array_space.3: man/sd_bus_message_append_array.3
@@ -491,7 +571,7 @@ man/sd_bus_message_get_realtime_usec.3: man/sd_bus_message_get_monotonic_usec.3
 man/sd_bus_message_get_reply_cookie.3: man/sd_bus_message_get_cookie.3
 man/sd_bus_message_get_seqnum.3: man/sd_bus_message_get_monotonic_usec.3
 man/sd_bus_negotiate_creds.3: man/sd_bus_negotiate_fds.3
-man/sd_bus_negotiate_timestamps.3: man/sd_bus_negotiate_fds.3
+man/sd_bus_negotiate_timestamp.3: man/sd_bus_negotiate_fds.3
 man/sd_bus_open.3: man/sd_bus_default.3
 man/sd_bus_open_system.3: man/sd_bus_default.3
 man/sd_bus_open_system_machine.3: man/sd_bus_default.3
@@ -657,6 +737,108 @@ man/user.conf.d.5: man/systemd-system.conf.5
 man/SD_ALERT.html: man/sd-daemon.html
 	$(html-alias)
 
+man/SD_BUS_ERROR_ACCESS_DENIED.html: man/sd-bus-errors.html
+	$(html-alias)
+
+man/SD_BUS_ERROR_ADDRESS_IN_USE.html: man/sd-bus-errors.html
+	$(html-alias)
+
+man/SD_BUS_ERROR_AUTH_FAILED.html: man/sd-bus-errors.html
+	$(html-alias)
+
+man/SD_BUS_ERROR_BAD_ADDRESS.html: man/sd-bus-errors.html
+	$(html-alias)
+
+man/SD_BUS_ERROR_DISCONNECTED.html: man/sd-bus-errors.html
+	$(html-alias)
+
+man/SD_BUS_ERROR_END.html: man/sd_bus_error_add_map.html
+	$(html-alias)
+
+man/SD_BUS_ERROR_FAILED.html: man/sd-bus-errors.html
+	$(html-alias)
+
+man/SD_BUS_ERROR_FILE_EXISTS.html: man/sd-bus-errors.html
+	$(html-alias)
+
+man/SD_BUS_ERROR_FILE_NOT_FOUND.html: man/sd-bus-errors.html
+	$(html-alias)
+
+man/SD_BUS_ERROR_INCONSISTENT_MESSAGE.html: man/sd-bus-errors.html
+	$(html-alias)
+
+man/SD_BUS_ERROR_INTERACTIVE_AUTHORIZATION_REQUIRED.html: man/sd-bus-errors.html
+	$(html-alias)
+
+man/SD_BUS_ERROR_INVALID_ARGS.html: man/sd-bus-errors.html
+	$(html-alias)
+
+man/SD_BUS_ERROR_INVALID_SIGNATURE.html: man/sd-bus-errors.html
+	$(html-alias)
+
+man/SD_BUS_ERROR_IO_ERROR.html: man/sd-bus-errors.html
+	$(html-alias)
+
+man/SD_BUS_ERROR_LIMITS_EXCEEDED.html: man/sd-bus-errors.html
+	$(html-alias)
+
+man/SD_BUS_ERROR_MAKE_CONST.html: man/sd_bus_error.html
+	$(html-alias)
+
+man/SD_BUS_ERROR_MAP.html: man/sd_bus_error_add_map.html
+	$(html-alias)
+
+man/SD_BUS_ERROR_MATCH_RULE_INVALID.html: man/sd-bus-errors.html
+	$(html-alias)
+
+man/SD_BUS_ERROR_MATCH_RULE_NOT_FOUND.html: man/sd-bus-errors.html
+	$(html-alias)
+
+man/SD_BUS_ERROR_NAME_HAS_NO_OWNER.html: man/sd-bus-errors.html
+	$(html-alias)
+
+man/SD_BUS_ERROR_NOT_SUPPORTED.html: man/sd-bus-errors.html
+	$(html-alias)
+
+man/SD_BUS_ERROR_NO_MEMORY.html: man/sd-bus-errors.html
+	$(html-alias)
+
+man/SD_BUS_ERROR_NO_NETWORK.html: man/sd-bus-errors.html
+	$(html-alias)
+
+man/SD_BUS_ERROR_NO_REPLY.html: man/sd-bus-errors.html
+	$(html-alias)
+
+man/SD_BUS_ERROR_NO_SERVER.html: man/sd-bus-errors.html
+	$(html-alias)
+
+man/SD_BUS_ERROR_NULL.html: man/sd_bus_error.html
+	$(html-alias)
+
+man/SD_BUS_ERROR_PROPERTY_READ_ONLY.html: man/sd-bus-errors.html
+	$(html-alias)
+
+man/SD_BUS_ERROR_SERVICE_UNKNOWN.html: man/sd-bus-errors.html
+	$(html-alias)
+
+man/SD_BUS_ERROR_TIMEOUT.html: man/sd-bus-errors.html
+	$(html-alias)
+
+man/SD_BUS_ERROR_UNIX_PROCESS_ID_UNKNOWN.html: man/sd-bus-errors.html
+	$(html-alias)
+
+man/SD_BUS_ERROR_UNKNOWN_INTERFACE.html: man/sd-bus-errors.html
+	$(html-alias)
+
+man/SD_BUS_ERROR_UNKNOWN_METHOD.html: man/sd-bus-errors.html
+	$(html-alias)
+
+man/SD_BUS_ERROR_UNKNOWN_OBJECT.html: man/sd-bus-errors.html
+	$(html-alias)
+
+man/SD_BUS_ERROR_UNKNOWN_PROPERTY.html: man/sd-bus-errors.html
+	$(html-alias)
+
 man/SD_CRIT.html: man/sd-daemon.html
 	$(html-alias)
 
@@ -747,6 +929,9 @@ man/sd_bus_creds_get_audit_login_uid.html: man/sd_bus_creds_get_pid.html
 man/sd_bus_creds_get_audit_session_id.html: man/sd_bus_creds_get_pid.html
 	$(html-alias)
 
+man/sd_bus_creds_get_augmented_mask.html: man/sd_bus_creds_new_from_pid.html
+	$(html-alias)
+
 man/sd_bus_creds_get_cgroup.html: man/sd_bus_creds_get_pid.html
 	$(html-alias)
 
@@ -822,6 +1007,9 @@ man/sd_bus_creds_get_unique_name.html: man/sd_bus_creds_get_pid.html
 man/sd_bus_creds_get_unit.html: man/sd_bus_creds_get_pid.html
 	$(html-alias)
 
+man/sd_bus_creds_get_user_slice.html: man/sd_bus_creds_get_pid.html
+	$(html-alias)
+
 man/sd_bus_creds_get_user_unit.html: man/sd_bus_creds_get_pid.html
 	$(html-alias)
 
@@ -867,6 +1055,9 @@ man/sd_bus_error_has_name.html: man/sd_bus_error.html
 man/sd_bus_error_is_set.html: man/sd_bus_error.html
 	$(html-alias)
 
+man/sd_bus_error_map.html: man/sd_bus_error_add_map.html
+	$(html-alias)
+
 man/sd_bus_error_set.html: man/sd_bus_error.html
 	$(html-alias)
 
@@ -877,6 +1068,12 @@ man/sd_bus_error_set_errno.html: man/sd_bus_error.html
 	$(html-alias)
 
 man/sd_bus_error_set_errnof.html: man/sd_bus_error.html
+	$(html-alias)
+
+man/sd_bus_error_set_errnofv.html: man/sd_bus_error.html
+	$(html-alias)
+
+man/sd_bus_error_setf.html: man/sd_bus_error.html
 	$(html-alias)
 
 man/sd_bus_message_append_array_iovec.html: man/sd_bus_message_append_array.html
@@ -906,7 +1103,7 @@ man/sd_bus_message_get_seqnum.html: man/sd_bus_message_get_monotonic_usec.html
 man/sd_bus_negotiate_creds.html: man/sd_bus_negotiate_fds.html
 	$(html-alias)
 
-man/sd_bus_negotiate_timestamps.html: man/sd_bus_negotiate_fds.html
+man/sd_bus_negotiate_timestamp.html: man/sd_bus_negotiate_fds.html
 	$(html-alias)
 
 man/sd_bus_open.html: man/sd_bus_default.html
@@ -1740,11 +1937,13 @@ MANPAGES_ALIAS += \
 	man/sd_peer_get_session.3 \
 	man/sd_peer_get_slice.3 \
 	man/sd_peer_get_unit.3 \
+	man/sd_peer_get_user_slice.3 \
 	man/sd_peer_get_user_unit.3 \
 	man/sd_pid_get_machine_name.3 \
 	man/sd_pid_get_owner_uid.3 \
 	man/sd_pid_get_slice.3 \
 	man/sd_pid_get_unit.3 \
+	man/sd_pid_get_user_slice.3 \
 	man/sd_pid_get_user_unit.3 \
 	man/sd_seat_can_graphical.3 \
 	man/sd_seat_can_multi_session.3 \
@@ -1782,11 +1981,13 @@ man/sd_peer_get_owner_uid.3: man/sd_pid_get_session.3
 man/sd_peer_get_session.3: man/sd_pid_get_session.3
 man/sd_peer_get_slice.3: man/sd_pid_get_session.3
 man/sd_peer_get_unit.3: man/sd_pid_get_session.3
+man/sd_peer_get_user_slice.3: man/sd_pid_get_session.3
 man/sd_peer_get_user_unit.3: man/sd_pid_get_session.3
 man/sd_pid_get_machine_name.3: man/sd_pid_get_session.3
 man/sd_pid_get_owner_uid.3: man/sd_pid_get_session.3
 man/sd_pid_get_slice.3: man/sd_pid_get_session.3
 man/sd_pid_get_unit.3: man/sd_pid_get_session.3
+man/sd_pid_get_user_slice.3: man/sd_pid_get_session.3
 man/sd_pid_get_user_unit.3: man/sd_pid_get_session.3
 man/sd_seat_can_graphical.3: man/sd_seat_get_active.3
 man/sd_seat_can_multi_session.3: man/sd_seat_get_active.3
@@ -1852,6 +2053,9 @@ man/sd_peer_get_slice.html: man/sd_pid_get_session.html
 man/sd_peer_get_unit.html: man/sd_pid_get_session.html
 	$(html-alias)
 
+man/sd_peer_get_user_slice.html: man/sd_pid_get_session.html
+	$(html-alias)
+
 man/sd_peer_get_user_unit.html: man/sd_pid_get_session.html
 	$(html-alias)
 
@@ -1865,6 +2069,9 @@ man/sd_pid_get_slice.html: man/sd_pid_get_session.html
 	$(html-alias)
 
 man/sd_pid_get_unit.html: man/sd_pid_get_session.html
+	$(html-alias)
+
+man/sd_pid_get_user_slice.html: man/sd_pid_get_session.html
 	$(html-alias)
 
 man/sd_pid_get_user_unit.html: man/sd_pid_get_session.html
@@ -2015,6 +2222,7 @@ EXTRA_DIST += \
 	man/pam_systemd.xml \
 	man/resolved.conf.xml \
 	man/runlevel.xml \
+	man/sd-bus-errors.xml \
 	man/sd-daemon.xml \
 	man/sd-id128.xml \
 	man/sd-journal.xml \
@@ -2024,6 +2232,7 @@ EXTRA_DIST += \
 	man/sd_bus_creds_new_from_pid.xml \
 	man/sd_bus_default.xml \
 	man/sd_bus_error.xml \
+	man/sd_bus_error_add_map.xml \
 	man/sd_bus_message_append.xml \
 	man/sd_bus_message_append_array.xml \
 	man/sd_bus_message_append_basic.xml \

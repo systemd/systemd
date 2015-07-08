@@ -45,7 +45,7 @@
   <refnamediv>
     <refname>sd_bus_request_name</refname>
     <refname>sd_bus_release_name</refname>
-    <refpurpose>Request or release a well-known name on a bus</refpurpose>
+    <refpurpose>Request or release a well-known service name on a bus</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -71,9 +71,9 @@
     <title>Description</title>
 
     <para><function>sd_bus_request_name()</function> requests a
-    well-known name on a bus. It takes a bus connection, a valid bus
-    name and a flags parameter. The flags parameter is a combination
-    of the following flags:</para>
+    well-known service name on a bus. It takes a bus connection, a
+    valid bus name and a flags parameter. The flags parameter is a
+    combination of the following flags:</para>
 
     <variablelist>
       <varlistentry>
@@ -166,8 +166,11 @@
       <varlistentry>
         <term><constant>-EINVAL</constant></term>
 
-        <listitem><para>A specified parameter is
-        invalid.</para></listitem>
+        <listitem><para>A specified parameter is invalid. This is also
+        generated when the requested name is a special service name
+        reserved by the D-Bus specification, or when the operation is
+        requested on a connection that does not refer to a
+        bus.</para></listitem>
       </varlistentry>
 
       <varlistentry>
