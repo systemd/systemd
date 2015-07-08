@@ -55,7 +55,6 @@ static int property_get_id(
                 sd_bus_error *error) {
 
         Machine *m = userdata;
-        int r;
 
         assert(bus);
         assert(reply);
@@ -100,7 +99,6 @@ static int property_get_netif(
                 sd_bus_error *error) {
 
         Machine *m = userdata;
-        int r;
 
         assert(bus);
         assert(reply);
