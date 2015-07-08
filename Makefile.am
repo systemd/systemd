@@ -639,7 +639,6 @@ UNINSTALL_DATA_HOOKS += units-uninstall-hook
 
 dist_doc_DATA = \
 	README \
-	README.md \
 	NEWS \
 	CODING_STYLE \
 	LICENSE.LGPL2.1 \
@@ -650,6 +649,7 @@ dist_doc_DATA = \
 	src/libsystemd/sd-bus/GVARIANT-SERIALIZATION
 
 EXTRA_DIST += \
+	README.md \
 	autogen.sh \
 	.dir-locals.el \
 	.vimrc \
