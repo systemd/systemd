@@ -691,7 +691,7 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *star
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_uint8(p, rr->rrsig.key_tag, NULL);
+                r = dns_packet_append_uint16(p, rr->rrsig.key_tag, NULL);
                 if (r < 0)
                         goto fail;
 
