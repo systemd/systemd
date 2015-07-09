@@ -65,12 +65,6 @@ struct Manager {
         unsigned n_dns_streams;
 
         /* Unicast dns */
-        int dns_ipv4_fd;
-        int dns_ipv6_fd;
-
-        sd_event_source *dns_ipv4_event_source;
-        sd_event_source *dns_ipv6_event_source;
-
         LIST_HEAD(DnsServer, dns_servers);
         LIST_HEAD(DnsServer, fallback_dns_servers);
         DnsServer *current_dns_server;
@@ -127,9 +121,6 @@ uint32_t manager_find_mtu(Manager *m);
 
 int manager_send(Manager *m, int fd, int ifindex, int family, const union in_addr_union *addr, uint16_t port, DnsPacket *p);
 int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret);
-
-int manager_dns_ipv4_fd(Manager *m);
-int manager_dns_ipv6_fd(Manager *m);
 
 int manager_find_ifindex(Manager *m, int family, const union in_addr_union *in_addr);
 LinkAddress* manager_find_link_address(Manager *m, int family, const union in_addr_union *in_addr);

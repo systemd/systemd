@@ -125,7 +125,7 @@ void dns_scope_next_dns_server(DnsScope *s) {
                 manager_next_dns_server(s->manager);
 }
 
-int dns_scope_emit(DnsScope *s, DnsPacket *p, DnsServer **server) {
+int dns_scope_emit(DnsScope *s, DnsTransaction *t, DnsPacket *p, DnsServer **server) {
         DnsServer *srv = NULL;
         union in_addr_union addr;
         int ifindex = 0, r;
@@ -163,9 +163,9 @@ int dns_scope_emit(DnsScope *s, DnsPacket *p, DnsServer **server) {
                         return -EMSGSIZE;
 
                 if (family == AF_INET)
-                        fd = manager_dns_ipv4_fd(s->manager);
+                        fd = transaction_dns_ipv4_fd(t);
                 else if (family == AF_INET6)
-                        fd = manager_dns_ipv6_fd(s->manager);
+                        fd = transaction_dns_ipv6_fd(t);
                 else
                         return -EAFNOSUPPORT;
                 if (fd < 0)
@@ -700,7 +700,7 @@ static int on_conflict_dispatch(sd_event_source *es, usec_t usec, void *userdata
                         return 0;
                 }
 
-                r = dns_scope_emit(scope, p, NULL);
+                r = dns_scope_emit(scope, NULL, p, NULL);
                 if (r < 0)
                         log_debug_errno(r, "Failed to send conflict packet: %m");
         }
