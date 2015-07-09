@@ -273,7 +273,7 @@ _public_ int sd_bus_slot_set_description(sd_bus_slot *slot, const char *descript
         return free_and_strdup(&slot->description, description);
 }
 
-_public_ int sd_bus_slot_get_description(sd_bus_slot *slot, char **description) {
+_public_ int sd_bus_slot_get_description(sd_bus_slot *slot, const char **description) {
         assert_return(slot, -EINVAL);
         assert_return(description, -EINVAL);
         assert_return(slot->description, -ENXIO);
