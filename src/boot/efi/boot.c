@@ -1547,16 +1547,19 @@ static VOID config_entry_add_linux( Config *config, EFI_LOADED_IMAGE *loaded_ima
                         line = content;
                         while ((line = line_get_key_value(content, (CHAR8 *)"=", &pos, &key, &value))) {
                                 if (strcmpa((CHAR8 *)"PRETTY_NAME", key) == 0) {
+                                        FreePool(os_name);
                                         os_name = stra_to_str(value);
                                         continue;
                                 }
 
                                 if (strcmpa((CHAR8 *)"ID", key) == 0) {
+                                        FreePool(os_id);
                                         os_id = stra_to_str(value);
                                         continue;
                                 }
 
                                 if (strcmpa((CHAR8 *)"VERSION_ID", key) == 0) {
+                                        FreePool(os_version);
                                         os_version = stra_to_str(value);
                                         continue;
                                 }
@@ -1571,11 +1574,11 @@ static VOID config_entry_add_linux( Config *config, EFI_LOADED_IMAGE *loaded_ima
                                 config_entry_add_loader(config, loaded_image->DeviceHandle, LOADER_LINUX, conf, 'l', os_name, path);
                                 FreePool(conf);
                                 FreePool(path);
-                                FreePool(os_name);
-                                FreePool(os_id);
-                                FreePool(os_version);
                         }
 
+                        FreePool(os_name);
+                        FreePool(os_id);
+                        FreePool(os_version);
                         FreePool(content);
                 }
                 uefi_call_wrapper(linux_dir->Close, 1, linux_dir);
