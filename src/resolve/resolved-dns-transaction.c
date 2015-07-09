@@ -338,10 +338,15 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
         if (t->scope->protocol == DNS_PROTOCOL_DNS) {
 
                 /* For DNS we are fine with accepting packets on any
-                 * interface, but the source IP address must be one of
-                 * a valid DNS server */
+                 * interface, but the source IP address must be the
+                 * one of the DNS server we queried */
 
-                if (!dns_scope_good_dns_server(t->scope, p->family, &p->sender))
+                assert(t->server);
+
+                if (t->server->family != p->family)
+                        return;
+
+                if (!in_addr_equal(p->family, &p->sender, &t->server->address))
                         return;
 
                 if (p->sender_port != 53)
@@ -402,6 +407,11 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                 dns_transaction_complete(t, DNS_TRANSACTION_INVALID_REPLY);
                 return;
         }
+
+        /* Only consider responses with equivalent query section to the request */
+        if (!dns_question_is_superset(p->question, t->question) ||
+            !dns_question_is_superset(t->question, p->question))
+                dns_transaction_complete(t, DNS_TRANSACTION_INVALID_REPLY);
 
         /* According to RFC 4795, section 2.9. only the RRs from the answer section shall be cached */
         dns_cache_put(&t->scope->cache, p->question, DNS_PACKET_RCODE(p), p->answer, DNS_PACKET_ANCOUNT(p), 0, p->family, &p->sender);
