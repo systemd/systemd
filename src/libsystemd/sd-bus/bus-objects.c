@@ -1164,6 +1164,10 @@ static int process_get_managed_objects(
         if (bus->nodes_modified)
                 return 0;
 
+        r = set_put_strdup(s, m->path);
+        if (r < 0)
+                return r;
+
         r = sd_bus_message_new_method_return(m, &reply);
         if (r < 0)
                 return r;
