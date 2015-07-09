@@ -404,7 +404,6 @@ int manager_new(Manager **ret) {
         if (!m)
                 return -ENOMEM;
 
-        m->dns_ipv4_fd = m->dns_ipv6_fd = -1;
         m->llmnr_ipv4_udp_fd = m->llmnr_ipv6_udp_fd = -1;
         m->llmnr_ipv4_tcp_fd = m->llmnr_ipv6_tcp_fd = -1;
         m->hostname_fd = -1;
@@ -485,11 +484,6 @@ Manager *manager_free(Manager *m) {
 
         sd_event_source_unref(m->network_event_source);
         sd_network_monitor_unref(m->network_monitor);
-
-        sd_event_source_unref(m->dns_ipv4_event_source);
-        sd_event_source_unref(m->dns_ipv6_event_source);
-        safe_close(m->dns_ipv4_fd);
-        safe_close(m->dns_ipv6_fd);
 
         manager_llmnr_stop(m);
 
@@ -927,89 +921,6 @@ int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret) {
         p = NULL;
 
         return 1;
-}
-
-static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
-        DnsTransaction *t = NULL;
-        Manager *m = userdata;
-        int r;
-
-        r = manager_recv(m, fd, DNS_PROTOCOL_DNS, &p);
-        if (r <= 0)
-                return r;
-
-        if (dns_packet_validate_reply(p) > 0) {
-                t = hashmap_get(m->dns_transactions, UINT_TO_PTR(DNS_PACKET_ID(p)));
-                if (!t)
-                        return 0;
-
-                dns_transaction_process_reply(t, p);
-
-        } else
-                log_debug("Invalid DNS packet.");
-
-        return 0;
-}
-
-int manager_dns_ipv4_fd(Manager *m) {
-        const int one = 1;
-        int r;
-
-        assert(m);
-
-        if (m->dns_ipv4_fd >= 0)
-                return m->dns_ipv4_fd;
-
-        m->dns_ipv4_fd = socket(AF_INET, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
-        if (m->dns_ipv4_fd < 0)
-                return -errno;
-
-        r = setsockopt(m->dns_ipv4_fd, IPPROTO_IP, IP_PKTINFO, &one, sizeof(one));
-        if (r < 0) {
-                r = -errno;
-                goto fail;
-        }
-
-        r = sd_event_add_io(m->event, &m->dns_ipv4_event_source, m->dns_ipv4_fd, EPOLLIN, on_dns_packet, m);
-        if (r < 0)
-                goto fail;
-
-        return m->dns_ipv4_fd;
-
-fail:
-        m->dns_ipv4_fd = safe_close(m->dns_ipv4_fd);
-        return r;
-}
-
-int manager_dns_ipv6_fd(Manager *m) {
-        const int one = 1;
-        int r;
-
-        assert(m);
-
-        if (m->dns_ipv6_fd >= 0)
-                return m->dns_ipv6_fd;
-
-        m->dns_ipv6_fd = socket(AF_INET6, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
-        if (m->dns_ipv6_fd < 0)
-                return -errno;
-
-        r = setsockopt(m->dns_ipv6_fd, IPPROTO_IPV6, IPV6_RECVPKTINFO, &one, sizeof(one));
-        if (r < 0) {
-                r = -errno;
-                goto fail;
-        }
-
-        r = sd_event_add_io(m->event, &m->dns_ipv6_event_source, m->dns_ipv6_fd, EPOLLIN, on_dns_packet, m);
-        if (r < 0)
-                goto fail;
-
-        return m->dns_ipv6_fd;
-
-fail:
-        m->dns_ipv6_fd = safe_close(m->dns_ipv6_fd);
-        return r;
 }
 
 static int sendmsg_loop(int fd, struct msghdr *mh, int flags) {
