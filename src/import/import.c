@@ -30,6 +30,7 @@
 #include "import-util.h"
 #include "import-tar.h"
 #include "import-raw.h"
+#include "import-dkr.h"
 
 static bool arg_force = false;
 static bool arg_read_only = false;
@@ -231,6 +232,101 @@ static int import_raw(int argc, char *argv[], void *userdata) {
         return -r;
 }
 
+static void on_dkr_finished(DkrImport *import, int error, void *userdata) {
+        sd_event *event = userdata;
+        assert(import);
+
+        if (error == 0)
+                log_info("Operation completed successfully.");
+
+        sd_event_exit(event, abs(error));
+}
+
+static int import_dkr(int argc, char *argv[], void *userdata) {
+        _cleanup_(dkr_import_unrefp) DkrImport *import = NULL;
+        _cleanup_event_unref_ sd_event *event = NULL;
+        const char *path = NULL, *local = NULL;
+        _cleanup_free_ char *ll = NULL;
+        _cleanup_close_ int open_fd = -1;
+        int r, fd;
+
+        if (argc >= 2)
+                path = argv[1];
+        if (isempty(path) || streq(path, "-"))
+                path = NULL;
+
+        if (argc >= 3)
+                local = argv[2];
+        else if (path)
+                local = basename(path);
+        if (isempty(local) || streq(local, "-"))
+                local = NULL;
+
+        if (local) {
+                r = tar_strip_suffixes(local, &ll);
+                if (r < 0)
+                        return log_oom();
+
+                local = ll;
+
+                if (!machine_name_is_valid(local)) {
+                        log_error("Local image name '%s' is not valid.", local);
+                        return -EINVAL;
+                }
+
+                if (!arg_force) {
+                        r = image_find(local, NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to check whether image '%s' exists: %m", local);
+                        else if (r > 0) {
+                                log_error_errno(EEXIST, "Image '%s' already exists.", local);
+                                return -EEXIST;
+                        }
+                }
+        } else
+                local = "imported";
+
+        if (path) {
+                open_fd = open(path, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                if (open_fd < 0)
+                        return log_error_errno(errno, "Failed to open tar image to import: %m");
+
+                fd = open_fd;
+
+                log_info("Importing '%s', saving as '%s'.", path, local);
+        } else {
+                _cleanup_free_ char *pretty = NULL;
+
+                fd = STDIN_FILENO;
+
+                (void) readlink_malloc("/proc/self/fd/0", &pretty);
+                log_info("Importing '%s', saving as '%s'.", strna(pretty), local);
+        }
+
+        r = sd_event_default(&event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate event loop: %m");
+
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, -1) == 0);
+        (void) sd_event_add_signal(event, NULL, SIGTERM, interrupt_signal_handler,  NULL);
+        (void) sd_event_add_signal(event, NULL, SIGINT, interrupt_signal_handler, NULL);
+
+        r = dkr_import_new(&import, event, arg_image_root, on_dkr_finished, event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate importer: %m");
+
+        r = dkr_import_start(import, fd, local, arg_force, arg_read_only);
+        if (r < 0)
+                return log_error_errno(r, "Failed to import image: %m");
+
+        r = sd_event_loop(event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to run event loop: %m");
+
+        log_info("Exiting.");
+        return -r;
+}
+
 static int help(int argc, char *argv[], void *userdata) {
 
         printf("%s [OPTIONS...] {COMMAND} ...\n\n"
@@ -242,7 +338,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --read-only              Create a read-only image\n\n"
                "Commands:\n"
                "  tar FILE [NAME]             Import a TAR image\n"
-               "  raw FILE [NAME]             Import a RAW image\n",
+               "  raw FILE [NAME]             Import a RAW image\n"
+               "  dkr FILE [NAME]             Import a DKR image\n",
                program_invocation_short_name);
 
         return 0;
@@ -311,6 +408,7 @@ static int import_main(int argc, char *argv[]) {
                 { "help", VERB_ANY, VERB_ANY, 0, help       },
                 { "tar",  2,        3,        0, import_tar },
                 { "raw",  2,        3,        0, import_raw },
+                { "dkr",  2,        3,        0, import_dkr },
                 {}
         };
 
