@@ -42,6 +42,7 @@ typedef struct Manager Manager;
 typedef enum TransferType {
         TRANSFER_IMPORT_TAR,
         TRANSFER_IMPORT_RAW,
+        TRANSFER_IMPORT_DKR,
         TRANSFER_EXPORT_TAR,
         TRANSFER_EXPORT_RAW,
         TRANSFER_PULL_TAR,
@@ -104,6 +105,7 @@ struct Manager {
 static const char* const transfer_type_table[_TRANSFER_TYPE_MAX] = {
         [TRANSFER_IMPORT_TAR] = "import-tar",
         [TRANSFER_IMPORT_RAW] = "import-raw",
+        [TRANSFER_IMPORT_DKR] = "import-dkr",
         [TRANSFER_EXPORT_TAR] = "export-tar",
         [TRANSFER_EXPORT_RAW] = "export-raw",
         [TRANSFER_PULL_TAR] = "pull-tar",
@@ -452,7 +454,7 @@ static int transfer_start(Transfer *t) {
                 setenv("SYSTEMD_LOG_TARGET", "console-prefixed", 1);
                 setenv("NOTIFY_SOCKET", "/run/systemd/import/notify", 1);
 
-                if (IN_SET(t->type, TRANSFER_IMPORT_TAR, TRANSFER_IMPORT_RAW))
+                if (IN_SET(t->type, TRANSFER_IMPORT_TAR, TRANSFER_IMPORT_RAW, TRANSFER_IMPORT_DKR))
                         cmd[k++] = SYSTEMD_IMPORT_PATH;
                 else if (IN_SET(t->type, TRANSFER_EXPORT_TAR, TRANSFER_EXPORT_RAW))
                         cmd[k++] = SYSTEMD_EXPORT_PATH;
@@ -754,7 +756,12 @@ static int method_import_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_
         if (r < 0)
                 return r;
 
-        type = streq_ptr(sd_bus_message_get_member(msg), "ImportTar") ? TRANSFER_IMPORT_TAR : TRANSFER_IMPORT_RAW;
+        if (streq_ptr(sd_bus_message_get_member(msg), "ImportTar"))
+                type = TRANSFER_IMPORT_TAR;
+        else if (streq_ptr(sd_bus_message_get_member(msg), "ImportRaw"))
+                type = TRANSFER_IMPORT_RAW;
+        else
+                type = TRANSFER_IMPORT_DKR;
 
         r = transfer_new(m, &t);
         if (r < 0)
@@ -1171,6 +1178,7 @@ static const sd_bus_vtable manager_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_METHOD("ImportTar", "hsbb", "uo", method_import_tar_or_raw, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ImportRaw", "hsbb", "uo", method_import_tar_or_raw, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("ImportDkr", "hsbb", "uo", method_import_tar_or_raw, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ExportTar", "shs", "uo", method_export_tar_or_raw, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ExportRaw", "shs", "uo", method_export_tar_or_raw, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("PullTar", "sssb", "uo", method_pull_tar_or_raw, SD_BUS_VTABLE_UNPRIVILEGED),
