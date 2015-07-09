@@ -72,6 +72,8 @@ struct sd_dhcp_lease {
         char *root_path;
         uint8_t *client_id;
         size_t client_id_len;
+        uint8_t *vendor_specific;
+        size_t vendor_specific_len;
 };
 
 int dhcp_lease_new(sd_dhcp_lease **ret);
