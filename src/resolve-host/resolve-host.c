@@ -89,10 +89,6 @@ static int resolve_host(sd_bus *bus, const char *name) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_message_set_auto_start(req, false);
-        if (r < 0)
-                return bus_log_create_error(r);
-
         r = sd_bus_message_append(req, "isit", arg_ifindex, name, arg_family, arg_flags);
         if (r < 0)
                 return bus_log_create_error(r);
