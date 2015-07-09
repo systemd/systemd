@@ -210,7 +210,7 @@ static int tar_pull_make_local_copy(TarPull *i) {
                         return log_oom();
         }
 
-        r = pull_make_local_copy(i->final_path, i->image_root, i->local, i->force_local);
+        r = import_make_local_copy(i->final_path, i->image_root, i->local, i->force_local);
         if (r < 0)
                 return r;
 

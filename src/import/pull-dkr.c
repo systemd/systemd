@@ -485,7 +485,7 @@ static int dkr_pull_make_local_copy(DkrPull *i, DkrPullVersion version) {
                         return r;
         }
 
-        r = pull_make_local_copy(i->final_path, p ?: i->image_root, i->local, i->force_local);
+        r = import_make_local_copy(i->final_path, p ?: i->image_root, i->local, i->force_local);
         if (r < 0)
                 return r;
 
