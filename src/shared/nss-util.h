@@ -24,6 +24,9 @@
 #include <nss.h>
 #include <netdb.h>
 #include <resolv.h>
+#include <pwd.h>
+#include <grp.h>
+
 
 #define NSS_GETHOSTBYNAME_PROTOTYPES(module)            \
 enum nss_status _nss_##module##_gethostbyname4_r(       \
@@ -109,7 +112,8 @@ enum nss_status _nss_##module##_gethostbyname_r(        \
                         NULL,                           \
                         NULL);                          \
        return ret;                                      \
-}
+}                                                       \
+struct __useless_struct_to_allow_trailing_semicolon__
 
 #define NSS_GETHOSTBYADDR_FALLBACKS(module)             \
 enum nss_status _nss_##module##_gethostbyaddr_r(        \
@@ -125,4 +129,29 @@ enum nss_status _nss_##module##_gethostbyaddr_r(        \
                         buffer, buflen,                 \
                         errnop, h_errnop,               \
                         NULL);                          \
-}
+}                                                       \
+struct __useless_struct_to_allow_trailing_semicolon__
+
+#define NSS_GETPW_PROTOTYPES(module)                    \
+enum nss_status _nss_##module##_getpwnam_r(             \
+                const char *name,                       \
+                struct passwd *pwd,                     \
+                char *buffer, size_t buflen,            \
+                int *errnop) _public_;                  \
+enum nss_status _nss_mymachines_getpwuid_r(             \
+                uid_t uid,                              \
+                struct passwd *pwd,                     \
+                char *buffer, size_t buflen,            \
+                int *errnop) _public_
+
+#define NSS_GETGR_PROTOTYPES(module)                    \
+enum nss_status _nss_##module##_getgrnam_r(             \
+                const char *name,                       \
+                struct group *gr,                       \
+                char *buffer, size_t buflen,            \
+                int *errnop) _public_;                  \
+enum nss_status _nss_##module##_getgrgid_r(             \
+                gid_t gid,                              \
+                struct group *gr,                       \
+                char *buffer, size_t buflen,            \
+                int *errnop) _public_
