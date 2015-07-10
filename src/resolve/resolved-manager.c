@@ -40,6 +40,7 @@
 #include "resolved-llmnr.h"
 #include "resolved-manager.h"
 #include "resolved-resolv-conf.h"
+#include "resolved-mdns.h"
 #include "socket-util.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -472,6 +473,7 @@ int manager_new(Manager **ret) {
 
         m->llmnr_ipv4_udp_fd = m->llmnr_ipv6_udp_fd = -1;
         m->llmnr_ipv4_tcp_fd = m->llmnr_ipv6_tcp_fd = -1;
+        m->mdns_ipv4_fd = m->mdns_ipv6_fd = -1;
         m->hostname_fd = -1;
 
         m->llmnr_support = SUPPORT_YES;
@@ -528,6 +530,10 @@ int manager_start(Manager *m) {
         if (r < 0)
                 return r;
 
+        r = manager_mdns_start(m);
+        if (r < 0)
+                return r;
+
         return 0;
 }
 
@@ -559,6 +565,7 @@ Manager *manager_free(Manager *m) {
         sd_event_source_unref(m->rtnl_event_source);
 
         manager_llmnr_stop(m);
+        manager_mdns_stop(m);
 
         sd_bus_slot_unref(m->prepare_for_sleep_slot);
         sd_event_source_unref(m->bus_retry_event_source);

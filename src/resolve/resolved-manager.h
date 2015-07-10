@@ -54,6 +54,7 @@ struct Manager {
         sd_event *event;
 
         Support llmnr_support;
+        Support mdns_support;
 
         /* Network */
         Hashmap *links;
@@ -101,6 +102,13 @@ struct Manager {
         sd_event_source *llmnr_ipv6_udp_event_source;
         sd_event_source *llmnr_ipv4_tcp_event_source;
         sd_event_source *llmnr_ipv6_tcp_event_source;
+
+        /* mDNS */
+        int mdns_ipv4_fd;
+        int mdns_ipv6_fd;
+
+        sd_event_source *mdns_ipv4_event_source;
+        sd_event_source *mdns_ipv6_event_source;
 
         /* dbus */
         sd_bus *bus;

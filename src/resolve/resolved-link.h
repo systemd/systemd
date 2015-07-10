@@ -67,6 +67,7 @@ struct Link {
         unsigned n_search_domains;
 
         Support llmnr_support;
+        Support mdns_support;
 
         DnsScope *unicast_scope;
         DnsScope *llmnr_ipv4_scope;
