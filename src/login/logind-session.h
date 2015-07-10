@@ -70,7 +70,7 @@ struct Session {
         Manager *manager;
 
         const char *id;
-        unsigned int pos;
+        unsigned int position;
         SessionType type;
         SessionClass class;
 

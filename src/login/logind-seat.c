@@ -290,8 +290,8 @@ int seat_switch_to_next(Seat *s) {
                 return -EINVAL;
 
         start = 1;
-        if (s->active && s->active->pos > 0)
-                start = s->active->pos;
+        if (s->active && s->active->position > 0)
+                start = s->active->position;
 
         for (i = start + 1; i < s->position_count; ++i)
                 if (s->positions[i])
@@ -311,8 +311,8 @@ int seat_switch_to_previous(Seat *s) {
                 return -EINVAL;
 
         start = 1;
-        if (s->active && s->active->pos > 0)
-                start = s->active->pos;
+        if (s->active && s->active->position > 0)
+                start = s->active->position;
 
         for (i = start - 1; i > 0; --i)
                 if (s->positions[i])
@@ -472,9 +472,9 @@ int seat_stop_sessions(Seat *s, bool force) {
 
 void seat_evict_position(Seat *s, Session *session) {
         Session *iter;
-        unsigned int pos = session->pos;
+        unsigned int pos = session->position;
 
-        session->pos = 0;
+        session->position = 0;
 
         if (pos == 0)
                 return;
@@ -486,7 +486,7 @@ void seat_evict_position(Seat *s, Session *session) {
                  * position (eg., during gdm->session transition), so let's look
                  * for it and set it on the free slot. */
                 LIST_FOREACH(sessions_by_seat, iter, s->sessions) {
-                        if (iter->pos == pos) {
+                        if (iter->position == pos) {
                                 s->positions[pos] = iter;
                                 break;
                         }
@@ -504,7 +504,7 @@ void seat_claim_position(Seat *s, Session *session, unsigned int pos) {
 
         seat_evict_position(s, session);
 
-        session->pos = pos;
+        session->position = pos;
         if (pos > 0 && !s->positions[pos])
                 s->positions[pos] = session;
 }
@@ -512,7 +512,7 @@ void seat_claim_position(Seat *s, Session *session, unsigned int pos) {
 static void seat_assign_position(Seat *s, Session *session) {
         unsigned int pos;
 
-        if (session->pos > 0)
+        if (session->position > 0)
                 return;
 
         for (pos = 1; pos < s->position_count; ++pos)

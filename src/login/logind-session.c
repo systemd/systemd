@@ -264,7 +264,7 @@ int session_save(Session *s) {
                 fprintf(f, "VTNR=%u\n", s->vtnr);
 
         if (!s->vtnr)
-                fprintf(f, "POS=%u\n", s->pos);
+                fprintf(f, "POSITION=%u\n", s->position);
 
         if (s->leader > 0)
                 fprintf(f, "LEADER="PID_FMT"\n", s->leader);
@@ -302,7 +302,7 @@ int session_load(Session *s) {
                 *seat = NULL,
                 *vtnr = NULL,
                 *state = NULL,
-                *pos = NULL,
+                *position = NULL,
                 *leader = NULL,
                 *type = NULL,
                 *class = NULL,
@@ -329,7 +329,7 @@ int session_load(Session *s) {
                            "DESKTOP",        &s->desktop,
                            "VTNR",           &vtnr,
                            "STATE",          &state,
-                           "POS",            &pos,
+                           "POSITION",       &position,
                            "LEADER",         &leader,
                            "TYPE",           &type,
                            "CLASS",          &class,
@@ -388,10 +388,10 @@ int session_load(Session *s) {
         if (!s->seat || !seat_has_vts(s->seat))
                 s->vtnr = 0;
 
-        if (pos && s->seat) {
+        if (position && s->seat) {
                 unsigned int npos;
 
-                safe_atou(pos, &npos);
+                safe_atou(position, &npos);
                 seat_claim_position(s->seat, s, npos);
         }
 
