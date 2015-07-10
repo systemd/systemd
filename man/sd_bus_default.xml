@@ -219,6 +219,12 @@
     one. Use
     <citerefentry><refentrytitle>sd_bus_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     to drop the reference.</para>
+
+    <para>Queued messages also keep a reference to the bus. For this reason, just
+    because no application is having a reference to the bus does not mean that
+    the bus object will be destroyed. Until all the messages are sent, the bus object
+    will stay alive. <function>sd_bus_flush</function> can be used to send all the
+    queued messages so they drop their references.</para>
   </refsect1>
 
   <refsect1>
