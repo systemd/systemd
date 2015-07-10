@@ -28,6 +28,7 @@
 #include "random-util.h"
 #include "hostname-util.h"
 #include "dns-domain.h"
+#include "resolved-llmnr.h"
 #include "resolved-dns-scope.h"
 
 #define MULTICAST_RATELIMIT_INTERVAL_USEC (1*USEC_PER_SEC)
