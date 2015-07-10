@@ -124,7 +124,7 @@ static int on_llmnr_packet(sd_event_source *s, int fd, uint32_t revents, void *u
 int manager_llmnr_ipv4_udp_fd(Manager *m) {
         union sockaddr_union sa = {
                 .in.sin_family = AF_INET,
-                .in.sin_port = htobe16(5355),
+                .in.sin_port = htobe16(LLMNR_PORT),
         };
         static const int one = 1, pmtu = IP_PMTUDISC_DONT, ttl = 255;
         int r;
@@ -202,7 +202,7 @@ fail:
 int manager_llmnr_ipv6_udp_fd(Manager *m) {
         union sockaddr_union sa = {
                 .in6.sin6_family = AF_INET6,
-                .in6.sin6_port = htobe16(5355),
+                .in6.sin6_port = htobe16(LLMNR_PORT),
         };
         static const int one = 1, ttl = 255;
         int r;
@@ -330,7 +330,7 @@ static int on_llmnr_stream(sd_event_source *s, int fd, uint32_t revents, void *u
 int manager_llmnr_ipv4_tcp_fd(Manager *m) {
         union sockaddr_union sa = {
                 .in.sin_family = AF_INET,
-                .in.sin_port = htobe16(5355),
+                .in.sin_port = htobe16(LLMNR_PORT),
         };
         static const int one = 1, pmtu = IP_PMTUDISC_DONT;
         int r;
@@ -402,7 +402,7 @@ fail:
 int manager_llmnr_ipv6_tcp_fd(Manager *m) {
         union sockaddr_union sa = {
                 .in6.sin6_family = AF_INET6,
-                .in6.sin6_port = htobe16(5355),
+                .in6.sin6_port = htobe16(LLMNR_PORT),
         };
         static const int one = 1;
         int r;

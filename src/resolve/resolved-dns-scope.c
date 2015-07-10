@@ -181,7 +181,7 @@ int dns_scope_emit(DnsScope *s, DnsPacket *p) {
                         return -EBUSY;
 
                 family = s->family;
-                port = 5355;
+                port = LLMNR_PORT;
 
                 if (family == AF_INET) {
                         addr.in = LLMNR_MULTICAST_IPV4_ADDRESS;

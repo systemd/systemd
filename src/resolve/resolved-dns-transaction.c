@@ -21,6 +21,7 @@
 
 #include "af-list.h"
 
+#include "resolved-llmnr.h"
 #include "resolved-dns-transaction.h"
 #include "random-util.h"
 
@@ -264,7 +265,7 @@ static int dns_transaction_open_tcp(DnsTransaction *t) {
                         if (r == 0)
                                 return -EINVAL;
 
-                        fd = dns_scope_tcp_socket(t->scope, family, &address, 5355);
+                        fd = dns_scope_tcp_socket(t->scope, family, &address, LLMNR_PORT);
                 }
         } else
                 return -EAFNOSUPPORT;

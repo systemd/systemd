@@ -23,6 +23,8 @@
 
 #include "resolved-manager.h"
 
+#define LLMNR_PORT 5355
+
 int manager_llmnr_ipv4_udp_fd(Manager *m);
 int manager_llmnr_ipv6_udp_fd(Manager *m);
 int manager_llmnr_ipv4_tcp_fd(Manager *m);
