@@ -61,7 +61,7 @@ int tlv_packet_new(tlv_packet **ret) {
         return 0;
 }
 
-tlv_packet *tlv_packet_ref(tlv_packet *m) {
+sd_lldp_tlv *sd_lldp_tlv_ref(sd_lldp_tlv *m) {
 
         if (!m)
                 return NULL;
@@ -72,7 +72,7 @@ tlv_packet *tlv_packet_ref(tlv_packet *m) {
         return m;
 }
 
-tlv_packet *tlv_packet_unref(tlv_packet *m) {
+sd_lldp_tlv *sd_lldp_tlv_unref(sd_lldp_tlv *m) {
         tlv_section *s, *n;
 
         if (!m)
