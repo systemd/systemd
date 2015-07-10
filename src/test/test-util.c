@@ -390,6 +390,24 @@ static void test_unhexchar(void) {
         assert_se(unhexchar('0') == 0x0);
 }
 
+static void test_base64char(void) {
+        assert_se(base64char(0) == 'A');
+        assert_se(base64char(26) == 'a');
+        assert_se(base64char(63) == '/');
+}
+
+static void test_unbase64char(void) {
+        assert_se(unbase64char('A') == 0);
+        assert_se(unbase64char('Z') == 25);
+        assert_se(unbase64char('a') == 26);
+        assert_se(unbase64char('z') == 51);
+        assert_se(unbase64char('0') == 52);
+        assert_se(unbase64char('9') == 61);
+        assert_se(unbase64char('+') == 62);
+        assert_se(unbase64char('/') == 63);
+        assert_se(unbase64char('=') == -EINVAL);
+}
+
 static void test_octchar(void) {
         assert_se(octchar(00) == '0');
         assert_se(octchar(07) == '7');
@@ -432,6 +450,84 @@ static void test_unhexmem(void) {
         assert_se(unhexmem(hex, strlen(hex) - 1, &mem, &len) == 0);
         assert_se((hex2 = hexmem(mem, len)));
         assert_se(memcmp(hex, hex2, strlen(hex) - 1) == 0);
+}
+
+/* https://tools.ietf.org/html/rfc4648#section-10 */
+static void test_base64mem(void) {
+        char *b64;
+
+        b64 = base64mem("", strlen(""));
+        assert_se(b64);
+        assert_se(streq(b64, ""));
+        free(b64);
+
+        b64 = base64mem("f", strlen("f"));
+        assert_se(b64);
+        assert_se(streq(b64, "Zg=="));
+        free(b64);
+
+        b64 = base64mem("fo", strlen("fo"));
+        assert_se(b64);
+        assert_se(streq(b64, "Zm8="));
+        free(b64);
+
+        b64 = base64mem("foo", strlen("foo"));
+        assert_se(b64);
+        assert_se(streq(b64, "Zm9v"));
+        free(b64);
+
+        b64 = base64mem("foob", strlen("foob"));
+        assert_se(b64);
+        assert_se(streq(b64, "Zm9vYg=="));
+        free(b64);
+
+        b64 = base64mem("fooba", strlen("fooba"));
+        assert_se(b64);
+        assert_se(streq(b64, "Zm9vYmE="));
+        free(b64);
+
+        b64 = base64mem("foobar", strlen("foobar"));
+        assert_se(b64);
+        assert_se(streq(b64, "Zm9vYmFy"));
+        free(b64);
+}
+
+static void test_unbase64mem(void) {
+        void *mem;
+        size_t len;
+
+        assert_se(unbase64mem("", strlen(""), &mem, &len) == 0);
+        assert_se(streq(strndupa(mem, len), ""));
+        free(mem);
+
+        assert_se(unbase64mem("Zg==", strlen("Zg=="), &mem, &len) == 0);
+        assert_se(streq(strndupa(mem, len), "f"));
+        free(mem);
+
+        assert_se(unbase64mem("Zm8=", strlen("Zm8="), &mem, &len) == 0);
+        assert_se(streq(strndupa(mem, len), "fo"));
+        free(mem);
+
+        assert_se(unbase64mem("Zm9v", strlen("Zm9v"), &mem, &len) == 0);
+        assert_se(streq(strndupa(mem, len), "foo"));
+        free(mem);
+
+        assert_se(unbase64mem("Zm9vYg==", strlen("Zm9vYg=="), &mem, &len) == 0);
+        assert_se(streq(strndupa(mem, len), "foob"));
+        free(mem);
+
+        assert_se(unbase64mem("Zm9vYmE=", strlen("Zm9vYmE="), &mem, &len) == 0);
+        assert_se(streq(strndupa(mem, len), "fooba"));
+        free(mem);
+
+        assert_se(unbase64mem("Zm9vYmFy", strlen("Zm9vYmFy"), &mem, &len) == 0);
+        assert_se(streq(strndupa(mem, len), "foobar"));
+        free(mem);
+
+        assert_se(unbase64mem("A", strlen("A"), &mem, &len) == -EINVAL);
+        assert_se(unbase64mem("A====", strlen("A===="), &mem, &len) == -EINVAL);
+        assert_se(unbase64mem("AAB==", strlen("AAB=="), &mem, &len) == -EINVAL);
+        assert_se(unbase64mem("AAAB=", strlen("AAAB="), &mem, &len) == -EINVAL);
 }
 
 static void test_cescape(void) {
@@ -1828,11 +1924,15 @@ int main(int argc, char *argv[]) {
         test_in_charset();
         test_hexchar();
         test_unhexchar();
+        test_base64char();
+        test_unbase64char();
         test_octchar();
         test_unoctchar();
         test_decchar();
         test_undecchar();
         test_unhexmem();
+        test_base64mem();
+        test_unbase64mem();
         test_cescape();
         test_cunescape();
         test_foreach_word();
