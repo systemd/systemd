@@ -338,7 +338,7 @@ int lldp_handle_packet(tlv_packet *tlv, uint16_t length) {
                 lldp->statistics.stats_frames_in_errors_total ++;
         }
 
-        tlv_packet_unref(tlv);
+        sd_lldp_packet_unref(tlv);
 
         return 0;
 }
@@ -455,7 +455,7 @@ int sd_lldp_save(sd_lldp *lldp, const char *lldp_file) {
                         _cleanup_free_ char *s = NULL;
                         char *k, *t;
 
-                        r = lldp_read_chassis_id(p->packet, &type, &mac, &length);
+                        r = sd_lldp_packet_read_chassis_id(p->packet, &type, &mac, &length);
                         if (r < 0)
                                 continue;
 
@@ -468,7 +468,7 @@ int sd_lldp_save(sd_lldp *lldp, const char *lldp_file) {
                                 goto fail;
                         }
 
-                        r = lldp_read_port_id(p->packet, &type, &port_id, &length);
+                        r = sd_lldp_packet_read_port_id(p->packet, &type, &port_id, &length);
                         if (r < 0)
                                 continue;
 
@@ -513,7 +513,7 @@ int sd_lldp_save(sd_lldp *lldp, const char *lldp_file) {
                         free(s);
                         s = k;
 
-                        r = lldp_read_system_name(p->packet, &k, &length);
+                        r = sd_lldp_packet_read_system_name(p->packet, &k, &length);
                         if (r < 0)
                                 k = strappend(s, "'_NAME=N/A' ");
                         else {
@@ -535,7 +535,7 @@ int sd_lldp_save(sd_lldp *lldp, const char *lldp_file) {
                         free(s);
                         s = k;
 
-                        (void) lldp_read_system_capability(p->packet, &data);
+                        (void) sd_lldp_packet_read_system_capability(p->packet, &data);
 
                         sprintf(buf, "'_CAP=%x'", data);
 
