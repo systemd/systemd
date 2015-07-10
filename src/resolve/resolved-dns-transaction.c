@@ -22,6 +22,7 @@
 #include "af-list.h"
 
 #include "resolved-dns-transaction.h"
+#include "resolved-dns-server.h"
 #include "random-util.h"
 
 DnsTransaction* dns_transaction_free(DnsTransaction *t) {
@@ -38,6 +39,7 @@ DnsTransaction* dns_transaction_free(DnsTransaction *t) {
         dns_packet_unref(t->received);
         dns_answer_unref(t->cached);
 
+        dns_server_unref(t->server);
         dns_stream_free(t->stream);
 
         if (t->scope) {
@@ -244,13 +246,15 @@ static int dns_transaction_open_tcp(DnsTransaction *t) {
         if (t->stream)
                 return 0;
 
-        if (t->scope->protocol == DNS_PROTOCOL_DNS)
-                fd = dns_scope_tcp_socket(t->scope, AF_UNSPEC, NULL, 53);
-        else if (t->scope->protocol == DNS_PROTOCOL_LLMNR) {
+        if (t->scope->protocol == DNS_PROTOCOL_DNS) {
+                t->server = dns_server_unref(t->server);
+
+                fd = dns_scope_tcp_socket(t->scope, AF_UNSPEC, NULL, 53, &t->server);
+        } else if (t->scope->protocol == DNS_PROTOCOL_LLMNR) {
 
                 /* When we already received a query to this (but it was truncated), send to its sender address */
                 if (t->received)
-                        fd = dns_scope_tcp_socket(t->scope, t->received->family, &t->received->sender, t->received->sender_port);
+                        fd = dns_scope_tcp_socket(t->scope, t->received->family, &t->received->sender, t->received->sender_port, NULL);
                 else {
                         union in_addr_union address;
                         int family = AF_UNSPEC;
@@ -264,7 +268,7 @@ static int dns_transaction_open_tcp(DnsTransaction *t) {
                         if (r == 0)
                                 return -EINVAL;
 
-                        fd = dns_scope_tcp_socket(t->scope, family, &address, 5355);
+                        fd = dns_scope_tcp_socket(t->scope, family, &address, 5355, NULL);
                 }
         } else
                 return -EAFNOSUPPORT;
@@ -361,6 +365,37 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                 }
         }
 
+        if (t->server) {
+                if (IN_SET(DNS_PACKET_RCODE(p), DNS_RCODE_FORMERR, DNS_RCODE_SERVFAIL, DNS_RCODE_NOTIMP)) {
+
+                        /* request failed, immediately try again with reduced features */
+                        t->server->n_failed_attempts = (unsigned) -1;
+                        t->server->last_failed_attempt = now(CLOCK_MONOTONIC);
+
+                        r = dns_transaction_go(t);
+                        if (r < 0) {
+                                dns_transaction_complete(t, DNS_TRANSACTION_RESOURCES);
+                                return;
+                        }
+
+                        return;
+                } else {
+                        if (t->current_features == DNS_SERVER_FEATURE_LEVEL_LARGE)
+                                /* even if we successfully receive a reply to a request announcing
+                                   support for large packets, that does not mean we can necessarily
+                                   receive large packets. We verify the max size of UDP packets we
+                                   can receive separately */
+                                t->server->verified_features = DNS_SERVER_FEATURE_LEVEL_LARGE - 1;
+                        else {
+                                if (t->current_features >= t->server->verified_features)
+                                        t->server->verified_features = t->current_features;
+
+                                if (t->current_features == t->server->possible_features)
+                                        t->server->n_failed_attempts = 0;
+                        }
+                }
+        }
+
         if (DNS_PACKET_TC(p)) {
                 /* Response was truncated, let's try again with good old TCP */
                 r = dns_transaction_open_tcp(t);
@@ -397,6 +432,12 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                 return;
         }
 
+        if (t->server)
+                /* Remember the size of the largest UDP packet we received from a server,
+                   we know that we can always announce support for packets with this size */
+                if (t->server->received_udp_packet_max < p->size)
+                        t->server->received_udp_packet_max = p->size;
+
         /* According to RFC 4795, section 2.9. only the RRs from the answer section shall be cached */
         dns_cache_put(&t->scope->cache, p->question, DNS_PACKET_RCODE(p), p->answer, DNS_PACKET_ANCOUNT(p), 0, p->family, &p->sender);
 
@@ -413,6 +454,11 @@ static int on_transaction_timeout(sd_event_source *s, usec_t usec, void *userdat
         assert(s);
         assert(t);
 
+        if (t->server && t->server->possible_features == t->current_features) {
+                t->server->n_failed_attempts ++;
+                t->server->last_failed_attempt = now(CLOCK_MONOTONIC);
+        }
+
         /* Timeout reached? Try again, with a new server */
         dns_scope_next_dns_server(t->scope);
 
@@ -425,13 +471,23 @@ static int on_transaction_timeout(sd_event_source *s, usec_t usec, void *userdat
 
 static int dns_transaction_make_packet(DnsTransaction *t) {
         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
+        DnsServerFeatureLevel features;
         unsigned n, added = 0;
         int r;
 
         assert(t);
 
-        if (t->sent)
-                return 0;
+        /* Determine the DNS features we want to attempt */
+        features = dns_server_possible_features(t->server);
+
+        if (t->sent) {
+                if (t->current_features == features)
+                        return 0;
+                else
+                        t->sent = dns_packet_unref(t->sent);
+        }
+
+        t->current_features = features;
 
         r = dns_packet_new_query(&p, t->scope->protocol, 0);
         if (r < 0)
@@ -455,6 +511,29 @@ static int dns_transaction_make_packet(DnsTransaction *t) {
                 return -EDOM;
 
         DNS_PACKET_HEADER(p)->qdcount = htobe16(added);
+
+        added = 0;
+
+        if (t->server && features >= DNS_SERVER_FEATURE_LEVEL_EDNS0) {
+                bool edns_do;
+                size_t packet_size;
+
+                edns_do = features >= DNS_SERVER_FEATURE_LEVEL_DO;
+
+                if (features >= DNS_SERVER_FEATURE_LEVEL_LARGE)
+                        packet_size = DNS_PACKET_UNICAST_SIZE_LARGE_MAX;
+                else
+                        packet_size = t->server->received_udp_packet_max;
+
+                r = dns_packet_append_opt_rr(p, packet_size, edns_do, NULL);
+                if (r < 0)
+                        return r;
+
+                added ++;
+        }
+
+        DNS_PACKET_HEADER(p)->arcount = htobe16(added);
+
         DNS_PACKET_HEADER(p)->id = t->id;
 
         t->sent = p;
@@ -491,6 +570,7 @@ int dns_transaction_go(DnsTransaction *t) {
         }
 
         t->n_attempts++;
+        t->server = dns_server_unref(t->server);
         t->received = dns_packet_unref(t->received);
         t->cached = dns_answer_unref(t->cached);
         t->cached_rcode = 0;
@@ -551,6 +631,13 @@ int dns_transaction_go(DnsTransaction *t) {
         log_debug("Cache miss!");
 
         /* Otherwise, we need to ask the network */
+        t->server = dns_server_ref(dns_scope_get_dns_server(t->scope));
+        if (!t->server) {
+                /* No servers to send this to? */
+                dns_transaction_complete(t, DNS_TRANSACTION_NO_SERVERS);
+                return 0;
+        }
+
         r = dns_transaction_make_packet(t);
         if (r == -EDOM) {
                 /* Not the right request to make on this network?
@@ -569,9 +656,12 @@ int dns_transaction_go(DnsTransaction *t) {
                 /* RFC 4795, Section 2.4. says reverse lookups shall
                  * always be made via TCP on LLMNR */
                 r = dns_transaction_open_tcp(t);
+        } else if (t->server && t->current_features <= DNS_SERVER_FEATURE_LEVEL_TCP) {
+                /* we already failed using UDP, so try again with TCP */
+                r = dns_transaction_open_tcp(t);
         } else {
                 /* Try via UDP, and if that fails due to large size try via TCP */
-                r = dns_scope_emit(t->scope, t->sent);
+                r = dns_scope_emit(t->scope, t->sent, &t->server);
                 if (r == -EMSGSIZE)
                         r = dns_transaction_open_tcp(t);
         }
@@ -579,8 +669,7 @@ int dns_transaction_go(DnsTransaction *t) {
                 /* No servers to send this to? */
                 dns_transaction_complete(t, DNS_TRANSACTION_NO_SERVERS);
                 return 0;
-        }
-        if (r < 0) {
+        } else if (r < 0) {
                 if (t->scope->protocol != DNS_PROTOCOL_DNS) {
                         dns_transaction_complete(t, DNS_TRANSACTION_RESOURCES);
                         return 0;

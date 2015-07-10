@@ -662,8 +662,10 @@ int manager_read_resolv_conf(Manager *m) {
         }
 
         LIST_FOREACH_SAFE(servers, s, nx, m->dns_servers)
-                if (s->marked)
-                        dns_server_free(s);
+                if (s->marked) {
+                        LIST_REMOVE(servers, m->dns_servers, s);
+                        dns_server_unref(s);
+                }
 
         /* Whenever /etc/resolv.conf changes, start using the first
          * DNS server of it. This is useful to deal with broken
@@ -678,8 +680,12 @@ int manager_read_resolv_conf(Manager *m) {
         return 0;
 
 clear:
-        while (m->dns_servers)
-                dns_server_free(m->dns_servers);
+        while (m->dns_servers) {
+                s = m->dns_servers;
+
+                LIST_REMOVE(servers, m->dns_servers, s);
+                dns_server_unref(s);
+        }
 
         return r;
 }
@@ -1827,15 +1833,25 @@ void manager_verify_all(Manager *m) {
 }
 
 void manager_flush_dns_servers(Manager *m, DnsServerType t) {
+        DnsServer *s;
+
         assert(m);
 
         if (t == DNS_SERVER_SYSTEM)
-                while (m->dns_servers)
-                        dns_server_free(m->dns_servers);
+                while (m->dns_servers) {
+                        s = m->dns_servers;
+
+                        LIST_REMOVE(servers, m->dns_servers, s);
+                        dns_server_unref(s);
+                }
 
         if (t == DNS_SERVER_FALLBACK)
-                while (m->fallback_dns_servers)
-                        dns_server_free(m->fallback_dns_servers);
+                while (m->fallback_dns_servers) {
+                        s = m->fallback_dns_servers;
+
+                        LIST_REMOVE(servers, m->fallback_dns_servers, s);
+                        dns_server_unref(s);
+                }
 }
 
 static const char* const support_table[_SUPPORT_MAX] = {
