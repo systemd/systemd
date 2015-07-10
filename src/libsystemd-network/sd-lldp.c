@@ -449,7 +449,7 @@ int sd_lldp_save(sd_lldp *lldp, const char *lldp_file) {
                         _cleanup_free_ char *s = NULL;
                         char *k, *t;
 
-                        r = lldp_read_chassis_id(p->packet, &type, &length, &mac);
+                        r = lldp_read_chassis_id(p->packet, &type, &mac, &length);
                         if (r < 0)
                                 continue;
 
@@ -462,7 +462,7 @@ int sd_lldp_save(sd_lldp *lldp, const char *lldp_file) {
                                 goto fail;
                         }
 
-                        r = lldp_read_port_id(p->packet, &type, &length, &port_id);
+                        r = lldp_read_port_id(p->packet, &type, &port_id, &length);
                         if (r < 0)
                                 continue;
 
@@ -507,7 +507,7 @@ int sd_lldp_save(sd_lldp *lldp, const char *lldp_file) {
                         free(s);
                         s = k;
 
-                        r = lldp_read_system_name(p->packet, &length, &k);
+                        r = lldp_read_system_name(p->packet, &k, &length);
                         if (r < 0)
                                 k = strappend(s, "'_NAME=N/A' ");
                         else {
