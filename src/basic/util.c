@@ -954,6 +954,180 @@ int unhexmem(void **mem, size_t *len, const char *p, size_t l) {
         return 0;
 }
 
+/* https://tools.ietf.org/html/rfc4648#section-4 */
+char base64char(int x) {
+        static const char table[64] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+                                      "abcdefghijklmnopqrstuvwxyz"
+                                      "0123456789+/";
+        return table[x & 63];
+}
+
+int unbase64char(char c) {
+        unsigned offset;
+
+        if (c >= 'A' && c <= 'Z')
+                return c - 'A';
+
+        offset = 'Z' - 'A' + 1;
+
+        if (c >= 'a' && c <= 'z')
+                return c - 'a' + offset;
+
+        offset += 'z' - 'a' + 1;
+
+        if (c >= '0' && c <= '9')
+                return c - '0' + offset;
+
+        offset += '9' - '0' + 1;
+
+        if (c == '+')
+                return offset;
+
+        offset ++;
+
+        if (c == '/')
+                return offset;
+
+        return -EINVAL;
+}
+
+char *base64mem(const void *p, size_t l) {
+        char *r, *z;
+        const uint8_t *x;
+
+        /* three input bytes makes four output bytes, padding is added so we must round up */
+        z = r = malloc(4 * (l + 2) / 3 + 1);
+        if (!r)
+                return NULL;
+
+        for (x = p; x < (const uint8_t*) p + (l / 3) * 3; x += 3) {
+                /* x[0] == XXXXXXXX; x[1] == YYYYYYYY; x[2] == ZZZZZZZZ */
+                *(z++) = base64char(x[0] >> 2);                    /* 00XXXXXX */
+                *(z++) = base64char((x[0] & 3) << 4 | x[1] >> 4);  /* 00XXYYYY */
+                *(z++) = base64char((x[1] & 15) << 2 | x[2] >> 6); /* 00YYYYZZ */
+                *(z++) = base64char(x[2] & 63);                    /* 00ZZZZZZ */
+        }
+
+        switch (l % 3) {
+        case 2:
+                *(z++) = base64char(x[0] >> 2);                   /* 00XXXXXX */
+                *(z++) = base64char((x[0] & 3) << 4 | x[1] >> 4); /* 00XXYYYY */
+                *(z++) = base64char((x[1] & 15) << 2);            /* 00YYYY00 */
+                *(z++) = '=';
+
+                break;
+        case 1:
+                *(z++) = base64char(x[0] >> 2);        /* 00XXXXXX */
+                *(z++) = base64char((x[0] & 3) << 4);  /* 00XX0000 */
+                *(z++) = '=';
+                *(z++) = '=';
+
+                break;
+        }
+
+        *z = 0;
+        return r;
+}
+
+int unbase64mem(void **mem, size_t *_len, const char *p, size_t l) {
+        _cleanup_free_ uint8_t *t = NULL;
+        int a, b, c, d;
+        uint8_t *r, *z;
+        const char *x;
+        size_t len;
+
+        assert(p);
+
+        /* padding ensures any base63 input has input divisible by 4 */
+        if (l % 4 != 0)
+                return -EINVAL;
+
+        /* strip the padding */
+        if (l > 0 && p[l - 1] == '=')
+                l --;
+        if (l > 0 && p[l - 1] == '=')
+                l --;
+
+        /* a group of four input bytes needs three output bytes, in case of
+           padding we need to add two or three extra bytes */
+        len = (l / 4) * 3 + (l % 4 ? (l % 4) - 1 : 0);
+
+        z = r = malloc(len + 1);
+        if (!r)
+                return -ENOMEM;
+
+        for (x = p; x < p + (l / 4) * 4; x += 4) {
+                /* a == 00XXXXXX; b == 00YYYYYY; c == 00ZZZZZZ; d == 00WWWWWW */
+                a = unbase64char(x[0]);
+                if (a < 0)
+                        return -EINVAL;
+
+                b = unbase64char(x[1]);
+                if (b < 0)
+                        return -EINVAL;
+
+                c = unbase64char(x[2]);
+                if (c < 0)
+                        return -EINVAL;
+
+                d = unbase64char(x[3]);
+                if (d < 0)
+                        return -EINVAL;
+
+                *(z++) = (uint8_t) a << 2 | (uint8_t) b >> 4; /* XXXXXXYY */
+                *(z++) = (uint8_t) b << 4 | (uint8_t) c >> 2; /* YYYYZZZZ */
+                *(z++) = (uint8_t) c << 6 | (uint8_t) d;      /* ZZWWWWWW */
+        }
+
+        switch (l % 4) {
+        case 3:
+                a = unbase64char(x[0]);
+                if (a < 0)
+                        return -EINVAL;
+
+                b = unbase64char(x[1]);
+                if (b < 0)
+                        return -EINVAL;
+
+                c = unbase64char(x[2]);
+                if (c < 0)
+                        return -EINVAL;
+
+                /* c == 00ZZZZ00 */
+                if (c & 3)
+                        return -EINVAL;
+
+                *(z++) = (uint8_t) a << 2 | (uint8_t) b >> 4; /* XXXXXXYY */
+                *(z++) = (uint8_t) b << 4 | (uint8_t) c >> 2; /* YYYYZZZZ */
+
+                break;
+        case 2:
+                a = unbase64char(x[0]);
+                if (a < 0)
+                        return -EINVAL;
+
+                b = unbase64char(x[1]);
+                if (b < 0)
+                        return -EINVAL;
+
+                /* b == 00YY0000 */
+                if (b & 15)
+                        return -EINVAL;
+
+                *(z++) = (uint8_t) a << 2 | (uint8_t) (b >> 4); /* XXXXXXYY */
+
+                break;
+        }
+
+        *z = 0;
+
+        *mem = r;
+        r = NULL;
+        *_len = len;
+
+        return 0;
+}
+
 char octchar(int x) {
         return '0' + (x & 7);
 }
