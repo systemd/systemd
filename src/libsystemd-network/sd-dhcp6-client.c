@@ -272,6 +272,11 @@ static void client_notify(sd_dhcp6_client *client, int event) {
 static int client_reset(sd_dhcp6_client *client) {
         assert_return(client, -EINVAL);
 
+        if (client->lease) {
+                dhcp6_lease_clear_timers(&client->lease->ia);
+                client->lease = sd_dhcp6_lease_unref(client->lease);
+        }
+
         client->receive_message =
                 sd_event_source_unref(client->receive_message);
 
