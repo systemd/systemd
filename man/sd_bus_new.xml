@@ -77,8 +77,8 @@
     <para><function>sd_bus_new()</function> creates a new bus
     object. This object is reference-counted, and will be destroyed
     when all references are gone. Initially, the caller of this
-    function owns the sole reference. The bus object will not be
-    connected to any bus initially. To connect it to a bus, make sure
+    function owns the sole reference and the bus object will not be
+    connected to any bus. To connect it to a bus, make sure
     to set an address with
     <citerefentry><refentrytitle>sd_bus_set_address</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     or a related call, and then start the connection with
@@ -94,15 +94,13 @@
     well-known bus in a single function invocation.</para>
 
     <para><function>sd_bus_ref()</function> creates a new reference to
-    <parameter>bus</parameter>. This bus object will not be destroyed
-    until <function>sd_bus_unref()</function> has been called as many
-    times plus once more. Once the reference count has dropped to
-    zero, <parameter>bus</parameter> cannot be used anymore, so
-    further calls to <function>sd_bus_ref()</function> or
-    <function>sd_bus_unref()</function> are illegal.</para>
+    <parameter>bus</parameter>.</para>
 
     <para><function>sd_bus_unref()</function> destroys a reference to
-    <parameter>bus</parameter>.</para>
+    <parameter>bus</parameter>. Once the reference count has dropped
+    to zero, <parameter>bus</parameter> cannot be used anymore, so
+    further calls to <function>sd_bus_ref()</function> or
+    <function>sd_bus_unref()</function> are illegal.</para>
   </refsect1>
 
   <refsect1>
