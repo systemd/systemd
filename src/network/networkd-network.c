@@ -207,6 +207,7 @@ void network_free(Network *network) {
 
         free(network->description);
         free(network->dhcp_vendor_class_identifier);
+        free(network->hostname);
 
         free(network->mac);
 
@@ -806,6 +807,41 @@ int config_parse_ipv6_privacy_extensions(
 
                 *ipv6_privacy_extensions = s;
         }
+
+        return 0;
+}
+
+int config_parse_hostname(const char *unit,
+                          const char *filename,
+                          unsigned line,
+                          const char *section,
+                          unsigned section_line,
+                          const char *lvalue,
+                          int ltype,
+                          const char *rvalue,
+                          void *data,
+                          void *userdata) {
+        char **hostname = data;
+        char *hn = NULL;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        r = config_parse_string(unit, filename, line, section, section_line,
+                                lvalue, ltype, rvalue, &hn, userdata);
+        if (r < 0)
+                return r;
+
+        if (!hostname_is_valid(hn)) {
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL, "hostname is not valid, ignoring assignment: %s", rvalue);
+
+                free(hn);
+                return 0;
+        }
+
+        *hostname = hn;
 
         return 0;
 }
