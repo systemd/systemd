@@ -41,6 +41,10 @@ int dns_server_new(
         if (!s)
                 return -ENOMEM;
 
+        s->n_ref = 1;
+        s->verified_features = _DNS_SERVER_FEATURE_LEVEL_INVALID;
+        s->possible_features = DNS_SERVER_FEATURE_LEVEL_BEST;
+        s->received_udp_packet_max = DNS_PACKET_UNICAST_SIZE_MAX;
         s->type = type;
         s->family = family;
         s->address = *in_addr;
@@ -74,31 +78,74 @@ int dns_server_new(
         return 0;
 }
 
-DnsServer* dns_server_free(DnsServer *s)  {
+DnsServer* dns_server_ref(DnsServer *s)  {
         if (!s)
                 return NULL;
 
-        if (s->link) {
-                if (s->type == DNS_SERVER_LINK)
-                        LIST_REMOVE(servers, s->link->dns_servers, s);
+        assert(s->n_ref > 0);
 
-                if (s->link->current_dns_server == s)
-                        link_set_dns_server(s->link, NULL);
-        }
+        s->n_ref ++;
 
-        if (s->manager) {
-                if (s->type == DNS_SERVER_SYSTEM)
-                        LIST_REMOVE(servers, s->manager->dns_servers, s);
-                else if (s->type == DNS_SERVER_FALLBACK)
-                        LIST_REMOVE(servers, s->manager->fallback_dns_servers, s);
+        return s;
+}
 
-                if (s->manager->current_dns_server == s)
-                        manager_set_dns_server(s->manager, NULL);
-        }
+static DnsServer* dns_server_free(DnsServer *s)  {
+        if (!s)
+                return NULL;
+
+        if (s->link && s->link->current_dns_server == s)
+                link_set_dns_server(s->link, NULL);
+
+        if (s->manager && s->manager->current_dns_server == s)
+                manager_set_dns_server(s->manager, NULL);
 
         free(s);
 
         return NULL;
+}
+
+DnsServer* dns_server_unref(DnsServer *s)  {
+        if (!s)
+                return NULL;
+
+        assert(s->n_ref > 0);
+
+        if (s->n_ref == 1)
+                dns_server_free(s);
+        else
+                s->n_ref --;
+
+        return NULL;
+}
+
+DnsServerFeatureLevel dns_server_possible_features(DnsServer *s) {
+        assert(s);
+
+        if (s->last_failed_attempt != 0 &&
+            s->possible_features != DNS_SERVER_FEATURE_LEVEL_BEST &&
+            s->last_failed_attempt + DNS_SERVER_FEATURE_RETRY_USEC < now(CLOCK_MONOTONIC)) {
+                _cleanup_free_ char *ip = NULL;
+
+                s->possible_features = DNS_SERVER_FEATURE_LEVEL_BEST;
+                s->n_failed_attempts = 0;
+
+                in_addr_to_string(s->family, &s->address, &ip);
+                log_info("Grace period over, resuming full feature set for DNS server %s", strna(ip));
+        } else if (s->possible_features <= s->verified_features)
+                s->possible_features = s->verified_features;
+        else if (s->n_failed_attempts >= DNS_SERVER_FEATURE_RETRY_ATTEMPTS &&
+                 s->possible_features > DNS_SERVER_FEATURE_LEVEL_WORST) {
+                _cleanup_free_ char *ip = NULL;
+
+                s->possible_features --;
+                s->n_failed_attempts = 0;
+
+                in_addr_to_string(s->family, &s->address, &ip);
+                log_warning("Using degraded feature set (%s) for DNS server %s",
+                            dns_server_feature_level_to_string(s->possible_features), strna(ip));
+        }
+
+        return s->possible_features;
 }
 
 static unsigned long dns_server_hash_func(const void *p, const uint8_t hash_key[HASH_KEY_SIZE]) {
@@ -126,3 +173,12 @@ const struct hash_ops dns_server_hash_ops = {
         .hash = dns_server_hash_func,
         .compare = dns_server_compare_func
 };
+
+static const char* const dns_server_feature_level_table[_DNS_SERVER_FEATURE_LEVEL_MAX] = {
+        [DNS_SERVER_FEATURE_LEVEL_TCP] = "TCP",
+        [DNS_SERVER_FEATURE_LEVEL_UDP] = "UDP",
+        [DNS_SERVER_FEATURE_LEVEL_EDNS0] = "UDP+EDNS0",
+        [DNS_SERVER_FEATURE_LEVEL_DO] = "UDP+EDNS0+DO",
+        [DNS_SERVER_FEATURE_LEVEL_LARGE] = "UDP+EDNS0+DO+LARGE",
+};
+DEFINE_STRING_TABLE_LOOKUP(dns_server_feature_level, DnsServerFeatureLevel);

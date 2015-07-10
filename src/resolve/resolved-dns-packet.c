@@ -32,10 +32,10 @@ int dns_packet_new(DnsPacket **ret, DnsProtocol protocol, size_t mtu) {
 
         assert(ret);
 
-        if (mtu <= 0)
+        if (mtu <= UDP_PACKET_HEADER_SIZE)
                 a = DNS_PACKET_SIZE_START;
         else
-                a = mtu;
+                a = mtu - UDP_PACKET_HEADER_SIZE;
 
         if (a < DNS_PACKET_HEADER_SIZE)
                 a = DNS_PACKET_HEADER_SIZE;
@@ -475,6 +475,56 @@ int dns_packet_append_key(DnsPacket *p, const DnsResourceKey *k, size_t *start) 
                 goto fail;
 
         r = dns_packet_append_uint16(p, k->class, NULL);
+        if (r < 0)
+                goto fail;
+
+        if (start)
+                *start = saved_size;
+
+        return 0;
+
+fail:
+        dns_packet_truncate(p, saved_size);
+        return r;
+}
+
+/* Append the OPT pseudo-RR described in RFC6891 */
+int dns_packet_append_opt_rr(DnsPacket *p, uint16_t max_udp_size, bool edns0_do, size_t *start) {
+        size_t saved_size;
+        int r;
+
+        assert(p);
+        assert(max_udp_size >= DNS_PACKET_UNICAST_SIZE_MAX);
+
+        saved_size = p->size;
+
+        /* empty name */
+        r = dns_packet_append_uint8(p, 0, NULL);
+        if (r < 0)
+                return r;
+
+        /* type */
+        r = dns_packet_append_uint16(p, DNS_TYPE_OPT, NULL);
+        if (r < 0)
+                goto fail;
+
+        /* maximum udp packet that can be received */
+        r = dns_packet_append_uint16(p, max_udp_size, NULL);
+        if (r < 0)
+                goto fail;
+
+        /* extended RCODE and VERSION */
+        r = dns_packet_append_uint16(p, 0, NULL);
+        if (r < 0)
+                goto fail;
+
+        /* flags: DNSSEC OK (DO), see RFC3225 */
+        r = dns_packet_append_uint16(p, edns0_do ? 1 << 15 : 0, NULL);
+        if (r < 0)
+                goto fail;
+
+        /* RDLENGTH */
+        r = dns_packet_append_uint16(p, 0, NULL);
         if (r < 0)
                 goto fail;
 
@@ -1109,6 +1159,10 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
         case DNS_TYPE_CNAME:
         case DNS_TYPE_DNAME:
                 r = dns_packet_read_name(p, &rr->ptr.name, true, NULL);
+                break;
+
+        case DNS_TYPE_OPT: /* we only care about the header */
+                r = 0;
                 break;
 
         case DNS_TYPE_HINFO:

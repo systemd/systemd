@@ -21,6 +21,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
  ***/
 
+#include <netinet/udp.h>
+#include <netinet/ip.h>
 
 #include "macro.h"
 #include "sparse-endian.h"
@@ -53,6 +55,7 @@ struct DnsPacketHeader {
 };
 
 #define DNS_PACKET_HEADER_SIZE sizeof(DnsPacketHeader)
+#define UDP_PACKET_HEADER_SIZE (sizeof(struct iphdr) + sizeof(struct udphdr))
 
 /* The various DNS protocols deviate in how large a packet can grow,
    but the TCP transport has a 16bit size field, hence that appears to
@@ -61,6 +64,9 @@ struct DnsPacketHeader {
 
 /* RFC 1035 say 512 is the maximum, for classic unicast DNS */
 #define DNS_PACKET_UNICAST_SIZE_MAX 512
+
+/* With EDNS0 we can use larger packets, default to 4096, which is what is commonly used */
+#define DNS_PACKET_UNICAST_SIZE_LARGE_MAX 4096
 
 #define DNS_PACKET_SIZE_START 512
 
@@ -148,6 +154,7 @@ int dns_packet_append_name(DnsPacket *p, const char *name,
                            bool allow_compression, size_t *start);
 int dns_packet_append_key(DnsPacket *p, const DnsResourceKey *key, size_t *start);
 int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *start);
+int dns_packet_append_opt_rr(DnsPacket *p, uint16_t max_udp_size, bool edns0_do, size_t *start);
 
 int dns_packet_read(DnsPacket *p, size_t sz, const void **ret, size_t *start);
 int dns_packet_read_blob(DnsPacket *p, void *d, size_t sz, size_t *start);
