@@ -699,9 +699,12 @@ static int method_create_session(sd_bus_message *message, void *userdata, sd_bus
          * after the user-session and want the user-session to take
          * over the VT. We need to support this for
          * backwards-compatibility, so make sure we allow new sessions
-         * on a VT that a greeter is running on.
+         * on a VT that a greeter is running on. Furthermore, to allow
+         * re-logins, we have to allow a greeter to take over a used VT for
+         * the exact same reasons.
          */
-        if (vtnr > 0 &&
+        if (c != SESSION_GREETER &&
+            vtnr > 0 &&
             vtnr < m->seat0->position_count &&
             m->seat0->positions[vtnr] &&
             m->seat0->positions[vtnr]->class != SESSION_GREETER)
