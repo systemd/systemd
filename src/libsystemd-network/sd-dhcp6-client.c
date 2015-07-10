@@ -807,10 +807,8 @@ static int client_receive_reply(sd_dhcp6_client *client, DHCP6Message *reply,
                 client->lease = sd_dhcp6_lease_unref(client->lease);
         }
 
-        if (client->state != DHCP6_STATE_INFORMATION_REQUEST) {
-                client->lease = lease;
-                lease = NULL;
-        }
+        client->lease = lease;
+        lease = NULL;
 
         return DHCP6_STATE_BOUND;
 }
