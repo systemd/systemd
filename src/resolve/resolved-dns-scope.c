@@ -547,7 +547,7 @@ void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
                 return;
         }
 
-        if (DNS_PACKET_C(p)) {
+        if (DNS_PACKET_LLMNR_C(p)) {
                 /* Somebody notified us about a possible conflict */
                 dns_scope_verify_conflicts(s, p);
                 return;
@@ -761,10 +761,10 @@ void dns_scope_check_conflicts(DnsScope *scope, DnsPacket *p) {
         if (DNS_PACKET_RRCOUNT(p) <= 0)
                 return;
 
-        if (DNS_PACKET_C(p) != 0)
+        if (DNS_PACKET_LLMNR_C(p) != 0)
                 return;
 
-        if (DNS_PACKET_T(p) != 0)
+        if (DNS_PACKET_LLMNR_T(p) != 0)
                 return;
 
         if (manager_our_packet(scope->manager, p))

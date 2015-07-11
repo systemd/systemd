@@ -324,7 +324,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                 /* Tentative packets are not full responses but still
                  * useful for identifying uniqueness conflicts during
                  * probing. */
-                if (DNS_PACKET_T(p)) {
+                if (DNS_PACKET_LLMNR_T(p)) {
                         dns_transaction_tentative(t, p);
                         return;
                 }
