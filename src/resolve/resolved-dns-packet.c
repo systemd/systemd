@@ -88,6 +88,16 @@ int dns_packet_new_query(DnsPacket **ret, DnsProtocol protocol, size_t mtu, bool
                                                          0 /* ad */,
                                                          0 /* cd */,
                                                          0 /* rcode */));
+        else if (protocol == DNS_PROTOCOL_MDNS)
+                h->flags = htobe16(DNS_PACKET_MAKE_FLAGS(0 /* qr */,
+                                                         0 /* opcode */,
+                                                         0 /* aa */,
+                                                         0 /* tc */,
+                                                         0 /* rd (ask for recursion) */,
+                                                         0 /* ra */,
+                                                         0 /* ad */,
+                                                         0 /* cd */,
+                                                         0 /* rcode */));
         else
                 h->flags = htobe16(DNS_PACKET_MAKE_FLAGS(0 /* qr */,
                                                          0 /* opcode */,
@@ -182,6 +192,13 @@ int dns_packet_validate_reply(DnsPacket *p) {
 
                 break;
 
+        case DNS_PROTOCOL_MDNS:
+                /* RFC 6762, Section 18 */
+                if (DNS_PACKET_RCODE(p) != 0)
+                        return -EBADMSG;
+
+                break;
+
         default:
                 break;
         }
@@ -219,6 +236,18 @@ int dns_packet_validate_query(DnsPacket *p) {
 
                 /* RFC 4795, Section 2.1.1. says to discard all queries with NSCOUNT != 0 */
                 if (DNS_PACKET_NSCOUNT(p) > 0)
+                        return -EBADMSG;
+
+                break;
+
+        case DNS_PROTOCOL_MDNS:
+                /* RFC 6762, Section 18 */
+                if (DNS_PACKET_AA(p)    != 0 ||
+                    DNS_PACKET_RD(p)    != 0 ||
+                    DNS_PACKET_RA(p)    != 0 ||
+                    DNS_PACKET_AD(p)    != 0 ||
+                    DNS_PACKET_CD(p)    != 0 ||
+                    DNS_PACKET_RCODE(p) != 0)
                         return -EBADMSG;
 
                 break;

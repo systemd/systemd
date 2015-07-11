@@ -239,6 +239,9 @@ static inline uint64_t SD_RESOLVED_FLAGS_MAKE(DnsProtocol protocol, int family, 
         case DNS_PROTOCOL_LLMNR:
                 return f|(family == AF_INET6 ? SD_RESOLVED_LLMNR_IPV6 : SD_RESOLVED_LLMNR_IPV4);
 
+        case DNS_PROTOCOL_MDNS:
+                return family == AF_INET6 ? SD_RESOLVED_MDNS_IPV6 : SD_RESOLVED_MDNS_IPV4;
+
         default:
                 break;
         }

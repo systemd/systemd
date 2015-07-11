@@ -384,6 +384,18 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
 
                 break;
 
+        case DNS_PROTOCOL_MDNS:
+                assert(t->scope->link);
+
+                /* For mDNS we will not accept any packets from other interfaces */
+                if (p->ifindex != t->scope->link->ifindex)
+                        return;
+
+                if (p->family != t->scope->family)
+                        return;
+
+                break;
+
         case DNS_PROTOCOL_DNS:
                 break;
 
