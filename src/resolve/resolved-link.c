@@ -77,6 +77,8 @@ Link *link_free(Link *l) {
         dns_scope_free(l->unicast_scope);
         dns_scope_free(l->llmnr_ipv4_scope);
         dns_scope_free(l->llmnr_ipv6_scope);
+        dns_scope_free(l->mdns_ipv4_scope);
+        dns_scope_free(l->mdns_ipv6_scope);
 
         free(l);
         return NULL;
@@ -118,6 +120,28 @@ static void link_allocate_scopes(Link *l) {
                 }
         } else
                 l->llmnr_ipv6_scope = dns_scope_free(l->llmnr_ipv6_scope);
+
+        if (link_relevant(l, AF_INET) &&
+            l->mdns_support != SUPPORT_NO &&
+            l->manager->mdns_support != SUPPORT_NO) {
+                if (!l->mdns_ipv4_scope) {
+                        r = dns_scope_new(l->manager, &l->mdns_ipv4_scope, l, DNS_PROTOCOL_MDNS, AF_INET);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to allocate mDNS IPv4 scope: %m");
+                }
+        } else
+                l->mdns_ipv4_scope = dns_scope_free(l->mdns_ipv4_scope);
+
+        if (link_relevant(l, AF_INET6) &&
+            l->mdns_support != SUPPORT_NO &&
+            l->manager->mdns_support != SUPPORT_NO) {
+                if (!l->mdns_ipv6_scope) {
+                        r = dns_scope_new(l->manager, &l->mdns_ipv6_scope, l, DNS_PROTOCOL_MDNS, AF_INET6);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to allocate mDNS IPv6 scope: %m");
+                }
+        } else
+                l->mdns_ipv6_scope = dns_scope_free(l->mdns_ipv6_scope);
 }
 
 void link_add_rrs(Link *l, bool force_remove) {
