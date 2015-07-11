@@ -614,7 +614,7 @@ static inline void *mempset(void *s, int c, size_t n) {
 }
 
 char *hexmem(const void *p, size_t l);
-void *unhexmem(const char *p, size_t l);
+int unhexmem(const char *p, size_t l, void **mem, size_t *len);
 
 char *strextend(char **x, ...) _sentinel_;
 char *strrep(const char *s, unsigned n);

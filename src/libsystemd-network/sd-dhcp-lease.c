@@ -811,13 +811,12 @@ int sd_dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
         }
 
         if (client_id_hex) {
-                if (strlen (client_id_hex) % 2)
+                if (strlen(client_id_hex) % 2)
                         return -EINVAL;
 
-                lease->client_id = unhexmem (client_id_hex, strlen (client_id_hex));
-                if (!lease->client_id)
-                        return -ENOMEM;
-                lease->client_id_len = strlen (client_id_hex) / 2;
+                r = unhexmem(client_id_hex, strlen(client_id_hex), (void**) &lease->client_id, &lease->client_id_len);
+                if (r < 0)
+                        return r;
         }
 
         *ret = lease;

@@ -410,6 +410,30 @@ static void test_undecchar(void) {
         assert_se(undecchar('9') == 9);
 }
 
+static void test_unhexmem(void) {
+        const char *hex = "efa214921";
+        const char *hex_invalid = "efa214921o";
+        _cleanup_free_ char *hex2 = NULL;
+        _cleanup_free_ void *mem = NULL;
+        size_t len;
+
+        assert_se(unhexmem(hex, strlen(hex), &mem, &len) == 0);
+        assert_se(unhexmem(hex, strlen(hex) + 1, &mem, &len) == -EINVAL);
+        assert_se(unhexmem(hex_invalid, strlen(hex_invalid), &mem, &len) == -EINVAL);
+
+        assert_se((hex2 = hexmem(mem, len)));
+
+        free(mem);
+
+        assert_se(memcmp(hex, hex2, strlen(hex)) == 0);
+
+        free(hex2);
+
+        assert_se(unhexmem(hex, strlen(hex) - 1, &mem, &len) == 0);
+        assert_se((hex2 = hexmem(mem, len)));
+        assert_se(memcmp(hex, hex2, strlen(hex) - 1) == 0);
+}
+
 static void test_cescape(void) {
         _cleanup_free_ char *escaped;
 
@@ -1808,6 +1832,7 @@ int main(int argc, char *argv[]) {
         test_unoctchar();
         test_decchar();
         test_undecchar();
+        test_unhexmem();
         test_cescape();
         test_cunescape();
         test_foreach_word();
