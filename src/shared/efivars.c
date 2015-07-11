@@ -125,7 +125,19 @@ static int get_os_indications(uint64_t *os_indication) {
                 return r;
 
         r = efi_get_variable(EFI_VENDOR_GLOBAL, "OsIndications", NULL, &v, &s);
-        if (r < 0)
+        if (r == -ENOENT) {
+                /* Some firmware implementations that do support
+                 * OsIndications and report that with
+                 * OsIndicationsSupported will remove the
+                 * OsIndications variable when it is unset. Let's
+                 * pretend it's 0 then, to hide this implementation
+                 * detail. Note that this call will return -ENOENT
+                 * then only if the support for OsIndications is
+                 * missing entirely, as determined by
+                 * efi_reboot_to_firmware_supported() above. */
+                *os_indication = 0;
+                return 0;
+        } else if (r < 0)
                 return r;
         else if (s != sizeof(uint64_t))
                 return -EINVAL;
