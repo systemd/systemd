@@ -1005,11 +1005,12 @@ if test "x$enable_timesyncd" != "xno"; then
 fi
 AM_CONDITIONAL(ENABLE_TIMESYNCD, [test "$have_timesyncd" = "yes"])
 
-AC_ARG_WITH(ntp-servers,
-        AS_HELP_STRING([--with-ntp-servers=NTPSERVERS],
-                [Space-separated list of default NTP servers]),
-        [NTP_SERVERS="$withval"],
-        [NTP_SERVERS="time1.google.com time2.google.com time3.google.com time4.google.com"])
+AM_COND_IF([ENABLE_TIMESYNCD],
+        [AC_ARG_WITH([ntp-servers],
+                [AS_HELP_STRING([--with-ntp-servers=NTPSERVERS],
+                        [Space-separated list of default NTP servers])],
+                [NTP_SERVERS="$withval"],
+                [AC_MSG_ERROR([Must provide ntp servers using --with-ntp-servers=NTPSERVERS for timesyncd])])])
 
 AC_DEFINE_UNQUOTED(NTP_SERVERS, ["$NTP_SERVERS"], [Default NTP Servers])
 AC_SUBST(NTP_SERVERS)

@@ -14,6 +14,10 @@ HOWTO:
             --with-kbd-loadkeys=
             --with-kbd-setfont=
             --with-tty-gid=
+            --with-ntp-servers=
+
+           It is highly recommended that distributions request an NTP
+        vendor zone to use for the ntp-servers setting.
 
         2) Try it out. Play around (as an ordinary user) with
         '/usr/lib/systemd/systemd --test --system' for a test run
