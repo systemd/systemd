@@ -321,8 +321,6 @@ Features:
   - add LLDP client side support
   - the DHCP lease data (such as NTP/DNS) is still made available when
     a carrier is lost on a link. It should be removed instantly.
-  - .network setting that allows overriding of the hostname to send to the dhcp server
-    http://lists.freedesktop.org/archives/systemd-devel/2014-July/021550.html
   - expose in the API the following bits:
         - option 15, domain name and/or option 119, search list
         - option 12, host name and/or option 81, fqdn
