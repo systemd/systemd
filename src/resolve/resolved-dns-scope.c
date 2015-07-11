@@ -166,7 +166,8 @@ int dns_scope_emit(DnsScope *s, int fd, DnsPacket *p) {
         } else
                 mtu = manager_find_mtu(s->manager);
 
-        if (s->protocol == DNS_PROTOCOL_DNS) {
+        switch (s->protocol) {
+        case DNS_PROTOCOL_DNS:
                 if (DNS_PACKET_QDCOUNT(p) > 1)
                         return -EOPNOTSUPP;
 
@@ -180,8 +181,9 @@ int dns_scope_emit(DnsScope *s, int fd, DnsPacket *p) {
                 if (r < 0)
                         return r;
 
-        } else if (s->protocol == DNS_PROTOCOL_LLMNR) {
+                break;
 
+        case DNS_PROTOCOL_LLMNR:
                 if (DNS_PACKET_QDCOUNT(p) > 1)
                         return -EOPNOTSUPP;
 
@@ -205,8 +207,12 @@ int dns_scope_emit(DnsScope *s, int fd, DnsPacket *p) {
                 r = manager_send(s->manager, fd, ifindex, family, &addr, port, p);
                 if (r < 0)
                         return r;
-        } else
+
+                break;
+
+        default:
                 return -EAFNOSUPPORT;
+        }
 
         return 1;
 }
@@ -341,27 +347,25 @@ DnsScopeMatch dns_scope_good_domain(DnsScope *s, int ifindex, uint64_t flags, co
                 if (dns_name_endswith(domain, *i) > 0)
                         return DNS_SCOPE_YES;
 
-        if (s->protocol == DNS_PROTOCOL_DNS) {
+        switch (s->protocol) {
+        case DNS_PROTOCOL_DNS:
                 if (dns_name_endswith(domain, "254.169.in-addr.arpa") == 0 &&
                     dns_name_endswith(domain, "0.8.e.f.ip6.arpa") == 0 &&
                     dns_name_single_label(domain) == 0)
                         return DNS_SCOPE_MAYBE;
 
                 return DNS_SCOPE_NO;
-        }
 
-        if (s->protocol == DNS_PROTOCOL_MDNS) {
+        case DNS_PROTOCOL_MDNS:
                 if ((s->family == AF_INET && dns_name_endswith(domain, "in-addr.arpa") > 0) ||
                     (s->family == AF_INET6 && dns_name_endswith(domain, "ip6.arpa") > 0) ||
                     (dns_name_endswith(domain, "local") > 0 && /* only resolve names ending in .local via mDNS */
                      dns_name_equal(domain, "local") == 0 &&   /* but not the single-label "local" name itself */
                      manager_is_own_hostname(s->manager, domain) <= 0)) /* never resolve the local hostname via mDNS */
-                        return DNS_SCOPE_MAYBE;
 
                 return DNS_SCOPE_NO;
-        }
 
-        if (s->protocol == DNS_PROTOCOL_LLMNR) {
+        case DNS_PROTOCOL_LLMNR:
                 if ((s->family == AF_INET && dns_name_endswith(domain, "in-addr.arpa") > 0) ||
                     (s->family == AF_INET6 && dns_name_endswith(domain, "ip6.arpa") > 0) ||
                     (dns_name_single_label(domain) > 0 && /* only resolve single label names via LLMNR */
@@ -370,9 +374,10 @@ DnsScopeMatch dns_scope_good_domain(DnsScope *s, int ifindex, uint64_t flags, co
                         return DNS_SCOPE_MAYBE;
 
                 return DNS_SCOPE_NO;
-        }
 
-        assert_not_reached("Unknown scope protocol");
+        default:
+                assert_not_reached("Unknown scope protocol");
+        }
 }
 
 int dns_scope_good_key(DnsScope *s, DnsResourceKey *key) {

@@ -260,10 +260,12 @@ static int dns_transaction_open_tcp(DnsTransaction *t) {
         if (t->stream)
                 return 0;
 
-        if (t->scope->protocol == DNS_PROTOCOL_DNS)
+        switch (t->scope->protocol) {
+        case DNS_PROTOCOL_DNS:
                 fd = dns_scope_tcp_socket(t->scope, AF_UNSPEC, NULL, 53, &server);
-        else if (t->scope->protocol == DNS_PROTOCOL_LLMNR) {
+                break;
 
+        case DNS_PROTOCOL_LLMNR:
                 /* When we already received a reply to this (but it was truncated), send to its sender address */
                 if (t->received)
                         fd = dns_scope_tcp_socket(t->scope, t->received->family, &t->received->sender, t->received->sender_port, NULL);
@@ -285,8 +287,12 @@ static int dns_transaction_open_tcp(DnsTransaction *t) {
 
                         fd = dns_scope_tcp_socket(t->scope, family, &address, LLMNR_PORT, NULL);
                 }
-        } else
+
+                break;
+
+        default:
                 return -EAFNOSUPPORT;
+        }
 
         if (fd < 0)
                 return fd;
@@ -342,7 +348,8 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
          * should hence not attempt to access the query or transaction
          * after calling this function. */
 
-        if (t->scope->protocol == DNS_PROTOCOL_LLMNR) {
+        switch (t->scope->protocol) {
+        case DNS_PROTOCOL_LLMNR:
                 assert(t->scope->link);
 
                 /* For LLMNR we will not accept any packets from other
@@ -361,6 +368,14 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                         dns_transaction_tentative(t, p);
                         return;
                 }
+
+                break;
+
+        case DNS_PROTOCOL_DNS:
+                break;
+
+        default:
+                break;
         }
 
         if (t->received != p) {

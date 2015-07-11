@@ -239,11 +239,16 @@ static inline uint64_t SD_RESOLVED_FLAGS_MAKE(DnsProtocol protocol, int family) 
 
         /* Converts a protocol + family into a flags field as used in queries */
 
-        if (protocol == DNS_PROTOCOL_DNS)
+        switch (protocol) {
+        case DNS_PROTOCOL_DNS:
                 return SD_RESOLVED_DNS;
 
-        if (protocol == DNS_PROTOCOL_LLMNR)
+        case DNS_PROTOCOL_LLMNR:
                 return family == AF_INET6 ? SD_RESOLVED_LLMNR_IPV6 : SD_RESOLVED_LLMNR_IPV4;
+
+        default:
+                break;
+        }
 
         return 0;
 }
