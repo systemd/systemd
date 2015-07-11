@@ -589,6 +589,12 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+        <term><varname>Hostname=</varname></term>
+        <listitem>
+          <para>Hostname is a option to override the machine's hostname that will be sent to the DHCP server</para>
+        </listitem>
+      </varlistentry>
+        <varlistentry>
           <term><varname>UseDomains=</varname></term>
           <listitem>
             <para>When true (not the default), the domain name
