@@ -656,9 +656,11 @@ int path_is_mount_point(const char *t, int flags) {
                 canonical = canonicalize_file_name(t);
                 if (!canonical)
                         return -errno;
+
+                t = canonical;
         }
 
-        r = path_get_parent(canonical ?: t, &parent);
+        r = path_get_parent(t, &parent);
         if (r < 0)
                 return r;
 
@@ -666,7 +668,7 @@ int path_is_mount_point(const char *t, int flags) {
         if (fd < 0)
                 return -errno;
 
-        return fd_is_mount_point(fd, basename(canonical ?: t), flags);
+        return fd_is_mount_point(fd, basename(t), flags);
 }
 
 int path_is_read_only_fs(const char *path) {
