@@ -1009,7 +1009,8 @@ AC_ARG_WITH(ntp-servers,
         AS_HELP_STRING([--with-ntp-servers=NTPSERVERS],
                 [Space-separated list of default NTP servers]),
         [NTP_SERVERS="$withval"],
-        [NTP_SERVERS="time1.google.com time2.google.com time3.google.com time4.google.com"])
+        [NTP_SERVERS="time1.google.com time2.google.com time3.google.com time4.google.com"
+        AC_MSG_WARN([*** Using Google NTP servers. Please do not ship OSes or devices with these default settings. See DISTRO_PORTING for details!])])
 
 AC_DEFINE_UNQUOTED(NTP_SERVERS, ["$NTP_SERVERS"], [Default NTP Servers])
 AC_SUBST(NTP_SERVERS)
