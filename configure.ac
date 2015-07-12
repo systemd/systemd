@@ -1009,7 +1009,7 @@ AC_ARG_WITH(ntp-servers,
         AS_HELP_STRING([--with-ntp-servers=NTPSERVERS],
                 [Space-separated list of default NTP servers]),
         [NTP_SERVERS="$withval"],
-        [NTP_SERVERS="time1.google.com time2.google.com time3.google.com time4.google.com"])
+        [NTP_SERVERS="0.pool.ntp.org 1.pool.ntp.org 2.pool.ntp.org 3.pool.ntp.org"])
 
 AC_DEFINE_UNQUOTED(NTP_SERVERS, ["$NTP_SERVERS"], [Default NTP Servers])
 AC_SUBST(NTP_SERVERS)
