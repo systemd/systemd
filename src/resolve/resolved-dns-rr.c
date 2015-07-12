@@ -625,6 +625,7 @@ int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
 
         case DNS_TYPE_RRSIG: {
                 const char *type, *alg;
+                char expiration[strlen("YYYYMMDDHHmmSS") + 1], inception[strlen("YYYYMMDDHHmmSS") + 1];
 
                 type = dns_type_to_string(rr->rrsig.type_covered);
                 alg = dnssec_algorithm_to_string(rr->rrsig.algorithm);
@@ -633,10 +634,16 @@ int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
                 if (!t)
                         return -ENOMEM;
 
+                if (!format_timestamp_compact_utc(expiration, sizeof(expiration), rr->rrsig.expiration * USEC_PER_SEC))
+                        return -EINVAL;
+
+                if (!format_timestamp_compact_utc(inception, sizeof(inception), rr->rrsig.inception * USEC_PER_SEC))
+                        return -EINVAL;
+
                 /* TYPE?? follows
                  * http://tools.ietf.org/html/rfc3597#section-5 */
 
-                r = asprintf(&s, "%s %s%.*u %.*s%.*u %u %u %u %u %u %s %s",
+                r = asprintf(&s, "%s %s%.*u %.*s%.*u %u %u %s %s %u %s %s",
                              k,
                              type ?: "TYPE",
                              type ? 0 : 1, type ? 0u : (unsigned) rr->rrsig.type_covered,
@@ -644,8 +651,8 @@ int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
                              alg ? 0 : 1, alg ? 0u : (unsigned) rr->rrsig.algorithm,
                              rr->rrsig.labels,
                              rr->rrsig.original_ttl,
-                             rr->rrsig.expiration,
-                             rr->rrsig.inception,
+                             expiration,
+                             inception,
                              rr->rrsig.key_tag,
                              rr->rrsig.signer,
                              t);
