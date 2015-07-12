@@ -502,6 +502,89 @@ fail:
         return r;
 }
 
+static int dns_packet_append_type_window(DnsPacket *p, uint8_t window, uint8_t length, uint8_t *types, size_t *start) {
+        size_t saved_size;
+        int r;
+
+        assert(p);
+        assert(types);
+
+        if (length == 0)
+                return 0;
+
+        saved_size = p->size;
+
+        r = dns_packet_append_uint8(p, window, NULL);
+        if (r < 0)
+                goto fail;
+
+        r = dns_packet_append_uint8(p, length, NULL);
+        if (r < 0)
+                goto fail;
+
+        r = dns_packet_append_blob(p, types, length, NULL);
+        if (r < 0)
+                goto fail;
+
+        if (start)
+                *start = saved_size;
+
+        return 0;
+fail:
+        dns_packet_truncate(p, saved_size);
+        return r;
+}
+
+static int dns_packet_append_types(DnsPacket *p, Bitmap *types, size_t *start) {
+        uint8_t window = 0;
+        uint8_t len = 0;
+        uint8_t bitmaps[32] = {};
+        unsigned n;
+        size_t saved_size;
+        int r;
+
+        assert(p);
+        assert(types);
+
+        saved_size = p->size;
+
+        BITMAP_FOREACH(n, types) {
+                uint8_t entry;
+
+                assert(n <= 0xffff);
+
+                if ((n << 8) != window) {
+                        r = dns_packet_append_type_window(p, window, len, bitmaps, NULL);
+                        if (r < 0)
+                                goto fail;
+
+                        if (len > 0) {
+                                len = 0;
+                                zero(bitmaps);
+                        }
+                }
+
+                window = n << 8;
+                len ++;
+
+                entry = n & 255;
+
+                bitmaps[entry / 8] |= 1 << (7 - (entry % 8));
+        }
+
+        r = dns_packet_append_type_window(p, window, len, bitmaps, NULL);
+        if (r < 0)
+                goto fail;
+
+        if (start)
+                *start = saved_size;
+
+        return 0;
+fail:
+        dns_packet_truncate(p, saved_size);
+        return r;
+}
+
 int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *start) {
         size_t saved_size, rdlength_offset, end, rdlength;
         int r;
@@ -732,6 +815,16 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *star
                 r = dns_packet_append_blob(p, rr->rrsig.signature, rr->rrsig.signature_size, NULL);
                 break;
 
+        case DNS_TYPE_NSEC:
+                r = dns_packet_append_name(p, rr->nsec.next_domain_name, false, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_types(p, rr->nsec.types, NULL);
+                if (r < 0)
+                        goto fail;
+
+                break;
         case _DNS_TYPE_INVALID: /* unparseable */
         default:
 
@@ -991,6 +1084,79 @@ int dns_packet_read_name(DnsPacket *p, char **_ret,
 
         return 0;
 
+fail:
+        dns_packet_rewind(p, saved_rindex);
+        return r;
+}
+
+static int dns_packet_read_type_window(DnsPacket *p, Bitmap **types, size_t *start) {
+        uint8_t window;
+        uint8_t length;
+        const uint8_t *bitmap;
+        unsigned i;
+        bool found = false;
+        size_t saved_rindex;
+        int r;
+
+        assert(p);
+        assert(types);
+
+        saved_rindex = p->rindex;
+
+        r = bitmap_ensure_allocated(types);
+        if (r < 0)
+                goto fail;
+
+        r = dns_packet_read_uint8(p, &window, NULL);
+        if (r < 0)
+                goto fail;
+
+        r = dns_packet_read_uint8(p, &length, NULL);
+        if (r < 0)
+                goto fail;
+
+        if (length == 0 || length > 32)
+                return -EBADMSG;
+
+        r = dns_packet_read(p, length, (const void **)&bitmap, NULL);
+        if (r < 0)
+                goto fail;
+
+        for (i = 0; i < length; i++) {
+                uint8_t bitmask = 1 << 7;
+                uint8_t bit = 0;
+
+                if (!bitmap[i]) {
+                        found = false;
+                        continue;
+                }
+
+                found = true;
+
+                while (bitmask) {
+                        if (bitmap[i] & bitmask) {
+                                uint16_t n;
+
+                                /* XXX: ignore pseudo-types? see RFC4034 section 4.1.2 */
+                                n = (uint16_t) window << 8 | (uint16_t) bit;
+
+                                r = bitmap_set(*types, n);
+                                if (r < 0)
+                                        goto fail;
+                        }
+
+                        bit ++;
+                        bitmask >>= 1;
+                }
+        }
+
+        if (!found)
+                return -EBADMSG;
+
+        if (start)
+                *start = saved_rindex;
+
+        return 0;
 fail:
         dns_packet_rewind(p, saved_rindex);
         return r;
@@ -1382,6 +1548,18 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
                                                NULL);
                 break;
 
+        case DNS_TYPE_NSEC:
+                r = dns_packet_read_name(p, &rr->nsec.next_domain_name, false, NULL);
+                if (r < 0)
+                        goto fail;
+
+                while (p->rindex != offset + rdlength) {
+                        r = dns_packet_read_type_window(p, &rr->nsec.types, NULL);
+                        if (r < 0)
+                                goto fail;
+                }
+
+                break;
         default:
         unparseable:
                 r = dns_packet_read(p, rdlength, &d, NULL);

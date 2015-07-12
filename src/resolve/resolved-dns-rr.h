@@ -23,6 +23,7 @@
 
 #include <netinet/in.h>
 
+#include "bitmap.h"
 #include "hashmap.h"
 #include "in-addr-util.h"
 #include "dns-type.h"
@@ -145,6 +146,11 @@ struct DnsResourceRecord {
                         void *signature;
                         size_t signature_size;
                 } rrsig;
+
+                struct {
+                        char *next_domain_name;
+                        Bitmap *types;
+                } nsec;
         };
 };
 

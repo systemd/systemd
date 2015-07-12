@@ -288,6 +288,11 @@ DnsResourceRecord* dns_resource_record_unref(DnsResourceRecord *rr) {
                         free(rr->rrsig.signature);
                         break;
 
+                case DNS_TYPE_NSEC:
+                        free(rr->nsec.next_domain_name);
+                        bitmap_free(rr->nsec.types);
+                        break;
+
                 case DNS_TYPE_LOC:
                 case DNS_TYPE_A:
                 case DNS_TYPE_AAAA:
@@ -448,6 +453,10 @@ int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecor
 
                 return dns_name_equal(a->rrsig.signer, b->rrsig.signer);
 
+        case DNS_TYPE_NSEC:
+                return dns_name_equal(a->nsec.next_domain_name, b->nsec.next_domain_name) &&
+                       bitmap_equal(a->nsec.types, b->nsec.types);
+
         default:
                 return a->generic.size == b->generic.size &&
                         memcmp(a->generic.data, b->generic.data, a->generic.size) == 0;
@@ -498,6 +507,37 @@ static int format_timestamp_dns(char *buf, size_t l, time_t sec) {
                 return -EINVAL;
 
         return 0;
+}
+
+static char *format_types(Bitmap *types) {
+        _cleanup_strv_free_ char **strv = NULL;
+        _cleanup_free_ char *str = NULL;
+        unsigned type;
+        int r;
+
+        BITMAP_FOREACH(type, types) {
+                if (dns_type_to_string(type)) {
+                        r = strv_extend(&strv, strdup(dns_type_to_string(type)));
+                        if (r < 0)
+                                return NULL;
+                } else {
+                        char *t;
+
+                        r = asprintf(&t, "TYPE%u", type);
+                        if (r < 0)
+                                return NULL;
+
+                        r = strv_extend(&strv, t);
+                        if (r < 0)
+                                return NULL;
+                }
+        }
+
+        str = strv_join(strv, " ");
+        if (!str)
+                return NULL;
+
+        return strjoin("( ", str, " )", NULL);
 }
 
 int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
@@ -703,6 +743,19 @@ int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
                         return -ENOMEM;
                 break;
         }
+
+        case DNS_TYPE_NSEC:
+                t = format_types(rr->nsec.types);
+                if (!t)
+                        return -ENOMEM;
+
+                r = asprintf(&s, "%s %s %s",
+                             k,
+                             rr->nsec.next_domain_name,
+                             t);
+                if (r < 0)
+                        return -ENOMEM;
+                break;
 
         default:
                 t = hexmem(rr->generic.data, rr->generic.size);
