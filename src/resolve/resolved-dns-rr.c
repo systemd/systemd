@@ -271,6 +271,10 @@ DnsResourceRecord* dns_resource_record_unref(DnsResourceRecord *rr) {
                         free(rr->mx.exchange);
                         break;
 
+                case DNS_TYPE_DS:
+                        free(rr->ds.digest);
+                        break;
+
                 case DNS_TYPE_SSHFP:
                         free(rr->sshfp.key);
                         break;
@@ -408,6 +412,13 @@ int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecor
                        a->loc.latitude == b->loc.latitude &&
                        a->loc.longitude == b->loc.longitude &&
                        a->loc.altitude == b->loc.altitude;
+
+        case DNS_TYPE_DS:
+                return a->ds.key_tag == b->ds.key_tag &&
+                       a->ds.algorithm == b->ds.algorithm &&
+                       a->ds.digest_type == b->ds.digest_type &&
+                       a->ds.digest_size == b->ds.digest_size &&
+                       memcmp(a->ds.digest, b->ds.digest, a->ds.digest_size) == 0;
 
         case DNS_TYPE_SSHFP:
                 return a->sshfp.algorithm == b->sshfp.algorithm &&
@@ -586,6 +597,21 @@ int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
 
                 s = strjoin(k, " ", t, NULL);
                 if (!s)
+                        return -ENOMEM;
+                break;
+
+        case DNS_TYPE_DS:
+                t = hexmem(rr->ds.digest, rr->ds.digest_size);
+                if (!t)
+                        return -ENOMEM;
+
+                r = asprintf(&s, "%s %u %u %u %s",
+                             k,
+                             rr->ds.key_tag,
+                             rr->ds.algorithm,
+                             rr->ds.digest_type,
+                             t);
+                if (r < 0)
                         return -ENOMEM;
                 break;
 
