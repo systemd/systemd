@@ -474,6 +474,21 @@ static char* format_location(uint32_t latitude, uint32_t longitude, uint32_t alt
         return s;
 }
 
+static int format_timestamp_dns(char *buf, size_t l, time_t sec) {
+        struct tm tm;
+
+        assert(buf);
+        assert(l > strlen("YYYYMMDDHHmmSS"));
+
+        if (!gmtime_r(&sec, &tm))
+                return -EINVAL;
+
+        if (strftime(buf, l, "%Y%m%d%H%M%S", &tm) <= 0)
+                return -EINVAL;
+
+        return 0;
+}
+
 int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
         _cleanup_free_ char *k = NULL, *t = NULL;
         char *s;
@@ -625,6 +640,7 @@ int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
 
         case DNS_TYPE_RRSIG: {
                 const char *type, *alg;
+                char expiration[strlen("YYYYMMDDHHmmSS") + 1], inception[strlen("YYYYMMDDHHmmSS") + 1];
 
                 type = dns_type_to_string(rr->rrsig.type_covered);
                 alg = dnssec_algorithm_to_string(rr->rrsig.algorithm);
@@ -633,10 +649,18 @@ int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
                 if (!t)
                         return -ENOMEM;
 
+                r = format_timestamp_dns(expiration, sizeof(expiration), rr->rrsig.expiration);
+                if (r < 0)
+                        return r;
+
+                r = format_timestamp_dns(inception, sizeof(inception), rr->rrsig.inception);
+                if (r < 0)
+                        return r;
+
                 /* TYPE?? follows
                  * http://tools.ietf.org/html/rfc3597#section-5 */
 
-                r = asprintf(&s, "%s %s%.*u %.*s%.*u %u %u %u %u %u %s %s",
+                r = asprintf(&s, "%s %s%.*u %.*s%.*u %u %u %s %s %u %s %s",
                              k,
                              type ?: "TYPE",
                              type ? 0 : 1, type ? 0u : (unsigned) rr->rrsig.type_covered,
@@ -644,8 +668,8 @@ int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
                              alg ? 0 : 1, alg ? 0u : (unsigned) rr->rrsig.algorithm,
                              rr->rrsig.labels,
                              rr->rrsig.original_ttl,
-                             rr->rrsig.expiration,
-                             rr->rrsig.inception,
+                             expiration,
+                             inception,
                              rr->rrsig.key_tag,
                              rr->rrsig.signer,
                              t);
