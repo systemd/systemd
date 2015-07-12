@@ -111,9 +111,9 @@
     <para><function>sd_bus_default()</function> acquires a bus
     connection object to the user bus when invoked in user context, or
     to the system bus otherwise. The connection object is associated
-    to the calling thread. Each time the function is invoked from the
-    same thread the same object is returned, but its reference count
-    is increased by one, as long as at least one reference is
+    with the calling thread. Each time the function is invoked from
+    the same thread the same object is returned, but its reference
+    count is increased by one, as long as at least one reference is
     kept. When the last reference to the connection is dropped (using
     the
     <citerefentry><refentrytitle>sd_bus_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>
@@ -121,10 +121,11 @@
     not automatically terminated when the associated thread ends. It
     is important to drop the last reference to the bus connection
     explicitly before the thread ends or otherwise the connection will
-    be leaked.</para>
+    be leaked. Also, queued but unread or unwritten messages keep the
+    bus referenced, see below.</para>
 
     <para><function>sd_bus_default_user()</function> returns a user
-    bus connection object associated to the calling thread.
+    bus connection object associated with the calling thread.
     <function>sd_bus_default_system()</function> is similar, but
     connects to the system bus. Note that
     <function>sd_bus_default()</function> is identical to these two
@@ -193,38 +194,63 @@
   </refsect1>
 
   <refsect1>
-    <title>Return Value</title>
-
-    <para>On success, these calls return 0 or a positive
-    integer. On failure, these calls return a negative
-    errno-style error code.</para>
-  </refsect1>
-
-  <refsect1>
     <title>Reference ownership</title>
     <para>The functions <function>sd_bus_open()</function>,
     <function>sd_bus_open_user()</function>,
     <function>sd_bus_open_system()</function>,
     <function>sd_bus_open_system_remote()</function>, and
     <function>sd_bus_open_system_machine()</function> return a new
-    object and the caller owns the sole reference. When not needed
-    anymore, this reference should be destroyed with
+    connection object and the caller owns the sole reference. When not
+    needed anymore, this reference should be destroyed with
     <citerefentry><refentrytitle>sd_bus_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
     </para>
 
     <para>The functions <function>sd_bus_default()</function>,
     <function>sd_bus_default_user()</function> and
     <function>sd_bus_default_system()</function> do not necessarily
-    create a new object, but increase the connection reference by
-    one. Use
+    create a new object, but increase the connection reference of an
+    existing connection object by one. Use
     <citerefentry><refentrytitle>sd_bus_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     to drop the reference.</para>
 
-    <para>Queued messages also keep a reference to the bus. For this reason, just
-    because no application is having a reference to the bus does not mean that
-    the bus object will be destroyed. Until all the messages are sent, the bus object
-    will stay alive. <function>sd_bus_flush</function> can be used to send all the
-    queued messages so they drop their references.</para>
+    <para>Queued but unwritten/unread messages also keep a reference
+    to their bus connection object. For this reason, even if an
+    application dropped all references to a bus connection it might
+    not get destroyed right-away. Until all incoming queued
+    messages are read, and until all outgoing unwritten messages are
+    written, the bus object will stay
+    alive. <function>sd_bus_flush()</function> may be used to write
+    all outgoing queued messages so they drop their references. To
+    flush the unread incoming messages use
+    <function>sd_bus_close()</function>, which will also close the bus
+    connection. When using the default bus logic it is a good idea to
+    first invoke <function>sd_bus_flush()</function> followed by
+    <function>sd_bus_close()</function> when a thread or process
+    terminates, and thus its bus connection object should be
+    freed.</para>
+
+    <para>The life-cycle of the default bus connection should be the
+    responsibility of the code that creates/owns the thread the
+    default bus connection object is associated with. Library code
+    should neither call <function>sd_bus_flush()</function> nor
+    <function>sd_bus_close()</function> on default bus objects unless
+    it does so in its own private, self-allocated thread. Library code
+    should not use the default bus object in other threads unless it
+    is clear that the program using it will life-cycle the bus
+    connection object and flush and close it before exiting from the
+    thread. In libraries where it is not clear that the calling
+    program will life-cycle the bus connection object it is hence
+    recommended to use <function>sd_bus_open_system()</function>
+    instead of <function>sd_bus_default_system()</function> and
+    related calls.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success, these calls return 0 or a positive
+    integer. On failure, these calls return a negative
+    errno-style error code.</para>
   </refsect1>
 
   <refsect1>
