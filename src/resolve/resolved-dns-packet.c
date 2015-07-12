@@ -825,6 +825,40 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *star
                         goto fail;
 
                 break;
+        case DNS_TYPE_NSEC3:
+                r = dns_packet_append_uint8(p, rr->nsec3.algorithm, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_uint8(p, rr->nsec3.flags, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_uint16(p, rr->nsec3.iterations, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_uint8(p, rr->nsec3.salt_size, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_blob(p, rr->nsec3.salt, rr->nsec3.salt_size, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_uint8(p, rr->nsec3.next_hashed_name_size, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_blob(p, rr->nsec3.next_hashed_name, rr->nsec3.next_hashed_name_size, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_types(p, rr->nsec3.types, NULL);
+                if (r < 0)
+                        goto fail;
+
+                break;
         case _DNS_TYPE_INVALID: /* unparseable */
         default:
 
@@ -1560,6 +1594,60 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
                 }
 
                 break;
+
+        case DNS_TYPE_NSEC3: {
+                uint8_t size;
+
+                r = dns_packet_read_uint8(p, &rr->nsec3.algorithm, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_read_uint8(p, &rr->nsec3.flags, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_read_uint16(p, &rr->nsec3.iterations, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_read_uint8(p, &size, NULL);
+                if (r < 0)
+                        goto fail;
+
+                rr->nsec3.salt_size = size;
+
+                r = dns_packet_read_blob(p, &d, rr->nsec3.salt_size, NULL);
+                if (r < 0)
+                        goto fail;
+
+                rr->nsec3.salt = memdup(d, rr->nsec3.salt_size);
+                if (!rr->nsec3.salt) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
+
+                r = dns_packet_read_uint8(p, &size, NULL);
+                if (r < 0)
+                        goto fail;
+
+                rr->nsec3.next_hashed_name_size = size;
+
+                r = dns_packet_read(p, rr->nsec3.next_hashed_name_size, &d, NULL);
+                if (r < 0)
+                        goto fail;
+
+                rr->nsec3.next_hashed_name = memdup(d, rr->nsec3.next_hashed_name_size);
+                if (!rr->nsec3.next_hashed_name) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
+
+                r = dns_packet_append_types(p, rr->nsec3.types, NULL);
+                if (r < 0)
+                        goto fail;
+
+                break;
+        }
         default:
         unparseable:
                 r = dns_packet_read(p, rdlength, &d, NULL);
@@ -1694,13 +1782,15 @@ static const char* const dns_protocol_table[_DNS_PROTOCOL_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP(dns_protocol, DnsProtocol);
 
 static const char* const dnssec_algorithm_table[_DNSSEC_ALGORITHM_MAX_DEFINED] = {
-        [DNSSEC_ALGORITHM_RSAMD5]     = "RSAMD5",
-        [DNSSEC_ALGORITHM_DH]         = "DH",
-        [DNSSEC_ALGORITHM_DSA]        = "DSA",
-        [DNSSEC_ALGORITHM_ECC]        = "ECC",
-        [DNSSEC_ALGORITHM_RSASHA1]    = "RSASHA1",
-        [DNSSEC_ALGORITHM_INDIRECT]   = "INDIRECT",
-        [DNSSEC_ALGORITHM_PRIVATEDNS] = "PRIVATEDNS",
-        [DNSSEC_ALGORITHM_PRIVATEOID] = "PRIVATEOID",
+        [DNSSEC_ALGORITHM_RSAMD5]             = "RSAMD5",
+        [DNSSEC_ALGORITHM_DH]                 = "DH",
+        [DNSSEC_ALGORITHM_DSA]                = "DSA",
+        [DNSSEC_ALGORITHM_ECC]                = "ECC",
+        [DNSSEC_ALGORITHM_RSASHA1]            = "RSASHA1",
+        [DNSSEC_ALGORITHM_DSA_NSEC3_SHA1]     = "DSA-NSEC3-SHA1",
+        [DNSSEC_ALGORITHM_RSASHA1_NSEC3_SHA1] = "RSASHA1-NSEC3-SHA1",
+        [DNSSEC_ALGORITHM_INDIRECT]           = "INDIRECT",
+        [DNSSEC_ALGORITHM_PRIVATEDNS]         = "PRIVATEDNS",
+        [DNSSEC_ALGORITHM_PRIVATEOID]         = "PRIVATEOID",
 };
 DEFINE_STRING_TABLE_LOOKUP(dnssec_algorithm, int);

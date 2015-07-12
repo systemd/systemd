@@ -293,6 +293,12 @@ DnsResourceRecord* dns_resource_record_unref(DnsResourceRecord *rr) {
                         bitmap_free(rr->nsec.types);
                         break;
 
+                case DNS_TYPE_NSEC3:
+                        free(rr->nsec3.next_hashed_name);
+                        free(rr->nsec3.salt);
+                        bitmap_free(rr->nsec3.types);
+                        break;
+
                 case DNS_TYPE_LOC:
                 case DNS_TYPE_A:
                 case DNS_TYPE_AAAA:
@@ -456,6 +462,15 @@ int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecor
         case DNS_TYPE_NSEC:
                 return dns_name_equal(a->nsec.next_domain_name, b->nsec.next_domain_name) &&
                        bitmap_equal(a->nsec.types, b->nsec.types);
+
+        case DNS_TYPE_NSEC3:
+                return a->nsec3.algorithm == b->nsec3.algorithm &&
+                    a->nsec3.flags == b->nsec3.flags &&
+                    a->nsec3.iterations == b->nsec3.iterations &&
+                    a->nsec3.salt_size == b->nsec3.salt_size &&
+                    memcmp(a->nsec3.salt, b->nsec3.salt, a->nsec3.salt_size) == 0 &&
+                    memcmp(a->nsec3.next_hashed_name, b->nsec3.next_hashed_name, a->nsec3.next_hashed_name_size) == 0 &&
+                    bitmap_equal(a->nsec3.types, b->nsec3.types);
 
         default:
                 return a->generic.size == b->generic.size &&
@@ -756,6 +771,37 @@ int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
                 if (r < 0)
                         return -ENOMEM;
                 break;
+
+        case DNS_TYPE_NSEC3: {
+                _cleanup_free_ char *salt = NULL, *hash = NULL;
+
+                if (rr->nsec3.salt_size) {
+                        salt = hexmem(rr->nsec3.salt, rr->nsec3.salt_size);
+                        if (!salt)
+                                return -ENOMEM;
+                }
+
+                hash = base32hexmem(rr->nsec3.next_hashed_name, rr->nsec3.next_hashed_name_size, false);
+                if (!hash)
+                        return -ENOMEM;
+
+                t = format_types(rr->nsec3.types);
+                if (!t)
+                        return -ENOMEM;
+
+                r = asprintf(&s, "%s %"PRIu8" %"PRIu8" %"PRIu16" %s %s %s",
+                             k,
+                             rr->nsec3.algorithm,
+                             rr->nsec3.flags,
+                             rr->nsec3.iterations,
+                             rr->nsec3.salt_size ? salt : "-",
+                             hash,
+                             t);
+                if (r < 0)
+                        return -ENOMEM;
+
+                break;
+        }
 
         default:
                 t = hexmem(rr->generic.data, rr->generic.size);
