@@ -608,7 +608,7 @@ int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
 
                 alg = dnssec_algorithm_to_string(rr->dnskey.algorithm);
 
-                t = hexmem(rr->dnskey.key, rr->dnskey.key_size);
+                t = base64mem(rr->dnskey.key, rr->dnskey.key_size);
                 if (!t)
                         return -ENOMEM;
 
@@ -629,7 +629,7 @@ int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
                 type = dns_type_to_string(rr->rrsig.type_covered);
                 alg = dnssec_algorithm_to_string(rr->rrsig.algorithm);
 
-                t = hexmem(rr->rrsig.signature, rr->rrsig.signature_size);
+                t = base64mem(rr->rrsig.signature, rr->rrsig.signature_size);
                 if (!t)
                         return -ENOMEM;
 
