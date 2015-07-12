@@ -82,11 +82,11 @@ REQUIREMENTS:
           CONFIG_SECCOMP
           CONFIG_CHECKPOINT_RESTORE (for the kcmp() syscall)
 
-        Required for CPUShares in resource control unit settings
+        Required for CPUShares= in resource control unit settings
           CONFIG_CGROUP_SCHED
           CONFIG_FAIR_GROUP_SCHED
 
-        Required for CPUQuota in resource control unit settings
+        Required for CPUQuota= in resource control unit settings
           CONFIG_CFS_BANDWIDTH
 
         For systemd-bootchart, several proc debug interfaces are required:
@@ -96,6 +96,15 @@ REQUIREMENTS:
         For UEFI systems:
           CONFIG_EFIVAR_FS
           CONFIG_EFI_PARTITION
+
+        We recommend to turn off Real-Time group scheduling in the
+        kernel when using systemd. RT group scheduling effectively
+        makes RT scheduling unavailable for most userspace, since it
+        requires explicit assignment of RT budgets to each unit whose
+        processes making use of RT. As there's no sensible way to
+        assign these budgets automatically this cannot really be
+        fixed, and it's best to disable group scheduling hence.
+           CONFIG_RT_GROUP_SCHED=n
 
         Note that kernel auditing is broken when used with systemd's
         container code. When using systemd in conjunction with
