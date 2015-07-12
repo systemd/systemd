@@ -869,6 +869,19 @@ int sd_dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
                         return r;
         }
 
+        if (vendor_specific_hex) {
+                size_t len;
+
+                len = strlen(vendor_specific_hex);
+                if (len % 2)
+                        return -EINVAL;
+
+                lease->vendor_specific = unhexmem(vendor_specific_hex, len);
+                if (!lease->vendor_specific)
+                        return -ENOMEM;
+                lease->vendor_specific_len = len / 2;
+        }
+
         *ret = lease;
         lease = NULL;
 
