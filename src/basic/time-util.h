@@ -88,6 +88,7 @@ struct timeval *timeval_store(struct timeval *tv, usec_t u);
 
 char *format_timestamp(char *buf, size_t l, usec_t t);
 char *format_timestamp_utc(char *buf, size_t l, usec_t t);
+char *format_timestamp_compact_utc(char *buf, size_t l, usec_t t);
 char *format_timestamp_us(char *buf, size_t l, usec_t t);
 char *format_timestamp_us_utc(char *buf, size_t l, usec_t t);
 char *format_timestamp_relative(char *buf, size_t l, usec_t t);

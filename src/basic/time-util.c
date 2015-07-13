@@ -147,7 +147,7 @@ struct timeval *timeval_store(struct timeval *tv, usec_t u) {
         return tv;
 }
 
-static char *format_timestamp_internal(char *buf, size_t l, usec_t t, bool utc) {
+static char *format_timestamp_internal(char *buf, size_t l, usec_t t, bool utc, bool compact) {
         struct tm tm;
         time_t sec;
 
@@ -163,18 +163,28 @@ static char *format_timestamp_internal(char *buf, size_t l, usec_t t, bool utc) 
                 gmtime_r(&sec, &tm);
         else
                 localtime_r(&sec, &tm);
-        if (strftime(buf, l, "%a %Y-%m-%d %H:%M:%S %Z", &tm) <= 0)
-                return NULL;
+
+        if (compact) {
+                if (strftime(buf, l, "%Y%m%d%H%M%S", &tm) <= 0)
+                        return NULL;
+        } else {
+                if (strftime(buf, l, "%a %Y-%m-%d %H:%M:%S %Z", &tm) <= 0)
+                        return NULL;
+        }
 
         return buf;
 }
 
 char *format_timestamp(char *buf, size_t l, usec_t t) {
-        return format_timestamp_internal(buf, l, t, false);
+        return format_timestamp_internal(buf, l, t, false, false);
 }
 
 char *format_timestamp_utc(char *buf, size_t l, usec_t t) {
-        return format_timestamp_internal(buf, l, t, true);
+        return format_timestamp_internal(buf, l, t, true, false);
+}
+
+char *format_timestamp_compact_utc(char *buf, size_t l, usec_t t) {
+        return format_timestamp_internal(buf, l, t, true, true);
 }
 
 static char *format_timestamp_internal_us(char *buf, size_t l, usec_t t, bool utc) {

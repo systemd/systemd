@@ -109,6 +109,14 @@ struct DnsResourceRecord {
                 } loc;
 
                 struct {
+                        uint16_t key_tag;
+                        uint8_t algorithm;
+                        uint8_t digest_type;
+                        void *digest;
+                        size_t digest_size;
+                } ds;
+
+                struct {
                         uint8_t algorithm;
                         uint8_t fptype;
                         void *key;

@@ -271,6 +271,10 @@ DnsResourceRecord* dns_resource_record_unref(DnsResourceRecord *rr) {
                         free(rr->mx.exchange);
                         break;
 
+                case DNS_TYPE_DS:
+                        free(rr->ds.digest);
+                        break;
+
                 case DNS_TYPE_SSHFP:
                         free(rr->sshfp.key);
                         break;
@@ -408,6 +412,13 @@ int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecor
                        a->loc.latitude == b->loc.latitude &&
                        a->loc.longitude == b->loc.longitude &&
                        a->loc.altitude == b->loc.altitude;
+
+        case DNS_TYPE_DS:
+                return a->ds.key_tag == b->ds.key_tag &&
+                       a->ds.algorithm == b->ds.algorithm &&
+                       a->ds.digest_type == b->ds.digest_type &&
+                       a->ds.digest_size == b->ds.digest_size &&
+                       memcmp(a->ds.digest, b->ds.digest, a->ds.digest_size) == 0;
 
         case DNS_TYPE_SSHFP:
                 return a->sshfp.algorithm == b->sshfp.algorithm &&
@@ -589,6 +600,21 @@ int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
                         return -ENOMEM;
                 break;
 
+        case DNS_TYPE_DS:
+                t = hexmem(rr->ds.digest, rr->ds.digest_size);
+                if (!t)
+                        return -ENOMEM;
+
+                r = asprintf(&s, "%s %u %u %u %s",
+                             k,
+                             rr->ds.key_tag,
+                             rr->ds.algorithm,
+                             rr->ds.digest_type,
+                             t);
+                if (r < 0)
+                        return -ENOMEM;
+                break;
+
         case DNS_TYPE_SSHFP:
                 t = hexmem(rr->sshfp.key, rr->sshfp.key_size);
                 if (!t)
@@ -608,7 +634,7 @@ int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
 
                 alg = dnssec_algorithm_to_string(rr->dnskey.algorithm);
 
-                t = hexmem(rr->dnskey.key, rr->dnskey.key_size);
+                t = base64mem(rr->dnskey.key, rr->dnskey.key_size);
                 if (!t)
                         return -ENOMEM;
 
@@ -625,18 +651,25 @@ int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
 
         case DNS_TYPE_RRSIG: {
                 const char *type, *alg;
+                char expiration[strlen("YYYYMMDDHHmmSS") + 1], inception[strlen("YYYYMMDDHHmmSS") + 1];
 
                 type = dns_type_to_string(rr->rrsig.type_covered);
                 alg = dnssec_algorithm_to_string(rr->rrsig.algorithm);
 
-                t = hexmem(rr->rrsig.signature, rr->rrsig.signature_size);
+                t = base64mem(rr->rrsig.signature, rr->rrsig.signature_size);
                 if (!t)
                         return -ENOMEM;
+
+                if (!format_timestamp_compact_utc(expiration, sizeof(expiration), rr->rrsig.expiration * USEC_PER_SEC))
+                        return -EINVAL;
+
+                if (!format_timestamp_compact_utc(inception, sizeof(inception), rr->rrsig.inception * USEC_PER_SEC))
+                        return -EINVAL;
 
                 /* TYPE?? follows
                  * http://tools.ietf.org/html/rfc3597#section-5 */
 
-                r = asprintf(&s, "%s %s%.*u %.*s%.*u %u %u %u %u %u %s %s",
+                r = asprintf(&s, "%s %s%.*u %.*s%.*u %u %u %s %s %u %s %s",
                              k,
                              type ?: "TYPE",
                              type ? 0 : 1, type ? 0u : (unsigned) rr->rrsig.type_covered,
@@ -644,8 +677,8 @@ int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
                              alg ? 0 : 1, alg ? 0u : (unsigned) rr->rrsig.algorithm,
                              rr->rrsig.labels,
                              rr->rrsig.original_ttl,
-                             rr->rrsig.expiration,
-                             rr->rrsig.inception,
+                             expiration,
+                             inception,
                              rr->rrsig.key_tag,
                              rr->rrsig.signer,
                              t);
