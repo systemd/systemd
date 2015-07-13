@@ -28,6 +28,7 @@
 #include "random-util.h"
 #include "hostname-util.h"
 #include "dns-domain.h"
+#include "resolved-llmnr.h"
 #include "resolved-dns-scope.h"
 
 #define MULTICAST_RATELIMIT_INTERVAL_USEC (1*USEC_PER_SEC)
@@ -180,7 +181,7 @@ int dns_scope_emit(DnsScope *s, DnsPacket *p) {
                         return -EBUSY;
 
                 family = s->family;
-                port = 5355;
+                port = LLMNR_PORT;
 
                 if (family == AF_INET) {
                         addr.in = LLMNR_MULTICAST_IPV4_ADDRESS;
@@ -546,7 +547,7 @@ void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
                 return;
         }
 
-        if (DNS_PACKET_C(p)) {
+        if (DNS_PACKET_LLMNR_C(p)) {
                 /* Somebody notified us about a possible conflict */
                 dns_scope_verify_conflicts(s, p);
                 return;
@@ -760,10 +761,10 @@ void dns_scope_check_conflicts(DnsScope *scope, DnsPacket *p) {
         if (DNS_PACKET_RRCOUNT(p) <= 0)
                 return;
 
-        if (DNS_PACKET_C(p) != 0)
+        if (DNS_PACKET_LLMNR_C(p) != 0)
                 return;
 
-        if (DNS_PACKET_T(p) != 0)
+        if (DNS_PACKET_LLMNR_T(p) != 0)
                 return;
 
         if (manager_our_packet(scope->manager, p))

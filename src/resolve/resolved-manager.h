@@ -130,10 +130,6 @@ int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret);
 
 int manager_dns_ipv4_fd(Manager *m);
 int manager_dns_ipv6_fd(Manager *m);
-int manager_llmnr_ipv4_udp_fd(Manager *m);
-int manager_llmnr_ipv6_udp_fd(Manager *m);
-int manager_llmnr_ipv4_tcp_fd(Manager *m);
-int manager_llmnr_ipv6_tcp_fd(Manager *m);
 
 int manager_find_ifindex(Manager *m, int family, const union in_addr_union *in_addr);
 LinkAddress* manager_find_link_address(Manager *m, int family, const union in_addr_union *in_addr);

@@ -5102,6 +5102,8 @@ systemd_resolved_SOURCES = \
 	src/resolve/resolved-bus.h \
 	src/resolve/resolved-link.h \
 	src/resolve/resolved-link.c \
+	src/resolve/resolved-llmnr.h \
+	src/resolve/resolved-llmnr.c \
 	src/resolve/resolved-def.h \
 	src/resolve/resolved-dns-rr.h \
 	src/resolve/resolved-dns-rr.c \

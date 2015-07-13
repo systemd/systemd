@@ -166,10 +166,17 @@ int dns_packet_validate_reply(DnsPacket *p) {
         if (DNS_PACKET_OPCODE(p) != 0)
                 return -EBADMSG;
 
-        /* RFC 4795, Section 2.1.1. says to discard all replies with QDCOUNT != 1 */
-        if (p->protocol == DNS_PROTOCOL_LLMNR &&
-            DNS_PACKET_QDCOUNT(p) != 1)
-                return -EBADMSG;
+        switch (p->protocol) {
+        case DNS_PROTOCOL_LLMNR:
+                /* RFC 4795, Section 2.1.1. says to discard all replies with QDCOUNT != 1 */
+                if (DNS_PACKET_QDCOUNT(p) != 1)
+                        return -EBADMSG;
+
+                break;
+
+        default:
+                break;
+        }
 
         return 1;
 }
@@ -192,18 +199,25 @@ int dns_packet_validate_query(DnsPacket *p) {
         if (DNS_PACKET_TC(p))
                 return -EBADMSG;
 
-        /* RFC 4795, Section 2.1.1. says to discard all queries with QDCOUNT != 1 */
-        if (p->protocol == DNS_PROTOCOL_LLMNR &&
-            DNS_PACKET_QDCOUNT(p) != 1)
-                return -EBADMSG;
+        switch (p->protocol) {
+        case DNS_PROTOCOL_LLMNR:
+                /* RFC 4795, Section 2.1.1. says to discard all queries with QDCOUNT != 1 */
+                if (DNS_PACKET_QDCOUNT(p) != 1)
+                        return -EBADMSG;
 
-        /* RFC 4795, Section 2.1.1. says to discard all queries with ANCOUNT != 0 */
-        if (DNS_PACKET_ANCOUNT(p) > 0)
-                return -EBADMSG;
+                /* RFC 4795, Section 2.1.1. says to discard all queries with ANCOUNT != 0 */
+                if (DNS_PACKET_ANCOUNT(p) > 0)
+                        return -EBADMSG;
 
-        /* RFC 4795, Section 2.1.1. says to discard all queries with NSCOUNT != 0 */
-        if (DNS_PACKET_NSCOUNT(p) > 0)
-                return -EBADMSG;
+                /* RFC 4795, Section 2.1.1. says to discard all queries with NSCOUNT != 0 */
+                if (DNS_PACKET_NSCOUNT(p) > 0)
+                        return -EBADMSG;
+
+                break;
+
+        default:
+                break;
+        }
 
         return 1;
 }
