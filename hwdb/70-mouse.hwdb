@@ -247,6 +247,10 @@ mouse:usb:v046dpc05a:name:Logitech USB Optical Mouse:
 mouse:usb:v046dpc065:name:Logitech USB Laser Mouse:
  MOUSE_DPI=1000@125
 
+# Logitech MX Master
+mouse:usb:v046dp4041:name:Logitech MX Master:
+ MOUSE_DPI=1000@166
+
 # Logitech MK260 Wireless Combo Receiver aka M-R0011
 mouse:usb:v046dpc52e:name:Logitech USB Receiver:
  MOUSE_DPI=1000@200
