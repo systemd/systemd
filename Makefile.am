@@ -791,6 +791,8 @@ libbasic_la_SOURCES = \
 	src/basic/siphash24.h \
 	src/basic/set.h \
 	src/basic/ordered-set.h \
+	src/basic/bitmap.c \
+	src/basic/bitmap.h \
 	src/basic/fdset.c \
 	src/basic/fdset.h \
 	src/basic/prioq.c \
@@ -1412,6 +1414,7 @@ tests += \
 	test-time \
 	test-hashmap \
 	test-set \
+	test-bitmap \
 	test-list \
 	test-unaligned \
 	test-tables \
@@ -1766,6 +1769,12 @@ test_set_SOURCES = \
 	src/test/test-set.c
 
 test_set_LDADD = \
+	libshared.la
+
+test_bitmap_SOURCES = \
+	src/test/test-bitmap.c
+
+test_bitmap_LDADD = \
 	libshared.la
 
 test_xml_SOURCES = \
