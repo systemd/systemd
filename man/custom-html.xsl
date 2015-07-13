@@ -22,6 +22,16 @@
 <xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" version="1.0">
 
 <xsl:import href="http://docbook.sourceforge.net/release/xsl/current/html/docbook.xsl"/>
+<!--
+  - The docbook stylesheet injects empty anchor tags into generated HTML, identified by an auto-generated ID.
+  - Ask the docbook stylesheet to generate reproducible output when generating (these) ID values.
+  - This makes the output of this stylesheet reproducible across identical invocations on the same input,
+  - which is an easy and significant win for achieving reproducible builds.
+  -
+  - It may be even better to strip the empty anchors from the document output in addition to turning on consistent IDs,
+  - for this stylesheet contains its own custom ID logic (for generating permalinks) already.
+ -->
+<xsl:param name="generate.consistent.ids" select="1"/>
 
 <!-- translate man page references to links to html pages -->
 <xsl:template match="citerefentry[not(@project)]">
