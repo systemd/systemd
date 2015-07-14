@@ -451,7 +451,8 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const uint8_t *option,
                 break;
 
         case DHCP_OPTION_ROUTER:
-                lease_parse_be32(option, len, &lease->router);
+                if(len >= 4)
+                        lease_parse_be32(option, 4, &lease->router);
 
                 break;
 
