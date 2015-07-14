@@ -51,6 +51,9 @@ static int netdev_fill_tuntap_message(NetDev *netdev, struct ifreq *ifr) {
         if (t->multi_queue)
                 ifr->ifr_flags |= IFF_MULTI_QUEUE;
 
+        if (t->vnet_hdr)
+                ifr->ifr_flags |= IFF_VNET_HDR;
+
         strncpy(ifr->ifr_name, netdev->ifname, IFNAMSIZ-1);
 
         return 0;

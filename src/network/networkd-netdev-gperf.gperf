@@ -59,6 +59,7 @@ Tun.Group,                   config_parse_string,                0,             
 Tap.OneQueue,                config_parse_bool,                  0,                             offsetof(TunTap, one_queue)
 Tap.MultiQueue,              config_parse_bool,                  0,                             offsetof(TunTap, multi_queue)
 Tap.PacketInfo,              config_parse_bool,                  0,                             offsetof(TunTap, packet_info)
+Tap.VnetHeader,              config_parse_bool,                  0,                             offsetof(TunTap, vnet_hdr)
 Tap.User,                    config_parse_string,                0,                             offsetof(TunTap, user_name)
 Tap.Group,                   config_parse_string,                0,                             offsetof(TunTap, group_name)
 Bond.Mode,                   config_parse_bond_mode,             0,                             offsetof(Bond, mode)

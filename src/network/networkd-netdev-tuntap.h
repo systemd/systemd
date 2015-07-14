@@ -33,6 +33,7 @@ struct TunTap {
         bool one_queue;
         bool multi_queue;
         bool packet_info;
+        bool vnet_hdr;
 };
 
 extern const NetDevVTable tun_vtable;
