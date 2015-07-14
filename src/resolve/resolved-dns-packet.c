@@ -652,6 +652,22 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *star
                 r = dns_packet_append_uint32(p, rr->loc.altitude, NULL);
                 break;
 
+        case DNS_TYPE_DS:
+                r = dns_packet_append_uint16(p, rr->ds.key_tag, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_uint8(p, rr->ds.algorithm, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_uint8(p, rr->ds.digest_type, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_blob(p, rr->ds.digest, rr->ds.digest_size, NULL);
+                break;
+
         case DNS_TYPE_SSHFP:
                 r = dns_packet_append_uint8(p, rr->sshfp.algorithm, NULL);
                 if (r < 0)
@@ -1262,6 +1278,26 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
                 }
         }
 
+        case DNS_TYPE_DS:
+                r = dns_packet_read_uint16(p, &rr->ds.key_tag, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_read_uint8(p, &rr->ds.algorithm, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_read_uint8(p, &rr->ds.digest_type, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_read_public_key(p, rdlength - 4,
+                                               &rr->ds.digest, &rr->ds.digest_size,
+                                               NULL);
+                if (r < 0)
+                        goto fail;
+
+                break;
         case DNS_TYPE_SSHFP:
                 r = dns_packet_read_uint8(p, &rr->sshfp.algorithm, NULL);
                 if (r < 0)

@@ -342,9 +342,7 @@ Features:
   - put networkd events and rtnl events at a higher priority, so that
     we always process them before we process client requests
   - DNSSEC
-        - use base64 for key presentation?
         - add display of private key types (http://tools.ietf.org/html/rfc4034#appendix-A.1.1)?
-        - add nice formatting of DNS timestamps
   - DNS
         - search paths
   - mDNS/DNS-SD
