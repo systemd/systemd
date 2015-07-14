@@ -37,6 +37,8 @@ typedef enum DnsServerType {
 struct DnsServer {
         Manager *manager;
 
+        unsigned n_ref;
+
         DnsServerType type;
 
         Link *link;
@@ -57,6 +59,9 @@ int dns_server_new(
                 int family,
                 const union in_addr_union *address);
 
-DnsServer* dns_server_free(DnsServer *s);
+DnsServer* dns_server_ref(DnsServer *s);
+DnsServer* dns_server_unref(DnsServer *s);
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(DnsServer*, dns_server_unref);
 
 extern const struct hash_ops dns_server_hash_ops;

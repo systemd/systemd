@@ -58,7 +58,6 @@ int link_new(Manager *m, Link **ret, int ifindex) {
 }
 
 Link *link_free(Link *l) {
-
         if (!l)
                 return NULL;
 
@@ -68,8 +67,12 @@ Link *link_free(Link *l) {
         if (l->manager)
                 hashmap_remove(l->manager->links, INT_TO_PTR(l->ifindex));
 
-        while (l->dns_servers)
-                dns_server_free(l->dns_servers);
+        while (l->dns_servers) {
+                DnsServer *s = l->dns_servers;
+
+                LIST_REMOVE(servers, l->dns_servers, s);
+                dns_server_unref(s);
+        }
 
         dns_scope_free(l->unicast_scope);
         dns_scope_free(l->llmnr_ipv4_scope);
@@ -182,14 +185,20 @@ static int link_update_dns_servers(Link *l) {
         }
 
         LIST_FOREACH_SAFE(servers, s, nx, l->dns_servers)
-                if (s->marked)
-                        dns_server_free(s);
+                if (s->marked) {
+                        LIST_REMOVE(servers, l->dns_servers, s);
+                        dns_server_unref(s);
+                }
 
         return 0;
 
 clear:
-        while (l->dns_servers)
-                dns_server_free(l->dns_servers);
+        while (l->dns_servers) {
+                s = l->dns_servers;
+
+                LIST_REMOVE(servers, l->dns_servers, s);
+                dns_server_unref(s);
+        }
 
         return r;
 }
