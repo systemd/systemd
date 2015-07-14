@@ -1030,9 +1030,9 @@ char *base64mem(const void *p, size_t l) {
 }
 
 int unbase64mem(const char *p, size_t l, void **mem, size_t *_len) {
-        _cleanup_free_ uint8_t *t = NULL;
+        _cleanup_free_ uint8_t *r = NULL;
         int a, b, c, d;
-        uint8_t *r, *z;
+        uint8_t *z;
         const char *x;
         size_t len;
 
