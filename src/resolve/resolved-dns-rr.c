@@ -177,13 +177,13 @@ int dns_resource_key_to_string(const DnsResourceKey *key, char **ret) {
 
         c = dns_class_to_string(key->class);
         if (!c) {
-                sprintf(cbuf, "%i", key->class);
+                sprintf(cbuf, "CLASS%u", key->class);
                 c = cbuf;
         }
 
         t = dns_type_to_string(key->type);
         if (!t){
-                sprintf(tbuf, "%i", key->type);
+                sprintf(tbuf, "TYPE%u", key->type);
                 t = tbuf;
         }
 
@@ -709,8 +709,8 @@ int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
                 if (!t)
                         return -ENOMEM;
 
-                s = strjoin(k, " ", t, NULL);
-                if (!s)
+                r = asprintf(&s, "%s \\# %"PRIu8" %s", k, rr->generic.size, t);
+                if (r < 0)
                         return -ENOMEM;
                 break;
         }
