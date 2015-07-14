@@ -125,7 +125,8 @@ void dns_scope_next_dns_server(DnsScope *s) {
                 manager_next_dns_server(s->manager);
 }
 
-int dns_scope_emit(DnsScope *s, DnsPacket *p) {
+int dns_scope_emit(DnsScope *s, DnsTransaction *t, DnsPacket *p, DnsServer **server) {
+        DnsServer *srv = NULL;
         union in_addr_union addr;
         int ifindex = 0, r;
         int family;
@@ -144,8 +145,6 @@ int dns_scope_emit(DnsScope *s, DnsPacket *p) {
                 mtu = manager_find_mtu(s->manager);
 
         if (s->protocol == DNS_PROTOCOL_DNS) {
-                DnsServer *srv;
-
                 if (DNS_PACKET_QDCOUNT(p) > 1)
                         return -EOPNOTSUPP;
 
@@ -160,13 +159,13 @@ int dns_scope_emit(DnsScope *s, DnsPacket *p) {
                 if (p->size > DNS_PACKET_UNICAST_SIZE_MAX)
                         return -EMSGSIZE;
 
-                if (p->size > mtu)
+                if (p->size + UDP_PACKET_HEADER_SIZE > mtu)
                         return -EMSGSIZE;
 
                 if (family == AF_INET)
-                        fd = manager_dns_ipv4_fd(s->manager);
+                        fd = transaction_dns_ipv4_fd(t);
                 else if (family == AF_INET6)
-                        fd = manager_dns_ipv6_fd(s->manager);
+                        fd = transaction_dns_ipv6_fd(t);
                 else
                         return -EAFNOSUPPORT;
                 if (fd < 0)
@@ -200,10 +199,14 @@ int dns_scope_emit(DnsScope *s, DnsPacket *p) {
         if (r < 0)
                 return r;
 
+        if (server && srv)
+                *server = srv;
+
         return 1;
 }
 
-int dns_scope_tcp_socket(DnsScope *s, int family, const union in_addr_union *address, uint16_t port) {
+int dns_scope_tcp_socket(DnsScope *s, int family, const union in_addr_union *address, uint16_t port, DnsServer **server) {
+        DnsServer *srv = NULL;
         _cleanup_close_ int fd = -1;
         union sockaddr_union sa = {};
         socklen_t salen;
@@ -214,8 +217,6 @@ int dns_scope_tcp_socket(DnsScope *s, int family, const union in_addr_union *add
         assert((family == AF_UNSPEC) == !address);
 
         if (family == AF_UNSPEC) {
-                DnsServer *srv;
-
                 srv = dns_scope_get_dns_server(s);
                 if (!srv)
                         return -ESRCH;
@@ -287,6 +288,9 @@ int dns_scope_tcp_socket(DnsScope *s, int family, const union in_addr_union *add
         r = connect(fd, &sa.sa, salen);
         if (r < 0 && errno != EINPROGRESS)
                 return -errno;
+
+        if (server && srv)
+                *server = srv;
 
         ret = fd;
         fd = -1;
@@ -696,7 +700,7 @@ static int on_conflict_dispatch(sd_event_source *es, usec_t usec, void *userdata
                         return 0;
                 }
 
-                r = dns_scope_emit(scope, p);
+                r = dns_scope_emit(scope, NULL, p, NULL);
                 if (r < 0)
                         log_debug_errno(r, "Failed to send conflict packet: %m");
         }

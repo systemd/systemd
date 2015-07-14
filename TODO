@@ -353,8 +353,6 @@ Features:
   - edns0
   - dname
   - cname on PTR (?)
-  - maybe randomize DNS UDP source ports
-  - maybe compare query section of DNS replies
 
 * Allow multiple ExecStart= for all Type= settings, so that we can cover rescue.service nicely
 

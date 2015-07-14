@@ -32,10 +32,10 @@ int dns_packet_new(DnsPacket **ret, DnsProtocol protocol, size_t mtu) {
 
         assert(ret);
 
-        if (mtu <= 0)
+        if (mtu <= UDP_PACKET_HEADER_SIZE)
                 a = DNS_PACKET_SIZE_START;
         else
-                a = mtu;
+                a = mtu - UDP_PACKET_HEADER_SIZE;
 
         if (a < DNS_PACKET_HEADER_SIZE)
                 a = DNS_PACKET_HEADER_SIZE;
