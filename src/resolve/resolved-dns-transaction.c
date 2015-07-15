@@ -663,7 +663,8 @@ static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *use
         return 0;
 }
 
-int transaction_dns_fd(DnsTransaction *t) {
+int transaction_dns_fd(DnsTransaction *t, DnsServer **_server) {
+        DnsServer *server;
         int r;
 
         assert(t);
@@ -673,13 +674,16 @@ int transaction_dns_fd(DnsTransaction *t) {
         if (t->dns_fd >= 0)
                 return t->dns_fd;
 
-        t->dns_fd = socket(t->scope->family, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
+        t->dns_fd = dns_scope_udp_dns_socket(t->scope, &server);
         if (t->dns_fd < 0)
-                return -errno;
+                return t->dns_fd;
 
         r = sd_event_add_io(t->scope->manager->event, &t->dns_event_source, t->dns_fd, EPOLLIN, on_dns_packet, t);
         if (r < 0)
                 goto fail;
+
+        if (_server)
+                *_server = server;
 
         return t->dns_fd;
 

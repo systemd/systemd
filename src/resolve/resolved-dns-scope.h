@@ -67,6 +67,7 @@ DnsScope* dns_scope_free(DnsScope *s);
 
 int dns_scope_emit(DnsScope *s, DnsTransaction *t, DnsPacket *p, DnsServer **server);
 int dns_scope_tcp_socket(DnsScope *s, int family, const union in_addr_union *address, uint16_t port, DnsServer **server);
+int dns_scope_udp_dns_socket(DnsScope *s, DnsServer **server);
 
 DnsScopeMatch dns_scope_good_domain(DnsScope *s, int ifindex, uint64_t flags, const char *domain);
 int dns_scope_good_key(DnsScope *s, DnsResourceKey *key);
