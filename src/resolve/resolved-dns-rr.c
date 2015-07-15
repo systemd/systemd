@@ -840,7 +840,7 @@ int dns_class_from_string(const char *s, uint16_t *class) {
         if (strcaseeq(s, "IN"))
                 *class = DNS_CLASS_IN;
         else if (strcaseeq(s, "ANY"))
-                *class = DNS_TYPE_ANY;
+                *class = DNS_CLASS_ANY;
         else
                 return -EINVAL;
 
