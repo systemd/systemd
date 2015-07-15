@@ -791,6 +791,9 @@ _public_ int sd_device_get_subsystem(sd_device *device, const char **ret) {
                 device->subsystem_set = true;
         }
 
+        if (!device->subsystem)
+                return -ENOENT;
+
         *ret = device->subsystem;
 
         return 0;
@@ -908,6 +911,9 @@ _public_ int sd_device_get_driver(sd_device *device, const char **ret) {
                         return log_debug_errno(r, "sd-device: could not set driver for %s: %m", device->devpath);
         }
 
+        if (!device->driver)
+                return -ENOENT;
+
         *ret = device->driver;
 
         return 0;
@@ -1001,6 +1007,8 @@ _public_ int sd_device_get_sysname(sd_device *device, const char **ret) {
                 if (r < 0)
                         return r;
         }
+
+        assert_return(device->sysname, -ENOENT);
 
         *ret = device->sysname;
 
