@@ -162,12 +162,7 @@ int dns_scope_emit(DnsScope *s, DnsTransaction *t, DnsPacket *p, DnsServer **ser
                 if (p->size + UDP_PACKET_HEADER_SIZE > mtu)
                         return -EMSGSIZE;
 
-                if (family == AF_INET)
-                        fd = transaction_dns_ipv4_fd(t);
-                else if (family == AF_INET6)
-                        fd = transaction_dns_ipv6_fd(t);
-                else
-                        return -EAFNOSUPPORT;
+                fd = transaction_dns_fd(t);
                 if (fd < 0)
                         return fd;
 
