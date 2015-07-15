@@ -460,33 +460,33 @@ static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *use
         return 0;
 }
 
-int transaction_dns_fd(DnsTransaction *t, DnsServer **_server) {
-        DnsServer *server;
+static int dns_transaction_emit(DnsTransaction *t) {
         int r;
 
         assert(t);
-        assert(t->scope);
-        assert(t->scope->manager);
 
-        if (t->dns_fd >= 0)
-                return t->dns_fd;
+        if (t->scope->protocol == DNS_PROTOCOL_DNS && !t->server) {
+                DnsServer *server = NULL;
+                _cleanup_close_ int fd = -1;
 
-        t->dns_fd = dns_scope_udp_dns_socket(t->scope, &server);
-        if (t->dns_fd < 0)
-                return t->dns_fd;
+                fd = dns_scope_udp_dns_socket(t->scope, &server);
+                if (fd < 0)
+                        return fd;
 
-        r = sd_event_add_io(t->scope->manager->event, &t->dns_event_source, t->dns_fd, EPOLLIN, on_dns_packet, t);
+                r = sd_event_add_io(t->scope->manager->event, &t->dns_event_source, fd, EPOLLIN, on_dns_packet, t);
+                if (r < 0)
+                        return r;
+
+                t->dns_fd = fd;
+                fd = -1;
+                t->server = dns_server_ref(server);
+        }
+
+        r = dns_scope_emit(t->scope, t->dns_fd, t->sent);
         if (r < 0)
-                goto fail;
+                return r;
 
-        if (_server)
-                *_server = server;
-
-        return t->dns_fd;
-
-fail:
-        t->dns_fd = safe_close(t->dns_fd);
-        return r;
+        return 0;
 }
 
 static int on_transaction_timeout(sd_event_source *s, usec_t usec, void *userdata) {
@@ -574,7 +574,6 @@ int dns_transaction_go(DnsTransaction *t) {
         }
 
         t->n_attempts++;
-        t->server = dns_server_unref(t->server);
         t->received = dns_packet_unref(t->received);
         t->cached = dns_answer_unref(t->cached);
         t->cached_rcode = 0;
@@ -654,13 +653,9 @@ int dns_transaction_go(DnsTransaction *t) {
                  * always be made via TCP on LLMNR */
                 r = dns_transaction_open_tcp(t);
         } else {
-                DnsServer *server;
-
                 /* Try via UDP, and if that fails due to large size try via TCP */
-                r = dns_scope_emit(t->scope, t, t->sent, &server);
-                if (r >= 0)
-                        t->server = dns_server_ref(server);
-                else if (r == -EMSGSIZE)
+                r = dns_transaction_emit(t);
+                if (r == -EMSGSIZE)
                         r = dns_transaction_open_tcp(t);
         }
         if (r == -ESRCH) {

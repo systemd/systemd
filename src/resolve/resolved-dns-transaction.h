@@ -92,8 +92,6 @@ int dns_transaction_go(DnsTransaction *t);
 void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p);
 void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state);
 
-int transaction_dns_fd(DnsTransaction *t, DnsServer **server);
-
 const char* dns_transaction_state_to_string(DnsTransactionState p) _const_;
 DnsTransactionState dns_transaction_state_from_string(const char *s) _pure_;
 

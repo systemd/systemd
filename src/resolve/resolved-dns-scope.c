@@ -125,18 +125,17 @@ void dns_scope_next_dns_server(DnsScope *s) {
                 manager_next_dns_server(s->manager);
 }
 
-int dns_scope_emit(DnsScope *s, DnsTransaction *t, DnsPacket *p, DnsServer **server) {
-        DnsServer *srv = NULL;
+int dns_scope_emit(DnsScope *s, int fd, DnsPacket *p) {
         union in_addr_union addr;
         int ifindex = 0, r;
         int family;
         uint16_t port;
         uint32_t mtu;
-        int fd;
 
         assert(s);
         assert(p);
         assert(p->protocol == s->protocol);
+        assert((s->protocol == DNS_PROTOCOL_DNS) != (fd < 0));
 
         if (s->link) {
                 mtu = s->link->mtu;
@@ -153,14 +152,6 @@ int dns_scope_emit(DnsScope *s, DnsTransaction *t, DnsPacket *p, DnsServer **ser
 
                 if (p->size + UDP_PACKET_HEADER_SIZE > mtu)
                         return -EMSGSIZE;
-
-                fd = transaction_dns_fd(t, &srv);
-                if (fd < 0)
-                        return fd;
-
-                family = srv->family;
-                addr = srv->address;
-                port = 53;
 
         } else if (s->protocol == DNS_PROTOCOL_LLMNR) {
 
@@ -189,9 +180,6 @@ int dns_scope_emit(DnsScope *s, DnsTransaction *t, DnsPacket *p, DnsServer **ser
         r = manager_send(s->manager, fd, ifindex, family, &addr, port, p);
         if (r < 0)
                 return r;
-
-        if (server)
-                *server = srv;
 
         return 1;
 }
@@ -688,7 +676,7 @@ static int on_conflict_dispatch(sd_event_source *es, usec_t usec, void *userdata
                         return 0;
                 }
 
-                r = dns_scope_emit(scope, NULL, p, NULL);
+                r = dns_scope_emit(scope, -1, p);
                 if (r < 0)
                         log_debug_errno(r, "Failed to send conflict packet: %m");
         }

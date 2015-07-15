@@ -65,7 +65,7 @@ struct DnsScope {
 int dns_scope_new(Manager *m, DnsScope **ret, Link *l, DnsProtocol p, int family);
 DnsScope* dns_scope_free(DnsScope *s);
 
-int dns_scope_emit(DnsScope *s, DnsTransaction *t, DnsPacket *p, DnsServer **server);
+int dns_scope_emit(DnsScope *s, int fd, DnsPacket *p);
 int dns_scope_tcp_socket(DnsScope *s, int family, const union in_addr_union *address, uint16_t port, DnsServer **server);
 int dns_scope_udp_dns_socket(DnsScope *s, DnsServer **server);
 
