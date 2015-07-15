@@ -888,7 +888,7 @@ static int install_loader_config(const char *esp_path) {
 
         f = fopen("/etc/machine-id", "re");
         if (!f)
-                return -errno;
+                return errno == ENOENT ? 0 : -errno;
 
         if (fgets(line, sizeof(line), f) != NULL) {
                 char *s;
