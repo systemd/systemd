@@ -954,6 +954,351 @@ int unhexmem(const char *p, size_t l, void **mem, size_t *len) {
         return 0;
 }
 
+/* https://tools.ietf.org/html/rfc4648#section-6 */
+char base32hexchar(int x) {
+        static const char table[32] = "0123456789"
+                                      "ABCDEFGHIJKLMNOPQRSTUV";
+
+        return table[x & 31];
+}
+
+int unbase32hexchar(char c) {
+        unsigned offset;
+
+        if (c >= '0' && c <= '9')
+                return c - '0';
+
+        offset = '9' - '0' + 1;
+
+        if (c >= 'A' && c <= 'V')
+                return c - 'A' + offset;
+
+        return -EINVAL;
+}
+
+char *base32hexmem(const void *p, size_t l, bool padding) {
+        char *r, *z;
+        const uint8_t *x;
+        size_t len;
+
+        if (padding)
+                /* five input bytes makes eight output bytes, padding is added so we must round up */
+                len = 8 * (l + 4) / 5;
+        else {
+                /* same, but round down as there is no padding */
+                len = 8 * l / 5;
+
+                switch (l % 5) {
+                case 4:
+                        len += 7;
+                        break;
+                case 3:
+                        len += 5;
+                        break;
+                case 2:
+                        len += 4;
+                        break;
+                case 1:
+                        len += 2;
+                        break;
+                }
+        }
+
+        z = r = malloc(len + 1);
+        if (!r)
+                return NULL;
+
+        for (x = p; x < (const uint8_t*) p + (l / 5) * 5; x += 5) {
+                /* x[0] == XXXXXXXX; x[1] == YYYYYYYY; x[2] == ZZZZZZZZ
+                   x[3] == QQQQQQQQ; x[4] == WWWWWWWW */
+                *(z++) = base32hexchar(x[0] >> 3);                    /* 000XXXXX */
+                *(z++) = base32hexchar((x[0] & 7) << 2 | x[1] >> 6);  /* 000XXXYY */
+                *(z++) = base32hexchar((x[1] & 63) >> 1);             /* 000YYYYY */
+                *(z++) = base32hexchar((x[1] & 1) << 4 | x[2] >> 4);  /* 000YZZZZ */
+                *(z++) = base32hexchar((x[2] & 15) << 1 | x[3] >> 7); /* 000ZZZZQ */
+                *(z++) = base32hexchar((x[3] & 127) >> 2);            /* 000QQQQQ */
+                *(z++) = base32hexchar((x[3] & 3) << 3 | x[4] >> 5);  /* 000QQWWW */
+                *(z++) = base32hexchar((x[4] & 31));                  /* 000WWWWW */
+        }
+
+        switch (l % 5) {
+        case 4:
+                *(z++) = base32hexchar(x[0] >> 3);                    /* 000XXXXX */
+                *(z++) = base32hexchar((x[0] & 7) << 2 | x[1] >> 6);  /* 000XXXYY */
+                *(z++) = base32hexchar((x[1] & 63) >> 1);             /* 000YYYYY */
+                *(z++) = base32hexchar((x[1] & 1) << 4 | x[2] >> 4);   /* 000YZZZZ */
+                *(z++) = base32hexchar((x[2] & 15) << 1 | x[3] >> 7); /* 000ZZZZQ */
+                *(z++) = base32hexchar((x[3] & 127) >> 2);            /* 000QQQQQ */
+                *(z++) = base32hexchar((x[3] & 3) << 3);              /* 000QQ000 */
+                if (padding)
+                        *(z++) = '=';
+
+                break;
+
+        case 3:
+                *(z++) = base32hexchar(x[0] >> 3);                   /* 000XXXXX */
+                *(z++) = base32hexchar((x[0] & 7) << 2 | x[1] >> 6); /* 000XXXYY */
+                *(z++) = base32hexchar((x[1] & 63) >> 1);            /* 000YYYYY */
+                *(z++) = base32hexchar((x[1] & 1) << 4 | x[2] >> 4); /* 000YZZZZ */
+                *(z++) = base32hexchar((x[2] & 15) << 1);            /* 000ZZZZ0 */
+                if (padding) {
+                        *(z++) = '=';
+                        *(z++) = '=';
+                        *(z++) = '=';
+                }
+
+                break;
+
+        case 2:
+                *(z++) = base32hexchar(x[0] >> 3);                   /* 000XXXXX */
+                *(z++) = base32hexchar((x[0] & 7) << 2 | x[1] >> 6); /* 000XXXYY */
+                *(z++) = base32hexchar((x[1] & 63) >> 1);            /* 000YYYYY */
+                *(z++) = base32hexchar((x[1] & 1) << 4);             /* 000Y0000 */
+                if (padding) {
+                        *(z++) = '=';
+                        *(z++) = '=';
+                        *(z++) = '=';
+                        *(z++) = '=';
+                }
+
+                break;
+
+        case 1:
+                *(z++) = base32hexchar(x[0] >> 3);       /* 000XXXXX */
+                *(z++) = base32hexchar((x[0] & 7) << 2); /* 000XXX00 */
+                if (padding) {
+                        *(z++) = '=';
+                        *(z++) = '=';
+                        *(z++) = '=';
+                        *(z++) = '=';
+                        *(z++) = '=';
+                        *(z++) = '=';
+                }
+
+                break;
+        }
+
+        *z = 0;
+        return r;
+}
+
+int unbase32hexmem(const char *p, size_t l, bool padding, void **mem, size_t *_len) {
+        _cleanup_free_ uint8_t *r = NULL;
+        int a, b, c, d, e, f, g, h;
+        uint8_t *z;
+        const char *x;
+        size_t len;
+        unsigned pad = 0;
+
+        assert(p);
+
+        /* padding ensures any base32hex input has input divisible by 8 */
+        if (padding && l % 8 != 0)
+                return -EINVAL;
+
+        if (padding) {
+                /* strip the padding */
+                while (l > 0 && p[l - 1] == '=' && pad < 7) {
+                        pad ++;
+                        l --;
+                }
+        }
+
+        /* a group of eight input bytes needs five output bytes, in case of
+           padding we need to add some extra bytes */
+        len = (l / 8) * 5;
+
+        switch (l % 8) {
+        case 7:
+                len += 4;
+                break;
+        case 5:
+                len += 3;
+                break;
+        case 4:
+                len += 2;
+                break;
+        case 2:
+                len += 1;
+                break;
+        case 0:
+                break;
+        default:
+                return -EINVAL;
+        }
+
+        z = r = malloc(len + 1);
+        if (!r)
+                return -ENOMEM;
+
+        for (x = p; x < p + (l / 8) * 8; x += 8) {
+                /* a == 000XXXXX; b == 000YYYYY; c == 000ZZZZZ; d == 000WWWWW
+                   e == 000SSSSS; f == 000QQQQQ; g == 000VVVVV; h == 000RRRRR */
+                a = unbase32hexchar(x[0]);
+                if (a < 0)
+                        return -EINVAL;
+
+                b = unbase32hexchar(x[1]);
+                if (b < 0)
+                        return -EINVAL;
+
+                c = unbase32hexchar(x[2]);
+                if (c < 0)
+                        return -EINVAL;
+
+                d = unbase32hexchar(x[3]);
+                if (d < 0)
+                        return -EINVAL;
+
+                e = unbase32hexchar(x[4]);
+                if (e < 0)
+                        return -EINVAL;
+
+                f = unbase32hexchar(x[5]);
+                if (f < 0)
+                        return -EINVAL;
+
+                g = unbase32hexchar(x[6]);
+                if (g < 0)
+                        return -EINVAL;
+
+                h = unbase32hexchar(x[7]);
+                if (h < 0)
+                        return -EINVAL;
+
+                *(z++) = (uint8_t) a << 3 | (uint8_t) b >> 2;                    /* XXXXXYYY */
+                *(z++) = (uint8_t) b << 6 | (uint8_t) c << 1 | (uint8_t) d >> 4; /* YYZZZZZW */
+                *(z++) = (uint8_t) d << 4 | (uint8_t) e >> 1;                    /* WWWWSSSS */
+                *(z++) = (uint8_t) e << 7 | (uint8_t) f << 2 | (uint8_t) g >> 3; /* SQQQQQVV */
+                *(z++) = (uint8_t) g << 5 | (uint8_t) h;                         /* VVVRRRRR */
+        }
+
+        switch (l % 8) {
+        case 7:
+                a = unbase32hexchar(x[0]);
+                if (a < 0)
+                        return -EINVAL;
+
+                b = unbase32hexchar(x[1]);
+                if (b < 0)
+                        return -EINVAL;
+
+                c = unbase32hexchar(x[2]);
+                if (c < 0)
+                        return -EINVAL;
+
+                d = unbase32hexchar(x[3]);
+                if (d < 0)
+                        return -EINVAL;
+
+                e = unbase32hexchar(x[4]);
+                if (e < 0)
+                        return -EINVAL;
+
+                f = unbase32hexchar(x[5]);
+                if (f < 0)
+                        return -EINVAL;
+
+                g = unbase32hexchar(x[6]);
+                if (g < 0)
+                        return -EINVAL;
+
+                /* g == 000VV000 */
+                if (g & 7)
+                        return -EINVAL;
+
+                *(z++) = (uint8_t) a << 3 | (uint8_t) b >> 2;                    /* XXXXXYYY */
+                *(z++) = (uint8_t) b << 6 | (uint8_t) c << 1 | (uint8_t) d >> 4; /* YYZZZZZW */
+                *(z++) = (uint8_t) d << 4 | (uint8_t) e >> 1;                    /* WWWWSSSS */
+                *(z++) = (uint8_t) e << 7 | (uint8_t) f << 2 | (uint8_t) g >> 3; /* SQQQQQVV */
+
+                break;
+        case 5:
+                a = unbase32hexchar(x[0]);
+                if (a < 0)
+                        return -EINVAL;
+
+                b = unbase32hexchar(x[1]);
+                if (b < 0)
+                        return -EINVAL;
+
+                c = unbase32hexchar(x[2]);
+                if (c < 0)
+                        return -EINVAL;
+
+                d = unbase32hexchar(x[3]);
+                if (d < 0)
+                        return -EINVAL;
+
+                e = unbase32hexchar(x[4]);
+                if (e < 0)
+                        return -EINVAL;
+
+                /* e == 000SSSS0 */
+                if (e & 1)
+                        return -EINVAL;
+
+                *(z++) = (uint8_t) a << 3 | (uint8_t) b >> 2;                    /* XXXXXYYY */
+                *(z++) = (uint8_t) b << 6 | (uint8_t) c << 1 | (uint8_t) d >> 4; /* YYZZZZZW */
+                *(z++) = (uint8_t) d << 4 | (uint8_t) e >> 1;                    /* WWWWSSSS */
+
+                break;
+        case 4:
+                a = unbase32hexchar(x[0]);
+                if (a < 0)
+                        return -EINVAL;
+
+                b = unbase32hexchar(x[1]);
+                if (b < 0)
+                        return -EINVAL;
+
+                c = unbase32hexchar(x[2]);
+                if (c < 0)
+                        return -EINVAL;
+
+                d = unbase32hexchar(x[3]);
+                if (d < 0)
+                        return -EINVAL;
+
+                /* d == 000W0000 */
+                if (d & 15)
+                        return -EINVAL;
+
+                *(z++) = (uint8_t) a << 3 | (uint8_t) b >> 2;                    /* XXXXXYYY */
+                *(z++) = (uint8_t) b << 6 | (uint8_t) c << 1 | (uint8_t) d >> 4; /* YYZZZZZW */
+
+                break;
+        case 2:
+                a = unbase32hexchar(x[0]);
+                if (a < 0)
+                        return -EINVAL;
+
+                b = unbase32hexchar(x[1]);
+                if (b < 0)
+                        return -EINVAL;
+
+                /* b == 000YYY00 */
+                if (b & 3)
+                        return -EINVAL;
+
+                *(z++) = (uint8_t) a << 3 | (uint8_t) b >> 2; /* XXXXXYYY */
+
+                break;
+        case 0:
+                break;
+        default:
+                return -EINVAL;
+        }
+
+        *z = 0;
+
+        *mem = r;
+        r = NULL;
+        *_len = len;
+
+        return 0;
+}
+
 /* https://tools.ietf.org/html/rfc4648#section-4 */
 char base64char(int x) {
         static const char table[64] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -1117,6 +1462,11 @@ int unbase64mem(const char *p, size_t l, void **mem, size_t *_len) {
                 *(z++) = (uint8_t) a << 2 | (uint8_t) (b >> 4); /* XXXXXXYY */
 
                 break;
+        case 0:
+
+                break;
+        default:
+                return -EINVAL;
         }
 
         *z = 0;
