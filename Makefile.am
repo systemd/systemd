@@ -6139,6 +6139,9 @@ hwdb-update:
 		http://standards.ieee.org/develop/regauth/iab/iab.txt && \
 	./ids-update.pl )
 
+.PHONY: built-sources
+built-sources: $(BUILT_SOURCES)
+
 .PHONY: git-tag
 git-tag:
 	git tag -s "v$(VERSION)" -m "systemd $(VERSION)"
