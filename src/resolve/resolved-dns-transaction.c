@@ -39,10 +39,8 @@ DnsTransaction* dns_transaction_free(DnsTransaction *t) {
         dns_packet_unref(t->received);
         dns_answer_unref(t->cached);
 
-        sd_event_source_unref(t->dns_ipv4_event_source);
-        sd_event_source_unref(t->dns_ipv6_event_source);
-        safe_close(t->dns_ipv4_fd);
-        safe_close(t->dns_ipv6_fd);
+        sd_event_source_unref(t->dns_event_source);
+        safe_close(t->dns_fd);
 
         dns_server_unref(t->server);
         dns_stream_free(t->stream);
@@ -94,7 +92,7 @@ int dns_transaction_new(DnsTransaction **ret, DnsScope *s, DnsQuestion *q) {
         if (!t)
                 return -ENOMEM;
 
-        t->dns_ipv4_fd = t->dns_ipv6_fd = -1;
+        t->dns_fd = -1;
 
         t->question = dns_question_ref(q);
 
@@ -655,7 +653,7 @@ static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *use
         return 0;
 }
 
-int transaction_dns_ipv4_fd(DnsTransaction *t) {
+int transaction_dns_fd(DnsTransaction *t) {
         const int one = 1;
         int r;
 
@@ -663,59 +661,36 @@ int transaction_dns_ipv4_fd(DnsTransaction *t) {
         assert(t->scope);
         assert(t->scope->manager);
 
-        if (t->dns_ipv4_fd >= 0)
-                return t->dns_ipv4_fd;
+        if (t->dns_fd >= 0)
+                return t->dns_fd;
 
-        t->dns_ipv4_fd = socket(AF_INET, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
-        if (t->dns_ipv4_fd < 0)
+        t->dns_fd = socket(t->scope->family, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
+        if (t->dns_fd < 0)
                 return -errno;
 
-        r = setsockopt(t->dns_ipv4_fd, IPPROTO_IP, IP_PKTINFO, &one, sizeof(one));
-        if (r < 0) {
-                r = -errno;
-                goto fail;
-        }
+        if (t->scope->family == AF_INET) {
+                r = setsockopt(t->dns_fd, IPPROTO_IP, IP_PKTINFO, &one, sizeof(one));
+                if (r < 0) {
+                        r = -errno;
+                        goto fail;
+                }
+        } else if (t->scope->family == AF_INET6) {
+                r = setsockopt(t->dns_fd, IPPROTO_IPV6, IPV6_RECVPKTINFO, &one, sizeof(one));
+                if (r < 0) {
+                        r = -errno;
+                        goto fail;
+                }
+        } else
+                return -EAFNOSUPPORT;
 
-        r = sd_event_add_io(t->scope->manager->event, &t->dns_ipv4_event_source, t->dns_ipv4_fd, EPOLLIN, on_dns_packet, t);
+        r = sd_event_add_io(t->scope->manager->event, &t->dns_event_source, t->dns_fd, EPOLLIN, on_dns_packet, t);
         if (r < 0)
                 goto fail;
 
-        return t->dns_ipv4_fd;
+        return t->dns_fd;
 
 fail:
-        t->dns_ipv4_fd = safe_close(t->dns_ipv4_fd);
-        return r;
-}
-
-int transaction_dns_ipv6_fd(DnsTransaction *t) {
-        const int one = 1;
-        int r;
-
-        assert(t);
-        assert(t->scope);
-        assert(t->scope->manager);
-
-        if (t->dns_ipv6_fd >= 0)
-                return t->dns_ipv6_fd;
-
-        t->dns_ipv6_fd = socket(AF_INET6, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
-        if (t->dns_ipv6_fd < 0)
-                return -errno;
-
-        r = setsockopt(t->dns_ipv6_fd, IPPROTO_IPV6, IPV6_RECVPKTINFO, &one, sizeof(one));
-        if (r < 0) {
-                r = -errno;
-                goto fail;
-        }
-
-        r = sd_event_add_io(t->scope->manager->event, &t->dns_ipv6_event_source, t->dns_ipv6_fd, EPOLLIN, on_dns_packet, t);
-        if (r < 0)
-                goto fail;
-
-        return t->dns_ipv6_fd;
-
-fail:
-        t->dns_ipv6_fd = safe_close(t->dns_ipv6_fd);
+        t->dns_fd = safe_close(t->dns_fd);
         return r;
 }
 
