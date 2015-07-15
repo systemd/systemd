@@ -125,18 +125,17 @@ void dns_scope_next_dns_server(DnsScope *s) {
                 manager_next_dns_server(s->manager);
 }
 
-int dns_scope_emit(DnsScope *s, DnsTransaction *t, DnsPacket *p, DnsServer **server) {
-        DnsServer *srv = NULL;
+int dns_scope_emit(DnsScope *s, int fd, DnsPacket *p) {
         union in_addr_union addr;
         int ifindex = 0, r;
         int family;
         uint16_t port;
         uint32_t mtu;
-        int fd;
 
         assert(s);
         assert(p);
         assert(p->protocol == s->protocol);
+        assert((s->protocol == DNS_PROTOCOL_DNS) ^ (fd < 0));
 
         if (s->link) {
                 mtu = s->link->mtu;
@@ -148,23 +147,15 @@ int dns_scope_emit(DnsScope *s, DnsTransaction *t, DnsPacket *p, DnsServer **ser
                 if (DNS_PACKET_QDCOUNT(p) > 1)
                         return -EOPNOTSUPP;
 
-                srv = dns_scope_get_dns_server(s);
-                if (!srv)
-                        return -ESRCH;
-
-                family = srv->family;
-                addr = srv->address;
-                port = 53;
-
                 if (p->size > DNS_PACKET_UNICAST_SIZE_MAX)
                         return -EMSGSIZE;
 
                 if (p->size + UDP_PACKET_HEADER_SIZE > mtu)
                         return -EMSGSIZE;
 
-                fd = transaction_dns_fd(t);
-                if (fd < 0)
-                        return fd;
+                r = manager_write(s->manager, fd, p);
+                if (r < 0)
+                        return r;
 
         } else if (s->protocol == DNS_PROTOCOL_LLMNR) {
 
@@ -187,20 +178,17 @@ int dns_scope_emit(DnsScope *s, DnsTransaction *t, DnsPacket *p, DnsServer **ser
                         return -EAFNOSUPPORT;
                 if (fd < 0)
                         return fd;
+
+                r = manager_send(s->manager, fd, ifindex, family, &addr, port, p);
+                if (r < 0)
+                        return r;
         } else
                 return -EAFNOSUPPORT;
-
-        r = manager_send(s->manager, fd, ifindex, family, &addr, port, p);
-        if (r < 0)
-                return r;
-
-        if (server)
-                *server = srv;
 
         return 1;
 }
 
-int dns_scope_tcp_socket(DnsScope *s, int family, const union in_addr_union *address, uint16_t port, DnsServer **server) {
+static int dns_scope_socket(DnsScope *s, int type, int family, const union in_addr_union *address, uint16_t port, DnsServer **server) {
         DnsServer *srv = NULL;
         _cleanup_close_ int fd = -1;
         union sockaddr_union sa = {};
@@ -244,13 +232,15 @@ int dns_scope_tcp_socket(DnsScope *s, int family, const union in_addr_union *add
                         return -EAFNOSUPPORT;
         }
 
-        fd = socket(sa.sa.sa_family, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
+        fd = socket(sa.sa.sa_family, type|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
         if (fd < 0)
                 return -errno;
 
-        r = setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one));
-        if (r < 0)
-                return -errno;
+        if (type == SOCK_STREAM) {
+                r = setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one));
+                if (r < 0)
+                        return -errno;
+        }
 
         if (s->link) {
                 uint32_t ifindex = htobe32(s->link->ifindex);
@@ -291,6 +281,14 @@ int dns_scope_tcp_socket(DnsScope *s, int family, const union in_addr_union *add
         fd = -1;
 
         return ret;
+}
+
+int dns_scope_udp_dns_socket(DnsScope *s, DnsServer **server) {
+        return dns_scope_socket(s, SOCK_DGRAM, AF_UNSPEC, NULL, 53, server);
+}
+
+int dns_scope_tcp_socket(DnsScope *s, int family, const union in_addr_union *address, uint16_t port, DnsServer **server) {
+        return dns_scope_socket(s, SOCK_STREAM, family, address, port, server);
 }
 
 DnsScopeMatch dns_scope_good_domain(DnsScope *s, int ifindex, uint64_t flags, const char *domain) {
@@ -695,7 +693,7 @@ static int on_conflict_dispatch(sd_event_source *es, usec_t usec, void *userdata
                         return 0;
                 }
 
-                r = dns_scope_emit(scope, NULL, p, NULL);
+                r = dns_scope_emit(scope, -1, p);
                 if (r < 0)
                         log_debug_errno(r, "Failed to send conflict packet: %m");
         }
