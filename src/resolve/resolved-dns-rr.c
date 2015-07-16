@@ -527,10 +527,11 @@ static int format_timestamp_dns(char *buf, size_t l, time_t sec) {
 static char *format_types(Bitmap *types) {
         _cleanup_strv_free_ char **strv = NULL;
         _cleanup_free_ char *str = NULL;
+        Iterator i;
         unsigned type;
         int r;
 
-        BITMAP_FOREACH(type, types) {
+        BITMAP_FOREACH(type, types, i) {
                 if (dns_type_to_string(type)) {
                         r = strv_extend(&strv, strdup(dns_type_to_string(type)));
                         if (r < 0)

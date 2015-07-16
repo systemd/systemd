@@ -536,6 +536,7 @@ fail:
 }
 
 static int dns_packet_append_types(DnsPacket *p, Bitmap *types, size_t *start) {
+        Iterator i;
         uint8_t window = 0;
         uint8_t len = 0;
         uint8_t bitmaps[32] = {};
@@ -548,7 +549,7 @@ static int dns_packet_append_types(DnsPacket *p, Bitmap *types, size_t *start) {
 
         saved_size = p->size;
 
-        BITMAP_FOREACH(n, types) {
+        BITMAP_FOREACH(n, types, i) {
                 uint8_t entry;
 
                 assert(n <= 0xffff);
