@@ -28,6 +28,7 @@
 #include "bus-internal.h"
 #include "bus-message.h"
 #include "bus-util.h"
+#include "bus-match.h"
 #include "synthesize.h"
 
 int synthetic_driver_send(sd_bus *b, sd_bus_message *m) {
@@ -152,11 +153,12 @@ int synthetic_reply_method_return_strv(sd_bus_message *call, char **l) {
         return synthetic_driver_send(call->bus, m);
 }
 
-int synthesize_name_acquired(sd_bus *a, sd_bus *b, sd_bus_message *m) {
+int synthesize_name_acquired(Proxy *p, sd_bus *a, sd_bus *b, sd_bus_message *m) {
         _cleanup_bus_message_unref_ sd_bus_message *n = NULL;
         const char *name, *old_owner, *new_owner;
         int r;
 
+        assert(p);
         assert(a);
         assert(b);
         assert(m);
@@ -216,5 +218,18 @@ int synthesize_name_acquired(sd_bus *a, sd_bus *b, sd_bus_message *m) {
         if (r < 0)
                 return r;
 
-        return sd_bus_send(b, n, NULL);
+        /*
+         * Make sure to only forward NameLost/NameAcquired messages if they
+         * match an installed MATCH rule of the local client. We really must
+         * not send messages the client doesn't expect.
+         */
+
+        r = bus_match_run(b, &b->match_callbacks, n);
+        if (r >= 0 && p->message_matched)
+                r = sd_bus_send(b, n, NULL);
+
+        p->message_matched = false;
+        p->synthetic_matched = false;
+
+        return r;
 }
