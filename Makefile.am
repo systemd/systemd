@@ -2996,6 +2996,7 @@ tests += \
 	test-bus-cleanup \
 	test-bus-server \
 	test-bus-match \
+	test-bus-proxy \
 	test-bus-kernel \
 	test-bus-kernel-bloom \
 	test-bus-zero-copy \
@@ -3086,6 +3087,12 @@ test_bus_match_SOURCES = \
 	src/libsystemd/sd-bus/test-bus-match.c
 
 test_bus_match_LDADD = \
+	libshared.la
+
+test_bus_proxy_SOURCES = \
+	src/libsystemd/sd-bus/test-bus-proxy.c
+
+test_bus_proxy_LDADD = \
 	libshared.la
 
 test_bus_kernel_SOURCES = \
