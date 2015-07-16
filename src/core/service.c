@@ -1974,7 +1974,7 @@ static int service_reload(Unit *u) {
         assert(s->state == SERVICE_RUNNING || s->state == SERVICE_EXITED);
 
         service_enter_reload(s);
-        return 0;
+        return 1;
 }
 
 _pure_ static bool service_can_reload(Unit *u) {
