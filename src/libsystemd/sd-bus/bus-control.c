@@ -1187,6 +1187,8 @@ static int add_name_change_match(sd_bus *bus,
                  * match against added ids */
                 if (!old_owner || old_owner[0] == 0) {
                         item->type = KDBUS_ITEM_ID_ADD;
+                        if (!isempty(new_owner))
+                                item->id_change.id = new_owner_id;
 
                         r = ioctl(bus->input_fd, KDBUS_CMD_MATCH_ADD, m);
                         if (r < 0)
@@ -1197,6 +1199,8 @@ static int add_name_change_match(sd_bus *bus,
                  * match against removed ids */
                 if (!new_owner || new_owner[0] == 0) {
                         item->type = KDBUS_ITEM_ID_REMOVE;
+                        if (!isempty(old_owner))
+                                item->id_change.id = old_owner_id;
 
                         r = ioctl(bus->input_fd, KDBUS_CMD_MATCH_ADD, m);
                         if (r < 0)
