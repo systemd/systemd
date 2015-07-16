@@ -371,11 +371,26 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
         }
 
         if (t->server) {
-                if (t->current_features >= t->server->verified_features)
-                        t->server->verified_features = t->current_features;
+                if (IN_SET(DNS_PACKET_RCODE(p), DNS_RCODE_FORMERR, DNS_RCODE_SERVFAIL, DNS_RCODE_NOTIMP)) {
 
-                if (t->current_features == t->server->possible_features)
-                        t->server->n_failed_attempts = 0;
+                        /* request failed, immediately try again with reduced features */
+                        t->server->n_failed_attempts = (unsigned) -1;
+                        t->server->last_failed_attempt = now(CLOCK_MONOTONIC);
+
+                        r = dns_transaction_go(t);
+                        if (r < 0) {
+                                dns_transaction_complete(t, DNS_TRANSACTION_RESOURCES);
+                                return;
+                        }
+
+                        return;
+                } else {
+                        if (t->current_features >= t->server->verified_features)
+                                t->server->verified_features = t->current_features;
+
+                        if (t->current_features == t->server->possible_features)
+                                t->server->n_failed_attempts = 0;
+                }
         }
 
         if (DNS_PACKET_TC(p)) {
