@@ -2161,6 +2161,7 @@ static int bus_message_close_variant(sd_bus_message *m, struct bus_container *c)
 }
 
 static int bus_message_close_struct(sd_bus_message *m, struct bus_container *c, bool add_offset) {
+        bool fixed_size = true;
         size_t n_variable = 0;
         unsigned i = 0;
         const char *p;
@@ -2196,6 +2197,8 @@ static int bus_message_close_struct(sd_bus_message *m, struct bus_container *c, 
                 /* We need to add an offset for each item that has a
                  * variable size and that is not the last one in the
                  * list */
+                if (r == 0)
+                        fixed_size = false;
                 if (r == 0 && p[n] != 0)
                         n_variable++;
 
@@ -2207,7 +2210,19 @@ static int bus_message_close_struct(sd_bus_message *m, struct bus_container *c, 
         assert(c->need_offsets || n_variable == 0);
 
         if (n_variable <= 0) {
-                a = message_extend_body(m, 1, 0, add_offset, false);
+                int alignment = 1;
+
+                /* Structures with fixed-size members only have to be
+                 * fixed-size themselves. But gvariant requires all fixed-size
+                 * elements to be sized a multiple of their alignment. Hence,
+                 * we must *always* add final padding after the last member so
+                 * the overall size of the structure is properly aligned. */
+                if (fixed_size)
+                        alignment = bus_gvariant_get_alignment(strempty(c->signature));
+
+                assert(alignment > 0);
+
+                a = message_extend_body(m, alignment, 0, add_offset, false);
                 if (!a)
                         return -ENOMEM;
         } else {
