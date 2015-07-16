@@ -39,6 +39,8 @@ struct Proxy {
 
         bool got_hello : 1;
         bool queue_overflow : 1;
+        bool message_matched : 1;
+        bool synthetic_matched : 1;
 };
 
 int proxy_new(Proxy **out, int in_fd, int out_fd, const char *dest);
@@ -46,6 +48,7 @@ Proxy *proxy_free(Proxy *p);
 
 int proxy_set_policy(Proxy *p, SharedPolicy *policy, char **configuration);
 int proxy_hello_policy(Proxy *p, uid_t original_uid);
+int proxy_match(sd_bus_message *m, void *userdata, sd_bus_error *error);
 int proxy_run(Proxy *p);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Proxy*, proxy_free);

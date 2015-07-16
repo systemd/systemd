@@ -33,6 +33,7 @@
 #include "strv.h"
 #include "set.h"
 #include "driver.h"
+#include "proxy.h"
 #include "synthesize.h"
 
 static int get_creds_by_name(sd_bus *bus, const char *name, uint64_t mask, sd_bus_creds **_creds, sd_bus_error *error) {
@@ -70,7 +71,7 @@ static int get_creds_by_message(sd_bus *bus, sd_bus_message *m, uint64_t mask, s
         return get_creds_by_name(bus, name, mask, _creds, error);
 }
 
-int bus_proxy_process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m, SharedPolicy *sp, const struct ucred *ucred, Set *owned_names) {
+int bus_proxy_process_driver(Proxy *p, sd_bus *a, sd_bus *b, sd_bus_message *m, SharedPolicy *sp, const struct ucred *ucred, Set *owned_names) {
         int r;
 
         assert(a);
@@ -189,7 +190,7 @@ int bus_proxy_process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m, SharedPoli
                 if (r < 0)
                         return synthetic_reply_method_errno(m, r, NULL);
 
-                r = sd_bus_add_match(a, NULL, match, NULL, NULL);
+                r = sd_bus_add_match(a, NULL, match, proxy_match, p);
                 if (r < 0)
                         return synthetic_reply_method_errno(m, r, NULL);
 
