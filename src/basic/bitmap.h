@@ -22,6 +22,7 @@
 ***/
 
 #include "macro.h"
+#include "hashmap.h"
 
 typedef struct Bitmap Bitmap;
 
@@ -37,13 +38,12 @@ bool bitmap_isset(Bitmap *b, unsigned n);
 bool bitmap_isclear(Bitmap *b);
 void bitmap_clear(Bitmap *b);
 
-void bitmap_rewind(Bitmap *b);
-bool bitmap_next(Bitmap *b, unsigned *n);
+bool bitmap_iterate(Bitmap *b, Iterator *i, unsigned *n);
 
 bool bitmap_equal(Bitmap *a, Bitmap *b);
 
-#define BITMAP_FOREACH(n, b) \
-        for (bitmap_rewind(b); bitmap_next((b), &(n)); )
+#define BITMAP_FOREACH(n, b, i) \
+        for ((i).idx = 0; bitmap_iterate((b), &(i), (unsigned*)&(n)); )
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Bitmap*, bitmap_free);
 

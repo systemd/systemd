@@ -27,7 +27,6 @@ struct Bitmap {
         long long unsigned *bitmaps;
         size_t n_bitmaps;
         size_t bitmaps_allocated;
-        unsigned next_entry;
 };
 
 /* Bitmaps are only meant to store relatively small numbers
@@ -149,22 +148,15 @@ void bitmap_clear(Bitmap *b) {
                 b->bitmaps[i] = 0;
 }
 
-void bitmap_rewind(Bitmap *b) {
-        if (!b)
-                return;
-
-        b->next_entry = 0;
-}
-
-bool bitmap_next(Bitmap *b, unsigned *n) {
+bool bitmap_iterate(Bitmap *b, Iterator *i, unsigned *n) {
         long long bitmask;
         unsigned offset, rem;
 
-        if (!b && b->next_entry == BITMAP_END)
+        if (!b && i->idx == BITMAP_END)
                 return false;
 
-        offset = BITMAP_NUM_TO_OFFSET(b->next_entry);
-        rem = BITMAP_NUM_TO_REM(b->next_entry);
+        offset = BITMAP_NUM_TO_OFFSET(i->idx);
+        rem = BITMAP_NUM_TO_REM(i->idx);
         bitmask = 1 << rem;
 
         for (; offset < b->n_bitmaps; offset ++) {
@@ -172,7 +164,7 @@ bool bitmap_next(Bitmap *b, unsigned *n) {
                         for (; bitmask; bitmask <<= 1, rem ++) {
                                 if (b->bitmaps[offset] & bitmask) {
                                         *n = BITMAP_OFFSET_TO_NUM(offset, rem);
-                                        b->next_entry = *n + 1;
+                                        i->idx = *n + 1;
 
                                         return true;
                                 }
@@ -183,7 +175,7 @@ bool bitmap_next(Bitmap *b, unsigned *n) {
                 bitmask = 1;
         }
 
-        b->next_entry = BITMAP_END;
+        i->idx = BITMAP_END;
 
         return false;
 }
