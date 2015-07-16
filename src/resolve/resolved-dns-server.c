@@ -253,6 +253,16 @@ void dns_server_packet_lost(DnsServer *s, DnsServerFeatureLevel features, usec_t
         s->resend_timeout = MIN(s->resend_timeout * 2, DNS_TIMEOUT_MAX_USEC);
 }
 
+void dns_server_packet_failed(DnsServer *s, DnsServerFeatureLevel features) {
+        assert(s);
+        assert(s->manager);
+
+        if (s->possible_features != features)
+                return;
+
+        s->n_failed_attempts  = (unsigned) -1;
+}
+
 static bool dns_server_grace_period_expired(DnsServer *s) {
         usec_t ts;
 

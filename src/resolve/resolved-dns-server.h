@@ -89,6 +89,7 @@ void dns_server_move_back_and_unmark(DnsServer *s);
 
 void dns_server_packet_received(DnsServer *s, DnsServerFeatureLevel features, usec_t rtt);
 void dns_server_packet_lost(DnsServer *s, DnsServerFeatureLevel features, usec_t usec);
+void dns_server_packet_failed(DnsServer *s, DnsServerFeatureLevel features);
 
 DnsServer *dns_server_find(DnsServer *first, int family, const union in_addr_union *in_addr);
 

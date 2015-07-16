@@ -418,7 +418,22 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
         case DNS_PROTOCOL_DNS:
                 assert(t->server);
 
-                dns_server_packet_received(t->server, t->current_features, ts - t->start_usec);
+                if (IN_SET(DNS_PACKET_RCODE(p), DNS_RCODE_FORMERR, DNS_RCODE_SERVFAIL, DNS_RCODE_NOTIMP)) {
+
+                        /* request failed, immediately try again with reduced features */
+                        log_debug("Server returned error: %s", dns_rcode_to_string(DNS_PACKET_RCODE(p)));
+
+                        dns_server_packet_failed(t->server, t->current_features);
+
+                        r = dns_transaction_go(t);
+                        if (r < 0) {
+                                dns_transaction_complete(t, DNS_TRANSACTION_RESOURCES);
+                                return;
+                        }
+
+                        return;
+                } else
+                        dns_server_packet_received(t->server, t->current_features, ts - t->start_usec);
 
                 break;
         case DNS_PROTOCOL_LLMNR:
