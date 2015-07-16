@@ -1345,6 +1345,10 @@ int bus_add_match_internal_kernel(
                         else if (r > 0)
                                 sz += ALIGN8(offsetof(struct kdbus_item, id) + sizeof(uint64_t));
 
+                        /* if not a broadcast, it cannot be a name-change */
+                        if (r <= 0 || dst_id != KDBUS_DST_ID_BROADCAST)
+                                matches_name_change = false;
+
                         break;
                 }
 
