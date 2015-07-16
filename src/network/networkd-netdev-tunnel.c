@@ -33,6 +33,7 @@
 #include "conf-parser.h"
 
 #define DEFAULT_TNL_HOP_LIMIT   64
+#define IP6_FLOWINFO_FLOWLABEL  htonl(0x000FFFFF)
 
 static const char* const ip6tnl_mode_table[_NETDEV_IP6_TNL_MODE_MAX] = {
         [NETDEV_IP6_TNL_MODE_IP6IP6] = "ip6ip6",
@@ -264,6 +265,16 @@ static int netdev_ip6tnl_fill_message_create(NetDev *netdev, Link *link, sd_netl
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_TTL attribute: %m");
 
+        if (t->ipv6_flowlabel != _NETDEV_IPV6_FLOWLABEL_INVALID) {
+                r = sd_netlink_message_append_u32(m, IFLA_IPTUN_FLOWINFO, t->ipv6_flowlabel);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_FLOWINFO attribute: %m");
+        }
+
+        r = sd_netlink_message_append_u32(m, IFLA_IPTUN_FLAGS, t->flags);
+        if (r < 0)
+                return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_FLAGS attribute: %m");
+
         switch (t->ip6tnl_mode) {
         case NETDEV_IP6_TNL_MODE_IP6IP6:
                 proto = IPPROTO_IPV6;
@@ -380,6 +391,53 @@ int config_parse_tunnel_address(const char *unit,
         return 0;
 }
 
+static const char* const ipv6_flowlabel_table[_NETDEV_IPV6_FLOWLABEL_MAX] = {
+        [NETDEV_IPV6_FLOWLABEL_INHERIT] = "inherit",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(ipv6_flowlabel, IPv6FlowLabel);
+
+int config_parse_ipv6_flowlabel(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        IPv6FlowLabel *ipv6_flowlabel = data;
+        Tunnel *t = userdata;
+        IPv6FlowLabel s;
+        int k = 0;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(ipv6_flowlabel);
+
+        s = ipv6_flowlabel_from_string(rvalue);
+        if (s >= 0) {
+                *ipv6_flowlabel = IP6_FLOWINFO_FLOWLABEL;
+                t->flags |= IP6_TNL_F_USE_ORIG_FLOWLABEL;
+        } else {
+                r = config_parse_unsigned(unit, filename, line, section, section_line, lvalue, ltype, rvalue, &k, userdata);
+                if (r >= 0) {
+                        if (k > 0xFFFFF)
+                                log_syntax(unit, LOG_ERR, filename, line, k, "Failed to parse IPv6 flowlabel option, ignoring: %s", rvalue);
+                        else {
+                                *ipv6_flowlabel = htonl(k) & IP6_FLOWINFO_FLOWLABEL;
+                                t->flags &= ~IP6_TNL_F_USE_ORIG_FLOWLABEL;
+                        }
+                }
+        }
+        return 0;
+}
+
 static void ipip_init(NetDev *n) {
         Tunnel *t = IPIP(n);
 
@@ -452,6 +510,7 @@ static void ip6tnl_init(NetDev *n) {
         t->ttl = DEFAULT_TNL_HOP_LIMIT;
         t->encap_limit = IPV6_DEFAULT_TNL_ENCAP_LIMIT;
         t->ip6tnl_mode = _NETDEV_IP6_TNL_MODE_INVALID;
+        t->ipv6_flowlabel = _NETDEV_IPV6_FLOWLABEL_INVALID;
 }
 
 const NetDevVTable ipip_vtable = {
