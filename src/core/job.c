@@ -495,10 +495,48 @@ static void job_change_type(Job *j, JobType newtype) {
         j->type = newtype;
 }
 
+static int job_perform_on_unit(Job **j) {
+        /* While we execute this operation the job might go away (for
+         * example: because it finishes immediately or is replaced by a new,
+         * conflicting job.) To make sure we don't access a freed job later on
+         * we store the id here, so that we can verify the job is still
+         * valid. */
+        Manager *m  = (*j)->manager;
+        Unit *u     = (*j)->unit;
+        JobType t   = (*j)->type;
+        uint32_t id = (*j)->id;
+        int r;
+
+        switch (t) {
+                case JOB_START:
+                        r = unit_start(u);
+                        break;
+
+                case JOB_RESTART:
+                        t = JOB_STOP;
+                case JOB_STOP:
+                        r = unit_stop(u);
+                        break;
+
+                case JOB_RELOAD:
+                        r = unit_reload(u);
+                        break;
+
+                default:
+                        assert_not_reached("Invalid job type");
+        }
+
+        /* Log if the job still exists and the start/stop/reload function
+         * actually did something. */
+        *j = manager_get_job(m, id);
+        if (*j && r > 0)
+                unit_status_emit_starting_stopping_reloading(u, t);
+
+        return r;
+}
+
 int job_run_and_invalidate(Job *j) {
         int r;
-        uint32_t id;
-        Manager *m = j->manager;
 
         assert(j);
         assert(j->installed);
@@ -517,22 +555,8 @@ int job_run_and_invalidate(Job *j) {
         job_set_state(j, JOB_RUNNING);
         job_add_to_dbus_queue(j);
 
-        /* While we execute this operation the job might go away (for
-         * example: because it is replaced by a new, conflicting
-         * job.) To make sure we don't access a freed job later on we
-         * store the id here, so that we can verify the job is still
-         * valid. */
-        id = j->id;
 
         switch (j->type) {
-
-                case JOB_START:
-                        r = unit_start(j->unit);
-
-                        /* If this unit cannot be started, then simply wait */
-                        if (r == -EBADR)
-                                r = 0;
-                        break;
 
                 case JOB_VERIFY_ACTIVE: {
                         UnitActiveState t = unit_active_state(j->unit);
@@ -545,17 +569,19 @@ int job_run_and_invalidate(Job *j) {
                         break;
                 }
 
+                case JOB_START:
                 case JOB_STOP:
                 case JOB_RESTART:
-                        r = unit_stop(j->unit);
+                        r = job_perform_on_unit(&j);
 
-                        /* If this unit cannot stopped, then simply wait. */
+                        /* If the unit type does not support starting/stopping,
+                         * then simply wait. */
                         if (r == -EBADR)
                                 r = 0;
                         break;
 
                 case JOB_RELOAD:
-                        r = unit_reload(j->unit);
+                        r = job_perform_on_unit(&j);
                         break;
 
                 case JOB_NOP:
@@ -566,7 +592,6 @@ int job_run_and_invalidate(Job *j) {
                         assert_not_reached("Unknown job type");
         }
 
-        j = manager_get_job(m, id);
         if (j) {
                 if (r == -EALREADY)
                         r = job_finish_and_invalidate(j, JOB_DONE, true);
