@@ -486,7 +486,7 @@ void seat_evict_position(Seat *s, Session *session) {
                  * position (eg., during gdm->session transition), so let's look
                  * for it and set it on the free slot. */
                 LIST_FOREACH(sessions_by_seat, iter, s->sessions) {
-                        if (iter->position == pos) {
+                        if (iter->position == pos && session_get_state(iter) != SESSION_CLOSING) {
                                 s->positions[pos] = iter;
                                 break;
                         }
