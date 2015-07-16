@@ -144,6 +144,7 @@
 /test-audit-type
 /test-async
 /test-barrier
+/test-bitmap
 /test-boot-timestamp
 /test-btrfs
 /test-bus-benchmark
