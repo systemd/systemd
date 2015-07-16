@@ -38,6 +38,11 @@ AM_INIT_AUTOMAKE([foreign 1.11 -Wall -Wno-portability silent-rules tar-pax no-di
 AM_SILENT_RULES([yes])
 AC_CANONICAL_HOST
 AC_DEFINE_UNQUOTED([CANONICAL_HOST], "$host", [Canonical host string.])
+
+AC_CHECK_TOOLS([AR], [gcc-ar ar], [:])
+AC_CHECK_TOOLS([NM], [gcc-nm nm], [:])
+AC_CHECK_TOOLS([RANLIB], [gcc-ranlib ranlib], [:])
+
 LT_PREREQ(2.2)
 LT_INIT([disable-static])
 
@@ -196,7 +201,7 @@ AS_CASE([$CC], [*clang*],
 
 AS_CASE([$CFLAGS], [*-O[[12345sz\ ]]*],
         [CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
-               -flto -ffat-lto-objects])],
+               -flto])],
         [AC_MSG_RESULT([skipping -flto, optimization not enabled])])
 AC_SUBST([OUR_CFLAGS], "$with_cflags $sanitizer_cflags")
 
