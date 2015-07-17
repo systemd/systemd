@@ -70,3 +70,14 @@ int config_parse_ip6tnl_mode(const char *unit, const char *filename,
                              unsigned section_line, const char *lvalue,
                              int ltype, const char *rvalue, void *data,
                              void *userdata);
+
+int config_parse_tunnel_address(const char *unit,
+                                const char *filename,
+                                unsigned line,
+                                const char *section,
+                                unsigned section_line,
+                                const char *lvalue,
+                                int ltype,
+                                const char *rvalue,
+                                void *data,
+                                void *userdata);

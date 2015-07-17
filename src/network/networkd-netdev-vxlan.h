@@ -53,3 +53,14 @@ struct VxLan {
 };
 
 extern const NetDevVTable vxlan_vtable;
+
+int config_parse_vxlan_group_address(const char *unit,
+                                     const char *filename,
+                                     unsigned line,
+                                     const char *section,
+                                     unsigned section_line,
+                                     const char *lvalue,
+                                     int ltype,
+                                     const char *rvalue,
+                                     void *data,
+                                     void *userdata);
