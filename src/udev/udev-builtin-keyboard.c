@@ -101,15 +101,23 @@ static void map_keycode(int fd, const char *devnode, int scancode, const char *k
 static inline char* parse_token(const char *current, int32_t *val_out) {
         char *next;
         int32_t val;
+        int optional = 0;
 
         if (!current)
                 return NULL;
+
+        /* element prefixed with ? is only set if the kernel
+           value is zero */
+        if (*current == '?') {
+                optional = 1;
+                current++;
+        }
 
         val = strtol(current, &next, 0);
         if (*next && *next != ':')
                 return NULL;
 
-        if (next != current)
+        if (next != current && (!optional || *val_out == 0))
                 *val_out = val;
 
         if (*next)
