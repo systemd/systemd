@@ -27,6 +27,7 @@
 #include <unistd.h>
 #include <alloca.h>
 #include <getopt.h>
+#include <signal.h>
 
 #include "path-util.h"
 #include "terminal-util.h"
