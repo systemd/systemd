@@ -152,7 +152,7 @@ bool bitmap_iterate(Bitmap *b, Iterator *i, unsigned *n) {
         long long bitmask;
         unsigned offset, rem;
 
-        if (!b && i->idx == BITMAP_END)
+        if (!b || i->idx == BITMAP_END)
                 return false;
 
         offset = BITMAP_NUM_TO_OFFSET(i->idx);
