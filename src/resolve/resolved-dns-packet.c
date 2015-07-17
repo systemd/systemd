@@ -275,7 +275,7 @@ static void dns_packet_truncate(DnsPacket *p, size_t sz) {
         if (p->size <= sz)
                 return;
 
-        HASHMAP_FOREACH_KEY(s, n, p->names, i) {
+        HASHMAP_FOREACH_KEY(n, s, p->names, i) {
 
                 if (PTR_TO_SIZE(n) < sz)
                         continue;
