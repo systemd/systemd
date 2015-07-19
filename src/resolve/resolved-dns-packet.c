@@ -1594,6 +1594,11 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
                                 goto fail;
                 }
 
+                if (bitmap_isclear(rr->nsec.types)) {
+                        r = -EBADMSG;
+                        goto fail;
+                }
+
                 break;
 
         case DNS_TYPE_NSEC3: {
@@ -1643,9 +1648,16 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
                         goto fail;
                 }
 
-                r = dns_packet_append_types(p, rr->nsec3.types, NULL);
-                if (r < 0)
+                while (p->rindex != offset + rdlength) {
+                        r = dns_packet_read_type_window(p, &rr->nsec3.types, NULL);
+                        if (r < 0)
+                                goto fail;
+                }
+
+                if (bitmap_isclear(rr->nsec3.types)) {
+                        r = -EBADMSG;
                         goto fail;
+                }
 
                 break;
         }
