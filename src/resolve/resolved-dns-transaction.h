@@ -61,14 +61,14 @@ struct DnsTransaction {
         sd_event_source *timeout_event_source;
         unsigned n_attempts;
 
-        int dns_ipv4_fd;
-        int dns_ipv6_fd;
-
-        sd_event_source *dns_ipv4_event_source;
-        sd_event_source *dns_ipv6_event_source;
+        int dns_fd;
+        sd_event_source *dns_event_source;
 
         /* the active server */
         DnsServer *server;
+
+        /* the features of the DNS server at time of transaction start */
+        DnsServerFeatureLevel current_features;
 
         /* TCP connection logic, if we need it */
         DnsStream *stream;
@@ -94,9 +94,6 @@ int dns_transaction_go(DnsTransaction *t);
 
 void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p);
 void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state);
-
-int transaction_dns_ipv4_fd(DnsTransaction *t);
-int transaction_dns_ipv6_fd(DnsTransaction *t);
 
 const char* dns_transaction_state_to_string(DnsTransactionState p) _const_;
 DnsTransactionState dns_transaction_state_from_string(const char *s) _pure_;
