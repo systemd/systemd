@@ -69,7 +69,7 @@ int bitmap_ensure_allocated(Bitmap **b) {
 }
 
 int bitmap_set(Bitmap *b, unsigned n) {
-        long long bitmask;
+        long long unsigned bitmask;
         unsigned offset;
 
         assert(b);
@@ -87,7 +87,7 @@ int bitmap_set(Bitmap *b, unsigned n) {
                 b->n_bitmaps = offset + 1;
         }
 
-        bitmask = 1 << BITMAP_NUM_TO_REM(n);
+        bitmask = 1ULL << BITMAP_NUM_TO_REM(n);
 
         b->bitmaps[offset] |= bitmask;
 
@@ -95,7 +95,7 @@ int bitmap_set(Bitmap *b, unsigned n) {
 }
 
 void bitmap_unset(Bitmap *b, unsigned n) {
-        long long bitmask;
+        long long unsigned bitmask;
         unsigned offset;
 
         assert(b);
@@ -105,13 +105,13 @@ void bitmap_unset(Bitmap *b, unsigned n) {
         if (offset >= b->n_bitmaps)
                 return;
 
-        bitmask = 1 << BITMAP_NUM_TO_REM(n);
+        bitmask = 1ULL << BITMAP_NUM_TO_REM(n);
 
         b->bitmaps[offset] &= ~bitmask;
 }
 
 bool bitmap_isset(Bitmap *b, unsigned n) {
-        long long bitmask;
+        long long unsigned bitmask;
         unsigned offset;
 
         if (!b || !b->bitmaps)
@@ -122,7 +122,7 @@ bool bitmap_isset(Bitmap *b, unsigned n) {
         if (offset >= b->n_bitmaps)
                 return false;
 
-        bitmask = 1 << BITMAP_NUM_TO_REM(n);
+        bitmask = 1ULL << BITMAP_NUM_TO_REM(n);
 
         return !!(b->bitmaps[offset] & bitmask);
 }
@@ -149,7 +149,7 @@ void bitmap_clear(Bitmap *b) {
 }
 
 bool bitmap_iterate(Bitmap *b, Iterator *i, unsigned *n) {
-        long long bitmask;
+        long long unsigned bitmask;
         unsigned offset, rem;
 
         if (!b || i->idx == BITMAP_END)

@@ -58,6 +58,14 @@ int main(int argc, const char *argv[]) {
         assert_se(bitmap_isset(b, 256) == false);
         assert_se(bitmap_isclear(b) == true);
 
+        assert_se(bitmap_set(b, 32) == 0);
+        bitmap_unset(b, 0);
+        assert_se(bitmap_isset(b, 32) == true);
+        bitmap_unset(b, 32);
+
+        BITMAP_FOREACH(n, NULL, it)
+                assert_not_reached("NULL bitmap");
+
         assert_se(bitmap_set(b, 0) == 0);
         assert_se(bitmap_set(b, 1) == 0);
         assert_se(bitmap_set(b, 256) == 0);
