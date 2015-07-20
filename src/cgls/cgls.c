@@ -197,19 +197,19 @@ int main(int argc, char *argv[]) {
                         if (arg_machine) {
                                 char *m;
                                 const char *cgroup;
-                                _cleanup_free_ char *scope = NULL;
+                                _cleanup_free_ char *unit = NULL;
                                 _cleanup_free_ char *path = NULL;
                                 _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
                                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
 
                                 m = strjoina("/run/systemd/machines/", arg_machine);
-                                r = parse_env_file(m, NEWLINE, "SCOPE", &scope, NULL);
+                                r = parse_env_file(m, NEWLINE, "SCOPE", &unit, NULL);
                                 if (r < 0) {
                                         log_error_errno(r, "Failed to get machine path: %m");
                                         goto finish;
                                 }
 
-                                path = unit_dbus_path_from_name(scope);
+                                path = unit_dbus_path_from_name(unit);
                                 if (!path) {
                                         log_oom();
                                         goto finish;
@@ -219,7 +219,7 @@ int main(int argc, char *argv[]) {
                                                 bus,
                                                 "org.freedesktop.systemd1",
                                                 path,
-                                                "org.freedesktop.systemd1.Scope",
+                                                endswith(unit, ".scope") ? "org.freedesktop.systemd1.Scope" : "org.freedesktop.systemd1.Service",
                                                 "ControlGroup",
                                                 &error,
                                                 &reply,
