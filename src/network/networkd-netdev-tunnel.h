@@ -33,6 +33,12 @@ typedef enum Ip6TnlMode {
         _NETDEV_IP6_TNL_MODE_INVALID = -1,
 } Ip6TnlMode;
 
+typedef enum IPv6FlowLabel {
+        NETDEV_IPV6_FLOWLABEL_INHERIT = 0xFFFFF + 1,
+        _NETDEV_IPV6_FLOWLABEL_MAX,
+        _NETDEV_IPV6_FLOWLABEL_INVALID = -1,
+} IPv6FlowLabel;
+
 struct Tunnel {
         NetDev meta;
 
@@ -48,6 +54,7 @@ struct Tunnel {
         union in_addr_union remote;
 
         Ip6TnlMode ip6tnl_mode;
+        IPv6FlowLabel ipv6_flowlabel;
 
         bool pmtudisc;
 };
@@ -80,4 +87,14 @@ int config_parse_tunnel_address(const char *unit,
                                 int ltype,
                                 const char *rvalue,
                                 void *data,
+                                void *userdata);
+
+
+const char *ipv6_flowlabel_to_string(IPv6FlowLabel d) _const_;
+IPv6FlowLabel ipv6_flowlabel_from_string(const char *d) _pure_;
+
+int config_parse_ipv6_flowlabel(const char *unit, const char *filename,
+                                unsigned line, const char *section,
+                                unsigned section_line, const char *lvalue,
+                                int ltype, const char *rvalue, void *data,
                                 void *userdata);
