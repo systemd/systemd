@@ -133,6 +133,7 @@ struct Network {
         AddressFamilyBoolean dhcp;
         DCHPClientIdentifier dhcp_client_identifier;
         char *dhcp_vendor_class_identifier;
+        char *hostname;
         bool dhcp_dns;
         bool dhcp_ntp;
         bool dhcp_mtu;
@@ -451,3 +452,7 @@ const char* ipv6_privacy_extensions_to_string(IPv6PrivacyExtensions i) _const_;
 IPv6PrivacyExtensions ipv6_privacy_extensions_from_string(const char *s) _pure_;
 
 int config_parse_ipv6_privacy_extensions(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+
+
+/* Hostname */
+int config_parse_hostname(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);

@@ -270,12 +270,18 @@ static int dhcp_lease_lost(Link *link) {
         if (link->network->dhcp_hostname) {
                 const char *hostname = NULL;
 
-                r = sd_dhcp_lease_get_hostname(link->dhcp_lease, &hostname);
-                if (r >= 0 && hostname) {
-                        r = link_set_hostname(link, "");
+                if (!link->network->hostname)
+                        r = sd_dhcp_lease_get_hostname(link->dhcp_lease, &hostname);
+                else
+                        hostname = link->network->hostname;
+
+                if (r >= 0 || hostname) {
+                        r = link_set_hostname(link, hostname);
                         if (r < 0)
-                                log_link_error(link,
-                                               "Failed to reset transient hostname");
+                                log_link_error_errno(link, r,
+                                                     "Failed to set transient hostname to '%s': %m",
+                                                     hostname);
+
                 }
         }
 
@@ -464,8 +470,12 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
         if (link->network->dhcp_hostname) {
                 const char *hostname;
 
-                r = sd_dhcp_lease_get_hostname(lease, &hostname);
-                if (r >= 0) {
+                if (!link->network->hostname)
+                        r = sd_dhcp_lease_get_hostname(lease, &hostname);
+                else
+                        hostname = link->network->hostname;
+
+                if (r >= 0 || hostname) {
                         r = link_set_hostname(link, hostname);
                         if (r < 0)
                                 log_link_error_errno(link, r, "Failed to set transient hostname to '%s': %m", hostname);
@@ -616,14 +626,19 @@ int dhcp4_configure(Link *link) {
 
         if (link->network->dhcp_sendhost) {
                 _cleanup_free_ char *hostname = NULL;
+                const char *hn = NULL;
 
-                hostname = gethostname_malloc();
-                if (!hostname)
-                        return -ENOMEM;
+                if (!link->network->hostname)  {
+                        hostname = gethostname_malloc();
+                        if (!hostname)
+                                return -ENOMEM;
 
-                if (!is_localhost(hostname)) {
-                        r = sd_dhcp_client_set_hostname(link->dhcp_client,
-                                                        hostname);
+                        hn = hostname;
+                } else
+                        hn = link->network->hostname;
+
+                if (!is_localhost(hn)) {
+                        r = sd_dhcp_client_set_hostname(link->dhcp_client, hn);
                         if (r < 0)
                                 return r;
                 }

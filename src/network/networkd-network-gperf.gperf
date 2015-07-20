@@ -67,6 +67,7 @@ DHCP.UseHostname,              config_parse_bool,                              0
 DHCP.UseDomains,               config_parse_bool,                              0,                             offsetof(Network, dhcp_domains)
 DHCP.UseRoutes,                config_parse_bool,                              0,                             offsetof(Network, dhcp_routes)
 DHCP.SendHostname,             config_parse_bool,                              0,                             offsetof(Network, dhcp_sendhost)
+DHCP.Hostname,                 config_parse_hostname,                          0,                             offsetof(Network, hostname)
 DHCP.RequestBroadcast,         config_parse_bool,                              0,                             offsetof(Network, dhcp_broadcast)
 DHCP.CriticalConnection,       config_parse_bool,                              0,                             offsetof(Network, dhcp_critical)
 DHCP.VendorClassIdentifier,    config_parse_string,                            0,                             offsetof(Network, dhcp_vendor_class_identifier)
