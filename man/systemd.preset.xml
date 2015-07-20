@@ -106,7 +106,7 @@
     one takes precedence over all others.</para>
 
     <para>Each preset file shall be named in the style of
-    <filename>&lt;priority&gt;-&lt;program&gt;.conf</filename>. Files
+    <filename>&lt;priority&gt;-&lt;policy-name&gt;.preset</filename>. Files
     in <filename>/etc/</filename> override files with the same name in
     <filename>/usr/lib/</filename> and <filename>/run/</filename>.
     Files in <filename>/run/</filename> override files with the same
