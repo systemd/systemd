@@ -196,6 +196,10 @@ static const NLType rtnl_link_info_data_iptun_types[IFLA_IPTUN_MAX + 1] = {
         [IFLA_IPTUN_6RD_RELAY_PREFIX]    = { .type = NETLINK_TYPE_U32 },
         [IFLA_IPTUN_6RD_PREFIXLEN]       = { .type = NETLINK_TYPE_U16 },
         [IFLA_IPTUN_6RD_RELAY_PREFIXLEN] = { .type = NETLINK_TYPE_U16 },
+        [IFLA_IPTUN_ENCAP_TYPE]          = { .type = NETLINK_TYPE_U16},
+        [IFLA_IPTUN_ENCAP_FLAGS]         = { .type = NETLINK_TYPE_U16},
+        [IFLA_IPTUN_ENCAP_SPORT]         = { .type = NETLINK_TYPE_U16},
+        [IFLA_IPTUN_ENCAP_DPORT]         = { .type = NETLINK_TYPE_U16},
 };
 
 static  const NLType rtnl_link_info_data_ipgre_types[IFLA_GRE_MAX + 1] = {
