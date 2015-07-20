@@ -153,6 +153,38 @@ static void test_dns_name_equal(void) {
         test_dns_name_equal_one("..", "..", -EINVAL);
 }
 
+static void test_dns_name_between_one(const char *a, const char *b, const char *c, int ret) {
+        int r;
+
+        r = dns_name_between(a, b, c);
+        assert_se(r == ret);
+
+        r = dns_name_between(c, b, a);
+        if (ret >= 0)
+                assert_se(r == 0);
+        else
+                assert_se(r == ret);
+}
+
+static void test_dns_name_between(void) {
+        /* see https://tools.ietf.org/html/rfc4034#section-6.1
+           Note that we use "\033.z.example" in stead of "\001.z.example" as we
+           consider the latter invalid */
+        test_dns_name_between_one("example", "a.example", "yljkjljk.a.example", true);
+        test_dns_name_between_one("a.example", "yljkjljk.a.example", "Z.a.example", true);
+        test_dns_name_between_one("yljkjljk.a.example", "Z.a.example", "zABC.a.EXAMPLE", true);
+        test_dns_name_between_one("Z.a.example", "zABC.a.EXAMPLE", "z.example", true);
+        test_dns_name_between_one("zABC.a.EXAMPLE", "z.example", "\\033.z.example", true);
+        test_dns_name_between_one("z.example", "\\033.z.example", "*.z.example", true);
+        test_dns_name_between_one("\\033.z.example", "*.z.example", "\\200.z.example", true);
+        test_dns_name_between_one("*.z.example", "\\200.z.example", "example", true);
+        test_dns_name_between_one("\\200.z.example", "example", "a.example", true);
+
+        test_dns_name_between_one("example", "a.example", "example", -EINVAL);
+        test_dns_name_between_one("example", "example", "yljkjljk.a.example", false);
+        test_dns_name_between_one("example", "yljkjljk.a.example", "yljkjljk.a.example", false);
+}
+
 static void test_dns_name_endswith_one(const char *a, const char *b, int ret) {
         assert_se(dns_name_endswith(a, b) == ret);
 }
@@ -218,6 +250,7 @@ int main(int argc, char *argv[]) {
         test_dns_name_normalize();
         test_dns_name_equal();
         test_dns_name_endswith();
+        test_dns_name_between();
         test_dns_name_root();
         test_dns_name_single_label();
         test_dns_name_reverse();
