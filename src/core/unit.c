@@ -1322,10 +1322,9 @@ _pure_ static const char* unit_get_status_message_format(Unit *u, JobType t) {
         const UnitStatusMessageFormats *format_table;
 
         assert(u);
-        assert(t >= 0);
-        assert(t < _JOB_TYPE_MAX);
+        assert(t == JOB_START || t == JOB_STOP || t == JOB_RELOAD);
 
-        if (t == JOB_START || t == JOB_STOP) {
+        if (t != JOB_RELOAD) {
                 format_table = &UNIT_VTABLE(u)->status_message_formats;
                 if (format_table) {
                         format = format_table->starting_stopping[t == JOB_STOP];
@@ -1339,10 +1338,8 @@ _pure_ static const char* unit_get_status_message_format(Unit *u, JobType t) {
                 return "Starting %s.";
         else if (t == JOB_STOP)
                 return "Stopping %s.";
-        else if (t == JOB_RELOAD)
+        else
                 return "Reloading %s.";
-
-        return NULL;
 }
 
 static void unit_status_print_starting_stopping(Unit *u, JobType t) {
@@ -1351,8 +1348,6 @@ static void unit_status_print_starting_stopping(Unit *u, JobType t) {
         assert(u);
 
         format = unit_get_status_message_format(u, t);
-        if (!format)
-                return;
 
         DISABLE_WARNING_FORMAT_NONLITERAL;
         unit_status_printf(u, "", format);
@@ -1375,8 +1370,6 @@ static void unit_status_log_starting_stopping_reloading(Unit *u, JobType t) {
         /* We log status messages for all units and all operations. */
 
         format = unit_get_status_message_format(u, t);
-        if (!format)
-                return;
 
         DISABLE_WARNING_FORMAT_NONLITERAL;
         snprintf(buf, sizeof(buf), format, unit_description(u));
