@@ -400,20 +400,23 @@ unsigned long dns_name_hash_func(const void *s, const uint8_t hash_key[HASH_KEY_
 }
 
 int dns_name_compare_func(const void *a, const void *b) {
-        const char *x = a, *y = b;
+        const char *x, *y;
         int r, q, k, w;
 
         assert(a);
         assert(b);
 
+        x = (const char *) a + strlen(a);
+        y = (const char *) b + strlen(b);
+
         for (;;) {
                 char la[DNS_LABEL_MAX+1], lb[DNS_LABEL_MAX+1];
 
-                if (*x == 0 && *y == 0)
+                if (x == NULL && y == NULL)
                         return 0;
 
-                r = dns_label_unescape(&x, la, sizeof(la));
-                q = dns_label_unescape(&y, lb, sizeof(lb));
+                r = dns_label_unescape_suffix(a, &x, la, sizeof(la));
+                q = dns_label_unescape_suffix(b, &y, lb, sizeof(lb));
                 if (r < 0 || q < 0)
                         return r - q;
 
