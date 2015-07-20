@@ -1425,8 +1425,8 @@ static int execute_shutdown_or_sleep(
                 sd_bus_error *error) {
 
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        char *c = NULL;
         const char *p;
-        char *c;
         int r;
 
         assert(m);
@@ -1436,25 +1436,34 @@ static int execute_shutdown_or_sleep(
 
         bus_manager_log_shutdown(m, w, unit_name);
 
-        r = sd_bus_call_method(
-                        m->bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "StartUnit",
-                        error,
-                        &reply,
-                        "ss", unit_name, "replace-irreversibly");
-        if (r < 0)
-                return r;
+        if (m->shutdown_dry_run) {
+                log_info("Suppressing action due to set ShutdownDryRun property.");
 
-        r = sd_bus_message_read(reply, "o", &p);
-        if (r < 0)
-                return r;
+                if (m->unlink_nologin) {
+                        (void) unlink("/run/nologin");
+                        m->unlink_nologin = false;
+                }
+        } else {
+                r = sd_bus_call_method(
+                                m->bus,
+                                "org.freedesktop.systemd1",
+                                "/org/freedesktop/systemd1",
+                                "org.freedesktop.systemd1.Manager",
+                                "StartUnit",
+                                error,
+                                &reply,
+                                "ss", unit_name, "replace-irreversibly");
+                if (r < 0)
+                        return r;
 
-        c = strdup(p);
-        if (!c)
-                return -ENOMEM;
+                r = sd_bus_message_read(reply, "o", &p);
+                if (r < 0)
+                        return r;
+
+                c = strdup(p);
+                if (!c)
+                        return -ENOMEM;
+        }
 
         m->action_unit = unit_name;
         free(m->action_job);
@@ -2396,6 +2405,7 @@ const sd_bus_vtable manager_vtable[] = {
 
         SD_BUS_WRITABLE_PROPERTY("EnableWallMessages", "b", NULL, NULL, offsetof(Manager, enable_wall_messages), 0),
         SD_BUS_WRITABLE_PROPERTY("WallMessage", "s", NULL, NULL, offsetof(Manager, wall_message), 0),
+        SD_BUS_WRITABLE_PROPERTY("ShutdownDryRun", "b", NULL, NULL, offsetof(Manager, shutdown_dry_run), 0),
 
         SD_BUS_PROPERTY("NAutoVTs", "u", NULL, offsetof(Manager, n_autovts), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("KillOnlyUsers", "as", NULL, offsetof(Manager, kill_only_users), SD_BUS_VTABLE_PROPERTY_CONST),
