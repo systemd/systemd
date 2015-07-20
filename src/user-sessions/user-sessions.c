@@ -65,7 +65,7 @@ int main(int argc, char*argv[]) {
         } else if (streq(argv[1], "stop")) {
                 int r;
 
-                r = write_string_file("/run/nologin", "System is going down.", WRITE_STRING_FILE_ATOMIC);
+                r = write_string_file("/run/nologin", "System is going down.", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC);
                 if (r < 0) {
                         log_error_errno(r, "Failed to create /run/nologin: %m");
                         return EXIT_FAILURE;
