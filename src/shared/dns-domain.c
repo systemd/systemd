@@ -529,6 +529,28 @@ int dns_name_endswith(const char *name, const char *suffix) {
         }
 }
 
+int dns_name_between(const char *a, const char *b, const char *c) {
+        int n;
+
+        /* Determine if b is strictly greater than a and strictly smaller than c.
+           We consider the order of names to be circular, so that if a is
+           strictly greater than c, we consider b to be between them if it is
+           either greater than a or smaller than c. This is how the canonical
+           DNS name order used in NSEC records work. */
+
+        n = dns_name_compare_func(a, c);
+        if (n == 0)
+                return -EINVAL;
+        else if (n < 0)
+                /*       a<---b--->c       */
+                return dns_name_compare_func(a, b) < 0 &&
+                       dns_name_compare_func(b, c) < 0;
+        else
+                /* <--b--c         a--b--> */
+                return dns_name_compare_func(b, c) < 0 ||
+                       dns_name_compare_func(a, b) < 0;
+}
+
 int dns_name_reverse(int family, const union in_addr_union *a, char **ret) {
         const uint8_t *p;
         int r;
