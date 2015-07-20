@@ -1318,32 +1318,21 @@ static bool unit_assert_test(Unit *u) {
 }
 
 _pure_ static const char* unit_get_status_message_format(Unit *u, JobType t) {
+        const char *format;
         const UnitStatusMessageFormats *format_table;
 
         assert(u);
         assert(t >= 0);
         assert(t < _JOB_TYPE_MAX);
 
-        if (t != JOB_START && t != JOB_STOP)
-                return NULL;
-
-        format_table = &UNIT_VTABLE(u)->status_message_formats;
-        if (!format_table)
-                return NULL;
-
-        return format_table->starting_stopping[t == JOB_STOP];
-}
-
-_pure_ static const char *unit_get_status_message_format_try_harder(Unit *u, JobType t) {
-        const char *format;
-
-        assert(u);
-        assert(t >= 0);
-        assert(t < _JOB_TYPE_MAX);
-
-        format = unit_get_status_message_format(u, t);
-        if (format)
-                return format;
+        if (t == JOB_START || t == JOB_STOP) {
+                format_table = &UNIT_VTABLE(u)->status_message_formats;
+                if (format_table) {
+                        format = format_table->starting_stopping[t == JOB_STOP];
+                        if (format)
+                                return format;
+                }
+        }
 
         /* Return generic strings */
         if (t == JOB_START)
@@ -1360,9 +1349,6 @@ static void unit_status_print_starting_stopping(Unit *u, JobType t) {
         const char *format;
 
         assert(u);
-
-        /* We only print status messages for selected units on
-         * selected operations. */
 
         format = unit_get_status_message_format(u, t);
         if (!format)
@@ -1388,7 +1374,7 @@ static void unit_status_log_starting_stopping_reloading(Unit *u, JobType t) {
 
         /* We log status messages for all units and all operations. */
 
-        format = unit_get_status_message_format_try_harder(u, t);
+        format = unit_get_status_message_format(u, t);
         if (!format)
                 return;
 
