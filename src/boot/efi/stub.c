@@ -29,9 +29,11 @@ static const EFI_GUID global_guid = EFI_GLOBAL_VARIABLE;
 
 EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         EFI_LOADED_IMAGE *loaded_image;
+        EFI_DEVICE_PATH *device_path;
         EFI_FILE *root_dir;
         CHAR16 *loaded_image_path;
         CHAR8 *b;
+        CHAR16 *s;
         UINTN size;
         BOOLEAN secure = FALSE;
         CHAR8 *sections[] = {
@@ -49,6 +51,50 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         EFI_STATUS err;
 
         InitializeLib(image, sys_table);
+        efivar_set_time_usec(L"LoaderTimeInitUSec", 0);
+        efivar_set(L"LoaderInfo", L"systemd-stub " VERSION, FALSE);
+        s = PoolPrint(L"%s %d.%02d", ST->FirmwareVendor, ST->FirmwareRevision >> 16, ST->FirmwareRevision & 0xffff);
+        efivar_set(L"LoaderFirmwareInfo", s, FALSE);
+        FreePool(s);
+        s = PoolPrint(L"UEFI %d.%02d", ST->Hdr.Revision >> 16, ST->Hdr.Revision & 0xffff);
+        efivar_set(L"LoaderFirmwareType", s, FALSE);
+        FreePool(s);
+
+        err = uefi_call_wrapper(BS->OpenProtocol, 6, image, &LoadedImageProtocol, (VOID **)&loaded_image,
+                                image, NULL, EFI_OPEN_PROTOCOL_GET_PROTOCOL);
+        if (EFI_ERROR(err)) {
+                Print(L"Error getting a LoadedImageProtocol handle: %r ", err);
+                uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
+                return err;
+        }
+
+        /* export the device path this image is started from */
+        device_path = DevicePathFromHandle(loaded_image->DeviceHandle);
+        if (device_path) {
+                EFI_DEVICE_PATH *path, *paths;
+
+                paths = UnpackDevicePath(device_path);
+                for (path = paths; !IsDevicePathEnd(path); path = NextDevicePathNode(path)) {
+                        HARDDRIVE_DEVICE_PATH *drive;
+                        CHAR16 uuid[37];
+
+                        if (DevicePathType(path) != MEDIA_DEVICE_PATH)
+                                continue;
+                        if (DevicePathSubType(path) != MEDIA_HARDDRIVE_DP)
+                                continue;
+                        drive = (HARDDRIVE_DEVICE_PATH *)path;
+                        if (drive->SignatureType != SIGNATURE_TYPE_GUID)
+                                continue;
+
+                        GuidToString(uuid, (EFI_GUID *)&drive->Signature);
+                        efivar_set(L"LoaderDevicePartUUID", uuid, FALSE);
+                        break;
+                }
+                FreePool(paths);
+        }
+
+        loaded_image_path = DevicePathToStr(loaded_image->FilePath);
+        efivar_set(L"LoaderImageIdentifier", loaded_image_path, FALSE);
 
         err = uefi_call_wrapper(BS->OpenProtocol, 6, image, &LoadedImageProtocol, (VOID **)&loaded_image,
                                 image, NULL, EFI_OPEN_PROTOCOL_GET_PROTOCOL);
@@ -102,6 +148,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         if (szs[3] > 0)
                 graphics_splash((UINT8 *)((UINTN)loaded_image->ImageBase + addrs[3]), szs[3], NULL);
 
+        efivar_set_time_usec(L"LoaderTimeExecUSec", 0);
         err = linux_exec(image, cmdline, cmdline_len,
                          (UINTN)loaded_image->ImageBase + addrs[1],
                          (UINTN)loaded_image->ImageBase + addrs[2], szs[2]);
