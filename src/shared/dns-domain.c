@@ -114,6 +114,68 @@ int dns_label_unescape(const char **name, char *dest, size_t sz) {
         return r;
 }
 
+/* @label_terminal: terminal character of a label, updated to point to the terminal character of
+ *                  the previous label (always skipping one dot) or to NULL if there are no more
+ *                  labels. */
+int dns_label_unescape_suffix(const char *name, const char **label_terminal, char *dest, size_t sz) {
+        const char *terminal;
+        int r;
+
+        assert(name);
+        assert(label_terminal);
+        assert(dest);
+
+        /* no more labels */
+        if (!*label_terminal) {
+                if (sz >= 1)
+                        *dest = 0;
+
+                return 0;
+        }
+
+        assert(**label_terminal == '.' || **label_terminal == 0);
+
+        /* skip current terminal character */
+        terminal = *label_terminal - 1;
+
+        /* point name to the last label, and terminal to the preceding terminal symbol (or make it a NULL pointer) */
+        for (;;) {
+                if (terminal < name) {
+                        /* reached the first label, so indicate that there are no more */
+                        terminal = NULL;
+                        break;
+                }
+
+                /* find the start of the last label */
+                if (*terminal == '.') {
+                        const char *y;
+                        unsigned slashes = 0;
+
+                        for (y = terminal - 1; y >= name && *y == '\\'; y--)
+                                slashes ++;
+
+                        if (slashes % 2 == 0) {
+                                /* the '.' was not escaped */
+                                name = terminal + 1;
+                                break;
+                        } else {
+                                terminal = y;
+                                continue;
+                        }
+                }
+
+                terminal --;
+        }
+
+        r = dns_label_unescape(&name, dest, sz);
+        if (r < 0)
+                return r;
+
+        *label_terminal = terminal;
+
+        return r;
+}
+
 int dns_label_escape(const char *p, size_t l, char **ret) {
         _cleanup_free_ char *s = NULL;
         char *q;

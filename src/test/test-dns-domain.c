@@ -50,6 +50,46 @@ static void test_dns_label_unescape(void) {
         test_dns_label_unescape_one("foobar.", "foobar", 20, 6);
 }
 
+static void test_dns_label_unescape_suffix_one(const char *what, const char *expect1, const char *expect2, size_t buffer_sz, int ret1, int ret2) {
+        char buffer[buffer_sz];
+        const char *label;
+        int r;
+
+        label = what + strlen(what);
+
+        r = dns_label_unescape_suffix(what, &label, buffer, buffer_sz);
+        assert_se(r == ret1);
+        if (r >= 0)
+                assert_se(streq(buffer, expect1));
+
+        r = dns_label_unescape_suffix(what, &label, buffer, buffer_sz);
+        assert_se(r == ret2);
+        if (r >= 0)
+                assert_se(streq(buffer, expect2));
+}
+
+static void test_dns_label_unescape_suffix(void) {
+        test_dns_label_unescape_suffix_one("hallo", "hallo", "", 6, 5, 0);
+        test_dns_label_unescape_suffix_one("hallo", "hallo", "", 4, -ENOSPC, -ENOSPC);
+        test_dns_label_unescape_suffix_one("", "", "", 10, 0, 0);
+        test_dns_label_unescape_suffix_one("hallo\\.foobar", "hallo.foobar", "", 20, 12, 0);
+        test_dns_label_unescape_suffix_one("hallo.foobar", "foobar", "hallo", 10, 6, 5);
+        test_dns_label_unescape_suffix_one("hallo.foobar\n", "foobar", "foobar", 20, -EINVAL, -EINVAL);
+        test_dns_label_unescape_suffix_one("hallo\\", "hallo", "hallo", 20, -EINVAL, -EINVAL);
+        test_dns_label_unescape_suffix_one("hallo\\032 ", "hallo  ", "", 20, 7, 0);
+        test_dns_label_unescape_suffix_one(".", "", "", 20, 0, 0);
+        test_dns_label_unescape_suffix_one("..", "", "", 20, 0, 0);
+        test_dns_label_unescape_suffix_one(".foobar", "foobar", "", 20, 6, -EINVAL);
+        test_dns_label_unescape_suffix_one("foobar.", "", "foobar", 20, 0, 6);
+        test_dns_label_unescape_suffix_one("foo\\\\bar", "foo\\bar", "", 20, 7, 0);
+        test_dns_label_unescape_suffix_one("foo.bar", "bar", "foo", 20, 3, 3);
+        test_dns_label_unescape_suffix_one("foo..bar", "bar", "", 20, 3, -EINVAL);
+        test_dns_label_unescape_suffix_one("foo...bar", "bar", "", 20, 3, -EINVAL);
+        test_dns_label_unescape_suffix_one("foo\\.bar", "foo.bar", "", 20, 7, 0);
+        test_dns_label_unescape_suffix_one("foo\\\\.bar", "bar", "foo\\", 20, 3, 4);
+        test_dns_label_unescape_suffix_one("foo\\\\\\.bar", "foo\\.bar", "", 20, 8, 0);
+}
+
 static void test_dns_label_escape_one(const char *what, size_t l, const char *expect, int ret) {
         _cleanup_free_ char *t = NULL;
         int r;
@@ -180,6 +220,7 @@ static void test_dns_name_reverse(void) {
 int main(int argc, char *argv[]) {
 
         test_dns_label_unescape();
+        test_dns_label_unescape_suffix();
         test_dns_label_escape();
         test_dns_name_normalize();
         test_dns_name_equal();
