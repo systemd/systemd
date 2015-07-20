@@ -772,7 +772,7 @@ static inline int setns(int fd, int nstype) {
 #define IFLA_VXLAN_MAX  (__IFLA_VXLAN_MAX - 1)
 #endif
 
-#if !HAVE_DECL_IFLA_IPTUN_6RD_RELAY_PREFIXLEN
+#if !HAVE_DECL_IFLA_IPTUN_ENCAP_DPORT
 #define IFLA_IPTUN_UNSPEC 0
 #define IFLA_IPTUN_LINK 1
 #define IFLA_IPTUN_LOCAL 2
@@ -788,7 +788,12 @@ static inline int setns(int fd, int nstype) {
 #define IFLA_IPTUN_6RD_RELAY_PREFIX 12
 #define IFLA_IPTUN_6RD_PREFIXLEN 13
 #define IFLA_IPTUN_6RD_RELAY_PREFIXLEN 14
-#define __IFLA_IPTUN_MAX 15
+#define IFLA_IPTUN_ENCAP_TYPE 15
+#define IFLA_IPTUN_ENCAP_FLAGS 16
+#define IFLA_IPTUN_ENCAP_SPORT 17
+#define IFLA_IPTUN_ENCAP_DPORT 18
+
+#define __IFLA_IPTUN_MAX 19
 
 #define IFLA_IPTUN_MAX  (__IFLA_IPTUN_MAX - 1)
 #endif
