@@ -452,7 +452,7 @@ int main(int argc, char *argv[]) {
                 } else {
                         overrun++;
                         /* calculate how many samples we lost and scrap them */
-                        arg_samples_len -= (int)(newint_ns / interval);
+                        arg_samples_len -= (int)(-newint_ns / interval);
                 }
                 LIST_PREPEND(link, head, sampledata);
         }
