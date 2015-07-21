@@ -491,6 +491,19 @@
         </listitem>
       </varlistentry>
       <varlistentry>
+        <term><varname>IPv6FlowLabel=</varname></term>
+        <listitem>
+          <para>Configures The 20-bit Flow Label (see <ulink url="https://tools.ietf.org/html/rfc6437">
+          RFC 6437</ulink>) field in the IPv6 header (see <ulink url="https://tools.ietf.org/html/rfc2460">
+          RFC 2460</ulink>), is used by a node to label packets of a flow.
+          It's only used for IPv6 Tunnels.
+          A Flow Label of zero is used to indicate packets that have
+          not been labeled. Takes following values.
+          When <literal>inherit</literal> it uses the original flowlabel,
+          or can be configured to any value betwen 0 to 0xFFFFF.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
         <term><varname>Mode=</varname></term>
         <listitem>
           <para>An <literal>ip6tnl</literal> tunnels can have three
