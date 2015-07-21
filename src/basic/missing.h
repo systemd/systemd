@@ -798,6 +798,31 @@ static inline int setns(int fd, int nstype) {
 #define IFLA_IPTUN_MAX  (__IFLA_IPTUN_MAX - 1)
 #endif
 
+#if !HAVE_DECL_IFLA_GRE_ENCAP_DPORT
+#define IFLA_GRE_UNSPEC 0
+#define IFLA_GRE_LINK 1
+#define IFLA_GRE_IFLAGS 2
+#define IFLA_GRE_OFLAGS 3
+#define IFLA_GRE_IKEY 4
+#define IFLA_GRE_OKEY 5
+#define IFLA_GRE_LOCAL 6
+#define IFLA_GRE_REMOTE 7
+#define IFLA_GRE_TTL 8
+#define IFLA_GRE_TOS 9
+#define IFLA_GRE_PMTUDISC 10
+#define IFLA_GRE_ENCAP_LIMIT 11
+#define IFLA_GRE_FLOWINFO 12
+#define IFLA_GRE_FLAGS 13
+#define IFLA_GRE_ENCAP_TYPE 14
+#define IFLA_GRE_ENCAP_FLAGS 15
+#define IFLA_GRE_ENCAP_SPORT 16
+#define IFLA_GRE_ENCAP_DPORT 17
+
+#define _IFLA_GRE_MAX 18
+
+#define IFLA_GRE_MAX  (__IFLA_GRE_MAX - 1)
+#endif
+
 #if !HAVE_DECL_IFLA_BRIDGE_VLAN_INFO
 #define IFLA_BRIDGE_FLAGS 0
 #define IFLA_BRIDGE_MODE 1
