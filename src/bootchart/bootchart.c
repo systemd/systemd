@@ -387,9 +387,6 @@ int main(int argc, char *argv[]) {
         for (samples = 0; !exiting && samples < arg_samples_len; samples++) {
                 int res;
                 double sample_stop;
-                struct timespec req;
-                time_t newint_s;
-                long newint_ns;
                 double elapsed;
                 double timeleft;
 
@@ -427,18 +424,17 @@ int main(int argc, char *argv[]) {
                 elapsed = (sample_stop - sampledata->sampletime) * 1000000000.0;
                 timeleft = interval - elapsed;
 
-                newint_s = (time_t)(timeleft / 1000000000.0);
-                newint_ns = (long)(timeleft - (newint_s * 1000000000.0));
-
                 /*
                  * check if we have not consumed our entire timeslice. If we
                  * do, don't sleep and take a new sample right away.
                  * we'll lose all the missed samples and overrun our total
                  * time
                  */
-                if (newint_ns > 0 || newint_s > 0) {
-                        req.tv_sec = newint_s;
-                        req.tv_nsec = newint_ns;
+                if (timeleft > 0) {
+                        struct timespec req;
+
+                        req.tv_sec = (time_t)(timeleft / 1000000000.0);
+                        req.tv_nsec = (long)(timeleft - (req.tv_sec * 1000000000.0));
 
                         res = nanosleep(&req, NULL);
                         if (res) {
@@ -452,7 +448,7 @@ int main(int argc, char *argv[]) {
                 } else {
                         overrun++;
                         /* calculate how many samples we lost and scrap them */
-                        arg_samples_len -= (int)(newint_ns / interval);
+                        arg_samples_len -= (int)(-timeleft / interval);
                 }
                 LIST_PREPEND(link, head, sampledata);
         }
