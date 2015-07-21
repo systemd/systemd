@@ -1358,6 +1358,7 @@ static int listen_fds(int *rctrl, int *rnetlink) {
  *   udev.event-timeout=<number of seconds>    seconds to wait before terminating an event
  */
 static int parse_proc_cmdline_item(const char *key, const char *value) {
+        const char *full_key = key;
         int r;
 
         assert(key);
@@ -1377,25 +1378,28 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
                 int prio;
 
                 prio = util_log_priority(value);
+                if (prio < 0)
+                        goto invalid;
                 log_set_max_level(prio);
         } else if (streq(key, "children-max")) {
                 r = safe_atou(value, &arg_children_max);
                 if (r < 0)
-                        log_warning("invalid udev.children-max ignored: %s", value);
+                        goto invalid;
         } else if (streq(key, "exec-delay")) {
                 r = safe_atoi(value, &arg_exec_delay);
                 if (r < 0)
-                        log_warning("invalid udev.exec-delay ignored: %s", value);
+                        goto invalid;
         } else if (streq(key, "event-timeout")) {
                 r = safe_atou64(value, &arg_event_timeout_usec);
                 if (r < 0)
-                        log_warning("invalid udev.event-timeout ignored: %s", value);
-                else {
-                        arg_event_timeout_usec *= USEC_PER_SEC;
-                        arg_event_timeout_warn_usec = (arg_event_timeout_usec / 3) ? : 1;
-                }
+                        goto invalid;
+                arg_event_timeout_usec *= USEC_PER_SEC;
+                arg_event_timeout_warn_usec = (arg_event_timeout_usec / 3) ? : 1;
         }
 
+        return 0;
+invalid:
+        log_warning("invalid %s ignored: %s", full_key, value);
         return 0;
 }
 
