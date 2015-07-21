@@ -613,156 +613,100 @@ int job_run_and_invalidate(Job *j) {
 }
 
 _pure_ static const char *job_get_status_message_format(Unit *u, JobType t, JobResult result) {
-        const UnitStatusMessageFormats *format_table;
-
-        assert(u);
-        assert(t >= 0);
-        assert(t < _JOB_TYPE_MAX);
-
-        format_table = &UNIT_VTABLE(u)->status_message_formats;
-        if (!format_table)
-                return NULL;
-
-        if (t == JOB_START)
-                return format_table->finished_start_job[result];
-        else if (t == JOB_STOP || t == JOB_RESTART)
-                return format_table->finished_stop_job[result];
-
-        return NULL;
-}
-
-_pure_ static const char *job_get_status_message_format_try_harder(Unit *u, JobType t, JobResult result) {
         const char *format;
+        const UnitStatusMessageFormats *format_table;
+        static const char *const generic_finished_start_job[_JOB_RESULT_MAX] = {
+                [JOB_DONE]        = "Started %s.",
+                [JOB_TIMEOUT]     = "Timed out starting %s.",
+                [JOB_FAILED]      = "Failed to start %s.",
+                [JOB_DEPENDENCY]  = "Dependency failed for %s.",
+                [JOB_ASSERT]      = "Assertion failed for %s.",
+                [JOB_UNSUPPORTED] = "Starting of %s not supported.",
+        };
+        static const char *const generic_finished_stop_job[_JOB_RESULT_MAX] = {
+                [JOB_DONE]        = "Stopped %s.",
+                [JOB_FAILED]      = "Stopped (with error) %s.",
+                [JOB_TIMEOUT]     = "Timed out stoppping %s.",
+        };
+        static const char *const generic_finished_reload_job[_JOB_RESULT_MAX] = {
+                [JOB_DONE]        = "Reloaded %s.",
+                [JOB_FAILED]      = "Reload failed for %s.",
+                [JOB_TIMEOUT]     = "Timed out reloading %s.",
+        };
+        /* When verify-active detects the unit is inactive, report it.
+         * Most likely a DEPEND warning from a requisiting unit will
+         * occur next and it's nice to see what was requisited. */
+        static const char *const generic_finished_verify_active_job[_JOB_RESULT_MAX] = {
+                [JOB_SKIPPED]     = "%s is not active.",
+        };
 
         assert(u);
         assert(t >= 0);
         assert(t < _JOB_TYPE_MAX);
 
-        format = job_get_status_message_format(u, t, result);
-        if (format)
-                return format;
+        if (t == JOB_START || t == JOB_STOP || t == JOB_RESTART) {
+                format_table = &UNIT_VTABLE(u)->status_message_formats;
+                if (format_table) {
+                        format = t == JOB_START ? format_table->finished_start_job[result] :
+                                                  format_table->finished_stop_job[result];
+                        if (format)
+                                return format;
+                }
+        }
 
         /* Return generic strings */
-        if (t == JOB_START) {
-                if (result == JOB_DONE)
-                        return "Started %s.";
-                else if (result == JOB_TIMEOUT)
-                        return "Timed out starting %s.";
-                else if (result == JOB_FAILED)
-                        return "Failed to start %s.";
-                else if (result == JOB_DEPENDENCY)
-                        return "Dependency failed for %s.";
-                else if (result == JOB_ASSERT)
-                        return "Assertion failed for %s.";
-                else if (result == JOB_UNSUPPORTED)
-                        return "Starting of %s not supported.";
-        } else if (t == JOB_STOP || t == JOB_RESTART) {
-                if (result == JOB_DONE)
-                        return "Stopped %s.";
-                else if (result == JOB_FAILED)
-                        return "Stopped (with error) %s.";
-                else if (result == JOB_TIMEOUT)
-                        return "Timed out stoppping %s.";
-        } else if (t == JOB_RELOAD) {
-                if (result == JOB_DONE)
-                        return "Reloaded %s.";
-                else if (result == JOB_FAILED)
-                        return "Reload failed for %s.";
-                else if (result == JOB_TIMEOUT)
-                        return "Timed out reloading %s.";
-        }
+        if (t == JOB_START)
+                return generic_finished_start_job[result];
+        else if (t == JOB_STOP || t == JOB_RESTART)
+                return generic_finished_stop_job[result];
+        else if (t == JOB_RELOAD)
+                return generic_finished_reload_job[result];
+        else if (t == JOB_VERIFY_ACTIVE)
+                return generic_finished_verify_active_job[result];
 
         return NULL;
 }
 
 static void job_print_status_message(Unit *u, JobType t, JobResult result) {
         const char *format;
+        static const char* const job_result_status_table[_JOB_RESULT_MAX] = {
+                [JOB_DONE]        = ANSI_GREEN_ON            "  OK  " ANSI_HIGHLIGHT_OFF,
+                [JOB_TIMEOUT]     = ANSI_HIGHLIGHT_RED_ON    " TIME " ANSI_HIGHLIGHT_OFF,
+                [JOB_FAILED]      = ANSI_HIGHLIGHT_RED_ON    "FAILED" ANSI_HIGHLIGHT_OFF,
+                [JOB_DEPENDENCY]  = ANSI_HIGHLIGHT_YELLOW_ON "DEPEND" ANSI_HIGHLIGHT_OFF,
+                [JOB_SKIPPED]     = ANSI_HIGHLIGHT_ON        " INFO " ANSI_HIGHLIGHT_OFF,
+                [JOB_ASSERT]      = ANSI_HIGHLIGHT_YELLOW_ON "ASSERT" ANSI_HIGHLIGHT_OFF,
+                [JOB_UNSUPPORTED] = ANSI_HIGHLIGHT_YELLOW_ON "UNSUPP" ANSI_HIGHLIGHT_OFF,
+        };
 
         assert(u);
         assert(t >= 0);
         assert(t < _JOB_TYPE_MAX);
 
+        /* Reload status messages have traditionally not been printed to console. */
+        if (t == JOB_RELOAD)
+                return;
+
+        if (t == JOB_START && result == JOB_DONE && !u->condition_result)
+                return;
+
+        format = job_get_status_message_format(u, t, result);
+        if (!format)
+                return;
+
+        if (result != JOB_DONE)
+                manager_flip_auto_status(u->manager, true);
+
         DISABLE_WARNING_FORMAT_NONLITERAL;
-
-        if (t == JOB_START) {
-                format = job_get_status_message_format(u, t, result);
-                if (!format)
-                        return;
-
-                switch (result) {
-
-                case JOB_DONE:
-                        if (u->condition_result)
-                                unit_status_printf(u, ANSI_GREEN_ON "  OK  " ANSI_HIGHLIGHT_OFF, format);
-                        break;
-
-                case JOB_TIMEOUT:
-                        manager_flip_auto_status(u->manager, true);
-                        unit_status_printf(u, ANSI_HIGHLIGHT_RED_ON " TIME " ANSI_HIGHLIGHT_OFF, format);
-                        break;
-
-                case JOB_FAILED: {
-                        _cleanup_free_ char *quoted = NULL;
-
-                        quoted = shell_maybe_quote(u->id);
-
-                        manager_flip_auto_status(u->manager, true);
-                        unit_status_printf(u, ANSI_HIGHLIGHT_RED_ON "FAILED" ANSI_HIGHLIGHT_OFF, format);
-                        manager_status_printf(u->manager, STATUS_TYPE_NORMAL, NULL, "See 'systemctl status %s' for details.", strna(quoted));
-                        break;
-                }
-
-                case JOB_DEPENDENCY:
-                        manager_flip_auto_status(u->manager, true);
-                        unit_status_printf(u, ANSI_HIGHLIGHT_YELLOW_ON "DEPEND" ANSI_HIGHLIGHT_OFF, format);
-                        break;
-
-                case JOB_ASSERT:
-                        manager_flip_auto_status(u->manager, true);
-                        unit_status_printf(u, ANSI_HIGHLIGHT_YELLOW_ON "ASSERT" ANSI_HIGHLIGHT_OFF, format);
-                        break;
-
-                case JOB_UNSUPPORTED:
-                        manager_flip_auto_status(u->manager, true);
-                        unit_status_printf(u, ANSI_HIGHLIGHT_YELLOW_ON "UNSUPP" ANSI_HIGHLIGHT_OFF, format);
-                        break;
-
-                default:
-                        ;
-                }
-
-        } else if (t == JOB_STOP || t == JOB_RESTART) {
-
-                format = job_get_status_message_format(u, t, result);
-                if (!format)
-                        return;
-
-                switch (result) {
-
-                case JOB_TIMEOUT:
-                        manager_flip_auto_status(u->manager, true);
-                        unit_status_printf(u, ANSI_HIGHLIGHT_RED_ON " TIME " ANSI_HIGHLIGHT_OFF, format);
-                        break;
-
-                case JOB_DONE:
-                case JOB_FAILED:
-                        unit_status_printf(u, ANSI_GREEN_ON "  OK  " ANSI_HIGHLIGHT_OFF, format);
-                        break;
-
-                default:
-                        ;
-                }
-
-        } else if (t == JOB_VERIFY_ACTIVE) {
-
-                /* When verify-active detects the unit is inactive, report it.
-                 * Most likely a DEPEND warning from a requisiting unit will
-                 * occur next and it's nice to see what was requisited. */
-                if (result == JOB_SKIPPED)
-                        unit_status_printf(u, ANSI_HIGHLIGHT_ON " INFO " ANSI_HIGHLIGHT_OFF, "%s is not active.");
-        }
-
+        unit_status_printf(u, job_result_status_table[result], format);
         REENABLE_WARNING;
+
+        if (t == JOB_START && result == JOB_FAILED) {
+                _cleanup_free_ char *quoted = shell_maybe_quote(u->id);
+
+                manager_status_printf(u->manager, STATUS_TYPE_NORMAL, NULL,
+                                      "See 'systemctl status %s' for details.", strna(quoted));
+        }
 }
 
 static void job_log_status_message(Unit *u, JobType t, JobResult result) {
@@ -779,7 +723,7 @@ static void job_log_status_message(Unit *u, JobType t, JobResult result) {
         if (log_on_console())
                 return;
 
-        format = job_get_status_message_format_try_harder(u, t, result);
+        format = job_get_status_message_format(u, t, result);
         if (!format)
                 return;
 
