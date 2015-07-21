@@ -1065,13 +1065,10 @@ const UnitVTable busname_vtable = {
                 .finished_start_job = {
                         [JOB_DONE]       = "Listening on %s.",
                         [JOB_FAILED]     = "Failed to listen on %s.",
-                        [JOB_DEPENDENCY] = "Dependency failed for %s.",
-                        [JOB_TIMEOUT]    = "Timed out starting %s.",
                 },
                 .finished_stop_job = {
                         [JOB_DONE]       = "Closed %s.",
                         [JOB_FAILED]     = "Failed stopping %s.",
-                        [JOB_TIMEOUT]    = "Timed out stopping %s.",
                 },
         },
 };

@@ -1505,7 +1505,6 @@ const UnitVTable swap_vtable = {
                 .finished_start_job = {
                         [JOB_DONE]       = "Activated swap %s.",
                         [JOB_FAILED]     = "Failed to activate swap %s.",
-                        [JOB_DEPENDENCY] = "Dependency failed for %s.",
                         [JOB_TIMEOUT]    = "Timed out activating swap %s.",
                 },
                 .finished_stop_job = {

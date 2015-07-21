@@ -3229,13 +3229,10 @@ const UnitVTable service_vtable = {
                 .finished_start_job = {
                         [JOB_DONE]       = "Started %s.",
                         [JOB_FAILED]     = "Failed to start %s.",
-                        [JOB_DEPENDENCY] = "Dependency failed for %s.",
-                        [JOB_TIMEOUT]    = "Timed out starting %s.",
                 },
                 .finished_stop_job = {
                         [JOB_DONE]       = "Stopped %s.",
                         [JOB_FAILED]     = "Stopped (with error) %s.",
-                        [JOB_TIMEOUT]    = "Timed out stopping %s.",
                 },
         },
 };

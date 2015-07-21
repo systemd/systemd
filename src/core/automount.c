@@ -1066,7 +1066,6 @@ const UnitVTable automount_vtable = {
                 .finished_start_job = {
                         [JOB_DONE]       = "Set up automount %s.",
                         [JOB_FAILED]     = "Failed to set up automount %s.",
-                        [JOB_DEPENDENCY] = "Dependency failed for %s.",
                 },
                 .finished_stop_job = {
                         [JOB_DONE]       = "Unset automount %s.",
