@@ -705,6 +705,7 @@ static void job_print_status_message(Unit *u, JobType t, JobResult result) {
 static void job_log_status_message(Unit *u, JobType t, JobResult result) {
         const char *format;
         char buf[LINE_MAX];
+        sd_id128_t mid;
 
         assert(u);
         assert(t >= 0);
@@ -724,38 +725,27 @@ static void job_log_status_message(Unit *u, JobType t, JobResult result) {
         snprintf(buf, sizeof(buf), format, unit_description(u));
         REENABLE_WARNING;
 
-        if (t == JOB_START) {
-                sd_id128_t mid;
-
+        if (t == JOB_START)
                 mid = result == JOB_DONE ? SD_MESSAGE_UNIT_STARTED : SD_MESSAGE_UNIT_FAILED;
-                log_struct(result == JOB_DONE ? LOG_INFO : LOG_ERR,
-                           LOG_MESSAGE_ID(mid),
-                           LOG_UNIT_ID(u),
-                           LOG_MESSAGE("%s", buf),
-                           "RESULT=%s", job_result_to_string(result),
-                           NULL);
-
-        } else if (t == JOB_STOP || t == JOB_RESTART)
-                log_struct(result == JOB_DONE ? LOG_INFO : LOG_ERR,
-                           LOG_MESSAGE_ID(SD_MESSAGE_UNIT_STOPPED),
-                           LOG_UNIT_ID(u),
-                           LOG_MESSAGE("%s", buf),
-                           "RESULT=%s", job_result_to_string(result),
-                           NULL);
-
+        else if (t == JOB_STOP || t == JOB_RESTART)
+                mid = SD_MESSAGE_UNIT_STOPPED;
         else if (t == JOB_RELOAD)
-                log_struct(result == JOB_DONE ? LOG_INFO : LOG_ERR,
-                           LOG_MESSAGE_ID(SD_MESSAGE_UNIT_RELOADED),
-                           LOG_UNIT_ID(u),
-                           LOG_MESSAGE("%s", buf),
-                           "RESULT=%s", job_result_to_string(result),
-                           NULL);
-        else
+                mid = SD_MESSAGE_UNIT_RELOADED;
+        else {
                 log_struct(result == JOB_DONE ? LOG_INFO : LOG_ERR,
                            LOG_UNIT_ID(u),
                            LOG_MESSAGE("%s", buf),
                            "RESULT=%s", job_result_to_string(result),
                            NULL);
+                return;
+        }
+
+        log_struct(result == JOB_DONE ? LOG_INFO : LOG_ERR,
+                   LOG_MESSAGE_ID(mid),
+                   LOG_UNIT_ID(u),
+                   LOG_MESSAGE("%s", buf),
+                   "RESULT=%s", job_result_to_string(result),
+                   NULL);
 }
 
 static void job_emit_status_message(Unit *u, JobType t, JobResult result) {
