@@ -1377,7 +1377,10 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
                 int prio;
 
                 prio = util_log_priority(value);
-                log_set_max_level(prio);
+                if (prio < 0)
+                        log_warning("invalid udev.log-priority ignored: %s", value);
+                else
+                        log_set_max_level(prio);
         } else if (streq(key, "children-max")) {
                 r = safe_atou(value, &arg_children_max);
                 if (r < 0)
