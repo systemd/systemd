@@ -68,6 +68,7 @@ int type_system_union_protocol_get_type_system(const NLTypeSystemUnion *type_sys
 
 typedef enum NLUnionLinkInfoData {
         NL_UNION_LINK_INFO_DATA_BOND,
+        NL_UNION_LINK_INFO_DATA_TEAM,
         NL_UNION_LINK_INFO_DATA_BRIDGE,
         NL_UNION_LINK_INFO_DATA_VLAN,
         NL_UNION_LINK_INFO_DATA_VETH,
