@@ -203,16 +203,22 @@ static const NLType rtnl_link_info_data_iptun_types[IFLA_IPTUN_MAX + 1] = {
 };
 
 static  const NLType rtnl_link_info_data_ipgre_types[IFLA_GRE_MAX + 1] = {
-        [IFLA_GRE_LINK]     = { .type = NETLINK_TYPE_U32 },
-        [IFLA_GRE_IFLAGS]   = { .type = NETLINK_TYPE_U16 },
-        [IFLA_GRE_OFLAGS]   = { .type = NETLINK_TYPE_U16 },
-        [IFLA_GRE_IKEY]     = { .type = NETLINK_TYPE_U32 },
-        [IFLA_GRE_OKEY]     = { .type = NETLINK_TYPE_U32 },
-        [IFLA_GRE_LOCAL]    = { .type = NETLINK_TYPE_IN_ADDR },
-        [IFLA_GRE_REMOTE]   = { .type = NETLINK_TYPE_IN_ADDR },
-        [IFLA_GRE_TTL]      = { .type = NETLINK_TYPE_U8 },
-        [IFLA_GRE_TOS]      = { .type = NETLINK_TYPE_U8 },
-        [IFLA_GRE_PMTUDISC] = { .type = NETLINK_TYPE_U8 },
+        [IFLA_GRE_LINK]         = { .type = NETLINK_TYPE_U32 },
+        [IFLA_GRE_IFLAGS]       = { .type = NETLINK_TYPE_U16 },
+        [IFLA_GRE_OFLAGS]       = { .type = NETLINK_TYPE_U16 },
+        [IFLA_GRE_IKEY]         = { .type = NETLINK_TYPE_U32 },
+        [IFLA_GRE_OKEY]         = { .type = NETLINK_TYPE_U32 },
+        [IFLA_GRE_LOCAL]        = { .type = NETLINK_TYPE_IN_ADDR },
+        [IFLA_GRE_REMOTE]       = { .type = NETLINK_TYPE_IN_ADDR },
+        [IFLA_GRE_TTL]          = { .type = NETLINK_TYPE_U8 },
+        [IFLA_GRE_TOS]          = { .type = NETLINK_TYPE_U8 },
+        [IFLA_GRE_PMTUDISC]     = { .type = NETLINK_TYPE_U8 },
+        [IFLA_GRE_FLOWINFO]     = { .type = NETLINK_TYPE_U32 },
+        [IFLA_GRE_FLAGS]        = { .type = NETLINK_TYPE_U32 },
+        [IFLA_GRE_ENCAP_TYPE]   = { .type = NETLINK_TYPE_U16 },
+        [IFLA_GRE_ENCAP_FLAGS]  = { .type = NETLINK_TYPE_U16 },
+        [IFLA_GRE_ENCAP_SPORT]  = { .type = NETLINK_TYPE_U16 },
+        [IFLA_GRE_ENCAP_DPORT]  = { .type = NETLINK_TYPE_U16 },
 };
 
 static const NLType rtnl_link_info_data_ipvti_types[IFLA_VTI_MAX + 1] = {
