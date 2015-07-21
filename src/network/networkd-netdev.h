@@ -38,6 +38,7 @@ struct netdev_join_callback {
 typedef enum NetDevKind {
         NETDEV_KIND_BRIDGE,
         NETDEV_KIND_BOND,
+        NETDEV_KIND_TEAM,
         NETDEV_KIND_VLAN,
         NETDEV_KIND_MACVLAN,
         NETDEV_KIND_IPVLAN,
@@ -101,6 +102,7 @@ struct NetDev {
 
 #include "networkd-netdev-bridge.h"
 #include "networkd-netdev-bond.h"
+#include "networkd-netdev-team.h"
 #include "networkd-netdev-vlan.h"
 #include "networkd-netdev-macvlan.h"
 #include "networkd-netdev-ipvlan.h"
@@ -159,6 +161,7 @@ extern const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX];
 
 DEFINE_CAST(BRIDGE, Bridge);
 DEFINE_CAST(BOND, Bond);
+DEFINE_CAST(TEAM, Team);
 DEFINE_CAST(VLAN, VLan);
 DEFINE_CAST(MACVLAN, MacVlan);
 DEFINE_CAST(IPVLAN, IPVlan);
