@@ -153,7 +153,7 @@ static int notify_test2(sd_bus_message *m, void *userdata, sd_bus_error *error) 
 static int emit_interfaces_added(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         int r;
 
-        assert_se(sd_bus_emit_interfaces_added(sd_bus_message_get_bus(m), m->path, "org.freedesktop.systemd.test", NULL) >= 0);
+        assert_se(sd_bus_emit_interfaces_added(sd_bus_message_get_bus(m), "/value/a/x", "org.freedesktop.systemd.ValueTest", NULL) >= 0);
 
         r = sd_bus_reply_method_return(m, NULL);
         assert_se(r >= 0);
@@ -164,7 +164,7 @@ static int emit_interfaces_added(sd_bus_message *m, void *userdata, sd_bus_error
 static int emit_interfaces_removed(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         int r;
 
-        assert_se(sd_bus_emit_interfaces_removed(sd_bus_message_get_bus(m), m->path, "org.freedesktop.systemd.test", NULL) >= 0);
+        assert_se(sd_bus_emit_interfaces_removed(sd_bus_message_get_bus(m), "/value/a/x", "org.freedesktop.systemd.ValueTest", NULL) >= 0);
 
         r = sd_bus_reply_method_return(m, NULL);
         assert_se(r >= 0);
@@ -175,7 +175,7 @@ static int emit_interfaces_removed(sd_bus_message *m, void *userdata, sd_bus_err
 static int emit_object_added(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         int r;
 
-        assert_se(sd_bus_emit_object_added(sd_bus_message_get_bus(m), m->path) >= 0);
+        assert_se(sd_bus_emit_object_added(sd_bus_message_get_bus(m), "/value/a/x") >= 0);
 
         r = sd_bus_reply_method_return(m, NULL);
         assert_se(r >= 0);
@@ -186,7 +186,7 @@ static int emit_object_added(sd_bus_message *m, void *userdata, sd_bus_error *er
 static int emit_object_removed(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         int r;
 
-        assert_se(sd_bus_emit_object_removed(sd_bus_message_get_bus(m), m->path) >= 0);
+        assert_se(sd_bus_emit_object_removed(sd_bus_message_get_bus(m), "/value/a/x") >= 0);
 
         r = sd_bus_reply_method_return(m, NULL);
         assert_se(r >= 0);
@@ -228,6 +228,14 @@ static int enumerator_callback(sd_bus *bus, const char *path, void *userdata, ch
         return 1;
 }
 
+static int enumerator2_callback(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
+
+        if (object_path_startswith("/value/a", path))
+                assert_se(*nodes = strv_new("/value/a/x", "/value/a/y", "/value/a/z", NULL));
+
+        return 1;
+}
+
 static void *server(void *p) {
         struct context *c = p;
         sd_bus *bus = NULL;
@@ -246,7 +254,9 @@ static void *server(void *p) {
         assert_se(sd_bus_add_object_vtable(bus, NULL, "/foo", "org.freedesktop.systemd.test2", vtable, c) >= 0);
         assert_se(sd_bus_add_fallback_vtable(bus, NULL, "/value", "org.freedesktop.systemd.ValueTest", vtable2, NULL, UINT_TO_PTR(20)) >= 0);
         assert_se(sd_bus_add_node_enumerator(bus, NULL, "/value", enumerator_callback, NULL) >= 0);
+        assert_se(sd_bus_add_node_enumerator(bus, NULL, "/value/a", enumerator2_callback, NULL) >= 0);
         assert_se(sd_bus_add_object_manager(bus, NULL, "/value") >= 0);
+        assert_se(sd_bus_add_object_manager(bus, NULL, "/value/a") >= 0);
 
         assert_se(sd_bus_start(bus) >= 0);
 
