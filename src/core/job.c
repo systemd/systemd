@@ -706,6 +706,17 @@ static void job_log_status_message(Unit *u, JobType t, JobResult result) {
         const char *format;
         char buf[LINE_MAX];
         sd_id128_t mid;
+        static const int job_result_log_level[_JOB_RESULT_MAX] = {
+                [JOB_DONE]        = LOG_INFO,
+                [JOB_CANCELED]    = LOG_INFO,
+                [JOB_TIMEOUT]     = LOG_ERR,
+                [JOB_FAILED]      = LOG_ERR,
+                [JOB_DEPENDENCY]  = LOG_WARNING,
+                [JOB_SKIPPED]     = LOG_NOTICE,
+                [JOB_INVALID]     = LOG_INFO,
+                [JOB_ASSERT]      = LOG_WARNING,
+                [JOB_UNSUPPORTED] = LOG_WARNING,
+        };
 
         assert(u);
         assert(t >= 0);
@@ -732,7 +743,7 @@ static void job_log_status_message(Unit *u, JobType t, JobResult result) {
         else if (t == JOB_RELOAD)
                 mid = SD_MESSAGE_UNIT_RELOADED;
         else {
-                log_struct(result == JOB_DONE ? LOG_INFO : LOG_ERR,
+                log_struct(job_result_log_level[result],
                            LOG_UNIT_ID(u),
                            LOG_MESSAGE("%s", buf),
                            "RESULT=%s", job_result_to_string(result),
@@ -740,7 +751,7 @@ static void job_log_status_message(Unit *u, JobType t, JobResult result) {
                 return;
         }
 
-        log_struct(result == JOB_DONE ? LOG_INFO : LOG_ERR,
+        log_struct(job_result_log_level[result],
                    LOG_MESSAGE_ID(mid),
                    LOG_UNIT_ID(u),
                    LOG_MESSAGE("%s", buf),
