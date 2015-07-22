@@ -297,7 +297,6 @@ const UnitVTable slice_vtable = {
         .status_message_formats = {
                 .finished_start_job = {
                         [JOB_DONE]       = "Created slice %s.",
-                        [JOB_DEPENDENCY] = "Dependency failed for %s.",
                 },
                 .finished_stop_job = {
                         [JOB_DONE]       = "Removed slice %s.",

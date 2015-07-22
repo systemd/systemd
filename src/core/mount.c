@@ -1025,7 +1025,7 @@ static int mount_reload(Unit *u) {
         assert(m->state == MOUNT_MOUNTED);
 
         mount_enter_remounting(m);
-        return 0;
+        return 1;
 }
 
 static int mount_serialize(Unit *u, FILE *f, FDSet *fds) {
@@ -1897,7 +1897,6 @@ const UnitVTable mount_vtable = {
                 .finished_start_job = {
                         [JOB_DONE]       = "Mounted %s.",
                         [JOB_FAILED]     = "Failed to mount %s.",
-                        [JOB_DEPENDENCY] = "Dependency failed for %s.",
                         [JOB_TIMEOUT]    = "Timed out mounting %s.",
                 },
                 .finished_stop_job = {

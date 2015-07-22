@@ -1318,42 +1318,28 @@ static bool unit_assert_test(Unit *u) {
 }
 
 _pure_ static const char* unit_get_status_message_format(Unit *u, JobType t) {
+        const char *format;
         const UnitStatusMessageFormats *format_table;
 
         assert(u);
-        assert(t >= 0);
-        assert(t < _JOB_TYPE_MAX);
+        assert(t == JOB_START || t == JOB_STOP || t == JOB_RELOAD);
 
-        if (t != JOB_START && t != JOB_STOP)
-                return NULL;
-
-        format_table = &UNIT_VTABLE(u)->status_message_formats;
-        if (!format_table)
-                return NULL;
-
-        return format_table->starting_stopping[t == JOB_STOP];
-}
-
-_pure_ static const char *unit_get_status_message_format_try_harder(Unit *u, JobType t) {
-        const char *format;
-
-        assert(u);
-        assert(t >= 0);
-        assert(t < _JOB_TYPE_MAX);
-
-        format = unit_get_status_message_format(u, t);
-        if (format)
-                return format;
+        if (t != JOB_RELOAD) {
+                format_table = &UNIT_VTABLE(u)->status_message_formats;
+                if (format_table) {
+                        format = format_table->starting_stopping[t == JOB_STOP];
+                        if (format)
+                                return format;
+                }
+        }
 
         /* Return generic strings */
         if (t == JOB_START)
                 return "Starting %s.";
         else if (t == JOB_STOP)
                 return "Stopping %s.";
-        else if (t == JOB_RELOAD)
+        else
                 return "Reloading %s.";
-
-        return NULL;
 }
 
 static void unit_status_print_starting_stopping(Unit *u, JobType t) {
@@ -1361,12 +1347,7 @@ static void unit_status_print_starting_stopping(Unit *u, JobType t) {
 
         assert(u);
 
-        /* We only print status messages for selected units on
-         * selected operations. */
-
         format = unit_get_status_message_format(u, t);
-        if (!format)
-                return;
 
         DISABLE_WARNING_FORMAT_NONLITERAL;
         unit_status_printf(u, "", format);
@@ -1388,9 +1369,7 @@ static void unit_status_log_starting_stopping_reloading(Unit *u, JobType t) {
 
         /* We log status messages for all units and all operations. */
 
-        format = unit_get_status_message_format_try_harder(u, t);
-        if (!format)
-                return;
+        format = unit_get_status_message_format(u, t);
 
         DISABLE_WARNING_FORMAT_NONLITERAL;
         snprintf(buf, sizeof(buf), format, unit_description(u));
@@ -1413,6 +1392,15 @@ static void unit_status_log_starting_stopping_reloading(Unit *u, JobType t) {
                    NULL);
 }
 
+void unit_status_emit_starting_stopping_reloading(Unit *u, JobType t) {
+
+        unit_status_log_starting_stopping_reloading(u, t);
+
+        /* Reload status messages have traditionally not been printed to console. */
+        if (t != JOB_RELOAD)
+                unit_status_print_starting_stopping(u, t);
+}
+
 /* Errors:
  *         -EBADR:     This unit type does not support starting.
  *         -EALREADY:  Unit is already started.
@@ -1423,7 +1411,6 @@ static void unit_status_log_starting_stopping_reloading(Unit *u, JobType t) {
 int unit_start(Unit *u) {
         UnitActiveState state;
         Unit *following;
-        int r;
 
         assert(u);
 
@@ -1477,14 +1464,7 @@ int unit_start(Unit *u) {
 
         unit_add_to_dbus_queue(u);
 
-        r = UNIT_VTABLE(u)->start(u);
-        if (r <= 0)
-                return r;
-
-        /* Log if the start function actually did something */
-        unit_status_log_starting_stopping_reloading(u, JOB_START);
-        unit_status_print_starting_stopping(u, JOB_START);
-        return r;
+        return UNIT_VTABLE(u)->start(u);
 }
 
 bool unit_can_start(Unit *u) {
@@ -1508,7 +1488,6 @@ bool unit_can_isolate(Unit *u) {
 int unit_stop(Unit *u) {
         UnitActiveState state;
         Unit *following;
-        int r;
 
         assert(u);
 
@@ -1527,13 +1506,7 @@ int unit_stop(Unit *u) {
 
         unit_add_to_dbus_queue(u);
 
-        r = UNIT_VTABLE(u)->stop(u);
-        if (r <= 0)
-                return r;
-
-        unit_status_log_starting_stopping_reloading(u, JOB_STOP);
-        unit_status_print_starting_stopping(u, JOB_STOP);
-        return r;
+        return UNIT_VTABLE(u)->stop(u);
 }
 
 /* Errors:
@@ -1544,7 +1517,6 @@ int unit_stop(Unit *u) {
 int unit_reload(Unit *u) {
         UnitActiveState state;
         Unit *following;
-        int r;
 
         assert(u);
 
@@ -1571,12 +1543,7 @@ int unit_reload(Unit *u) {
 
         unit_add_to_dbus_queue(u);
 
-        r = UNIT_VTABLE(u)->reload(u);
-        if (r <= 0)
-                return r;
-
-        unit_status_log_starting_stopping_reloading(u, JOB_RELOAD);
-        return r;
+        return UNIT_VTABLE(u)->reload(u);
 }
 
 bool unit_can_reload(Unit *u) {
