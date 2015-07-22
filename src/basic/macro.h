@@ -406,7 +406,7 @@ do {                                                                    \
 
 #define IN_SET(x, y, ...)                                               \
         ({                                                              \
-                const typeof(y) _array[] = { (y), __VA_ARGS__ };        \
+                static const typeof(y) _array[] = { (y), __VA_ARGS__ }; \
                 const typeof(y) _x = (x);                               \
                 unsigned _i;                                            \
                 bool _found = false;                                    \
