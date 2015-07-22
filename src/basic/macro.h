@@ -406,12 +406,12 @@ do {                                                                    \
 
 #define IN_SET(x, y, ...)                                               \
         ({                                                              \
-                const typeof(y) _y = (y);                               \
-                const typeof(_y) _x = (x);                              \
+                const typeof(y) _array[] = { (y), __VA_ARGS__ };        \
+                const typeof(y) _x = (x);                               \
                 unsigned _i;                                            \
                 bool _found = false;                                    \
-                for (_i = 0; _i < 1 + sizeof((const typeof(_x)[]) { __VA_ARGS__ })/sizeof(const typeof(_x)); _i++) \
-                        if (((const typeof(_x)[]) { _y, __VA_ARGS__ })[_i] == _x) { \
+                for (_i = 0; _i < ELEMENTSOF(_array); _i++)             \
+                        if (_array[_i] == _x) {                         \
                                 _found = true;                          \
                                 break;                                  \
                         }                                               \
