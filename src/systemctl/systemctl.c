@@ -2794,6 +2794,24 @@ static int reboot_with_logind(sd_bus *bus, enum action a) {
                 return -EINVAL;
         }
 
+        r = sd_bus_set_property(
+                        bus,
+                        "org.freedesktop.login1",
+                        "/org/freedesktop/login1",
+                        "org.freedesktop.login1.Manager",
+                        "ShutdownDryRun",
+                        &error,
+                        "b", arg_dry);
+        if (r < 0) {
+                log_warning_errno(r, "Failed to set ShutdownDryRun property in logind: %s",
+                                  bus_error_message(&error, r));
+                sd_bus_error_free(&error);
+        }
+
+        printf("arg_dry = %d\n", arg_dry);
+        return 0;
+
+
         r = sd_bus_call_method(
                         bus,
                         "org.freedesktop.login1",
@@ -7325,7 +7343,6 @@ static int halt_main(sd_bus *bus) {
                  * the machine. */
 
                 if (arg_when <= 0 &&
-                    !arg_dry &&
                     arg_force <= 0 &&
                     (arg_action == ACTION_POWEROFF ||
                      arg_action == ACTION_REBOOT)) {
@@ -7380,6 +7397,20 @@ static int halt_main(sd_bus *bus) {
                                 "b", !arg_no_wall);
                 if (r < 0) {
                         log_warning_errno(r, "Failed to set EnableWallMessages property in logind: %s",
+                                          bus_error_message(&error, r));
+                        sd_bus_error_free(&error);
+                }
+
+                r = sd_bus_set_property(
+                                b,
+                                "org.freedesktop.login1",
+                                "/org/freedesktop/login1",
+                                "org.freedesktop.login1.Manager",
+                                "ShutdownDryRun",
+                                &error,
+                                "b", arg_dry);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to set ShutdownDryRun property in logind: %s",
                                           bus_error_message(&error, r));
                         sd_bus_error_free(&error);
                 }
