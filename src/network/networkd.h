@@ -129,6 +129,7 @@ struct Network {
         char *description;
         NetDev *bridge;
         NetDev *bond;
+        NetDev *team;
         Hashmap *stacked_netdevs;
         AddressFamilyBoolean dhcp;
         DCHPClientIdentifier dhcp_client_identifier;

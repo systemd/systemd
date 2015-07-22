@@ -5274,6 +5274,7 @@ libnetworkd_core_la_SOURCES = \
 	src/network/networkd-netdev-dummy.h \
 	src/network/networkd-netdev-tuntap.h \
 	src/network/networkd-netdev-bond.h \
+	src/network/networkd-netdev-team.h \
 	src/network/networkd-netdev-bridge.h \
 	src/network/networkd-netdev.c \
 	src/network/networkd-netdev-tunnel.c \
@@ -5285,6 +5286,7 @@ libnetworkd_core_la_SOURCES = \
 	src/network/networkd-netdev-dummy.c \
 	src/network/networkd-netdev-tuntap.c \
 	src/network/networkd-netdev-bond.c \
+	src/network/networkd-netdev-team.c \
 	src/network/networkd-netdev-bridge.c \
 	src/network/networkd-link.c \
 	src/network/networkd-link-bus.c \

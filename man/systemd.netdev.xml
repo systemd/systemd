@@ -107,6 +107,10 @@
           <row><entry><varname>bond</varname></entry>
           <entry>A bond device is an aggregation of all its slave devices. See <ulink url="https://www.kernel.org/doc/Documentation/networking/bonding.txt">Linux Ethernet Bonding Driver HOWTO</ulink> for details.Local configuration</entry></row>
 
+          <row><entry><varname>team</varname></entry>
+          <entry>The purpose of the Team driver is to provide a mechanism to team multiple NICs (ports) into one logical one (teamdev) at L2 layer.
+          See <ulink url="https://github.com/jpirko/libteam"> libteam - Library for controlling team network device</ulink> for details.</entry></row>
+
           <row><entry><varname>bridge</varname></entry>
           <entry>A bridge device is a software switch, each of its slave devices and the bridge itself are ports of the switch.</entry></row>
 

@@ -243,6 +243,7 @@ static const NLType rtnl_link_info_data_ip6tnl_types[IFLA_IPTUN_MAX + 1] = {
 /* these strings must match the .kind entries in the kernel */
 static const char* const nl_union_link_info_data_table[_NL_UNION_LINK_INFO_DATA_MAX] = {
         [NL_UNION_LINK_INFO_DATA_BOND] = "bond",
+        [NL_UNION_LINK_INFO_DATA_TEAM] = "team",
         [NL_UNION_LINK_INFO_DATA_BRIDGE] = "bridge",
         [NL_UNION_LINK_INFO_DATA_VLAN] = "vlan",
         [NL_UNION_LINK_INFO_DATA_VETH] = "veth",
@@ -266,6 +267,8 @@ DEFINE_STRING_TABLE_LOOKUP(nl_union_link_info_data, NLUnionLinkInfoData);
 static const NLTypeSystem rtnl_link_info_data_type_systems[_NL_UNION_LINK_INFO_DATA_MAX] = {
         [NL_UNION_LINK_INFO_DATA_BOND] =        { .count = ELEMENTSOF(rtnl_link_info_data_bond_types),
                                                   .types = rtnl_link_info_data_bond_types },
+        [NL_UNION_LINK_INFO_DATA_TEAM] =        { .count = NULL,
+                                                  .types = NULL },
         [NL_UNION_LINK_INFO_DATA_BRIDGE] =      { .count = ELEMENTSOF(rtnl_link_info_data_bridge_types),
                                                   .types = rtnl_link_info_data_bridge_types },
         [NL_UNION_LINK_INFO_DATA_VLAN] =        { .count = ELEMENTSOF(rtnl_link_info_data_vlan_types),

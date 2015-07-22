@@ -32,6 +32,7 @@
 const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_BRIDGE] = &bridge_vtable,
         [NETDEV_KIND_BOND] = &bond_vtable,
+        [NETDEV_KIND_TEAM] = &team_vtable,
         [NETDEV_KIND_VLAN] = &vlan_vtable,
         [NETDEV_KIND_MACVLAN] = &macvlan_vtable,
         [NETDEV_KIND_IPVLAN] = &ipvlan_vtable,
@@ -54,6 +55,7 @@ const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX] = {
 static const char* const netdev_kind_table[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_BRIDGE] = "bridge",
         [NETDEV_KIND_BOND] = "bond",
+        [NETDEV_KIND_TEAM] = "team",
         [NETDEV_KIND_VLAN] = "vlan",
         [NETDEV_KIND_MACVLAN] = "macvlan",
         [NETDEV_KIND_IPVLAN] = "ipvlan",
