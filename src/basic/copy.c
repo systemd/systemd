@@ -24,6 +24,7 @@
 
 #include "util.h"
 #include "btrfs-util.h"
+#include "strv.h"
 #include "copy.h"
 
 #define COPY_BUFFER_SIZE (16*1024)
@@ -262,9 +263,12 @@ static int fd_copy_directory(
                 (void) copy_xattr(dirfd(d), fdt);
         }
 
-        FOREACH_DIRENT(de, d, return -errno) {
+        FOREACH_DIRENT_ALL(de, d, return -errno) {
                 struct stat buf;
                 int q;
+
+                if (STR_IN_SET(de->d_name, ".", ".."))
+                        continue;
 
                 if (fstatat(dirfd(d), de->d_name, &buf, AT_SYMLINK_NOFOLLOW) < 0) {
                         r = -errno;
