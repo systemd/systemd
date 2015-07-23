@@ -955,9 +955,10 @@ static int path_set_attribute(Item *item, const char *path) {
 
         r = chattr_fd(fd, f, item->attribute_mask);
         if (r < 0)
-                return log_error_errno(r,
-                        "Cannot set file attribute for '%s', value=0x%08x, mask=0x%08x: %m",
-                        path, item->attribute_value, item->attribute_mask);
+                log_full_errno(r == -ENOTTY ? LOG_DEBUG : LOG_WARNING,
+                               r,
+                               "Cannot set file attribute for '%s', value=0x%08x, mask=0x%08x: %m",
+                               path, item->attribute_value, item->attribute_mask);
 
         return 0;
 }
