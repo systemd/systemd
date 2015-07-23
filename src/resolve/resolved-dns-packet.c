@@ -1634,10 +1634,16 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
                 if (r < 0)
                         goto fail;
 
-                while (p->rindex != offset + rdlength) {
+                while (p->rindex < offset + rdlength) {
                         r = dns_packet_read_type_window(p, &rr->nsec.types, NULL);
                         if (r < 0)
                                 goto fail;
+
+                        /* don't read past end of current RR */
+                        if (p->rindex > offset + rdlength) {
+                                r = -EBADMSG;
+                                goto fail;
+                        }
                 }
 
                 break;
@@ -1679,10 +1685,16 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
                 if (r < 0)
                         goto fail;
 
-                while (p->rindex != offset + rdlength) {
+                while (p->rindex < offset + rdlength) {
                         r = dns_packet_read_type_window(p, &rr->nsec3.types, NULL);
                         if (r < 0)
                                 goto fail;
+
+                        /* don't read past end of current RR */
+                        if (p->rindex > offset + rdlength) {
+                                r = -EBADMSG;
+                                goto fail;
+                        }
                 }
 
                 /* empty non-terminals can have NSEC3 records, so empty bitmaps are allowed */
