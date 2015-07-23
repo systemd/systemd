@@ -188,7 +188,7 @@ int detect_vm(const char **id) {
         _cleanup_free_ char *domcap = NULL, *cpuinfo_contents = NULL;
         static thread_local int cached_found = -1;
         static thread_local const char *cached_id = NULL;
-        const char *_id = NULL;
+        const char *_id = NULL, *_id_cpuid = NULL;
         int r;
 
         if (_likely_(cached_found >= 0)) {
@@ -234,10 +234,26 @@ int detect_vm(const char **id) {
 
         /* this will set _id to "other" and return 0 for unknown hypervisors */
         r = detect_vm_cpuid(&_id);
-        if (r != 0)
+
+        /* finish when found a known hypervisor other than kvm */
+        if (r < 0 || (r > 0 && !streq(_id, "kvm")))
                 goto finish;
 
+        _id_cpuid = _id;
+
         r = detect_vm_dmi(&_id);
+
+        /* kvm with and without Virtualbox */
+        if (streq_ptr(_id_cpuid, "kvm")) {
+                if (r > 0 && streq(_id, "oracle"))
+                        goto finish;
+
+                _id = _id_cpuid;
+                r = 1;
+                goto finish;
+        }
+
+        /* information from dmi */
         if (r != 0)
                 goto finish;
 
