@@ -69,6 +69,16 @@ static void draw_progress(uint64_t p, usec_t *last_usec) {
         fflush(stdout);
 }
 
+static uint64_t scale_progress(uint64_t scale, uint64_t p, uint64_t m) {
+
+        /* Calculates scale * p / m, but handles m == 0 safely, and saturates */
+
+        if (p >= m || m == 0)
+                return scale;
+
+        return scale * p / m;
+}
+
 static void flush_progress(void) {
         unsigned n, i;
 
@@ -584,7 +594,7 @@ static int verify_hash_table(
                 uint64_t last = 0, p;
 
                 if (show_progress)
-                        draw_progress(0xC000 + (0x3FFF * i / n), last_usec);
+                        draw_progress(0xC000 + scale_progress(0x3FFF, i, n), last_usec);
 
                 p = le64toh(f->data_hash_table[i].head_hash_offset);
                 while (p != 0) {
@@ -726,7 +736,7 @@ static int verify_entry_array(
                 Object *o;
 
                 if (show_progress)
-                        draw_progress(0x8000 + (0x3FFF * i / n), last_usec);
+                        draw_progress(0x8000 + scale_progress(0x3FFF, i, n), last_usec);
 
                 if (a == 0) {
                         error(a, "array chain too short at %"PRIu64" of %"PRIu64, i, n);
@@ -863,7 +873,7 @@ int journal_file_verify(
         p = le64toh(f->header->header_size);
         while (p != 0) {
                 if (show_progress)
-                        draw_progress(0x7FFF * p / le64toh(f->header->tail_object_offset), &last_usec);
+                        draw_progress(scale_progress(0x7FFF, p, le64toh(f->header->tail_object_offset)), &last_usec);
 
                 r = journal_file_move_to_object(f, OBJECT_UNUSED, p, &o);
                 if (r < 0) {
