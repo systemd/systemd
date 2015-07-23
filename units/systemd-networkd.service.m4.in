@@ -12,7 +12,7 @@ ConditionCapability=CAP_NET_ADMIN
 DefaultDependencies=no
 # dbus.service can be dropped once on kdbus, and systemd-udevd.service can be
 # dropped once tuntap is moved to netlink
-After=systemd-udevd.service dbus.service network-pre.target systemd-sysusers.service
+After=systemd-udevd.service dbus.service network-pre.target systemd-sysusers.service systemd-sysctl.service
 Before=network.target multi-user.target shutdown.target
 Conflicts=shutdown.target
 Wants=network.target
