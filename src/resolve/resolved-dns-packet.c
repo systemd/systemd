@@ -275,7 +275,7 @@ static void dns_packet_truncate(DnsPacket *p, size_t sz) {
         if (p->size <= sz)
                 return;
 
-        HASHMAP_FOREACH_KEY(s, n, p->names, i) {
+        HASHMAP_FOREACH_KEY(n, s, p->names, i) {
 
                 if (PTR_TO_SIZE(n) < sz)
                         continue;
@@ -761,7 +761,7 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *star
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_blob(p, rr->sshfp.key, rr->sshfp.key_size, NULL);
+                r = dns_packet_append_blob(p, rr->sshfp.fingerprint, rr->sshfp.fingerprint_size, NULL);
                 break;
 
         case DNS_TYPE_DNSKEY:
@@ -1208,8 +1208,11 @@ static int dns_packet_read_type_window(DnsPacket *p, Bitmap **types, size_t *sta
                         if (bitmap[i] & bitmask) {
                                 uint16_t n;
 
-                                /* XXX: ignore pseudo-types? see RFC4034 section 4.1.2 */
                                 n = (uint16_t) window << 8 | (uint16_t) bit;
+
+                                /* Ignore pseudo-types. see RFC4034 section 4.1.2 */
+                                if (dns_type_is_pseudo(n))
+                                        continue;
 
                                 r = bitmap_set(*types, n);
                                 if (r < 0)
@@ -1223,6 +1226,38 @@ static int dns_packet_read_type_window(DnsPacket *p, Bitmap **types, size_t *sta
 
         if (!found)
                 return -EBADMSG;
+
+        if (start)
+                *start = saved_rindex;
+
+        return 0;
+fail:
+        dns_packet_rewind(p, saved_rindex);
+        return r;
+}
+
+static int dns_packet_read_type_windows(DnsPacket *p, Bitmap **types, size_t size, size_t *start) {
+        size_t saved_rindex;
+        int r;
+
+        saved_rindex = p->rindex;
+
+        while (p->rindex < saved_rindex + size) {
+                r = dns_packet_read_type_window(p, types, NULL);
+                if (r < 0)
+                        goto fail;
+
+                /* don't read past end of current RR */
+                if (p->rindex > saved_rindex + size) {
+                        r = -EBADMSG;
+                        goto fail;
+                }
+        }
+
+        if (p->rindex != saved_rindex + size) {
+                r = -EBADMSG;
+                goto fail;
+        }
 
         if (start)
                 *start = saved_rindex;
@@ -1513,6 +1548,13 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
                 if (r < 0)
                         goto fail;
 
+                if (rr->ds.digest_size <= 0) {
+                        /* the accepted size depends on the algorithm, but for now
+                           just ensure that the value is greater than zero */
+                        r = -EBADMSG;
+                        goto fail;
+                }
+
                 break;
         case DNS_TYPE_SSHFP:
                 r = dns_packet_read_uint8(p, &rr->sshfp.algorithm, NULL);
@@ -1524,8 +1566,16 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
                         goto fail;
 
                 r = dns_packet_read_memdup(p, rdlength - 2,
-                                           &rr->sshfp.key, &rr->sshfp.key_size,
+                                           &rr->sshfp.fingerprint, &rr->sshfp.fingerprint_size,
                                            NULL);
+
+                if (rr->sshfp.fingerprint_size <= 0) {
+                        /* the accepted size depends on the algorithm, but for now
+                           just ensure that the value is greater than zero */
+                        r = -EBADMSG;
+                        goto fail;
+                }
+
                 break;
 
         case DNS_TYPE_DNSKEY: {
@@ -1557,6 +1607,14 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
                 r = dns_packet_read_memdup(p, rdlength - 4,
                                            &rr->dnskey.key, &rr->dnskey.key_size,
                                            NULL);
+
+                if (rr->dnskey.key_size <= 0) {
+                        /* the accepted size depends on the algorithm, but for now
+                           just ensure that the value is greater than zero */
+                        r = -EBADMSG;
+                        goto fail;
+                }
+
                 break;
         }
 
@@ -1596,6 +1654,14 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
                 r = dns_packet_read_memdup(p, offset + rdlength - p->rindex,
                                            &rr->rrsig.signature, &rr->rrsig.signature_size,
                                            NULL);
+
+                if (rr->rrsig.signature_size <= 0) {
+                        /* the accepted size depends on the algorithm, but for now
+                           just ensure that the value is greater than zero */
+                        r = -EBADMSG;
+                        goto fail;
+                }
+
                 break;
 
         case DNS_TYPE_NSEC:
@@ -1603,11 +1669,12 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
                 if (r < 0)
                         goto fail;
 
-                while (p->rindex != offset + rdlength) {
-                        r = dns_packet_read_type_window(p, &rr->nsec.types, NULL);
-                        if (r < 0)
-                                goto fail;
-                }
+                r = dns_packet_read_type_windows(p, &rr->nsec.types, offset + rdlength - p->rindex, NULL);
+                if (r < 0)
+                        goto fail;
+
+                /* NSEC RRs with empty bitmpas makes no sense, but the RFC does not explicitly forbid them
+                   so we allow it */
 
                 break;
 
@@ -1626,6 +1693,7 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
                 if (r < 0)
                         goto fail;
 
+                /* this may be zero */
                 r = dns_packet_read_uint8(p, &size, NULL);
                 if (r < 0)
                         goto fail;
@@ -1638,13 +1706,20 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
                 if (r < 0)
                         goto fail;
 
+                if (size <= 0) {
+                        r = -EBADMSG;
+                        goto fail;
+                }
+
                 r = dns_packet_read_memdup(p, size, &rr->nsec3.next_hashed_name, &rr->nsec3.next_hashed_name_size, NULL);
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_types(p, rr->nsec3.types, NULL);
+                r = dns_packet_read_type_windows(p, &rr->nsec.types, offset + rdlength - p->rindex, NULL);
                 if (r < 0)
                         goto fail;
+
+                /* empty non-terminals can have NSEC3 records, so empty bitmaps are allowed */
 
                 break;
         }

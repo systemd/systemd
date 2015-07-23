@@ -117,11 +117,12 @@ struct DnsResourceRecord {
                         size_t digest_size;
                 } ds;
 
+                /* https://tools.ietf.org/html/rfc4255#section-3.1 */
                 struct {
                         uint8_t algorithm;
                         uint8_t fptype;
-                        void *key;
-                        size_t key_size;
+                        void *fingerprint;
+                        size_t fingerprint_size;
                 } sshfp;
 
                 /* http://tools.ietf.org/html/rfc4034#section-2.1 */
