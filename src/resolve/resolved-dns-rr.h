@@ -53,7 +53,7 @@ struct DnsResourceRecord {
         union {
                 struct {
                         void *data;
-                        uint16_t size;
+                        size_t size;
                 } generic;
 
                 struct {

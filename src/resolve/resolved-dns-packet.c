@@ -933,6 +933,42 @@ int dns_packet_read_blob(DnsPacket *p, void *d, size_t sz, size_t *start) {
         return 0;
 }
 
+static int dns_packet_read_memdup(
+                DnsPacket *p, size_t size,
+                void **ret, size_t *ret_size,
+                size_t *ret_start) {
+
+        const void *src;
+        size_t start;
+        int r;
+
+        assert(p);
+        assert(ret);
+
+        r = dns_packet_read(p, size, &src, &start);
+        if (r < 0)
+                return r;
+
+        if (size <= 0)
+                *ret = NULL;
+        else {
+                void *copy;
+
+                copy = memdup(src, size);
+                if (!copy)
+                        return -ENOMEM;
+
+                *ret = copy;
+        }
+
+        if (ret_size)
+                *ret_size = size;
+        if (ret_start)
+                *ret_start = start;
+
+        return 0;
+}
+
 int dns_packet_read_uint8(DnsPacket *p, uint8_t *ret, size_t *start) {
         const void *d;
         int r;
@@ -1239,26 +1275,6 @@ fail:
         return r;
 }
 
-static int dns_packet_read_public_key(DnsPacket *p, size_t length,
-                                      void **dp, size_t *lengthp,
-                                      size_t *start) {
-        int r;
-        const void *d;
-        void *d2;
-
-        r = dns_packet_read(p, length, &d, NULL);
-        if (r < 0)
-                return r;
-
-        d2 = memdup(d, length);
-        if (!d2)
-                return -ENOMEM;
-
-        *dp = d2;
-        *lengthp = length;
-        return 0;
-}
-
 static bool loc_size_ok(uint8_t size) {
         uint8_t m = size >> 4, e = size & 0xF;
 
@@ -1281,7 +1297,6 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
         size_t saved_rindex, offset;
         uint16_t rdlength;
-        const void *d;
         int r;
 
         assert(p);
@@ -1492,9 +1507,9 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_read_public_key(p, rdlength - 4,
-                                               &rr->ds.digest, &rr->ds.digest_size,
-                                               NULL);
+                r = dns_packet_read_memdup(p, rdlength - 4,
+                                           &rr->ds.digest, &rr->ds.digest_size,
+                                           NULL);
                 if (r < 0)
                         goto fail;
 
@@ -1508,9 +1523,9 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_read_public_key(p, rdlength - 2,
-                                               &rr->sshfp.key, &rr->sshfp.key_size,
-                                               NULL);
+                r = dns_packet_read_memdup(p, rdlength - 2,
+                                           &rr->sshfp.key, &rr->sshfp.key_size,
+                                           NULL);
                 break;
 
         case DNS_TYPE_DNSKEY: {
@@ -1539,9 +1554,9 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_read_public_key(p, rdlength - 4,
-                                               &rr->dnskey.key, &rr->dnskey.key_size,
-                                               NULL);
+                r = dns_packet_read_memdup(p, rdlength - 4,
+                                           &rr->dnskey.key, &rr->dnskey.key_size,
+                                           NULL);
                 break;
         }
 
@@ -1578,9 +1593,9 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_read_public_key(p, offset + rdlength - p->rindex,
-                                               &rr->rrsig.signature, &rr->rrsig.signature_size,
-                                               NULL);
+                r = dns_packet_read_memdup(p, offset + rdlength - p->rindex,
+                                           &rr->rrsig.signature, &rr->rrsig.signature_size,
+                                           NULL);
                 break;
 
         case DNS_TYPE_NSEC:
@@ -1615,33 +1630,17 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
                 if (r < 0)
                         goto fail;
 
-                rr->nsec3.salt_size = size;
-
-                r = dns_packet_read_blob(p, &d, rr->nsec3.salt_size, NULL);
+                r = dns_packet_read_memdup(p, size, &rr->nsec3.salt, &rr->nsec3.salt_size, NULL);
                 if (r < 0)
                         goto fail;
-
-                rr->nsec3.salt = memdup(d, rr->nsec3.salt_size);
-                if (!rr->nsec3.salt) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
 
                 r = dns_packet_read_uint8(p, &size, NULL);
                 if (r < 0)
                         goto fail;
 
-                rr->nsec3.next_hashed_name_size = size;
-
-                r = dns_packet_read(p, rr->nsec3.next_hashed_name_size, &d, NULL);
+                r = dns_packet_read_memdup(p, size, &rr->nsec3.next_hashed_name, &rr->nsec3.next_hashed_name_size, NULL);
                 if (r < 0)
                         goto fail;
-
-                rr->nsec3.next_hashed_name = memdup(d, rr->nsec3.next_hashed_name_size);
-                if (!rr->nsec3.next_hashed_name) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
 
                 r = dns_packet_append_types(p, rr->nsec3.types, NULL);
                 if (r < 0)
@@ -1651,17 +1650,9 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
         }
         default:
         unparseable:
-                r = dns_packet_read(p, rdlength, &d, NULL);
+                r = dns_packet_read_memdup(p, rdlength, &rr->generic.data, &rr->generic.size, NULL);
                 if (r < 0)
                         goto fail;
-
-                rr->generic.data = memdup(d, rdlength);
-                if (!rr->generic.data) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
-
-                rr->generic.size = rdlength;
                 break;
         }
         if (r < 0)
