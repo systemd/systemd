@@ -776,7 +776,7 @@ int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
         case DNS_TYPE_NSEC3: {
                 _cleanup_free_ char *salt = NULL, *hash = NULL;
 
-                if (rr->nsec3.salt_size) {
+                if (rr->nsec3.salt_size > 0) {
                         salt = hexmem(rr->nsec3.salt, rr->nsec3.salt_size);
                         if (!salt)
                                 return -ENOMEM;
@@ -795,7 +795,7 @@ int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
                              rr->nsec3.algorithm,
                              rr->nsec3.flags,
                              rr->nsec3.iterations,
-                             rr->nsec3.salt_size ? salt : "-",
+                             rr->nsec3.salt_size > 0 ? salt : "-",
                              hash,
                              t);
                 if (r < 0)
@@ -809,7 +809,7 @@ int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
                 if (!t)
                         return -ENOMEM;
 
-                r = asprintf(&s, "%s \\# %"PRIu8" %s", k, rr->generic.size, t);
+                r = asprintf(&s, "%s \\# %zu %s", k, rr->generic.size, t);
                 if (r < 0)
                         return -ENOMEM;
                 break;
