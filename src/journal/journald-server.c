@@ -175,9 +175,11 @@ static uint64_t available_space(Server *s, bool verbose) {
                         fb4[FORMAT_BYTES_MAX], fb5[FORMAT_BYTES_MAX];
 
                 server_driver_message(s, SD_MESSAGE_JOURNAL_USAGE,
-                                      "%s journal is using %s (max allowed %s, "
-                                      "trying to leave %s free of %s available → current limit %s).",
-                                      s->system_journal ? "Permanent" : "Runtime",
+                                      "%s is currently using %s.\n"
+                                      "Maximum allowed usage is set to %s.\n"
+                                      "Leaving at least %s free (of currently available %s of space).\n"
+                                      "Enforced usage limit is thus %s.",
+                                      s->system_journal ? "Permanent journal (/var/log/journal/)" : "Runtime journal (/run/log/journal/)",
                                       format_bytes(fb1, sizeof(fb1), sum),
                                       format_bytes(fb2, sizeof(fb2), m->max_use),
                                       format_bytes(fb3, sizeof(fb3), m->keep_free),
