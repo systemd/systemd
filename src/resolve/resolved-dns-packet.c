@@ -1208,8 +1208,11 @@ static int dns_packet_read_type_window(DnsPacket *p, Bitmap **types, size_t *sta
                         if (bitmap[i] & bitmask) {
                                 uint16_t n;
 
-                                /* XXX: ignore pseudo-types? see RFC4034 section 4.1.2 */
                                 n = (uint16_t) window << 8 | (uint16_t) bit;
+
+                                /* Ignore pseudo-types. see RFC4034 section 4.1.2 */
+                                if (dns_type_is_pseudo(n))
+                                        continue;
 
                                 r = bitmap_set(*types, n);
                                 if (r < 0)
