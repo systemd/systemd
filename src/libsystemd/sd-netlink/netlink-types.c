@@ -329,8 +329,11 @@ static const struct NLType rtnl_prot_info_bridge_port_types[IFLA_BRPORT_MAX + 1]
         [IFLA_BRPORT_MODE]              = { .type = NETLINK_TYPE_U8 },
         [IFLA_BRPORT_GUARD]             = { .type = NETLINK_TYPE_U8 },
         [IFLA_BRPORT_PROTECT]           = { .type = NETLINK_TYPE_U8 },
+        [IFLA_BRPORT_FAST_LEAVE]        = { .type = NETLINK_TYPE_U8 },
         [IFLA_BRPORT_LEARNING]          = { .type = NETLINK_TYPE_U8 },
         [IFLA_BRPORT_UNICAST_FLOOD]     = { .type = NETLINK_TYPE_U8 },
+        [IFLA_BRPORT_PROXYARP]          = { .type = NETLINK_TYPE_U8 },
+        [IFLA_BRPORT_LEARNING_SYNC]     = { .type = NETLINK_TYPE_U8 },
 };
 
 static const NLTypeSystem rtnl_prot_info_type_systems[AF_MAX] = {
