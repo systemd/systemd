@@ -43,7 +43,10 @@ int get_process_state(pid_t pid) {
         assert(pid >= 0);
 
         p = procfs_file_alloca(pid, "stat");
+
         r = read_one_line_file(p, &line);
+        if (r == -ENOENT)
+                return -ESRCH;
         if (r < 0)
                 return r;
 
@@ -87,8 +90,11 @@ int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char *
         p = procfs_file_alloca(pid, "cmdline");
 
         f = fopen(p, "re");
-        if (!f)
+        if (!f) {
+                if (errno == ENOENT)
+                        return -ESRCH;
                 return -errno;
+        }
 
         if (max_length == 0) {
                 size_t len = 0, allocated = 0;
@@ -182,8 +188,11 @@ int is_kernel_thread(pid_t pid) {
 
         p = procfs_file_alloca(pid, "cmdline");
         f = fopen(p, "re");
-        if (!f)
+        if (!f) {
+                if (errno == ENOENT)
+                        return -ESRCH;
                 return -errno;
+        }
 
         count = fread(&c, 1, 1, f);
         eof = feof(f);
@@ -199,13 +208,18 @@ int is_kernel_thread(pid_t pid) {
 
 int get_process_capeff(pid_t pid, char **capeff) {
         const char *p;
+        int r;
 
         assert(capeff);
         assert(pid >= 0);
 
         p = procfs_file_alloca(pid, "status");
 
-        return get_status_field(p, "\nCapEff:", capeff);
+        r = get_status_field(p, "\nCapEff:", capeff);
+        if (r == -ENOENT)
+                return -ESRCH;
+
+        return r;
 }
 
 static int get_process_link_contents(const char *proc_file, char **name) {
@@ -215,8 +229,10 @@ static int get_process_link_contents(const char *proc_file, char **name) {
         assert(name);
 
         r = readlink_malloc(proc_file, name);
+        if (r == -ENOENT)
+                return -ESRCH;
         if (r < 0)
-                return r == -ENOENT ? -ESRCH : r;
+                return r;
 
         return 0;
 }
@@ -253,8 +269,11 @@ static int get_process_id(pid_t pid, const char *field, uid_t *uid) {
 
         p = procfs_file_alloca(pid, "status");
         f = fopen(p, "re");
-        if (!f)
+        if (!f) {
+                if (errno == ENOENT)
+                        return -ESRCH;
                 return -errno;
+        }
 
         FOREACH_LINE(line, f, return -errno) {
                 char *l;
@@ -316,8 +335,11 @@ int get_process_environ(pid_t pid, char **env) {
         p = procfs_file_alloca(pid, "environ");
 
         f = fopen(p, "re");
-        if (!f)
+        if (!f) {
+                if (errno == ENOENT)
+                        return -ESRCH;
                 return -errno;
+        }
 
         while ((c = fgetc(f)) != EOF) {
                 if (!GREEDY_REALLOC(outcome, allocated, sz + 5))
@@ -329,10 +351,13 @@ int get_process_environ(pid_t pid, char **env) {
                         sz += cescape_char(c, outcome + sz);
         }
 
-        if (sz == 0)
-                return -ENOENT;
+        if (!outcome) {
+                outcome = strdup("");
+                if (!outcome)
+                        return -ENOMEM;
+        } else
+                outcome[sz] = '\0';
 
-        outcome[sz] = '\0';
         *env = outcome;
         outcome = NULL;
 
@@ -355,6 +380,8 @@ int get_parent_of_pid(pid_t pid, pid_t *_ppid) {
 
         p = procfs_file_alloca(pid, "stat");
         r = read_one_line_file(p, &line);
+        if (r == -ENOENT)
+                return -ESRCH;
         if (r < 0)
                 return r;
 
@@ -475,8 +502,11 @@ int getenv_for_pid(pid_t pid, const char *field, char **_value) {
         path = procfs_file_alloca(pid, "environ");
 
         f = fopen(path, "re");
-        if (!f)
+        if (!f) {
+                if (errno == ENOENT)
+                        return -ESRCH;
                 return -errno;
+        }
 
         l = strlen(field);
         r = 0;
@@ -535,7 +565,7 @@ bool pid_is_alive(pid_t pid) {
                 return false;
 
         r = get_process_state(pid);
-        if (r == -ENOENT || r == 'Z')
+        if (r == -ESRCH || r == 'Z')
                 return false;
 
         return true;
