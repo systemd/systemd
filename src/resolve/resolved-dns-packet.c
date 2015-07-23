@@ -1513,6 +1513,13 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
                 if (r < 0)
                         goto fail;
 
+                if (rr->ds.digest_size <= 0) {
+                        /* the accepted size depends on the algorithm, but for now
+                           just ensure that the value is greater than zero */
+                        r = -EBADMSG;
+                        goto fail;
+                }
+
                 break;
         case DNS_TYPE_SSHFP:
                 r = dns_packet_read_uint8(p, &rr->sshfp.algorithm, NULL);
@@ -1526,6 +1533,14 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
                 r = dns_packet_read_memdup(p, rdlength - 2,
                                            &rr->sshfp.key, &rr->sshfp.key_size,
                                            NULL);
+
+                if (rr->sshfp.key_size <= 0) {
+                        /* the accepted size depends on the algorithm, but for now
+                           just ensure that the value is greater than zero */
+                        r = -EBADMSG;
+                        goto fail;
+                }
+
                 break;
 
         case DNS_TYPE_DNSKEY: {
@@ -1557,6 +1572,14 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
                 r = dns_packet_read_memdup(p, rdlength - 4,
                                            &rr->dnskey.key, &rr->dnskey.key_size,
                                            NULL);
+
+                if (rr->dnskey.key_size <= 0) {
+                        /* the accepted size depends on the algorithm, but for now
+                           just ensure that the value is greater than zero */
+                        r = -EBADMSG;
+                        goto fail;
+                }
+
                 break;
         }
 
@@ -1596,6 +1619,14 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
                 r = dns_packet_read_memdup(p, offset + rdlength - p->rindex,
                                            &rr->rrsig.signature, &rr->rrsig.signature_size,
                                            NULL);
+
+                if (rr->rrsig.signature_size <= 0) {
+                        /* the accepted size depends on the algorithm, but for now
+                           just ensure that the value is greater than zero */
+                        r = -EBADMSG;
+                        goto fail;
+                }
+
                 break;
 
         case DNS_TYPE_NSEC:
@@ -1626,6 +1657,7 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
                 if (r < 0)
                         goto fail;
 
+                /* this may be zero */
                 r = dns_packet_read_uint8(p, &size, NULL);
                 if (r < 0)
                         goto fail;
@@ -1637,6 +1669,11 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
                 r = dns_packet_read_uint8(p, &size, NULL);
                 if (r < 0)
                         goto fail;
+
+                if (size <= 0) {
+                        r = -EBADMSG;
+                        goto fail;
+                }
 
                 r = dns_packet_read_memdup(p, size, &rr->nsec3.next_hashed_name, &rr->nsec3.next_hashed_name_size, NULL);
                 if (r < 0)
