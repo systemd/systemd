@@ -302,7 +302,7 @@ AC_CHECK_DECLS([IFLA_INET6_ADDR_GEN_MODE,
                 IFLA_IPTUN_ENCAP_DPORT,
                 IFLA_GRE_ENCAP_DPORT,
                 IFLA_BRIDGE_VLAN_INFO,
-                IFLA_BRPORT_UNICAST_FLOOD,
+                IFLA_BRPORT_LEARNING_SYNC,
                 NDA_IFINDEX,
                 IFA_FLAGS],
 [], [], [[
