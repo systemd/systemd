@@ -229,3 +229,6 @@ int journal_file_get_cutoff_realtime_usec(JournalFile *f, usec_t *from, usec_t *
 int journal_file_get_cutoff_monotonic_usec(JournalFile *f, sd_id128_t boot, usec_t *from, usec_t *to);
 
 bool journal_file_rotate_suggested(JournalFile *f, usec_t max_file_usec);
+
+int journal_file_map_data_hash_table(JournalFile *f);
+int journal_file_map_field_hash_table(JournalFile *f);

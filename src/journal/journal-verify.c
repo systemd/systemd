@@ -590,6 +590,13 @@ static int verify_hash_table(
         assert(last_usec);
 
         n = le64toh(f->header->data_hash_table_size) / sizeof(HashItem);
+        if (n <= 0)
+                return 0;
+
+        r = journal_file_map_data_hash_table(f);
+        if (r < 0)
+                return log_error_errno(r, "Failed to map data hash table: %m");
+
         for (i = 0; i < n; i++) {
                 uint64_t last = 0, p;
 
@@ -647,6 +654,13 @@ static int data_object_in_hash_table(JournalFile *f, uint64_t hash, uint64_t p) 
         assert(f);
 
         n = le64toh(f->header->data_hash_table_size) / sizeof(HashItem);
+        if (n <= 0)
+                return 0;
+
+        r = journal_file_map_data_hash_table(f);
+        if (r < 0)
+                return log_error_errno(r, "Failed to map data hash table: %m");
+
         h = hash % n;
 
         q = le64toh(f->data_hash_table[h].head_hash_offset);

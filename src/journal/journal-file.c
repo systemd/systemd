@@ -656,12 +656,15 @@ static int journal_file_setup_field_hash_table(JournalFile *f) {
         return 0;
 }
 
-static int journal_file_map_data_hash_table(JournalFile *f) {
+int journal_file_map_data_hash_table(JournalFile *f) {
         uint64_t s, p;
         void *t;
         int r;
 
         assert(f);
+
+        if (f->data_hash_table)
+                return 0;
 
         p = le64toh(f->header->data_hash_table_offset);
         s = le64toh(f->header->data_hash_table_size);
@@ -678,12 +681,15 @@ static int journal_file_map_data_hash_table(JournalFile *f) {
         return 0;
 }
 
-static int journal_file_map_field_hash_table(JournalFile *f) {
+int journal_file_map_field_hash_table(JournalFile *f) {
         uint64_t s, p;
         void *t;
         int r;
 
         assert(f);
+
+        if (f->field_hash_table)
+                return 0;
 
         p = le64toh(f->header->field_hash_table_offset);
         s = le64toh(f->header->field_hash_table_size);
@@ -803,10 +809,18 @@ int journal_file_find_field_object_with_hash(
         assert(f);
         assert(field && size > 0);
 
+        /* If the field hash table is empty, we can't find anything */
+        if (le64toh(f->header->field_hash_table_size) <= 0)
+                return 0;
+
+        /* Map the field hash table, if it isn't mapped yet. */
+        r = journal_file_map_field_hash_table(f);
+        if (r < 0)
+                return r;
+
         osize = offsetof(Object, field.payload) + size;
 
         m = le64toh(f->header->field_hash_table_size) / sizeof(HashItem);
-
         if (m <= 0)
                 return -EBADMSG;
 
@@ -865,6 +879,15 @@ int journal_file_find_data_object_with_hash(
 
         assert(f);
         assert(data || size == 0);
+
+        /* If there's no data hash table, then there's no entry. */
+        if (le64toh(f->header->data_hash_table_size) <= 0)
+                return 0;
+
+        /* Map the data hash table, if it isn't mapped yet. */
+        r = journal_file_map_data_hash_table(f);
+        if (r < 0)
+                return r;
 
         osize = offsetof(Object, data.payload) + size;
 
@@ -2730,14 +2753,6 @@ int journal_file_open(
                         goto fail;
 #endif
         }
-
-        r = journal_file_map_field_hash_table(f);
-        if (r < 0)
-                goto fail;
-
-        r = journal_file_map_data_hash_table(f);
-        if (r < 0)
-                goto fail;
 
         if (mmap_cache_got_sigbus(f->mmap, f->fd)) {
                 r = -EIO;
