@@ -533,7 +533,7 @@ static char *format_types(Bitmap *types) {
 
         BITMAP_FOREACH(type, types, i) {
                 if (dns_type_to_string(type)) {
-                        r = strv_extend(&strv, strdup(dns_type_to_string(type)));
+                        r = strv_extend(&strv, dns_type_to_string(type));
                         if (r < 0)
                                 return NULL;
                 } else {
@@ -543,7 +543,7 @@ static char *format_types(Bitmap *types) {
                         if (r < 0)
                                 return NULL;
 
-                        r = strv_extend(&strv, t);
+                        r = strv_consume(&strv, t);
                         if (r < 0)
                                 return NULL;
                 }
