@@ -69,8 +69,6 @@ Features:
 
 * log accumulated resource usage after each service invocation
 
-* networkd: dhcp server: try to assign stable IP addresses based on client's MAC address
-
 * nspawn: a nice way to boot up without machine id set, so that it is set at boot automatically for supporting --ephemeral. Maybe hash the host machine id together with the machine name to generate the machine id for the container
 
 * logind: rename session scope so that it includes the UID. THat way
@@ -95,8 +93,6 @@ Features:
   http://lists.freedesktop.org/archives/systemd-devel/2015-February/028630.html
 
 * nspawn: as soon as networkd has a bus interface, hook up --network-interface=, --network-bridge= with networkd, to trigger netdev creation should an interface be missing
-
-* networkd: make DHCP server IP range configurable, including only with a single IP address
 
 * rework C11 utf8.[ch] to use char32_t instead of uint32_t when referring
   to unicode chars, to make things more expressive.
@@ -316,6 +312,8 @@ Features:
   (throughout the codebase, not only PID1)
 
 * networkd:
+  - make DHCP server IP range configurable, including only with a single IP address
+  - dhcp server: try to assign stable IP addresses based on client's MAC address
   - add LLDP client side support
   - the DHCP lease data (such as NTP/DNS) is still made available when
     a carrier is lost on a link. It should be removed instantly.
@@ -333,6 +331,7 @@ Features:
   - allow Name= to be specified repeatedly in the [Match] section. Maybe also
     support Name=foo*|bar*|baz ?
   - duplicate address check for static IPs (like ARPCHECK in network-scripts)
+  - allow DUID/IAID to be customized, see issue #394.
 
 * resolved:
   - put networkd events and rtnl events at a higher priority, so that
