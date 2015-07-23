@@ -509,22 +509,22 @@ static int dns_packet_append_type_window(DnsPacket *p, uint8_t window, uint8_t l
         assert(p);
         assert(types);
 
-        if (length == 0)
-                return 0;
-
         saved_size = p->size;
 
-        r = dns_packet_append_uint8(p, window, NULL);
-        if (r < 0)
-                goto fail;
+        if (length != 0) {
 
-        r = dns_packet_append_uint8(p, length, NULL);
-        if (r < 0)
-                goto fail;
+                r = dns_packet_append_uint8(p, window, NULL);
+                if (r < 0)
+                        goto fail;
 
-        r = dns_packet_append_blob(p, types, length, NULL);
-        if (r < 0)
-                goto fail;
+                r = dns_packet_append_uint8(p, length, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_blob(p, types, length, NULL);
+                if (r < 0)
+                        goto fail;
+        }
 
         if (start)
                 *start = saved_size;
