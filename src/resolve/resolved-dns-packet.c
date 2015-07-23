@@ -1712,9 +1712,11 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_types(p, rr->nsec3.types, NULL);
+                r = dns_packet_read_type_windows(p, &rr->nsec.types, offset + rdlength - p->rindex, NULL);
                 if (r < 0)
                         goto fail;
+
+                /* empty non-terminals can have NSEC3 records, so empty bitmaps are allowed */
 
                 break;
         }
