@@ -13,5 +13,9 @@ global:
         _nss_mymachines_gethostbyname2_r;
         _nss_mymachines_gethostbyname3_r;
         _nss_mymachines_gethostbyname4_r;
+        _nss_mymachines_getpwnam_r;
+        _nss_mymachines_getpwuid_r;
+        _nss_mymachines_getgrnam_r;
+        _nss_mymachines_getgrgid_r;
 local: *;
 };

@@ -59,21 +59,26 @@
     <para><command>nss-mymachines</command> is a plugin for the GNU
     Name Service Switch (NSS) functionality of the GNU C Library
     (<command>glibc</command>) providing hostname resolution for
-    containers running locally, that are registered with
+    container names of containers running locally, that are registered
+    with
     <citerefentry><refentrytitle>systemd-machined.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-    The container names are resolved to IP addresses of the specific
-    container, ordered by their scope.</para>
+    The container names are resolved to the IP addresses of the
+    specific container, ordered by their scope.</para>
+
+    <para>The module also resolves user IDs used by containers to user
+    names indicating the container name, and back.</para>
 
     <para>To activate the NSS modules, <literal>mymachines</literal>
-    has to be added to the line starting with
-    <literal>hosts:</literal> in
+    has to be added to the lines starting with
+    <literal>hosts:</literal>, <literal>passwd:</literal> and
+    <literal>group:</literal> in
     <filename>/etc/nsswitch.conf</filename>.</para>
 
     <para>It is recommended to place <literal>mymachines</literal>
-    near the end of the <filename>nsswitch.conf</filename> line to
-    make sure that this mapping is only used as fallback, and any DNS
-    or <filename>/etc/hosts</filename> based mapping takes
-    precedence.</para>
+    near the end of the <filename>nsswitch.conf</filename> lines to
+    make sure that its mappings are only used as fallback, and any
+    other mappings, such as DNS or <filename>/etc/hosts</filename>
+    based mappings take precedence.</para>
   </refsect1>
 
   <refsect1>
@@ -82,17 +87,17 @@
     <para>Here's an example <filename>/etc/nsswitch.conf</filename>
     file, that enables <command>mymachines</command> correctly:</para>
 
-<programlisting>passwd:   compat
-group:    compat
-shadow:   compat
+    <programlisting>passwd:         compat <command>mymachines</command>
+group:          compat <command>mymachines</command>
+shadow:         compat
 
-hosts:    files dns <command>mymachines</command> myhostname
+hosts:          files dns <command>mymachines</command> myhostname
 networks:       files
 
 protocols:      db files
 services:       db files
-ethers:   db files
-rpc:      db files
+ethers:         db files
+rpc:            db files
 
 netgroup:       nis</programlisting>
 

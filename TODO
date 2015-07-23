@@ -51,8 +51,6 @@ Features:
 
 * install: include generator dirs in unit file search paths
 
-* introduce an NSS module that uses machined info to give container UIDs pretty names when user namespacing is used.
-
 * stop using off_t, it's a crazy type. Use uint64_t instead.
 
 * logind: follow PropertiesChanged state more closely, to deal with quick logouts and relogins

@@ -31,12 +31,13 @@
 #include "bus-common-errors.h"
 #include "cgroup-util.h"
 #include "btrfs-util.h"
+#include "formats-util.h"
+#include "process-util.h"
 #include "machine-image.h"
 #include "machine-pool.h"
 #include "image-dbus.h"
 #include "machined.h"
 #include "machine-dbus.h"
-#include "formats-util.h"
 
 static int property_get_pool_path(
                 sd_bus *bus,
@@ -840,6 +841,230 @@ static int method_set_image_limit(sd_bus_message *message, void *userdata, sd_bu
         return bus_image_method_set_limit(message, i, error);
 }
 
+static int method_map_from_machine_user(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_fclose_ FILE *f = NULL;
+        Manager *m = userdata;
+        const char *name, *p;
+        Machine *machine;
+        uint32_t uid;
+        int r;
+
+        r = sd_bus_message_read(message, "su", &name, &uid);
+        if (r < 0)
+                return r;
+
+        if (UID_IS_INVALID(uid))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid user ID " UID_FMT, uid);
+
+        machine = hashmap_get(m->machines, name);
+        if (!machine)
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_MACHINE, "No machine '%s' known", name);
+
+        p = procfs_file_alloca(machine->leader, "uid_map");
+        f = fopen(p, "re");
+        if (!f)
+                return -errno;
+
+        for (;;) {
+                uid_t uid_base, uid_shift, uid_range, converted;
+                int k;
+
+                errno = 0;
+                k = fscanf(f, UID_FMT " " UID_FMT " " UID_FMT, &uid_base, &uid_shift, &uid_range);
+                if (k < 0 && feof(f))
+                        break;
+                if (k != 3) {
+                        if (ferror(f) && errno != 0)
+                                return -errno;
+
+                        return -EIO;
+                }
+
+                if (uid < uid_base || uid >= uid_base + uid_range)
+                        continue;
+
+                converted = uid - uid_base + uid_shift;
+                if (UID_IS_INVALID(converted))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid user ID " UID_FMT, uid);
+
+                return sd_bus_reply_method_return(message, "u", (uint32_t) converted);
+        }
+
+        return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_USER_MAPPING, "Machine '%s' has no matching user mappings.", name);
+}
+
+static int method_map_to_machine_user(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Manager *m = userdata;
+        Machine *machine;
+        uid_t uid;
+        Iterator i;
+        int r;
+
+        r = sd_bus_message_read(message, "u", &uid);
+        if (r < 0)
+                return r;
+        if (UID_IS_INVALID(uid))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid user ID " UID_FMT, uid);
+        if (uid < 0x10000)
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_USER_MAPPING, "User " UID_FMT " belongs to host UID range", uid);
+
+        HASHMAP_FOREACH(machine, m->machines, i) {
+                _cleanup_fclose_ FILE *f = NULL;
+                char p[strlen("/proc//uid_map") + DECIMAL_STR_MAX(pid_t) + 1];
+
+                xsprintf(p, "/proc/" UID_FMT "/uid_map", machine->leader);
+                f = fopen(p, "re");
+                if (!f) {
+                        log_warning_errno(errno, "Failed top open %s, ignoring,", p);
+                        continue;
+                }
+
+                for (;;) {
+                        _cleanup_free_ char *o = NULL;
+                        uid_t uid_base, uid_shift, uid_range, converted;
+                        int k;
+
+                        errno = 0;
+                        k = fscanf(f, UID_FMT " " UID_FMT " " UID_FMT, &uid_base, &uid_shift, &uid_range);
+                        if (k < 0 && feof(f))
+                                break;
+                        if (k != 3) {
+                                if (ferror(f) && errno != 0)
+                                        return -errno;
+
+                                return -EIO;
+                        }
+
+                        if (uid < uid_shift || uid >= uid_shift + uid_range)
+                                continue;
+
+                        converted = (uid - uid_shift + uid_base);
+                        if (UID_IS_INVALID(converted))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid user ID " UID_FMT, uid);
+
+                        o = machine_bus_path(machine);
+                        if (!o)
+                                return -ENOMEM;
+
+                        return sd_bus_reply_method_return(message, "sou", machine->name, o, (uint32_t) converted);
+                }
+        }
+
+        return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_USER_MAPPING, "No matching user mapping for " UID_FMT ".", uid);
+}
+
+static int method_map_from_machine_group(sd_bus_message *message, void *groupdata, sd_bus_error *error) {
+        _cleanup_fclose_ FILE *f = NULL;
+        Manager *m = groupdata;
+        const char *name, *p;
+        Machine *machine;
+        uint32_t gid;
+        int r;
+
+        r = sd_bus_message_read(message, "su", &name, &gid);
+        if (r < 0)
+                return r;
+
+        if (GID_IS_INVALID(gid))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid group ID " GID_FMT, gid);
+
+        machine = hashmap_get(m->machines, name);
+        if (!machine)
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_MACHINE, "No machine '%s' known", name);
+
+        p = procfs_file_alloca(machine->leader, "gid_map");
+        f = fopen(p, "re");
+        if (!f)
+                return -errno;
+
+        for (;;) {
+                gid_t gid_base, gid_shift, gid_range, converted;
+                int k;
+
+                errno = 0;
+                k = fscanf(f, GID_FMT " " GID_FMT " " GID_FMT, &gid_base, &gid_shift, &gid_range);
+                if (k < 0 && feof(f))
+                        break;
+                if (k != 3) {
+                        if (ferror(f) && errno != 0)
+                                return -errno;
+
+                        return -EIO;
+                }
+
+                if (gid < gid_base || gid >= gid_base + gid_range)
+                        continue;
+
+                converted = gid - gid_base + gid_shift;
+                if (GID_IS_INVALID(converted))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid group ID " GID_FMT, gid);
+
+                return sd_bus_reply_method_return(message, "u", (uint32_t) converted);
+        }
+
+        return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_GROUP_MAPPING, "Machine '%s' has no matching group mappings.", name);
+}
+
+static int method_map_to_machine_group(sd_bus_message *message, void *groupdata, sd_bus_error *error) {
+        Manager *m = groupdata;
+        Machine *machine;
+        gid_t gid;
+        Iterator i;
+        int r;
+
+        r = sd_bus_message_read(message, "u", &gid);
+        if (r < 0)
+                return r;
+        if (GID_IS_INVALID(gid))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid group ID " GID_FMT, gid);
+        if (gid < 0x10000)
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_GROUP_MAPPING, "Group " GID_FMT " belongs to host GID range", gid);
+
+        HASHMAP_FOREACH(machine, m->machines, i) {
+                _cleanup_fclose_ FILE *f = NULL;
+                char p[strlen("/proc//gid_map") + DECIMAL_STR_MAX(pid_t) + 1];
+
+                xsprintf(p, "/proc/" GID_FMT "/gid_map", machine->leader);
+                f = fopen(p, "re");
+                if (!f) {
+                        log_warning_errno(errno, "Failed top open %s, ignoring,", p);
+                        continue;
+                }
+
+                for (;;) {
+                        _cleanup_free_ char *o = NULL;
+                        gid_t gid_base, gid_shift, gid_range, converted;
+                        int k;
+
+                        errno = 0;
+                        k = fscanf(f, GID_FMT " " GID_FMT " " GID_FMT, &gid_base, &gid_shift, &gid_range);
+                        if (k < 0 && feof(f))
+                                break;
+                        if (k != 3) {
+                                if (ferror(f) && errno != 0)
+                                        return -errno;
+
+                                return -EIO;
+                        }
+
+                        if (gid < gid_shift || gid >= gid_shift + gid_range)
+                                continue;
+
+                        converted = (gid - gid_shift + gid_base);
+                        if (GID_IS_INVALID(converted))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid group ID " GID_FMT, gid);
+
+                        o = machine_bus_path(machine);
+                        if (!o)
+                                return -ENOMEM;
+
+                        return sd_bus_reply_method_return(message, "sou", machine->name, o, (uint32_t) converted);
+                }
+        }
+
+        return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_GROUP_MAPPING, "No matching group mapping for " GID_FMT ".", gid);
+}
+
 const sd_bus_vtable manager_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("PoolPath", "s", property_get_pool_path, 0, 0),
@@ -869,6 +1094,10 @@ const sd_bus_vtable manager_vtable[] = {
         SD_BUS_METHOD("MarkImageReadOnly", "sb", NULL, method_mark_image_read_only, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetPoolLimit", "t", NULL, method_set_pool_limit, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetImageLimit", "st", NULL, method_set_image_limit, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("MapFromMachineUser", "su", "u", method_map_from_machine_user, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("MapToMachineUser", "u", "sou", method_map_to_machine_user, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("MapFromMachineGroup", "su", "u", method_map_from_machine_group, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("MapToMachineGroup", "u", "sou", method_map_to_machine_group, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_SIGNAL("MachineNew", "so", 0),
         SD_BUS_SIGNAL("MachineRemoved", "so", 0),
         SD_BUS_VTABLE_END
