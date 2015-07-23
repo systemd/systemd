@@ -150,6 +150,11 @@ struct Network {
 
         bool dhcp_server;
 
+        bool bpdu_guard;
+        bool hairpin;
+        bool fast_leave;
+        bool root_block;
+        bool flood;
         unsigned cost;
 
         AddressFamilyBoolean ip_forward;

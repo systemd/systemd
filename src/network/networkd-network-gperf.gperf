@@ -73,6 +73,11 @@ DHCP.CriticalConnection,       config_parse_bool,                              0
 DHCP.VendorClassIdentifier,    config_parse_string,                            0,                             offsetof(Network, dhcp_vendor_class_identifier)
 DHCP.RouteMetric,              config_parse_unsigned,                          0,                             offsetof(Network, dhcp_route_metric)
 Bridge.Cost,                   config_parse_unsigned,                          0,                             offsetof(Network, cost)
+Bridge.BPDUGuard,              config_parse_bool,                              0,                             offsetof(Network, bpdu_guard)
+Bridge.HairPin,                config_parse_bool,                              0,                             offsetof(Network, hairpin)
+Bridge.FastLeave,              config_parse_bool,                              0,                             offsetof(Network, fast_leave)
+Bridge.RootBlock,              config_parse_bool,                              0,                             offsetof(Network, root_block)
+Bridge.Flood,                  config_parse_bool,                              0,                             offsetof(Network, flood)
 BridgeFDB.MACAddress,          config_parse_fdb_hwaddr,                        0,                             0
 BridgeFDB.VLANId,              config_parse_fdb_vlan_id,                       0,                             0
 /* backwards compatibility: do not add new entries to this section */

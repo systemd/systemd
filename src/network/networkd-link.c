@@ -846,9 +846,6 @@ static int link_set_bridge(Link *link) {
         assert(link);
         assert(link->network);
 
-        if(link->network->cost == 0)
-                return 0;
-
         r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_SETLINK, link->ifindex);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not allocate RTM_SETLINK message: %m");
@@ -860,6 +857,26 @@ static int link_set_bridge(Link *link) {
         r = sd_netlink_message_open_container(req, IFLA_PROTINFO);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not append IFLA_PROTINFO attribute: %m");
+
+        r = sd_netlink_message_append_u8(req, IFLA_BRPORT_GUARD, link->network->bpdu_guard);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_GUARD attribute: %m");
+
+        r = sd_netlink_message_append_u8(req, IFLA_BRPORT_MODE, link->network->hairpin);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_MODE attribute: %m");
+
+        r = sd_netlink_message_append_u8(req, IFLA_BRPORT_FAST_LEAVE, link->network->fast_leave);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_FAST_LEAVE attribute: %m");
+
+        r = sd_netlink_message_append_u8(req, IFLA_BRPORT_PROTECT, link->network->root_block);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_PROTECT attribute: %m");
+
+        r = sd_netlink_message_append_u8(req, IFLA_BRPORT_UNICAST_FLOOD, link->network->flood);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_UNICAST_FLOOD attribute: %m");
 
         if(link->network->cost != 0) {
                 r = sd_netlink_message_append_u32(req, IFLA_BRPORT_COST, link->network->cost);
