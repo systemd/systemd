@@ -504,6 +504,17 @@
         </listitem>
       </varlistentry>
       <varlistentry>
+        <term><varname>DiffServiceCodePoint=</varname></term>
+        <listitem>
+          <para>A boolean. When true, inherits the Differentiated
+          Service Code Point (DSCP) field between inner and outer
+          header for ip6_tunnel. DSCP is a field in an IP packet
+          that enables different levels of service to be assigned
+          to network traffic. Defaults to <literal>no</literal>.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
         <term><varname>Mode=</varname></term>
         <listitem>
           <para>An <literal>ip6tnl</literal> tunnels can have three
