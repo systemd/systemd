@@ -832,7 +832,7 @@ static inline int setns(int fd, int nstype) {
 #define IFLA_BRIDGE_MAX (__IFLA_BRIDGE_MAX - 1)
 #endif
 
-#if !HAVE_DECL_IFLA_BRPORT_UNICAST_FLOOD
+#if !HAVE_DECL_IFLA_BRPORT_LEARNING_SYNC
 #define IFLA_BRPORT_UNSPEC 0
 #define IFLA_BRPORT_STATE 1
 #define IFLA_BRPORT_PRIORITY 2
@@ -843,7 +843,9 @@ static inline int setns(int fd, int nstype) {
 #define IFLA_BRPORT_FAST_LEAVE 7
 #define IFLA_BRPORT_LEARNING 8
 #define IFLA_BRPORT_UNICAST_FLOOD 9
-#define __IFLA_BRPORT_MAX 10
+#define IFLA_BRPORT_PROXYARP 10
+#define IFLA_BRPORT_LEARNING_SYNC 11
+#define __IFLA_BRPORT_MAX 12
 
 #define IFLA_BRPORT_MAX (__IFLA_BRPORT_MAX - 1)
 #endif
