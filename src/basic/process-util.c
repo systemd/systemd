@@ -351,10 +351,13 @@ int get_process_environ(pid_t pid, char **env) {
                         sz += cescape_char(c, outcome + sz);
         }
 
-        if (sz == 0)
-                return -ENOENT;
+        if (!outcome) {
+                outcome = strdup("");
+                if (!outcome)
+                        return -ENOMEM;
+        } else
+                outcome[sz] = '\0';
 
-        outcome[sz] = '\0';
         *env = outcome;
         outcome = NULL;
 
