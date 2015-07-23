@@ -786,7 +786,7 @@ int executable_is_script(const char *path, char **interpreter) {
  */
 int get_status_field(const char *filename, const char *pattern, char **field) {
         _cleanup_free_ char *status = NULL;
-        char *t;
+        char *t, *f;
         size_t len;
         int r;
 
@@ -820,9 +820,10 @@ int get_status_field(const char *filename, const char *pattern, char **field) {
 
         len = strcspn(t, WHITESPACE);
 
-        *field = strndup(t, len);
-        if (!*field)
+        f = strndup(t, len);
+        if (!f)
                 return -ENOMEM;
 
+        *field = f;
         return 0;
 }
