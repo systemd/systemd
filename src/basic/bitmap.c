@@ -140,12 +140,9 @@ bool bitmap_isclear(Bitmap *b) {
 }
 
 void bitmap_clear(Bitmap *b) {
-        unsigned i;
-
         assert(b);
 
-        for (i = 0; i < b->n_bitmaps; i++)
-                b->bitmaps[i] = 0;
+        b->n_bitmaps = 0;
 }
 
 bool bitmap_iterate(Bitmap *b, Iterator *i, unsigned *n) {
