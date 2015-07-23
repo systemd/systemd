@@ -276,7 +276,7 @@ DnsResourceRecord* dns_resource_record_unref(DnsResourceRecord *rr) {
                         break;
 
                 case DNS_TYPE_SSHFP:
-                        free(rr->sshfp.key);
+                        free(rr->sshfp.fingerprint);
                         break;
 
                 case DNS_TYPE_DNSKEY:
@@ -434,8 +434,8 @@ int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecor
         case DNS_TYPE_SSHFP:
                 return a->sshfp.algorithm == b->sshfp.algorithm &&
                        a->sshfp.fptype == b->sshfp.fptype &&
-                       a->sshfp.key_size == b->sshfp.key_size &&
-                       memcmp(a->sshfp.key, b->sshfp.key, a->sshfp.key_size) == 0;
+                       a->sshfp.fingerprint_size == b->sshfp.fingerprint_size &&
+                       memcmp(a->sshfp.fingerprint, b->sshfp.fingerprint, a->sshfp.fingerprint_size) == 0;
 
         case DNS_TYPE_DNSKEY:
                 return a->dnskey.zone_key_flag == b->dnskey.zone_key_flag &&
@@ -687,7 +687,7 @@ int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
                 break;
 
         case DNS_TYPE_SSHFP:
-                t = hexmem(rr->sshfp.key, rr->sshfp.key_size);
+                t = hexmem(rr->sshfp.fingerprint, rr->sshfp.fingerprint_size);
                 if (!t)
                         return -ENOMEM;
 
