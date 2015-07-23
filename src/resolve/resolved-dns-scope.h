@@ -70,7 +70,6 @@ int dns_scope_tcp_socket(DnsScope *s, int family, const union in_addr_union *add
 
 DnsScopeMatch dns_scope_good_domain(DnsScope *s, int ifindex, uint64_t flags, const char *domain);
 int dns_scope_good_key(DnsScope *s, DnsResourceKey *key);
-int dns_scope_good_dns_server(DnsScope *s, int family, const union in_addr_union *address);
 
 DnsServer *dns_scope_get_dns_server(DnsScope *s);
 void dns_scope_next_dns_server(DnsScope *s);
