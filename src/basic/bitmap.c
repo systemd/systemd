@@ -24,7 +24,7 @@
 #include "bitmap.h"
 
 struct Bitmap {
-        long long unsigned *bitmaps;
+        uint64_t *bitmaps;
         size_t n_bitmaps;
         size_t bitmaps_allocated;
 };
@@ -37,9 +37,9 @@ struct Bitmap {
 /* This indicates that we reached the end of the bitmap */
 #define BITMAP_END ((unsigned) -1)
 
-#define BITMAP_NUM_TO_OFFSET(n)           ((n) / (sizeof(long long unsigned) * 8))
-#define BITMAP_NUM_TO_REM(n)              ((n) % (sizeof(long long unsigned) * 8))
-#define BITMAP_OFFSET_TO_NUM(offset, rem) ((offset) * sizeof(long long unsigned) * 8 + (rem))
+#define BITMAP_NUM_TO_OFFSET(n)           ((n) / (sizeof(uint64_t) * 8))
+#define BITMAP_NUM_TO_REM(n)              ((n) % (sizeof(uint64_t) * 8))
+#define BITMAP_OFFSET_TO_NUM(offset, rem) ((offset) * sizeof(uint64_t) * 8 + (rem))
 
 Bitmap *bitmap_new(void) {
         return new0(Bitmap, 1);
@@ -69,7 +69,7 @@ int bitmap_ensure_allocated(Bitmap **b) {
 }
 
 int bitmap_set(Bitmap *b, unsigned n) {
-        long long unsigned bitmask;
+        uint64_t bitmask;
         unsigned offset;
 
         assert(b);
@@ -95,7 +95,7 @@ int bitmap_set(Bitmap *b, unsigned n) {
 }
 
 void bitmap_unset(Bitmap *b, unsigned n) {
-        long long unsigned bitmask;
+        uint64_t bitmask;
         unsigned offset;
 
         assert(b);
@@ -111,7 +111,7 @@ void bitmap_unset(Bitmap *b, unsigned n) {
 }
 
 bool bitmap_isset(Bitmap *b, unsigned n) {
-        long long unsigned bitmask;
+        uint64_t bitmask;
         unsigned offset;
 
         if (!b || !b->bitmaps)
@@ -146,7 +146,7 @@ void bitmap_clear(Bitmap *b) {
 }
 
 bool bitmap_iterate(Bitmap *b, Iterator *i, unsigned *n) {
-        long long unsigned bitmask;
+        uint64_t bitmask;
         unsigned offset, rem;
 
         if (!b || i->idx == BITMAP_END)
