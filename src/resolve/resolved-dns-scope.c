@@ -420,19 +420,6 @@ int dns_scope_llmnr_membership(DnsScope *s, bool b) {
         return 0;
 }
 
-int dns_scope_good_dns_server(DnsScope *s, int family, const union in_addr_union *address) {
-        assert(s);
-        assert(address);
-
-        if (s->protocol != DNS_PROTOCOL_DNS)
-                return 1;
-
-        if (s->link)
-                return !!link_find_dns_server(s->link,  family, address);
-        else
-                return !!manager_find_dns_server(s->manager, family, address);
-}
-
 static int dns_scope_make_reply_packet(
                 DnsScope *s,
                 uint16_t id,
