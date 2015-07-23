@@ -1233,6 +1233,38 @@ fail:
         return r;
 }
 
+static int dns_packet_read_type_windows(DnsPacket *p, Bitmap **types, size_t size, size_t *start) {
+        size_t saved_rindex;
+        int r;
+
+        saved_rindex = p->rindex;
+
+        while (p->rindex < saved_rindex + size) {
+                r = dns_packet_read_type_window(p, types, NULL);
+                if (r < 0)
+                        goto fail;
+
+                /* don't read past end of current RR */
+                if (p->rindex > saved_rindex + size) {
+                        r = -EBADMSG;
+                        goto fail;
+                }
+        }
+
+        if (p->rindex != saved_rindex + size) {
+                r = -EBADMSG;
+                goto fail;
+        }
+
+        if (start)
+                *start = saved_rindex;
+
+        return 0;
+fail:
+        dns_packet_rewind(p, saved_rindex);
+        return r;
+}
+
 int dns_packet_read_key(DnsPacket *p, DnsResourceKey **ret, size_t *start) {
         _cleanup_free_ char *name = NULL;
         uint16_t class, type;
@@ -1634,11 +1666,12 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
                 if (r < 0)
                         goto fail;
 
-                while (p->rindex != offset + rdlength) {
-                        r = dns_packet_read_type_window(p, &rr->nsec.types, NULL);
-                        if (r < 0)
-                                goto fail;
-                }
+                r = dns_packet_read_type_windows(p, &rr->nsec.types, offset + rdlength - p->rindex, NULL);
+                if (r < 0)
+                        goto fail;
+
+                /* NSEC RRs with empty bitmpas makes no sense, but the RFC does not explicitly forbid them
+                   so we allow it */
 
                 break;
 
