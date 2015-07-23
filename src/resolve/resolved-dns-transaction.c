@@ -20,10 +20,11 @@
 ***/
 
 #include "af-list.h"
+#include "event-util.h"
+#include "random-util.h"
 
 #include "resolved-llmnr.h"
 #include "resolved-dns-transaction.h"
-#include "random-util.h"
 
 DnsTransaction* dns_transaction_free(DnsTransaction *t) {
         DnsQuery *q;
@@ -39,10 +40,8 @@ DnsTransaction* dns_transaction_free(DnsTransaction *t) {
         dns_packet_unref(t->received);
         dns_answer_unref(t->cached);
 
-        sd_event_source_unref(t->dns_ipv4_event_source);
-        sd_event_source_unref(t->dns_ipv6_event_source);
-        safe_close(t->dns_ipv4_fd);
-        safe_close(t->dns_ipv6_fd);
+        sd_event_source_unref(t->dns_event_source);
+        safe_close(t->dns_fd);
 
         dns_server_unref(t->server);
         dns_stream_free(t->stream);
@@ -94,7 +93,7 @@ int dns_transaction_new(DnsTransaction **ret, DnsScope *s, DnsQuestion *q) {
         if (!t)
                 return -ENOMEM;
 
-        t->dns_ipv4_fd = t->dns_ipv6_fd = -1;
+        t->dns_fd = -1;
 
         t->question = dns_question_ref(q);
 
@@ -245,7 +244,7 @@ static int on_stream_complete(DnsStream *s, int error) {
 }
 
 static int dns_transaction_open_tcp(DnsTransaction *t) {
-        _cleanup_(dns_server_unrefp) DnsServer *server = NULL;
+        DnsServer *server = NULL;
         _cleanup_close_ int fd = -1;
         int r;
 
@@ -310,6 +309,16 @@ static int dns_transaction_open_tcp(DnsTransaction *t) {
         return 0;
 }
 
+static void dns_transaction_next_dns_server(DnsTransaction *t) {
+        assert(t);
+
+        t->server = dns_server_unref(t->server);
+        t->dns_event_source = sd_event_source_unref(t->dns_event_source);
+        t->dns_fd = safe_close(t->dns_fd);
+
+        dns_scope_next_dns_server(t->scope);
+}
+
 void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
         int r;
 
@@ -342,24 +351,6 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                 }
         }
 
-        if (t->scope->protocol == DNS_PROTOCOL_DNS) {
-
-                /* For DNS we are fine with accepting packets on any
-                 * interface, but the source IP address must be the
-                 * one of the DNS server we queried */
-
-                assert(t->server);
-
-                if (t->server->family != p->family)
-                        return;
-
-                if (!in_addr_equal(p->family, &p->sender, &t->server->address))
-                        return;
-
-                if (p->sender_port != 53)
-                        return;
-        }
-
         if (t->received != p) {
                 dns_packet_unref(t->received);
                 t->received = dns_packet_ref(p);
@@ -376,6 +367,37 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                         /* Not the reply to our query? Somebody must be fucking with us */
                         dns_transaction_complete(t, DNS_TRANSACTION_INVALID_REPLY);
                         return;
+                }
+        }
+
+        if (t->server) {
+                if (IN_SET(DNS_PACKET_RCODE(p), DNS_RCODE_FORMERR, DNS_RCODE_SERVFAIL, DNS_RCODE_NOTIMP)) {
+
+                        /* request failed, immediately try again with reduced features */
+                        t->server->n_failed_attempts = (unsigned) -1;
+                        t->server->last_failed_attempt = now(CLOCK_MONOTONIC);
+
+                        r = dns_transaction_go(t);
+                        if (r < 0) {
+                                dns_transaction_complete(t, DNS_TRANSACTION_RESOURCES);
+                                return;
+                        }
+
+                        return;
+                } else {
+                        if (t->current_features == DNS_SERVER_FEATURE_LEVEL_LARGE)
+                                /* even if we successfully receive a reply to a request announcing
+                                   support for large packets, that does not mean we can necessarily
+                                   receive large packets. We verify the max size of UDP packets we
+                                   can receive separately */
+                                t->server->verified_features = DNS_SERVER_FEATURE_LEVEL_LARGE - 1;
+                        else {
+                                if (t->current_features >= t->server->verified_features)
+                                        t->server->verified_features = t->current_features;
+
+                                if (t->current_features == t->server->possible_features)
+                                        t->server->n_failed_attempts = 0;
+                        }
                 }
         }
 
@@ -396,7 +418,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                         }
 
                         /* On DNS, couldn't send? Try immediately again, with a new server */
-                        dns_scope_next_dns_server(t->scope);
+                        dns_transaction_next_dns_server(t);
 
                         r = dns_transaction_go(t);
                         if (r < 0) {
@@ -417,8 +439,16 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
 
         /* Only consider responses with equivalent query section to the request */
         if (!dns_question_is_superset(p->question, t->question) ||
-            !dns_question_is_superset(t->question, p->question))
+            !dns_question_is_superset(t->question, p->question)) {
                 dns_transaction_complete(t, DNS_TRANSACTION_INVALID_REPLY);
+                return;
+        }
+
+        if (t->server)
+                /* Remember the size of the largest UDP packet we received from a server,
+                   we know that we can always announce support for packets with this size */
+                if (t->server->received_udp_packet_max < p->size)
+                        t->server->received_udp_packet_max = p->size;
 
         /* According to RFC 4795, section 2.9. only the RRs from the answer section shall be cached */
         dns_cache_put(&t->scope->cache, p->question, DNS_PACKET_RCODE(p), p->answer, DNS_PACKET_ANCOUNT(p), 0, p->family, &p->sender);
@@ -428,6 +458,58 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
         else
                 dns_transaction_complete(t, DNS_TRANSACTION_FAILURE);
 }
+static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
+        DnsTransaction *t = userdata;
+        int r;
+
+        assert(t);
+        assert(t->scope);
+
+        r = manager_recv(t->scope->manager, fd, DNS_PROTOCOL_DNS, &p);
+        if (r <= 0)
+                return r;
+
+        if (dns_packet_validate_reply(p) > 0 &&
+            DNS_PACKET_ID(p) == t->id) {
+                dns_transaction_process_reply(t, p);
+        } else
+                log_debug("Invalid DNS packet.");
+
+        return 0;
+}
+
+static int dns_transaction_emit(DnsTransaction *t) {
+        int r;
+
+        assert(t);
+
+        if (t->scope->protocol == DNS_PROTOCOL_DNS && !t->server) {
+                DnsServer *server = NULL;
+                _cleanup_close_ int fd = -1;
+
+                fd = dns_scope_udp_dns_socket(t->scope, &server);
+                if (fd < 0)
+                        return fd;
+
+                r = sd_event_add_io(t->scope->manager->event, &t->dns_event_source, fd, EPOLLIN, on_dns_packet, t);
+                if (r < 0)
+                        return r;
+
+                t->dns_fd = fd;
+                fd = -1;
+                t->server = dns_server_ref(server);
+        }
+
+        r = dns_scope_emit(t->scope, t->dns_fd, t->server, t->sent);
+        if (r < 0)
+                return r;
+
+        if (t->server)
+                t->current_features = t->server->possible_features;
+
+        return 0;
+}
 
 static int on_transaction_timeout(sd_event_source *s, usec_t usec, void *userdata) {
         DnsTransaction *t = userdata;
@@ -436,8 +518,13 @@ static int on_transaction_timeout(sd_event_source *s, usec_t usec, void *userdat
         assert(s);
         assert(t);
 
+        if (t->server && t->server->possible_features == t->current_features) {
+                t->server->n_failed_attempts ++;
+                t->server->last_failed_attempt = now(CLOCK_MONOTONIC);
+        }
+
         /* Timeout reached? Try again, with a new server */
-        dns_scope_next_dns_server(t->scope);
+        dns_transaction_next_dns_server(t);
 
         r = dns_transaction_go(t);
         if (r < 0)
@@ -514,7 +601,6 @@ int dns_transaction_go(DnsTransaction *t) {
         }
 
         t->n_attempts++;
-        t->server = dns_server_unref(t->server);
         t->received = dns_packet_unref(t->received);
         t->cached = dns_answer_unref(t->cached);
         t->cached_rcode = 0;
@@ -594,15 +680,13 @@ int dns_transaction_go(DnsTransaction *t) {
                  * always be made via TCP on LLMNR */
                 r = dns_transaction_open_tcp(t);
         } else {
-                DnsServer *server;
-
-                /* Try via UDP, and if that fails due to large size try via TCP */
-                r = dns_scope_emit(t->scope, t, t->sent, &server);
-                if (r >= 0)
-                        t->server = dns_server_ref(server);
-                else if (r == -EMSGSIZE)
+                /* Try via UDP, and if that fails due to large size or lack of
+                 * support try via TCP */
+                r = dns_transaction_emit(t);
+                if (r == -EMSGSIZE || r == -EAGAIN)
                         r = dns_transaction_open_tcp(t);
         }
+
         if (r == -ESRCH) {
                 /* No servers to send this to? */
                 dns_transaction_complete(t, DNS_TRANSACTION_NO_SERVERS);
@@ -614,7 +698,7 @@ int dns_transaction_go(DnsTransaction *t) {
                 }
 
                 /* Couldn't send? Try immediately again, with a new server */
-                dns_scope_next_dns_server(t->scope);
+                dns_transaction_next_dns_server(t);
 
                 return dns_transaction_go(t);
         }
@@ -630,91 +714,6 @@ int dns_transaction_go(DnsTransaction *t) {
 
         t->state = DNS_TRANSACTION_PENDING;
         return 1;
-}
-
-static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
-        DnsTransaction *t = userdata;
-        int r;
-
-        assert(t);
-        assert(t->scope);
-
-        r = manager_recv(t->scope->manager, fd, DNS_PROTOCOL_DNS, &p);
-        if (r <= 0)
-                return r;
-
-        if (dns_packet_validate_reply(p) > 0 &&
-            DNS_PACKET_ID(p) == t->id) {
-                dns_transaction_process_reply(t, p);
-        } else
-                log_debug("Invalid DNS packet.");
-
-        return 0;
-}
-
-int transaction_dns_ipv4_fd(DnsTransaction *t) {
-        const int one = 1;
-        int r;
-
-        assert(t);
-        assert(t->scope);
-        assert(t->scope->manager);
-
-        if (t->dns_ipv4_fd >= 0)
-                return t->dns_ipv4_fd;
-
-        t->dns_ipv4_fd = socket(AF_INET, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
-        if (t->dns_ipv4_fd < 0)
-                return -errno;
-
-        r = setsockopt(t->dns_ipv4_fd, IPPROTO_IP, IP_PKTINFO, &one, sizeof(one));
-        if (r < 0) {
-                r = -errno;
-                goto fail;
-        }
-
-        r = sd_event_add_io(t->scope->manager->event, &t->dns_ipv4_event_source, t->dns_ipv4_fd, EPOLLIN, on_dns_packet, t);
-        if (r < 0)
-                goto fail;
-
-        return t->dns_ipv4_fd;
-
-fail:
-        t->dns_ipv4_fd = safe_close(t->dns_ipv4_fd);
-        return r;
-}
-
-int transaction_dns_ipv6_fd(DnsTransaction *t) {
-        const int one = 1;
-        int r;
-
-        assert(t);
-        assert(t->scope);
-        assert(t->scope->manager);
-
-        if (t->dns_ipv6_fd >= 0)
-                return t->dns_ipv6_fd;
-
-        t->dns_ipv6_fd = socket(AF_INET6, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
-        if (t->dns_ipv6_fd < 0)
-                return -errno;
-
-        r = setsockopt(t->dns_ipv6_fd, IPPROTO_IPV6, IPV6_RECVPKTINFO, &one, sizeof(one));
-        if (r < 0) {
-                r = -errno;
-                goto fail;
-        }
-
-        r = sd_event_add_io(t->scope->manager->event, &t->dns_ipv6_event_source, t->dns_ipv6_fd, EPOLLIN, on_dns_packet, t);
-        if (r < 0)
-                goto fail;
-
-        return t->dns_ipv6_fd;
-
-fail:
-        t->dns_ipv6_fd = safe_close(t->dns_ipv6_fd);
-        return r;
 }
 
 static const char* const dns_transaction_state_table[_DNS_TRANSACTION_STATE_MAX] = {

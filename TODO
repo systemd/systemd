@@ -344,7 +344,6 @@ Features:
   - mDNS/DNS-SD
         - avahi compat
   - DNS-SD service registration from socket units
-  - edns0
   - dname
   - cname on PTR (?)
 

@@ -265,7 +265,7 @@ static int dns_packet_extend(DnsPacket *p, size_t add, void **ret, size_t *start
         return 0;
 }
 
-static void dns_packet_truncate(DnsPacket *p, size_t sz) {
+void dns_packet_truncate(DnsPacket *p, size_t sz) {
         Iterator i;
         char *s;
         void *n;
@@ -275,7 +275,7 @@ static void dns_packet_truncate(DnsPacket *p, size_t sz) {
         if (p->size <= sz)
                 return;
 
-        HASHMAP_FOREACH_KEY(s, n, p->names, i) {
+        HASHMAP_FOREACH_KEY(n, s, p->names, i) {
 
                 if (PTR_TO_SIZE(n) < sz)
                         continue;
@@ -581,6 +581,56 @@ static int dns_packet_append_types(DnsPacket *p, Bitmap *types, size_t *start) {
                 *start = saved_size;
 
         return 0;
+fail:
+        dns_packet_truncate(p, saved_size);
+        return r;
+}
+
+/* Append the OPT pseudo-RR described in RFC6891 */
+int dns_packet_append_opt_rr(DnsPacket *p, uint16_t max_udp_size, bool edns0_do, size_t *start) {
+        size_t saved_size;
+        int r;
+
+        assert(p);
+        assert(max_udp_size >= DNS_PACKET_UNICAST_SIZE_MAX);
+
+        saved_size = p->size;
+
+        /* empty name */
+        r = dns_packet_append_uint8(p, 0, NULL);
+        if (r < 0)
+                return r;
+
+        /* type */
+        r = dns_packet_append_uint16(p, DNS_TYPE_OPT, NULL);
+        if (r < 0)
+                goto fail;
+
+        /* maximum udp packet that can be received */
+        r = dns_packet_append_uint16(p, max_udp_size, NULL);
+        if (r < 0)
+                goto fail;
+
+        /* extended RCODE and VERSION */
+        r = dns_packet_append_uint16(p, 0, NULL);
+        if (r < 0)
+                goto fail;
+
+        /* flags: DNSSEC OK (DO), see RFC3225 */
+        r = dns_packet_append_uint16(p, edns0_do ? 1 << 15 : 0, NULL);
+        if (r < 0)
+                goto fail;
+
+        /* RDLENGTH */
+        r = dns_packet_append_uint16(p, 0, NULL);
+        if (r < 0)
+                goto fail;
+
+        if (start)
+                *start = saved_size;
+
+        return 0;
+
 fail:
         dns_packet_truncate(p, saved_size);
         return r;
@@ -1342,6 +1392,10 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
                 r = dns_packet_read_name(p, &rr->ptr.name, true, NULL);
                 break;
 
+        case DNS_TYPE_OPT: /* we only care about the header */
+                r = 0;
+                break;
+
         case DNS_TYPE_HINFO:
                 r = dns_packet_read_string(p, &rr->hinfo.cpu, NULL);
                 if (r < 0)
@@ -1594,6 +1648,11 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
                                 goto fail;
                 }
 
+                if (bitmap_isclear(rr->nsec.types)) {
+                        r = -EBADMSG;
+                        goto fail;
+                }
+
                 break;
 
         case DNS_TYPE_NSEC3: {
@@ -1643,9 +1702,16 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
                         goto fail;
                 }
 
-                r = dns_packet_append_types(p, rr->nsec3.types, NULL);
-                if (r < 0)
+                while (p->rindex != offset + rdlength) {
+                        r = dns_packet_read_type_window(p, &rr->nsec3.types, NULL);
+                        if (r < 0)
+                                goto fail;
+                }
+
+                if (bitmap_isclear(rr->nsec3.types)) {
+                        r = -EBADMSG;
                         goto fail;
+                }
 
                 break;
         }
