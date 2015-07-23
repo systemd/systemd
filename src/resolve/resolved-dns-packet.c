@@ -761,7 +761,7 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *star
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_blob(p, rr->sshfp.key, rr->sshfp.key_size, NULL);
+                r = dns_packet_append_blob(p, rr->sshfp.fingerprint, rr->sshfp.fingerprint_size, NULL);
                 break;
 
         case DNS_TYPE_DNSKEY:
@@ -1531,10 +1531,10 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
                         goto fail;
 
                 r = dns_packet_read_memdup(p, rdlength - 2,
-                                           &rr->sshfp.key, &rr->sshfp.key_size,
+                                           &rr->sshfp.fingerprint, &rr->sshfp.fingerprint_size,
                                            NULL);
 
-                if (rr->sshfp.key_size == 0) {
+                if (rr->sshfp.fingerprint_size == 0) {
                         /* the accepted size depends on the algorithm, but for now
                            just ensure that the value is greater than zero */
                         r = -EBADMSG;
