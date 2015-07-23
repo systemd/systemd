@@ -56,6 +56,8 @@ void bitmap_free(Bitmap *b) {
 int bitmap_ensure_allocated(Bitmap **b) {
         Bitmap *a;
 
+        assert(b);
+
         if (*b)
                 return 0;
 
@@ -87,7 +89,7 @@ int bitmap_set(Bitmap *b, unsigned n) {
                 b->n_bitmaps = offset + 1;
         }
 
-        bitmask = 1ULL << BITMAP_NUM_TO_REM(n);
+        bitmask = UINT64_C(1) << BITMAP_NUM_TO_REM(n);
 
         b->bitmaps[offset] |= bitmask;
 
@@ -98,14 +100,15 @@ void bitmap_unset(Bitmap *b, unsigned n) {
         uint64_t bitmask;
         unsigned offset;
 
-        assert(b);
+        if (!b)
+                return;
 
         offset = BITMAP_NUM_TO_OFFSET(n);
 
         if (offset >= b->n_bitmaps)
                 return;
 
-        bitmask = 1ULL << BITMAP_NUM_TO_REM(n);
+        bitmask = UINT64_C(1) << BITMAP_NUM_TO_REM(n);
 
         b->bitmaps[offset] &= ~bitmask;
 }
@@ -114,7 +117,7 @@ bool bitmap_isset(Bitmap *b, unsigned n) {
         uint64_t bitmask;
         unsigned offset;
 
-        if (!b || !b->bitmaps)
+        if (!b)
                 return false;
 
         offset = BITMAP_NUM_TO_OFFSET(n);
@@ -122,7 +125,7 @@ bool bitmap_isset(Bitmap *b, unsigned n) {
         if (offset >= b->n_bitmaps)
                 return false;
 
-        bitmask = 1ULL << BITMAP_NUM_TO_REM(n);
+        bitmask = UINT64_C(1) << BITMAP_NUM_TO_REM(n);
 
         return !!(b->bitmaps[offset] & bitmask);
 }
@@ -133,7 +136,7 @@ bool bitmap_isclear(Bitmap *b) {
         assert(b);
 
         for (i = 0; i < b->n_bitmaps; i++)
-                if (b->bitmaps[i])
+                if (b->bitmaps[i] != 0)
                         return false;
 
         return true;
@@ -149,12 +152,15 @@ bool bitmap_iterate(Bitmap *b, Iterator *i, unsigned *n) {
         uint64_t bitmask;
         unsigned offset, rem;
 
+        assert(i);
+        assert(n);
+
         if (!b || i->idx == BITMAP_END)
                 return false;
 
         offset = BITMAP_NUM_TO_OFFSET(i->idx);
         rem = BITMAP_NUM_TO_REM(i->idx);
-        bitmask = 1ULL << rem;
+        bitmask = UINT64_C(1) << rem;
 
         for (; offset < b->n_bitmaps; offset ++) {
                 if (b->bitmaps[offset]) {
@@ -178,7 +184,6 @@ bool bitmap_iterate(Bitmap *b, Iterator *i, unsigned *n) {
 }
 
 bool bitmap_equal(Bitmap *a, Bitmap *b) {
-        unsigned i;
 
         if (!a ^ !b)
                 return false;
@@ -189,9 +194,5 @@ bool bitmap_equal(Bitmap *a, Bitmap *b) {
         if (a->n_bitmaps != b->n_bitmaps)
                 return false;
 
-        for (i = 0; i < a->n_bitmaps; i++)
-                if (a->bitmaps[i] != b->bitmaps[i])
-                        return false;
-
-        return true;
+        return memcmp(a->bitmaps, b->bitmaps, sizeof(uint64_t) * a->n_bitmaps) == 0;
 }
