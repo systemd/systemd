@@ -669,6 +669,48 @@
       following keys.</para>
       <variablelist class='network-directives'>
         <varlistentry>
+          <term><varname>Flood=</varname></term>
+          <listitem>
+            <para>A boolean. Flood configures whether a given port will flood
+            unicast traffic for which there is no FDB entry. By default this
+            flag is off.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>Hairpin=</varname></term>
+          <listitem>
+            <para> A boolean. Configures whether traffic may be send back
+            out of the port on which it was received.  By default, this
+            flag is false. and the bridge will not forward traffic back
+            out of the receiving port.By default the flag is off.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>BPDUGuard=</varname></term>
+          <listitem>
+            <para> A boolean. Configures whether STP Bridge Protocol Data Units will be
+            processed by the bridge port. By default, the flag is false allowed BPDU
+            processing. Turning this flag on will cause the port to stop processing
+            STP Bridge Protocol Data Units. By default the flag is off.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>FastLeave=</varname></term>
+          <listitem>
+            <para> A boolean. This flag allows the bridge to immediately stop multicast
+            traffic on a port that receives IGMP Leave message. It is only used with
+            IGMP snooping is enabled on the bridge. By default the flag is off.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>RootBlock=</varname></term>
+          <listitem>
+            <para> A boolean. Configures whether a given port is allowed to
+            become root port or not. Only used when STP is enabled on the bridge.
+            By default the flag is off.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>Cost=</varname></term>
           <listitem>
             <para>Each port in a bridge may have different speed. Cost
@@ -678,7 +720,6 @@
         </varlistentry>
       </variablelist>
   </refsect1>
-
   <refsect1>
     <title>[BridgeFDB] Section Options</title>
       <para>The <literal>[BridgeFDB]</literal> section manages the
