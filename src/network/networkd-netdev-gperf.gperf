@@ -37,6 +37,7 @@ Tunnel.TTL,                  config_parse_unsigned,              0,             
 Tunnel.DiscoverPathMTU,      config_parse_bool,                  0,                             offsetof(Tunnel, pmtudisc)
 Tunnel.Mode,                 config_parse_ip6tnl_mode,           0,                             offsetof(Tunnel, ip6tnl_mode)
 Tunnel.IPv6FlowLabel,        config_parse_ipv6_flowlabel,        0,                             offsetof(Tunnel, ipv6_flowlabel)
+Tunnel.DiffServiceCodePoint, config_parse_bool,                  0,                             offsetof(Tunnel, dscp)
 Peer.Name,                   config_parse_ifname,                0,                             offsetof(Veth, ifname_peer)
 Peer.MACAddress,             config_parse_hwaddr,                0,                             offsetof(Veth, mac_peer)
 VXLAN.Id,                    config_parse_uint64,                0,                             offsetof(VxLan, id)
