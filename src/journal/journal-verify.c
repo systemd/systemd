@@ -123,8 +123,10 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
          * other objects. */
 
         if ((o->object.flags & OBJECT_COMPRESSED_XZ) &&
-            o->object.type != OBJECT_DATA)
+            o->object.type != OBJECT_DATA) {
+                error(offset, "Found compressed object that isn't of type DATA, which is not allowed.");
                 return -EBADMSG;
+        }
 
         switch (o->object.type) {
 
