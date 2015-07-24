@@ -1518,6 +1518,17 @@ static void test_unquote_first_word(void) {
         assert_se(streq(t, "\\w+\b"));
         free(t);
         assert_se(p == original + 5);
+
+        p = original = "-N ''";
+        assert_se(unquote_first_word(&p, &t, UNQUOTE_CUNESCAPE) > 0);
+        assert_se(streq(t, "-N"));
+        free(t);
+        assert_se(p == original + 3);
+
+        assert_se(unquote_first_word(&p, &t, UNQUOTE_CUNESCAPE) > 0);
+        assert_se(streq(t, ""));
+        free(t);
+        assert_se(p == original + 5);
 }
 
 static void test_unquote_first_word_and_warn(void) {
