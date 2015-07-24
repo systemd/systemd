@@ -68,6 +68,12 @@ static int node_vtable_get_userdata(
         return 1;
 }
 
+static void *vtable_method_convert_userdata(const sd_bus_vtable *p, void *u) {
+        assert(p);
+
+        return (uint8_t*) u + p->x.method.offset;
+}
+
 static void *vtable_property_convert_userdata(const sd_bus_vtable *p, void *u) {
         assert(p);
 
@@ -359,6 +365,8 @@ static int method_callbacks_run(
                 return bus_maybe_reply_error(m, r, &error);
         if (bus->nodes_modified)
                 return 0;
+
+        u = vtable_method_convert_userdata(c->vtable, u);
 
         *found_object = true;
 
