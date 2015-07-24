@@ -578,7 +578,9 @@
         same path in the container --, or a colon-separated pair of
         paths -- in which case the first specified path is the source
         in the host, and the second path is the destination in the
-        container. This option may be specified multiple times for
+        container. Backslash escapes are interpreted so
+        <literal>\:</literal> may be used to embed colons in either path.
+        This option may be specified multiple times for
         creating multiple independent bind mount points. The
         <option>--bind-ro=</option> option creates read-only bind
         mounts.</para></listitem>
@@ -597,7 +599,10 @@
         otherwise specified). This option is particularly useful for
         mounting directories such as <filename>/var</filename> as
         tmpfs, to allow state-less systems, in particular when
-        combined with <option>--read-only</option>.</para></listitem>
+        combined with <option>--read-only</option>.
+        Backslash escapes are interpreted in the path so
+        <literal>\:</literal> may be used to embed colons in the path.
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -608,6 +613,10 @@
         overlay file system and mount it into the container. Takes a
         list of colon-separated paths to the directory trees to
         combine and the destination mount point.</para>
+
+        <para>Backslash escapes are interpreted in the paths, so
+        <literal>\:</literal> may be used to embed colons in the paths.
+        </para>
 
         <para>If three or more paths are specified, then the last
         specified path is the destination mount point in the

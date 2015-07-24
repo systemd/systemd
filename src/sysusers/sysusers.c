@@ -1383,7 +1383,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
         /* Parse columns */
         p = buffer;
-        r = unquote_many_words(&p, 0, &action, &name, &id, &description, &home, NULL);
+        r = extract_many_words(&p, NULL, EXTRACT_QUOTES, &action, &name, &id, &description, &home, NULL);
         if (r < 0) {
                 log_error("[%s:%u] Syntax error.", fname, line);
                 return r;
@@ -1392,7 +1392,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 log_error("[%s:%u] Missing action and name columns.", fname, line);
                 return -EINVAL;
         }
-        if (*p != 0) {
+        if (!isempty(p)) {
                 log_error("[%s:%u] Trailing garbage.", fname, line);
                 return -EINVAL;
         }

@@ -848,15 +848,17 @@ int is_symlink(const char *path);
 int is_dir(const char *path, bool follow);
 int is_device_node(const char *path);
 
-typedef enum UnquoteFlags {
-        UNQUOTE_RELAX           = 1,
-        UNQUOTE_CUNESCAPE       = 2,
-        UNQUOTE_CUNESCAPE_RELAX = 4,
-} UnquoteFlags;
+typedef enum ExtractFlags {
+        EXTRACT_RELAX           = 1,
+        EXTRACT_CUNESCAPE       = 2,
+        EXTRACT_CUNESCAPE_RELAX = 4,
+        EXTRACT_QUOTES          = 8,
+        EXTRACT_SEPARATOR_SPLIT = 16,
+} ExtractFlags;
 
-int unquote_first_word(const char **p, char **ret, UnquoteFlags flags);
-int unquote_first_word_and_warn(const char **p, char **ret, UnquoteFlags flags, const char *unit, const char *filename, unsigned line, const char *rvalue);
-int unquote_many_words(const char **p, UnquoteFlags flags, ...) _sentinel_;
+int extract_first_word(const char **p, char **ret, const char *separators, ExtractFlags flags);
+int extract_first_word_and_warn(const char **p, char **ret, const char *separators, ExtractFlags flags, const char *unit, const char *filename, unsigned line, const char *rvalue);
+int extract_many_words(const char **p, const char *separators, ExtractFlags flags, ...) _sentinel_;
 
 int free_and_strdup(char **p, const char *s);
 
@@ -906,6 +908,7 @@ void cmsg_close_all(struct msghdr *mh);
 
 int rename_noreplace(int olddirfd, const char *oldpath, int newdirfd, const char *newpath);
 
+char *shell_escape(const char *s, const char *bad);
 char *shell_maybe_quote(const char *s);
 
 int parse_mode(const char *s, mode_t *ret);

@@ -278,7 +278,7 @@ char **strv_split_newlines(const char *s) {
         return l;
 }
 
-int strv_split_quoted(char ***t, const char *s, UnquoteFlags flags) {
+int strv_split_escaped(char ***t, const char *s, const char *separators, ExtractFlags flags) {
         size_t n = 0, allocated = 0;
         _cleanup_strv_free_ char **l = NULL;
         int r;
@@ -289,11 +289,12 @@ int strv_split_quoted(char ***t, const char *s, UnquoteFlags flags) {
         for (;;) {
                 _cleanup_free_ char *word = NULL;
 
-                r = unquote_first_word(&s, &word, flags);
+                r = extract_first_word(&s, &word, separators, flags);
                 if (r < 0)
                         return r;
-                if (r == 0)
+                if (r == 0) {
                         break;
+                }
 
                 if (!GREEDY_REALLOC(l, allocated, n + 2))
                         return -ENOMEM;
@@ -311,6 +312,10 @@ int strv_split_quoted(char ***t, const char *s, UnquoteFlags flags) {
         l = NULL;
 
         return 0;
+}
+
+int strv_split_quoted(char ***t, const char *s, ExtractFlags flags) {
+        return strv_split_escaped(t, s, WHITESPACE, flags|EXTRACT_QUOTES);
 }
 
 char *strv_join(char **l, const char *separator) {
@@ -688,6 +693,23 @@ char **strv_reverse(char **l) {
                 t = l[i];
                 l[i] = l[n-1-i];
                 l[n-1-i] = t;
+        }
+
+        return l;
+}
+
+char **strv_shell_escape(char **l, const char *bad) {
+        char **s;
+
+        STRV_FOREACH(s, l) {
+                char *v;
+
+                v = shell_escape(*s, bad);
+                if (!v)
+                        return NULL;
+
+                free(*s);
+                *s = v;
         }
 
         return l;
