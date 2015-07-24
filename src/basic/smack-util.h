@@ -29,8 +29,21 @@ bool mac_smack_use(void);
 
 int mac_smack_fix(const char *path, bool ignore_enoent, bool ignore_erofs);
 
+int mac_smack_read(const char *path, const char **label);
 int mac_smack_apply(const char *path, const char *label);
+int mac_smack_read_fd(int fd, const char **label);
 int mac_smack_apply_fd(int fd, const char *label);
-int mac_smack_apply_pid(pid_t pid, const char *label);
-int mac_smack_apply_ip_in_fd(int fd, const char *label);
+int mac_smack_read_exec(const char *path, const char **label);
+int mac_smack_apply_exec(const char *path, const char *label);
+int mac_smack_read_exec_fd(int fd, const char **label);
+int mac_smack_apply_exec_fd(int fd, const char *label);
+int mac_smack_read_ip_out(const char *path, const char **label);
+int mac_smack_apply_ip_out(const char *path, const char *label);
+int mac_smack_read_ip_out_fd(int fd, const char **label);
 int mac_smack_apply_ip_out_fd(int fd, const char *label);
+int mac_smack_read_ip_in(const char *path, const char **label);
+int mac_smack_apply_ip_in(const char *path, const char *label);
+int mac_smack_read_ip_in_fd(int fd, const char **label);
+int mac_smack_apply_ip_in_fd(int fd, const char *label);
+
+int mac_smack_apply_pid(pid_t pid, const char *label);
