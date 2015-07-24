@@ -1716,16 +1716,23 @@ static int exec_child(
                                 *exit_status = EXIT_SMACK_PROCESS_LABEL;
                                 return r;
                         }
-                }
 #ifdef SMACK_DEFAULT_PROCESS_LABEL
-                else {
-                        r = mac_smack_apply_pid(0, SMACK_DEFAULT_PROCESS_LABEL);
+                } else {
+                        _cleanup_free_ char *exec_label = NULL;
+
+                        r = mac_smack_read_exec(command->path, &exec_label);
+                        if (r < 0 && r != -ENODATA) {
+                                *exit_status = EXIT_SMACK_PROCESS_LABEL;
+                                return r;
+                        }
+
+                        r = mac_smack_apply_pid(0, exec_label ? : SMACK_DEFAULT_PROCESS_LABEL);
                         if (r < 0) {
                                 *exit_status = EXIT_SMACK_PROCESS_LABEL;
                                 return r;
                         }
-                }
 #endif
+                }
 #endif
 
                 if (context->user) {
