@@ -672,7 +672,7 @@ static int automount_start_expire(Automount *a) {
 
         assert(a);
 
-        timeout = now(CLOCK_MONOTONIC) + MAX(a->timeout_idle_usec/10, USEC_PER_SEC);
+        timeout = now(CLOCK_MONOTONIC) + MAX(a->timeout_idle_usec/3, USEC_PER_SEC);
 
         if (a->expire_event_source) {
                 r = sd_event_source_set_time(a->expire_event_source, timeout);
