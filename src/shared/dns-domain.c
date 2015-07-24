@@ -338,11 +338,16 @@ unsigned long dns_name_hash_func(const void *s, const uint8_t hash_key[HASH_KEY_
 }
 
 int dns_name_compare_func(const void *a, const void *b) {
-        const char *x = a, *y = b;
+        char *x, *y;
+        char *la_esc = NULL, *lb_esc = NULL;
+        bool a_done = false, b_done = false;
         int r, q, k, w;
 
         assert(a);
         assert(b);
+
+        x = strdupa(a);
+        y = strdupa(b);
 
         for (;;) {
                 char la[DNS_LABEL_MAX+1], lb[DNS_LABEL_MAX+1];
@@ -350,8 +355,26 @@ int dns_name_compare_func(const void *a, const void *b) {
                 if (*x == 0 && *y == 0)
                         return 0;
 
-                r = dns_label_unescape(&x, la, sizeof(la));
-                q = dns_label_unescape(&y, lb, sizeof(lb));
+                la_esc = strrchr(x, '.');
+                if (!la_esc) {
+                        la_esc = x;
+                        a_done = true;
+                } else {
+                        *la_esc = 0;
+                        la_esc ++;
+                }
+
+                lb_esc = strrchr(y, '.');
+                if (!lb_esc) {
+                        lb_esc = y;
+                        b_done = true;
+                } else {
+                        *lb_esc = 0;
+                        lb_esc ++;
+                }
+
+                r = dns_label_unescape((const char **)&la_esc, la, sizeof(la));
+                q = dns_label_unescape((const char **)&lb_esc, lb, sizeof(lb));
                 if (r < 0 || q < 0)
                         return r - q;
 
@@ -368,7 +391,12 @@ int dns_name_compare_func(const void *a, const void *b) {
                 r = strcasecmp(la, lb);
                 if (r != 0)
                         return r;
+
+                if (a_done || b_done)
+                        break;
         }
+
+        return b_done - a_done;
 }
 
 const struct hash_ops dns_name_hash_ops = {
@@ -462,6 +490,28 @@ int dns_name_endswith(const char *name, const char *suffix) {
                         saved_n = NULL;
                 }
         }
+}
+
+int dns_name_between(const char *a, const char *b, const char *c) {
+        int n;
+
+        /* Determine if b is strictly greater than a and strictly smaller than c.
+           We consider the order of names to be circular, so that if a is
+           strictly greater than c, we consider b to be between them if it is
+           either greater than a or smaller than c. This is how the canonical
+           DNS name order used in NSEC records work. */
+
+        n = dns_name_compare_func(a, c);
+        if (n == 0)
+                return -EINVAL;
+        else if (n < 0)
+                /*       a<---b--->c       */
+                return dns_name_compare_func(a, b) < 0 &&
+                       dns_name_compare_func(b, c) < 0;
+        else
+                /* <--b--c         a--b--> */
+                return dns_name_compare_func(b, c) < 0 ||
+                       dns_name_compare_func(a, b) < 0;
 }
 
 int dns_name_reverse(int family, const union in_addr_union *a, char **ret) {
