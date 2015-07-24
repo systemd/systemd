@@ -33,7 +33,7 @@ static sd_hwdb *hwdb;
 int udev_builtin_hwdb_lookup(struct udev_device *dev,
                              const char *prefix, const char *modalias,
                              const char *filter, bool test) {
-        _cleanup_free_ const char *lookup = NULL;
+        _cleanup_free_ char *lookup = NULL;
         const char *key, *value;
         int n = 0;
 
