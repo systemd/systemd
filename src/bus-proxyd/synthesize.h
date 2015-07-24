@@ -22,6 +22,7 @@
 ***/
 
 #include "sd-bus.h"
+#include "proxy.h"
 
 int synthetic_driver_send(sd_bus *b, sd_bus_message *m);
 
@@ -33,4 +34,4 @@ int synthetic_reply_method_errorf(sd_bus_message *call, const char *name, const 
 int synthetic_reply_method_errno(sd_bus_message *call, int error, const sd_bus_error *p);
 int synthetic_reply_method_errnof(sd_bus_message *call, int error, const char *format, ...) _sd_printf_(3, 4);
 
-int synthesize_name_acquired(sd_bus *a, sd_bus *b, sd_bus_message *m);
+int synthesize_name_acquired(Proxy *p, sd_bus *a, sd_bus *b, sd_bus_message *m);

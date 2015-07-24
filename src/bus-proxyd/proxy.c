@@ -144,9 +144,17 @@ static int proxy_create_local(Proxy *p, int in_fd, int out_fd, bool negotiate_fd
         return 0;
 }
 
+static int proxy_match_synthetic(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        Proxy *p = userdata;
+
+        p->synthetic_matched = true;
+        return 0; /* make sure to continue processing it in further handlers */
+}
+
 /*
- * dbus-1 clients receive NameOwnerChanged and directed signals without
- * subscribing to them; install the matches to receive them on kdbus.
+ * We always need NameOwnerChanged so we can synthesize NameLost and
+ * NameAcquired. Furthermore, dbus-1 always passes unicast-signals through, so
+ * subscribe unconditionally.
  */
 static int proxy_prepare_matches(Proxy *p) {
         _cleanup_free_ char *match = NULL;
@@ -172,7 +180,7 @@ static int proxy_prepare_matches(Proxy *p) {
         if (!match)
                 return log_oom();
 
-        r = sd_bus_add_match(p->destination_bus, NULL, match, NULL, NULL);
+        r = sd_bus_add_match(p->destination_bus, NULL, match, proxy_match_synthetic, p);
         if (r < 0)
                 return log_error_errno(r, "Failed to add match for NameLost: %m");
 
@@ -189,7 +197,7 @@ static int proxy_prepare_matches(Proxy *p) {
         if (!match)
                 return log_oom();
 
-        r = sd_bus_add_match(p->destination_bus, NULL, match, NULL, NULL);
+        r = sd_bus_add_match(p->destination_bus, NULL, match, proxy_match_synthetic, p);
         if (r < 0)
                 return log_error_errno(r, "Failed to add match for NameAcquired: %m");
 
@@ -202,7 +210,7 @@ static int proxy_prepare_matches(Proxy *p) {
         if (!match)
                 return log_oom();
 
-        r = sd_bus_add_match(p->destination_bus, NULL, match, NULL, NULL);
+        r = sd_bus_add_match(p->destination_bus, NULL, match, proxy_match_synthetic, p);
         if (r < 0)
                 log_error_errno(r, "Failed to add match for directed signals: %m");
                 /* FIXME: temporarily ignore error to support older kdbus versions */
@@ -679,11 +687,28 @@ static int patch_sender(sd_bus *a, sd_bus_message *m) {
 
 static int proxy_process_destination_to_local(Proxy *p) {
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        bool matched, matched_synthetic;
         int r;
 
         assert(p);
 
+        /*
+         * Usually, we would just take any message that the bus passes to us
+         * and forward it to the local connection. However, there are actually
+         * applications that fail if they receive broadcasts that they didn't
+         * subscribe to. Therefore, we actually emulate a real broadcast
+         * matching here, and discard any broadcasts that weren't matched. Our
+         * match-handlers remembers whether a message was matched by any rule,
+         * by marking it in @p->message_matched.
+         */
+
         r = sd_bus_process(p->destination_bus, &m);
+
+        matched = p->message_matched;
+        matched_synthetic = p->synthetic_matched;
+        p->message_matched = false;
+        p->synthetic_matched = false;
+
         if (r == -ECONNRESET || r == -ENOTCONN) /* Treat 'connection reset by peer' as clean exit condition */
                 return r;
         if (r < 0) {
@@ -699,11 +724,20 @@ static int proxy_process_destination_to_local(Proxy *p) {
         if (sd_bus_message_is_signal(m, "org.freedesktop.DBus.Local", "Disconnected"))
                 return -ECONNRESET;
 
-        r = synthesize_name_acquired(p->destination_bus, p->local_bus, m);
+        r = synthesize_name_acquired(p, p->destination_bus, p->local_bus, m);
         if (r == -ECONNRESET || r == -ENOTCONN)
                 return r;
         if (r < 0)
                 return log_error_errno(r, "Failed to synthesize message: %m");
+
+        /* discard broadcasts that were not matched by any MATCH rule */
+        if (!matched && !sd_bus_message_get_destination(m)) {
+                if (!matched_synthetic)
+                        log_warning("Dropped unmatched broadcast: uid=" UID_FMT " gid=" GID_FMT" message=%s path=%s interface=%s member=%s",
+                                    p->local_creds.uid, p->local_creds.gid, bus_message_type_to_string(m->header->type),
+                                    strna(m->path), strna(m->interface), strna(m->member));
+                return 1;
+        }
 
         patch_sender(p->destination_bus, m);
 
@@ -788,7 +822,7 @@ static int proxy_process_local_to_destination(Proxy *p) {
         if (r > 0)
                 return 1;
 
-        r = bus_proxy_process_driver(p->destination_bus, p->local_bus, m, p->policy, &p->local_creds, p->owned_names);
+        r = bus_proxy_process_driver(p, p->destination_bus, p->local_bus, m, p->policy, &p->local_creds, p->owned_names);
         if (r == -ECONNRESET || r == -ENOTCONN)
                 return r;
         if (r < 0)
@@ -832,6 +866,13 @@ static int proxy_process_local_to_destination(Proxy *p) {
         }
 
         return 1;
+}
+
+int proxy_match(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        Proxy *p = userdata;
+
+        p->message_matched = true;
+        return 0; /* make sure to continue processing it in further handlers */
 }
 
 int proxy_run(Proxy *p) {
