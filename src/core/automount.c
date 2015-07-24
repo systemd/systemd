@@ -672,6 +672,9 @@ static int automount_start_expire(Automount *a) {
 
         assert(a);
 
+        if (a->timeout_idle_usec == 0)
+                return 0;
+
         timeout = now(CLOCK_MONOTONIC) + MAX(a->timeout_idle_usec/3, USEC_PER_SEC);
 
         if (a->expire_event_source) {
