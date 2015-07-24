@@ -5729,13 +5729,19 @@ int unquote_first_word(const char **p, char **ret, UnquoteFlags flags) {
                 case VALUE:
                         if (c == 0)
                                 goto finish;
-                        else if (c == '\'')
+                        else if (c == '\'') {
+                                if (!GREEDY_REALLOC(s, allocated, sz+1))
+                                        return -ENOMEM;
+
                                 state = SINGLE_QUOTE;
-                        else if (c == '\\')
+                        } else if (c == '\\')
                                 state = VALUE_ESCAPE;
-                        else if (c == '\"')
+                        else if (c == '\"') {
+                                if (!GREEDY_REALLOC(s, allocated, sz+1))
+                                        return -ENOMEM;
+
                                 state = DOUBLE_QUOTE;
-                        else if (strchr(WHITESPACE, c))
+                        } else if (strchr(WHITESPACE, c))
                                 state = SPACE;
                         else {
                                 if (!GREEDY_REALLOC(s, allocated, sz+2))
