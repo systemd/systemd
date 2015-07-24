@@ -72,7 +72,7 @@ static void patch_realtime(
                 const struct stat *st,
                 unsigned long long *realtime) {
 
-        _cleanup_free_ const char *path = NULL;
+        _cleanup_free_ char *path = NULL;
         usec_t x, crtime = 0;
 
         /* The timestamp was determined by the file name, but let's

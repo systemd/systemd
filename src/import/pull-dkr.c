@@ -793,7 +793,7 @@ static void dkr_pull_job_on_finished_v2(PullJob *j) {
 
         } else if (i->tags_job == j) {
                 const char *url;
-                _cleanup_free_ const char *buf;
+                _cleanup_free_ char *buf;
                 _cleanup_json_variant_unref_ JsonVariant *doc = NULL;
                 JsonVariant *e = NULL;
 
