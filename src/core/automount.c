@@ -907,6 +907,7 @@ static int automount_dispatch_io(sd_event_source *s, int fd, uint32_t events, vo
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         union autofs_v5_packet_union packet;
         Automount *a = AUTOMOUNT(userdata);
+        struct stat st;
         int r;
 
         assert(a);
@@ -966,6 +967,19 @@ static int automount_dispatch_io(sd_event_source *s, int fd, uint32_t events, vo
                         log_unit_error_errno(UNIT(a), r, "Failed to remember token: %m");
                         goto fail;
                 }
+
+                /* Before we do anything, let's see if somebody is playing games with us? */
+                if (lstat(a->where, &st) < 0) {
+                        log_unit_warning_errno(UNIT(a), errno, "Failed to stat automount point: %m");
+                        goto fail;
+                }
+
+                if (!S_ISDIR(st.st_mode) || st.st_dev == a->dev_id) {
+                        log_unit_info(UNIT(a), "Automount point already unmounted?");
+                        automount_send_ready(a, a->expire_tokens, 0);
+                        break;
+                }
+
                 r = manager_add_job(UNIT(a)->manager, JOB_STOP, UNIT_TRIGGER(UNIT(a)), JOB_REPLACE, true, &error, NULL);
                 if (r < 0) {
                         log_unit_warning(UNIT(a), "Failed to queue umount startup job: %s", bus_error_message(&error, r));
