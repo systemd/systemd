@@ -45,84 +45,162 @@ bool mac_smack_use(void) {
 #endif
 }
 
-int mac_smack_apply(const char *path, const char *label) {
-        int r = 0;
+static int mac_get_xattr(const char *path, const char *attr, const char **label) {
+        char l[NAME_MAX] = "", *ll = NULL;
+        ssize_t s = 0;
 
         assert(path);
+        assert(attr);
+        assert(label);
+
+#ifdef HAVE_SMACK
+        if (!mac_smack_use())
+                return 0;
+
+        s = getxattr(path, attr, l, NAME_MAX);
+        if (s < 0)
+                return -errno;
+
+        ll = strdup(l);
+        if (!ll)
+                return -ENOMEM;
+
+        *label = ll;
+#endif
+
+        return s;
+}
+
+static int mac_get_xattr_fd(int fd, const char *attr, const char **label) {
+        char l[NAME_MAX] = "", *ll = NULL;
+        ssize_t s = 0;
+
+        assert(fd >= 0);
+        assert(attr);
+        assert(label);
+
+#ifdef HAVE_SMACK
+        if (!mac_smack_use())
+                return 0;
+
+        s = fgetxattr(fd, attr, l, NAME_MAX);
+        if (s < 0)
+                return -errno;
+
+        ll = strdup(l);
+        if (!ll)
+                return -ENOMEM;
+
+        *label = ll;
+#endif
+
+        return s;
+}
+
+static int mac_set_xattr(const char *path, const char *attr, const char *label) {
+        int r;
+
+        assert(path);
+        assert(attr);
 
 #ifdef HAVE_SMACK
         if (!mac_smack_use())
                 return 0;
 
         if (label)
-                r = lsetxattr(path, "security.SMACK64", label, strlen(label), 0);
+                r = lsetxattr(path, attr, label, strlen(label), 0);
         else
-                r = lremovexattr(path, "security.SMACK64");
+                r = lremovexattr(path, attr);
         if (r < 0)
                 return -errno;
 #endif
 
-        return r;
+        return 0;
+}
+
+static int mac_set_xattr_fd(int fd, const char *attr, const char *label) {
+        int r;
+
+        assert(fd >= 0);
+        assert(attr);
+
+#ifdef HAVE_SMACK
+        if (!mac_smack_use())
+                return 0;
+
+        if (label)
+                r = fsetxattr(fd, attr, label, strlen(label), 0);
+        else
+                r = fremovexattr(fd, attr);
+        if (r < 0)
+                return -errno;
+#endif
+
+        return 0;
+}
+
+int mac_smack_read(const char *path, const char **label) {
+        return mac_get_xattr(path, "security.SMACK64", label);
+}
+
+int mac_smack_apply(const char *path, const char *label) {
+        return mac_set_xattr(path, "security.SMACK64", label);
+}
+
+int mac_smack_read_fd(int fd, const char **label) {
+        return mac_get_xattr_fd(fd, "security.SMACK64", label);
 }
 
 int mac_smack_apply_fd(int fd, const char *label) {
-        int r = 0;
+        return mac_set_xattr_fd(fd, "security.SMACK64", label);
+}
 
-        assert(fd >= 0);
+int mac_smack_read_exec(const char *path, const char **label) {
+        return mac_get_xattr(path, "security.SMACK64EXEC", label);
+}
 
-#ifdef HAVE_SMACK
-        if (!mac_smack_use())
-                return 0;
+int mac_smack_apply_exec(const char *path, const char *label) {
+        return mac_set_xattr(path, "security.SMACK64EXEC", label);
+}
 
-        if (label)
-                r = fsetxattr(fd, "security.SMACK64", label, strlen(label), 0);
-        else
-                r = fremovexattr(fd, "security.SMACK64");
-        if (r < 0)
-                return -errno;
-#endif
+int mac_smack_read_exec_fd(int fd, const char **label) {
+        return mac_get_xattr_fd(fd, "security.SMACK64EXEC", label);
+}
 
-        return r;
+int mac_smack_apply_exec_fd(int fd, const char *label) {
+        return mac_set_xattr_fd(fd, "security.SMACK64EXEC", label);
+}
+
+int mac_smack_read_ip_out(const char *path, const char **label) {
+        return mac_get_xattr(path, "security.SMACK64IPOUT", label);
+}
+
+int mac_smack_apply_ip_out(const char *path, const char *label) {
+        return mac_set_xattr(path, "security.SMACK64IPOUT", label);
+}
+
+int mac_smack_read_ip_out_fd(int fd, const char **label) {
+        return mac_get_xattr_fd(fd, "security.SMACK64IPOUT", label);
 }
 
 int mac_smack_apply_ip_out_fd(int fd, const char *label) {
-        int r = 0;
+        return mac_set_xattr_fd(fd, "security.SMACK64IPOUT", label);
+}
 
-        assert(fd >= 0);
+int mac_smack_read_ip_in(const char *path, const char **label) {
+        return mac_get_xattr(path, "security.SMACK64IPIN", label);
+}
 
-#ifdef HAVE_SMACK
-        if (!mac_smack_use())
-                return 0;
+int mac_smack_apply_ip_in(const char *path, const char *label) {
+        return mac_set_xattr(path, "security.SMACK64IPIN", label);
+}
 
-        if (label)
-                r = fsetxattr(fd, "security.SMACK64IPOUT", label, strlen(label), 0);
-        else
-                r = fremovexattr(fd, "security.SMACK64IPOUT");
-        if (r < 0)
-                return -errno;
-#endif
-
-        return r;
+int mac_smack_read_ip_in_fd(int fd, const char **label) {
+        return mac_get_xattr_fd(fd, "security.SMACK64IPIN", label);
 }
 
 int mac_smack_apply_ip_in_fd(int fd, const char *label) {
-        int r = 0;
-
-        assert(fd >= 0);
-
-#ifdef HAVE_SMACK
-        if (!mac_smack_use())
-                return 0;
-
-        if (label)
-                r = fsetxattr(fd, "security.SMACK64IPIN", label, strlen(label), 0);
-        else
-                r = fremovexattr(fd, "security.SMACK64IPIN");
-        if (r < 0)
-                return -errno;
-#endif
-
-        return r;
+        return mac_set_xattr_fd(fd, "security.SMACK64IPIN", label);
 }
 
 int mac_smack_apply_pid(pid_t pid, const char *label) {
