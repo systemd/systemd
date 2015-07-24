@@ -151,6 +151,9 @@ const char* exit_status_to_string(ExitStatus status, ExitStatusLevel level) {
 
                 case EXIT_BUS_ENDPOINT:
                         return "BUS_ENDPOINT";
+
+                case EXIT_SMACK_PROCESS_LABEL:
+                        return "SMACK_PROCESS_LABEL";
                 }
         }
 
