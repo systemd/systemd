@@ -1332,8 +1332,7 @@ static int bus_kernel_translate_message(sd_bus *bus, struct kdbus_msg *k) {
         KDBUS_ITEM_FOREACH(d, k, items) {
                 if (d->type == KDBUS_ITEM_TIMESTAMP)
                         ts = &d->timestamp;
-
-                if (d->type >= _KDBUS_ITEM_KERNEL_BASE && d->type < _KDBUS_ITEM_KERNEL_BASE + ELEMENTSOF(translate)) {
+                else if (d->type >= _KDBUS_ITEM_KERNEL_BASE && d->type < _KDBUS_ITEM_KERNEL_BASE + ELEMENTSOF(translate)) {
                         if (found)
                                 return -EBADMSG;
                         found = d;
