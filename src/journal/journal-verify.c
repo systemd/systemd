@@ -885,7 +885,11 @@ int journal_file_verify(
          * superficial structure, headers, hashes. */
 
         p = le64toh(f->header->header_size);
-        while (p != 0) {
+        for (;;) {
+                /* Early exit if there are no objects in the file, at all */
+                if (le64toh(f->header->tail_object_offset) == 0)
+                        break;
+
                 if (show_progress)
                         draw_progress(scale_progress(0x7FFF, p, le64toh(f->header->tail_object_offset)), &last_usec);
 
@@ -900,9 +904,6 @@ int journal_file_verify(
                         r = -EBADMSG;
                         goto fail;
                 }
-
-                if (p == le64toh(f->header->tail_object_offset))
-                        found_last = true;
 
                 n_objects ++;
 
@@ -1148,13 +1149,15 @@ int journal_file_verify(
                         n_weird ++;
                 }
 
-                if (p == le64toh(f->header->tail_object_offset))
-                        p = 0;
-                else
-                        p = p + ALIGN64(le64toh(o->object.size));
-        }
+                if (p == le64toh(f->header->tail_object_offset)) {
+                        found_last = true;
+                        break;
+                }
 
-        if (!found_last) {
+                p = p + ALIGN64(le64toh(o->object.size));
+        };
+
+        if (!found_last && le64toh(f->header->tail_object_offset) != 0) {
                 error(le64toh(f->header->tail_object_offset), "tail object pointer dead");
                 r = -EBADMSG;
                 goto fail;
@@ -1200,19 +1203,7 @@ int journal_file_verify(
                 goto fail;
         }
 
-        if (n_data_hash_tables != 1) {
-                error(0, "missing data hash table");
-                r = -EBADMSG;
-                goto fail;
-        }
-
-        if (n_field_hash_tables != 1) {
-                error(0, "missing field hash table");
-                r = -EBADMSG;
-                goto fail;
-        }
-
-        if (!found_main_entry_array) {
+        if (!found_main_entry_array && le64toh(f->header->entry_array_offset) != 0) {
                 error(0, "missing entry array");
                 r = -EBADMSG;
                 goto fail;
