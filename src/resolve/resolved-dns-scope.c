@@ -153,6 +153,10 @@ int dns_scope_emit(DnsScope *s, int fd, DnsPacket *p) {
                 if (p->size + UDP_PACKET_HEADER_SIZE > mtu)
                         return -EMSGSIZE;
 
+                r = manager_write(s->manager, fd, p);
+                if (r < 0)
+                        return r;
+
         } else if (s->protocol == DNS_PROTOCOL_LLMNR) {
 
                 if (DNS_PACKET_QDCOUNT(p) > 1)
@@ -174,12 +178,12 @@ int dns_scope_emit(DnsScope *s, int fd, DnsPacket *p) {
                         return -EAFNOSUPPORT;
                 if (fd < 0)
                         return fd;
+
+                r = manager_send(s->manager, fd, ifindex, family, &addr, port, p);
+                if (r < 0)
+                        return r;
         } else
                 return -EAFNOSUPPORT;
-
-        r = manager_send(s->manager, fd, ifindex, family, &addr, port, p);
-        if (r < 0)
-                return r;
 
         return 1;
 }

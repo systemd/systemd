@@ -949,6 +949,42 @@ static int sendmsg_loop(int fd, struct msghdr *mh, int flags) {
         }
 }
 
+static int write_loop(int fd, void *message, size_t length) {
+        int r;
+
+        assert(fd >= 0);
+        assert(message);
+
+        for (;;) {
+                if (write(fd, message, length) >= 0)
+                        return 0;
+
+                if (errno == EINTR)
+                        continue;
+
+                if (errno != EAGAIN)
+                        return -errno;
+
+                r = fd_wait_for_event(fd, POLLOUT, SEND_TIMEOUT_USEC);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return -ETIMEDOUT;
+        }
+}
+
+int manager_write(Manager *m, int fd, DnsPacket *p) {
+        int r;
+
+        log_debug("Sending %s packet with id %u", DNS_PACKET_QR(p) ? "response" : "query", DNS_PACKET_ID(p));
+
+        r = write_loop(fd, DNS_PACKET_DATA(p), p->size);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 static int manager_ipv4_send(Manager *m, int fd, int ifindex, const struct in_addr *addr, uint16_t port, DnsPacket *p) {
         union sockaddr_union sa = {
                 .in.sin_family = AF_INET,
