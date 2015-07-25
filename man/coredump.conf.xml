@@ -58,7 +58,7 @@
   <refsect1>
     <title>Description</title>
 
-    <para>These files configure the behaviour of
+    <para>These files configure the behavior of
     <citerefentry><refentrytitle>systemd-coredump</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
     a handler for core dumps invoked by the kernel.</para>
   </refsect1>

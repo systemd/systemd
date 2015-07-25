@@ -203,7 +203,7 @@
 
         <listitem><para>Configure
         <command>systemd-journald</command>
-        behaviour. See
+        behavior. See
         <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
         </para></listitem>
       </varlistentry>

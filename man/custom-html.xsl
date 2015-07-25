@@ -125,7 +125,7 @@
 
 <!--
   - helper template to do conflict resolution between various headings with the same inferred ID attribute/tag from the headerlink template
-  - this conflict resolution is necessary to prevent malformed HTML ouput (multiple id attributes with the same value)
+  - this conflict resolution is necessary to prevent malformed HTML output (multiple id attributes with the same value)
   - and it fixes xsltproc warnings during compilation of HTML man pages
   -
   - A simple top-to-bottom numbering scheme is implemented for nodes with the same ID value to derive unique ID values for HTML output.

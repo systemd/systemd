@@ -498,7 +498,7 @@
           A Flow Label of zero is used to indicate packets that have
           not been labeled. Takes following values.
           When <literal>inherit</literal> it uses the original flowlabel,
-          or can be configured to any value betwen 0 to 0xFFFFF.</para>
+          or can be configured to any value between 0 to 0xFFFFF.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -677,7 +677,7 @@
         <listitem>
           <para>Specifies the frequency that Media Independent
           Interface link monitoring will occur. A value of zero
-          disables MII link monitoring. This values is rounded down to
+          disables MII link monitoring. This value is rounded down to
           the nearest millisecond. The default value is 0.</para>
         </listitem>
       </varlistentry>
@@ -821,7 +821,7 @@
         <listitem>
           <para> Specify the number of packets to transmit through a slave before
             moving to the next one. When set to 0 then a slave is chosen at
-            random.The valid range is (0 - 65535). Defaults to 1. This option
+            random. The valid range is (0 - 65535). Defaults to 1. This option
             has effect only in balance-rr mode.
           </para>
         </listitem>

@@ -462,7 +462,7 @@
         and the kernel will ignore initial ACK packets without any
         data. The argument specifies the approximate amount of time
         the kernel should wait for incoming data before falling back
-        to the normal behaviour of honouring empty ACK packets. This
+        to the normal behavior of honouring empty ACK packets. This
         option is beneficial for protocols where the client sends the
         data first (e.g. HTTP, in contrast to SMTP), because the
         server process will not be woken up unnecessarily before it
