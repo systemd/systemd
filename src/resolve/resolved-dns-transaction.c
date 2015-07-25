@@ -308,6 +308,16 @@ static int dns_transaction_open_tcp(DnsTransaction *t) {
         return 0;
 }
 
+static void dns_transaction_next_dns_server(DnsTransaction *t) {
+        assert(t);
+
+        t->server = dns_server_unref(t->server);
+        t->dns_event_source = sd_event_source_unref(t->dns_event_source);
+        t->dns_fd = safe_close(t->dns_fd);
+
+        dns_scope_next_dns_server(t->scope);
+}
+
 void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
         int r;
 
@@ -394,7 +404,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                         }
 
                         /* On DNS, couldn't send? Try immediately again, with a new server */
-                        dns_scope_next_dns_server(t->scope);
+                        dns_transaction_next_dns_server(t);
 
                         r = dns_transaction_go(t);
                         if (r < 0) {
@@ -437,7 +447,7 @@ static int on_transaction_timeout(sd_event_source *s, usec_t usec, void *userdat
         assert(t);
 
         /* Timeout reached? Try again, with a new server */
-        dns_scope_next_dns_server(t->scope);
+        dns_transaction_next_dns_server(t);
 
         r = dns_transaction_go(t);
         if (r < 0)
@@ -614,7 +624,7 @@ int dns_transaction_go(DnsTransaction *t) {
                 }
 
                 /* Couldn't send? Try immediately again, with a new server */
-                dns_scope_next_dns_server(t->scope);
+                dns_transaction_next_dns_server(t);
 
                 return dns_transaction_go(t);
         }
