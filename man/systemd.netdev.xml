@@ -504,11 +504,11 @@
         </listitem>
       </varlistentry>
       <varlistentry>
-        <term><varname>DiffServiceCodePoint=</varname></term>
+        <term><varname>CopyDSCP=</varname></term>
         <listitem>
           <para>A boolean. When true, the Differentiated Service Code
           Point (DSCP) field will be copied to the inner header from
-          outer header during the decapsulation on an IPv6 tunnel
+          outer header during the decapsulation of an IPv6 tunnel
           packet. DSCP is a field in an IP packet that enables different
           levels of service to be assigned to network traffic.
           Defaults to <literal>no</literal>.

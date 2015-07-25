@@ -57,7 +57,7 @@ struct Tunnel {
         IPv6FlowLabel ipv6_flowlabel;
 
         bool pmtudisc;
-        bool dscp;
+        bool copy_dscp;
 };
 
 extern const NetDevVTable ipip_vtable;
