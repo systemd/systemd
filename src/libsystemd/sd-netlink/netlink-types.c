@@ -196,10 +196,10 @@ static const NLType rtnl_link_info_data_iptun_types[IFLA_IPTUN_MAX + 1] = {
         [IFLA_IPTUN_6RD_RELAY_PREFIX]    = { .type = NETLINK_TYPE_U32 },
         [IFLA_IPTUN_6RD_PREFIXLEN]       = { .type = NETLINK_TYPE_U16 },
         [IFLA_IPTUN_6RD_RELAY_PREFIXLEN] = { .type = NETLINK_TYPE_U16 },
-        [IFLA_IPTUN_ENCAP_TYPE]          = { .type = NETLINK_TYPE_U16},
-        [IFLA_IPTUN_ENCAP_FLAGS]         = { .type = NETLINK_TYPE_U16},
-        [IFLA_IPTUN_ENCAP_SPORT]         = { .type = NETLINK_TYPE_U16},
-        [IFLA_IPTUN_ENCAP_DPORT]         = { .type = NETLINK_TYPE_U16},
+        [IFLA_IPTUN_ENCAP_TYPE]          = { .type = NETLINK_TYPE_U16 },
+        [IFLA_IPTUN_ENCAP_FLAGS]         = { .type = NETLINK_TYPE_U16 },
+        [IFLA_IPTUN_ENCAP_SPORT]         = { .type = NETLINK_TYPE_U16 },
+        [IFLA_IPTUN_ENCAP_DPORT]         = { .type = NETLINK_TYPE_U16 },
 };
 
 static  const NLType rtnl_link_info_data_ipgre_types[IFLA_GRE_MAX + 1] = {
@@ -225,8 +225,8 @@ static const NLType rtnl_link_info_data_ipvti_types[IFLA_VTI_MAX + 1] = {
         [IFLA_VTI_LINK]         = { .type = NETLINK_TYPE_U32 },
         [IFLA_VTI_IKEY]         = { .type = NETLINK_TYPE_U32 },
         [IFLA_VTI_OKEY]         = { .type = NETLINK_TYPE_U32 },
-        [IFLA_VTI_LOCAL]        = { .type = NETLINK_TYPE_IN_ADDR  },
-        [IFLA_VTI_REMOTE]       = { .type = NETLINK_TYPE_IN_ADDR  },
+        [IFLA_VTI_LOCAL]        = { .type = NETLINK_TYPE_IN_ADDR },
+        [IFLA_VTI_REMOTE]       = { .type = NETLINK_TYPE_IN_ADDR },
 };
 
 static const NLType rtnl_link_info_data_ip6tnl_types[IFLA_IPTUN_MAX + 1] = {
@@ -237,7 +237,7 @@ static const NLType rtnl_link_info_data_ip6tnl_types[IFLA_IPTUN_MAX + 1] = {
         [IFLA_IPTUN_FLAGS]               = { .type = NETLINK_TYPE_U32 },
         [IFLA_IPTUN_PROTO]               = { .type = NETLINK_TYPE_U8 },
         [IFLA_IPTUN_ENCAP_LIMIT]         = { .type = NETLINK_TYPE_U8 },
-        [IFLA_IPTUN_FLOWINFO]            = { .type = NETLINK_TYPE_U32},
+        [IFLA_IPTUN_FLOWINFO]            = { .type = NETLINK_TYPE_U32 },
 };
 
 /* these strings must match the .kind entries in the kernel */
@@ -375,9 +375,9 @@ static const NLTypeSystem rtnl_af_spec_type_system = {
 };
 
 static const NLType rtnl_link_types[IFLA_MAX + 1 ] = {
-        [IFLA_ADDRESS]          = { .type = NETLINK_TYPE_ETHER_ADDR, },
-        [IFLA_BROADCAST]        = { .type = NETLINK_TYPE_ETHER_ADDR, },
-        [IFLA_IFNAME]           = { .type = NETLINK_TYPE_STRING, .size = IFNAMSIZ - 1, },
+        [IFLA_ADDRESS]          = { .type = NETLINK_TYPE_ETHER_ADDR },
+        [IFLA_BROADCAST]        = { .type = NETLINK_TYPE_ETHER_ADDR },
+        [IFLA_IFNAME]           = { .type = NETLINK_TYPE_STRING, .size = IFNAMSIZ - 1 },
         [IFLA_MTU]              = { .type = NETLINK_TYPE_U32 },
         [IFLA_LINK]             = { .type = NETLINK_TYPE_U32 },
 /*

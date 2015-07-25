@@ -281,7 +281,7 @@ static int netdev_ip6tnl_fill_message_create(NetDev *netdev, Link *link, sd_netl
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_FLOWINFO attribute: %m");
         }
 
-        if (t->dscp)
+        if (t->copy_dscp)
                 t->flags |= IP6_TNL_F_RCV_DSCP_COPY;
 
         r = sd_netlink_message_append_u32(m, IFLA_IPTUN_FLAGS, t->flags);

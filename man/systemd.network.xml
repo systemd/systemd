@@ -576,22 +576,23 @@
         <varlistentry>
           <term><varname>SendHostname=</varname></term>
           <listitem>
-            <para>When true (the default), the machine's hostname will be sent to the DHCP
-            server</para>
+            <para>When true (the default), the machine's hostname will
+            be sent to the DHCP server.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>UseHostname=</varname></term>
           <listitem>
             <para>When true (the default), the hostname received from
-            the DHCP server will be used as the transient
-            hostname.</para>
+            the DHCP server will be used as the transient hostname.
+            </para>
           </listitem>
         </varlistentry>
         <varlistentry>
         <term><varname>Hostname=</varname></term>
         <listitem>
-          <para>Hostname is a option to override the machine's hostname that will be sent to the DHCP server</para>
+          <para>Use this value for the hostname which is sent to the
+          DHCP server, instead of machine's hostname.</para>
         </listitem>
       </varlistentry>
         <varlistentry>
@@ -671,51 +672,51 @@
         <varlistentry>
           <term><varname>UnicastFlood=</varname></term>
           <listitem>
-            <para>A boolean. UnicastFlood configures whether a given port will flood
-            unicast traffic for which there is no FDB entry. By default this
-            flag is off.</para>
+            <para>A boolean. Controls whether the bridge should flood
+            traffic for which an FDB entry is missing and the destination
+            is unknown through this port. Defaults to on.
+            </para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>HairPin=</varname></term>
           <listitem>
-            <para> A boolean. Configures whether traffic may be send back
-            out of the port on which it was received.  By default, this
-            flag is false. and the bridge will not forward traffic back
-            out of the receiving port. By default the flag is off.</para>
+            <para>A boolean. Configures whether traffic may be sent back
+            out of the port on which it was received. By default, this
+            flag is false, and the bridge will not forward traffic back
+            out of the receiving port.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><varname>BPDUGuard=</varname></term>
+          <term><varname>UseBPDU=</varname></term>
           <listitem>
-            <para> A boolean. Configures whether STP Bridge Protocol Data Units will be
-            processed by the bridge port. By default, the flag is false allowing BPDU
-            processing. Turning this flag on will cause the port to stop processing
-            STP Bridge Protocol Data Units. By default the flag is off.</para>
+            <para>A boolean. Configures whether STP Bridge Protocol Data Units will be
+            processed by the bridge port. Defaults to yes.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>FastLeave=</varname></term>
           <listitem>
-            <para> A boolean. This flag allows the bridge to immediately stop multicast
+            <para>A boolean. This flag allows the bridge to immediately stop multicast
             traffic on a port that receives IGMP Leave message. It is only used with
-            IGMP snooping if enabled on the bridge. By default the flag is off.</para>
+            IGMP snooping if enabled on the bridge. Defaults to off.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><varname>RootBlock=</varname></term>
+          <term><varname>AllowPortToBeRoot=</varname></term>
           <listitem>
-            <para> A boolean. Configures whether a given port is allowed to
-            become root port or not. Only used when STP is enabled on the bridge.
-            By default the flag is off.</para>
+            <para>A boolean. Configures whether a given port is allowed to
+            become a root port. Only used when STP is enabled on the bridge.
+            Defaults to on.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>Cost=</varname></term>
           <listitem>
-            <para>Each port in a bridge may have different speed. Cost
+            <para>Sets the "cost" of sending packets of this interface.
+            Each port in a bridge may have different speed and the cost
             is used to decide which link to use. Faster interfaces
-            should have lower costs</para>
+            should have lower costs.</para>
           </listitem>
         </varlistentry>
       </variablelist>
