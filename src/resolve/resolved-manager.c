@@ -912,10 +912,12 @@ int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret) {
         if (p->ifindex == LOOPBACK_IFINDEX)
                 p->ifindex = 0;
 
-        /* If we don't know the interface index still, we look for the
-         * first local interface with a matching address. Yuck! */
-        if (p->ifindex <= 0)
-                p->ifindex = manager_find_ifindex(m, p->family, &p->destination);
+        if (protocol != DNS_PROTOCOL_DNS) {
+                /* If we don't know the interface index still, we look for the
+                 * first local interface with a matching address. Yuck! */
+                if (p->ifindex <= 0)
+                        p->ifindex = manager_find_ifindex(m, p->family, &p->destination);
+        }
 
         *ret = p;
         p = NULL;

@@ -654,7 +654,6 @@ static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *use
 }
 
 int transaction_dns_fd(DnsTransaction *t) {
-        const int one = 1;
         int r;
 
         assert(t);
@@ -667,21 +666,6 @@ int transaction_dns_fd(DnsTransaction *t) {
         t->dns_fd = socket(t->scope->family, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
         if (t->dns_fd < 0)
                 return -errno;
-
-        switch (t->scope->family) {
-        case AF_INET:
-                r = setsockopt(t->dns_fd, IPPROTO_IP, IP_PKTINFO, &one, sizeof(one));
-                break;
-        case AF_INET6:
-                r = setsockopt(t->dns_fd, IPPROTO_IPV6, IPV6_RECVPKTINFO, &one, sizeof(one));
-                break;
-        default:
-                return -EAFNOSUPPORT;
-        }
-        if (r < 0) {
-                r = -errno;
-                goto fail;
-        }
 
         r = sd_event_add_io(t->scope->manager->event, &t->dns_event_source, t->dns_fd, EPOLLIN, on_dns_packet, t);
         if (r < 0)
