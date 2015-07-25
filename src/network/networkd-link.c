@@ -870,7 +870,7 @@ static int link_set_bridge(Link *link) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_FAST_LEAVE attribute: %m");
 
-        r = sd_netlink_message_append_u8(req, IFLA_BRPORT_PROTECT, link->network->root_block);
+        r = sd_netlink_message_append_u8(req, IFLA_BRPORT_PROTECT, !link->network->allow_port_to_be_root);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_PROTECT attribute: %m");
 

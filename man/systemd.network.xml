@@ -703,11 +703,11 @@
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><varname>RootBlock=</varname></term>
+          <term><varname>AllowPortToBeRoot=</varname></term>
           <listitem>
             <para>A boolean. Configures whether a given port is allowed to
             become a root port. Only used when STP is enabled on the bridge.
-            Defaults to off.</para>
+            Defaults to on.</para>
           </listitem>
         </varlistentry>
         <varlistentry>

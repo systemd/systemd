@@ -108,6 +108,7 @@ static int network_load_one(Manager *manager, const char *filename) {
         network->dhcp_client_identifier = DHCP_CLIENT_ID_DUID;
 
         network->use_bpdu = true;
+        network->allow_port_to_be_root = true;
         network->unicast_flood = true;
 
         network->llmnr = LLMNR_SUPPORT_YES;

@@ -153,7 +153,7 @@ struct Network {
         bool use_bpdu;
         bool hairpin;
         bool fast_leave;
-        bool root_block;
+        bool allow_port_to_be_root;
         bool unicast_flood;
         unsigned cost;
 
