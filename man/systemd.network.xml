@@ -672,8 +672,9 @@
         <varlistentry>
           <term><varname>UnicastFlood=</varname></term>
           <listitem>
-            <para>A boolean. UnicastFlood configures whether a given port will flood
-            unicast traffic for which there is no FDB entry. Defaults to off.
+            <para>A boolean. Controls whether the bridge should flood
+            traffic for which an FDB entry is missing and the destination
+            is unknown through this port. Defaults to on.
             </para>
           </listitem>
         </varlistentry>
