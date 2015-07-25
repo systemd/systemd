@@ -51,14 +51,22 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         EFI_STATUS err;
 
         InitializeLib(image, sys_table);
-        efivar_set_time_usec(L"LoaderTimeInitUSec", 0);
-        efivar_set(L"LoaderInfo", L"systemd-stub " VERSION, FALSE);
-        s = PoolPrint(L"%s %d.%02d", ST->FirmwareVendor, ST->FirmwareRevision >> 16, ST->FirmwareRevision & 0xffff);
-        efivar_set(L"LoaderFirmwareInfo", s, FALSE);
-        FreePool(s);
-        s = PoolPrint(L"UEFI %d.%02d", ST->Hdr.Revision >> 16, ST->Hdr.Revision & 0xffff);
-        efivar_set(L"LoaderFirmwareType", s, FALSE);
-        FreePool(s);
+        if (efivar_get_raw(&global_guid, L"LoaderTimeInitUSec", &b, &size) != EFI_SUCCESS) {
+                efivar_set_time_usec(L"LoaderTimeInitUSec", 0);
+        }
+        if (efivar_get_raw(&global_guid, L"LoaderInfo", &b, &size) != EFI_SUCCESS) {
+                efivar_set(L"LoaderInfo", L"systemd-stub " VERSION, FALSE);
+        }
+        if (efivar_get_raw(&global_guid, L"LoaderFirmwareInfo", &b, &size) != EFI_SUCCESS) {
+                s = PoolPrint(L"%s %d.%02d", ST->FirmwareVendor, ST->FirmwareRevision >> 16, ST->FirmwareRevision & 0xffff);
+                efivar_set(L"LoaderFirmwareInfo", s, FALSE);
+                FreePool(s);
+        }
+        if (efivar_get_raw(&global_guid, L"LoaderFirmwareType", &b, &size) != EFI_SUCCESS) {
+                s = PoolPrint(L"UEFI %d.%02d", ST->Hdr.Revision >> 16, ST->Hdr.Revision & 0xffff);
+                efivar_set(L"LoaderFirmwareType", s, FALSE);
+                FreePool(s);
+        }
 
         err = uefi_call_wrapper(BS->OpenProtocol, 6, image, &LoadedImageProtocol, (VOID **)&loaded_image,
                                 image, NULL, EFI_OPEN_PROTOCOL_GET_PROTOCOL);
@@ -68,34 +76,37 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 return err;
         }
 
-        /* export the device path this image is started from */
-        device_path = DevicePathFromHandle(loaded_image->DeviceHandle);
-        if (device_path) {
-                EFI_DEVICE_PATH *path, *paths;
+        if (efivar_get_raw(&global_guid, L"LoaderDevicePartUUID", &b, &size) != EFI_SUCCESS) {
+                /* export the device path this image is started from */
+                device_path = DevicePathFromHandle(loaded_image->DeviceHandle);
+                if (device_path) {
+                        EFI_DEVICE_PATH *path, *paths;
 
-                paths = UnpackDevicePath(device_path);
-                for (path = paths; !IsDevicePathEnd(path); path = NextDevicePathNode(path)) {
-                        HARDDRIVE_DEVICE_PATH *drive;
-                        CHAR16 uuid[37];
+                        paths = UnpackDevicePath(device_path);
+                        for (path = paths; !IsDevicePathEnd(path); path = NextDevicePathNode(path)) {
+                                HARDDRIVE_DEVICE_PATH *drive;
+                                CHAR16 uuid[37];
 
-                        if (DevicePathType(path) != MEDIA_DEVICE_PATH)
-                                continue;
-                        if (DevicePathSubType(path) != MEDIA_HARDDRIVE_DP)
-                                continue;
-                        drive = (HARDDRIVE_DEVICE_PATH *)path;
-                        if (drive->SignatureType != SIGNATURE_TYPE_GUID)
-                                continue;
+                                if (DevicePathType(path) != MEDIA_DEVICE_PATH)
+                                        continue;
+                                if (DevicePathSubType(path) != MEDIA_HARDDRIVE_DP)
+                                        continue;
+                                drive = (HARDDRIVE_DEVICE_PATH *)path;
+                                if (drive->SignatureType != SIGNATURE_TYPE_GUID)
+                                        continue;
 
-                        GuidToString(uuid, (EFI_GUID *)&drive->Signature);
-                        efivar_set(L"LoaderDevicePartUUID", uuid, FALSE);
-                        break;
+                                GuidToString(uuid, (EFI_GUID *)&drive->Signature);
+                                efivar_set(L"LoaderDevicePartUUID", uuid, FALSE);
+                                break;
+                        }
+                        FreePool(paths);
                 }
-                FreePool(paths);
         }
 
-        loaded_image_path = DevicePathToStr(loaded_image->FilePath);
-        efivar_set(L"LoaderImageIdentifier", loaded_image_path, FALSE);
-
+        if (efivar_get_raw(&global_guid, L"LoaderDevicePartUUID", &b, &size) != EFI_SUCCESS) {
+                loaded_image_path = DevicePathToStr(loaded_image->FilePath);
+                efivar_set(L"LoaderImageIdentifier", loaded_image_path, FALSE);
+        }
         err = uefi_call_wrapper(BS->OpenProtocol, 6, image, &LoadedImageProtocol, (VOID **)&loaded_image,
                                 image, NULL, EFI_OPEN_PROTOCOL_GET_PROTOCOL);
         if (EFI_ERROR(err)) {
