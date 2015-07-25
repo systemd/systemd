@@ -1587,9 +1587,9 @@ static VOID config_entry_add_linux( Config *config, EFI_LOADED_IMAGE *loaded_ima
                                 /* read the embedded cmdline file */
                                 len = file_read(linux_dir, f->FileName, offs[1], szs[1] - 1 , &content);
                                 if (len > 0) {
-                                    cmdline = stra_to_str(content);
-                                    entry->options = cmdline;
-                                    cmdline = NULL;
+                                        cmdline = stra_to_str(content);
+                                        entry->options = cmdline;
+                                        cmdline = NULL;
                                 }
                                 FreePool(cmdline);
                                 FreePool(conf);
