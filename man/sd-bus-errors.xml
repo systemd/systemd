@@ -138,7 +138,7 @@
          <term><varname>SD_BUS_ERROR_FAILED</varname></term>
          <listitem><para>A generic error indication. See the error
          message for further details. This error name should be
-         avoided, in favour of a more expressive error
+         avoided, in favor of a more expressive error
          name.</para></listitem>
       </varlistentry>
 
@@ -186,7 +186,7 @@
       </varlistentry>
       <varlistentry>
         <term><varname>SD_BUS_ERROR_ACCESS_DENIED</varname></term>
-        <listitem><para>Access to a resource has bee denied, due to security restrictions.</para></listitem>
+        <listitem><para>Access to a resource has been denied, due to security restrictions.</para></listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>SD_BUS_ERROR_AUTH_FAILED</varname></term>

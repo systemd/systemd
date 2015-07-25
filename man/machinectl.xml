@@ -593,7 +593,7 @@
         <filename>/var/lib/machines/</filename>, that is named after
         the specified URL and its HTTP etag. A writable snapshot is
         then taken from this subvolume, and named after the specified
-        local name. This behaviour ensures that creating multiple
+        local name. This behavior ensures that creating multiple
         container instances of the same URL is efficient, as multiple
         downloads are not necessary. In order to create only the
         read-only image, and avoid creating its writable snapshot,
@@ -639,7 +639,7 @@
         machine name. To omit creation of the local, writable copy
         pass <literal>-</literal> as local machine name.</para>
 
-        <para>Similar to the behaviour of <command>pull-tar</command>,
+        <para>Similar to the behavior of <command>pull-tar</command>,
         the read-only image is prefixed with
         <filename>.raw-</filename>, and thus not shown by
         <command>list-images</command>, unless <option>--all</option>

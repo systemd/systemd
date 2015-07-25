@@ -288,7 +288,7 @@
           <term><varname>BindCarrier=</varname></term>
           <listitem>
             <para>A port or a list of ports. When set, controls the
-            behaviour of the current interface. When all ports in the list
+            behavior of the current interface. When all ports in the list
             are in an operational down state, the current interface is brought
             down. When at least one port has carrier, the current interface
             is brought up.

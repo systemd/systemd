@@ -67,7 +67,7 @@
     overridden to use a different setting following normal
     <citerefentry><refentrytitle>sysctl.d</refentrytitle><manvolnum>5</manvolnum></citerefentry> rules.</para>
 
-    <para>The behaviour of a specific program upon reception of a
+    <para>The behavior of a specific program upon reception of a
     signal is governed by a few factors which are described in detail
     in <citerefentry project='man-pages'><refentrytitle>core</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
     In particular, the coredump will only be processed when the
@@ -81,7 +81,7 @@
     including a backtrace if possible, and store the core (contents of
     process' memory contents) in an external file on disk in
     <filename>/var/lib/systemd/coredump</filename>, or directly in
-    the journal. This behaviour may be modified using
+    the journal. This behavior may be modified using
     <citerefentry><refentrytitle>coredump.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
     <para>Apart from the
