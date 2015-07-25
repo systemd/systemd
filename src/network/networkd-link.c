@@ -858,7 +858,7 @@ static int link_set_bridge(Link *link) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not append IFLA_PROTINFO attribute: %m");
 
-        r = sd_netlink_message_append_u8(req, IFLA_BRPORT_GUARD, link->network->bpdu_guard);
+        r = sd_netlink_message_append_u8(req, IFLA_BRPORT_GUARD, !link->network->use_bpdu);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_GUARD attribute: %m");
 

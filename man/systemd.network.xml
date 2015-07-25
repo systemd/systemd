@@ -687,12 +687,10 @@
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><varname>BPDUGuard=</varname></term>
+          <term><varname>UseBPDU=</varname></term>
           <listitem>
             <para>A boolean. Configures whether STP Bridge Protocol Data Units will be
-            processed by the bridge port. By default, the flag is false allowing BPDU
-            processing. Turning this flag on will cause the port to stop processing
-            STP Bridge Protocol Data Units. Defaults to off.</para>
+            processed by the bridge port. Defaults to yes.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
