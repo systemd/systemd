@@ -409,7 +409,6 @@ int main(int argc, char *argv[])
         union {
                 uint8_t  byte[512];
                 uint16_t wyde[256];
-                uint64_t octa[64];
         } identify;
         char model[41];
         char model_enc[256];
