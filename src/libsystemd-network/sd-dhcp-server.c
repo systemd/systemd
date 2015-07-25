@@ -22,9 +22,12 @@
 
 #include <sys/ioctl.h>
 
+#include "strv.h"
 #include "siphash24.h"
 
+#include "sd-network.h"
 #include "sd-dhcp-server.h"
+#include "in-addr-util.h"
 #include "dhcp-server-internal.h"
 #include "dhcp-internal.h"
 
@@ -410,6 +413,8 @@ static int server_message_init(sd_dhcp_server *server, DHCPPacket **ret,
 static int server_send_offer(sd_dhcp_server *server, DHCPRequest *req,
                              be32_t address) {
         _cleanup_free_ DHCPPacket *packet = NULL;
+        _cleanup_strv_free_ char **dns = NULL;
+        char **d;
         size_t offset;
         be32_t lease_time;
         int r;
@@ -437,6 +442,19 @@ static int server_send_offer(sd_dhcp_server *server, DHCPRequest *req,
         if (r < 0)
                 return r;
 
+        sd_network_get_dns(&dns);
+        STRV_FOREACH(d, dns) {
+                union in_addr_union u;
+                r = in_addr_from_string(AF_INET, *d, &u);
+                if (r < 0)
+                        continue;
+
+                r = dhcp_option_append(&packet->dhcp, req->max_optlen, &offset, 0,
+                                       DHCP_OPTION_DOMAIN_NAME_SERVER, 4, &u.in.s_addr);
+                if (r < 0)
+                        return r;
+        }
+
         r = dhcp_server_send_packet(server, req, packet, DHCP_OFFER, offset);
         if (r < 0)
                 return r;
@@ -447,6 +465,8 @@ static int server_send_offer(sd_dhcp_server *server, DHCPRequest *req,
 static int server_send_ack(sd_dhcp_server *server, DHCPRequest *req,
                            be32_t address) {
         _cleanup_free_ DHCPPacket *packet = NULL;
+        _cleanup_strv_free_ char **dns = NULL;
+        char **d;
         size_t offset;
         be32_t lease_time;
         int r;
@@ -473,6 +493,19 @@ static int server_send_ack(sd_dhcp_server *server, DHCPRequest *req,
                                DHCP_OPTION_ROUTER, 4, &server->address);
         if (r < 0)
                 return r;
+
+        sd_network_get_dns(&dns);
+        STRV_FOREACH(d, dns) {
+                union in_addr_union u;
+                r = in_addr_from_string(AF_INET, *d, &u);
+                if (r < 0)
+                        continue;
+
+                r = dhcp_option_append(&packet->dhcp, req->max_optlen, &offset, 0,
+                                       DHCP_OPTION_DOMAIN_NAME_SERVER, 4, &u.in.s_addr);
+                if (r < 0)
+                        return r;
+        }
 
         r = dhcp_server_send_packet(server, req, packet, DHCP_ACK, offset);
         if (r < 0)
