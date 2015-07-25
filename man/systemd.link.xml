@@ -68,11 +68,10 @@
     in <filename>/etc</filename> have the highest priority, files in
     <filename>/run</filename> take precedence over files with the same
     name in <filename>/usr/lib</filename>. This can be used to
-    override a system-supplied link file with a local file if needed;
-    a symlink in <filename>/etc</filename> with the same name as a
-    link file in <filename>/usr/lib</filename>, pointing to
-    <filename>/dev/null</filename>, disables the link file
-    entirely.</para>
+    override a system-supplied link file with a local file if needed.
+    As a special case, an empty file (file size 0) or symlink with the
+    same name pointing to <filename>/dev/null</filename>, disable the
+    configuration file entirely (it is "masked").</para>
 
     <para>The link file contains a <literal>[Match]</literal> section,
     which determines if a given link file may be applied to a given
