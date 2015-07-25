@@ -243,7 +243,7 @@ static int on_stream_complete(DnsStream *s, int error) {
 }
 
 static int dns_transaction_open_tcp(DnsTransaction *t) {
-        _cleanup_(dns_server_unrefp) DnsServer *server = NULL;
+        DnsServer *server = NULL;
         _cleanup_close_ int fd = -1;
         int r;
 
