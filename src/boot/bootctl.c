@@ -294,6 +294,8 @@ static int status_binaries(const char *esp_path, sd_id128_t partition) {
         else if (r < 0)
                 return r;
 
+        printf("\n");
+
         return 0;
 }
 
