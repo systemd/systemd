@@ -132,6 +132,15 @@ static int network_load_one(Manager *manager, const char *filename) {
         if (r < 0)
                 return r;
 
+        if (!network->match_mac &&
+            !network->match_path &&
+            !network->match_driver &&
+            !network->match_type &&
+            !network->match_name) {
+                log_error("No [Match] entries specified in \"%s\". Refusing.", filename);
+                return -EINVAL;
+        }
+
         /* IPMasquerade=yes implies IPForward=yes */
         if (network->ip_masquerade)
                 network->ip_forward |= ADDRESS_FAMILY_IPV4;
@@ -148,7 +157,7 @@ static int network_load_one(Manager *manager, const char *filename) {
 
         LIST_FOREACH(routes, route, network->static_routes) {
                 if (!route->family) {
-                        log_warning("Route section without Gateway field configured in %s. "
+                        log_warning("[Route] section without Gateway field configured in \"%s\". "
                                     "Ignoring", filename);
                         return 0;
                 }
@@ -156,7 +165,7 @@ static int network_load_one(Manager *manager, const char *filename) {
 
         LIST_FOREACH(addresses, address, network->static_addresses) {
                 if (!address->family) {
-                        log_warning("Address section without Address field configured in %s. "
+                        log_warning("[Address] section without Address field configured in \"%s\". "
                                     "Ignoring", filename);
                         return 0;
                 }
