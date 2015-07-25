@@ -350,24 +350,6 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                 }
         }
 
-        if (t->scope->protocol == DNS_PROTOCOL_DNS) {
-
-                /* For DNS we are fine with accepting packets on any
-                 * interface, but the source IP address must be the
-                 * one of the DNS server we queried */
-
-                assert(t->server);
-
-                if (t->server->family != p->family)
-                        return;
-
-                if (!in_addr_equal(p->family, &p->sender, &t->server->address))
-                        return;
-
-                if (p->sender_port != 53)
-                        return;
-        }
-
         if (t->received != p) {
                 dns_packet_unref(t->received);
                 t->received = dns_packet_ref(p);
