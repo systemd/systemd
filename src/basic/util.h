@@ -913,3 +913,6 @@ int parse_mode(const char *s, mode_t *ret);
 int mount_move_root(const char *path);
 
 int reset_uid_gid(void);
+
+int getxattr_malloc(const char *path, const char *attr, const char **label);
+int getxattr_malloc_fd(int fd, const char *attr, const char **label);

@@ -6592,3 +6592,45 @@ int reset_uid_gid(void) {
 
         return 0;
 }
+
+int getxattr_malloc(const char *path, const char *attr, const char **label) {
+        char l[NAME_MAX] = "", *ll = NULL;
+        ssize_t s = 0;
+
+        assert(path);
+        assert(attr);
+        assert(label);
+
+        s = lgetxattr(path, attr, l, NAME_MAX);
+        if (s < 0)
+                return -errno;
+
+        ll = strdup(l);
+        if (!ll)
+                return -ENOMEM;
+
+        *label = ll;
+
+        return s;
+}
+
+int getxattr_malloc_fd(int fd, const char *attr, const char **label) {
+        char l[NAME_MAX] = "", *ll = NULL;
+        ssize_t s = 0;
+
+        assert(fd >= 0);
+        assert(attr);
+        assert(label);
+
+        s = fgetxattr(fd, attr, l, NAME_MAX);
+        if (s < 0)
+                return -errno;
+
+        ll = strdup(l);
+        if (!ll)
+                return -ENOMEM;
+
+        *label = ll;
+
+        return s;
+}
