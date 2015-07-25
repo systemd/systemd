@@ -1495,6 +1495,7 @@ static VOID config_entry_add_osx(Config *config) {
 static VOID config_entry_add_linux( Config *config, EFI_LOADED_IMAGE *loaded_image, EFI_FILE *root_dir) {
         EFI_FILE_HANDLE linux_dir;
         EFI_STATUS err;
+        ConfigEntry *entry;
 
         err = uefi_call_wrapper(root_dir->Open, 5, root_dir, &linux_dir, L"\\EFI\\Linux", EFI_FILE_MODE_READ, 0ULL);
         if (!EFI_ERROR(err)) {
@@ -1504,6 +1505,7 @@ static VOID config_entry_add_linux( Config *config, EFI_LOADED_IMAGE *loaded_ima
                         EFI_FILE_INFO *f;
                         CHAR8 *sections[] = {
                                 (UINT8 *)".osrel",
+                                (UINT8 *)".cmdline",
                                 NULL
                         };
                         UINTN offs[ELEMENTSOF(sections)-1] = {};
@@ -1535,7 +1537,7 @@ static VOID config_entry_add_linux( Config *config, EFI_LOADED_IMAGE *loaded_ima
                         if (StriCmp(f->FileName + len - 4, L".efi") != 0)
                                 continue;
 
-                        /* look for an .osrel section in the .efi binary */
+                        /* look for .osrel and .cmdline sections in the .efi binary */
                         err = pefile_locate_sections(linux_dir, f->FileName, sections, addrs, offs, szs);
                         if (EFI_ERROR(err))
                                 continue;
@@ -1575,10 +1577,21 @@ static VOID config_entry_add_linux( Config *config, EFI_LOADED_IMAGE *loaded_ima
                         if (os_name && os_id && (os_version || os_build)) {
                                 CHAR16 *conf;
                                 CHAR16 *path;
+                                CHAR16 *cmdline;
 
                                 conf = PoolPrint(L"%s-%s", os_id, os_version ? : os_build);
                                 path = PoolPrint(L"\\EFI\\Linux\\%s", f->FileName);
-                                config_entry_add_loader(config, loaded_image->DeviceHandle, LOADER_LINUX, conf, 'l', os_name, path);
+                                entry = config_entry_add_loader(config, loaded_image->DeviceHandle, LOADER_LINUX, conf, 'l', os_name, path);
+
+                                FreePool(content);
+                                /* read the embedded cmdline file */
+                                len = file_read(linux_dir, f->FileName, offs[1], szs[1] - 1 , &content);
+                                if (len > 0) {
+                                    cmdline = stra_to_str(content);
+                                    entry->options = cmdline;
+                                    cmdline = NULL;
+                                }
+                                FreePool(cmdline);
                                 FreePool(conf);
                                 FreePool(path);
                         }
