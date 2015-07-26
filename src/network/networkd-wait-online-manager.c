@@ -54,10 +54,10 @@ bool manager_all_configured(Manager *m) {
         char **ifname;
         bool one_ready = false;
 
-        /* wait for all the links given on the command line to appear */
+        /* wait for all the links given on the command line to become ready */
         STRV_FOREACH(ifname, m->interfaces) {
                 l = hashmap_get(m->links_by_name, *ifname);
-                if (!l) {
+                if (!l || !l->operational_state || !STR_IN_SET(l->operational_state, "degraded", "routable")) {
                         log_debug("still waiting for %s", *ifname);
                         return false;
                 }
