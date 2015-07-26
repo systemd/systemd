@@ -733,7 +733,7 @@ static int proxy_process_destination_to_local(Proxy *p) {
         /* discard broadcasts that were not matched by any MATCH rule */
         if (!matched && !sd_bus_message_get_destination(m)) {
                 if (!matched_synthetic)
-                        log_warning("Dropped unmatched broadcast: uid=" UID_FMT " gid=" GID_FMT" message=%s path=%s interface=%s member=%s",
+                        log_debug("Dropped unmatched broadcast: uid=" UID_FMT " gid=" GID_FMT" message=%s path=%s interface=%s member=%s",
                                     p->local_creds.uid, p->local_creds.gid, bus_message_type_to_string(m->header->type),
                                     strna(m->path), strna(m->interface), strna(m->member));
                 return 1;
