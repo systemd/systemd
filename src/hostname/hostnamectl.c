@@ -281,6 +281,14 @@ static int set_hostname(sd_bus *bus, char **args, unsigned n) {
                 else {
                         p = hostname;
                         hostname = h;
+
+                        /* As a special case, if the pretty hostname is
+                         * a valid hostname, but has a dot at the end,
+                         * ignore the dot. Otherwise the dot would be
+                         * meaningful, even though it should not be. */
+                        if (strlen(p) == strlen(hostname) + 1 &&
+                            endswith(p, "."))
+                                p = "";
                 }
 
                 r = set_simple_string(bus, "SetPrettyHostname", p);
