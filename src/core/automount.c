@@ -471,13 +471,20 @@ static int automount_send_ready(Automount *a, Set *tokens, int status) {
         return r;
 }
 
+static int automount_start_expire(Automount *a);
+
 int automount_update_mount(Automount *a, MountState old_state, MountState state) {
+        int r;
+
         assert(a);
 
         switch (state) {
         case MOUNT_MOUNTED:
         case MOUNT_REMOUNTING:
                 automount_send_ready(a, a->tokens, 0);
+                r = automount_start_expire(a);
+                if (r < 0)
+                        log_unit_warning_errno(UNIT(a), r, "Failed to start expiration timer, ignoring: %m");
                 break;
          case MOUNT_DEAD:
          case MOUNT_UNMOUNTING:
@@ -490,6 +497,7 @@ int automount_update_mount(Automount *a, MountState old_state, MountState state)
          case MOUNT_FAILED:
                 if (old_state != state)
                         automount_send_ready(a, a->tokens, -ENODEV);
+                (void) sd_event_source_set_enabled(a->expire_event_source, SD_EVENT_OFF);
                 break;
         default:
                 break;
@@ -633,8 +641,6 @@ static void *expire_thread(void *p) {
         return NULL;
 }
 
-static int automount_start_expire(Automount *a);
-
 static int automount_dispatch_expire(sd_event_source *source, usec_t usec, void *userdata) {
         Automount *a = AUTOMOUNT(userdata);
         _cleanup_(expire_data_freep) struct expire_data *data = NULL;
@@ -732,10 +738,6 @@ static void automount_enter_runnning(Automount *a) {
                         goto fail;
                 }
         }
-
-        r = automount_start_expire(a);
-        if (r < 0)
-                log_unit_warning_errno(UNIT(a), r, "Failed to start expiration timer, ignoring: %m");
 
         automount_set_state(a, AUTOMOUNT_RUNNING);
         return;
@@ -907,6 +909,7 @@ static int automount_dispatch_io(sd_event_source *s, int fd, uint32_t events, vo
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         union autofs_v5_packet_union packet;
         Automount *a = AUTOMOUNT(userdata);
+        struct stat st;
         int r;
 
         assert(a);
@@ -966,6 +969,19 @@ static int automount_dispatch_io(sd_event_source *s, int fd, uint32_t events, vo
                         log_unit_error_errno(UNIT(a), r, "Failed to remember token: %m");
                         goto fail;
                 }
+
+                /* Before we do anything, let's see if somebody is playing games with us? */
+                if (lstat(a->where, &st) < 0) {
+                        log_unit_warning_errno(UNIT(a), errno, "Failed to stat automount point: %m");
+                        goto fail;
+                }
+
+                if (!S_ISDIR(st.st_mode) || st.st_dev == a->dev_id) {
+                        log_unit_info(UNIT(a), "Automount point already unmounted?");
+                        automount_send_ready(a, a->expire_tokens, 0);
+                        break;
+                }
+
                 r = manager_add_job(UNIT(a)->manager, JOB_STOP, UNIT_TRIGGER(UNIT(a)), JOB_REPLACE, true, &error, NULL);
                 if (r < 0) {
                         log_unit_warning(UNIT(a), "Failed to queue umount startup job: %s", bus_error_message(&error, r));
