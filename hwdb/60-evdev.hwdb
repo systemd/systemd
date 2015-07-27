@@ -84,6 +84,15 @@ evdev:input:b0003v05ACp025b*
  EVDEV_ABS_36=::92
 
 #########################################
+# ASUS
+#########################################
+evdev:name:ETPS/2 Elantech Touchpad:dmi:bvn*:bvr*:bd*:svnASUSTeKComputerInc.:pnK52JT:*
+ EVDEV_ABS_00=::18
+ EVDEV_ABS_01=::16
+ EVDEV_ABS_35=::18
+ EVDEV_ABS_36=::16
+
+#########################################
 # Google
 #########################################
 
