@@ -66,7 +66,6 @@
 /systemd-cgls
 /systemd-cgroups-agent
 /systemd-cgtop
-/systemd-consoled
 /systemd-coredump
 /systemd-cryptsetup
 /systemd-cryptsetup-generator
@@ -76,7 +75,6 @@
 /systemd-detect-virt
 /systemd-efi-boot-generator
 /systemd-escape
-/systemd-evcat
 /systemd-export
 /systemd-firstboot
 /systemd-fsck
@@ -102,7 +100,6 @@
 /systemd-machine-id-commit
 /systemd-machine-id-setup
 /systemd-machined
-/systemd-modeset
 /systemd-modules-load
 /systemd-networkd
 /systemd-networkd-wait-online
@@ -124,7 +121,6 @@
 /systemd-sleep
 /systemd-socket-proxyd
 /systemd-stdio-bridge
-/systemd-subterm
 /systemd-sysctl
 /systemd-system-update-generator
 /systemd-sysusers
@@ -258,15 +254,12 @@
 /test-strv
 /test-strxcpyx
 /test-tables
-/test-term-page
-/test-term-parser
 /test-terminal-util
 /test-time
 /test-tmpfiles
 /test-udev
 /test-uid-range
 /test-unaligned
-/test-unifont
 /test-unit-file
 /test-unit-name
 /test-utf8
