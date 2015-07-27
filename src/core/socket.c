@@ -923,13 +923,13 @@ static void socket_apply_socket_options(Socket *s, int fd) {
                         log_unit_warning_errno(UNIT(s), errno, "TCP_CONGESTION failed: %m");
 
         if (s->smack_ip_in) {
-                r = mac_smack_apply_ip_in_fd(fd, s->smack_ip_in);
+                r = mac_smack_apply_fd(fd, SMACK_ATTR_IPIN, s->smack_ip_in);
                 if (r < 0)
                         log_unit_error_errno(UNIT(s), r, "mac_smack_apply_ip_in_fd: %m");
         }
 
         if (s->smack_ip_out) {
-                r = mac_smack_apply_ip_out_fd(fd, s->smack_ip_out);
+                r = mac_smack_apply_fd(fd, SMACK_ATTR_IPOUT, s->smack_ip_out);
                 if (r < 0)
                         log_unit_error_errno(UNIT(s), r, "mac_smack_apply_ip_out_fd: %m");
         }
@@ -946,7 +946,7 @@ static void socket_apply_fifo_options(Socket *s, int fd) {
                         log_unit_warning_errno(UNIT(s), errno, "F_SETPIPE_SZ: %m");
 
         if (s->smack) {
-                r = mac_smack_apply_fd(fd, s->smack);
+                r = mac_smack_apply_fd(fd, SMACK_ATTR_ACCESS, s->smack);
                 if (r < 0)
                         log_unit_error_errno(UNIT(s), r, "mac_smack_apply_fd: %m");
         }
