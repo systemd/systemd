@@ -130,9 +130,11 @@
           for this target unit to all services (except for those with
           <varname>DefaultDependencies=no</varname>).</para>
 
-          <para>Usually this should pull-in all mount points, swap
-          devices, sockets, timers, and path units and other basic
-          initialization necessary for general purpose daemons.</para>
+          <para>Usually this should pull-in all local mount points plus
+          <filename>/var</filename>, <filename>/tmp</filename> and
+          <filename>/var/tmp</filename>, swap devices, sockets, timers,
+          path units and other basic initialization necessary for general
+          purpose daemons.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
