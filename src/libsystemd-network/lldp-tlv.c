@@ -539,3 +539,21 @@ int sd_lldp_tlv_packet_read_system_capability(tlv_packet *tlv, uint16_t *data) {
 
         return r;
 }
+
+int sd_lldp_tlv_packet_get_destination_type(tlv_packet *tlv, LLDPDestinationType *dest)
+{
+        assert_return(tlv, -EINVAL);
+        assert_return(dest, -EINVAL);
+
+        /* 802.1AB-2009, Table 7-1 */
+        if (!memcmp(&tlv->mac, "\x01\x80\xc2\x00\x00\x0e", ETH_ALEN))
+                *dest = LLDP_DEST_TYPE_NEAREST_BRIDGE;
+        else if (!memcmp(&tlv->mac, "\x01\x80\xc2\00x\x00\x03", ETH_ALEN))
+                *dest = LLDP_DEST_TYPE_NEAREST_NON_TPMR_BRIDGE;
+        else if (!memcmp(&tlv->mac, "\x01\x80\xc2\x00\x00\x00", ETH_ALEN))
+                *dest = LLDP_DEST_TYPE_NEAREST_CUSTOMER_BRIDGE;
+        else
+                assert_not_reached("Unknown address type");
+
+        return 0;
+}

@@ -202,6 +202,15 @@ static int lldp_parse_ttl_tlv(tlv_packet *m) {
         return 0;
 }
 
+static int lldp_get_destination_type(tlv_packet *m) {
+        LLDPDestinationType dest;
+
+        assert_se(sd_lldp_tlv_packet_get_destination_type(m, &dest) >= 0);
+        assert_se(dest == LLDP_DEST_TYPE_NEAREST_BRIDGE);
+
+        return 0;
+}
+
 static int lldp_parse_tlv_packet(tlv_packet *m, int len) {
         uint8_t subtype;
 
@@ -211,6 +220,8 @@ static int lldp_parse_tlv_packet(tlv_packet *m, int len) {
         assert_se(lldp_parse_system_name_tlv(m) >= 0);
         assert_se(lldp_parse_ttl_tlv(m) >= 0);
         assert_se(lldp_parse_system_desc_tlv(m) >= 0);
+
+        assert_se(lldp_get_destination_type(m) >= 0);
 
         return 0;
 }
