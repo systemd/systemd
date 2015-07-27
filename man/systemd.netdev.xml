@@ -135,6 +135,9 @@
           <row><entry><varname>macvlan</varname></entry>
           <entry>A macvlan device is a stacked device which receives packets from its underlying device based on MAC address filtering.</entry></row>
 
+          <row><entry><varname>macvtap</varname></entry>
+          <entry>A macvtap device is a stacked device which receives packets from its underlying device based on MAC address filtering.</entry></row>
+
           <row><entry><varname>sit</varname></entry>
           <entry>An IPv6 over IPv4 tunnel.</entry></row>
 
@@ -315,6 +318,15 @@
     </variablelist>
 
   </refsect1>
+
+    <refsect1>
+    <title>[MACVTAP] Section Options</title>
+
+    <para>The <literal>[MACVTAP]</literal> section applies for
+    netdevs of kind <literal>macvtap</literal> and accepts the
+    same key as <literal>[MACVLAN].</literal> </para>
+
+    </refsect1>
 
   <refsect1>
     <title>[IPVLAN] Section Options</title>
