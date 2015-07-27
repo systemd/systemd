@@ -28,6 +28,12 @@ enum {
         SD_LLDP_EVENT_UPDATE_INFO       = 0,
 };
 
+enum {
+        SD_LLDP_DESTINATION_TYPE_NEAREST_BRIDGE,
+        SD_LLDP_DESTINATION_TYPE_NEAREST_NON_TPMR_BRIDGE,
+        SD_LLDP_DESTINATION_TYPE_NEAREST_CUSTOMER_BRIDGE,
+};
+
 typedef struct sd_lldp sd_lldp;
 typedef struct tlv_packet sd_lldp_packet;
 
@@ -55,5 +61,7 @@ int sd_lldp_packet_read_port_description(sd_lldp_packet *tlv, char **data, uint1
 
 sd_lldp_packet *sd_lldp_packet_ref(sd_lldp_packet *tlv);
 sd_lldp_packet *sd_lldp_packet_unref(sd_lldp_packet *tlv);
+
+int sd_lldp_packet_get_destination_type(sd_lldp_packet *tlv, int *dest);
 
 int sd_lldp_get_packets(sd_lldp *lldp, sd_lldp_packet ***tlvs);
