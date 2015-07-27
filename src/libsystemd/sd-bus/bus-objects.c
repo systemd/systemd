@@ -173,6 +173,7 @@ static int add_subtree_to_set(
                 sd_bus *bus,
                 const char *prefix,
                 struct node *n,
+                bool skip_subhierarchies,
                 Set *s,
                 sd_bus_error *error) {
 
@@ -204,11 +205,13 @@ static int add_subtree_to_set(
                 if (r < 0 && r != -EEXIST)
                         return r;
 
-                r = add_subtree_to_set(bus, prefix, i, s, error);
-                if (r < 0)
-                        return r;
-                if (bus->nodes_modified)
-                        return 0;
+                if (!skip_subhierarchies || !i->object_managers) {
+                        r = add_subtree_to_set(bus, prefix, i, skip_subhierarchies, s, error);
+                        if (r < 0)
+                                return r;
+                        if (bus->nodes_modified)
+                                return 0;
+                }
         }
 
         return 0;
@@ -218,6 +221,7 @@ static int get_child_nodes(
                 sd_bus *bus,
                 const char *prefix,
                 struct node *n,
+                bool skip_subhierarchies,
                 Set **_s,
                 sd_bus_error *error) {
 
@@ -233,7 +237,7 @@ static int get_child_nodes(
         if (!s)
                 return -ENOMEM;
 
-        r = add_subtree_to_set(bus, prefix, n, s, error);
+        r = add_subtree_to_set(bus, prefix, n, skip_subhierarchies, s, error);
         if (r < 0) {
                 set_free_free(s);
                 return r;
@@ -900,7 +904,7 @@ static int process_introspect(
         assert(n);
         assert(found_object);
 
-        r = get_child_nodes(bus, m->path, n, &s, &error);
+        r = get_child_nodes(bus, m->path, n, false, &s, &error);
         if (r < 0)
                 return bus_maybe_reply_error(m, r, &error);
         if (bus->nodes_modified)
@@ -1166,7 +1170,7 @@ static int process_get_managed_objects(
         if (require_fallback || !n->object_managers)
                 return 0;
 
-        r = get_child_nodes(bus, m->path, n, &s, &error);
+        r = get_child_nodes(bus, m->path, n, true, &s, &error);
         if (r < 0)
                 return r;
         if (bus->nodes_modified)
@@ -1473,6 +1477,38 @@ void bus_node_gc(sd_bus *b, struct node *n) {
         free(n->path);
         bus_node_gc(b, n->parent);
         free(n);
+}
+
+static int bus_find_parent_object_manager(sd_bus *bus, struct node **out, const char *path) {
+        _cleanup_free_ char *s = NULL;
+        struct node *n;
+        char *e;
+
+        assert(bus);
+        assert(path);
+
+        n = hashmap_get(bus->nodes, path);
+        if (!n) {
+                s = strdup(path);
+                if (!s)
+                        return -ENOMEM;
+
+                do {
+                        e = strrchr(s, '/');
+                        if (!e || e == path)
+                                break;
+
+                        *e = 0;
+                        n = hashmap_get(bus->nodes, s);
+                } while (!n);
+        }
+
+        while (n && !n->object_managers)
+                n = n->parent;
+
+        if (out)
+                *out = n;
+        return !!n;
 }
 
 static int bus_add_object(
@@ -2277,6 +2313,7 @@ _public_ int sd_bus_emit_object_added(sd_bus *bus, const char *path) {
         BUS_DONT_DESTROY(bus);
 
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        struct node *object_manager;
         int r;
 
         /*
@@ -2297,11 +2334,17 @@ _public_ int sd_bus_emit_object_added(sd_bus *bus, const char *path) {
         if (!BUS_IS_OPEN(bus->state))
                 return -ENOTCONN;
 
+        r = bus_find_parent_object_manager(bus, &object_manager, path);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -ESRCH;
+
         do {
                 bus->nodes_modified = false;
                 m = sd_bus_message_unref(m);
 
-                r = sd_bus_message_new_signal(bus, &m, path, "org.freedesktop.DBus.ObjectManager", "InterfacesAdded");
+                r = sd_bus_message_new_signal(bus, &m, object_manager->path, "org.freedesktop.DBus.ObjectManager", "InterfacesAdded");
                 if (r < 0)
                         return r;
 
@@ -2440,6 +2483,7 @@ _public_ int sd_bus_emit_object_removed(sd_bus *bus, const char *path) {
         BUS_DONT_DESTROY(bus);
 
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        struct node *object_manager;
         int r;
 
         /*
@@ -2460,11 +2504,17 @@ _public_ int sd_bus_emit_object_removed(sd_bus *bus, const char *path) {
         if (!BUS_IS_OPEN(bus->state))
                 return -ENOTCONN;
 
+        r = bus_find_parent_object_manager(bus, &object_manager, path);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -ESRCH;
+
         do {
                 bus->nodes_modified = false;
                 m = sd_bus_message_unref(m);
 
-                r = sd_bus_message_new_signal(bus, &m, path, "org.freedesktop.DBus.ObjectManager", "InterfacesRemoved");
+                r = sd_bus_message_new_signal(bus, &m, object_manager->path, "org.freedesktop.DBus.ObjectManager", "InterfacesRemoved");
                 if (r < 0)
                         return r;
 
@@ -2596,6 +2646,7 @@ _public_ int sd_bus_emit_interfaces_added_strv(sd_bus *bus, const char *path, ch
         BUS_DONT_DESTROY(bus);
 
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        struct node *object_manager;
         char **i;
         int r;
 
@@ -2609,11 +2660,17 @@ _public_ int sd_bus_emit_interfaces_added_strv(sd_bus *bus, const char *path, ch
         if (strv_isempty(interfaces))
                 return 0;
 
+        r = bus_find_parent_object_manager(bus, &object_manager, path);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -ESRCH;
+
         do {
                 bus->nodes_modified = false;
                 m = sd_bus_message_unref(m);
 
-                r = sd_bus_message_new_signal(bus, &m, path, "org.freedesktop.DBus.ObjectManager", "InterfacesAdded");
+                r = sd_bus_message_new_signal(bus, &m, object_manager->path, "org.freedesktop.DBus.ObjectManager", "InterfacesAdded");
                 if (r < 0)
                         return r;
 
@@ -2673,6 +2730,7 @@ _public_ int sd_bus_emit_interfaces_added(sd_bus *bus, const char *path, const c
 
 _public_ int sd_bus_emit_interfaces_removed_strv(sd_bus *bus, const char *path, char **interfaces) {
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        struct node *object_manager;
         int r;
 
         assert_return(bus, -EINVAL);
@@ -2685,7 +2743,13 @@ _public_ int sd_bus_emit_interfaces_removed_strv(sd_bus *bus, const char *path, 
         if (strv_isempty(interfaces))
                 return 0;
 
-        r = sd_bus_message_new_signal(bus, &m, path, "org.freedesktop.DBus.ObjectManager", "InterfacesRemoved");
+        r = bus_find_parent_object_manager(bus, &object_manager, path);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -ESRCH;
+
+        r = sd_bus_message_new_signal(bus, &m, object_manager->path, "org.freedesktop.DBus.ObjectManager", "InterfacesRemoved");
         if (r < 0)
                 return r;
 
