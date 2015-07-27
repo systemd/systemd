@@ -439,6 +439,56 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                 dns_transaction_complete(t, DNS_TRANSACTION_FAILURE);
 }
 
+static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
+        DnsTransaction *t = userdata;
+        int r;
+
+        assert(t);
+        assert(t->scope);
+
+        r = manager_recv(t->scope->manager, fd, DNS_PROTOCOL_DNS, &p);
+        if (r <= 0)
+                return r;
+
+        if (dns_packet_validate_reply(p) > 0 &&
+            DNS_PACKET_ID(p) == t->id) {
+                dns_transaction_process_reply(t, p);
+        } else
+                log_debug("Invalid DNS packet.");
+
+        return 0;
+}
+
+int transaction_dns_fd(DnsTransaction *t, DnsServer **_server) {
+        DnsServer *server;
+        int r;
+
+        assert(t);
+        assert(t->scope);
+        assert(t->scope->manager);
+
+        if (t->dns_fd >= 0)
+                return t->dns_fd;
+
+        t->dns_fd = dns_scope_udp_dns_socket(t->scope, &server);
+        if (t->dns_fd < 0)
+                return t->dns_fd;
+
+        r = sd_event_add_io(t->scope->manager->event, &t->dns_event_source, t->dns_fd, EPOLLIN, on_dns_packet, t);
+        if (r < 0)
+                goto fail;
+
+        if (_server)
+                *_server = server;
+
+        return t->dns_fd;
+
+fail:
+        t->dns_fd = safe_close(t->dns_fd);
+        return r;
+}
+
 static int on_transaction_timeout(sd_event_source *s, usec_t usec, void *userdata) {
         DnsTransaction *t = userdata;
         int r;
@@ -640,56 +690,6 @@ int dns_transaction_go(DnsTransaction *t) {
 
         t->state = DNS_TRANSACTION_PENDING;
         return 1;
-}
-
-static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
-        DnsTransaction *t = userdata;
-        int r;
-
-        assert(t);
-        assert(t->scope);
-
-        r = manager_recv(t->scope->manager, fd, DNS_PROTOCOL_DNS, &p);
-        if (r <= 0)
-                return r;
-
-        if (dns_packet_validate_reply(p) > 0 &&
-            DNS_PACKET_ID(p) == t->id) {
-                dns_transaction_process_reply(t, p);
-        } else
-                log_debug("Invalid DNS packet.");
-
-        return 0;
-}
-
-int transaction_dns_fd(DnsTransaction *t, DnsServer **_server) {
-        DnsServer *server;
-        int r;
-
-        assert(t);
-        assert(t->scope);
-        assert(t->scope->manager);
-
-        if (t->dns_fd >= 0)
-                return t->dns_fd;
-
-        t->dns_fd = dns_scope_udp_dns_socket(t->scope, &server);
-        if (t->dns_fd < 0)
-                return t->dns_fd;
-
-        r = sd_event_add_io(t->scope->manager->event, &t->dns_event_source, t->dns_fd, EPOLLIN, on_dns_packet, t);
-        if (r < 0)
-                goto fail;
-
-        if (_server)
-                *_server = server;
-
-        return t->dns_fd;
-
-fail:
-        t->dns_fd = safe_close(t->dns_fd);
-        return r;
 }
 
 static const char* const dns_transaction_state_table[_DNS_TRANSACTION_STATE_MAX] = {
