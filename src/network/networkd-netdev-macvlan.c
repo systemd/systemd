@@ -35,13 +35,19 @@ DEFINE_STRING_TABLE_LOOKUP(macvlan_mode, MacVlanMode);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_macvlan_mode, macvlan_mode, MacVlanMode, "Failed to parse macvlan mode");
 
 static int netdev_macvlan_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *req) {
-        MacVlan *m = MACVLAN(netdev);
+        MacVlan *m;
         int r;
 
         assert(netdev);
-        assert(m);
         assert(link);
         assert(netdev->ifname);
+
+        if (netdev->kind == NETDEV_KIND_MACVLAN)
+                m = MACVLAN(netdev);
+        else
+                m = MACVTAP(netdev);
+
+        assert(m);
 
         if (m->mode != _NETDEV_MACVLAN_MODE_INVALID) {
                 r = sd_netlink_message_append_u32(req, IFLA_MACVLAN_MODE, m->mode);
@@ -53,13 +59,27 @@ static int netdev_macvlan_fill_message_create(NetDev *netdev, Link *link, sd_net
 }
 
 static void macvlan_init(NetDev *n) {
-        MacVlan *m = MACVLAN(n);
+        MacVlan *m;
 
         assert(n);
+
+        if (n->kind == NETDEV_KIND_MACVLAN)
+                m = MACVLAN(n);
+        else
+                m = MACVTAP(n);
+
         assert(m);
 
         m->mode = _NETDEV_MACVLAN_MODE_INVALID;
 }
+
+const NetDevVTable macvtap_vtable = {
+        .object_size = sizeof(MacVlan),
+        .init = macvlan_init,
+        .sections = "Match\0NetDev\0MACVTAP\0",
+        .fill_message_create = netdev_macvlan_fill_message_create,
+        .create_type = NETDEV_CREATE_STACKED,
+};
 
 const NetDevVTable macvlan_vtable = {
         .object_size = sizeof(MacVlan),

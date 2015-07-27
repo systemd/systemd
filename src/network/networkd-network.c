@@ -428,6 +428,7 @@ int config_parse_netdev(const char *unit,
                 break;
         case NETDEV_KIND_VLAN:
         case NETDEV_KIND_MACVLAN:
+        case NETDEV_KIND_MACVTAP:
         case NETDEV_KIND_IPVLAN:
         case NETDEV_KIND_VXLAN:
                 r = hashmap_put(network->stacked_netdevs, netdev->ifname, netdev);

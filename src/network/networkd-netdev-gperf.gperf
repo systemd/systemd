@@ -29,6 +29,7 @@ NetDev.MTUBytes,             config_parse_iec_size,              0,             
 NetDev.MACAddress,           config_parse_hwaddr,                0,                             offsetof(NetDev, mac)
 VLAN.Id,                     config_parse_uint64,                0,                             offsetof(VLan, id)
 MACVLAN.Mode,                config_parse_macvlan_mode,          0,                             offsetof(MacVlan, mode)
+MACVTAP.Mode,                config_parse_macvlan_mode,          0,                             offsetof(MacVlan, mode)
 IPVLAN.Mode,                 config_parse_ipvlan_mode,           0,                             offsetof(IPVlan, mode)
 Tunnel.Local,                config_parse_tunnel_address,        0,                             offsetof(Tunnel, local)
 Tunnel.Remote,               config_parse_tunnel_address,        0,                             offsetof(Tunnel, remote)

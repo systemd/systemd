@@ -31,6 +31,7 @@ Network.Bridge,                config_parse_netdev,                            0
 Network.Bond,                  config_parse_netdev,                            0,                             offsetof(Network, bond)
 Network.VLAN,                  config_parse_netdev,                            0,                             0
 Network.MACVLAN,               config_parse_netdev,                            0,                             0
+Network.MACVTAP,               config_parse_netdev,                            0,                             0
 Network.IPVLAN,                config_parse_netdev,                            0,                             0
 Network.VXLAN,                 config_parse_netdev,                            0,                             0
 Network.Tunnel,                config_parse_tunnel,                            0,                             0
