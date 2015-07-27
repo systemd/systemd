@@ -188,97 +188,6 @@ static void free_unit_times(struct unit_times *t, unsigned n) {
         free(t);
 }
 
-static int acquire_time_data(sd_bus *bus, struct unit_times **out) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        int r, c = 0;
-        struct unit_times *unit_times = NULL;
-        size_t size = 0;
-        UnitInfo u;
-
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "ListUnits",
-                        &error, &reply,
-                        NULL);
-        if (r < 0) {
-                log_error("Failed to list units: %s", bus_error_message(&error, -r));
-                goto fail;
-        }
-
-        r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "(ssssssouso)");
-        if (r < 0) {
-                bus_log_parse_error(r);
-                goto fail;
-        }
-
-        while ((r = bus_parse_unit_info(reply, &u)) > 0) {
-                struct unit_times *t;
-
-                if (!GREEDY_REALLOC(unit_times, size, c+1)) {
-                        r = log_oom();
-                        goto fail;
-                }
-
-                t = unit_times+c;
-                t->name = NULL;
-
-                assert_cc(sizeof(usec_t) == sizeof(uint64_t));
-
-                if (bus_get_uint64_property(bus, u.unit_path,
-                                            "org.freedesktop.systemd1.Unit",
-                                            "InactiveExitTimestampMonotonic",
-                                            &t->activating) < 0 ||
-                    bus_get_uint64_property(bus, u.unit_path,
-                                            "org.freedesktop.systemd1.Unit",
-                                            "ActiveEnterTimestampMonotonic",
-                                            &t->activated) < 0 ||
-                    bus_get_uint64_property(bus, u.unit_path,
-                                            "org.freedesktop.systemd1.Unit",
-                                            "ActiveExitTimestampMonotonic",
-                                            &t->deactivating) < 0 ||
-                    bus_get_uint64_property(bus, u.unit_path,
-                                            "org.freedesktop.systemd1.Unit",
-                                            "InactiveEnterTimestampMonotonic",
-                                            &t->deactivated) < 0) {
-                        r = -EIO;
-                        goto fail;
-                }
-
-                if (t->activated >= t->activating)
-                        t->time = t->activated - t->activating;
-                else if (t->deactivated >= t->activating)
-                        t->time = t->deactivated - t->activating;
-                else
-                        t->time = 0;
-
-                if (t->activating == 0)
-                        continue;
-
-                t->name = strdup(u.id);
-                if (t->name == NULL) {
-                        r = log_oom();
-                        goto fail;
-                }
-                c++;
-        }
-        if (r < 0) {
-                bus_log_parse_error(r);
-                goto fail;
-        }
-
-        *out = unit_times;
-        return c;
-
-fail:
-        if (unit_times)
-                free_unit_times(unit_times, (unsigned) c);
-        return r;
-}
-
 static int acquire_boot_times(sd_bus *bus, struct boot_times **bt) {
         static struct boot_times times;
         static bool cached = false;
@@ -376,6 +285,97 @@ static void free_host_info(struct host_info *hi) {
         free(hi->virtualization);
         free(hi->architecture);
         free(hi);
+}
+
+static int acquire_time_data(sd_bus *bus, struct unit_times **out) {
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r, c = 0;
+        struct unit_times *unit_times = NULL;
+        size_t size = 0;
+        UnitInfo u;
+
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "ListUnits",
+                        &error, &reply,
+                        NULL);
+        if (r < 0) {
+                log_error("Failed to list units: %s", bus_error_message(&error, -r));
+                goto fail;
+        }
+
+        r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "(ssssssouso)");
+        if (r < 0) {
+                bus_log_parse_error(r);
+                goto fail;
+        }
+
+        while ((r = bus_parse_unit_info(reply, &u)) > 0) {
+                struct unit_times *t;
+
+                if (!GREEDY_REALLOC(unit_times, size, c+1)) {
+                        r = log_oom();
+                        goto fail;
+                }
+
+                t = unit_times+c;
+                t->name = NULL;
+
+                assert_cc(sizeof(usec_t) == sizeof(uint64_t));
+
+                if (bus_get_uint64_property(bus, u.unit_path,
+                                            "org.freedesktop.systemd1.Unit",
+                                            "InactiveExitTimestampMonotonic",
+                                            &t->activating) < 0 ||
+                    bus_get_uint64_property(bus, u.unit_path,
+                                            "org.freedesktop.systemd1.Unit",
+                                            "ActiveEnterTimestampMonotonic",
+                                            &t->activated) < 0 ||
+                    bus_get_uint64_property(bus, u.unit_path,
+                                            "org.freedesktop.systemd1.Unit",
+                                            "ActiveExitTimestampMonotonic",
+                                            &t->deactivating) < 0 ||
+                    bus_get_uint64_property(bus, u.unit_path,
+                                            "org.freedesktop.systemd1.Unit",
+                                            "InactiveEnterTimestampMonotonic",
+                                            &t->deactivated) < 0) {
+                        r = -EIO;
+                        goto fail;
+                }
+
+                if (t->activated >= t->activating)
+                        t->time = t->activated - t->activating;
+                else if (t->deactivated >= t->activating)
+                        t->time = t->deactivated - t->activating;
+                else
+                        t->time = 0;
+
+                if (t->activating == 0)
+                        continue;
+
+                t->name = strdup(u.id);
+                if (t->name == NULL) {
+                        r = log_oom();
+                        goto fail;
+                }
+                c++;
+        }
+        if (r < 0) {
+                bus_log_parse_error(r);
+                goto fail;
+        }
+
+        *out = unit_times;
+        return c;
+
+fail:
+        if (unit_times)
+                free_unit_times(unit_times, (unsigned) c);
+        return r;
 }
 
 static int acquire_host_info(sd_bus *bus, struct host_info **hi) {
