@@ -199,7 +199,7 @@ int lldp_handle_packet(tlv_packet *tlv, uint16_t length) {
                         goto out;
                 }
 
-                /* skip type and lengh encoding */
+                /* skip type and length encoding */
                 p += 2;
                 q = p;
 
