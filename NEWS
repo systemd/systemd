@@ -13,28 +13,30 @@ CHANGES WITH 223:
         * sd-dhcp now exposes vendor specific extensions via
           sd_dhcp_lease_get_vendor_specific().
 
-        * systemd-networkd gained a new boolean configuration option for TAP
-          devices called 'VnetHeader='. If set, the IFF_VNET_HDR flag is set
-          for the device, thus allowing to send and receive GSO packets.
+        * systemd-networkd gained a number of new configuration options.
 
-        * systemd-networkd gained a new string configuration option to override
-          the hostname sent to a DHCP server, called 'Hostname='. If set and
-          'SendHostname=' is true, networkd will use the configured hostname
-          instead of the system hostname when sending DHCP requests.
+          - A new boolean configuration option for TAP devices called
+            'VnetHeader='. If set, the IFF_VNET_HDR flag is set for the
+            device, thus allowing to send and receive GSO packets.
 
-        * systemd-networkd gained a new tunnel configuration option called
-          'IPv6FlowLabel='. If set, networkd will configure the IPv6 flow-label
-          of the tunnel device according to RFC2460.
+          - A new tunnel configuration option called 'CopyDSCP='.
+            If enabled, the DSCP field of ip6 tunnels is copied into the
+            decapsulated packet.
 
-        * systemd-networkd gained a new tunnel configuration option called
-          'CopyDSCP='. If enabled, the DSCP field of ip6 tunnels is copied into
-          the decapsulated packet.
+          - A set of boolean bridge configuration options were added.
+            'UseBPDU=', 'HairPin=', 'FastLeave=', 'AllowPortToBeRoot=',
+            and 'UnicastFlood=' are now parsed by networkd and applied to the
+            respective bridge link device via the respective IFLA_BRPORT_*
+            netlink attribute.
 
-        * systemd-networkd gained a set of boolean bridge configuration
-          options. 'UseBPDU=', 'HairPin=', 'FastLeave=', 'AllowPortToBeRoot=',
-          and 'UnicastFlood=' are now parsed by networkd and applied to the
-          respective bridge link device via the respective IFLA_BRPORT_*
-          netlink attribute.
+          - A new string configuration option to override the hostname sent
+            to a DHCP server, called 'Hostname='. If set and 'SendHostname='
+            is true, networkd will use the configured hostname instead of the
+            system hostname when sending DHCP requests.
+
+          - A new tunnel configuration option called 'IPv6FlowLabel='. If set,
+            networkd will configure the IPv6 flow-label of the tunnel device
+            according to RFC2460.
 
         * systemd-resolved now implements RFC5452 to improve resilience against
           cache poisoning. Additionally, source port randomization is enabled
