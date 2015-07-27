@@ -6603,3 +6603,73 @@ int reset_uid_gid(void) {
 
         return 0;
 }
+
+int getxattr_malloc(const char *path, const char *name, char **value, bool allow_symlink) {
+        char *v;
+        size_t l;
+        ssize_t n;
+
+        assert(path);
+        assert(name);
+        assert(value);
+
+        for (l = 100; ; l = (size_t) n + 1) {
+                v = new0(char, l);
+                if (!v)
+                        return -ENOMEM;
+
+                if (allow_symlink)
+                        n = lgetxattr(path, name, v, l);
+                else
+                        n = getxattr(path, name, v, l);
+
+                if (n >= 0 && (size_t) n < l) {
+                        *value = v;
+                        return n;
+                }
+
+                free(v);
+
+                if (n < 0 && errno != ERANGE)
+                        return -errno;
+
+                if (allow_symlink)
+                        n = lgetxattr(path, name, NULL, 0);
+                else
+                        n = getxattr(path, name, NULL, 0);
+                if (n < 0)
+                        return -errno;
+        }
+}
+
+int fgetxattr_malloc(int fd, const char *name, char **value) {
+        char *v;
+        size_t l;
+        ssize_t n;
+
+        assert(fd >= 0);
+        assert(name);
+        assert(value);
+
+        for (l = 100; ; l = (size_t) n + 1) {
+                v = new0(char, l);
+                if (!v)
+                        return -ENOMEM;
+
+                n = fgetxattr(fd, name, v, l);
+
+                if (n >= 0 && (size_t) n < l) {
+                        *value = v;
+                        return n;
+                }
+
+                free(v);
+
+                if (n < 0 && errno != ERANGE)
+                        return -errno;
+
+                n = fgetxattr(fd, name, NULL, 0);
+                if (n < 0)
+                        return -errno;
+        }
+}
