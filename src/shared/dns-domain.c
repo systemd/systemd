@@ -114,6 +114,68 @@ int dns_label_unescape(const char **name, char *dest, size_t sz) {
         return r;
 }
 
+/* @label_terminal: terminal character of a label, updated to point to the terminal character of
+ *                  the previous label (always skipping one dot) or to NULL if there are no more
+ *                  labels. */
+int dns_label_unescape_suffix(const char *name, const char **label_terminal, char *dest, size_t sz) {
+        const char *terminal;
+        int r;
+
+        assert(name);
+        assert(label_terminal);
+        assert(dest);
+
+        /* no more labels */
+        if (!*label_terminal) {
+                if (sz >= 1)
+                        *dest = 0;
+
+                return 0;
+        }
+
+        assert(**label_terminal == '.' || **label_terminal == 0);
+
+        /* skip current terminal character */
+        terminal = *label_terminal - 1;
+
+        /* point name to the last label, and terminal to the preceding terminal symbol (or make it a NULL pointer) */
+        for (;;) {
+                if (terminal < name) {
+                        /* reached the first label, so indicate that there are no more */
+                        terminal = NULL;
+                        break;
+                }
+
+                /* find the start of the last label */
+                if (*terminal == '.') {
+                        const char *y;
+                        unsigned slashes = 0;
+
+                        for (y = terminal - 1; y >= name && *y == '\\'; y--)
+                                slashes ++;
+
+                        if (slashes % 2 == 0) {
+                                /* the '.' was not escaped */
+                                name = terminal + 1;
+                                break;
+                        } else {
+                                terminal = y;
+                                continue;
+                        }
+                }
+
+                terminal --;
+        }
+
+        r = dns_label_unescape(&name, dest, sz);
+        if (r < 0)
+                return r;
+
+        *label_terminal = terminal;
+
+        return r;
+}
+
 int dns_label_escape(const char *p, size_t l, char **ret) {
         _cleanup_free_ char *s = NULL;
         char *q;
@@ -338,20 +400,23 @@ unsigned long dns_name_hash_func(const void *s, const uint8_t hash_key[HASH_KEY_
 }
 
 int dns_name_compare_func(const void *a, const void *b) {
-        const char *x = a, *y = b;
+        const char *x, *y;
         int r, q, k, w;
 
         assert(a);
         assert(b);
 
+        x = (const char *) a + strlen(a);
+        y = (const char *) b + strlen(b);
+
         for (;;) {
                 char la[DNS_LABEL_MAX+1], lb[DNS_LABEL_MAX+1];
 
-                if (*x == 0 && *y == 0)
+                if (x == NULL && y == NULL)
                         return 0;
 
-                r = dns_label_unescape(&x, la, sizeof(la));
-                q = dns_label_unescape(&y, lb, sizeof(lb));
+                r = dns_label_unescape_suffix(a, &x, la, sizeof(la));
+                q = dns_label_unescape_suffix(b, &y, lb, sizeof(lb));
                 if (r < 0 || q < 0)
                         return r - q;
 
@@ -462,6 +527,28 @@ int dns_name_endswith(const char *name, const char *suffix) {
                         saved_n = NULL;
                 }
         }
+}
+
+int dns_name_between(const char *a, const char *b, const char *c) {
+        int n;
+
+        /* Determine if b is strictly greater than a and strictly smaller than c.
+           We consider the order of names to be circular, so that if a is
+           strictly greater than c, we consider b to be between them if it is
+           either greater than a or smaller than c. This is how the canonical
+           DNS name order used in NSEC records work. */
+
+        n = dns_name_compare_func(a, c);
+        if (n == 0)
+                return -EINVAL;
+        else if (n < 0)
+                /*       a<---b--->c       */
+                return dns_name_compare_func(a, b) < 0 &&
+                       dns_name_compare_func(b, c) < 0;
+        else
+                /* <--b--c         a--b--> */
+                return dns_name_compare_func(b, c) < 0 ||
+                       dns_name_compare_func(a, b) < 0;
 }
 
 int dns_name_reverse(int family, const union in_addr_union *a, char **ret) {
