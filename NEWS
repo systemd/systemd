@@ -1,5 +1,64 @@
 systemd System and Service Manager
 
+CHANGES WITH 223:
+
+        * The python-systemd code has been removed from the systemd repository.
+          A new repository has been created which accommodates the code from
+          now on, and we kindly ask distributions to create a separate package
+          for this: https://github.com/systemd/python-systemd
+
+        * The systemd deamon will now reload its main configuration
+          (/etc/systemd/system.conf) on daemon-reload.
+
+        * sd-dhcp now exposes vendor specific extensions via
+          sd_dhcp_lease_get_vendor_specific().
+
+        * systemd-networkd gained a new boolean configuration option for TAP
+          devices called 'VnetHeader='. If set, the IFF_VNET_HDR flag is set
+          for the device, thus allowing to send and receive GSO packets.
+
+        * systemd-networkd gained a new string configuration option to override
+          the hostname sent to a DHCP server, called 'Hostname='. If set and
+          'SendHostname=' is true, networkd will use the configured hostname
+          instead of the system hostname when sending DHCP requests.
+
+        * systemd-networkd gained a new tunnel configuration option called
+          'IPv6FlowLabel='. If set, networkd will configure the IPv6 flow-label
+          of the tunnel device according to RFC2460.
+
+        * systemd-networkd gained a new tunnel configuration option called
+          'CopyDSCP='. If enabled, the DSCP field of ip6 tunnels is copied into
+          the decapsulated packet.
+
+        * systemd-networkd gained a set of boolean bridge configuration
+          options. 'UseBPDU=', 'HairPin=', 'FastLeave=', 'AllowPortToBeRoot=',
+          and 'UnicastFlood=' are now parsed by networkd and applied to the
+          respective bridge link device via the respective IFLA_BRPORT_*
+          netlink attribute.
+
+        * systemd-resolved now implements RFC5452 to improve resilience against
+          cache poisining. Additionally, source port randomization is enabled
+          by default to further protect against DNS spoofing attacks.
+
+        * nss-mymachines now supports translating UIDs and GIDs of running
+          containers with user-namespaces enabled. If a container 'foo'
+          translates a host uid 'UID' to the container uid 'TUID', then
+          nss-mymachines will also map uid 'UID' to/from username 'vu-foo-TUID'
+          (with 'foo' and 'TUID' replaced accordingly). Similarly, groups are
+          mapped as 'vg-foo-TGID'.
+
+        Contributions from: Beniamino Galvani, cee1, Christian Hesse, Daniel
+        Buch, Daniel Mack, daurnimator, David Herrmann, Dimitri John Ledkov, Jan
+        Alexander Steffens (heftig), Johan Ouwerkerk, Jose Carlos Venegas Munoz,
+        Kay Sievers, Lennart Poettering, Lidong Zhong, Martin Pitt, Michael
+        Biebl, Michael Olbrich, Michal Schmidt, Mike Gilbert, Namhyung Kim, Nick
+        Owens, Peter Hutterer, Richard Maw, Steven Allen, Sungbae Yoo, Susant
+        Sahani, Thomas Blume, Thomas Hindoe Paaboel Andersen, Tom Gundersen,
+        Umut Tezduyar Lindskog, Vito Caputo, Vivenzio Pagliari, Zbigniew
+        Jędrzejewski-Szmek
+
+        -- Berlin, 2015-XX-XX
+
 CHANGES WITH 222:
 
         * udev does not longer support the WAIT_FOR_SYSFS= key in udev rules.
