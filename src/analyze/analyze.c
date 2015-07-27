@@ -88,6 +88,18 @@ struct boot_times {
         usec_t generators_finish_time;
         usec_t unitsload_start_time;
         usec_t unitsload_finish_time;
+
+        /*
+         * If we're analyzing the user instance, all timestamps will be offset
+         * by its own start-up timestamp, which may be arbitrarily big.
+         * With "plot", this causes arbitrarily wide output SVG files which almost
+         * completely consist of empty space. Thus we cancel out this offset.
+         *
+         * This offset is subtracted from times above by acquire_boot_times(),
+         * but it still needs to be subtracted from unit-specific timestamps
+         * (so it is stored here for reference).
+         */
+        usec_t reverse_offset;
 };
 
 struct unit_times {
@@ -188,95 +200,13 @@ static void free_unit_times(struct unit_times *t, unsigned n) {
         free(t);
 }
 
-static int acquire_time_data(sd_bus *bus, struct unit_times **out) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        int r, c = 0;
-        struct unit_times *unit_times = NULL;
-        size_t size = 0;
-        UnitInfo u;
+static void subtract_timestamp(usec_t *a, usec_t b) {
+        assert(a);
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "ListUnits",
-                        &error, &reply,
-                        NULL);
-        if (r < 0) {
-                log_error("Failed to list units: %s", bus_error_message(&error, -r));
-                goto fail;
+        if (*a > 0) {
+                assert(*a >= b);
+                *a -= b;
         }
-
-        r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "(ssssssouso)");
-        if (r < 0) {
-                bus_log_parse_error(r);
-                goto fail;
-        }
-
-        while ((r = bus_parse_unit_info(reply, &u)) > 0) {
-                struct unit_times *t;
-
-                if (!GREEDY_REALLOC(unit_times, size, c+1)) {
-                        r = log_oom();
-                        goto fail;
-                }
-
-                t = unit_times+c;
-                t->name = NULL;
-
-                assert_cc(sizeof(usec_t) == sizeof(uint64_t));
-
-                if (bus_get_uint64_property(bus, u.unit_path,
-                                            "org.freedesktop.systemd1.Unit",
-                                            "InactiveExitTimestampMonotonic",
-                                            &t->activating) < 0 ||
-                    bus_get_uint64_property(bus, u.unit_path,
-                                            "org.freedesktop.systemd1.Unit",
-                                            "ActiveEnterTimestampMonotonic",
-                                            &t->activated) < 0 ||
-                    bus_get_uint64_property(bus, u.unit_path,
-                                            "org.freedesktop.systemd1.Unit",
-                                            "ActiveExitTimestampMonotonic",
-                                            &t->deactivating) < 0 ||
-                    bus_get_uint64_property(bus, u.unit_path,
-                                            "org.freedesktop.systemd1.Unit",
-                                            "InactiveEnterTimestampMonotonic",
-                                            &t->deactivated) < 0) {
-                        r = -EIO;
-                        goto fail;
-                }
-
-                if (t->activated >= t->activating)
-                        t->time = t->activated - t->activating;
-                else if (t->deactivated >= t->activating)
-                        t->time = t->deactivated - t->activating;
-                else
-                        t->time = 0;
-
-                if (t->activating == 0)
-                        continue;
-
-                t->name = strdup(u.id);
-                if (t->name == NULL) {
-                        r = log_oom();
-                        goto fail;
-                }
-                c++;
-        }
-        if (r < 0) {
-                bus_log_parse_error(r);
-                goto fail;
-        }
-
-        *out = unit_times;
-        return c;
-
-fail:
-        if (unit_times)
-                free_unit_times(unit_times, (unsigned) c);
-        return r;
 }
 
 static int acquire_boot_times(sd_bus *bus, struct boot_times **bt) {
@@ -355,10 +285,30 @@ static int acquire_boot_times(sd_bus *bus, struct boot_times **bt) {
                 return -EINPROGRESS;
         }
 
-        if (times.initrd_time)
-                times.kernel_done_time = times.initrd_time;
-        else
-                times.kernel_done_time = times.userspace_time;
+        if (arg_user) {
+                /*
+                 * User-instance-specific timestamps processing
+                 * (see comment to reverse_offset in struct boot_times).
+                 */
+                times.reverse_offset = times.userspace_time;
+
+                times.firmware_time = times.loader_time = times.kernel_time = times.initrd_time = times.userspace_time = 0;
+                subtract_timestamp(&times.finish_time, times.reverse_offset);
+
+                subtract_timestamp(&times.security_start_time, times.reverse_offset);
+                subtract_timestamp(&times.security_finish_time, times.reverse_offset);
+
+                subtract_timestamp(&times.generators_start_time, times.reverse_offset);
+                subtract_timestamp(&times.generators_finish_time, times.reverse_offset);
+
+                subtract_timestamp(&times.unitsload_start_time, times.reverse_offset);
+                subtract_timestamp(&times.unitsload_finish_time, times.reverse_offset);
+        } else {
+                if (times.initrd_time)
+                        times.kernel_done_time = times.initrd_time;
+                else
+                        times.kernel_done_time = times.userspace_time;
+        }
 
         cached = true;
 
@@ -376,6 +326,107 @@ static void free_host_info(struct host_info *hi) {
         free(hi->virtualization);
         free(hi->architecture);
         free(hi);
+}
+
+static int acquire_time_data(sd_bus *bus, struct unit_times **out) {
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r, c = 0;
+        struct boot_times *boot_times = NULL;
+        struct unit_times *unit_times = NULL;
+        size_t size = 0;
+        UnitInfo u;
+
+        r = acquire_boot_times(bus, &boot_times);
+        if (r < 0)
+                goto fail;
+
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "ListUnits",
+                        &error, &reply,
+                        NULL);
+        if (r < 0) {
+                log_error("Failed to list units: %s", bus_error_message(&error, -r));
+                goto fail;
+        }
+
+        r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "(ssssssouso)");
+        if (r < 0) {
+                bus_log_parse_error(r);
+                goto fail;
+        }
+
+        while ((r = bus_parse_unit_info(reply, &u)) > 0) {
+                struct unit_times *t;
+
+                if (!GREEDY_REALLOC(unit_times, size, c+1)) {
+                        r = log_oom();
+                        goto fail;
+                }
+
+                t = unit_times+c;
+                t->name = NULL;
+
+                assert_cc(sizeof(usec_t) == sizeof(uint64_t));
+
+                if (bus_get_uint64_property(bus, u.unit_path,
+                                            "org.freedesktop.systemd1.Unit",
+                                            "InactiveExitTimestampMonotonic",
+                                            &t->activating) < 0 ||
+                    bus_get_uint64_property(bus, u.unit_path,
+                                            "org.freedesktop.systemd1.Unit",
+                                            "ActiveEnterTimestampMonotonic",
+                                            &t->activated) < 0 ||
+                    bus_get_uint64_property(bus, u.unit_path,
+                                            "org.freedesktop.systemd1.Unit",
+                                            "ActiveExitTimestampMonotonic",
+                                            &t->deactivating) < 0 ||
+                    bus_get_uint64_property(bus, u.unit_path,
+                                            "org.freedesktop.systemd1.Unit",
+                                            "InactiveEnterTimestampMonotonic",
+                                            &t->deactivated) < 0) {
+                        r = -EIO;
+                        goto fail;
+                }
+
+                subtract_timestamp(&t->activating, boot_times->reverse_offset);
+                subtract_timestamp(&t->activated, boot_times->reverse_offset);
+                subtract_timestamp(&t->deactivating, boot_times->reverse_offset);
+                subtract_timestamp(&t->deactivated, boot_times->reverse_offset);
+
+                if (t->activated >= t->activating)
+                        t->time = t->activated - t->activating;
+                else if (t->deactivated >= t->activating)
+                        t->time = t->deactivated - t->activating;
+                else
+                        t->time = 0;
+
+                if (t->activating == 0)
+                        continue;
+
+                t->name = strdup(u.id);
+                if (t->name == NULL) {
+                        r = log_oom();
+                        goto fail;
+                }
+                c++;
+        }
+        if (r < 0) {
+                bus_log_parse_error(r);
+                goto fail;
+        }
+
+        *out = unit_times;
+        return c;
+
+fail:
+        if (unit_times)
+                free_unit_times(unit_times, (unsigned) c);
+        return r;
 }
 
 static int acquire_host_info(sd_bus *bus, struct host_info **hi) {
@@ -450,10 +501,7 @@ static int pretty_boot_time(sd_bus *bus, char **_buf) {
                 size = strpcpyf(&ptr, size, "%s (initrd) + ", format_timespan(ts, sizeof(ts), t->userspace_time - t->initrd_time, USEC_PER_MSEC));
 
         size = strpcpyf(&ptr, size, "%s (userspace) ", format_timespan(ts, sizeof(ts), t->finish_time - t->userspace_time, USEC_PER_MSEC));
-        if (t->kernel_time > 0)
-                strpcpyf(&ptr, size, "= %s", format_timespan(ts, sizeof(ts), t->firmware_time + t->finish_time, USEC_PER_MSEC));
-        else
-                strpcpyf(&ptr, size, "= %s", format_timespan(ts, sizeof(ts), t->finish_time - t->userspace_time, USEC_PER_MSEC));
+        strpcpyf(&ptr, size, "= %s", format_timespan(ts, sizeof(ts), t->firmware_time + t->finish_time, USEC_PER_MSEC));
 
         ptr = strdup(buf);
         if (!ptr)
