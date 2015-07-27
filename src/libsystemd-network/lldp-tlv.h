@@ -43,6 +43,10 @@ struct tlv_section {
         LIST_FIELDS(tlv_section, section);
 };
 
+#define LLDP_MAC_NEAREST_BRIDGE          (uint8_t[]) { 0x01, 0x80, 0xc2, 0x00, 0x00, 0x0e }
+#define LLDP_MAC_NEAREST_NON_TPMR_BRIDGE (uint8_t[]) { 0x01, 0x80, 0xc2, 0x00, 0x00, 0x03 }
+#define LLDP_MAC_NEAREST_CUSTOMER_BRIDGE (uint8_t[]) { 0x01, 0x80, 0xc2, 0x00, 0x00, 0x00 }
+
 int tlv_section_new(tlv_section **ret);
 void tlv_section_free(tlv_section *ret);
 
