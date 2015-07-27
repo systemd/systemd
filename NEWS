@@ -16,7 +16,7 @@ CHANGES WITH 223:
         * systemd-networkd gained a number of new configuration options.
 
           - A new boolean configuration option for TAP devices called
-            'VnetHeader='. If set, the IFF_VNET_HDR flag is set for the
+            'VNetHeader='. If set, the IFF_VNET_HDR flag is set for the
             device, thus allowing to send and receive GSO packets.
 
           - A new tunnel configuration option called 'CopyDSCP='.
