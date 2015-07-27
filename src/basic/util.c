@@ -954,7 +954,12 @@ int unhexmem(const char *p, size_t l, void **mem, size_t *len) {
         return 0;
 }
 
-/* https://tools.ietf.org/html/rfc4648#section-6 */
+/* https://tools.ietf.org/html/rfc4648#section-6
+ * Notice that base32hex differs from base32 in the alphabet it uses.
+ * The distinction is that the base32hex representation preserves the
+ * order of the underlying data when compared as bytestrings, this is
+ * useful when representing NSEC3 hashes, as one can then verify the
+ * order of hashes directly from their representation. */
 char base32hexchar(int x) {
         static const char table[32] = "0123456789"
                                       "ABCDEFGHIJKLMNOPQRSTUV";

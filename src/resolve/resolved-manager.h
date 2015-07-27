@@ -119,6 +119,7 @@ void manager_next_dns_server(Manager *m);
 
 uint32_t manager_find_mtu(Manager *m);
 
+int manager_write(Manager *m, int fd, DnsPacket *p);
 int manager_send(Manager *m, int fd, int ifindex, int family, const union in_addr_union *addr, uint16_t port, DnsPacket *p);
 int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret);
 
