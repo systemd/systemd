@@ -33,9 +33,13 @@
 typedef struct tlv_packet tlv_packet;
 typedef struct tlv_section tlv_section;
 
+#define LLDP_OUI_LEN 3
+
 struct tlv_section {
         uint16_t type;
         uint16_t length;
+        uint8_t oui[LLDP_OUI_LEN];
+        uint8_t subtype;
 
         uint8_t *read_pos;
         uint8_t *data;
@@ -78,7 +82,7 @@ int tlv_packet_append_u16(tlv_packet *m, uint16_t data);
 int tlv_packet_append_u32(tlv_packet *m, uint32_t data);
 int tlv_packet_append_string(tlv_packet *m, char *data, uint16_t size);
 
-int lldp_tlv_packet_enter_container(tlv_packet *m, uint16_t type);
+int lldp_tlv_packet_enter_container(tlv_packet *m, uint16_t type, const uint8_t *oui, uint8_t subtype);
 int lldp_tlv_packet_exit_container(tlv_packet *m);
 
 int tlv_packet_read_bytes(tlv_packet *m, uint8_t **data, uint16_t *data_length);

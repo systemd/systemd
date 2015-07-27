@@ -277,7 +277,7 @@ int tlv_packet_parse_pdu(tlv_packet *m, uint16_t size) {
 
         p = m->pdu;
 
-        /* extract ethernet herader */
+        /* extract ethernet header */
         memcpy(&m->mac, p, ETH_ALEN);
         p += sizeof(struct ether_header);
 
@@ -297,6 +297,17 @@ int tlv_packet_parse_pdu(tlv_packet *m, uint16_t size) {
                 }
 
                 p += 2;
+
+                if (section->type == LLDP_TYPE_PRIVATE &&
+                    section->length >= LLDP_OUI_LEN + 1) {
+                        memcpy(section->oui, p, LLDP_OUI_LEN);
+                        p += LLDP_OUI_LEN;
+                        section->subtype = *p++;
+
+                        section->length -= LLDP_OUI_LEN + 1;
+                        l += LLDP_OUI_LEN + 1;
+                }
+
                 section->data = p;
 
                 LIST_FIND_TAIL(section, m->sections, tail);
@@ -309,14 +320,26 @@ int tlv_packet_parse_pdu(tlv_packet *m, uint16_t size) {
         return 0;
 }
 
-int lldp_tlv_packet_enter_container(tlv_packet *m, uint16_t type) {
+int lldp_tlv_packet_enter_container(tlv_packet *m,
+                                    uint16_t type,
+                                    const uint8_t *oui,
+                                    uint8_t subtype) {
         tlv_section *s;
 
         assert_return(m, -EINVAL);
+        assert_return(type != LLDP_TYPE_PRIVATE || oui, -EINVAL);
 
         LIST_FOREACH(section, s, m->sections)
-                if (s->type == type)
-                        break;
+                if (type == LLDP_TYPE_PRIVATE) {
+                        if (s->type == type &&
+                            !memcmp(s->oui, oui, LLDP_OUI_LEN) &&
+                            s->subtype == subtype)
+                                break;
+                } else {
+                        if (s->type == type)
+                                break;
+                }
+
         if (!s)
                 return -1;
 
@@ -339,12 +362,16 @@ int lldp_tlv_packet_exit_container(tlv_packet *m) {
         return 0;
 }
 
-static int lldp_tlv_packet_read_u16_tlv(tlv_packet *tlv, uint16_t type, uint16_t *value) {
+static int lldp_tlv_packet_read_u16_tlv(tlv_packet *tlv,
+                                        uint16_t type,
+                                        const uint8_t *oui,
+                                        uint8_t subtype,
+                                        uint16_t *value) {
         int r;
 
         assert_return(tlv, -EINVAL);
 
-        r = lldp_tlv_packet_enter_container(tlv, type);
+        r = lldp_tlv_packet_enter_container(tlv, type, oui, subtype);
         if (r < 0)
                 goto out;
 
@@ -358,6 +385,8 @@ static int lldp_tlv_packet_read_u16_tlv(tlv_packet *tlv, uint16_t type, uint16_t
 
 static int lldp_tlv_packet_read_string_tlv(tlv_packet *tlv,
                                            uint16_t type,
+                                           uint8_t *oui,
+                                           uint8_t subtype,
                                            char **data,
                                            uint16_t *length) {
         char *s;
@@ -365,7 +394,7 @@ static int lldp_tlv_packet_read_string_tlv(tlv_packet *tlv,
 
         assert_return(tlv, -EINVAL);
 
-        r = lldp_tlv_packet_enter_container(tlv, type);
+        r = lldp_tlv_packet_enter_container(tlv, type, oui, subtype);
         if (r < 0)
                 return r;
 
@@ -390,7 +419,7 @@ int sd_lldp_tlv_packet_read_chassis_id(tlv_packet *tlv,
 
         assert_return(tlv, -EINVAL);
 
-        r = lldp_tlv_packet_enter_container(tlv, LLDP_TYPE_CHASSIS_ID);
+        r = lldp_tlv_packet_enter_container(tlv, LLDP_TYPE_CHASSIS_ID, NULL, 0);
         if (r < 0)
                 goto out2;
 
@@ -430,7 +459,7 @@ int sd_lldp_tlv_packet_read_port_id(tlv_packet *tlv,
 
         assert_return(tlv, -EINVAL);
 
-        r = lldp_tlv_packet_enter_container(tlv, LLDP_TYPE_PORT_ID);
+        r = lldp_tlv_packet_enter_container(tlv, LLDP_TYPE_PORT_ID, NULL, 0);
         if (r < 0)
                 goto out2;
 
@@ -473,29 +502,105 @@ int sd_lldp_tlv_packet_read_port_id(tlv_packet *tlv,
 }
 
 int sd_lldp_tlv_packet_read_ttl(tlv_packet *tlv, uint16_t *ttl) {
-        return lldp_tlv_packet_read_u16_tlv(tlv, LLDP_TYPE_TTL, ttl);
+        return lldp_tlv_packet_read_u16_tlv(tlv, LLDP_TYPE_TTL, NULL, 0, ttl);
 }
 
 int sd_lldp_tlv_packet_read_system_name(tlv_packet *tlv,
                                         char **data,
                                         uint16_t *length) {
-        return lldp_tlv_packet_read_string_tlv(tlv, LLDP_TYPE_SYSTEM_NAME, data, length);
+        return lldp_tlv_packet_read_string_tlv(tlv, LLDP_TYPE_SYSTEM_NAME, NULL, 0, data, length);
 }
 
 int sd_lldp_tlv_packet_read_system_description(tlv_packet *tlv,
                                                char **data,
                                                uint16_t *length) {
-        return lldp_tlv_packet_read_string_tlv(tlv, LLDP_TYPE_SYSTEM_DESCRIPTION, data, length);
+        return lldp_tlv_packet_read_string_tlv(tlv, LLDP_TYPE_SYSTEM_DESCRIPTION, NULL, 0, data, length);
 }
 
 int sd_lldp_tlv_packet_read_port_description(tlv_packet *tlv,
                                              char **data,
                                              uint16_t *length) {
-        return lldp_tlv_packet_read_string_tlv(tlv, LLDP_TYPE_PORT_DESCRIPTION, data, length);
+        return lldp_tlv_packet_read_string_tlv(tlv, LLDP_TYPE_PORT_DESCRIPTION, NULL, 0, data, length);
 }
 
 int sd_lldp_tlv_packet_read_system_capability(tlv_packet *tlv, uint16_t *data) {
-        return lldp_tlv_packet_read_u16_tlv(tlv, LLDP_TYPE_SYSTEM_CAPABILITIES, data);
+        return lldp_tlv_packet_read_u16_tlv(tlv, LLDP_TYPE_SYSTEM_CAPABILITIES, NULL, 0, data);
+}
+
+int sd_lldp_tlv_packet_read_port_vlan_id(tlv_packet *tlv, uint16_t *id) {
+        return lldp_tlv_packet_read_u16_tlv(tlv, LLDP_TYPE_PRIVATE, (uint8_t *) LLDP_OUI_802_1,
+                                            LLDP_OUI_SUBTYPE_802_1_PORT_VLAN_ID, id);
+}
+
+int sd_lldp_tlv_packet_read_port_protocol_vlan_id(sd_lldp_tlv_packet *tlv, uint8_t *flags, uint16_t *id) {
+        int r;
+
+        assert_return(tlv, -EINVAL);
+
+        r = lldp_tlv_packet_enter_container(tlv, LLDP_TYPE_PRIVATE, (uint8_t *) LLDP_OUI_802_1,
+                                            LLDP_OUI_SUBTYPE_802_1_PORT_PROTOCOL_VLAN_ID);
+        if (r < 0)
+                goto out;
+
+        r = tlv_packet_read_u8(tlv, flags);
+        if (r >= 0)
+                r = tlv_packet_read_u16(tlv, id);
+
+        (void) lldp_tlv_packet_exit_container(tlv);
+
+ out:
+        return r;
+}
+
+int sd_lldp_tlv_packet_read_vlan_name(tlv_packet *tlv, uint16_t *vlan_id, char **name, uint16_t *length) {
+        int r;
+        uint8_t len = 0;
+
+        assert_return(tlv, -EINVAL);
+
+        r = lldp_tlv_packet_enter_container(tlv, LLDP_TYPE_PRIVATE, (uint8_t *) LLDP_OUI_802_1,
+                                            LLDP_OUI_SUBTYPE_802_1_VLAN_NAME);
+        if (r < 0)
+                goto out;
+
+        r = tlv_packet_read_u16(tlv, vlan_id);
+        if (r >= 0)
+                r = tlv_packet_read_u8(tlv, &len);
+        if (r >= 0)
+                r = tlv_packet_read_string(tlv, name, length);
+
+        if (r >= 0 && len < *length)
+                *length = len;
+
+        (void) lldp_tlv_packet_exit_container(tlv);
+
+ out:
+        return r;
+}
+
+int sd_lldp_tlv_packet_read_management_vid(tlv_packet *tlv, uint16_t *id) {
+        return lldp_tlv_packet_read_u16_tlv(tlv, LLDP_TYPE_PRIVATE, (uint8_t *) LLDP_OUI_802_1,
+                                            LLDP_OUI_SUBTYPE_802_1_MANAGEMENT_VID, id);
+}
+
+int sd_lldp_tlv_packet_read_link_aggregation(sd_lldp_tlv_packet *tlv, uint8_t *status, uint32_t *id) {
+        int r;
+
+        assert_return(tlv, -EINVAL);
+
+        r = lldp_tlv_packet_enter_container(tlv, LLDP_TYPE_PRIVATE, (uint8_t *) LLDP_OUI_802_1,
+                                            LLDP_OUI_SUBTYPE_802_1_LINK_AGGREGATION);
+        if (r < 0)
+                goto out;
+
+        r = tlv_packet_read_u8(tlv, status);
+        if (r >= 0)
+                r = tlv_packet_read_u32(tlv, id);
+
+        (void) lldp_tlv_packet_exit_container(tlv);
+
+ out:
+        return r;
 }
 
 int sd_lldp_tlv_packet_get_destination_type(tlv_packet *tlv, LLDPDestinationType *dest)
