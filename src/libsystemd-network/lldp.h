@@ -113,3 +113,16 @@ typedef enum LLDPMedCapability {
         LLDP_MED_CAPABILITY_MAX,
         LLDP_MED_CAPABILITY_INVALID        = -1,
 } LLDPMedCapability;
+
+#define LLDP_OUI_802_1 (uint8_t[]) { 0x00, 0x80, 0xc2 }
+#define LLDP_OUI_802_3 (uint8_t[]) { 0x00, 0x12, 0x0f }
+
+enum {
+        LLDP_OUI_SUBTYPE_802_1_PORT_VLAN_ID            = 1,
+        LLDP_OUI_SUBTYPE_802_1_PORT_PROTOCOL_VLAN_ID   = 2,
+        LLDP_OUI_SUBTYPE_802_1_VLAN_NAME               = 3,
+        LLDP_OUI_SUBTYPE_802_1_PROTOCOL_IDENTITY       = 4,
+        LLDP_OUI_SUBTYPE_802_1_VID_USAGE_DIGEST        = 5,
+        LLDP_OUI_SUBTYPE_802_1_MANAGEMENT_VID          = 6,
+        LLDP_OUI_SUBTYPE_802_1_LINK_AGGREGATION        = 7,
+};
