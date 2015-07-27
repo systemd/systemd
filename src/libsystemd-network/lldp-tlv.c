@@ -339,6 +339,48 @@ int lldp_tlv_packet_exit_container(tlv_packet *m) {
         return 0;
 }
 
+static int lldp_tlv_packet_read_u16_tlv(tlv_packet *tlv, uint16_t type, uint16_t *value) {
+        int r;
+
+        assert_return(tlv, -EINVAL);
+
+        r = lldp_tlv_packet_enter_container(tlv, type);
+        if (r < 0)
+                goto out;
+
+        r = tlv_packet_read_u16(tlv, value);
+
+        (void) lldp_tlv_packet_exit_container(tlv);
+
+ out:
+        return r;
+}
+
+static int lldp_tlv_packet_read_string_tlv(tlv_packet *tlv,
+                                           uint16_t type,
+                                           char **data,
+                                           uint16_t *length) {
+        char *s;
+        int r;
+
+        assert_return(tlv, -EINVAL);
+
+        r = lldp_tlv_packet_enter_container(tlv, type);
+        if (r < 0)
+                return r;
+
+        r = tlv_packet_read_string(tlv, &s, length);
+        if (r < 0)
+                goto out;
+
+        *data = (char *) s;
+
+ out:
+        (void) lldp_tlv_packet_exit_container(tlv);
+
+        return r;
+}
+
 int sd_lldp_tlv_packet_read_chassis_id(tlv_packet *tlv,
                                        uint8_t *type,
                                        uint8_t **data,
@@ -431,113 +473,29 @@ int sd_lldp_tlv_packet_read_port_id(tlv_packet *tlv,
 }
 
 int sd_lldp_tlv_packet_read_ttl(tlv_packet *tlv, uint16_t *ttl) {
-        int r;
-
-        assert_return(tlv, -EINVAL);
-
-        r = lldp_tlv_packet_enter_container(tlv, LLDP_TYPE_TTL);
-        if (r < 0)
-                goto out;
-
-        r = tlv_packet_read_u16(tlv, ttl);
-
-        (void) lldp_tlv_packet_exit_container(tlv);
-
- out:
-        return r;
+        return lldp_tlv_packet_read_u16_tlv(tlv, LLDP_TYPE_TTL, ttl);
 }
 
 int sd_lldp_tlv_packet_read_system_name(tlv_packet *tlv,
                                         char **data,
                                         uint16_t *length) {
-        char *s;
-        int r;
-
-        assert_return(tlv, -EINVAL);
-
-        r = lldp_tlv_packet_enter_container(tlv, LLDP_TYPE_SYSTEM_NAME);
-        if (r < 0)
-                return r;
-
-        r = tlv_packet_read_string(tlv, &s, length);
-        if (r < 0)
-                goto out;
-
-        *data = (char *) s;
-
- out:
-        (void) lldp_tlv_packet_exit_container(tlv);
-
-        return r;
+        return lldp_tlv_packet_read_string_tlv(tlv, LLDP_TYPE_SYSTEM_NAME, data, length);
 }
 
 int sd_lldp_tlv_packet_read_system_description(tlv_packet *tlv,
                                                char **data,
                                                uint16_t *length) {
-        char *s;
-        int r;
-
-        assert_return(tlv, -EINVAL);
-
-        r = lldp_tlv_packet_enter_container(tlv, LLDP_TYPE_SYSTEM_DESCRIPTION);
-        if (r < 0)
-                return r;
-
-        r = tlv_packet_read_string(tlv, &s, length);
-        if (r < 0)
-                goto out;
-
-        *data = (char *) s;
-
- out:
-        (void) lldp_tlv_packet_exit_container(tlv);
-
-        return r;
+        return lldp_tlv_packet_read_string_tlv(tlv, LLDP_TYPE_SYSTEM_DESCRIPTION, data, length);
 }
 
 int sd_lldp_tlv_packet_read_port_description(tlv_packet *tlv,
                                              char **data,
                                              uint16_t *length) {
-        char *s;
-        int r;
-
-        assert_return(tlv, -EINVAL);
-
-        r = lldp_tlv_packet_enter_container(tlv, LLDP_TYPE_PORT_DESCRIPTION);
-        if (r < 0)
-                return r;
-
-        r = tlv_packet_read_string(tlv, &s, length);
-        if (r < 0)
-                goto out;
-
-        *data = (char *) s;
-
- out:
-        (void) lldp_tlv_packet_exit_container(tlv);
-
-        return r;
+        return lldp_tlv_packet_read_string_tlv(tlv, LLDP_TYPE_PORT_DESCRIPTION, data, length);
 }
 
 int sd_lldp_tlv_packet_read_system_capability(tlv_packet *tlv, uint16_t *data) {
-        int r;
-
-        assert_return(tlv, -EINVAL);
-
-        r = lldp_tlv_packet_enter_container(tlv, LLDP_TYPE_SYSTEM_CAPABILITIES);
-        if (r < 0)
-                return r;
-
-        r = tlv_packet_read_u16(tlv, data);
-        if (r < 0)
-                goto out;
-
-        return 0;
- out:
-
-        (void) lldp_tlv_packet_exit_container(tlv);
-
-        return r;
+        return lldp_tlv_packet_read_u16_tlv(tlv, LLDP_TYPE_SYSTEM_CAPABILITIES, data);
 }
 
 int sd_lldp_tlv_packet_get_destination_type(tlv_packet *tlv, LLDPDestinationType *dest) {
