@@ -25,6 +25,7 @@
 #include "sd-event.h"
 
 typedef struct sd_lldp sd_lldp;
+typedef struct tlv_packet sd_lldp_tlv;
 
 typedef void (*sd_lldp_cb_t)(sd_lldp *lldp, int event, void *userdata);
 
@@ -51,3 +52,16 @@ int sd_lldp_detach_event(sd_lldp *lldp);
 
 int sd_lldp_set_callback(sd_lldp *lldp, sd_lldp_cb_t cb, void *userdata);
 int sd_lldp_save(sd_lldp *lldp, const char *file);
+
+int sd_lldp_tlv_read_chassis_id(sd_lldp_tlv *tlv, uint8_t *type, uint8_t **data, uint16_t *length);
+int sd_lldp_tlv_read_port_id(sd_lldp_tlv *tlv, uint8_t *type, uint8_t **data, uint16_t *length);
+int sd_lldp_tlv_read_ttl(sd_lldp_tlv *tlv, uint16_t *ttl);
+int sd_lldp_tlv_read_system_name(sd_lldp_tlv *tlv, char **data, uint16_t *length);
+int sd_lldp_tlv_read_system_description(sd_lldp_tlv *tlv, char **data, uint16_t *length);
+int sd_lldp_tlv_read_system_capability(sd_lldp_tlv *tlv, uint16_t *data);
+int sd_lldp_tlv_read_port_description(sd_lldp_tlv *tlv, char **data, uint16_t *length);
+
+sd_lldp_tlv *sd_lldp_tlv_ref(sd_lldp_tlv *tlv);
+sd_lldp_tlv *sd_lldp_tlv_unref(sd_lldp_tlv *tlv);
+
+int sd_lldp_get_neighbour_tlvs(sd_lldp *lldp, sd_lldp_tlv ***tlvs, unsigned max);

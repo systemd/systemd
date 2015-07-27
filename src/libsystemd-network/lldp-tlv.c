@@ -54,22 +54,41 @@ int tlv_packet_new(tlv_packet **ret) {
                 return -ENOMEM;
 
         LIST_HEAD_INIT(m->sections);
+        m->n_ref = 1;
 
         *ret = m;
 
         return 0;
 }
 
-void tlv_packet_free(tlv_packet *m) {
+sd_lldp_tlv *sd_lldp_tlv_ref(sd_lldp_tlv *m) {
+
+        if (!m)
+                return NULL;
+
+        assert(m->n_ref > 0);
+        m->n_ref++;
+
+        return m;
+}
+
+sd_lldp_tlv *sd_lldp_tlv_unref(sd_lldp_tlv *m) {
         tlv_section *s, *n;
 
         if (!m)
-                return;
+                return NULL;
+
+        assert(m->n_ref > 0);
+        m->n_ref--;
+
+        if (m->n_ref > 0)
+                return m;
 
         LIST_FOREACH_SAFE(section, s, n, m->sections)
                 tlv_section_free(s);
 
         free(m);
+        return NULL;
 }
 
 int tlv_packet_append_bytes(tlv_packet *m, const void *data, size_t data_length) {
@@ -318,4 +337,205 @@ int lldp_tlv_packet_exit_container(tlv_packet *m) {
         m->container = 0;
 
         return 0;
+}
+
+int sd_lldp_tlv_read_chassis_id(sd_lldp_tlv *tlv,
+                                uint8_t *type,
+                                uint8_t **data,
+                                uint16_t *length) {
+        uint8_t subtype;
+        int r;
+
+        assert_return(tlv, -EINVAL);
+
+        r = lldp_tlv_packet_enter_container(tlv, LLDP_TYPE_CHASSIS_ID);
+        if (r < 0)
+                goto out2;
+
+        r = tlv_packet_read_u8(tlv, &subtype);
+        if (r < 0)
+                goto out1;
+
+        switch (subtype) {
+        case LLDP_CHASSIS_SUBTYPE_MAC_ADDRESS:
+
+                r = tlv_packet_read_bytes(tlv, data, length);
+                if (r < 0)
+                        goto out1;
+
+                break;
+        default:
+                r = -EOPNOTSUPP;
+                break;
+        }
+
+        *type = subtype;
+
+ out1:
+        (void) lldp_tlv_packet_exit_container(tlv);
+
+ out2:
+        return r;
+}
+
+int sd_lldp_tlv_read_port_id(sd_lldp_tlv *tlv,
+                             uint8_t *type,
+                             uint8_t **data,
+                             uint16_t *length) {
+        uint8_t subtype;
+        char *s;
+        int r;
+
+        assert_return(tlv, -EINVAL);
+
+        r = lldp_tlv_packet_enter_container(tlv, LLDP_TYPE_PORT_ID);
+        if (r < 0)
+                goto out2;
+
+        r = tlv_packet_read_u8(tlv, &subtype);
+        if (r < 0)
+                goto out1;
+
+        switch (subtype) {
+        case LLDP_PORT_SUBTYPE_PORT_COMPONENT:
+        case LLDP_PORT_SUBTYPE_INTERFACE_ALIAS:
+        case LLDP_PORT_SUBTYPE_INTERFACE_NAME:
+        case LLDP_PORT_SUBTYPE_LOCALLY_ASSIGNED:
+
+                r = tlv_packet_read_string(tlv, &s, length);
+                if (r < 0)
+                        goto out1;
+
+                *data = (uint8_t *) s;
+
+                break;
+        case LLDP_PORT_SUBTYPE_MAC_ADDRESS:
+
+                r = tlv_packet_read_bytes(tlv, data, length);
+                if (r < 0)
+                        goto out1;
+
+                break;
+        default:
+                r = -EOPNOTSUPP;
+                break;
+        }
+
+        *type = subtype;
+
+ out1:
+        (void) lldp_tlv_packet_exit_container(tlv);
+
+ out2:
+        return r;
+}
+
+int sd_lldp_tlv_read_ttl(sd_lldp_tlv *tlv, uint16_t *ttl) {
+        int r;
+
+        assert_return(tlv, -EINVAL);
+
+        r = lldp_tlv_packet_enter_container(tlv, LLDP_TYPE_TTL);
+        if (r < 0)
+                goto out;
+
+        r = tlv_packet_read_u16(tlv, ttl);
+
+        (void) lldp_tlv_packet_exit_container(tlv);
+
+ out:
+        return r;
+}
+
+int sd_lldp_tlv_read_system_name(sd_lldp_tlv *tlv,
+                                 char **data,
+                                 uint16_t *length) {
+        char *s;
+        int r;
+
+        assert_return(tlv, -EINVAL);
+
+        r = lldp_tlv_packet_enter_container(tlv, LLDP_TYPE_SYSTEM_NAME);
+        if (r < 0)
+                return r;
+
+        r = tlv_packet_read_string(tlv, &s, length);
+        if (r < 0)
+                goto out;
+
+        *data = (char *) s;
+
+ out:
+        (void) lldp_tlv_packet_exit_container(tlv);
+
+        return r;
+}
+
+int sd_lldp_tlv_read_system_description(sd_lldp_tlv *tlv,
+                                        char **data,
+                                        uint16_t *length) {
+        char *s;
+        int r;
+
+        assert_return(tlv, -EINVAL);
+
+        r = lldp_tlv_packet_enter_container(tlv, LLDP_TYPE_SYSTEM_DESCRIPTION);
+        if (r < 0)
+                return r;
+
+        r = tlv_packet_read_string(tlv, &s, length);
+        if (r < 0)
+                goto out;
+
+        *data = (char *) s;
+
+ out:
+        (void) lldp_tlv_packet_exit_container(tlv);
+
+        return r;
+}
+
+int sd_lldp_tlv_read_port_description(sd_lldp_tlv *tlv,
+                                      char **data,
+                                      uint16_t *length) {
+        char *s;
+        int r;
+
+        assert_return(tlv, -EINVAL);
+
+        r = lldp_tlv_packet_enter_container(tlv, LLDP_TYPE_PORT_DESCRIPTION);
+        if (r < 0)
+                return r;
+
+        r = tlv_packet_read_string(tlv, &s, length);
+        if (r < 0)
+                goto out;
+
+        *data = (char *) s;
+
+ out:
+        (void) lldp_tlv_packet_exit_container(tlv);
+
+        return r;
+}
+
+int sd_lldp_tlv_read_system_capability(sd_lldp_tlv *tlv, uint16_t *data) {
+        int r;
+
+        assert_return(tlv, -EINVAL);
+
+        r = lldp_tlv_packet_enter_container(tlv, LLDP_TYPE_SYSTEM_CAPABILITIES);
+        if (r < 0)
+                return r;
+
+        r = tlv_packet_read_u16(tlv, data);
+        if (r < 0)
+                goto out;
+
+        return 0;
+ out:
+
+        (void) lldp_tlv_packet_exit_container(tlv);
+
+        return r;
 }
