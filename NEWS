@@ -7,7 +7,7 @@ CHANGES WITH 223:
           now on, and we kindly ask distributions to create a separate package
           for this: https://github.com/systemd/python-systemd
 
-        * The systemd deamon will now reload its main configuration
+        * The systemd daemon will now reload its main configuration
           (/etc/systemd/system.conf) on daemon-reload.
 
         * sd-dhcp now exposes vendor specific extensions via
@@ -37,7 +37,7 @@ CHANGES WITH 223:
           netlink attribute.
 
         * systemd-resolved now implements RFC5452 to improve resilience against
-          cache poisining. Additionally, source port randomization is enabled
+          cache poisoning. Additionally, source port randomization is enabled
           by default to further protect against DNS spoofing attacks.
 
         * nss-mymachines now supports translating UIDs and GIDs of running
