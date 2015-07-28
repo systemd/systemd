@@ -188,6 +188,46 @@ int dns_question_is_superset(DnsQuestion *q, DnsQuestion *other) {
         return 1;
 }
 
+int dns_question_contains(DnsQuestion *a, DnsResourceKey *k) {
+        unsigned j;
+        int r;
+
+        assert(a);
+        assert(k);
+
+        for (j = 0; j < a->n_keys; j++) {
+                r = dns_resource_key_equal(a->keys[j], k);
+                if (r != 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+int dns_question_is_equal(DnsQuestion *a, DnsQuestion *b) {
+        unsigned j;
+        int r;
+
+        assert(a);
+        assert(b);
+
+        /* Checks if all keys in a are also contained b, and vice versa */
+
+        for (j = 0; j < a->n_keys; j++) {
+                r = dns_question_contains(b, a->keys[j]);
+                if (r <= 0)
+                        return r;
+        }
+
+        for (j = 0; j < b->n_keys; j++) {
+                r = dns_question_contains(a, b->keys[j]);
+                if (r <= 0)
+                        return r;
+        }
+
+        return 1;
+}
+
 int dns_question_cname_redirect(DnsQuestion *q, const char *name, DnsQuestion **ret) {
         _cleanup_(dns_question_unrefp) DnsQuestion *n = NULL;
         bool same = true;

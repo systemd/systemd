@@ -406,8 +406,8 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
         }
 
         /* Only consider responses with equivalent query section to the request */
-        if (!dns_question_is_superset(p->question, t->question) ||
-            !dns_question_is_superset(t->question, p->question)) {
+        r = dns_question_is_equal(p->question, t->question);
+        if (r <= 0) {
                 dns_transaction_complete(t, DNS_TRANSACTION_INVALID_REPLY);
                 return;
         }
