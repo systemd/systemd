@@ -834,8 +834,6 @@ static void mount_enter_unmounting(Mount *m) {
         m->control_command = m->exec_command + MOUNT_EXEC_UNMOUNT;
 
         r = exec_command_set(m->control_command, UMOUNT_PATH, m->where, NULL);
-        if (r >= 0 && UNIT(m)->manager->running_as == MANAGER_SYSTEM)
-                r = exec_command_append(m->control_command, "-n", NULL);
         if (r < 0)
                 goto fail;
 
@@ -886,8 +884,6 @@ static void mount_enter_mounting(Mount *m) {
 
                 r = exec_command_set(m->control_command, MOUNT_PATH,
                                      m->parameters_fragment.what, m->where, NULL);
-                if (r >= 0 && UNIT(m)->manager->running_as == MANAGER_SYSTEM)
-                        r = exec_command_append(m->control_command, "-n", NULL);
                 if (r >= 0 && m->sloppy_options)
                         r = exec_command_append(m->control_command, "-s", NULL);
                 if (r >= 0 && m->parameters_fragment.fstype)
@@ -934,8 +930,6 @@ static void mount_enter_remounting(Mount *m) {
                 r = exec_command_set(m->control_command, MOUNT_PATH,
                                      m->parameters_fragment.what, m->where,
                                      "-o", o, NULL);
-                if (r >= 0 && UNIT(m)->manager->running_as == MANAGER_SYSTEM)
-                        r = exec_command_append(m->control_command, "-n", NULL);
                 if (r >= 0 && m->sloppy_options)
                         r = exec_command_append(m->control_command, "-s", NULL);
                 if (r >= 0 && m->parameters_fragment.fstype)
