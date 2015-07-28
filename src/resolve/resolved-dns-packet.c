@@ -508,23 +508,21 @@ static int dns_packet_append_type_window(DnsPacket *p, uint8_t window, uint8_t l
 
         assert(p);
         assert(types);
+        assert(length > 0);
 
         saved_size = p->size;
 
-        if (length != 0) {
+        r = dns_packet_append_uint8(p, window, NULL);
+        if (r < 0)
+                goto fail;
 
-                r = dns_packet_append_uint8(p, window, NULL);
-                if (r < 0)
-                        goto fail;
+        r = dns_packet_append_uint8(p, length, NULL);
+        if (r < 0)
+                goto fail;
 
-                r = dns_packet_append_uint8(p, length, NULL);
-                if (r < 0)
-                        goto fail;
-
-                r = dns_packet_append_blob(p, types, length, NULL);
-                if (r < 0)
-                        goto fail;
-        }
+        r = dns_packet_append_blob(p, types, length, NULL);
+        if (r < 0)
+                goto fail;
 
         if (start)
                 *start = saved_size;
@@ -538,7 +536,7 @@ fail:
 static int dns_packet_append_types(DnsPacket *p, Bitmap *types, size_t *start) {
         Iterator i;
         uint8_t window = 0;
-        uint8_t len = 0;
+        uint8_t entry = 0;
         uint8_t bitmaps[32] = {};
         unsigned n;
         size_t saved_size;
@@ -550,30 +548,24 @@ static int dns_packet_append_types(DnsPacket *p, Bitmap *types, size_t *start) {
         saved_size = p->size;
 
         BITMAP_FOREACH(n, types, i) {
-                uint8_t entry;
-
                 assert(n <= 0xffff);
 
-                if ((n << 8) != window) {
-                        r = dns_packet_append_type_window(p, window, len, bitmaps, NULL);
+                if ((n >> 8) != window && bitmaps[entry / 8] != 0) {
+                        r = dns_packet_append_type_window(p, window, entry / 8 + 1, bitmaps, NULL);
                         if (r < 0)
                                 goto fail;
 
-                        if (len > 0) {
-                                len = 0;
-                                zero(bitmaps);
-                        }
+                        zero(bitmaps);
                 }
 
-                window = n << 8;
-                len ++;
+                window = n >> 8;
 
                 entry = n & 255;
 
                 bitmaps[entry / 8] |= 1 << (7 - (entry % 8));
         }
 
-        r = dns_packet_append_type_window(p, window, len, bitmaps, NULL);
+        r = dns_packet_append_type_window(p, window, entry / 8 + 1, bitmaps, NULL);
         if (r < 0)
                 goto fail;
 
@@ -1164,6 +1156,7 @@ static int dns_packet_read_type_window(DnsPacket *p, Bitmap **types, size_t *sta
         uint8_t window;
         uint8_t length;
         const uint8_t *bitmap;
+        uint8_t bit = 0;
         unsigned i;
         bool found = false;
         size_t saved_rindex;
@@ -1195,10 +1188,10 @@ static int dns_packet_read_type_window(DnsPacket *p, Bitmap **types, size_t *sta
 
         for (i = 0; i < length; i++) {
                 uint8_t bitmask = 1 << 7;
-                uint8_t bit = 0;
 
                 if (!bitmap[i]) {
                         found = false;
+                        bit += 8;
                         continue;
                 }
 
@@ -1673,8 +1666,12 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
                 if (r < 0)
                         goto fail;
 
-                /* NSEC RRs with empty bitmpas makes no sense, but the RFC does not explicitly forbid them
-                   so we allow it */
+                /* The types bitmap must contain at least the NSEC record itself, so an empty bitmap means
+                   something went wrong */
+                if (bitmap_isclear(rr->nsec.types)) {
+                        r = -EBADMSG;
+                        goto fail;
+                }
 
                 break;
 
