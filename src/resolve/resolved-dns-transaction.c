@@ -186,9 +186,6 @@ void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state) {
         assert(t);
         assert(!IN_SET(state, DNS_TRANSACTION_NULL, DNS_TRANSACTION_PENDING));
 
-        if (!IN_SET(t->state, DNS_TRANSACTION_NULL, DNS_TRANSACTION_PENDING))
-                return;
-
         /* Note that this call might invalidate the query. Callers
          * should hence not attempt to access the query or transaction
          * after calling this function. */
