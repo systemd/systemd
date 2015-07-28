@@ -52,7 +52,7 @@ void udev_builtin_init(struct udev *udev) {
                 return;
 
         for (i = 0; i < ELEMENTSOF(builtins); i++)
-                if (builtins[i]->init)
+                if (builtins[i] && builtins[i]->init)
                         builtins[i]->init(udev);
 
         initialized = true;
