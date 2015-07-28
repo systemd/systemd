@@ -89,10 +89,16 @@ void udev_builtin_list(struct udev *udev) {
 }
 
 const char *udev_builtin_name(enum udev_builtin_cmd cmd) {
+        if (!builtins[cmd])
+                return NULL;
+
         return builtins[cmd]->name;
 }
 
 bool udev_builtin_run_once(enum udev_builtin_cmd cmd) {
+        if (!builtins[cmd])
+                return -EOPNOTSUPP;
+
         return builtins[cmd]->run_once;
 }
 
@@ -115,6 +121,9 @@ int udev_builtin_run(struct udev_device *dev, enum udev_builtin_cmd cmd, const c
         char arg[UTIL_PATH_SIZE];
         int argc;
         char *argv[128];
+
+        if (!builtins[cmd])
+                return -EOPNOTSUPP;
 
         /* we need '0' here to reset the internal state */
         optind = 0;
