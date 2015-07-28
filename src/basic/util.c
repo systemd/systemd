@@ -6597,3 +6597,105 @@ int reset_uid_gid(void) {
 
         return 0;
 }
+
+int getxattr_malloc(const char *path, const char *name, char **value) {
+        size_t l = 100;
+        int r;
+
+        assert(path);
+        assert(name);
+        assert(value);
+
+        for (;;) {
+                char *v;
+                ssize_t n;
+
+                v = new0(char, l);
+                if (!v)
+                        return -ENOMEM;
+
+                n = getxattr(path, name, v, l);
+                if (n < 0) {
+                        r = -errno;
+                        free(v);
+                        return r;
+                }
+
+                if ((size_t) n < l - 1) {
+                        v[n] = 0;
+                        *value = v;
+                        return n;
+                }
+
+                free(v);
+                l *= 2;
+        }
+}
+
+int lgetxattr_malloc(const char *path, const char *name, char **value) {
+        size_t l = 100;
+        int r;
+
+        assert(path);
+        assert(name);
+        assert(value);
+
+        for (;;) {
+                char *v;
+                ssize_t n;
+
+                v = new0(char, l);
+                if (!v)
+                        return -ENOMEM;
+
+                n = lgetxattr(path, name, v, l);
+                if (n < 0) {
+                        r = -errno;
+                        free(v);
+                        return r;
+                }
+
+                if ((size_t) n < l - 1) {
+                        v[n] = 0;
+                        *value = v;
+                        return n;
+                }
+
+                free(v);
+                l *= 2;
+        }
+}
+
+int fgetxattr_malloc(int fd, const char *name, char **value) {
+        size_t l = 100;
+        int r;
+
+        assert(fd >= 0);
+        assert(name);
+        assert(value);
+
+        for (;;) {
+                char *v;
+                ssize_t n;
+
+                v = new0(char, l);
+                if (!v)
+                        return -ENOMEM;
+
+                n = fgetxattr(fd, name, v, l);
+                if (n < 0) {
+                        r = -errno;
+                        free(v);
+                        return r;
+                }
+
+                if ((size_t) n < l - 1) {
+                        v[n] = 0;
+                        *value = v;
+                        return n;
+                }
+
+                free(v);
+                l *= 2;
+        }
+}
