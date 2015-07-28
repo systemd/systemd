@@ -319,11 +319,14 @@ static void dns_transaction_next_dns_server(DnsTransaction *t) {
 }
 
 void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
+        usec_t ts;
         int r;
 
         assert(t);
         assert(p);
         assert(t->state == DNS_TRANSACTION_PENDING);
+        assert(t->scope);
+        assert(t->scope->manager);
 
         /* Note that this call might invalidate the query. Callers
          * should hence not attempt to access the query or transaction
@@ -367,6 +370,26 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                         dns_transaction_complete(t, DNS_TRANSACTION_INVALID_REPLY);
                         return;
                 }
+        }
+
+        r = sd_event_now(t->scope->manager->event, clock_boottime_or_monotonic(), &ts);
+        if (r < 0)
+                ts = now(clock_boottime_or_monotonic());
+
+        switch (t->scope->protocol) {
+        case DNS_PROTOCOL_DNS:
+                assert(t->server);
+
+                dns_server_packet_received(t->server, ts - t->start_usec);
+
+                break;
+        case DNS_PROTOCOL_LLMNR:
+        case DNS_PROTOCOL_MDNS:
+                dns_scope_packet_received(t->scope, ts - t->start_usec);
+
+                break;
+        default:
+                assert_not_reached("Invalid DNS protocol.");
         }
 
         if (DNS_PACKET_TC(p)) {
@@ -434,9 +457,9 @@ static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *use
                 return r;
 
         if (dns_packet_validate_reply(p) > 0 &&
-            DNS_PACKET_ID(p) == t->id) {
+            DNS_PACKET_ID(p) == t->id)
                 dns_transaction_process_reply(t, p);
-        } else
+        else
                 log_debug("Invalid DNS packet.");
 
         return 0;
@@ -480,6 +503,12 @@ static int on_transaction_timeout(sd_event_source *s, usec_t usec, void *userdat
 
         /* Timeout reached? Try again, with a new server */
         dns_transaction_next_dns_server(t);
+
+        /* ... and possibly increased timeout */
+        if (t->server)
+                dns_server_packet_lost(t->server, usec - t->start_usec);
+        else
+                dns_scope_packet_lost(t->scope, usec - t->start_usec);
 
         r = dns_transaction_go(t);
         if (r < 0)
@@ -528,8 +557,26 @@ static int dns_transaction_make_packet(DnsTransaction *t) {
         return 0;
 }
 
+static usec_t transaction_get_resend_timeout(DnsTransaction *t) {
+        assert(t);
+        assert(t->scope);
+
+        switch (t->scope->protocol) {
+        case DNS_PROTOCOL_DNS:
+                assert(t->server);
+
+                return t->server->resend_timeout;
+        case DNS_PROTOCOL_LLMNR:
+        case DNS_PROTOCOL_MDNS:
+                return t->scope->resend_timeout;
+        default:
+                assert_not_reached("Invalid DNS protocol.");
+        }
+}
+
 int dns_transaction_go(DnsTransaction *t) {
         bool had_stream;
+        usec_t ts;
         int r;
 
         assert(t);
@@ -555,7 +602,12 @@ int dns_transaction_go(DnsTransaction *t) {
                 return 0;
         }
 
+        r = sd_event_now(t->scope->manager->event, clock_boottime_or_monotonic(), &ts);
+        if (r < 0)
+                ts = now(clock_boottime_or_monotonic());
+
         t->n_attempts++;
+        t->start_usec = ts;
         t->received = dns_packet_unref(t->received);
         t->cached = dns_answer_unref(t->cached);
         t->cached_rcode = 0;
@@ -600,7 +652,7 @@ int dns_transaction_go(DnsTransaction *t) {
                                 t->scope->manager->event,
                                 &t->timeout_event_source,
                                 clock_boottime_or_monotonic(),
-                                now(clock_boottime_or_monotonic()) + jitter,
+                                ts + jitter,
                                 LLMNR_JITTER_INTERVAL_USEC,
                                 on_transaction_timeout, t);
                 if (r < 0)
@@ -660,7 +712,7 @@ int dns_transaction_go(DnsTransaction *t) {
                         t->scope->manager->event,
                         &t->timeout_event_source,
                         clock_boottime_or_monotonic(),
-                        now(clock_boottime_or_monotonic()) + TRANSACTION_TIMEOUT_USEC(t->scope->protocol), 0,
+                        ts + transaction_get_resend_timeout(t), 0,
                         on_transaction_timeout, t);
         if (r < 0)
                 return r;

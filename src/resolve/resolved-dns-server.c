@@ -23,6 +23,10 @@
 
 #include "resolved-dns-server.h"
 
+/* After how much time to repeat classic DNS requests */
+#define DNS_TIMEOUT_MIN_USEC (500 * USEC_PER_MSEC)
+#define DNS_TIMEOUT_MAX_USEC (5 * USEC_PER_SEC)
+
 int dns_server_new(
                 Manager *m,
                 DnsServer **ret,
@@ -45,6 +49,7 @@ int dns_server_new(
         s->type = type;
         s->family = family;
         s->address = *in_addr;
+        s->resend_timeout = DNS_TIMEOUT_MIN_USEC;
 
         if (type == DNS_SERVER_LINK) {
                 LIST_FIND_TAIL(servers, l->dns_servers, tail);
@@ -113,6 +118,23 @@ DnsServer* dns_server_unref(DnsServer *s)  {
                 s->n_ref --;
 
         return NULL;
+}
+
+void dns_server_packet_received(DnsServer *s, usec_t rtt) {
+        assert(s);
+
+        if (rtt > s->max_rtt) {
+                s->max_rtt = rtt;
+                s->resend_timeout = MIN(MAX(DNS_TIMEOUT_MIN_USEC, s->max_rtt * 2),
+                                        DNS_TIMEOUT_MAX_USEC);
+        }
+}
+
+void dns_server_packet_lost(DnsServer *s, usec_t usec) {
+        assert(s);
+
+        if (s->resend_timeout <= usec)
+                s->resend_timeout = MIN(s->resend_timeout * 2, DNS_TIMEOUT_MAX_USEC);
 }
 
 static unsigned long dns_server_hash_func(const void *p, const uint8_t hash_key[HASH_KEY_SIZE]) {

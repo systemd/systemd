@@ -46,6 +46,9 @@ struct DnsServer {
         int family;
         union in_addr_union address;
 
+        usec_t resend_timeout;
+        usec_t max_rtt;
+
         bool marked:1;
 
         LIST_FIELDS(DnsServer, servers);
@@ -61,6 +64,9 @@ int dns_server_new(
 
 DnsServer* dns_server_ref(DnsServer *s);
 DnsServer* dns_server_unref(DnsServer *s);
+
+void dns_server_packet_received(DnsServer *s, usec_t rtt);
+void dns_server_packet_lost(DnsServer *s, usec_t usec);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsServer*, dns_server_unref);
 

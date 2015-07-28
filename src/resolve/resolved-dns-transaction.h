@@ -58,6 +58,7 @@ struct DnsTransaction {
         DnsAnswer *cached;
         int cached_rcode;
 
+        usec_t start_usec;
         sd_event_source *timeout_event_source;
         unsigned n_attempts;
 
@@ -95,12 +96,6 @@ void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state);
 const char* dns_transaction_state_to_string(DnsTransactionState p) _const_;
 DnsTransactionState dns_transaction_state_from_string(const char *s) _pure_;
 
-/* After how much time to repeat classic DNS requests */
-#define DNS_TRANSACTION_TIMEOUT_USEC (5 * USEC_PER_SEC)
-
-/* After how much time to repeat LLMNR requests, see RFC 4795 Section 7 */
-#define LLMNR_TRANSACTION_TIMEOUT_USEC (1 * USEC_PER_SEC)
-
 /* LLMNR Jitter interval, see RFC 4795 Section 7 */
 #define LLMNR_JITTER_INTERVAL_USEC (100 * USEC_PER_MSEC)
 
@@ -110,5 +105,4 @@ DnsTransactionState dns_transaction_state_from_string(const char *s) _pure_;
 /* Maximum attempts to send LLMNR requests, see RFC 4795 Section 2.7 */
 #define LLMNR_TRANSACTION_ATTEMPTS_MAX 3
 
-#define TRANSACTION_TIMEOUT_USEC(p) (p == DNS_PROTOCOL_LLMNR ? LLMNR_TRANSACTION_TIMEOUT_USEC : DNS_TRANSACTION_TIMEOUT_USEC)
 #define TRANSACTION_ATTEMPTS_MAX(p) (p == DNS_PROTOCOL_LLMNR ? LLMNR_TRANSACTION_ATTEMPTS_MAX : DNS_TRANSACTION_ATTEMPTS_MAX)
