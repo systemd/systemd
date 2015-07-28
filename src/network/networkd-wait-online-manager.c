@@ -38,9 +38,15 @@ bool manager_ignore_link(Manager *m, Link *link) {
         assert(m);
         assert(link);
 
+        /* always ignore the loopback interface */
         if (link->flags & IFF_LOOPBACK)
                 return true;
 
+        /* if interfaces are given on the commandlin, ignore all others */
+        if (m->interfaces && !strv_contains(m->interfaces, link->ifname))
+                return true;
+
+        /* ignore interfaces we explicitly are asked to ignore */
         STRV_FOREACH(ignore, m->ignore)
                 if (fnmatch(*ignore, link->ifname, 0) == 0)
                         return true;
