@@ -2378,7 +2378,7 @@ int link_save(Link *link) {
                         yes_no(link->network->wildcard_domain));
 
                 fprintf(f, "LLMNR=%s\n",
-                        llmnr_support_to_string(link->network->llmnr));
+                        resolve_support_to_string(link->network->llmnr));
         }
 
         if (!hashmap_isempty(link->bound_to_links)) {

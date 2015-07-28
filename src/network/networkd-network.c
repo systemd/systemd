@@ -111,7 +111,7 @@ static int network_load_one(Manager *manager, const char *filename) {
         network->allow_port_to_be_root = true;
         network->unicast_flood = true;
 
-        network->llmnr = LLMNR_SUPPORT_YES;
+        network->llmnr = RESOLVE_SUPPORT_YES;
 
         network->link_local = ADDRESS_FAMILY_IPV6;
 
@@ -632,15 +632,15 @@ static const char* const dhcp_client_identifier_table[_DHCP_CLIENT_ID_MAX] = {
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(dhcp_client_identifier, DCHPClientIdentifier);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_dhcp_client_identifier, dhcp_client_identifier, DCHPClientIdentifier, "Failed to parse client identifier type");
 
-static const char* const llmnr_support_table[_LLMNR_SUPPORT_MAX] = {
-        [LLMNR_SUPPORT_NO] = "no",
-        [LLMNR_SUPPORT_YES] = "yes",
-        [LLMNR_SUPPORT_RESOLVE] = "resolve",
+static const char* const resolve_support_table[_RESOLVE_SUPPORT_MAX] = {
+        [RESOLVE_SUPPORT_NO] = "no",
+        [RESOLVE_SUPPORT_YES] = "yes",
+        [RESOLVE_SUPPORT_RESOLVE] = "resolve",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(llmnr_support, LLMNRSupport);
+DEFINE_STRING_TABLE_LOOKUP(resolve_support, ResolveSupport);
 
-int config_parse_llmnr(
+int config_parse_resolve(
                 const char* unit,
                 const char *filename,
                 unsigned line,
@@ -652,32 +652,32 @@ int config_parse_llmnr(
                 void *data,
                 void *userdata) {
 
-        LLMNRSupport *llmnr = data;
+        ResolveSupport *resolve = data;
         int k;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(llmnr);
+        assert(resolve);
 
         /* Our enum shall be a superset of booleans, hence first try
          * to parse as boolean, and then as enum */
 
         k = parse_boolean(rvalue);
         if (k > 0)
-                *llmnr = LLMNR_SUPPORT_YES;
+                *resolve = RESOLVE_SUPPORT_YES;
         else if (k == 0)
-                *llmnr = LLMNR_SUPPORT_NO;
+                *resolve = RESOLVE_SUPPORT_NO;
         else {
-                LLMNRSupport s;
+                ResolveSupport s;
 
-                s = llmnr_support_from_string(rvalue);
+                s = resolve_support_from_string(rvalue);
                 if (s < 0){
-                        log_syntax(unit, LOG_ERR, filename, line, -s, "Failed to parse LLMNR option, ignoring: %s", rvalue);
+                        log_syntax(unit, LOG_ERR, filename, line, -s, "Failed to parse %s option, ignoring: %s", lvalue, rvalue);
                         return 0;
                 }
 
-                *llmnr = s;
+                *resolve = s;
         }
 
         return 0;
