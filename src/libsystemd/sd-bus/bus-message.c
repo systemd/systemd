@@ -4756,7 +4756,6 @@ _public_ int sd_bus_message_skip(sd_bus_message *m, const char *types) {
                         r = sd_bus_message_skip(m, s);
                         if (r < 0)
                                 return r;
-                        assert(r != 0);
 
                         r = sd_bus_message_exit_container(m);
                         if (r < 0)
