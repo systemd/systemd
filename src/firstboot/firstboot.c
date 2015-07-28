@@ -386,12 +386,13 @@ static int prompt_hostname(void) {
                         break;
                 }
 
-                if (!hostname_is_valid(h, false)) {
+                if (!hostname_is_valid(h, true)) {
                         log_error("Specified hostname invalid.");
                         continue;
                 }
 
-                arg_hostname = h;
+                /* Get rid of the trailing dot that we allow, but don't want to see */
+                arg_hostname = hostname_cleanup(h, false);
                 h = NULL;
                 break;
         }
@@ -780,11 +781,12 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_HOSTNAME:
-                        if (!hostname_is_valid(optarg, false)) {
+                        if (!hostname_is_valid(optarg, true)) {
                                 log_error("Host name %s is not valid.", optarg);
                                 return -EINVAL;
                         }
 
+                        hostname_cleanup(optarg, false);
                         if (free_and_strdup(&arg_hostname, optarg) < 0)
                                 return log_oom();
 
