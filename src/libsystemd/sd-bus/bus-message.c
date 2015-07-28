@@ -2209,7 +2209,12 @@ static int bus_message_close_struct(sd_bus_message *m, struct bus_container *c, 
         assert(!c->need_offsets || i == c->n_offsets);
         assert(c->need_offsets || n_variable == 0);
 
-        if (n_variable <= 0) {
+        if (isempty(c->signature)) {
+                /* The unary type is encoded as fixed 1 byte padding */
+                a = message_extend_body(m, 1, 1, add_offset, false);
+                if (!a)
+                        return -ENOMEM;
+        } else if (n_variable <= 0) {
                 int alignment = 1;
 
                 /* Structures with fixed-size members only have to be
@@ -4147,6 +4152,12 @@ _public_ int sd_bus_message_enter_container(sd_bus_message *m,
         w->offsets = offsets;
         w->n_offsets = n_offsets;
         w->offset_index = 0;
+
+        /* The unary gvariant type "()" has a fixed size of 1; skip it */
+        if (BUS_MESSAGE_IS_GVARIANT(m) &&
+            type == SD_BUS_TYPE_STRUCT &&
+            isempty(signature))
+                m->rindex += 1;
 
         return 1;
 }
