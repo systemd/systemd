@@ -102,7 +102,7 @@ bool hostname_is_valid(const char *s, bool relax) {
         return true;
 }
 
-char* hostname_cleanup(char *s, bool lowercase) {
+char* hostname_cleanup(char *s) {
         char *p, *d;
         bool dot;
 
@@ -116,7 +116,7 @@ char* hostname_cleanup(char *s, bool lowercase) {
                         *(d++) = '.';
                         dot = true;
                 } else if (hostname_valid_char(*p)) {
-                        *(d++) = lowercase ? tolower(*p) : *p;
+                        *(d++) = *p;
                         dot = false;
                 }
 
@@ -182,7 +182,7 @@ int read_hostname_config(const char *path, char **hostname) {
                 truncate_nl(l);
                 if (l[0] != '\0' && l[0] != '#') {
                         /* found line with value */
-                        name = hostname_cleanup(l, false);
+                        name = hostname_cleanup(l);
                         name = strdup(name);
                         if (!name)
                                 return -ENOMEM;

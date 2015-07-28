@@ -273,13 +273,13 @@ static int set_hostname(sd_bus *bus, char **args, unsigned n) {
                 if (arg_static && hostname_is_valid(hostname, true)) {
                         p = "";
                         /* maybe get rid of trailing dot */
-                        hostname = hostname_cleanup(hostname, false);
+                        hostname = hostname_cleanup(hostname);
                 } else {
                         p = h = strdup(hostname);
                         if (!p)
                                 return log_oom();
 
-                        hostname_cleanup(hostname, false);
+                        hostname_cleanup(hostname);
                 }
 
                 r = set_simple_string(bus, "SetPrettyHostname", p);

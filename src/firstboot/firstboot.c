@@ -392,7 +392,7 @@ static int prompt_hostname(void) {
                 }
 
                 /* Get rid of the trailing dot that we allow, but don't want to see */
-                arg_hostname = hostname_cleanup(h, false);
+                arg_hostname = hostname_cleanup(h);
                 h = NULL;
                 break;
         }
@@ -786,7 +786,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 return -EINVAL;
                         }
 
-                        hostname_cleanup(optarg, false);
+                        hostname_cleanup(optarg);
                         if (free_and_strdup(&arg_hostname, optarg) < 0)
                                 return log_oom();
 

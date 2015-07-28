@@ -797,7 +797,7 @@ static int request_handler_machine(
                      "\"cutoff_to_realtime\" : \"%"PRIu64"\" }\n",
                      SD_ID128_FORMAT_VAL(mid),
                      SD_ID128_FORMAT_VAL(bid),
-                     hostname_cleanup(hostname, false),
+                     hostname_cleanup(hostname),
                      os_name ? os_name : "Linux",
                      v ? v : "bare",
                      usage,
