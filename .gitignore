@@ -197,6 +197,7 @@
 /test-firewall-util
 /test-hashmap
 /test-hostname
+/test-hostname-util
 /test-icmp6-rs
 /test-id128
 /test-inhibit
