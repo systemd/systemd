@@ -141,14 +141,14 @@ bool is_localhost(const char *hostname) {
         /* This tries to identify local host and domain names
          * described in RFC6761 plus the redhatism of .localdomain */
 
-        return streq(hostname, "localhost") ||
-               streq(hostname, "localhost.") ||
-               streq(hostname, "localdomain.") ||
-               streq(hostname, "localdomain") ||
-               endswith(hostname, ".localhost") ||
-               endswith(hostname, ".localhost.") ||
-               endswith(hostname, ".localdomain") ||
-               endswith(hostname, ".localdomain.");
+        return strcaseeq(hostname, "localhost") ||
+               strcaseeq(hostname, "localhost.") ||
+               strcaseeq(hostname, "localdomain.") ||
+               strcaseeq(hostname, "localdomain") ||
+               endswith_no_case(hostname, ".localhost") ||
+               endswith_no_case(hostname, ".localhost.") ||
+               endswith_no_case(hostname, ".localdomain") ||
+               endswith_no_case(hostname, ".localdomain.");
 }
 
 int sethostname_idempotent(const char *s) {
