@@ -96,6 +96,12 @@ _systemctl () {
                       [ARG]='--host -H --kill-who --property -p --signal -s --type -t --state --job-mode --root'
         )
 
+        local -A PROPS='CPUQuota= CPUAccounting= MemoryAccounting= BlockIOAccounting= SendSIGHUP= SendSIGKILL= WakeSystem=
+        DefaultDependencies= MemoryLimit= CPUShares= BlockIOWeight= User= Group= DevicePolicy= KillMode= DeviceAllow=
+        BlockIOReadBandwidth= BlockIOWriteBandwidth= BlockIODeviceWeight= Nice= Environment= KillSignal= AccuracySec=
+        LimitCPU= LimitFSIZE= LimitDATA= LimitSTACK= LimitCORE= LimitRSS= LimitNOFILE= LimitAS= LimitNPROC= LimitMEMLOCK=
+        LimitLOCKS= LimitSIGPENDING= LimitMSGQUEUE= LimitNICE= LimitRTPRIO= LimitRTTIME='
+
         if __contains_word "--user" ${COMP_WORDS[*]}; then
             mode=--user
         else
@@ -157,6 +163,7 @@ _systemctl () {
              [MASKED_UNITS]='unmask'
                      [JOBS]='cancel'
                 [SNAPSHOTS]='delete'
+               [PROPERTIES]='set-property'
                      [ENVS]='set-environment unset-environment'
                [STANDALONE]='daemon-reexec daemon-reload default
                              emergency exit halt hibernate hybrid-sleep kexec list-jobs
@@ -262,6 +269,13 @@ _systemctl () {
         elif __contains_word "$verb" ${VERBS[TARGETS]}; then
                 comps=$( __systemctl $mode list-unit-files --type target --full --all \
                         | { while read -r a b; do echo " $a"; done; } )
+        elif __contains_word "$verb" ${VERBS[PROPERTIES]}; then
+                if __contains_word "$prev" ${VERBS[PROPERTIES]}; then
+                        comps=$( __get_active_units $mode )
+                else
+                        comps=$PROPS
+                        compopt -o nospace
+                fi
         fi
 
         COMPREPLY=( $(compgen -o filenames -W '$comps' -- "$cur") )
