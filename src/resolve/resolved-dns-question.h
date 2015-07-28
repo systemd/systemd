@@ -43,6 +43,8 @@ int dns_question_matches_rr(DnsQuestion *q, DnsResourceRecord *rr);
 int dns_question_matches_cname(DnsQuestion *q, DnsResourceRecord *rr);
 int dns_question_is_valid(DnsQuestion *q);
 int dns_question_is_superset(DnsQuestion *q, DnsQuestion *other);
+int dns_question_contains(DnsQuestion *a, DnsResourceKey *k);
+int dns_question_is_equal(DnsQuestion *a, DnsQuestion *b);
 
 int dns_question_cname_redirect(DnsQuestion *q, const char *name, DnsQuestion **ret);
 
