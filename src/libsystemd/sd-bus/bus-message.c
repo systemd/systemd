@@ -3954,12 +3954,6 @@ static int enter_struct_or_dict_entry(
                 if (r < 0)
                         return r;
 
-        } else if (c->item_size <= 0) {
-
-                /* gvariant empty struct */
-                *item_size = 0;
-                *offsets = NULL;
-                *n_offsets = 0;
         } else
                 /* gvariant with contents */
                 return build_struct_offsets(m, contents, c->item_size, item_size, offsets, n_offsets);
