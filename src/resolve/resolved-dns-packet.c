@@ -1666,8 +1666,12 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
                 if (r < 0)
                         goto fail;
 
-                /* NSEC RRs with empty bitmpas makes no sense, but the RFC does not explicitly forbid them
-                   so we allow it */
+                /* The types bitmap must contain at least the NSEC record itself, so an empty bitmap means
+                   something went wrong */
+                if (bitmap_isclear(rr->nsec.types)) {
+                        r = -EBADMSG;
+                        goto fail;
+                }
 
                 break;
 
