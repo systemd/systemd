@@ -599,7 +599,7 @@ static int path_set_perms(Item *i, const char *path) {
         if (fd < 0)
                 return log_error_errno(errno, "Adjusting owner and mode for %s failed: %m", path);
 
-        if (fstatat(fd, "", &st, AT_EMPTY_PATH) < 0)
+        if (fstatat(fd, "", &st, AT_EMPTY_PATH|AT_SYMLINK_NOFOLLOW) < 0)
                 return log_error_errno(errno, "Failed to fstat() file %s: %m", path);
 
         if (S_ISLNK(st.st_mode))
