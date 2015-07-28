@@ -77,7 +77,7 @@ bool manager_all_configured(Manager *m) {
                         return false;
                 }
 
-                if (streq(l->state, "configuring")) {
+                if (STR_IN_SET(l->state, "configuring", "pending")) {
                         log_debug("link %s is being processed by networkd",
                                   l->ifname);
                         return false;
