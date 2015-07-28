@@ -61,14 +61,19 @@ static bool hostname_valid_char(char c) {
                 c == '.';
 }
 
-bool hostname_is_valid(const char *s) {
+/**
+ * Check if s a valid domain name. Allow a trailing dot if relax is
+ * true and at least two components are present in the name.
+ */
+bool hostname_is_valid(const char *s, bool relax) {
         const char *p;
         bool dot;
+        unsigned dots = 0;
 
         if (isempty(s))
                 return false;
 
-        /* Doesn't accept empty hostnames, hostnames with trailing or
+        /* Doesn't accept empty hostnames, hostnames with
          * leading dots, and hostnames with multiple dots in a
          * sequence. Also ensures that the length stays below
          * HOST_NAME_MAX. */
@@ -79,6 +84,7 @@ bool hostname_is_valid(const char *s) {
                                 return false;
 
                         dot = true;
+                        dots ++;
                 } else {
                         if (!hostname_valid_char(*p))
                                 return false;
@@ -87,7 +93,7 @@ bool hostname_is_valid(const char *s) {
                 }
         }
 
-        if (dot)
+        if (dot && (dots < 2 || !relax))
                 return false;
 
         if (p-s > HOST_NAME_MAX)

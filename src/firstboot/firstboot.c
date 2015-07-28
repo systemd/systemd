@@ -386,7 +386,7 @@ static int prompt_hostname(void) {
                         break;
                 }
 
-                if (!hostname_is_valid(h)) {
+                if (!hostname_is_valid(h, false)) {
                         log_error("Specified hostname invalid.");
                         continue;
                 }
@@ -780,14 +780,12 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_HOSTNAME:
-                        if (!hostname_is_valid(optarg)) {
+                        if (!hostname_is_valid(optarg, false)) {
                                 log_error("Host name %s is not valid.", optarg);
                                 return -EINVAL;
                         }
 
-                        free(arg_hostname);
-                        arg_hostname = strdup(optarg);
-                        if (!arg_hostname)
+                        if (free_and_strdup(&arg_hostname, optarg) < 0)
                                 return log_oom();
 
                         break;

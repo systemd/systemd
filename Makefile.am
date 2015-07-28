@@ -1393,6 +1393,7 @@ tests += \
 	test-utf8 \
 	test-ellipsize \
 	test-util \
+	test-hostname-util \
 	test-process-util \
 	test-terminal-util \
 	test-path-lookup \
@@ -1669,6 +1670,12 @@ test_util_SOURCES = \
 	src/test/test-util.c
 
 test_util_LDADD = \
+	libshared.la
+
+test_hostname_util_SOURCES = \
+	src/test/test-hostname-util.c
+
+test_hostname_util_LDADD = \
 	libshared.la
 
 test_process_util_SOURCES = \

@@ -99,11 +99,6 @@ static const char* nonempty(const char *s) {
         return isempty(s) ? NULL : s;
 }
 
-static void free_and_replace(char **s, char *v) {
-        free(*s);
-        *s = v;
-}
-
 static bool startswith_comma(const char *s, const char *prefix) {
         const char *t;
 

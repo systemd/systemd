@@ -838,7 +838,7 @@ int config_parse_hostname(const char *unit,
         if (r < 0)
                 return r;
 
-        if (!hostname_is_valid(hn)) {
+        if (!hostname_is_valid(hn, false)) {
                 log_syntax(unit, LOG_ERR, filename, line, EINVAL, "hostname is not valid, ignoring assignment: %s", rvalue);
 
                 free(hn);
