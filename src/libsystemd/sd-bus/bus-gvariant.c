@@ -75,14 +75,19 @@ int bus_gvariant_get_size(const char *signature) {
 
                 case SD_BUS_TYPE_STRUCT_BEGIN:
                 case SD_BUS_TYPE_DICT_ENTRY_BEGIN: {
-                        char t[n-1];
+                        if (n == 2) {
+                                /* unary type () has fixed size of 1 */
+                                r = 1;
+                        } else {
+                                char t[n-1];
 
-                        memcpy(t, p + 1, n - 2);
-                        t[n - 2] = 0;
+                                memcpy(t, p + 1, n - 2);
+                                t[n - 2] = 0;
 
-                        r = bus_gvariant_get_size(t);
-                        if (r < 0)
-                                return r;
+                                r = bus_gvariant_get_size(t);
+                                if (r < 0)
+                                        return r;
+                        }
 
                         sum += r;
                         break;

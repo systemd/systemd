@@ -2209,7 +2209,14 @@ static int bus_message_close_struct(sd_bus_message *m, struct bus_container *c, 
         assert(!c->need_offsets || i == c->n_offsets);
         assert(c->need_offsets || n_variable == 0);
 
-        if (n_variable <= 0) {
+        if (isempty(c->signature)) {
+                /* The unary type is encoded as fixed 1 byte padding */
+                a = message_extend_body(m, 1, 1, add_offset, false);
+                if (!a)
+                        return -ENOMEM;
+
+                *a = 0;
+        } else if (n_variable <= 0) {
                 int alignment = 1;
 
                 /* Structures with fixed-size members only have to be
@@ -3814,6 +3821,14 @@ static int build_struct_offsets(
         assert(n_offsets);
 
         if (isempty(signature)) {
+                /* Unary type is encoded as *fixed* 1 byte padding */
+                r = message_peek_body(m, &m->rindex, 1, 1, &q);
+                if (r < 0)
+                        return r;
+
+                if (*(uint8_t *) q != 0)
+                        return -EBADMSG;
+
                 *item_size = 0;
                 *offsets = NULL;
                 *n_offsets = 0;
@@ -4140,7 +4155,14 @@ _public_ int sd_bus_message_enter_container(sd_bus_message *m,
 
         w->before = before;
         w->begin = m->rindex;
-        w->end = m->rindex + c->item_size;
+
+        /* Unary type has fixed size of 1, but virtual size of 0 */
+        if (BUS_MESSAGE_IS_GVARIANT(m) &&
+            type == SD_BUS_TYPE_STRUCT &&
+            isempty(signature))
+                w->end = m->rindex + 0;
+        else
+                w->end = m->rindex + c->item_size;
 
         w->array_size = array_size;
         w->item_size = item_size;
