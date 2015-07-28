@@ -845,7 +845,7 @@ int config_parse_hostname(const char *unit,
                 return 0;
         }
 
-        *hostname = hostname_cleanup(hn, false);
+        *hostname = hostname_cleanup(hn);
 
         return 0;
 }
