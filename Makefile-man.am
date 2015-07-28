@@ -144,6 +144,7 @@ MANPAGES += \
 	man/systemd.link.5 \
 	man/systemd.mount.5 \
 	man/systemd.nspawn.5 \
+	man/systemd.offline-updates.7 \
 	man/systemd.path.5 \
 	man/systemd.preset.5 \
 	man/systemd.resource-control.5 \
@@ -2651,6 +2652,7 @@ EXTRA_DIST += \
 	man/systemd.netdev.xml \
 	man/systemd.network.xml \
 	man/systemd.nspawn.xml \
+	man/systemd.offline-updates.xml \
 	man/systemd.path.xml \
 	man/systemd.preset.xml \
 	man/systemd.resource-control.xml \
