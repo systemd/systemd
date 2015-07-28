@@ -516,8 +516,14 @@
       <varlistentry>
         <term><filename>sysinit.target</filename></term>
         <listitem>
-          <para>A special target unit covering early boot-up
-          scripts.</para>
+          <para>This target pulls in the services required for system
+          initialization. System services pulled in by this target should
+          declare <varname>DefaultDependencies=no</varname> and specify
+          all their dependencies manually, including access to anything
+          more than a read only root filesystem. For details on the
+          dependencies of this target, refer to
+          <citerefentry><refentrytitle>bootup</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+          </para>
         </listitem>
       </varlistentry>
       <varlistentry>
