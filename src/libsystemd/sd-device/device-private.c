@@ -1082,12 +1082,10 @@ int device_update_db(sd_device *device) {
         return 0;
 
 fail:
-        log_error_errno(r, "failed to create %s file '%s' for '%s'", has_info ? "db" : "empty",
-                        path, device->devpath);
-        unlink(path);
-        unlink(path_tmp);
+        (void) unlink(path);
+        (void) unlink(path_tmp);
 
-        return r;
+        return log_error_errno(r, "failed to create %s file '%s' for '%s'", has_info ? "db" : "empty", path, device->devpath);
 }
 
 int device_delete_db(sd_device *device) {

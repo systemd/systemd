@@ -1069,10 +1069,9 @@ static int method_dump(sd_bus_message *message, void *userdata, sd_bus_error *er
         manager_dump_units(m, f, NULL);
         manager_dump_jobs(m, f, NULL);
 
-        fflush(f);
-
-        if (ferror(f))
-                return -ENOMEM;
+        r = fflush_and_check(f);
+        if (r < 0)
+                return r;
 
         return sd_bus_reply_method_return(message, "s", dump);
 }

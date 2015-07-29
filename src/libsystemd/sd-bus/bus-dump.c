@@ -551,9 +551,8 @@ int bus_pcap_header(size_t snaplen, FILE *f) {
         hdr.snaplen = (uint32_t) snaplen;
 
         fwrite(&hdr, 1, sizeof(hdr), f);
-        fflush(f);
 
-        return 0;
+        return fflush_and_check(f);
 }
 
 int bus_message_pcap_frame(sd_bus_message *m, size_t snaplen, FILE *f) {
@@ -598,7 +597,5 @@ int bus_message_pcap_frame(sd_bus_message *m, size_t snaplen, FILE *f) {
                 snaplen -= w;
         }
 
-        fflush(f);
-
-        return 0;
+        return fflush_and_check(f);
 }

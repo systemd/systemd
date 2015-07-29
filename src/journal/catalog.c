@@ -371,25 +371,23 @@ static long write_catalog(const char *database, Hashmap *h, struct strbuf *sb,
                 goto error;
         }
 
-        fflush(w);
-
-        if (ferror(w)) {
-                log_error("%s: failed to write database.", p);
+        r = fflush_and_check(w);
+        if (r < 0) {
+                log_error_errno(r, "%s: failed to write database: %m", p);
                 goto error;
         }
 
         fchmod(fileno(w), 0644);
 
         if (rename(p, database) < 0) {
-                log_error_errno(errno, "rename (%s -> %s) failed: %m", p, database);
-                r = -errno;
+                r = log_error_errno(errno, "rename (%s -> %s) failed: %m", p, database);
                 goto error;
         }
 
         return ftell(w);
 
 error:
-        unlink(p);
+        (void) unlink(p);
         return r;
 }
 

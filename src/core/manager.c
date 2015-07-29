@@ -1701,6 +1701,7 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
         ssize_t n;
         struct signalfd_siginfo sfsi;
         bool sigchld = false;
+        int r;
 
         assert(m);
         assert(m->signal_fd == fd);
@@ -1809,20 +1810,16 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
 
                         f = open_memstream(&dump, &size);
                         if (!f) {
-                                log_warning("Failed to allocate memory stream.");
+                                log_warning_errno(errno, "Failed to allocate memory stream: %m");
                                 break;
                         }
 
                         manager_dump_units(m, f, "\t");
                         manager_dump_jobs(m, f, "\t");
 
-                        if (ferror(f)) {
-                                log_warning("Failed to write status stream");
-                                break;
-                        }
-
-                        if (fflush(f)) {
-                                log_warning("Failed to flush status stream");
+                        r = fflush_and_check(f);
+                        if (r < 0) {
+                                log_warning_errno(r, "Failed to write status stream: %m");
                                 break;
                         }
 

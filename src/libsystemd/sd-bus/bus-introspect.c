@@ -179,10 +179,10 @@ int introspect_finish(struct introspect *i, sd_bus *bus, sd_bus_message *m, sd_b
         assert(reply);
 
         fputs("</node>\n", i->f);
-        fflush(i->f);
 
-        if (ferror(i->f))
-                return -ENOMEM;
+        r = fflush_and_check(i->f);
+        if (r < 0)
+                return r;
 
         r = sd_bus_message_new_method_return(m, &q);
         if (r < 0)
@@ -204,8 +204,6 @@ void introspect_free(struct introspect *i) {
         if (i->f)
                 fclose(i->f);
 
-        if (i->introspection)
-                free(i->introspection);
-
+        free(i->introspection);
         zero(*i);
 }
