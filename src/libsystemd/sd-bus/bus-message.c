@@ -2906,18 +2906,20 @@ static int bus_message_close_header(sd_bus_message *m) {
                 signature = strempty(m->root_container.signature);
                 l = strlen(signature);
 
-                sz = bus_gvariant_determine_word_size(sizeof(struct bus_header) + ALIGN8(m->fields_size) + m->body_size + 1 + l, 1);
-                d = message_extend_body(m, 1, 1 + l + sz, false, true);
+                sz = bus_gvariant_determine_word_size(sizeof(struct bus_header) + ALIGN8(m->fields_size) + m->body_size + 1 + l + 2, 1);
+                d = message_extend_body(m, 1, 1 + l + 2 + sz, false, true);
                 if (!d)
                         return -ENOMEM;
 
                 *(uint8_t*) d = 0;
-                memcpy((uint8_t*) d + 1, signature, l);
+                *((uint8_t*) d + 1) = SD_BUS_TYPE_STRUCT_BEGIN;
+                memcpy((uint8_t*) d + 2, signature, l);
+                *((uint8_t*) d + 1 + l + 1) = SD_BUS_TYPE_STRUCT_END;
 
-                bus_gvariant_write_word_le((uint8_t*) d + 1 + l, sz, sizeof(struct bus_header) + m->fields_size);
+                bus_gvariant_write_word_le((uint8_t*) d + 1 + l + 2, sz, sizeof(struct bus_header) + m->fields_size);
 
                 m->footer = d;
-                m->footer_accessible = 1 + l + sz;
+                m->footer_accessible = 1 + l + 2 + sz;
         } else {
                 m->header->dbus1.fields_size = m->fields_size;
                 m->header->dbus1.body_size = m->body_size;
@@ -5179,11 +5181,21 @@ int bus_message_parse_fields(sd_bus_message *m) {
                                 return -EBADMSG;
 
                         if (*p == 0) {
+                                size_t l;
                                 char *c;
 
-                                /* We found the beginning of the signature string, yay! */
+                                /* We found the beginning of the signature
+                                 * string, yay! We require the body to be a
+                                 * structure, so verify it and then strip the
+                                 * opening/closing brackets. */
 
-                                c = strndup(p + 1, ((char*) m->footer + m->footer_accessible) - p - (1 + sz));
+                                l = ((char*) m->footer + m->footer_accessible) - p - (1 + sz);
+                                if (l < 2 ||
+                                    p[1] != SD_BUS_TYPE_STRUCT_BEGIN ||
+                                    p[1 + l - 1] != SD_BUS_TYPE_STRUCT_END)
+                                        return -EBADMSG;
+
+                                c = strndup(p + 1 + 1, l - 2);
                                 if (!c)
                                         return -ENOMEM;
 
