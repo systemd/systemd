@@ -57,9 +57,6 @@ cd $oldpwd
 if [ "x$1" = "xc" ]; then
         $topdir/configure CFLAGS='-g -O0 -ftrapv' --enable-compat-libs --enable-kdbus $args
         make clean
-elif [ "x$1" = "xt" ]; then
-        $topdir/configure CFLAGS='-g -O0 -ftrapv' --enable-compat-libs --enable-kdbus --enable-terminal $args
-        make clean
 elif [ "x$1" = "xg" ]; then
         $topdir/configure CFLAGS='-g -Og -ftrapv' --enable-compat-libs --enable-kdbus $args
         make clean
