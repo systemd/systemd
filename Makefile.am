@@ -2519,13 +2519,15 @@ systemd_boot_headers = \
 	src/boot/efi/util.h \
 	src/boot/efi/console.h \
 	src/boot/efi/graphics.h \
-	src/boot/efi/pefile.h
+	src/boot/efi/pefile.h \
+	src/boot/efi/disk.h
 
 systemd_boot_sources = \
 	src/boot/efi/util.c \
 	src/boot/efi/console.c \
 	src/boot/efi/graphics.c \
 	src/boot/efi/pefile.c \
+	src/boot/efi/disk.c \
 	src/boot/efi/boot.c
 
 EXTRA_DIST += $(systemd_boot_sources) $(systemd_boot_headers)
@@ -2558,6 +2560,7 @@ endif
 stub_headers = \
 	src/boot/efi/util.h \
 	src/boot/efi/pefile.h \
+	src/boot/efi/disk.h \
 	src/boot/efi/graphics.h \
 	src/boot/efi/splash.h \
 	src/boot/efi/linux.h
@@ -2565,6 +2568,7 @@ stub_headers = \
 stub_sources = \
 	src/boot/efi/util.c \
 	src/boot/efi/pefile.c \
+	src/boot/efi/disk.c \
 	src/boot/efi/graphics.c \
 	src/boot/efi/splash.c \
 	src/boot/efi/linux.c \
