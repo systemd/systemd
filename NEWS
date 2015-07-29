@@ -475,7 +475,7 @@ CHANGES WITH 219:
           decompress bz2, xz, gzip compressed downloads if necessary,
           and restore sparse files on disk. The daemon uses privilege
           separation to ensure the actual download logic runs with
-          fewer privileges than the deamon itself. machinectl has
+          fewer privileges than the daemon itself. machinectl has
           gained new commands "pull-tar", "pull-raw" and "pull-dkr" to
           make the functionality of importd available to the
           user. With this in place the Fedora and Ubuntu "Cloud"
@@ -566,7 +566,7 @@ CHANGES WITH 219:
         * systemd now provides a way to store file descriptors
           per-service in PID 1.This is useful for daemons to ensure
           that fds they require are not lost during a daemon
-          restart. The fds are passed to the deamon on the next
+          restart. The fds are passed to the daemon on the next
           invocation in the same way socket activation fds are
           passed. This is now used by journald to ensure that the
           various sockets connected to all the system's stdout/stderr
