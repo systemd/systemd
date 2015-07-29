@@ -150,10 +150,16 @@
     <filename>/etc/crypttab</filename> with a different device mapper
     device name.</para>
 
-    <para>Also note that
-    <citerefentry><refentrytitle>systemd-efi-boot-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-    will mount the EFI System Partition (ESP) to
-    <filename>/boot</filename> if not otherwise mounted.</para>
+    <para>Mount and automount units for the EFI System Partition (ESP),
+    mounting it to <filename>/boot</filename> are generated on EFI
+    systems, where the boot loader communicates the used ESP to the operating
+    system. Since this generator creates an automount unit, the mount will
+    only be activated on-demand, when accessed. On systems where
+    <filename>/boot</filename> is an explicitly configured mount
+    (for example, listed in
+    <citerefentry project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>)
+    or where the <filename>/boot</filename> mount point is non-empty, no
+    mount units are generated.</para>
 
     <para>When using this generator in conjunction with btrfs file
     systems, make sure to set the correct default subvolumes on them,
@@ -170,7 +176,6 @@
       <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.swap</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-efi-boot-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-cryptsetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry project='die-net'><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
