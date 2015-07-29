@@ -2426,16 +2426,6 @@ EXTRA_DIST += \
 
 # ------------------------------------------------------------------------------
 if ENABLE_EFI
-systemgenerator_PROGRAMS +=  \
-	systemd-efi-boot-generator
-
-systemd_efi_boot_generator_SOURCES = \
-	src/efi-boot-generator/efi-boot-generator.c
-
-systemd_efi_boot_generator_LDADD = \
-	libshared.la
-
-# ------------------------------------------------------------------------------
 if HAVE_BLKID
 bootctl_SOURCES = \
 	src/boot/bootctl.c
