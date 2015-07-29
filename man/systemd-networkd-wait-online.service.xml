@@ -80,7 +80,8 @@
         several interfaces which will be configured, but a particular
         one is necessary to access some network resources. This option
         may be used more than once to wait for multiple network
-        interfaces.</para></listitem>
+        interfaces. When used, all other interfaces are ignored.
+        </para></listitem>
       </varlistentry>
       <varlistentry>
         <term><option>--ignore=</option></term>
