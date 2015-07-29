@@ -818,10 +818,10 @@ int manager_save(Manager *m) {
         return 0;
 
 fail:
-        log_error_errno(r, "Failed to save network state to %s: %m", m->state_file);
-        unlink(m->state_file);
-        unlink(temp_path);
-        return r;
+        (void) unlink(m->state_file);
+        (void) unlink(temp_path);
+
+        return log_error_errno(r, "Failed to save network state to %s: %m", m->state_file);
 }
 
 int manager_address_pool_acquire(Manager *m, int family, unsigned prefixlen, union in_addr_union *found) {

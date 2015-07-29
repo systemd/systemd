@@ -440,7 +440,7 @@ int sd_lldp_save(sd_lldp *lldp, const char *lldp_file) {
 
         r = fopen_temporary(lldp_file, &f, &temp_path);
         if (r < 0)
-                goto finish;
+                goto fail;
 
         fchmod(fileno(f), 0644);
 
@@ -457,8 +457,10 @@ int sd_lldp_save(sd_lldp *lldp, const char *lldp_file) {
                                 mac[0], mac[1], mac[2], mac[3], mac[4], mac[5], type);
 
                         s = strdup(buf);
-                        if (!s)
-                                return -ENOMEM;
+                        if (!s) {
+                                r = -ENOMEM;
+                                goto fail;
+                        }
 
                         r = lldp_read_port_id(p->packet, &type, &length, &port_id);
                         if (r < 0)
@@ -466,8 +468,10 @@ int sd_lldp_save(sd_lldp *lldp, const char *lldp_file) {
 
                         if (type != LLDP_PORT_SUBTYPE_MAC_ADDRESS) {
                                 k = strndup((char *) port_id, length -1);
-                                if (!k)
-                                        return -ENOMEM;
+                                if (!k) {
+                                        r = -ENOMEM;
+                                        goto fail;
+                                }
 
                                 sprintf(buf, "'_Port=%s' '_PType=%d' ", k , type);
                                 free(k);
@@ -478,8 +482,10 @@ int sd_lldp_save(sd_lldp *lldp, const char *lldp_file) {
                         }
 
                         k = strappend(s, buf);
-                        if (!k)
-                                return -ENOMEM;
+                        if (!k) {
+                                r = -ENOMEM;
+                                goto fail;
+                        }
 
                         free(s);
                         s = k;
@@ -493,8 +499,10 @@ int sd_lldp_save(sd_lldp *lldp, const char *lldp_file) {
                         sprintf(buf, "'_TTL="USEC_FMT"' ", p->until);
 
                         k = strappend(s, buf);
-                        if (!k)
-                                return -ENOMEM;
+                        if (!k) {
+                                r = -ENOMEM;
+                                goto fail;
+                        }
 
                         free(s);
                         s = k;
@@ -504,15 +512,19 @@ int sd_lldp_save(sd_lldp *lldp, const char *lldp_file) {
                                 k = strappend(s, "'_NAME=N/A' ");
                         else {
                                 t = strndup(k, length);
-                                if (!t)
-                                        return -ENOMEM;
+                                if (!t) {
+                                        r = -ENOMEM;
+                                        goto fail;
+                                }
 
                                 k = strjoin(s, "'_NAME=", t, "' ", NULL);
                                 free(t);
                         }
 
-                        if (!k)
-                                return -ENOMEM;
+                        if (!k) {
+                                r = -ENOMEM;
+                                goto fail;
+                        }
 
                         free(s);
                         s = k;
@@ -522,8 +534,10 @@ int sd_lldp_save(sd_lldp *lldp, const char *lldp_file) {
                         sprintf(buf, "'_CAP=%x'", data);
 
                         k = strappend(s, buf);
-                        if (!k)
-                                return -ENOMEM;
+                        if (!k) {
+                                r = -ENOMEM;
+                                goto fail;
+                        }
 
                         free(s);
                         s = k;
@@ -531,21 +545,23 @@ int sd_lldp_save(sd_lldp *lldp, const char *lldp_file) {
                         fprintf(f, "%s\n", s);
                 }
         }
-        r = 0;
 
-        fflush(f);
+        r = fflush_and_check(f);
+        if (r < 0)
+                goto fail;
 
-        if (ferror(f) || rename(temp_path, lldp_file) < 0) {
+        if (rename(temp_path, lldp_file) < 0) {
                 r = -errno;
-                unlink(lldp_file);
-                unlink(temp_path);
+                goto fail;
         }
 
- finish:
-        if (r < 0)
-                log_error("Failed to save lldp data %s: %s", lldp_file, strerror(-r));
+        return 0;
 
-        return r;
+ fail:
+        if (temp_path)
+                (void) unlink(temp_path);
+
+        return log_error_errno(r, "Failed to save lldp data %s: %m", lldp_file);
 }
 
 int sd_lldp_start(sd_lldp *lldp) {

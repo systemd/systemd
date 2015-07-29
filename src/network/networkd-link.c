@@ -2388,14 +2388,13 @@ int link_save(Link *link) {
         }
 
         return 0;
-fail:
-        log_link_error_errno(link, r, "Failed to save link data to %s: %m", link->state_file);
-        (void) unlink(link->state_file);
 
+fail:
+        (void) unlink(link->state_file);
         if (temp_path)
                 (void) unlink(temp_path);
 
-        return r;
+        return log_link_error_errno(link, r, "Failed to save link data to %s: %m", link->state_file);
 }
 
 static const char* const link_state_table[_LINK_STATE_MAX] = {

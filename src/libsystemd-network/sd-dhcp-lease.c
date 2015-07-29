@@ -643,13 +643,13 @@ int sd_dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
 
         r = fopen_temporary(lease_file, &f, &temp_path);
         if (r < 0)
-                goto finish;
+                goto fail;
 
         fchmod(fileno(f), 0644);
 
         r = sd_dhcp_lease_get_address(lease, &address);
         if (r < 0)
-                goto finish;
+                goto fail;
 
         fprintf(f,
                 "# This is private data. Do not parse.\n"
@@ -657,7 +657,7 @@ int sd_dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
 
         r = sd_dhcp_lease_get_netmask(lease, &address);
         if (r < 0)
-                goto finish;
+                goto fail;
 
         fprintf(f, "NETMASK=%s\n", inet_ntoa(address));
 
@@ -713,7 +713,7 @@ int sd_dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
                 client_id_hex = hexmem(client_id, client_id_len);
                 if (!client_id_hex) {
                         r = -ENOMEM;
-                        goto finish;
+                        goto fail;
                 }
                 fprintf(f, "CLIENTID=%s\n", client_id_hex);
         }
@@ -725,26 +725,27 @@ int sd_dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
                 option_hex = hexmem(data, data_len);
                 if (!option_hex) {
                         r = -ENOMEM;
-                        goto finish;
+                        goto fail;
                 }
                 fprintf(f, "VENDOR_SPECIFIC=%s\n", option_hex);
         }
 
-        r = 0;
+        r = fflush_and_check(f);
+        if (r < 0)
+                goto fail;
 
-        fflush(f);
-
-        if (ferror(f) || rename(temp_path, lease_file) < 0) {
+        if (rename(temp_path, lease_file) < 0) {
                 r = -errno;
-                unlink(lease_file);
-                unlink(temp_path);
+                goto fail;
         }
 
-finish:
-        if (r < 0)
-                log_error_errno(r, "Failed to save lease data %s: %m", lease_file);
+        return 0;
 
-        return r;
+fail:
+        if (temp_path)
+                (void) unlink(temp_path);
+
+        return log_error_errno(r, "Failed to save lease data %s: %m", lease_file);
 }
 
 int sd_dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {

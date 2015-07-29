@@ -97,9 +97,9 @@ static int add_cryptsetup(const char *id, const char *what, bool rw, char **devi
                 id, what, rw ? "" : "read-only",
                 id);
 
-        fflush(f);
-        if (ferror(f))
-                return log_error_errno(errno, "Failed to write file %s: %m", p);
+        r = fflush_and_check(f);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write file %s: %m", p);
 
         from = strjoina("../", n);
 
@@ -223,9 +223,9 @@ static int add_mount(
         else
                 fprintf(f, "Options=%s\n", rw ? "rw" : "ro");
 
-        fflush(f);
-        if (ferror(f))
-                return log_error_errno(errno, "Failed to write unit file %s: %m", p);
+        r = fflush_and_check(f);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write unit file %s: %m", p);
 
         if (post) {
                 lnk = strjoin(arg_dest, "/", post, ".requires/", unit, NULL);
@@ -301,9 +301,9 @@ static int add_automount(
                 where,
                 (unsigned long long)timeout / USEC_PER_SEC);
 
-        fflush(f);
-        if (ferror(f))
-                return log_error_errno(errno, "Failed to write unit file %s: %m", p);
+        r = fflush_and_check(f);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write unit file %s: %m", p);
 
         lnk = strjoin(arg_dest, "/" SPECIAL_LOCAL_FS_TARGET ".wants/", unit, NULL);
         if (!lnk)
@@ -426,9 +426,9 @@ static int add_swap(const char *path) {
                 "What=%s\n",
                 path);
 
-        fflush(f);
-        if (ferror(f))
-                return log_error_errno(errno, "Failed to write unit file %s: %m", unit);
+        r = fflush_and_check(f);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write unit file %s: %m", unit);
 
         lnk = strjoin(arg_dest, "/" SPECIAL_SWAP_TARGET ".wants/", name, NULL);
         if (!lnk)

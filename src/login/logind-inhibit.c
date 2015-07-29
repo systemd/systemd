@@ -86,11 +86,11 @@ int inhibitor_save(Inhibitor *i) {
 
         r = mkdir_safe_label("/run/systemd/inhibit", 0755, 0, 0);
         if (r < 0)
-                goto finish;
+                goto fail;
 
         r = fopen_temporary(i->state_file, &f, &temp_path);
         if (r < 0)
-                goto finish;
+                goto fail;
 
         fchmod(fileno(f), 0644);
 
@@ -128,19 +128,24 @@ int inhibitor_save(Inhibitor *i) {
         if (i->fifo_path)
                 fprintf(f, "FIFO=%s\n", i->fifo_path);
 
-        fflush(f);
+        r = fflush_and_check(f);
+        if (r < 0)
+                goto fail;
 
-        if (ferror(f) || rename(temp_path, i->state_file) < 0) {
+        if (rename(temp_path, i->state_file) < 0) {
                 r = -errno;
-                unlink(i->state_file);
-                unlink(temp_path);
+                goto fail;
         }
 
-finish:
-        if (r < 0)
-                log_error_errno(r, "Failed to save inhibit data %s: %m", i->state_file);
+        return 0;
 
-        return r;
+fail:
+        (void) unlink(i->state_file);
+
+        if (temp_path)
+                (void) unlink(temp_path);
+
+        return log_error_errno(r, "Failed to save inhibit data %s: %m", i->state_file);
 }
 
 int inhibitor_start(Inhibitor *i) {

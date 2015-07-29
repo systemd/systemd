@@ -112,13 +112,13 @@ int machine_save(Machine *m) {
 
         r = mkdir_safe_label("/run/systemd/machines", 0755, 0, 0);
         if (r < 0)
-                goto finish;
+                goto fail;
 
         r = fopen_temporary(m->state_file, &f, &temp_path);
         if (r < 0)
-                goto finish;
+                goto fail;
 
-        fchmod(fileno(f), 0644);
+        (void) fchmod(fileno(f), 0644);
 
         fprintf(f,
                 "# This is private data. Do not parse.\n"
@@ -131,7 +131,7 @@ int machine_save(Machine *m) {
                 escaped = cescape(m->unit);
                 if (!escaped) {
                         r = -ENOMEM;
-                        goto finish;
+                        goto fail;
                 }
 
                 fprintf(f, "SCOPE=%s\n", escaped); /* We continue to call this "SCOPE=" because it is internal only, and we want to stay compatible with old files */
@@ -146,7 +146,7 @@ int machine_save(Machine *m) {
                 escaped = cescape(m->service);
                 if (!escaped) {
                         r = -ENOMEM;
-                        goto finish;
+                        goto fail;
                 }
                 fprintf(f, "SERVICE=%s\n", escaped);
         }
@@ -157,7 +157,7 @@ int machine_save(Machine *m) {
                 escaped = cescape(m->root_directory);
                 if (!escaped) {
                         r = -ENOMEM;
-                        goto finish;
+                        goto fail;
                 }
                 fprintf(f, "ROOT=%s\n", escaped);
         }
@@ -195,15 +195,12 @@ int machine_save(Machine *m) {
 
         r = fflush_and_check(f);
         if (r < 0)
-                goto finish;
+                goto fail;
 
         if (rename(temp_path, m->state_file) < 0) {
                 r = -errno;
-                goto finish;
+                goto fail;
         }
-
-        free(temp_path);
-        temp_path = NULL;
 
         if (m->unit) {
                 char *sl;
@@ -215,14 +212,15 @@ int machine_save(Machine *m) {
                 (void) symlink(m->name, sl);
         }
 
-finish:
+        return 0;
+
+fail:
+        (void) unlink(m->state_file);
+
         if (temp_path)
-                unlink(temp_path);
+                (void) unlink(temp_path);
 
-        if (r < 0)
-                log_error_errno(r, "Failed to save machine data %s: %m", m->state_file);
-
-        return r;
+        return log_error_errno(r, "Failed to save machine data %s: %m", m->state_file);
 }
 
 static void machine_unlink(Machine *m) {
