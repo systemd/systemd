@@ -50,6 +50,7 @@ struct VxLan {
         bool udpcsum;
         bool udp6zerocsumtx;
         bool udp6zerocsumrx;
+        bool group_policy;
 };
 
 extern const NetDevVTable vxlan_vtable;
