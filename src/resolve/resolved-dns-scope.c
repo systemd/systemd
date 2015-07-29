@@ -313,6 +313,11 @@ DnsScopeMatch dns_scope_good_domain(DnsScope *s, int ifindex, uint64_t flags, co
         if (is_localhost(domain))
                 return DNS_SCOPE_NO;
 
+        /* Never resolve any loopback IP address via DNS, LLMNR or mDNS */
+        if (dns_name_endswith(domain, "127.in-addr.arpa") > 0 ||
+            dns_name_equal(domain, "1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa") > 0)
+                return DNS_SCOPE_NO;
+
         if (s->protocol == DNS_PROTOCOL_DNS) {
                 if (dns_name_endswith(domain, "254.169.in-addr.arpa") == 0 &&
                     dns_name_endswith(domain, "0.8.e.f.ip6.arpa") == 0 &&
