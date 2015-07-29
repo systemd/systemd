@@ -737,7 +737,7 @@
         to 0 (job timeouts disabled), except for device units. NB:
         this timeout is independent from any unit-specific timeout
         (for example, the timeout set with
-        <varname>StartTimeoutSec=</varname> in service units) as the
+        <varname>TimeoutStartSec=</varname> in service units) as the
         job timeout has no effect on the unit itself, only on the job
         that might be pending for it. Or in other words: unit-specific
         timeouts are useful to abort unit state changes, and revert
