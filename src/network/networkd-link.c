@@ -2059,10 +2059,9 @@ int link_update(Link *link, sd_netlink_message *m) {
 
                 link_free_carrier_maps(link);
 
-                free(link->ifname);
-                link->ifname = strdup(ifname);
-                if (!link->ifname)
-                        return -ENOMEM;
+                r = free_and_strdup(&link->ifname, ifname);
+                if (r < 0)
+                        return r;
 
                 r = link_new_carrier_maps(link);
                 if (r < 0)

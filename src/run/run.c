@@ -1129,13 +1129,9 @@ int main(int argc, char* argv[]) {
                 }
 
                 if (arg_unit && isempty(description)) {
-                        free(description);
-                        description = strdup(arg_unit);
-
-                        if (!description) {
-                                r = log_oom();
+                        r = free_and_strdup(&description, arg_unit);
+                        if (r < 0)
                                 goto finish;
-                        }
                 }
 
                 arg_description = description;

@@ -728,9 +728,8 @@ static int parse_argv(int argc, char *argv[]) {
                                 return -EINVAL;
                         }
 
-                        free(arg_locale);
-                        arg_locale = strdup(optarg);
-                        if (!arg_locale)
+                        r = free_and_strdup(&arg_locale, optarg);
+                        if (r < 0)
                                 return log_oom();
 
                         break;
@@ -741,9 +740,8 @@ static int parse_argv(int argc, char *argv[]) {
                                 return -EINVAL;
                         }
 
-                        free(arg_locale_messages);
-                        arg_locale_messages = strdup(optarg);
-                        if (!arg_locale_messages)
+                        r = free_and_strdup(&arg_locale_messages, optarg);
+                        if (r < 0)
                                 return log_oom();
 
                         break;
@@ -754,19 +752,16 @@ static int parse_argv(int argc, char *argv[]) {
                                 return -EINVAL;
                         }
 
-                        free(arg_timezone);
-                        arg_timezone = strdup(optarg);
-                        if (!arg_timezone)
+                        r = free_and_strdup(&arg_timezone, optarg);
+                        if (r < 0)
                                 return log_oom();
 
                         break;
 
                 case ARG_ROOT_PASSWORD:
-                        free(arg_root_password);
-                        arg_root_password = strdup(optarg);
-                        if (!arg_root_password)
+                        r = free_and_strdup(&arg_root_password, optarg);
+                        if (r < 0)
                                 return log_oom();
-
                         break;
 
                 case ARG_ROOT_PASSWORD_FILE:
@@ -785,9 +780,8 @@ static int parse_argv(int argc, char *argv[]) {
                                 return -EINVAL;
                         }
 
-                        free(arg_hostname);
-                        arg_hostname = strdup(optarg);
-                        if (!arg_hostname)
+                        r = free_and_strdup(&arg_hostname, optarg);
+                        if (r < 0)
                                 return log_oom();
 
                         break;

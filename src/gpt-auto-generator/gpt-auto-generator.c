@@ -727,9 +727,8 @@ static int enumerate_partitions(dev_t devnum) {
 
                         boot_nr = nr;
 
-                        free(boot);
-                        boot = strdup(subnode);
-                        if (!boot)
+                        r = free_and_strdup(&boot, subnode);
+                        if (r < 0)
                                 return log_oom();
 
                 } else if (sd_id128_equal(type_id, GPT_HOME)) {
@@ -741,9 +740,8 @@ static int enumerate_partitions(dev_t devnum) {
                         home_nr = nr;
                         home_rw = !(flags & GPT_FLAG_READ_ONLY),
 
-                        free(home);
-                        home = strdup(subnode);
-                        if (!home)
+                        r = free_and_strdup(&home, subnode);
+                        if (r < 0)
                                 return log_oom();
 
                 } else if (sd_id128_equal(type_id, GPT_SRV)) {
@@ -755,9 +753,8 @@ static int enumerate_partitions(dev_t devnum) {
                         srv_nr = nr;
                         srv_rw = !(flags & GPT_FLAG_READ_ONLY),
 
-                        free(srv);
-                        srv = strdup(subnode);
-                        if (!srv)
+                        r = free_and_strdup(&srv, subnode);
+                        if (r < 0)
                                 return log_oom();
                 }
         }
