@@ -404,12 +404,6 @@ int config_parse_tunnel_address(const char *unit,
         return 0;
 }
 
-static const char* const ipv6_flowlabel_table[_NETDEV_IPV6_FLOWLABEL_MAX] = {
-        [NETDEV_IPV6_FLOWLABEL_INHERIT] = "inherit",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(ipv6_flowlabel, IPv6FlowLabel);
-
 int config_parse_ipv6_flowlabel(const char* unit,
                                 const char *filename,
                                 unsigned line,
@@ -422,7 +416,6 @@ int config_parse_ipv6_flowlabel(const char* unit,
                                 void *userdata) {
         IPv6FlowLabel *ipv6_flowlabel = data;
         Tunnel *t = userdata;
-        IPv6FlowLabel s;
         int k = 0;
         int r;
 
@@ -431,12 +424,11 @@ int config_parse_ipv6_flowlabel(const char* unit,
         assert(rvalue);
         assert(ipv6_flowlabel);
 
-        s = ipv6_flowlabel_from_string(rvalue);
-        if (s != _NETDEV_IPV6_FLOWLABEL_INVALID) {
+        if (streq(rvalue, "inherit")) {
                 *ipv6_flowlabel = IP6_FLOWINFO_FLOWLABEL;
                 t->flags |= IP6_TNL_F_USE_ORIG_FLOWLABEL;
         } else {
-                r = config_parse_unsigned(unit, filename, line, section, section_line, lvalue, ltype, rvalue, &k, userdata);
+                r = config_parse_int(unit, filename, line, section, section_line, lvalue, ltype, rvalue, &k, userdata);
                 if (r >= 0) {
                         if (k > 0xFFFFF)
                                 log_syntax(unit, LOG_ERR, filename, line, k, "Failed to parse IPv6 flowlabel option, ignoring: %s", rvalue);

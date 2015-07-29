@@ -45,6 +45,7 @@ struct Tunnel {
         uint8_t encap_limit;
 
         int family;
+        int ipv6_flowlabel;
 
         unsigned ttl;
         unsigned tos;
@@ -54,7 +55,6 @@ struct Tunnel {
         union in_addr_union remote;
 
         Ip6TnlMode ip6tnl_mode;
-        IPv6FlowLabel ipv6_flowlabel;
 
         bool pmtudisc;
         bool copy_dscp;
@@ -89,9 +89,6 @@ int config_parse_tunnel_address(const char *unit,
                                 const char *rvalue,
                                 void *data,
                                 void *userdata);
-
-const char *ipv6_flowlabel_to_string(IPv6FlowLabel d) _const_;
-IPv6FlowLabel ipv6_flowlabel_from_string(const char *d) _pure_;
 
 int config_parse_ipv6_flowlabel(const char *unit, const char *filename,
                                 unsigned line, const char *section,
