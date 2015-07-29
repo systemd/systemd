@@ -53,16 +53,17 @@ CHANGES WITH 223:
           mapped as 'vg-foo-TGID'.
 
         Contributions from: Beniamino Galvani, cee1, Christian Hesse, Daniel
-        Buch, Daniel Mack, daurnimator, David Herrmann, Dimitri John Ledkov, Jan
-        Alexander Steffens (heftig), Johan Ouwerkerk, Jose Carlos Venegas Munoz,
-        Kay Sievers, Lennart Poettering, Lidong Zhong, Martin Pitt, Michael
-        Biebl, Michael Olbrich, Michal Schmidt, Mike Gilbert, Namhyung Kim, Nick
-        Owens, Peter Hutterer, Richard Maw, Steven Allen, Sungbae Yoo, Susant
-        Sahani, Thomas Blume, Thomas Hindoe Paaboel Andersen, Tom Gundersen,
-        Umut Tezduyar Lindskog, Vito Caputo, Vivenzio Pagliari, Zbigniew
-        Jędrzejewski-Szmek
+        Buch, Daniel Mack, daurnimator, David Herrmann, Dimitri John Ledkov,
+        HATAYAMA Daisuke, Ivan Shapovalov, Jan Alexander Steffens (heftig),
+        Johan Ouwerkerk, Jose Carlos Venegas Munoz, Karel Zak, Kay Sievers,
+        Lennart Poettering, Lidong Zhong, Martin Pitt, Michael Biebl, Michael
+        Olbrich, Michal Schmidt, Michal Sekletar, Mike Gilbert, Namhyung Kim,
+        Nick Owens, Peter Hutterer, Richard Maw, Steven Allen, Sungbae Yoo,
+        Susant Sahani, Thomas Blume, Thomas Hindoe Paaboel Andersen, Tom
+        Gundersen, Torstein Husebø, Umut Tezduyar Lindskog, Vito Caputo,
+        Vivenzio Pagliari, Zbigniew Jędrzejewski-Szmek
 
-        -- Berlin, 2015-XX-XX
+        -- Berlin, 2015-07-29
 
 CHANGES WITH 222:
 
