@@ -662,13 +662,13 @@ int socknameinfo_pretty(union sockaddr_union *sa, socklen_t salen, char **_ret) 
 
                 r = sockaddr_pretty(&sa->sa, salen, true, true, &ret);
                 if (r < 0)
-                        return log_error_errno(r, "sockadd_pretty() failed: %m");
+                        return r;
 
                 log_debug_errno(saved_errno, "getnameinfo(%s) failed: %m", ret);
         } else {
                 ret = strdup(host);
                 if (!ret)
-                        return log_oom();
+                        return -ENOMEM;
         }
 
         *_ret = ret;
@@ -683,7 +683,7 @@ int getnameinfo_pretty(int fd, char **ret) {
         assert(ret);
 
         if (getsockname(fd, &sa.sa, &salen) < 0)
-                return log_error_errno(errno, "getsockname(%d) failed: %m", fd);
+                return -errno;
 
         return socknameinfo_pretty(&sa, salen, ret);
 }

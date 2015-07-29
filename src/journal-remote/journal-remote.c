@@ -1114,6 +1114,7 @@ static int accept_connection(const char* type, int fd,
 
                 r = socknameinfo_pretty(&addr->sockaddr, addr->size, &b);
                 if (r < 0) {
+                        log_error_errno(r, "Resolving hostname failed: %m");
                         close(fd2);
                         return r;
                 }
