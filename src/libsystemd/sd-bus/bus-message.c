@@ -2209,7 +2209,12 @@ static int bus_message_close_struct(sd_bus_message *m, struct bus_container *c, 
         assert(!c->need_offsets || i == c->n_offsets);
         assert(c->need_offsets || n_variable == 0);
 
-        if (n_variable <= 0) {
+        if (isempty(c->signature)) {
+                /* The unary type is encoded as fixed 1 byte padding */
+                a = message_extend_body(m, 1, 1, add_offset, false);
+                if (!a)
+                        return -ENOMEM;
+        } else if (n_variable <= 0) {
                 int alignment = 1;
 
                 /* Structures with fixed-size members only have to be
@@ -3954,12 +3959,6 @@ static int enter_struct_or_dict_entry(
                 if (r < 0)
                         return r;
 
-        } else if (c->item_size <= 0) {
-
-                /* gvariant empty struct */
-                *item_size = 0;
-                *offsets = NULL;
-                *n_offsets = 0;
         } else
                 /* gvariant with contents */
                 return build_struct_offsets(m, contents, c->item_size, item_size, offsets, n_offsets);
@@ -4153,6 +4152,12 @@ _public_ int sd_bus_message_enter_container(sd_bus_message *m,
         w->offsets = offsets;
         w->n_offsets = n_offsets;
         w->offset_index = 0;
+
+        /* The unary gvariant type "()" has a fixed size of 1; skip it */
+        if (BUS_MESSAGE_IS_GVARIANT(m) &&
+            type == SD_BUS_TYPE_STRUCT &&
+            isempty(signature))
+                m->rindex += 1;
 
         return 1;
 }
@@ -4756,7 +4761,6 @@ _public_ int sd_bus_message_skip(sd_bus_message *m, const char *types) {
                         r = sd_bus_message_skip(m, s);
                         if (r < 0)
                                 return r;
-                        assert(r != 0);
 
                         r = sd_bus_message_exit_container(m);
                         if (r < 0)

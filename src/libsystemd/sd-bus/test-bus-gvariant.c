@@ -59,7 +59,7 @@ static void test_bus_gvariant_is_fixed_size(void) {
 
 static void test_bus_gvariant_get_size(void) {
         assert_se(bus_gvariant_get_size("") == 0);
-        assert_se(bus_gvariant_get_size("()") == 0);
+        assert_se(bus_gvariant_get_size("()") == 1);
         assert_se(bus_gvariant_get_size("y") == 1);
         assert_se(bus_gvariant_get_size("u") == 4);
         assert_se(bus_gvariant_get_size("b") == 1);
