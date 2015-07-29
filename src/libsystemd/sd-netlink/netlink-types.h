@@ -28,6 +28,7 @@ enum {
         NETLINK_TYPE_U32,                       /* NLA_U32 */
         NETLINK_TYPE_U64,                       /* NLA_U64 */
         NETLINK_TYPE_STRING,                    /* NLA_STRING */
+        NETLINK_TYPE_FLAG,                      /* NLA_FLAG */
         NETLINK_TYPE_IN_ADDR,
         NETLINK_TYPE_ETHER_ADDR,
         NETLINK_TYPE_CACHE_INFO,
