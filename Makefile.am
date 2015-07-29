@@ -6024,7 +6024,7 @@ git-tag:
 
 .PHONY: git-tar
 git-tar:
-	git archive --format=tar --prefix=systemd-$(VERSION)/ HEAD | xz > systemd-$(VERSION).tar.xz
+	git archive --format=tar --prefix=systemd-$(VERSION)/ HEAD | gzip > systemd-$(VERSION).tar.gz
 
 www_target = www.freedesktop.org:/srv/www.freedesktop.org/www/software/systemd
 
