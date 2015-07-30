@@ -424,7 +424,7 @@ static int method_set_hostname(sd_bus_message *m, void *userdata, sd_bus_error *
         if (isempty(name))
                 name = "localhost";
 
-        if (!hostname_is_valid(name))
+        if (!hostname_is_valid(name, false))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid hostname '%s'", name);
 
         if (streq_ptr(name, c->data[PROP_HOSTNAME]))
@@ -501,7 +501,7 @@ static int method_set_static_hostname(sd_bus_message *m, void *userdata, sd_bus_
         } else {
                 char *h;
 
-                if (!hostname_is_valid(name))
+                if (!hostname_is_valid(name, false))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid static hostname '%s'", name);
 
                 h = strdup(name);

@@ -3002,7 +3002,7 @@ char* strshorten(char *s, size_t l) {
 
 bool machine_name_is_valid(const char *s) {
 
-        if (!hostname_is_valid(s))
+        if (!hostname_is_valid(s, false))
                 return false;
 
         /* Machine names should be useful hostnames, but also be
