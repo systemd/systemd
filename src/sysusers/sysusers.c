@@ -891,8 +891,10 @@ static int add_user(Item *i) {
                         i->uid = p->pw_uid;
                         i->uid_set = true;
 
-                        free(i->description);
-                        i->description = strdup(p->pw_gecos);
+                        r = free_and_strdup(&i->description, p->pw_gecos);
+                        if (r < 0)
+                                return log_oom();
+
                         return 0;
                 }
                 if (!IN_SET(errno, 0, ENOENT))
@@ -1149,9 +1151,8 @@ static int process_item(Item *i) {
                         }
 
                         if (i->gid_path) {
-                                free(j->gid_path);
-                                j->gid_path = strdup(i->gid_path);
-                                if (!j->gid_path)
+                                r = free_and_strdup(&j->gid_path, i->gid_path);
+                                if (r < 0)
                                         return log_oom();
                         }
 

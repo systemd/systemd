@@ -503,9 +503,8 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'u':
-                        free(arg_user);
-                        arg_user = strdup(optarg);
-                        if (!arg_user)
+                        r = free_and_strdup(&arg_user, optarg);
+                        if (r < 0)
                                 return log_oom();
 
                         break;

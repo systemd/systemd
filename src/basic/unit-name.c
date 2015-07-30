@@ -673,6 +673,7 @@ int unit_name_mangle_with_suffix(const char *name, UnitNameMangle allow_globs, c
 
 int slice_build_parent_slice(const char *slice, char **ret) {
         char *s, *dash;
+        int r;
 
         assert(slice);
         assert(ret);
@@ -693,11 +694,9 @@ int slice_build_parent_slice(const char *slice, char **ret) {
         if (dash)
                 strcpy(dash, ".slice");
         else {
-                free(s);
-
-                s = strdup("-.slice");
-                if (!s)
-                        return -ENOMEM;
+                r = free_and_strdup(&s, "-.slice");
+                if (r < 0)
+                        return r;
         }
 
         *ret = s;

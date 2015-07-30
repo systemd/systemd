@@ -2429,8 +2429,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules,
                                     rules_str(rules, rule->rule.filename_off), rule->rule.filename_line);
                                 break;
                         }
-                        free(event->name);
-                        event->name = strdup(name_str);
+                        free_and_strdup(&event->name, name_str);
                         log_debug("NAME '%s' %s:%u",
                                   event->name,
                                   rules_str(rules, rule->rule.filename_off),
