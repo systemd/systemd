@@ -1160,6 +1160,12 @@
         <listitem><para>Colon-separated list of directories to use
         when launching executables. Systemd uses a fixed value of
         <filename>/usr/local/sbin</filename>:<filename>/usr/local/bin</filename>:<filename>/usr/sbin</filename>:<filename>/usr/bin</filename>:<filename>/sbin</filename>:<filename>/bin</filename>.
+        As with all environment variables, <varname>$PATH</varname> can be 
+        overridden using <varname>"DefaultEnvironment="</varname> in the 
+        <filename>systemd.conf</filename> file for the system instance and in 
+        the relevant <filename>user.conf</filename> file for all user instances 
+        or an individual user instance. See 
+        <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
         </para></listitem>
       </varlistentry>
 
