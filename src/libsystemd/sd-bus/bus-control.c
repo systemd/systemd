@@ -256,9 +256,7 @@ static int kernel_get_list(sd_bus *bus, uint64_t flags, char ***x) {
         name_list = (struct kdbus_info *) ((uint8_t *) bus->kdbus_buffer + cmd.offset);
 
         KDBUS_FOREACH(name, name_list, cmd.list_size) {
-
                 struct kdbus_item *item;
-                const char *entry_name = NULL;
 
                 if ((flags & KDBUS_LIST_UNIQUE) && name->id != previous_id) {
                         char *n;
@@ -275,15 +273,15 @@ static int kernel_get_list(sd_bus *bus, uint64_t flags, char ***x) {
                         previous_id = name->id;
                 }
 
-                KDBUS_ITEM_FOREACH(item, name, items)
-                        if (item->type == KDBUS_ITEM_OWNED_NAME)
-                                entry_name = item->name.name;
-
-                if (entry_name && service_name_is_valid(entry_name)) {
-                        r = strv_extend(x, entry_name);
-                        if (r < 0) {
-                                r = -ENOMEM;
-                                goto fail;
+                KDBUS_ITEM_FOREACH(item, name, items) {
+                        if (item->type == KDBUS_ITEM_OWNED_NAME) {
+                                if (service_name_is_valid(item->name.name)) {
+                                        r = strv_extend(x, item->name.name);
+                                        if (r < 0) {
+                                                r = -ENOMEM;
+                                                goto fail;
+                                        }
+                                }
                         }
                 }
         }
