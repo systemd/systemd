@@ -368,6 +368,148 @@ char *path_kill_slashes(char *path) {
         return path;
 }
 
+static bool dotdot_in_range(char *start, char *end) {
+        return (end - start) == 2 && !memcmp(start, "..", 2);
+}
+
+static char *prevcompstart(char *start, char *end) {
+        char *prevprevterminator;
+        assert(end >= start);
+        /* We'll have a separator in every case except needing to
+         * backtrack right at the start, so if we're at the start we can
+         * bail early rather than attempting an invalid lookback. */
+        if (start == end)
+                return start;
+
+        /* Skip trailng component terminator */
+        end--;
+
+        /* Search back for the terminator */
+        prevprevterminator = memrchr(start, '/', end - start);
+
+        /* If we found nothing, then the previous component is the first
+         * component, so it starts at the beginning of the string. */
+        if (!prevprevterminator)
+                return start;
+
+        /* Otherwise there's a component before the previous one,
+         * which starts after the terminator. */
+        return prevprevterminator + 1;
+}
+
+void path_normalize(char *path) {
+        char *s, *t;
+        bool was_absolute;
+
+        /* Removes redundant '.' components and flattens '..' and
+         * duplicated slashes. Modifies the passed string in-place.
+         *
+         * /               becomes /
+         * /foo/bar        becomes /foo/bar
+         * /foo/bar/       becomes /foo/bar/
+         * //foo//bar      becomes /foo/bar
+         * //foo//bar//    becomes /foo/bar/
+         * /./foo/./bar/.  becomes /foo/bar
+         * /./foo/./bar/./ becomes /foo/bar/
+         * /foo/..         becomes /
+         * /foo/../        becomes /
+         * /foo/../bar     becomes /bar
+         * /../            becomes /
+         * /../..          becomes /
+         * /../../..       becomes /
+         * /../foo         becomes /foo
+         * .               becomes .
+         * foo             becomes foo
+         * ./foo           becomes foo
+         * foo/..          becomes .
+         * ./foo/..        becomes .
+         * foo/../bar      becomes bar
+         * ..              becomes ..
+         * ../..           becomes ../..
+         * ../../..        becomes ../../..
+         *
+         */
+
+        assert(path);
+
+        /* "" should not be normalized to "", it should be ".",
+         * but we can't assume we have the space in "" for it */
+        assert(*path);
+
+        was_absolute = path_is_absolute(path);
+
+        /* Preserve initial / on absolute paths */
+        if (was_absolute)
+                path++;
+
+        s = t = path;
+
+        s += strspn(s, "/");
+
+        while (1) {
+                char *start = s;
+                char *end;
+                char *next;
+                size_t len;
+
+                end = strchrnul(start, '/');
+                len = end - start;
+                next = end + strspn(end, "/");
+
+                if (dotdot_in_range(start, end)) {
+                        char *lastcompstart = prevcompstart(path, t);
+                        if (was_absolute) {
+                                /* since /.. = /, and /foo/.. = /,
+                                 * we can always skip back a component
+                                 * when normalizing an absolute path */
+                                t = lastcompstart;
+                                goto skip_copy;
+                        }
+
+                        if (path == t) {
+                                /* If we've got no previous components,
+                                 * we need to copy in the .. */
+                                goto copy;
+                        }
+
+                        if (dotdot_in_range(lastcompstart, t-1)) {
+                               /* Relative and previous is ..,
+                                * Need to add another .. */
+                                goto copy;
+                        }
+
+                        /* Relative and previous is stompable,
+                         * stomp over previous argument with next one */
+                        t = lastcompstart;
+                        goto skip_copy;
+                } else if (len == 1 && *start == '.') {
+                        /* Generally with '.', we can ignore it,
+                         * if it's the last component we need to
+                         * backtrack so we can normalize the terminator,
+                         * unless we're right at the beginning */
+                        if (!*end && t > path)
+                                t--;
+                        goto skip_copy;
+                }
+
+copy:
+                memmove(t, start, len + 1);
+                t += len + 1;
+skip_copy:
+                s = next;
+                if (!*s) {
+                        *t = '\0';
+                        break;
+                }
+        }
+
+        /* If from a combination of foo/.. components we've ended up
+         * with no components, we need to restore it as ".". */
+        if (t == path && !was_absolute) {
+                t = stpcpy(t, ".");
+        }
+}
+
 char* path_startswith(const char *path, const char *prefix) {
         assert(path);
         assert(prefix);
