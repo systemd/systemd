@@ -132,6 +132,14 @@ static int network_load_one(Manager *manager, const char *filename) {
         if (r < 0)
                 return r;
 
+        if (!network->match_mac &&
+            !network->match_path &&
+            !network->match_driver &&
+            !network->match_type &&
+            !network->match_name) {
+                log_warning("No [Match] entries specified in \"%s\". ", filename);
+        }
+
         /* IPMasquerade=yes implies IPForward=yes */
         if (network->ip_masquerade)
                 network->ip_forward |= ADDRESS_FAMILY_IPV4;
