@@ -695,8 +695,10 @@ int slice_build_parent_slice(const char *slice, char **ret) {
                 strcpy(dash, ".slice");
         else {
                 r = free_and_strdup(&s, "-.slice");
-                if (r < 0)
+                if (r < 0) {
+                        free(s);
                         return r;
+                }
         }
 
         *ret = s;
