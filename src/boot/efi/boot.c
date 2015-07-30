@@ -22,6 +22,7 @@
 #include "console.h"
 #include "graphics.h"
 #include "pefile.h"
+#include "disk.h"
 #include "linux.h"
 
 #ifndef EFI_OS_INDICATIONS_BOOT_TO_FW_UI
@@ -1696,11 +1697,11 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         EFI_LOADED_IMAGE *loaded_image;
         EFI_FILE *root_dir;
         CHAR16 *loaded_image_path;
-        EFI_DEVICE_PATH *device_path;
         EFI_STATUS err;
         Config config;
         UINT64 init_usec;
         BOOLEAN menu = FALSE;
+        CHAR16 uuid[37];
 
         InitializeLib(image, sys_table);
         init_usec = time_usec();
@@ -1722,29 +1723,8 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         }
 
         /* export the device path this image is started from */
-        device_path = DevicePathFromHandle(loaded_image->DeviceHandle);
-        if (device_path) {
-                EFI_DEVICE_PATH *path, *paths;
-
-                paths = UnpackDevicePath(device_path);
-                for (path = paths; !IsDevicePathEnd(path); path = NextDevicePathNode(path)) {
-                        HARDDRIVE_DEVICE_PATH *drive;
-                        CHAR16 uuid[37];
-
-                        if (DevicePathType(path) != MEDIA_DEVICE_PATH)
-                                continue;
-                        if (DevicePathSubType(path) != MEDIA_HARDDRIVE_DP)
-                                continue;
-                        drive = (HARDDRIVE_DEVICE_PATH *)path;
-                        if (drive->SignatureType != SIGNATURE_TYPE_GUID)
-                                continue;
-
-                        GuidToString(uuid, (EFI_GUID *)&drive->Signature);
-                        efivar_set(L"LoaderDevicePartUUID", uuid, FALSE);
-                        break;
-                }
-                FreePool(paths);
-        }
+        if (disk_get_part_uuid(loaded_image->DeviceHandle, uuid) == EFI_SUCCESS)
+                efivar_set(L"LoaderDevicePartUUID", uuid, FALSE);
 
         root_dir = LibOpenRoot(loaded_image->DeviceHandle);
         if (!root_dir) {

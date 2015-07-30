@@ -18,6 +18,7 @@
 
 #include "util.h"
 #include "pefile.h"
+#include "disk.h"
 #include "graphics.h"
 #include "splash.h"
 #include "linux.h"
@@ -46,6 +47,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         UINTN szs[ELEMENTSOF(sections)-1] = {};
         CHAR8 *cmdline = NULL;
         UINTN cmdline_len;
+        CHAR16 uuid[37];
         EFI_STATUS err;
 
         InitializeLib(image, sys_table);
@@ -98,6 +100,10 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                         line[i] = options[i];
                 cmdline = line;
         }
+
+        /* export the device path this image is started from */
+        if (disk_get_part_uuid(loaded_image->DeviceHandle, uuid) == EFI_SUCCESS)
+                efivar_set(L"LoaderDevicePartUUID", uuid, FALSE);
 
         if (szs[3] > 0)
                 graphics_splash((UINT8 *)((UINTN)loaded_image->ImageBase + addrs[3]), szs[3], NULL);

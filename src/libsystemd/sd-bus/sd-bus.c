@@ -896,10 +896,9 @@ static int parse_container_kernel_address(sd_bus *b, const char **p, char **guid
         } else
                 b->nspid = 0;
 
-        free(b->kernel);
-        b->kernel = strdup("/sys/fs/kdbus/0-system/bus");
-        if (!b->kernel)
-                return -ENOMEM;
+        r = free_and_strdup(&b->kernel, "/sys/fs/kdbus/0-system/bus");
+        if (r < 0)
+                return r;
 
         return 0;
 }

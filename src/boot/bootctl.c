@@ -489,9 +489,9 @@ static int copy_file(const char *from, const char *to, bool force) {
                 }
         } while (!feof(f));
 
-        fflush(g);
-        if (ferror(g)) {
-                r = log_error_errno(EIO, "Failed to write \"%s\": %m", to);
+        r = fflush_and_check(g);
+        if (r < 0) {
+                log_error_errno(r, "Failed to write \"%s\": %m", to);
                 goto error;
         }
 
@@ -519,7 +519,7 @@ static int copy_file(const char *from, const char *to, bool force) {
         return 0;
 
 error:
-        unlink(p);
+        (void) unlink(p);
         return r;
 }
 

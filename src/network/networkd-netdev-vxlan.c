@@ -3,7 +3,7 @@
 /***
     This file is part of systemd.
 
-    Copyright 2014 Susant Sahani <susant@redhat.com>
+    Copyright 2014 Susant Sahani
 
     systemd is free software; you can redistribute it and/or modify it
     under the terms of the GNU Lesser General Public License as published by
@@ -100,6 +100,12 @@ static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_netli
         r = sd_netlink_message_append_u8(m, IFLA_VXLAN_UDP_ZERO_CSUM6_RX, v->udp6zerocsumrx);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_UDP_ZERO_CSUM6_RX attribute: %m");
+
+        if (v->group_policy) {
+                r = sd_netlink_message_append_flag(m, IFLA_VXLAN_GBP);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_GBP attribute: %m");
+        }
 
         return r;
 }

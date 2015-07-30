@@ -253,6 +253,7 @@ int calendar_spec_to_string(const CalendarSpec *c, char **p) {
         char *buf = NULL;
         size_t sz = 0;
         FILE *f;
+        int r;
 
         assert(c);
         assert(p);
@@ -278,12 +279,11 @@ int calendar_spec_to_string(const CalendarSpec *c, char **p) {
         fputc(':', f);
         format_chain(f, 2, c->second);
 
-        fflush(f);
-
-        if (ferror(f)) {
+        r = fflush_and_check(f);
+        if (r < 0) {
                 free(buf);
                 fclose(f);
-                return -ENOMEM;
+                return r;
         }
 
         fclose(f);

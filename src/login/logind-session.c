@@ -165,11 +165,11 @@ int session_save(Session *s) {
 
         r = mkdir_safe_label("/run/systemd/sessions", 0755, 0, 0);
         if (r < 0)
-                goto finish;
+                goto fail;
 
         r = fopen_temporary(s->state_file, &f, &temp_path);
         if (r < 0)
-                goto finish;
+                goto fail;
 
         assert(s->user);
 
@@ -217,7 +217,7 @@ int session_save(Session *s) {
                 escaped = cescape(s->remote_host);
                 if (!escaped) {
                         r = -ENOMEM;
-                        goto finish;
+                        goto fail;
                 }
 
                 fprintf(f, "REMOTE_HOST=%s\n", escaped);
@@ -229,7 +229,7 @@ int session_save(Session *s) {
                 escaped = cescape(s->remote_user);
                 if (!escaped) {
                         r = -ENOMEM;
-                        goto finish;
+                        goto fail;
                 }
 
                 fprintf(f, "REMOTE_USER=%s\n", escaped);
@@ -241,7 +241,7 @@ int session_save(Session *s) {
                 escaped = cescape(s->service);
                 if (!escaped) {
                         r = -ENOMEM;
-                        goto finish;
+                        goto fail;
                 }
 
                 fprintf(f, "SERVICE=%s\n", escaped);
@@ -254,7 +254,7 @@ int session_save(Session *s) {
                 escaped = cescape(s->desktop);
                 if (!escaped) {
                         r = -ENOMEM;
-                        goto finish;
+                        goto fail;
                 }
 
                 fprintf(f, "DESKTOP=%s\n", escaped);
@@ -282,20 +282,26 @@ int session_save(Session *s) {
         if (s->controller)
                 fprintf(f, "CONTROLLER=%s\n", s->controller);
 
-        fflush(f);
+        r = fflush_and_check(f);
+        if (r < 0)
+                goto fail;
 
-        if (ferror(f) || rename(temp_path, s->state_file) < 0) {
+        if (rename(temp_path, s->state_file) < 0) {
                 r = -errno;
-                unlink(s->state_file);
-                unlink(temp_path);
+                goto fail;
         }
 
-finish:
-        if (r < 0)
-                log_error_errno(r, "Failed to save session data %s: %m", s->state_file);
+        return 0;
 
-        return r;
+fail:
+        (void) unlink(s->state_file);
+
+        if (temp_path)
+                (void) unlink(temp_path);
+
+        return log_error_errno(r, "Failed to save session data %s: %m", s->state_file);
 }
+
 
 int session_load(Session *s) {
         _cleanup_free_ char *remote = NULL,

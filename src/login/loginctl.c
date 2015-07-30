@@ -372,11 +372,9 @@ static int prop_map_first_of_struct(sd_bus *bus, const char *member, sd_bus_mess
                 if (r < 0)
                         return r;
 
-                free(*p);
-                *p = strdup(s);
-
-                if (!*p)
-                        return -ENOMEM;
+                r = free_and_strdup(p, s);
+                if (r < 0)
+                        return r;
         } else {
                 r = sd_bus_message_read_basic(m, contents[0], userdata);
                 if (r < 0)

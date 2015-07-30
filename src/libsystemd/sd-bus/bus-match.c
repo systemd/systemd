@@ -914,6 +914,7 @@ char *bus_match_to_string(struct bus_match_component *components, unsigned n_com
         char *buffer = NULL;
         size_t size = 0;
         unsigned i;
+        int r;
 
         if (n_components <= 0)
                 return strdup("");
@@ -942,8 +943,8 @@ char *bus_match_to_string(struct bus_match_component *components, unsigned n_com
                 fputc('\'', f);
         }
 
-        fflush(f);
-        if (ferror(f))
+        r = fflush_and_check(f);
+        if (r < 0)
                 return NULL;
 
         return buffer;

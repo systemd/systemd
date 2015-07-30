@@ -2426,16 +2426,6 @@ EXTRA_DIST += \
 
 # ------------------------------------------------------------------------------
 if ENABLE_EFI
-systemgenerator_PROGRAMS +=  \
-	systemd-efi-boot-generator
-
-systemd_efi_boot_generator_SOURCES = \
-	src/efi-boot-generator/efi-boot-generator.c
-
-systemd_efi_boot_generator_LDADD = \
-	libshared.la
-
-# ------------------------------------------------------------------------------
 if HAVE_BLKID
 bootctl_SOURCES = \
 	src/boot/bootctl.c
@@ -2529,13 +2519,15 @@ systemd_boot_headers = \
 	src/boot/efi/util.h \
 	src/boot/efi/console.h \
 	src/boot/efi/graphics.h \
-	src/boot/efi/pefile.h
+	src/boot/efi/pefile.h \
+	src/boot/efi/disk.h
 
 systemd_boot_sources = \
 	src/boot/efi/util.c \
 	src/boot/efi/console.c \
 	src/boot/efi/graphics.c \
 	src/boot/efi/pefile.c \
+	src/boot/efi/disk.c \
 	src/boot/efi/boot.c
 
 EXTRA_DIST += $(systemd_boot_sources) $(systemd_boot_headers)
@@ -2568,6 +2560,7 @@ endif
 stub_headers = \
 	src/boot/efi/util.h \
 	src/boot/efi/pefile.h \
+	src/boot/efi/disk.h \
 	src/boot/efi/graphics.h \
 	src/boot/efi/splash.h \
 	src/boot/efi/linux.h
@@ -2575,6 +2568,7 @@ stub_headers = \
 stub_sources = \
 	src/boot/efi/util.c \
 	src/boot/efi/pefile.c \
+	src/boot/efi/disk.c \
 	src/boot/efi/graphics.c \
 	src/boot/efi/splash.c \
 	src/boot/efi/linux.c \
@@ -6029,7 +6023,7 @@ git-tar:
 www_target = www.freedesktop.org:/srv/www.freedesktop.org/www/software/systemd
 
 .PHONY: doc-sync
-doc-sync: all destdir-sphinx
+doc-sync: all
 	rsync -rlv --delete-excluded --include="*.html" --exclude="*" --omit-dir-times man/ $(www_target)/man/
 
 .PHONY: gardel

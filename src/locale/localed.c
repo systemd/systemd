@@ -476,15 +476,25 @@ static int x11_write_data(Context *c) {
                 fprintf(f, "        Option \"XkbOptions\" \"%s\"\n", c->x11_options);
 
         fputs("EndSection\n", f);
-        fflush(f);
 
-        if (ferror(f) || rename(temp_path, "/etc/X11/xorg.conf.d/00-keyboard.conf") < 0) {
+        r = fflush_and_check(f);
+        if (r < 0)
+                goto fail;
+
+        if (rename(temp_path, "/etc/X11/xorg.conf.d/00-keyboard.conf") < 0) {
                 r = -errno;
-                unlink("/etc/X11/xorg.conf.d/00-keyboard.conf");
-                unlink(temp_path);
-                return r;
-        } else
-                return 0;
+                goto fail;
+        }
+
+        return 0;
+
+fail:
+        (void) unlink("/etc/X11/xorg.conf.d/00-keyboard.conf");
+
+        if (temp_path)
+                (void) unlink(temp_path);
+
+        return r;
 }
 
 static int vconsole_reload(sd_bus *bus) {

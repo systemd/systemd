@@ -2059,10 +2059,9 @@ int link_update(Link *link, sd_netlink_message *m) {
 
                 link_free_carrier_maps(link);
 
-                free(link->ifname);
-                link->ifname = strdup(ifname);
-                if (!link->ifname)
-                        return -ENOMEM;
+                r = free_and_strdup(&link->ifname, ifname);
+                if (r < 0)
+                        return r;
 
                 r = link_new_carrier_maps(link);
                 if (r < 0)
@@ -2388,14 +2387,13 @@ int link_save(Link *link) {
         }
 
         return 0;
-fail:
-        log_link_error_errno(link, r, "Failed to save link data to %s: %m", link->state_file);
-        (void) unlink(link->state_file);
 
+fail:
+        (void) unlink(link->state_file);
         if (temp_path)
                 (void) unlink(temp_path);
 
-        return r;
+        return log_link_error_errno(link, r, "Failed to save link data to %s: %m", link->state_file);
 }
 
 static const char* const link_state_table[_LINK_STATE_MAX] = {

@@ -2209,7 +2209,14 @@ static int bus_message_close_struct(sd_bus_message *m, struct bus_container *c, 
         assert(!c->need_offsets || i == c->n_offsets);
         assert(c->need_offsets || n_variable == 0);
 
-        if (n_variable <= 0) {
+        if (isempty(c->signature)) {
+                /* The unary type is encoded as fixed 1 byte padding */
+                a = message_extend_body(m, 1, 1, add_offset, false);
+                if (!a)
+                        return -ENOMEM;
+
+                *a = 0;
+        } else if (n_variable <= 0) {
                 int alignment = 1;
 
                 /* Structures with fixed-size members only have to be
@@ -2899,18 +2906,20 @@ static int bus_message_close_header(sd_bus_message *m) {
                 signature = strempty(m->root_container.signature);
                 l = strlen(signature);
 
-                sz = bus_gvariant_determine_word_size(sizeof(struct bus_header) + ALIGN8(m->fields_size) + m->body_size + 1 + l, 1);
-                d = message_extend_body(m, 1, 1 + l + sz, false, true);
+                sz = bus_gvariant_determine_word_size(sizeof(struct bus_header) + ALIGN8(m->fields_size) + m->body_size + 1 + l + 2, 1);
+                d = message_extend_body(m, 1, 1 + l + 2 + sz, false, true);
                 if (!d)
                         return -ENOMEM;
 
                 *(uint8_t*) d = 0;
-                memcpy((uint8_t*) d + 1, signature, l);
+                *((uint8_t*) d + 1) = SD_BUS_TYPE_STRUCT_BEGIN;
+                memcpy((uint8_t*) d + 2, signature, l);
+                *((uint8_t*) d + 1 + l + 1) = SD_BUS_TYPE_STRUCT_END;
 
-                bus_gvariant_write_word_le((uint8_t*) d + 1 + l, sz, sizeof(struct bus_header) + m->fields_size);
+                bus_gvariant_write_word_le((uint8_t*) d + 1 + l + 2, sz, sizeof(struct bus_header) + m->fields_size);
 
                 m->footer = d;
-                m->footer_accessible = 1 + l + sz;
+                m->footer_accessible = 1 + l + 2 + sz;
         } else {
                 m->header->dbus1.fields_size = m->fields_size;
                 m->header->dbus1.body_size = m->body_size;
@@ -3814,6 +3823,14 @@ static int build_struct_offsets(
         assert(n_offsets);
 
         if (isempty(signature)) {
+                /* Unary type is encoded as *fixed* 1 byte padding */
+                r = message_peek_body(m, &m->rindex, 1, 1, &q);
+                if (r < 0)
+                        return r;
+
+                if (*(uint8_t *) q != 0)
+                        return -EBADMSG;
+
                 *item_size = 0;
                 *offsets = NULL;
                 *n_offsets = 0;
@@ -3954,12 +3971,6 @@ static int enter_struct_or_dict_entry(
                 if (r < 0)
                         return r;
 
-        } else if (c->item_size <= 0) {
-
-                /* gvariant empty struct */
-                *item_size = 0;
-                *offsets = NULL;
-                *n_offsets = 0;
         } else
                 /* gvariant with contents */
                 return build_struct_offsets(m, contents, c->item_size, item_size, offsets, n_offsets);
@@ -4146,7 +4157,14 @@ _public_ int sd_bus_message_enter_container(sd_bus_message *m,
 
         w->before = before;
         w->begin = m->rindex;
-        w->end = m->rindex + c->item_size;
+
+        /* Unary type has fixed size of 1, but virtual size of 0 */
+        if (BUS_MESSAGE_IS_GVARIANT(m) &&
+            type == SD_BUS_TYPE_STRUCT &&
+            isempty(signature))
+                w->end = m->rindex + 0;
+        else
+                w->end = m->rindex + c->item_size;
 
         w->array_size = array_size;
         w->item_size = item_size;
@@ -4756,7 +4774,6 @@ _public_ int sd_bus_message_skip(sd_bus_message *m, const char *types) {
                         r = sd_bus_message_skip(m, s);
                         if (r < 0)
                                 return r;
-                        assert(r != 0);
 
                         r = sd_bus_message_exit_container(m);
                         if (r < 0)
@@ -5164,11 +5181,21 @@ int bus_message_parse_fields(sd_bus_message *m) {
                                 return -EBADMSG;
 
                         if (*p == 0) {
+                                size_t l;
                                 char *c;
 
-                                /* We found the beginning of the signature string, yay! */
+                                /* We found the beginning of the signature
+                                 * string, yay! We require the body to be a
+                                 * structure, so verify it and then strip the
+                                 * opening/closing brackets. */
 
-                                c = strndup(p + 1, ((char*) m->footer + m->footer_accessible) - p - (1 + sz));
+                                l = ((char*) m->footer + m->footer_accessible) - p - (1 + sz);
+                                if (l < 2 ||
+                                    p[1] != SD_BUS_TYPE_STRUCT_BEGIN ||
+                                    p[1 + l - 1] != SD_BUS_TYPE_STRUCT_END)
+                                        return -EBADMSG;
+
+                                c = strndup(p + 1 + 1, l - 2);
                                 if (!c)
                                         return -ENOMEM;
 

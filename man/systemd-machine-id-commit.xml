@@ -66,7 +66,7 @@
     <para>This tool will execute no operation if
     <filename>/etc/machine-id</filename> doesn't contain any valid
     machine ID, isn't mounted as an independent temporary file system,
-    of <filename>/etc</filename> is read-only. If those conditions are
+    or <filename>/etc</filename> is read-only. If those conditions are
     met, it will then write current machine ID to disk and unmount the
     transient <filename>/etc/machine-id</filename> file in a race-free
     manner to ensure that this file is always valid for other

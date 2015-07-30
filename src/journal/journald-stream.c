@@ -142,7 +142,7 @@ static int stdout_stream_save(StdoutStream *s) {
 
         r = fopen_temporary(s->state_file, &f, &temp_path);
         if (r < 0)
-                goto finish;
+                goto fail;
 
         fprintf(f,
                 "# This is private data. Do not parse\n"
@@ -163,7 +163,7 @@ static int stdout_stream_save(StdoutStream *s) {
                 escaped = cescape(s->identifier);
                 if (!escaped) {
                         r = -ENOMEM;
-                        goto finish;
+                        goto fail;
                 }
 
                 fprintf(f, "IDENTIFIER=%s\n", escaped);
@@ -175,7 +175,7 @@ static int stdout_stream_save(StdoutStream *s) {
                 escaped = cescape(s->unit_id);
                 if (!escaped) {
                         r = -ENOMEM;
-                        goto finish;
+                        goto fail;
                 }
 
                 fprintf(f, "UNIT=%s\n", escaped);
@@ -183,15 +183,12 @@ static int stdout_stream_save(StdoutStream *s) {
 
         r = fflush_and_check(f);
         if (r < 0)
-                goto finish;
+                goto fail;
 
         if (rename(temp_path, s->state_file) < 0) {
                 r = -errno;
-                goto finish;
+                goto fail;
         }
-
-        free(temp_path);
-        temp_path = NULL;
 
         /* Store the connection fd in PID 1, so that we get it passed
          * in again on next start */
@@ -200,14 +197,15 @@ static int stdout_stream_save(StdoutStream *s) {
                 s->fdstore = true;
         }
 
-finish:
+        return 0;
+
+fail:
+        (void) unlink(s->state_file);
+
         if (temp_path)
-                unlink(temp_path);
+                (void) unlink(temp_path);
 
-        if (r < 0)
-                log_error_errno(r, "Failed to save stream data %s: %m", s->state_file);
-
-        return r;
+        return log_error_errno(r, "Failed to save stream data %s: %m", s->state_file);
 }
 
 static int stdout_stream_log(StdoutStream *s, const char *p) {

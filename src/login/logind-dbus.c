@@ -1816,17 +1816,22 @@ static int update_schedule_file(Manager *m) {
         if (!isempty(m->wall_message))
                 fprintf(f, "WALL_MESSAGE=%s\n", t);
 
-        (void) fflush_and_check(f);
+        r = fflush_and_check(f);
+        if (r < 0)
+                goto fail;
 
-        if (ferror(f) || rename(temp_path, "/run/systemd/shutdown/scheduled") < 0) {
-                log_error_errno(errno, "Failed to write information about scheduled shutdowns: %m");
+        if (rename(temp_path, "/run/systemd/shutdown/scheduled") < 0) {
                 r = -errno;
-
-                (void) unlink(temp_path);
-                (void) unlink("/run/systemd/shutdown/scheduled");
+                goto fail;
         }
 
-        return r;
+        return 0;
+
+fail:
+        (void) unlink(temp_path);
+        (void) unlink("/run/systemd/shutdown/scheduled");
+
+        return log_error_errno(r, "Failed to write information about scheduled shutdowns: %m");
 }
 
 static int manager_scheduled_shutdown_handler(

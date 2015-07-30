@@ -38,9 +38,15 @@ bool manager_ignore_link(Manager *m, Link *link) {
         assert(m);
         assert(link);
 
+        /* always ignore the loopback interface */
         if (link->flags & IFF_LOOPBACK)
                 return true;
 
+        /* if interfaces are given on the command line, ignore all others */
+        if (m->interfaces && !strv_contains(m->interfaces, link->ifname))
+                return true;
+
+        /* ignore interfaces we explicitly are asked to ignore */
         STRV_FOREACH(ignore, m->ignore)
                 if (fnmatch(*ignore, link->ifname, 0) == 0)
                         return true;
@@ -77,7 +83,7 @@ bool manager_all_configured(Manager *m) {
                         return false;
                 }
 
-                if (streq(l->state, "configuring")) {
+                if (STR_IN_SET(l->state, "configuring", "pending")) {
                         log_debug("link %s is being processed by networkd",
                                   l->ifname);
                         return false;

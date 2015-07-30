@@ -441,6 +441,15 @@
           <para>A boolean. When true receiving zero checksums in VXLAN/IPv6 is turned on.</para>
         </listitem>
       </varlistentry>
+    <varlistentry>
+      <term><varname>GroupPolicyExtension=</varname></term>
+      <listitem>
+        <para>A boolean. When true it enables Group Policy VXLAN extension security label mechanism
+        across network peers based on VXLAN. For details about the Group Policy VXLAN see the
+        <ulink url="https://tools.ietf.org/html/draft-smith-vxlan-group-policy">
+        VXLAN Group Policy </ulink> document. Defaults to false.</para>
+      </listitem>
+    </varlistentry>
     </variablelist>
   </refsect1>
   <refsect1>

@@ -382,11 +382,9 @@ int ask_password_agent(
         if (id)
                 fprintf(f, "Id=%s\n", id);
 
-        fflush(f);
-
-        if (ferror(f)) {
-                log_error_errno(errno, "Failed to write query file: %m");
-                r = -errno;
+        r = fflush_and_check(f);
+        if (r < 0) {
+                log_error_errno(r, "Failed to write query file: %m");
                 goto finish;
         }
 
