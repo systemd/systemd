@@ -43,6 +43,11 @@
 # Apple
 #########################################
 
+#  Macbook2,1 (late 2006), single-button touchpad
+evdev:input:b0003v05ACp021B*
+ EVDEV_ABS_00=256:1471:12
+ EVDEV_ABS_01=256:831:12
+
 # Macbook5,1 (unibody), aka wellspring3
 evdev:input:b0003v05ACp0236*
 evdev:input:b0003v05ACp0237*
@@ -82,6 +87,16 @@ evdev:input:b0003v05ACp025b*
  EVDEV_ABS_01=::92
  EVDEV_ABS_35=::94
  EVDEV_ABS_36=::92
+
+#########################################
+# ASUS
+#########################################
+# Asus K52JT
+evdev:name:ETPS/2 Elantech Touchpad:dmi:bvn*:bvr*:bd*:svnASUSTeKComputerInc.:pnK52JT:*
+ EVDEV_ABS_00=::18
+ EVDEV_ABS_01=::16
+ EVDEV_ABS_35=::18
+ EVDEV_ABS_36=::16
 
 #########################################
 # Google
