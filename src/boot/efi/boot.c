@@ -1140,13 +1140,11 @@ static VOID config_entry_add_from_file(Config *config, EFI_HANDLE *device, CHAR1
         config_add_entry(config, entry);
 }
 
-static VOID config_load(Config *config, EFI_HANDLE *device, EFI_FILE *root_dir, CHAR16 *loaded_image_path) {
-        EFI_FILE_HANDLE entries_dir;
-        EFI_STATUS err;
+static VOID config_load_defaults(Config *config, EFI_FILE *root_dir) {
         CHAR8 *content = NULL;
         UINTN sec;
         UINTN len;
-        UINTN i;
+        EFI_STATUS err;
 
         len = file_read(root_dir, L"\\loader\\loader.conf", 0, 0, &content);
         if (len > 0)
@@ -1159,6 +1157,11 @@ static VOID config_load(Config *config, EFI_HANDLE *device, EFI_FILE *root_dir, 
                 config->timeout_sec = sec;
         } else
                 config->timeout_sec_efivar = -1;
+}
+
+static VOID config_load_entries(Config *config, EFI_HANDLE *device, EFI_FILE *root_dir, CHAR16 *loaded_image_path) {
+        EFI_FILE_HANDLE entries_dir;
+        EFI_STATUS err;
 
         err = uefi_call_wrapper(root_dir->Open, 5, root_dir, &entries_dir, L"\\loader\\entries", EFI_FILE_MODE_READ, 0ULL);
         if (!EFI_ERROR(err)) {
@@ -1195,8 +1198,11 @@ static VOID config_load(Config *config, EFI_HANDLE *device, EFI_FILE *root_dir, 
                 }
                 uefi_call_wrapper(entries_dir->Close, 1, entries_dir);
         }
+}
 
-        /* sort entries after version number */
+static VOID config_sort_entries(Config *config) {
+        UINTN i;
+
         for (i = 1; i < config->entry_count; i++) {
                 BOOLEAN more;
                 UINTN k;
@@ -1738,12 +1744,19 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         loaded_image_path = DevicePathToStr(loaded_image->FilePath);
         efivar_set(L"LoaderImageIdentifier", loaded_image_path, FALSE);
 
-        /* scan "\loader\entries\*.conf" files */
         ZeroMem(&config, sizeof(Config));
-        config_load(&config, loaded_image->DeviceHandle, root_dir, loaded_image_path);
+        config_load_defaults(&config, root_dir);
+
+        /* scan /EFI/Linux/ directory */
+        config_entry_add_linux(&config, loaded_image, root_dir);
+
+        /* scan /loader/entries/\*.conf files */
+        config_load_entries(&config, loaded_image->DeviceHandle, root_dir, loaded_image_path);
+
+        /* sort entries after version number */
+        config_sort_entries(&config);
 
         /* if we find some well-known loaders, add them to the end of the list */
-        config_entry_add_linux(&config, loaded_image, root_dir);
         config_entry_add_loader_auto(&config, loaded_image->DeviceHandle, root_dir, loaded_image_path,
                                      L"auto-windows", 'w', L"Windows Boot Manager", L"\\EFI\\Microsoft\\Boot\\bootmgfw.efi");
         config_entry_add_loader_auto(&config, loaded_image->DeviceHandle, root_dir, loaded_image_path,
