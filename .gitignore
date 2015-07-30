@@ -137,6 +137,8 @@
 /tags
 /test-architecture
 /test-audit-type
+/test-af-list
+/test-arphrd-list
 /test-async
 /test-barrier
 /test-bitmap
