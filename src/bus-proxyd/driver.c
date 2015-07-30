@@ -441,27 +441,29 @@ int bus_proxy_process_driver(Proxy *p, sd_bus *a, sd_bus *b, sd_bus_message *m, 
                 name_list = (struct kdbus_info *) ((uint8_t *) a->kdbus_buffer + cmd.offset);
 
                 KDBUS_FOREACH(name, name_list, cmd.list_size) {
-                        const char *entry_name = NULL;
                         struct kdbus_item *item;
                         char *n;
 
-                        KDBUS_ITEM_FOREACH(item, name, items)
-                                if (item->type == KDBUS_ITEM_OWNED_NAME)
-                                        entry_name = item->name.name;
+                        KDBUS_ITEM_FOREACH(item, name, items) {
+                                if (item->type == KDBUS_ITEM_OWNED_NAME) {
+                                        if (!streq_ptr(item->name.name, arg0))
+                                                continue;
 
-                        if (!streq_ptr(entry_name, arg0))
-                                continue;
+                                        if (asprintf(&n, ":1.%llu", (unsigned long long) name->id) < 0) {
+                                                err  = -ENOMEM;
+                                                break;
+                                        }
 
-                        if (asprintf(&n, ":1.%llu", (unsigned long long) name->id) < 0) {
-                                err  = -ENOMEM;
-                                break;
+                                        r = strv_consume(&owners, n);
+                                        if (r < 0) {
+                                                err = r;
+                                                break;
+                                        }
+                                }
                         }
 
-                        r = strv_consume(&owners, n);
-                        if (r < 0) {
-                                err = r;
+                        if (err < 0)
                                 break;
-                        }
                 }
 
                 r = bus_kernel_cmd_free(a, cmd.offset);
