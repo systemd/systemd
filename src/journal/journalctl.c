@@ -1259,8 +1259,7 @@ static int add_units(sd_journal *j) {
                 }
         }
 
-        strv_free(patterns);
-        patterns = NULL;
+        patterns = strv_free(patterns);
 
         STRV_FOREACH(i, arg_user_units) {
                 _cleanup_free_ char *u = NULL;

@@ -44,9 +44,8 @@ int main(int argc, char *argv[]) {
 
         printf("Local Addresses:\n");
         print_local_addresses(a, (unsigned) n);
-        free(a);
+        a = mfree(a);
 
-        a = NULL;
         n = local_gateways(NULL, 0, AF_UNSPEC, &a);
         assert_se(n >= 0);
 

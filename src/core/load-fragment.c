@@ -3508,9 +3508,7 @@ static int load_from_path(Unit *u, const char *path) {
 
                 r = open_follow(&filename, &f, symlink_names, &id);
                 if (r < 0) {
-                        free(filename);
-                        filename = NULL;
-
+                        filename = mfree(filename);
                         if (r != -ENOENT)
                                 return r;
                 }
@@ -3534,9 +3532,7 @@ static int load_from_path(Unit *u, const char *path) {
                                 r = open_follow(&filename, &f, symlink_names, &id);
 
                         if (r < 0) {
-                                free(filename);
-                                filename = NULL;
-
+                                filename = mfree(filename);
                                 if (r != -ENOENT)
                                         return r;
 

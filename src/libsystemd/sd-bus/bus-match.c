@@ -861,8 +861,7 @@ int bus_match_parse(
                         if (r < 0)
                                 goto fail;
 
-                        free(value);
-                        value = NULL;
+                        value = mfree(value);
                 } else
                         u = 0;
 

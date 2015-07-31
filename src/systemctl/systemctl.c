@@ -3327,8 +3327,7 @@ static void print_status_info(
                         if (! dir || last) {
                                 printf(dir ? "        " : "  Drop-In: ");
 
-                                free(dir);
-                                dir = NULL;
+                                dir = mfree(dir);
 
                                 if (path_get_parent(*dropin, &dir) < 0) {
                                         log_oom();

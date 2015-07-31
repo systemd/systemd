@@ -704,8 +704,7 @@ static int write_files(void) {
                                 goto finish;
                         }
 
-                        free(group_tmp);
-                        group_tmp = NULL;
+                        group_tmp = mfree(group_tmp);
                 }
                 if (gshadow) {
                         if (rename(gshadow_tmp, gshadow_path) < 0) {
@@ -713,8 +712,7 @@ static int write_files(void) {
                                 goto finish;
                         }
 
-                        free(gshadow_tmp);
-                        gshadow_tmp = NULL;
+                        gshadow_tmp = mfree(gshadow_tmp);
                 }
         }
 
@@ -724,8 +722,7 @@ static int write_files(void) {
                         goto finish;
                 }
 
-                free(passwd_tmp);
-                passwd_tmp = NULL;
+                passwd_tmp = mfree(passwd_tmp);
         }
         if (shadow) {
                 if (rename(shadow_tmp, shadow_path) < 0) {
@@ -733,8 +730,7 @@ static int write_files(void) {
                         goto finish;
                 }
 
-                free(shadow_tmp);
-                shadow_tmp = NULL;
+                shadow_tmp = mfree(shadow_tmp);
         }
 
         r = 0;
@@ -1410,10 +1406,8 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         }
 
         /* Verify name */
-        if (isempty(name) || streq(name, "-")) {
-                free(name);
-                name = NULL;
-        }
+        if (isempty(name) || streq(name, "-"))
+                name = mfree(name);
 
         if (name) {
                 r = specifier_printf(name, specifier_table, NULL, &resolved_name);
@@ -1429,10 +1423,8 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         }
 
         /* Verify id */
-        if (isempty(id) || streq(id, "-")) {
-                free(id);
-                id = NULL;
-        }
+        if (isempty(id) || streq(id, "-"))
+                id = mfree(id);
 
         if (id) {
                 r = specifier_printf(id, specifier_table, NULL, &resolved_id);
@@ -1443,10 +1435,8 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         }
 
         /* Verify description */
-        if (isempty(description) || streq(description, "-")) {
-                free(description);
-                description = NULL;
-        }
+        if (isempty(description) || streq(description, "-"))
+                description = mfree(description);
 
         if (description) {
                 if (!valid_gecos(description)) {
@@ -1456,10 +1446,8 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         }
 
         /* Verify home */
-        if (isempty(home) || streq(home, "-")) {
-                free(home);
-                home = NULL;
-        }
+        if (isempty(home) || streq(home, "-"))
+                home = mfree(home);
 
         if (home) {
                 if (!valid_home(home)) {

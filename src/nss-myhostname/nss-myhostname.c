@@ -464,8 +464,7 @@ enum nss_status _nss_myhostname_gethostbyaddr2_r(
                 }
         }
 
-        free(addresses);
-        addresses = NULL;
+        addresses = mfree(addresses);
 
         n_addresses = local_gateways(NULL, 0, AF_UNSPEC, &addresses);
         if (n_addresses > 0) {

@@ -592,8 +592,7 @@ static int dkr_pull_pull_layer_v2(DkrPull *i) {
 
                 i->current_ancestry++;
 
-                free(path);
-                path = NULL;
+                path = mfree(path);
         }
 
         log_info("Pulling layer %s...", layer);
@@ -652,8 +651,7 @@ static int dkr_pull_pull_layer(DkrPull *i) {
 
                 i->current_ancestry++;
 
-                free(path);
-                path = NULL;
+                path = mfree(path);
         }
 
         log_info("Pulling layer %s...", layer);

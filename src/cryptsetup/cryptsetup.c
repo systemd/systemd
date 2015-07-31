@@ -333,8 +333,7 @@ static int get_password(const char *vol, const char *src, usec_t until, bool acc
                 /* If the description string is simply the
                  * volume name, then let's not show this
                  * twice */
-                free(description);
-                description = NULL;
+                description = mfree(description);
         }
 
         if (mount_point && description)

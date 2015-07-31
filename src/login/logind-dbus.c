@@ -725,15 +725,13 @@ static int method_create_session(sd_bus_message *message, void *userdata, sd_bus
                         log_warning("Existing logind session ID %s used by new audit session, ignoring", id);
                         audit_id = 0;
 
-                        free(id);
-                        id = NULL;
+                        id = mfree(id);
                 }
         }
 
         if (!id) {
                 do {
-                        free(id);
-                        id = NULL;
+                        id = mfree(id);
 
                         if (asprintf(&id, "c%lu", ++m->session_counter) < 0)
                                 return -ENOMEM;
@@ -2355,8 +2353,7 @@ static int method_inhibit(sd_bus_message *message, void *userdata, sd_bus_error 
                 return r;
 
         do {
-                free(id);
-                id = NULL;
+                id = mfree(id);
 
                 if (asprintf(&id, "%lu", ++m->inhibit_counter) < 0)
                         return -ENOMEM;

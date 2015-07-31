@@ -587,8 +587,7 @@ static int save_core(sd_journal *j, int fd, char **path, bool *unlink_temp) {
         if (filename && access(filename, R_OK) < 0) {
                 log_full(errno == ENOENT ? LOG_DEBUG : LOG_WARNING,
                          "File %s is not readable: %m", filename);
-                free(filename);
-                filename = NULL;
+                filename = mfree(filename);
         }
 
         if (filename && !endswith(filename, ".xz") && !endswith(filename, ".lz4")) {

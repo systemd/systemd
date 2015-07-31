@@ -309,8 +309,7 @@ static void custom_mount_free_all(void) {
                 strv_free(m->lower);
         }
 
-        free(arg_custom_mounts);
-        arg_custom_mounts = NULL;
+        arg_custom_mounts = mfree(arg_custom_mounts);
         arg_n_custom_mounts = 0;
 }
 
@@ -561,8 +560,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'M':
                         if (isempty(optarg)) {
-                                free(arg_machine);
-                                arg_machine = NULL;
+                                arg_machine = mfree(arg_machine);
                         } else {
                                 if (!machine_name_is_valid(optarg)) {
                                         log_error("Invalid machine name: %s", optarg);

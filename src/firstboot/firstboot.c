@@ -715,10 +715,8 @@ static int parse_argv(int argc, char *argv[]) {
 
                         path_kill_slashes(arg_root);
 
-                        if (path_equal(arg_root, "/")) {
-                                free(arg_root);
-                                arg_root = NULL;
-                        }
+                        if (path_equal(arg_root, "/"))
+                                arg_root = mfree(arg_root);
 
                         break;
 
