@@ -636,6 +636,9 @@ int session_stop(Session *s, bool force) {
 
         s->timer_event_source = sd_event_source_unref(s->timer_event_source);
 
+        if (s->seat)
+                seat_evict_position(s->seat, s);
+
         /* We are going down, don't care about FIFOs anymore */
         session_remove_fifo(s);
 
@@ -671,6 +674,9 @@ int session_finalize(Session *s) {
                            NULL);
 
         s->timer_event_source = sd_event_source_unref(s->timer_event_source);
+
+        if (s->seat)
+                seat_evict_position(s->seat, s);
 
         /* Kill session devices */
         while ((sd = hashmap_first(s->devices)))
