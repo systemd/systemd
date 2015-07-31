@@ -214,22 +214,13 @@ int synthesize_name_acquired(Proxy *p, sd_bus *a, sd_bus *b, sd_bus_message *m) 
         if (r < 0)
                 return r;
 
+        r = sd_bus_message_set_destination(n, a->unique_name);
+        if (r < 0)
+                return r;
+
         r = bus_seal_synthetic_message(b, n);
         if (r < 0)
                 return r;
 
-        /*
-         * Make sure to only forward NameLost/NameAcquired messages if they
-         * match an installed MATCH rule of the local client. We really must
-         * not send messages the client doesn't expect.
-         */
-
-        r = bus_match_run(b, &b->match_callbacks, n);
-        if (r >= 0 && p->message_matched)
-                r = sd_bus_send(b, n, NULL);
-
-        p->message_matched = false;
-        p->synthetic_matched = false;
-
-        return r;
+        return sd_bus_send(b, n, NULL);
 }

@@ -53,7 +53,9 @@ static int test_proxy_acquired(sd_bus_message *m, void *userdata, sd_bus_error *
 
 static void test_proxy_matched(void) {
         _cleanup_bus_flush_close_unref_ sd_bus *a = NULL;
+        _cleanup_free_ char *matchstr = NULL;
         TestProxyMatch match = {};
+        const char *me;
         int r;
 
         /* open bus 'a' */
@@ -70,10 +72,17 @@ static void test_proxy_matched(void) {
         r = sd_bus_start(a);
         assert_se(r >= 0);
 
-        r = sd_bus_add_match(a, NULL,
-                             "type='signal',"
-                             "member='NameAcquired'",
-                             test_proxy_acquired, &match);
+        r = sd_bus_get_unique_name(a, &me);
+        assert_se(r >= 0);
+
+        matchstr = strjoin("type='signal',"
+                           "member='NameAcquired',"
+                           "destination='",
+                           me,
+                           "'",
+                           NULL);
+        assert_se(matchstr);
+        r = sd_bus_add_match(a, NULL, matchstr, test_proxy_acquired, &match);
         assert_se(r >= 0);
 
         r = sd_bus_get_unique_name(a, &match.sender);
