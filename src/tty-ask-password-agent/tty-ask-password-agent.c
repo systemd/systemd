@@ -162,8 +162,7 @@ static int ask_password_plymouth(
                                 /* Hmm, first try with cached
                                  * passwords failed, so let's retry
                                  * with a normal password request */
-                                free(packet);
-                                packet = NULL;
+                                packet = mfree(packet);
 
                                 if (asprintf(&packet, "*\002%c%s%n", (int) (strlen(message) + 1), message, &n) < 0)
                                         return -ENOMEM;

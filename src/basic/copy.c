@@ -467,8 +467,7 @@ int copy_xattr(int fdf, int fdt) {
 
                 sza *= 2;
 
-                free(bufa);
-                bufa = NULL;
+                bufa = mfree(bufa);
         }
 
         p = bufa;
@@ -491,8 +490,7 @@ int copy_xattr(int fdf, int fdt) {
                         if (m < 0) {
                                 if (errno == ERANGE) {
                                         szb *= 2;
-                                        free(bufb);
-                                        bufb = NULL;
+                                        bufb = mfree(bufb);
                                         continue;
                                 }
 

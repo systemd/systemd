@@ -714,45 +714,38 @@ static void test_cunescape(void) {
         assert_se(cunescape("abc\\\\\\\"\\b\\f\\a\\n\\r\\t\\v\\003\\177\\234\\313\\000\\x00", 0, &unescaped) < 0);
         assert_se(cunescape("abc\\\\\\\"\\b\\f\\a\\n\\r\\t\\v\\003\\177\\234\\313\\000\\x00", UNESCAPE_RELAX, &unescaped) >= 0);
         assert_se(streq_ptr(unescaped, "abc\\\"\b\f\a\n\r\t\v\003\177\234\313\\000\\x00"));
-        free(unescaped);
-        unescaped = NULL;
+        unescaped = mfree(unescaped);
 
         /* incomplete sequences */
         assert_se(cunescape("\\x0", 0, &unescaped) < 0);
         assert_se(cunescape("\\x0", UNESCAPE_RELAX, &unescaped) >= 0);
         assert_se(streq_ptr(unescaped, "\\x0"));
-        free(unescaped);
-        unescaped = NULL;
+        unescaped = mfree(unescaped);
 
         assert_se(cunescape("\\x", 0, &unescaped) < 0);
         assert_se(cunescape("\\x", UNESCAPE_RELAX, &unescaped) >= 0);
         assert_se(streq_ptr(unescaped, "\\x"));
-        free(unescaped);
-        unescaped = NULL;
+        unescaped = mfree(unescaped);
 
         assert_se(cunescape("\\", 0, &unescaped) < 0);
         assert_se(cunescape("\\", UNESCAPE_RELAX, &unescaped) >= 0);
         assert_se(streq_ptr(unescaped, "\\"));
-        free(unescaped);
-        unescaped = NULL;
+        unescaped = mfree(unescaped);
 
         assert_se(cunescape("\\11", 0, &unescaped) < 0);
         assert_se(cunescape("\\11", UNESCAPE_RELAX, &unescaped) >= 0);
         assert_se(streq_ptr(unescaped, "\\11"));
-        free(unescaped);
-        unescaped = NULL;
+        unescaped = mfree(unescaped);
 
         assert_se(cunescape("\\1", 0, &unescaped) < 0);
         assert_se(cunescape("\\1", UNESCAPE_RELAX, &unescaped) >= 0);
         assert_se(streq_ptr(unescaped, "\\1"));
-        free(unescaped);
-        unescaped = NULL;
+        unescaped = mfree(unescaped);
 
         assert_se(cunescape("\\u0000", 0, &unescaped) < 0);
         assert_se(cunescape("\\u00DF\\U000000df\\u03a0\\U00000041", UNESCAPE_RELAX, &unescaped) >= 0);
         assert_se(streq_ptr(unescaped, "ßßΠA"));
-        free(unescaped);
-        unescaped = NULL;
+        unescaped = mfree(unescaped);
 
         assert_se(cunescape("\\073", 0, &unescaped) >= 0);
         assert_se(streq_ptr(unescaped, ";"));
@@ -859,32 +852,28 @@ static void test_read_hostname_config(void) {
         write_string_file(path, "foo", WRITE_STRING_FILE_CREATE);
         assert_se(read_hostname_config(path, &hostname) == 0);
         assert_se(streq(hostname, "foo"));
-        free(hostname);
-        hostname = NULL;
+        hostname = mfree(hostname);
 
         /* with comment */
         write_string_file(path, "# comment\nfoo", WRITE_STRING_FILE_CREATE);
         assert_se(read_hostname_config(path, &hostname) == 0);
         assert_se(hostname);
         assert_se(streq(hostname, "foo"));
-        free(hostname);
-        hostname = NULL;
+        hostname = mfree(hostname);
 
         /* with comment and extra whitespace */
         write_string_file(path, "# comment\n\n foo ", WRITE_STRING_FILE_CREATE);
         assert_se(read_hostname_config(path, &hostname) == 0);
         assert_se(hostname);
         assert_se(streq(hostname, "foo"));
-        free(hostname);
-        hostname = NULL;
+        hostname = mfree(hostname);
 
         /* cleans up name */
         write_string_file(path, "!foo/bar.com", WRITE_STRING_FILE_CREATE);
         assert_se(read_hostname_config(path, &hostname) == 0);
         assert_se(hostname);
         assert_se(streq(hostname, "foobar.com"));
-        free(hostname);
-        hostname = NULL;
+        hostname = mfree(hostname);
 
         /* no value set */
         hostname = (char*) 0x1234;

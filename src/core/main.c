@@ -1844,13 +1844,11 @@ finish:
                 arg_default_rlimit[j] = NULL;
         }
 
-        free(arg_default_unit);
-        arg_default_unit = NULL;
+        arg_default_unit = mfree(arg_default_unit);
 
         free_join_controllers();
 
-        strv_free(arg_default_environment);
-        arg_default_environment = NULL;
+        arg_default_environment = strv_free(arg_default_environment);
 
         set_free(arg_syscall_archs);
         arg_syscall_archs = NULL;

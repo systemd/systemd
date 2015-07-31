@@ -84,6 +84,11 @@ bool streq_ptr(const char *a, const char *b) _pure_;
 
 #define malloc0(n) (calloc((n), 1))
 
+static inline void *mfree(void *memory) {
+        free(memory);
+        return NULL;
+}
+
 static inline const char* yes_no(bool b) {
         return b ? "yes" : "no";
 }

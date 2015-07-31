@@ -333,8 +333,7 @@ int config_parse(const char *unit,
                                 return -ENOMEM;
                         }
 
-                        free(continuation);
-                        continuation = NULL;
+                        continuation = mfree(continuation);
                         p = c;
                 } else
                         p = l;

@@ -674,20 +674,16 @@ static int builtin_path_id(struct udev_device *dev, int argc, char *argv[], bool
          * might produce conflicting IDs if the parent does not provide a
          * unique and predictable name.
          */
-        if (!supported_parent) {
-                free(path);
-                path = NULL;
-        }
+        if (!supported_parent)
+                path = mfree(path);
 
         /*
          * Do not return block devices without a well-known transport. Some
          * devices do not expose their buses and do not provide a unique
          * and predictable name that way.
          */
-        if (streq(udev_device_get_subsystem(dev), "block") && !supported_transport) {
-                free(path);
-                path = NULL;
-        }
+        if (streq(udev_device_get_subsystem(dev), "block") && !supported_transport)
+                path = mfree(path);
 
 out:
         if (path != NULL) {

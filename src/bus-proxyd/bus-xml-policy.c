@@ -586,10 +586,8 @@ static int file_load(Policy *p, const char *path) {
                                 case POLICY_ITEM_SEND:
                                 case POLICY_ITEM_RECV:
 
-                                        if (streq(name, "*")) {
-                                                free(name);
-                                                name = NULL;
-                                        }
+                                        if (streq(name, "*"))
+                                                name = mfree(name);
                                         break;
 
 

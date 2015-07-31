@@ -2589,8 +2589,7 @@ int udev_rules_apply_static_dev_perms(struct udev_rules *rules) {
                         uid = 0;
                         gid = 0;
                         mode = 0;
-                        strv_free(tags);
-                        tags = NULL;
+                        tags = strv_free(tags);
                         break;
                 case TK_A_OWNER_ID:
                         uid = cur->key.uid;

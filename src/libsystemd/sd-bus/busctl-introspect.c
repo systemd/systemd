@@ -462,9 +462,8 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
                                                 }
                                         }
 
-                                        free(argument_type);
-                                        free(argument_direction);
-                                        argument_type = argument_direction = NULL;
+                                        argument_type = mfree(argument_type);
+                                        argument_direction = mfree(argument_direction);
                                 }
 
                                 state = STATE_METHOD;
@@ -604,8 +603,7 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
                                         if (!strextend(&context->member_signature, argument_type, NULL))
                                                 return log_oom();
 
-                                        free(argument_type);
-                                        argument_type = NULL;
+                                        argument_type = mfree(argument_type);
                                 }
 
                                 state = STATE_SIGNAL;

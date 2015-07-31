@@ -217,8 +217,7 @@ int snapshot_create(Manager *m, const char *name, bool cleanup, sd_bus_error *e,
                                 break;
                         }
 
-                        free(n);
-                        n = NULL;
+                        n = mfree(n);
                 }
         }
 

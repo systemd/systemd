@@ -263,8 +263,7 @@ int catalog_import_file(Hashmap *h, struct strbuf *sb, const char *path) {
                                         if (r < 0)
                                                 return r;
 
-                                        free(lang);
-                                        lang = NULL;
+                                        lang = mfree(lang);
                                 }
 
                                 if (with_language) {
