@@ -1073,6 +1073,8 @@ static int terminate_machine(int argc, char *argv[], void *userdata) {
 
 static int copy_files(int argc, char *argv[], void *userdata) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free_ char *abs_host_path = NULL;
+        char *dest, *host_path, *container_path;
         sd_bus *bus = userdata;
         bool copy_from;
         int r;
@@ -1082,6 +1084,16 @@ static int copy_files(int argc, char *argv[], void *userdata) {
         polkit_agent_open_if_enabled();
 
         copy_from = streq(argv[0], "copy-from");
+        dest = argv[3] ?: argv[2];
+        host_path = copy_from ? dest : argv[2];
+        container_path = copy_from ? argv[2] : dest;
+
+        if (!path_is_absolute(host_path)) {
+                abs_host_path = path_make_absolute_cwd(host_path);
+                if (!abs_host_path)
+                        return log_oom();
+                host_path = abs_host_path;
+        }
 
         r = sd_bus_call_method(
                         bus,
@@ -1093,8 +1105,8 @@ static int copy_files(int argc, char *argv[], void *userdata) {
                         NULL,
                         "sss",
                         argv[1],
-                        argv[2],
-                        argv[3]);
+                        copy_from ? container_path : host_path,
+                        copy_from ? host_path : container_path);
         if (r < 0) {
                 log_error("Failed to copy: %s", bus_error_message(&error, -r));
                 return r;
