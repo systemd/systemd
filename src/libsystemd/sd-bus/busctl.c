@@ -1825,7 +1825,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_SIZE: {
                         off_t o;
 
-                        r = parse_size(optarg, 0, &o);
+                        r = parse_size(optarg, 1024, &o);
                         if (r < 0) {
                                 log_error("Failed to parse size: %s", optarg);
                                 return r;
