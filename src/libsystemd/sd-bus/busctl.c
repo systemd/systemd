@@ -2006,15 +2006,15 @@ int main(int argc, char *argv[]) {
                 }
         }
 
+        r = sd_bus_set_bus_client(bus, true);
+        if (r < 0) {
+                log_error_errno(r, "Failed to set bus client: %m");
+                goto finish;
+        }
+
         if (arg_address)
                 r = sd_bus_set_address(bus, arg_address);
         else {
-                r = sd_bus_set_bus_client(bus, true);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to set bus client: %m");
-                        goto finish;
-                }
-
                 switch (arg_transport) {
 
                 case BUS_TRANSPORT_LOCAL:
