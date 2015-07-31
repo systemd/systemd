@@ -707,8 +707,8 @@ int bus_proxy_process_driver(Proxy *p, sd_bus *a, sd_bus *b, sd_bus_message *m, 
                 if (r < 0)
                         return synthetic_reply_method_errno(m, r, NULL);
 
-                if (!args)
-                        return synthetic_reply_method_errno(m, -EINVAL, NULL);
+                if (strv_isempty(args)) /* nothing to do? */
+                        return synthetic_reply_method_return(m, NULL);
 
                 r = sd_bus_message_new_method_call(
                                 a,
