@@ -214,6 +214,10 @@ int synthesize_name_acquired(Proxy *p, sd_bus *a, sd_bus *b, sd_bus_message *m) 
         if (r < 0)
                 return r;
 
+        r = sd_bus_message_set_destination(n, a->unique_name);
+        if (r < 0)
+                return r;
+
         r = bus_seal_synthetic_message(b, n);
         if (r < 0)
                 return r;
