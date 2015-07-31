@@ -128,6 +128,20 @@ bool streq_ptr(const char *a, const char *b) {
         return false;
 }
 
+int strcmp_ptr(const char *a, const char *b) {
+
+        /* Like strcmp(), but tries to make sense of NULL pointers */
+
+        if (a && b)
+                return strcmp(a, b);
+
+        if (!a && b)
+                return -1;
+        if (a && !b)
+                return 1;
+        return 0;
+}
+
 char* endswith(const char *s, const char *postfix) {
         size_t sl, pl;
 

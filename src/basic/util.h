@@ -71,6 +71,7 @@ size_t page_size(void) _pure_;
 #define strncaseeq(a, b, n) (strncasecmp((a), (b), (n)) == 0)
 
 bool streq_ptr(const char *a, const char *b) _pure_;
+int strcmp_ptr(const char *a, const char *b) _pure_;
 
 #define new(t, n) ((t*) malloc_multiply(sizeof(t), (n)))
 

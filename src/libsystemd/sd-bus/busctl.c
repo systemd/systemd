@@ -656,28 +656,15 @@ static int member_compare_func(const void *a, const void *b) {
         assert(x->type);
         assert(y->type);
 
-        if (!x->interface && y->interface)
-                return -1;
-        if (x->interface && !y->interface)
-                return 1;
-        if (x->interface && y->interface) {
-                d = strcmp(x->interface, y->interface);
-                if (d != 0)
-                        return d;
-        }
+        d = strcmp_ptr(x->interface, y->interface);
+        if (d != 0)
+                return d;
 
         d = strcmp(x->type, y->type);
         if (d != 0)
                 return d;
 
-        if (!x->name && y->name)
-                return -1;
-        if (x->name && !y->name)
-                return 1;
-        if (x->name && y->name)
-                return strcmp(x->name, y->name);
-
-        return 0;
+        return strcmp_ptr(x->name, y->name);
 }
 
 static int member_compare_funcp(const void *a, const void *b) {
