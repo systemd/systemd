@@ -184,6 +184,8 @@ bool bitmap_iterate(Bitmap *b, Iterator *i, unsigned *n) {
 }
 
 bool bitmap_equal(Bitmap *a, Bitmap *b) {
+        size_t common_n_bitmaps;
+        unsigned i;
 
         if (!a ^ !b)
                 return false;
@@ -191,8 +193,19 @@ bool bitmap_equal(Bitmap *a, Bitmap *b) {
         if (!a)
                 return true;
 
-        if (a->n_bitmaps != b->n_bitmaps)
+        common_n_bitmaps = MIN(a->n_bitmaps, b->n_bitmaps);
+        if (memcmp(a->bitmaps, b->bitmaps, sizeof(uint64_t) * common_n_bitmaps) != 0)
                 return false;
 
-        return memcmp(a->bitmaps, b->bitmaps, sizeof(uint64_t) * a->n_bitmaps) == 0;
+        if (a->n_bitmaps > common_n_bitmaps) {
+                for (i = common_n_bitmaps; i < a->n_bitmaps; i++)
+                        if (a->bitmaps[i] != 0)
+                                return false;
+        } else if (b->n_bitmaps > common_n_bitmaps) {
+                for (i = common_n_bitmaps; i < b->n_bitmaps; i++)
+                        if (b->bitmaps[i] != 0)
+                                return false;
+        }
+
+        return true;
 }
