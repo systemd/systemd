@@ -115,17 +115,23 @@ size_t page_size(void) {
         return pgsz;
 }
 
-bool streq_ptr(const char *a, const char *b) {
+int strcmp_ptr(const char *a, const char *b) {
 
-        /* Like streq(), but tries to make sense of NULL pointers */
-
+        /* Like strcmp(), but tries to make sense of NULL pointers */
         if (a && b)
-                return streq(a, b);
+                return strcmp(a, b);
 
-        if (!a && !b)
-                return true;
+        if (!a && b)
+                return -1;
 
-        return false;
+        if (a && !b)
+                return 1;
+
+        return 0;
+}
+
+bool streq_ptr(const char *a, const char *b) {
+        return strcmp_ptr(a, b) == 0;
 }
 
 char* endswith(const char *s, const char *postfix) {

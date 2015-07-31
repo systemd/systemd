@@ -2083,6 +2083,18 @@ static void test_tempfn(void) {
         free(ret);
 }
 
+static void test_strcmp_ptr(void) {
+        assert_se(strcmp_ptr(NULL, NULL) == 0);
+        assert_se(strcmp_ptr("", NULL) > 0);
+        assert_se(strcmp_ptr("foo", NULL) > 0);
+        assert_se(strcmp_ptr(NULL, "") < 0);
+        assert_se(strcmp_ptr(NULL, "bar") < 0);
+        assert_se(strcmp_ptr("foo", "bar") > 0);
+        assert_se(strcmp_ptr("bar", "baz") < 0);
+        assert_se(strcmp_ptr("foo", "foo") == 0);
+        assert_se(strcmp_ptr("", "") == 0);
+}
+
 int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
@@ -2169,6 +2181,7 @@ int main(int argc, char *argv[]) {
         test_shell_maybe_quote();
         test_parse_mode();
         test_tempfn();
+        test_strcmp_ptr();
 
         return 0;
 }
