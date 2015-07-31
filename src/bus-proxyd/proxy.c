@@ -653,6 +653,10 @@ static int process_hello(Proxy *p, sd_bus_message *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to append sender to NameAcquired message: %m");
 
+        r = sd_bus_message_set_destination(n, p->destination_bus->unique_name);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set destination for NameAcquired message: %m");
+
         r = bus_seal_synthetic_message(p->local_bus, n);
         if (r < 0)
                 return log_error_errno(r, "Failed to seal NameAcquired message: %m");
