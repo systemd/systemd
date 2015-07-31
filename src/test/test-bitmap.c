@@ -20,7 +20,7 @@
 #include "bitmap.h"
 
 int main(int argc, const char *argv[]) {
-        _cleanup_bitmap_free_ Bitmap *b = NULL;
+        _cleanup_bitmap_free_ Bitmap *b = NULL, *b2 = NULL;
         Iterator it;
         unsigned n = (unsigned) -1, i = 0;
 
@@ -100,6 +100,24 @@ int main(int argc, const char *argv[]) {
         assert_se(bitmap_isclear(b) == true);
 
         assert_se(bitmap_set(b, (unsigned) -1) == -ERANGE);
+
+        bitmap_free(b);
+        b = NULL;
+        assert_se(bitmap_ensure_allocated(&b) == 0);
+        assert_se(bitmap_ensure_allocated(&b2) == 0);
+
+        assert_se(bitmap_equal(b, b2));
+        assert_se(bitmap_set(b, 0) == 0);
+        bitmap_unset(b, 0);
+        assert_se(bitmap_equal(b, b2));
+
+        assert_se(bitmap_set(b, 1) == 0);
+        bitmap_clear(b);
+        assert_se(bitmap_equal(b, b2));
+
+        assert_se(bitmap_set(b, 0) == 0);
+        assert_se(bitmap_set(b2, 0) == 0);
+        assert_se(bitmap_equal(b, b2));
 
         return 0;
 }
