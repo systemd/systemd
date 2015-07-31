@@ -1684,6 +1684,7 @@ static int help(void) {
                "     --acquired           Only show acquired names\n"
                "     --activatable        Only show activatable names\n"
                "     --match=MATCH        Only show matching messages\n"
+               "     --size=SIZE          Maximum length of captured packet\n"
                "     --list               Don't show tree, but simple object path list\n"
                "     --quiet              Don't show method call reply\n"
                "     --verbose            Show result values in long format\n"
