@@ -36,10 +36,11 @@
 # where /dev/input/eventXX is the mouse in question. If in
 # doubt, simply use /dev/input/event* to reload all input rules.
 #
-# If your changes are generally applicable, open a bug report on
-#   http://bugs.freedesktop.org/enter_bug.cgi?product=systemd
-# and include your new rules, a description of the device, and the
-# output of
+# If your changes are generally applicable, preferably send them as a pull
+# request to
+#   https://github.com/systemd/
+# or create a bug report on the issue tracker located there and include your
+# new rules, a description of the device, and the output of
 #   udevadm info /dev/input/eventXX
 # (or /dev/input/event*).
 #
@@ -237,6 +238,10 @@ mouse:usb:v046dpc245:name:Logitech Gaming Mouse G400:
 # Logitech G400s (Wired)
 mouse:usb:v046dpc24c:name:Logitech G400s Optical Gaming Mouse:
  MOUSE_DPI=400@1000 *800@1000 2000@1000 4000@1000
+
+# Logitech G402 Hyperion Fury
+mouse:usb:v046dpc07e:name:Logitech Gaming Mouse G402:
+ MOUSE_DPI=400@1000 *800@1000 1600@1000 3200@1000
 
 # Logitech B605 Wireless Mouse (also M505)
 mouse:usb:v046dp101d:name:Logitech B605:
