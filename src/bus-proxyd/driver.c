@@ -71,6 +71,27 @@ static int get_creds_by_message(sd_bus *bus, sd_bus_message *m, uint64_t mask, s
         return get_creds_by_name(bus, name, mask, _creds, error);
 }
 
+static int driver_activation(sd_bus_message *reply, void *userdata, sd_bus_error *error) {
+        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        ProxyActivation *activation = userdata;
+
+        /*
+         * The org.freedesktop.DBus.Peer.Ping() call returned. We don't care
+         * whether this succeeded, failed, was not implemented or timed out. We
+         * cannot assume that the target reacts to this properly. Hence, just
+         * send the reply to the activation request and be done.
+         */
+
+        m = activation->request; /* claim reference */
+
+        --activation->proxy->n_activations;
+        LIST_REMOVE(activations_by_proxy, activation->proxy->activations, activation);
+        sd_bus_slot_unref(activation->slot);
+        free(activation);
+
+        return synthetic_reply_method_return(m, "u", BUS_START_REPLY_SUCCESS);
+}
+
 int bus_proxy_process_driver(Proxy *p, sd_bus *a, sd_bus *b, sd_bus_message *m, SharedPolicy *sp, const struct ucred *ucred, Set *owned_names) {
         int r;
 
@@ -587,6 +608,7 @@ int bus_proxy_process_driver(Proxy *p, sd_bus *a, sd_bus *b, sd_bus_message *m, 
 
         } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "StartServiceByName")) {
                 _cleanup_bus_message_unref_ sd_bus_message *msg = NULL;
+                ProxyActivation *activation;
                 const char *name;
                 uint32_t flags;
 
@@ -606,21 +628,32 @@ int bus_proxy_process_driver(Proxy *p, sd_bus *a, sd_bus *b, sd_bus_message *m, 
                 if (r != -ESRCH)
                         return synthetic_reply_method_errno(m, r, NULL);
 
-                r = sd_bus_message_new_method_call(
-                                a,
-                                &msg,
-                                name,
-                                "/",
-                                "org.freedesktop.DBus.Peer",
-                                "Ping");
-                if (r < 0)
-                        return synthetic_reply_method_errno(m, r, NULL);
+                if (p->n_activations >= PROXY_ACTIVATIONS_MAX)
+                        return synthetic_reply_method_errno(m, -EMFILE, NULL);
 
-                r = sd_bus_send(a, msg, NULL);
-                if (r < 0)
-                        return synthetic_reply_method_errno(m, r, NULL);
+                activation = new0(ProxyActivation, 1);
+                if (!activation)
+                        return synthetic_reply_method_errno(m, -ENOMEM, NULL);
 
-                return synthetic_reply_method_return(m, "u", BUS_START_REPLY_SUCCESS);
+                r = sd_bus_call_method_async(a,
+                                             &activation->slot,
+                                             name,
+                                             "/",
+                                             "org.freedesktop.DBus.Peer",
+                                             "Ping",
+                                             driver_activation,
+                                             activation,
+                                             NULL);
+                if (r < 0) {
+                        free(activation);
+                        return synthetic_reply_method_errno(m, r, NULL);
+                }
+
+                activation->proxy = p;
+                activation->request = sd_bus_message_ref(m);
+                LIST_PREPEND(activations_by_proxy, p->activations, activation);
+                ++p->n_activations;
+                return 1;
 
         } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "UpdateActivationEnvironment")) {
                 _cleanup_bus_message_unref_ sd_bus_message *msg = NULL;

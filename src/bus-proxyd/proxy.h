@@ -25,6 +25,9 @@
 #include "bus-xml-policy.h"
 
 typedef struct Proxy Proxy;
+typedef struct ProxyActivation ProxyActivation;
+
+#define PROXY_ACTIVATIONS_MAX (16) /* max parallel activation requests */
 
 struct Proxy {
         sd_bus *local_bus;
@@ -37,10 +40,20 @@ struct Proxy {
         Set *owned_names;
         SharedPolicy *policy;
 
+        LIST_HEAD(ProxyActivation, activations);
+        size_t n_activations;
+
         bool got_hello : 1;
         bool queue_overflow : 1;
         bool message_matched : 1;
         bool synthetic_matched : 1;
+};
+
+struct ProxyActivation {
+        LIST_FIELDS(ProxyActivation, activations_by_proxy);
+        Proxy *proxy;
+        sd_bus_message *request;
+        sd_bus_slot *slot;
 };
 
 int proxy_new(Proxy **out, int in_fd, int out_fd, const char *dest);
