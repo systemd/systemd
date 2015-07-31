@@ -2,6 +2,13 @@ systemd System and Service Manager
 
 CHANGES WITH 224:
 
+        * The systemd-efi-boot-generator functionality was merged into
+          systemd-gpt-auto-generator.
+
+        * systemd-networkd now supports Group Policy for vxlan devices. It can
+          be enabled via the new boolean configuration option called
+          'GroupPolicyExtension='.
+
         Contributions from: Andreas Kempf, Christian Hesse, Daniel Mack, David
         Herrmann, Herman Fries, Johannes Nixdorf, Kay Sievers, Lennart
         Poettering, Peter Hutterer, Susant Sahani, Tom Gundersen
