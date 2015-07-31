@@ -610,6 +610,7 @@ int bus_proxy_process_driver(Proxy *p, sd_bus *a, sd_bus *b, sd_bus_message *m, 
                 _cleanup_bus_message_unref_ sd_bus_message *msg = NULL;
                 ProxyActivation *activation;
                 const char *name;
+                uint64_t cookie;
                 uint32_t flags;
 
                 if (!sd_bus_message_has_signature(m, "su"))
@@ -631,19 +632,33 @@ int bus_proxy_process_driver(Proxy *p, sd_bus *a, sd_bus *b, sd_bus_message *m, 
                 if (p->n_activations >= PROXY_ACTIVATIONS_MAX)
                         return synthetic_reply_method_errno(m, -EMFILE, NULL);
 
+                r = sd_bus_message_get_cookie(m, &cookie);
+                if (r < 0)
+                        return synthetic_reply_method_errno(m, r, NULL);
+
+                r = sd_bus_message_new_method_call(a,
+                                                   &msg,
+                                                   name,
+                                                   "/",
+                                                   "org.freedesktop.DBus.Peer",
+                                                   "Ping");
+                if (r < 0)
+                        return synthetic_reply_method_errno(m, r, NULL);
+
+                r = bus_message_seal(msg, cookie, BUS_DEFAULT_TIMEOUT);
+                if (r < 0)
+                        return synthetic_reply_method_errno(m, r, NULL);
+
                 activation = new0(ProxyActivation, 1);
                 if (!activation)
                         return synthetic_reply_method_errno(m, -ENOMEM, NULL);
 
-                r = sd_bus_call_method_async(a,
-                                             &activation->slot,
-                                             name,
-                                             "/",
-                                             "org.freedesktop.DBus.Peer",
-                                             "Ping",
-                                             driver_activation,
-                                             activation,
-                                             NULL);
+                r = sd_bus_call_async(a,
+                                      &activation->slot,
+                                      msg,
+                                      driver_activation,
+                                      activation,
+                                      0);
                 if (r < 0) {
                         free(activation);
                         return synthetic_reply_method_errno(m, r, NULL);
