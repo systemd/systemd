@@ -158,6 +158,20 @@ static void test_socket_address_is_netlink(void) {
         assert_se(!socket_address_is_netlink(&a, "route 1"));
 }
 
+static void test_in_addr_is_null(void) {
+
+        union in_addr_union i = {};
+
+        assert_se(in_addr_is_null(AF_INET, &i) == true);
+        assert_se(in_addr_is_null(AF_INET6, &i) == true);
+
+        i.in.s_addr = 0x1000000;
+        assert_se(in_addr_is_null(AF_INET, &i) == false);
+        assert_se(in_addr_is_null(AF_INET6, &i) == false);
+
+        assert_se(in_addr_is_null(-1, &i) == -EAFNOSUPPORT);
+}
+
 static void test_in_addr_prefix_intersect_one(unsigned f, const char *a, unsigned apl, const char *b, unsigned bpl, int result) {
         union in_addr_union ua, ub;
 
@@ -340,6 +354,7 @@ int main(int argc, char *argv[]) {
         test_socket_address_is();
         test_socket_address_is_netlink();
 
+        test_in_addr_is_null();
         test_in_addr_prefix_intersect();
         test_in_addr_prefix_next();
         test_in_addr_to_string();

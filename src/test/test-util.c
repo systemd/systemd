@@ -280,6 +280,39 @@ static void test_parse_uid(void) {
         r = parse_uid("100", &uid);
         assert_se(r == 0);
         assert_se(uid == 100);
+
+        r = parse_uid("65535", &uid);
+        assert_se(r == -ENXIO);
+}
+
+static void test_safe_atou16(void) {
+        int r;
+        uint16_t l;
+
+        r = safe_atou16("12345", &l);
+        assert_se(r == 0);
+        assert_se(l == 12345);
+
+        r = safe_atou16("123456", &l);
+        assert_se(r == -ERANGE);
+
+        r = safe_atou16("junk", &l);
+        assert_se(r == -EINVAL);
+}
+
+static void test_safe_atoi16(void) {
+        int r;
+        int16_t l;
+
+        r = safe_atoi16("-12345", &l);
+        assert_se(r == 0);
+        assert_se(l == -12345);
+
+        r = safe_atoi16("36536", &l);
+        assert_se(r == -ERANGE);
+
+        r = safe_atoi16("junk", &l);
+        assert_se(r == -EINVAL);
 }
 
 static void test_safe_atolli(void) {
@@ -582,6 +615,15 @@ static void test_unbase32hexmem(void) {
         assert_se(unbase32hexmem("AAAB====", strlen("AAAB===="), true, &mem, &len) == -EINVAL);
         assert_se(unbase32hexmem("AAAAB===", strlen("AAAAB==="), true, &mem, &len) == -EINVAL);
         assert_se(unbase32hexmem("AAAAAAB=", strlen("AAAAAAB="), true, &mem, &len) == -EINVAL);
+
+        assert_se(unbase32hexmem("XPNMUOJ1", strlen("CPNMUOJ1"), true, &mem, &len) == -EINVAL);
+        assert_se(unbase32hexmem("CXNMUOJ1", strlen("CPNMUOJ1"), true, &mem, &len) == -EINVAL);
+        assert_se(unbase32hexmem("CPXMUOJ1", strlen("CPNMUOJ1"), true, &mem, &len) == -EINVAL);
+        assert_se(unbase32hexmem("CPNXUOJ1", strlen("CPNMUOJ1"), true, &mem, &len) == -EINVAL);
+        assert_se(unbase32hexmem("CPNMXOJ1", strlen("CPNMUOJ1"), true, &mem, &len) == -EINVAL);
+        assert_se(unbase32hexmem("CPNMUXJ1", strlen("CPNMUOJ1"), true, &mem, &len) == -EINVAL);
+        assert_se(unbase32hexmem("CPNMUOX1", strlen("CPNMUOJ1"), true, &mem, &len) == -EINVAL);
+        assert_se(unbase32hexmem("CPNMUOJX", strlen("CPNMUOJ1"), true, &mem, &len) == -EINVAL);
 
         assert_se(unbase32hexmem("", strlen(""), false, &mem, &len) == 0);
         assert_se(streq(strndupa(mem, len), ""));
@@ -1247,6 +1289,16 @@ static void test_endswith(void) {
 
         assert_se(!endswith("foobar", "foo"));
         assert_se(!endswith("foobar", "foobarfoofoo"));
+}
+
+static void test_endswith_no_case(void) {
+        assert_se(endswith_no_case("fooBAR", "bar"));
+        assert_se(endswith_no_case("foobar", ""));
+        assert_se(endswith_no_case("foobar", "FOOBAR"));
+        assert_se(endswith_no_case("", ""));
+
+        assert_se(!endswith_no_case("foobar", "FOO"));
+        assert_se(!endswith_no_case("foobar", "FOOBARFOOFOO"));
 }
 
 static void test_close_nointr(void) {
@@ -2099,6 +2151,8 @@ int main(int argc, char *argv[]) {
         test_parse_boolean();
         test_parse_pid();
         test_parse_uid();
+        test_safe_atou16();
+        test_safe_atoi16();
         test_safe_atolli();
         test_safe_atod();
         test_strappend();
@@ -2148,6 +2202,7 @@ int main(int argc, char *argv[]) {
         test_is_valid_documentation_url();
         test_file_in_same_dir();
         test_endswith();
+        test_endswith_no_case();
         test_close_nointr();
         test_unlink_noerrno();
         test_readlink_and_make_absolute();

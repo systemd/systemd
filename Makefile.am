@@ -1437,6 +1437,8 @@ tests += \
 	test-cap-list \
 	test-sigbus \
 	test-verbs \
+	test-af-list \
+	test-arphrd-list \
 	test-dns-domain
 
 EXTRA_DIST += \
@@ -2046,6 +2048,18 @@ test_bus_policy_SOURCES = \
 test_bus_policy_LDADD = \
 	libbus-proxy-core.la \
 	libshared.la
+
+test_af_list_SOURCES = \
+	src/test/test-af-list.c
+
+test_af_list_LDADD = \
+	libbasic.la
+
+test_arphrd_list_SOURCES = \
+	src/test/test-arphrd-list.c
+
+test_arphrd_list_LDADD = \
+	libbasic.la
 
 # ------------------------------------------------------------------------------
 ## .PHONY so it always rebuilds it
