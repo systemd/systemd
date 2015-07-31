@@ -73,6 +73,7 @@ int bitmap_ensure_allocated(Bitmap **b) {
 int bitmap_set(Bitmap *b, unsigned n) {
         uint64_t bitmask;
         unsigned offset;
+        size_t new_n_bitmaps;
 
         assert(b);
 
@@ -83,10 +84,13 @@ int bitmap_set(Bitmap *b, unsigned n) {
         offset = BITMAP_NUM_TO_OFFSET(n);
 
         if (offset >= b->n_bitmaps) {
-                if (!GREEDY_REALLOC0(b->bitmaps, b->bitmaps_allocated, offset + 1))
+                new_n_bitmaps = offset + 1;
+                if (!GREEDY_REALLOC(b->bitmaps, b->bitmaps_allocated, new_n_bitmaps))
                         return -ENOMEM;
 
-                b->n_bitmaps = offset + 1;
+                /* we need to do memzero here instead of GREEDY_REALLOC0 because the array does not get cleared on bitmap_clear */
+                memzero(b->bitmaps + b->n_bitmaps, (new_n_bitmaps - b->n_bitmaps) * sizeof(b->bitmaps[0]));
+                b->n_bitmaps = new_n_bitmaps;
         }
 
         bitmask = UINT64_C(1) << BITMAP_NUM_TO_REM(n);
@@ -184,6 +188,8 @@ bool bitmap_iterate(Bitmap *b, Iterator *i, unsigned *n) {
 }
 
 bool bitmap_equal(Bitmap *a, Bitmap *b) {
+        size_t common_n_bitmaps;
+        unsigned i;
 
         if (!a ^ !b)
                 return false;
@@ -191,8 +197,19 @@ bool bitmap_equal(Bitmap *a, Bitmap *b) {
         if (!a)
                 return true;
 
-        if (a->n_bitmaps != b->n_bitmaps)
+        common_n_bitmaps = MIN(a->n_bitmaps, b->n_bitmaps);
+        if (memcmp(a->bitmaps, b->bitmaps, sizeof(uint64_t) * common_n_bitmaps) != 0)
                 return false;
 
-        return memcmp(a->bitmaps, b->bitmaps, sizeof(uint64_t) * a->n_bitmaps) == 0;
+        if (a->n_bitmaps > common_n_bitmaps) {
+                for (i = common_n_bitmaps; i < a->n_bitmaps; i++)
+                        if (a->bitmaps[i] != 0)
+                                return false;
+        } else if (b->n_bitmaps > common_n_bitmaps) {
+                for (i = common_n_bitmaps; i < b->n_bitmaps; i++)
+                        if (b->bitmaps[i] != 0)
+                                return false;
+        }
+
+        return true;
 }
