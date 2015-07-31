@@ -1,5 +1,13 @@
 systemd System and Service Manager
 
+CHANGES WITH 224:
+
+        Contributions from: Andreas Kempf, Christian Hesse, Daniel Mack, David
+        Herrmann, Herman Fries, Johannes Nixdorf, Kay Sievers, Lennart
+        Poettering, Peter Hutterer, Susant Sahani, Tom Gundersen
+
+        -- Berlin, 2015-07-31
+
 CHANGES WITH 223:
 
         * The python-systemd code has been removed from the systemd repository.
