@@ -111,5 +111,13 @@ int main(int argc, const char *argv[]) {
         bitmap_unset(b, 0);
         assert_se(bitmap_equal(b, b2));
 
+        assert_se(bitmap_set(b, 1) == 0);
+        bitmap_clear(b);
+        assert_se(bitmap_equal(b, b2));
+
+        assert_se(bitmap_set(b, 0) == 0);
+        assert_se(bitmap_set(b2, 0) == 0);
+        assert_se(bitmap_equal(b, b2));
+
         return 0;
 }
