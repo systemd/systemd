@@ -95,6 +95,9 @@ pci:v*d*sv*sd*bc02sc06*
 pci:v*d*sv*sd*bc02sc07*
  ID_PCI_SUBCLASS_FROM_DATABASE=Infiniband controller
 
+pci:v*d*sv*sd*bc02sc08*
+ ID_PCI_SUBCLASS_FROM_DATABASE=Fabric controller
+
 pci:v*d*sv*sd*bc02sc80*
  ID_PCI_SUBCLASS_FROM_DATABASE=Network controller
 
@@ -553,6 +556,9 @@ pci:v*d*sv*sd*bc12sc00*
 
 pci:v*d*sv*sd*bc13*
  ID_PCI_CLASS_FROM_DATABASE=Non-Essential Instrumentation
+
+pci:v*d*sv*sd*bc40*
+ ID_PCI_CLASS_FROM_DATABASE=Coprocessor
 
 pci:v*d*sv*sd*bcFF*
  ID_PCI_CLASS_FROM_DATABASE=Unassigned class
