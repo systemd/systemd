@@ -1772,3 +1772,78 @@ bluetooth:v024B*
 
 bluetooth:v024C*
  ID_VENDOR_FROM_DATABASE=Blue Clover Devices
+
+bluetooth:v024D*
+ ID_VENDOR_FROM_DATABASE=M-Way Solutions GmbH
+
+bluetooth:v024E*
+ ID_VENDOR_FROM_DATABASE=Microtronics Engineering GmbH
+
+bluetooth:v024F*
+ ID_VENDOR_FROM_DATABASE=Schneider Schreibgerte GmbH
+
+bluetooth:v0250*
+ ID_VENDOR_FROM_DATABASE=Sapphire Circuits LLC
+
+bluetooth:v0251*
+ ID_VENDOR_FROM_DATABASE=Lumo Bodytech Inc.
+
+bluetooth:v0252*
+ ID_VENDOR_FROM_DATABASE=UKC Technosolution
+
+bluetooth:v0253*
+ ID_VENDOR_FROM_DATABASE=Xicato Inc.
+
+bluetooth:v0254*
+ ID_VENDOR_FROM_DATABASE=Playbrush
+
+bluetooth:v0255*
+ ID_VENDOR_FROM_DATABASE=Dai Nippon Printing Co., Ltd.
+
+bluetooth:v0256*
+ ID_VENDOR_FROM_DATABASE=G24 Power Limited
+
+bluetooth:v0257*
+ ID_VENDOR_FROM_DATABASE=AdBabble Local Commerce Inc.
+
+bluetooth:v0258*
+ ID_VENDOR_FROM_DATABASE=Devialet SA
+
+bluetooth:v0259*
+ ID_VENDOR_FROM_DATABASE=ALTYOR
+
+bluetooth:v025A*
+ ID_VENDOR_FROM_DATABASE=University of Applied Sciences Valais/Haute Ecole Valaisanne
+
+bluetooth:v025B*
+ ID_VENDOR_FROM_DATABASE=Five Interactive, LLC dba Zendo
+
+bluetooth:v025C*
+ ID_VENDOR_FROM_DATABASE=NetEase (Hangzhou) Network co.Ltd.
+
+bluetooth:v025D*
+ ID_VENDOR_FROM_DATABASE=Lexmark International Inc.
+
+bluetooth:v025E*
+ ID_VENDOR_FROM_DATABASE=Fluke Corporation
+
+bluetooth:v025F*
+ ID_VENDOR_FROM_DATABASE=Yardarm Technologies
+
+bluetooth:v0260*
+ ID_VENDOR_FROM_DATABASE=SensaRx
+
+bluetooth:v0261*
+ ID_VENDOR_FROM_DATABASE=SECVRE GmbH
+
+bluetooth:v0262*
+ ID_VENDOR_FROM_DATABASE=Glacial Ridge Technologies
+
+bluetooth:v0263*
+ ID_VENDOR_FROM_DATABASE=Identiv, Inc.
+
+bluetooth:v0264*
+ ID_VENDOR_FROM_DATABASE=DDS, Inc.
+
+bluetooth:v0265*
+ ID_VENDOR_FROM_DATABASE=SMK Corporation
