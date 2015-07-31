@@ -113,10 +113,6 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 goto finish;
 
-        /* We need one process for ourselves, plus one thread for the asynchronous resolver */
-        if (setrlimit(RLIMIT_NPROC, &RLIMIT_MAKE_CONST(2)) < 0)
-                log_warning_errno(errno, "Failed to lower RLIMIT_NPROC to 2: %m");
-
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, -1) >= 0);
 
         r = manager_new(&m);
