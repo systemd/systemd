@@ -583,7 +583,7 @@ int sockaddr_pretty(const struct sockaddr *_sa, socklen_t salen, bool translate_
 
                 } else {
                         p = strndup(sa->un.sun_path, sizeof(sa->un.sun_path));
-                        if (!ret)
+                        if (!p)
                                 return -ENOMEM;
                 }
 
