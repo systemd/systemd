@@ -128,6 +128,20 @@ bool streq_ptr(const char *a, const char *b) {
         return false;
 }
 
+int strcmp_ptr(const char *a, const char *b) {
+
+        /* Like strcmp(), but tries to make sense of NULL pointers */
+
+        if (a && b)
+                return strcmp(a, b);
+
+        if (!a && b)
+                return -1;
+        if (a && !b)
+                return 1;
+        return 0;
+}
+
 char* endswith(const char *s, const char *postfix) {
         size_t sl, pl;
 
@@ -5057,8 +5071,8 @@ int getpeercred(int fd, struct ucred *ucred) {
 }
 
 int getpeersec(int fd, char **ret) {
+        _cleanup_free_ char *s = NULL;
         socklen_t n = 64;
-        char *s;
         int r;
 
         assert(fd >= 0);
@@ -5070,28 +5084,27 @@ int getpeersec(int fd, char **ret) {
 
         r = getsockopt(fd, SOL_SOCKET, SO_PEERSEC, s, &n);
         if (r < 0) {
-                free(s);
+                char *p;
 
                 if (errno != ERANGE)
                         return -errno;
 
-                s = new0(char, n);
-                if (!s)
+                p = realloc(s, n);
+                if (!p)
                         return -ENOMEM;
+                s = p;
 
                 r = getsockopt(fd, SOL_SOCKET, SO_PEERSEC, s, &n);
-                if (r < 0) {
-                        free(s);
+                if (r < 0)
                         return -errno;
-                }
         }
 
-        if (isempty(s)) {
-                free(s);
+        if (isempty(s))
                 return -EOPNOTSUPP;
-        }
 
         *ret = s;
+        s = NULL;
+
         return 0;
 }
 
