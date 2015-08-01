@@ -678,6 +678,7 @@ int dhcp_lease_new(sd_dhcp_lease **ret) {
 int sd_dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
         _cleanup_free_ char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
+        struct sd_dhcp_raw_option *option;
         struct in_addr address;
         const struct in_addr *addresses;
         const uint8_t *client_id, *data;
@@ -779,6 +780,14 @@ int sd_dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
                 fprintf(f, "VENDOR_SPECIFIC=%s\n", option_hex);
         }
 
+        LIST_FOREACH(options, option, lease->private_options) {
+                char key[] = "OPTION_000";
+                snprintf(key, sizeof(key), "OPTION_%"PRIu8, option->tag);
+                r = serialize_dhcp_option(f, key, option->data, option->length);
+                if (r < 0)
+                        goto fail;
+        }
+
         r = fflush_and_check(f);
         if (r < 0)
                 goto fail;
@@ -803,9 +812,11 @@ int sd_dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
                             *server_address = NULL, *next_server = NULL,
                             *dns = NULL, *ntp = NULL, *mtu = NULL,
                             *routes = NULL, *client_id_hex = NULL,
-                            *vendor_specific_hex = NULL;
+                            *vendor_specific_hex = NULL,
+                            *options[DHCP_OPTION_PRIVATE_END -
+                                     DHCP_OPTION_PRIVATE_START] = { NULL };
         struct in_addr addr;
-        int r;
+        int r, i;
 
         assert(lease_file);
         assert(ret);
@@ -829,6 +840,37 @@ int sd_dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
                            "ROUTES", &routes,
                            "CLIENTID", &client_id_hex,
                            "VENDOR_SPECIFIC", &vendor_specific_hex,
+                           "OPTION_224", &options[DHCP_OPTION_PRIVATE_0 - DHCP_OPTION_PRIVATE_START],
+                           "OPTION_225", &options[DHCP_OPTION_PRIVATE_1 - DHCP_OPTION_PRIVATE_START],
+                           "OPTION_226", &options[DHCP_OPTION_PRIVATE_2 - DHCP_OPTION_PRIVATE_START],
+                           "OPTION_227", &options[DHCP_OPTION_PRIVATE_3 - DHCP_OPTION_PRIVATE_START],
+                           "OPTION_228", &options[DHCP_OPTION_PRIVATE_4 - DHCP_OPTION_PRIVATE_START],
+                           "OPTION_229", &options[DHCP_OPTION_PRIVATE_5 - DHCP_OPTION_PRIVATE_START],
+                           "OPTION_230", &options[DHCP_OPTION_PRIVATE_6 - DHCP_OPTION_PRIVATE_START],
+                           "OPTION_231", &options[DHCP_OPTION_PRIVATE_7 - DHCP_OPTION_PRIVATE_START],
+                           "OPTION_232", &options[DHCP_OPTION_PRIVATE_8 - DHCP_OPTION_PRIVATE_START],
+                           "OPTION_233", &options[DHCP_OPTION_PRIVATE_9 - DHCP_OPTION_PRIVATE_START],
+                           "OPTION_234", &options[DHCP_OPTION_PRIVATE_10 - DHCP_OPTION_PRIVATE_START],
+                           "OPTION_235", &options[DHCP_OPTION_PRIVATE_11 - DHCP_OPTION_PRIVATE_START],
+                           "OPTION_236", &options[DHCP_OPTION_PRIVATE_12 - DHCP_OPTION_PRIVATE_START],
+                           "OPTION_237", &options[DHCP_OPTION_PRIVATE_13 - DHCP_OPTION_PRIVATE_START],
+                           "OPTION_238", &options[DHCP_OPTION_PRIVATE_14 - DHCP_OPTION_PRIVATE_START],
+                           "OPTION_239", &options[DHCP_OPTION_PRIVATE_15 - DHCP_OPTION_PRIVATE_START],
+                           "OPTION_240", &options[DHCP_OPTION_PRIVATE_16 - DHCP_OPTION_PRIVATE_START],
+                           "OPTION_241", &options[DHCP_OPTION_PRIVATE_17 - DHCP_OPTION_PRIVATE_START],
+                           "OPTION_242", &options[DHCP_OPTION_PRIVATE_18 - DHCP_OPTION_PRIVATE_START],
+                           "OPTION_243", &options[DHCP_OPTION_PRIVATE_19 - DHCP_OPTION_PRIVATE_START],
+                           "OPTION_244", &options[DHCP_OPTION_PRIVATE_20 - DHCP_OPTION_PRIVATE_START],
+                           "OPTION_245", &options[DHCP_OPTION_PRIVATE_21 - DHCP_OPTION_PRIVATE_START],
+                           "OPTION_246", &options[DHCP_OPTION_PRIVATE_22 - DHCP_OPTION_PRIVATE_START],
+                           "OPTION_247", &options[DHCP_OPTION_PRIVATE_23 - DHCP_OPTION_PRIVATE_START],
+                           "OPTION_248", &options[DHCP_OPTION_PRIVATE_24 - DHCP_OPTION_PRIVATE_START],
+                           "OPTION_249", &options[DHCP_OPTION_PRIVATE_25 - DHCP_OPTION_PRIVATE_START],
+                           "OPTION_250", &options[DHCP_OPTION_PRIVATE_26 - DHCP_OPTION_PRIVATE_START],
+                           "OPTION_251", &options[DHCP_OPTION_PRIVATE_27 - DHCP_OPTION_PRIVATE_START],
+                           "OPTION_252", &options[DHCP_OPTION_PRIVATE_28 - DHCP_OPTION_PRIVATE_START],
+                           "OPTION_253", &options[DHCP_OPTION_PRIVATE_29 - DHCP_OPTION_PRIVATE_START],
+                           "OPTION_254", &options[DHCP_OPTION_PRIVATE_30 - DHCP_OPTION_PRIVATE_START],
                            NULL);
         if (r < 0) {
                 if (r == -ENOENT)
@@ -916,6 +958,22 @@ int sd_dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
                         return -EINVAL;
 
                 r = unhexmem(vendor_specific_hex, strlen(vendor_specific_hex), (void**) &lease->vendor_specific, &lease->vendor_specific_len);
+                if (r < 0)
+                        return r;
+        }
+
+        for (i = 0; i < DHCP_OPTION_PRIVATE_END - DHCP_OPTION_PRIVATE_START; i++) {
+                uint8_t *data;
+                size_t len;
+
+                if (!options[i])
+                        continue;
+
+                r = deserialize_dhcp_option(&data, &len, options[i]);
+                if (r < 0)
+                        return r;
+
+                r = dhcp_lease_insert_private_option(lease, i + DHCP_OPTION_PRIVATE_START, data, len);
                 if (r < 0)
                         return r;
         }
