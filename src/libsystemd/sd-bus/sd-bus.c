@@ -83,15 +83,13 @@ static void bus_reset_queues(sd_bus *b) {
         while (b->rqueue_size > 0)
                 sd_bus_message_unref(b->rqueue[--b->rqueue_size]);
 
-        free(b->rqueue);
-        b->rqueue = NULL;
+        b->rqueue = mfree(b->rqueue);
         b->rqueue_allocated = 0;
 
         while (b->wqueue_size > 0)
                 sd_bus_message_unref(b->wqueue[--b->wqueue_size]);
 
-        free(b->wqueue);
-        b->wqueue = NULL;
+        b->wqueue = mfree(b->wqueue);
         b->wqueue_allocated = 0;
 }
 
