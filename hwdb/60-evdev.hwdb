@@ -117,3 +117,12 @@ evdev:name:Atmel maXTouch Touch*:dmi:bvn*:bvr*:bd*:svnGOOGLE:pnSamus*
 evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO*:pn*ThinkPad*X230*
  EVDEV_ABS_01=::100
  EVDEV_ABS_36=::100
+
+#########################################
+# Dell
+#########################################
+
+# Dell Vostro 1510
+evdev:name:AlpsPS/2 ALPS GlidePoint*:dmi:bvn*:bvr*:bd*:svnDellInc.:pnVostro1510*
+ EVDEV_ABS_00=::14
+ EVDEV_ABS_01=::18
