@@ -73,13 +73,8 @@ static void bus_close_fds(sd_bus *b) {
 
         detach_io_events(b);
 
-        if (b->input_fd >= 0)
-                safe_close(b->input_fd);
-
-        if (b->output_fd >= 0 && b->output_fd != b->input_fd)
-                safe_close(b->output_fd);
-
-        b->input_fd = b->output_fd = -1;
+        b->input_fd = safe_close(b->input_fd);
+        b->output_fd = safe_close(b->output_fd);
 }
 
 static void bus_reset_queues(sd_bus *b) {
@@ -88,15 +83,13 @@ static void bus_reset_queues(sd_bus *b) {
         while (b->rqueue_size > 0)
                 sd_bus_message_unref(b->rqueue[--b->rqueue_size]);
 
-        free(b->rqueue);
-        b->rqueue = NULL;
+        b->rqueue = mfree(b->rqueue);
         b->rqueue_allocated = 0;
 
         while (b->wqueue_size > 0)
                 sd_bus_message_unref(b->wqueue[--b->wqueue_size]);
 
-        free(b->wqueue);
-        b->wqueue = NULL;
+        b->wqueue = mfree(b->wqueue);
         b->wqueue_allocated = 0;
 }
 
