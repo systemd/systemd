@@ -945,19 +945,13 @@ int sd_dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
         }
 
         if (client_id_hex) {
-                if (strlen(client_id_hex) % 2)
-                        return -EINVAL;
-
-                r = unhexmem(client_id_hex, strlen(client_id_hex), (void**) &lease->client_id, &lease->client_id_len);
+                r = deserialize_dhcp_option(&lease->client_id, &lease->client_id_len, client_id_hex);
                 if (r < 0)
                         return r;
         }
 
         if (vendor_specific_hex) {
-                if (strlen(vendor_specific_hex) % 2)
-                        return -EINVAL;
-
-                r = unhexmem(vendor_specific_hex, strlen(vendor_specific_hex), (void**) &lease->vendor_specific, &lease->vendor_specific_len);
+                r = deserialize_dhcp_option(&lease->vendor_specific, &lease->vendor_specific_len, vendor_specific_hex);
                 if (r < 0)
                         return r;
         }
