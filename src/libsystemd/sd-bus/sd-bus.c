@@ -902,15 +902,11 @@ static void bus_reset_parsed_address(sd_bus *b) {
 
         zero(b->sockaddr);
         b->sockaddr_size = 0;
-        strv_free(b->exec_argv);
-        free(b->exec_path);
-        b->exec_path = NULL;
-        b->exec_argv = NULL;
+        b->exec_argv = strv_free(b->exec_argv);
+        b->exec_path = mfree(b->exec_path);
         b->server_id = SD_ID128_NULL;
-        free(b->kernel);
-        b->kernel = NULL;
-        free(b->machine);
-        b->machine = NULL;
+        b->kernel = mfree(b->kernel);
+        b->machine = mfree(b->machine);
         b->nspid = 0;
 }
 
