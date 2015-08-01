@@ -73,13 +73,8 @@ static void bus_close_fds(sd_bus *b) {
 
         detach_io_events(b);
 
-        if (b->input_fd >= 0)
-                safe_close(b->input_fd);
-
-        if (b->output_fd >= 0 && b->output_fd != b->input_fd)
-                safe_close(b->output_fd);
-
-        b->input_fd = b->output_fd = -1;
+        b->input_fd = safe_close(b->input_fd);
+        b->output_fd = safe_close(b->output_fd);
 }
 
 static void bus_reset_queues(sd_bus *b) {
