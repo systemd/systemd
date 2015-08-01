@@ -1561,14 +1561,17 @@ int server_init(Server *s) {
                 }
         }
 
-        r = server_open_stdout_socket(s, fds);
-        if (r < 0)
-                return r;
+        /* Try to restore streams, but don't bother if this fails */
+        (void) server_restore_streams(s, fds);
 
         if (fdset_size(fds) > 0) {
                 log_warning("%u unknown file descriptors passed, closing.", fdset_size(fds));
                 fds = fdset_free(fds);
         }
+
+        r = server_open_stdout_socket(s);
+        if (r < 0)
+                return r;
 
         r = server_open_syslog_socket(s);
         if (r < 0)

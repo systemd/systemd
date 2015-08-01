@@ -629,7 +629,7 @@ static int stdout_stream_restore(Server *s, const char *fname, int fd) {
         return 0;
 }
 
-static int server_restore_streams(Server *s, FDSet *fds) {
+int server_restore_streams(Server *s, FDSet *fds) {
         _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
         int r;
@@ -683,7 +683,7 @@ fail:
         return log_error_errno(errno, "Failed to read streams directory: %m");
 }
 
-int server_open_stdout_socket(Server *s, FDSet *fds) {
+int server_open_stdout_socket(Server *s) {
         int r;
 
         assert(s);
@@ -718,9 +718,6 @@ int server_open_stdout_socket(Server *s, FDSet *fds) {
         r = sd_event_source_set_priority(s->stdout_event_source, SD_EVENT_PRIORITY_NORMAL+10);
         if (r < 0)
                 return log_error_errno(r, "Failed to adjust priority of stdout server event source: %m");
-
-        /* Try to restore streams, but don't bother if this fails */
-        (void) server_restore_streams(s, fds);
 
         return 0;
 }
