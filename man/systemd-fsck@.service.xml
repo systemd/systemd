@@ -61,7 +61,7 @@
     responsible for file system checks. They are instantiated for each
     device that is configured for file system checking.
     <filename>systemd-fsck-root.service</filename> is responsible for
-    file system checks on the root file system, but in only if the
+    file system checks on the root file system, but only if the
     root filesystem wasn't checked in the initramfs.
     <filename>systemd-fsck@.service</filename> is used for all other
     file systems and for the root file system in the initramfs.</para>
