@@ -1453,6 +1453,7 @@ static int server_open_hostname(Server *s) {
 int server_init(Server *s) {
         _cleanup_fdset_free_ FDSet *fds = NULL;
         int n, r, fd;
+        bool no_sockets;
 
         assert(s);
 
@@ -1569,6 +1570,9 @@ int server_init(Server *s) {
                 fds = fdset_free(fds);
         }
 
+        no_sockets = s->native_fd < 0 && s->stdout_fd < 0 && s->syslog_fd < 0 && s->audit_fd < 0;
+
+        /* always open stdout, syslog, native, and kmsg sockets */
         r = server_open_stdout_socket(s);
         if (r < 0)
                 return r;
@@ -1585,9 +1589,12 @@ int server_init(Server *s) {
         if (r < 0)
                 return r;
 
-        r = server_open_audit(s);
-        if (r < 0)
-                return r;
+        /* Unless we got *some* sockets and not audit, open audit socket */
+        if (s->audit_fd >= 0 || no_sockets) {
+                r = server_open_audit(s);
+                if (r < 0)
+                        return r;
+        }
 
         r = server_open_kernel_seqnum(s);
         if (r < 0)
