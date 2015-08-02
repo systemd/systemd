@@ -757,7 +757,7 @@ static int print_property(const char *name, sd_bus_message *m, const char *conte
                 break;
         }
 
-        r = bus_print_property(name, m, arg_all);
+        r = bus_print_property(name, m, false, arg_all);
         if (r < 0)
                 return bus_log_parse_error(r);
 

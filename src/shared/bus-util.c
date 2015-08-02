@@ -712,7 +712,15 @@ int bus_connect_user_systemd(sd_bus **_bus) {
         return 0;
 }
 
-int bus_print_property(const char *name, sd_bus_message *property, bool all) {
+#define print_property(name, fmt, ...)                                  \
+        do {                                                            \
+                if (value)                                              \
+                        printf(fmt "\n", __VA_ARGS__);                  \
+                else                                                    \
+                        printf("%s=" fmt "\n", name, __VA_ARGS__);      \
+        } while(0)
+
+int bus_print_property(const char *name, sd_bus_message *property, bool value, bool all) {
         char type;
         const char *contents;
         int r;
@@ -740,7 +748,7 @@ int bus_print_property(const char *name, sd_bus_message *property, bool all) {
                         if (!escaped)
                                 return -ENOMEM;
 
-                        printf("%s=%s\n", name, escaped);
+                        print_property(name, "%s", escaped);
                 }
 
                 return 1;
@@ -753,7 +761,7 @@ int bus_print_property(const char *name, sd_bus_message *property, bool all) {
                 if (r < 0)
                         return r;
 
-                printf("%s=%s\n", name, yes_no(b));
+                print_property(name, "%s", yes_no(b));
 
                 return 1;
         }
@@ -773,14 +781,14 @@ int bus_print_property(const char *name, sd_bus_message *property, bool all) {
 
                         t = format_timestamp(timestamp, sizeof(timestamp), u);
                         if (t || all)
-                                printf("%s=%s\n", name, strempty(t));
+                                print_property(name, "%s", strempty(t));
 
                 } else if (strstr(name, "USec")) {
                         char timespan[FORMAT_TIMESPAN_MAX];
 
-                        printf("%s=%s\n", name, format_timespan(timespan, sizeof(timespan), u, 0));
+                        print_property(name, "%s", format_timespan(timespan, sizeof(timespan), u, 0));
                 } else
-                        printf("%s=%llu\n", name, (unsigned long long) u);
+                        print_property(name, "%"PRIu64, u);
 
                 return 1;
         }
@@ -792,7 +800,7 @@ int bus_print_property(const char *name, sd_bus_message *property, bool all) {
                 if (r < 0)
                         return r;
 
-                printf("%s=%lld\n", name, (long long) i);
+                print_property(name, "%"PRIi64, i);
 
                 return 1;
         }
@@ -805,9 +813,9 @@ int bus_print_property(const char *name, sd_bus_message *property, bool all) {
                         return r;
 
                 if (strstr(name, "UMask") || strstr(name, "Mode"))
-                        printf("%s=%04o\n", name, u);
+                        print_property(name, "%04o", u);
                 else
-                        printf("%s=%u\n", name, (unsigned) u);
+                        print_property(name, "%"PRIu32, u);
 
                 return 1;
         }
@@ -819,7 +827,7 @@ int bus_print_property(const char *name, sd_bus_message *property, bool all) {
                 if (r < 0)
                         return r;
 
-                printf("%s=%i\n", name, (int) i);
+                print_property(name, "%"PRIi32, i);
                 return 1;
         }
 
@@ -830,7 +838,7 @@ int bus_print_property(const char *name, sd_bus_message *property, bool all) {
                 if (r < 0)
                         return r;
 
-                printf("%s=%g\n", name, d);
+                print_property(name, "%g", d);
                 return 1;
         }
 
@@ -846,7 +854,7 @@ int bus_print_property(const char *name, sd_bus_message *property, bool all) {
                         while ((r = sd_bus_message_read_basic(property, SD_BUS_TYPE_STRING, &str)) > 0) {
                                 _cleanup_free_ char *escaped = NULL;
 
-                                if (first)
+                                if (first && !value)
                                         printf("%s=", name);
 
                                 escaped = xescape(str, "\n ");
@@ -860,7 +868,7 @@ int bus_print_property(const char *name, sd_bus_message *property, bool all) {
                         if (r < 0)
                                 return r;
 
-                        if (first && all)
+                        if (first && all && !value)
                                 printf("%s=", name);
                         if (!first || all)
                                 puts("");
@@ -882,7 +890,8 @@ int bus_print_property(const char *name, sd_bus_message *property, bool all) {
                         if (all || n > 0) {
                                 unsigned int i;
 
-                                printf("%s=", name);
+                                if (!value)
+                                        printf("%s=", name);
 
                                 for (i = 0; i < n; i++)
                                         printf("%02x", u[i]);
@@ -903,7 +912,8 @@ int bus_print_property(const char *name, sd_bus_message *property, bool all) {
                         if (all || n > 0) {
                                 unsigned int i;
 
-                                printf("%s=", name);
+                                if (!value)
+                                        printf("%s=", name);
 
                                 for (i = 0; i < n; i++)
                                         printf("%08x", u[i]);
@@ -960,7 +970,7 @@ int bus_print_all_properties(sd_bus *bus, const char *dest, const char *path, ch
                         if (r < 0)
                                 return r;
 
-                        r = bus_print_property(name, reply, all);
+                        r = bus_print_property(name, reply, false, all);
                         if (r < 0)
                                 return r;
                         if (r == 0) {

@@ -103,6 +103,7 @@ static bool arg_no_pager = false;
 static bool arg_no_wtmp = false;
 static bool arg_no_wall = false;
 static bool arg_no_reload = false;
+static bool arg_value = false;
 static bool arg_show_types = false;
 static bool arg_ignore_inhibitors = false;
 static bool arg_dry = false;
@@ -4111,6 +4112,14 @@ skip:
         return 0;
 }
 
+#define print_prop(name, fmt, ...)                                      \
+        do {                                                            \
+                if (arg_value)                                          \
+                        printf(fmt "\n", __VA_ARGS__);                  \
+                else                                                    \
+                        printf("%s=" fmt "\n", name, __VA_ARGS__);      \
+        } while(0)
+
 static int print_property(const char *name, sd_bus_message *m, const char *contents) {
         int r;
 
@@ -4138,9 +4147,9 @@ static int print_property(const char *name, sd_bus_message *m, const char *conte
                                 return bus_log_parse_error(r);
 
                         if (u > 0)
-                                printf("%s=%"PRIu32"\n", name, u);
+                                print_prop(name, "%"PRIu32, u);
                         else if (arg_all)
-                                printf("%s=\n", name);
+                                print_prop(name, "%s", "");
 
                         return 0;
 
@@ -4152,7 +4161,7 @@ static int print_property(const char *name, sd_bus_message *m, const char *conte
                                 return bus_log_parse_error(r);
 
                         if (arg_all || !isempty(s))
-                                printf("%s=%s\n", name, s);
+                                print_prop(name, "%s", s);
 
                         return 0;
 
@@ -4164,7 +4173,7 @@ static int print_property(const char *name, sd_bus_message *m, const char *conte
                                 return bus_log_parse_error(r);
 
                         if (arg_all || !isempty(a) || !isempty(b))
-                                printf("%s=%s \"%s\"\n", name, strempty(a), strempty(b));
+                                print_prop(name, "%s \"%s\"", strempty(a), strempty(b));
 
                         return 0;
                 } else if (streq_ptr(name, "SystemCallFilter")) {
@@ -4191,8 +4200,10 @@ static int print_property(const char *name, sd_bus_message *m, const char *conte
                                 bool first = true;
                                 char **i;
 
-                                fputs(name, stdout);
-                                fputc('=', stdout);
+                                if (!arg_value) {
+                                        fputs(name, stdout);
+                                        fputc('=', stdout);
+                                }
 
                                 if (!whitelist)
                                         fputc('~', stdout);
@@ -4224,7 +4235,7 @@ static int print_property(const char *name, sd_bus_message *m, const char *conte
                                 return bus_log_parse_error(r);
 
                         while ((r = sd_bus_message_read(m, "(sb)", &path, &ignore)) > 0)
-                                printf("EnvironmentFile=%s (ignore_errors=%s)\n", path, yes_no(ignore));
+                                print_prop("EnvironmentFile", "%s (ignore_errors=%s)\n", path, yes_no(ignore));
 
                         if (r < 0)
                                 return bus_log_parse_error(r);
@@ -4243,7 +4254,7 @@ static int print_property(const char *name, sd_bus_message *m, const char *conte
                                 return bus_log_parse_error(r);
 
                         while ((r = sd_bus_message_read(m, "(ss)", &type, &path)) > 0)
-                                printf("%s=%s\n", type, path);
+                                print_prop(type, "%s", path);
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
@@ -4261,7 +4272,10 @@ static int print_property(const char *name, sd_bus_message *m, const char *conte
                                 return bus_log_parse_error(r);
 
                         while ((r = sd_bus_message_read(m, "(ss)", &type, &path)) > 0)
-                                printf("Listen%s=%s\n", type, path);
+                                if (arg_value)
+                                        puts(path);
+                                else
+                                        printf("Listen%s=%s\n", type, path);
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
@@ -4282,10 +4296,9 @@ static int print_property(const char *name, sd_bus_message *m, const char *conte
                         while ((r = sd_bus_message_read(m, "(stt)", &base, &value, &next_elapse)) > 0) {
                                 char timespan1[FORMAT_TIMESPAN_MAX], timespan2[FORMAT_TIMESPAN_MAX];
 
-                                printf("%s={ value=%s ; next_elapse=%s }\n",
-                                       base,
-                                       format_timespan(timespan1, sizeof(timespan1), value, 0),
-                                       format_timespan(timespan2, sizeof(timespan2), next_elapse, 0));
+                                print_prop(base, "{ value=%s ; next_elapse=%s }",
+                                           format_timespan(timespan1, sizeof(timespan1), value, 0),
+                                           format_timespan(timespan2, sizeof(timespan2), next_elapse, 0));
                         }
                         if (r < 0)
                                 return bus_log_parse_error(r);
@@ -4309,18 +4322,18 @@ static int print_property(const char *name, sd_bus_message *m, const char *conte
 
                                 tt = strv_join(info.argv, " ");
 
-                                printf("%s={ path=%s ; argv[]=%s ; ignore_errors=%s ; start_time=[%s] ; stop_time=[%s] ; pid="PID_FMT" ; code=%s ; status=%i%s%s }\n",
-                                       name,
-                                       strna(info.path),
-                                       strna(tt),
-                                       yes_no(info.ignore),
-                                       strna(format_timestamp(timestamp1, sizeof(timestamp1), info.start_timestamp)),
-                                       strna(format_timestamp(timestamp2, sizeof(timestamp2), info.exit_timestamp)),
-                                       info.pid,
-                                       sigchld_code_to_string(info.code),
-                                       info.status,
-                                       info.code == CLD_EXITED ? "" : "/",
-                                       strempty(info.code == CLD_EXITED ? NULL : signal_to_string(info.status)));
+                                print_prop(name,
+                                           "{ path=%s ; argv[]=%s ; ignore_errors=%s ; start_time=[%s] ; stop_time=[%s] ; pid="PID_FMT" ; code=%s ; status=%i%s%s }",
+                                           strna(info.path),
+                                           strna(tt),
+                                           yes_no(info.ignore),
+                                           strna(format_timestamp(timestamp1, sizeof(timestamp1), info.start_timestamp)),
+                                           strna(format_timestamp(timestamp2, sizeof(timestamp2), info.exit_timestamp)),
+                                           info.pid,
+                                           sigchld_code_to_string(info.code),
+                                           info.status,
+                                           info.code == CLD_EXITED ? "" : "/",
+                                           strempty(info.code == CLD_EXITED ? NULL : signal_to_string(info.status)));
 
                                 free(info.path);
                                 strv_free(info.argv);
@@ -4341,7 +4354,7 @@ static int print_property(const char *name, sd_bus_message *m, const char *conte
                                 return bus_log_parse_error(r);
 
                         while ((r = sd_bus_message_read(m, "(ss)", &path, &rwm)) > 0)
-                                printf("%s=%s %s\n", name, strna(path), strna(rwm));
+                                print_prop(name, "%s %s", strna(path), strna(rwm));
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
@@ -4360,7 +4373,7 @@ static int print_property(const char *name, sd_bus_message *m, const char *conte
                                 return bus_log_parse_error(r);
 
                         while ((r = sd_bus_message_read(m, "(st)", &path, &weight)) > 0)
-                                printf("%s=%s %" PRIu64 "\n", name, strna(path), weight);
+                                print_prop(name, "%s %"PRIu64, strna(path), weight);
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
@@ -4379,7 +4392,7 @@ static int print_property(const char *name, sd_bus_message *m, const char *conte
                                 return bus_log_parse_error(r);
 
                         while ((r = sd_bus_message_read(m, "(st)", &path, &bandwidth)) > 0)
-                                printf("%s=%s %" PRIu64 "\n", name, strna(path), bandwidth);
+                                print_prop(name, "%s %"PRIu64, strna(path), bandwidth);
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
@@ -4393,7 +4406,7 @@ static int print_property(const char *name, sd_bus_message *m, const char *conte
                 break;
         }
 
-        r = bus_print_property(name, m, arg_all);
+        r = bus_print_property(name, m, arg_value, arg_all);
         if (r < 0)
                 return bus_log_parse_error(r);
 
@@ -6238,6 +6251,7 @@ static void systemctl_help(void) {
                "     --job-mode=MODE  Specify how to deal with already queued jobs, when\n"
                "                      queueing a new job\n"
                "     --show-types     When showing sockets, explicitly show their type\n"
+               "     --value          When showing properties, only print the value\n"
                "  -i --ignore-inhibitors\n"
                "                      When shutting down or sleeping, ignore inhibitors\n"
                "     --kill-who=WHO   Who to send signal to\n"
@@ -6489,6 +6503,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_SHOW_TYPES,
                 ARG_IRREVERSIBLE,
                 ARG_IGNORE_DEPENDENCIES,
+                ARG_VALUE,
                 ARG_VERSION,
                 ARG_USER,
                 ARG_SYSTEM,
@@ -6530,6 +6545,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "irreversible",        no_argument,       NULL, ARG_IRREVERSIBLE        }, /* compatibility only */
                 { "ignore-dependencies", no_argument,       NULL, ARG_IGNORE_DEPENDENCIES }, /* compatibility only */
                 { "ignore-inhibitors",   no_argument,       NULL, 'i'                     },
+                { "value",               no_argument,       NULL, ARG_VALUE               },
                 { "user",                no_argument,       NULL, ARG_USER                },
                 { "system",              no_argument,       NULL, ARG_SYSTEM              },
                 { "global",              no_argument,       NULL, ARG_GLOBAL              },
@@ -6679,6 +6695,10 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                 case ARG_SHOW_TYPES:
                         arg_show_types = true;
+                        break;
+
+                case ARG_VALUE:
+                        arg_value = true;
                         break;
 
                 case ARG_JOB_MODE:
