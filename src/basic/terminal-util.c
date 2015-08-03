@@ -44,7 +44,7 @@ static volatile unsigned cached_lines = 0;
 int chvt(int vt) {
         _cleanup_close_ int fd;
 
-        fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY|O_CLOEXEC);
+        fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
         if (fd < 0)
                 return -errno;
 
@@ -230,14 +230,14 @@ int reset_terminal_fd(int fd, bool switch_to_text) {
          * interfere with that. */
 
         /* Disable exclusive mode, just in case */
-        ioctl(fd, TIOCNXCL);
+        (void) ioctl(fd, TIOCNXCL);
 
         /* Switch to text mode */
         if (switch_to_text)
-                ioctl(fd, KDSETMODE, KD_TEXT);
+                (void) ioctl(fd, KDSETMODE, KD_TEXT);
 
         /* Enable console unicode mode */
-        ioctl(fd, KDSKBMODE, K_UNICODE);
+        (void) ioctl(fd, KDSKBMODE, K_UNICODE);
 
         if (tcgetattr(fd, &termios) < 0) {
                 r = -errno;
@@ -276,7 +276,7 @@ int reset_terminal_fd(int fd, bool switch_to_text) {
 
 finish:
         /* Just in case, flush all crap out */
-        tcflush(fd, TCIOFLUSH);
+        (void) tcflush(fd, TCIOFLUSH);
 
         return r;
 }
@@ -284,7 +284,11 @@ finish:
 int reset_terminal(const char *name) {
         _cleanup_close_ int fd = -1;
 
-        fd = open_terminal(name, O_RDWR|O_NOCTTY|O_CLOEXEC);
+        /* We open the terminal with O_NONBLOCK here, to ensure we
+         * don't block on carrier if this is a terminal with carrier
+         * configured. */
+
+        fd = open_terminal(name, O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
         if (fd < 0)
                 return fd;
 
@@ -304,7 +308,8 @@ int open_terminal(const char *name, int mode) {
          * https://bugs.launchpad.net/ubuntu/+source/linux/+bug/554172/comments/245
          */
 
-        assert(!(mode & O_CREAT));
+        if (mode & O_CREAT)
+                return -EINVAL;
 
         for (;;) {
                 fd = open(name, mode, 0);
@@ -413,9 +418,8 @@ int acquire_terminal(
                 if (r < 0 && r == -EPERM && ignore_tiocstty_eperm)
                         r = 0;
 
-                if (r < 0 && (force || fail || r != -EPERM)) {
+                if (r < 0 && (force || fail || r != -EPERM))
                         goto fail;
-                }
 
                 if (r >= 0)
                         break;
@@ -499,7 +503,7 @@ int release_terminal(void) {
         struct sigaction sa_old;
         int r = 0;
 
-        fd = open("/dev/tty", O_RDWR|O_NOCTTY|O_NDELAY|O_CLOEXEC);
+        fd = open("/dev/tty", O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
         if (fd < 0)
                 return -errno;
 
@@ -527,7 +531,7 @@ int terminal_vhangup_fd(int fd) {
 int terminal_vhangup(const char *name) {
         _cleanup_close_ int fd;
 
-        fd = open_terminal(name, O_RDWR|O_NOCTTY|O_CLOEXEC);
+        fd = open_terminal(name, O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
         if (fd < 0)
                 return fd;
 
@@ -574,7 +578,7 @@ int vt_disallocate(const char *name) {
                 return -EINVAL;
 
         /* Try to deallocate */
-        fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY|O_CLOEXEC);
+        fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
         if (fd < 0)
                 return fd;
 
@@ -612,16 +616,16 @@ void warn_melody(void) {
 
         /* Yeah, this is synchronous. Kinda sucks. But well... */
 
-        ioctl(fd, KIOCSOUND, (int)(1193180/440));
+        (void) ioctl(fd, KIOCSOUND, (int)(1193180/440));
         usleep(125*USEC_PER_MSEC);
 
-        ioctl(fd, KIOCSOUND, (int)(1193180/220));
+        (void) ioctl(fd, KIOCSOUND, (int)(1193180/220));
         usleep(125*USEC_PER_MSEC);
 
-        ioctl(fd, KIOCSOUND, (int)(1193180/220));
+        (void) ioctl(fd, KIOCSOUND, (int)(1193180/220));
         usleep(125*USEC_PER_MSEC);
 
-        ioctl(fd, KIOCSOUND, 0);
+        (void) ioctl(fd, KIOCSOUND, 0);
 }
 
 int make_console_stdio(void) {
