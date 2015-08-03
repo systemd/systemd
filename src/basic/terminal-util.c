@@ -308,7 +308,8 @@ int open_terminal(const char *name, int mode) {
          * https://bugs.launchpad.net/ubuntu/+source/linux/+bug/554172/comments/245
          */
 
-        assert(!(mode & O_CREAT));
+        if (mode & O_CREAT)
+                return -EINVAL;
 
         for (;;) {
                 fd = open(name, mode, 0);
