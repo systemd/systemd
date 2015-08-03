@@ -468,7 +468,7 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
         }
 
         if (link->network->dhcp_hostname) {
-                const char *hostname;
+                const char *hostname = NULL;
 
                 if (!link->network->hostname)
                         r = sd_dhcp_lease_get_hostname(lease, &hostname);
