@@ -372,9 +372,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                 }
         }
 
-        r = sd_event_now(t->scope->manager->event, clock_boottime_or_monotonic(), &ts);
-        if (r < 0)
-                ts = now(clock_boottime_or_monotonic());
+        assert_se(sd_event_now(t->scope->manager->event, clock_boottime_or_monotonic(), &ts) >= 0);
 
         switch (t->scope->protocol) {
         case DNS_PROTOCOL_DNS:
@@ -602,9 +600,7 @@ int dns_transaction_go(DnsTransaction *t) {
                 return 0;
         }
 
-        r = sd_event_now(t->scope->manager->event, clock_boottime_or_monotonic(), &ts);
-        if (r < 0)
-                ts = now(clock_boottime_or_monotonic());
+        assert_se(sd_event_now(t->scope->manager->event, clock_boottime_or_monotonic(), &ts) >= 0);
 
         t->n_attempts++;
         t->start_usec = ts;

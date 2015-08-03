@@ -261,7 +261,6 @@ static int on_event_timeout_warning(sd_event_source *s, uint64_t usec, void *use
 static void worker_attach_event(struct worker *worker, struct event *event) {
         sd_event *e;
         uint64_t usec;
-        int r;
 
         assert(worker);
         assert(worker->manager);
@@ -276,9 +275,7 @@ static void worker_attach_event(struct worker *worker, struct event *event) {
 
         e = worker->manager->event;
 
-        r = sd_event_now(e, clock_boottime_or_monotonic(), &usec);
-        if (r < 0)
-                return;
+        assert_se(sd_event_now(e, clock_boottime_or_monotonic(), &usec) >= 0);
 
         (void) sd_event_add_time(e, &event->timeout_warning, clock_boottime_or_monotonic(),
                                  usec + arg_event_timeout_warn_usec, USEC_PER_SEC, on_event_timeout_warning, event);
@@ -749,9 +746,7 @@ static void manager_exit(Manager *manager) {
         event_queue_cleanup(manager, EVENT_QUEUED);
         manager_kill_workers(manager);
 
-        r = sd_event_now(manager->event, clock_boottime_or_monotonic(), &usec);
-        if (r < 0)
-                return;
+        assert_se(sd_event_now(manager->event, clock_boottime_or_monotonic(), &usec) >= 0);
 
         r = sd_event_add_time(manager->event, NULL, clock_boottime_or_monotonic(),
                               usec + 30 * USEC_PER_SEC, USEC_PER_SEC, on_exit_timeout, manager);
@@ -780,7 +775,6 @@ static void manager_reload(Manager *manager) {
 static void event_queue_start(Manager *manager) {
         struct udev_list_node *loop;
         usec_t usec;
-        int r;
 
         assert(manager);
 
@@ -788,17 +782,15 @@ static void event_queue_start(Manager *manager) {
             manager->exit || manager->stop_exec_queue)
                 return;
 
-        r = sd_event_now(manager->event, clock_boottime_or_monotonic(), &usec);
-        if (r >= 0) {
-                /* check for changed config, every 3 seconds at most */
-                if (manager->last_usec == 0 ||
-                    (usec - manager->last_usec) > 3 * USEC_PER_SEC) {
-                        if (udev_rules_check_timestamp(manager->rules) ||
-                            udev_builtin_validate(manager->udev))
-                                manager_reload(manager);
+        assert_se(sd_event_now(manager->event, clock_boottime_or_monotonic(), &usec) >= 0);
+        /* check for changed config, every 3 seconds at most */
+        if (manager->last_usec == 0 ||
+            (usec - manager->last_usec) > 3 * USEC_PER_SEC) {
+                if (udev_rules_check_timestamp(manager->rules) ||
+                    udev_builtin_validate(manager->udev))
+                        manager_reload(manager);
 
-                        manager->last_usec = usec;
-                }
+                manager->last_usec = usec;
         }
 
         udev_builtin_init(manager->udev);
