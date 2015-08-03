@@ -392,7 +392,7 @@ static void lldp_mib_delete_objects(sd_lldp *lldp) {
                         break;
 
                 if (t <= 0)
-                        t = now(CLOCK_BOOTTIME);
+                        t = now(clock_boottime_or_monotonic());
 
                 if (p->until > t)
                         break;
@@ -490,7 +490,7 @@ int sd_lldp_save(sd_lldp *lldp, const char *lldp_file) {
                         free(s);
                         s = k;
 
-                        time = now(CLOCK_BOOTTIME);
+                        time = now(clock_boottime_or_monotonic());
 
                         /* Don't write expired packets */
                         if (time - p->until <= 0)
