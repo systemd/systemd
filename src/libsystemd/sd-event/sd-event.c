@@ -2572,9 +2572,12 @@ _public_ int sd_event_now(sd_event *e, clockid_t clock, uint64_t *usec) {
         assert_return(usec, -EINVAL);
         assert_return(!event_pid_changed(e), -ECHILD);
 
-        /* If we haven't run yet, just get the actual time */
-        if (!dual_timestamp_is_set(&e->timestamp))
-                return -ENODATA;
+        if (!dual_timestamp_is_set(&e->timestamp)) {
+                /* Implicitly fall back to now() if we never ran
+                 * before and thus have no cached time. */
+                *usec = now(clock);
+                return 1;
+        }
 
         switch (clock) {
 

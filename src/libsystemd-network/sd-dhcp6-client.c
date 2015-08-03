@@ -975,14 +975,9 @@ static int client_start(sd_dhcp6_client *client, enum DHCP6State state)
         client->retransmit_time = 0;
         client->retransmit_count = 0;
 
-        if (client->state == DHCP6_STATE_STOPPED) {
-                time_now = now(clock_boottime_or_monotonic());
-        } else {
-                r = sd_event_now(client->event, clock_boottime_or_monotonic(),
-                                 &time_now);
-                if (r < 0)
-                        return r;
-        }
+        r = sd_event_now(client->event, clock_boottime_or_monotonic(), &time_now);
+        if (r < 0)
+                return r;
 
         switch (state) {
         case DHCP6_STATE_STOPPED:

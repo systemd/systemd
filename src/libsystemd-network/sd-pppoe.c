@@ -346,9 +346,7 @@ static int pppoe_arm_timeout(sd_pppoe *ppp) {
         assert(ppp);
 
         r = sd_event_now(ppp->event, clock_boottime_or_monotonic(), &next_timeout);
-        if (r == -ENODATA)
-                next_timeout = now(clock_boottime_or_monotonic());
-        else if (r < 0)
+        if (r < 0)
                 return r;
 
         next_timeout += 500 * USEC_PER_MSEC;

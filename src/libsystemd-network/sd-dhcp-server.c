@@ -797,7 +797,7 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
                                          clock_boottime_or_monotonic(),
                                          &time_now);
                         if (r < 0)
-                                time_now = now(clock_boottime_or_monotonic());
+                                return r;
                         lease->expiration = req->lifetime * USEC_PER_SEC + time_now;
 
                         r = server_send_ack(server, req, address);
