@@ -34,6 +34,10 @@
 #define MULTICAST_RATELIMIT_INTERVAL_USEC (1*USEC_PER_SEC)
 #define MULTICAST_RATELIMIT_BURST 1000
 
+/* After how much time to repeat LLMNR requests, see RFC 4795 Section 7 */
+#define MULTICAST_RESEND_TIMEOUT_MIN_USEC (100 * USEC_PER_MSEC)
+#define MULTICAST_RESEND_TIMEOUT_MAX_USEC (1 * USEC_PER_SEC)
+
 int dns_scope_new(Manager *m, DnsScope **ret, Link *l, DnsProtocol protocol, int family) {
         DnsScope *s;
 
@@ -48,6 +52,7 @@ int dns_scope_new(Manager *m, DnsScope **ret, Link *l, DnsProtocol protocol, int
         s->link = l;
         s->protocol = protocol;
         s->family = family;
+        s->resend_timeout = MULTICAST_RESEND_TIMEOUT_MIN_USEC;
 
         LIST_PREPEND(scopes, m->dns_scopes, s);
 
@@ -123,6 +128,23 @@ void dns_scope_next_dns_server(DnsScope *s) {
                 link_next_dns_server(s->link);
         else
                 manager_next_dns_server(s->manager);
+}
+
+void dns_scope_packet_received(DnsScope *s, usec_t rtt) {
+        assert(s);
+
+        if (rtt > s->max_rtt) {
+                s->max_rtt = rtt;
+                s->resend_timeout = MIN(MAX(MULTICAST_RESEND_TIMEOUT_MIN_USEC, s->max_rtt * 2),
+                                        MULTICAST_RESEND_TIMEOUT_MAX_USEC);
+        }
+}
+
+void dns_scope_packet_lost(DnsScope *s, usec_t usec) {
+        assert(s);
+
+        if (s->resend_timeout <= usec)
+                s->resend_timeout = MIN(s->resend_timeout * 2, MULTICAST_RESEND_TIMEOUT_MAX_USEC);
 }
 
 int dns_scope_emit(DnsScope *s, int fd, DnsPacket *p) {

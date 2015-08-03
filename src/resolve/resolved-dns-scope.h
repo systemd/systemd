@@ -57,6 +57,9 @@ struct DnsScope {
 
         RateLimit ratelimit;
 
+        usec_t resend_timeout;
+        usec_t max_rtt;
+
         LIST_HEAD(DnsTransaction, transactions);
 
         LIST_FIELDS(DnsScope, scopes);
@@ -64,6 +67,9 @@ struct DnsScope {
 
 int dns_scope_new(Manager *m, DnsScope **ret, Link *l, DnsProtocol p, int family);
 DnsScope* dns_scope_free(DnsScope *s);
+
+void dns_scope_packet_received(DnsScope *s, usec_t rtt);
+void dns_scope_packet_lost(DnsScope *s, usec_t usec);
 
 int dns_scope_emit(DnsScope *s, int fd, DnsPacket *p);
 int dns_scope_tcp_socket(DnsScope *s, int family, const union in_addr_union *address, uint16_t port, DnsServer **server);
