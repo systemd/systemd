@@ -100,7 +100,7 @@ DnsTransactionState dns_transaction_state_from_string(const char *s) _pure_;
 #define LLMNR_JITTER_INTERVAL_USEC (100 * USEC_PER_MSEC)
 
 /* Maximum attempts to send DNS requests, across all DNS servers */
-#define DNS_TRANSACTION_ATTEMPTS_MAX 8
+#define DNS_TRANSACTION_ATTEMPTS_MAX 16
 
 /* Maximum attempts to send LLMNR requests, see RFC 4795 Section 2.7 */
 #define LLMNR_TRANSACTION_ATTEMPTS_MAX 3
