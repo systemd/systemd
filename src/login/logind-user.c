@@ -383,6 +383,26 @@ fail:
         return r;
 }
 
+static int user_symlink_runtime_path(User *u) {
+        _cleanup_free_ char *p = NULL;
+        int r;
+
+        assert(u);
+        assert(u->runtime_path);
+
+        if (asprintf(&p, "/run/user/%s", u->name) < 0)
+                 return log_oom();
+
+        if (is_symlink(p))
+                return 0;
+
+        r = symlink(u->runtime_path, p);
+        if (r < 0)
+                log_warning_errno(r, "Failed to symlink '%s'", p);
+
+        return r;
+}
+
 static int user_start_slice(User *u) {
         char *job;
         int r;
@@ -461,6 +481,11 @@ int user_start(User *u) {
 
         /* Make XDG_RUNTIME_DIR */
         r = user_mkdir_runtime_path(u);
+        if (r < 0)
+                return r;
+
+        /* symlink user name to XDG_RUNTIME_DIR */
+        r = user_symlink_runtime_path(u);
         if (r < 0)
                 return r;
 
@@ -566,6 +591,21 @@ static int user_remove_runtime_path(User *u) {
         return r;
 }
 
+static int user_remove_runtime_symlink(User *u) {
+        _cleanup_free_ char *p = NULL;
+        int r;
+
+        assert(u);
+
+        if (asprintf(&p, "/run/user/%s", u->name) < 0)
+                 return log_oom();
+
+        r = unlink(p);
+        if (r < 0)
+                log_warning_errno(r, "Failed to remove runtime symlink '%s'", p);
+
+        return r;
+}
 int user_stop(User *u, bool force) {
         Session *s;
         int r = 0, k;
@@ -617,6 +657,11 @@ int user_finalize(User *u) {
 
         /* Kill XDG_RUNTIME_DIR */
         k = user_remove_runtime_path(u);
+        if (k < 0)
+                r = k;
+
+        /* Remove runtime symlink */
+        k = user_remove_runtime_symlink(u);
         if (k < 0)
                 r = k;
 
