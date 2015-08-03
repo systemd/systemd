@@ -763,8 +763,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_ROOT_PASSWORD_FILE:
-                        free(arg_root_password);
-                        arg_root_password  = NULL;
+                        arg_root_password = mfree(arg_root_password);
 
                         r = read_one_line_file(optarg, &arg_root_password);
                         if (r < 0)

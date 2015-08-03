@@ -826,14 +826,12 @@ int cg_install_release_agent(const char *controller, const char *agent) {
         } else if (!streq(sc, agent))
                 return -EEXIST;
 
-        free(fs);
-        fs = NULL;
+        fs = mfree(fs);
         r = cg_get_path(controller, NULL, "notify_on_release", &fs);
         if (r < 0)
                 return r;
 
-        free(contents);
-        contents = NULL;
+        contents = mfree(contents);
         r = read_one_line_file(fs, &contents);
         if (r < 0)
                 return r;
@@ -865,8 +863,7 @@ int cg_uninstall_release_agent(const char *controller) {
         if (r < 0)
                 return r;
 
-        free(fs);
-        fs = NULL;
+        fs = mfree(fs);
 
         r = cg_get_path(controller, NULL, "release_agent", &fs);
         if (r < 0)
