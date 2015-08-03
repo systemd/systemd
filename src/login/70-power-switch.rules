@@ -11,5 +11,7 @@ SUBSYSTEM=="input", KERNEL=="event*", SUBSYSTEMS=="acpi", TAG+="power-switch"
 SUBSYSTEM=="input", KERNEL=="event*", KERNELS=="thinkpad_acpi", TAG+="power-switch"
 SUBSYSTEM=="input", KERNEL=="event*", ATTRS{name}=="twl4030_pwrbutton", TAG+="power-switch"
 SUBSYSTEM=="input", KERNEL=="event*", ATTRS{name}=="tps65217_pwr_but", TAG+="power-switch"
+SUBSYSTEM=="input", KERNEL=="event*", \
+  SUBSYSTEMS=="platform", DRIVERS=="gpio-keys", ATTRS{keys}=="116", TAG+="power-switch"
 
 LABEL="power_switch_end"
