@@ -44,7 +44,7 @@ static volatile unsigned cached_lines = 0;
 int chvt(int vt) {
         _cleanup_close_ int fd;
 
-        fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY|O_CLOEXEC);
+        fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
         if (fd < 0)
                 return -errno;
 
@@ -284,7 +284,11 @@ finish:
 int reset_terminal(const char *name) {
         _cleanup_close_ int fd = -1;
 
-        fd = open_terminal(name, O_RDWR|O_NOCTTY|O_CLOEXEC);
+        /* We open the terminal with O_NONBLOCK here, to ensure we
+         * don't block on carrier if this is a terminal with carrier
+         * configured. */
+
+        fd = open_terminal(name, O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
         if (fd < 0)
                 return fd;
 
@@ -499,7 +503,7 @@ int release_terminal(void) {
         struct sigaction sa_old;
         int r = 0;
 
-        fd = open("/dev/tty", O_RDWR|O_NOCTTY|O_NDELAY|O_CLOEXEC);
+        fd = open("/dev/tty", O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
         if (fd < 0)
                 return -errno;
 
@@ -527,7 +531,7 @@ int terminal_vhangup_fd(int fd) {
 int terminal_vhangup(const char *name) {
         _cleanup_close_ int fd;
 
-        fd = open_terminal(name, O_RDWR|O_NOCTTY|O_CLOEXEC);
+        fd = open_terminal(name, O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
         if (fd < 0)
                 return fd;
 
@@ -574,7 +578,7 @@ int vt_disallocate(const char *name) {
                 return -EINVAL;
 
         /* Try to deallocate */
-        fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY|O_CLOEXEC);
+        fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
         if (fd < 0)
                 return fd;
 
