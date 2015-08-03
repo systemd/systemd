@@ -230,14 +230,14 @@ int reset_terminal_fd(int fd, bool switch_to_text) {
          * interfere with that. */
 
         /* Disable exclusive mode, just in case */
-        ioctl(fd, TIOCNXCL);
+        (void) ioctl(fd, TIOCNXCL);
 
         /* Switch to text mode */
         if (switch_to_text)
-                ioctl(fd, KDSETMODE, KD_TEXT);
+                (void) ioctl(fd, KDSETMODE, KD_TEXT);
 
         /* Enable console unicode mode */
-        ioctl(fd, KDSKBMODE, K_UNICODE);
+        (void) ioctl(fd, KDSKBMODE, K_UNICODE);
 
         if (tcgetattr(fd, &termios) < 0) {
                 r = -errno;
@@ -276,7 +276,7 @@ int reset_terminal_fd(int fd, bool switch_to_text) {
 
 finish:
         /* Just in case, flush all crap out */
-        tcflush(fd, TCIOFLUSH);
+        (void) tcflush(fd, TCIOFLUSH);
 
         return r;
 }
@@ -417,9 +417,8 @@ int acquire_terminal(
                 if (r < 0 && r == -EPERM && ignore_tiocstty_eperm)
                         r = 0;
 
-                if (r < 0 && (force || fail || r != -EPERM)) {
+                if (r < 0 && (force || fail || r != -EPERM))
                         goto fail;
-                }
 
                 if (r >= 0)
                         break;
@@ -616,16 +615,16 @@ void warn_melody(void) {
 
         /* Yeah, this is synchronous. Kinda sucks. But well... */
 
-        ioctl(fd, KIOCSOUND, (int)(1193180/440));
+        (void) ioctl(fd, KIOCSOUND, (int)(1193180/440));
         usleep(125*USEC_PER_MSEC);
 
-        ioctl(fd, KIOCSOUND, (int)(1193180/220));
+        (void) ioctl(fd, KIOCSOUND, (int)(1193180/220));
         usleep(125*USEC_PER_MSEC);
 
-        ioctl(fd, KIOCSOUND, (int)(1193180/220));
+        (void) ioctl(fd, KIOCSOUND, (int)(1193180/220));
         usleep(125*USEC_PER_MSEC);
 
-        ioctl(fd, KIOCSOUND, 0);
+        (void) ioctl(fd, KIOCSOUND, 0);
 }
 
 int make_console_stdio(void) {
