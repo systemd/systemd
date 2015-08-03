@@ -367,7 +367,7 @@ int main(int argc, char *argv[]) {
                 struct timespec n;
                 double uptime;
 
-                clock_gettime(CLOCK_BOOTTIME, &n);
+                clock_gettime(clock_boottime_or_monotonic(), &n);
                 uptime = (n.tv_sec + (n.tv_nsec / (double) NSEC_PER_SEC));
 
                 log_start = gettime_ns();

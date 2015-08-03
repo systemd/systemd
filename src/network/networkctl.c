@@ -976,7 +976,7 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
                                                 return log_warning_errno(r < 0 ? r : ERANGE,
                                                                          "Failed to parse TTL \"%s\": %m", b);
 
-                                        time = now(CLOCK_BOOTTIME);
+                                        time = now(clock_boottime_or_monotonic());
                                         if (x < time)
                                                 continue;
 
