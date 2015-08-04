@@ -10,6 +10,7 @@ Description=Legacy D-Bus Protocol Compatibility Daemon
 
 [Service]
 ExecStart=@rootlibexecdir@/systemd-bus-proxyd --address=kernel:path=/sys/fs/kdbus/0-system/bus
+ExecReload=@bindir@/busctl --address=unix:path=/run/dbus/system_bus_socket call org.freedesktop.DBus /org/freedesktop/DBus org.freedesktop.DBus ReloadConfig
 NotifyAccess=main
 CapabilityBoundingSet=CAP_IPC_OWNER CAP_SETUID CAP_SETGID CAP_SETPCAP m4_ifdef(`HAVE_SMACK', CAP_MAC_ADMIN )
 PrivateTmp=yes
