@@ -977,7 +977,11 @@ static inline int raw_clone(unsigned long flags, void *child_stack) {
 }
 
 static inline pid_t raw_getpid(void) {
+#if defined(__alpha__)
+        return (pid_t) syscall(__NR_getxpid);
+#else
         return (pid_t) syscall(__NR_getpid);
+#endif
 }
 
 #if !HAVE_DECL_RENAMEAT2
