@@ -236,6 +236,42 @@ static void test_make_relative(void) {
         test("//extra/////slashes///won't////fool///anybody//", "////extra///slashes////are/just///fine///", "../../../are/just/fine");
 }
 
+static void test_path_normalize(void) {
+#define test_normalize(source, expected) do {      \
+                _cleanup_free_ char *z = NULL;     \
+                z = strdup(source);                \
+                path_normalize(z);                 \
+                assert_se(streq_ptr(z, expected)); \
+        } while (0)
+
+        test_normalize("/",               "/");
+        test_normalize("/foo/bar",        "/foo/bar");
+        test_normalize("/foo/bar/",       "/foo/bar/");
+        test_normalize("//foo//bar",      "/foo/bar");
+        test_normalize("//foo//bar//",    "/foo/bar/");
+
+        test_normalize("/./foo/./bar/.",  "/foo/bar");
+        test_normalize("/./foo/./bar/./", "/foo/bar/");
+        test_normalize("/foo/..",         "/");
+        test_normalize("/foo/../",        "/");
+        test_normalize("/foo/../bar",     "/bar");
+        test_normalize("/../",            "/");
+        test_normalize("/../..",          "/");
+        test_normalize("/../../..",       "/");
+        test_normalize("/../foo",         "/foo");
+
+        test_normalize(".",               ".");
+        test_normalize("foo",             "foo");
+        test_normalize("./foo",           "foo");
+
+        test_normalize("foo/..",          ".");
+        test_normalize("./foo/..",        ".");
+        test_normalize("foo/../bar",      "bar");
+        test_normalize("..",              "..");
+        test_normalize("../..",           "../..");
+        test_normalize("../../..",        "../../..");
+}
+
 static void test_strv_resolve(void) {
         char tmp_dir[] = "/tmp/test-path-util-XXXXXX";
         _cleanup_strv_free_ char **search_dirs = NULL;
@@ -456,6 +492,7 @@ int main(int argc, char **argv) {
         test_path_join();
         test_fsck_exists();
         test_make_relative();
+        test_path_normalize();
         test_strv_resolve();
         test_path_startswith();
         test_prefix_root();
