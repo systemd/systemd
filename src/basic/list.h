@@ -123,6 +123,32 @@
                 }                                                       \
         } while(false)
 
+/* Insert an item before another one (a = where, b = what) */
+#define LIST_INSERT_BEFORE(name,head,a,b)                               \
+        do {                                                            \
+                typeof(*(head)) **_head = &(head), *_a = (a), *_b = (b); \
+                assert(_b);                                             \
+                if (!_a) {                                              \
+                        if (!*_head) {                                  \
+                                _b->name##_next = NULL;                 \
+                                _b->name##_prev = NULL;                 \
+                                *_head = _b;                            \
+                        } else {                                        \
+                                typeof(*(head)) *_tail = (head);        \
+                                while (_tail->name##_next)              \
+                                        _tail = _tail->name##_next;     \
+                                _b->name##_next = NULL;                 \
+                                _b->name##_prev = _tail;                \
+                                _tail->name##_next = _b;                \
+                        }                                               \
+                } else {                                                \
+                        if ((_b->name##_prev = _a->name##_prev))        \
+                                _b->name##_prev->name##_next = _b;      \
+                        _b->name##_next = _a;                           \
+                        _a->name##_prev = _b;                           \
+                }                                                       \
+        } while(false)
+
 #define LIST_JUST_US(name,item)                                         \
         (!(item)->name##_prev && !(item)->name##_next)                  \
 
