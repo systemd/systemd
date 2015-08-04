@@ -32,109 +32,93 @@
 #define SMACK_FLOOR_LABEL "_"
 #define SMACK_STAR_LABEL  "*"
 
-bool mac_smack_use(void) {
 #ifdef HAVE_SMACK
+bool mac_smack_use(void) {
         static int cached_use = -1;
 
         if (cached_use < 0)
                 cached_use = access("/sys/fs/smackfs/", F_OK) >= 0;
 
         return cached_use;
-#else
-        return false;
-#endif
 }
 
-int mac_smack_apply(const char *path, const char *label) {
-        int r = 0;
+static const char* const smack_attr_table[_SMACK_ATTR_MAX] = {
+        [SMACK_ATTR_ACCESS]     = "security.SMACK64",
+        [SMACK_ATTR_EXEC]       = "security.SMACK64EXEC",
+        [SMACK_ATTR_MMAP]       = "security.SMACK64MMAP",
+        [SMACK_ATTR_TRANSMUTE]  = "security.SMACK64TRANSMUTE",
+        [SMACK_ATTR_IPIN]       = "security.SMACK64IPIN",
+        [SMACK_ATTR_IPOUT]      = "security.SMACK64IPOUT",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(smack_attr, SmackAttr);
+
+int mac_smack_read(const char *path, SmackAttr attr, char **label) {
+        assert(path);
+        assert(attr >= 0 && attr < _SMACK_ATTR_MAX);
+        assert(label);
+
+        if (!mac_smack_use())
+                return 0;
+
+        return getxattr_malloc(path, smack_attr_to_string(attr), label, true);
+}
+
+int mac_smack_read_fd(int fd, SmackAttr attr, char **label) {
+        assert(fd >= 0);
+        assert(attr >= 0 && attr < _SMACK_ATTR_MAX);
+        assert(label);
+
+        if (!mac_smack_use())
+                return 0;
+
+        return fgetxattr_malloc(fd, smack_attr_to_string(attr), label);
+}
+
+int mac_smack_apply(const char *path, SmackAttr attr, const char *label) {
+        int r;
 
         assert(path);
+        assert(attr >= 0 && attr < _SMACK_ATTR_MAX);
 
-#ifdef HAVE_SMACK
         if (!mac_smack_use())
                 return 0;
 
         if (label)
-                r = lsetxattr(path, "security.SMACK64", label, strlen(label), 0);
+                r = lsetxattr(path, smack_attr_to_string(attr), label, strlen(label), 0);
         else
-                r = lremovexattr(path, "security.SMACK64");
+                r = lremovexattr(path, smack_attr_to_string(attr));
         if (r < 0)
                 return -errno;
-#endif
 
-        return r;
+        return 0;
 }
 
-int mac_smack_apply_fd(int fd, const char *label) {
-        int r = 0;
+int mac_smack_apply_fd(int fd, SmackAttr attr, const char *label) {
+        int r;
 
         assert(fd >= 0);
+        assert(attr >= 0 && attr < _SMACK_ATTR_MAX);
 
-#ifdef HAVE_SMACK
         if (!mac_smack_use())
                 return 0;
 
         if (label)
-                r = fsetxattr(fd, "security.SMACK64", label, strlen(label), 0);
+                r = fsetxattr(fd, smack_attr_to_string(attr), label, strlen(label), 0);
         else
-                r = fremovexattr(fd, "security.SMACK64");
+                r = fremovexattr(fd, smack_attr_to_string(attr));
         if (r < 0)
                 return -errno;
-#endif
 
-        return r;
-}
-
-int mac_smack_apply_ip_out_fd(int fd, const char *label) {
-        int r = 0;
-
-        assert(fd >= 0);
-
-#ifdef HAVE_SMACK
-        if (!mac_smack_use())
-                return 0;
-
-        if (label)
-                r = fsetxattr(fd, "security.SMACK64IPOUT", label, strlen(label), 0);
-        else
-                r = fremovexattr(fd, "security.SMACK64IPOUT");
-        if (r < 0)
-                return -errno;
-#endif
-
-        return r;
-}
-
-int mac_smack_apply_ip_in_fd(int fd, const char *label) {
-        int r = 0;
-
-        assert(fd >= 0);
-
-#ifdef HAVE_SMACK
-        if (!mac_smack_use())
-                return 0;
-
-        if (label)
-                r = fsetxattr(fd, "security.SMACK64IPIN", label, strlen(label), 0);
-        else
-                r = fremovexattr(fd, "security.SMACK64IPIN");
-        if (r < 0)
-                return -errno;
-#endif
-
-        return r;
+        return 0;
 }
 
 int mac_smack_apply_pid(pid_t pid, const char *label) {
-
-#ifdef HAVE_SMACK
         const char *p;
-#endif
         int r = 0;
 
         assert(label);
 
-#ifdef HAVE_SMACK
         if (!mac_smack_use())
                 return 0;
 
@@ -142,21 +126,16 @@ int mac_smack_apply_pid(pid_t pid, const char *label) {
         r = write_string_file(p, label, 0);
         if (r < 0)
                 return r;
-#endif
 
         return r;
 }
 
 int mac_smack_fix(const char *path, bool ignore_enoent, bool ignore_erofs) {
-
-#ifdef HAVE_SMACK
         struct stat st;
-#endif
         int r = 0;
 
         assert(path);
 
-#ifdef HAVE_SMACK
         if (!mac_smack_use())
                 return 0;
 
@@ -202,7 +181,37 @@ int mac_smack_fix(const char *path, bool ignore_enoent, bool ignore_erofs) {
 
                 r = log_debug_errno(errno, "Unable to fix SMACK label of %s: %m", path);
         }
-#endif
 
         return r;
 }
+
+
+#else
+bool mac_smack_use(void) {
+        return false;
+}
+
+int mac_smack_read(const char *path, SmackAttr attr, char **label) {
+        return -EOPNOTSUPP;
+}
+
+int mac_smack_read_fd(int fd, SmackAttr attr, char **label) {
+        return -EOPNOTSUPP;
+}
+
+int mac_smack_apply(const char *path, SmackAttr attr, const char *label) {
+        return 0;
+}
+
+int mac_smack_apply_fd(int fd, SmackAttr attr, const char *label) {
+        return 0;
+}
+
+int mac_smack_apply_pid(pid_t pid, const char *label) {
+        return 0;
+}
+
+int mac_smack_fix(const char *path, bool ignore_enoent, bool ignore_erofs) {
+        return 0;
+}
+#endif
