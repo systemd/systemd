@@ -375,7 +375,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                 break;
 
         default:
-                break;
+                assert_not_reached("Invalid DNS protocol.");
         }
 
         if (t->received != p) {
@@ -412,7 +412,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
 
                 break;
         default:
-                assert_not_reached("Invalid DNS protocol.");
+                break;
         }
 
         if (DNS_PACKET_TC(p)) {
