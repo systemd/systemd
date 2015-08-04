@@ -825,13 +825,13 @@ int bus_machine_method_copy(sd_bus_message *message, void *userdata, sd_bus_erro
         if (r < 0)
                 return r;
 
-        if (!path_is_absolute(src) || !path_is_safe(src))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Source path must be absolute and not contain ../.");
+        if (!path_is_absolute(src))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Source path must be absolute.");
 
         if (isempty(dest))
                 dest = src;
-        else if (!path_is_absolute(dest) || !path_is_safe(dest))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Destination path must be absolute and not contain ../.");
+        else if (!path_is_absolute(dest))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Destination path must be absolute.");
 
         r = bus_verify_polkit_async(
                         message,
