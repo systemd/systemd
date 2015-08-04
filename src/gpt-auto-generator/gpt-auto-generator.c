@@ -250,7 +250,7 @@ static int add_automount(
                 const char *description,
                 usec_t timeout) {
 
-        _cleanup_free_ char *unit = NULL, *lnk = NULL, *crypto_what = NULL;
+        _cleanup_free_ char *unit = NULL, *lnk = NULL;
         _cleanup_free_ char *opt, *p = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
