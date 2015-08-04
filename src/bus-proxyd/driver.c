@@ -35,6 +35,7 @@
 #include "driver.h"
 #include "proxy.h"
 #include "synthesize.h"
+#include "env-util.h"
 
 static int get_creds_by_name(sd_bus *bus, const char *name, uint64_t mask, sd_bus_creds **_creds, sd_bus_error *error) {
         _cleanup_bus_creds_unref_ sd_bus_creds *c = NULL;
@@ -694,9 +695,13 @@ int bus_proxy_process_driver(Proxy *p, sd_bus *a, sd_bus *b, sd_bus_message *m, 
                         if (!s)
                                 return synthetic_reply_method_errno(m, -ENOMEM, NULL);
 
-                        r  = strv_extend(&args, s);
-                        if (r < 0)
-                                return synthetic_reply_method_errno(m, r, NULL);
+                        if (!env_assignment_is_valid(s)) {
+                                log_warning("UpdateActivationEnvironment() called with invalid assignment, discarding: %s", s);
+                        } else {
+                                r = strv_extend(&args, s);
+                                if (r < 0)
+                                        return synthetic_reply_method_errno(m, r, NULL);
+                        }
 
                         r = sd_bus_message_exit_container(m);
                         if (r < 0)
