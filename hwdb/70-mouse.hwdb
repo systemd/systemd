@@ -38,9 +38,9 @@
 #
 # If your changes are generally applicable, preferably send them as a pull
 # request to
-#   https://github.com/systemd/
-# or create a bug report on the issue tracker located there and include your
-# new rules, a description of the device, and the output of
+#   https://github.com/systemd/systemd
+# or create a bug report on https://github.com/systemd/systemd/issues and
+# include your new rules, a description of the device, and the output of
 #   udevadm info /dev/input/eventXX
 # (or /dev/input/event*).
 #
