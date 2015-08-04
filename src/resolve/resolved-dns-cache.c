@@ -459,7 +459,12 @@ int dns_cache_put(
 
         /* Second, add in positive entries for all contained RRs */
         for (i = 0; i < MIN(max_rrs, answer->n_rrs); i++) {
-                r = dns_cache_put_positive(c, answer->items[i].rr, authenticated, timestamp, owner_family, owner_address);
+                DnsResourceRecord *rr = answer->items[i].rr;
+
+                if (rr->key->cache_flush)
+                        dns_cache_remove(c, rr->key);
+
+                r = dns_cache_put_positive(c, rr, authenticated, timestamp, owner_family, owner_address);
                 if (r < 0)
                         goto fail;
         }
