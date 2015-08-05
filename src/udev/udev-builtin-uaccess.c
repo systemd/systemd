@@ -56,7 +56,7 @@ static int builtin_uaccess(struct udev_device *dev, int argc, char *argv[], bool
 
         r = devnode_acl(path, true, false, 0, true, uid);
         if (r < 0) {
-                log_error_errno(r, "Failed to apply ACL on %s: %m", path);
+                log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_ERR, r, "Failed to apply ACL on %s: %m", path);
                 goto finish;
         }
 
@@ -70,7 +70,7 @@ finish:
                 /* Better be safe than sorry and reset ACL */
                 k = devnode_acl(path, true, false, 0, false, 0);
                 if (k < 0) {
-                        log_error_errno(k, "Failed to apply ACL on %s: %m", path);
+                        log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_ERR, k, "Failed to apply ACL on %s: %m", path);
                         if (r >= 0)
                                 r = k;
                 }
