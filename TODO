@@ -690,10 +690,6 @@ Features:
 
 * If we show an error about a unit (such as not showing up) and it has no Description string, then show a description string generated form the reverse of unit_name_mangle().
 
-* fedup: add --unit to systemctl switch-root somehow
-* fedup: do not delete initrd on switch-root
-* fedup: generator
-
 * clean up date formatting and parsing so that all absolute/relative timestamps we format can also be parsed
 
 * on shutdown: move utmp, wall, audit logic all into PID 1 (or logind?), get rid of systemd-update-utmp-runlevel
