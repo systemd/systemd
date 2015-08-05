@@ -292,6 +292,10 @@ mouse:usb:v046dp4026:name:Logitech T400:
 mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:4026:
  MOUSE_DPI=1300@166
 
+# Logitech G500 Mouse
+mouse:usb:v046dpc068:name:Logitech G500:
+ MOUSE_DPI=*1600@500 2600@500 3600@500
+
 # Logitech Ultrathin Touch Mouse
 mouse:bluetooth:v046dpb00d:name:Ultrathin Touch Mouse:
  MOUSE_DPI=1000@1000
