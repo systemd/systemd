@@ -156,12 +156,14 @@
 
         <para>If neither <option>--directory=</option>, nor
         <option>--image=</option> is specified the directory is
-        determined as <filename>/var/lib/machines/</filename> suffixed
-        by the machine name as specified with
-        <option>--machine=</option>. If neither
-        <option>--directory=</option>, <option>--image=</option>, nor
-        <option>--machine=</option> are specified, the current
-        directory will be used. May not be specified together with
+        determined by searching for a directory named the same as the
+        machine name specified with <option>--machine=</option> as specified in
+        <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry></para>
+
+        <para>If neither <option>--directory=</option>,
+        <option>--image=</option>, nor <option>--machine=</option>
+        are specified, the current directory will
+        be used. May not be specified together with
         <option>--image=</option>.</para></listitem>
       </varlistentry>
 
