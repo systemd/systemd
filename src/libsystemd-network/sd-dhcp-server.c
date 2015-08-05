@@ -67,7 +67,7 @@ int sd_dhcp_server_set_address(sd_dhcp_server *server, struct in_addr *address,
 }
 
 bool sd_dhcp_server_is_running(sd_dhcp_server *server) {
-        assert_return(server, -EINVAL);
+        assert_return(server, false);
 
         return !!server->receive_message;
 }
