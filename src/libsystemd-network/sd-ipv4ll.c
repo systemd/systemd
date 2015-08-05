@@ -507,7 +507,7 @@ error:
 }
 
 bool sd_ipv4ll_is_running(sd_ipv4ll *ll) {
-        assert_return(ll, -EINVAL);
+        assert_return(ll, false);
 
         return !IN_SET(ll->state, IPV4LL_STATE_INIT, IPV4LL_STATE_STOPPED);
 }
