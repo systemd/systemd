@@ -1120,7 +1120,18 @@ static void session_release_controller(Session *s, bool notify) {
                 session_device_free(sd);
 
         s->controller = NULL;
-        manager_drop_busname(s->manager, name);
+        s->track = sd_bus_track_unref(s->track);
+}
+
+static int on_bus_track(sd_bus_track *track, void *userdata) {
+        Session *s = userdata;
+
+        assert(track);
+        assert(s);
+
+        session_drop_controller(s);
+
+        return 0;
 }
 
 int session_set_controller(Session *s, const char *sender, bool force) {
@@ -1139,8 +1150,13 @@ int session_set_controller(Session *s, const char *sender, bool force) {
         if (!name)
                 return -ENOMEM;
 
-        r = manager_watch_busname(s->manager, name);
-        if (r)
+        s->track = sd_bus_track_unref(s->track);
+        r = sd_bus_track_new(s->manager->bus, &s->track, on_bus_track, s);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_track_add_name(s->track, name);
+        if (r < 0)
                 return r;
 
         /* When setting a session controller, we forcibly mute the VT and set
@@ -1153,7 +1169,7 @@ int session_set_controller(Session *s, const char *sender, bool force) {
          * or reset the VT in case it crashed/exited, too. */
         r = session_prepare_vt(s);
         if (r < 0) {
-                manager_drop_busname(s->manager, name);
+                s->track = sd_bus_track_unref(s->track);
                 return r;
         }
 
@@ -1171,6 +1187,7 @@ void session_drop_controller(Session *s) {
         if (!s->controller)
                 return;
 
+        s->track = sd_bus_track_unref(s->track);
         session_release_controller(s, false);
         session_save(s);
         session_restore_vt(s);

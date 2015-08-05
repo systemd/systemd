@@ -183,44 +183,6 @@ int manager_add_button(Manager *m, const char *name, Button **_button) {
         return 0;
 }
 
-int manager_watch_busname(Manager *m, const char *name) {
-        char *n;
-        int r;
-
-        assert(m);
-        assert(name);
-
-        if (set_get(m->busnames, (char*) name))
-                return 0;
-
-        n = strdup(name);
-        if (!n)
-                return -ENOMEM;
-
-        r = set_put(m->busnames, n);
-        if (r < 0) {
-                free(n);
-                return r;
-        }
-
-        return 0;
-}
-
-void manager_drop_busname(Manager *m, const char *name) {
-        Session *session;
-        Iterator i;
-
-        assert(m);
-        assert(name);
-
-        /* keep it if the name still owns a controller */
-        HASHMAP_FOREACH(session, m->sessions, i)
-                if (session_is_controller(session, name))
-                        return;
-
-        free(set_remove(m->busnames, (char*) name));
-}
-
 int manager_process_seat_device(Manager *m, struct udev_device *d) {
         Device *device;
         int r;

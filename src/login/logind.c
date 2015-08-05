@@ -76,10 +76,7 @@ static Manager *manager_new(void) {
         m->user_units = hashmap_new(&string_hash_ops);
         m->session_units = hashmap_new(&string_hash_ops);
 
-        m->busnames = set_new(&string_hash_ops);
-
-        if (!m->devices || !m->seats || !m->sessions || !m->users || !m->inhibitors || !m->buttons || !m->busnames ||
-            !m->user_units || !m->session_units)
+        if (!m->devices || !m->seats || !m->sessions || !m->users || !m->inhibitors || !m->buttons || !m->user_units || !m->session_units)
                 goto fail;
 
         m->kill_exclude_users = strv_new("root", NULL);
@@ -140,8 +137,6 @@ static void manager_free(Manager *m) {
 
         hashmap_free(m->user_units);
         hashmap_free(m->session_units);
-
-        set_free_free(m->busnames);
 
         sd_event_source_unref(m->idle_action_event_source);
         sd_event_source_unref(m->inhibit_timeout_source);
@@ -625,17 +620,6 @@ static int manager_connect_bus(Manager *m) {
         r = sd_bus_add_node_enumerator(m->bus, NULL, "/org/freedesktop/login1/user", user_node_enumerator, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to add user enumerator: %m");
-
-        r = sd_bus_add_match(m->bus,
-                             NULL,
-                             "type='signal',"
-                             "sender='org.freedesktop.DBus',"
-                             "interface='org.freedesktop.DBus',"
-                             "member='NameOwnerChanged',"
-                             "path='/org/freedesktop/DBus'",
-                             match_name_owner_changed, m);
-        if (r < 0)
-                return log_error_errno(r, "Failed to add match for NameOwnerChanged: %m");
 
         r = sd_bus_add_match(m->bus,
                              NULL,
