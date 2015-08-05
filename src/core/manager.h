@@ -329,8 +329,6 @@ int manager_set_default_rlimits(Manager *m, struct rlimit **default_rlimit);
 
 int manager_loop(Manager *m);
 
-void manager_dispatch_bus_name_owner_changed(Manager *m, const char *name, const char* old_owner, const char *new_owner);
-
 int manager_open_serialization(Manager *m, FILE **_f);
 
 int manager_serialize(Manager *m, FILE *f, FDSet *fds, bool switching_root);

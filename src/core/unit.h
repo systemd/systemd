@@ -115,6 +115,9 @@ struct Unit {
         /* JOB_NOP jobs are special and can be installed without disturbing the real job. */
         Job *nop_job;
 
+        /* The slot used for watching NameOwnerChanged signals */
+        sd_bus_slot *match_bus_slot;
+
         /* Job timeout and action to take */
         usec_t job_timeout;
         FailureAction job_timeout_action;
@@ -522,6 +525,7 @@ void unit_unwatch_all_pids(Unit *u);
 
 void unit_tidy_watch_pids(Unit *u, pid_t except1, pid_t except2);
 
+int unit_install_bus_match(sd_bus *bus, Unit *u, const char *name);
 int unit_watch_bus_name(Unit *u, const char *name);
 void unit_unwatch_bus_name(Unit *u, const char *name);
 
