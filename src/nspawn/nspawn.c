@@ -106,6 +106,7 @@ typedef struct ExposePort {
         int protocol;
         uint16_t host_port;
         uint16_t container_port;
+        uint64_t firewall_handle;
         LIST_FIELDS(struct ExposePort, ports);
 } ExposePort;
 
@@ -1960,18 +1961,11 @@ static int flush_ports(union in_addr_union *exposed) {
         log_debug("Lost IP address.");
 
         LIST_FOREACH(ports, p, arg_expose_ports) {
-                r = fw_add_local_dnat(false,
-                                      af,
-                                      p->protocol,
-                                      NULL,
-                                      NULL, 0,
-                                      NULL, 0,
-                                      p->host_port,
-                                      exposed,
-                                      p->container_port,
-                                      NULL);
+                r = fw_remove_local_dnat(p->firewall_handle);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to modify firewall: %m");
+                        log_warning_errno(r, "Failed to remove firewall rule: %m");
+
+                p->firewall_handle = 0;
         }
 
         *exposed = IN_ADDR_NULL;
@@ -2013,9 +2007,12 @@ static int expose_ports(sd_netlink *rtnl, union in_addr_union *exposed) {
         log_debug("New container IP is %s.", strna(pretty));
 
         LIST_FOREACH(ports, p, arg_expose_ports) {
+                if (p->firewall_handle) {
+                        (void) fw_remove_local_dnat(p->firewall_handle);
+                        p->firewall_handle = 0;
+                }
 
-                r = fw_add_local_dnat(true,
-                                      af,
+                r = fw_add_local_dnat(af,
                                       p->protocol,
                                       NULL,
                                       NULL, 0,
@@ -2023,7 +2020,7 @@ static int expose_ports(sd_netlink *rtnl, union in_addr_union *exposed) {
                                       p->host_port,
                                       &new_exposed,
                                       p->container_port,
-                                      in_addr_is_null(af, exposed) ? NULL : exposed);
+                                      &p->firewall_handle);
                 if (r < 0)
                         log_warning_errno(r, "Failed to modify firewall: %m");
         }
