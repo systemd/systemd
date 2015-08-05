@@ -307,7 +307,7 @@ static void test_strv_sort(void) {
 }
 
 static void test_strv_extend_strv_concat(void) {
-         _cleanup_strv_free_ char **a = NULL, **b = NULL;
+        _cleanup_strv_free_ char **a = NULL, **b = NULL;
 
         a = strv_new("without", "suffix", NULL);
         b = strv_new("with", "suffix", NULL);
@@ -323,7 +323,7 @@ static void test_strv_extend_strv_concat(void) {
 }
 
 static void test_strv_extend_strv(void) {
-         _cleanup_strv_free_ char **a = NULL, **b = NULL;
+        _cleanup_strv_free_ char **a = NULL, **b = NULL;
 
         a = strv_new("abc", "def", "ghi", NULL);
         b = strv_new("jkl", "mno", "pqr", NULL);

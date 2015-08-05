@@ -248,7 +248,7 @@ static int dhcp_lease_lost(Link *link) {
                         address->in_addr.in = addr;
                         address->prefixlen = prefixlen;
 
-                       address_drop(address, link, &link_address_drop_handler);
+                        address_drop(address, link, &link_address_drop_handler);
                 }
         }
 
@@ -620,8 +620,8 @@ int dhcp4_configure(Link *link) {
                         return r;
                 r = sd_dhcp_client_set_request_option(link->dhcp_client,
                                                       DHCP_OPTION_CLASSLESS_STATIC_ROUTE);
-                        if (r < 0)
-                                return r;
+                if (r < 0)
+                        return r;
         }
 
         if (link->network->dhcp_sendhost) {

@@ -145,7 +145,9 @@ int manager_connect_bus(Manager *m) {
                         return log_error_errno(r, "Failed to install bus reconnect time event: %m");
 
                 return 0;
-        } if (r < 0)
+        }
+
+        if (r < 0)
                 return r;
 
         r = sd_bus_add_match(m->bus, &m->prepare_for_sleep_slot,

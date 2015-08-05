@@ -212,7 +212,9 @@ static int bus_message_setup_bloom(sd_bus_message *m, struct kdbus_bloom_filter 
                                 return r;
 
                         add_bloom_arg(data, m->bus->bloom_size, m->bus->bloom_n_hash, i, t);
-                } if (type == SD_BUS_TYPE_ARRAY && STR_IN_SET(contents, "s", "o", "g")) {
+                }
+
+                if (type == SD_BUS_TYPE_ARRAY && STR_IN_SET(contents, "s", "o", "g")) {
 
                         /* As well as array of simple strings of any kinds */
                         r = sd_bus_message_enter_container(m, type, contents);

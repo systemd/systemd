@@ -2211,7 +2211,7 @@ int exec_context_load_environment(Unit *unit, const ExecContext *c, char ***l) {
 
 static bool tty_may_match_dev_console(const char *tty) {
         _cleanup_free_ char *active = NULL;
-       char *console;
+        char *console;
 
         if (startswith(tty, "/dev/"))
                 tty += 5;

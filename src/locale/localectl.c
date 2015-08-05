@@ -467,9 +467,9 @@ static int list_x11_keymaps(sd_bus *bus, char **args, unsigned n) {
                 } else
                         *w = 0;
 
-                 r = strv_extend(&list, l);
-                 if (r < 0)
-                         return log_oom();
+                r = strv_extend(&list, l);
+                if (r < 0)
+                        return log_oom();
         }
 
         if (strv_isempty(list)) {

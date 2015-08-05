@@ -433,9 +433,9 @@ int bus_cgroup_set_property(
                         if (!f)
                                 return -ENOMEM;
 
-                         if (read) {
+                        if (read) {
                                 fputs("BlockIOReadBandwidth=\n", f);
-                                 LIST_FOREACH(device_bandwidths, a, c->blockio_device_bandwidths)
+                                LIST_FOREACH(device_bandwidths, a, c->blockio_device_bandwidths)
                                         if (a->read)
                                                 fprintf(f, "BlockIOReadBandwidth=%s %" PRIu64 "\n", a->path, a->bandwidth);
                         } else {
