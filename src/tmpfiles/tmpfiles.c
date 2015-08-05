@@ -616,7 +616,7 @@ static int path_set_perms(Item *i, const char *path) {
                                 if (!(st.st_mode & 0111))
                                         m &= ~0111;
                                 if (!(st.st_mode & 0222))
-                                m &= ~0222;
+                                        m &= ~0222;
                                 if (!(st.st_mode & 0444))
                                         m &= ~0444;
                                 if (!S_ISDIR(st.st_mode))
@@ -641,7 +641,7 @@ static int path_set_perms(Item *i, const char *path) {
                         if (chown(fn,
                                   i->uid_set ? i->uid : UID_INVALID,
                                   i->gid_set ? i->gid : GID_INVALID) < 0)
-                        return log_error_errno(errno, "chown(%s) failed: %m", path);
+                                return log_error_errno(errno, "chown(%s) failed: %m", path);
                 }
         }
 

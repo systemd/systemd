@@ -227,7 +227,7 @@ static int list_links(int argc, char *argv[], void *userdata) {
                 _cleanup_device_unref_ sd_device *d = NULL;
                 const char *on_color_operational, *off_color_operational,
                            *on_color_setup, *off_color_setup;
-                 char devid[2 + DECIMAL_STR_MAX(int)];
+                char devid[2 + DECIMAL_STR_MAX(int)];
                 _cleanup_free_ char *t = NULL;
 
                 sd_network_link_get_operational_state(links[i].ifindex, &operational_state);

@@ -2125,7 +2125,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules,
                                                   rule->rule.filename_line);
                                         /* return the result from earlier run */
                                         if (event->builtin_ret & (1 << cur->key.builtin_cmd))
-                                        if (cur->key.op != OP_NOMATCH)
+                                                if (cur->key.op != OP_NOMATCH)
                                                         goto nomatch;
                                         break;
                                 }

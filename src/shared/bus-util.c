@@ -972,8 +972,8 @@ static int map_basic(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_
         }
 
         case SD_BUS_TYPE_ARRAY: {
-               _cleanup_strv_free_ char **l = NULL;
-               char ***p = userdata;
+                _cleanup_strv_free_ char **l = NULL;
+                char ***p = userdata;
 
                 r = bus_message_read_strv_extend(m, &l);
                 if (r < 0)
