@@ -2652,41 +2652,6 @@ int match_reloading(sd_bus_message *message, void *userdata, sd_bus_error *error
         return 0;
 }
 
-int match_name_owner_changed(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        const char *name, *old, *new;
-        Manager *m = userdata;
-        Session *session;
-        Iterator i;
-        int r;
-        char *key;
-
-        assert(message);
-        assert(m);
-
-        r = sd_bus_message_read(message, "sss", &name, &old, &new);
-        if (r < 0) {
-                bus_log_parse_error(r);
-                return r;
-        }
-
-        if (isempty(old) || !isempty(new))
-                return 0;
-
-        key = set_remove(m->busnames, (char*) old);
-        if (!key)
-                return 0;
-
-        /* Drop all controllers owned by this name */
-
-        free(key);
-
-        HASHMAP_FOREACH(session, m->sessions, i)
-                if (session_is_controller(session, old))
-                        session_drop_controller(session);
-
-        return 0;
-}
-
 int manager_send_changed(Manager *manager, const char *property, ...) {
         char **l;
 

@@ -117,6 +117,7 @@ struct Session {
 
         char *controller;
         Hashmap *devices;
+        sd_bus_track *track;
 
         LIST_FIELDS(Session, sessions_by_user);
         LIST_FIELDS(Session, sessions_by_seat);
