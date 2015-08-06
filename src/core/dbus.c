@@ -140,28 +140,6 @@ static int signal_disconnected(sd_bus_message *message, void *userdata, sd_bus_e
         return 0;
 }
 
-static int signal_name_owner_changed(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        const char *name, *old_owner, *new_owner;
-        Manager *m = userdata;
-        int r;
-
-        assert(message);
-        assert(m);
-
-        r = sd_bus_message_read(message, "sss", &name, &old_owner, &new_owner);
-        if (r < 0) {
-                bus_log_parse_error(r);
-                return 0;
-        }
-
-        manager_dispatch_bus_name_owner_changed(
-                        m, name,
-                        isempty(old_owner) ? NULL : old_owner,
-                        isempty(new_owner) ? NULL : new_owner);
-
-        return 0;
-}
-
 static int signal_activation_request(sd_bus_message *message, void *userdata, sd_bus_error *ret_error) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
@@ -762,13 +740,21 @@ static int bus_list_names(Manager *m, sd_bus *bus) {
         /* This is a bit hacky, we say the owner of the name is the
          * name itself, because we don't want the extra traffic to
          * figure out the real owner. */
-        STRV_FOREACH(i, names)
-                manager_dispatch_bus_name_owner_changed(m, *i, NULL, *i);
+        STRV_FOREACH(i, names) {
+                Unit *u;
+
+                u = hashmap_get(m->watch_bus, *i);
+                if (u)
+                        UNIT_VTABLE(u)->bus_name_owner_change(u, *i, NULL, *i);
+        }
 
         return 0;
 }
 
 static int bus_setup_api(Manager *m, sd_bus *bus) {
+        Iterator i;
+        char *name;
+        Unit *u;
         int r;
 
         assert(m);
@@ -786,17 +772,11 @@ static int bus_setup_api(Manager *m, sd_bus *bus) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_add_match(
-                        bus,
-                        NULL,
-                        "type='signal',"
-                        "sender='org.freedesktop.DBus',"
-                        "path='/org/freedesktop/DBus',"
-                        "interface='org.freedesktop.DBus',"
-                        "member='NameOwnerChanged'",
-                        signal_name_owner_changed, m);
-        if (r < 0)
-                log_warning_errno(r, "Failed to subscribe to NameOwnerChanged signal: %m");
+        HASHMAP_FOREACH_KEY(u, name, m->watch_bus, i) {
+                r = unit_install_bus_match(bus, u, name);
+                if (r < 0)
+                        log_error_errno(r, "Failed to subscribe to NameOwnerChanged signal: %m");
+        }
 
         r = sd_bus_add_match(
                         bus,

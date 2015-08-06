@@ -48,6 +48,7 @@
 #include "dropin.h"
 #include "formats-util.h"
 #include "process-util.h"
+#include "bus-util.h"
 
 const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX] = {
         [UNIT_SERVICE] = &service_vtable,
@@ -477,6 +478,7 @@ void unit_free(Unit *u) {
         if (u->manager->n_reloading <= 0)
                 unit_remove_transient(u);
 
+        sd_bus_slot_unref(u->match_bus_slot);
         bus_unit_send_removed_signal(u);
 
         unit_done(u);
@@ -2500,14 +2502,74 @@ int unit_load_related_unit(Unit *u, const char *type, Unit **_found) {
         return r;
 }
 
+static int signal_name_owner_changed(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        const char *name, *old_owner, *new_owner;
+        Unit *u = userdata;
+        int r;
+
+        assert(message);
+        assert(u);
+
+        r = sd_bus_message_read(message, "sss", &name, &old_owner, &new_owner);
+        if (r < 0) {
+                bus_log_parse_error(r);
+                return 0;
+        }
+
+        if (UNIT_VTABLE(u)->bus_name_owner_change)
+                UNIT_VTABLE(u)->bus_name_owner_change(u, name, old_owner, new_owner);
+
+        return 0;
+}
+
+int unit_install_bus_match(sd_bus *bus, Unit *u, const char *name) {
+        _cleanup_free_ char *match = NULL;
+        Manager *m = u->manager;
+
+        assert(m);
+
+        if (u->match_bus_slot)
+                return -EBUSY;
+
+        match = strjoin("type='signal',"
+                        "sender='org.freedesktop.DBus',"
+                        "path='/org/freedesktop/DBus',"
+                        "interface='org.freedesktop.DBus',"
+                        "member='NameOwnerChanged',"
+                        "arg0='",
+                        name,
+                        "'",
+                        NULL);
+        if (!match)
+                return -ENOMEM;
+
+        return sd_bus_add_match(bus, &u->match_bus_slot, match, signal_name_owner_changed, u);
+}
+
 int unit_watch_bus_name(Unit *u, const char *name) {
+        int r;
+
         assert(u);
         assert(name);
 
         /* Watch a specific name on the bus. We only support one unit
          * watching each name for now. */
 
-        return hashmap_put(u->manager->watch_bus, name, u);
+        if (u->manager->api_bus) {
+                /* If the bus is already available, install the match directly.
+                 * Otherwise, just put the name in the list. bus_setup_api() will take care later. */
+                r = unit_install_bus_match(u->manager->api_bus, u, name);
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to subscribe to NameOwnerChanged signal: %m");
+        }
+
+        r = hashmap_put(u->manager->watch_bus, name, u);
+        if (r < 0) {
+                u->match_bus_slot = sd_bus_slot_unref(u->match_bus_slot);
+                return log_warning_errno(r, "Failed to put bus name to hashmap: %m");
+        }
+
+        return 0;
 }
 
 void unit_unwatch_bus_name(Unit *u, const char *name) {
@@ -2515,6 +2577,7 @@ void unit_unwatch_bus_name(Unit *u, const char *name) {
         assert(name);
 
         hashmap_remove_value(u->manager->watch_bus, name, u);
+        u->match_bus_slot = sd_bus_slot_unref(u->match_bus_slot);
 }
 
 bool unit_can_serialize(Unit *u) {
