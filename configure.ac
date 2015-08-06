@@ -1340,11 +1340,13 @@ AC_ARG_WITH([bashcompletiondir],
         ] , [
                 with_bashcompletiondir=${datadir}/bash-completion/completions
         ])])
+AM_CONDITIONAL(ENABLE_BASH_COMPLETION, [test "$with_bashcompletiondir" != "no"])
 AX_NORMALIZE_PATH([with_bashcompletiondir])
 
 AC_ARG_WITH([zshcompletiondir],
         AS_HELP_STRING([--with-zshcompletiondir=DIR], [Zsh completions directory]),
         [], [with_zshcompletiondir=${datadir}/zsh/site-functions])
+AM_CONDITIONAL(ENABLE_ZSH_COMPLETION, [test "$with_zshcompletiondir" != "no"])
 AX_NORMALIZE_PATH([with_zshcompletiondir])
 
 AC_ARG_WITH([rootprefix],
