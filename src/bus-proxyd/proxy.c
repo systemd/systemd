@@ -782,6 +782,8 @@ static int proxy_process_destination_to_local(Proxy *p) {
                  * caller's timeout to expire, so this should be
                  * acceptable. Nobody sane sends replies without a
                  * matching method-call, so nobody should care. */
+
+                /* FIXME: remove -EPERM when kdbus is updated */
                 if ((r == -EPERM || r == -EBADSLT) && m->reply_cookie > 0)
                         return 1;
 
