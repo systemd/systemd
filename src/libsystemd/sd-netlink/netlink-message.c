@@ -501,7 +501,7 @@ static int netlink_message_read_internal(sd_netlink_message *m, unsigned short t
         assert_return(m, -EINVAL);
         assert_return(m->sealed, -EPERM);
         assert_return(data, -EINVAL);
-        assert(m->n_containers <= RTNL_CONTAINER_DEPTH);
+        assert(m->n_containers < RTNL_CONTAINER_DEPTH);
         assert(m->containers[m->n_containers].attributes);
         assert(type < m->containers[m->n_containers].n_attributes);
 
