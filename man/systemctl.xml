@@ -319,14 +319,11 @@
         <term><option>--quiet</option></term>
 
         <listitem>
-          <para>Suppress output to standard output in
-          <command>snapshot</command>,
-          <command>is-active</command>,
-          <command>is-failed</command>,
-          <command>is-enabled</command>,
-          <command>is-system-running</command>,
-          <command>enable</command> and
-        <command>disable</command>.</para>
+          <para>Suppress printing of the results of various commands
+          and also the hints about truncated log lines. This does not
+          suppress output of commands for which the printed output is
+          the only result (like <command>show</command>). Errors are
+          always printed.</para>
         </listitem>
       </varlistentry>
 
