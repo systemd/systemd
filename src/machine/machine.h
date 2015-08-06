@@ -67,7 +67,6 @@ struct Machine {
         char *name;
         sd_id128_t id;
 
-        MachineState state;
         MachineClass class;
 
         char *state_file;
