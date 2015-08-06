@@ -1116,7 +1116,7 @@ int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *err
         r = sd_bus_message_read(message, "uoss", &id, &path, &unit, &result);
         if (r < 0) {
                 bus_log_parse_error(r);
-                return r;
+                return 0;
         }
 
         machine = hashmap_get(m->machine_units, unit);
@@ -1242,7 +1242,7 @@ int match_reloading(sd_bus_message *message, void *userdata, sd_bus_error *error
         r = sd_bus_message_read(message, "b", &b);
         if (r < 0) {
                 bus_log_parse_error(r);
-                return r;
+                return 0;
         }
         if (b)
                 return 0;

@@ -2511,7 +2511,7 @@ int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *err
         r = sd_bus_message_read(message, "uoss", &id, &path, &unit, &result);
         if (r < 0) {
                 bus_log_parse_error(r);
-                return r;
+                return 0;
         }
 
         if (m->action_job && streq(m->action_job, path)) {
@@ -2579,7 +2579,7 @@ int match_unit_removed(sd_bus_message *message, void *userdata, sd_bus_error *er
         r = sd_bus_message_read(message, "so", &unit, &path);
         if (r < 0) {
                 bus_log_parse_error(r);
-                return r;
+                return 0;
         }
 
         session = hashmap_get(m->session_units, unit);
@@ -2611,8 +2611,10 @@ int match_properties_changed(sd_bus_message *message, void *userdata, sd_bus_err
         r = unit_name_from_dbus_path(path, &unit);
         if (r == -EINVAL) /* not a unit */
                 return 0;
-        if (r < 0)
-                return r;
+        if (r < 0) {
+                log_oom();
+                return 0;
+        }
 
         session = hashmap_get(m->session_units, unit);
         if (session)
@@ -2637,7 +2639,7 @@ int match_reloading(sd_bus_message *message, void *userdata, sd_bus_error *error
         r = sd_bus_message_read(message, "b", &b);
         if (r < 0) {
                 bus_log_parse_error(r);
-                return r;
+                return 0;
         }
 
         if (b)
