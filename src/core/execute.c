@@ -1554,7 +1554,13 @@ static int exec_child(
                                 return -ENOMEM;
                         }
 
-                        r = mkdir_safe_label(p, context->runtime_directory_mode, uid, gid);
+                        r = mkdir_p_label(p, context->runtime_directory_mode);
+                        if (r < 0) {
+                                *exit_status = EXIT_RUNTIME_DIRECTORY;
+                                return r;
+                        }
+
+                        r = chmod_and_chown(p, context->runtime_directory_mode, uid, gid);
                         if (r < 0) {
                                 *exit_status = EXIT_RUNTIME_DIRECTORY;
                                 return r;
