@@ -130,9 +130,22 @@
           for this target unit to all services (except for those with
           <varname>DefaultDependencies=no</varname>).</para>
 
-          <para>Usually this should pull-in all mount points, swap
-          devices, sockets, timers, and path units and other basic
-          initialization necessary for general purpose daemons.</para>
+          <para>Usually this should pull-in all local mount points plus
+          <filename>/var</filename>, <filename>/tmp</filename> and
+          <filename>/var/tmp</filename>, swap devices, sockets, timers,
+          path units and other basic initialization necessary for general
+          purpose daemons. The mentioned mount points are special cased
+          to allow them to be remote.
+          </para>
+
+          <para>This target usually does not pull in any non-target units
+          directly, but rather does so indirectly via other early boot targets.
+          It is instead meant as a synchronization point for late boot
+          services. Refer to
+          <citerefentry><refentrytitle>bootup</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+          for details on the targets involved.
+          </para>
+
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -503,8 +516,14 @@
       <varlistentry>
         <term><filename>sysinit.target</filename></term>
         <listitem>
-          <para>A special target unit covering early boot-up
-          scripts.</para>
+          <para>This target pulls in the services required for system
+          initialization. System services pulled in by this target should
+          declare <varname>DefaultDependencies=no</varname> and specify
+          all their dependencies manually, including access to anything
+          more than a read only root filesystem. For details on the
+          dependencies of this target, refer to
+          <citerefentry><refentrytitle>bootup</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+          </para>
         </listitem>
       </varlistentry>
       <varlistentry>
