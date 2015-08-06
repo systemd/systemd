@@ -26,6 +26,10 @@ External:
 
 Features:
 
+* introduce "machinectl shell" that is like systemd-run -M foo /bin/bash -t but also adds PAMName=login
+
+* allow loging into host with "machinectl login".
+
 * consider throwing a warning if a service declares it wants to be "Before=" a .device unit.
 
 * "systemctl edit" should know a mode to create a new unit file
