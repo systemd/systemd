@@ -770,19 +770,19 @@ static int proxy_process_destination_to_local(Proxy *p) {
                         return r;
 
                 /* If the peer tries to send a reply and it is
-                 * rejected with EPERM by the kernel, we ignore the
+                 * rejected with EBADSLT by the kernel, we ignore the
                  * error. This catches cases where the original
                  * method-call didn't had EXPECT_REPLY set, but the
                  * proxy-peer still sends a reply. This is allowed in
                  * dbus1, but not in kdbus. We don't want to track
                  * reply-windows in the proxy, so we simply ignore
-                 * EPERM for all replies. The only downside is, that
+                 * EBADSLT for all replies. The only downside is, that
                  * callers are no longer notified if their replies are
                  * dropped. However, this is equivalent to the
                  * caller's timeout to expire, so this should be
                  * acceptable. Nobody sane sends replies without a
                  * matching method-call, so nobody should care. */
-                if (r == -EPERM && m->reply_cookie > 0)
+                if ((r == -EPERM || r == -EBADSLT) && m->reply_cookie > 0)
                         return 1;
 
                 /* Return the error to the client, if we can */
@@ -863,8 +863,8 @@ static int proxy_process_local_to_destination(Proxy *p) {
                         if (r == -EREMCHG)
                                 continue;
 
-                        /* see above why EPERM is ignored for replies */
-                        if (r == -EPERM && m->reply_cookie > 0)
+                        /* see above why EBADSLT is ignored for replies */
+                        if ((r == -EPERM || r == -EBADSLT) && m->reply_cookie > 0)
                                 return 1;
 
                         synthetic_reply_method_errnof(m, r, "Failed to forward message we got from local: %m");
