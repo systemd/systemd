@@ -29,8 +29,8 @@ bool hostname_is_set(void);
 
 char* gethostname_malloc(void);
 
-bool hostname_is_valid(const char *s) _pure_;
-char* hostname_cleanup(char *s, bool lowercase);
+bool hostname_is_valid(const char *s, bool relax) _pure_;
+char* hostname_cleanup(char *s);
 
 bool is_localhost(const char *hostname);
 

@@ -38,7 +38,6 @@
 #include "conf-parser.h"
 #include "virt.h"
 #include "process-util.h"
-#include "hostname-util.h"
 #include "signal-util.h"
 
 static void test_streq_ptr(void) {
@@ -866,68 +865,6 @@ static void test_memdup_multiply(void) {
         assert_se(dup[1] == 2);
         assert_se(dup[2] == 3);
         free(dup);
-}
-
-static void test_hostname_is_valid(void) {
-        assert_se(hostname_is_valid("foobar"));
-        assert_se(hostname_is_valid("foobar.com"));
-        assert_se(!hostname_is_valid("fööbar"));
-        assert_se(!hostname_is_valid(""));
-        assert_se(!hostname_is_valid("."));
-        assert_se(!hostname_is_valid(".."));
-        assert_se(!hostname_is_valid("foobar."));
-        assert_se(!hostname_is_valid(".foobar"));
-        assert_se(!hostname_is_valid("foo..bar"));
-        assert_se(!hostname_is_valid("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"));
-}
-
-static void test_read_hostname_config(void) {
-        char path[] = "/tmp/hostname.XXXXXX";
-        char *hostname;
-        int fd;
-
-        fd = mkostemp_safe(path, O_RDWR|O_CLOEXEC);
-        assert(fd > 0);
-        close(fd);
-
-        /* simple hostname */
-        write_string_file(path, "foo", WRITE_STRING_FILE_CREATE);
-        assert_se(read_hostname_config(path, &hostname) == 0);
-        assert_se(streq(hostname, "foo"));
-        hostname = mfree(hostname);
-
-        /* with comment */
-        write_string_file(path, "# comment\nfoo", WRITE_STRING_FILE_CREATE);
-        assert_se(read_hostname_config(path, &hostname) == 0);
-        assert_se(hostname);
-        assert_se(streq(hostname, "foo"));
-        hostname = mfree(hostname);
-
-        /* with comment and extra whitespace */
-        write_string_file(path, "# comment\n\n foo ", WRITE_STRING_FILE_CREATE);
-        assert_se(read_hostname_config(path, &hostname) == 0);
-        assert_se(hostname);
-        assert_se(streq(hostname, "foo"));
-        hostname = mfree(hostname);
-
-        /* cleans up name */
-        write_string_file(path, "!foo/bar.com", WRITE_STRING_FILE_CREATE);
-        assert_se(read_hostname_config(path, &hostname) == 0);
-        assert_se(hostname);
-        assert_se(streq(hostname, "foobar.com"));
-        hostname = mfree(hostname);
-
-        /* no value set */
-        hostname = (char*) 0x1234;
-        write_string_file(path, "# nothing here\n", WRITE_STRING_FILE_CREATE);
-        assert_se(read_hostname_config(path, &hostname) == -ENOENT);
-        assert_se(hostname == (char*) 0x1234);  /* does not touch argument on error */
-
-        /* nonexisting file */
-        assert_se(read_hostname_config("/non/existing", &hostname) == -ENOENT);
-        assert_se(hostname == (char*) 0x1234);  /* does not touch argument on error */
-
-        unlink(path);
 }
 
 static void test_u64log2(void) {
@@ -2179,8 +2116,6 @@ int main(int argc, char *argv[]) {
         test_foreach_word();
         test_foreach_word_quoted();
         test_memdup_multiply();
-        test_hostname_is_valid();
-        test_read_hostname_config();
         test_u64log2();
         test_protect_errno();
         test_parse_size();

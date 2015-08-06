@@ -1526,7 +1526,7 @@ static int setup_keys(void) {
                 hn = gethostname_malloc();
 
                 if (hn) {
-                        hostname_cleanup(hn, false);
+                        hostname_cleanup(hn);
                         fprintf(stderr, "\nThe keys have been generated for host %s/" SD_ID128_FORMAT_STR ".\n", hn, SD_ID128_FORMAT_VAL(machine));
                 } else
                         fprintf(stderr, "\nThe keys have been generated for host " SD_ID128_FORMAT_STR ".\n", SD_ID128_FORMAT_VAL(machine));

@@ -252,7 +252,7 @@ static int set_simple_string(sd_bus *bus, const char *method, const char *value)
 
 static int set_hostname(sd_bus *bus, char **args, unsigned n) {
         _cleanup_free_ char *h = NULL;
-        const char *hostname = args[1];
+        char *hostname = args[1];
         int r;
 
         assert(args);
@@ -270,17 +270,16 @@ static int set_hostname(sd_bus *bus, char **args, unsigned n) {
                  * just set the passed hostname as static/dynamic
                  * hostname. */
 
-                h = strdup(hostname);
-                if (!h)
-                        return log_oom();
-
-                hostname_cleanup(h, true);
-
-                if (arg_static && streq(h, hostname))
+                if (arg_static && hostname_is_valid(hostname, true)) {
                         p = "";
-                else {
-                        p = hostname;
-                        hostname = h;
+                        /* maybe get rid of trailing dot */
+                        hostname = hostname_cleanup(hostname);
+                } else {
+                        p = h = strdup(hostname);
+                        if (!p)
+                                return log_oom();
+
+                        hostname_cleanup(hostname);
                 }
 
                 r = set_simple_string(bus, "SetPrettyHostname", p);

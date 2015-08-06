@@ -839,14 +839,14 @@ int config_parse_hostname(const char *unit,
         if (r < 0)
                 return r;
 
-        if (!hostname_is_valid(hn)) {
+        if (!hostname_is_valid(hn, true)) {
                 log_syntax(unit, LOG_ERR, filename, line, EINVAL, "hostname is not valid, ignoring assignment: %s", rvalue);
 
                 free(hn);
                 return 0;
         }
 
-        *hostname = hn;
+        *hostname = hostname_cleanup(hn);
 
         return 0;
 }

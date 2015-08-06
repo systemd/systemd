@@ -719,7 +719,7 @@ static int dkr_pull_job_on_header(PullJob *j, const char *header, size_t sz)  {
                         return log_oom();
 
                 STRV_FOREACH(k, l) {
-                        if (!hostname_is_valid(*k)) {
+                        if (!hostname_is_valid(*k, false)) {
                                 log_error("Registry hostname is not valid.");
                                 strv_free(l);
                                 return -EBADMSG;

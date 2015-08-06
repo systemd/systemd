@@ -4002,7 +4002,7 @@ static int determine_names(void) {
                 if (!arg_machine)
                         return log_oom();
 
-                hostname_cleanup(arg_machine, false);
+                hostname_cleanup(arg_machine);
                 if (!machine_name_is_valid(arg_machine)) {
                         log_error("Failed to determine machine name automatically, please use -M.");
                         return -EINVAL;

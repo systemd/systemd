@@ -561,11 +561,10 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const uint8_t *option,
                 if (e)
                         *e = 0;
 
-                if (!hostname_is_valid(hostname) || is_localhost(hostname))
+                if (!hostname_is_valid(hostname, false) || is_localhost(hostname))
                         break;
 
-                free(lease->hostname);
-                lease->hostname = hostname;
+                free_and_replace(&lease->hostname, hostname);
                 hostname = NULL;
 
                 break;
