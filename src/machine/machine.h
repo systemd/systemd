@@ -82,6 +82,7 @@ struct Machine {
 
         bool in_gc_queue:1;
         bool started:1;
+        bool stopping:1;
 
         sd_bus_message *create_message;
 
@@ -100,6 +101,7 @@ bool machine_check_gc(Machine *m, bool drop_not_started);
 void machine_add_to_gc_queue(Machine *m);
 int machine_start(Machine *m, sd_bus_message *properties, sd_bus_error *error);
 int machine_stop(Machine *m);
+int machine_finalize(Machine *m);
 int machine_save(Machine *m);
 int machine_load(Machine *m);
 int machine_kill(Machine *m, KillWho who, int signo);

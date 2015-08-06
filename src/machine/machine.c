@@ -419,7 +419,19 @@ static int machine_stop_scope(Machine *m) {
 }
 
 int machine_stop(Machine *m) {
-        int r = 0, k;
+        int r;
+        assert(m);
+
+        r = machine_stop_scope(m);
+
+        m->stopping = true;
+
+        machine_save(m);
+
+        return r;
+}
+
+int machine_finalize(Machine *m) {
         assert(m);
 
         if (m->started)
@@ -430,20 +442,15 @@ int machine_stop(Machine *m) {
                            LOG_MESSAGE("Machine %s terminated.", m->name),
                            NULL);
 
-        /* Kill cgroup */
-        k = machine_stop_scope(m);
-        if (k < 0)
-                r = k;
-
         machine_unlink(m);
         machine_add_to_gc_queue(m);
 
-        if (m->started)
+        if (m->started) {
                 machine_send_signal(m, false);
+                m->started = false;
+        }
 
-        m->started = false;
-
-        return r;
+        return 0;
 }
 
 bool machine_check_gc(Machine *m, bool drop_not_started) {
@@ -474,8 +481,11 @@ void machine_add_to_gc_queue(Machine *m) {
 MachineState machine_get_state(Machine *s) {
         assert(s);
 
+        if (s->stopping)
+                return MACHINE_CLOSING;
+
         if (s->scope_job)
-                return s->started ? MACHINE_OPENING : MACHINE_CLOSING;
+                return MACHINE_OPENING;
 
         return MACHINE_RUNNING;
 }

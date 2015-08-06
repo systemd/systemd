@@ -1136,8 +1136,9 @@ int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *err
 
                                 machine_send_create_reply(machine, &e);
                         }
-                } else
-                        machine_save(machine);
+                }
+
+                machine_save(machine);
         }
 
         machine_add_to_gc_queue(machine);
@@ -1146,7 +1147,7 @@ int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *err
 
 int match_properties_changed(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_free_ char *unit = NULL;
-        const char *path, *interface;
+        const char *path;
         Manager *m = userdata;
         Machine *machine;
         int r;
@@ -1169,36 +1170,6 @@ int match_properties_changed(sd_bus_message *message, void *userdata, sd_bus_err
         machine = hashmap_get(m->machine_units, unit);
         if (!machine)
                 return 0;
-
-        r = sd_bus_message_read(message, "s", &interface);
-        if (r < 0) {
-                bus_log_parse_error(r);
-                return 0;
-        }
-
-        if (streq(interface, "org.freedesktop.systemd1.Unit")) {
-                struct properties {
-                        char *active_state;
-                        char *sub_state;
-                } properties = {};
-
-                const struct bus_properties_map map[] = {
-                        { "ActiveState", "s", NULL, offsetof(struct properties, active_state) },
-                        { "SubState",    "s", NULL, offsetof(struct properties, sub_state)    },
-                        {}
-                };
-
-                r = bus_message_map_properties_changed(message, map, &properties);
-                if (r < 0)
-                        bus_log_parse_error(r);
-                else if (streq_ptr(properties.active_state, "inactive") ||
-                         streq_ptr(properties.active_state, "failed") ||
-                         streq_ptr(properties.sub_state, "auto-restart"))
-                        machine_release_unit(machine);
-
-                free(properties.active_state);
-                free(properties.sub_state);
-        }
 
         machine_add_to_gc_queue(machine);
         return 0;
@@ -1223,9 +1194,7 @@ int match_unit_removed(sd_bus_message *message, void *userdata, sd_bus_error *er
         if (!machine)
                 return 0;
 
-        machine_release_unit(machine);
         machine_add_to_gc_queue(machine);
-
         return 0;
 }
 

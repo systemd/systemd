@@ -247,8 +247,16 @@ void manager_gc(Manager *m, bool drop_not_started) {
                 LIST_REMOVE(gc_queue, m->machine_gc_queue, machine);
                 machine->in_gc_queue = false;
 
-                if (!machine_check_gc(machine, drop_not_started)) {
+                /* First, if we are not closing yet, initiate stopping */
+                if (!machine_check_gc(machine, drop_not_started) &&
+                    machine_get_state(machine) != MACHINE_CLOSING)
                         machine_stop(machine);
+
+                /* Now, the stop stop probably made this referenced
+                 * again, but if it didn't, then it's time to let it
+                 * go entirely. */
+                if (!machine_check_gc(machine, drop_not_started)) {
+                        machine_finalize(machine);
                         machine_free(machine);
                 }
         }
