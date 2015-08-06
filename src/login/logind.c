@@ -907,8 +907,8 @@ static void manager_gc(Manager *m, bool drop_not_started) {
                     session_get_state(session) != SESSION_CLOSING)
                         session_stop(session, false);
 
-                /* Normally, this should make the session busy again,
-                 * if it doesn't then let's get rid of it
+                /* Normally, this should make the session referenced
+                 * again, if it doesn't then let's get rid of it
                  * immediately */
                 if (!session_check_gc(session, drop_not_started)) {
                         session_finalize(session);

@@ -231,11 +231,11 @@ static void machine_unlink(Machine *m) {
                 char *sl;
 
                 sl = strjoina("/run/systemd/machines/unit:", m->unit);
-                unlink(sl);
+                (void) unlink(sl);
         }
 
         if (m->state_file)
-                unlink(m->state_file);
+                (void) unlink(m->state_file);
 }
 
 int machine_load(Machine *m) {

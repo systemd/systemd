@@ -1124,8 +1124,7 @@ int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *err
                 return 0;
 
         if (streq_ptr(path, machine->scope_job)) {
-                free(machine->scope_job);
-                machine->scope_job = NULL;
+                machine->scope_job = mfree(machine->scope_job);
 
                 if (machine->started) {
                         if (streq(result, "done"))
