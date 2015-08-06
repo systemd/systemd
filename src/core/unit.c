@@ -478,10 +478,11 @@ void unit_free(Unit *u) {
         if (u->manager->n_reloading <= 0)
                 unit_remove_transient(u);
 
-        sd_bus_slot_unref(u->match_bus_slot);
         bus_unit_send_removed_signal(u);
 
         unit_done(u);
+
+        sd_bus_slot_unref(u->match_bus_slot);
 
         unit_free_requires_mounts_for(u);
 
