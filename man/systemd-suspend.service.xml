@@ -1,6 +1,9 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
+<!ENTITY % entities SYSTEM "custom-entities.ent" >
+%entities;
+]>
 
 <!--
   This file is part of systemd.
@@ -56,7 +59,7 @@
     <para><filename>systemd-suspend.service</filename></para>
     <para><filename>systemd-hibernate.service</filename></para>
     <para><filename>systemd-hybrid-sleep.service</filename></para>
-    <para><filename>/usr/lib/systemd/system-sleep</filename></para>
+    <para><filename>&rootlibexecdir;/system-sleep</filename></para>
   </refsynopsisdiv>
 
   <refsect1>
@@ -75,7 +78,7 @@
     <para>Immediately before entering system suspend and/or
     hibernation <filename>systemd-suspend.service</filename> (and the
     other mentioned units, respectively) will run all executables in
-    <filename>/usr/lib/systemd/system-sleep/</filename> and pass two
+    <filename>&rootlibexecdir;/system-sleep/</filename> and pass two
     arguments to them. The first argument will be
     <literal>pre</literal>, the second either
     <literal>suspend</literal>, <literal>hibernate</literal>, or
@@ -87,7 +90,7 @@
     until all executables have finished.</para>
 
     <para>Note that scripts or binaries dropped in
-    <filename>/usr/lib/systemd/system-sleep/</filename> are intended
+    <filename>&rootlibexecdir;/system-sleep/</filename> are intended
     for local use only and should be considered hacks. If applications
     want to be notified of system suspend/hibernation and resume,
     there are much nicer interfaces available.</para>
@@ -104,7 +107,7 @@
     <literal>mem</literal> into <filename>/sys/power/state</filename>,
     to trigger the actual system suspend. What exactly is written
     where can be configured in the <literal>[Sleep]</literal> section
-    of <filename>/etc/systemd/sleep.conf</filename> or a
+    of <filename>&pkgsysconfdir;/sleep.conf</filename> or a
     <filename>sleep.conf.d</filename> file. See
     <citerefentry><refentrytitle>systemd-sleep.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
     </para>

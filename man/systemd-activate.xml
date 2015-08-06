@@ -1,6 +1,9 @@
 <?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
+<!ENTITY % entities SYSTEM "custom-entities.ent" >
+%entities;
+]>
 
 <!--
   This file is part of systemd.
@@ -50,7 +53,7 @@
 
   <refsynopsisdiv>
     <cmdsynopsis>
-      <command>/usr/lib/systemd/systemd-activate</command>
+      <command>&rootlibexecdir;/systemd-activate</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
       <arg choice="plain"><replaceable>daemon</replaceable></arg>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
@@ -149,13 +152,13 @@
     <example>
       <title>Run an echo server on port 2000</title>
 
-      <programlisting>$ /usr/lib/systemd/systemd-activate -l 2000 -a cat</programlisting>
+      <programlisting>$ &rootlibexecdir;/systemd-activate -l 2000 -a cat</programlisting>
     </example>
 
     <example>
       <title>Run a socket activated instance of <citerefentry><refentrytitle>systemd-journal-gatewayd</refentrytitle><manvolnum>8</manvolnum></citerefentry></title>
 
-      <programlisting>$ /usr/lib/systemd/systemd-activate -l 19531 /usr/lib/systemd/systemd-journal-gatewayd</programlisting>
+      <programlisting>$ &rootlibexecdir;/systemd-activate -l 19531 &rootlibexecdir;/systemd-journal-gatewayd</programlisting>
     </example>
   </refsect1>
 

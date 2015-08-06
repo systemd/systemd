@@ -1,6 +1,9 @@
 <?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
+<!ENTITY % entities SYSTEM "custom-entities.ent" >
+%entities;
+]>
 
 <refentry id="hwdb" conditional="ENABLE_HWDB">
   <refentryinfo>
@@ -40,16 +43,15 @@
 
   <refsect1><title>Hardware Database Files</title>
       <para>The hwdb files are read from the files located in the
-      system hwdb directory <filename>/usr/lib/udev/hwdb.d</filename> and
-      the local administration directory <filename>/etc/udev/hwdb.d</filename>.
+      system hwdb directory <filename>&udevlibexecdir;/hwdb.d</filename>
+      and the local administration directory <filename>/etc/udev/hwdb.d</filename>.
       All hwdb files are collectively sorted and processed in lexical order,
       regardless of the directories in which they live. However, files with
       identical filenames replace each other. Files in <filename>/etc</filename>
-      have the highest priority and take precedence over files with the same
-      name in <filename>/usr/lib</filename>. This can be used to override a
-      system-supplied hwdb file with a local file if needed;
+      take precedence over files with the same name in <filename>&rootprefix;/lib</filename>.
+      This can be used to override a system-supplied hwdb file with a local file if needed;
       a symlink in <filename>/etc</filename> with the same name as a hwdb file in
-      <filename>/usr/lib</filename>, pointing to <filename>/dev/null</filename>,
+      <filename>&rootprefix;/lib</filename>, pointing to <filename>/dev/null</filename>,
       disables the hwdb file entirely. hwdb files must have the extension
       <filename>.hwdb</filename>; other extensions are ignored.</para>
 
@@ -69,7 +71,7 @@
       <para>The content of all hwdb files is read by
       <citerefentry><refentrytitle>systemd-hwdb</refentrytitle><manvolnum>8</manvolnum></citerefentry>
       and compiled to a binary database located at <filename>/etc/udev/hwdb.bin</filename>,
-      or alternatively <filename>/usr/lib/udev/hwdb.bin</filename> if you want ship the compiled
+      or alternatively <filename>&udevlibexecdir;/hwdb.bin</filename> if you want ship the compiled
       database in an immutable image.
       During runtime only the binary database is used.</para>
   </refsect1>

@@ -1,6 +1,9 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
+<!ENTITY % entities SYSTEM "custom-entities.ent" >
+%entities;
+]>
 
 <!--
   This file is part of systemd.
@@ -60,7 +63,7 @@
       usage, as well as per-process information from a running system.
       Collected results are output as an SVG graph. Normally,
       systemd-bootchart is invoked by the kernel by passing
-      <option>init=<filename>/usr/lib/systemd/systemd-bootchart</filename></option>
+      <option>init=<filename>&rootlibexecdir;/systemd-bootchart</filename></option>
       on the kernel command line. systemd-bootchart will then fork the
       real init off to resume normal system startup, while monitoring
       and logging startup information in the background.
@@ -106,7 +109,7 @@
         <listitem><para>The kernel can invoke
         <command>systemd-bootchart</command> instead of the init
         process. In turn, <command>systemd-bootchart</command> will
-        invoke <command>/usr/lib/systemd/systemd</command>.
+        invoke <command>&rootlibexecdir;/systemd</command>.
         </para></listitem>
       </varlistentry>
 
@@ -128,7 +131,7 @@
     <title>Options</title>
 
     <para>These options can also be set in the
-    <filename>/etc/systemd/bootchart.conf</filename> file. See
+    <filename>&pkgsysconfdir;/bootchart.conf</filename> file. See
     <citerefentry project='man-pages'><refentrytitle>bootchart.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
     </para>
 
@@ -201,7 +204,7 @@
         <term><option>-i</option></term>
         <term><option>--init <replaceable>path</replaceable></option></term>
         <listitem><para>Use this init binary. Defaults to
-        <command>/usr/lib/systemd/systemd</command>.
+        <command>&rootlibexecdir;/systemd</command>.
         </para></listitem>
       </varlistentry>
 

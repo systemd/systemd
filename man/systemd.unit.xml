@@ -64,20 +64,20 @@
     <filename><replaceable>slice</replaceable>.slice</filename>,
     <filename><replaceable>scope</replaceable>.scope</filename></para>
 
-    <para><literallayout><filename>/etc/systemd/system/*</filename>
+    <para><literallayout><filename>&pkgsysconfdir;/system/*</filename>
 <filename>/run/systemd/system/*</filename>
-<filename>/usr/lib/systemd/system/*</filename>
+<filename>&rootlibexecdir;/system/*</filename>
 <filename>...</filename>
     </literallayout></para>
 
     <para><literallayout><filename>$XDG_CONFIG_HOME/systemd/user/*</filename>
 <filename>$HOME/.config/systemd/user/*</filename>
-<filename>/etc/systemd/user/*</filename>
+<filename>&pkgsysconfdir;/user/*</filename>
 <filename>$XDG_RUNTIME_DIR/systemd/user/*</filename>
 <filename>/run/systemd/user/*</filename>
 <filename>$XDG_DATA_HOME/systemd/user/*</filename>
 <filename>$HOME/.local/share/systemd/user/*</filename>
-<filename>/usr/lib/systemd/user/*</filename>
+<filename>&rootlibexecdir;/user/*</filename>
 <filename>...</filename>
     </literallayout></para>
   </refsynopsisdiv>
@@ -287,7 +287,7 @@
         </thead>
         <tbody>
           <row>
-      <entry><filename>/etc/systemd/system</filename></entry>
+      <entry><filename>&pkgsysconfdir;/system</filename></entry>
       <entry>Local configuration</entry>
           </row>
           <row>
@@ -295,7 +295,7 @@
       <entry>Runtime units</entry>
           </row>
           <row>
-      <entry><filename>/usr/lib/systemd/system</filename></entry>
+      <entry><filename>&rootlibexecdir;/system</filename></entry>
       <entry>Units of installed packages</entry>
           </row>
         </tbody>
@@ -326,7 +326,7 @@
       <entry>User configuration (only used when $XDG_CONFIG_HOME is not set)</entry>
           </row>
           <row>
-      <entry><filename>/etc/systemd/user</filename></entry>
+      <entry><filename>&pkgsysconfdir;/user</filename></entry>
       <entry>Local configuration</entry>
           </row>
           <row>
@@ -346,7 +346,7 @@
       <entry>Units of packages that have been installed in the home directory (only used when $XDG_DATA_HOME is not set)</entry>
           </row>
           <row>
-      <entry><filename>/usr/lib/systemd/user</filename></entry>
+      <entry><filename>&rootlibexecdir;/user</filename></entry>
       <entry>Units of packages that have been installed system-wide</entry>
           </row>
         </tbody>
@@ -1296,7 +1296,7 @@ ExecStart=/usr/sbin/foo-daemon
 
       <para>After running <command>systemctl enable</command>, a
       symlink
-      <filename>/etc/systemd/system/multi-user.target.wants/foo.service</filename>
+      <filename>&pkgsysconfdir;/system/multi-user.target.wants/foo.service</filename>
       linking to the actual unit will be created. It tells systemd to
       pull in the unit when starting
       <filename>multi-user.target</filename>. The inverse
@@ -1309,11 +1309,11 @@ ExecStart=/usr/sbin/foo-daemon
 
       <para>There are two methods of overriding vendor settings in
       unit files: copying the unit file from
-      <filename>/usr/lib/systemd/system</filename> to
-      <filename>/etc/systemd/system</filename> and modifying the
+      <filename>&rootlibexecdir;/system</filename> to
+      <filename>&pkgsysconfdir;/system</filename> and modifying the
       chosen settings. Alternatively, one can create a directory named
       <filename><replaceable>unit</replaceable>.d/</filename> within
-      <filename>/etc/systemd/system</filename> and place a drop-in
+      <filename>&pkgsysconfdir;/system</filename> and place a drop-in
       file <filename><replaceable>name</replaceable>.conf</filename>
       there that only changes the specific settings one is interested
       in. Note that multiple such drop-in files are read if
@@ -1343,7 +1343,7 @@ ExecStart=/usr/sbin/foo-daemon
       load paths for further details.</para>
 
       <para>Suppose there is a vendor-supplied unit
-      <filename>/usr/lib/systemd/system/httpd.service</filename> with
+      <filename>&rootlibexecdir;/system/httpd.service</filename> with
       the following contents:</para>
 
       <programlisting>[Unit]
@@ -1375,7 +1375,7 @@ WantedBy=multi-user.target</programlisting>
       the niceness of the service to its default value of 0.</para>
 
       <para>The first possibility is to copy the unit file to
-      <filename>/etc/systemd/system/httpd.service</filename> and
+      <filename>&pkgsysconfdir;/system/httpd.service</filename> and
       change the chosen settings:</para>
 
       <programlisting>[Unit]
@@ -1395,7 +1395,7 @@ WantedBy=multi-user.target</programlisting>
 
       <para>Alternatively, the administrator could create a drop-in
       file
-      <filename>/etc/systemd/system/httpd.service.d/local.conf</filename>
+      <filename>&pkgsysconfdir;/system/httpd.service.d/local.conf</filename>
       with the following contents:</para>
 
       <programlisting>[Unit]

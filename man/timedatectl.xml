@@ -1,6 +1,9 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
+<!ENTITY % entities SYSTEM "custom-entities.ent" >
+%entities;
+]>
 
 <!--
   This file is part of systemd.
@@ -210,13 +213,13 @@ Password: ********
 
     <programlisting>$ systemctl status systemd-timesyncd.service
 ● systemd-timesyncd.service - Network Time Synchronization
-   Loaded: loaded (/usr/lib/systemd/system/systemd-timesyncd.service; enabled)
+   Loaded: loaded (&rootlibexecdir;/system/systemd-timesyncd.service; enabled)
    Active: active (running) since Mo 2015-03-30 14:20:38 CEST; 5s ago
      Docs: man:systemd-timesyncd.service(8)
  Main PID: 595 (systemd-timesyn)
    Status: "Using Time Server 216.239.38.15:123 (time4.google.com)."
    CGroup: /system.slice/systemd-timesyncd.service
-           └─595 /usr/lib/systemd/systemd-timesyncd
+           └─595 &rootlibexecdir;/systemd-timesyncd
 ...</programlisting>
     </para>
   </refsect1>

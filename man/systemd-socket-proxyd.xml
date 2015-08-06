@@ -1,7 +1,10 @@
 <?xml version="1.0"?>
 <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-     "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+     "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
+<!ENTITY % entities SYSTEM "custom-entities.ent" >
+%entities;
+]>
 <!--
   This file is part of systemd.
 
@@ -113,7 +116,7 @@ Requires=nginx.service
 After=nginx.service
 
 [Service]
-ExecStart=/usr/lib/systemd/systemd-socket-proxyd /tmp/nginx.sock
+ExecStart=]]>&rootlibexecdir;<![CDATA[/systemd-socket-proxyd /tmp/nginx.sock
 PrivateTmp=yes
 PrivateNetwork=yes]]></programlisting>
       </example>
@@ -156,7 +159,7 @@ After=nginx.service
 JoinsNamespaceOf=nginx.service
 
 [Service]
-ExecStart=/usr/lib/systemd/systemd-socket-proxyd 127.0.0.1:8080
+ExecStart=]]>&rootlibexecdir;<![CDATA[/systemd-socket-proxyd 127.0.0.1:8080
 PrivateTmp=yes
 PrivateNetwork=yes]]></programlisting>
       </example>
