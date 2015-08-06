@@ -776,6 +776,7 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
 
                 case KDBUS_ITEM_FDS:
                 case KDBUS_ITEM_SECLABEL:
+                case KDBUS_ITEM_BLOOM_FILTER:
                         break;
 
                 default:
