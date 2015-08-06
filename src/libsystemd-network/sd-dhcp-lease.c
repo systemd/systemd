@@ -965,8 +965,10 @@ int sd_dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
                         return r;
 
                 r = dhcp_lease_insert_private_option(lease, DHCP_OPTION_PRIVATE_BASE + i, data, len);
-                if (r < 0)
+                if (r < 0) {
+                        free(data);
                         return r;
+                }
         }
 
         *ret = lease;
