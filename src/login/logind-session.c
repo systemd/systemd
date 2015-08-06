@@ -656,7 +656,6 @@ int session_stop(Session *s, bool force) {
 }
 
 int session_finalize(Session *s) {
-        int r = 0;
         SessionDevice *sd;
 
         assert(s);
@@ -682,7 +681,7 @@ int session_finalize(Session *s) {
         while ((sd = hashmap_first(s->devices)))
                 session_device_free(sd);
 
-        unlink(s->state_file);
+        (void) unlink(s->state_file);
         session_add_to_gc_queue(s);
         user_add_to_gc_queue(s->user);
 
@@ -702,7 +701,7 @@ int session_finalize(Session *s) {
         user_save(s->user);
         user_send_changed(s->user, "Sessions", "Display", NULL);
 
-        return r;
+        return 0;
 }
 
 static int release_timeout_callback(sd_event_source *es, uint64_t usec, void *userdata) {

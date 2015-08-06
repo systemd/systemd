@@ -2511,7 +2511,7 @@ int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *err
         r = sd_bus_message_read(message, "uoss", &id, &path, &unit, &result);
         if (r < 0) {
                 bus_log_parse_error(r);
-                return r;
+                return 0;
         }
 
         if (m->action_job && streq(m->action_job, path)) {
@@ -2520,8 +2520,7 @@ int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *err
                 /* Tell people that they now may take a lock again */
                 send_prepare_for(m, m->action_what, false);
 
-                free(m->action_job);
-                m->action_job = NULL;
+                m->action_job = mfree(m->action_job);
                 m->action_unit = NULL;
                 m->action_what = 0;
                 return 0;
@@ -2530,10 +2529,8 @@ int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *err
         session = hashmap_get(m->session_units, unit);
         if (session) {
 
-                if (streq_ptr(path, session->scope_job)) {
-                        free(session->scope_job);
-                        session->scope_job = NULL;
-                }
+                if (streq_ptr(path, session->scope_job))
+                        session->scope_job = mfree(session->scope_job);
 
                 session_jobs_reply(session, unit, result);
 
@@ -2545,19 +2542,14 @@ int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *err
         user = hashmap_get(m->user_units, unit);
         if (user) {
 
-                if (streq_ptr(path, user->service_job)) {
-                        free(user->service_job);
-                        user->service_job = NULL;
-                }
+                if (streq_ptr(path, user->service_job))
+                        user->service_job = mfree(user->service_job);
 
-                if (streq_ptr(path, user->slice_job)) {
-                        free(user->slice_job);
-                        user->slice_job = NULL;
-                }
+                if (streq_ptr(path, user->slice_job))
+                        user->slice_job = mfree(user->slice_job);
 
-                LIST_FOREACH(sessions_by_user, session, user->sessions) {
+                LIST_FOREACH(sessions_by_user, session, user->sessions)
                         session_jobs_reply(session, unit, result);
-                }
 
                 user_save(user);
                 user_add_to_gc_queue(user);
@@ -2579,7 +2571,7 @@ int match_unit_removed(sd_bus_message *message, void *userdata, sd_bus_error *er
         r = sd_bus_message_read(message, "so", &unit, &path);
         if (r < 0) {
                 bus_log_parse_error(r);
-                return r;
+                return 0;
         }
 
         session = hashmap_get(m->session_units, unit);
@@ -2611,8 +2603,10 @@ int match_properties_changed(sd_bus_message *message, void *userdata, sd_bus_err
         r = unit_name_from_dbus_path(path, &unit);
         if (r == -EINVAL) /* not a unit */
                 return 0;
-        if (r < 0)
-                return r;
+        if (r < 0) {
+                log_oom();
+                return 0;
+        }
 
         session = hashmap_get(m->session_units, unit);
         if (session)
@@ -2637,7 +2631,7 @@ int match_reloading(sd_bus_message *message, void *userdata, sd_bus_error *error
         r = sd_bus_message_read(message, "b", &b);
         if (r < 0) {
                 bus_log_parse_error(r);
-                return r;
+                return 0;
         }
 
         if (b)
