@@ -505,34 +505,26 @@ Manager *manager_free(Manager *m) {
         return NULL;
 }
 
-int manager_read_resolv_conf(Manager *m) {
-        _cleanup_fclose_ FILE *f = NULL;
+static int should_read_resolv_conf(Manager *m)
+{
         struct stat st, own;
-        char line[LINE_MAX];
-        DnsServer *s, *nx;
         usec_t t;
         int r;
-
-        assert(m);
-
-        /* Reads the system /etc/resolv.conf, if it exists and is not
-         * symlinked to our own resolv.conf instance */
-
-        if (!m->read_resolv_conf)
-                return 0;
+        /* Check the system /etc/resolv.conf, if it exists and is not
+         * symlinked to our own resolv.conf instance, and we haven't
+         * read it already */
 
         r = stat("/etc/resolv.conf", &st);
         if (r < 0) {
                 if (errno != ENOENT)
                         log_warning_errno(errno, "Failed to open /etc/resolv.conf: %m");
-                r = -errno;
-                goto clear;
+                return -errno;
         }
 
         /* Have we already seen the file? */
         t = timespec_load(&st.st_mtim);
         if (t == m->resolv_conf_mtime)
-                return 0;
+                return 1;
 
         m->resolv_conf_mtime = t;
 
@@ -540,20 +532,39 @@ int manager_read_resolv_conf(Manager *m) {
         if (stat("/run/systemd/resolve/resolv.conf", &own) >= 0 &&
             st.st_dev == own.st_dev &&
             st.st_ino == own.st_ino) {
-                r = 0;
-                goto clear;
+                return 1;
+        }
+        return 0;
+}
+
+int manager_read_resolv_conf(Manager *m) {
+        _cleanup_fclose_ FILE *f = NULL;
+        struct stat st;
+        char line[LINE_MAX];
+        const char *resolverfile;
+        DnsServer *s, *nx;
+        int r;
+
+        assert(m);
+
+        if (!m->read_resolv_conf)
+                return 0;
+
+        r = should_read_resolv_conf(m);
+        if (r == 0) {
+                resolverfile="/etc/resolv.conf";
+        } else {
+                r = stat("/proc/net/pnp", &st);
+                if (r == 0)
+                    resolverfile="/proc/net/pnp";
+                else
+                    goto clear;
         }
 
-        f = fopen("/etc/resolv.conf", "re");
+        f = fopen(resolverfile, "re");
         if (!f) {
                 if (errno != ENOENT)
-                        log_warning_errno(errno, "Failed to open /etc/resolv.conf: %m");
-                r = -errno;
-                goto clear;
-        }
-
-        if (fstat(fileno(f), &st) < 0) {
-                log_error_errno(errno, "Failed to stat open file: %m");
+                        log_warning_errno(errno, "Failed to open %s: %m", resolverfile);
                 r = -errno;
                 goto clear;
         }
