@@ -165,7 +165,7 @@ static void test_strv_quote_unquote(const char* const *split, const char *quoted
         assert_se(p);
         assert_se(streq(p, quoted));
 
-        r = strv_split_quoted(&s, quoted, 0);
+        r = strv_split_extract(&s, quoted, WHITESPACE, EXTRACT_QUOTES);
         assert_se(r == 0);
         assert_se(s);
         STRV_FOREACH(t, s) {
@@ -182,7 +182,7 @@ static void test_strv_unquote(const char *quoted, char **list) {
         char **t;
         int r;
 
-        r = strv_split_quoted(&s, quoted, 0);
+        r = strv_split_extract(&s, quoted, WHITESPACE, EXTRACT_QUOTES);
         assert_se(r == 0);
         assert_se(s);
         j = strv_join(s, " | ");
@@ -199,7 +199,7 @@ static void test_invalid_unquote(const char *quoted) {
         char **s = NULL;
         int r;
 
-        r = strv_split_quoted(&s, quoted, 0);
+        r = strv_split_extract(&s, quoted, WHITESPACE, EXTRACT_QUOTES);
         assert_se(s == NULL);
         assert_se(r == -EINVAL);
 }
@@ -217,6 +217,21 @@ static void test_strv_split(void) {
         STRV_FOREACH(s, l) {
                 assert_se(streq(*s, input_table_multiple[i++]));
         }
+}
+
+static void test_strv_split_extract(void) {
+        _cleanup_strv_free_ char **l = NULL;
+        const char *str = ":foo\\:bar::waldo:";
+        int r;
+
+        r = strv_split_extract(&l, str, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
+        assert_se(r == 0);
+        assert_se(streq_ptr(l[0], ""));
+        assert_se(streq_ptr(l[1], "foo:bar"));
+        assert_se(streq_ptr(l[2], ""));
+        assert_se(streq_ptr(l[3], "waldo"));
+        assert_se(streq_ptr(l[4], ""));
+        assert_se(streq_ptr(l[5], NULL));
 }
 
 static void test_strv_split_newlines(void) {
@@ -542,6 +557,18 @@ static void test_strv_reverse(void) {
         assert_se(streq_ptr(d[3], NULL));
 }
 
+static void test_strv_shell_escape(void) {
+        _cleanup_strv_free_ char **v = NULL;
+
+        v = strv_new("foo:bar", "bar,baz", "wal\\do", NULL);
+        assert_se(v);
+        assert_se(strv_shell_escape(v, ",:"));
+        assert_se(streq_ptr(v[0], "foo\\:bar"));
+        assert_se(streq_ptr(v[1], "bar\\,baz"));
+        assert_se(streq_ptr(v[2], "wal\\\\do"));
+        assert_se(streq_ptr(v[3], NULL));
+}
+
 int main(int argc, char *argv[]) {
         test_specifier_printf();
         test_strv_foreach();
@@ -583,6 +610,7 @@ int main(int argc, char *argv[]) {
         test_invalid_unquote("'x'y'g");
 
         test_strv_split();
+        test_strv_split_extract();
         test_strv_split_newlines();
         test_strv_split_nulstr();
         test_strv_parse_nulstr();
@@ -598,6 +626,7 @@ int main(int argc, char *argv[]) {
         test_strv_equal();
         test_strv_is_uniq();
         test_strv_reverse();
+        test_strv_shell_escape();
 
         return 0;
 }

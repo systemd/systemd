@@ -4843,7 +4843,7 @@ int parse_proc_cmdline(int (*parse_item)(const char *key, const char *value)) {
                 _cleanup_free_ char *word = NULL;
                 char *value = NULL;
 
-                r = unquote_first_word(&p, &word, UNQUOTE_RELAX);
+                r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES|EXTRACT_RELAX);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -4883,7 +4883,7 @@ int get_proc_cmdline_key(const char *key, char **value) {
                 _cleanup_free_ char *word = NULL;
                 const char *e;
 
-                r = unquote_first_word(&p, &word, UNQUOTE_RELAX);
+                r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES|EXTRACT_RELAX);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -5698,7 +5698,7 @@ int is_device_node(const char *path) {
         return !!(S_ISBLK(info.st_mode) || S_ISCHR(info.st_mode));
 }
 
-int unquote_first_word(const char **p, char **ret, UnquoteFlags flags) {
+int extract_first_word(const char **p, char **ret, const char *separators, ExtractFlags flags) {
         _cleanup_free_ char *s = NULL;
         size_t allocated = 0, sz = 0;
         int r;
@@ -5711,12 +5711,18 @@ int unquote_first_word(const char **p, char **ret, UnquoteFlags flags) {
                 SINGLE_QUOTE_ESCAPE,
                 DOUBLE_QUOTE,
                 DOUBLE_QUOTE_ESCAPE,
-                SPACE,
+                SEPARATOR,
         } state = START;
 
         assert(p);
-        assert(*p);
         assert(ret);
+
+        if (!separators)
+                separators = WHITESPACE;
+
+        /* Bail early if called after last value or with no input */
+        if (!*p)
+                goto finish_force_terminate;
 
         /* Parses the first word of a string, and returns it in
          * *ret. Removes all quotes in the process. When parsing fails
@@ -5729,32 +5735,46 @@ int unquote_first_word(const char **p, char **ret, UnquoteFlags flags) {
                 switch (state) {
 
                 case START:
-                        if (c == 0)
-                                goto finish;
-                        else if (strchr(WHITESPACE, c))
+                        if (c == 0) {
+                                if (flags & EXTRACT_DONT_COALESCE_SEPARATORS)
+                                        if (!GREEDY_REALLOC(s, allocated, sz+1))
+                                                return -ENOMEM;
+                                goto finish_force_terminate;
+                        } else if (strchr(separators, c)) {
+                                if (flags & EXTRACT_DONT_COALESCE_SEPARATORS) {
+                                        if (!GREEDY_REALLOC(s, allocated, sz+1))
+                                                return -ENOMEM;
+                                        (*p) ++;
+                                        goto finish_force_next;
+                                }
                                 break;
+                        }
 
                         state = VALUE;
                         /* fallthrough */
 
                 case VALUE:
                         if (c == 0)
-                                goto finish;
-                        else if (c == '\'') {
+                                goto finish_force_terminate;
+                        else if (c == '\'' && (flags & EXTRACT_QUOTES)) {
                                 if (!GREEDY_REALLOC(s, allocated, sz+1))
                                         return -ENOMEM;
 
                                 state = SINGLE_QUOTE;
                         } else if (c == '\\')
                                 state = VALUE_ESCAPE;
-                        else if (c == '\"') {
+                        else if (c == '\"' && (flags & EXTRACT_QUOTES)) {
                                 if (!GREEDY_REALLOC(s, allocated, sz+1))
                                         return -ENOMEM;
 
                                 state = DOUBLE_QUOTE;
-                        } else if (strchr(WHITESPACE, c))
-                                state = SPACE;
-                        else {
+                        } else if (strchr(separators, c)) {
+                                if (flags & EXTRACT_DONT_COALESCE_SEPARATORS) {
+                                        (*p) ++;
+                                        goto finish_force_next;
+                                }
+                                state = SEPARATOR;
+                        } else {
                                 if (!GREEDY_REALLOC(s, allocated, sz+2))
                                         return -ENOMEM;
 
@@ -5765,8 +5785,8 @@ int unquote_first_word(const char **p, char **ret, UnquoteFlags flags) {
 
                 case SINGLE_QUOTE:
                         if (c == 0) {
-                                if (flags & UNQUOTE_RELAX)
-                                        goto finish;
+                                if (flags & EXTRACT_RELAX)
+                                        goto finish_force_terminate;
                                 return -EINVAL;
                         } else if (c == '\'')
                                 state = VALUE;
@@ -5804,29 +5824,29 @@ int unquote_first_word(const char **p, char **ret, UnquoteFlags flags) {
                                 return -ENOMEM;
 
                         if (c == 0) {
-                                if ((flags & UNQUOTE_CUNESCAPE_RELAX) &&
-                                    (state == VALUE_ESCAPE || flags & UNQUOTE_RELAX)) {
+                                if ((flags & EXTRACT_CUNESCAPE_RELAX) &&
+                                    (state == VALUE_ESCAPE || flags & EXTRACT_RELAX)) {
                                         /* If we find an unquoted trailing backslash and we're in
-                                         * UNQUOTE_CUNESCAPE_RELAX mode, keep it verbatim in the
+                                         * EXTRACT_CUNESCAPE_RELAX mode, keep it verbatim in the
                                          * output.
                                          *
-                                         * Unbalanced quotes will only be allowed in UNQUOTE_RELAX
-                                         * mode, UNQUOTE_CUNESCAP_RELAX mode does not allow them.
+                                         * Unbalanced quotes will only be allowed in EXTRACT_RELAX
+                                         * mode, EXTRACT_CUNESCAPE_RELAX mode does not allow them.
                                          */
                                         s[sz++] = '\\';
-                                        goto finish;
+                                        goto finish_force_terminate;
                                 }
-                                if (flags & UNQUOTE_RELAX)
-                                        goto finish;
+                                if (flags & EXTRACT_RELAX)
+                                        goto finish_force_terminate;
                                 return -EINVAL;
                         }
 
-                        if (flags & UNQUOTE_CUNESCAPE) {
+                        if (flags & EXTRACT_CUNESCAPE) {
                                 uint32_t u;
 
                                 r = cunescape_one(*p, (size_t) -1, &c, &u);
                                 if (r < 0) {
-                                        if (flags & UNQUOTE_CUNESCAPE_RELAX) {
+                                        if (flags & EXTRACT_CUNESCAPE_RELAX) {
                                                 s[sz++] = '\\';
                                                 s[sz++] = c;
                                                 goto end_escape;
@@ -5849,24 +5869,29 @@ end_escape:
                                 VALUE;
                         break;
 
-                case SPACE:
+                case SEPARATOR:
                         if (c == 0)
+                                goto finish_force_terminate;
+                        if (flags & EXTRACT_DONT_COALESCE_SEPARATORS)
+                                goto finish_force_next;
+                        if (!strchr(separators, c))
                                 goto finish;
-                        if (!strchr(WHITESPACE, c))
-                                goto finish;
-
                         break;
                 }
 
                 (*p) ++;
         }
 
+finish_force_terminate:
+        *p = NULL;
 finish:
         if (!s) {
+                *p = NULL;
                 *ret = NULL;
                 return 0;
         }
 
+finish_force_next:
         s[sz] = 0;
         *ret = s;
         s = NULL;
@@ -5874,26 +5899,27 @@ finish:
         return 1;
 }
 
-int unquote_first_word_and_warn(
+int extract_first_word_and_warn(
                 const char **p,
                 char **ret,
-                UnquoteFlags flags,
+                const char *separators,
+                ExtractFlags flags,
                 const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *rvalue) {
         /* Try to unquote it, if it fails, warn about it and try again but this
-         * time using UNQUOTE_CUNESCAPE_RELAX to keep the backslashes verbatim
+         * time using EXTRACT_CUNESCAPE_RELAX to keep the backslashes verbatim
          * in invalid escape sequences. */
         const char *save;
         int r;
 
         save = *p;
-        r = unquote_first_word(p, ret, flags);
-        if (r < 0 && !(flags&UNQUOTE_CUNESCAPE_RELAX)) {
-                /* Retry it with UNQUOTE_CUNESCAPE_RELAX. */
+        r = extract_first_word(p, ret, separators, flags);
+        if (r < 0 && !(flags&EXTRACT_CUNESCAPE_RELAX)) {
+                /* Retry it with EXTRACT_CUNESCAPE_RELAX. */
                 *p = save;
-                r = unquote_first_word(p, ret, flags|UNQUOTE_CUNESCAPE_RELAX);
+                r = extract_first_word(p, ret, separators, flags|EXTRACT_CUNESCAPE_RELAX);
                 if (r < 0)
                         log_syntax(unit, LOG_ERR, filename, line, EINVAL,
                                    "Unbalanced quoting in command line, ignoring: \"%s\"", rvalue);
@@ -5904,7 +5930,7 @@ int unquote_first_word_and_warn(
         return r;
 }
 
-int unquote_many_words(const char **p, UnquoteFlags flags, ...) {
+int extract_many_words(const char **p, const char *separators, ExtractFlags flags, ...) {
         va_list ap;
         char **l;
         int n = 0, i, c, r;
@@ -5930,7 +5956,7 @@ int unquote_many_words(const char **p, UnquoteFlags flags, ...) {
         l = newa0(char*, n);
         for (c = 0; c < n; c++) {
 
-                r = unquote_first_word(p, &l[c], flags);
+                r = extract_first_word(p, &l[c], separators, flags);
                 if (r < 0) {
                         int j;
 
@@ -6511,6 +6537,32 @@ int rename_noreplace(int olddirfd, const char *oldpath, int newdirfd, const char
         return 0;
 }
 
+static char *strcpy_backslash_escaped(char *t, const char *s, const char *bad) {
+        assert(bad);
+
+        for (; *s; s++) {
+                if (*s == '\\' || strchr(bad, *s))
+                        *(t++) = '\\';
+
+                *(t++) = *s;
+        }
+
+        return t;
+}
+
+char *shell_escape(const char *s, const char *bad) {
+        char *r, *t;
+
+        r = new(char, strlen(s)*2+1);
+        if (!r)
+                return NULL;
+
+        t = strcpy_backslash_escaped(r, s, bad);
+        *t = 0;
+
+        return r;
+}
+
 char *shell_maybe_quote(const char *s) {
         const char *p;
         char *r, *t;
@@ -6537,13 +6589,7 @@ char *shell_maybe_quote(const char *s) {
         *(t++) = '"';
         t = mempcpy(t, s, p - s);
 
-        for (; *p; p++) {
-
-                if (strchr(SHELL_NEED_ESCAPE, *p))
-                        *(t++) = '\\';
-
-                *(t++) = *p;
-        }
+        t = strcpy_backslash_escaped(t, p, SHELL_NEED_ESCAPE);
 
         *(t++)= '"';
         *t = 0;

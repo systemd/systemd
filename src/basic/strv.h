@@ -73,7 +73,7 @@ static inline bool strv_isempty(char * const *l) {
 char **strv_split(const char *s, const char *separator);
 char **strv_split_newlines(const char *s);
 
-int strv_split_quoted(char ***t, const char *s, UnquoteFlags flags);
+int strv_split_extract(char ***t, const char *s, const char *separators, ExtractFlags flags);
 
 char *strv_join(char **l, const char *separator);
 char *strv_join_quoted(char **l);
@@ -145,6 +145,7 @@ void strv_print(char **l);
         }))
 
 char **strv_reverse(char **l);
+char **strv_shell_escape(char **l, const char *bad);
 
 bool strv_fnmatch(char* const* patterns, const char *s, int flags);
 
