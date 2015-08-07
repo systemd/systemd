@@ -1163,8 +1163,7 @@
 
         <listitem><para>Colon-separated list of directories to use
         when launching executables. Systemd uses a fixed value of
-        <filename>/usr/local/sbin</filename>:<filename>/usr/local/bin</filename>:<filename>/usr/sbin</filename>:<filename>/usr/bin</filename>:<filename>/sbin</filename>:<filename>/bin</filename>.
-        </para></listitem>
+        &DEFAULT_PATH;.</para></listitem>
       </varlistentry>
 
       <varlistentry>
