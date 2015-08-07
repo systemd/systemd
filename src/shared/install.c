@@ -138,10 +138,83 @@ static int mark_symlink_for_removal(
         return 0;
 }
 
+static bool check_whitelist_for_symlink(char **instance_whitelist, const char *root_dir, const char *config_path, const char *instance) {
+        int r;
+        char *i, *at;
+        const char *l, *lookup_path;
+        _cleanup_free_ char *template = NULL;
+        _cleanup_closedir_ DIR *d = NULL;
+        struct dirent *de;
+
+        assert(instance_whitelist);
+        assert(config_path);
+        assert(instance);
+        assert(unit_name_is_valid(instance, UNIT_NAME_INSTANCE));
+
+        l = nulstr_contains(config_path, "user") ? "/usr/lib/systemd/user/" : "/usr/lib/systemd/system/";
+        lookup_path = prefix_roota(root_dir, l);
+
+        r = unit_name_template(instance, &template);
+        if (r < 0)
+                return false;
+
+        d = opendir(lookup_path);
+        if (!d)
+                return false;
+
+        i = strdupa(instance);
+
+        at = strrchr(i, '@');
+        assert(at);
+        i = ++at;
+
+        while ((de = readdir(d)) != NULL) {
+                _cleanup_free_ char* target = NULL, *path = NULL, *n = NULL;
+                char *name;
+                struct stat st;
+
+                path = path_join(lookup_path, de->d_name, NULL);
+                if (!path) {
+                        log_oom();
+                        return false;
+                }
+
+                r = lstat(path, &st);
+                if (r < 0)
+                        continue;
+
+                if (!S_ISLNK(st.st_mode))
+                        continue;
+
+                r = readlink_and_canonicalize(path, &target);
+                if (r < 0)
+                        continue;
+
+                name = basename(target);
+
+                if (!streq(template, name))
+                        continue;
+
+
+                at = strrchr(de->d_name, '@');
+                if (!at)
+                        continue;
+                *(++at) = '\0';
+
+                n = strjoin(de->d_name, i, NULL);
+
+                if (strv_contains(instance_whitelist, n))
+                        return true;
+        }
+
+        return false;
+}
+
 static int remove_marked_symlinks_fd(
                 Set *remove_symlinks_to,
                 int fd,
                 const char *path,
+                const char *root_dir,
                 const char *config_path,
                 bool *deleted,
                 UnitFileChange **changes,
@@ -204,7 +277,7 @@ static int remove_marked_symlinks_fd(
                         }
 
                         /* This will close nfd, regardless whether it succeeds or not */
-                        q = remove_marked_symlinks_fd(remove_symlinks_to, nfd, p, config_path, deleted, changes, n_changes, instance_whitelist);
+                        q = remove_marked_symlinks_fd(remove_symlinks_to, nfd, p, root_dir, config_path, deleted, changes, n_changes, instance_whitelist);
                         if (q < 0 && r == 0)
                                 r = q;
 
@@ -231,8 +304,13 @@ static int remove_marked_symlinks_fd(
                                 if (r < 0)
                                         return r;
 
-                                if (!strv_contains(instance_whitelist, w))
-                                        continue;
+                                if (!strv_contains(instance_whitelist, w)) {
+                                        /* Let's see if there exists a symlink (under /usr/lib/systemd/) to the template and is on the whitelist */
+
+                                        r = check_whitelist_for_symlink(instance_whitelist, root_dir, config_path, de->d_name);
+                                        if (!r)
+                                                continue;
+                                }
                         }
 
                         p = path_make_absolute(de->d_name, path);
@@ -283,6 +361,7 @@ static int remove_marked_symlinks_fd(
 
 static int remove_marked_symlinks(
                 Set *remove_symlinks_to,
+                const char *root_dir,
                 const char *config_path,
                 UnitFileChange **changes,
                 unsigned *n_changes,
@@ -312,7 +391,7 @@ static int remove_marked_symlinks(
                 }
 
                 /* This takes possession of cfd and closes it */
-                q = remove_marked_symlinks_fd(remove_symlinks_to, cfd, config_path, config_path, &deleted, changes, n_changes, instance_whitelist);
+                q = remove_marked_symlinks_fd(remove_symlinks_to, cfd, config_path, root_dir, config_path, &deleted, changes, n_changes, instance_whitelist);
                 if (r == 0)
                         r = q;
         } while (deleted);
@@ -629,7 +708,7 @@ int unit_file_unmask(
 
 
 finish:
-        q = remove_marked_symlinks(remove_symlinks_to, config_path, changes, n_changes, files);
+        q = remove_marked_symlinks(remove_symlinks_to, root_dir, config_path, changes, n_changes, files);
         if (r == 0)
                 r = q;
 
@@ -824,12 +903,16 @@ static void install_info_free(UnitFileInstallInfo *i) {
 
 static void install_info_hashmap_free(OrderedHashmap *m) {
         UnitFileInstallInfo *i;
+        char *name;
 
         if (!m)
                 return;
 
-        while ((i = ordered_hashmap_steal_first(m)))
+        while ((name = ordered_hashmap_first_key(m))) {
+                i = ordered_hashmap_steal_first(m);
                 install_info_free(i);
+                free(name);
+        }
 
         ordered_hashmap_free(m);
 }
@@ -849,6 +932,7 @@ static int install_info_add(
                 const char *path) {
         UnitFileInstallInfo *i = NULL;
         int r;
+        char *n;
 
         assert(c);
         assert(name || path);
@@ -885,7 +969,18 @@ static int install_info_add(
                 }
         }
 
-        r = ordered_hashmap_put(c->will_install, i->name, i);
+        n = strdup(name);
+        if (!n) {
+                r = -ENOMEM;
+                goto fail;
+        }
+
+        /*
+         *  There is a possibility that i->name will be changed if we figure out that we are not
+         *  handling unit file but rather symlink to another unit file in /usr. Thus we can't use
+         *  i->name as a key.
+         */
+        r = ordered_hashmap_put(c->will_install, n, i);
         if (r < 0)
                 goto fail;
 
@@ -894,7 +989,7 @@ static int install_info_add(
 fail:
         if (i)
                 install_info_free(i);
-
+        free(n);
         return r;
 }
 
@@ -1080,6 +1175,95 @@ static int unit_file_load(
                 (int) strv_length(info->required_by);
 }
 
+static int unit_file_load_follow(
+                InstallContext *c,
+                UnitFileInstallInfo *info,
+                const char *path,
+                const char *root_dir,
+                bool allow_symlink,
+                bool load,
+                bool *also) {
+        int r;
+        _cleanup_free_ char *lookup_dir = NULL, *lookup_dir_in_root = NULL, *target = NULL;
+        char *target_unit, *target_unit_file, *n;
+        const char *root_prefixed_path;
+
+        assert(c);
+        assert(info);
+        assert(path);
+
+        target_unit_file = strdup(path);
+        if (!target_unit_file)
+                return -ENOMEM;
+
+        if (!path_prefix_in_list(path,
+                                "/usr/lib/systemd",
+                                NULL))
+                goto load;
+
+        root_prefixed_path = prefix_roota(root_dir, path);
+
+        r = is_symlink(root_prefixed_path);
+        if (r <= 0)
+                goto load;
+
+        r = readlink_and_canonicalize(root_prefixed_path, &target);
+        if (r < 0)
+                return r;
+
+        r = path_get_parent(path, &lookup_dir);
+        if (r < 0)
+                return r;
+
+        lookup_dir_in_root = path_join(root_dir, lookup_dir, NULL);
+        if (!lookup_dir_in_root)
+                return -ENOMEM;
+
+        if (!path_prefix_in_list(target, lookup_dir, lookup_dir_in_root, NULL))
+                return -EINVAL;
+
+        target_unit = basename(target);
+
+        free(target_unit_file);
+        target_unit_file = path_join(lookup_dir, target_unit, NULL);
+        if (!target_unit_file)
+                return -ENOMEM;
+
+        if (unit_name_is_valid(info->name, UNIT_NAME_INSTANCE)) {
+                _cleanup_free_ char *instance = NULL;
+                char *at;
+
+                at = strchr(info->name, '@');
+
+                assert(at);
+
+                instance = strdup(++at);
+                if (!instance)
+                        return -ENOMEM;
+
+                at = strchr(target_unit, '@');
+                if (at) {
+                        *at = '\0';
+                        n = strjoin(target_unit, "@", instance, NULL);
+                } else
+                        n = strdup(target_unit);
+        } else
+                n = strdup(target_unit);
+
+        if (!n)
+                return -ENOMEM;
+
+        free(info->name);
+        info->name = n;
+
+load:
+        r = unit_file_load(c, info, target_unit_file, root_dir, allow_symlink, load, also);
+        if (r >= 0)
+                info->path = target_unit_file;
+
+        return r;
+}
+
 static int unit_file_search(
                 InstallContext *c,
                 UnitFileInstallInfo *info,
@@ -1108,12 +1292,7 @@ static int unit_file_search(
                 if (!path)
                         return -ENOMEM;
 
-                r = unit_file_load(c, info, path, root_dir, allow_symlink, load, also);
-                if (r >= 0) {
-                        info->path = path;
-                        path = NULL;
-                        return r;
-                }
+                r = unit_file_load_follow(c, info, path, root_dir, allow_symlink, load, also);
                 if (r != -ENOENT && r != -ELOOP)
                         return r;
         }
@@ -1137,12 +1316,7 @@ static int unit_file_search(
                         if (!path)
                                 return -ENOMEM;
 
-                        r = unit_file_load(c, info, path, root_dir, allow_symlink, load, also);
-                        if (r >= 0) {
-                                info->path = path;
-                                path = NULL;
-                                return r;
-                        }
+                        r = unit_file_load_follow(c, info, path, root_dir, allow_symlink, load, also);
                         if (r != -ENOENT && r != -ELOOP)
                                 return r;
                 }
@@ -1663,7 +1837,7 @@ int unit_file_disable(
 
         r = install_context_mark_for_removal(&c, &paths, &remove_symlinks_to, config_path, root_dir);
 
-        q = remove_marked_symlinks(remove_symlinks_to, config_path, changes, n_changes, files);
+        q = remove_marked_symlinks(remove_symlinks_to, root_dir, config_path, changes, n_changes, files);
         if (r >= 0)
                 r = q;
 
@@ -2018,7 +2192,7 @@ int unit_file_preset(
 
                 r = install_context_mark_for_removal(&minus, &paths, &remove_symlinks_to, config_path, root_dir);
 
-                q = remove_marked_symlinks(remove_symlinks_to, config_path, changes, n_changes, files);
+                q = remove_marked_symlinks(remove_symlinks_to, root_dir, config_path, changes, n_changes, files);
                 if (r == 0)
                         r = q;
         }
@@ -2120,7 +2294,7 @@ int unit_file_preset_all(
 
                 r = install_context_mark_for_removal(&minus, &paths, &remove_symlinks_to, config_path, root_dir);
 
-                q = remove_marked_symlinks(remove_symlinks_to, config_path, changes, n_changes, NULL);
+                q = remove_marked_symlinks(remove_symlinks_to, root_dir, config_path, changes, n_changes, NULL);
                 if (r == 0)
                         r = q;
         }

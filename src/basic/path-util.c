@@ -23,9 +23,11 @@
 #include <unistd.h>
 #include <errno.h>
 #include <stdlib.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <fcntl.h>
 #include <sys/statvfs.h>
+#include <sys/stat.h>
 
 #include "macro.h"
 #include "util.h"
@@ -34,6 +36,7 @@
 #include "path-util.h"
 #include "missing.h"
 #include "fileio.h"
+#include "time-util.h"
 
 bool path_is_absolute(const char *p) {
         return p[0] == '/';
@@ -852,4 +855,23 @@ char *prefix_root(const char *root, const char *path) {
 
         strcpy(p, path);
         return n;
+}
+
+bool path_prefix_in_list(const char *path, const char *x, ...) {
+        const char *p;
+        va_list ap;
+
+        if (!path || !x)
+                return false;
+
+        va_start(ap, x);
+
+        if (path_startswith(path, x))
+                return true;
+
+        while ((p = va_arg(ap, const char*)))
+                if (path_startswith(path, p))
+                        return true;
+
+        return false;
 }
