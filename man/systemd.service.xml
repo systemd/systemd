@@ -922,7 +922,10 @@
     the arguments. Double quotes ("...") and single quotes ('...') may
     be used, in which case everything until the next matching quote
     becomes part of the same argument. C-style escapes are also
-    supported, see table below. Quotes themselves are removed after
+    supported. The table below contains the list of allowed escape
+    patterns. Only patterns which match the syntax in the table are
+    allowed; others will result in an error, and must be escaped by
+    doubling the backslash. Quotes themselves are removed after
     parsing and escape sequences substituted. In addition, a trailing
     backslash (<literal>\</literal>) may be used to merge lines.
     </para>
@@ -939,7 +942,7 @@
     <literal>&amp;</literal>, and <emphasis>other elements of shell
     syntax are not supported</emphasis>.</para>
 
-    <para>The command to execute must an absolute path name. It may
+    <para>The command to execute must be an absolute path name. It may
     contain spaces, but control characters are not allowed.</para>
 
     <para>The command line accepts <literal>%</literal> specifiers as
