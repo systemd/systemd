@@ -1986,7 +1986,7 @@ int config_parse_environ(const char *unit,
                 return log_oom();
 
         FOREACH_WORD_QUOTED(word, l, k, state) {
-                _cleanup_free_ char *n;
+                _cleanup_free_ char *n = NULL;
                 char **x;
 
                 r = cunescape_length(word, l, 0, &n);
