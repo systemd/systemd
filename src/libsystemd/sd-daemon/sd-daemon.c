@@ -90,7 +90,7 @@ finish:
 _public_ int sd_is_fifo(int fd, const char *path) {
         struct stat st_fd;
 
-        assert_return(fd >= 0, -EINVAL);
+        assert_return(fd >= 0, -EBADF);
 
         if (fstat(fd, &st_fd) < 0)
                 return -errno;
@@ -120,7 +120,7 @@ _public_ int sd_is_fifo(int fd, const char *path) {
 _public_ int sd_is_special(int fd, const char *path) {
         struct stat st_fd;
 
-        assert_return(fd >= 0, -EINVAL);
+        assert_return(fd >= 0, -EBADF);
 
         if (fstat(fd, &st_fd) < 0)
                 return -errno;
@@ -155,7 +155,7 @@ _public_ int sd_is_special(int fd, const char *path) {
 static int sd_is_socket_internal(int fd, int type, int listening) {
         struct stat st_fd;
 
-        assert_return(fd >= 0, -EINVAL);
+        assert_return(fd >= 0, -EBADF);
         assert_return(type >= 0, -EINVAL);
 
         if (fstat(fd, &st_fd) < 0)
@@ -198,7 +198,7 @@ static int sd_is_socket_internal(int fd, int type, int listening) {
 _public_ int sd_is_socket(int fd, int family, int type, int listening) {
         int r;
 
-        assert_return(fd >= 0, -EINVAL);
+        assert_return(fd >= 0, -EBADF);
         assert_return(family >= 0, -EINVAL);
 
         r = sd_is_socket_internal(fd, type, listening);
@@ -226,7 +226,7 @@ _public_ int sd_is_socket_inet(int fd, int family, int type, int listening, uint
         socklen_t l = sizeof(sockaddr);
         int r;
 
-        assert_return(fd >= 0, -EINVAL);
+        assert_return(fd >= 0, -EBADF);
         assert_return(IN_SET(family, 0, AF_INET, AF_INET6), -EINVAL);
 
         r = sd_is_socket_internal(fd, type, listening);
@@ -269,7 +269,7 @@ _public_ int sd_is_socket_unix(int fd, int type, int listening, const char *path
         socklen_t l = sizeof(sockaddr);
         int r;
 
-        assert_return(fd >= 0, -EINVAL);
+        assert_return(fd >= 0, -EBADF);
 
         r = sd_is_socket_internal(fd, type, listening);
         if (r <= 0)
@@ -310,7 +310,7 @@ _public_ int sd_is_socket_unix(int fd, int type, int listening, const char *path
 _public_ int sd_is_mq(int fd, const char *path) {
         struct mq_attr attr;
 
-        assert_return(fd >= 0, -EINVAL);
+        assert_return(fd >= 0, -EBADF);
 
         if (mq_getattr(fd, &attr) < 0)
                 return -errno;
