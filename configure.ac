@@ -1381,14 +1381,19 @@ AC_ARG_WITH([pamconfdir],
         [with_pamconfdir=${sysconfdir}/pam.d])
 AX_NORMALIZE_PATH([with_pamconfdir])
 
+DEFAULT_PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin"
+DEFAULT_PATH_SPLIT_USR="${DEFAULT_PATH}:/sbin:/bin"
 AC_ARG_ENABLE([split-usr],
         AS_HELP_STRING([--enable-split-usr], [Assume that /bin, /sbin aren\'t symlinks into /usr]),
         [],
         [AS_IF([test "x${ac_default_prefix}" != "x${with_rootprefix}"], [
                 enable_split_usr=yes
+                DEFAULT_PATH="${DEFAULT_PATH_SPLIT_USR}"
         ], [
                 enable_split_usr=no
         ])])
+AC_DEFINE_UNQUOTED(DEFAULT_PATH, ["$DEFAULT_PATH"], [The $PATH])
+AC_DEFINE_UNQUOTED(DEFAULT_PATH_SPLIT_USR, ["$DEFAULT_PATH_SPLIT_USR"], [The old school $PATH])
 
 AC_ARG_WITH([dkr-index-url],
         [AS_HELP_STRING([--dkr-index-url=URL], [Specify the default index URL to use for image downloads])],

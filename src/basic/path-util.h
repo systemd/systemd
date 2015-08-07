@@ -26,15 +26,6 @@
 #include "macro.h"
 #include "time-util.h"
 
-#define DEFAULT_PATH_NORMAL "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin"
-#define DEFAULT_PATH_SPLIT_USR DEFAULT_PATH_NORMAL ":/sbin:/bin"
-
-#ifdef HAVE_SPLIT_USR
-#  define DEFAULT_PATH DEFAULT_PATH_SPLIT_USR
-#else
-#  define DEFAULT_PATH DEFAULT_PATH_NORMAL
-#endif
-
 bool is_path(const char *p) _pure_;
 char** path_split_and_make_absolute(const char *p);
 int path_get_parent(const char *path, char **parent);
