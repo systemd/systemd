@@ -1785,7 +1785,7 @@ int main(int argc, char *argv[]) {
                 case MANAGER_REEXECUTE:
 
                         if (prepare_reexecute(m, &arg_serialization, &fds, false) < 0) {
-                                error_message = "Failed to prepare for reexection";
+                                error_message = "Failed to prepare for reexecution";
                                 goto finish;
                         }
 
@@ -1801,7 +1801,7 @@ int main(int argc, char *argv[]) {
 
                         if (!switch_root_init)
                                 if (prepare_reexecute(m, &arg_serialization, &fds, true) < 0) {
-                                        error_message = "Failed to prepare for reexection";
+                                        error_message = "Failed to prepare for reexecution";
                                         goto finish;
                                 }
 
