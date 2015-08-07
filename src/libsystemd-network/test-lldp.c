@@ -38,7 +38,7 @@ static struct ether_addr mac_addr = {
 };
 
 static int lldp_build_tlv_packet(tlv_packet **ret) {
-        _cleanup_tlv_packet_free_ tlv_packet *m = NULL;
+        _cleanup_tlv_packet_unref_ tlv_packet *m = NULL;
         const uint8_t lldp_dst[] = LLDP_MULTICAST_ADDR;
         struct ether_header ether = {
                 .ether_type = htons(ETHERTYPE_LLDP),
@@ -104,7 +104,7 @@ static int lldp_parse_chassis_tlv(tlv_packet *m, uint8_t *type) {
         uint8_t *p, subtype;
         uint16_t length;
 
-        assert_se(lldp_tlv_packet_enter_container(m, LLDP_TYPE_CHASSIS_ID) >= 0);
+        assert_se(lldp_tlv_packet_enter_container(m, LLDP_TYPE_CHASSIS_ID, NULL, 0) >= 0);
         assert_se(tlv_packet_read_u8(m, &subtype) >= 0);
 
         switch (subtype) {
@@ -131,7 +131,7 @@ static int lldp_parse_port_id_tlv(tlv_packet *m) {
         uint16_t length;
         uint8_t subtype;
 
-        assert_se(lldp_tlv_packet_enter_container(m, LLDP_TYPE_PORT_ID) >= 0);
+        assert_se(lldp_tlv_packet_enter_container(m, LLDP_TYPE_PORT_ID, NULL, 0) >= 0);
 
         assert_se(tlv_packet_read_u8(m, &subtype) >= 0);
 
@@ -158,7 +158,7 @@ static int lldp_parse_system_name_tlv(tlv_packet *m) {
         char *str = NULL;
         uint16_t length;
 
-        assert_se(lldp_tlv_packet_enter_container(m, LLDP_TYPE_SYSTEM_NAME) >= 0);
+        assert_se(lldp_tlv_packet_enter_container(m, LLDP_TYPE_SYSTEM_NAME, NULL, 0) >= 0);
         assert_se(tlv_packet_read_string(m, &str, &length) >= 0);
 
         p = strndup(str, length);
@@ -176,7 +176,7 @@ static int lldp_parse_system_desc_tlv(tlv_packet *m) {
         char *str = NULL;
         uint16_t length;
 
-        assert_se(lldp_tlv_packet_enter_container(m, LLDP_TYPE_SYSTEM_DESCRIPTION) >= 0);
+        assert_se(lldp_tlv_packet_enter_container(m, LLDP_TYPE_SYSTEM_DESCRIPTION, NULL, 0) >= 0);
         assert_se(tlv_packet_read_string(m, &str, &length) >= 0);
 
         p = strndup(str, length);
@@ -192,12 +192,21 @@ static int lldp_parse_system_desc_tlv(tlv_packet *m) {
 static int lldp_parse_ttl_tlv(tlv_packet *m) {
         uint16_t ttl;
 
-        assert_se(lldp_tlv_packet_enter_container(m, LLDP_TYPE_TTL) >= 0);
+        assert_se(lldp_tlv_packet_enter_container(m, LLDP_TYPE_TTL, NULL, 0) >= 0);
         assert_se(tlv_packet_read_u16(m, &ttl) >= 0);
 
         assert_se(ttl == 170);
 
         assert_se(lldp_tlv_packet_exit_container(m) >= 0);
+
+        return 0;
+}
+
+static int lldp_get_destination_type(tlv_packet *m) {
+        LLDPDestinationType dest;
+
+        assert_se(sd_lldp_tlv_packet_get_destination_type(m, &dest) >= 0);
+        assert_se(dest == LLDP_DEST_TYPE_NEAREST_BRIDGE);
 
         return 0;
 }
@@ -212,11 +221,13 @@ static int lldp_parse_tlv_packet(tlv_packet *m, int len) {
         assert_se(lldp_parse_ttl_tlv(m) >= 0);
         assert_se(lldp_parse_system_desc_tlv(m) >= 0);
 
+        assert_se(lldp_get_destination_type(m) >= 0);
+
         return 0;
 }
 
 int main(int argc, char *argv[]) {
-        _cleanup_tlv_packet_free_ tlv_packet *tlv = NULL;
+        _cleanup_tlv_packet_unref_ tlv_packet *tlv = NULL;
 
         /* form a packet */
         lldp_build_tlv_packet(&tlv);

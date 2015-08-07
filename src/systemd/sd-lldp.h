@@ -25,6 +25,7 @@
 #include "sd-event.h"
 
 typedef struct sd_lldp sd_lldp;
+typedef struct tlv_packet sd_lldp_tlv_packet;
 
 typedef void (*sd_lldp_cb_t)(sd_lldp *lldp, int event, void *userdata);
 
@@ -40,6 +41,12 @@ typedef enum LLDPPortStatus {
         _LLDP_PORT_STATUS_INVALID = -1,
 } LLDPPortStatus;
 
+typedef enum LLDPDestinationType {
+        LLDP_DEST_TYPE_NEAREST_BRIDGE,
+        LLDP_DEST_TYPE_NEAREST_NON_TPMR_BRIDGE,
+        LLDP_DEST_TYPE_NEAREST_CUSTOMER_BRIDGE,
+} LLDPDestinationType;
+
 int sd_lldp_new(int ifindex, const char *ifname, const struct ether_addr *mac, sd_lldp **ret);
 void sd_lldp_free(sd_lldp *lldp);
 
@@ -51,3 +58,25 @@ int sd_lldp_detach_event(sd_lldp *lldp);
 
 int sd_lldp_set_callback(sd_lldp *lldp, sd_lldp_cb_t cb, void *userdata);
 int sd_lldp_save(sd_lldp *lldp, const char *file);
+
+int sd_lldp_tlv_packet_read_chassis_id(sd_lldp_tlv_packet *tlv, uint8_t *type, uint8_t **data, uint16_t *length);
+int sd_lldp_tlv_packet_read_port_id(sd_lldp_tlv_packet *tlv, uint8_t *type, uint8_t **data, uint16_t *length);
+int sd_lldp_tlv_packet_read_ttl(sd_lldp_tlv_packet *tlv, uint16_t *ttl);
+int sd_lldp_tlv_packet_read_system_name(sd_lldp_tlv_packet *tlv, char **data, uint16_t *length);
+int sd_lldp_tlv_packet_read_system_description(sd_lldp_tlv_packet *tlv, char **data, uint16_t *length);
+int sd_lldp_tlv_packet_read_system_capability(sd_lldp_tlv_packet *tlv, uint16_t *data);
+int sd_lldp_tlv_packet_read_port_description(sd_lldp_tlv_packet *tlv, char **data, uint16_t *length);
+
+/* IEEE 802.1 organizationally specific TLVs */
+int sd_lldp_tlv_packet_read_port_vlan_id(sd_lldp_tlv_packet *tlv, uint16_t *id);
+int sd_lldp_tlv_packet_read_port_protocol_vlan_id(sd_lldp_tlv_packet *tlv, uint8_t *flags, uint16_t *id);
+int sd_lldp_tlv_packet_read_vlan_name(sd_lldp_tlv_packet *tlv, uint16_t *vlan_id, char **name, uint16_t *length);
+int sd_lldp_tlv_packet_read_management_vid(sd_lldp_tlv_packet *tlv, uint16_t *id);
+int sd_lldp_tlv_packet_read_link_aggregation(sd_lldp_tlv_packet *tlv, uint8_t *status, uint32_t *id);
+
+int sd_lldp_tlv_packet_get_destination_type(sd_lldp_tlv_packet *tlv, LLDPDestinationType *dest);
+
+sd_lldp_tlv_packet *sd_lldp_tlv_packet_ref(sd_lldp_tlv_packet *tlv);
+sd_lldp_tlv_packet *sd_lldp_tlv_packet_unref(sd_lldp_tlv_packet *tlv);
+
+int sd_lldp_get_tlv_packets(sd_lldp *lldp, sd_lldp_tlv_packet ***tlvs, unsigned max);
