@@ -603,6 +603,8 @@ static char** sanitize_environment(char **l) {
 }
 
 int manager_default_environment(Manager *m) {
+        int r;
+
         assert(m);
 
         m->transient_environment = strv_free(m->transient_environment);
@@ -616,16 +618,29 @@ int manager_default_environment(Manager *m) {
                  * /proc/self/environ valid; it is used for tagging
                  * the init process inside containers. */
                 m->transient_environment = strv_new("PATH=" DEFAULT_PATH);
+                if (!m->transient_environment)
+                        return log_oom();
 
                 /* Import locale variables LC_*= from configuration */
                 (void) locale_setup(&m->transient_environment);
-        } else
-                /* The user manager passes its own environment
-                 * along to its children. */
-                m->transient_environment = strv_copy(environ);
+        } else {
+                _cleanup_free_ char *k = NULL;
 
-        if (!m->transient_environment)
-                return log_oom();
+                /* The user manager passes its own environment
+                 * along to its children, except for $PATH. */
+                m->transient_environment = strv_copy(environ);
+                if (!m->transient_environment)
+                        return log_oom();
+
+                k = strdup("PATH=" DEFAULT_USER_PATH);
+                if (!k)
+                        return log_oom();
+
+                r = strv_env_replace(&m->transient_environment, k);
+                if (r < 0)
+                        return log_oom();
+                TAKE_PTR(k);
+        }
 
         sanitize_environment(m->transient_environment);
 
