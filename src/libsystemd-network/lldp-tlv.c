@@ -380,7 +380,7 @@ int lldp_tlv_packet_exit_container(tlv_packet *m) {
 }
 
 static int lldp_tlv_packet_read_u16_tlv(tlv_packet *tlv, uint16_t type, uint16_t *value) {
-        int r;
+        int r, r2;
 
         assert_return(tlv, -EINVAL);
 
@@ -389,16 +389,15 @@ static int lldp_tlv_packet_read_u16_tlv(tlv_packet *tlv, uint16_t type, uint16_t
                 goto out;
 
         r = tlv_packet_read_u16(tlv, value);
-
-        (void) lldp_tlv_packet_exit_container(tlv);
+        r2 = lldp_tlv_packet_exit_container(tlv);
 
  out:
-        return r;
+        return r < 0 ? r : r2;
 }
 
 static int lldp_tlv_packet_read_string_tlv(tlv_packet *tlv, uint16_t type, char **data, uint16_t *length) {
         char *s;
-        int r;
+        int r, r2;
 
         assert_return(tlv, -EINVAL);
 
@@ -413,9 +412,9 @@ static int lldp_tlv_packet_read_string_tlv(tlv_packet *tlv, uint16_t type, char 
         *data = (char *) s;
 
  out:
-        (void) lldp_tlv_packet_exit_container(tlv);
+        r2 = lldp_tlv_packet_exit_container(tlv);
 
-        return r;
+        return r < 0 ? r : r2;
 }
 
 int sd_lldp_packet_read_chassis_id(tlv_packet *tlv,
@@ -423,7 +422,7 @@ int sd_lldp_packet_read_chassis_id(tlv_packet *tlv,
                                    uint8_t **data,
                                    uint16_t *length) {
         uint8_t subtype;
-        int r;
+        int r, r2;
 
         assert_return(tlv, -EINVAL);
 
@@ -451,10 +450,10 @@ int sd_lldp_packet_read_chassis_id(tlv_packet *tlv,
         *type = subtype;
 
  out1:
-        (void) lldp_tlv_packet_exit_container(tlv);
+        r2 = lldp_tlv_packet_exit_container(tlv);
 
  out2:
-        return r;
+        return r < 0 ? r : r2;
 }
 
 int sd_lldp_packet_read_port_id(tlv_packet *tlv,
@@ -463,7 +462,7 @@ int sd_lldp_packet_read_port_id(tlv_packet *tlv,
                                 uint16_t *length) {
         uint8_t subtype;
         char *s;
-        int r;
+        int r, r2;
 
         assert_return(tlv, -EINVAL);
 
@@ -503,10 +502,10 @@ int sd_lldp_packet_read_port_id(tlv_packet *tlv,
         *type = subtype;
 
  out1:
-        (void) lldp_tlv_packet_exit_container(tlv);
+        r2 = lldp_tlv_packet_exit_container(tlv);
 
  out2:
-        return r;
+        return r < 0 ? r : r2;
 }
 
 int sd_lldp_packet_read_ttl(tlv_packet *tlv, uint16_t *ttl) {
@@ -536,7 +535,7 @@ int sd_lldp_packet_read_system_capability(tlv_packet *tlv, uint16_t *data) {
 }
 
 int sd_lldp_packet_read_port_vlan_id(tlv_packet *tlv, uint16_t *id) {
-        int r;
+        int r, r2;
 
         assert_return(tlv, -EINVAL);
 
@@ -545,15 +544,14 @@ int sd_lldp_packet_read_port_vlan_id(tlv_packet *tlv, uint16_t *id) {
                 goto out;
 
         r = tlv_packet_read_u16(tlv, id);
-
-        (void) lldp_tlv_packet_exit_container(tlv);
+        r2 = lldp_tlv_packet_exit_container(tlv);
 
  out:
-        return r;
+        return r < 0 ? r : r2;
 }
 
 int sd_lldp_packet_read_port_protocol_vlan_id(sd_lldp_packet *tlv, uint8_t *flags, uint16_t *id) {
-        int r;
+        int r, r2;
 
         assert_return(tlv, -EINVAL);
 
@@ -565,14 +563,14 @@ int sd_lldp_packet_read_port_protocol_vlan_id(sd_lldp_packet *tlv, uint8_t *flag
         if (r >= 0)
                 r = tlv_packet_read_u16(tlv, id);
 
-        (void) lldp_tlv_packet_exit_container(tlv);
+        r2 = lldp_tlv_packet_exit_container(tlv);
 
  out:
-        return r;
+        return r < 0 ? r : r2;
 }
 
 int sd_lldp_packet_read_vlan_name(tlv_packet *tlv, uint16_t *vlan_id, char **name, uint16_t *length) {
-        int r;
+        int r, r2;
         uint8_t len = 0;
 
         assert_return(tlv, -EINVAL);
@@ -590,14 +588,14 @@ int sd_lldp_packet_read_vlan_name(tlv_packet *tlv, uint16_t *vlan_id, char **nam
         if (r >= 0 && len < *length)
                 *length = len;
 
-        (void) lldp_tlv_packet_exit_container(tlv);
+        r2 = lldp_tlv_packet_exit_container(tlv);
 
  out:
-        return r;
+        return r < 0 ? r : r2;
 }
 
 int sd_lldp_packet_read_management_vid(tlv_packet *tlv, uint16_t *id) {
-        int r;
+        int r, r2;
 
         assert_return(tlv, -EINVAL);
 
@@ -606,15 +604,14 @@ int sd_lldp_packet_read_management_vid(tlv_packet *tlv, uint16_t *id) {
                 goto out;
 
         r = tlv_packet_read_u16(tlv, id);
-
-        (void) lldp_tlv_packet_exit_container(tlv);
+        r2 = lldp_tlv_packet_exit_container(tlv);
 
  out:
-        return r;
+        return r < 0 ? r : r2;
 }
 
 int sd_lldp_packet_read_link_aggregation(sd_lldp_packet *tlv, uint8_t *status, uint32_t *id) {
-        int r;
+        int r, r2;
 
         assert_return(tlv, -EINVAL);
 
@@ -626,10 +623,10 @@ int sd_lldp_packet_read_link_aggregation(sd_lldp_packet *tlv, uint8_t *status, u
         if (r >= 0)
                 r = tlv_packet_read_u32(tlv, id);
 
-        (void) lldp_tlv_packet_exit_container(tlv);
+        r2 = lldp_tlv_packet_exit_container(tlv);
 
  out:
-        return r;
+        return r < 0 ? r : r2;
 }
 
 int sd_lldp_packet_get_destination_type(tlv_packet *tlv, int *dest) {
