@@ -127,13 +127,7 @@ int tar_pull_new(
 
         i->grow_machine_directory = path_startswith(i->image_root, "/var/lib/machines");
 
-        if (event)
-                i->event = sd_event_ref(event);
-        else {
-                r = sd_event_default(&i->event);
-                if (r < 0)
-                        return r;
-        }
+        i->event = sd_event_ref(event);
 
         r = curl_glue_new(&i->glue, i->event);
         if (r < 0)
