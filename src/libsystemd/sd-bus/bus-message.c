@@ -608,8 +608,8 @@ static sd_bus_message *message_new(sd_bus *bus, uint8_t type) {
         m->header = (struct bus_header*) ((uint8_t*) m + ALIGN(sizeof(struct sd_bus_message)));
         m->header->endian = BUS_NATIVE_ENDIAN;
         m->header->type = type;
-        m->header->version = bus ? bus->message_version : 1;
-        m->allow_fds = !bus || bus->can_fds || (bus->state != BUS_HELLO && bus->state != BUS_RUNNING);
+        m->header->version = bus->message_version;
+        m->allow_fds = bus->can_fds || (bus->state != BUS_HELLO && bus->state != BUS_RUNNING);
         m->root_container.need_offsets = BUS_MESSAGE_IS_GVARIANT(m);
         m->bus = sd_bus_ref(bus);
 
