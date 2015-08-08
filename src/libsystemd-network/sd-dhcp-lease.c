@@ -954,7 +954,7 @@ int sd_dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
         }
 
         for (i = 0; i <= DHCP_OPTION_PRIVATE_LAST - DHCP_OPTION_PRIVATE_BASE; i++) {
-                uint8_t *data;
+                _cleanup_free_ uint8_t *data = NULL;
                 size_t len;
 
                 if (!options[i])
@@ -965,11 +965,8 @@ int sd_dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
                         return r;
 
                 r = dhcp_lease_insert_private_option(lease, DHCP_OPTION_PRIVATE_BASE + i, data, len);
-                if (r < 0) {
-                        free(data);
+                if (r < 0)
                         return r;
-                }
-                free(data);
         }
 
         *ret = lease;
