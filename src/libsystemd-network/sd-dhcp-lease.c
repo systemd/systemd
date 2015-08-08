@@ -969,6 +969,7 @@ int sd_dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
                         free(data);
                         return r;
                 }
+                free(data);
         }
 
         *ret = lease;
