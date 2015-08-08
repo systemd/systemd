@@ -128,6 +128,7 @@ static inline int unit_prefix_and_instance_is_valid(const char *p) {
 
 int unit_name_to_prefix(const char *n, char **prefix);
 int unit_name_to_instance(const char *n, char **instance);
+int unit_name_to_instance_and_suffix(const char *n, char **instance);
 int unit_name_to_prefix_and_instance(const char *n, char **ret);
 
 UnitType unit_name_to_type(const char *n) _pure_;

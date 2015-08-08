@@ -173,6 +173,33 @@ int unit_name_to_instance(const char *n, char **instance) {
         return 1;
 }
 
+int unit_name_to_instance_and_suffix(const char *n, char **instance) {
+        const char *p;
+        char *i;
+
+        assert(n);
+        assert(instance);
+
+        if (!unit_name_is_valid(n, UNIT_NAME_ANY))
+                return -EINVAL;
+
+        /* Everything after first @ character is suffix */
+        p = strchr(n, '@');
+        if (!p) {
+                *instance = NULL;
+                return 0;
+        }
+
+        p++;
+
+        i = strdup(p);
+        if (!i)
+                return -ENOMEM;
+
+        *instance = i;
+        return 1;
+}
+
 int unit_name_to_prefix_and_instance(const char *n, char **ret) {
         const char *d;
         char *s;
