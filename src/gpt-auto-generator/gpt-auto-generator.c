@@ -618,9 +618,12 @@ static int enumerate_partitions(dev_t devnum) {
 
         errno = 0;
         r = blkid_do_safeprobe(b);
-        if (r == -2 || r == 1) /* no result or uncertain */
+        if (r == 1)
+                return 0; /* no results */
+        else if (r == -2) {
+                log_warning("%s: probe gave ambiguous results, ignoring", node);
                 return 0;
-        else if (r != 0)
+        } else if (r != 0)
                 return log_error_errno(errno ?: EIO, "%s: failed to probe: %m", node);
 
         errno = 0;
