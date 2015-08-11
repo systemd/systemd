@@ -666,7 +666,6 @@ static int enumerate_partitions(dev_t devnum) {
                 blkid_partition pp;
                 dev_t qn;
                 int nr;
-                unsigned long long flags;
 
                 q = udev_device_new_from_syspath(udev, udev_list_entry_get_name(item));
                 if (!q)
@@ -690,13 +689,6 @@ static int enumerate_partitions(dev_t devnum) {
                 if (!pp)
                         continue;
 
-                flags = blkid_partition_get_flags(pp);
-
-                /* Ignore partitions that are not marked for automatic
-                 * mounting on discovery */
-                if (flags & GPT_FLAG_NO_AUTO)
-                        continue;
-
                 nr = blkid_partition_get_partno(pp);
                 if (nr < 0)
                         continue;
@@ -709,6 +701,11 @@ static int enumerate_partitions(dev_t devnum) {
                         continue;
 
                 if (sd_id128_equal(type_id, GPT_SWAP)) {
+                        unsigned long long flags;
+
+                        flags = blkid_partition_get_flags(pp);
+                        if (flags & GPT_FLAG_NO_AUTO)
+                                continue;
 
                         if (flags & GPT_FLAG_READ_ONLY) {
                                 log_debug("%s marked as read-only swap partition, which is bogus. Ignoring.", subnode);
@@ -732,6 +729,11 @@ static int enumerate_partitions(dev_t devnum) {
                                 return log_oom();
 
                 } else if (sd_id128_equal(type_id, GPT_HOME)) {
+                        unsigned long long flags;
+
+                        flags = blkid_partition_get_flags(pp);
+                        if (flags & GPT_FLAG_NO_AUTO)
+                                continue;
 
                         /* We only care for the first /home partition */
                         if (home && nr >= home_nr)
@@ -745,6 +747,11 @@ static int enumerate_partitions(dev_t devnum) {
                                 return log_oom();
 
                 } else if (sd_id128_equal(type_id, GPT_SRV)) {
+                        unsigned long long flags;
+
+                        flags = blkid_partition_get_flags(pp);
+                        if (flags & GPT_FLAG_NO_AUTO)
+                                continue;
 
                         /* We only care for the first /srv partition */
                         if (srv && nr >= srv_nr)
