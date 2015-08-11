@@ -27,7 +27,6 @@
 #include "macro.h"
 #include "sd-bus.h"
 #include "bus-gvariant.h"
-#include "bus-util.h"
 #include "bus-internal.h"
 #include "bus-message.h"
 #include "bus-dump.h"

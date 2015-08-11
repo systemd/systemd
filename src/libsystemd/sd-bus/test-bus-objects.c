@@ -30,7 +30,6 @@
 #include "sd-bus.h"
 #include "bus-internal.h"
 #include "bus-message.h"
-#include "bus-util.h"
 #include "bus-dump.h"
 
 struct context {

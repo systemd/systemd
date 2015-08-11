@@ -43,7 +43,6 @@
 #include "def.h"
 #include "smack-util.h"
 #include "bus-util.h"
-#include "bus-error.h"
 #include "selinux-util.h"
 #include "dbus-socket.h"
 #include "unit.h"

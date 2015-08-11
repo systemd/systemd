@@ -39,7 +39,6 @@
 #include "path-util.h"
 #include "dbus-automount.h"
 #include "bus-util.h"
-#include "bus-error.h"
 #include "formats-util.h"
 #include "process-util.h"
 #include "async.h"

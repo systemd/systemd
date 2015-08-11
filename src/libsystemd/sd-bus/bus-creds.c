@@ -31,10 +31,10 @@
 #include "fileio.h"
 #include "audit.h"
 #include "bus-message.h"
-#include "bus-util.h"
 #include "strv.h"
 #include "bus-creds.h"
 #include "bus-label.h"
+#include "bus-internal.h"
 
 enum {
         CAP_OFFSET_INHERITABLE = 0,
