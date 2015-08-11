@@ -143,6 +143,11 @@ static int find_gpt_root(struct udev_device *dev, blkid_probe pr, bool test) {
 
                 if (sd_id128_equal(type, GPT_ESP)) {
                         sd_id128_t id, esp;
+                        unsigned long long flags;
+
+                        flags = blkid_partition_get_flags(pp);
+                        if (flags & GPT_FLAG_NO_AUTO)
+                                continue;
 
                         /* We found an ESP, let's see if it matches
                          * the ESP we booted from. */
