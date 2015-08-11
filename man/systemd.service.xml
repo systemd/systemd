@@ -337,6 +337,19 @@
         <literal>-</literal>) fail, the rest are not executed and the
         unit is considered failed.</para>
 
+        <para><varname>ExecStart=</varname> commands are only run after
+        all <varname>ExecStartPre=</varname> commands that were not prefixed
+        with a <literal>-</literal> exit successfully.</para>
+
+        <para><varname>ExecStartPost=</varname> commands are only run after
+        the service has started, as determined by <varname>Type=</varname>
+        (i.e. The process has been started for <varname>Type=simple</varname>
+        or <varname>Type=idle</varname>, the process exits successfully for
+        <varname>Type=oneshot</varname>, the initial process exits successfully
+        for <varname>Type=forking</varname>, <literal>READY=1</literal> is sent
+        for <varname>Type=notify</varname>, or the <varname>BusName=</varname>
+        has been taken for <varname>Type=dbus</varname>).</para>
+
         <para>Note that <varname>ExecStartPre=</varname> may not be
         used to start long-running processes. All processes forked
         off by processes invoked via <varname>ExecStartPre=</varname> will
