@@ -818,7 +818,7 @@ static int remove_boot_efi(const char *esp_path) {
                         if (r < 0)
                                 return log_error_errno(errno, "Failed to remove \"%s/%s\": %m", p, de->d_name);
 
-                        log_info("Removed \"%s/\%s\".", p, de->d_name);
+                        log_info("Removed \"%s/%s\".", p, de->d_name);
                 }
 
                 c++;

@@ -379,12 +379,13 @@ struct udev_ctrl_msg *udev_ctrl_receive_msg(struct udev_ctrl_connection *conn) {
         cmsg_close_all(&smsg);
 
         cmsg = CMSG_FIRSTHDR(&smsg);
-        cred = (struct ucred *) CMSG_DATA(cmsg);
 
         if (cmsg == NULL || cmsg->cmsg_type != SCM_CREDENTIALS) {
                 log_error("no sender credentials received, message ignored");
                 goto err;
         }
+
+        cred = (struct ucred *) CMSG_DATA(cmsg);
 
         if (cred->uid != 0) {
                 log_error("sender uid="UID_FMT", message ignored", cred->uid);
