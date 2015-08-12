@@ -624,7 +624,6 @@ int dns_transaction_go(DnsTransaction *t) {
                 if (r < 0)
                         return r;
                 if (r > 0) {
-                        log_debug("Cache hit!");
                         if (t->cached_rcode == DNS_RCODE_SUCCESS)
                                 dns_transaction_complete(t, DNS_TRANSACTION_SUCCESS);
                         else
@@ -660,8 +659,6 @@ int dns_transaction_go(DnsTransaction *t) {
                 log_debug("Delaying LLMNR transaction for " USEC_FMT "us.", jitter);
                 return 0;
         }
-
-        log_debug("Cache miss!");
 
         /* Otherwise, we need to ask the network */
         r = dns_transaction_make_packet(t);
