@@ -6621,6 +6621,7 @@ static int halt_parse_argv(int argc, char *argv[]) {
                 { "wtmp-only", no_argument,       NULL, 'w'         },
                 { "no-wtmp",   no_argument,       NULL, 'd'         },
                 { "no-wall",   no_argument,       NULL, ARG_NO_WALL },
+                { "ignore-inhibitors", no_argument, NULL, 'i'       },
                 {}
         };
 
@@ -6670,6 +6671,9 @@ static int halt_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'i':
+                        arg_ignore_inhibitors = true;
+                        break;
+
                 case 'h':
                 case 'n':
                         /* Compatibility nops */
@@ -6757,6 +6761,7 @@ static int shutdown_parse_argv(int argc, char *argv[]) {
                 { "reboot",    no_argument,       NULL, 'r'         },
                 { "kexec",     no_argument,       NULL, 'K'         }, /* not documented extension */
                 { "no-wall",   no_argument,       NULL, ARG_NO_WALL },
+                { "ignore-inhibitors", no_argument, NULL, 'i'       },
                 {}
         };
 
@@ -6765,7 +6770,7 @@ static int shutdown_parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "HPrhkKt:afFc", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "HPrhkKt:afFci", options, NULL)) >= 0)
                 switch (c) {
 
                 case ARG_HELP:
@@ -6813,6 +6818,10 @@ static int shutdown_parse_argv(int argc, char *argv[]) {
 
                 case 'c':
                         arg_action = ACTION_CANCEL_SHUTDOWN;
+                        break;
+
+                case 'i':
+                        arg_ignore_inhibitors = true;
                         break;
 
                 case '?':
