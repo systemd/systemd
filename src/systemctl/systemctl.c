@@ -2831,9 +2831,6 @@ static int check_inhibitors(sd_bus *bus, enum action a) {
         if (arg_when > 0)
                 return 0;
 
-        if (geteuid() == 0)
-                return 0;
-
         if (!on_tty())
                 return 0;
 
