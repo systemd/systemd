@@ -171,6 +171,8 @@ mouse:usb:v17efp6044:name:ThinkPad USB Laser Mouse:
 
 # Logitech M-BJ58 Optical Mouse
 mouse:usb:v046dpc00e:name:Logitech USB-PS/2 Optical Mouse:
+# Logitech Mini Optical Mouse
+mouse:usb:v046dpc016:name:Logitech Optical USB Mouse:
 # Logitech MX310 Optical Mouse
 mouse:usb:v046dpc01b:name:Logitech USB-PS/2 Optical Mouse:
 # Logitech USB-PS/2 M-BT58
@@ -219,6 +221,8 @@ mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:4008:
 # Logitech M705 (marathon mouse)
 mouse:usb:v046dp101b:name:Logitech M705:
 mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:101b:
+# Logitech Performance MX
+mouse:usb:v046dp101a:name:Logitech Performance MX:
  MOUSE_DPI=800@166
 
 # Logitech MX Revolution
@@ -300,6 +304,10 @@ mouse:usb:v046dpc068:name:Logitech G500:
 mouse:bluetooth:v046dpb00d:name:Ultrathin Touch Mouse:
  MOUSE_DPI=1000@1000
 
+# ImPS/2 Logitech Wheel Mouse
+mouse:ps2:*:name:ImPS/2 Logitech Wheel Mouse:
+ MOUSE_DPI=400@100
+
 # ImExPS/2 Logitech Wheel Mouse
 mouse:ps2:*:name:ImExPS/2 Logitech Wheel Mouse:
  MOUSE_DPI=400@250
@@ -313,6 +321,10 @@ mouse:usb:v045ep0040:name:Microsoft Microsoft 3-Button Mouse with IntelliEye(TM)
 
 # Note: unsure that these work, it's likely that all devices on these
 # receivers show up with the same vid/pid/name
+
+# Microsoft Wireless Mouse 5000
+mouse:usb:v045ep0745:name:Microsoft Microsoft® 2.4GHz Transceiver v6.0:
+ MOUSE_DPI=800@142
 
 # Microsoft Sculpt Ergonomic Mouse
 mouse:usb:v045ep07a5:name:Microsoft Microsoft® 2.4GHz Transceiver v9.0:
