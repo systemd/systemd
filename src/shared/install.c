@@ -2190,7 +2190,6 @@ int unit_file_get_list(
                         _cleanup_(unit_file_list_free_onep) UnitFileList *f = NULL;
                         struct dirent *de;
                         _cleanup_free_ char *path = NULL;
-                        bool also = false;
 
                         errno = 0;
                         de = readdir(d);
@@ -2222,41 +2221,10 @@ int unit_file_get_list(
                         if (!f->path)
                                 return -ENOMEM;
 
-                        r = null_or_empty_path(f->path);
-                        if (r < 0 && r != -ENOENT)
-                                return r;
-                        else if (r > 0) {
-                                f->state =
-                                        path_startswith(*i, "/run") ?
-                                        UNIT_FILE_MASKED_RUNTIME : UNIT_FILE_MASKED;
-                                goto found;
-                        }
+                        f->state = unit_file_get_state(scope, root_dir, de->d_name);
+                        if (f->state < 0)
+                                return -EINVAL;
 
-                        r = find_symlinks_in_scope(scope, root_dir, de->d_name, &f->state);
-                        if (r < 0)
-                                return r;
-                        else if (r > 0) {
-                                f->state = UNIT_FILE_ENABLED;
-                                goto found;
-                        }
-
-                        path = path_make_absolute(de->d_name, *i);
-                        if (!path)
-                                return -ENOMEM;
-
-                        r = unit_file_can_install(&paths, root_dir, path, true, &also);
-                        if (r == -EINVAL ||  /* Invalid setting? */
-                            r == -EBADMSG || /* Invalid format? */
-                            r == -ENOENT     /* Included file not found? */)
-                                f->state = UNIT_FILE_INVALID;
-                        else if (r < 0)
-                                return r;
-                        else if (r > 0)
-                                f->state = UNIT_FILE_DISABLED;
-                        else
-                                f->state = also ? UNIT_FILE_INDIRECT : UNIT_FILE_STATIC;
-
-                found:
                         r = hashmap_put(h, basename(f->path), f);
                         if (r < 0)
                                 return r;
