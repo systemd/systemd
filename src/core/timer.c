@@ -57,10 +57,7 @@ void timer_free_values(Timer *t) {
 
         while ((v = t->values)) {
                 LIST_REMOVE(value, t->values, v);
-
-                if (v->calendar_spec)
-                        calendar_spec_free(v->calendar_spec);
-
+                calendar_spec_free(v->calendar_spec);
                 free(v);
         }
 }

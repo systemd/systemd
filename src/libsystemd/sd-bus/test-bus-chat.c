@@ -119,9 +119,7 @@ static int server_init(sd_bus **_bus) {
         return 0;
 
 fail:
-        if (bus)
-                sd_bus_unref(bus);
-
+        sd_bus_unref(bus);
         return r;
 }
 

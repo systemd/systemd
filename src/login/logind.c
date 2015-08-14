@@ -153,17 +153,12 @@ static void manager_free(Manager *m) {
 
         safe_close(m->console_active_fd);
 
-        if (m->udev_seat_monitor)
-                udev_monitor_unref(m->udev_seat_monitor);
-        if (m->udev_device_monitor)
-                udev_monitor_unref(m->udev_device_monitor);
-        if (m->udev_vcsa_monitor)
-                udev_monitor_unref(m->udev_vcsa_monitor);
-        if (m->udev_button_monitor)
-                udev_monitor_unref(m->udev_button_monitor);
+        udev_monitor_unref(m->udev_seat_monitor);
+        udev_monitor_unref(m->udev_device_monitor);
+        udev_monitor_unref(m->udev_vcsa_monitor);
+        udev_monitor_unref(m->udev_button_monitor);
 
-        if (m->udev)
-                udev_unref(m->udev);
+        udev_unref(m->udev);
 
         if (m->unlink_nologin)
                 (void) unlink("/run/nologin");
@@ -1169,9 +1164,6 @@ finish:
         sd_notify(false,
                   "STOPPING=1\n"
                   "STATUS=Shutting down...");
-
-        if (m)
-                manager_free(m);
-
+        manager_free(m);
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
