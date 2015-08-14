@@ -109,20 +109,24 @@ int inhibitor_save(Inhibitor *i) {
                 _cleanup_free_ char *cc = NULL;
 
                 cc = cescape(i->who);
-                if (!cc)
+                if (!cc) {
                         r = -ENOMEM;
-                else
-                        fprintf(f, "WHO=%s\n", cc);
+                        goto fail;
+                }
+
+                fprintf(f, "WHO=%s\n", cc);
         }
 
         if (i->why) {
                 _cleanup_free_ char *cc = NULL;
 
                 cc = cescape(i->why);
-                if (!cc)
+                if (!cc) {
                         r = -ENOMEM;
-                else
-                        fprintf(f, "WHY=%s\n", cc);
+                        goto fail;
+                }
+
+                fprintf(f, "WHY=%s\n", cc);
         }
 
         if (i->fifo_path)
