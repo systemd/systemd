@@ -464,6 +464,7 @@ Features:
   ReadOnlyDirectories=... for whitelisting files for a service.
 
 * sd-bus:
+  - figure out wat the UNPRIVILEGED flag shall mean for props that can be read *and* written
   - GetAllProperties() on a non-existing object does not result in a failure currently
   - kdbus: process fd=-1 for incoming msgs
   - port to sd-resolve for connecting to TCP dbus servers
