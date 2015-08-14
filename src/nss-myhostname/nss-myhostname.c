@@ -39,7 +39,6 @@
 
 #define LOCALADDRESS_IPV4 (htonl(0x7F000002))
 #define LOCALADDRESS_IPV6 &in6addr_loopback
-#define LOOPBACK_INTERFACE "lo"
 
 NSS_GETHOSTBYNAME_PROTOTYPES(myhostname);
 NSS_GETHOSTBYADDR_PROTOTYPES(myhostname);
@@ -117,7 +116,7 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
         }
 
         /* If this call fails we fill in 0 as scope. Which is fine */
-        lo_ifi = n_addresses <= 0 ? if_nametoindex(LOOPBACK_INTERFACE) : 0;
+        lo_ifi = n_addresses <= 0 ? LOOPBACK_IFINDEX : 0;
 
         l = strlen(canonical);
         ms = ALIGN(l+1) + ALIGN(sizeof(struct gaih_addrtuple)) * (n_addresses > 0 ? n_addresses : 2);
