@@ -24,7 +24,14 @@
     local -a _busctl_cmds
     _busctl_cmds=(
         "list:List bus names"
+        "status:Show bus service, process or bus owner credentials"
         "monitor:Show bus traffic"
+        "capture:Capture bus traffix as pcap"
+        "tree:Show object tree of service"
+        "introspect:Introspect object"
+        "call:Call a method"
+        "get-property:Get property value"
+        "set-property:Set property value"
     )
     if (( CURRENT == 1 )); then
         _describe -t commands 'busctl command' _busctl_cmds || compadd "$@"
@@ -54,4 +61,12 @@ _arguments \
     '--acquired[Only show acquired names]' \
     '--activatable[Only show activatable names]' \
     '--match=[Only show matching messages]:match' \
+    '--list[Do not show tree, but simple object path list]' \
+    '--quiet[Do not show method call reply]'\
+    '--verbose[Show result values in long format]' \
+    '--expect-reply=[Expect a method call reply]' \
+    '--auto-start=[Auto-start destination service]' \
+    '--allow-interactive-authorization=[Allow interactive authorization for operation]' \
+    '--timeout=[Maximum time to wait for method call completion]' \
+    '--augment-creds=[Extend credential data with data read from /proc/$PID]' \
     '*::busctl command:_busctl_command'
