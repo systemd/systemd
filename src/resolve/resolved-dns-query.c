@@ -19,6 +19,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "hostname-util.h"
+#include "dns-domain.h"
 
 #include "resolved-dns-query.h"
 
@@ -212,6 +214,156 @@ static int dns_query_add_transaction_split(DnsQuery *q, DnsScope *s) {
         return 0;
 }
 
+static int SYNTHESIZE_IFINDEX(int ifindex) {
+
+        /* When the caller asked for resolving on a specific interface,
+         * we synthesize the answer for that interface. However, if
+         * nothing specific was claimed, we synthesize the answer for
+         * localhost. */
+
+        if (ifindex > 0)
+                return ifindex;
+
+        return LOOPBACK_IFINDEX;
+}
+
+static int SYNTHESIZE_FAMILY(uint64_t flags) {
+
+        /* Picks an address family depending on set flags. This is
+         * purely for synthesized answers, where the family we return
+         * for the reply should match what was requested in the
+         * question, even though we are synthesizing the answer
+         * here. */
+
+        if (!(flags & SD_RESOLVED_DNS)) {
+                if (flags & SD_RESOLVED_LLMNR_IPV4)
+                        return AF_INET;
+                if (flags & SD_RESOLVED_LLMNR_IPV6)
+                        return AF_INET6;
+        }
+
+        return AF_UNSPEC;
+}
+
+static DnsProtocol SYNTHESIZE_PROTOCOL(uint64_t flags) {
+
+        /* Similar as SYNTHESIZE_FAMILY() but does this for the
+         * protocol. If resolving via DNS was requested, we claim it
+         * was DNS. Similar, if nothing specific was
+         * requested. However, if only resolving via LLMNR was
+         * requested we return that. */
+
+        if (flags & SD_RESOLVED_DNS)
+                return DNS_PROTOCOL_DNS;
+        if (flags & SD_RESOLVED_LLMNR)
+                return DNS_PROTOCOL_LLMNR;
+
+        return DNS_PROTOCOL_DNS;
+}
+
+static void dns_query_synthesize_reply(DnsQuery *q, DnsTransactionState *state) {
+        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        unsigned i;
+        int r;
+
+        assert(q);
+        assert(state);
+
+        /* Tries to synthesize localhost RR replies where appropriate */
+
+        if (!IN_SET(*state,
+                    DNS_TRANSACTION_FAILURE,
+                    DNS_TRANSACTION_NO_SERVERS,
+                    DNS_TRANSACTION_TIMEOUT,
+                    DNS_TRANSACTION_ATTEMPTS_MAX_REACHED))
+                return;
+
+        for (i = 0; i < q->question->n_keys; i++) {
+                _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+                const char *name;
+
+                if (q->question->keys[i]->class != DNS_CLASS_IN &&
+                    q->question->keys[i]->class != DNS_CLASS_ANY)
+                        continue;
+
+                name = DNS_RESOURCE_KEY_NAME(q->question->keys[i]);
+
+                if (is_localhost(name)) {
+
+                        switch (q->question->keys[i]->type) {
+
+                        case DNS_TYPE_A:
+                        case DNS_TYPE_ANY:
+                                rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, name);
+                                if (!rr) {
+                                        log_oom();
+                                        return;
+                                }
+
+                                rr->a.in_addr.s_addr = htobe32(INADDR_LOOPBACK);
+                                break;
+
+                        case DNS_TYPE_AAAA:
+                                rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_AAAA, name);
+                                if (!rr) {
+                                        log_oom();
+                                        return;
+                                }
+
+                                rr->aaaa.in6_addr = in6addr_loopback;
+                                break;
+                        }
+
+                } else if (IN_SET(q->question->keys[i]->type, DNS_TYPE_PTR, DNS_TYPE_ANY) &&
+                           (dns_name_endswith(name, "127.in-addr.arpa") > 0 ||
+                            dns_name_equal(name, "1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa") > 0)) {
+
+                        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_PTR, name);
+                        if (!rr) {
+                                log_oom();
+                                return;
+                        }
+
+                        rr->ptr.name = strdup("localhost");
+                        if (!rr->ptr.name) {
+                                log_oom();
+                                return;
+                        }
+                }
+
+                if (!rr)
+                        continue;
+
+                if (!answer) {
+                        answer = dns_answer_new(q->question->n_keys);
+                        if (!answer) {
+                                log_oom();
+                                return;
+                        }
+                }
+
+                r = dns_answer_add(answer, rr);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to add synthetic RR to answer: %m");
+                        return;
+                }
+        }
+
+        if (!answer)
+                return;
+
+        dns_answer_unref(q->answer);
+        q->answer = answer;
+        answer = NULL;
+
+        q->answer_ifindex = SYNTHESIZE_IFINDEX(q->ifindex);
+        q->answer_family = SYNTHESIZE_FAMILY(q->flags);
+        q->answer_protocol = SYNTHESIZE_PROTOCOL(q->flags);
+        q->answer_rcode = DNS_RCODE_SUCCESS;
+
+        *state = DNS_TRANSACTION_SUCCESS;
+}
+
 int dns_query_go(DnsQuery *q) {
         DnsScopeMatch found = DNS_SCOPE_NO;
         DnsScope *s, *first = NULL;
@@ -253,8 +405,17 @@ int dns_query_go(DnsQuery *q) {
                 }
         }
 
-        if (found == DNS_SCOPE_NO)
+        if (found == DNS_SCOPE_NO) {
+                DnsTransactionState state = DNS_TRANSACTION_NO_SERVERS;
+
+                dns_query_synthesize_reply(q, &state);
+                if (state != DNS_TRANSACTION_NO_SERVERS) {
+                        dns_query_complete(q, state);
+                        return 1;
+                }
+
                 return -ESRCH;
+        }
 
         r = dns_query_add_transaction_split(q, first);
         if (r < 0)
@@ -427,6 +588,9 @@ void dns_query_ready(DnsQuery *q) {
                 q->answer_protocol = scope ? scope->protocol : _DNS_PROTOCOL_INVALID;
                 q->answer_family = scope ? scope->family : AF_UNSPEC;
         }
+
+        /* Try to synthesize a reply if we couldn't resolve something. */
+        dns_query_synthesize_reply(q, &state);
 
         dns_query_complete(q, state);
 }
