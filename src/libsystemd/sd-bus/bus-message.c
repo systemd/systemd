@@ -2687,7 +2687,7 @@ _public_ int sd_bus_message_append_array_memfd(
         int r;
 
         assert_return(m, -EINVAL);
-        assert_return(memfd >= 0, -EINVAL);
+        assert_return(memfd >= 0, -EBADF);
         assert_return(bus_type_is_trivial(type), -EINVAL);
         assert_return(size > 0, -EINVAL);
         assert_return(!m->sealed, -EPERM);
@@ -2763,7 +2763,7 @@ _public_ int sd_bus_message_append_string_memfd(
         int r;
 
         assert_return(m, -EINVAL);
-        assert_return(memfd >= 0, -EINVAL);
+        assert_return(memfd >= 0, -EBADF);
         assert_return(size > 0, -EINVAL);
         assert_return(!m->sealed, -EPERM);
         assert_return(!m->poisoned, -ESTALE);

@@ -816,7 +816,7 @@ _public_ int sd_event_add_io(
         int r;
 
         assert_return(e, -EINVAL);
-        assert_return(fd >= 0, -EINVAL);
+        assert_return(fd >= 0, -EBADF);
         assert_return(!(events & ~(EPOLLIN|EPOLLOUT|EPOLLRDHUP|EPOLLPRI|EPOLLERR|EPOLLHUP|EPOLLET)), -EINVAL);
         assert_return(callback, -EINVAL);
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
@@ -1311,7 +1311,7 @@ _public_ int sd_event_source_set_io_fd(sd_event_source *s, int fd) {
         int r;
 
         assert_return(s, -EINVAL);
-        assert_return(fd >= 0, -EINVAL);
+        assert_return(fd >= 0, -EBADF);
         assert_return(s->type == SOURCE_IO, -EDOM);
         assert_return(!event_pid_changed(s->event), -ECHILD);
 

@@ -94,7 +94,7 @@ _public_ int sd_peer_get_session(int fd, char **session) {
         struct ucred ucred = {};
         int r;
 
-        assert_return(fd >= 0, -EINVAL);
+        assert_return(fd >= 0, -EBADF);
         assert_return(session, -EINVAL);
 
         r = getpeercred(fd, &ucred);
@@ -108,7 +108,7 @@ _public_ int sd_peer_get_owner_uid(int fd, uid_t *uid) {
         struct ucred ucred;
         int r;
 
-        assert_return(fd >= 0, -EINVAL);
+        assert_return(fd >= 0, -EBADF);
         assert_return(uid, -EINVAL);
 
         r = getpeercred(fd, &ucred);
@@ -122,7 +122,7 @@ _public_ int sd_peer_get_unit(int fd, char **unit) {
         struct ucred ucred;
         int r;
 
-        assert_return(fd >= 0, -EINVAL);
+        assert_return(fd >= 0, -EBADF);
         assert_return(unit, -EINVAL);
 
         r = getpeercred(fd, &ucred);
@@ -136,7 +136,7 @@ _public_ int sd_peer_get_user_unit(int fd, char **unit) {
         struct ucred ucred;
         int r;
 
-        assert_return(fd >= 0, -EINVAL);
+        assert_return(fd >= 0, -EBADF);
         assert_return(unit, -EINVAL);
 
         r = getpeercred(fd, &ucred);
@@ -150,7 +150,7 @@ _public_ int sd_peer_get_machine_name(int fd, char **machine) {
         struct ucred ucred;
         int r;
 
-        assert_return(fd >= 0, -EINVAL);
+        assert_return(fd >= 0, -EBADF);
         assert_return(machine, -EINVAL);
 
         r = getpeercred(fd, &ucred);
@@ -164,7 +164,7 @@ _public_ int sd_peer_get_slice(int fd, char **slice) {
         struct ucred ucred;
         int r;
 
-        assert_return(fd >= 0, -EINVAL);
+        assert_return(fd >= 0, -EBADF);
         assert_return(slice, -EINVAL);
 
         r = getpeercred(fd, &ucred);
@@ -178,7 +178,7 @@ _public_ int sd_peer_get_user_slice(int fd, char **slice) {
         struct ucred ucred;
         int r;
 
-        assert_return(fd >= 0, -EINVAL);
+        assert_return(fd >= 0, -EBADF);
         assert_return(slice, -EINVAL);
 
         r = getpeercred(fd, &ucred);
