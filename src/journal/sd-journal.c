@@ -2147,12 +2147,8 @@ static void process_inotify_event(sd_journal *j, struct inotify_event *e) {
 
                         /* Event for a subdirectory */
 
-                        if (e->mask & (IN_DELETE_SELF|IN_MOVE_SELF|IN_UNMOUNT)) {
-                                r = remove_directory(j, d);
-                                if (r < 0)
-                                        log_debug_errno(r, "Failed to remove directory %s: %m", d->path);
-                        }
-
+                        if (e->mask & (IN_DELETE_SELF|IN_MOVE_SELF|IN_UNMOUNT))
+                                remove_directory(j, d);
 
                 } else if (d->is_root && (e->mask & IN_ISDIR) && e->len > 0 && sd_id128_from_string(e->name, &id) >= 0) {
 
