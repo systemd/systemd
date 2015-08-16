@@ -166,12 +166,27 @@
         <term><command>set-ntp [BOOL]</command></term>
 
         <listitem><para>Takes a boolean argument. Controls whether
-        network time synchronization is enabled (if available). This
-        enables or disables the
-        <filename>systemd-timesyncd.service</filename> unit. Note that
-        even if this command turns time synchronization off a
-        different system service might still synchronize the clock
-        with the network.</para></listitem>
+        network time synchronization is active and enabled (if
+        available). This enables and starts, or disables and stops the
+        <filename>systemd-timesyncd.service</filename> unit. It does
+        not affect the state of any other, unrelated network time
+        synchronization services that might be installed on the
+        system. This command is hence mostly equivalent to:
+        <command>systemctl enable --now
+        systemd-timesyncd.service</command> and <command>systemctl
+        disable --now systemd-timesyncd.service</command>, but is
+        protected by a different access policy.</para>
+
+        <para>Note that even if time synchronization is turned off
+        with this command another, unrelated system service might
+        still synchronize the clock with the network. Also note that
+        strictly speaking
+        <filename>systemd-timesyncd.service</filename> does more than
+        just network time synchronization as it ensures a monotonic
+        clock on systems without RTC even if no network is
+        available. See
+        <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        for details about this.</para></listitem>
       </varlistentry>
 
     </variablelist>
