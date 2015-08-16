@@ -274,8 +274,3 @@ WARNINGS:
         servers if not specified otherwise at configure time. You
         really should not ship an OS or device with this default
         setting. See DISTRO_PORTING for details.
-
-ENGINEERING AND CONSULTING SERVICES:
-        ENDOCODE <https://endocode.com/> offers professional
-        engineering and consulting services for systemd. Please
-        contact Chris Kühl <chris@endocode.com> for more information.
