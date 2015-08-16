@@ -756,7 +756,7 @@ CHANGES WITH 218:
         * When querying unit file enablement status (for example via
           "systemctl is-enabled"), a new state "indirect" is now known
           which indicates that a unit might not be enabled itself, but
-          another unit listed in its Alias= setting might be.
+          another unit listed in its Also= setting might be.
 
         * Similar to the various existing ConditionXYZ= settings for
           units there are now matching AssertXYZ= settings. While
