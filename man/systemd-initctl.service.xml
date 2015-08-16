@@ -1,6 +1,9 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
+<!ENTITY % entities SYSTEM "custom-entities.ent" >
+%entities;
+]>
 
 <!--
   This file is part of systemd.
@@ -52,7 +55,7 @@
   <refsynopsisdiv>
     <para><filename>systemd-initctl.service</filename></para>
     <para><filename>systemd-initctl.socket</filename></para>
-    <para><filename>/usr/lib/systemd/systemd-initctl</filename></para>
+    <para><filename>&rootlibexecdir;/systemd-initctl</filename></para>
   </refsynopsisdiv>
 
   <refsect1>

@@ -1,6 +1,9 @@
 <?xml version="1.0"?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
 <!DOCTYPE refsection PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
-          "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+          "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY % entities SYSTEM "custom-entities.ent" >
+%entities;
+]>
 
 <refsection>
   <refsection id='confd'>
@@ -39,14 +42,14 @@
     <para>Default configuration is defined during compilation, so a
     configuration file is only needed when it is necessary to deviate
     from those defaults. By default the configuration file in
-    <filename>/etc/systemd/</filename> contains commented out entries
+    <filename>&pkgsysconfdir;/</filename> contains commented out entries
     showing the defaults as a guide to the administrator. This file
     can be edited to create local overrides.
     </para>
 
     <para>When packages need to customize the configuration, they can
     install configuration snippets in
-    <filename>/usr/lib/systemd/*.conf.d/</filename>. Files in
+    <filename>&rootlibexecdir;/*.conf.d/</filename>. Files in
     <filename>/etc/</filename> are reserved for the local
     administrator, who may use this logic to override the
     configuration files installed by vendor packages. The main

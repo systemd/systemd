@@ -1,6 +1,9 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
+<!ENTITY % entities SYSTEM "custom-entities.ent" >
+%entities;
+]>
 
 <!--
   This file is part of systemd.
@@ -585,8 +588,8 @@
         first verified with detached GPG signature file
         <filename>SHA256SUMS.gpg</filename>. The public key for this
         verification step needs to be available in
-        <filename>/usr/lib/systemd/import-pubring.gpg</filename> or
-        <filename>/etc/systemd/import-pubring.gpg</filename>.</para>
+        <filename>&rootlibexecdir;/import-pubring.gpg</filename> or
+        <filename>&pkgsysconfdir;/import-pubring.gpg</filename>.</para>
 
         <para>The container image will be downloaded and stored in a
         read-only subvolume in

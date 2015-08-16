@@ -5808,8 +5808,9 @@ if ENABLE_MANPAGES
 man/custom-entities.ent: configure.ac
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@)
 	$(AM_V_GEN)(echo '<?xml version="1.0" encoding="utf-8" ?>' && \
-	 printf '$(subst '|,<!ENTITY ,$(subst =, ",$(subst |',">\n,$(substitutions))))') \
-	 > $@ # '
+	 printf '$(subst '|,<!ENTITY ,$(subst =, ",$(subst |',">\n,$(substitutions))))' && \
+         printf ' <!ENTITY DEFAULT_PATH "<filename>$(subst :,</filename>:<filename>,$(DEFAULT_PATH))</filename>">' \
+	 )> $@ # '
 
 CLEANFILES += \
 	man/custom-entities.ent

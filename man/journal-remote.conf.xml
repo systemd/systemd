@@ -1,6 +1,9 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
+<!ENTITY % entities SYSTEM "custom-entities.ent" >
+%entities;
+]>
 
 <!--
   This file is part of systemd.
@@ -49,10 +52,10 @@
   </refnamediv>
 
   <refsynopsisdiv>
-    <para><filename>/etc/systemd/journal-remote.conf</filename></para>
-    <para><filename>/etc/systemd/journald.conf.d/*.conf</filename></para>
+    <para><filename>&pkgsysconfdir;/journal-remote.conf</filename></para>
+    <para><filename>&pkgsysconfdir;/journald.conf.d/*.conf</filename></para>
     <para><filename>/run/systemd/journald.conf.d/*.conf</filename></para>
-    <para><filename>/usr/lib/systemd/journald.conf.d/*.conf</filename></para>
+    <para><filename>&rootlibexecdir;/journald.conf.d/*.conf</filename></para>
   </refsynopsisdiv>
 
   <refsect1>
