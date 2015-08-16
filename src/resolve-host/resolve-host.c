@@ -336,10 +336,6 @@ static int resolve_record(sd_bus *bus, const char *name) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_message_set_auto_start(req, false);
-        if (r < 0)
-                return bus_log_create_error(r);
-
         assert((uint16_t) arg_type == arg_type);
         r = sd_bus_message_append(req, "isqqt", arg_ifindex, name, arg_class, arg_type, arg_flags);
         if (r < 0)
