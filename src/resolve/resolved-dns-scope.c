@@ -325,10 +325,6 @@ DnsScopeMatch dns_scope_good_domain(DnsScope *s, int ifindex, uint64_t flags, co
         if ((SD_RESOLVED_FLAGS_MAKE(s->protocol, s->family) & flags) == 0)
                 return DNS_SCOPE_NO;
 
-        STRV_FOREACH(i, s->domains)
-                if (dns_name_endswith(domain, *i) > 0)
-                        return DNS_SCOPE_YES;
-
         if (dns_name_root(domain) != 0)
                 return DNS_SCOPE_NO;
 
@@ -339,6 +335,10 @@ DnsScopeMatch dns_scope_good_domain(DnsScope *s, int ifindex, uint64_t flags, co
         if (dns_name_endswith(domain, "127.in-addr.arpa") > 0 ||
             dns_name_equal(domain, "1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa") > 0)
                 return DNS_SCOPE_NO;
+
+        STRV_FOREACH(i, s->domains)
+                if (dns_name_endswith(domain, *i) > 0)
+                        return DNS_SCOPE_YES;
 
         if (s->protocol == DNS_PROTOCOL_DNS) {
                 if (dns_name_endswith(domain, "254.169.in-addr.arpa") == 0 &&
