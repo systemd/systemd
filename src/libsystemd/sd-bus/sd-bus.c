@@ -1951,37 +1951,39 @@ _public_ int sd_bus_call(
         unsigned i;
         int r;
 
-        assert_return(m, -EINVAL);
-        assert_return(m->header->type == SD_BUS_MESSAGE_METHOD_CALL, -EINVAL);
-        assert_return(!(m->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED), -EINVAL);
-        assert_return(!bus_error_is_dirty(error), -EINVAL);
+        bus_assert_return(m, -EINVAL, error);
+        bus_assert_return(m->header->type == SD_BUS_MESSAGE_METHOD_CALL, -EINVAL, error);
+        bus_assert_return(!(m->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED), -EINVAL, error);
+        bus_assert_return(!bus_error_is_dirty(error), -EINVAL, error);
 
         if (!bus)
                 bus = m->bus;
 
-        assert_return(!bus_pid_changed(bus), -ECHILD);
-        assert_return(!bus->is_kernel || !(bus->hello_flags & KDBUS_HELLO_MONITOR), -EROFS);
+        bus_assert_return(!bus_pid_changed(bus), -ECHILD, error);
+        bus_assert_return(!bus->is_kernel || !(bus->hello_flags & KDBUS_HELLO_MONITOR), -EROFS, error);
 
-        if (!BUS_IS_OPEN(bus->state))
-                return -ENOTCONN;
+        if (!BUS_IS_OPEN(bus->state)) {
+                r = -ENOTCONN;
+                goto fail;
+        }
 
         r = bus_ensure_running(bus);
         if (r < 0)
-                return r;
+                goto fail;
 
         i = bus->rqueue_size;
 
         r = bus_seal_message(bus, m, usec);
         if (r < 0)
-                return r;
+                goto fail;
 
         r = bus_remarshal_message(bus, &m);
         if (r < 0)
-                return r;
+                goto fail;
 
         r = bus_send_internal(bus, m, &cookie, true);
         if (r < 0)
-                return r;
+                goto fail;
 
         timeout = calc_elapse(m->timeout);
 
@@ -2012,14 +2014,17 @@ _public_ int sd_bus_call(
                                         }
 
                                         r = sd_bus_error_setf(error, SD_BUS_ERROR_INCONSISTENT_MESSAGE, "Reply message contained file descriptors which I couldn't accept. Sorry.");
+                                        sd_bus_message_unref(incoming);
+                                        return r;
 
-                                } else if (incoming->header->type == SD_BUS_MESSAGE_METHOD_ERROR)
+                                } else if (incoming->header->type == SD_BUS_MESSAGE_METHOD_ERROR) {
                                         r = sd_bus_error_copy(error, &incoming->error);
-                                else
+                                        sd_bus_message_unref(incoming);
+                                        return r;
+                                } else {
                                         r = -EIO;
-
-                                sd_bus_message_unref(incoming);
-                                return r;
+                                        goto fail;
+                                }
 
                         } else if (BUS_MESSAGE_COOKIE(incoming) == cookie &&
                                    bus->unique_name &&
@@ -2035,7 +2040,8 @@ _public_ int sd_bus_call(
                                  * immediately. */
 
                                 sd_bus_message_unref(incoming);
-                                return -ELOOP;
+                                r = -ELOOP;
+                                goto fail;
                         }
 
                         /* Try to read more, right-away */
@@ -2046,10 +2052,10 @@ _public_ int sd_bus_call(
                 if (r < 0) {
                         if (r == -ENOTCONN || r == -ECONNRESET || r == -EPIPE || r == -ESHUTDOWN) {
                                 bus_enter_closing(bus);
-                                return -ECONNRESET;
+                                r = -ECONNRESET;
                         }
 
-                        return r;
+                        goto fail;
                 }
                 if (r > 0)
                         continue;
@@ -2058,8 +2064,10 @@ _public_ int sd_bus_call(
                         usec_t n;
 
                         n = now(CLOCK_MONOTONIC);
-                        if (n >= timeout)
-                                return -ETIMEDOUT;
+                        if (n >= timeout) {
+                                r = -ETIMEDOUT;
+                                goto fail;
+                        }
 
                         left = timeout - n;
                 } else
@@ -2067,20 +2075,25 @@ _public_ int sd_bus_call(
 
                 r = bus_poll(bus, true, left);
                 if (r < 0)
-                        return r;
-                if (r == 0)
-                        return -ETIMEDOUT;
+                        goto fail;
+                if (r == 0) {
+                        r = -ETIMEDOUT;
+                        goto fail;
+                }
 
                 r = dispatch_wqueue(bus);
                 if (r < 0) {
                         if (r == -ENOTCONN || r == -ECONNRESET || r == -EPIPE || r == -ESHUTDOWN) {
                                 bus_enter_closing(bus);
-                                return -ECONNRESET;
+                                r = -ECONNRESET;
                         }
 
-                        return r;
+                        goto fail;
                 }
         }
+
+fail:
+        return sd_bus_error_set_errno(error, r);
 }
 
 _public_ int sd_bus_get_fd(sd_bus *bus) {
