@@ -37,6 +37,29 @@
 #include "bus-kernel.h"
 #include "kdbus.h"
 
+typedef enum BusTransport {
+        BUS_TRANSPORT_LOCAL,
+        BUS_TRANSPORT_REMOTE,
+        BUS_TRANSPORT_MACHINE,
+        _BUS_TRANSPORT_MAX,
+        _BUS_TRANSPORT_INVALID = -1
+} BusTransport;
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(sd_bus*, sd_bus_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(sd_bus*, sd_bus_flush_close_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(sd_bus_slot*, sd_bus_slot_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(sd_bus_message*, sd_bus_message_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(sd_bus_creds*, sd_bus_creds_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(sd_bus_track*, sd_bus_track_unref);
+
+#define _cleanup_bus_unref_ _cleanup_(sd_bus_unrefp)
+#define _cleanup_bus_flush_close_unref_ _cleanup_(sd_bus_flush_close_unrefp)
+#define _cleanup_bus_slot_unref_ _cleanup_(sd_bus_slot_unrefp)
+#define _cleanup_bus_message_unref_ _cleanup_(sd_bus_message_unrefp)
+#define _cleanup_bus_creds_unref_ _cleanup_(sd_bus_creds_unrefp)
+#define _cleanup_bus_track_unref_ _cleanup_(sd_bus_slot_unrefp)
+#define _cleanup_bus_error_free_ _cleanup_(sd_bus_error_free)
+
 struct reply_callback {
         sd_bus_message_handler_t callback;
         usec_t timeout;
@@ -393,3 +416,6 @@ int bus_remove_match_by_string(sd_bus *bus, const char *match, sd_bus_message_ha
 int bus_get_root_path(sd_bus *bus);
 
 int bus_maybe_reply_error(sd_bus_message *m, int r, sd_bus_error *error);
+
+bool is_kdbus_wanted(void);
+bool is_kdbus_available(void);

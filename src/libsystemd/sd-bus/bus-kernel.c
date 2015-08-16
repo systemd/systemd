@@ -45,7 +45,6 @@
 #include "bus-message.h"
 #include "bus-kernel.h"
 #include "bus-bloom.h"
-#include "bus-util.h"
 #include "bus-label.h"
 
 #define UNIQUE_NAME_MAX (3+DECIMAL_STR_MAX(uint64_t))

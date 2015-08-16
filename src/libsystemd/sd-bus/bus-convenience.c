@@ -22,7 +22,6 @@
 #include "bus-internal.h"
 #include "bus-message.h"
 #include "bus-signature.h"
-#include "bus-util.h"
 #include "bus-type.h"
 
 _public_ int sd_bus_emit_signal(
