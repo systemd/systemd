@@ -26,6 +26,12 @@ External:
 
 Features:
 
+* PID 1 should send out sd_notify("WATCHDOG=1") messages (for usage in the --user mode, and when run via nspawn)
+
+* nspawn should send out sd_notify("WATCHDOG=1") messages
+
+* nspawn should optionally support receiving WATCHDOG=1 messages from its payload PID 1...
+
 * introduce "machinectl shell" that is like systemd-run -M foo /bin/bash -t but also adds PAMName=login
 
 * allow loging into host with "machinectl login".
