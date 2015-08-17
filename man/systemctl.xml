@@ -1137,7 +1137,9 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
                 <tbody>
                   <row>
                     <entry><literal>enabled</literal></entry>
-                    <entry morerows='1'>Enabled through a symlink in a <filename>.wants/</filename> or <filename>.requires/</filename> subdirectory of <filename>/etc/systemd/system/</filename> (persistently) or <filename>/run/systemd/system/</filename> (transiently).</entry>
+                    <entry morerows='1'>Enabled through creating symlinks
+                    encoded in the <literal>[Install]</literal> section
+                    (permanently or just in <filename>/run</filename>).</entry>
                     <entry morerows='1'>0</entry>
                   </row>
                   <row>
