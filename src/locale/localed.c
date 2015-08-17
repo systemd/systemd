@@ -1092,6 +1092,7 @@ static int method_set_vc_keyboard(sd_bus_message *m, void *userdata, sd_bus_erro
 }
 
 #ifdef HAVE_XKBCOMMON
+_printf_(3, 0)
 static void log_xkb(struct xkb_context *ctx, enum xkb_log_level lvl, const char *format, va_list args) {
         const char *fmt;
 
