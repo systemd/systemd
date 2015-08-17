@@ -213,8 +213,8 @@ _public_ int sd_bus_set_address(sd_bus *bus, const char *address) {
 _public_ int sd_bus_set_fd(sd_bus *bus, int input_fd, int output_fd) {
         assert_return(bus, -EINVAL);
         assert_return(bus->state == BUS_UNSET, -EPERM);
-        assert_return(input_fd >= 0, -EINVAL);
-        assert_return(output_fd >= 0, -EINVAL);
+        assert_return(input_fd >= 0, -EBADF);
+        assert_return(output_fd >= 0, -EBADF);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
         bus->input_fd = input_fd;

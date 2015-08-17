@@ -106,7 +106,7 @@ int sd_netlink_open_fd(sd_netlink **ret, int fd) {
         int r;
 
         assert_return(ret, -EINVAL);
-        assert_return(fd >= 0, -EINVAL);
+        assert_return(fd >= 0, -EBADF);
 
         r = sd_netlink_new(&rtnl);
         if (r < 0)
