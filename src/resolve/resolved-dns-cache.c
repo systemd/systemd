@@ -426,7 +426,7 @@ int dns_cache_put(
                 return 0;
 
         for (i = 0; i < answer->n_rrs; i++)
-                dns_cache_remove(c, answer->rrs[i]->key);
+                dns_cache_remove(c, answer->items[i].rr->key);
 
         /* We only care for positive replies and NXDOMAINs, on all
          * other replies we will simply flush the respective entries,
@@ -443,7 +443,7 @@ int dns_cache_put(
 
         /* Second, add in positive entries for all contained RRs */
         for (i = 0; i < MIN(max_rrs, answer->n_rrs); i++) {
-                r = dns_cache_put_positive(c, answer->rrs[i], timestamp, owner_family, owner_address);
+                r = dns_cache_put_positive(c, answer->items[i].rr, timestamp, owner_family, owner_address);
                 if (r < 0)
                         goto fail;
         }
@@ -478,7 +478,7 @@ fail:
         for (i = 0; i < q->n_keys; i++)
                 dns_cache_remove(c, q->keys[i]);
         for (i = 0; i < answer->n_rrs; i++)
-                dns_cache_remove(c, answer->rrs[i]->key);
+                dns_cache_remove(c, answer->items[i].rr->key);
 
         return r;
 }
@@ -566,7 +566,7 @@ int dns_cache_lookup(DnsCache *c, DnsQuestion *q, int *rcode, DnsAnswer **ret) {
                 j = hashmap_get(c->by_key, q->keys[i]);
                 LIST_FOREACH(by_key, j, j) {
                         if (j->rr) {
-                                r = dns_answer_add(answer, j->rr);
+                                r = dns_answer_add(answer, j->rr, 0);
                                 if (r < 0)
                                         return r;
                         }

@@ -422,7 +422,7 @@ int dns_zone_lookup(DnsZone *z, DnsQuestion *q, DnsAnswer **ret_answer, DnsAnswe
                                 if (k < 0)
                                         return k;
                                 if (k > 0) {
-                                        r = dns_answer_add(answer, j->rr);
+                                        r = dns_answer_add(answer, j->rr, 0);
                                         if (r < 0)
                                                 return r;
 
@@ -448,7 +448,7 @@ int dns_zone_lookup(DnsZone *z, DnsQuestion *q, DnsAnswer **ret_answer, DnsAnswe
                                 if (j->state != DNS_ZONE_ITEM_PROBING)
                                         tentative = false;
 
-                                r = dns_answer_add(answer, j->rr);
+                                r = dns_answer_add(answer, j->rr, 0);
                                 if (r < 0)
                                         return r;
                         }
@@ -505,7 +505,7 @@ void dns_zone_item_conflict(DnsZoneItem *i) {
         i->state = DNS_ZONE_ITEM_WITHDRAWN;
 
         /* Maybe change the hostname */
-        if (dns_name_equal(i->scope->manager->hostname, DNS_RESOURCE_KEY_NAME(i->rr->key)) > 0)
+        if (manager_is_own_hostname(i->scope->manager, DNS_RESOURCE_KEY_NAME(i->rr->key)) > 0)
                 manager_next_hostname(i->scope->manager);
 }
 

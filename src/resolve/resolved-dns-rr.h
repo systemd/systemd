@@ -191,6 +191,7 @@ DnsResourceRecord* dns_resource_record_new_full(uint16_t class, uint16_t type, c
 DnsResourceRecord* dns_resource_record_ref(DnsResourceRecord *rr);
 DnsResourceRecord* dns_resource_record_unref(DnsResourceRecord *rr);
 int dns_resource_record_new_reverse(DnsResourceRecord **ret, int family, const union in_addr_union *address, const char *name);
+int dns_resource_record_new_address(DnsResourceRecord **ret, int family, const union in_addr_union *address, const char *name);
 int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecord *b);
 int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsResourceRecord*, dns_resource_record_unref);

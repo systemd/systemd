@@ -45,7 +45,6 @@ struct DnsQuery {
 
         /* Discovered data */
         DnsAnswer *answer;
-        int answer_ifindex;
         int answer_family;
         DnsProtocol answer_protocol;
         int answer_rcode;

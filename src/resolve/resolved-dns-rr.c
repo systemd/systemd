@@ -350,6 +350,36 @@ int dns_resource_record_new_reverse(DnsResourceRecord **ret, int family, const u
         return 0;
 }
 
+int dns_resource_record_new_address(DnsResourceRecord **ret, int family, const union in_addr_union *address, const char *name) {
+        DnsResourceRecord *rr;
+
+        assert(ret);
+        assert(address);
+        assert(family);
+
+        if (family == AF_INET) {
+
+                rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, name);
+                if (!rr)
+                        return -ENOMEM;
+
+                rr->a.in_addr = address->in;
+
+        } else if (family == AF_INET6) {
+
+                rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_AAAA, name);
+                if (!rr)
+                        return -ENOMEM;
+
+                rr->aaaa.in6_addr = address->in6;
+        } else
+                return -EAFNOSUPPORT;
+
+        *ret = rr;
+
+        return 0;
+}
+
 int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecord *b) {
         int r;
 

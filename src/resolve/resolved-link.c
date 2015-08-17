@@ -419,16 +419,16 @@ void link_address_add_rrs(LinkAddress *a, bool force_remove) {
                     a->link->llmnr_support == SUPPORT_YES &&
                     a->link->manager->llmnr_support == SUPPORT_YES) {
 
-                        if (!a->link->manager->host_ipv4_key) {
-                                a->link->manager->host_ipv4_key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, a->link->manager->hostname);
-                                if (!a->link->manager->host_ipv4_key) {
+                        if (!a->link->manager->llmnr_host_ipv4_key) {
+                                a->link->manager->llmnr_host_ipv4_key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, a->link->manager->llmnr_hostname);
+                                if (!a->link->manager->llmnr_host_ipv4_key) {
                                         r = -ENOMEM;
                                         goto fail;
                                 }
                         }
 
                         if (!a->llmnr_address_rr) {
-                                a->llmnr_address_rr = dns_resource_record_new(a->link->manager->host_ipv4_key);
+                                a->llmnr_address_rr = dns_resource_record_new(a->link->manager->llmnr_host_ipv4_key);
                                 if (!a->llmnr_address_rr) {
                                         r = -ENOMEM;
                                         goto fail;
@@ -439,7 +439,7 @@ void link_address_add_rrs(LinkAddress *a, bool force_remove) {
                         }
 
                         if (!a->llmnr_ptr_rr) {
-                                r = dns_resource_record_new_reverse(&a->llmnr_ptr_rr, a->family, &a->in_addr, a->link->manager->hostname);
+                                r = dns_resource_record_new_reverse(&a->llmnr_ptr_rr, a->family, &a->in_addr, a->link->manager->llmnr_hostname);
                                 if (r < 0)
                                         goto fail;
 
@@ -476,16 +476,16 @@ void link_address_add_rrs(LinkAddress *a, bool force_remove) {
                     a->link->llmnr_support == SUPPORT_YES &&
                     a->link->manager->llmnr_support == SUPPORT_YES) {
 
-                        if (!a->link->manager->host_ipv6_key) {
-                                a->link->manager->host_ipv6_key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_AAAA, a->link->manager->hostname);
-                                if (!a->link->manager->host_ipv6_key) {
+                        if (!a->link->manager->llmnr_host_ipv6_key) {
+                                a->link->manager->llmnr_host_ipv6_key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_AAAA, a->link->manager->llmnr_hostname);
+                                if (!a->link->manager->llmnr_host_ipv6_key) {
                                         r = -ENOMEM;
                                         goto fail;
                                 }
                         }
 
                         if (!a->llmnr_address_rr) {
-                                a->llmnr_address_rr = dns_resource_record_new(a->link->manager->host_ipv6_key);
+                                a->llmnr_address_rr = dns_resource_record_new(a->link->manager->llmnr_host_ipv6_key);
                                 if (!a->llmnr_address_rr) {
                                         r = -ENOMEM;
                                         goto fail;
@@ -496,7 +496,7 @@ void link_address_add_rrs(LinkAddress *a, bool force_remove) {
                         }
 
                         if (!a->llmnr_ptr_rr) {
-                                r = dns_resource_record_new_reverse(&a->llmnr_ptr_rr, a->family, &a->in_addr, a->link->manager->hostname);
+                                r = dns_resource_record_new_reverse(&a->llmnr_ptr_rr, a->family, &a->in_addr, a->link->manager->llmnr_hostname);
                                 if (r < 0)
                                         goto fail;
 
