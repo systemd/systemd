@@ -71,6 +71,10 @@
     files, and the per-link dynamic settings received over DHCP. See
     <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     for more details.</para>
+
+    <para><citerefentry><refentrytitle>timedatectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+    <command>set-ntp</command> command may be used to enable and
+    start, or disable and stop this service.</para>
   </refsect1>
 
   <refsect1>
