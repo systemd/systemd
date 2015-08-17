@@ -367,6 +367,8 @@
     group information is maintained in the kernel, and is accessible
     via the file system hierarchy (beneath
     <filename>/sys/fs/cgroup/systemd/</filename>), or in tools such as
+    <citerefentry project='man-pages'><refentrytitle>systemd-cgls</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    or
     <citerefentry project='man-pages'><refentrytitle>ps</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     (<command>ps xawf -eo pid,user,cgroup,args</command> is
     particularly useful to list all processes and the systemd units
