@@ -803,8 +803,8 @@ int get_proc_cmdline_key(const char *parameter, char **value);
 
 int container_get_leader(const char *machine, pid_t *pid);
 
-int namespace_open(pid_t pid, int *pidns_fd, int *mntns_fd, int *netns_fd, int *root_fd);
-int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int root_fd);
+int namespace_open(pid_t pid, int *pidns_fd, int *mntns_fd, int *netns_fd, int *userns_fd, int *root_fd);
+int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int root_fd);
 
 int getpeercred(int fd, struct ucred *ucred);
 int getpeersec(int fd, char **ret);
