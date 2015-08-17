@@ -43,13 +43,6 @@
 NSS_GETHOSTBYNAME_PROTOTYPES(myhostname);
 NSS_GETHOSTBYADDR_PROTOTYPES(myhostname);
 
-static bool is_gateway(const char *hostname) {
-        assert(hostname);
-
-        return streq(hostname, "gateway") ||
-               streq(hostname, "gateway.");
-}
-
 enum nss_status _nss_myhostname_gethostbyname4_r(
                 const char *name,
                 struct gaih_addrtuple **pat,
@@ -81,7 +74,7 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
                 canonical = "localhost";
                 local_address_ipv4 = htonl(INADDR_LOOPBACK);
 
-        } else if (is_gateway(name)) {
+        } else if (is_gateway_hostname(name)) {
 
                 n_addresses = local_gateways(NULL, 0, AF_UNSPEC, &addresses);
                 if (n_addresses <= 0) {
@@ -351,7 +344,7 @@ enum nss_status _nss_myhostname_gethostbyname3_r(
                 canonical = "localhost";
                 local_address_ipv4 = htonl(INADDR_LOOPBACK);
 
-        } else if (is_gateway(name)) {
+        } else if (is_gateway_hostname(name)) {
 
                 n_addresses = local_gateways(NULL, 0, af, &addresses);
                 if (n_addresses <= 0) {
