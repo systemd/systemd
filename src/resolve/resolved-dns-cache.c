@@ -493,6 +493,29 @@ fail:
         return r;
 }
 
+static DnsCacheItem *dns_cache_get_by_key_follow_cname(DnsCache *c, DnsResourceKey *k) {
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *cname_key = NULL;
+        DnsCacheItem *i, *j;
+
+        assert(c);
+        assert(k);
+
+        i = hashmap_get(c->by_key, k);
+        if (i || k->type == DNS_TYPE_CNAME)
+                return i;
+
+        /* check if we have a CNAME record instead */
+        cname_key = dns_resource_key_new_cname(k);
+        if (!cname_key)
+                return NULL;
+
+        j = hashmap_get(c->by_key, cname_key);
+        if (j)
+                return j;
+
+        return i;
+}
+
 int dns_cache_lookup(DnsCache *c, DnsResourceKey *key, int *rcode, DnsAnswer **ret) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
         unsigned n = 0;
@@ -522,7 +545,7 @@ int dns_cache_lookup(DnsCache *c, DnsResourceKey *key, int *rcode, DnsAnswer **r
                 return 0;
         }
 
-        first = hashmap_get(c->by_key, key);
+        first = dns_cache_get_by_key_follow_cname(c, key);
         if (!first) {
                 /* If one question cannot be answered we need to refresh */
 
