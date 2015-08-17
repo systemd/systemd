@@ -277,13 +277,14 @@ static int dns_cache_put_positive(
 
         /* New TTL is 0? Delete the entry... */
         if (rr->ttl <= 0) {
-                if (dns_cache_remove(c, rr->key)) {
-                        r = dns_resource_key_to_string(rr->key, &key_str);
-                        if (r < 0)
-                                return r;
+                r = dns_resource_key_to_string(rr->key, &key_str);
+                if (r < 0)
+                        return r;
 
+                if (dns_cache_remove(c, rr->key))
                         log_debug("Removed zero TTL entry from cache: %s", key_str);
-                }
+                else
+                        log_debug("Not caching zero TTL cache entry: %s", key_str);
 
                 return 0;
         }
@@ -361,7 +362,7 @@ static int dns_cache_put_negative(
                 if (r < 0)
                         return r;
 
-                log_debug("Ignored negative cache entry with zero SOA TTL: %s", key_str);
+                log_debug("Not caching negative entry with zero SOA TTL: %s", key_str);
 
                 return 0;
         }
