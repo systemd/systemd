@@ -419,3 +419,9 @@ int bus_maybe_reply_error(sd_bus_message *m, int r, sd_bus_error *error);
 
 bool is_kdbus_wanted(void);
 bool is_kdbus_available(void);
+
+#define bus_assert_return(expr, r, error)                               \
+        do {                                                            \
+                if (!assert_log(expr))                                  \
+                        return sd_bus_error_set_errno(error, r);        \
+        } while (false)
