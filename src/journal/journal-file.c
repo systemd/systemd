@@ -169,7 +169,7 @@ void journal_file_close(JournalFile *f) {
 #ifdef HAVE_GCRYPT
         if (f->fss_file)
                 munmap(f->fss_file, PAGE_ALIGN(f->fss_file_size));
-        else if (f->fsprg_state)
+        else
                 free(f->fsprg_state);
 
         free(f->fsprg_seed);

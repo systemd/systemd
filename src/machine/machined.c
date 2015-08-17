@@ -355,8 +355,7 @@ int main(int argc, char *argv[]) {
         log_debug("systemd-machined stopped as pid "PID_FMT, getpid());
 
 finish:
-        if (m)
-                manager_free(m);
+        manager_free(m);
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
