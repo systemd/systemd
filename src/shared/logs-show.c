@@ -1141,7 +1141,7 @@ static int get_boot_id_for_machine(const char *machine, sd_id128_t *boot_id) {
         if (r < 0)
                 return r;
 
-        r = namespace_open(pid, &pidnsfd, &mntnsfd, NULL, &rootfd);
+        r = namespace_open(pid, &pidnsfd, &mntnsfd, NULL, NULL, &rootfd);
         if (r < 0)
                 return r;
 
@@ -1157,7 +1157,7 @@ static int get_boot_id_for_machine(const char *machine, sd_id128_t *boot_id) {
 
                 pair[0] = safe_close(pair[0]);
 
-                r = namespace_enter(pidnsfd, mntnsfd, -1, rootfd);
+                r = namespace_enter(pidnsfd, mntnsfd, -1, -1, rootfd);
                 if (r < 0)
                         _exit(EXIT_FAILURE);
 
