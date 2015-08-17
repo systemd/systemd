@@ -325,7 +325,7 @@ int machine_id_commit(const char *root) {
         fd = safe_close(fd);
 
         /* Store current mount namespace */
-        r = namespace_open(0, NULL, &initial_mntns_fd, NULL, NULL);
+        r = namespace_open(0, NULL, &initial_mntns_fd, NULL, NULL, NULL);
         if (r < 0)
                 return log_error_errno(r, "Can't fetch current mount namespace: %m");
 
@@ -351,7 +351,7 @@ int machine_id_commit(const char *root) {
         fd = safe_close(fd);
 
         /* Return to initial namespace and proceed a lazy tmpfs unmount */
-        r = namespace_enter(-1, initial_mntns_fd, -1, -1);
+        r = namespace_enter(-1, initial_mntns_fd, -1, -1, -1);
         if (r < 0)
                 return log_warning_errno(r, "Failed to switch back to initial mount namespace: %m.\nWe'll keep transient %s file until next reboot.", etc_machine_id);
 
