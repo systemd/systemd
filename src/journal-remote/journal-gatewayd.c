@@ -103,8 +103,7 @@ static void request_meta_free(
         if (!m)
                 return;
 
-        if (m->journal)
-                sd_journal_close(m->journal);
+        sd_journal_close(m->journal);
 
         if (m->tmp)
                 fclose(m->tmp);

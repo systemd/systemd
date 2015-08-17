@@ -1689,6 +1689,5 @@ void server_done(Server *s) {
         if (s->mmap)
                 mmap_cache_unref(s->mmap);
 
-        if (s->udev)
-                udev_unref(s->udev);
+        udev_unref(s->udev);
 }

@@ -143,11 +143,8 @@ static void message_free(sd_bus_message *m) {
         if (m->iovec != m->iovec_fixed)
                 free(m->iovec);
 
-        if (m->destination_ptr) {
-                free(m->destination_ptr);
-                m->destination_ptr = NULL;
-        }
-
+        free(m->destination_ptr);
+        m->destination_ptr = NULL;
         message_reset_containers(m);
         free(m->root_container.signature);
         free(m->root_container.offsets);
