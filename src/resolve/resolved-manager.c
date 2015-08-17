@@ -176,8 +176,7 @@ static int manager_process_address(sd_netlink *rtnl, sd_netlink_message *mm, voi
                 break;
 
         case RTM_DELADDR:
-                if (a)
-                        link_address_free(a);
+                link_address_free(a);
                 break;
         }
 

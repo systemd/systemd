@@ -252,8 +252,7 @@ static int bus_timer_set_transient_property(
 
                         v = new0(TimerValue, 1);
                         if (!v) {
-                                if (c)
-                                        calendar_spec_free(c);
+                                calendar_spec_free(c);
                                 return -ENOMEM;
                         }
 
