@@ -354,7 +354,9 @@ Features:
         - avahi compat
   - DNS-SD service registration from socket units
   - edns0
-  - dname
+  - dname: Not necessary for plain DNS as synthesized cname is handed out instead if we do not
+           announce dname support. However, for DNSSEC it is necessary as the synthesized cname
+           will not be signed.
   - cname on PTR (?)
 
 * Allow multiple ExecStart= for all Type= settings, so that we can cover rescue.service nicely

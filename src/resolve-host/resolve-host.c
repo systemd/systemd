@@ -41,7 +41,8 @@ static uint16_t arg_class = 0;
 static bool arg_legend = true;
 static uint64_t arg_flags = 0;
 
-static void print_source(int ifindex, uint64_t flags) {
+static void print_source(int ifindex, uint64_t flags, usec_t rtt) {
+        char rtt_str[FORMAT_TIMESTAMP_MAX];
 
         if (!arg_legend)
                 return;
@@ -62,6 +63,10 @@ static void print_source(int ifindex, uint64_t flags) {
                 printf(" interface %s", strna(if_indextoname(ifindex, ifname)));
         }
 
+        assert_se(format_timespan(rtt_str, sizeof(rtt_str), rtt, 100));
+
+        printf(" in %s", rtt_str);
+
         fputc('.', stdout);
         fputc('\n', stdout);
 }
@@ -74,6 +79,7 @@ static int resolve_host(sd_bus *bus, const char *name) {
         unsigned c = 0;
         int r, ifindex;
         uint64_t flags;
+        usec_t ts;
 
         assert(name);
 
@@ -93,11 +99,15 @@ static int resolve_host(sd_bus *bus, const char *name) {
         if (r < 0)
                 return bus_log_create_error(r);
 
+        ts = now(CLOCK_MONOTONIC);
+
         r = sd_bus_call(bus, req, DNS_CALL_TIMEOUT_USEC, &error, &reply);
         if (r < 0) {
                 log_error("%s: resolve call failed: %s", name, bus_error_message(&error, r));
                 return r;
         }
+
+        ts = now(CLOCK_MONOTONIC) - ts;
 
         r = sd_bus_message_read(reply, "i", &ifindex);
         if (r < 0)
@@ -182,7 +192,7 @@ static int resolve_host(sd_bus *bus, const char *name) {
                 return -ESRCH;
         }
 
-        print_source(ifindex, flags);
+        print_source(ifindex, flags, ts);
 
         return 0;
 }
@@ -195,6 +205,7 @@ static int resolve_address(sd_bus *bus, int family, const union in_addr_union *a
         uint64_t flags;
         unsigned c = 0;
         const char *n;
+        usec_t ts;
         int r;
 
         assert(bus);
@@ -243,11 +254,15 @@ static int resolve_address(sd_bus *bus, int family, const union in_addr_union *a
         if (r < 0)
                 return bus_log_create_error(r);
 
+        ts = now(CLOCK_MONOTONIC);
+
         r = sd_bus_call(bus, req, DNS_CALL_TIMEOUT_USEC, &error, &reply);
         if (r < 0) {
                 log_error("%s: resolve call failed: %s", pretty, bus_error_message(&error, r));
                 return r;
         }
+
+        ts = now(CLOCK_MONOTONIC) - ts;
 
         r = sd_bus_message_read(reply, "i", &ifindex);
         if (r < 0)
@@ -283,7 +298,7 @@ static int resolve_address(sd_bus *bus, int family, const union in_addr_union *a
                 return -ESRCH;
         }
 
-        print_source(ifindex, flags);
+        print_source(ifindex, flags, ts);
 
         return 0;
 }
@@ -321,6 +336,7 @@ static int resolve_record(sd_bus *bus, const char *name) {
         unsigned n = 0;
         uint64_t flags;
         int r, ifindex;
+        usec_t ts;
 
         assert(name);
 
@@ -341,11 +357,15 @@ static int resolve_record(sd_bus *bus, const char *name) {
         if (r < 0)
                 return bus_log_create_error(r);
 
+        ts = now(CLOCK_MONOTONIC);
+
         r = sd_bus_call(bus, req, DNS_CALL_TIMEOUT_USEC, &error, &reply);
         if (r < 0) {
                 log_error("%s: resolve call failed: %s", name, bus_error_message(&error, r));
                 return r;
         }
+
+        ts = now(CLOCK_MONOTONIC) - ts;
 
         r = sd_bus_message_read(reply, "i", &ifindex);
         if (r < 0)
@@ -414,7 +434,7 @@ static int resolve_record(sd_bus *bus, const char *name) {
                 return -ESRCH;
         }
 
-        print_source(ifindex, flags);
+        print_source(ifindex, flags, ts);
 
         return 0;
 }
