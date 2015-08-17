@@ -308,14 +308,14 @@ int dns_label_undo_idna(const char *encoded, size_t encoded_size, char *decoded,
 #endif
 }
 
-int dns_name_normalize(const char *s, char **_ret) {
+int dns_name_concat(const char *a, const char *b, char **_ret) {
         _cleanup_free_ char *ret = NULL;
         size_t n = 0, allocated = 0;
-        const char *p = s;
+        const char *p = a;
         bool first = true;
         int r;
 
-        assert(s);
+        assert(a);
 
         for (;;) {
                 _cleanup_free_ char *t = NULL;
@@ -328,6 +328,14 @@ int dns_name_normalize(const char *s, char **_ret) {
                 if (r == 0) {
                         if (*p != 0)
                                 return -EINVAL;
+
+                        if (b) {
+                                /* Now continue with the second string, if there is one */
+                                p = b;
+                                b = NULL;
+                                continue;
+                        }
+
                         break;
                 }
 
@@ -341,27 +349,29 @@ int dns_name_normalize(const char *s, char **_ret) {
                 if (r < 0)
                         return r;
 
-                if (!GREEDY_REALLOC(ret, allocated, n + !first + strlen(t) + 1))
-                        return -ENOMEM;
+                if (_ret) {
+                        if (!GREEDY_REALLOC(ret, allocated, n + !first + strlen(t) + 1))
+                                return -ENOMEM;
 
-                if (!first)
-                        ret[n++] = '.';
-                else
-                        first = false;
+                        if (!first)
+                                ret[n++] = '.';
+                        else
+                                first = false;
 
-                memcpy(ret + n, t, r);
+                        memcpy(ret + n, t, r);
+                }
+
                 n += r;
         }
 
         if (n > DNS_NAME_MAX)
                 return -EINVAL;
 
-        if (!GREEDY_REALLOC(ret, allocated, n + 1))
-                return -ENOMEM;
-
-        ret[n] = 0;
-
         if (_ret) {
+                if (!GREEDY_REALLOC(ret, allocated, n + 1))
+                        return -ENOMEM;
+
+                ret[n] = 0;
                 *_ret = ret;
                 ret = NULL;
         }
