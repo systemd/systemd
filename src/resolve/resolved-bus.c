@@ -220,8 +220,6 @@ static void bus_method_resolve_hostname_complete(DnsQuery *q) {
                         added++;
                 }
 
-                // what about the cache?
-
                 /* If we didn't find anything, then let's restart the
                  * query, this time with the cname */
                 if (added <= 0) {

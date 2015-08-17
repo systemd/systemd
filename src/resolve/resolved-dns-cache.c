@@ -483,6 +483,32 @@ fail:
         return r;
 }
 
+static DnsCacheItem *dns_cache_get_by_key(DnsCache *c, DnsResourceKey *k) {
+        DnsCacheItem *i, *j;
+        uint16_t type;
+
+        assert(c);
+        assert(k);
+
+        /* POSITIVE and NXDOMAIN entries are authorotative, but for NODATA we
+           may still have a CNAME record */
+        i = hashmap_get(c->by_key, k);
+        if ((i && i->type != DNS_CACHE_NODATA) ||
+            k->type == DNS_TYPE_CNAME)
+                return i;
+
+        /* check if we have a CNAME record instead */
+        type = k->type;
+        k->type = DNS_TYPE_CNAME;
+        j = hashmap_get(c->by_key, k);
+        k->type = type;
+
+        if (j)
+                return j;
+
+        return i;
+}
+
 int dns_cache_lookup(DnsCache *c, DnsQuestion *q, int *rcode, DnsAnswer **ret) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
         unsigned i, n = 0;
@@ -519,7 +545,7 @@ int dns_cache_lookup(DnsCache *c, DnsQuestion *q, int *rcode, DnsAnswer **ret) {
                         return 0;
                 }
 
-                j = hashmap_get(c->by_key, q->keys[i]);
+                j = dns_cache_get_by_key(c, q->keys[i]);
                 if (!j) {
                         /* If one question cannot be answered we need to refresh */
 
@@ -563,7 +589,7 @@ int dns_cache_lookup(DnsCache *c, DnsQuestion *q, int *rcode, DnsAnswer **ret) {
         for (i = 0; i < q->n_keys; i++) {
                 DnsCacheItem *j;
 
-                j = hashmap_get(c->by_key, q->keys[i]);
+                j = dns_cache_get_by_key(c, q->keys[i]);
                 LIST_FOREACH(by_key, j, j) {
                         if (j->rr) {
                                 r = dns_answer_add(answer, j->rr, 0);
