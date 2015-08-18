@@ -1050,7 +1050,18 @@ void session_restore_vt(Session *s) {
         int vt, kb = K_XLATE;
         struct vt_mode mode = { 0 };
 
+        /* We need to get a fresh handle to the virtual terminal,
+         * since the old file-descriptor is potentially in a hung-up
+         * state after the controlling process exited; we do a
+         * little dance to avoid having the terminal be available
+         * for reuse before we've cleaned it up.
+         */
+        int old_fd = s->vtfd;
+        s->vtfd = -1;
+
         vt = session_open_vt(s);
+        safe_close(old_fd);
+
         if (vt < 0)
                 return;
 
