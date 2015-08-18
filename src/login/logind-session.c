@@ -986,7 +986,7 @@ static int session_open_vt(Session *s) {
                 return s->vtfd;
 
         sprintf(path, "/dev/tty%u", s->vtnr);
-        s->vtfd = open(path, O_RDWR | O_CLOEXEC | O_NONBLOCK | O_NOCTTY);
+        s->vtfd = open_terminal(path, O_RDWR | O_CLOEXEC | O_NONBLOCK | O_NOCTTY);
         if (s->vtfd < 0)
                 return log_error_errno(errno, "cannot open VT %s of session %s: %m", path, s->id);
 
