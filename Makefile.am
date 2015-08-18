@@ -3214,9 +3214,8 @@ libsystemd_network_la_SOURCES = \
 	src/libsystemd-network/dhcp-lease-internal.h \
 	src/libsystemd-network/sd-dhcp-lease.c \
 	src/libsystemd-network/sd-ipv4ll.c \
-	src/libsystemd-network/ipv4ll-network.c \
-	src/libsystemd-network/ipv4ll-packet.c \
-	src/libsystemd-network/ipv4ll-internal.h \
+	src/libsystemd-network/arp-util.h \
+	src/libsystemd-network/arp-util.c \
 	src/libsystemd-network/sd-pppoe.c \
 	src/libsystemd-network/network-internal.c \
 	src/libsystemd-network/network-internal.h \
@@ -3273,7 +3272,7 @@ test_dhcp_server_LDADD = \
 
 test_ipv4ll_SOURCES = \
 	src/systemd/sd-ipv4ll.h \
-	src/libsystemd-network/ipv4ll-internal.h \
+	src/libsystemd-network/arp-util.h \
 	src/libsystemd-network/test-ipv4ll.c
 
 test_ipv4ll_LDADD = \
