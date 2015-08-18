@@ -290,12 +290,49 @@ out:
         return 1;
 }
 
+static int ipv4ll_on_conflict(sd_ipv4ll *ll) {
+        int r;
+
+        assert(ll);
+
+        log_ipv4ll(ll, "CONFLICT");
+
+        ll = ipv4ll_client_notify(ll, IPV4LL_EVENT_CONFLICT);
+        if (!ll || ll->state == IPV4LL_STATE_STOPPED)
+                return 0;
+
+        ll->claimed_address = 0;
+
+        /* Pick a new address */
+        r = ipv4ll_pick_address(ll, &ll->address);
+        if (r < 0)
+                return r;
+
+        ll->fd = safe_close(ll->fd);
+
+        r = arp_network_bind_raw_socket(ll->index, &ll->link, ll->address, &ll->mac_addr);
+        if (r < 0)
+                return r;
+
+        ll->fd = r;
+
+        ll->conflict++;
+        ll->defend_window = 0;
+        ipv4ll_set_state(ll, IPV4LL_STATE_WAITING_PROBE, 1);
+
+        if (ll->conflict >= MAX_CONFLICTS) {
+                log_ipv4ll(ll, "MAX_CONFLICTS");
+                ipv4ll_set_next_wakeup(ll, RATE_LIMIT_INTERVAL, PROBE_WAIT);
+        } else
+              ipv4ll_set_next_wakeup(ll, 0, PROBE_WAIT);
+
+        return 0;
+}
+
 static int ipv4ll_on_packet(sd_event_source *s, int fd,
                             uint32_t revents, void *userdata) {
         sd_ipv4ll *ll = userdata;
         struct ether_arp packet;
-        int conflicted = 0;
-        usec_t time_now;
         int r;
 
         assert(ll);
@@ -308,59 +345,34 @@ static int ipv4ll_on_packet(sd_event_source *s, int fd,
         if (IN_SET(ll->state, IPV4LL_STATE_ANNOUNCING, IPV4LL_STATE_RUNNING)) {
 
                 if (ipv4ll_arp_conflict(ll, &packet)) {
+                        usec_t ts;
 
-                        r = sd_event_now(ll->event, clock_boottime_or_monotonic(), &time_now);
-                        if (r < 0)
-                                goto out;
+                        assert_se(sd_event_now(ll->event, clock_boottime_or_monotonic(), &ts) >= 0);
 
                         /* Defend address */
-                        if (time_now > ll->defend_window) {
-                                ll->defend_window = time_now + DEFEND_INTERVAL * USEC_PER_SEC;
+                        if (ts > ll->defend_window) {
+                                ll->defend_window = ts + DEFEND_INTERVAL * USEC_PER_SEC;
                                 r = arp_send_announcement(ll->fd, &ll->link, ll->address, &ll->mac_addr);
                                 if (r < 0) {
                                         log_ipv4ll(ll, "Failed to send ARP announcement.");
                                         goto out;
                                 }
 
-                        } else
-                                conflicted = 1;
+                        } else {
+                                r = ipv4ll_on_conflict(ll);
+                                if (r < 0)
+                                        goto out;
+                        }
                 }
 
         } else if (IN_SET(ll->state, IPV4LL_STATE_WAITING_PROBE,
                                      IPV4LL_STATE_PROBING,
-                                     IPV4LL_STATE_WAITING_ANNOUNCE))
-                        conflicted = ipv4ll_arp_probe_conflict(ll, &packet);
-
-        if (conflicted) {
-                log_ipv4ll(ll, "CONFLICT");
-                ll = ipv4ll_client_notify(ll, IPV4LL_EVENT_CONFLICT);
-                if (!ll || ll->state == IPV4LL_STATE_STOPPED)
-                        goto out;
-
-                ll->claimed_address = 0;
-
-                /* Pick a new address */
-                r = ipv4ll_pick_address(ll, &ll->address);
-                if (r < 0)
-                        goto out;
-
-                ll->fd = safe_close(ll->fd);
-
-                r = arp_network_bind_raw_socket(ll->index, &ll->link, ll->address, &ll->mac_addr);
-                if (r < 0)
-                        goto out;
-
-                ll->fd = r;
-
-                ll->conflict++;
-                ll->defend_window = 0;
-                ipv4ll_set_state(ll, IPV4LL_STATE_WAITING_PROBE, 1);
-
-                if (ll->conflict >= MAX_CONFLICTS) {
-                        log_ipv4ll(ll, "MAX_CONFLICTS");
-                        ipv4ll_set_next_wakeup(ll, RATE_LIMIT_INTERVAL, PROBE_WAIT);
-                } else
-                        ipv4ll_set_next_wakeup(ll, 0, PROBE_WAIT);
+                                     IPV4LL_STATE_WAITING_ANNOUNCE)) {
+                        if (ipv4ll_arp_probe_conflict(ll, &packet)) {
+                                r = ipv4ll_on_conflict(ll);
+                                if (r < 0)
+                                        goto out;
+                        }
         }
 
 out:
