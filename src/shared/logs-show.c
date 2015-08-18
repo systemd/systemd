@@ -575,7 +575,6 @@ void json_escape(
         assert(p);
 
         if (!(flags & OUTPUT_SHOW_ALL) && l >= JSON_THRESHOLD)
-
                 fputs("null", f);
 
         else if (!utf8_is_printable(p, l)) {
@@ -605,8 +604,8 @@ void json_escape(
                                 fputc(*p, f);
                         } else if (*p == '\n')
                                 fputs("\\n", f);
-                        else if (*p < ' ')
-                                fprintf(f, "\\u%04x", *p);
+                        else if ((uint8_t) *p < ' ')
+                                fprintf(f, "\\u%04x", (uint8_t) *p);
                         else
                                 fputc(*p, f);
 
