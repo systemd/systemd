@@ -26,13 +26,9 @@
 #include "sparse-endian.h"
 #include "socket-util.h"
 
-int arp_network_bind_raw_socket(int index, union sockaddr_union *link);
-int arp_network_send_raw_socket(int fd, const union sockaddr_union *link,
-                                        const struct ether_arp *arp);
+int arp_network_bind_raw_socket(int index, union sockaddr_union *link, be32_t address, const struct ether_addr *eth_mac);
 
-void arp_packet_init(struct ether_arp *arp);
-void arp_packet_probe(struct ether_arp *arp, be32_t pa, const struct ether_addr *ha);
-void arp_packet_announcement(struct ether_arp *arp, be32_t pa, const struct ether_addr *ha);
-int arp_packet_verify_headers(struct ether_arp *arp);
-
-#define log_ipv4ll(ll, fmt, ...) log_internal(LOG_DEBUG, 0, __FILE__, __LINE__, __func__, "IPv4LL: " fmt, ##__VA_ARGS__)
+int arp_send_probe(int fd, const union sockaddr_union *link,
+                   be32_t pa, const struct ether_addr *ha);
+int arp_send_announcement(int fd, const union sockaddr_union *link,
+                          be32_t pa, const struct ether_addr *ha);
