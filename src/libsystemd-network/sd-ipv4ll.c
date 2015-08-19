@@ -85,7 +85,7 @@ struct sd_ipv4ll {
         void* userdata;
 };
 
-static void ipv4ll_set_state(sd_ipv4ll *ll, IPv4LLState st, int reset_counter) {
+static void ipv4ll_set_state(sd_ipv4ll *ll, IPv4LLState st, bool reset_counter) {
 
         assert(ll);
         assert(st < _IPV4LL_STATE_MAX);
@@ -124,7 +124,7 @@ static sd_ipv4ll *ipv4ll_stop(sd_ipv4ll *ll, int event) {
 
         if (ll) {
                 ll->claimed_address = 0;
-                ipv4ll_set_state (ll, IPV4LL_STATE_INIT, 1);
+                ipv4ll_set_state (ll, IPV4LL_STATE_INIT, true);
         }
 
         return ll;
@@ -204,7 +204,7 @@ static int ipv4ll_on_timeout(sd_event_source *s, uint64_t usec, void *userdata) 
         if (ll->state == IPV4LL_STATE_INIT) {
 
                 log_ipv4ll(ll, "PROBE");
-                ipv4ll_set_state(ll, IPV4LL_STATE_WAITING_PROBE, 1);
+                ipv4ll_set_state(ll, IPV4LL_STATE_WAITING_PROBE, true);
                 ipv4ll_set_next_wakeup(ll, 0, PROBE_WAIT);
 
         } else if (ll->state == IPV4LL_STATE_WAITING_PROBE ||
@@ -217,7 +217,7 @@ static int ipv4ll_on_timeout(sd_event_source *s, uint64_t usec, void *userdata) 
                         goto out;
                 }
 
-                ipv4ll_set_state(ll, IPV4LL_STATE_PROBING, 0);
+                ipv4ll_set_state(ll, IPV4LL_STATE_PROBING, false);
 
                 ipv4ll_set_next_wakeup(ll, PROBE_MIN, (PROBE_MAX-PROBE_MIN));
 
@@ -230,7 +230,7 @@ static int ipv4ll_on_timeout(sd_event_source *s, uint64_t usec, void *userdata) 
                         goto out;
                 }
 
-                ipv4ll_set_state(ll, IPV4LL_STATE_WAITING_ANNOUNCE, 1);
+                ipv4ll_set_state(ll, IPV4LL_STATE_WAITING_ANNOUNCE, true);
 
                 ipv4ll_set_next_wakeup(ll, ANNOUNCE_WAIT, 0);
 
@@ -244,7 +244,7 @@ static int ipv4ll_on_timeout(sd_event_source *s, uint64_t usec, void *userdata) 
                         goto out;
                 }
 
-                ipv4ll_set_state(ll, IPV4LL_STATE_ANNOUNCING, 0);
+                ipv4ll_set_state(ll, IPV4LL_STATE_ANNOUNCING, false);
 
                 ipv4ll_set_next_wakeup(ll, ANNOUNCE_INTERVAL, 0);
 
@@ -261,7 +261,7 @@ static int ipv4ll_on_timeout(sd_event_source *s, uint64_t usec, void *userdata) 
         } else if ((ll->state == IPV4LL_STATE_ANNOUNCING &&
                     ll->iteration >= ANNOUNCE_NUM-1)) {
 
-                ipv4ll_set_state(ll, IPV4LL_STATE_RUNNING, 0);
+                ipv4ll_set_state(ll, IPV4LL_STATE_RUNNING, false);
                 ll->next_wakeup_valid = 0;
         }
 
@@ -316,7 +316,7 @@ static int ipv4ll_on_conflict(sd_ipv4ll *ll) {
 
         ll->conflict++;
         ll->defend_window = 0;
-        ipv4ll_set_state(ll, IPV4LL_STATE_WAITING_PROBE, 1);
+        ipv4ll_set_state(ll, IPV4LL_STATE_WAITING_PROBE, true);
 
         if (ll->conflict >= MAX_CONFLICTS) {
                 log_ipv4ll(ll, "MAX_CONFLICTS");
@@ -340,8 +340,9 @@ static int ipv4ll_on_packet(sd_event_source *s, int fd,
         if (r < (int) sizeof(struct ether_arp))
                 goto out;
 
-        if (IN_SET(ll->state, IPV4LL_STATE_ANNOUNCING, IPV4LL_STATE_RUNNING)) {
-
+        switch (ll->state) {
+        case IPV4LL_STATE_ANNOUNCING:
+        case IPV4LL_STATE_RUNNING:
                 if (ipv4ll_arp_conflict(ll, &packet)) {
                         usec_t ts;
 
@@ -363,14 +364,19 @@ static int ipv4ll_on_packet(sd_event_source *s, int fd,
                         }
                 }
 
-        } else if (IN_SET(ll->state, IPV4LL_STATE_WAITING_PROBE,
-                                     IPV4LL_STATE_PROBING,
-                                     IPV4LL_STATE_WAITING_ANNOUNCE)) {
-                        if (ipv4ll_arp_probe_conflict(ll, &packet)) {
-                                r = ipv4ll_on_conflict(ll);
-                                if (r < 0)
-                                        goto out;
-                        }
+                break;
+        case IPV4LL_STATE_WAITING_PROBE:
+        case IPV4LL_STATE_PROBING:
+        case IPV4LL_STATE_WAITING_ANNOUNCE:
+                if (ipv4ll_arp_probe_conflict(ll, &packet)) {
+                        r = ipv4ll_on_conflict(ll);
+                        if (r < 0)
+                                goto out;
+                }
+
+                break;
+        default:
+                assert_not_reached("Invalid state.");
         }
 
 out:
@@ -550,7 +556,7 @@ int sd_ipv4ll_start (sd_ipv4ll *ll) {
         safe_close(ll->fd);
         ll->fd = r;
 
-        ipv4ll_set_state (ll, IPV4LL_STATE_INIT, 1);
+        ipv4ll_set_state (ll, IPV4LL_STATE_INIT, true);
 
         r = sd_event_add_io(ll->event, &ll->receive_message, ll->fd,
                             EPOLLIN, ipv4ll_on_packet, ll);
@@ -589,7 +595,7 @@ out:
 int sd_ipv4ll_stop(sd_ipv4ll *ll) {
         ipv4ll_stop(ll, IPV4LL_EVENT_STOP);
         if (ll)
-                ipv4ll_set_state(ll, IPV4LL_STATE_STOPPED, 1);
+                ipv4ll_set_state(ll, IPV4LL_STATE_STOPPED, true);
 
         return 0;
 }
