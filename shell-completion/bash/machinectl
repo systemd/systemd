@@ -40,8 +40,8 @@ _machinectl() {
         )
 
         local -A VERBS=(
-               [STANDALONE]='list list-images'
-                 [MACHINES]='status show start login enable disable poweroff reboot terminate kill copy-to copy-from image-status show-image clone rename read-only remove set-limit list-transfers cancel-transfer'
+               [STANDALONE]='list list-images pull-tar pull-raw pull-dkr import-tar import-raw export-tar export-raw list-transfers cancel-transfer'
+                 [MACHINES]='status show start login enable disable poweroff reboot terminate kill copy-to copy-from image-status show-image clone rename read-only remove set-limit'
         )
 
         _init_completion || return
