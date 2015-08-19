@@ -20,11 +20,14 @@
 
 #include <linux/filter.h>
 #include <arpa/inet.h>
+#include <poll.h>
 
 #include "util.h"
 #include "arp-util.h"
 
-int arp_network_bind_raw_socket(int ifindex, union sockaddr_union *link, be32_t address, const struct ether_addr *eth_mac) {
+#define SEND_TIMEOUT_USEC (200 * USEC_PER_MSEC)
+
+int arp_network_bind_raw_socket(int ifindex, be32_t address, const struct ether_addr *eth_mac) {
         struct sock_filter filter[] = {
                 BPF_STMT(BPF_LD + BPF_W + BPF_LEN, 0),                                         /* A <- packet length */
                 BPF_JUMP(BPF_JMP + BPF_JGE + BPF_K, sizeof(struct ether_arp), 1, 0),           /* packet >= arp packet ? */
@@ -76,11 +79,17 @@ int arp_network_bind_raw_socket(int ifindex, union sockaddr_union *link, be32_t 
                 .len = ELEMENTSOF(filter),
                 .filter = (struct sock_filter*) filter
         };
+        union sockaddr_union addr = {
+                .ll.sll_family = AF_PACKET,
+                .ll.sll_protocol = htons(ETH_P_ARP),
+                .ll.sll_ifindex = ifindex,
+                .ll.sll_halen = ETH_ALEN,
+                .ll.sll_addr = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff },
+        };
         _cleanup_close_ int s = -1;
         int r;
 
         assert(ifindex > 0);
-        assert(link);
 
         s = socket(PF_PACKET, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
         if (s < 0)
@@ -90,13 +99,7 @@ int arp_network_bind_raw_socket(int ifindex, union sockaddr_union *link, be32_t 
         if (r < 0)
                 return -errno;
 
-        link->ll.sll_family = AF_PACKET;
-        link->ll.sll_protocol = htons(ETH_P_ARP);
-        link->ll.sll_ifindex = ifindex;
-        link->ll.sll_halen = ETH_ALEN;
-        memset(link->ll.sll_addr, 0xff, ETH_ALEN);
-
-        r = bind(s, &link->sa, sizeof(link->ll));
+        r = bind(s, &addr.sa, sizeof(addr.ll));
         if (r < 0)
                 return -errno;
 
@@ -106,20 +109,49 @@ int arp_network_bind_raw_socket(int ifindex, union sockaddr_union *link, be32_t 
         return r;
 }
 
-static int arp_send_packet(int fd, const union sockaddr_union *link,
-                           be32_t pa, const struct ether_addr *ha,
-                           bool announce) {
+static int sendto_loop(int fd, int ifindex, void *message, size_t length) {
+        union sockaddr_union addr = {
+                .ll.sll_family = AF_PACKET,
+                .ll.sll_protocol = htons(ETH_P_ARP),
+                .ll.sll_ifindex = ifindex,
+                .ll.sll_halen = ETH_ALEN,
+                .ll.sll_addr = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff },
+        };
+        int r;
+
+        assert(fd >= 0);
+        assert(ifindex > 0);
+        assert(message);
+
+        for (;;) {
+                if (sendto(fd, message, length, 0, &addr.sa, sizeof(addr.ll)) >= 0)
+                        return 0;
+
+                if (errno == EINTR)
+                        continue;
+
+                if (errno != EAGAIN)
+                        return -errno;
+
+                r = fd_wait_for_event(fd, POLLOUT, SEND_TIMEOUT_USEC);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return -ETIMEDOUT;
+        }
+}
+
+static int arp_send_packet(int fd, int ifindex, be32_t pa, const struct ether_addr *ha, bool announce) {
         struct ether_arp arp = {
                 .ea_hdr.ar_hrd = htons(ARPHRD_ETHER), /* HTYPE */
                 .ea_hdr.ar_pro = htons(ETHERTYPE_IP), /* PTYPE */
                 .ea_hdr.ar_hln = ETH_ALEN, /* HLEN */
-                .ea_hdr.ar_pln = sizeof(be32_t), /* PLEN */
+                .ea_hdr.ar_pln = sizeof(struct in_addr), /* PLEN */
                 .ea_hdr.ar_op = htons(ARPOP_REQUEST), /* REQUEST */
         };
         int r;
 
         assert(fd >= 0);
-        assert(link);
         assert(pa != 0);
         assert(ha);
 
@@ -129,19 +161,17 @@ static int arp_send_packet(int fd, const union sockaddr_union *link,
         if (announce)
                 memcpy(&arp.arp_spa, &pa, sizeof(pa));
 
-        r = sendto(fd, &arp, sizeof(struct ether_arp), 0, &link->sa, sizeof(link->ll));
+        r = sendto_loop(fd, ifindex, &arp, sizeof(struct ether_arp));
         if (r < 0)
-                return -errno;
+                return r;
 
         return 0;
 }
 
-int arp_send_probe(int fd, const union sockaddr_union *link,
-                    be32_t pa, const struct ether_addr *ha) {
-        return arp_send_packet(fd, link, pa, ha, false);
+int arp_send_probe(int fd, int ifindex, be32_t pa, const struct ether_addr *ha) {
+        return arp_send_packet(fd, ifindex, pa, ha, false);
 }
 
-int arp_send_announcement(int fd, const union sockaddr_union *link,
-                          be32_t pa, const struct ether_addr *ha) {
-        return arp_send_packet(fd, link, pa, ha, true);
+int arp_send_announcement(int fd, int ifindex, be32_t pa, const struct ether_addr *ha) {
+        return arp_send_packet(fd, ifindex, pa, ha, true);
 }

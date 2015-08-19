@@ -67,7 +67,6 @@ struct sd_ipv4ll {
         IPv4LLState state;
         int index;
         int fd;
-        union sockaddr_union link;
         int iteration;
         int conflict;
         sd_event_source *receive_message;
@@ -202,7 +201,7 @@ static int ipv4ll_on_timeout(sd_event_source *s, uint64_t usec, void *userdata) 
                 (ll->state == IPV4LL_STATE_PROBING && ll->iteration < PROBE_NUM-2)) {
 
                 /* Send a probe */
-                r = arp_send_probe(ll->fd, &ll->link, ll->address, &ll->mac_addr);
+                r = arp_send_probe(ll->fd, ll->index, ll->address, &ll->mac_addr);
                 if (r < 0) {
                         log_ipv4ll(ll, "Failed to send ARP probe.");
                         goto out;
@@ -215,7 +214,7 @@ static int ipv4ll_on_timeout(sd_event_source *s, uint64_t usec, void *userdata) 
         } else if (ll->state == IPV4LL_STATE_PROBING && ll->iteration >= PROBE_NUM-2) {
 
                 /* Send the last probe */
-                r = arp_send_probe(ll->fd, &ll->link, ll->address, &ll->mac_addr);
+                r = arp_send_probe(ll->fd, ll->index, ll->address, &ll->mac_addr);
                 if (r < 0) {
                         log_ipv4ll(ll, "Failed to send ARP probe.");
                         goto out;
@@ -229,7 +228,7 @@ static int ipv4ll_on_timeout(sd_event_source *s, uint64_t usec, void *userdata) 
                 (ll->state == IPV4LL_STATE_ANNOUNCING && ll->iteration < ANNOUNCE_NUM-1)) {
 
                 /* Send announcement packet */
-                r = arp_send_announcement(ll->fd, &ll->link, ll->address, &ll->mac_addr);
+                r = arp_send_announcement(ll->fd, ll->index, ll->address, &ll->mac_addr);
                 if (r < 0) {
                         log_ipv4ll(ll, "Failed to send ARP announcement.");
                         goto out;
@@ -299,7 +298,7 @@ static int ipv4ll_on_conflict(sd_ipv4ll *ll) {
 
         ll->fd = safe_close(ll->fd);
 
-        r = arp_network_bind_raw_socket(ll->index, &ll->link, ll->address, &ll->mac_addr);
+        r = arp_network_bind_raw_socket(ll->index, ll->address, &ll->mac_addr);
         if (r < 0)
                 return r;
 
@@ -342,7 +341,7 @@ static int ipv4ll_on_packet(sd_event_source *s, int fd,
                         /* Defend address */
                         if (ts > ll->defend_window) {
                                 ll->defend_window = ts + DEFEND_INTERVAL * USEC_PER_SEC;
-                                r = arp_send_announcement(ll->fd, &ll->link, ll->address, &ll->mac_addr);
+                                r = arp_send_announcement(ll->fd, ll->index, ll->address, &ll->mac_addr);
                                 if (r < 0) {
                                         log_ipv4ll(ll, "Failed to send ARP announcement.");
                                         goto out;
@@ -539,7 +538,7 @@ int sd_ipv4ll_start (sd_ipv4ll *ll) {
                         goto out;
         }
 
-        r = arp_network_bind_raw_socket(ll->index, &ll->link, ll->address, &ll->mac_addr);
+        r = arp_network_bind_raw_socket(ll->index, ll->address, &ll->mac_addr);
         if (r < 0)
                 goto out;
 
