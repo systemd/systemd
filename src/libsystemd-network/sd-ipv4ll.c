@@ -172,26 +172,15 @@ static void ipv4ll_set_next_wakeup(sd_ipv4ll *ll, int sec, int random_sec) {
         ll->next_wakeup_valid = 1;
 }
 
-static bool ipv4ll_arp_conflict (sd_ipv4ll *ll, struct ether_arp *arp) {
+static bool ipv4ll_arp_conflict(sd_ipv4ll *ll, struct ether_arp *arp) {
         assert(ll);
         assert(arp);
 
+        /* see the BPF */
         if (memcmp(arp->arp_spa, &ll->address, sizeof(ll->address)) == 0)
                 return true;
 
-        return false;
-}
-
-static bool ipv4ll_arp_probe_conflict (sd_ipv4ll *ll, struct ether_arp *arp) {
-        assert(ll);
-        assert(arp);
-
-        if (ipv4ll_arp_conflict(ll, arp))
-                return true;
-
-        if (memcmp(arp->arp_tpa, &ll->address, sizeof(ll->address)) == 0)
-                return true;
-
+        /* the TPA matched instead of the SPA, this is not a conflict */
         return false;
 }
 
@@ -368,11 +357,10 @@ static int ipv4ll_on_packet(sd_event_source *s, int fd,
         case IPV4LL_STATE_WAITING_PROBE:
         case IPV4LL_STATE_PROBING:
         case IPV4LL_STATE_WAITING_ANNOUNCE:
-                if (ipv4ll_arp_probe_conflict(ll, &packet)) {
-                        r = ipv4ll_on_conflict(ll);
-                        if (r < 0)
-                                goto out;
-                }
+                /* BPF ensures this packet indicates a conflict */
+                r = ipv4ll_on_conflict(ll);
+                if (r < 0)
+                        goto out;
 
                 break;
         default:
