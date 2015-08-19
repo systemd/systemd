@@ -27,6 +27,7 @@
 #include "siphash24.h"
 #include "list.h"
 #include "random-util.h"
+#include "event-util.h"
 
 #include "arp-util.h"
 #include "sd-ipv4ll.h"
@@ -70,9 +71,7 @@ struct sd_ipv4ll {
         int conflict;
         sd_event_source *receive_message;
         sd_event_source *timer;
-        usec_t next_wakeup;
         usec_t defend_window;
-        int next_wakeup_valid;
         be32_t address;
         struct random_data *random_data;
         char *random_data_state;
@@ -153,9 +152,13 @@ static int ipv4ll_pick_address(sd_ipv4ll *ll, be32_t *address) {
         return 0;
 }
 
-static void ipv4ll_set_next_wakeup(sd_ipv4ll *ll, int sec, int random_sec) {
-        usec_t next_timeout = 0;
-        usec_t time_now = 0;
+static int ipv4ll_on_timeout(sd_event_source *s, uint64_t usec, void *userdata);
+
+static int ipv4ll_set_next_wakeup(sd_ipv4ll *ll, int sec, int random_sec) {
+        _cleanup_event_source_unref_ sd_event_source *timer = NULL;
+        usec_t next_timeout;
+        usec_t time_now;
+        int r;
 
         assert(sec >= 0);
         assert(random_sec >= 0);
@@ -168,8 +171,24 @@ static void ipv4ll_set_next_wakeup(sd_ipv4ll *ll, int sec, int random_sec) {
 
         assert_se(sd_event_now(ll->event, clock_boottime_or_monotonic(), &time_now) >= 0);
 
-        ll->next_wakeup = time_now + next_timeout;
-        ll->next_wakeup_valid = 1;
+        r = sd_event_add_time(ll->event, &timer, clock_boottime_or_monotonic(),
+                              time_now + next_timeout, 0, ipv4ll_on_timeout, ll);
+        if (r < 0)
+                return r;
+
+        r = sd_event_source_set_priority(timer, ll->event_priority);
+        if (r < 0)
+                return r;
+
+        r = sd_event_source_set_description(timer, "ipv4ll-timer");
+        if (r < 0)
+                return r;
+
+        ll->timer = sd_event_source_unref(ll->timer);
+        ll->timer = timer;
+        timer = NULL;
+
+        return 0;
 }
 
 static bool ipv4ll_arp_conflict(sd_ipv4ll *ll, struct ether_arp *arp) {
@@ -190,15 +209,18 @@ static int ipv4ll_on_timeout(sd_event_source *s, uint64_t usec, void *userdata) 
 
         assert(ll);
 
-        if (ll->state == IPV4LL_STATE_INIT) {
+        switch (ll->state) {
+        case IPV4LL_STATE_INIT:
 
                 log_ipv4ll(ll, "PROBE");
                 ipv4ll_set_state(ll, IPV4LL_STATE_WAITING_PROBE, true);
-                ipv4ll_set_next_wakeup(ll, 0, PROBE_WAIT);
+                r = ipv4ll_set_next_wakeup(ll, 0, PROBE_WAIT);
+                if (r < 0)
+                        goto out;
 
-        } else if (ll->state == IPV4LL_STATE_WAITING_PROBE ||
-                (ll->state == IPV4LL_STATE_PROBING && ll->iteration < PROBE_NUM-2)) {
-
+                break;
+        case IPV4LL_STATE_WAITING_PROBE:
+        case IPV4LL_STATE_PROBING:
                 /* Send a probe */
                 r = arp_send_probe(ll->fd, ll->index, ll->address, &ll->mac_addr);
                 if (r < 0) {
@@ -206,26 +228,29 @@ static int ipv4ll_on_timeout(sd_event_source *s, uint64_t usec, void *userdata) 
                         goto out;
                 }
 
-                ipv4ll_set_state(ll, IPV4LL_STATE_PROBING, false);
+                if (ll->iteration < PROBE_NUM - 2) {
+                        ipv4ll_set_state(ll, IPV4LL_STATE_PROBING, false);
 
-                ipv4ll_set_next_wakeup(ll, PROBE_MIN, (PROBE_MAX-PROBE_MIN));
+                        r = ipv4ll_set_next_wakeup(ll, PROBE_MIN, (PROBE_MAX-PROBE_MIN));
+                        if (r < 0)
+                                goto out;
+                } else {
+                        ipv4ll_set_state(ll, IPV4LL_STATE_WAITING_ANNOUNCE, true);
 
-        } else if (ll->state == IPV4LL_STATE_PROBING && ll->iteration >= PROBE_NUM-2) {
-
-                /* Send the last probe */
-                r = arp_send_probe(ll->fd, ll->index, ll->address, &ll->mac_addr);
-                if (r < 0) {
-                        log_ipv4ll(ll, "Failed to send ARP probe.");
-                        goto out;
+                        r = ipv4ll_set_next_wakeup(ll, ANNOUNCE_WAIT, 0);
+                        if (r < 0)
+                                goto out;
                 }
 
-                ipv4ll_set_state(ll, IPV4LL_STATE_WAITING_ANNOUNCE, true);
+                break;
 
-                ipv4ll_set_next_wakeup(ll, ANNOUNCE_WAIT, 0);
+        case IPV4LL_STATE_ANNOUNCING:
+                if (ll->iteration >= ANNOUNCE_NUM - 1) {
+                        ipv4ll_set_state(ll, IPV4LL_STATE_RUNNING, false);
 
-        } else if (ll->state == IPV4LL_STATE_WAITING_ANNOUNCE ||
-                (ll->state == IPV4LL_STATE_ANNOUNCING && ll->iteration < ANNOUNCE_NUM-1)) {
-
+                        break;
+                }
+        case IPV4LL_STATE_WAITING_ANNOUNCE:
                 /* Send announcement packet */
                 r = arp_send_announcement(ll->fd, ll->index, ll->address, &ll->mac_addr);
                 if (r < 0) {
@@ -235,7 +260,9 @@ static int ipv4ll_on_timeout(sd_event_source *s, uint64_t usec, void *userdata) 
 
                 ipv4ll_set_state(ll, IPV4LL_STATE_ANNOUNCING, false);
 
-                ipv4ll_set_next_wakeup(ll, ANNOUNCE_INTERVAL, 0);
+                r = ipv4ll_set_next_wakeup(ll, ANNOUNCE_INTERVAL, 0);
+                if (r < 0)
+                        goto out;
 
                 if (ll->iteration == 0) {
                         log_ipv4ll(ll, "ANNOUNCE");
@@ -247,27 +274,9 @@ static int ipv4ll_on_timeout(sd_event_source *s, uint64_t usec, void *userdata) 
                         ll->conflict = 0;
                 }
 
-        } else if ((ll->state == IPV4LL_STATE_ANNOUNCING &&
-                    ll->iteration >= ANNOUNCE_NUM-1)) {
-
-                ipv4ll_set_state(ll, IPV4LL_STATE_RUNNING, false);
-                ll->next_wakeup_valid = 0;
-        }
-
-        if (ll->next_wakeup_valid) {
-                ll->timer = sd_event_source_unref(ll->timer);
-                r = sd_event_add_time(ll->event, &ll->timer, clock_boottime_or_monotonic(),
-                                      ll->next_wakeup, 0, ipv4ll_on_timeout, ll);
-                if (r < 0)
-                        goto out;
-
-                r = sd_event_source_set_priority(ll->timer, ll->event_priority);
-                if (r < 0)
-                        goto out;
-
-                r = sd_event_source_set_description(ll->timer, "ipv4ll-timer");
-                if (r < 0)
-                        goto out;
+                break;
+        default:
+                assert_not_reached("Invalid state.");
         }
 
 out:
@@ -558,20 +567,9 @@ int sd_ipv4ll_start (sd_ipv4ll *ll) {
         if (r < 0)
                 goto out;
 
-        r = sd_event_add_time(ll->event,
-                              &ll->timer,
-                              clock_boottime_or_monotonic(),
-                              now(clock_boottime_or_monotonic()), 0,
-                              ipv4ll_on_timeout, ll);
-
+        r = ipv4ll_set_next_wakeup(ll, 0, 0);
         if (r < 0)
                 goto out;
-
-        r = sd_event_source_set_priority(ll->timer, ll->event_priority);
-        if (r < 0)
-                goto out;
-
-        r = sd_event_source_set_description(ll->timer, "ipv4ll-timer");
 out:
         if (r < 0)
                 ipv4ll_stop(ll, IPV4LL_EVENT_STOP);
