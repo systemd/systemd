@@ -99,7 +99,7 @@ static void test_public_api_setters(sd_event *e) {
         assert_se(sd_ipv4ll_set_index(ll, 99) == 0);
 
         assert_se(sd_ipv4ll_ref(ll) == ll);
-        assert_se(sd_ipv4ll_unref(ll) == ll);
+        assert_se(sd_ipv4ll_unref(ll) == NULL);
 
         /* Cleanup */
         assert_se(sd_ipv4ll_unref(ll) == NULL);
