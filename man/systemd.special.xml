@@ -852,7 +852,7 @@
       <varlistentry>
         <term><filename>system.slice</filename></term>
         <listitem>
-          <para>By default, all services services started by
+          <para>By default, all system services started by
           <command>systemd</command> are found in this slice.</para>
         </listitem>
       </varlistentry>
