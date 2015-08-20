@@ -50,6 +50,9 @@
 
 #define log_ipv4ll(ll, fmt, ...) log_internal(LOG_DEBUG, 0, __FILE__, __LINE__, __func__, "IPv4LL: " fmt, ##__VA_ARGS__)
 
+#define IPV4LL_DONT_DESTROY(ll) \
+        _cleanup_ipv4ll_unref_ _unused_ sd_ipv4ll *_dont_destroy_##ll = sd_ipv4ll_ref(ll)
+
 typedef enum IPv4LLState {
         IPV4LL_STATE_INIT,
         IPV4LL_STATE_WAITING_PROBE,
@@ -57,7 +60,6 @@ typedef enum IPv4LLState {
         IPV4LL_STATE_WAITING_ANNOUNCE,
         IPV4LL_STATE_ANNOUNCING,
         IPV4LL_STATE_RUNNING,
-        IPV4LL_STATE_STOPPED,
         _IPV4LL_STATE_MAX,
         _IPV4LL_STATE_INVALID = -1
 } IPv4LLState;
@@ -85,6 +87,63 @@ struct sd_ipv4ll {
         void* userdata;
 };
 
+sd_ipv4ll *sd_ipv4ll_ref(sd_ipv4ll *ll) {
+        if (!ll)
+                return NULL;
+
+        assert(ll->n_ref >= 1);
+        ll->n_ref++;
+
+        return ll;
+}
+
+sd_ipv4ll *sd_ipv4ll_unref(sd_ipv4ll *ll) {
+        if (!ll)
+                return NULL;
+
+        assert(ll->n_ref >= 1);
+        ll->n_ref--;
+
+        if (ll->n_ref > 0)
+                return NULL;
+
+        ll->receive_message = sd_event_source_unref(ll->receive_message);
+        ll->fd = safe_close(ll->fd);
+
+        ll->timer = sd_event_source_unref(ll->timer);
+
+        sd_ipv4ll_detach_event(ll);
+
+        free(ll->random_data);
+        free(ll->random_data_state);
+        free(ll);
+
+        return NULL;
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(sd_ipv4ll*, sd_ipv4ll_unref);
+#define _cleanup_ipv4ll_unref_ _cleanup_(sd_ipv4ll_unrefp)
+
+int sd_ipv4ll_new(sd_ipv4ll **ret) {
+        _cleanup_ipv4ll_unref_ sd_ipv4ll *ll = NULL;
+
+        assert_return(ret, -EINVAL);
+
+        ll = new0(sd_ipv4ll, 1);
+        if (!ll)
+                return -ENOMEM;
+
+        ll->n_ref = 1;
+        ll->state = IPV4LL_STATE_INIT;
+        ll->index = -1;
+        ll->fd = -1;
+
+        *ret = ll;
+        ll = NULL;
+
+        return 0;
+}
+
 static void ipv4ll_set_state(sd_ipv4ll *ll, IPv4LLState st, bool reset_counter) {
 
         assert(ll);
@@ -98,20 +157,17 @@ static void ipv4ll_set_state(sd_ipv4ll *ll, IPv4LLState st, bool reset_counter) 
         }
 }
 
-static sd_ipv4ll *ipv4ll_client_notify(sd_ipv4ll *ll, int event) {
+static void ipv4ll_client_notify(sd_ipv4ll *ll, int event) {
         assert(ll);
 
-        if (ll->cb) {
-                ll = sd_ipv4ll_ref(ll);
+        if (ll->cb)
                 ll->cb(ll, event, ll->userdata);
-                ll = sd_ipv4ll_unref(ll);
-        }
-
-        return ll;
 }
 
-static sd_ipv4ll *ipv4ll_stop(sd_ipv4ll *ll, int event) {
-        assert(ll);
+int sd_ipv4ll_stop(sd_ipv4ll *ll) {
+        IPV4LL_DONT_DESTROY(ll);
+
+        assert_return(ll, -EINVAL);
 
         ll->receive_message = sd_event_source_unref(ll->receive_message);
         ll->fd = safe_close(ll->fd);
@@ -120,14 +176,21 @@ static sd_ipv4ll *ipv4ll_stop(sd_ipv4ll *ll, int event) {
 
         log_ipv4ll(ll, "STOPPED");
 
-        ll = ipv4ll_client_notify(ll, event);
+        ll->claimed_address = 0;
+        ipv4ll_set_state (ll, IPV4LL_STATE_INIT, true);
 
-        if (ll) {
-                ll->claimed_address = 0;
-                ipv4ll_set_state (ll, IPV4LL_STATE_INIT, true);
-        }
+        return 0;
+}
 
-        return ll;
+static void ipv4ll_stop(sd_ipv4ll *ll) {
+        IPV4LL_DONT_DESTROY(ll);
+
+        assert(ll);
+
+        sd_ipv4ll_stop(ll);
+
+        ipv4ll_client_notify(ll, IPV4LL_EVENT_STOP);
+
 }
 
 static int ipv4ll_pick_address(sd_ipv4ll *ll, be32_t *address) {
@@ -268,10 +331,7 @@ static int ipv4ll_on_timeout(sd_event_source *s, uint64_t usec, void *userdata) 
                 if (ll->iteration == 0) {
                         log_ipv4ll(ll, "ANNOUNCE");
                         ll->claimed_address = ll->address;
-                        ll = ipv4ll_client_notify(ll, IPV4LL_EVENT_BIND);
-                        if (!ll || ll->state == IPV4LL_STATE_STOPPED)
-                                goto out;
-
+                        ipv4ll_client_notify(ll, IPV4LL_EVENT_BIND);
                         ll->conflict = 0;
                 }
 
@@ -282,21 +342,20 @@ static int ipv4ll_on_timeout(sd_event_source *s, uint64_t usec, void *userdata) 
 
 out:
         if (r < 0 && ll)
-                ipv4ll_stop(ll, r);
+                ipv4ll_stop(ll);
 
         return 1;
 }
 
 static int ipv4ll_on_conflict(sd_ipv4ll *ll) {
+        IPV4LL_DONT_DESTROY(ll);
         int r;
 
         assert(ll);
 
         log_ipv4ll(ll, "CONFLICT");
 
-        ll = ipv4ll_client_notify(ll, IPV4LL_EVENT_CONFLICT);
-        if (!ll || ll->state == IPV4LL_STATE_STOPPED)
-                return 0;
+        ipv4ll_client_notify(ll, IPV4LL_EVENT_CONFLICT);
 
         ll->claimed_address = 0;
 
@@ -321,7 +380,7 @@ static int ipv4ll_on_conflict(sd_ipv4ll *ll) {
                 log_ipv4ll(ll, "MAX_CONFLICTS");
                 ipv4ll_set_next_wakeup(ll, RATE_LIMIT_INTERVAL, PROBE_WAIT);
         } else
-              ipv4ll_set_next_wakeup(ll, 0, PROBE_WAIT);
+                ipv4ll_set_next_wakeup(ll, 0, PROBE_WAIT);
 
         return 0;
 }
@@ -379,7 +438,7 @@ static int ipv4ll_on_packet(sd_event_source *s, int fd,
 
 out:
         if (r < 0 && ll)
-                ipv4ll_stop(ll, r);
+                ipv4ll_stop(ll);
 
         return 1;
 }
@@ -387,8 +446,7 @@ out:
 int sd_ipv4ll_set_index(sd_ipv4ll *ll, int interface_index) {
         assert_return(ll, -EINVAL);
         assert_return(interface_index > 0, -EINVAL);
-        assert_return(IN_SET(ll->state, IPV4LL_STATE_INIT,
-                             IPV4LL_STATE_STOPPED), -EBUSY);
+        assert_return(ll->state == IPV4LL_STATE_INIT, -EBUSY);
 
         ll->index = interface_index;
 
@@ -398,7 +456,7 @@ int sd_ipv4ll_set_index(sd_ipv4ll *ll, int interface_index) {
 int sd_ipv4ll_set_mac(sd_ipv4ll *ll, const struct ether_addr *addr) {
         assert_return(ll, -EINVAL);
         assert_return(addr, -EINVAL);
-        assert_return(IN_SET(ll->state, IPV4LL_STATE_INIT, IPV4LL_STATE_STOPPED), -EBUSY);
+        assert_return(ll->state == IPV4LL_STATE_INIT, -EBUSY);
 
         if (memcmp(&ll->mac_addr, addr, ETH_ALEN) == 0)
                 return 0;
@@ -427,7 +485,7 @@ int sd_ipv4ll_attach_event(sd_ipv4ll *ll, sd_event *event, int priority) {
         else {
                 r = sd_event_default(&ll->event);
                 if (r < 0) {
-                        ipv4ll_stop(ll, IPV4LL_EVENT_STOP);
+                        sd_ipv4ll_stop(ll);
                         return r;
                 }
         }
@@ -458,7 +516,7 @@ int sd_ipv4ll_get_address(sd_ipv4ll *ll, struct in_addr *address){
         return 0;
 }
 
-int sd_ipv4ll_set_address_seed (sd_ipv4ll *ll, uint8_t seed[8]) {
+int sd_ipv4ll_set_address_seed(sd_ipv4ll *ll, uint8_t seed[8]) {
         unsigned int entropy;
         int r;
 
@@ -495,19 +553,18 @@ error:
 bool sd_ipv4ll_is_running(sd_ipv4ll *ll) {
         assert_return(ll, false);
 
-        return !IN_SET(ll->state, IPV4LL_STATE_INIT, IPV4LL_STATE_STOPPED);
+        return ll->state != IPV4LL_STATE_INIT;
 }
 
 #define HASH_KEY SD_ID128_MAKE(df,04,22,98,3f,ad,14,52,f9,87,2e,d1,9c,70,e2,f2)
 
-int sd_ipv4ll_start (sd_ipv4ll *ll) {
+int sd_ipv4ll_start(sd_ipv4ll *ll) {
         int r;
 
         assert_return(ll, -EINVAL);
         assert_return(ll->event, -EINVAL);
         assert_return(ll->index > 0, -EINVAL);
-        assert_return(IN_SET(ll->state, IPV4LL_STATE_INIT,
-                             IPV4LL_STATE_STOPPED), -EBUSY);
+        assert_return(ll->state == IPV4LL_STATE_INIT, -EBUSY);
 
         ll->state = IPV4LL_STATE_INIT;
 
@@ -540,7 +597,7 @@ int sd_ipv4ll_start (sd_ipv4ll *ll) {
         safe_close(ll->fd);
         ll->fd = r;
 
-        ipv4ll_set_state (ll, IPV4LL_STATE_INIT, true);
+        ipv4ll_set_state(ll, IPV4LL_STATE_INIT, true);
 
         r = sd_event_add_io(ll->event, &ll->receive_message, ll->fd,
                             EPOLLIN, ipv4ll_on_packet, ll);
@@ -560,74 +617,7 @@ int sd_ipv4ll_start (sd_ipv4ll *ll) {
                 goto out;
 out:
         if (r < 0)
-                ipv4ll_stop(ll, IPV4LL_EVENT_STOP);
-
-        return 0;
-}
-
-int sd_ipv4ll_stop(sd_ipv4ll *ll) {
-        ipv4ll_stop(ll, IPV4LL_EVENT_STOP);
-        if (ll)
-                ipv4ll_set_state(ll, IPV4LL_STATE_STOPPED, true);
-
-        return 0;
-}
-
-sd_ipv4ll *sd_ipv4ll_ref(sd_ipv4ll *ll) {
-
-        if (!ll)
-                return NULL;
-
-        assert(ll->n_ref >= 1);
-        ll->n_ref++;
-
-        return ll;
-}
-
-sd_ipv4ll *sd_ipv4ll_unref(sd_ipv4ll *ll) {
-
-        if (!ll)
-                return NULL;
-
-        assert(ll->n_ref >= 1);
-        ll->n_ref--;
-
-        if (ll->n_ref > 0)
-                return ll;
-
-        ll->receive_message = sd_event_source_unref(ll->receive_message);
-        ll->fd = safe_close(ll->fd);
-
-        ll->timer = sd_event_source_unref(ll->timer);
-
-        sd_ipv4ll_detach_event(ll);
-
-        free(ll->random_data);
-        free(ll->random_data_state);
-        free(ll);
-
-        return NULL;
-}
-
-DEFINE_TRIVIAL_CLEANUP_FUNC(sd_ipv4ll*, sd_ipv4ll_unref);
-#define _cleanup_ipv4ll_free_ _cleanup_(sd_ipv4ll_unrefp)
-
-int sd_ipv4ll_new(sd_ipv4ll **ret) {
-        _cleanup_ipv4ll_free_ sd_ipv4ll *ll = NULL;
-
-        assert_return(ret, -EINVAL);
-
-        ll = new0(sd_ipv4ll, 1);
-        if (!ll)
-                return -ENOMEM;
-
-        ll->n_ref = 1;
-        ll->state = IPV4LL_STATE_INIT;
-        ll->index = -1;
-        ll->fd = -1;
-
-        *ret = ll;
-        ll = NULL;
+                sd_ipv4ll_stop(ll);
 
         return 0;
 }

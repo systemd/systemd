@@ -133,7 +133,7 @@ static void test_public_api_setters(sd_event *e) {
         assert_se(sd_ipv4ll_set_index(ll, 99) == 0);
 
         assert_se(sd_ipv4ll_ref(ll) == ll);
-        assert_se(sd_ipv4ll_unref(ll) == ll);
+        assert_se(sd_ipv4ll_unref(ll) == NULL);
 
         /* Cleanup */
         assert_se(sd_ipv4ll_unref(ll) == NULL);
@@ -186,7 +186,7 @@ static void test_basic_request(sd_event *e) {
         }
 
         sd_ipv4ll_stop(ll);
-        assert_se(basic_request_handler_stop == 1);
+        assert_se(basic_request_handler_stop == 0);
 
         /* Cleanup */
         assert_se(sd_ipv4ll_unref(ll) == NULL);
