@@ -2,6 +2,7 @@
   This file is part of systemd.
 
   Copyright (C) 2014 Axis Communications AB. All rights reserved.
+  Copyright (C) 2015 Tom Gundersen
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -395,28 +396,14 @@ int sd_ipv4ll_set_index(sd_ipv4ll *ll, int interface_index) {
 }
 
 int sd_ipv4ll_set_mac(sd_ipv4ll *ll, const struct ether_addr *addr) {
-        bool need_restart = false;
-
         assert_return(ll, -EINVAL);
         assert_return(addr, -EINVAL);
+        assert_return(IN_SET(ll->state, IPV4LL_STATE_INIT, IPV4LL_STATE_STOPPED), -EBUSY);
 
         if (memcmp(&ll->mac_addr, addr, ETH_ALEN) == 0)
                 return 0;
 
-        if (!IN_SET(ll->state, IPV4LL_STATE_INIT, IPV4LL_STATE_STOPPED)) {
-                log_ipv4ll(ll, "Changing MAC address on running IPv4LL "
-                           "client, restarting");
-                ll = ipv4ll_stop(ll, IPV4LL_EVENT_STOP);
-                need_restart = true;
-        }
-
-        if (!ll)
-                return 0;
-
         memcpy(&ll->mac_addr, addr, ETH_ALEN);
-
-        if (need_restart)
-                sd_ipv4ll_start(ll);
 
         return 0;
 }
