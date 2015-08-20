@@ -277,10 +277,19 @@ static int ipv4ll_on_timeout(sd_event_source *s, uint64_t usec, void *userdata) 
         case IPV4LL_STATE_INIT:
 
                 log_ipv4ll(ll, "PROBE");
+
                 ipv4ll_set_state(ll, IPV4LL_STATE_WAITING_PROBE, true);
-                r = ipv4ll_set_next_wakeup(ll, 0, PROBE_WAIT);
-                if (r < 0)
-                        goto out;
+
+                if (ll->conflict >= MAX_CONFLICTS) {
+                        log_ipv4ll(ll, "MAX_CONFLICTS");
+                        r = ipv4ll_set_next_wakeup(ll, RATE_LIMIT_INTERVAL, PROBE_WAIT);
+                        if (r < 0)
+                                return r;
+                } else {
+                        r = ipv4ll_set_next_wakeup(ll, 0, PROBE_WAIT);
+                        if (r < 0)
+                                return r;
+                }
 
                 break;
         case IPV4LL_STATE_WAITING_PROBE:
@@ -355,32 +364,20 @@ static int ipv4ll_on_conflict(sd_ipv4ll *ll) {
 
         log_ipv4ll(ll, "CONFLICT");
 
+        ll->conflict++;
+
         ipv4ll_client_notify(ll, IPV4LL_EVENT_CONFLICT);
 
-        ll->claimed_address = 0;
+        sd_ipv4ll_stop(ll);
 
         /* Pick a new address */
         r = ipv4ll_pick_address(ll, &ll->address);
         if (r < 0)
                 return r;
 
-        ll->fd = safe_close(ll->fd);
-
-        r = arp_network_bind_raw_socket(ll->index, ll->address, &ll->mac_addr);
+        r = sd_ipv4ll_start(ll);
         if (r < 0)
                 return r;
-
-        ll->fd = r;
-
-        ll->conflict++;
-        ll->defend_window = 0;
-        ipv4ll_set_state(ll, IPV4LL_STATE_WAITING_PROBE, true);
-
-        if (ll->conflict >= MAX_CONFLICTS) {
-                log_ipv4ll(ll, "MAX_CONFLICTS");
-                ipv4ll_set_next_wakeup(ll, RATE_LIMIT_INTERVAL, PROBE_WAIT);
-        } else
-                ipv4ll_set_next_wakeup(ll, 0, PROBE_WAIT);
 
         return 0;
 }
