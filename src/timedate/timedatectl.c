@@ -96,7 +96,7 @@ static void print_status_info(const StatusInfo *i) {
                 old_tz = strdupa(tz);
 
         /* Set the new $TZ */
-        if (i->timezone && setenv("TZ", i->timezone, true) < 0)
+        if (setenv("TZ", isempty(i->timezone) ? "UTC" : i->timezone, true) < 0)
                 log_warning_errno(errno, "Failed to set TZ environment variable, ignoring: %m");
         else
                 tzset();
