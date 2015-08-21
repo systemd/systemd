@@ -1293,6 +1293,10 @@ int main(int argc, char *argv[]) {
         if (getpid() == 1)
                 umask(0);
 
+        /* Note that this also parses bits from the kernel command
+         * line, including "debug". */
+        log_parse_environment();
+
         if (getpid() == 1 && detect_container(NULL) <= 0) {
 
                 /* Running outside of a container as PID 1 */
@@ -1438,10 +1442,6 @@ int main(int argc, char *argv[]) {
                 if (r < 0)
                         log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
         }
-
-        /* Note that this also parses bits from the kernel command
-         * line, including "debug". */
-        log_parse_environment();
 
         if (parse_argv(argc, argv) < 0) {
                 error_message = "Failed to parse commandline arguments";
