@@ -143,6 +143,7 @@ static int dns_query_add_transaction(DnsQuery *q, DnsScope *s, DnsResourceKey *k
 
         assert(q);
         assert(s);
+        assert(key);
 
         r = set_ensure_allocated(&q->transactions, NULL);
         if (r < 0)
@@ -177,27 +178,18 @@ gc:
 }
 
 static int dns_query_add_transaction_split(DnsQuery *q, DnsScope *s) {
+        unsigned i;
         int r;
 
         assert(q);
         assert(s);
 
-        if (s->protocol == DNS_PROTOCOL_MDNS) {
-                r = dns_query_add_transaction(q, s, NULL);
+        /* Create one transaction per question key */
+
+        for (i = 0; i < q->question->n_keys; i++) {
+                r = dns_query_add_transaction(q, s, q->question->keys[i]);
                 if (r < 0)
                         return r;
-        } else {
-                unsigned i;
-
-                /* On DNS and LLMNR we can only send a single
-                 * question per datagram, hence issue multiple
-                 * transactions. */
-
-                for (i = 0; i < q->question->n_keys; i++) {
-                        r = dns_query_add_transaction(q, s, q->question->keys[i]);
-                        if (r < 0)
-                                return r;
-                }
         }
 
         return 0;
