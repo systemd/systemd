@@ -112,7 +112,7 @@ int kmod_setup(void) {
 
                 r = kmod_module_probe_insert_module(mod, KMOD_PROBE_APPLY_BLACKLIST, NULL, NULL, NULL, NULL);
                 if (r == 0)
-                        log_info("Inserted module '%s'", kmod_module_get_name(mod));
+                        log_debug("Inserted module '%s'", kmod_module_get_name(mod));
                 else if (r == KMOD_PROBE_APPLY_BLACKLIST)
                         log_info("Module '%s' is blacklisted", kmod_module_get_name(mod));
                 else {
