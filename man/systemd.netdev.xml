@@ -986,6 +986,20 @@ Name=veth-peer</programlisting>
     </example>
 
     <example>
+      <title>/etc/systemd/network/bond.netdev</title>
+      <programlisting>[NetDev]
+Name=bond1
+Kind=bond
+
+[Bond]
+Mode=802.3ad
+TransmitHashPolicy=layer3+4
+MIIMonitorSec=1s
+LACPTransmitRate=fast
+</programlisting>
+    </example>
+
+    <example>
       <title>/etc/systemd/network/dummy.netdev</title>
       <programlisting>[NetDev]
 Name=dummy-test
