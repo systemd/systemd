@@ -69,38 +69,41 @@
     <title>Description</title>
 
     <para><command>systemd-run</command> may be used to create and
-    start a transient <filename>.service</filename> or a transient
-    <filename>.timer</filename> or a <filename>.scope</filename> unit
-    and run the specified <replaceable>COMMAND</replaceable> in
-    it.</para>
+    start a transient <filename>.service</filename> or
+    <filename>.scope</filename> unit and run the specified
+    <replaceable>COMMAND</replaceable> in it. It may also be used to
+    create and start transient <filename>.timer</filename>
+    units.</para>
 
     <para>If a command is run as transient service unit, it will be
     started and managed by the service manager like any other service,
-    and thus show up in the output of <command>systemctl
+    and thus shows up in the output of <command>systemctl
     list-units</command> like any other unit. It will run in a clean
-    and detached execution environment. <command>systemd-run</command>
-    will start the service asynchronously in the background and
-    immediately return.</para>
-
-    <para>If a command is run with timer options, transient timer unit
-    also be created with transient service unit. But the transient
-    timer unit is only started immediately. The transient service unit
-    will be started when the transient timer is elapsed. If
-    <option>--unit=</option> is specified with timer options, the
-    <replaceable>COMMAND</replaceable> can be omitted. In this case,
-    <command>systemd-run</command> assumes service unit is already
-    loaded and creates transient timer unit only. To successfully
-    create timer unit, already loaded service unit should be specified
-    with <option>--unit=</option>. This transient timer unit can
-    activate the existing service unit like any other timer.</para>
+    and detached execution environment, with the service manager as
+    its parent process. In this mode <command>systemd-run</command>
+    will start the service asynchronously in the background and return
+    after the command has begun execution.</para>
 
     <para>If a command is run as transient scope unit, it will be
-    started directly by <command>systemd-run</command> and thus
-    inherit the execution environment of the caller. It is however
-    managed by the service manager similar to normal services, and
-    will also show up in the output of <command>systemctl
-    list-units</command>. Execution in this case is synchronous, and
-    execution will return only when the command finishes.</para>
+    started by <command>systemd-run</command> itself as parent process
+    and will thus inherit the execution environment of the
+    caller. However, the processes of the command are managed by the
+    service manager similar to normal services, and will show up in
+    the output of <command>systemctl list-units</command>. Execution
+    in this case is synchronous, and will return only when the command
+    finishes. This mode is enabled via the <option>--scope</option>
+    switch (see below). </para>
+
+    <para>If a command is run with timer options such as
+    <option>--on-calendar=</option> (see below), a transient timer
+    unit is created alongside the service unit for the specified
+    command. Only the transient timer unit is started immediately, the
+    transient service unit will be started when the transient timer
+    elapses. If the <option>--unit=</option> is specified, the
+    <replaceable>COMMAND</replaceable> may be omitted. In this case,
+    <command>systemd-run</command> only creates a
+    <filename>.timer</filename> unit that invokes the specified unit
+    when elapsing.</para>
   </refsect1>
 
   <refsect1>
