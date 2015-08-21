@@ -47,7 +47,7 @@ enum DnsTransactionState {
 struct DnsTransaction {
         DnsScope *scope;
 
-        DnsQuestion *question;
+        DnsResourceKey *key;
 
         DnsTransactionState state;
         uint16_t id;
@@ -84,7 +84,7 @@ struct DnsTransaction {
         LIST_FIELDS(DnsTransaction, transactions_by_scope);
 };
 
-int dns_transaction_new(DnsTransaction **ret, DnsScope *s, DnsQuestion *q);
+int dns_transaction_new(DnsTransaction **ret, DnsScope *s, DnsResourceKey *key);
 DnsTransaction* dns_transaction_free(DnsTransaction *t);
 
 void dns_transaction_gc(DnsTransaction *t);

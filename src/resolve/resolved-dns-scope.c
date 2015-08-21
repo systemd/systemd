@@ -617,11 +617,11 @@ void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
         }
 }
 
-DnsTransaction *dns_scope_find_transaction(DnsScope *scope, DnsQuestion *question, bool cache_ok) {
+DnsTransaction *dns_scope_find_transaction(DnsScope *scope, DnsResourceKey *key, bool cache_ok) {
         DnsTransaction *t;
 
         assert(scope);
-        assert(question);
+        assert(key);
 
         /* Try to find an ongoing transaction that is a equal or a
          * superset of the specified question */
@@ -636,7 +636,7 @@ DnsTransaction *dns_scope_find_transaction(DnsScope *scope, DnsQuestion *questio
                     !t->received)
                         continue;
 
-                if (dns_question_is_superset(t->question, question) > 0)
+                if (dns_resource_key_equal(t->key, key) > 0)
                         return t;
         }
 

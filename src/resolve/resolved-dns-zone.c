@@ -166,7 +166,6 @@ static int dns_zone_link_item(DnsZone *z, DnsZoneItem *i) {
 
 static int dns_zone_item_probe_start(DnsZoneItem *i)  {
         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
-        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
         DnsTransaction *t;
         int r;
 
@@ -179,17 +178,9 @@ static int dns_zone_item_probe_start(DnsZoneItem *i)  {
         if (!key)
                 return -ENOMEM;
 
-        question = dns_question_new(1);
-        if (!question)
-                return -ENOMEM;
-
-        r = dns_question_add(question, key);
-        if (r < 0)
-                return r;
-
-        t = dns_scope_find_transaction(i->scope, question, false);
+        t = dns_scope_find_transaction(i->scope, key, false);
         if (!t) {
-                r = dns_transaction_new(&t, i->scope, question);
+                r = dns_transaction_new(&t, i->scope, key);
                 if (r < 0)
                         return r;
         }
@@ -217,7 +208,6 @@ static int dns_zone_item_probe_start(DnsZoneItem *i)  {
         }
 
         dns_zone_item_ready(i);
-
         return 0;
 
 gc:

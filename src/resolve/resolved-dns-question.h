@@ -48,7 +48,4 @@ int dns_question_is_equal(DnsQuestion *a, DnsQuestion *b);
 
 int dns_question_cname_redirect(DnsQuestion *q, const char *name, DnsQuestion **ret);
 
-int dns_question_endswith(DnsQuestion *q, const char *suffix);
-int dns_question_extract_reverse_address(DnsQuestion *q, int *family, union in_addr_union *address);
-
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsQuestion*, dns_question_unref);
