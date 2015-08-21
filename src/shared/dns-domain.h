@@ -35,9 +35,17 @@ int dns_label_escape(const char *p, size_t l, char **ret);
 int dns_label_apply_idna(const char *encoded, size_t encoded_size, char *decoded, size_t decoded_max);
 int dns_label_undo_idna(const char *encoded, size_t encoded_size, char *decoded, size_t decoded_max);
 
-int dns_name_normalize(const char *s, char **_ret);
+int dns_name_concat(const char *a, const char *b, char **ret);
+
+static inline int dns_name_normalize(const char *s, char **ret) {
+        /* dns_name_concat() normalizes as a side-effect */
+        return dns_name_concat(s, NULL, ret);
+}
+
 static inline int dns_name_is_valid(const char *s) {
         int r;
+
+        /* dns_name_normalize() verifies as a side effect */
         r = dns_name_normalize(s, NULL);
         if (r == -EINVAL)
                 return 0;

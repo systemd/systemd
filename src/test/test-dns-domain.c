@@ -251,6 +251,39 @@ static void test_dns_name_reverse(void) {
         test_dns_name_reverse_one("::1", "1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa");
 }
 
+static void test_dns_name_concat_one(const char *a, const char *b, int r, const char *result) {
+        _cleanup_free_ char *p = NULL;
+
+        assert_se(dns_name_concat(a, b, &p) == r);
+        assert_se(streq_ptr(p, result));
+}
+
+static void test_dns_name_concat(void) {
+        test_dns_name_concat_one("foo", "bar", 0, "foo.bar");
+        test_dns_name_concat_one("foo.foo", "bar.bar", 0, "foo.foo.bar.bar");
+        test_dns_name_concat_one("foo", NULL, 0, "foo");
+        test_dns_name_concat_one("foo.", "bar.", 0, "foo.bar");
+}
+
+static void test_dns_name_is_valid_one(const char *s, int ret) {
+        assert_se(dns_name_is_valid(s) == ret);
+}
+
+static void test_dns_name_is_valid(void) {
+        test_dns_name_is_valid_one("foo", 1);
+        test_dns_name_is_valid_one("foo.", 1);
+        test_dns_name_is_valid_one("Foo", 1);
+        test_dns_name_is_valid_one("foo.bar", 1);
+        test_dns_name_is_valid_one("foo.bar.baz", 1);
+        test_dns_name_is_valid_one("", 1);
+        test_dns_name_is_valid_one("foo..bar", 0);
+        test_dns_name_is_valid_one(".foo.bar", 0);
+        test_dns_name_is_valid_one("foo.bar.", 1);
+        test_dns_name_is_valid_one("\\zbar", 0);
+        test_dns_name_is_valid_one("ä", 1);
+        test_dns_name_is_valid_one("\n", 0);
+}
+
 int main(int argc, char *argv[]) {
 
         test_dns_label_unescape();
@@ -263,6 +296,8 @@ int main(int argc, char *argv[]) {
         test_dns_name_root();
         test_dns_name_single_label();
         test_dns_name_reverse();
+        test_dns_name_concat();
+        test_dns_name_is_valid();
 
         return 0;
 }

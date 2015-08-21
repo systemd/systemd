@@ -91,13 +91,17 @@ static int reply_query_state(DnsQuery *q) {
         }
 }
 
-static int append_address(sd_bus_message *reply, DnsResourceRecord *rr) {
+static int append_address(sd_bus_message *reply, DnsResourceRecord *rr, int ifindex) {
         int r;
 
         assert(reply);
         assert(rr);
 
-        r = sd_bus_message_open_container(reply, 'r', "iay");
+        r = sd_bus_message_open_container(reply, 'r', "iiay");
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(reply, "i", ifindex);
         if (r < 0)
                 return r;
 
@@ -145,11 +149,7 @@ static void bus_method_resolve_hostname_complete(DnsQuery *q) {
         if (r < 0)
                 goto finish;
 
-        r = sd_bus_message_append(reply, "i", q->answer_ifindex);
-        if (r < 0)
-                goto finish;
-
-        r = sd_bus_message_open_container(reply, 'a', "(iay)");
+        r = sd_bus_message_open_container(reply, 'a', "(iiay)");
         if (r < 0)
                 goto finish;
 
@@ -157,27 +157,27 @@ static void bus_method_resolve_hostname_complete(DnsQuery *q) {
                 answer = dns_answer_ref(q->answer);
 
                 for (i = 0; i < answer->n_rrs; i++) {
-                        r = dns_question_matches_rr(q->question, answer->rrs[i]);
+                        r = dns_question_matches_rr(q->question, answer->items[i].rr);
                         if (r < 0)
                                 goto finish;
                         if (r == 0) {
                                 /* Hmm, if this is not an address record,
                                    maybe it's a cname? If so, remember this */
-                                r = dns_question_matches_cname(q->question, answer->rrs[i]);
+                                r = dns_question_matches_cname(q->question, answer->items[i].rr);
                                 if (r < 0)
                                         goto finish;
                                 if (r > 0)
-                                        cname = dns_resource_record_ref(answer->rrs[i]);
+                                        cname = dns_resource_record_ref(answer->items[i].rr);
 
                                 continue;
                         }
 
-                        r = append_address(reply, answer->rrs[i]);
+                        r = append_address(reply, answer->items[i].rr, answer->items[i].ifindex);
                         if (r < 0)
                                 goto finish;
 
                         if (!canonical)
-                                canonical = dns_resource_record_ref(answer->rrs[i]);
+                                canonical = dns_resource_record_ref(answer->items[i].rr);
 
                         added ++;
                 }
@@ -204,18 +204,18 @@ static void bus_method_resolve_hostname_complete(DnsQuery *q) {
                 /* Before we restart the query, let's see if any of
                  * the RRs we already got already answers our query */
                 for (i = 0; i < answer->n_rrs; i++) {
-                        r = dns_question_matches_rr(q->question, answer->rrs[i]);
+                        r = dns_question_matches_rr(q->question, answer->items[i].rr);
                         if (r < 0)
                                 goto finish;
                         if (r == 0)
                                 continue;
 
-                        r = append_address(reply, answer->rrs[i]);
+                        r = append_address(reply, answer->items[i].rr, answer->items[i].ifindex);
                         if (r < 0)
                                 goto finish;
 
                         if (!canonical)
-                                canonical = dns_resource_record_ref(answer->rrs[i]);
+                                canonical = dns_resource_record_ref(answer->items[i].rr);
 
                         added++;
                 }
@@ -373,11 +373,7 @@ static void bus_method_resolve_address_complete(DnsQuery *q) {
         if (r < 0)
                 goto finish;
 
-        r = sd_bus_message_append(reply, "i", q->answer_ifindex);
-        if (r < 0)
-                goto finish;
-
-        r = sd_bus_message_open_container(reply, 'a', "s");
+        r = sd_bus_message_open_container(reply, 'a', "(is)");
         if (r < 0)
                 goto finish;
 
@@ -385,13 +381,13 @@ static void bus_method_resolve_address_complete(DnsQuery *q) {
                 answer = dns_answer_ref(q->answer);
 
                 for (i = 0; i < answer->n_rrs; i++) {
-                        r = dns_question_matches_rr(q->question, answer->rrs[i]);
+                        r = dns_question_matches_rr(q->question, answer->items[i].rr);
                         if (r < 0)
                                 goto finish;
                         if (r == 0)
                                 continue;
 
-                        r = sd_bus_message_append(reply, "s", answer->rrs[i]->ptr.name);
+                        r = sd_bus_message_append(reply, "(is)", answer->items[i].ifindex, answer->items[i].rr->ptr.name);
                         if (r < 0)
                                 goto finish;
 
@@ -525,11 +521,7 @@ static void bus_method_resolve_record_complete(DnsQuery *q) {
         if (r < 0)
                 goto finish;
 
-        r = sd_bus_message_append(reply, "i", q->answer_ifindex);
-        if (r < 0)
-                goto finish;
-
-        r = sd_bus_message_open_container(reply, 'a', "(qqay)");
+        r = sd_bus_message_open_container(reply, 'a', "(iqqay)");
         if (r < 0)
                 goto finish;
 
@@ -540,7 +532,7 @@ static void bus_method_resolve_record_complete(DnsQuery *q) {
                         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
                         size_t start;
 
-                        r = dns_question_matches_rr(q->question, answer->rrs[i]);
+                        r = dns_question_matches_rr(q->question, answer->items[i].rr);
                         if (r < 0)
                                 goto finish;
                         if (r == 0)
@@ -550,15 +542,18 @@ static void bus_method_resolve_record_complete(DnsQuery *q) {
                         if (r < 0)
                                 goto finish;
 
-                        r = dns_packet_append_rr(p, answer->rrs[i], &start);
+                        r = dns_packet_append_rr(p, answer->items[i].rr, &start);
                         if (r < 0)
                                 goto finish;
 
-                        r = sd_bus_message_open_container(reply, 'r', "qqay");
+                        r = sd_bus_message_open_container(reply, 'r', "iqqay");
                         if (r < 0)
                                 goto finish;
 
-                        r = sd_bus_message_append(reply, "qq", answer->rrs[i]->key->class, answer->rrs[i]->key->type);
+                        r = sd_bus_message_append(reply, "iqq",
+                                                  answer->items[i].ifindex,
+                                                  answer->items[i].rr->key->class,
+                                                  answer->items[i].rr->key->type);
                         if (r < 0)
                                 goto finish;
 
@@ -662,9 +657,9 @@ static int bus_method_resolve_record(sd_bus_message *message, void *userdata, sd
 
 static const sd_bus_vtable resolve_vtable[] = {
         SD_BUS_VTABLE_START(0),
-        SD_BUS_METHOD("ResolveHostname", "isit", "ia(iay)st", bus_method_resolve_hostname, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("ResolveAddress", "iiayt", "iast", bus_method_resolve_address, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("ResolveRecord", "isqqt", "ia(qqay)t", bus_method_resolve_record, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("ResolveHostname", "isit", "a(iiay)st", bus_method_resolve_hostname, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("ResolveAddress", "iiayt", "a(is)t", bus_method_resolve_address, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("ResolveRecord", "isqqt", "a(iqqay)t", bus_method_resolve_record, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_VTABLE_END,
 };
 

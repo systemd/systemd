@@ -256,7 +256,7 @@ static int dns_transaction_open_tcp(DnsTransaction *t) {
                 fd = dns_scope_tcp_socket(t->scope, AF_UNSPEC, NULL, 53, &server);
         else if (t->scope->protocol == DNS_PROTOCOL_LLMNR) {
 
-                /* When we already received a query to this (but it was truncated), send to its sender address */
+                /* When we already received a reply to this (but it was truncated), send to its sender address */
                 if (t->received)
                         fd = dns_scope_tcp_socket(t->scope, t->received->family, &t->received->sender, t->received->sender_port, NULL);
                 else {
@@ -291,7 +291,6 @@ static int dns_transaction_open_tcp(DnsTransaction *t) {
                 t->stream = dns_stream_free(t->stream);
                 return r;
         }
-
 
         dns_server_unref(t->server);
         t->server = dns_server_ref(server);

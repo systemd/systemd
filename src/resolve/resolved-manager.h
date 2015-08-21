@@ -91,9 +91,10 @@ struct Manager {
         sd_event_source *bus_retry_event_source;
 
         /* The hostname we publish on LLMNR and mDNS */
-        char *hostname;
-        DnsResourceKey *host_ipv4_key;
-        DnsResourceKey *host_ipv6_key;
+        char *llmnr_hostname;
+        char *mdns_hostname;
+        DnsResourceKey *llmnr_host_ipv4_key;
+        DnsResourceKey *llmnr_host_ipv6_key;
 
         /* Watch the system hostname */
         int hostname_fd;
@@ -139,6 +140,8 @@ void manager_flush_dns_servers(Manager *m, DnsServerType t);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 
 #define EXTRA_CMSG_SPACE 1024
+
+int manager_is_own_hostname(Manager *m, const char *name);
 
 const char* support_to_string(Support p) _const_;
 int support_from_string(const char *s) _pure_;

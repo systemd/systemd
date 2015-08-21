@@ -33,6 +33,7 @@ bool hostname_is_valid(const char *s, bool relax) _pure_;
 char* hostname_cleanup(char *s);
 
 bool is_localhost(const char *hostname);
+bool is_gateway_hostname(const char *hostname);
 
 int sethostname_idempotent(const char *s);
 

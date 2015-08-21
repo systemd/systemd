@@ -61,23 +61,21 @@ static bool bus_error_shall_fallback(sd_bus_error *e) {
 }
 
 static int count_addresses(sd_bus_message *m, int af, const char **canonical) {
-        int c = 0, r, ifindex;
+        int c = 0, r;
 
         assert(m);
         assert(canonical);
 
-        r = sd_bus_message_read(m, "i", &ifindex);
+        r = sd_bus_message_enter_container(m, 'a', "(iiay)");
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_enter_container(m, 'a', "(iay)");
-        if (r < 0)
-                return r;
+        while ((r = sd_bus_message_enter_container(m, 'r', "iiay")) > 0) {
+                int family, ifindex;
 
-        while ((r = sd_bus_message_enter_container(m, 'r', "iay")) > 0) {
-                int family;
+                assert_cc(sizeof(int32_t) == sizeof(int));
 
-                r = sd_bus_message_read(m, "i", &family);
+                r = sd_bus_message_read(m, "ii", &ifindex, &family);
                 if (r < 0)
                         return r;
 
@@ -126,7 +124,7 @@ enum nss_status _nss_resolve_gethostbyname4_r(
         const char *canonical = NULL;
         size_t l, ms, idx;
         char *r_name;
-        int c, r, i = 0, ifindex;
+        int c, r, i = 0;
 
         assert(name);
         assert(pat);
@@ -218,27 +216,25 @@ enum nss_status _nss_resolve_gethostbyname4_r(
         /* Second, append addresses */
         r_tuple_first = (struct gaih_addrtuple*) (buffer + idx);
 
-        r = sd_bus_message_read(reply, "i", &ifindex);
+        r = sd_bus_message_enter_container(reply, 'a', "(iiay)");
         if (r < 0)
                 goto fail;
 
-        if (ifindex < 0) {
-                r = -EINVAL;
-                goto fail;
-        }
-
-        r = sd_bus_message_enter_container(reply, 'a', "(iay)");
-        if (r < 0)
-                goto fail;
-
-        while ((r = sd_bus_message_enter_container(reply, 'r', "iay")) > 0) {
-                int family;
+        while ((r = sd_bus_message_enter_container(reply, 'r', "iiay")) > 0) {
+                int family, ifindex;
                 const void *a;
                 size_t sz;
 
-                r = sd_bus_message_read(reply, "i", &family);
+                assert_cc(sizeof(int32_t) == sizeof(int));
+
+                r = sd_bus_message_read(reply, "ii", &ifindex, &family);
                 if (r < 0)
                         goto fail;
+
+                if (ifindex < 0) {
+                        r = -EINVAL;
+                        goto fail;
+                }
 
                 r = sd_bus_message_read_array(reply, 'y', &a, &sz);
                 if (r < 0)
@@ -308,7 +304,7 @@ enum nss_status _nss_resolve_gethostbyname3_r(
         _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
         size_t l, idx, ms, alen;
         const char *canonical;
-        int c, r, i = 0, ifindex;
+        int c, r, i = 0;
 
         assert(name);
         assert(result);
@@ -420,27 +416,23 @@ enum nss_status _nss_resolve_gethostbyname3_r(
         /* Third, append addresses */
         r_addr = buffer + idx;
 
-        r = sd_bus_message_read(reply, "i", &ifindex);
+        r = sd_bus_message_enter_container(reply, 'a', "(iiay)");
         if (r < 0)
                 goto fail;
 
-        if (ifindex < 0) {
-                r = -EINVAL;
-                goto fail;
-        }
-
-        r = sd_bus_message_enter_container(reply, 'a', "(iay)");
-        if (r < 0)
-                goto fail;
-
-        while ((r = sd_bus_message_enter_container(reply, 'r', "iay")) > 0) {
-                int family;
+        while ((r = sd_bus_message_enter_container(reply, 'r', "iiay")) > 0) {
+                int ifindex, family;
                 const void *a;
                 size_t sz;
 
-                r = sd_bus_message_read(reply, "i", &family);
+                r = sd_bus_message_read(reply, "ii", &ifindex, &family);
                 if (r < 0)
                         goto fail;
+
+                if (ifindex < 0) {
+                        r = -EINVAL;
+                        goto fail;
+                }
 
                 r = sd_bus_message_read_array(reply, 'y', &a, &sz);
                 if (r < 0)
@@ -603,20 +595,17 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
                 return NSS_STATUS_UNAVAIL;
         }
 
-        r = sd_bus_message_read(reply, "i", &ifindex);
+        r = sd_bus_message_enter_container(reply, 'a', "(is)");
         if (r < 0)
                 goto fail;
 
-        if (ifindex < 0) {
-                r = -EINVAL;
-                goto fail;
-        }
+        while ((r = sd_bus_message_read(reply, "(is)", &ifindex, &n)) > 0) {
 
-        r = sd_bus_message_enter_container(reply, 'a', "s");
-        if (r < 0)
-                goto fail;
+                if (ifindex < 0) {
+                        r = -EINVAL;
+                        goto fail;
+                }
 
-        while ((r = sd_bus_message_read(reply, "s", &n)) > 0) {
                 c++;
                 ms += ALIGN(strlen(n) + 1);
         }
@@ -661,7 +650,7 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
         /* Fourth, place aliases */
         i = 0;
         r_name = buffer + idx;
-        while ((r = sd_bus_message_read(reply, "s", &n)) > 0) {
+        while ((r = sd_bus_message_read(reply, "(is)", &ifindex, &n)) > 0) {
                 char *p;
                 size_t l;
 

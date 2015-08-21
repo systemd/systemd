@@ -310,51 +310,84 @@ static int manager_network_monitor_listen(Manager *m) {
         return 0;
 }
 
-static int determine_hostname(char **ret) {
+static int determine_hostname(char **llmnr_hostname, char **mdns_hostname) {
         _cleanup_free_ char *h = NULL, *n = NULL;
-        int r;
+        char label[DNS_LABEL_MAX];
+        const char *p;
+        int r, k;
 
-        assert(ret);
+        assert(llmnr_hostname);
+        assert(mdns_hostname);
+
+        /* Extract and normalize the first label of the locally
+         * configured hostname, and check it's not "localhost". */
 
         h = gethostname_malloc();
         if (!h)
                 return log_oom();
 
-        if (!utf8_is_valid(h)) {
+        p = h;
+        r = dns_label_unescape(&p, label, sizeof(label));
+        if (r < 0)
+                return log_error_errno(r, "Failed to unescape host name: %m");
+        if (r == 0) {
+                log_error("Couldn't find a single label in hosntame.");
+                return -EINVAL;
+        }
+
+        k = dns_label_undo_idna(label, r, label, sizeof(label));
+        if (k < 0)
+                return log_error_errno(k, "Failed to undo IDNA: %m");
+        if (k > 0)
+                r = k;
+
+        if (!utf8_is_valid(label)) {
                 log_error("System hostname is not UTF-8 clean.");
                 return -EINVAL;
         }
 
-        r = dns_name_normalize(h, &n);
-        if (r < 0) {
-                log_error("System hostname '%s' cannot be normalized.", h);
-                return r;
+        r = dns_label_escape(label, r, &n);
+        if (r < 0)
+                return log_error_errno(r, "Failed to escape host name: %m");
+
+        if (is_localhost(n)) {
+                log_debug("System hostname is 'localhost', ignoring.");
+                return -EINVAL;
         }
 
-        *ret = n;
+        r = dns_name_concat(n, "local", mdns_hostname);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine mDNS hostname: %m");
+
+        *llmnr_hostname = n;
         n = NULL;
 
         return 0;
 }
 
 static int on_hostname_change(sd_event_source *es, int fd, uint32_t revents, void *userdata) {
-        _cleanup_free_ char *h = NULL;
+        _cleanup_free_ char *llmnr_hostname = NULL, *mdns_hostname = NULL;
         Manager *m = userdata;
         int r;
 
         assert(m);
 
-        r = determine_hostname(&h);
+        r = determine_hostname(&llmnr_hostname, &mdns_hostname);
         if (r < 0)
                 return 0; /* ignore invalid hostnames */
 
-        if (streq(h, m->hostname))
+        if (streq(llmnr_hostname, m->llmnr_hostname) && streq(mdns_hostname, m->mdns_hostname))
                 return 0;
 
-        log_info("System hostname changed to '%s'.", h);
-        free(m->hostname);
-        m->hostname = h;
-        h = NULL;
+        log_info("System hostname changed to '%s'.", llmnr_hostname);
+
+        free(m->llmnr_hostname);
+        free(m->mdns_hostname);
+
+        m->llmnr_hostname = llmnr_hostname;
+        m->mdns_hostname = mdns_hostname;
+
+        llmnr_hostname = mdns_hostname = NULL;
 
         manager_refresh_rrs(m);
 
@@ -381,14 +414,18 @@ static int manager_watch_hostname(Manager *m) {
                         return log_error_errno(r, "Failed to add hostname event source: %m");
         }
 
-        r = determine_hostname(&m->hostname);
+        r = determine_hostname(&m->llmnr_hostname, &m->mdns_hostname);
         if (r < 0) {
                 log_info("Defaulting to hostname 'linux'.");
-                m->hostname = strdup("linux");
-                if (!m->hostname)
+                m->llmnr_hostname = strdup("linux");
+                if (!m->llmnr_hostname)
+                        return log_oom();
+
+                m->mdns_hostname = strdup("linux.local");
+                if (!m->mdns_hostname)
                         return log_oom();
         } else
-                log_info("Using system hostname '%s'.", m->hostname);
+                log_info("Using system hostname '%s'.", m->llmnr_hostname);
 
         return 0;
 }
@@ -492,12 +529,13 @@ Manager *manager_free(Manager *m) {
 
         sd_event_unref(m->event);
 
-        dns_resource_key_unref(m->host_ipv4_key);
-        dns_resource_key_unref(m->host_ipv6_key);
+        dns_resource_key_unref(m->llmnr_host_ipv4_key);
+        dns_resource_key_unref(m->llmnr_host_ipv6_key);
 
         safe_close(m->hostname_fd);
         sd_event_source_unref(m->hostname_event_source);
-        free(m->hostname);
+        free(m->llmnr_hostname);
+        free(m->mdns_hostname);
 
         free(m);
 
@@ -1229,8 +1267,8 @@ void manager_refresh_rrs(Manager *m) {
 
         assert(m);
 
-        m->host_ipv4_key = dns_resource_key_unref(m->host_ipv4_key);
-        m->host_ipv6_key = dns_resource_key_unref(m->host_ipv6_key);
+        m->llmnr_host_ipv4_key = dns_resource_key_unref(m->llmnr_host_ipv4_key);
+        m->llmnr_host_ipv6_key = dns_resource_key_unref(m->llmnr_host_ipv6_key);
 
         HASHMAP_FOREACH(l, m->links, i) {
                 link_add_rrs(l, true);
@@ -1241,14 +1279,15 @@ void manager_refresh_rrs(Manager *m) {
 int manager_next_hostname(Manager *m) {
         const char *p;
         uint64_t u, a;
-        char *h;
+        char *h, *k;
+        int r;
 
         assert(m);
 
-        p = strchr(m->hostname, 0);
+        p = strchr(m->llmnr_hostname, 0);
         assert(p);
 
-        while (p > m->hostname) {
+        while (p > m->llmnr_hostname) {
                 if (!strchr("0123456789", p[-1]))
                         break;
 
@@ -1268,13 +1307,22 @@ int manager_next_hostname(Manager *m) {
         random_bytes(&a, sizeof(a));
         u += 1 + a % 10;
 
-        if (asprintf(&h, "%.*s%" PRIu64, (int) (p - m->hostname), m->hostname, u) < 0)
+        if (asprintf(&h, "%.*s%" PRIu64, (int) (p - m->llmnr_hostname), m->llmnr_hostname, u) < 0)
                 return -ENOMEM;
 
-        log_info("Hostname conflict, changing published hostname from '%s' to '%s'.", m->hostname, h);
+        r = dns_name_concat(h, "local", &k);
+        if (r < 0) {
+                free(h);
+                return r;
+        }
 
-        free(m->hostname);
-        m->hostname = h;
+        log_info("Hostname conflict, changing published hostname from '%s' to '%s'.", m->llmnr_hostname, h);
+
+        free(m->llmnr_hostname);
+        m->llmnr_hostname = h;
+
+        free(m->mdns_hostname);
+        m->mdns_hostname = k;
 
         manager_refresh_rrs(m);
 
@@ -1354,6 +1402,25 @@ void manager_flush_dns_servers(Manager *m, DnsServerType t) {
                         LIST_REMOVE(servers, m->fallback_dns_servers, s);
                         dns_server_unref(s);
                 }
+}
+
+int manager_is_own_hostname(Manager *m, const char *name) {
+        _cleanup_free_ char *l = NULL;
+        int r;
+
+        assert(m);
+        assert(name);
+
+        if (m->llmnr_hostname) {
+                r = dns_name_equal(name, m->llmnr_hostname);
+                if (r != 0)
+                        return r;
+        }
+
+        if (m->mdns_hostname)
+                return dns_name_equal(name, m->mdns_hostname);
+
+        return 0;
 }
 
 static const char* const support_table[_SUPPORT_MAX] = {

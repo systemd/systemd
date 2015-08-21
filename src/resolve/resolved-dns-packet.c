@@ -1795,7 +1795,7 @@ int dns_packet_extract(DnsPacket *p) {
                         if (r < 0)
                                 goto finish;
 
-                        r = dns_answer_add(answer, rr);
+                        r = dns_answer_add(answer, rr, p->ifindex);
                         if (r < 0)
                                 goto finish;
                 }
