@@ -3277,6 +3277,14 @@ test_ipv4ll_LDADD = \
 	libsystemd-network.la \
 	libshared.la
 
+test_acd_SOURCES = \
+	src/systemd/sd-ipv4acd.h \
+	src/libsystemd-network/test-acd.c
+
+test_acd_LDADD = \
+	libsystemd-network.la \
+	libshared.la
+
 test_pppoe_SOURCES = \
 	src/systemd/sd-pppoe.h \
 	src/libsystemd-network/test-pppoe.c
@@ -3325,6 +3333,7 @@ tests += \
 	test-dhcp-client \
 	test-dhcp-server \
 	test-ipv4ll \
+	test-acd \
 	test-icmp6-rs \
 	test-dhcp6-client \
 	test-lldp
