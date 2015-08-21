@@ -392,6 +392,8 @@ static int resolve_record(sd_bus *bus, const char *name) {
                 if (r < 0)
                         return log_oom();
 
+                p->refuse_compression = true;
+
                 r = dns_packet_append_blob(p, d, l, NULL);
                 if (r < 0)
                         return log_oom();
