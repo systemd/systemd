@@ -85,7 +85,7 @@ int dns_scope_llmnr_membership(DnsScope *s, bool b);
 
 void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p);
 
-DnsTransaction *dns_scope_find_transaction(DnsScope *scope, DnsQuestion *question, bool cache_ok);
+DnsTransaction *dns_scope_find_transaction(DnsScope *scope, DnsResourceKey *key, bool cache_ok);
 
 int dns_scope_notify_conflict(DnsScope *scope, DnsResourceRecord *rr);
 void dns_scope_check_conflicts(DnsScope *scope, DnsPacket *p);

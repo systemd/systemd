@@ -24,6 +24,7 @@
 #include "resolved-llmnr.h"
 #include "resolved-dns-transaction.h"
 #include "random-util.h"
+#include "dns-domain.h"
 
 DnsTransaction* dns_transaction_free(DnsTransaction *t) {
         DnsQuery *q;
@@ -34,7 +35,7 @@ DnsTransaction* dns_transaction_free(DnsTransaction *t) {
 
         sd_event_source_unref(t->timeout_event_source);
 
-        dns_question_unref(t->question);
+        dns_resource_key_unref(t->key);
         dns_packet_unref(t->sent);
         dns_packet_unref(t->received);
         dns_answer_unref(t->cached);
@@ -76,13 +77,13 @@ void dns_transaction_gc(DnsTransaction *t) {
                 dns_transaction_free(t);
 }
 
-int dns_transaction_new(DnsTransaction **ret, DnsScope *s, DnsQuestion *q) {
+int dns_transaction_new(DnsTransaction **ret, DnsScope *s, DnsResourceKey *key) {
         _cleanup_(dns_transaction_freep) DnsTransaction *t = NULL;
         int r;
 
         assert(ret);
         assert(s);
-        assert(q);
+        assert(key);
 
         r = hashmap_ensure_allocated(&s->manager->dns_transactions, NULL);
         if (r < 0)
@@ -94,7 +95,7 @@ int dns_transaction_new(DnsTransaction **ret, DnsScope *s, DnsQuestion *q) {
 
         t->dns_fd = -1;
 
-        t->question = dns_question_ref(q);
+        t->key = dns_resource_key_ref(key);
 
         do
                 random_bytes(&t->id, sizeof(t->id));
@@ -266,7 +267,8 @@ static int dns_transaction_open_tcp(DnsTransaction *t) {
                         /* Otherwise, try to talk to the owner of a
                          * the IP address, in case this is a reverse
                          * PTR lookup */
-                        r = dns_question_extract_reverse_address(t->question, &family, &address);
+
+                        r = dns_name_address(DNS_RESOURCE_KEY_NAME(t->key), &family, &address);
                         if (r < 0)
                                 return r;
                         if (r == 0)
@@ -428,8 +430,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
         }
 
         /* Only consider responses with equivalent query section to the request */
-        r = dns_question_is_equal(p->question, t->question);
-        if (r <= 0) {
+        if (p->question->n_keys != 1 || dns_resource_key_equal(p->question->keys[0], t->key) <= 0) {
                 dns_transaction_complete(t, DNS_TRANSACTION_INVALID_REPLY);
                 return;
         }
@@ -518,7 +519,6 @@ static int on_transaction_timeout(sd_event_source *s, usec_t usec, void *userdat
 
 static int dns_transaction_make_packet(DnsTransaction *t) {
         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
-        unsigned n, added = 0;
         int r;
 
         assert(t);
@@ -530,24 +530,17 @@ static int dns_transaction_make_packet(DnsTransaction *t) {
         if (r < 0)
                 return r;
 
-        for (n = 0; n < t->question->n_keys; n++) {
-                r = dns_scope_good_key(t->scope, t->question->keys[n]);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        continue;
-
-                r = dns_packet_append_key(p, t->question->keys[n], NULL);
-                if (r < 0)
-                        return r;
-
-                added++;
-        }
-
-        if (added <= 0)
+        r = dns_scope_good_key(t->scope, t->key);
+        if (r < 0)
+                return r;
+        if (r == 0)
                 return -EDOM;
 
-        DNS_PACKET_HEADER(p)->qdcount = htobe16(added);
+        r = dns_packet_append_key(p, t->key, NULL);
+        if (r < 0)
+                return r;
+
+        DNS_PACKET_HEADER(p)->qdcount = htobe16(1);
         DNS_PACKET_HEADER(p)->id = t->id;
 
         t->sent = p;
@@ -621,7 +614,7 @@ int dns_transaction_go(DnsTransaction *t) {
                 /* Let's then prune all outdated entries */
                 dns_cache_prune(&t->scope->cache);
 
-                r = dns_cache_lookup(&t->scope->cache, t->question, &t->cached_rcode, &t->cached);
+                r = dns_cache_lookup(&t->scope->cache, t->key, &t->cached_rcode, &t->cached);
                 if (r < 0)
                         return r;
                 if (r > 0) {
@@ -674,8 +667,8 @@ int dns_transaction_go(DnsTransaction *t) {
                 return r;
 
         if (t->scope->protocol == DNS_PROTOCOL_LLMNR &&
-            (dns_question_endswith(t->question, "in-addr.arpa") > 0 ||
-             dns_question_endswith(t->question, "ip6.arpa") > 0)) {
+            (dns_name_endswith(DNS_RESOURCE_KEY_NAME(t->key), "in-addr.arpa") > 0 ||
+             dns_name_endswith(DNS_RESOURCE_KEY_NAME(t->key), "ip6.arpa") > 0)) {
 
                 /* RFC 4795, Section 2.4. says reverse lookups shall
                  * always be made via TCP on LLMNR */

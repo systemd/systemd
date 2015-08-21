@@ -138,7 +138,6 @@ static int on_query_timeout(sd_event_source *s, usec_t usec, void *userdata) {
 }
 
 static int dns_query_add_transaction(DnsQuery *q, DnsScope *s, DnsResourceKey *key) {
-        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
         DnsTransaction *t;
         int r;
 
@@ -149,20 +148,9 @@ static int dns_query_add_transaction(DnsQuery *q, DnsScope *s, DnsResourceKey *k
         if (r < 0)
                 return r;
 
-        if (key) {
-                question = dns_question_new(1);
-                if (!question)
-                        return -ENOMEM;
-
-                r = dns_question_add(question, key);
-                if (r < 0)
-                        return r;
-        } else
-                question = dns_question_ref(q->question);
-
-        t = dns_scope_find_transaction(s, question, true);
+        t = dns_scope_find_transaction(s, key, true);
         if (!t) {
-                r = dns_transaction_new(&t, s, question);
+                r = dns_transaction_new(&t, s, key);
                 if (r < 0)
                         return r;
         }

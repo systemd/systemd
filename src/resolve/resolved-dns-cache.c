@@ -487,72 +487,65 @@ fail:
         return r;
 }
 
-int dns_cache_lookup(DnsCache *c, DnsQuestion *q, int *rcode, DnsAnswer **ret) {
+int dns_cache_lookup(DnsCache *c, DnsResourceKey *key, int *rcode, DnsAnswer **ret) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
-        unsigned i, n = 0;
+        unsigned n = 0;
         int r;
         bool nxdomain = false;
+        _cleanup_free_ char *key_str = NULL;
+        DnsCacheItem *j, *first;
 
         assert(c);
-        assert(q);
+        assert(key);
         assert(rcode);
         assert(ret);
 
-        if (q->n_keys <= 0) {
+        if (key->type == DNS_TYPE_ANY ||
+            key->class == DNS_CLASS_ANY) {
+
+                /* If we have ANY lookups we simply refresh */
+
+                r = dns_resource_key_to_string(key, &key_str);
+                if (r < 0)
+                        return r;
+
+                log_debug("Ignoring cache for ANY lookup: %s", key_str);
+
                 *ret = NULL;
-                *rcode = 0;
+                *rcode = DNS_RCODE_SUCCESS;
                 return 0;
         }
 
-        for (i = 0; i < q->n_keys; i++) {
-                _cleanup_free_ char *key_str = NULL;
-                DnsCacheItem *j;
+        first = hashmap_get(c->by_key, key);
+        if (!first) {
+                /* If one question cannot be answered we need to refresh */
 
-                if (q->keys[i]->type == DNS_TYPE_ANY ||
-                    q->keys[i]->class == DNS_CLASS_ANY) {
-                        /* If we have ANY lookups we simply refresh */
+                r = dns_resource_key_to_string(key, &key_str);
+                if (r < 0)
+                        return r;
 
-                        r = dns_resource_key_to_string(q->keys[i], &key_str);
-                        if (r < 0)
-                                return r;
+                log_debug("Cache miss for %s", key_str);
 
-                        log_debug("Ignoring cache for ANY lookup: %s", key_str);
-
-                        *ret = NULL;
-                        *rcode = 0;
-                        return 0;
-                }
-
-                j = hashmap_get(c->by_key, q->keys[i]);
-                if (!j) {
-                        /* If one question cannot be answered we need to refresh */
-
-                        r = dns_resource_key_to_string(q->keys[i], &key_str);
-                        if (r < 0)
-                                return r;
-
-                        log_debug("Cache miss for %s", key_str);
-
-                        *ret = NULL;
-                        *rcode = 0;
-                        return 0;
-                } else {
-                        r = dns_resource_key_to_string(j->key, &key_str);
-                        if (r < 0)
-                                return r;
-
-                        log_debug("%s cache hit for %s",
-                                   j->type == DNS_CACHE_POSITIVE ? "Positive" :
-                                                                  (j->type == DNS_CACHE_NODATA ? "NODATA" : "NXDOMAIN"), key_str);
-                }
-
-                LIST_FOREACH(by_key, j, j) {
-                        if (j->rr)
-                                n++;
-                        else if (j->type == DNS_CACHE_NXDOMAIN)
-                                nxdomain = true;
-                }
+                *ret = NULL;
+                *rcode = DNS_RCODE_SUCCESS;
+                return 0;
         }
+
+        LIST_FOREACH(by_key, j, first) {
+                if (j->rr)
+                        n++;
+                else if (j->type == DNS_CACHE_NXDOMAIN)
+                        nxdomain = true;
+        }
+
+        r = dns_resource_key_to_string(key, &key_str);
+        if (r < 0)
+                return r;
+
+        log_debug("%s cache hit for %s",
+                  nxdomain ? "NXDOMAIN" :
+                     n > 0 ? "Positive" : "NODATA",
+                  key_str);
 
         if (n <= 0) {
                 *ret = NULL;
@@ -564,17 +557,13 @@ int dns_cache_lookup(DnsCache *c, DnsQuestion *q, int *rcode, DnsAnswer **ret) {
         if (!answer)
                 return -ENOMEM;
 
-        for (i = 0; i < q->n_keys; i++) {
-                DnsCacheItem *j;
+        LIST_FOREACH(by_key, j, first) {
+                if (!j->rr)
+                        continue;
 
-                j = hashmap_get(c->by_key, q->keys[i]);
-                LIST_FOREACH(by_key, j, j) {
-                        if (j->rr) {
-                                r = dns_answer_add(answer, j->rr, 0);
-                                if (r < 0)
-                                        return r;
-                        }
-                }
+                r = dns_answer_add(answer, j->rr, 0);
+                if (r < 0)
+                        return r;
         }
 
         *ret = answer;
