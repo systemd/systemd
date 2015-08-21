@@ -542,6 +542,8 @@ static void bus_method_resolve_record_complete(DnsQuery *q) {
                         if (r < 0)
                                 goto finish;
 
+                        p->refuse_compression = true;
+
                         r = dns_packet_append_rr(p, answer->items[i].rr, &start);
                         if (r < 0)
                                 goto finish;

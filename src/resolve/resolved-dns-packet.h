@@ -86,6 +86,7 @@ struct DnsPacket {
         uint32_t ttl;
 
         bool extracted;
+        bool refuse_compression;
 };
 
 static inline uint8_t* DNS_PACKET_DATA(DnsPacket *p) {

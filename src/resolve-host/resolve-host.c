@@ -392,6 +392,8 @@ static int resolve_record(sd_bus *bus, const char *name) {
                 if (r < 0)
                         return log_oom();
 
+                p->refuse_compression = true;
+
                 r = dns_packet_append_blob(p, d, l, NULL);
                 if (r < 0)
                         return log_oom();
@@ -441,7 +443,7 @@ static void help_dns_types(void) {
         const char *t;
 
         if (arg_legend)
-                puts("Known dns types:");
+                puts("Known DNS RR types:");
         for (i = 0; i < _DNS_TYPE_MAX; i++) {
                 t = dns_type_to_string(i);
                 if (t)
@@ -454,7 +456,7 @@ static void help_dns_classes(void) {
         const char *t;
 
         if (arg_legend)
-                puts("Known dns classes:");
+                puts("Known DNS RR classes:");
         for (i = 0; i < _DNS_CLASS_MAX; i++) {
                 t = dns_class_to_string(i);
                 if (t)
