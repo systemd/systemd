@@ -67,6 +67,8 @@ const char *net_get_name(struct udev_device *device);
 
 void serialize_in_addrs(FILE *f, const struct in_addr *addresses, size_t size);
 int deserialize_in_addrs(struct in_addr **addresses, const char *string);
+void serialize_in6_addrs(FILE *f, const struct in6_addr *addresses,
+                         size_t size);
 int deserialize_in6_addrs(struct in6_addr **addresses, const char *string);
 
 /* don't include "dhcp-lease-internal.h" as it causes conflicts between netinet/ip.h and linux/ip.h */

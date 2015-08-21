@@ -3,7 +3,7 @@
 /***
   This file is part of systemd.
 
-  Copyright (C) 2014 Intel Corporation. All rights reserved.
+  Copyright (C) 2014-2015 Intel Corporation. All rights reserved.
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -73,6 +73,7 @@ static const uint16_t default_req_opts[] = {
         DHCP6_OPTION_DNS_SERVERS,
         DHCP6_OPTION_DOMAIN_LIST,
         DHCP6_OPTION_NTP_SERVER,
+        DHCP6_OPTION_SNTP_SERVERS,
 };
 
 const char * dhcp6_message_type_table[_DHCP6_MESSAGE_MAX] = {
@@ -271,6 +272,11 @@ static void client_notify(sd_dhcp6_client *client, int event) {
 
 static int client_reset(sd_dhcp6_client *client) {
         assert_return(client, -EINVAL);
+
+        if (client->lease) {
+                dhcp6_lease_clear_timers(&client->lease->ia);
+                client->lease = sd_dhcp6_lease_unref(client->lease);
+        }
 
         client->receive_message =
                 sd_event_source_unref(client->receive_message);
@@ -748,7 +754,36 @@ static int client_parse_message(sd_dhcp6_client *client,
                                 return r;
 
                         break;
+
+                case DHCP6_OPTION_DNS_SERVERS:
+                        r = dhcp6_lease_set_dns(lease, optval, optlen);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
+                case DHCP6_OPTION_DOMAIN_LIST:
+                        r = dhcp6_lease_set_domains(lease, optval, optlen);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
+                case DHCP6_OPTION_NTP_SERVER:
+                        r = dhcp6_lease_set_ntp(lease, optval, optlen);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
+                case DHCP6_OPTION_SNTP_SERVERS:
+                        r = dhcp6_lease_set_sntp(lease, optval, optlen);
+                        if (r < 0)
+                                return r;
+
+                        break;
                 }
+
         }
 
         if (r == -ENOMSG)
@@ -802,10 +837,8 @@ static int client_receive_reply(sd_dhcp6_client *client, DHCP6Message *reply,
                 client->lease = sd_dhcp6_lease_unref(client->lease);
         }
 
-        if (client->state != DHCP6_STATE_INFORMATION_REQUEST) {
-                client->lease = lease;
-                lease = NULL;
-        }
+        client->lease = lease;
+        lease = NULL;
 
         return DHCP6_STATE_BOUND;
 }

@@ -3,7 +3,7 @@
 /***
   This file is part of systemd.
 
-  Copyright (C) 2014 Intel Corporation. All rights reserved.
+  Copyright (C) 2014-2015 Intel Corporation. All rights reserved.
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -26,9 +26,11 @@
 #include "sparse-endian.h"
 #include "unaligned.h"
 #include "util.h"
+#include "strv.h"
 
 #include "dhcp6-internal.h"
 #include "dhcp6-protocol.h"
+#include "dns-domain.h"
 
 #define DHCP6_OPTION_IA_NA_LEN                  12
 #define DHCP6_OPTION_IA_TA_LEN                  4
@@ -315,5 +317,103 @@ error:
         *buf += *buflen;
         *buflen = 0;
 
+        return r;
+}
+
+int dhcp6_option_parse_ip6addrs(uint8_t *optval, uint16_t optlen,
+                                struct in6_addr **addrs, size_t count,
+                                size_t *allocated) {
+
+        if (optlen == 0 || optlen % sizeof(struct in6_addr) != 0)
+                return -EINVAL;
+
+        if (!GREEDY_REALLOC(*addrs, *allocated,
+                            count * sizeof(struct in6_addr) + optlen))
+                return -ENOMEM;
+
+        memcpy(*addrs + count, optval, optlen);
+
+        count += optlen / sizeof(struct in6_addr);
+
+        return count;
+}
+
+int dhcp6_option_parse_domainname(const uint8_t *optval, uint16_t optlen,
+                                  char ***str_arr)
+{
+        size_t pos = 0, idx = 0;
+        _cleanup_free_ char **names = NULL;
+        int r;
+
+        assert_return(optlen > 1, -ENODATA);
+        assert_return(optval[optlen] == '\0', -EINVAL);
+
+        while (pos < optlen) {
+                _cleanup_free_ char *ret = NULL;
+                size_t n = 0, allocated = 0;
+                bool first = true;
+
+                for (;;) {
+                        uint8_t c;
+
+                        c = optval[pos++];
+
+                        if (c == 0)
+                                /* End of name */
+                                break;
+                        else if (c <= 63) {
+                                _cleanup_free_ char *t = NULL;
+                                const char *label;
+
+                                /* Literal label */
+                                label = (const char *)&optval[pos];
+                                pos += c;
+                                if (pos > optlen)
+                                        return -EMSGSIZE;
+
+                                r = dns_label_escape(label, c, &t);
+                                if (r < 0)
+                                        goto fail;
+
+                                if (!GREEDY_REALLOC0(ret, allocated, n + !first + strlen(t) + 1)) {
+                                        r = -ENOMEM;
+                                        goto fail;
+                                }
+
+                                if (!first)
+                                        ret[n++] = '.';
+                                else
+                                        first = false;
+
+                                memcpy(ret + n, t, r);
+                                n += r;
+                                continue;
+                        } else {
+                                r = -EBADMSG;
+                                goto fail;
+                        }
+                }
+
+                if (!GREEDY_REALLOC(ret, allocated, n + 1)) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
+
+                ret[n] = 0;
+
+                r = strv_extend(&names, ret);
+                if (r < 0)
+                        goto fail;
+
+                ret = NULL;
+                idx++;
+        }
+
+        *str_arr = names;
+        names = NULL;
+
+        return idx;
+
+fail:
         return r;
 }

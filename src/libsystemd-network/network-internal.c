@@ -32,6 +32,7 @@
 #include "conf-parser.h"
 #include "condition.h"
 #include "network-internal.h"
+#include "sd-icmp6-nd.h"
 
 const char *net_get_name(struct udev_device *device) {
         const char *name, *field;
@@ -382,6 +383,20 @@ int deserialize_in_addrs(struct in_addr **ret, const char *string) {
         addresses = NULL;
 
         return size;
+}
+
+void serialize_in6_addrs(FILE *f, const struct in6_addr *addresses,
+                         size_t size) {
+        unsigned i;
+
+        assert(f);
+        assert(addresses);
+        assert(size);
+
+        for (i = 0; i < size; i++)
+                fprintf(f, SD_ICMP6_ADDRESS_FORMAT_STR"%s",
+                        SD_ICMP6_ADDRESS_FORMAT_VAL(addresses[i]),
+                        (i < (size - 1)) ? " ": "");
 }
 
 int deserialize_in6_addrs(struct in6_addr **ret, const char *string) {

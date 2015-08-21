@@ -73,7 +73,7 @@ static int test_client_basic(sd_event *e) {
         assert_se(sd_dhcp6_client_set_request_option(client, DHCP6_OPTION_CLIENTID) == -EINVAL);
         assert_se(sd_dhcp6_client_set_request_option(client, DHCP6_OPTION_DNS_SERVERS) == -EEXIST);
         assert_se(sd_dhcp6_client_set_request_option(client, DHCP6_OPTION_NTP_SERVER) == -EEXIST);
-        assert_se(sd_dhcp6_client_set_request_option(client, DHCP6_OPTION_SNTP_SERVERS) == 0);
+        assert_se(sd_dhcp6_client_set_request_option(client, DHCP6_OPTION_SNTP_SERVERS) == -EEXIST);
         assert_se(sd_dhcp6_client_set_request_option(client, DHCP6_OPTION_DOMAIN_LIST) == -EEXIST);
         assert_se(sd_dhcp6_client_set_request_option(client, 10) == -EINVAL);
 
@@ -216,6 +216,8 @@ static int test_advertise_option(sd_event *e) {
         uint32_t lt_pref, lt_valid;
         int r;
         bool opt_clientid = false;
+        struct in6_addr *addrs;
+        char **domains;
 
         if (verbose)
                 printf("* %s\n", __FUNCTION__);
@@ -276,6 +278,24 @@ static int test_advertise_option(sd_event *e) {
 
                         break;
 
+                case DHCP6_OPTION_DNS_SERVERS:
+                        assert_se(optlen == 16);
+                        assert_se(dhcp6_lease_set_dns(lease, optval,
+                                                      optlen) >= 0);
+                        break;
+
+                case DHCP6_OPTION_DOMAIN_LIST:
+                        assert_se(optlen == 11);
+                        assert_se(dhcp6_lease_set_domains(lease, optval,
+                                                          optlen) >= 0);
+                        break;
+
+                case DHCP6_OPTION_SNTP_SERVERS:
+                        assert_se(optlen == 16);
+                        assert_se(dhcp6_lease_set_sntp(lease, optval,
+                                                       optlen) >= 0);
+                        break;
+
                 default:
                         break;
                 }
@@ -315,6 +335,19 @@ static int test_advertise_option(sd_event *e) {
         assert_se(dhcp6_lease_get_preference(lease, &preference) >= 0);
         assert_se(preference == 0);
 
+        r = sd_dhcp6_lease_get_dns(lease, &addrs);
+        assert_se(r == 1);
+        assert_se(!memcmp(addrs, &msg_advertise[124], r * 16));
+
+        r = sd_dhcp6_lease_get_domains(lease, &domains);
+        assert_se(r == 1);
+        assert_se(!strcmp("lab.intra", domains[0]));
+        assert_se(domains[1] == NULL);
+
+        r = sd_dhcp6_lease_get_ntp_addrs(lease, &addrs);
+        assert_se(r == 1);
+        assert_se(!memcmp(addrs, &msg_advertise[159], r * 16));
+
         return 0;
 }
 
@@ -339,9 +372,24 @@ int detect_virtualization(const char **id) {
 static void test_client_solicit_cb(sd_dhcp6_client *client, int event,
                                    void *userdata) {
         sd_event *e = userdata;
+        sd_dhcp6_lease *lease;
+        struct in6_addr *addrs;
+        char **domains;
 
         assert_se(e);
         assert_se(event == DHCP6_EVENT_IP_ACQUIRE);
+
+        assert_se(sd_dhcp6_client_get_lease(client, &lease) >= 0);
+
+        assert_se(sd_dhcp6_lease_get_domains(lease, &domains) == 1);
+        assert_se(!strcmp("lab.intra", domains[0]));
+        assert_se(domains[1] == NULL);
+
+        assert_se(sd_dhcp6_lease_get_dns(lease, &addrs) == 1);
+        assert_se(!memcmp(addrs, &msg_advertise[124], 16));
+
+        assert_se(sd_dhcp6_lease_get_ntp_addrs(lease, &addrs) == 1);
+        assert_se(!memcmp(addrs, &msg_advertise[159], 16));
 
         assert_se(sd_dhcp6_client_set_request_option(client, DHCP6_OPTION_DNS_SERVERS) == -EBUSY);
 
@@ -524,9 +572,24 @@ static int test_client_verify_solicit(DHCP6Message *solicit, uint8_t *option,
 static void test_client_information_cb(sd_dhcp6_client *client, int event,
                                        void *userdata) {
         sd_event *e = userdata;
+        sd_dhcp6_lease *lease;
+        struct in6_addr *addrs;
+        char **domains;
 
         assert_se(e);
         assert_se(event == DHCP6_EVENT_INFORMATION_REQUEST);
+
+        assert_se(sd_dhcp6_client_get_lease(client, &lease) >= 0);
+
+        assert_se(sd_dhcp6_lease_get_domains(lease, &domains) == 1);
+        assert_se(!strcmp("lab.intra", domains[0]));
+        assert_se(domains[1] == NULL);
+
+        assert_se(sd_dhcp6_lease_get_dns(lease, &addrs) == 1);
+        assert_se(!memcmp(addrs, &msg_advertise[124], 16));
+
+        assert_se(sd_dhcp6_lease_get_ntp_addrs(lease, &addrs) == 1);
+        assert_se(!memcmp(addrs, &msg_advertise[159], 16));
 
         if (verbose)
                 printf("  got DHCPv6 event %d\n", event);

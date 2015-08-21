@@ -2240,6 +2240,14 @@ int link_save(Link *link) {
         if (link->network) {
                 char **address, **domain;
                 bool space;
+                sd_dhcp6_lease *dhcp6_lease = NULL;
+
+                if (link->dhcp6_client) {
+                        r = sd_dhcp6_client_get_lease(link->dhcp6_client,
+                                                      &dhcp6_lease);
+                        if (r < 0)
+                                log_link_debug(link, "No DHCPv6 lease");
+                }
 
                 fprintf(f, "NETWORK_FILE=%s\n", link->network->filename);
 
@@ -2261,6 +2269,19 @@ int link_save(Link *link) {
                                 if (space)
                                         fputc(' ', f);
                                 serialize_in_addrs(f, addresses, r);
+                                space = true;
+                        }
+                }
+
+                if (link->network->dhcp_dns && dhcp6_lease) {
+                        struct in6_addr *in6_addrs;
+
+                        r = sd_dhcp6_lease_get_dns(dhcp6_lease, &in6_addrs);
+                        if (r > 0) {
+                                if (space)
+                                        fputc(' ', f);
+                                serialize_in6_addrs(f, in6_addrs, r);
+                                space = true;
                         }
                 }
 
@@ -2284,6 +2305,32 @@ int link_save(Link *link) {
                                 if (space)
                                         fputc(' ', f);
                                 serialize_in_addrs(f, addresses, r);
+                                space = true;
+                        }
+                }
+
+                if (link->network->dhcp_ntp && dhcp6_lease) {
+                        struct in6_addr *in6_addrs;
+                        char **hosts;
+                        char **hostname;
+
+                        r = sd_dhcp6_lease_get_ntp_addrs(dhcp6_lease,
+                                                         &in6_addrs);
+                        if (r > 0) {
+                                if (space)
+                                        fputc(' ', f);
+                                serialize_in6_addrs(f, in6_addrs, r);
+                                space = true;
+                        }
+
+                        r = sd_dhcp6_lease_get_ntp_fqdn(dhcp6_lease, &hosts);
+                        if (r > 0) {
+                                STRV_FOREACH(hostname, hosts) {
+                                        if (space)
+                                                fputc(' ', f);
+                                        fputs(*hostname, f);
+                                        space = true;
+                                }
                         }
                 }
 
@@ -2307,6 +2354,21 @@ int link_save(Link *link) {
                                 if (space)
                                         fputc(' ', f);
                                 fputs(domainname, f);
+                                space = true;
+                        }
+                }
+
+                if (link->network->dhcp_domains && dhcp6_lease) {
+                        char **domains;
+
+                        r = sd_dhcp6_lease_get_domains(dhcp6_lease, &domains);
+                        if (r >= 0) {
+                                STRV_FOREACH(domain, domains) {
+                                        if (space)
+                                                fputc(' ', f);
+                                        fputs(*domain, f);
+                                        space = true;
+                                }
                         }
                 }
 
