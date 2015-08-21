@@ -271,6 +271,8 @@ static int dns_transaction_open_tcp(DnsTransaction *t) {
                                 return r;
                         if (r == 0)
                                 return -EINVAL;
+                        if (family != t->scope->family)
+                                return -EAFNOSUPPORT;
 
                         fd = dns_scope_tcp_socket(t->scope, family, &address, LLMNR_PORT, NULL);
                 }
