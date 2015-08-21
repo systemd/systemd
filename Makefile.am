@@ -1367,7 +1367,9 @@ manual_tests += \
 	test-watchdog \
 	test-log \
 	test-ipcrm \
-	test-btrfs
+	test-btrfs \
+	test-acd \
+	test-ipv4ll-manual
 
 if HAVE_LIBIPTC
 manual_tests += \
@@ -3278,6 +3280,22 @@ test_ipv4ll_SOURCES = \
 	src/libsystemd-network/test-ipv4ll.c
 
 test_ipv4ll_LDADD = \
+	libsystemd-network.la \
+	libshared.la
+
+test_ipv4ll_manual_SOURCES = \
+	src/systemd/sd-ipv4ll.h \
+	src/libsystemd-network/test-ipv4ll-manual.c
+
+test_ipv4ll_manual_LDADD = \
+	libsystemd-network.la \
+	libshared.la
+
+test_acd_SOURCES = \
+	src/systemd/sd-ipv4acd.h \
+	src/libsystemd-network/test-acd.c
+
+test_acd_LDADD = \
 	libsystemd-network.la \
 	libshared.la
 
