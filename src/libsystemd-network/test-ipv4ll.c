@@ -168,6 +168,8 @@ static void test_basic_request(sd_event *e) {
         sd_event_run(e, (uint64_t) -1);
         assert_se(sd_ipv4ll_start(ll) == -EBUSY);
 
+        assert_se(sd_ipv4ll_is_running(ll));
+
         /* PROBE */
         sd_event_run(e, (uint64_t) -1);
         assert_se(read(test_fd[1], &arp, sizeof(struct ether_arp)) == sizeof(struct ether_arp));
@@ -195,6 +197,10 @@ static void test_basic_request(sd_event *e) {
 
 int main(int argc, char *argv[]) {
         _cleanup_event_unref_ sd_event *e = NULL;
+
+        log_set_max_level(LOG_DEBUG);
+        log_parse_environment();
+        log_open();
 
         assert_se(sd_event_new(&e) >= 0);
 
