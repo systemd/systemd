@@ -658,7 +658,6 @@ static int parse_argv(int argc, char *argv[]) {
                         const char *current = optarg;
                         _cleanup_free_ char *source = NULL, *destination = NULL;
                         CustomMount *m;
-                        _cleanup_strv_free_ char **strv = NULL;
 
                         r = extract_many_words(&current, ":", EXTRACT_DONT_COALESCE_SEPARATORS, &source, &destination, NULL);
                         switch (r) {
