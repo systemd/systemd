@@ -68,8 +68,10 @@ int dns_question_add(DnsQuestion *q, DnsResourceKey *key) {
         unsigned i;
         int r;
 
-        assert(q);
         assert(key);
+
+        if (!q)
+                return -ENOSPC;
 
         for (i = 0; i < q->n_keys; i++) {
                 r = dns_resource_key_equal(q->keys[i], key);
@@ -90,8 +92,10 @@ int dns_question_matches_rr(DnsQuestion *q, DnsResourceRecord *rr) {
         unsigned i;
         int r;
 
-        assert(q);
         assert(rr);
+
+        if (!q)
+                return 0;
 
         for (i = 0; i < q->n_keys; i++) {
                 r = dns_resource_key_match_rr(q->keys[i], rr);
@@ -106,8 +110,10 @@ int dns_question_matches_cname(DnsQuestion *q, DnsResourceRecord *rr) {
         unsigned i;
         int r;
 
-        assert(q);
         assert(rr);
+
+        if (!q)
+                return 0;
 
         for (i = 0; i < q->n_keys; i++) {
                 r = dns_resource_key_match_cname(q->keys[i], rr);
@@ -123,7 +129,8 @@ int dns_question_is_valid(DnsQuestion *q) {
         unsigned i;
         int r;
 
-        assert(q);
+        if (!q)
+                return 0;
 
         if (q->n_keys <= 0)
                 return 0;
@@ -151,15 +158,18 @@ int dns_question_is_superset(DnsQuestion *q, DnsQuestion *other) {
         unsigned j;
         int r;
 
-        assert(q);
-        assert(other);
-
         /* Checks if all keys in "other" are also contained in "q" */
+
+        if (!other)
+                return 1;
 
         for (j = 0; j < other->n_keys; j++) {
                 DnsResourceKey *b = other->keys[j];
                 bool found = false;
                 unsigned i;
+
+                if (!q)
+                        return 0;
 
                 for (i = 0; i < q->n_keys; i++) {
                         DnsResourceKey *a = q->keys[i];
@@ -192,8 +202,10 @@ int dns_question_contains(DnsQuestion *a, DnsResourceKey *k) {
         unsigned j;
         int r;
 
-        assert(a);
         assert(k);
+
+        if (!a)
+                return 0;
 
         for (j = 0; j < a->n_keys; j++) {
                 r = dns_resource_key_equal(a->keys[j], k);
@@ -208,8 +220,10 @@ int dns_question_is_equal(DnsQuestion *a, DnsQuestion *b) {
         unsigned j;
         int r;
 
-        assert(a);
-        assert(b);
+        if (!a)
+                return !b || b->n_keys == 0;
+        if (!b)
+                return a->n_keys == 0;
 
         /* Checks if all keys in a are also contained b, and vice versa */
 
@@ -234,9 +248,18 @@ int dns_question_cname_redirect(DnsQuestion *q, const char *name, DnsQuestion **
         unsigned i;
         int r;
 
-        assert(q);
         assert(name);
         assert(ret);
+
+        if (!q) {
+                n = dns_question_new(0);
+                if (!n)
+                        return -ENOMEM;
+
+                *ret = n;
+                n = 0;
+                return 0;
+        }
 
         for (i = 0; i < q->n_keys; i++) {
                 r = dns_name_equal(DNS_RESOURCE_KEY_NAME(q->keys[i]), name);
@@ -281,8 +304,10 @@ int dns_question_cname_redirect(DnsQuestion *q, const char *name, DnsQuestion **
 int dns_question_endswith(DnsQuestion *q, const char *suffix) {
         unsigned i;
 
-        assert(q);
         assert(suffix);
+
+        if (!q)
+                return 1;
 
         for (i = 0; i < q->n_keys; i++) {
                 int k;
@@ -298,9 +323,11 @@ int dns_question_endswith(DnsQuestion *q, const char *suffix) {
 int dns_question_extract_reverse_address(DnsQuestion *q, int *family, union in_addr_union *address) {
         unsigned i;
 
-        assert(q);
         assert(family);
         assert(address);
+
+        if (!q)
+                return 0;
 
         for (i = 0; i < q->n_keys; i++) {
                 int k;
