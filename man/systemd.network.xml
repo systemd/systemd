@@ -828,6 +828,18 @@ Name=em1
 [Network]
 Tunnel=vti-tun</programlisting>
     </example>
+
+    <example>
+      <title>/etc/systemd/network/bond.network</title>
+
+      <programlisting>[Match]
+Name=bond1
+
+[Network]
+DHCP=yes
+</programlisting>
+    </example>
+
   </refsect1>
 
   <refsect1>
