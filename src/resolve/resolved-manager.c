@@ -1405,7 +1405,6 @@ void manager_flush_dns_servers(Manager *m, DnsServerType t) {
 }
 
 int manager_is_own_hostname(Manager *m, const char *name) {
-        _cleanup_free_ char *l = NULL;
         int r;
 
         assert(m);
