@@ -3198,6 +3198,7 @@ libsystemd_network_la_SOURCES = \
 	src/systemd/sd-dhcp-server.h \
 	src/systemd/sd-dhcp-lease.h \
 	src/systemd/sd-ipv4ll.h \
+	src/systemd/sd-ipv4acd.h \
 	src/systemd/sd-icmp6-nd.h \
 	src/systemd/sd-dhcp6-client.h \
 	src/systemd/sd-dhcp6-lease.h \
@@ -3214,6 +3215,7 @@ libsystemd_network_la_SOURCES = \
 	src/libsystemd-network/dhcp-lease-internal.h \
 	src/libsystemd-network/sd-dhcp-lease.c \
 	src/libsystemd-network/sd-ipv4ll.c \
+	src/libsystemd-network/sd-ipv4acd.c \
 	src/libsystemd-network/arp-util.h \
 	src/libsystemd-network/arp-util.c \
 	src/libsystemd-network/sd-pppoe.c \
