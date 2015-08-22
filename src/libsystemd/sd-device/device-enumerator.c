@@ -719,6 +719,8 @@ static int parent_add_child(sd_device_enumerator *enumerator, const char *path) 
                 return r;
 
         r = sd_device_get_subsystem(device, &subsystem);
+        if (r == -ENOENT)
+                return 0;
         if (r < 0)
                 return r;
 
