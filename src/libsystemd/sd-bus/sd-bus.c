@@ -33,6 +33,7 @@
 #include "missing.h"
 #include "def.h"
 #include "cgroup-util.h"
+#include "hostname-util.h"
 #include "bus-label.h"
 
 #include "sd-bus.h"

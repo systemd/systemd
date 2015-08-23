@@ -33,6 +33,7 @@
 #include "btrfs-util.h"
 #include "formats-util.h"
 #include "process-util.h"
+#include "hostname-util.h"
 #include "machine-image.h"
 #include "machine-pool.h"
 #include "image-dbus.h"

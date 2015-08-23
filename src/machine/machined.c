@@ -30,6 +30,7 @@
 #include "label.h"
 #include "formats-util.h"
 #include "signal-util.h"
+#include "hostname-util.h"
 #include "machine-image.h"
 #include "machined.h"
 

@@ -3006,21 +3006,6 @@ char* strshorten(char *s, size_t l) {
         return s;
 }
 
-bool machine_name_is_valid(const char *s) {
-
-        if (!hostname_is_valid(s, false))
-                return false;
-
-        /* Machine names should be useful hostnames, but also be
-         * useful in unit names, hence we enforce a stricter length
-         * limitation. */
-
-        if (strlen(s) > 64)
-                return false;
-
-        return true;
-}
-
 int pipe_eof(int fd) {
         struct pollfd pollfd = {
                 .fd = fd,

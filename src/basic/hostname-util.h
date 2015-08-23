@@ -32,6 +32,8 @@ char* gethostname_malloc(void);
 bool hostname_is_valid(const char *s, bool allow_trailing_dot) _pure_;
 char* hostname_cleanup(char *s);
 
+#define machine_name_is_valid(s) hostname_is_valid(s, false)
+
 bool is_localhost(const char *hostname);
 bool is_gateway_hostname(const char *hostname);
 

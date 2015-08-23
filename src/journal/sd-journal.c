@@ -43,6 +43,7 @@
 #include "replace-var.h"
 #include "fileio.h"
 #include "formats-util.h"
+#include "hostname-util.h"
 
 #define JOURNAL_FILES_MAX 7168
 

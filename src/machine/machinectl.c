@@ -56,6 +56,7 @@
 #include "terminal-util.h"
 #include "signal-util.h"
 #include "env-util.h"
+#include "hostname-util.h"
 
 static char **arg_property = NULL;
 static bool arg_all = false;

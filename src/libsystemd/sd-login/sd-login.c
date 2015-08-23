@@ -32,6 +32,7 @@
 #include "fileio.h"
 #include "login-util.h"
 #include "formats-util.h"
+#include "hostname-util.h"
 #include "sd-login.h"
 
 _public_ int sd_pid_get_session(pid_t pid, char **session) {

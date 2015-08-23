@@ -34,6 +34,7 @@
 #include "formats-util.h"
 #include "process-util.h"
 #include "terminal-util.h"
+#include "hostname-util.h"
 
 /* up to three lines (each up to 100 characters),
    or 300 characters, whichever is less */

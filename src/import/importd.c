@@ -35,6 +35,7 @@
 #include "import-util.h"
 #include "process-util.h"
 #include "signal-util.h"
+#include "hostname-util.h"
 
 typedef struct Transfer Transfer;
 typedef struct Manager Manager;

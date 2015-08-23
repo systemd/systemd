@@ -26,6 +26,7 @@
 #include "util.h"
 #include "path-util.h"
 #include "btrfs-util.h"
+#include "hostname-util.h"
 #include "copy.h"
 #include "mkdir.h"
 #include "rm-rf.h"

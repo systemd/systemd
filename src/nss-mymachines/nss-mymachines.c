@@ -30,6 +30,7 @@
 #include "bus-util.h"
 #include "bus-common-errors.h"
 #include "in-addr-util.h"
+#include "hostname-util.h"
 
 NSS_GETHOSTBYNAME_PROTOTYPES(mymachines);
 NSS_GETPW_PROTOTYPES(mymachines);
