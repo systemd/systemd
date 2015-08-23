@@ -637,6 +637,27 @@ static int method_open_machine_login(sd_bus_message *message, void *userdata, sd
         return bus_machine_method_open_login(message, machine, error);
 }
 
+static int method_open_machine_shell(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Manager *m = userdata;
+        Machine *machine;
+        const char *name;
+
+        int r;
+
+        assert(message);
+        assert(m);
+
+        r = sd_bus_message_read(message, "s", &name);
+        if (r < 0)
+                return r;
+
+        machine = hashmap_get(m->machines, name);
+        if (!machine)
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_MACHINE, "No machine '%s' known", name);
+
+        return bus_machine_method_open_shell(message, machine, error);
+}
+
 static int method_bind_mount_machine(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
         Machine *machine;
@@ -1085,6 +1106,7 @@ const sd_bus_vtable manager_vtable[] = {
         SD_BUS_METHOD("GetMachineOSRelease", "s", "a{ss}", method_get_machine_os_release, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("OpenMachinePTY", "s", "hs", method_open_machine_pty, 0),
         SD_BUS_METHOD("OpenMachineLogin", "s", "hs", method_open_machine_login, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("OpenMachineShell", "sssasas", "hs", method_open_machine_shell, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("BindMountMachine", "sssbb", NULL, method_bind_mount_machine, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("CopyFromMachine", "sss", NULL, method_copy_machine, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("CopyToMachine", "sss", NULL, method_copy_machine, SD_BUS_VTABLE_UNPRIVILEGED),

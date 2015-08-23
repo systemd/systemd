@@ -44,6 +44,7 @@
 #include "machine-dbus.h"
 #include "formats-util.h"
 #include "process-util.h"
+#include "env-util.h"
 
 static int property_get_id(
                 sd_bus *bus,
@@ -451,14 +452,43 @@ int bus_machine_method_open_pty(sd_bus_message *message, void *userdata, sd_bus_
         return sd_bus_send(NULL, reply, NULL);
 }
 
+static int container_bus_new(Machine *m, sd_bus **ret) {
+        _cleanup_bus_unref_ sd_bus *bus = NULL;
+        char *address;
+        int r;
+
+        assert(m);
+        assert(ret);
+
+        r = sd_bus_new(&bus);
+        if (r < 0)
+                return r;
+
+        if (asprintf(&address, "x-machine-kernel:pid=%1$" PID_PRI ";x-machine-unix:pid=%1$" PID_PRI, m->leader) < 0)
+                return -ENOMEM;
+
+        bus->address = address;
+        bus->bus_client = true;
+        bus->trusted = false;
+        bus->is_system = true;
+
+        r = sd_bus_start(bus);
+        if (r < 0)
+                return r;
+
+        *ret = bus;
+        bus = NULL;
+
+        return 0;
+}
+
 int bus_machine_method_open_login(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-        _cleanup_free_ char *pty_name = NULL, *getty = NULL;
+        _cleanup_free_ char *pty_name = NULL;
         _cleanup_bus_unref_ sd_bus *container_bus = NULL;
         _cleanup_close_ int master = -1;
         Machine *m = userdata;
-        const char *p;
-        char *address;
+        const char *p, *getty;
         int r;
 
         assert(message);
@@ -495,26 +525,11 @@ int bus_machine_method_open_login(sd_bus_message *message, void *userdata, sd_bu
         if (unlockpt(master) < 0)
                 return -errno;
 
-        r = sd_bus_new(&container_bus);
+        r = container_bus_new(m, &container_bus);
         if (r < 0)
                 return r;
 
-#  define ADDRESS_FMT "x-machine-kernel:pid=%1$" PID_PRI ";x-machine-unix:pid=%1$" PID_PRI
-        if (asprintf(&address, ADDRESS_FMT, m->leader) < 0)
-                return log_oom();
-
-        container_bus->address = address;
-        container_bus->bus_client = true;
-        container_bus->trusted = false;
-        container_bus->is_system = true;
-
-        r = sd_bus_start(container_bus);
-        if (r < 0)
-                return r;
-
-        getty = strjoin("container-getty@", p, ".service", NULL);
-        if (!getty)
-                return log_oom();
+        getty = strjoina("container-getty@", p, ".service");
 
         r = sd_bus_call_method(
                         container_bus,
@@ -524,6 +539,232 @@ int bus_machine_method_open_login(sd_bus_message *message, void *userdata, sd_bu
                         "StartUnit",
                         error, NULL,
                         "ss", getty, "replace");
+        if (r < 0)
+                return r;
+
+        container_bus = sd_bus_unref(container_bus);
+
+        r = sd_bus_message_new_method_return(message, &reply);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(reply, "hs", master, pty_name);
+        if (r < 0)
+                return r;
+
+        return sd_bus_send(NULL, reply, NULL);
+}
+
+int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL, *tm = NULL;
+        _cleanup_free_ char *pty_name = NULL;
+        _cleanup_bus_unref_ sd_bus *container_bus = NULL;
+        _cleanup_close_ int master = -1;
+        _cleanup_strv_free_ char **env = NULL, **args = NULL;
+        Machine *m = userdata;
+        const char *p, *unit, *user, *path, *description, *utmp_id;
+        int r;
+
+        assert(message);
+        assert(m);
+
+        r = sd_bus_message_read(message, "ss", &user, &path);
+        if (r < 0)
+                return r;
+        if (isempty(user))
+                user = NULL;
+        if (isempty(path))
+                path = "/bin/sh";
+        if (!path_is_absolute(path))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Specified path '%s' is not absolute", path);
+
+        r = sd_bus_message_read_strv(message, &args);
+        if (r < 0)
+                return r;
+        if (strv_isempty(args)) {
+                args = strv_free(args);
+
+                args = strv_new(path, NULL);
+                if (!args)
+                        return -ENOMEM;
+
+                args[0][0] = '-'; /* Tell /bin/sh that this shall be a login shell */
+        }
+
+        r = sd_bus_message_read_strv(message, &env);
+        if (r < 0)
+                return r;
+        if (!strv_env_is_valid(env))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid environment assignments");
+
+        if (m->class != MACHINE_CONTAINER)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Opening shells is only supported on container machines.");
+
+        r = bus_verify_polkit_async(
+                        message,
+                        CAP_SYS_ADMIN,
+                        "org.freedesktop.machine1.shell",
+                        false,
+                        UID_INVALID,
+                        &m->manager->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
+
+        master = openpt_in_namespace(m->leader, O_RDWR|O_NOCTTY|O_CLOEXEC);
+        if (master < 0)
+                return master;
+
+        r = ptsname_malloc(master, &pty_name);
+        if (r < 0)
+                return r;
+
+        p = path_startswith(pty_name, "/dev/pts/");
+        if (!p)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "PTS name %s is invalid", pty_name);
+
+        utmp_id = path_startswith(pty_name, "/dev/");
+        assert(utmp_id);
+
+        if (unlockpt(master) < 0)
+                return -errno;
+
+        r = container_bus_new(m, &container_bus);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_new_method_call(
+                        container_bus,
+                        &tm,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "StartTransientUnit");
+        if (r < 0)
+                return r;
+
+        unit = strjoina("container-shell@", p, ".service", NULL);
+
+        /* Name and mode */
+        r = sd_bus_message_append(tm, "ss", unit, "fail");
+        if (r < 0)
+                return r;
+
+        /* Properties */
+        r = sd_bus_message_open_container(tm, 'a', "(sv)");
+        if (r < 0)
+                return r;
+
+        description = strjoina("Shell for User ", isempty(user) ? "root" : user);
+        r = sd_bus_message_append(tm,
+                                  "(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)",
+                                  "Description", "s", description,
+                                  "StandardInput", "s", "tty",
+                                  "StandardOutput", "s", "tty",
+                                  "StandardError", "s", "tty",
+                                  "TTYPath", "s", pty_name,
+                                  "SendSIGHUP", "b", true,
+                                  "IgnoreSIGPIPE", "b", false,
+                                  "KillMode", "s", "mixed",
+                                  "TTYVHangup", "b", true,
+                                  "TTYReset", "b", true,
+                                  "UtmpIdentifier", "s", utmp_id,
+                                  "UtmpMode", "s", "user",
+                                  "PAMName", "s", "login");
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(tm, "(sv)", "User", "s", isempty(user) ? "root" : user);
+        if (r < 0)
+                return r;
+
+        if (!strv_isempty(env)) {
+                r = sd_bus_message_open_container(tm, 'r', "sv");
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_append(tm, "s", "Environment");
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_open_container(tm, 'v', "as");
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_append_strv(tm, env);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_close_container(tm);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_close_container(tm);
+                if (r < 0)
+                        return r;
+        }
+
+        /* Exec container */
+        r = sd_bus_message_open_container(tm, 'r', "sv");
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(tm, "s", "ExecStart");
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_open_container(tm, 'v', "a(sasb)");
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_open_container(tm, 'a', "(sasb)");
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_open_container(tm, 'r', "sasb");
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(tm, "s", path);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append_strv(tm, args);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(tm, "b", true);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_close_container(tm);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_close_container(tm);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_close_container(tm);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_close_container(tm);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_close_container(tm);
+        if (r < 0)
+                return r;
+
+        /* Auxiliary units */
+        r = sd_bus_message_append(tm, "a(sa(sv))", 0);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_call(container_bus, tm, 0, error, NULL);
         if (r < 0)
                 return r;
 
@@ -968,6 +1209,7 @@ const sd_bus_vtable machine_vtable[] = {
         SD_BUS_METHOD("GetOSRelease", NULL, "a{ss}", bus_machine_method_get_os_release, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("OpenPTY", NULL, "hs", bus_machine_method_open_pty, 0),
         SD_BUS_METHOD("OpenLogin", NULL, "hs", bus_machine_method_open_login, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("OpenShell", "ssasas", "hs", bus_machine_method_open_shell, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("BindMount", "ssbb", NULL, bus_machine_method_bind_mount, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("CopyFrom", "ss", NULL, bus_machine_method_copy, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("CopyTo", "ss", NULL, bus_machine_method_copy, SD_BUS_VTABLE_UNPRIVILEGED),

@@ -35,6 +35,7 @@ int bus_machine_method_get_addresses(sd_bus_message *message, void *userdata, sd
 int bus_machine_method_get_os_release(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_machine_method_open_pty(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_machine_method_open_login(sd_bus_message *message, void *userdata, sd_bus_error *error);
+int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_machine_method_copy(sd_bus_message *message, void *userdata, sd_bus_error *error);
 
