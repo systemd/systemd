@@ -31,6 +31,7 @@
 #include <grp.h>
 #include <poll.h>
 #include <glob.h>
+#include <utmpx.h>
 #include <sys/personality.h>
 
 #ifdef HAVE_PAM
@@ -1504,7 +1505,11 @@ static int exec_child(
                 }
 
         if (context->utmp_id)
-                utmp_put_init_process(context->utmp_id, getpid(), getsid(0), context->tty_path);
+                utmp_put_init_process(context->utmp_id, getpid(), getsid(0), context->tty_path,
+                                      context->utmp_mode == EXEC_UTMP_INIT  ? INIT_PROCESS :
+                                      context->utmp_mode == EXEC_UTMP_LOGIN ? LOGIN_PROCESS :
+                                      USER_PROCESS,
+                                      username ? "root" : context->user);
 
         if (context->user && is_terminal_input(context->std_input)) {
                 r = chown_terminal(STDIN_FILENO, uid);
@@ -2968,3 +2973,11 @@ static const char* const exec_output_table[_EXEC_OUTPUT_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(exec_output, ExecOutput);
+
+static const char* const exec_utmp_mode_table[_EXEC_UTMP_MODE_MAX] = {
+        [EXEC_UTMP_INIT] = "init",
+        [EXEC_UTMP_LOGIN] = "login",
+        [EXEC_UTMP_USER] = "user",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(exec_utmp_mode, ExecUtmpMode);
