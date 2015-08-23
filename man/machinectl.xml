@@ -1,4 +1,4 @@
-<?xml version='1.0'?> <!--*-nxml-*-->
+<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
@@ -138,13 +138,36 @@
       </varlistentry>
 
       <varlistentry>
+         <term><option>--uid=</option></term>
+
+         <listitem><para>When used with the <command>shell</command>
+         command, chooses the user ID to open the interactive shell
+         session as. If this switch is not specified, defaults to
+         <literal>root</literal>. Note that this switch is not
+         supported for the <command>login</command> command (see
+         below).</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+         <term><option>--setenv=</option></term>
+
+         <listitem><para>When used with the <command>shell</command>
+         command, sets an environment variable to pass to the executed
+         shell. Takes a pair of environment variable name and value,
+         separated by <literal>=</literal> as argument. This switch
+         may be used multiple times to set multiple environment
+         variables. Note that this switch is not supported for the
+         <command>login</command> command (see
+         below).</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--mkdir</option></term>
 
         <listitem><para>When used with <command>bind</command> creates
         the destination directory before applying the bind
         mount.</para></listitem>
       </varlistentry>
-
 
       <varlistentry>
         <term><option>--read-only</option></term>
@@ -318,7 +341,7 @@
       <varlistentry>
         <term><command>login</command> <replaceable>NAME</replaceable></term>
 
-        <listitem><para>Open an interactive terminal login session to
+        <listitem><para>Open an interactive terminal login session in
         a container. This will create a TTY connection to a specific
         container and asks for the execution of a getty on it. Note
         that this is only supported for containers running
@@ -327,10 +350,25 @@
 
         <para>This command will open a full login prompt on the
         container, which then asks for username and password. Use
+        <command>shell</command> (see below) or
         <citerefentry><refentrytitle>systemd-run</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         with the <option>--machine=</option> switch to invoke a single
         command, either interactively or in the background within a
         local container.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>shell</command> <replaceable>NAME</replaceable> [<replaceable>PATH</replaceable> [<replaceable>ARGUMENTS</replaceable>...]] </term>
+
+        <listitem><para>Open an interactive shell session in a
+        container. This works similar to <command>login</command> but
+        immediately invokes a user process. Invokes the specified
+        executable with the specified arguments, or
+        <filename>/bin/sh</filename> if none is specified. By default
+        opens a <literal>root</literal> shell, but using
+        <option>--uid=</option> a different user may be selected. Use
+        <option>--setenv=</option> to set environment variables for
+        the executed process.</para></listitem>
       </varlistentry>
 
       <varlistentry>

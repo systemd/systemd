@@ -55,6 +55,7 @@
 #include "process-util.h"
 #include "terminal-util.h"
 #include "signal-util.h"
+#include "env-util.h"
 
 static char **arg_property = NULL;
 static bool arg_all = false;
@@ -75,6 +76,8 @@ static bool arg_force = false;
 static ImportVerify arg_verify = IMPORT_VERIFY_SIGNATURE;
 static const char* arg_dkr_index_url = NULL;
 static const char* arg_format = NULL;
+static const char *arg_uid = NULL;
+static char **arg_setenv = NULL;
 
 static void pager_open_if_enabled(void) {
 
@@ -1170,19 +1173,66 @@ static int on_machine_removed(sd_bus_message *m, void *userdata, sd_bus_error *r
         return 0;
 }
 
-static int login_machine(int argc, char *argv[], void *userdata) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-        _cleanup_bus_slot_unref_ sd_bus_slot *slot = NULL;
-        _cleanup_(pty_forward_freep) PTYForward *forward = NULL;
-        _cleanup_event_unref_ sd_event *event = NULL;
-        int master = -1, r, ret = 0;
-        sd_bus *bus = userdata;
-        const char *pty, *match;
+static int process_forward(sd_event *event, PTYForward **forward, int master, bool ignore_vhangup, const char *name) {
         char last_char = 0;
         bool machine_died;
+        int ret = 0, r;
+
+        assert(event);
+        assert(master >= 0);
+        assert(name);
+
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGWINCH, SIGTERM, SIGINT, -1) >= 0);
+
+        log_info("Connected to machine %s. Press ^] three times within 1s to exit session.", name);
+
+        sd_event_add_signal(event, NULL, SIGINT, NULL, NULL);
+        sd_event_add_signal(event, NULL, SIGTERM, NULL, NULL);
+
+        r = pty_forward_new(event, master, ignore_vhangup, false, forward);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create PTY forwarder: %m");
+
+        r = sd_event_loop(event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to run event loop: %m");
+
+        pty_forward_get_last_char(*forward, &last_char);
+
+        machine_died =
+                ignore_vhangup &&
+                pty_forward_get_ignore_vhangup(*forward) == 0;
+
+        *forward = pty_forward_free(*forward);
+
+        if (last_char != '\n')
+                fputc('\n', stdout);
+
+        if (machine_died)
+                log_info("Machine %s terminated.", name);
+        else
+                log_info("Connection to machine %s terminated.", name);
+
+        sd_event_get_exit_code(event, &ret);
+        return ret;
+}
+
+static int login_machine(int argc, char *argv[], void *userdata) {
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL, *m = NULL;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(pty_forward_freep) PTYForward *forward = NULL;
+        _cleanup_bus_slot_unref_ sd_bus_slot *slot = NULL;
+        _cleanup_event_unref_ sd_event *event = NULL;
+        int master = -1, r;
+        sd_bus *bus = userdata;
+        const char *pty, *match;
 
         assert(bus);
+
+        if (!strv_isempty(arg_setenv) || arg_uid) {
+                log_error("--setenv= and --uid= are not supported for 'login'. Use 'shell' instead.");
+                return -EINVAL;
+        }
 
         if (arg_transport != BUS_TRANSPORT_LOCAL &&
             arg_transport != BUS_TRANSPORT_MACHINE) {
@@ -1201,13 +1251,13 @@ static int login_machine(int argc, char *argv[], void *userdata) {
                 return log_error_errno(r, "Failed to attach bus to event loop: %m");
 
         match = strjoina("type='signal',"
-                           "sender='org.freedesktop.machine1',"
-                           "path='/org/freedesktop/machine1',",
-                           "interface='org.freedesktop.machine1.Manager',"
-                           "member='MachineRemoved',"
-                           "arg0='",
-                           argv[1],
-                           "'");
+                         "sender='org.freedesktop.machine1',"
+                         "path='/org/freedesktop/machine1',",
+                         "interface='org.freedesktop.machine1.Manager',"
+                         "member='MachineRemoved',"
+                         "arg0='",
+                         argv[1],
+                         "'");
 
         r = sd_bus_add_match(bus, &slot, match, on_machine_removed, &forward);
         if (r < 0)
@@ -1223,7 +1273,7 @@ static int login_machine(int argc, char *argv[], void *userdata) {
                         &reply,
                         "s", argv[1]);
         if (r < 0) {
-                log_error("Failed to get machine PTY: %s", bus_error_message(&error, -r));
+                log_error("Failed to get login PTY: %s", bus_error_message(&error, -r));
                 return r;
         }
 
@@ -1231,36 +1281,83 @@ static int login_machine(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGWINCH, SIGTERM, SIGINT, -1) >= 0);
+        return process_forward(event, &forward, master, true, argv[1]);
+}
 
-        log_info("Connected to machine %s. Press ^] three times within 1s to exit session.", argv[1]);
+static int shell_machine(int argc, char *argv[], void *userdata) {
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL, *m = NULL;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(pty_forward_freep) PTYForward *forward = NULL;
+        _cleanup_bus_slot_unref_ sd_bus_slot *slot = NULL;
+        _cleanup_event_unref_ sd_event *event = NULL;
+        int master = -1, r;
+        sd_bus *bus = userdata;
+        const char *pty, *match;
 
-        sd_event_add_signal(event, NULL, SIGINT, NULL, NULL);
-        sd_event_add_signal(event, NULL, SIGTERM, NULL, NULL);
+        assert(bus);
 
-        r = pty_forward_new(event, master, true, false, &forward);
+        if (arg_transport != BUS_TRANSPORT_LOCAL &&
+            arg_transport != BUS_TRANSPORT_MACHINE) {
+                log_error("Shell only supported on local machines.");
+                return -EOPNOTSUPP;
+        }
+
+        polkit_agent_open_if_enabled();
+
+        r = sd_event_default(&event);
         if (r < 0)
-                return log_error_errno(r, "Failed to create PTY forwarder: %m");
+                return log_error_errno(r, "Failed to get event loop: %m");
 
-        r = sd_event_loop(event);
+        r = sd_bus_attach_event(bus, event, 0);
         if (r < 0)
-                return log_error_errno(r, "Failed to run event loop: %m");
+                return log_error_errno(r, "Failed to attach bus to event loop: %m");
 
-        pty_forward_get_last_char(forward, &last_char);
-        machine_died = pty_forward_get_ignore_vhangup(forward) == 0;
+        match = strjoina("type='signal',"
+                         "sender='org.freedesktop.machine1',"
+                         "path='/org/freedesktop/machine1',",
+                         "interface='org.freedesktop.machine1.Manager',"
+                         "member='MachineRemoved',"
+                         "arg0='",
+                         argv[1],
+                         "'");
 
-        forward = pty_forward_free(forward);
+        r = sd_bus_add_match(bus, &slot, match, on_machine_removed, &forward);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add machine removal match: %m");
 
-        if (last_char != '\n')
-                fputc('\n', stdout);
+        r = sd_bus_message_new_method_call(
+                        bus,
+                        &m,
+                        "org.freedesktop.machine1",
+                        "/org/freedesktop/machine1",
+                        "org.freedesktop.machine1.Manager",
+                        "OpenMachineShell");
+        if (r < 0)
+                return bus_log_create_error(r);
 
-        if (machine_died)
-                log_info("Machine %s terminated.", argv[1]);
-        else
-                log_info("Connection to machine %s terminated.", argv[1]);
+        r = sd_bus_message_append(m, "sss", argv[1], arg_uid, argv[2]);
+        if (r < 0)
+                return bus_log_create_error(r);
 
-        sd_event_get_exit_code(event, &ret);
-        return ret;
+        r = sd_bus_message_append_strv(m, strv_length(argv + 2) <= 1 ? NULL : argv + 2);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append_strv(m, arg_setenv);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_call(bus, m, 0, &error, &reply);
+        if (r < 0) {
+                log_error("Failed to get shell PTY: %s", bus_error_message(&error, -r));
+                return r;
+        }
+
+        r = sd_bus_message_read(reply, "hs", &master, &pty);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        return process_forward(event, &forward, master, false, argv[1]);
 }
 
 static int remove_image(int argc, char *argv[], void *userdata) {
@@ -2314,6 +2411,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "  -l --full                   Do not ellipsize output\n"
                "     --kill-who=WHO           Who to send signal to\n"
                "  -s --signal=SIGNAL          Which signal to send\n"
+               "     --uid=USER               Specify user ID to invoke shell as\n"
+               "     --setenv=VAR=VALUE       Add an environment variable for shell\n"
                "     --read-only              Create read-only bind mount\n"
                "     --mkdir                  Create directory before bind mounting, if missing\n"
                "  -n --lines=INTEGER          Number of journal entries to show\n"
@@ -2331,6 +2430,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  show NAME...                Show properties of one or more VMs/containers\n"
                "  start NAME...               Start container as a service\n"
                "  login NAME                  Get a login prompt on a container\n"
+               "  shell NAME [COMMAND...]     Invoke a shell (or other command) in a container\n"
                "  enable NAME...              Enable automatic container start at boot\n"
                "  disable NAME...             Disable automatic container start at boot\n"
                "  poweroff NAME...            Power off one or more containers\n"
@@ -2378,6 +2478,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_FORCE,
                 ARG_DKR_INDEX_URL,
                 ARG_FORMAT,
+                ARG_UID,
+                ARG_SETENV,
         };
 
         static const struct option options[] = {
@@ -2402,6 +2504,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "force",           no_argument,       NULL, ARG_FORCE           },
                 { "dkr-index-url",   required_argument, NULL, ARG_DKR_INDEX_URL   },
                 { "format",          required_argument, NULL, ARG_FORMAT          },
+                { "uid",             required_argument, NULL, ARG_UID             },
+                { "setenv",          required_argument, NULL, ARG_SETENV          },
                 {}
         };
 
@@ -2532,6 +2636,21 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_format = optarg;
                         break;
 
+                case ARG_UID:
+                        arg_uid = optarg;
+                        break;
+
+                case ARG_SETENV:
+                        if (!env_assignment_is_valid(optarg)) {
+                                log_error("Environment assignment invalid: %s", optarg);
+                                return -EINVAL;
+                        }
+
+                        r = strv_extend(&arg_setenv, optarg);
+                        if (r < 0)
+                                return log_oom();
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -2557,6 +2676,7 @@ static int machinectl_main(int argc, char *argv[], sd_bus *bus) {
                 { "poweroff",        2,        VERB_ANY, 0,            poweroff_machine  },
                 { "kill",            2,        VERB_ANY, 0,            kill_machine      },
                 { "login",           2,        2,        0,            login_machine     },
+                { "shell",           2,        VERB_ANY, 0,            shell_machine     },
                 { "bind",            3,        4,        0,            bind_mount        },
                 { "copy-to",         3,        4,        0,            copy_files        },
                 { "copy-from",       3,        4,        0,            copy_files        },
@@ -2610,6 +2730,7 @@ finish:
         polkit_agent_close();
 
         strv_free(arg_property);
+        strv_free(arg_setenv);
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
