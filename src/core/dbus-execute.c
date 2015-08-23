@@ -935,6 +935,108 @@ int bus_exec_context_set_transient_property(
 
                 return 1;
 
+        } else if (streq(name, "IgnoreSIGPIPE")) {
+                int b;
+
+                r = sd_bus_message_read(message, "b", &b);
+                if (r < 0)
+                        return r;
+
+                if (mode != UNIT_CHECK) {
+                        c->ignore_sigpipe = b;
+
+                        unit_write_drop_in_private_format(u, mode, name, "IgnoreSIGPIPE=%s\n", yes_no(b));
+                }
+
+                return 1;
+
+        } else if (streq(name, "TTYVHangup")) {
+                int b;
+
+                r = sd_bus_message_read(message, "b", &b);
+                if (r < 0)
+                        return r;
+
+                if (mode != UNIT_CHECK) {
+                        c->tty_vhangup = b;
+
+                        unit_write_drop_in_private_format(u, mode, name, "TTYVHangup=%s\n", yes_no(b));
+                }
+
+                return 1;
+
+
+        } else if (streq(name, "TTYReset")) {
+                int b;
+
+                r = sd_bus_message_read(message, "b", &b);
+                if (r < 0)
+                        return r;
+
+                if (mode != UNIT_CHECK) {
+                        c->tty_reset = b;
+
+                        unit_write_drop_in_private_format(u, mode, name, "TTYReset=%s\n", yes_no(b));
+                }
+
+                return 1;
+
+        } else if (streq(name, "UtmpIdentifier")) {
+                const char *id;
+
+                r = sd_bus_message_read(message, "s", &id);
+                if (r < 0)
+                        return r;
+
+                if (mode != UNIT_CHECK) {
+                        if (isempty(id))
+                                c->utmp_id = mfree(c->utmp_id);
+                        else if (free_and_strdup(&c->utmp_id, id) < 0)
+                                return -ENOMEM;
+
+                        unit_write_drop_in_private_format(u, mode, name, "UtmpIdentifier=%s\n", strempty(id));
+                }
+
+                return 1;
+
+        } else if (streq(name, "UtmpMode")) {
+                const char *s;
+                ExecUtmpMode m;
+
+                r = sd_bus_message_read(message, "s", &s);
+                if (r < 0)
+                        return r;
+
+                m = exec_utmp_mode_from_string(s);
+                if (m < 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid utmp mode");
+
+                if (mode != UNIT_CHECK) {
+                        c->utmp_mode = m;
+
+                        unit_write_drop_in_private_format(u, mode, name, "UtmpMode=%s\n", exec_utmp_mode_to_string(m));
+                }
+
+                return 1;
+
+        } else if (streq(name, "PAMName")) {
+                const char *n;
+
+                r = sd_bus_message_read(message, "s", &n);
+                if (r < 0)
+                        return r;
+
+                if (mode != UNIT_CHECK) {
+                        if (isempty(n))
+                                c->pam_name = mfree(c->pam_name);
+                        else if (free_and_strdup(&c->pam_name, n) < 0)
+                                return -ENOMEM;
+
+                        unit_write_drop_in_private_format(u, mode, name, "PAMName=%s\n", strempty(n));
+                }
+
+                return 1;
+
         } else if (streq(name, "Environment")) {
 
                 _cleanup_strv_free_ char **l = NULL;
