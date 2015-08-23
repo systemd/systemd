@@ -791,7 +791,7 @@ _public_ int sd_get_machine_names(char ***machines) {
 
                 /* Filter out the unit: symlinks */
                 for (a = l, b = l; *a; a++) {
-                        if (startswith(*a, "unit:"))
+                        if (startswith(*a, "unit:") || !machine_name_is_valid(*a))
                                 free(*a);
                         else {
                                 *b = *a;

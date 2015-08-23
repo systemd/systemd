@@ -118,6 +118,9 @@ int manager_enumerate_machines(Manager *m) {
                 if (startswith(de->d_name, "unit:"))
                         continue;
 
+                if (!machine_name_is_valid(de->d_name))
+                        continue;
+
                 k = manager_add_machine(m, de->d_name, &machine);
                 if (k < 0) {
                         log_error_errno(k, "Failed to add machine by file name %s: %m", de->d_name);
