@@ -1477,7 +1477,6 @@ int manager_job_is_active(Manager *manager, const char *path) {
 }
 
 int manager_get_machine_by_pid(Manager *m, pid_t pid, Machine **machine) {
-        _cleanup_free_ char *unit = NULL;
         Machine *mm;
         int r;
 
@@ -1485,12 +1484,14 @@ int manager_get_machine_by_pid(Manager *m, pid_t pid, Machine **machine) {
         assert(pid >= 1);
         assert(machine);
 
-        r = cg_pid_get_unit(pid, &unit);
-        if (r < 0)
-                mm = hashmap_get(m->machine_leaders, UINT_TO_PTR(pid));
-        else
-                mm = hashmap_get(m->machine_units, unit);
+        mm = hashmap_get(m->machine_leaders, UINT_TO_PTR(pid));
+        if (!mm) {
+                _cleanup_free_ char *unit = NULL;
 
+                r = cg_pid_get_unit(pid, &unit);
+                if (r >= 0)
+                        mm = hashmap_get(m->machine_units, unit);
+        }
         if (!mm)
                 return 0;
 
