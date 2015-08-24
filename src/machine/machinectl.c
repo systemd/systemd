@@ -158,6 +158,9 @@ static int list_machines(int argc, char *argv[], void *userdata) {
         while ((r = sd_bus_message_read(reply, "(ssso)", &name, &class, &service, &object)) > 0) {
                 size_t l;
 
+                if (name[0] == '.' && !arg_all)
+                        continue;
+
                 if (!GREEDY_REALLOC(machines, n_allocated, n_machines + 1))
                         return log_oom();
 
