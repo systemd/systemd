@@ -150,6 +150,7 @@
                         <allow_inactive>auth_admin_keep</allow_inactive>
                         <allow_active>yes</allow_active>
                 </defaults>
+                <annotate key="org.freedesktop.policykit.imply">org.freedesktop.login1.set-wall-message</annotate>
         </action>
 
         <action id="org.freedesktop.login1.power-off-multiple-sessions">
@@ -182,6 +183,7 @@
                         <allow_inactive>auth_admin_keep</allow_inactive>
                         <allow_active>yes</allow_active>
                 </defaults>
+                <annotate key="org.freedesktop.policykit.imply">org.freedesktop.login1.set-wall-message</annotate>
         </action>
 
         <action id="org.freedesktop.login1.reboot-multiple-sessions">
@@ -293,6 +295,16 @@
         <action id="org.freedesktop.login1.set-reboot-to-firmware-setup">
                 <_description>Allow indication to the firmware to boot to setup interface</_description>
                 <_message>Authentication is required to indicate to the firmware to boot to setup interface.</_message>
+                <defaults>
+                        <allow_any>auth_admin_keep</allow_any>
+                        <allow_inactive>auth_admin_keep</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+        </action>
+
+        <action id="org.freedesktop.login1.set-wall-message">
+                <_description>Set a wall message</_description>
+                <_message>Authentication is required to set a wall message</_message>
                 <defaults>
                         <allow_any>auth_admin_keep</allow_any>
                         <allow_inactive>auth_admin_keep</allow_inactive>

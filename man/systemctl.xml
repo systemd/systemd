@@ -474,6 +474,18 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--message=</option></term>
+
+        <listitem>
+          <para>When used with <command>halt</command>,
+          <command>poweroff</command>, <command>reboot</command> or
+          <command>kexec</command>, set a short message explaining the reason
+          for the operation. The message will be logged together with the
+          default shutdown message.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--now</option></term>
 
         <listitem>
