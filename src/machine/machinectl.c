@@ -1186,7 +1186,10 @@ static int process_forward(sd_event *event, PTYForward **forward, int master, bo
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGWINCH, SIGTERM, SIGINT, -1) >= 0);
 
-        log_info("Connected to machine %s. Press ^] three times within 1s to exit session.", name);
+        if (streq(name, ".host"))
+                log_info("Connected to the local host. Press ^] three times within 1s to exit session.");
+        else
+                log_info("Connected to machine %s. Press ^] three times within 1s to exit session.", name);
 
         sd_event_add_signal(event, NULL, SIGINT, NULL, NULL);
         sd_event_add_signal(event, NULL, SIGTERM, NULL, NULL);
@@ -1212,6 +1215,8 @@ static int process_forward(sd_event *event, PTYForward **forward, int master, bo
 
         if (machine_died)
                 log_info("Machine %s terminated.", name);
+        else if (streq(name, ".host"))
+                log_info("Connection to the local host terminated.");
         else
                 log_info("Connection to machine %s terminated.", name);
 
@@ -1227,7 +1232,7 @@ static int login_machine(int argc, char *argv[], void *userdata) {
         _cleanup_event_unref_ sd_event *event = NULL;
         int master = -1, r;
         sd_bus *bus = userdata;
-        const char *pty, *match;
+        const char *pty, *match, *machine;
 
         assert(bus);
 
@@ -1252,14 +1257,14 @@ static int login_machine(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to attach bus to event loop: %m");
 
+        machine = argc < 2 || isempty(argv[1]) ? ".host" : argv[1];
+
         match = strjoina("type='signal',"
                          "sender='org.freedesktop.machine1',"
                          "path='/org/freedesktop/machine1',",
                          "interface='org.freedesktop.machine1.Manager',"
                          "member='MachineRemoved',"
-                         "arg0='",
-                         argv[1],
-                         "'");
+                         "arg0='", machine, "'");
 
         r = sd_bus_add_match(bus, &slot, match, on_machine_removed, &forward);
         if (r < 0)
@@ -1273,7 +1278,7 @@ static int login_machine(int argc, char *argv[], void *userdata) {
                         "OpenMachineLogin",
                         &error,
                         &reply,
-                        "s", argv[1]);
+                        "s", machine);
         if (r < 0) {
                 log_error("Failed to get login PTY: %s", bus_error_message(&error, -r));
                 return r;
@@ -1283,7 +1288,7 @@ static int login_machine(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        return process_forward(event, &forward, master, true, argv[1]);
+        return process_forward(event, &forward, master, true, machine);
 }
 
 static int shell_machine(int argc, char *argv[], void *userdata) {
@@ -1294,7 +1299,7 @@ static int shell_machine(int argc, char *argv[], void *userdata) {
         _cleanup_event_unref_ sd_event *event = NULL;
         int master = -1, r;
         sd_bus *bus = userdata;
-        const char *pty, *match;
+        const char *pty, *match, *machine, *path;
 
         assert(bus);
 
@@ -1314,14 +1319,14 @@ static int shell_machine(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to attach bus to event loop: %m");
 
+        machine = argc < 2 || isempty(argv[1]) ? ".host" : argv[1];
+
         match = strjoina("type='signal',"
                          "sender='org.freedesktop.machine1',"
                          "path='/org/freedesktop/machine1',",
                          "interface='org.freedesktop.machine1.Manager',"
                          "member='MachineRemoved',"
-                         "arg0='",
-                         argv[1],
-                         "'");
+                         "arg0='", machine, "'");
 
         r = sd_bus_add_match(bus, &slot, match, on_machine_removed, &forward);
         if (r < 0)
@@ -1337,11 +1342,13 @@ static int shell_machine(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_message_append(m, "sss", argv[1], arg_uid, argv[2]);
+        path = argc < 3 || isempty(argv[2]) ? NULL : argv[2];
+
+        r = sd_bus_message_append(m, "sss", machine, arg_uid, path);
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_message_append_strv(m, strv_length(argv + 2) <= 1 ? NULL : argv + 2);
+        r = sd_bus_message_append_strv(m, strv_length(argv) <= 3 ? NULL : argv + 2);
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -1359,7 +1366,7 @@ static int shell_machine(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        return process_forward(event, &forward, master, false, argv[1]);
+        return process_forward(event, &forward, master, false, machine);
 }
 
 static int remove_image(int argc, char *argv[], void *userdata) {
@@ -2429,10 +2436,12 @@ static int help(int argc, char *argv[], void *userdata) {
                "Machine Commands:\n"
                "  list                        List running VMs and containers\n"
                "  status NAME...              Show VM/container details\n"
-               "  show NAME...                Show properties of one or more VMs/containers\n"
+               "  show [NAME...]              Show properties of one or more VMs/containers\n"
                "  start NAME...               Start container as a service\n"
-               "  login NAME                  Get a login prompt on a container\n"
-               "  shell NAME [COMMAND...]     Invoke a shell (or other command) in a container\n"
+               "  login [NAME]                Get a login prompt in a container or on the\n"
+               "                              local host\n"
+               "  shell [NAME] [COMMAND...]   Invoke a shell (or other command) in a container\n"
+               "                              or the local host\n"
                "  enable NAME...              Enable automatic container start at boot\n"
                "  disable NAME...             Disable automatic container start at boot\n"
                "  poweroff NAME...            Power off one or more containers\n"
@@ -2444,8 +2453,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "  bind NAME PATH [PATH]       Bind mount a path from the host into a container\n\n"
                "Image Commands:\n"
                "  list-images                 Show available container and VM images\n"
-               "  image-status NAME...        Show image details\n"
-               "  show-image NAME...          Show properties of image\n"
+               "  image-status [NAME...]      Show image details\n"
+               "  show-image [NAME...]        Show properties of image\n"
                "  clone NAME NAME             Clone an image\n"
                "  rename NAME NAME            Rename an image\n"
                "  read-only NAME [BOOL]       Mark or unmark image read-only\n"
@@ -2677,8 +2686,8 @@ static int machinectl_main(int argc, char *argv[], sd_bus *bus) {
                 { "reboot",          2,        VERB_ANY, 0,            reboot_machine    },
                 { "poweroff",        2,        VERB_ANY, 0,            poweroff_machine  },
                 { "kill",            2,        VERB_ANY, 0,            kill_machine      },
-                { "login",           2,        2,        0,            login_machine     },
-                { "shell",           2,        VERB_ANY, 0,            shell_machine     },
+                { "login",           VERB_ANY, 2,        0,            login_machine     },
+                { "shell",           VERB_ANY, VERB_ANY, 0,            shell_machine     },
                 { "bind",            3,        4,        0,            bind_mount        },
                 { "copy-to",         3,        4,        0,            copy_files        },
                 { "copy-from",       3,        4,        0,            copy_files        },

@@ -65,6 +65,43 @@
     <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     virtual machine and container registration manager
     <citerefentry><refentrytitle>systemd-machined.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+    <para><command>machinectl</command> may be used to execute
+    operations on machines and images. Machines in this sense are
+    considered running instances of:</para>
+
+    <itemizedlist>
+      <listitem><para>Virtual Machines (VMs) that virtualize hardware
+      to run full operating system (OS) instances (including their kernels)
+      in a virtualized environment on top of the host OS.</para></listitem>
+
+      <listitem><para>Containers that share the hardware and
+      OS kernel with the host OS, in order to run
+      OS userspace instances on top the host OS.</para></listitem>
+
+      <listitem><para>The host system itself</para></listitem>
+    </itemizedlist>
+
+    <para>Machines are identified by names that follow the same rules
+    as UNIX and DNS host names, for details see below. Machines are
+    instantiated from disk or file system images, that frequently but not
+    necessarily carry the same name as machines running from
+    them. Images in this sense are considered:</para>
+
+    <itemizedlist>
+      <listitem><para>Directory trees containing an OS, including its
+      top-level directories <filename>/usr</filename>,
+      <filename>/etc</filename>, and so on.</para></listitem>
+
+      <listitem><para>btrfs subvolumes containing OS trees, similar to
+      normal directory trees.</para></listitem>
+
+      <listitem><para>Binary "raw" disk images containing MBR or GPT
+      partition tables and Linux file system partitions.</para></listitem>
+
+      <listitem><para>The file system tree of the host OS itself.</para></listitem>
+    </itemizedlist>
+
   </refsect1>
 
   <refsect1>
@@ -270,9 +307,11 @@
         <term><command>list</command></term>
 
         <listitem><para>List currently running (online) virtual
-        machines and containers. To enumerate container images that
-        can be started, use <command>list-images</command> (see
-        below).</para></listitem>
+        machines and containers. To enumerate machine images that can
+        be started, use <command>list-images</command> (see
+        below). Note that this command hides the special
+        <literal>.host</literal> machine by default. Use the
+        <option>--all</option> switch to show it.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -290,7 +329,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>show</command> <replaceable>NAME</replaceable>...</term>
+        <term><command>show</command> [<replaceable>NAME</replaceable>...]</term>
 
         <listitem><para>Show properties of one or more registered
         virtual machines or containers or the manager itself. If no
@@ -339,31 +378,42 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>login</command> <replaceable>NAME</replaceable></term>
+        <term><command>login</command> [<replaceable>NAME</replaceable>]</term>
 
         <listitem><para>Open an interactive terminal login session in
-        a container. This will create a TTY connection to a specific
-        container and asks for the execution of a getty on it. Note
-        that this is only supported for containers running
+        a container or on the local host. If an argument is supplied
+        it refers to the container machine to connect to. If none is
+        specified, or the container name is specified as the empty
+        string, or the special machine name <literal>.host</literal>
+        (see below) is specified, the connection is made to the local
+        host instead. This will create a TTY connection to a specific
+        container or the local host and asks for the execution of a
+        getty on it. Note that this is only supported for containers
+        running
         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         as init system.</para>
 
         <para>This command will open a full login prompt on the
-        container, which then asks for username and password. Use
-        <command>shell</command> (see below) or
+        container or the local host, which then asks for username and
+        password. Use <command>shell</command> (see below) or
         <citerefentry><refentrytitle>systemd-run</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-        with the <option>--machine=</option> switch to invoke a single
-        command, either interactively or in the background within a
-        local container.</para></listitem>
+        with the <option>--machine=</option> switch to directly invoke
+        a single command, either interactively or in the
+        background.</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term><command>shell</command> <replaceable>NAME</replaceable> [<replaceable>PATH</replaceable> [<replaceable>ARGUMENTS</replaceable>...]] </term>
+        <term><command>shell</command> [<replaceable>NAME</replaceable> [<replaceable>PATH</replaceable> [<replaceable>ARGUMENTS</replaceable>...]]] </term>
 
         <listitem><para>Open an interactive shell session in a
-        container. This works similar to <command>login</command> but
-        immediately invokes a user process. Invokes the specified
-        executable with the specified arguments, or
+        container or on the local host. The first argument refers to
+        the container machine to connect to. If none is specified, or
+        the machine name is specified as the empty string, or the
+        special machine name <literal>.host</literal> (see below) is
+        specified, the connection is made to the local host
+        instead. This works similar to <command>login</command> but
+        immediately invokes a user process. This command runs the
+        specified executable with the specified arguments, or
         <filename>/bin/sh</filename> if none is specified. By default
         opens a <literal>root</literal> shell, but using
         <option>--uid=</option> a different user may be selected. Use
@@ -491,7 +541,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>image-status</command> <replaceable>NAME</replaceable>...</term>
+        <term><command>image-status</command> [<replaceable>NAME</replaceable>...]</term>
 
         <listitem><para>Show terse status information about one or
         more container or VM images. This function is intended to
@@ -501,7 +551,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>show-image</command> <replaceable>NAME</replaceable>...</term>
+        <term><command>show-image</command> [<replaceable>NAME</replaceable>...]</term>
 
         <listitem><para>Show properties of one or more registered
         virtual machine or container images, or the manager itself. If
@@ -801,6 +851,41 @@
 
     </variablelist></refsect2>
 
+  </refsect1>
+
+  <refsect1>
+    <title>Machine and Image Names</title>
+
+    <para>The <command>machinectl</command> tool operates on machines
+    and images, whose names must be chosen following strict
+    rules. Machine names must be suitable for use as host names
+    following a conservative subset of DNS and UNIX/Linux
+    semantics. Specifically, they must consist of one or more
+    non-empty label strings, separated by dots. No leading or trailing
+    dots are allowed. No sequences of multiple dots are allowed. The
+    label strings may only consists of alphanumeric characters as well
+    as the dash and underscore. The maximum length of a machine name
+    is 64 characters.</para>
+
+    <para>A special machine with the name <literal>.host</literal>
+    refers to the running host system itself. This is useful for execution
+    operations or inspecting the host system as well. Not that
+    <command>machinectl list</command> will not show this special
+    machine unless the <option>--all</option> switch is specified.</para>
+
+    <para>Requirements on image names are less strict, however must be
+    valid UTF-8, must be suitable as file names (hence not be the
+    single or double dot, and not include a slash), and may not
+    contain control characters. Since many operations search for an
+    image by the name of a requested machine it is recommended to name
+    images in the same strict fashion as machines.</para>
+
+    <para>A special image with the name <literal>.host</literal>
+    refers to the image of the running host system. It is hence
+    conceptually maps to the special <literal>.host</literal> machine
+    name described above. Note that <command>machinectl
+    list-images</command> won't show this special image either, unless
+    <option>--all</option> is specified.</para>
   </refsect1>
 
   <refsect1>
