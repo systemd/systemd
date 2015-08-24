@@ -41,7 +41,7 @@ static const sd_bus_vtable vtable[] = {
         SD_BUS_PROPERTY("AReadOnlyDeprecatedProperty", "(ut)", prop_get, 0, SD_BUS_VTABLE_DEPRECATED),
         SD_BUS_PROPERTY("ChangingProperty", "t", prop_get, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("Invalidating", "t", prop_get, 0, SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
-        SD_BUS_PROPERTY("Constant", "t", prop_get, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("Constant", "t", prop_get, 0, SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_PROPERTY_EXPLICIT),
         SD_BUS_VTABLE_END
 };
 

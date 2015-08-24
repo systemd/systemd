@@ -81,6 +81,9 @@ static void introspect_write_flags(struct introspect *i, int type, int flags) {
                 fputs("   <annotation name=\"org.freedesktop.DBus.Method.NoReply\" value=\"true\"/>\n", i->f);
 
         if (type == _SD_BUS_VTABLE_PROPERTY || type == _SD_BUS_VTABLE_WRITABLE_PROPERTY) {
+                if (flags & SD_BUS_VTABLE_PROPERTY_EXPLICIT)
+                        fputs("   <annotation name=\"org.freedesktop.systemd1.Explicit\" value=\"true\"/>\n", i->f);
+
                 if (flags & SD_BUS_VTABLE_PROPERTY_CONST)
                         fputs("   <annotation name=\"org.freedesktop.DBus.Property.EmitsChangedSignal\" value=\"const\"/>\n", i->f);
                 else if (flags & SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION)
