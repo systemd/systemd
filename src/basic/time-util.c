@@ -88,6 +88,32 @@ dual_timestamp* dual_timestamp_from_monotonic(dual_timestamp *ts, usec_t u) {
         return ts;
 }
 
+dual_timestamp* dual_timestamp_from_boottime_or_monotonic(dual_timestamp *ts, usec_t u) {
+        int64_t delta;
+
+        if (u == USEC_INFINITY) {
+                ts->realtime = ts->monotonic = USEC_INFINITY;
+                return ts;
+        }
+        ts->realtime = now(CLOCK_REALTIME);
+        ts->monotonic = now(CLOCK_MONOTONIC);
+
+        delta = (int64_t) now(clock_boottime_or_monotonic()) - (int64_t) u;
+
+        if ((int64_t) ts->realtime > delta)
+                ts->realtime -= delta;
+        else
+                ts->realtime = 0;
+
+        if ((int64_t) ts->monotonic > delta)
+                ts->monotonic -= delta;
+        else
+                ts->monotonic = 0;
+
+        return ts;
+}
+
+
 usec_t timespec_load(const struct timespec *ts) {
         assert(ts);
 

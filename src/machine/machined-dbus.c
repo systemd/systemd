@@ -1508,7 +1508,7 @@ int manager_add_machine(Manager *m, const char *name, Machine **_machine) {
 
         machine = hashmap_get(m->machines, name);
         if (!machine) {
-                machine = machine_new(m, name);
+                machine = machine_new(m, _MACHINE_CLASS_INVALID, name);
                 if (!machine)
                         return -ENOMEM;
         }
