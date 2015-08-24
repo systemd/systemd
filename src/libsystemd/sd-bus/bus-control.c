@@ -257,7 +257,7 @@ static int kernel_get_list(sd_bus *bus, uint64_t flags, char ***x) {
         KDBUS_FOREACH(name, name_list, cmd.list_size) {
                 struct kdbus_item *item;
 
-                if ((flags & KDBUS_LIST_UNIQUE) && name->id != previous_id) {
+                if ((flags & KDBUS_LIST_UNIQUE) && name->id != previous_id && !(name->flags & KDBUS_HELLO_ACTIVATOR)) {
                         char *n;
 
                         if (asprintf(&n, ":1.%llu", (unsigned long long) name->id) < 0) {
