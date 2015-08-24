@@ -1339,7 +1339,8 @@ static int bus_manager_log_shutdown(
                 InhibitWhat w,
                 const char *unit_name) {
 
-        const char *p, *q;
+        char *p;
+        const char *q;
 
         assert(m);
         assert(unit_name);
@@ -1348,21 +1349,24 @@ static int bus_manager_log_shutdown(
                 return 0;
 
         if (streq(unit_name, SPECIAL_POWEROFF_TARGET)) {
-                p = "MESSAGE=System is powering down.";
+                p = strdup("MESSAGE=System is powering down.");
                 q = "SHUTDOWN=power-off";
         } else if (streq(unit_name, SPECIAL_HALT_TARGET)) {
-                p = "MESSAGE=System is halting.";
+                p = strdup("MESSAGE=System is halting.");
                 q = "SHUTDOWN=halt";
         } else if (streq(unit_name, SPECIAL_REBOOT_TARGET)) {
-                p = "MESSAGE=System is rebooting.";
+                p = strdup("MESSAGE=System is rebooting.");
                 q = "SHUTDOWN=reboot";
         } else if (streq(unit_name, SPECIAL_KEXEC_TARGET)) {
-                p = "MESSAGE=System is rebooting with kexec.";
+                p = strdup("MESSAGE=System is rebooting with kexec.");
                 q = "SHUTDOWN=kexec";
         } else {
-                p = "MESSAGE=System is shutting down.";
+                p = strdup("MESSAGE=System is shutting down.");
                 q = NULL;
         }
+
+        if (m->wall_message)
+                p = strjoin(p, " (", m->wall_message, ")", NULL);
 
         return log_struct(LOG_NOTICE,
                           LOG_MESSAGE_ID(SD_MESSAGE_SHUTDOWN),
@@ -2282,6 +2286,42 @@ static int method_can_reboot_to_firmware_setup(
         return sd_bus_reply_method_return(message, "s", result);
 }
 
+static int method_set_wall_message(
+                sd_bus_message *message,
+                void *userdata,
+                sd_bus_error *error) {
+
+        int r;
+        Manager *m = userdata;
+        char *wall_message;
+        bool enable_wall_messages;
+
+        assert(message);
+        assert(m);
+
+        r = sd_bus_message_read(message, "sb", &wall_message, &enable_wall_messages);
+        if (r < 0)
+                return r;
+
+        r = bus_verify_polkit_async(message,
+                                    CAP_SYS_ADMIN,
+                                    "org.freedesktop.login1.set-wall-message",
+                                    false,
+                                    UID_INVALID,
+                                    &m->polkit_registry,
+                                    error);
+
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
+
+        m->wall_message = strdup(wall_message);
+        m->enable_wall_messages = enable_wall_messages;
+
+        return sd_bus_reply_method_return(message, NULL);
+}
+
 static int method_inhibit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
         const char *who, *why, *what, *mode;
@@ -2396,9 +2436,6 @@ fail:
 const sd_bus_vtable manager_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
-        SD_BUS_WRITABLE_PROPERTY("EnableWallMessages", "b", NULL, NULL, offsetof(Manager, enable_wall_messages), 0),
-        SD_BUS_WRITABLE_PROPERTY("WallMessage", "s", NULL, NULL, offsetof(Manager, wall_message), 0),
-
         SD_BUS_PROPERTY("NAutoVTs", "u", NULL, offsetof(Manager, n_autovts), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("KillOnlyUsers", "as", NULL, offsetof(Manager, kill_only_users), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("KillExcludeUsers", "as", NULL, offsetof(Manager, kill_exclude_users), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -2463,6 +2500,7 @@ const sd_bus_vtable manager_vtable[] = {
         SD_BUS_METHOD("Inhibit", "ssss", "h", method_inhibit, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("CanRebootToFirmwareSetup", NULL, "s", method_can_reboot_to_firmware_setup, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetRebootToFirmwareSetup", "b", NULL, method_set_reboot_to_firmware_setup, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("SetWallMessage", "sb", NULL, method_set_wall_message, SD_BUS_VTABLE_UNPRIVILEGED),
 
         SD_BUS_SIGNAL("SessionNew", "so", 0),
         SD_BUS_SIGNAL("SessionRemoved", "so", 0),
