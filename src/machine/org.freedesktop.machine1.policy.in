@@ -26,6 +26,38 @@
                 </defaults>
         </action>
 
+        <action id="org.freedesktop.machine1.host-login">
+                <_description>Log into the local host</_description>
+                <_message>Authentication is required to log into the local host.</_message>
+                <defaults>
+                        <allow_any>auth_admin</allow_any>
+                        <allow_inactive>auth_admin</allow_inactive>
+                        <allow_active>yes</allow_active>
+                </defaults>
+        </action>
+
+        <action id="org.freedesktop.machine1.shell">
+                <_description>Acquire a shell in a local container</_description>
+                <_message>Authentication is required to acquire a shell in a local container.</_message>
+                <defaults>
+                        <allow_any>auth_admin</allow_any>
+                        <allow_inactive>auth_admin</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+                <annotate key="org.freedesktop.policykit.imply">org.freedesktop.login1.login</annotate>
+        </action>
+
+        <action id="org.freedesktop.machine1.host-shell">
+                <_description>Acquire a shell on the local host</_description>
+                <_message>Authentication is required to acquire a shell on the local host.</_message>
+                <defaults>
+                        <allow_any>auth_admin</allow_any>
+                        <allow_inactive>auth_admin</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+                <annotate key="org.freedesktop.policykit.imply">org.freedesktop.login1.host-login</annotate>
+        </action>
+
         <action id="org.freedesktop.machine1.open-pty">
                 <_description>Acquire a pseudo TTY in a local container</_description>
                 <_message>Authentication is acquire a pseudo TTY in a local container.</_message>
@@ -36,9 +68,9 @@
                 </defaults>
         </action>
 
-        <action id="org.freedesktop.machine1.shell">
-                <_description>Acquire a shell in a local container</_description>
-                <_message>Authentication is required to acquire a shell in a local container.</_message>
+        <action id="org.freedesktop.machine1.host-open-pty">
+                <_description>Acquire a pseudo TTY on the local host</_description>
+                <_message>Authentication is acquire a pseudo TTY on the local host.</_message>
                 <defaults>
                         <allow_any>auth_admin</allow_any>
                         <allow_inactive>auth_admin</allow_inactive>
@@ -54,6 +86,7 @@
                         <allow_inactive>auth_admin</allow_inactive>
                         <allow_active>auth_admin_keep</allow_active>
                 </defaults>
+                <annotate key="org.freedesktop.policykit.imply">org.freedesktop.login1.shell org.freedesktop.login1.login</annotate>
         </action>
 
         <action id="org.freedesktop.machine1.manage-images">

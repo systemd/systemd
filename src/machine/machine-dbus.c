@@ -486,7 +486,7 @@ int bus_machine_method_open_pty(sd_bus_message *message, void *userdata, sd_bus_
         r = bus_verify_polkit_async(
                         message,
                         CAP_SYS_ADMIN,
-                        "org.freedesktop.machine1.open-pty",
+                        m->class == MACHINE_HOST ? "org.freedesktop.machine1.host-open-pty" : "org.freedesktop.machine1.open-pty",
                         false,
                         UID_INVALID,
                         &m->manager->polkit_registry,
@@ -575,7 +575,7 @@ int bus_machine_method_open_login(sd_bus_message *message, void *userdata, sd_bu
         r = bus_verify_polkit_async(
                         message,
                         CAP_SYS_ADMIN,
-                        "org.freedesktop.machine1.login",
+                        m->class == MACHINE_HOST ? "org.freedesktop.machine1.host-login" : "org.freedesktop.machine1.login",
                         false,
                         UID_INVALID,
                         &m->manager->polkit_registry,
@@ -676,7 +676,7 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
         r = bus_verify_polkit_async(
                         message,
                         CAP_SYS_ADMIN,
-                        "org.freedesktop.machine1.shell",
+                        m->class == MACHINE_HOST ? "org.freedesktop.machine1.host-shell" : "org.freedesktop.machine1.shell",
                         false,
                         UID_INVALID,
                         &m->manager->polkit_registry,
