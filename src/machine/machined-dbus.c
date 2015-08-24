@@ -882,6 +882,9 @@ static int method_map_from_machine_user(sd_bus_message *message, void *userdata,
         if (!machine)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_MACHINE, "No machine '%s' known", name);
 
+        if (machine->class != MACHINE_CONTAINER)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Not supported for non-container machines.");
+
         p = procfs_file_alloca(machine->leader, "uid_map");
         f = fopen(p, "re");
         if (!f)
@@ -933,6 +936,9 @@ static int method_map_to_machine_user(sd_bus_message *message, void *userdata, s
         HASHMAP_FOREACH(machine, m->machines, i) {
                 _cleanup_fclose_ FILE *f = NULL;
                 char p[strlen("/proc//uid_map") + DECIMAL_STR_MAX(pid_t) + 1];
+
+                if (machine->class != MACHINE_CONTAINER)
+                        continue;
 
                 xsprintf(p, "/proc/" UID_FMT "/uid_map", machine->leader);
                 f = fopen(p, "re");
@@ -994,6 +1000,9 @@ static int method_map_from_machine_group(sd_bus_message *message, void *groupdat
         if (!machine)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_MACHINE, "No machine '%s' known", name);
 
+        if (machine->class != MACHINE_CONTAINER)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Not supported for non-container machines.");
+
         p = procfs_file_alloca(machine->leader, "gid_map");
         f = fopen(p, "re");
         if (!f)
@@ -1045,6 +1054,9 @@ static int method_map_to_machine_group(sd_bus_message *message, void *groupdata,
         HASHMAP_FOREACH(machine, m->machines, i) {
                 _cleanup_fclose_ FILE *f = NULL;
                 char p[strlen("/proc//gid_map") + DECIMAL_STR_MAX(pid_t) + 1];
+
+                if (machine->class != MACHINE_CONTAINER)
+                        continue;
 
                 xsprintf(p, "/proc/" GID_FMT "/gid_map", machine->leader);
                 f = fopen(p, "re");
