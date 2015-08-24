@@ -490,7 +490,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "version",   no_argument,       NULL, ARG_VERSION   },
                 { "type",      required_argument, NULL, 't'           },
                 { "class",     required_argument, NULL, 'c'           },
-                { "legend", optional_argument,    NULL, ARG_LEGEND    },
+                { "legend",    optional_argument, NULL, ARG_LEGEND    },
                 { "protocol",  required_argument, NULL, 'p'           },
                 {}
         };
@@ -520,11 +520,21 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_family = AF_INET6;
                         break;
 
-                case 'i':
-                        arg_ifindex = if_nametoindex(optarg);
-                        if (arg_ifindex <= 0)
-                                return log_error_errno(errno, "Unknown interfaces %s: %m", optarg);
+                case 'i': {
+                        int ifi;
+
+                        if (safe_atoi(optarg, &ifi) >= 0 && ifi > 0)
+                                arg_ifindex = ifi;
+                        else {
+                                ifi = if_nametoindex(optarg);
+                                if (ifi <= 0)
+                                        return log_error_errno(errno, "Unknown interface %s: %m", optarg);
+
+                                arg_ifindex = ifi;
+                        }
+
                         break;
+                }
 
                 case 't':
                         if (streq(optarg, "help")) {
