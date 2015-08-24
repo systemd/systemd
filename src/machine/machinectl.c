@@ -1299,7 +1299,7 @@ static int shell_machine(int argc, char *argv[], void *userdata) {
         _cleanup_event_unref_ sd_event *event = NULL;
         int master = -1, r;
         sd_bus *bus = userdata;
-        const char *pty, *match, *machine, *path;
+        const char *pty, *match, *machine, *path, *uid = NULL;
 
         assert(bus);
 
@@ -1319,7 +1319,22 @@ static int shell_machine(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to attach bus to event loop: %m");
 
-        machine = argc < 2 || isempty(argv[1]) ? ".host" : argv[1];
+        machine = argc < 2 || isempty(argv[1]) ? NULL : argv[1];
+
+        if (arg_uid)
+                uid = arg_uid;
+        else if (machine) {
+                const char *at;
+
+                at = strchr(machine, '@');
+                if (at) {
+                        uid = strndupa(machine, at - machine);
+                        machine = at + 1;
+                }
+        }
+
+        if (isempty(machine))
+                machine = ".host";
 
         match = strjoina("type='signal',"
                          "sender='org.freedesktop.machine1',"
@@ -1344,7 +1359,7 @@ static int shell_machine(int argc, char *argv[], void *userdata) {
 
         path = argc < 3 || isempty(argv[2]) ? NULL : argv[2];
 
-        r = sd_bus_message_append(m, "sss", machine, arg_uid, path);
+        r = sd_bus_message_append(m, "sss", machine, uid, path);
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -2440,8 +2455,9 @@ static int help(int argc, char *argv[], void *userdata) {
                "  start NAME...               Start container as a service\n"
                "  login [NAME]                Get a login prompt in a container or on the\n"
                "                              local host\n"
-               "  shell [NAME] [COMMAND...]   Invoke a shell (or other command) in a container\n"
-               "                              or the local host\n"
+               "  shell [[USER@]NAME [COMMAND...]]\n"
+               "                              Invoke a shell (or other command) in a container\n"
+               "                              or on the local host\n"
                "  enable NAME...              Enable automatic container start at boot\n"
                "  disable NAME...             Disable automatic container start at boot\n"
                "  poweroff NAME...            Power off one or more containers\n"

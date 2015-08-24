@@ -403,7 +403,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>shell</command> [<replaceable>NAME</replaceable> [<replaceable>PATH</replaceable> [<replaceable>ARGUMENTS</replaceable>...]]] </term>
+        <term><command>shell</command> [[<replaceable>NAME</replaceable>@]<replaceable>NAME</replaceable> [<replaceable>PATH</replaceable> [<replaceable>ARGUMENTS</replaceable>...]]] </term>
 
         <listitem><para>Open an interactive shell session in a
         container or on the local host. The first argument refers to
@@ -415,10 +415,29 @@
         immediately invokes a user process. This command runs the
         specified executable with the specified arguments, or
         <filename>/bin/sh</filename> if none is specified. By default
-        opens a <literal>root</literal> shell, but using
-        <option>--uid=</option> a different user may be selected. Use
-        <option>--setenv=</option> to set environment variables for
-        the executed process.</para></listitem>
+        opens a <literal>root</literal> shell, but by using
+        <option>--uid=</option>, or by prefixing the machine name with
+        a username and an <literal>@</literal> character, a different
+        user may be selected. Use <option>--setenv=</option> to set
+        environment variables for the executed process.</para>
+
+        <para>When using the <command>shell</command> command without
+        arguments (thus invoking the executed shell or command on the
+        local host) it is similar in many ways to a <citerefentry
+        project='die-net'><refentrytitle>su</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        session, but unlike <command>su</command> completely isolates
+        the new session from the originating session, so that it
+        shares no process or session properties, and is in a clean and
+        well-defined state. It will be tracked in a new utmp, login,
+        audit and keyring session, and will not inherit an environment
+        variables or resource limits, among other properties.</para>
+
+        <para>Note that the
+        <citerefentry><refentrytitle>systemd-run</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        may be used in place of the <command>shell</command> command,
+        and allows more detailed, low-level configuration of the
+        invoked unit. However, it is frequently more privileged than
+        the <command>shell</command> command.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -993,6 +1012,17 @@
       <para>Exports the container <literal>fedora</literal> in an
       xz-compress tar file <filename>myfedora.tar.xz</filename> in the
       current directory.</para>
+    </example>
+
+    <example>
+      <title>Create a new shell session</title>
+
+      <programlisting># machinectl shell --uid=lennart</programlisting>
+
+      <para>This creates a new shell session on the local host, for
+      the user ID <literal>lennart</literal>, in a <citerefentry
+      project='die-net'><refentrytitle>su</refentrytitle><manvolnum>1</manvolnum></citerefentry>-like
+      fashion.</para>
     </example>
 
   </refsect1>
