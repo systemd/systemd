@@ -78,8 +78,7 @@ DnsScope* dns_scope_free(DnsScope *s) {
 
         dns_scope_llmnr_membership(s, false);
 
-        while ((t = s->transactions)) {
-
+        while ((t = hashmap_steal_first(s->transactions))) {
                 /* Abort the transaction, but make sure it is not
                  * freed while we still look at it */
 
@@ -89,6 +88,8 @@ DnsScope* dns_scope_free(DnsScope *s) {
 
                 dns_transaction_free(t);
         }
+
+        hashmap_free(s->transactions);
 
         while ((rr = ordered_hashmap_steal_first(s->conflict_queue)))
                 dns_resource_record_unref(rr);
@@ -623,24 +624,20 @@ DnsTransaction *dns_scope_find_transaction(DnsScope *scope, DnsResourceKey *key,
         assert(scope);
         assert(key);
 
-        /* Try to find an ongoing transaction that is a equal or a
-         * superset of the specified question */
+        /* Try to find an ongoing transaction that is a equal to the
+         * specified question */
+        t = hashmap_get(scope->transactions, key);
+        if (!t)
+                return NULL;
 
-        LIST_FOREACH(transactions_by_scope, t, scope->transactions) {
+        /* Refuse reusing transactions that completed based on cached
+         * data instead of a real packet, if that's requested. */
+        if (!cache_ok &&
+            IN_SET(t->state, DNS_TRANSACTION_SUCCESS, DNS_TRANSACTION_FAILURE) &&
+            !t->received)
+                return NULL;
 
-                /* Refuse reusing transactions that completed based on
-                 * cached data instead of a real packet, if that's
-                 * requested. */
-                if (!cache_ok &&
-                    IN_SET(t->state, DNS_TRANSACTION_SUCCESS, DNS_TRANSACTION_FAILURE) &&
-                    !t->received)
-                        continue;
-
-                if (dns_resource_key_equal(t->key, key) > 0)
-                        return t;
-        }
-
-        return NULL;
+        return t;
 }
 
 static int dns_scope_make_conflict_packet(

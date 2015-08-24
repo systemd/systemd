@@ -60,7 +60,7 @@ struct DnsScope {
         usec_t resend_timeout;
         usec_t max_rtt;
 
-        LIST_HEAD(DnsTransaction, transactions);
+        Hashmap *transactions;
 
         LIST_FIELDS(DnsScope, scopes);
 };
