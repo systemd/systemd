@@ -102,6 +102,14 @@
         </para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>-D</option> <replaceable>DIR</replaceable></term>
+        <term><option>--directory=</option><replaceable>DIR</replaceable></term>
+
+        <listitem><para>Use the journal files in the specified <option>DIR</option>.
+        </para></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
       <xi:include href="standard-options.xml" xpointer="no-pager" />
