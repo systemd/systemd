@@ -35,7 +35,6 @@ DnsTransaction* dns_transaction_free(DnsTransaction *t) {
 
         sd_event_source_unref(t->timeout_event_source);
 
-        dns_resource_key_unref(t->key);
         dns_packet_unref(t->sent);
         dns_packet_unref(t->received);
         dns_answer_unref(t->cached);
@@ -47,11 +46,13 @@ DnsTransaction* dns_transaction_free(DnsTransaction *t) {
         dns_stream_free(t->stream);
 
         if (t->scope) {
-                LIST_REMOVE(transactions_by_scope, t->scope->transactions, t);
+                hashmap_remove(t->scope->transactions, t->key);
 
                 if (t->id != 0)
                         hashmap_remove(t->scope->manager->dns_transactions, UINT_TO_PTR(t->id));
         }
+
+        dns_resource_key_unref(t->key);
 
         while ((q = set_steal_first(t->queries)))
                 set_remove(q->transactions, t);
@@ -89,14 +90,18 @@ int dns_transaction_new(DnsTransaction **ret, DnsScope *s, DnsResourceKey *key) 
         if (r < 0)
                 return r;
 
+        r = hashmap_ensure_allocated(&s->transactions, &dns_resource_key_hash_ops);
+        if (r < 0)
+                return r;
+
         t = new0(DnsTransaction, 1);
         if (!t)
                 return -ENOMEM;
 
         t->dns_fd = -1;
-
         t->key = dns_resource_key_ref(key);
 
+        /* Find a fresh, unused transaction id */
         do
                 random_bytes(&t->id, sizeof(t->id));
         while (t->id == 0 ||
@@ -108,7 +113,12 @@ int dns_transaction_new(DnsTransaction **ret, DnsScope *s, DnsResourceKey *key) 
                 return r;
         }
 
-        LIST_PREPEND(transactions_by_scope, s->transactions, t);
+        r = hashmap_put(s->transactions, t->key, t);
+        if (r < 0) {
+                hashmap_remove(s->manager->dns_transactions, UINT_TO_PTR(t->id));
+                return r;
+        }
+
         t->scope = s;
 
         if (ret)
@@ -274,7 +284,7 @@ static int dns_transaction_open_tcp(DnsTransaction *t) {
                         if (r == 0)
                                 return -EINVAL;
                         if (family != t->scope->family)
-                                return -EAFNOSUPPORT;
+                                return -ESRCH;
 
                         fd = dns_scope_tcp_socket(t->scope, family, &address, LLMNR_PORT, NULL);
                 }

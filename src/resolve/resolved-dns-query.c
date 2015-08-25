@@ -651,12 +651,8 @@ int dns_query_go(DnsQuery *q) {
                 DnsTransactionState state = DNS_TRANSACTION_NO_SERVERS;
 
                 dns_query_synthesize_reply(q, &state);
-                if (state != DNS_TRANSACTION_NO_SERVERS) {
-                        dns_query_complete(q, state);
-                        return 1;
-                }
-
-                return -ESRCH;
+                dns_query_complete(q, state);
+                return 1;
         }
 
         r = dns_query_add_transaction_split(q, first);

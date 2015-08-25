@@ -226,10 +226,6 @@ static void bus_method_resolve_hostname_complete(DnsQuery *q) {
                  * query, this time with the cname */
                 if (added <= 0) {
                         r = dns_query_go(q);
-                        if (r == -ESRCH) {
-                                r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_NO_NAME_SERVERS, "No appropriate name servers or networks for name found");
-                                goto finish;
-                        }
                         if (r < 0) {
                                 r = sd_bus_reply_method_errno(q->request, -r, NULL);
                                 goto finish;
@@ -346,10 +342,6 @@ static int bus_method_resolve_hostname(sd_bus_message *message, void *userdata, 
         r = dns_query_go(q);
         if (r < 0) {
                 dns_query_free(q);
-
-                if (r == -ESRCH)
-                        sd_bus_error_setf(error, BUS_ERROR_NO_NAME_SERVERS, "No appropriate name servers or networks for name found");
-
                 return r;
         }
 
@@ -494,10 +486,6 @@ static int bus_method_resolve_address(sd_bus_message *message, void *userdata, s
         r = dns_query_go(q);
         if (r < 0) {
                 dns_query_free(q);
-
-                if (r == -ESRCH)
-                        sd_bus_error_setf(error, BUS_ERROR_NO_NAME_SERVERS, "No appropriate name servers or networks for name found");
-
                 return r;
         }
 
@@ -647,10 +635,6 @@ static int bus_method_resolve_record(sd_bus_message *message, void *userdata, sd
         r = dns_query_go(q);
         if (r < 0) {
                 dns_query_free(q);
-
-                if (r == -ESRCH)
-                        sd_bus_error_setf(error, BUS_ERROR_NO_NAME_SERVERS, "No appropriate name servers or networks for name found");
-
                 return r;
         }
 
