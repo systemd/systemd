@@ -697,10 +697,40 @@ static int property_get_cpu_usage(
         return sd_bus_message_append(reply, "t", ns);
 }
 
+static int property_get_cgroup(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Unit *u = userdata;
+        const char *t;
+
+        assert(bus);
+        assert(reply);
+        assert(u);
+
+        /* Three cases: a) u->cgroup_path is NULL, in which case the
+         * unit has no control group, which we report as the empty
+         * string. b) u->cgroup_path is the empty string, which
+         * indicates the root cgroup, which we report as "/". c) all
+         * other cases we report as-is. */
+
+        if (u->cgroup_path)
+                t = isempty(u->cgroup_path) ? "/" : u->cgroup_path;
+        else
+                t = "";
+
+        return sd_bus_message_append(reply, "s", t);
+}
+
 const sd_bus_vtable bus_unit_cgroup_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Slice", "s", property_get_slice, 0, 0),
-        SD_BUS_PROPERTY("ControlGroup", "s", NULL, offsetof(Unit, cgroup_path), 0),
+        SD_BUS_PROPERTY("ControlGroup", "s", property_get_cgroup, 0, 0),
         SD_BUS_PROPERTY("MemoryCurrent", "t", property_get_current_memory, 0, 0),
         SD_BUS_PROPERTY("CPUUsageNSec", "t", property_get_cpu_usage, 0, 0),
         SD_BUS_VTABLE_END
