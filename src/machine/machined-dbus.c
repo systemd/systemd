@@ -33,6 +33,7 @@
 #include "btrfs-util.h"
 #include "formats-util.h"
 #include "process-util.h"
+#include "hostname-util.h"
 #include "machine-image.h"
 #include "machine-pool.h"
 #include "image-dbus.h"
@@ -637,6 +638,27 @@ static int method_open_machine_login(sd_bus_message *message, void *userdata, sd
         return bus_machine_method_open_login(message, machine, error);
 }
 
+static int method_open_machine_shell(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Manager *m = userdata;
+        Machine *machine;
+        const char *name;
+
+        int r;
+
+        assert(message);
+        assert(m);
+
+        r = sd_bus_message_read(message, "s", &name);
+        if (r < 0)
+                return r;
+
+        machine = hashmap_get(m->machines, name);
+        if (!machine)
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_MACHINE, "No machine '%s' known", name);
+
+        return bus_machine_method_open_shell(message, machine, error);
+}
+
 static int method_bind_mount_machine(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
         Machine *machine;
@@ -860,6 +882,9 @@ static int method_map_from_machine_user(sd_bus_message *message, void *userdata,
         if (!machine)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_MACHINE, "No machine '%s' known", name);
 
+        if (machine->class != MACHINE_CONTAINER)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Not supported for non-container machines.");
+
         p = procfs_file_alloca(machine->leader, "uid_map");
         f = fopen(p, "re");
         if (!f)
@@ -911,6 +936,9 @@ static int method_map_to_machine_user(sd_bus_message *message, void *userdata, s
         HASHMAP_FOREACH(machine, m->machines, i) {
                 _cleanup_fclose_ FILE *f = NULL;
                 char p[strlen("/proc//uid_map") + DECIMAL_STR_MAX(pid_t) + 1];
+
+                if (machine->class != MACHINE_CONTAINER)
+                        continue;
 
                 xsprintf(p, "/proc/" UID_FMT "/uid_map", machine->leader);
                 f = fopen(p, "re");
@@ -972,6 +1000,9 @@ static int method_map_from_machine_group(sd_bus_message *message, void *groupdat
         if (!machine)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_MACHINE, "No machine '%s' known", name);
 
+        if (machine->class != MACHINE_CONTAINER)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Not supported for non-container machines.");
+
         p = procfs_file_alloca(machine->leader, "gid_map");
         f = fopen(p, "re");
         if (!f)
@@ -1023,6 +1054,9 @@ static int method_map_to_machine_group(sd_bus_message *message, void *groupdata,
         HASHMAP_FOREACH(machine, m->machines, i) {
                 _cleanup_fclose_ FILE *f = NULL;
                 char p[strlen("/proc//gid_map") + DECIMAL_STR_MAX(pid_t) + 1];
+
+                if (machine->class != MACHINE_CONTAINER)
+                        continue;
 
                 xsprintf(p, "/proc/" GID_FMT "/gid_map", machine->leader);
                 f = fopen(p, "re");
@@ -1085,6 +1119,7 @@ const sd_bus_vtable manager_vtable[] = {
         SD_BUS_METHOD("GetMachineOSRelease", "s", "a{ss}", method_get_machine_os_release, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("OpenMachinePTY", "s", "hs", method_open_machine_pty, 0),
         SD_BUS_METHOD("OpenMachineLogin", "s", "hs", method_open_machine_login, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("OpenMachineShell", "sssasas", "hs", method_open_machine_shell, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("BindMountMachine", "sssbb", NULL, method_bind_mount_machine, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("CopyFromMachine", "sss", NULL, method_copy_machine, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("CopyToMachine", "sss", NULL, method_copy_machine, SD_BUS_VTABLE_UNPRIVILEGED),
@@ -1455,7 +1490,6 @@ int manager_job_is_active(Manager *manager, const char *path) {
 }
 
 int manager_get_machine_by_pid(Manager *m, pid_t pid, Machine **machine) {
-        _cleanup_free_ char *unit = NULL;
         Machine *mm;
         int r;
 
@@ -1463,12 +1497,14 @@ int manager_get_machine_by_pid(Manager *m, pid_t pid, Machine **machine) {
         assert(pid >= 1);
         assert(machine);
 
-        r = cg_pid_get_unit(pid, &unit);
-        if (r < 0)
-                mm = hashmap_get(m->machine_leaders, UINT_TO_PTR(pid));
-        else
-                mm = hashmap_get(m->machine_units, unit);
+        mm = hashmap_get(m->machine_leaders, UINT_TO_PTR(pid));
+        if (!mm) {
+                _cleanup_free_ char *unit = NULL;
 
+                r = cg_pid_get_unit(pid, &unit);
+                if (r >= 0)
+                        mm = hashmap_get(m->machine_units, unit);
+        }
         if (!mm)
                 return 0;
 
@@ -1484,7 +1520,7 @@ int manager_add_machine(Manager *m, const char *name, Machine **_machine) {
 
         machine = hashmap_get(m->machines, name);
         if (!machine) {
-                machine = machine_new(m, name);
+                machine = machine_new(m, _MACHINE_CLASS_INVALID, name);
                 if (!machine)
                         return -ENOMEM;
         }

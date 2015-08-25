@@ -32,13 +32,14 @@
 #include "mkdir.h"
 #include "rm-rf.h"
 #include "path-util.h"
+#include "process-util.h"
+#include "hostname-util.h"
 #include "import-util.h"
 #include "import-common.h"
 #include "curl-util.h"
 #include "pull-job.h"
 #include "pull-common.h"
 #include "pull-tar.h"
-#include "process-util.h"
 
 typedef enum TarProgress {
         TAR_DOWNLOADING,

@@ -394,8 +394,6 @@ bool nulstr_contains(const char*nulstr, const char *needle);
 
 bool plymouth_running(void);
 
-bool machine_name_is_valid(const char *s) _pure_;
-
 char* strshorten(char *s, size_t l);
 
 int symlink_idempotent(const char *from, const char *to);

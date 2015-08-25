@@ -204,12 +204,13 @@ _pure_ static const char *sanitize_id(const char *id) {
         return id + l - sizeof(((struct utmpx*) NULL)->ut_id);
 }
 
-int utmp_put_init_process(const char *id, pid_t pid, pid_t sid, const char *line) {
+int utmp_put_init_process(const char *id, pid_t pid, pid_t sid, const char *line, int ut_type, const char *user) {
         struct utmpx store = {
                 .ut_type = INIT_PROCESS,
                 .ut_pid = pid,
                 .ut_session = sid,
         };
+        int r;
 
         assert(id);
 
@@ -221,7 +222,26 @@ int utmp_put_init_process(const char *id, pid_t pid, pid_t sid, const char *line
         if (line)
                 strncpy(store.ut_line, basename(line), sizeof(store.ut_line));
 
-        return write_entry_both(&store);
+        r = write_entry_both(&store);
+        if (r < 0)
+                return r;
+
+        if (ut_type == LOGIN_PROCESS || ut_type == USER_PROCESS) {
+                store.ut_type = LOGIN_PROCESS;
+                r = write_entry_both(&store);
+                if (r < 0)
+                        return r;
+        }
+
+        if (ut_type == USER_PROCESS) {
+                store.ut_type = USER_PROCESS;
+                strncpy(store.ut_user, user, sizeof(store.ut_user)-1);
+                r = write_entry_both(&store);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
 }
 
 int utmp_put_dead_process(const char *id, pid_t pid, int code, int status) {

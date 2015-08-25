@@ -1,3 +1,4 @@
+<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
@@ -911,15 +912,49 @@
         <term><varname>UtmpIdentifier=</varname></term>
 
         <listitem><para>Takes a four character identifier string for
-        an utmp/wtmp entry for this service. This should only be set
-        for services such as <command>getty</command> implementations
+        an <citerefentry
+        project='man-pages'><refentrytitle>utmp</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        and wtmp entry for this service. This should only be
+        set for services such as <command>getty</command>
+        implementations (such as <citerefentry
+        project='die-net'><refentrytitle>agetty</refentrytitle><manvolnum>8</manvolnum></citerefentry>)
         where utmp/wtmp entries must be created and cleared before and
-        after execution. If the configured string is longer than four
+        after execution, or for services that shall be executed as if
+        they were run by a <command>getty</command> process (see
+        below). If the configured string is longer than four
         characters, it is truncated and the terminal four characters
         are used. This setting interprets %I style string
         replacements. This setting is unset by default, i.e. no
         utmp/wtmp entries are created or cleaned up for this
         service.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+         <term><varname>UtmpMode=</varname></term>
+
+         <listitem><para>Takes one of <literal>init</literal>,
+         <literal>login</literal> or <literal>user</literal>. If
+         <varname>UtmpIdentifier=</varname> is set, controls which
+         type of <citerefentry
+         project='man-pages'><refentrytitle>utmp</refentrytitle><manvolnum>5</manvolnum></citerefentry>/wtmp
+         entries for this service are generated. This setting has no
+         effect unless <varname>UtmpIdentifier=</varname> is set
+         too. If <literal>init</literal> is set, only an
+         <constant>INIT_PROCESS</constant> entry is generated and the
+         invoked process must implement a <command>getty</command>
+         compatible utmp/wtmp logic. If <literal>login</literal> is
+         set, first an <constant>INIT_PROCESS</constant> entry,
+         followed by an <constant>LOGIN_PROCESS</constant> entry is
+         generated. In this case the invoked process must implement a
+         <citerefentry
+         project='die-net'><refentrytitle>login</refentrytitle><manvolnum>1</manvolnum></citerefentry>-compatible
+         utmp/wtmp logic. If <literal>user</literal> is set, first an
+         <constant>INIT_PROCESS</constant> entry, then a
+         <constant>LOGIN_PROCESS</constant> entry and finally an
+         <constant>USER_PROCESS</constant> entry is generated. In this
+         case the invoked process may be any process that is suitable
+         to be run as session leader. Defaults to
+         <literal>init</literal>.</para></listitem>
       </varlistentry>
 
       <varlistentry>

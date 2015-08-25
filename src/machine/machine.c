@@ -37,11 +37,16 @@
 #include "machine-dbus.h"
 #include "formats-util.h"
 
-Machine* machine_new(Manager *manager, const char *name) {
+Machine* machine_new(Manager *manager, MachineClass class, const char *name) {
         Machine *m;
 
         assert(manager);
+        assert(class < _MACHINE_CLASS_MAX);
         assert(name);
+
+        /* Passing class == _MACHINE_CLASS_INVALID here is fine. It
+         * means as much as "we don't know yet", and that we'll figure
+         * it out later when loading the state file. */
 
         m = new0(Machine, 1);
         if (!m)
@@ -51,14 +56,17 @@ Machine* machine_new(Manager *manager, const char *name) {
         if (!m->name)
                 goto fail;
 
-        m->state_file = strappend("/run/systemd/machines/", m->name);
-        if (!m->state_file)
-                goto fail;
+        if (class != MACHINE_HOST) {
+                m->state_file = strappend("/run/systemd/machines/", m->name);
+                if (!m->state_file)
+                        goto fail;
+        }
+
+        m->class = class;
 
         if (hashmap_put(manager->machines, m->name, m) < 0)
                 goto fail;
 
-        m->class = _MACHINE_CLASS_INVALID;
         m->manager = manager;
 
         return m;
@@ -86,6 +94,9 @@ void machine_free(Machine *m) {
 
         (void) hashmap_remove(m->manager->machines, m->name);
 
+        if (m->manager->host_machine == m)
+                m->manager->host_machine = NULL;
+
         if (m->leader > 0)
                 (void) hashmap_remove_value(m->manager->machine_leaders, UINT_TO_PTR(m->leader), m);
 
@@ -105,7 +116,9 @@ int machine_save(Machine *m) {
         int r;
 
         assert(m);
-        assert(m->state_file);
+
+        if (!m->state_file)
+                return 0;
 
         if (!m->started)
                 return 0;
@@ -244,6 +257,9 @@ int machine_load(Machine *m) {
 
         assert(m);
 
+        if (!m->state_file)
+                return 0;
+
         r = parse_env_file(m->state_file, NEWLINE,
                            "SCOPE",     &m->unit,
                            "SCOPE_JOB", &m->scope_job,
@@ -325,6 +341,7 @@ static int machine_start_scope(Machine *m, sd_bus_message *properties, sd_bus_er
         int r = 0;
 
         assert(m);
+        assert(m->class != MACHINE_HOST);
 
         if (!m->unit) {
                 _cleanup_free_ char *escaped = NULL;
@@ -364,6 +381,9 @@ int machine_start(Machine *m, sd_bus_message *properties, sd_bus_error *error) {
 
         assert(m);
 
+        if (!IN_SET(m->class, MACHINE_CONTAINER, MACHINE_VM))
+                return -EOPNOTSUPP;
+
         if (m->started)
                 return 0;
 
@@ -402,6 +422,7 @@ static int machine_stop_scope(Machine *m) {
         int r;
 
         assert(m);
+        assert(m->class != MACHINE_HOST);
 
         if (!m->unit)
                 return 0;
@@ -421,6 +442,9 @@ static int machine_stop_scope(Machine *m) {
 int machine_stop(Machine *m) {
         int r;
         assert(m);
+
+        if (!IN_SET(m->class, MACHINE_CONTAINER, MACHINE_VM))
+                return -EOPNOTSUPP;
 
         r = machine_stop_scope(m);
 
@@ -456,6 +480,9 @@ int machine_finalize(Machine *m) {
 bool machine_check_gc(Machine *m, bool drop_not_started) {
         assert(m);
 
+        if (m->class == MACHINE_HOST)
+                return true;
+
         if (drop_not_started && !m->started)
                 return false;
 
@@ -481,6 +508,9 @@ void machine_add_to_gc_queue(Machine *m) {
 MachineState machine_get_state(Machine *s) {
         assert(s);
 
+        if (s->class == MACHINE_HOST)
+                return MACHINE_RUNNING;
+
         if (s->stopping)
                 return MACHINE_CLOSING;
 
@@ -492,6 +522,9 @@ MachineState machine_get_state(Machine *s) {
 
 int machine_kill(Machine *m, KillWho who, int signo) {
         assert(m);
+
+        if (!IN_SET(m->class, MACHINE_VM, MACHINE_CONTAINER))
+                return -EOPNOTSUPP;
 
         if (!m->unit)
                 return -ESRCH;
@@ -507,6 +540,25 @@ int machine_kill(Machine *m, KillWho who, int signo) {
 
         /* Otherwise make PID 1 do it for us, for the entire cgroup */
         return manager_kill_unit(m->manager, m->unit, signo, NULL);
+}
+
+int machine_openpt(Machine *m, int flags) {
+        assert(m);
+
+        switch (m->class) {
+
+        case MACHINE_HOST:
+                return posix_openpt(flags);
+
+        case MACHINE_CONTAINER:
+                if (m->leader <= 0)
+                        return -EINVAL;
+
+                return openpt_in_namespace(m->leader, flags);
+
+        default:
+                return -EOPNOTSUPP;
+        }
 }
 
 MachineOperation *machine_operation_unref(MachineOperation *o) {
@@ -544,7 +596,8 @@ void machine_release_unit(Machine *m) {
 
 static const char* const machine_class_table[_MACHINE_CLASS_MAX] = {
         [MACHINE_CONTAINER] = "container",
-        [MACHINE_VM] = "vm"
+        [MACHINE_VM] = "vm",
+        [MACHINE_HOST] = "host",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(machine_class, MachineClass);

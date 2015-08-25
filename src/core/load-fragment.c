@@ -1142,6 +1142,8 @@ int config_parse_sysv_priority(const char *unit,
 }
 #endif
 
+DEFINE_CONFIG_PARSE_ENUM(config_parse_exec_utmp_mode, exec_utmp_mode, ExecUtmpMode, "Failed to parse utmp mode");
+
 DEFINE_CONFIG_PARSE_ENUM(config_parse_kill_mode, kill_mode, KillMode, "Failed to parse kill mode");
 
 int config_parse_kill_signal(const char *unit,

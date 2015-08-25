@@ -39,6 +39,7 @@ typedef enum MachineState {
 typedef enum MachineClass {
         MACHINE_CONTAINER,
         MACHINE_VM,
+        MACHINE_HOST,
         _MACHINE_CLASS_MAX,
         _MACHINE_CLASS_INVALID = -1
 } MachineClass;
@@ -95,7 +96,7 @@ struct Machine {
         unsigned n_operations;
 };
 
-Machine* machine_new(Manager *manager, const char *name);
+Machine* machine_new(Manager *manager, MachineClass class, const char *name);
 void machine_free(Machine *m);
 bool machine_check_gc(Machine *m, bool drop_not_started);
 void machine_add_to_gc_queue(Machine *m);
@@ -120,3 +121,5 @@ MachineState machine_state_from_string(const char *s) _pure_;
 
 const char *kill_who_to_string(KillWho k) _const_;
 KillWho kill_who_from_string(const char *s) _pure_;
+
+int machine_openpt(Machine *m, int flags);

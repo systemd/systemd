@@ -38,6 +38,14 @@ typedef struct ExecParameters ExecParameters;
 #include "namespace.h"
 #include "bus-endpoint.h"
 
+typedef enum ExecUtmpMode {
+        EXEC_UTMP_INIT,
+        EXEC_UTMP_LOGIN,
+        EXEC_UTMP_USER,
+        _EXEC_UTMP_MODE_MAX,
+        _EXEC_UTMP_MODE_INVALID,
+} ExecUtmpMode;
+
 typedef enum ExecInput {
         EXEC_INPUT_NULL,
         EXEC_INPUT_TTY,
@@ -131,6 +139,7 @@ struct ExecContext {
         char *pam_name;
 
         char *utmp_id;
+        ExecUtmpMode utmp_mode;
 
         bool selinux_context_ignore;
         char *selinux_context;
@@ -265,3 +274,6 @@ ExecOutput exec_output_from_string(const char *s) _pure_;
 
 const char* exec_input_to_string(ExecInput i) _const_;
 ExecInput exec_input_from_string(const char *s) _pure_;
+
+const char* exec_utmp_mode_to_string(ExecUtmpMode i) _const_;
+ExecUtmpMode exec_utmp_mode_from_string(const char *s) _pure_;

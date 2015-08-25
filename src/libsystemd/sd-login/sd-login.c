@@ -32,6 +32,7 @@
 #include "fileio.h"
 #include "login-util.h"
 #include "formats-util.h"
+#include "hostname-util.h"
 #include "sd-login.h"
 
 _public_ int sd_pid_get_session(pid_t pid, char **session) {
@@ -790,7 +791,7 @@ _public_ int sd_get_machine_names(char ***machines) {
 
                 /* Filter out the unit: symlinks */
                 for (a = l, b = l; *a; a++) {
-                        if (startswith(*a, "unit:"))
+                        if (startswith(*a, "unit:") || !machine_name_is_valid(*a))
                                 free(*a);
                         else {
                                 *b = *a;

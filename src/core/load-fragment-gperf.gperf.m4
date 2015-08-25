@@ -91,6 +91,7 @@ m4_ifdef(`HAVE_PAM',
 `$1.PAMName,                     config_parse_warn_compat,           DISABLED_CONFIGURATION,        0')
 $1.IgnoreSIGPIPE,                config_parse_bool,                  0,                             offsetof($1, exec_context.ignore_sigpipe)
 $1.UtmpIdentifier,               config_parse_unit_string_printf,    0,                             offsetof($1, exec_context.utmp_id)
+$1.UtmpMode,                     config_parse_exec_utmp_mode,        0,                             offsetof($1, exec_context.utmp_mode)
 m4_ifdef(`HAVE_SELINUX',
 `$1.SELinuxContext,              config_parse_exec_selinux_context,  0,                             offsetof($1, exec_context)',
 `$1.SELinuxContext,              config_parse_warn_compat,           DISABLED_CONFIGURATION,        0')

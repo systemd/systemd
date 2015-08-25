@@ -48,6 +48,8 @@ struct Manager {
         sd_event_source *image_cache_defer_event;
 
         LIST_HEAD(Machine, machine_gc_queue);
+
+        Machine *host_machine;
 };
 
 Manager *manager_new(void);

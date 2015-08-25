@@ -62,16 +62,19 @@ static bool hostname_valid_char(char c) {
 }
 
 /**
- * Check if s looks like a valid host name or fqdn. This does not do
+ * Check if s looks like a valid host name or FQDN. This does not do
  * full DNS validation, but only checks if the name is composed of
  * allowed characters and the length is not above the maximum allowed
  * by Linux (c.f. dns_name_is_valid()). Trailing dot is allowed if
- * relax is true and at least two components are present in the name.
+ * allow_trailing_dot is true and at least two components are present
+ * in the name. Note that due to the restricted charset and length
+ * this call is substantially more conservative than
+ * dns_domain_is_valid().
  */
-bool hostname_is_valid(const char *s, bool relax) {
+bool hostname_is_valid(const char *s, bool allow_trailing_dot) {
+        unsigned n_dots = 0;
         const char *p;
         bool dot;
-        unsigned dots = 0;
 
         if (isempty(s))
                 return false;
@@ -87,7 +90,7 @@ bool hostname_is_valid(const char *s, bool relax) {
                                 return false;
 
                         dot = true;
-                        dots ++;
+                        n_dots ++;
                 } else {
                         if (!hostname_valid_char(*p))
                                 return false;
@@ -96,10 +99,12 @@ bool hostname_is_valid(const char *s, bool relax) {
                 }
         }
 
-        if (dot && (dots < 2 || !relax))
+        if (dot && (n_dots < 2 || !allow_trailing_dot))
                 return false;
 
-        if (p-s > HOST_NAME_MAX)
+        if (p-s > HOST_NAME_MAX) /* Note that HOST_NAME_MAX is 64 on
+                                  * Linux, but DNS allows domain names
+                                  * up to 255 characters */
                 return false;
 
         return true;
