@@ -61,12 +61,13 @@
  */
 
 static inline bool BUS_MATCH_IS_COMPARE(enum bus_match_node_type t) {
-        return t >= BUS_MATCH_SENDER && t <= BUS_MATCH_ARG_NAMESPACE_LAST;
+        return t >= BUS_MATCH_SENDER && t <= BUS_MATCH_ARG_HAS_LAST;
 }
 
 static inline bool BUS_MATCH_CAN_HASH(enum bus_match_node_type t) {
         return (t >= BUS_MATCH_MESSAGE_TYPE && t <= BUS_MATCH_PATH) ||
-                (t >= BUS_MATCH_ARG && t <= BUS_MATCH_ARG_LAST);
+                (t >= BUS_MATCH_ARG && t <= BUS_MATCH_ARG_LAST) ||
+                (t >= BUS_MATCH_ARG_HAS && t <= BUS_MATCH_ARG_HAS_LAST);
 }
 
 static void bus_match_node_free(struct bus_match_node *node) {
@@ -178,11 +179,15 @@ static bool value_node_test(
         case BUS_MATCH_INTERFACE:
         case BUS_MATCH_MEMBER:
         case BUS_MATCH_PATH:
-        case BUS_MATCH_ARG ... BUS_MATCH_ARG_LAST: {
-                char **i;
+        case BUS_MATCH_ARG ... BUS_MATCH_ARG_LAST:
 
                 if (value_str)
                         return streq_ptr(node->value.str, value_str);
+
+                return false;
+
+        case BUS_MATCH_ARG_HAS ... BUS_MATCH_ARG_HAS_LAST: {
+                char **i;
 
                 STRV_FOREACH(i, value_strv)
                         if (streq_ptr(node->value.str, *i))
@@ -191,33 +196,20 @@ static bool value_node_test(
                 return false;
         }
 
-        case BUS_MATCH_ARG_NAMESPACE ... BUS_MATCH_ARG_NAMESPACE_LAST: {
-                char **i;
-
+        case BUS_MATCH_ARG_NAMESPACE ... BUS_MATCH_ARG_NAMESPACE_LAST:
                 if (value_str)
                         return namespace_simple_pattern(node->value.str, value_str);
 
-                STRV_FOREACH(i, value_strv)
-                        if (namespace_simple_pattern(node->value.str, *i))
-                                return true;
                 return false;
-        }
 
         case BUS_MATCH_PATH_NAMESPACE:
                 return path_simple_pattern(node->value.str, value_str);
 
-        case BUS_MATCH_ARG_PATH ... BUS_MATCH_ARG_PATH_LAST: {
-                char **i;
-
+        case BUS_MATCH_ARG_PATH ... BUS_MATCH_ARG_PATH_LAST:
                 if (value_str)
                         return path_complex_pattern(node->value.str, value_str);
 
-                STRV_FOREACH(i, value_strv)
-                        if (path_complex_pattern(node->value.str, *i))
-                                return true;
-
                 return false;
-        }
 
         default:
                 assert_not_reached("Invalid node type");
@@ -248,6 +240,7 @@ static bool value_node_same(
         case BUS_MATCH_MEMBER:
         case BUS_MATCH_PATH:
         case BUS_MATCH_ARG ... BUS_MATCH_ARG_LAST:
+        case BUS_MATCH_ARG_HAS ... BUS_MATCH_ARG_HAS_LAST:
         case BUS_MATCH_ARG_NAMESPACE ... BUS_MATCH_ARG_NAMESPACE_LAST:
         case BUS_MATCH_PATH_NAMESPACE:
         case BUS_MATCH_ARG_PATH ... BUS_MATCH_ARG_PATH_LAST:
@@ -371,15 +364,19 @@ int bus_match_run(
                 break;
 
         case BUS_MATCH_ARG ... BUS_MATCH_ARG_LAST:
-                (void) bus_message_get_arg(m, node->type - BUS_MATCH_ARG, &test_str, &test_strv);
+                (void) bus_message_get_arg(m, node->type - BUS_MATCH_ARG, &test_str);
                 break;
 
         case BUS_MATCH_ARG_PATH ... BUS_MATCH_ARG_PATH_LAST:
-                (void) bus_message_get_arg(m, node->type - BUS_MATCH_ARG_PATH, &test_str, &test_strv);
+                (void) bus_message_get_arg(m, node->type - BUS_MATCH_ARG_PATH, &test_str);
                 break;
 
         case BUS_MATCH_ARG_NAMESPACE ... BUS_MATCH_ARG_NAMESPACE_LAST:
-                (void) bus_message_get_arg(m, node->type - BUS_MATCH_ARG_NAMESPACE, &test_str, &test_strv);
+                (void) bus_message_get_arg(m, node->type - BUS_MATCH_ARG_NAMESPACE, &test_str);
+                break;
+
+        case BUS_MATCH_ARG_HAS ... BUS_MATCH_ARG_HAS_LAST:
+                (void) bus_message_get_arg_strv(m, node->type - BUS_MATCH_ARG_HAS, &test_strv);
                 break;
 
         default:
@@ -737,6 +734,32 @@ enum bus_match_node_type bus_match_node_type_from_string(const char *k, size_t n
 
                 t = BUS_MATCH_ARG_NAMESPACE + a * 10 + b;
                 if (t > BUS_MATCH_ARG_NAMESPACE_LAST)
+                        return -EINVAL;
+
+                return t;
+        }
+
+        if (n == 7 && startswith(k, "arg") && startswith(k + 4, "has")) {
+                int j;
+
+                j = undecchar(k[3]);
+                if (j < 0)
+                        return -EINVAL;
+
+                return BUS_MATCH_ARG_HAS + j;
+        }
+
+        if (n == 8 && startswith(k, "arg") && startswith(k + 5, "has")) {
+                enum bus_match_node_type t;
+                int a, b;
+
+                a = undecchar(k[3]);
+                b = undecchar(k[4]);
+                if (a <= 0 || b < 0)
+                        return -EINVAL;
+
+                t = BUS_MATCH_ARG_HAS + a * 10 + b;
+                if (t > BUS_MATCH_ARG_HAS_LAST)
                         return -EINVAL;
 
                 return t;
@@ -1108,6 +1131,10 @@ const char* bus_match_node_type_to_string(enum bus_match_node_type t, char buf[]
 
         case BUS_MATCH_ARG_NAMESPACE ... BUS_MATCH_ARG_NAMESPACE_LAST:
                 snprintf(buf, l, "arg%inamespace", t - BUS_MATCH_ARG_NAMESPACE);
+                return buf;
+
+        case BUS_MATCH_ARG_HAS ... BUS_MATCH_ARG_HAS_LAST:
+                snprintf(buf, l, "arg%ihas", t - BUS_MATCH_ARG_HAS);
                 return buf;
 
         default:

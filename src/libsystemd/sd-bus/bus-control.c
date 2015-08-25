@@ -1308,7 +1308,16 @@ int bus_add_match_internal_kernel(
                         break;
                 }
 
-                case BUS_MATCH_ARG_PATH...BUS_MATCH_ARG_PATH_LAST: {
+                case BUS_MATCH_ARG_HAS...BUS_MATCH_ARG_HAS_LAST: {
+                        char buf[sizeof("arg")-1 + 2 + sizeof("has")];
+
+                        xsprintf(buf, "arg%ihas", c->type - BUS_MATCH_ARG_HAS);
+                        bloom_add_pair(bloom, bus->bloom_size, bus->bloom_n_hash, buf, c->value_str);
+                        using_bloom = true;
+                        break;
+                }
+
+                case BUS_MATCH_ARG_PATH...BUS_MATCH_ARG_PATH_LAST:
                         /*
                          * XXX: DBus spec defines arg[0..63]path= matching to be
                          * a two-way glob. That is, if either string is a prefix
@@ -1322,7 +1331,6 @@ int bus_add_match_internal_kernel(
                          * to properly support multiple-matches here.
                          */
                         break;
-                }
 
                 case BUS_MATCH_ARG_NAMESPACE...BUS_MATCH_ARG_NAMESPACE_LAST: {
                         char buf[sizeof("arg")-1 + 2 + sizeof("-dot-prefix")];
@@ -1333,7 +1341,7 @@ int bus_add_match_internal_kernel(
                         break;
                 }
 
-                case BUS_MATCH_DESTINATION: {
+                case BUS_MATCH_DESTINATION:
                         /*
                          * Kernel only supports matching on destination IDs, but
                          * not on destination names. So just skip the
@@ -1351,7 +1359,6 @@ int bus_add_match_internal_kernel(
                                 matches_name_change = false;
 
                         break;
-                }
 
                 case BUS_MATCH_ROOT:
                 case BUS_MATCH_VALUE:

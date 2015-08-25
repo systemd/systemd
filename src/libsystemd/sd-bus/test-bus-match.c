@@ -114,10 +114,10 @@ int main(int argc, char *argv[]) {
         assert_se(match_add(slots, &root, "arg1='two'", 12) >= 0);
         assert_se(match_add(slots, &root, "member='waldo',arg2path='/prefix/'", 13) >= 0);
         assert_se(match_add(slots, &root, "member=waldo,path='/foo/bar',arg3namespace='prefix'", 14) >= 0);
-        assert_se(match_add(slots, &root, "arg4='pi'", 15) >= 0);
-        assert_se(match_add(slots, &root, "arg4='pa'", 16) >= 0);
-        assert_se(match_add(slots, &root, "arg4='po'", 17) >= 0);
-        assert_se(match_add(slots, &root, "arg4='pu'", 18) >= 0);
+        assert_se(match_add(slots, &root, "arg4has='pi'", 15) >= 0);
+        assert_se(match_add(slots, &root, "arg4has='pa'", 16) >= 0);
+        assert_se(match_add(slots, &root, "arg4has='po'", 17) >= 0);
+        assert_se(match_add(slots, &root, "arg4='pi'", 18) >= 0);
 
         bus_match_dump(&root, 0);
 
