@@ -60,7 +60,7 @@
 
         <action id="org.freedesktop.machine1.open-pty">
                 <_description>Acquire a pseudo TTY in a local container</_description>
-                <_message>Authentication is acquire a pseudo TTY in a local container.</_message>
+                <_message>Authentication is required to acquire a pseudo TTY in a local container.</_message>
                 <defaults>
                         <allow_any>auth_admin</allow_any>
                         <allow_inactive>auth_admin</allow_inactive>
@@ -70,7 +70,7 @@
 
         <action id="org.freedesktop.machine1.host-open-pty">
                 <_description>Acquire a pseudo TTY on the local host</_description>
-                <_message>Authentication is acquire a pseudo TTY on the local host.</_message>
+                <_message>Authentication is required to acquire a pseudo TTY on the local host.</_message>
                 <defaults>
                         <allow_any>auth_admin</allow_any>
                         <allow_inactive>auth_admin</allow_inactive>
