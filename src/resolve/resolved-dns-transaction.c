@@ -39,8 +39,8 @@ DnsTransaction* dns_transaction_free(DnsTransaction *t) {
         dns_packet_unref(t->received);
         dns_answer_unref(t->cached);
 
-        sd_event_source_unref(t->dns_event_source);
-        safe_close(t->dns_fd);
+        sd_event_source_unref(t->dns_udp_event_source);
+        safe_close(t->dns_udp_fd);
 
         dns_server_unref(t->server);
         dns_stream_free(t->stream);
@@ -98,7 +98,7 @@ int dns_transaction_new(DnsTransaction **ret, DnsScope *s, DnsResourceKey *key) 
         if (!t)
                 return -ENOMEM;
 
-        t->dns_fd = -1;
+        t->dns_udp_fd = -1;
         t->key = dns_resource_key_ref(key);
 
         /* Find a fresh, unused transaction id */
@@ -328,8 +328,8 @@ static void dns_transaction_next_dns_server(DnsTransaction *t) {
         assert(t);
 
         t->server = dns_server_unref(t->server);
-        t->dns_event_source = sd_event_source_unref(t->dns_event_source);
-        t->dns_fd = safe_close(t->dns_fd);
+        t->dns_udp_event_source = sd_event_source_unref(t->dns_udp_event_source);
+        t->dns_udp_fd = safe_close(t->dns_udp_fd);
 
         dns_scope_next_dns_server(t->scope);
 }
@@ -500,16 +500,16 @@ static int dns_transaction_emit(DnsTransaction *t) {
                 if (fd < 0)
                         return fd;
 
-                r = sd_event_add_io(t->scope->manager->event, &t->dns_event_source, fd, EPOLLIN, on_dns_packet, t);
+                r = sd_event_add_io(t->scope->manager->event, &t->dns_udp_event_source, fd, EPOLLIN, on_dns_packet, t);
                 if (r < 0)
                         return r;
 
-                t->dns_fd = fd;
+                t->dns_udp_fd = fd;
                 fd = -1;
                 t->server = dns_server_ref(server);
         }
 
-        r = dns_scope_emit(t->scope, t->dns_fd, t->sent);
+        r = dns_scope_emit(t->scope, t->dns_udp_fd, t->sent);
         if (r < 0)
                 return r;
 
