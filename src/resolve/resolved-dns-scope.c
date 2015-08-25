@@ -362,6 +362,7 @@ DnsScopeMatch dns_scope_good_domain(DnsScope *s, int ifindex, uint64_t flags, co
                     (dns_name_endswith(domain, "local") > 0 && /* only resolve names ending in .local via mDNS */
                      dns_name_equal(domain, "local") == 0 &&   /* but not the single-label "local" name itself */
                      manager_is_own_hostname(s->manager, domain) <= 0)) /* never resolve the local hostname via mDNS */
+                        return DNS_SCOPE_MAYBE;
 
                 return DNS_SCOPE_NO;
 
