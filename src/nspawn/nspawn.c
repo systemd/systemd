@@ -559,9 +559,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'M':
-                        if (isempty(optarg)) {
+                        if (isempty(optarg))
                                 arg_machine = mfree(arg_machine);
-                        } else {
+                        else {
                                 if (!machine_name_is_valid(optarg)) {
                                         log_error("Invalid machine name: %s", optarg);
                                         return -EINVAL;
@@ -4001,6 +4001,17 @@ static int on_orderly_shutdown(sd_event_source *s, const struct signalfd_siginfo
 
 static int determine_names(void) {
         int r;
+
+        if (arg_template && !arg_directory && arg_machine) {
+
+                /* If --template= was specified then we should not
+                 * search for a machine, but instead create a new one
+                 * in /var/lib/machine. */
+
+                arg_directory = strjoin("/var/lib/machines/", arg_machine, NULL);
+                if (!arg_directory)
+                        return log_oom();
+        }
 
         if (!arg_image && !arg_directory) {
                 if (arg_machine) {
