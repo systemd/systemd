@@ -4542,6 +4542,9 @@ int main(int argc, char *argv[]) {
         if (r <= 0)
                 goto finish;
 
+        if (arg_machine)
+                arg_directory = path_join(NULL, "/var/lib/machines", arg_machine);
+
         r = determine_names();
         if (r < 0)
                 goto finish;
