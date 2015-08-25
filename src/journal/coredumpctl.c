@@ -49,6 +49,7 @@ static enum {
         ACTION_GDB,
 } arg_action = ACTION_LIST;
 static const char* arg_field = NULL;
+static const char *arg_directory = NULL;
 static int arg_no_pager = false;
 static int arg_no_legend = false;
 static int arg_one = false;
@@ -131,6 +132,7 @@ static void help(void) {
                "  -1                 Show information about most recent entry only\n"
                "  -F --field=FIELD   List all values a certain field takes\n"
                "  -o --output=FILE   Write output to FILE\n\n"
+               "  -D --directory=DIR Use journal files from directory\n\n"
 
                "Commands:\n"
                "  list [MATCHES...]  List available coredumps (default)\n"
@@ -156,13 +158,14 @@ static int parse_argv(int argc, char *argv[], Set *matches) {
                 { "no-legend",    no_argument,       NULL, ARG_NO_LEGEND },
                 { "output",       required_argument, NULL, 'o'           },
                 { "field",        required_argument, NULL, 'F'           },
+                { "directory",    required_argument, NULL, 'D'           },
                 {}
         };
 
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "ho:F:1", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "ho:F:1D:", options, NULL)) >= 0)
                 switch(c) {
 
                 case 'h':
@@ -206,6 +209,10 @@ static int parse_argv(int argc, char *argv[], Set *matches) {
 
                 case '1':
                         arg_one = true;
+                        break;
+
+                case 'D':
+                        arg_directory = optarg;
                         break;
 
                 case '?':
@@ -808,10 +815,18 @@ int main(int argc, char *argv[]) {
 
         sigbus_install();
 
-        r = sd_journal_open(&j, SD_JOURNAL_LOCAL_ONLY);
-        if (r < 0) {
-                log_error_errno(r, "Failed to open journal: %m");
-                goto end;
+        if (arg_directory) {
+                r = sd_journal_open_directory (&j, arg_directory, 0);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to open journal in directory: %s: %m", arg_directory);
+                        goto end;
+                }
+        } else {
+                r = sd_journal_open (&j, SD_JOURNAL_LOCAL_ONLY);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to open journal: %m");
+                        goto end;
+                }
         }
 
         /* We want full data, nothing truncated. */
