@@ -965,7 +965,6 @@ int bus_exec_context_set_transient_property(
 
                 return 1;
 
-
         } else if (streq(name, "TTYReset")) {
                 int b;
 
