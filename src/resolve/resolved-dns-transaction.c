@@ -751,8 +751,10 @@ int dns_transaction_go(DnsTransaction *t) {
                 }
         }
 
-        if (t->scope->protocol == DNS_PROTOCOL_LLMNR && !t->initial_jitter) {
-                usec_t jitter;
+        if (!t->initial_jitter &&
+            (t->scope->protocol == DNS_PROTOCOL_LLMNR ||
+             t->scope->protocol == DNS_PROTOCOL_MDNS)) {
+                usec_t jitter, accuracy;
 
                 /* RFC 4795 Section 2.7 suggests all queries should be
                  * delayed by a random time from 0 to JITTER_INTERVAL. */
@@ -760,14 +762,26 @@ int dns_transaction_go(DnsTransaction *t) {
                 t->initial_jitter = true;
 
                 random_bytes(&jitter, sizeof(jitter));
-                jitter %= LLMNR_JITTER_INTERVAL_USEC;
+
+                switch (t->scope->protocol) {
+                case DNS_PROTOCOL_LLMNR:
+                        jitter %= LLMNR_JITTER_INTERVAL_USEC;
+                        accuracy = LLMNR_JITTER_INTERVAL_USEC;
+                        break;
+                case DNS_PROTOCOL_MDNS:
+                        jitter %= MDNS_JITTER_RANGE_USEC;
+                        jitter += MDNS_JITTER_MIN_USEC;
+                        accuracy = MDNS_JITTER_RANGE_USEC;
+                        break;
+                default:
+                        assert_not_reached("bad protocol");
+                }
 
                 r = sd_event_add_time(
                                 t->scope->manager->event,
                                 &t->timeout_event_source,
                                 clock_boottime_or_monotonic(),
-                                ts + jitter,
-                                LLMNR_JITTER_INTERVAL_USEC,
+                                ts + jitter, accuracy,
                                 on_transaction_timeout, t);
                 if (r < 0)
                         return r;
@@ -775,7 +789,7 @@ int dns_transaction_go(DnsTransaction *t) {
                 t->n_attempts = 0;
                 t->state = DNS_TRANSACTION_PENDING;
 
-                log_debug("Delaying LLMNR transaction for " USEC_FMT "us.", jitter);
+                log_debug("Delaying %s transaction for " USEC_FMT "us.", dns_protocol_to_string(t->scope->protocol), jitter);
                 return 0;
         }
 

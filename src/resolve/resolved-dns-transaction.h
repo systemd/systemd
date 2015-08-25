@@ -119,6 +119,10 @@ DnsTransactionSource dns_transaction_source_from_string(const char *s) _pure_;
 /* LLMNR Jitter interval, see RFC 4795 Section 7 */
 #define LLMNR_JITTER_INTERVAL_USEC (100 * USEC_PER_MSEC)
 
+/* mDNS Jitter interval, see RFC 6762 Section 5.2 */
+#define MDNS_JITTER_MIN_USEC   (20 * USEC_PER_MSEC)
+#define MDNS_JITTER_RANGE_USEC (100 * USEC_PER_MSEC)
+
 /* Maximum attempts to send DNS requests, across all DNS servers */
 #define DNS_TRANSACTION_ATTEMPTS_MAX 16
 
