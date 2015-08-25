@@ -86,8 +86,8 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>-F</option></term>
-        <term><option>--field=</option></term>
+        <term><option>-F</option> <replaceable>FIELD</replaceable></term>
+        <term><option>--field=</option><replaceable>FIELD</replaceable></term>
 
         <listitem><para>Print all possible data values the specified
         field takes in matching coredump entries of the
@@ -95,10 +95,18 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>-o</option></term>
-        <term><option>--output=FILE</option></term>
+        <term><option>-o</option> <replaceable>FILE</replaceable></term>
+        <term><option>--output=</option><replaceable>FILE</replaceable></term>
 
         <listitem><para>Write the core to <option>FILE</option>.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-D</option> <replaceable>DIR</replaceable></term>
+        <term><option>--directory=</option><replaceable>DIR</replaceable></term>
+
+        <listitem><para>Use the journal files in the specified <option>DIR</option>.
         </para></listitem>
       </varlistentry>
 
@@ -132,7 +140,7 @@
         <listitem><para>Extract the last coredump matching specified
         characteristics. The coredump will be written on standard
         output, unless an output file is specified with
-        <option>-o/--output</option>. </para></listitem>
+        <option>--output=</option>. </para></listitem>
       </varlistentry>
 
       <varlistentry>
