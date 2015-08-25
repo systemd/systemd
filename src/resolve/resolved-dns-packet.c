@@ -64,7 +64,7 @@ int dns_packet_new(DnsPacket **ret, DnsProtocol protocol, size_t mtu) {
 int dns_packet_new_query(DnsPacket **ret, DnsProtocol protocol, size_t mtu) {
         DnsPacket *p;
         DnsPacketHeader *h;
-        int r, rd;
+        int r;
 
         assert(ret);
 
@@ -74,27 +74,26 @@ int dns_packet_new_query(DnsPacket **ret, DnsProtocol protocol, size_t mtu) {
 
         h = DNS_PACKET_HEADER(p);
 
-        switch (protocol) {
-        case DNS_PROTOCOL_LLMNR:
-                /* no recursion for link-local resolving protocols */
-                rd = 0;
-                break;
-
-        default:
-                /* ask for recursion */
-                rd = 1;
-                break;
-        }
-
-        h->flags = htobe16(DNS_PACKET_MAKE_FLAGS(0  /* qr */,
-                                                 0  /* opcode */,
-                                                 0  /* aa */,
-                                                 0  /* tc */,
-                                                 rd /* rd */,
-                                                 0  /* ra */,
-                                                 0  /* ad */,
-                                                 0  /* cd */,
-                                                 0  /* rcode */));
+        if (protocol == DNS_PROTOCOL_LLMNR)
+                h->flags = htobe16(DNS_PACKET_MAKE_FLAGS(0 /* qr */,
+                                                         0 /* opcode */,
+                                                         0 /* c */,
+                                                         0 /* tc */,
+                                                         0 /* t */,
+                                                         0 /* ra */,
+                                                         0 /* ad */,
+                                                         0 /* cd */,
+                                                         0 /* rcode */));
+        else
+                h->flags = htobe16(DNS_PACKET_MAKE_FLAGS(0 /* qr */,
+                                                         0 /* opcode */,
+                                                         0 /* aa */,
+                                                         0 /* tc */,
+                                                         1 /* rd (ask for recursion) */,
+                                                         0 /* ra */,
+                                                         0 /* ad */,
+                                                         0 /* cd */,
+                                                         0 /* rcode */));
 
         *ret = p;
         return 0;
