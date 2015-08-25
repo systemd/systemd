@@ -43,7 +43,7 @@ typedef enum ExecUtmpMode {
         EXEC_UTMP_LOGIN,
         EXEC_UTMP_USER,
         _EXEC_UTMP_MODE_MAX,
-        _EXEC_UTMP_MODE_INVALID,
+        _EXEC_UTMP_MODE_INVALID = -1
 } ExecUtmpMode;
 
 typedef enum ExecInput {
