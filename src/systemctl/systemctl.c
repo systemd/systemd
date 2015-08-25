@@ -3635,14 +3635,7 @@ static int status_property(const char *name, sd_bus_message *m, UnitStatusInfo *
                 if (r < 0)
                         return bus_log_parse_error(r);
 
-                if (streq(name, "ControlGroup"))
-                        i->control_group = s;
-                else if (!isempty(s)) {
-                        /* For all but the cgroup path (see above) we
-                         * consider the empty string as unset. For the
-                         * cgroup path the empty string refers to the
-                         * root of the cgroup tree. */
-
+                if (!isempty(s)) {
                         if (streq(name, "Id"))
                                 i->id = s;
                         else if (streq(name, "LoadState"))
@@ -3665,6 +3658,8 @@ static int status_property(const char *name, sd_bus_message *m, UnitStatusInfo *
                                         i->control_group = e;
                         }
 #endif
+                        else if (streq(name, "ControlGroup"))
+                                i->control_group = s;
                         else if (streq(name, "StatusText"))
                                 i->status_text = s;
                         else if (streq(name, "PIDFile"))
