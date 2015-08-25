@@ -2794,6 +2794,33 @@ static int reboot_with_logind(sd_bus *bus, enum action a) {
                 return -EINVAL;
         }
 
+        if (!strv_isempty(arg_wall)) {
+                _cleanup_free_ char *m;
+
+                m = strv_join(arg_wall, " ");
+                if (!m)
+                        return log_oom();
+
+                r = sd_bus_call_method(
+                               bus,
+                               "org.freedesktop.login1",
+                               "/org/freedesktop/login1",
+                               "org.freedesktop.login1.Manager",
+                               "SetWallMessage",
+                               &error,
+                               NULL,
+                               "sb",
+                               m,
+                               !arg_no_wall);
+
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to set wall message, ignoring: %s",
+                                          bus_error_message(&error, r));
+                        sd_bus_error_free(&error);
+                }
+        }
+
+
         r = sd_bus_call_method(
                         bus,
                         "org.freedesktop.login1",
@@ -6260,6 +6287,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_PRESET_MODE,
                 ARG_FIRMWARE_SETUP,
                 ARG_NOW,
+                ARG_MESSAGE,
         };
 
         static const struct option options[] = {
@@ -6304,6 +6332,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "preset-mode",         required_argument, NULL, ARG_PRESET_MODE         },
                 { "firmware-setup",      no_argument,       NULL, ARG_FIRMWARE_SETUP      },
                 { "now",                 no_argument,       NULL, ARG_NOW                 },
+                { "message",             required_argument, NULL, ARG_MESSAGE             },
                 {}
         };
 
@@ -6586,6 +6615,11 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                 case ARG_NOW:
                         arg_now = true;
+                        break;
+
+                case ARG_MESSAGE:
+                        if (strv_extend(&arg_wall, optarg) < 0)
+                                return log_oom();
                         break;
 
                 case '?':
@@ -7356,30 +7390,20 @@ static int halt_main(sd_bus *bus) {
                 if (!m)
                         return log_oom();
 
-                r = sd_bus_set_property(
-                                b,
-                                "org.freedesktop.login1",
-                                "/org/freedesktop/login1",
-                                "org.freedesktop.login1.Manager",
-                                "WallMessage",
-                                &error,
-                                "s", m);
-                if (r < 0) {
-                        log_warning_errno(r, "Failed to set WallMessage property in logind: %s",
-                                          bus_error_message(&error, r));
-                        sd_bus_error_free(&error);
-                }
+                r = sd_bus_call_method(
+                               b,
+                               "org.freedesktop.login1",
+                               "/org/freedesktop/login1",
+                               "org.freedesktop.login1.Manager",
+                               "SetWallMessage",
+                               &error,
+                               NULL,
+                               "sb",
+                               m,
+                               !arg_no_wall);
 
-                r = sd_bus_set_property(
-                                b,
-                                "org.freedesktop.login1",
-                                "/org/freedesktop/login1",
-                                "org.freedesktop.login1.Manager",
-                                "EnableWallMessages",
-                                &error,
-                                "b", !arg_no_wall);
                 if (r < 0) {
-                        log_warning_errno(r, "Failed to set EnableWallMessages property in logind: %s",
+                        log_warning_errno(r, "Failed to set wall message, ignoring: %s",
                                           bus_error_message(&error, r));
                         sd_bus_error_free(&error);
                 }
@@ -7537,30 +7561,20 @@ int main(int argc, char*argv[]) {
                         }
                 }
 
-                r = sd_bus_set_property(
-                                b,
-                                "org.freedesktop.login1",
-                                "/org/freedesktop/login1",
-                                "org.freedesktop.login1.Manager",
-                                "WallMessage",
-                                &error,
-                                "s", arg_wall);
-                if (r < 0) {
-                        log_warning_errno(r, "Failed to set WallMessage property in logind: %s",
-                                          bus_error_message(&error, r));
-                        sd_bus_error_free(&error);
-                }
+                r = sd_bus_call_method(
+                               b,
+                               "org.freedesktop.login1",
+                               "/org/freedesktop/login1",
+                               "org.freedesktop.login1.Manager",
+                               "SetWallMessage",
+                               &error,
+                               NULL,
+                               "sb",
+                               m,
+                               !arg_no_wall);
 
-                r = sd_bus_set_property(
-                                b,
-                                "org.freedesktop.login1",
-                                "/org/freedesktop/login1",
-                                "org.freedesktop.login1.Manager",
-                                "EnableWallMessages",
-                                &error,
-                                "b", !arg_no_wall);
                 if (r < 0) {
-                        log_warning_errno(r, "Failed to set EnableWallMessages property in logind: %s",
+                        log_warning_errno(r, "Failed to set wall message, ignoring: %s",
                                           bus_error_message(&error, r));
                         sd_bus_error_free(&error);
                 }
