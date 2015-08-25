@@ -474,6 +474,18 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>-m</option></term>
+        <term><option>--message</option></term>
+
+        <listitem>
+          <para>When used with <option>halt</option>, <option>poweroff</option>,
+          <option>reboot</option> or <option>kexec</option>, set a short
+          message explaining the reason for the operation. The message will be
+          logged together with the default shutdown message.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--now</option></term>
 
         <listitem>
