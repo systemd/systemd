@@ -583,21 +583,26 @@ static int on_transaction_timeout(sd_event_source *s, usec_t usec, void *userdat
         assert(s);
         assert(t);
 
-        /* Timeout reached? Increase the timeout for the server used */
-        switch (t->scope->protocol) {
-        case DNS_PROTOCOL_DNS:
-                assert(t->server);
+        if (!t->initial_jitter_scheduled || t->initial_jitter_elapsed) {
+                /* Timeout reached? Increase the timeout for the server used */
+                switch (t->scope->protocol) {
+                case DNS_PROTOCOL_DNS:
+                        assert(t->server);
 
-                dns_server_packet_lost(t->server, t->current_features, usec - t->start_usec);
+                        dns_server_packet_lost(t->server, t->current_features, usec - t->start_usec);
 
-                break;
-        case DNS_PROTOCOL_LLMNR:
-        case DNS_PROTOCOL_MDNS:
-                dns_scope_packet_lost(t->scope, usec - t->start_usec);
+                        break;
+                case DNS_PROTOCOL_LLMNR:
+                case DNS_PROTOCOL_MDNS:
+                        dns_scope_packet_lost(t->scope, usec - t->start_usec);
 
-                break;
-        default:
-                assert_not_reached("Invalid DNS protocol.");
+                        break;
+                default:
+                        assert_not_reached("Invalid DNS protocol.");
+                }
+
+                if (t->initial_jitter_scheduled)
+                        t->initial_jitter_elapsed = true;
         }
 
         /* ...and try again with a new server */
@@ -751,7 +756,7 @@ int dns_transaction_go(DnsTransaction *t) {
                 }
         }
 
-        if (!t->initial_jitter &&
+        if (!t->initial_jitter_scheduled &&
             (t->scope->protocol == DNS_PROTOCOL_LLMNR ||
              t->scope->protocol == DNS_PROTOCOL_MDNS)) {
                 usec_t jitter, accuracy;
@@ -759,7 +764,7 @@ int dns_transaction_go(DnsTransaction *t) {
                 /* RFC 4795 Section 2.7 suggests all queries should be
                  * delayed by a random time from 0 to JITTER_INTERVAL. */
 
-                t->initial_jitter = true;
+                t->initial_jitter_scheduled = true;
 
                 random_bytes(&jitter, sizeof(jitter));
 
