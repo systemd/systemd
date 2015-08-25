@@ -1382,7 +1382,8 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
 
         if (STR_IN_SET(field,
                        "CPUAccounting", "MemoryAccounting", "BlockIOAccounting",
-                       "SendSIGHUP", "SendSIGKILL", "WakeSystem", "DefaultDependencies")) {
+                       "SendSIGHUP", "SendSIGKILL", "WakeSystem", "DefaultDependencies",
+                       "IgnoreSIGPIPE", "TTYVHangup", "TTYReset", "RemainAfterExit")) {
 
                 r = parse_boolean(eq);
                 if (r < 0) {
@@ -1414,7 +1415,11 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
 
                 r = sd_bus_message_append(m, "v", "t", u);
 
-        } else if (STR_IN_SET(field, "User", "Group", "DevicePolicy", "KillMode"))
+        } else if (STR_IN_SET(field,
+                              "User", "Group", "DevicePolicy", "KillMode",
+                              "UtmpIdentifier", "UtmpMode", "PAMName", "TTYPath",
+                              "StandardInput", "StandardOutput", "StandardError",
+                              "Description", "Slice", "Type"))
                 r = sd_bus_message_append(m, "v", "s", eq);
 
         else if (streq(field, "DeviceAllow")) {
