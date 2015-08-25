@@ -411,16 +411,17 @@ int dns_cache_put(
                 int owner_family,
                 const union in_addr_union *owner_address) {
 
-        unsigned i;
+        unsigned cache_keys, i;
         int r;
 
         assert(c);
-        assert(q);
 
-        /* First, delete all matching old RRs, so that we only keep
-         * complete by_key in place. */
-        for (i = 0; i < q->n_keys; i++)
-                dns_cache_remove(c, q->keys[i]);
+        if (q) {
+                /* First, if we were passed a question, delete all matching old RRs,
+                 * so that we only keep complete by_key in place. */
+                for (i = 0; i < q->n_keys; i++)
+                        dns_cache_remove(c, q->keys[i]);
+        }
 
         if (!answer)
                 return 0;
@@ -435,8 +436,13 @@ int dns_cache_put(
         if (!IN_SET(rcode, DNS_RCODE_SUCCESS, DNS_RCODE_NXDOMAIN))
                 return 0;
 
+        cache_keys = answer->n_rrs;
+
+        if (q)
+                cache_keys += q->n_keys;
+
         /* Make some space for our new entries */
-        dns_cache_make_space(c, answer->n_rrs + q->n_keys);
+        dns_cache_make_space(c, cache_keys);
 
         if (timestamp <= 0)
                 timestamp = now(clock_boottime_or_monotonic());
@@ -447,6 +453,9 @@ int dns_cache_put(
                 if (r < 0)
                         goto fail;
         }
+
+        if (!q)
+                return 0;
 
         /* Third, add in negative entries for all keys with no RR */
         for (i = 0; i < q->n_keys; i++) {
@@ -479,8 +488,11 @@ fail:
         /* Adding all RRs failed. Let's clean up what we already
          * added, just in case */
 
-        for (i = 0; i < q->n_keys; i++)
-                dns_cache_remove(c, q->keys[i]);
+        if (q) {
+                for (i = 0; i < q->n_keys; i++)
+                        dns_cache_remove(c, q->keys[i]);
+        }
+
         for (i = 0; i < answer->n_rrs; i++)
                 dns_cache_remove(c, answer->items[i].rr->key);
 

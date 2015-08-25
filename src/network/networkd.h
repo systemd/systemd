@@ -64,13 +64,13 @@ typedef enum AddressFamilyBoolean {
         _ADDRESS_FAMILY_BOOLEAN_INVALID = -1,
 } AddressFamilyBoolean;
 
-typedef enum LLMNRSupport {
-        LLMNR_SUPPORT_NO,
-        LLMNR_SUPPORT_YES,
-        LLMNR_SUPPORT_RESOLVE,
-        _LLMNR_SUPPORT_MAX,
-        _LLMNR_SUPPORT_INVALID = -1,
-} LLMNRSupport;
+typedef enum ResolveSupport {
+        RESOLVE_SUPPORT_NO,
+        RESOLVE_SUPPORT_YES,
+        RESOLVE_SUPPORT_RESOLVE,
+        _RESOLVE_SUPPORT_MAX,
+        _RESOLVE_SUPPORT_INVALID = -1,
+} ResolveSupport;
 
 typedef enum LinkOperationalState {
         LINK_OPERSTATE_OFF,
@@ -178,7 +178,7 @@ struct Network {
         bool wildcard_domain;
         char **domains, **dns, **ntp, **bind_carrier;
 
-        LLMNRSupport llmnr;
+        ResolveSupport llmnr;
 
         LIST_FIELDS(Network, networks);
 };
@@ -421,14 +421,14 @@ int config_parse_ipv6token(const char *unit, const char *filename, unsigned line
                            const char *section, unsigned section_line, const char *lvalue,
                            int ltype, const char *rvalue, void *data, void *userdata);
 
-/* LLMNR support */
+/* Resolve protocols support */
 
-const char* llmnr_support_to_string(LLMNRSupport i) _const_;
-LLMNRSupport llmnr_support_from_string(const char *s) _pure_;
+const char* resolve_support_to_string(ResolveSupport i) _const_;
+ResolveSupport resolve_support_from_string(const char *s) _pure_;
 
-int config_parse_llmnr(const char *unit, const char *filename, unsigned line,
-                      const char *section, unsigned section_line, const char *lvalue,
-                      int ltype, const char *rvalue, void *data, void *userdata);
+int config_parse_resolve(const char *unit, const char *filename, unsigned line,
+                         const char *section, unsigned section_line, const char *lvalue,
+                         int ltype, const char *rvalue, void *data, void *userdata);
 
 /* Address Pool */
 
