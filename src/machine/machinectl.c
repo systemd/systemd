@@ -1225,7 +1225,7 @@ static int process_forward(sd_event *event, PTYForward **forward, int master, bo
 }
 
 static int login_machine(int argc, char *argv[], void *userdata) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL, *m = NULL;
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(pty_forward_freep) PTYForward *forward = NULL;
         _cleanup_bus_slot_unref_ sd_bus_slot *slot = NULL;
