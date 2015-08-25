@@ -1,5 +1,26 @@
 systemd System and Service Manager
 
+CHANGES WITH 225:
+
+        * Mostly a bugfix release, with tree-wide cleanups
+
+        * systemd-networkd learned to cope with private-zone DHCP options and
+          allows other programs to query the values.
+
+        Contributions from: Alastair Hughes, Alex Crawford, Daniel Mack,
+        David Herrmann, Dimitri John Ledkov, Eric Kostrowski, Evgeny
+        Vereshchagin, Felipe Sateler, Jan Pokorný, Jan Synacek, Johnny
+        Robeson, Karel Zak, Kay Sievers, Kefeng Wang, Lennart
+        Poettering, Major Hayden, Marcel Holtmann, Markus Elfring,
+        Martin Mikkelsen, Matt Turner, Maxim Mikityanskiy, Michael
+        Biebl, Namhyung Kim, Nicolas Cornu, Owen W. Taylor, Patrik
+        Flykt, Peter Hutterer, reverendhomer, Richard Maw, Ronny
+        Chevalier, Seth Jennings, Stef Walter, Susant Sahani, Thomas
+        Blume, Thomas Hindoe Paaboel Andersen, Thomas Meyer, Tom
+        Gundersen, WaLyong Cho, Zbigniew Jędrzejewski-Szmek
+
+        -- Berlin, 2015-xx-xx
+
 CHANGES WITH 224:
 
         * The systemd-efi-boot-generator functionality was merged into
