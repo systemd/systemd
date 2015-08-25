@@ -1539,6 +1539,7 @@ static void test_extract_first_word(void) {
         p = original = "\"";
         assert_se(extract_first_word(&p, &t, NULL, 0) == 1);
         assert_se(streq(t, "\""));
+        free(t);
         assert_se(isempty(p));
 
         p = original = "\"";
@@ -1548,6 +1549,7 @@ static void test_extract_first_word(void) {
         p = original = "\'";
         assert_se(extract_first_word(&p, &t, NULL, 0) == 1);
         assert_se(streq(t, "\'"));
+        free(t);
         assert_se(isempty(p));
 
         p = original = "\'";
@@ -1557,6 +1559,7 @@ static void test_extract_first_word(void) {
         p = original = "\'fooo";
         assert_se(extract_first_word(&p, &t, NULL, 0) == 1);
         assert_se(streq(t, "\'fooo"));
+        free(t);
         assert_se(isempty(p));
 
         p = original = "\'fooo";
