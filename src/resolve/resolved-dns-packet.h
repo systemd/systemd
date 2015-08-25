@@ -121,15 +121,15 @@ static inline uint8_t* DNS_PACKET_DATA(DnsPacket *p) {
 #define DNS_PACKET_ARCOUNT(p) be16toh(DNS_PACKET_HEADER(p)->arcount)
 
 #define DNS_PACKET_MAKE_FLAGS(qr, opcode, aa, tc, rd, ra, ad, cd, rcode) \
-        (((uint16_t) !!qr << 15) |  \
-         ((uint16_t) (opcode & 15) << 11) | \
-         ((uint16_t) !!aa << 10) | \
-         ((uint16_t) !!tc << 9) | \
-         ((uint16_t) !!rd << 8) | \
-         ((uint16_t) !!ra << 7) | \
-         ((uint16_t) !!ad << 5) | \
-         ((uint16_t) !!cd << 4) | \
-         ((uint16_t) (rcode & 15)))
+        (((uint16_t) !!(qr) << 15) |                                    \
+         ((uint16_t) ((opcode) & 15) << 11) |                           \
+         ((uint16_t) !!(aa) << 10) |                /* on LLMNR: c */   \
+         ((uint16_t) !!(tc) << 9) |                                     \
+         ((uint16_t) !!(rd) << 8) |                 /* on LLMNR: t */   \
+         ((uint16_t) !!(ra) << 7) |                                     \
+         ((uint16_t) !!(ad) << 5) |                                     \
+         ((uint16_t) !!(cd) << 4) |                                     \
+         ((uint16_t) ((rcode) & 15)))
 
 static inline unsigned DNS_PACKET_RRCOUNT(DnsPacket *p) {
         return

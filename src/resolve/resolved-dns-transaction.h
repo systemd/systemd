@@ -62,10 +62,10 @@ struct DnsTransaction {
         sd_event_source *timeout_event_source;
         unsigned n_attempts;
 
-        int dns_fd;
-        sd_event_source *dns_event_source;
+        int dns_udp_fd;
+        sd_event_source *dns_udp_event_source;
 
-        /* the active server */
+        /* The active server */
         DnsServer *server;
 
         /* TCP connection logic, if we need it */
