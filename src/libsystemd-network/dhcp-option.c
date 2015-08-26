@@ -140,7 +140,7 @@ int dhcp_option_append(DHCPMessage *message, size_t size, size_t *offset,
 
 static int parse_options(const uint8_t options[], size_t buflen, uint8_t *overload,
                          uint8_t *message_type, dhcp_option_cb_t cb,
-                         void *user_data) {
+                         void *userdata) {
         uint8_t code, len;
         size_t offset = 0;
 
@@ -199,7 +199,7 @@ static int parse_options(const uint8_t options[], size_t buflen, uint8_t *overlo
                                 return -EINVAL;
 
                         if (cb)
-                                cb(code, len, &options[offset], user_data);
+                                cb(code, len, &options[offset], userdata);
 
                         offset += len;
 
@@ -214,7 +214,7 @@ static int parse_options(const uint8_t options[], size_t buflen, uint8_t *overlo
 }
 
 int dhcp_option_parse(DHCPMessage *message, size_t len,
-                      dhcp_option_cb_t cb, void *user_data) {
+                      dhcp_option_cb_t cb, void *userdata) {
         uint8_t overload = 0;
         uint8_t message_type = 0;
         int r;
@@ -228,20 +228,20 @@ int dhcp_option_parse(DHCPMessage *message, size_t len,
         len -= sizeof(DHCPMessage);
 
         r = parse_options(message->options, len, &overload, &message_type,
-                          cb, user_data);
+                          cb, userdata);
         if (r < 0)
                 return r;
 
         if (overload & DHCP_OVERLOAD_FILE) {
                 r = parse_options(message->file, sizeof(message->file),
-                                NULL, &message_type, cb, user_data);
+                                NULL, &message_type, cb, userdata);
                 if (r < 0)
                         return r;
         }
 
         if (overload & DHCP_OVERLOAD_SNAME) {
                 r = parse_options(message->sname, sizeof(message->sname),
-                                NULL, &message_type, cb, user_data);
+                                NULL, &message_type, cb, userdata);
                 if (r < 0)
                         return r;
         }

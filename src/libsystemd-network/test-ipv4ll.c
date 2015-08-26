@@ -39,9 +39,9 @@ static int test_fd[2];
 
 static int basic_request_handler_bind = 0;
 static int basic_request_handler_stop = 0;
-static void* basic_request_handler_user_data = (void*)0xCABCAB;
+static void* basic_request_handler_userdata = (void*)0xCABCAB;
 static void basic_request_handler(sd_ipv4ll *ll, int event, void *userdata) {
-        assert_se(userdata == basic_request_handler_user_data);
+        assert_se(userdata == basic_request_handler_userdata);
 
         switch(event) {
                 case IPV4LL_EVENT_STOP:
@@ -175,7 +175,7 @@ static void test_basic_request(sd_event *e) {
         assert_se(sd_ipv4ll_start(ll) == -EINVAL);
 
         assert_se(sd_ipv4ll_set_callback(ll, basic_request_handler,
-                                         basic_request_handler_user_data) == 0);
+                                         basic_request_handler_userdata) == 0);
         assert_se(sd_ipv4ll_start(ll) == -EINVAL);
 
         assert_se(sd_ipv4ll_set_index(ll, 1) == 0);

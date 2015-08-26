@@ -88,7 +88,7 @@ struct sd_dhcp_lease {
 
 int dhcp_lease_new(sd_dhcp_lease **ret);
 int dhcp_lease_parse_options(uint8_t code, uint8_t len, const uint8_t *option,
-                              void *user_data);
+                              void *userdata);
 int dhcp_lease_insert_private_option(sd_dhcp_lease *lease, uint8_t tag,
                                      const uint8_t *data, uint8_t len);
 

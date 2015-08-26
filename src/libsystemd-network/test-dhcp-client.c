@@ -127,7 +127,7 @@ static void test_checksum(void)
 }
 
 static int check_options(uint8_t code, uint8_t len, const uint8_t *option,
-                void *user_data)
+                void *userdata)
 {
         switch(code) {
         case DHCP_OPTION_CLIENT_IDENTIFIER:
