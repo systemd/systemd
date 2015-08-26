@@ -276,25 +276,30 @@ sub sdio_classes {
         close(OUT);
 }
 
+# MAC Address Block Large/Medium/Small
+# Large  MA-L 24/24 bit (OUI)
+# Medium MA-M 28/20 bit (OUI prefix owned by IEEE)
+# Small  MA-S 36/12 bit (OUI prefix owned by IEEE)
 sub oui {
-        my $iab_prefix;
-        my %iab_prefixes = ();
+        my $prefix;
+        my %ieee_prefixes = ();
 
         open(OUT, ">", "20-OUI.hwdb");
         print(OUT "# This file is part of systemd.\n" .
                   "#\n" .
                   "# Data imported from:\n" .
-                  "#   http://standards.ieee.org/develop/regauth/oui/oui.txt\n" .
-                  "#   http://standards.ieee.org/develop/regauth/iab/iab.txt\n");
+                  "#   https://services13.ieee.org/RST/standards-ra-web/rest/assignments/download/?registry=MA-L&format=txt\n" .
+                  "#   https://services13.ieee.org/RST/standards-ra-web/rest/assignments/download/?registry=MA-M&format=txt\n" .
+                  "#   https://services13.ieee.org/RST/standards-ra-web/rest/assignments/download/?registry=MA-S&format=txt\n");
 
-        open(IN, "<", "iab.txt");
+        open(IN, "<", "ma-small.txt");
         while (my $line = <IN>) {
                 $line =~ s/^ +//;
                 $line =~ s/\s+$//;
                 $line =~ m/^([0-9A-F]{2})-([0-9A-F]{2})-([0-9A-F]{2})\s*\(hex\)\s*.+$/;
                 if (defined $1) {
-                        $iab_prefix = $1 . $2 . $3;
-                        $iab_prefixes{ $iab_prefix } = 1;
+                        $prefix = $1 . $2 . $3;
+                        $ieee_prefixes{ $prefix } = 1;
                         next;
                 }
 
@@ -304,13 +309,35 @@ sub oui {
                         my $text = $2;
 
                         print(OUT "\n");
-                        print(OUT "OUI:" . $iab_prefix . $vendor . "*\n");
+                        print(OUT "OUI:" . $prefix . $vendor . "*\n");
                         print(OUT " ID_OUI_FROM_DATABASE=" . $text . "\n");
                 }
         }
         close(IN);
 
-        open(IN, "<", "oui.txt");
+        open(IN, "<", "ma-medium.txt");
+        while (my $line = <IN>) {
+                $line =~ s/^ +//;
+                $line =~ s/\s+$//;
+                $line =~ m/^([0-9A-F]{2})-([0-9A-F]{2})-([0-9A-F]{2})\s*\(hex\)\s*.+$/;
+                if (defined $1) {
+                        $prefix = $1 . $2 . $3;
+                        $ieee_prefixes{ $prefix } = 1;
+                        next;
+                }
+
+                $line =~ m/^([0-9A-F])00000-\g1FFFFF\s*\(base 16\)\s*(.+)$/;
+                if (defined $1) {
+                        my $vendor = uc $1;
+                        my $text = $2;
+
+                        print(OUT "\n");
+                        print(OUT "OUI:" . $prefix . $vendor . "*\n");
+                        print(OUT " ID_OUI_FROM_DATABASE=" . $text . "\n");
+                }
+        }
+
+        open(IN, "<", "ma-large.txt");
         while (my $line = <IN>) {
                 $line =~ s/^ +//;
                 $line =~ s/\s+$//;
@@ -319,8 +346,12 @@ sub oui {
                         my $vendor = uc $1;
                         my $text = $2;
 
-                        # skip the IAB prefixes
-                        if (! exists $iab_prefixes{ $vendor }) {
+                        if ($text =~ m/^IEEE REGISTRATION AUTHORITY/) {
+                                next;
+                        }
+
+                        # skip the IEEE owned prefixes
+                        if (! exists $ieee_prefixes{ $vendor }) {
                                 print(OUT "\n");
                                 print(OUT "OUI:" . $vendor . "*\n");
                                 print(OUT " ID_OUI_FROM_DATABASE=" . $text . "\n");
@@ -328,6 +359,7 @@ sub oui {
                 }
         }
         close(IN);
+
         close(OUT);
 }
 

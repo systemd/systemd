@@ -1,4 +1,5 @@
 /pci.ids
 /usb.ids
-/oui.txt
-/iab.txt
+/ma-large.txt
+/ma-medium.txt
+/ma-small.txt

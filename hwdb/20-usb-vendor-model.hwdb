@@ -50804,6 +50804,33 @@ usb:v2237*
 usb:v2237p4161*
  ID_MODEL_FROM_DATABASE=eReader White
 
+usb:v225D*
+ ID_VENDOR_FROM_DATABASE=Morpho
+
+usb:v225Dp0001*
+ ID_MODEL_FROM_DATABASE=FINGER VP Multimodal Biometric Sensor
+
+usb:v225Dp0008*
+ ID_MODEL_FROM_DATABASE=CBM-E3 Fingerprint Sensor
+
+usb:v225Dp0009*
+ ID_MODEL_FROM_DATABASE=CBM Fingerprint Sensor [CBM-V3]
+
+usb:v225Dp000A*
+ ID_MODEL_FROM_DATABASE=MSO1300-E3 Fingerprint Sensor
+
+usb:v225Dp000B*
+ ID_MODEL_FROM_DATABASE=MSO1300 Fingerprint Sensor [MSO1300-V3]
+
+usb:v225Dp000C*
+ ID_MODEL_FROM_DATABASE=MSO1350-E3 Fingerprint Sensor & SmartCard Reader
+
+usb:v225Dp000D*
+ ID_MODEL_FROM_DATABASE=MSO1350 Fingerprint Sensor & SmartCard Reader [MSO1350-V3]
+
+usb:v225Dp000E*
+ ID_MODEL_FROM_DATABASE=MorphoAccess SIGMA Biometric Access Control Terminal
+
 usb:v228D*
  ID_VENDOR_FROM_DATABASE=8D Technologies inc.
 

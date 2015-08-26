@@ -6056,10 +6056,11 @@ dist: dist-check-python dist-check-compat-libs
 .PHONY: hwdb-update
 hwdb-update:
 	( cd $(top_srcdir)/hwdb && \
-	wget -N http://www.linux-usb.org/usb.ids \
-		http://pci-ids.ucw.cz/v2.2/pci.ids \
-		http://standards.ieee.org/develop/regauth/oui/oui.txt \
-		http://standards.ieee.org/develop/regauth/iab/iab.txt && \
+	wget -O usb.ids 'http://www.linux-usb.org/usb.ids' && \
+	wget -O pci.ids 'http://pci-ids.ucw.cz/v2.2/pci.ids' && \
+	wget -O ma-large.txt 'https://services13.ieee.org/RST/standards-ra-web/rest/assignments/download/?registry=MA-L&format=txt' && \
+	wget -O ma-medium.txt 'https://services13.ieee.org/RST/standards-ra-web/rest/assignments/download/?registry=MA-M&format=txt' && \
+	wget -O ma-small.txt 'https://services13.ieee.org/RST/standards-ra-web/rest/assignments/download/?registry=MA-S&format=txt' && \
 	./ids-update.pl )
 
 .PHONY: built-sources
