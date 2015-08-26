@@ -26,7 +26,6 @@
 #include "sd-dhcp-server.h"
 
 #include "hashmap.h"
-#include "refcnt.h"
 #include "util.h"
 #include "log.h"
 
@@ -47,7 +46,7 @@ typedef struct DHCPLease {
 } DHCPLease;
 
 struct sd_dhcp_server {
-        RefCount n_ref;
+        unsigned n_ref;
 
         sd_event *event;
         int event_priority;

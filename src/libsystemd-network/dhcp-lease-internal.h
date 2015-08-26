@@ -25,7 +25,6 @@
 #include <stdint.h>
 #include <linux/if_packet.h>
 
-#include "refcnt.h"
 #include "util.h"
 #include "list.h"
 
@@ -48,7 +47,7 @@ struct sd_dhcp_raw_option {
 };
 
 struct sd_dhcp_lease {
-        RefCount n_ref;
+        int n_ref;
 
         int32_t time_offset;
         uint32_t t1;

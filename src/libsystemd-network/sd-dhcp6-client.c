@@ -27,7 +27,6 @@
 #include "udev.h"
 #include "udev-util.h"
 #include "util.h"
-#include "refcnt.h"
 #include "random-util.h"
 
 #include "network-internal.h"
@@ -40,7 +39,7 @@
 #define MAX_MAC_ADDR_LEN INFINIBAND_ALEN
 
 struct sd_dhcp6_client {
-        RefCount n_ref;
+        unsigned n_ref;
 
         enum DHCP6State state;
         sd_event *event;
@@ -1222,26 +1221,36 @@ sd_event *sd_dhcp6_client_get_event(sd_dhcp6_client *client) {
 }
 
 sd_dhcp6_client *sd_dhcp6_client_ref(sd_dhcp6_client *client) {
-        if (client)
-                assert_se(REFCNT_INC(client->n_ref) >= 2);
+
+        if (!client)
+                return NULL;
+
+        assert(client->n_ref >= 1);
+        client->n_ref++;
 
         return client;
 }
 
 sd_dhcp6_client *sd_dhcp6_client_unref(sd_dhcp6_client *client) {
-        if (client && REFCNT_DEC(client->n_ref) == 0) {
-                client_reset(client);
 
-                sd_dhcp6_client_detach_event(client);
-                sd_dhcp6_lease_unref(client->lease);
-
-                free(client->req_opts);
-                free(client);
-
+        if (!client)
                 return NULL;
-        }
 
-        return client;
+        assert(client->n_ref >= 1);
+        client->n_ref--;
+
+        if (client->n_ref > 0)
+                return NULL;
+
+        client_reset(client);
+
+        sd_dhcp6_client_detach_event(client);
+        sd_dhcp6_lease_unref(client->lease);
+
+        free(client->req_opts);
+        free(client);
+
+        return NULL;
 }
 
 int sd_dhcp6_client_new(sd_dhcp6_client **ret)
@@ -1255,7 +1264,7 @@ int sd_dhcp6_client_new(sd_dhcp6_client **ret)
         if (!client)
                 return -ENOMEM;
 
-        client->n_ref = REFCNT_INIT;
+        client->n_ref = 1;
 
         client->ia_na.type = DHCP6_OPTION_IA_NA;
 

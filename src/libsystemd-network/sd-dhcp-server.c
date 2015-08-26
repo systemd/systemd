@@ -73,8 +73,12 @@ bool sd_dhcp_server_is_running(sd_dhcp_server *server) {
 }
 
 sd_dhcp_server *sd_dhcp_server_ref(sd_dhcp_server *server) {
-        if (server)
-                assert_se(REFCNT_INC(server->n_ref) >= 2);
+
+        if (!server)
+                return NULL;
+
+        assert(server->n_ref >= 1);
+        server->n_ref++;
 
         return server;
 }
@@ -127,7 +131,10 @@ sd_dhcp_server *sd_dhcp_server_unref(sd_dhcp_server *server) {
         if (!server)
                 return NULL;
 
-        if (REFCNT_DEC(server->n_ref) > 0)
+        assert(server->n_ref >= 1);
+        server->n_ref--;
+
+        if (server->n_ref > 0)
                 return NULL;
 
         log_dhcp_server(server, "UNREF");
@@ -158,7 +165,7 @@ int sd_dhcp_server_new(sd_dhcp_server **ret, int ifindex) {
         if (!server)
                 return -ENOMEM;
 
-        server->n_ref = REFCNT_INIT;
+        server->n_ref = 1;
         server->fd_raw = -1;
         server->fd = -1;
         server->address = htobe32(INADDR_ANY);

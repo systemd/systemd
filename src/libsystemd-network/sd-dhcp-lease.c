@@ -195,31 +195,44 @@ int sd_dhcp_lease_get_vendor_specific(sd_dhcp_lease *lease, const uint8_t **data
 }
 
 sd_dhcp_lease *sd_dhcp_lease_ref(sd_dhcp_lease *lease) {
-        if (lease)
-                assert_se(REFCNT_INC(lease->n_ref) >= 2);
+
+        if (!lease)
+                return NULL;
+
+        assert(lease->n_ref >= 1);
+        lease->n_ref++;
 
         return lease;
 }
 
 sd_dhcp_lease *sd_dhcp_lease_unref(sd_dhcp_lease *lease) {
-        if (lease && REFCNT_DEC(lease->n_ref) == 0) {
-                while (lease->private_options) {
-                        struct sd_dhcp_raw_option *option = lease->private_options;
 
-                        LIST_REMOVE(options, lease->private_options, option);
+        if (!lease)
+                return NULL;
 
-                        free(option->data);
-                        free(option);
-                }
-                free(lease->hostname);
-                free(lease->domainname);
-                free(lease->dns);
-                free(lease->ntp);
-                free(lease->static_route);
-                free(lease->client_id);
-                free(lease->vendor_specific);
-                free(lease);
+        assert(lease->n_ref >= 1);
+        lease->n_ref--;
+
+        if (lease->n_ref > 0)
+                return NULL;
+
+        while (lease->private_options) {
+                struct sd_dhcp_raw_option *option = lease->private_options;
+
+                LIST_REMOVE(options, lease->private_options, option);
+
+                free(option->data);
+                free(option);
         }
+
+        free(lease->hostname);
+        free(lease->domainname);
+        free(lease->dns);
+        free(lease->ntp);
+        free(lease->static_route);
+        free(lease->client_id);
+        free(lease->vendor_specific);
+        free(lease);
 
         return NULL;
 }
@@ -643,7 +656,7 @@ int dhcp_lease_new(sd_dhcp_lease **ret) {
                 return -ENOMEM;
 
         lease->router = INADDR_ANY;
-        lease->n_ref = REFCNT_INIT;
+        lease->n_ref = 1;
         LIST_HEAD_INIT(lease->private_options);
 
         *ret = lease;

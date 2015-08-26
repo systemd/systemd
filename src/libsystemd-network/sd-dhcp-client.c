@@ -27,7 +27,6 @@
 #include <sys/ioctl.h>
 
 #include "util.h"
-#include "refcnt.h"
 #include "random-util.h"
 #include "async.h"
 
@@ -41,7 +40,7 @@
 #define MAX_MAC_ADDR_LEN CONST_MAX(INFINIBAND_ALEN, ETH_ALEN)
 
 struct sd_dhcp_client {
-        RefCount n_ref;
+        unsigned n_ref;
 
         DHCPState state;
         sd_event *event;
@@ -1676,30 +1675,41 @@ sd_event *sd_dhcp_client_get_event(sd_dhcp_client *client) {
 }
 
 sd_dhcp_client *sd_dhcp_client_ref(sd_dhcp_client *client) {
-        if (client)
-                assert_se(REFCNT_INC(client->n_ref) >= 2);
+
+        if (!client)
+                return NULL;
+
+        assert(client->n_ref >= 1);
+        client->n_ref++;
 
         return client;
 }
 
 sd_dhcp_client *sd_dhcp_client_unref(sd_dhcp_client *client) {
-        if (client && REFCNT_DEC(client->n_ref) == 0) {
-                log_dhcp_client(client, "FREE");
 
-                client_initialize(client);
+        if (!client)
+                return NULL;
 
-                client->receive_message =
-                        sd_event_source_unref(client->receive_message);
+        assert(client->n_ref >= 1);
+        client->n_ref--;
 
-                sd_dhcp_client_detach_event(client);
+        if (client->n_ref > 0)
+                return NULL;
 
-                sd_dhcp_lease_unref(client->lease);
+        log_dhcp_client(client, "FREE");
 
-                free(client->req_opts);
-                free(client->hostname);
-                free(client->vendor_class_identifier);
-                free(client);
-        }
+        client_initialize(client);
+
+        client->receive_message = sd_event_source_unref(client->receive_message);
+
+        sd_dhcp_client_detach_event(client);
+
+        sd_dhcp_lease_unref(client->lease);
+
+        free(client->req_opts);
+        free(client->hostname);
+        free(client->vendor_class_identifier);
+        free(client);
 
         return NULL;
 }
@@ -1713,7 +1723,7 @@ int sd_dhcp_client_new(sd_dhcp_client **ret) {
         if (!client)
                 return -ENOMEM;
 
-        client->n_ref = REFCNT_INIT;
+        client->n_ref = 1;
         client->state = DHCP_STATE_INIT;
         client->index = -1;
         client->fd = -1;
