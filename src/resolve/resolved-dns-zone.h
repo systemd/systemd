@@ -78,3 +78,6 @@ int dns_zone_verify_conflicts(DnsZone *zone, DnsResourceKey *key);
 void dns_zone_verify_all(DnsZone *zone);
 
 void dns_zone_item_probe_stop(DnsZoneItem *i);
+
+void dns_zone_dump(DnsZone *zone, FILE *f);
+bool dns_zone_is_empty(DnsZone *zone);

@@ -812,3 +812,35 @@ void dns_scope_check_conflicts(DnsScope *scope, DnsPacket *p) {
                 dns_scope_notify_conflict(scope, p->answer->items[i].rr);
         }
 }
+
+void dns_scope_dump(DnsScope *s, FILE *f) {
+        assert(s);
+
+        if (!f)
+                f = stdout;
+
+        fputs("[Scope protocol=", f);
+        fputs(dns_protocol_to_string(s->protocol), f);
+
+        if (s->link) {
+                fputs(" interface=", f);
+                fputs(s->link->name, f);
+        }
+
+        if (s->family != AF_UNSPEC) {
+                fputs(" family=", f);
+                fputs(af_to_name(s->family), f);
+        }
+
+        fputs("]\n", f);
+
+        if (!dns_zone_is_empty(&s->zone)) {
+                fputs("ZONE:\n", f);
+                dns_zone_dump(&s->zone, f);
+        }
+
+        if (!dns_cache_is_empty(&s->cache)) {
+                fputs("CACHE:\n", f);
+                dns_cache_dump(&s->cache, f);
+        }
+}

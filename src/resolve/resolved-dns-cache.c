@@ -620,3 +620,54 @@ int dns_cache_check_conflicts(DnsCache *cache, DnsResourceRecord *rr, int owner_
         /* There's a conflict */
         return 1;
 }
+
+void dns_cache_dump(DnsCache *cache, FILE *f) {
+        Iterator iterator;
+        DnsCacheItem *i;
+        int r;
+
+        if (!cache)
+                return;
+
+        if (!f)
+                f = stdout;
+
+        HASHMAP_FOREACH(i, cache->by_key, iterator) {
+                DnsCacheItem *j;
+
+                LIST_FOREACH(by_key, j, i) {
+                        _cleanup_free_ char *t = NULL;
+
+                        fputc('\t', f);
+
+                        if (j->rr) {
+                                r = dns_resource_record_to_string(j->rr, &t);
+                                if (r < 0) {
+                                        log_oom();
+                                        continue;
+                                }
+
+                                fputs(t, f);
+                                fputc('\n', f);
+                        } else {
+                                r = dns_resource_key_to_string(j->key, &t);
+                                if (r < 0) {
+                                        log_oom();
+                                        continue;
+                                }
+
+                                fputs(t, f);
+                                fputs(" -- ", f);
+                                fputs(j->type == DNS_CACHE_NODATA ? "NODATA" : "NXDOMAIN", f);
+                                fputc('\n', f);
+                        }
+                }
+        }
+}
+
+bool dns_cache_is_empty(DnsCache *cache) {
+        if (!cache)
+                return true;
+
+        return hashmap_isempty(cache->by_key);
+}

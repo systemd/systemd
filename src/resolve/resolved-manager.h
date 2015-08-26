@@ -102,6 +102,8 @@ struct Manager {
 
         /* Watch for system suspends */
         sd_bus_slot *prepare_for_sleep_slot;
+
+        sd_event_source *sigusr1_event_source;
 };
 
 /* Manager */
