@@ -816,37 +816,36 @@ int config_parse_ipv6_privacy_extensions(
         return 0;
 }
 
-int config_parse_hostname(const char *unit,
-                          const char *filename,
-                          unsigned line,
-                          const char *section,
-                          unsigned section_line,
-                          const char *lvalue,
-                          int ltype,
-                          const char *rvalue,
-                          void *data,
-                          void *userdata) {
-        char **hostname = data;
-        char *hn = NULL;
+int config_parse_hostname(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        char **hostname = data, *hn = NULL;
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
 
-        r = config_parse_string(unit, filename, line, section, section_line,
-                                lvalue, ltype, rvalue, &hn, userdata);
+        r = config_parse_string(unit, filename, line, section, section_line, lvalue, ltype, rvalue, &hn, userdata);
         if (r < 0)
                 return r;
 
-        if (!hostname_is_valid(hn, true)) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL, "hostname is not valid, ignoring assignment: %s", rvalue);
-
+        if (!hostname_is_valid(hn, false)) {
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL, "Hostname is not valid, ignoring assignment: %s", rvalue);
                 free(hn);
                 return 0;
         }
 
+        free(*hostname);
         *hostname = hostname_cleanup(hn);
-
         return 0;
 }
