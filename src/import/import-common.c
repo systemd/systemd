@@ -210,7 +210,7 @@ int import_fork_tar_c(const char *path, pid_t *ret) {
                 if (r < 0)
                         log_error_errno(r, "Failed to drop capabilities, ignoring: %m");
 
-                execlp("tar", "tar", "--sparse", "-C", path, "-c", ".", NULL);
+                execlp("tar", "tar", "-C", path, "-c", ".", NULL);
                 log_error_errno(errno, "Failed to execute tar: %m");
                 _exit(EXIT_FAILURE);
         }
