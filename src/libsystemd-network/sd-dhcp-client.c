@@ -1163,13 +1163,17 @@ static int client_handle_ack(sd_dhcp_client *client, DHCPMessage *ack,
         return r;
 }
 
-static uint64_t client_compute_timeout(sd_dhcp_client *client,
-                                       uint32_t lifetime, double factor) {
+static uint64_t client_compute_timeout(sd_dhcp_client *client, uint32_t lifetime, double factor) {
         assert(client);
         assert(client->request_sent);
-        assert(lifetime);
+        assert(lifetime > 0);
 
-        return client->request_sent + ((lifetime - 3) * USEC_PER_SEC * factor) +
+        if (lifetime > 3)
+                lifetime -= 3;
+        else
+                lifetime = 0;
+
+        return client->request_sent + (lifetime * USEC_PER_SEC * factor) +
                 + (random_u32() & 0x1fffff);
 }
 
@@ -1201,7 +1205,7 @@ static int client_set_lease_timeouts(sd_dhcp_client *client) {
 
         /* convert the various timeouts from relative (secs) to absolute (usecs) */
         lifetime_timeout = client_compute_timeout(client, client->lease->lifetime, 1);
-        if (client->lease->t1 && client->lease->t2) {
+        if (client->lease->t1 > 0 && client->lease->t2 > 0) {
                 /* both T1 and T2 are given */
                 if (client->lease->t1 < client->lease->t2 &&
                     client->lease->t2 < client->lease->lifetime) {
@@ -1215,7 +1219,7 @@ static int client_set_lease_timeouts(sd_dhcp_client *client) {
                         t1_timeout = client_compute_timeout(client, client->lease->lifetime, 0.5);
                         client->lease->t1 = client->lease->lifetime / 2;
                 }
-        } else if (client->lease->t2 && client->lease->t2 < client->lease->lifetime) {
+        } else if (client->lease->t2 > 0 && client->lease->t2 < client->lease->lifetime) {
                 /* only T2 is given, and it is valid */
                 t2_timeout = client_compute_timeout(client, client->lease->t2, 1);
                 t1_timeout = client_compute_timeout(client, client->lease->lifetime, 0.5);
@@ -1225,7 +1229,7 @@ static int client_set_lease_timeouts(sd_dhcp_client *client) {
                         t2_timeout = client_compute_timeout(client, client->lease->lifetime, 7.0 / 8.0);
                         client->lease->t2 = (client->lease->lifetime * 7) / 8;
                 }
-        } else if (client->lease->t1 && client->lease->t1 < client->lease->lifetime) {
+        } else if (client->lease->t1 > 0 && client->lease->t1 < client->lease->lifetime) {
                 /* only T1 is given, and it is valid */
                 t1_timeout = client_compute_timeout(client, client->lease->t1, 1);
                 t2_timeout = client_compute_timeout(client, client->lease->lifetime, 7.0 / 8.0);
