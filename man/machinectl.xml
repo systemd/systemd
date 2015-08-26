@@ -429,8 +429,9 @@
         the new session from the originating session, so that it
         shares no process or session properties, and is in a clean and
         well-defined state. It will be tracked in a new utmp, login,
-        audit and keyring session, and will not inherit an environment
-        variables or resource limits, among other properties.</para>
+        audit, security and keyring session, and will not inherit any
+        environment variables or resource limits, among other
+        properties.</para>
 
         <para>Note that the
         <citerefentry><refentrytitle>systemd-run</refentrytitle><manvolnum>1</manvolnum></citerefentry>

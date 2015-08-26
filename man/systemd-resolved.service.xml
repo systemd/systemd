@@ -1,4 +1,4 @@
-<?xml version='1.0'?> <!--*-nxml-*-->
+<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
@@ -70,6 +70,61 @@
     files, and the per-link dynamic settings received over DHCP. See
     <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     for more details.</para>
+
+    <para><command>systemd-resolved</command> synthesizes DNS RRs for the following cases:</para>
+
+    <itemizedlist>
+      <listitem><para>The local, configured hostname is resolved to
+      all locally configured IP addresses ordered by their scope, or
+      — if none are configured — the IPv4 address 127.0.0.2 (which
+      is on the local loopback) and the IPv6 address ::1 (which is the
+      local host).</para></listitem>
+
+      <listitem><para>The hostname <literal>localhost</literal> is
+      resolved to the IP addresses 127.0.0.1 and
+      ::1.</para></listitem>
+
+      <listitem><para>The hostname <literal>gateway</literal> is
+      resolved to all current default routing gateway addresses,
+      ordered by their metric. This assigns a stable hostname to the
+      current gateway, useful for referencing it independently of the
+      current network configuration state.</para></listitem>
+    </itemizedlist>
+
+    <para>Lookup requests are routed to the available DNS servers
+    and LLMNR interfaces according to the following rules:</para>
+
+    <itemizedlist>
+      <listitem><para>Lookups for the special hostname
+      <literal>localhost</literal> are never routed to the
+      network.</para></listitem>
+
+      <listitem><para>Single-label names are routed to all local
+      interfaces capable of IP multicasting, using the LLMNR
+      protocol. Lookups for IPv4 addresses are only sent via LLMNR on
+      IPv4, and lookups for IPv6 addresses are only sent via LLMNR on
+      IPv6. Lookups for the locally configured host name and the
+      <literal>gateway</literal> host name are never routed to
+      LLMNR.</para></listitem>
+
+      <listitem><para>Multi-label names are routed to all local
+      interfaces that have a DNS sever configured, plus the globally
+      configured DNS server if there is one. Address lookups from the
+      link-local addres range are never routed to
+      DNS.</para></listitem>
+    </itemizedlist>
+
+    <para>If lookups are routed to multiple interfaces, the first
+    successful response is returned (thus effectively merging the
+    lookup zones on all matching interfaces). If the lookup failed on
+    all interfaces the last failing response is returned.</para>
+
+    <para>Routing of lookups may be influenced by configuring
+    per-interface domain names, see
+    <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    for details. Lookups for a hostname ending in one of the
+    per-interface domains are exclusively routed to the matching
+    interfaces.</para>
 
     <para>Note that
     <filename>/run/systemd/resolve/resolv.conf</filename> should not
