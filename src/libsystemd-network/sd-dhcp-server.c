@@ -901,13 +901,12 @@ static int server_receive_message(sd_event_source *s, int fd,
                 .msg_controllen = sizeof(cmsgbuf),
         };
         struct cmsghdr *cmsg;
-        int buflen = 0, len, r;
+        int buflen = 0, len;
 
         assert(server);
 
-        r = ioctl(fd, FIONREAD, &buflen);
-        if (r < 0)
-                return r;
+        if (ioctl(fd, FIONREAD, &buflen) < 0)
+                return -errno;
         if (buflen < 0)
                 return -EIO;
 
