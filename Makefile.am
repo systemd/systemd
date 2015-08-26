@@ -43,7 +43,7 @@ LIBUDEV_REVISION=4
 LIBUDEV_AGE=6
 
 LIBSYSTEMD_CURRENT=10
-LIBSYSTEMD_REVISION=1
+LIBSYSTEMD_REVISION=2
 LIBSYSTEMD_AGE=10
 
 # The following four libraries only exist for compatibility reasons,
