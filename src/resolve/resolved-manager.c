@@ -561,8 +561,8 @@ Manager *manager_free(Manager *m) {
         dns_resource_key_unref(m->llmnr_host_ipv4_key);
         dns_resource_key_unref(m->llmnr_host_ipv6_key);
 
-        safe_close(m->hostname_fd);
         sd_event_source_unref(m->hostname_event_source);
+        safe_close(m->hostname_fd);
         free(m->llmnr_hostname);
         free(m->mdns_hostname);
 
