@@ -617,22 +617,23 @@ static int ensure_sane_request(DHCPRequest *req, DHCPMessage *message) {
         /* set client id based on MAC address if client did not send an explicit
            one */
         if (!req->client_id.data) {
-                uint8_t *data;
+                void *data;
 
-                data = new0(uint8_t, ETH_ALEN + 1);
+                data = malloc0(ETH_ALEN + 1);
                 if (!data)
                         return -ENOMEM;
 
+                ((uint8_t*) data)[0] = 0x01;
+                memcpy((uint8_t*) data + 1, &message->chaddr, ETH_ALEN);
+
                 req->client_id.length = ETH_ALEN + 1;
                 req->client_id.data = data;
-                req->client_id.data[0] = 0x01;
-                memcpy(&req->client_id.data[1], &message->chaddr, ETH_ALEN);
         }
 
         if (req->max_optlen < DHCP_MIN_OPTIONS_SIZE)
                 req->max_optlen = DHCP_MIN_OPTIONS_SIZE;
 
-        if (!req->lifetime)
+        if (req->lifetime <= 0)
                 req->lifetime = DHCP_DEFAULT_LEASE_TIME;
 
         return 0;
@@ -683,8 +684,8 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
                                      &req->client_id);
 
         switch(type) {
-        case DHCP_DISCOVER:
-        {
+
+        case DHCP_DISCOVER: {
                 be32_t address = INADDR_ANY;
                 unsigned i;
 
@@ -734,9 +735,7 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
 
                 return 1;
 
-                break;
-        case DHCP_REQUEST:
-        {
+        case DHCP_REQUEST: {
                 be32_t address;
                 bool init_reboot = false;
                 int pool_offset;
@@ -858,6 +857,7 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
 
                 break;
         }
+
         case DHCP_RELEASE: {
                 int pool_offset;
 

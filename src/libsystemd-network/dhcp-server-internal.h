@@ -33,7 +33,7 @@
 
 typedef struct DHCPClientId {
         size_t length;
-        uint8_t *data;
+        void *data;
 } DHCPClientId;
 
 typedef struct DHCPLease {
