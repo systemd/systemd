@@ -624,6 +624,11 @@ int dhcp4_configure(Link *link) {
                         return r;
         }
 
+        /* Always acquire the timezone */
+        r = sd_dhcp_client_set_request_option(link->dhcp_client, DHCP_OPTION_NEW_TZDB_TIMEZONE);
+        if (r < 0)
+                return r;
+
         if (link->network->dhcp_sendhost) {
                 _cleanup_free_ char *hostname = NULL;
                 const char *hn = NULL;

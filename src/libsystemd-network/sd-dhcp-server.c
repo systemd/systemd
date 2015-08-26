@@ -136,6 +136,8 @@ sd_dhcp_server *sd_dhcp_server_unref(sd_dhcp_server *server) {
 
         sd_event_unref(server->event);
 
+        free(server->timezone);
+
         while ((lease = hashmap_steal_first(server->leases_by_client_id)))
                 dhcp_lease_free(lease);
         hashmap_free(server->leases_by_client_id);
@@ -473,6 +475,15 @@ static int server_send_ack(sd_dhcp_server *server, DHCPRequest *req,
                                DHCP_OPTION_ROUTER, 4, &server->address);
         if (r < 0)
                 return r;
+
+        if (server->timezone) {
+                r = dhcp_option_append(
+                                &packet->dhcp, req->max_optlen, &offset, 0,
+                                DHCP_OPTION_NEW_TZDB_TIMEZONE,
+                                strlen(server->timezone), server->timezone);
+                if (r < 0)
+                        return r;
+        }
 
         r = dhcp_server_send_packet(server, req, packet, DHCP_ACK, offset);
         if (r < 0)
@@ -992,4 +1003,20 @@ int sd_dhcp_server_forcerenew(sd_dhcp_server *server) {
         }
 
         return r;
+}
+
+int sd_dhcp_server_set_timezone(sd_dhcp_server *server, const char *timezone) {
+        int r;
+
+        assert_return(server, -EINVAL);
+        assert_return(timezone_is_valid(timezone), -EINVAL);
+
+        if (streq_ptr(timezone, server->timezone))
+                return 0;
+
+        r = free_and_strdup(&server->timezone, timezone);
+        if (r < 0)
+                return r;
+
+        return 1;
 }

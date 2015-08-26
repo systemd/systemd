@@ -62,6 +62,8 @@ struct sd_dhcp_server {
         size_t pool_size;
         size_t next_offer;
 
+        char *timezone;
+
         Hashmap *leases_by_client_id;
         DHCPLease **bound_leases;
 };

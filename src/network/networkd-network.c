@@ -124,7 +124,8 @@ static int network_load_one(Manager *manager, const char *filename) {
                          "Address\0"
                          "Route\0"
                          "DHCP\0"
-                         "DHCPv4\0"
+                         "DHCPv4\0" /* compat */
+                         "DHCPServer\0"
                          "Bridge\0"
                          "BridgeFDB\0",
                          config_item_perf_lookup, network_network_gperf_lookup,
@@ -257,6 +258,8 @@ void network_free(Network *network) {
         condition_free_list(network->match_virt);
         condition_free_list(network->match_kernel);
         condition_free_list(network->match_arch);
+
+        free(network->dhcp_server_timezone);
 
         free(network);
 }
@@ -847,5 +850,40 @@ int config_parse_hostname(
 
         free(*hostname);
         *hostname = hostname_cleanup(hn);
+        return 0;
+}
+
+int config_parse_timezone(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        char **timezone = data, *tz = NULL;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        r = config_parse_string(unit, filename, line, section, section_line, lvalue, ltype, rvalue, &tz, userdata);
+        if (r < 0)
+                return r;
+
+        if (!timezone_is_valid(tz)) {
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL, "Timezone is not valid, ignoring assignment: %s", rvalue);
+                free(tz);
+                return 0;
+        }
+
+        free(*timezone);
+        *timezone = tz;
+
         return 0;
 }

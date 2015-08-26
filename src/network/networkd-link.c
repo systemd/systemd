@@ -672,6 +672,27 @@ static int link_enter_set_addresses(Link *link) {
                         return r;
                 */
 
+                if (link->network->dhcp_server_emit_timezone) {
+                        _cleanup_free_ char *buffer = NULL;
+                        const char *tz;
+
+                        if (link->network->dhcp_server_timezone)
+                                tz = link->network->dhcp_server_timezone;
+                        else {
+                                r = get_timezone(&buffer);
+                                if (r < 0)
+                                        log_warning_errno(r, "Failed to determine timezone: %m");
+                                else
+                                        tz = buffer;
+                        }
+
+                        if (tz) {
+                                r = sd_dhcp_server_set_timezone(link->dhcp_server, tz);
+                                if (r < 0)
+                                        return r;
+                        }
+                }
+
                 r = sd_dhcp_server_start(link->dhcp_server);
                 if (r < 0) {
                         log_link_warning_errno(link, r, "Could not start DHCPv4 server instance: %m");
@@ -2411,6 +2432,14 @@ int link_save(Link *link) {
                 }
 
                 fputs("\n", f);
+        }
+
+        if (link->dhcp_lease) {
+                const char *tz = NULL;
+
+                r = sd_dhcp_lease_get_timezone(link->dhcp_lease, &tz);
+                if (r >= 0)
+                        fprintf(f, "TIMEZONE=%s\n", tz);
         }
 
         if (link->dhcp_lease) {

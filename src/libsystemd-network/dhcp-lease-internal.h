@@ -83,6 +83,7 @@ struct sd_dhcp_lease {
         size_t client_id_len;
         uint8_t *vendor_specific;
         size_t vendor_specific_len;
+        char *timezone;
         LIST_HEAD(struct sd_dhcp_raw_option, private_options);
 };
 

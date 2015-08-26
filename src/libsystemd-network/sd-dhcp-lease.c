@@ -608,6 +608,22 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const uint8_t *option,
 
                 break;
 
+        case DHCP_OPTION_NEW_TZDB_TIMEZONE: {
+                _cleanup_free_ char *tz = NULL;
+
+                r = lease_parse_string(option, len, &tz);
+                if (r < 0)
+                        return r;
+
+                if (!timezone_is_valid(tz))
+                        return -EINVAL;
+
+                free(lease->timezone);
+                lease->timezone = tz;
+                tz = NULL;
+                break;
+        }
+
         case DHCP_OPTION_VENDOR_SPECIFIC:
                 if (len >= 1) {
                         free(lease->vendor_specific);
@@ -757,6 +773,10 @@ int sd_dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
         if (r >= 0)
                 serialize_dhcp_routes(f, "ROUTES", routes, r);
 
+        r = sd_dhcp_lease_get_timezone(lease, &string);
+        if (r >= 0)
+                fprintf(f, "TIMEZONE=%s\n", string);
+
         r = sd_dhcp_lease_get_client_id(lease, &client_id, &client_id_len);
         if (r >= 0) {
                 _cleanup_free_ char *client_id_hex;
@@ -840,6 +860,7 @@ int sd_dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
                            "ROOT_PATH", &lease->root_path,
                            "ROUTES", &routes,
                            "CLIENTID", &client_id_hex,
+                           "TIMEZONE", &lease->timezone,
                            "VENDOR_SPECIFIC", &vendor_specific_hex,
                            "OPTION_224", &options[0],
                            "OPTION_225", &options[1],
@@ -1024,5 +1045,16 @@ int dhcp_lease_set_client_id(sd_dhcp_lease *lease, const uint8_t *client_id,
                 lease->client_id_len = client_id_len;
         }
 
+        return 0;
+}
+
+int sd_dhcp_lease_get_timezone(sd_dhcp_lease *lease, const char **timezone) {
+        assert_return(lease, -EINVAL);
+        assert_return(timezone, -EINVAL);
+
+        if (!lease->timezone)
+                return -ENXIO;
+
+        *timezone = lease->timezone;
         return 0;
 }

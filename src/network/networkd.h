@@ -143,12 +143,15 @@ struct Network {
         bool dhcp_broadcast;
         bool dhcp_critical;
         bool dhcp_routes;
+        bool dhcp_timezone;
         unsigned dhcp_route_metric;
         AddressFamilyBoolean link_local;
         bool ipv4ll_route;
         union in_addr_union ipv6_token;
 
         bool dhcp_server;
+        char *dhcp_server_timezone;
+        bool dhcp_server_emit_timezone;
 
         bool use_bpdu;
         bool hairpin;
@@ -461,3 +464,5 @@ int config_parse_ipv6_privacy_extensions(const char *unit, const char *filename,
 
 /* Hostname */
 int config_parse_hostname(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+
+int config_parse_timezone(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
