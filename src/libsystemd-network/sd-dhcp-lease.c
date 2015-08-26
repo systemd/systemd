@@ -489,59 +489,52 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const uint8_t *option, v
                 lease_parse_u16(option, len, &lease->boot_file_size, 0);
                 break;
 
-        case DHCP_OPTION_DOMAIN_NAME:
-        {
-                _cleanup_free_ char *domainname = NULL;
-                char *e;
+        case DHCP_OPTION_DOMAIN_NAME: {
+                _cleanup_free_ char *domainname = NULL, *normalized = NULL;
 
                 r = lease_parse_string(option, len, &domainname);
                 if (r < 0)
                         return r;
 
-                /* Chop off trailing dot of domain name that some DHCP
-                 * servers send us back. Internally we want to store
-                 * host names without trailing dots and
-                 * host_name_is_valid() doesn't accept them. */
-                e = endswith(domainname, ".");
-                if (e)
-                        *e = 0;
+                r = dns_name_normalize(domainname, &normalized);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to normalize domain name '%s': %m", domainname);
+                        return 0;
+                }
 
-                if (is_localhost(domainname))
-                        break;
-
-                r = dns_name_is_valid(domainname);
-                if (r <= 0) {
-                        if (r < 0)
-                                log_error_errno(r, "Failed to validate domain name: %s: %m", domainname);
-                        if (r == 0)
-                                log_warning("Domain name is not valid, ignoring: %s", domainname);
+                if (is_localhost(normalized)) {
+                        log_debug_errno(r, "Detected 'localhost' as suggested hostname, ignoring.");
                         break;
                 }
 
                 free(lease->domainname);
-                lease->domainname = domainname;
-                domainname = NULL;
+                lease->domainname = normalized;
+                normalized = NULL;
 
                 break;
         }
-        case DHCP_OPTION_HOST_NAME:
-        {
-                _cleanup_free_ char *hostname = NULL;
-                char *e;
+
+        case DHCP_OPTION_HOST_NAME: {
+                _cleanup_free_ char *hostname = NULL, *normalized = NULL;
 
                 r = lease_parse_string(option, len, &hostname);
                 if (r < 0)
                         return r;
 
-                e = endswith(hostname, ".");
-                if (e)
-                        *e = 0;
+                r = dns_name_normalize(hostname, &normalized);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to normalize host name '%s': %m", hostname);
+                        return 0;
+                }
 
-                if (!hostname_is_valid(hostname, false) || is_localhost(hostname))
-                        break;
+                if (is_localhost(normalized)) {
+                        log_debug_errno(r, "Detected 'localhost' as suggested hostname, ignoring.");
+                        return 0;
+                }
 
-                free_and_replace(&lease->hostname, hostname);
-                hostname = NULL;
+                free(lease->hostname);
+                lease->hostname = normalized;
+                normalized = NULL;
 
                 break;
         }
