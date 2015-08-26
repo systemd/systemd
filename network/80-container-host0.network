@@ -12,3 +12,6 @@ Name=host0
 [Network]
 DHCP=yes
 LinkLocalAddressing=yes
+
+[DHCP]
+UseTimezone=yes
