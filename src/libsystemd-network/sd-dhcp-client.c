@@ -376,8 +376,7 @@ static int client_initialize(sd_dhcp_client *client) {
         client->state = DHCP_STATE_INIT;
         client->xid = 0;
 
-        if (client->lease)
-                client->lease = sd_dhcp_lease_unref(client->lease);
+        client->lease = sd_dhcp_lease_unref(client->lease);
 
         return 0;
 }
@@ -1054,18 +1053,16 @@ static int client_handle_offer(sd_dhcp_client *client, DHCPMessage *offer,
         }
 
         lease->next_server = offer->siaddr;
-
         lease->address = offer->yiaddr;
 
-        if (lease->address == INADDR_ANY ||
-            lease->server_address == INADDR_ANY ||
+        if (lease->address == 0 ||
+            lease->server_address == 0 ||
             lease->lifetime == 0) {
-                log_dhcp_client(client, "received lease lacks address, server "
-                                "address or lease lifetime, ignoring");
+                log_dhcp_client(client, "received lease lacks address, server address or lease lifetime, ignoring");
                 return -ENOMSG;
         }
 
-        if (lease->subnet_mask == INADDR_ANY) {
+        if (!lease->have_subnet_mask) {
                 r = dhcp_lease_set_default_subnet_mask(lease);
                 if (r < 0) {
                         log_dhcp_client(client, "received lease lacks subnet "
