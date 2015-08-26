@@ -1309,6 +1309,17 @@ static int shell_machine(int argc, char *argv[], void *userdata) {
                 return -EOPNOTSUPP;
         }
 
+        /* Pass $TERM to shell session, if not explicitly specified. */
+        if (!strv_find_prefix(arg_setenv, "TERM=")) {
+                const char *t;
+
+                t = strv_find_prefix(environ, "TERM=");
+                if (t) {
+                        if (strv_extend(&arg_setenv, t) < 0)
+                                return log_oom();
+                }
+        }
+
         polkit_agent_open_if_enabled();
 
         r = sd_event_default(&event);
