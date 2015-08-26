@@ -111,17 +111,17 @@
     <para>Here's an example <filename>/etc/nsswitch.conf</filename>
     file, that enables <command>myhostname</command> correctly:</para>
 
-<programlisting>passwd:   compat
-group:    compat
-shadow:   compat
+<programlisting>passwd:         compat
+group:          compat
+shadow:         compat
 
-hosts:    files dns mymachines <command>myhostname</command>
+hosts:          files resolve mymachines <command>myhostname</command>
 networks:       files
 
 protocols:      db files
 services:       db files
-ethers:   db files
-rpc:      db files
+ethers:         db files
+rpc:            db files
 
 netgroup:       nis</programlisting>
 
@@ -143,6 +143,7 @@ netgroup:       nis</programlisting>
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>nss-resolve</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>nss-mymachines</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>nsswitch.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>getent</refentrytitle><manvolnum>1</manvolnum></citerefentry>

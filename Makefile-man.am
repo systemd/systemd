@@ -1774,13 +1774,19 @@ endif
 
 if ENABLE_RESOLVED
 MANPAGES += \
+	man/nss-resolve.8 \
 	man/resolved.conf.5 \
 	man/systemd-resolved.service.8
 MANPAGES_ALIAS += \
+	man/libnss_resolve.so.2.8 \
 	man/resolved.conf.d.5 \
 	man/systemd-resolved.8
+man/libnss_resolve.so.2.8: man/nss-resolve.8
 man/resolved.conf.d.5: man/resolved.conf.5
 man/systemd-resolved.8: man/systemd-resolved.service.8
+man/libnss_resolve.so.2.html: man/nss-resolve.html
+	$(html-alias)
+
 man/resolved.conf.d.html: man/resolved.conf.html
 	$(html-alias)
 
@@ -2217,6 +2223,7 @@ EXTRA_DIST += \
 	man/networkctl.xml \
 	man/nss-myhostname.xml \
 	man/nss-mymachines.xml \
+	man/nss-resolve.xml \
 	man/os-release.xml \
 	man/pam_systemd.xml \
 	man/resolved.conf.xml \

@@ -1,0 +1,118 @@
+<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2011 Lennart Poettering
+  Copyright 2013 Tom Gundersen
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="nss-resolve" conditional='ENABLE_RESOLVED'>
+
+  <refentryinfo>
+    <title>nss-resolve</title>
+    <productname>systemd</productname>
+
+    <authorgroup>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>Lennart</firstname>
+        <surname>Poettering</surname>
+        <email>lennart@poettering.net</email>
+      </author>
+    </authorgroup>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>nss-resolve</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>nss-resolve</refname>
+    <refname>libnss_resolve.so.2</refname>
+    <refpurpose>Provide hostname resolution via <filename>systemd-resolved.service</filename></refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>libnss_resolve.so.2</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>nss-resolve</command> is a plugin module for the
+    GNU Name Service Switch (NSS) functionality of the GNU C Library
+    (<command>glibc</command>) enabling it to resolve host names via
+    the
+    <citerefentry><refentrytitle>systemd-resolved</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    local network name resolution service.</para>
+
+    <para>To activate the NSS module, <literal>resolve</literal>
+    has to be added to the line starting with
+    <literal>hosts:</literal> in
+    <filename>/etc/nsswitch.conf</filename>.</para>
+
+    <para>It is recommended to place <literal>resolve</literal> early
+    in the <filename>nsswitch.conf</filename> line (but after the
+    <literal>files</literal> entry), replacing the
+    <literal>dns</literal> entry if it exists, to ensure DNS queries
+    are always routed via
+    <citerefentry><refentrytitle>systemd-resolved</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Example</title>
+
+    <para>Here's an example <filename>/etc/nsswitch.conf</filename>
+    file, that enables <command>resolve</command> correctly:</para>
+
+<programlisting>passwd:         compat
+group:          compat
+shadow:         compat
+
+hosts:          files <command>resolve</command> mymachines myhostname
+networks:       files
+
+protocols:      db files
+services:       db files
+ethers:         db files
+rpc:            db files
+
+netgroup:       nis</programlisting>
+
+    <para>Note that <command>nss-resolve</command> will chain-load
+    <command>nss-dns</command> if
+    <filename>systemd-resolved.service</filename> is not running,
+    ensuring that basic DNS resolution continues to work if the
+    service is down.</para>
+
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-resolved</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>nss-mymachines</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>nss-myhostname</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>nsswitch.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>

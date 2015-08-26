@@ -91,7 +91,7 @@
 group:          compat <command>mymachines</command>
 shadow:         compat
 
-hosts:          files dns <command>mymachines</command> myhostname
+hosts:          files resolve <command>mymachines</command> myhostname
 networks:       files
 
 protocols:      db files
@@ -108,6 +108,7 @@ netgroup:       nis</programlisting>
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-machined.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>nss-resolve</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>nss-myhostname</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>nsswitch.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>getent</refentrytitle><manvolnum>1</manvolnum></citerefentry>
