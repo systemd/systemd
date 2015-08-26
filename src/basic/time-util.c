@@ -26,6 +26,7 @@
 
 #include "util.h"
 #include "time-util.h"
+#include "path-util.h"
 #include "strv.h"
 
 usec_t now(clockid_t clock_id) {
@@ -971,7 +972,10 @@ bool timezone_is_valid(const char *name) {
         const char *p, *t;
         struct stat st;
 
-        if (!name || *name == 0 || *name == '/')
+        if (isempty(name))
+                return false;
+
+        if (name[0] == '/')
                 return false;
 
         for (p = name; *p; p++) {
@@ -1020,4 +1024,31 @@ clockid_t clock_boottime_or_monotonic(void) {
         }
 
         return clock;
+}
+
+int get_timezone(char **timezone) {
+        _cleanup_free_ char *t = NULL;
+        const char *e;
+        char *z;
+        int r;
+
+        r = readlink_malloc("/etc/localtime", &t);
+        if (r < 0)
+                return r; /* returns EINVAL if not a symlink */
+
+        e = path_startswith(t, "/usr/share/zoneinfo/");
+        if (!e)
+                e = path_startswith(t, "../usr/share/zoneinfo/");
+        if (!e)
+                return -EINVAL;
+
+        if (!timezone_is_valid(e))
+                return -EINVAL;
+
+        z = strdup(e);
+        if (!z)
+                return -ENOMEM;
+
+        *timezone = z;
+        return 0;
 }

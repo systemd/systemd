@@ -68,32 +68,15 @@ static int context_read_data(Context *c) {
 
         assert(c);
 
-        r = readlink_malloc("/etc/localtime", &t);
-        if (r < 0) {
-                if (r == -EINVAL)
-                        log_warning("/etc/localtime should be a symbolic link to a time zone data file in /usr/share/zoneinfo/.");
-                else
-                        log_warning_errno(r, "Failed to get target of /etc/localtime: %m");
-        } else {
-                const char *e;
+        r = get_timezone(&t);
+        if (r == -EINVAL)
+                log_warning_errno(r, "/etc/localtime should be a symbolic link to a time zone data file in /usr/share/zoneinfo/.");
+        else if (r < 0)
+                log_warning_errno(r, "Failed to get target of /etc/localtime: %m");
 
-                e = path_startswith(t, "/usr/share/zoneinfo/");
-                if (!e)
-                        e = path_startswith(t, "../usr/share/zoneinfo/");
-
-                if (!e)
-                        log_warning("/etc/localtime should be a symbolic link to a time zone data file in /usr/share/zoneinfo/.");
-                else {
-                        c->zone = strdup(e);
-                        if (!c->zone)
-                                return log_oom();
-                }
-        }
-
-        if (isempty(c->zone)) {
-                free(c->zone);
-                c->zone = NULL;
-        }
+        free(c->zone);
+        c->zone = t;
+        t = NULL;
 
         c->local_rtc = clock_is_localtime() > 0;
 
