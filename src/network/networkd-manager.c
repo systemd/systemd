@@ -99,7 +99,7 @@ static int manager_reset_all(Manager *m) {
         HASHMAP_FOREACH(link, m->links, i) {
                 r = link_carrier_reset(link);
                 if (r < 0)
-                        log_link_warning_errno(link, r, "could not reset carrier: %m");
+                        log_link_warning_errno(link, r, "Could not reset carrier: %m");
         }
 
         return 0;
@@ -204,7 +204,7 @@ static int manager_udev_process_link(Manager *m, struct udev_device *device) {
 
         ifindex = udev_device_get_ifindex(device);
         if (ifindex <= 0) {
-                log_debug("ignoring udev ADD event for device with invalid ifindex");
+                log_debug("Ignoring udev ADD event for device with invalid ifindex");
                 return 0;
         }
 
@@ -291,23 +291,23 @@ static int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *messa
         if (sd_netlink_message_is_error(message)) {
                 r = sd_netlink_message_get_errno(message);
                 if (r < 0)
-                        log_warning_errno(r, "rtnl: could not receive link: %m");
+                        log_warning_errno(r, "rtnl: Could not receive link: %m");
 
                 return 0;
         }
 
         r = sd_netlink_message_get_type(message, &type);
         if (r < 0) {
-                log_warning_errno(r, "rtnl: could not get message type: %m");
+                log_warning_errno(r, "rtnl: Could not get message type: %m");
                 return 0;
         } else if (type != RTM_NEWLINK && type != RTM_DELLINK) {
-                log_warning("rtnl: received unexpected message type when processing link");
+                log_warning("rtnl: Received unexpected message type when processing link");
                 return 0;
         }
 
         r = sd_rtnl_message_link_get_ifindex(message, &ifindex);
         if (r < 0) {
-                log_warning_errno(r, "rtnl: could not get ifindex from link: %m");
+                log_warning_errno(r, "rtnl: Could not get ifindex from link: %m");
                 return 0;
         } else if (ifindex <= 0) {
                 log_warning("rtnl: received link message with invalid ifindex: %d", ifindex);
@@ -317,7 +317,7 @@ static int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *messa
 
         r = sd_netlink_message_read_string(message, IFLA_IFNAME, &name);
         if (r < 0) {
-                log_warning_errno(r, "rtnl: received link message without ifname: %m");
+                log_warning_errno(r, "rtnl: Received link message without ifname: %m");
                 return 0;
         } else
                 netdev_get(m, name, &netdev);
@@ -328,7 +328,7 @@ static int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *messa
                         /* link is new, so add it */
                         r = link_add(m, message, &link);
                         if (r < 0) {
-                                log_warning_errno(r, "could not add new link: %m");
+                                log_warning_errno(r, "Could not add new link: %m");
                                 return 0;
                         }
                 }
@@ -337,7 +337,7 @@ static int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *messa
                         /* netdev exists, so make sure the ifindex matches */
                         r = netdev_set_ifindex(netdev, message);
                         if (r < 0) {
-                                log_warning_errno(r, "could not set ifindex on netdev: %m");
+                                log_warning_errno(r, "Could not set ifindex on netdev: %m");
                                 return 0;
                         }
                 }
