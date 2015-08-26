@@ -607,10 +607,10 @@ int dhcp4_configure(Link *link) {
         }
 
         if (link->network->dhcp_mtu) {
-             r = sd_dhcp_client_set_request_option(link->dhcp_client,
-                                                   DHCP_OPTION_INTERFACE_MTU);
-             if (r < 0)
-                return r;
+                r = sd_dhcp_client_set_request_option(link->dhcp_client,
+                                                      DHCP_OPTION_INTERFACE_MTU);
+                if (r < 0)
+                        return r;
         }
 
         if (link->network->dhcp_routes) {
