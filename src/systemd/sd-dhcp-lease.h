@@ -51,7 +51,4 @@ int sd_dhcp_lease_get_client_id(sd_dhcp_lease *lease, const uint8_t **client_id,
                                 size_t *client_id_len);
 int sd_dhcp_lease_get_timezone(sd_dhcp_lease *lease, const char **timezone);
 
-int sd_dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file);
-int sd_dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file);
-
 #endif
