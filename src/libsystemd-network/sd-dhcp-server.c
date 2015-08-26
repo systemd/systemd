@@ -550,7 +550,7 @@ static int server_send_forcerenew(sd_dhcp_server *server, be32_t address,
         return 0;
 }
 
-static int parse_request(uint8_t code, uint8_t len, const uint8_t *option,
+static int parse_request(uint8_t code, uint8_t len, const void *option,
                          void *userdata) {
         DHCPRequest *req = userdata;
 

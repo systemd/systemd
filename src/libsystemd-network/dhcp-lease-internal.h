@@ -78,23 +78,23 @@ struct sd_dhcp_lease {
         char *domainname;
         char *hostname;
         char *root_path;
-        uint8_t *client_id;
+        void *client_id;
         size_t client_id_len;
-        uint8_t *vendor_specific;
+        void *vendor_specific;
         size_t vendor_specific_len;
         char *timezone;
         LIST_HEAD(struct sd_dhcp_raw_option, private_options);
 };
 
 int dhcp_lease_new(sd_dhcp_lease **ret);
-int dhcp_lease_parse_options(uint8_t code, uint8_t len, const uint8_t *option,
+int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option,
                               void *userdata);
 int dhcp_lease_insert_private_option(sd_dhcp_lease *lease, uint8_t tag,
-                                     const uint8_t *data, uint8_t len);
+                                     const void *data, uint8_t len);
 
 int dhcp_lease_set_default_subnet_mask(sd_dhcp_lease *lease);
 
-int dhcp_lease_set_client_id(sd_dhcp_lease *lease, const uint8_t *client_id,
+int dhcp_lease_set_client_id(sd_dhcp_lease *lease, const void *client_id,
                              size_t client_id_len);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(sd_dhcp_lease*, sd_dhcp_lease_unref);

@@ -126,7 +126,7 @@ static void test_checksum(void)
         assert_se(dhcp_packet_checksum((uint8_t*)&buf, 20) == be16toh(0x78ae));
 }
 
-static int check_options(uint8_t code, uint8_t len, const uint8_t *option,
+static int check_options(uint8_t code, uint8_t len, const void *option,
                 void *userdata)
 {
         switch(code) {
@@ -141,10 +141,10 @@ static int check_options(uint8_t code, uint8_t len, const uint8_t *option,
 
                 assert_se(len == sizeof(uint8_t) + sizeof(uint32_t) + duid_len);
                 assert_se(len == 19);
-                assert_se(option[0] == 0xff);
+                assert_se(((uint8_t*) option)[0] == 0xff);
 
-                assert_se(memcmp(&option[1], &iaid, sizeof(iaid)) == 0);
-                assert_se(memcmp(&option[5], &duid, duid_len) == 0);
+                assert_se(memcmp((uint8_t*) option + 1, &iaid, sizeof(iaid)) == 0);
+                assert_se(memcmp((uint8_t*) option + 5, &duid, duid_len) == 0);
                 break;
         }
 

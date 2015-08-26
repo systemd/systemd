@@ -179,7 +179,7 @@ int sd_dhcp_lease_get_routes(sd_dhcp_lease *lease, struct sd_dhcp_route **routes
         return 0;
 }
 
-int sd_dhcp_lease_get_vendor_specific(sd_dhcp_lease *lease, const uint8_t **data,
+int sd_dhcp_lease_get_vendor_specific(sd_dhcp_lease *lease, const void **data,
                                       size_t *data_len) {
         assert_return(lease, -EINVAL);
         assert_return(data, -EINVAL);
@@ -436,7 +436,7 @@ static int lease_parse_classless_routes(const uint8_t *option, size_t len, struc
         return 0;
 }
 
-int dhcp_lease_parse_options(uint8_t code, uint8_t len, const uint8_t *option, void *userdata) {
+int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void *userdata) {
         sd_dhcp_lease *lease = userdata;
         int r;
 
@@ -619,7 +619,7 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const uint8_t *option, v
 }
 
 int dhcp_lease_insert_private_option(sd_dhcp_lease *lease, uint8_t tag,
-                                     const uint8_t *data, uint8_t len) {
+                                     const void *data, uint8_t len) {
         struct sd_dhcp_raw_option *cur, *option;
 
         LIST_FOREACH(options, cur, lease->private_options) {
@@ -669,7 +669,7 @@ int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
         struct sd_dhcp_raw_option *option;
         struct in_addr address;
         const struct in_addr *addresses;
-        const uint8_t *client_id, *data;
+        const void *client_id, *data;
         size_t client_id_len, data_len;
         const char *string;
         uint16_t mtu;
@@ -950,7 +950,7 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
         }
 
         for (i = 0; i <= DHCP_OPTION_PRIVATE_LAST - DHCP_OPTION_PRIVATE_BASE; i++) {
-                _cleanup_free_ uint8_t *data = NULL;
+                _cleanup_free_ void *data = NULL;
                 size_t len;
 
                 if (!options[i])
@@ -990,7 +990,7 @@ int dhcp_lease_set_default_subnet_mask(sd_dhcp_lease *lease) {
         return 0;
 }
 
-int sd_dhcp_lease_get_client_id(sd_dhcp_lease *lease, const uint8_t **client_id,
+int sd_dhcp_lease_get_client_id(sd_dhcp_lease *lease, const void **client_id,
                                 size_t *client_id_len) {
         assert_return(lease, -EINVAL);
         assert_return(client_id, -EINVAL);
@@ -1001,7 +1001,7 @@ int sd_dhcp_lease_get_client_id(sd_dhcp_lease *lease, const uint8_t **client_id,
         return 0;
 }
 
-int dhcp_lease_set_client_id(sd_dhcp_lease *lease, const uint8_t *client_id,
+int dhcp_lease_set_client_id(sd_dhcp_lease *lease, const void *client_id,
                              size_t client_id_len) {
         assert_return(lease, -EINVAL);
         assert_return((!client_id && !client_id_len) ||
