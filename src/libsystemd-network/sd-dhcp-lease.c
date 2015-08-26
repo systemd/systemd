@@ -423,9 +423,8 @@ static int lease_parse_classless_routes(const uint8_t *option, size_t len, struc
         return 0;
 }
 
-int dhcp_lease_parse_options(uint8_t code, uint8_t len, const uint8_t *option,
-                              void *user_data) {
-        sd_dhcp_lease *lease = user_data;
+int dhcp_lease_parse_options(uint8_t code, uint8_t len, const uint8_t *option, void *userdata) {
+        sd_dhcp_lease *lease = userdata;
         int r;
 
         assert(lease);
@@ -434,87 +433,60 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const uint8_t *option,
 
         case DHCP_OPTION_TIME_OFFSET:
                 lease_parse_s32(option, len, &lease->time_offset);
-
                 break;
 
         case DHCP_OPTION_INTERFACE_MTU_AGING_TIMEOUT:
                 lease_parse_u32(option, len, &lease->mtu_aging_timeout, 0);
-
                 break;
 
         case DHCP_OPTION_IP_ADDRESS_LEASE_TIME:
                 lease_parse_u32(option, len, &lease->lifetime, 1);
-
                 break;
 
         case DHCP_OPTION_SERVER_IDENTIFIER:
                 lease_parse_be32(option, len, &lease->server_address);
-
                 break;
 
         case DHCP_OPTION_SUBNET_MASK:
                 lease_parse_be32(option, len, &lease->subnet_mask);
-
                 break;
 
         case DHCP_OPTION_BROADCAST:
                 lease_parse_be32(option, len, &lease->broadcast);
-
                 break;
 
         case DHCP_OPTION_ROUTER:
-                if(len >= 4)
+                if (len >= 4)
                         lease_parse_be32(option, 4, &lease->router);
 
                 break;
 
         case DHCP_OPTION_DOMAIN_NAME_SERVER:
-                r = lease_parse_in_addrs(option, len, &lease->dns, &lease->dns_size);
-                if (r < 0)
-                        return r;
-
-                break;
+                return lease_parse_in_addrs(option, len, &lease->dns, &lease->dns_size);
 
         case DHCP_OPTION_NTP_SERVER:
-                r = lease_parse_in_addrs(option, len, &lease->ntp, &lease->ntp_size);
-                if (r < 0)
-                        return r;
-
-                break;
+                return lease_parse_in_addrs(option, len, &lease->ntp, &lease->ntp_size);
 
         case DHCP_OPTION_POLICY_FILTER:
-                r = lease_parse_in_addrs_pairs(option, len, &lease->policy_filter, &lease->policy_filter_size);
-                if (r < 0)
-                        return r;
-
-                break;
+                return lease_parse_in_addrs_pairs(option, len, &lease->policy_filter, &lease->policy_filter_size);
 
         case DHCP_OPTION_STATIC_ROUTE:
-                r = lease_parse_routes(option, len, &lease->static_route, &lease->static_route_size,
-                        &lease->static_route_allocated);
-                if (r < 0)
-                        return r;
-
-                break;
+                return lease_parse_routes(option, len, &lease->static_route, &lease->static_route_size, &lease->static_route_allocated);
 
         case DHCP_OPTION_INTERFACE_MTU:
                 lease_parse_u16(option, len, &lease->mtu, 68);
-
                 break;
 
         case DHCP_OPTION_INTERFACE_MDR:
                 lease_parse_u16(option, len, &lease->mdr, 576);
-
                 break;
 
         case DHCP_OPTION_INTERFACE_TTL:
                 lease_parse_u8(option, len, &lease->ttl, 1);
-
                 break;
 
         case DHCP_OPTION_BOOT_FILE_SIZE:
                 lease_parse_u16(option, len, &lease->boot_file_size, 0);
-
                 break;
 
         case DHCP_OPTION_DOMAIN_NAME:
@@ -573,40 +545,32 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const uint8_t *option,
 
                 break;
         }
-        case DHCP_OPTION_ROOT_PATH:
-                r = lease_parse_string(option, len, &lease->root_path);
-                if (r < 0)
-                        return r;
 
-                break;
+        case DHCP_OPTION_ROOT_PATH:
+                return lease_parse_string(option, len, &lease->root_path);
 
         case DHCP_OPTION_RENEWAL_T1_TIME:
                 lease_parse_u32(option, len, &lease->t1, 1);
-
                 break;
 
         case DHCP_OPTION_REBINDING_T2_TIME:
                 lease_parse_u32(option, len, &lease->t2, 1);
-
                 break;
 
         case DHCP_OPTION_ENABLE_IP_FORWARDING:
                 lease_parse_bool(option, len, &lease->ip_forward);
-
                 break;
 
         case DHCP_OPTION_ENABLE_IP_FORWARDING_NL:
                 lease_parse_bool(option, len, &lease->ip_forward_non_local);
-
                 break;
 
         case DHCP_OPTION_CLASSLESS_STATIC_ROUTE:
-                r = lease_parse_classless_routes(option, len, &lease->static_route, &lease->static_route_size,
-                        &lease->static_route_allocated);
-                if (r < 0)
-                        return r;
-
-                break;
+                return lease_parse_classless_routes(
+                                option, len,
+                                &lease->static_route,
+                                &lease->static_route_size,
+                                &lease->static_route_allocated);
 
         case DHCP_OPTION_NEW_TZDB_TIMEZONE: {
                 _cleanup_free_ char *tz = NULL;
@@ -625,6 +589,7 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const uint8_t *option,
         }
 
         case DHCP_OPTION_VENDOR_SPECIFIC:
+
                 if (len >= 1) {
                         free(lease->vendor_specific);
                         lease->vendor_specific = memdup(option, len);
