@@ -287,13 +287,17 @@ static int lease_parse_string(const uint8_t *option, size_t len, char **ret) {
         if (len >= 1) {
                 char *string;
 
+                if (memchr(option, 0, len))
+                        return -EINVAL;
+
                 string = strndup((const char *)option, len);
                 if (!string)
-                        return -errno;
+                        return -ENOMEM;
 
                 free(*ret);
                 *ret = string;
-        }
+        } else
+                *ret = mfree(*ret);
 
         return 0;
 }
