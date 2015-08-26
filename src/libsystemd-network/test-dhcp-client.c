@@ -87,10 +87,7 @@ static void test_request_basic(sd_event *e)
         assert_se(sd_dhcp_client_set_request_option(client,
                                         DHCP_OPTION_DOMAIN_NAME) == -EEXIST);
         assert_se(sd_dhcp_client_set_request_option(client,
-                                        DHCP_OPTION_DOMAIN_NAME_SERVER)
-                        == -EEXIST);
-        assert_se(sd_dhcp_client_set_request_option(client,
-                                        DHCP_OPTION_NTP_SERVER) == -EEXIST);
+                                        DHCP_OPTION_DOMAIN_NAME_SERVER) == -EEXIST);
 
         assert_se(sd_dhcp_client_set_request_option(client,
                                         DHCP_OPTION_PAD) == -EINVAL);

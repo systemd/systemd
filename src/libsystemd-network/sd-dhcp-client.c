@@ -105,7 +105,6 @@ static const uint8_t default_req_opts[] = {
         DHCP_OPTION_HOST_NAME,
         DHCP_OPTION_DOMAIN_NAME,
         DHCP_OPTION_DOMAIN_NAME_SERVER,
-        DHCP_OPTION_NTP_SERVER,
 };
 
 static int client_receive_message_raw(sd_event_source *s, int fd,
