@@ -54,7 +54,7 @@ struct sd_dhcp_server {
         int fd;
         int fd_raw;
 
-        int index;
+        int ifindex;
         be32_t address;
         be32_t netmask;
         be32_t pool_start;

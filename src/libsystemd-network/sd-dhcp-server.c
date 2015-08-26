@@ -170,7 +170,7 @@ int sd_dhcp_server_new(sd_dhcp_server **ret, int ifindex) {
         server->fd = -1;
         server->address = htobe32(INADDR_ANY);
         server->netmask = htobe32(INADDR_ANY);
-        server->index = ifindex;
+        server->ifindex = ifindex;
         server->leases_by_client_id = hashmap_new(&client_id_hash_ops);
 
         *ret = server;
@@ -232,13 +232,12 @@ static int dhcp_server_send_unicast_raw(sd_dhcp_server *server,
         union sockaddr_union link = {
                 .ll.sll_family = AF_PACKET,
                 .ll.sll_protocol = htons(ETH_P_IP),
-                .ll.sll_ifindex = server->index,
+                .ll.sll_ifindex = server->ifindex,
                 .ll.sll_halen = ETH_ALEN,
         };
-        int r;
 
         assert(server);
-        assert(server->index > 0);
+        assert(server->ifindex > 0);
         assert(server->address);
         assert(packet);
         assert(len > sizeof(DHCPPacket));
@@ -249,11 +248,7 @@ static int dhcp_server_send_unicast_raw(sd_dhcp_server *server,
                                       packet->dhcp.yiaddr,
                                       DHCP_PORT_CLIENT, len);
 
-        r = dhcp_network_send_raw_socket(server->fd_raw, &link, packet, len);
-        if (r < 0)
-                return r;
-
-        return 0;
+        return dhcp_network_send_raw_socket(server->fd_raw, &link, packet, len);
 }
 
 static int dhcp_server_send_udp(sd_dhcp_server *server, be32_t destination,
@@ -299,7 +294,7 @@ static int dhcp_server_send_udp(sd_dhcp_server *server, be32_t destination,
         pktinfo = (struct in_pktinfo*) CMSG_DATA(cmsg);
         assert(pktinfo);
 
-        pktinfo->ipi_ifindex = server->index;
+        pktinfo->ipi_ifindex = server->ifindex;
         pktinfo->ipi_spec_dst.s_addr = server->address;
 
         r = sendmsg(server->fd, &msg, 0);
@@ -508,11 +503,7 @@ static int server_send_nak(sd_dhcp_server *server, DHCPRequest *req) {
         if (r < 0)
                 return r;
 
-        r = dhcp_server_send_packet(server, req, packet, DHCP_NAK, offset);
-        if (r < 0)
-                return r;
-
-        return 0;
+        return dhcp_server_send_packet(server, req, packet, DHCP_NAK, offset);
 }
 
 static int server_send_forcerenew(sd_dhcp_server *server, be32_t address,
@@ -550,8 +541,7 @@ static int server_send_forcerenew(sd_dhcp_server *server, be32_t address,
         return 0;
 }
 
-static int parse_request(uint8_t code, uint8_t len, const void *option,
-                         void *userdata) {
+static int parse_request(uint8_t code, uint8_t len, const void *option, void *userdata) {
         DHCPRequest *req = userdata;
 
         assert(req);
@@ -931,7 +921,7 @@ static int server_receive_message(sd_event_source *s, int fd,
 
                         /* TODO figure out if this can be done as a filter on
                          * the socket, like for IPv6 */
-                        if (server->index != info->ipi_ifindex)
+                        if (server->ifindex != info->ipi_ifindex)
                                 return 0;
 
                         break;
