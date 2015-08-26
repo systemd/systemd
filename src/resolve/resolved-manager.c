@@ -430,6 +430,31 @@ static int manager_watch_hostname(Manager *m) {
         return 0;
 }
 
+static int manager_sigusr1(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
+        _cleanup_free_ char *buffer = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        Manager *m = userdata;
+        size_t size = 0;
+        DnsScope *scope;
+
+        assert(s);
+        assert(si);
+        assert(m);
+
+        f = open_memstream(&buffer, &size);
+        if (!f)
+                return log_oom();
+
+        LIST_FOREACH(scopes, scope, m->dns_scopes)
+                dns_scope_dump(scope, f);
+
+        if (fflush_and_check(f) < 0)
+                return log_oom();
+
+        log_dump(LOG_INFO, buffer);
+        return 0;
+}
+
 int manager_new(Manager **ret) {
         _cleanup_(manager_freep) Manager *m = NULL;
         int r;
@@ -480,6 +505,8 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
+        (void) sd_event_add_signal(m->event, &m->sigusr1_event_source, SIGUSR1, manager_sigusr1, m);
+
         *ret = m;
         m = NULL;
 
@@ -526,6 +553,8 @@ Manager *manager_free(Manager *m) {
         sd_bus_slot_unref(m->prepare_for_sleep_slot);
         sd_event_source_unref(m->bus_retry_event_source);
         sd_bus_unref(m->bus);
+
+        sd_event_source_unref(m->sigusr1_event_source);
 
         sd_event_unref(m->event);
 

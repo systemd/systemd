@@ -89,3 +89,5 @@ DnsTransaction *dns_scope_find_transaction(DnsScope *scope, DnsResourceKey *key,
 
 int dns_scope_notify_conflict(DnsScope *scope, DnsResourceRecord *rr);
 void dns_scope_check_conflicts(DnsScope *scope, DnsPacket *p);
+
+void dns_scope_dump(DnsScope *s, FILE *f);

@@ -43,3 +43,6 @@ int dns_cache_put(DnsCache *c, DnsQuestion *q, int rcode, DnsAnswer *answer, uns
 int dns_cache_lookup(DnsCache *c, DnsResourceKey *key, int *rcode, DnsAnswer **answer);
 
 int dns_cache_check_conflicts(DnsCache *cache, DnsResourceRecord *rr, int owner_family, const union in_addr_union *owner_address);
+
+void dns_cache_dump(DnsCache *cache, FILE *f);
+bool dns_cache_is_empty(DnsCache *cache);

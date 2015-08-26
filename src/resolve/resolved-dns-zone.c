@@ -636,3 +636,40 @@ void dns_zone_verify_all(DnsZone *zone) {
                         dns_zone_item_verify(j);
         }
 }
+
+void dns_zone_dump(DnsZone *zone, FILE *f) {
+        Iterator iterator;
+        DnsZoneItem *i;
+        int r;
+
+        if (!zone)
+                return;
+
+        if (!f)
+                f = stdout;
+
+        HASHMAP_FOREACH(i, zone->by_key, iterator) {
+                DnsZoneItem *j;
+
+                LIST_FOREACH(by_key, j, i) {
+                        _cleanup_free_ char *t = NULL;
+
+                        r = dns_resource_record_to_string(j->rr, &t);
+                        if (r < 0) {
+                                log_oom();
+                                continue;
+                        }
+
+                        fputc('\t', f);
+                        fputs(t, f);
+                        fputc('\n', f);
+                }
+        }
+}
+
+bool dns_zone_is_empty(DnsZone *zone) {
+        if (!zone)
+                return true;
+
+        return hashmap_isempty(zone->by_key);
+}
