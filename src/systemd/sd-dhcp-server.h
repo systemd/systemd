@@ -49,5 +49,8 @@ int sd_dhcp_server_set_lease_pool(sd_dhcp_server *server, struct in_addr *start,
 
 int sd_dhcp_server_set_timezone(sd_dhcp_server *server, const char *timezone);
 
+int sd_dhcp_server_set_max_lease_time(sd_dhcp_server *server, uint32_t t);
+int sd_dhcp_server_set_default_lease_time(sd_dhcp_server *server, uint32_t t);
+
 int sd_dhcp_server_forcerenew(sd_dhcp_server *server);
 #endif

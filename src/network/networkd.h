@@ -152,6 +152,7 @@ struct Network {
         bool dhcp_server;
         char *dhcp_server_timezone;
         bool dhcp_server_emit_timezone;
+        usec_t dhcp_server_default_lease_time_usec, dhcp_server_max_lease_time_usec;
 
         bool use_bpdu;
         bool hairpin;

@@ -28,7 +28,8 @@
 #include "dhcp-server-internal.h"
 #include "dhcp-internal.h"
 
-#define DHCP_DEFAULT_LEASE_TIME         3600 /* one hour */
+#define DHCP_DEFAULT_LEASE_TIME_USEC USEC_PER_HOUR
+#define DHCP_MAX_LEASE_TIME_USEC (USEC_PER_HOUR*12)
 
 int sd_dhcp_server_set_lease_pool(sd_dhcp_server *server,
                                   struct in_addr *address,
@@ -172,6 +173,8 @@ int sd_dhcp_server_new(sd_dhcp_server **ret, int ifindex) {
         server->netmask = htobe32(INADDR_ANY);
         server->ifindex = ifindex;
         server->leases_by_client_id = hashmap_new(&client_id_hash_ops);
+        server->default_lease_time = DIV_ROUND_UP(DHCP_DEFAULT_LEASE_TIME_USEC, USEC_PER_SEC);
+        server->max_lease_time = DIV_ROUND_UP(DHCP_MAX_LEASE_TIME_USEC, USEC_PER_SEC);
 
         *ret = server;
         server = NULL;
@@ -598,7 +601,7 @@ static void dhcp_request_free(DHCPRequest *req) {
 DEFINE_TRIVIAL_CLEANUP_FUNC(DHCPRequest*, dhcp_request_free);
 #define _cleanup_dhcp_request_free_ _cleanup_(dhcp_request_freep)
 
-static int ensure_sane_request(DHCPRequest *req, DHCPMessage *message) {
+static int ensure_sane_request(sd_dhcp_server *server, DHCPRequest *req, DHCPMessage *message) {
         assert(req);
         assert(message);
 
@@ -624,7 +627,10 @@ static int ensure_sane_request(DHCPRequest *req, DHCPMessage *message) {
                 req->max_optlen = DHCP_MIN_OPTIONS_SIZE;
 
         if (req->lifetime <= 0)
-                req->lifetime = DHCP_DEFAULT_LEASE_TIME;
+                req->lifetime = MAX(1ULL, server->default_lease_time);
+
+        if (server->max_lease_time > 0 && req->lifetime > server->max_lease_time)
+                req->lifetime = server->max_lease_time;
 
         return 0;
 }
@@ -665,7 +671,7 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
         if (type < 0)
                 return 0;
 
-        r = ensure_sane_request(req, message);
+        r = ensure_sane_request(server, req, message);
         if (r < 0)
                 /* this only fails on critical errors */
                 return r;
@@ -1014,5 +1020,25 @@ int sd_dhcp_server_set_timezone(sd_dhcp_server *server, const char *timezone) {
         if (r < 0)
                 return r;
 
+        return 1;
+}
+
+int sd_dhcp_server_set_max_lease_time(sd_dhcp_server *server, uint32_t t) {
+        assert_return(server, -EINVAL);
+
+        if (t == server->max_lease_time)
+                return 0;
+
+        server->max_lease_time = t;
+        return 1;
+}
+
+int sd_dhcp_server_set_default_lease_time(sd_dhcp_server *server, uint32_t t) {
+        assert_return(server, -EINVAL);
+
+        if (t == server->default_lease_time)
+                return 0;
+
+        server->default_lease_time = t;
         return 1;
 }

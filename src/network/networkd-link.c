@@ -673,6 +673,22 @@ static int link_enter_set_addresses(Link *link) {
                         return r;
                 */
 
+                if (link->network->dhcp_server_max_lease_time_usec > 0) {
+                        r = sd_dhcp_server_set_max_lease_time(
+                                        link->dhcp_server,
+                                        DIV_ROUND_UP(link->network->dhcp_server_max_lease_time_usec, USEC_PER_SEC));
+                        if (r < 0)
+                                return r;
+                }
+
+                if (link->network->dhcp_server_default_lease_time_usec > 0) {
+                        r = sd_dhcp_server_set_default_lease_time(
+                                        link->dhcp_server,
+                                        DIV_ROUND_UP(link->network->dhcp_server_default_lease_time_usec, USEC_PER_SEC));
+                        if (r < 0)
+                                return r;
+                }
+
                 if (link->network->dhcp_server_emit_timezone) {
                         _cleanup_free_ char *buffer = NULL;
                         const char *tz;
