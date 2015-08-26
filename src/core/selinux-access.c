@@ -38,6 +38,7 @@
 #include "selinux-util.h"
 #include "audit-fd.h"
 #include "strv.h"
+#include "path-util.h"
 
 static bool initialized = false;
 
@@ -302,7 +303,10 @@ int mac_selinux_unit_access_check_strv(
         int r;
 
         STRV_FOREACH(i, units) {
-                r = manager_load_unit(m, *i, NULL, error, &u);
+                if (is_path(*i))
+                        r = manager_load_unit(m, NULL, *i, error, &u);
+                else
+                        r = manager_load_unit(m, *i, NULL, error, &u);
                 if (r < 0)
                         return r;
                 r = mac_selinux_unit_access_check(u, message, permission, error);
