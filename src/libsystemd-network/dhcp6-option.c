@@ -405,7 +405,6 @@ int dhcp6_option_parse_domainname(const uint8_t *optval, uint16_t optlen,
                 if (r < 0)
                         goto fail;
 
-                ret = NULL;
                 idx++;
         }
 
