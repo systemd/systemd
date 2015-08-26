@@ -1847,3 +1847,54 @@ bluetooth:v0264*
 
 bluetooth:v0265*
  ID_VENDOR_FROM_DATABASE=SMK Corporation
+
+bluetooth:v0266*
+ ID_VENDOR_FROM_DATABASE=Schawbel Technologies LLC
+
+bluetooth:v0267*
+ ID_VENDOR_FROM_DATABASE=XMI Systems SA
+
+bluetooth:v0268*
+ ID_VENDOR_FROM_DATABASE=Cerevo
+
+bluetooth:v0269*
+ ID_VENDOR_FROM_DATABASE=Torrox GmbH & Co KG
+
+bluetooth:v026A*
+ ID_VENDOR_FROM_DATABASE=Gemalto
+
+bluetooth:v026B*
+ ID_VENDOR_FROM_DATABASE=DEKA Research & Development Corp.
+
+bluetooth:v026C*
+ ID_VENDOR_FROM_DATABASE=Domster Tadeusz Szydlowski
+
+bluetooth:v026D*
+ ID_VENDOR_FROM_DATABASE=Technogym SPA
+
+bluetooth:v026E*
+ ID_VENDOR_FROM_DATABASE=FLEURBAEY BVBA
+
+bluetooth:v026F*
+ ID_VENDOR_FROM_DATABASE=Aptcode Solutions
+
+bluetooth:v0270*
+ ID_VENDOR_FROM_DATABASE=LSI ADL Technology
+
+bluetooth:v0271*
+ ID_VENDOR_FROM_DATABASE=Animas Corp
+
+bluetooth:v0272*
+ ID_VENDOR_FROM_DATABASE=Alps Electric Co., Ltd.
+
+bluetooth:v0273*
+ ID_VENDOR_FROM_DATABASE=OCEASOFT
+
+bluetooth:v0274*
+ ID_VENDOR_FROM_DATABASE=Motsai Research
+
+bluetooth:v0275*
+ ID_VENDOR_FROM_DATABASE=Geotab
+
+bluetooth:v0276*
+ ID_VENDOR_FROM_DATABASE=E.G.O. Elektro-Gertebau GmbH
