@@ -393,7 +393,6 @@ static void test_addr_acq_acquired(sd_dhcp_client *client, int event,
         if (verbose)
                 printf("  DHCP address acquired\n");
 
-        sd_dhcp_lease_unref(lease);
         sd_event_exit(e, 0);
 }
 

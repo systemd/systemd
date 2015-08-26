@@ -260,7 +260,7 @@ int sd_dhcp6_client_get_lease(sd_dhcp6_client *client, sd_dhcp6_lease **ret) {
         if (!client->lease)
                 return -ENOMSG;
 
-        *ret = sd_dhcp6_lease_ref(client->lease);
+        *ret = client->lease;
 
         return 0;
 }

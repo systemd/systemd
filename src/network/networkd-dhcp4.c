@@ -365,7 +365,7 @@ static int dhcp_lease_renew(sd_dhcp_client *client, Link *link) {
 
         sd_dhcp_lease_unref(link->dhcp_lease);
         link->dhcp4_configured = false;
-        link->dhcp_lease = lease;
+        link->dhcp_lease = sd_dhcp_lease_ref(lease);
 
         r = sd_dhcp_lease_get_address(lease, &address);
         if (r < 0) {
@@ -454,7 +454,7 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
                            "PREFIXLEN=%u", prefixlen,
                            NULL);
 
-        link->dhcp_lease = lease;
+        link->dhcp_lease = sd_dhcp_lease_ref(lease);
 
         if (link->network->dhcp_mtu) {
                 uint16_t mtu;

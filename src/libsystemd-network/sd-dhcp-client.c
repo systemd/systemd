@@ -348,7 +348,7 @@ int sd_dhcp_client_get_lease(sd_dhcp_client *client, sd_dhcp_lease **ret) {
             client->state != DHCP_STATE_REBINDING)
                 return -EADDRNOTAVAIL;
 
-        *ret = sd_dhcp_lease_ref(client->lease);
+        *ret = client->lease;
 
         return 0;
 }
