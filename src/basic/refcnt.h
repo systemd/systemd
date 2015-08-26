@@ -21,7 +21,9 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-/* A type-safe atomic refcounter */
+/* A type-safe atomic refcounter.
+ *
+ * DO NOT USE THIS UNLESS YOU ACTUALLY CARE ABOUT THREAD SAFETY! */
 
 typedef struct {
         volatile unsigned _value;
