@@ -361,8 +361,7 @@ static int show_unit_cgroup(sd_bus *bus, const char *unit, pid_t leader) {
                         bus,
                         "org.freedesktop.systemd1",
                         path,
-                        endswith(unit, ".scope") ? "org.freedesktop.systemd1.Scope" :
-                        endswith(unit, ".slice") ? "org.freedesktop.systemd1.Slice" : "org.freedesktop.systemd1.Service",
+                        unit_dbus_interface_from_name(unit),
                         "ControlGroup",
                         &error,
                         &reply,

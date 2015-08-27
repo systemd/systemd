@@ -404,9 +404,6 @@ struct UnitVTable {
          * of this type will immediately fail. */
         bool (*supported)(void);
 
-        /* The interface name */
-        const char *bus_interface;
-
         /* The bus vtable */
         const sd_bus_vtable *bus_vtable;
 

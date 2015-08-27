@@ -770,6 +770,5 @@ const UnitVTable path_vtable = {
 
         .reset_failed = path_reset_failed,
 
-        .bus_interface = "org.freedesktop.systemd1.Path",
         .bus_vtable = bus_path_vtable
 };

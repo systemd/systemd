@@ -1058,7 +1058,6 @@ const UnitVTable busname_vtable = {
 
         .supported = busname_supported,
 
-        .bus_interface = "org.freedesktop.systemd1.BusName",
         .bus_vtable = bus_busname_vtable,
 
         .status_message_formats = {

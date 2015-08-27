@@ -783,7 +783,7 @@ static int send_changed_signal(sd_bus *bus, void *userdata) {
 
         r = sd_bus_emit_properties_changed_strv(
                         bus, p,
-                        UNIT_VTABLE(u)->bus_interface,
+                        unit_dbus_interface_from_type(u->type),
                         NULL);
         if (r < 0)
                 return r;

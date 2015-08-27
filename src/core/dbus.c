@@ -356,7 +356,7 @@ static int bus_unit_interface_find(sd_bus *bus, const char *path, const char *in
         if (r <= 0)
                 return r;
 
-        if (!streq_ptr(interface, UNIT_VTABLE(u)->bus_interface))
+        if (!streq_ptr(interface, unit_dbus_interface_from_type(u->type)))
                 return 0;
 
         *found = u;
@@ -378,7 +378,7 @@ static int bus_unit_cgroup_find(sd_bus *bus, const char *path, const char *inter
         if (r <= 0)
                 return r;
 
-        if (!streq_ptr(interface, UNIT_VTABLE(u)->bus_interface))
+        if (!streq_ptr(interface, unit_dbus_interface_from_type(u->type)))
                 return 0;
 
         if (!unit_get_cgroup_context(u))
@@ -404,7 +404,7 @@ static int bus_cgroup_context_find(sd_bus *bus, const char *path, const char *in
         if (r <= 0)
                 return r;
 
-        if (!streq_ptr(interface, UNIT_VTABLE(u)->bus_interface))
+        if (!streq_ptr(interface, unit_dbus_interface_from_type(u->type)))
                 return 0;
 
         c = unit_get_cgroup_context(u);
@@ -431,7 +431,7 @@ static int bus_exec_context_find(sd_bus *bus, const char *path, const char *inte
         if (r <= 0)
                 return r;
 
-        if (!streq_ptr(interface, UNIT_VTABLE(u)->bus_interface))
+        if (!streq_ptr(interface, unit_dbus_interface_from_type(u->type)))
                 return 0;
 
         c = unit_get_exec_context(u);
@@ -458,7 +458,7 @@ static int bus_kill_context_find(sd_bus *bus, const char *path, const char *inte
         if (r <= 0)
                 return r;
 
-        if (!streq_ptr(interface, UNIT_VTABLE(u)->bus_interface))
+        if (!streq_ptr(interface, unit_dbus_interface_from_type(u->type)))
                 return 0;
 
         c = unit_get_kill_context(u);
@@ -555,30 +555,34 @@ static int bus_setup_api_vtables(Manager *m, sd_bus *bus) {
                 return log_error_errno(r, "Failed to add job enumerator: %m");
 
         for (t = 0; t < _UNIT_TYPE_MAX; t++) {
-                r = sd_bus_add_fallback_vtable(bus, NULL, "/org/freedesktop/systemd1/unit", unit_vtable[t]->bus_interface, unit_vtable[t]->bus_vtable, bus_unit_interface_find, m);
+                const char *interface;
+
+                assert_se(interface = unit_dbus_interface_from_type(t));
+
+                r = sd_bus_add_fallback_vtable(bus, NULL, "/org/freedesktop/systemd1/unit", interface, unit_vtable[t]->bus_vtable, bus_unit_interface_find, m);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to register type specific vtable for %s: %m", unit_vtable[t]->bus_interface);
+                        return log_error_errno(r, "Failed to register type specific vtable for %s: %m", interface);
 
                 if (unit_vtable[t]->cgroup_context_offset > 0) {
-                        r = sd_bus_add_fallback_vtable(bus, NULL, "/org/freedesktop/systemd1/unit", unit_vtable[t]->bus_interface, bus_unit_cgroup_vtable, bus_unit_cgroup_find, m);
+                        r = sd_bus_add_fallback_vtable(bus, NULL, "/org/freedesktop/systemd1/unit", interface, bus_unit_cgroup_vtable, bus_unit_cgroup_find, m);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to register control group unit vtable for %s: %m", unit_vtable[t]->bus_interface);
+                                return log_error_errno(r, "Failed to register control group unit vtable for %s: %m", interface);
 
-                        r = sd_bus_add_fallback_vtable(bus, NULL, "/org/freedesktop/systemd1/unit", unit_vtable[t]->bus_interface, bus_cgroup_vtable, bus_cgroup_context_find, m);
+                        r = sd_bus_add_fallback_vtable(bus, NULL, "/org/freedesktop/systemd1/unit", interface, bus_cgroup_vtable, bus_cgroup_context_find, m);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to register control group vtable for %s: %m", unit_vtable[t]->bus_interface);
+                                return log_error_errno(r, "Failed to register control group vtable for %s: %m", interface);
                 }
 
                 if (unit_vtable[t]->exec_context_offset > 0) {
-                        r = sd_bus_add_fallback_vtable(bus, NULL, "/org/freedesktop/systemd1/unit", unit_vtable[t]->bus_interface, bus_exec_vtable, bus_exec_context_find, m);
+                        r = sd_bus_add_fallback_vtable(bus, NULL, "/org/freedesktop/systemd1/unit", interface, bus_exec_vtable, bus_exec_context_find, m);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to register execute vtable for %s: %m", unit_vtable[t]->bus_interface);
+                                return log_error_errno(r, "Failed to register execute vtable for %s: %m", interface);
                 }
 
                 if (unit_vtable[t]->kill_context_offset > 0) {
-                        r = sd_bus_add_fallback_vtable(bus, NULL, "/org/freedesktop/systemd1/unit", unit_vtable[t]->bus_interface, bus_kill_vtable, bus_kill_context_find, m);
+                        r = sd_bus_add_fallback_vtable(bus, NULL, "/org/freedesktop/systemd1/unit", interface, bus_kill_vtable, bus_kill_context_find, m);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to register kill vtable for %s: %m", unit_vtable[t]->bus_interface);
+                                return log_error_errno(r, "Failed to register kill vtable for %s: %m", interface);
                 }
         }
 

@@ -772,7 +772,6 @@ const UnitVTable timer_vtable = {
         .reset_failed = timer_reset_failed,
         .time_change = timer_time_change,
 
-        .bus_interface = "org.freedesktop.systemd1.Timer",
         .bus_vtable = bus_timer_vtable,
         .bus_set_property = bus_timer_set_property,
 
