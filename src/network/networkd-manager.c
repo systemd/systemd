@@ -477,13 +477,13 @@ void manager_free(Manager *m) {
 
         free(m->state_file);
 
+        sd_event_source_unref(m->udev_event_source);
         udev_monitor_unref(m->udev_monitor);
         udev_unref(m->udev);
+
         sd_bus_unref(m->bus);
         sd_bus_slot_unref(m->prepare_for_sleep_slot);
-        sd_event_source_unref(m->udev_event_source);
         sd_event_source_unref(m->bus_retry_event_source);
-        sd_event_unref(m->event);
 
         while ((link = hashmap_first(m->links)))
                 link_unref(link);
@@ -502,6 +502,7 @@ void manager_free(Manager *m) {
                 address_pool_free(pool);
 
         sd_netlink_unref(m->rtnl);
+        sd_event_unref(m->event);
 
         free(m);
 }
