@@ -31,18 +31,16 @@
 #include "macro.h"
 #include "terminal-util.h"
 #include "signal-util.h"
+#include "copy.h"
 
 static pid_t pager_pid = 0;
 
 noreturn static void pager_fallback(void) {
-        ssize_t n;
+        int r;
 
-        do {
-                n = splice(STDIN_FILENO, NULL, STDOUT_FILENO, NULL, 64*1024, 0);
-        } while (n > 0);
-
-        if (n < 0) {
-                log_error_errno(errno, "Internal pager failed: %m");
+        r = copy_bytes(STDIN_FILENO, STDOUT_FILENO, (off_t) -1, false);
+        if (r < 0) {
+                log_error_errno(r, "Internal pager failed: %m");
                 _exit(EXIT_FAILURE);
         }
 
