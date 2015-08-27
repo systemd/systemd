@@ -25,8 +25,10 @@
 #include "util.h"
 #include "conf-parser.h"
 #include "firewall-util.h"
+#include "netlink-util.h"
+
 #include "networkd.h"
-#include "networkd-link.h"
+#include "networkd-address.h"
 
 static void address_init(Address *address) {
         assert(address);

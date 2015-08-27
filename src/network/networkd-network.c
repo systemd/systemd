@@ -26,11 +26,11 @@
 #include "conf-parser.h"
 #include "util.h"
 #include "hostname-util.h"
-#include "networkd.h"
-#include "networkd-netdev.h"
-#include "networkd-link.h"
-#include "network-internal.h"
 #include "dns-domain.h"
+#include "network-internal.h"
+
+#include "networkd.h"
+#include "networkd-network.h"
 
 static int network_load_one(Manager *manager, const char *filename) {
         _cleanup_network_free_ Network *network = NULL;
@@ -635,57 +635,6 @@ static const char* const dhcp_client_identifier_table[_DHCP_CLIENT_ID_MAX] = {
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(dhcp_client_identifier, DCHPClientIdentifier);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_dhcp_client_identifier, dhcp_client_identifier, DCHPClientIdentifier, "Failed to parse client identifier type");
 
-static const char* const resolve_support_table[_RESOLVE_SUPPORT_MAX] = {
-        [RESOLVE_SUPPORT_NO] = "no",
-        [RESOLVE_SUPPORT_YES] = "yes",
-        [RESOLVE_SUPPORT_RESOLVE] = "resolve",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(resolve_support, ResolveSupport);
-
-int config_parse_resolve(
-                const char* unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        ResolveSupport *resolve = data;
-        int k;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(resolve);
-
-        /* Our enum shall be a superset of booleans, hence first try
-         * to parse as boolean, and then as enum */
-
-        k = parse_boolean(rvalue);
-        if (k > 0)
-                *resolve = RESOLVE_SUPPORT_YES;
-        else if (k == 0)
-                *resolve = RESOLVE_SUPPORT_NO;
-        else {
-                ResolveSupport s;
-
-                s = resolve_support_from_string(rvalue);
-                if (s < 0){
-                        log_syntax(unit, LOG_ERR, filename, line, -s, "Failed to parse %s option, ignoring: %s", lvalue, rvalue);
-                        return 0;
-                }
-
-                *resolve = s;
-        }
-
-        return 0;
-}
-
 int config_parse_ipv6token(
                 const char* unit,
                 const char *filename,
@@ -725,40 +674,6 @@ int config_parse_ipv6token(
         }
 
         *token = buffer.in6;
-
-        return 0;
-}
-
-int config_parse_address_family_boolean_with_kernel(
-                const char* unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        AddressFamilyBoolean *fwd = data, s;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        s = address_family_boolean_from_string(rvalue);
-        if (s < 0) {
-                if (streq(rvalue, "kernel"))
-                        s = _ADDRESS_FAMILY_BOOLEAN_INVALID;
-                else {
-                        log_syntax(unit, LOG_ERR, filename, line, s, "Failed to parse IPForwarding option, ignoring: %s", rvalue);
-                        return 0;
-                }
-        }
-
-        *fwd = s;
 
         return 0;
 }

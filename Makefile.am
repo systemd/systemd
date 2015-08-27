@@ -5167,41 +5167,48 @@ libnetworkd_core_la_SOURCES = \
 	src/libsystemd-network/network-internal.h \
 	src/network/networkd.h \
 	src/network/networkd-link.h \
-	src/network/networkd-netdev.h \
-	src/network/networkd-netdev-tunnel.h \
-	src/network/networkd-netdev-veth.h \
-	src/network/networkd-netdev-vxlan.h \
-	src/network/networkd-netdev-vlan.h \
-	src/network/networkd-netdev-macvlan.h \
-	src/network/networkd-netdev-ipvlan.h \
-	src/network/networkd-netdev-dummy.h \
-	src/network/networkd-netdev-tuntap.h \
-	src/network/networkd-netdev-bond.h \
-	src/network/networkd-netdev-bridge.h \
-	src/network/networkd-netdev.c \
-	src/network/networkd-netdev-tunnel.c \
-	src/network/networkd-netdev-veth.c \
-	src/network/networkd-netdev-vxlan.c \
-	src/network/networkd-netdev-vlan.c \
-	src/network/networkd-netdev-macvlan.c \
-	src/network/networkd-netdev-ipvlan.c \
-	src/network/networkd-netdev-dummy.c \
-	src/network/networkd-netdev-tuntap.c \
-	src/network/networkd-netdev-bond.c \
-	src/network/networkd-netdev-bridge.c \
 	src/network/networkd-link.c \
+	src/network/networkd-netdev.h \
+	src/network/networkd-netdev.c \
+	src/network/networkd-netdev-tunnel.h \
+	src/network/networkd-netdev-tunnel.c \
+	src/network/networkd-netdev-veth.h \
+	src/network/networkd-netdev-veth.c \
+	src/network/networkd-netdev-vxlan.h \
+	src/network/networkd-netdev-vxlan.c \
+	src/network/networkd-netdev-vlan.h \
+	src/network/networkd-netdev-vlan.c \
+	src/network/networkd-netdev-macvlan.h \
+	src/network/networkd-netdev-macvlan.c \
+	src/network/networkd-netdev-ipvlan.h \
+	src/network/networkd-netdev-ipvlan.c \
+	src/network/networkd-netdev-dummy.h \
+	src/network/networkd-netdev-dummy.c \
+	src/network/networkd-netdev-tuntap.h \
+	src/network/networkd-netdev-tuntap.c \
+	src/network/networkd-netdev-bond.h \
+	src/network/networkd-netdev-bond.c \
+	src/network/networkd-netdev-bridge.h \
+	src/network/networkd-netdev-bridge.c \
 	src/network/networkd-link-bus.c \
 	src/network/networkd-ipv4ll.c \
 	src/network/networkd-dhcp4.c \
 	src/network/networkd-dhcp6.c \
+	src/network/networkd-network.h \
 	src/network/networkd-network.c \
 	src/network/networkd-network-bus.c \
+	src/network/networkd-address.h \
 	src/network/networkd-address.c \
+	src/network/networkd-route.h \
 	src/network/networkd-route.c \
 	src/network/networkd-manager.c \
 	src/network/networkd-manager-bus.c \
+	src/network/networkd-fdb.h \
 	src/network/networkd-fdb.c \
-	src/network/networkd-address-pool.c
+	src/network/networkd-address-pool.h \
+	src/network/networkd-address-pool.c \
+	src/network/networkd-util.h \
+	src/network/networkd-util.c
 
 nodist_libnetworkd_core_la_SOURCES = \
 	src/network/networkd-network-gperf.c \

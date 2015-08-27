@@ -19,9 +19,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-
 #include "networkd.h"
-#include "networkd-link.h"
+#include "networkd-address-pool.h"
 
 int address_pool_new(
                 Manager *m,

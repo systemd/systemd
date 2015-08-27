@@ -29,8 +29,10 @@
 #include "socket-util.h"
 #include "bus-util.h"
 #include "udev-util.h"
+#include "netlink-util.h"
 #include "dhcp-lease-internal.h"
 #include "network-internal.h"
+
 #include "networkd-link.h"
 #include "networkd-netdev.h"
 
