@@ -260,6 +260,8 @@ void network_free(Network *network) {
         condition_free_list(network->match_arch);
 
         free(network->dhcp_server_timezone);
+        free(network->dhcp_server_dns);
+        free(network->dhcp_server_ntp);
 
         free(network);
 }
@@ -801,4 +803,98 @@ int config_parse_timezone(
         *timezone = tz;
 
         return 0;
+}
+
+int config_parse_dhcp_server_dns(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *n = data;
+        const char *p = rvalue;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        for (;;) {
+                _cleanup_free_ char *w = NULL;
+                struct in_addr a, *m;
+
+                r = extract_first_word(&p, &w, NULL, 0);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to extract word, ignoring: %s", rvalue);
+                        return 0;
+                }
+
+                if (r == 0)
+                        return 0;
+
+                if (inet_pton(AF_INET, w, &a) <= 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse DNS server address, ignoring: %s", w);
+                        continue;
+                }
+
+                m = realloc(n->dhcp_server_dns, (n->n_dhcp_server_dns + 1) * sizeof(struct in_addr));
+                if (!m)
+                        return log_oom();
+
+                m[n->n_dhcp_server_dns++] = a;
+                n->dhcp_server_dns = m;
+        }
+}
+
+int config_parse_dhcp_server_ntp(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *n = data;
+        const char *p = rvalue;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        for (;;) {
+                _cleanup_free_ char *w = NULL;
+                struct in_addr a, *m;
+
+                r = extract_first_word(&p, &w, NULL, 0);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, r, line, "Failed to extract word, ignoring: %s", rvalue);
+                        return 0;
+                }
+
+                if (r == 0)
+                        return 0;
+
+                if (inet_pton(AF_INET, w, &a) <= 0) {
+                        log_syntax(unit, LOG_ERR, filename, r, line, "Failed to parse NTP server address, ignoring: %s", w);
+                        continue;
+                }
+
+                m = realloc(n->dhcp_server_ntp, (n->n_dhcp_server_ntp + 1) * sizeof(struct in_addr));
+                if (!m)
+                        return log_oom();
+
+                m[n->n_dhcp_server_ntp++] = a;
+                n->dhcp_server_ntp = m;
+        }
 }

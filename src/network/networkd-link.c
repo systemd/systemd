@@ -691,6 +691,27 @@ static int link_enter_set_addresses(Link *link) {
                                 return r;
                 }
 
+                if (link->network->dhcp_server_emit_dns) {
+
+                        if (link->network->n_dhcp_server_dns > 0) {
+                                r = sd_dhcp_server_set_dns(link->dhcp_server, link->network->dhcp_server_dns, link->network->n_dhcp_server_dns);
+                                if (r < 0)
+                                        log_link_warning_errno(link, r, "Failed to set DNS server for DHCP server, ignoring: %m");
+                        } else
+                                log_link_warning_errno(link, r, "DNS server emitting enabled, but no DNS servers set, ignoring: %m");
+                }
+
+
+                if (link->network->dhcp_server_emit_ntp) {
+
+                        if (link->network->n_dhcp_server_ntp > 0) {
+                                r = sd_dhcp_server_set_ntp(link->dhcp_server, link->network->dhcp_server_ntp, link->network->n_dhcp_server_ntp);
+                                if (r < 0)
+                                        log_link_warning_errno(link, r, "Failed to set NTP server for DHCP server, ignoring: %m");
+                        } else
+                                log_link_warning_errno(link, r, "NTP server emitting enabled, but no NTP servers set, ignoring: %m");
+                }
+
                 if (link->network->dhcp_server_emit_timezone) {
                         _cleanup_free_ char *buffer = NULL;
                         const char *tz;

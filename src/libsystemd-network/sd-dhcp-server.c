@@ -145,6 +145,8 @@ sd_dhcp_server *sd_dhcp_server_unref(sd_dhcp_server *server) {
         sd_event_unref(server->event);
 
         free(server->timezone);
+        free(server->dns);
+        free(server->ntp);
 
         while ((lease = hashmap_steal_first(server->leases_by_client_id)))
                 dhcp_lease_free(lease);
@@ -480,6 +482,24 @@ static int server_send_ack(sd_dhcp_server *server, DHCPRequest *req,
                                DHCP_OPTION_ROUTER, 4, &server->address);
         if (r < 0)
                 return r;
+
+        if (server->n_dns > 0) {
+                r = dhcp_option_append(
+                                &packet->dhcp, req->max_optlen, &offset, 0,
+                                DHCP_OPTION_DOMAIN_NAME_SERVER,
+                                sizeof(struct in_addr) * server->n_dns, server->dns);
+                if (r < 0)
+                        return r;
+        }
+
+        if (server->n_ntp > 0) {
+                r = dhcp_option_append(
+                                &packet->dhcp, req->max_optlen, &offset, 0,
+                                DHCP_OPTION_NTP_SERVER,
+                                sizeof(struct in_addr) * server->n_ntp, server->ntp);
+                if (r < 0)
+                        return r;
+        }
 
         if (server->timezone) {
                 r = dhcp_option_append(
@@ -1040,5 +1060,57 @@ int sd_dhcp_server_set_default_lease_time(sd_dhcp_server *server, uint32_t t) {
                 return 0;
 
         server->default_lease_time = t;
+        return 1;
+}
+
+int sd_dhcp_server_set_dns(sd_dhcp_server *server, const struct in_addr dns[], unsigned n) {
+        assert_return(server, -EINVAL);
+        assert_return(dns || n <= 0, -EINVAL);
+
+        if (server->n_dns == n &&
+            memcmp(server->dns, dns, sizeof(struct in_addr) * n) == 0)
+                return 0;
+
+        if (n <= 0) {
+                server->dns = mfree(server->dns);
+                server->n_dns = 0;
+        } else {
+                struct in_addr *c;
+
+                c = newdup(struct in_addr, dns, n);
+                if (!c)
+                        return -ENOMEM;
+
+                free(server->dns);
+                server->dns = c;
+                server->n_dns = n;
+        }
+
+        return 1;
+}
+
+int sd_dhcp_server_set_ntp(sd_dhcp_server *server, const struct in_addr ntp[], unsigned n) {
+        assert_return(server, -EINVAL);
+        assert_return(ntp || n <= 0, -EINVAL);
+
+        if (server->n_ntp == n &&
+            memcmp(server->ntp, ntp, sizeof(struct in_addr) * n) == 0)
+                return 0;
+
+        if (n <= 0) {
+                server->ntp = mfree(server->ntp);
+                server->n_ntp = 0;
+        } else {
+                struct in_addr *c;
+
+                c = newdup(struct in_addr, ntp, n);
+                if (!c)
+                        return -ENOMEM;
+
+                free(server->ntp);
+                server->ntp = c;
+                server->n_ntp = n;
+        }
+
         return 1;
 }

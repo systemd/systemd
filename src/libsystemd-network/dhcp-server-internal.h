@@ -63,6 +63,9 @@ struct sd_dhcp_server {
 
         char *timezone;
 
+        struct in_addr *ntp, *dns;
+        unsigned n_ntp, n_dns;
+
         Hashmap *leases_by_client_id;
         DHCPLease **bound_leases;
 

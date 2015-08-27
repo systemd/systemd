@@ -93,8 +93,14 @@ struct Network {
 
         /* DHCP Server Support */
         bool dhcp_server;
-        char *dhcp_server_timezone;
+        bool dhcp_server_emit_dns;
+        struct in_addr *dhcp_server_dns;
+        unsigned n_dhcp_server_dns;
+        bool dhcp_server_emit_ntp;
+        struct in_addr *dhcp_server_ntp;
+        unsigned n_dhcp_server_ntp;
         bool dhcp_server_emit_timezone;
+        char *dhcp_server_timezone;
         usec_t dhcp_server_default_lease_time_usec, dhcp_server_max_lease_time_usec;
 
         /* IPV4LL Support */
@@ -156,6 +162,8 @@ int config_parse_ipv6token(const char *unit, const char *filename, unsigned line
 int config_parse_ipv6_privacy_extensions(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_hostname(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_timezone(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+int config_parse_dhcp_server_dns(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+int config_parse_dhcp_server_ntp(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 
 /* Legacy IPv4LL support */
 int config_parse_ipv4ll(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
