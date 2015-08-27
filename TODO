@@ -32,10 +32,6 @@ Features:
 
 * nspawn should optionally support receiving WATCHDOG=1 messages from its payload PID 1...
 
-* introduce "machinectl shell" that is like systemd-run -M foo /bin/bash -t but also adds PAMName=login
-
-* allow loging into host with "machinectl login".
-
 * consider throwing a warning if a service declares it wants to be "Before=" a .device unit.
 
 * "systemctl edit" should know a mode to create a new unit file
@@ -64,10 +60,6 @@ Features:
 * stop using off_t, it's a crazy type. Use uint64_t instead.
 
 * logind: follow PropertiesChanged state more closely, to deal with quick logouts and relogins
-
-* change to KillMode=mixed by default
-
-* introduce argv0contains=
 
 * invent a better systemd-run scheme for naming scopes, that works with remoting
 
@@ -256,8 +248,6 @@ Features:
 
 * figure out when we can use the coarse timers
 
-* sd-resolve: drop res_query wrapping, people should call via the bus to resolved instead
-
 * add "systemctl start -v foobar.service" that shows logs of a service
   while the start command runs. This is non-trivial to do without
   races though, since we should flush out all journal messages before
@@ -330,18 +320,15 @@ Features:
   - expose in the API the following bits:
         - option 15, domain name and/or option 119, search list
         - option 12, host name and/or option 81, fqdn
-        - option 100, 101, timezone
         - option 123, 144, geolocation
         - option 252, configure http proxy (PAC/wpad)
-  - networkd's dhcp server should transparently pass on the DNS and
-    NTP server list it got from user configuration and its dhcp client
-    to clients. It should also pass on its own timezone information.
   - provide a way to define a per-network interface default metric value
     for all routes to it. possibly a second default for DHCP routes.
   - allow Name= to be specified repeatedly in the [Match] section. Maybe also
     support Name=foo*|bar*|baz ?
   - duplicate address check for static IPs (like ARPCHECK in network-scripts)
   - allow DUID/IAID to be customized, see issue #394.
+  - networkd: whenever uplink info changes, make DHCP server send out FORCERENEW
 
 * resolved:
   - put networkd events and rtnl events at a higher priority, so that
@@ -473,7 +460,6 @@ Features:
 
 * sd-bus:
   - EBADSLT handling
-  - change argv list matching logic
   - GetAllProperties() on a non-existing object does not result in a failure currently
   - kdbus: process fd=-1 for incoming msgs
   - port to sd-resolve for connecting to TCP dbus servers
@@ -895,7 +881,6 @@ Features:
 
 * dhcp:
    - figure out how much we can increase Maximum Message Size
-   - export timezone information
    - support RFC4702 (pass FQDN)
 
 * dhcp6:
