@@ -749,6 +749,9 @@ static int vtable_append_all_properties(
                 if (v->flags & SD_BUS_VTABLE_HIDDEN)
                         continue;
 
+                if (v->flags & SD_BUS_VTABLE_PROPERTY_EXPLICIT)
+                        continue;
+
                 r = vtable_append_one_property(bus, reply, path, c, v, userdata, error);
                 if (r < 0)
                         return r;
@@ -1740,8 +1743,9 @@ static int add_object_vtable_internal(
                         if (!member_name_is_valid(v->x.property.member) ||
                             !signature_is_single(v->x.property.signature, false) ||
                             !(v->x.property.get || bus_type_is_basic(v->x.property.signature[0]) || streq(v->x.property.signature, "as")) ||
-                            v->flags & SD_BUS_VTABLE_METHOD_NO_REPLY ||
+                            (v->flags & SD_BUS_VTABLE_METHOD_NO_REPLY) ||
                             (!!(v->flags & SD_BUS_VTABLE_PROPERTY_CONST) + !!(v->flags & SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE) + !!(v->flags & SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION)) > 1 ||
+                            ((v->flags & SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE) && (v->flags & SD_BUS_VTABLE_PROPERTY_EXPLICIT)) ||
                             (v->flags & SD_BUS_VTABLE_UNPRIVILEGED && v->type == _SD_BUS_VTABLE_PROPERTY)) {
                                 r = -EINVAL;
                                 goto fail;

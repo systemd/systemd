@@ -217,6 +217,7 @@ static const sd_bus_vtable vtable2[] = {
         SD_BUS_PROPERTY("Value2", "s", value_handler, 10, SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
         SD_BUS_PROPERTY("Value3", "s", value_handler, 10, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Value4", "s", value_handler, 10, 0),
+        SD_BUS_PROPERTY("AnExplicitProperty", "s", NULL, offsetof(struct context, something), SD_BUS_VTABLE_PROPERTY_EXPLICIT|SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
         SD_BUS_VTABLE_END
 };
 
