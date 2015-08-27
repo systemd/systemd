@@ -24,7 +24,6 @@
 
 #include "log.h"
 #include "list.h"
-#include "refcnt.h"
 #include "lldp-tlv.h"
 #include "prioq.h"
 
@@ -63,7 +62,7 @@ struct lldp_chassis_id {
 };
 
 struct lldp_chassis {
-        RefCount n_ref;
+        unsigned n_ref;
 
         lldp_chassis_id chassis_id;
 

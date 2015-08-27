@@ -25,7 +25,6 @@
 #include <sys/ioctl.h>
 
 #include "socket-util.h"
-#include "refcnt.h"
 #include "async.h"
 
 #include "dhcp6-internal.h"
@@ -47,7 +46,7 @@ enum icmp6_nd_state {
 typedef struct ICMP6Prefix ICMP6Prefix;
 
 struct ICMP6Prefix {
-        RefCount n_ref;
+        unsigned n_ref;
 
         LIST_FIELDS(ICMP6Prefix, prefixes);
 
@@ -57,7 +56,7 @@ struct ICMP6Prefix {
 };
 
 struct sd_icmp6_nd {
-        RefCount n_ref;
+        unsigned n_ref;
 
         enum icmp6_nd_state state;
         sd_event *event;
@@ -78,13 +77,18 @@ struct sd_icmp6_nd {
 #define log_icmp6_nd(p, fmt, ...) log_internal(LOG_DEBUG, 0, __FILE__, __LINE__, __func__, "ICMPv6 CLIENT: " fmt, ##__VA_ARGS__)
 
 static ICMP6Prefix *icmp6_prefix_unref(ICMP6Prefix *prefix) {
-        if (prefix && REFCNT_DEC(prefix->n_ref) <= 0) {
-                prefix->timeout_valid =
-                        sd_event_source_unref(prefix->timeout_valid);
 
-                free(prefix);
-        }
+        if (!prefix)
+                return NULL;
 
+        assert(prefix->n_ref > 0);
+        prefix->n_ref--;
+
+        if (prefix->n_ref > 0)
+                return NULL;
+
+        prefix->timeout_valid = sd_event_source_unref(prefix->timeout_valid);
+        free(prefix);
         return NULL;
 }
 
@@ -97,7 +101,7 @@ static int icmp6_prefix_new(ICMP6Prefix **ret) {
         if (!prefix)
                 return -ENOMEM;
 
-        prefix->n_ref = REFCNT_INIT;
+        prefix->n_ref = 1;
         LIST_INIT(prefixes, prefix);
 
         *ret = prefix;
@@ -176,9 +180,12 @@ sd_event *sd_icmp6_nd_get_event(sd_icmp6_nd *nd) {
 }
 
 sd_icmp6_nd *sd_icmp6_nd_ref(sd_icmp6_nd *nd) {
-        assert (nd);
 
-        assert_se(REFCNT_INC(nd->n_ref) >= 2);
+        if (!nd)
+                return NULL;
+
+        assert(nd->n_ref > 0);
+        nd->n_ref++;
 
         return nd;
 }
@@ -194,20 +201,27 @@ static int icmp6_nd_init(sd_icmp6_nd *nd) {
 }
 
 sd_icmp6_nd *sd_icmp6_nd_unref(sd_icmp6_nd *nd) {
-        if (nd && REFCNT_DEC(nd->n_ref) == 0) {
-                ICMP6Prefix *prefix, *p;
+        ICMP6Prefix *prefix, *p;
 
-                icmp6_nd_init(nd);
-                sd_icmp6_nd_detach_event(nd);
+        if (!nd)
+                return NULL;
 
-                LIST_FOREACH_SAFE(prefixes, prefix, p, nd->prefixes) {
-                        LIST_REMOVE(prefixes, nd->prefixes, prefix);
+        assert(nd->n_ref > 0);
+        nd->n_ref--;
 
-                        prefix = icmp6_prefix_unref(prefix);
-                }
+        if (nd->n_ref > 0)
+                return NULL;
 
-                free(nd);
+        icmp6_nd_init(nd);
+        sd_icmp6_nd_detach_event(nd);
+
+        LIST_FOREACH_SAFE(prefixes, prefix, p, nd->prefixes) {
+                LIST_REMOVE(prefixes, nd->prefixes, prefix);
+
+                prefix = icmp6_prefix_unref(prefix);
         }
+
+        free(nd);
 
         return NULL;
 }
@@ -224,7 +238,7 @@ int sd_icmp6_nd_new(sd_icmp6_nd **ret) {
         if (!nd)
                 return -ENOMEM;
 
-        nd->n_ref = REFCNT_INIT;
+        nd->n_ref = 1;
 
         nd->index = -1;
         nd->fd = -1;

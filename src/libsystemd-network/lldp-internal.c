@@ -374,9 +374,8 @@ int lldp_mib_add_objects(Prioq *by_expiry,
                 }
 
                 /* Admission Control: Can this port attached to the existing chassis ? */
-                if (REFCNT_GET(c->n_ref) >= LLDP_MIB_MAX_PORT_PER_CHASSIS) {
-                        log_lldp("Port limit reached. Chassis has: %d ports. Dropping ...",
-                                 REFCNT_GET(c->n_ref));
+                if (c->n_ref >= LLDP_MIB_MAX_PORT_PER_CHASSIS) {
+                        log_lldp("Port limit reached. Chassis has: %d ports. Dropping ...", c->n_ref);
 
                         c = NULL;
                         goto drop;
@@ -394,7 +393,7 @@ int lldp_mib_add_objects(Prioq *by_expiry,
 
         /* Attach new port to chassis */
         LIST_PREPEND(port, c->ports, p);
-        REFCNT_INC(c->n_ref);
+        c->n_ref ++;
 
         p = NULL;
         c = NULL;
@@ -424,7 +423,8 @@ void lldp_neighbour_port_remove_and_free(lldp_neighbour_port *p) {
         lldp_neighbour_port_free(p);
 
         /* Drop the Chassis if no port is attached  */
-        if (REFCNT_DEC(c->n_ref) <= 1) {
+        c->n_ref --;
+        if (c->n_ref <= 1) {
                 hashmap_remove(c->neighbour_mib, &c->chassis_id);
                 lldp_chassis_free(c);
         }
@@ -486,7 +486,7 @@ void lldp_chassis_free(lldp_chassis *c) {
         if (!c)
                 return;
 
-        if (REFCNT_GET(c->n_ref) > 1)
+        if (c->n_ref > 1)
                 return;
 
         free(c->chassis_id.data);
@@ -513,7 +513,7 @@ int lldp_chassis_new(tlv_packet *tlv,
         if (!c)
                 return -ENOMEM;
 
-        c->n_ref = REFCNT_INIT;
+        c->n_ref = 1;
         c->chassis_id.type = type;
         c->chassis_id.length = length;
 
