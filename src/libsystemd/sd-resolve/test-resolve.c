@@ -67,59 +67,8 @@ static int getnameinfo_handler(sd_resolve_query *q, int ret, const char *host, c
         return 0;
 }
 
-static int res_handler(sd_resolve_query *q, int ret, unsigned char *answer, void *userdata) {
-        int qdcount, ancount, len;
-        const unsigned char *pos = answer + sizeof(HEADER);
-        unsigned char *end = answer + ret;
-        HEADER *head = (HEADER *) answer;
-        char name[256];
-        assert_se(q);
-
-        if (ret < 0) {
-                log_error("res_query() error: %s %i", strerror(errno), errno);
-                return 0;
-        }
-
-        if (ret == 0) {
-                log_error("No reply for SRV lookup");
-                return 0;
-        }
-
-        qdcount = ntohs(head->qdcount);
-        ancount = ntohs(head->ancount);
-
-        printf("%d answers for srv lookup:\n", ancount);
-
-        /* Ignore the questions */
-        while (qdcount-- > 0 && (len = dn_expand(answer, end, pos, name, 255)) >= 0) {
-                assert_se(len >= 0);
-                pos += len + QFIXEDSZ;
-        }
-
-        /* Parse the answers */
-        while (ancount-- > 0 && (len = dn_expand(answer, end, pos, name, 255)) >= 0) {
-                /* Ignore the initial string */
-                uint16_t pref, weight, port;
-                assert_se(len >= 0);
-                pos += len;
-                /* Ignore type, ttl, class and dlen */
-                pos += 10;
-
-                GETSHORT(pref, pos);
-                GETSHORT(weight, pos);
-                GETSHORT(port, pos);
-                len = dn_expand(answer, end, pos, name, 255);
-                printf("\tpreference: %2d weight: %2d port: %d host: %s\n",
-                       pref, weight, port, name);
-
-                pos += len;
-        }
-
-        return 0;
-}
-
 int main(int argc, char *argv[]) {
-        _cleanup_resolve_query_unref_ sd_resolve_query *q1 = NULL, *q2 = NULL, *q3 = NULL;
+        _cleanup_resolve_query_unref_ sd_resolve_query *q1 = NULL, *q2 = NULL;
         _cleanup_resolve_unref_ sd_resolve *resolve = NULL;
         int r = 0;
 
@@ -150,15 +99,9 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 log_error_errno(r, "sd_resolve_getnameinfo(): %m");
 
-        /* Make a res_query() call */
-        r = sd_resolve_res_query(resolve, &q3, "_xmpp-client._tcp.gmail.com", C_IN, T_SRV, res_handler, NULL);
-        if (r < 0)
-                log_error_errno(r, "sd_resolve_res_query(): %m");
-
-        /* Wait until the three queries are completed */
+        /* Wait until the two queries are completed */
         while (sd_resolve_query_is_done(q1) == 0 ||
-               sd_resolve_query_is_done(q2) == 0 ||
-               sd_resolve_query_is_done(q3) == 0) {
+               sd_resolve_query_is_done(q2) == 0) {
 
                 r = sd_resolve_wait(resolve, (uint64_t) -1);
                 if (r < 0) {
