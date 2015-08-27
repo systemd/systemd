@@ -26,6 +26,7 @@
 #include "bus-type.h"
 #include "bus-signature.h"
 #include "bus-introspect.h"
+#include "bus-util.h"
 #include "bus-slot.h"
 #include "bus-objects.h"
 

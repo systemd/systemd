@@ -44,6 +44,7 @@
 #include "bus-kernel.h"
 #include "bus-control.h"
 #include "bus-objects.h"
+#include "bus-util.h"
 #include "bus-container.h"
 #include "bus-protocol.h"
 #include "bus-track.h"
@@ -1173,10 +1174,7 @@ int bus_set_address_system(sd_bus *b) {
         if (e)
                 return sd_bus_set_address(b, e);
 
-        if (is_kdbus_available())
-                return sd_bus_set_address(b, KERNEL_SYSTEM_BUS_ADDRESS);
-
-        return sd_bus_set_address(b, UNIX_SYSTEM_BUS_ADDRESS);
+        return sd_bus_set_address(b, DEFAULT_SYSTEM_BUS_ADDRESS);
 }
 
 _public_ int sd_bus_open_system(sd_bus **ret) {
@@ -1224,17 +1222,16 @@ int bus_set_address_user(sd_bus *b) {
                 return sd_bus_set_address(b, e);
 
         e = secure_getenv("XDG_RUNTIME_DIR");
-        if (is_kdbus_available())
-                (void) asprintf(&b->address, KERNEL_USER_BUS_ADDRESS_FMT, getuid());
-        else if (e) {
+        if (e) {
                 _cleanup_free_ char *ee = NULL;
 
                 ee = bus_address_escape(e);
                 if (!ee)
                         return -ENOMEM;
 
-                (void) asprintf(&b->address, UNIX_USER_BUS_ADDRESS_FMT, ee);
-        }
+                (void) asprintf(&b->address, KERNEL_USER_BUS_ADDRESS_FMT ";" UNIX_USER_BUS_ADDRESS_FMT, getuid(), ee);
+        } else
+                (void) asprintf(&b->address, KERNEL_USER_BUS_ADDRESS_FMT, getuid());
 
         if (!b->address)
                 return -ENOMEM;

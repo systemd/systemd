@@ -50,9 +50,8 @@ static int help(void) {
                "     --version            Show package version\n"
                "     --machine=MACHINE    Connect to specified machine\n"
                "     --address=ADDRESS    Connect to the bus specified by ADDRESS\n"
-               "                          (default: %s)\n",
-               program_invocation_short_name,
-               is_kdbus_available() ? KERNEL_SYSTEM_BUS_ADDRESS : UNIX_SYSTEM_BUS_ADDRESS);
+               "                          (default: " DEFAULT_SYSTEM_BUS_ADDRESS ")\n",
+               program_invocation_short_name);
 
         return 0;
 }
@@ -138,7 +137,7 @@ static int parse_argv(int argc, char *argv[]) {
         }
 
         if (!arg_address) {
-                arg_address = strdup(is_kdbus_available() ? KERNEL_SYSTEM_BUS_ADDRESS : UNIX_SYSTEM_BUS_ADDRESS);
+                arg_address = strdup(DEFAULT_SYSTEM_BUS_ADDRESS);
                 if (!arg_address)
                         return log_oom();
         }

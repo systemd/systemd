@@ -28,6 +28,7 @@
 #include "sd-bus.h"
 #include "bus-kernel.h"
 #include "bus-internal.h"
+#include "bus-util.h"
 
 #define MAX_SIZE (2*1024*1024)
 

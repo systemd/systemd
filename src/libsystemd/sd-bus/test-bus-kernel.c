@@ -25,8 +25,8 @@
 #include "log.h"
 
 #include "sd-bus.h"
-#include "bus-util.h"
 #include "bus-kernel.h"
+#include "bus-util.h"
 #include "bus-dump.h"
 
 int main(int argc, char *argv[]) {

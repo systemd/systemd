@@ -30,6 +30,7 @@
 #include "set.h"
 
 #include "sd-bus.h"
+#include "bus-internal.h"
 #include "bus-util.h"
 #include "bus-dump.h"
 #include "bus-signature.h"

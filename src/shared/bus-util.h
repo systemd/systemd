@@ -23,11 +23,17 @@
 
 #include "sd-event.h"
 #include "sd-bus.h"
-#include "bus-error.h"
-#include "bus-internal.h"
 #include "hashmap.h"
 #include "install.h"
 #include "time-util.h"
+
+typedef enum BusTransport {
+        BUS_TRANSPORT_LOCAL,
+        BUS_TRANSPORT_REMOTE,
+        BUS_TRANSPORT_MACHINE,
+        _BUS_TRANSPORT_MAX,
+        _BUS_TRANSPORT_INVALID = -1
+} BusTransport;
 
 typedef int (*bus_property_set_t) (sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata);
 
@@ -129,6 +135,21 @@ typedef struct UnitInfo {
 
 int bus_parse_unit_info(sd_bus_message *message, UnitInfo *u);
 
+DEFINE_TRIVIAL_CLEANUP_FUNC(sd_bus*, sd_bus_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(sd_bus*, sd_bus_flush_close_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(sd_bus_slot*, sd_bus_slot_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(sd_bus_message*, sd_bus_message_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(sd_bus_creds*, sd_bus_creds_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(sd_bus_track*, sd_bus_track_unref);
+
+#define _cleanup_bus_unref_ _cleanup_(sd_bus_unrefp)
+#define _cleanup_bus_flush_close_unref_ _cleanup_(sd_bus_flush_close_unrefp)
+#define _cleanup_bus_slot_unref_ _cleanup_(sd_bus_slot_unrefp)
+#define _cleanup_bus_message_unref_ _cleanup_(sd_bus_message_unrefp)
+#define _cleanup_bus_creds_unref_ _cleanup_(sd_bus_creds_unrefp)
+#define _cleanup_bus_track_unref_ _cleanup_(sd_bus_slot_unrefp)
+#define _cleanup_bus_error_free_ _cleanup_(sd_bus_error_free)
+
 #define BUS_DEFINE_PROPERTY_GET_ENUM(function, name, type)              \
         int function(sd_bus *bus,                                       \
                      const char *path,                                  \
@@ -176,3 +197,6 @@ int bus_deserialize_and_dump_unit_file_changes(sd_bus_message *m, bool quiet, Un
 
 int bus_path_encode_unique(sd_bus *b, const char *prefix, const char *sender_id, const char *external_id, char **ret_path);
 int bus_path_decode_unique(const char *path, const char *prefix, char **ret_sender, char **ret_external);
+
+bool is_kdbus_wanted(void);
+bool is_kdbus_available(void);

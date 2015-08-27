@@ -32,6 +32,7 @@
 #include "bus-message.h"
 #include "bus-control.h"
 #include "bus-bloom.h"
+#include "bus-util.h"
 #include "capability.h"
 
 _public_ int sd_bus_get_unique_name(sd_bus *bus, const char **unique) {

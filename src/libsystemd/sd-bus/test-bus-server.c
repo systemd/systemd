@@ -28,6 +28,7 @@
 
 #include "sd-bus.h"
 #include "bus-internal.h"
+#include "bus-util.h"
 
 struct context {
         int fds[2];

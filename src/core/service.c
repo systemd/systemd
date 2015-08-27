@@ -42,6 +42,7 @@
 #include "utf8.h"
 #include "env-util.h"
 #include "fileio.h"
+#include "bus-error.h"
 #include "bus-util.h"
 #include "bus-kernel.h"
 #include "formats-util.h"

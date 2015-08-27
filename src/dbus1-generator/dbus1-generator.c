@@ -84,8 +84,7 @@ static int create_dbus_files(
                         fprintf(f, "Environment=DBUS_STARTER_BUS_TYPE=%s\n", type);
 
                         if (streq(type, "system"))
-                                fprintf(f, "Environment=DBUS_STARTER_ADDRESS=%s\n",
-                                        is_kdbus_available() ? KERNEL_SYSTEM_BUS_ADDRESS : UNIX_SYSTEM_BUS_ADDRESS);
+                                fprintf(f, "Environment=DBUS_STARTER_ADDRESS=" DEFAULT_SYSTEM_BUS_ADDRESS "\n");
                         else if (streq(type, "session")) {
                                 char *run;
 
@@ -95,10 +94,8 @@ static int create_dbus_files(
                                         return -EINVAL;
                                 }
 
-                                if (is_kdbus_available())
-                                        fprintf(f, "Environment=DBUS_STARTER_ADDRESS="KERNEL_USER_BUS_ADDRESS_FMT "\n", getuid());
-                                else
-                                        fprintf(f, "Environment=DBUS_STARTER_ADDRESS="UNIX_USER_BUS_ADDRESS_FMT "\n", run);
+                                fprintf(f, "Environment=DBUS_STARTER_ADDRESS="KERNEL_USER_BUS_ADDRESS_FMT ";" UNIX_USER_BUS_ADDRESS_FMT "\n",
+                                        getuid(), run);
                         }
                 }
 
