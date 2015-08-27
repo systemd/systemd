@@ -707,7 +707,7 @@ static int method_start_transient_unit(sd_bus_message *message, void *userdata, 
         assert(message);
         assert(m);
 
-        r = mac_selinux_access_check(message, "start", error);
+        r = mac_selinux_runtime_unit_access_check(message, "start", error);
         if (r < 0)
                 return r;
 
@@ -1087,7 +1087,7 @@ static int method_create_snapshot(sd_bus_message *message, void *userdata, sd_bu
         assert(message);
         assert(m);
 
-        r = mac_selinux_access_check(message, "start", error);
+        r = mac_selinux_runtime_unit_access_check(message, "start", error);
         if (r < 0)
                 return r;
 
