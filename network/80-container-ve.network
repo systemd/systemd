@@ -15,6 +15,3 @@ Address=0.0.0.0/28
 LinkLocalAddressing=yes
 DHCPServer=yes
 IPMasquerade=yes
-
-[DHCPServer]
-EmitTimezone=yes

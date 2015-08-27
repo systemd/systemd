@@ -107,6 +107,10 @@ static int network_load_one(Manager *manager, const char *filename) {
         network->dhcp_route_metric = DHCP_ROUTE_METRIC;
         network->dhcp_client_identifier = DHCP_CLIENT_ID_DUID;
 
+        network->dhcp_server_emit_dns = true;
+        network->dhcp_server_emit_ntp = true;
+        network->dhcp_server_emit_timezone = true;
+
         network->use_bpdu = true;
         network->allow_port_to_be_root = true;
         network->unicast_flood = true;
