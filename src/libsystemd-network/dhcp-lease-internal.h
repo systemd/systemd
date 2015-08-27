@@ -47,7 +47,7 @@ struct sd_dhcp_raw_option {
 };
 
 struct sd_dhcp_lease {
-        int n_ref;
+        unsigned n_ref;
 
         /* each 0 if unset */
         uint32_t t1;
