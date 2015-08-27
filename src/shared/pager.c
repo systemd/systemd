@@ -129,6 +129,8 @@ int pager_open(bool jump_to_end) {
         /* Return in the parent */
         if (dup2(fd[1], STDOUT_FILENO) < 0)
                 return log_error_errno(errno, "Failed to duplicate pager pipe: %m");
+        if (dup2(fd[1], STDERR_FILENO) < 0)
+                return log_error_errno(errno, "Failed to duplicate pager pipe: %m");
 
         safe_close_pair(fd);
         return 1;
@@ -141,6 +143,11 @@ void pager_close(void) {
 
         /* Inform pager that we are done */
         fclose(stdout);
+        stdout = NULL;
+
+        fclose(stderr);
+        stderr = NULL;
+
         kill(pager_pid, SIGCONT);
         (void) wait_for_terminate(pager_pid, NULL);
         pager_pid = 0;
