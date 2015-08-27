@@ -108,8 +108,10 @@ int main(int argc, char *argv[]) {
         test_one("/foo/bar/waldo", "waldo.com", "Piep", false, "foobar", "member='Pi_ep'", false);
         test_one("/foo/bar/waldo", "waldo.com", "Piep", false, "foobar", "arg0='foobar'", true);
         test_one("/foo/bar/waldo", "waldo.com", "Piep", false, "foobar", "arg0='foo_bar'", false);
-        test_one("/foo/bar/waldo", "waldo.com", "Piep", true, "foobar", "arg0='foobar'", true);
+        test_one("/foo/bar/waldo", "waldo.com", "Piep", true, "foobar", "arg0='foobar'", false);
         test_one("/foo/bar/waldo", "waldo.com", "Piep", true, "foobar", "arg0='foo_bar'", false);
+        test_one("/foo/bar/waldo", "waldo.com", "Piep", true, "foobar", "arg0has='foobar'", true);
+        test_one("/foo/bar/waldo", "waldo.com", "Piep", true, "foobar", "arg0has='foo_bar'", false);
         test_one("/foo/bar/waldo", "waldo.com", "Piep", false, "foobar", "path='/foo/bar/waldo',interface='waldo.com',member='Piep',arg0='foobar'", true);
         test_one("/foo/bar/waldo", "waldo.com", "Piep", false, "foobar", "path='/foo/bar/waldo',interface='waldo.com',member='Piep',arg0='foobar2'", false);
 

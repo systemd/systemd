@@ -167,6 +167,27 @@ static void add_bloom_arg(void *data, size_t size, unsigned n_hash, unsigned i, 
         bloom_add_prefixes(data, size, n_hash, buf, t, '/');
 }
 
+static void add_bloom_arg_has(void *data, size_t size, unsigned n_hash, unsigned i, const char *t) {
+        char buf[sizeof("arg")-1 + 2 + sizeof("has")];
+        char *e;
+
+        assert(data);
+        assert(size > 0);
+        assert(i < 64);
+        assert(t);
+
+        e = stpcpy(buf, "arg");
+        if (i < 10)
+                *(e++) = '0' + (char) i;
+        else {
+                *(e++) = '0' + (char) (i / 10);
+                *(e++) = '0' + (char) (i % 10);
+        }
+
+        strcpy(e, "has");
+        bloom_add_pair(data, size, n_hash, buf, t);
+}
+
 static int bus_message_setup_bloom(sd_bus_message *m, struct kdbus_bloom_filter *bloom) {
         void *data;
         unsigned i;
@@ -221,7 +242,7 @@ static int bus_message_setup_bloom(sd_bus_message *m, struct kdbus_bloom_filter 
                                 return r;
 
                         while ((r = sd_bus_message_read_basic(m, contents[0], &t)) > 0)
-                                add_bloom_arg(data, m->bus->bloom_size, m->bus->bloom_n_hash, i, t);
+                                add_bloom_arg_has(data, m->bus->bloom_size, m->bus->bloom_n_hash, i, t);
                         if (r < 0)
                                 return r;
 
