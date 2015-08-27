@@ -85,5 +85,7 @@ int manager_save(Manager *m);
 
 int manager_address_pool_acquire(Manager *m, int family, unsigned prefixlen, union in_addr_union *found);
 
+Link* manager_find_uplink(Manager *m, Link *exclude);
+
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 #define _cleanup_manager_free_ _cleanup_(manager_freep)

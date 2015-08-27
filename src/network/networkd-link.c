@@ -616,6 +616,96 @@ static int address_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userda
         return 1;
 }
 
+static int link_push_dns_to_dhcp_server(Link *link, sd_dhcp_server *s) {
+        _cleanup_free_ struct in_addr *addresses = NULL;
+        size_t n_addresses = 0, n_allocated = 0;
+        char **a;
+
+        log_debug("Copying DNS server information from %s", link->ifname);
+
+        if (!link->network)
+                return 0;
+
+        STRV_FOREACH(a, link->network->dns) {
+                struct in_addr ia;
+
+                /* Only look for IPv4 addresses */
+                if (inet_pton(AF_INET, *a, &ia) <= 0)
+                        continue;
+
+                if (!GREEDY_REALLOC(addresses, n_allocated, n_addresses + 1))
+                        return log_oom();
+
+                addresses[n_addresses++] = ia;
+        }
+
+        if (link->network->dhcp_dns &&
+            link->dhcp_lease) {
+                const struct in_addr *da = NULL;
+                int n;
+
+                n = sd_dhcp_lease_get_dns(link->dhcp_lease, &da);
+                if (n > 0) {
+
+                        if (!GREEDY_REALLOC(addresses, n_allocated, n_addresses + n))
+                                return log_oom();
+
+                        memcpy(addresses + n_addresses, da, n * sizeof(struct in_addr));
+                        n_addresses += n;
+                }
+        }
+
+        if (n_addresses <= 0)
+                return 0;
+
+        return sd_dhcp_server_set_dns(s, addresses, n_addresses);
+}
+
+static int link_push_ntp_to_dhcp_server(Link *link, sd_dhcp_server *s) {
+        _cleanup_free_ struct in_addr *addresses = NULL;
+        size_t n_addresses = 0, n_allocated = 0;
+        char **a;
+
+        if (!link->network)
+                return 0;
+
+        log_debug("Copying NTP server information from %s", link->ifname);
+
+        STRV_FOREACH(a, link->network->ntp) {
+                struct in_addr ia;
+
+                /* Only look for IPv4 addresses */
+                if (inet_pton(AF_INET, *a, &ia) <= 0)
+                        continue;
+
+                if (!GREEDY_REALLOC(addresses, n_allocated, n_addresses + 1))
+                        return log_oom();
+
+                addresses[n_addresses++] = ia;
+        }
+
+        if (link->network->dhcp_ntp &&
+            link->dhcp_lease) {
+                const struct in_addr *da = NULL;
+                int n;
+
+                n = sd_dhcp_lease_get_ntp(link->dhcp_lease, &da);
+                if (n > 0) {
+
+                        if (!GREEDY_REALLOC(addresses, n_allocated, n_addresses + n))
+                                return log_oom();
+
+                        memcpy(addresses + n_addresses, da, n * sizeof(struct in_addr));
+                        n_addresses += n;
+                }
+        }
+
+        if (n_addresses <= 0)
+                return 0;
+
+        return sd_dhcp_server_set_ntp(s, addresses, n_addresses);
+}
+
 static int link_enter_set_addresses(Link *link) {
         Address *ad;
         int r;
@@ -642,6 +732,8 @@ static int link_enter_set_addresses(Link *link) {
         if (link_dhcp4_server_enabled(link)) {
                 struct in_addr pool_start;
                 Address *address;
+                Link *uplink = NULL;
+                bool acquired_uplink = false;
 
                 address = link_find_dhcp_server_address(link);
                 if (!address) {
@@ -693,23 +785,40 @@ static int link_enter_set_addresses(Link *link) {
 
                 if (link->network->dhcp_server_emit_dns) {
 
-                        if (link->network->n_dhcp_server_dns > 0) {
+                        if (link->network->n_dhcp_server_dns > 0)
                                 r = sd_dhcp_server_set_dns(link->dhcp_server, link->network->dhcp_server_dns, link->network->n_dhcp_server_dns);
-                                if (r < 0)
-                                        log_link_warning_errno(link, r, "Failed to set DNS server for DHCP server, ignoring: %m");
-                        } else
-                                log_link_warning_errno(link, r, "DNS server emitting enabled, but no DNS servers set, ignoring: %m");
+                        else {
+                                uplink = manager_find_uplink(link->manager, link);
+                                acquired_uplink = true;
+
+                                if (!uplink) {
+                                        log_link_debug(link, "Not emitting DNS server information on link, couldn't find suitable uplink.");
+                                        r = 0;
+                                } else
+                                        r = link_push_dns_to_dhcp_server(uplink, link->dhcp_server);
+                        }
+                        if (r < 0)
+                                log_link_warning_errno(link, r, "Failed to set DNS server for DHCP server, ignoring: %m");
                 }
 
 
                 if (link->network->dhcp_server_emit_ntp) {
 
-                        if (link->network->n_dhcp_server_ntp > 0) {
+                        if (link->network->n_dhcp_server_ntp > 0)
                                 r = sd_dhcp_server_set_ntp(link->dhcp_server, link->network->dhcp_server_ntp, link->network->n_dhcp_server_ntp);
-                                if (r < 0)
-                                        log_link_warning_errno(link, r, "Failed to set NTP server for DHCP server, ignoring: %m");
-                        } else
-                                log_link_warning_errno(link, r, "NTP server emitting enabled, but no NTP servers set, ignoring: %m");
+                        else {
+                                if (!acquired_uplink)
+                                        uplink = manager_find_uplink(link->manager, link);
+
+                                if (!uplink) {
+                                        log_link_debug(link, "Not emitting NTP server information on link, couldn't find suitable uplink.");
+                                        r = 0;
+                                } else
+                                        r = link_push_ntp_to_dhcp_server(uplink, link->dhcp_server);
+
+                        }
+                        if (r < 0)
+                                log_link_warning_errno(link, r, "Failed to set NTP server for DHCP server, ignoring: %m");
                 }
 
                 if (link->network->dhcp_server_emit_timezone) {
