@@ -247,8 +247,7 @@ int sd_dhcp6_lease_get_domains(sd_dhcp6_lease *lease, char ***domains) {
         return -ENOENT;
 }
 
-int dhcp6_lease_set_ntp(sd_dhcp6_lease *lease, uint8_t *optval, size_t optlen)
-{
+int dhcp6_lease_set_ntp(sd_dhcp6_lease *lease, uint8_t *optval, size_t optlen) {
         int r;
         uint16_t subopt;
         size_t sublen;

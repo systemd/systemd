@@ -41,8 +41,7 @@
         { { { 0xff, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
               0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01 } } }
 
-int dhcp_network_icmp6_bind_router_solicitation(int index)
-{
+int dhcp_network_icmp6_bind_router_solicitation(int index) {
         struct icmp6_filter filter = { };
         struct ipv6_mreq mreq = {
                 .ipv6mr_multiaddr = IN6ADDR_ALL_NODES_MULTICAST_INIT,
@@ -92,8 +91,7 @@ int dhcp_network_icmp6_bind_router_solicitation(int index)
         return r;
 }
 
-int dhcp_network_icmp6_send_router_solicitation(int s, const struct ether_addr *ether_addr)
-{
+int dhcp_network_icmp6_send_router_solicitation(int s, const struct ether_addr *ether_addr) {
         struct sockaddr_in6 dst = {
                 .sin6_family = AF_INET6,
                 .sin6_addr = IN6ADDR_ALL_ROUTERS_MULTICAST_INIT,
