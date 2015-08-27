@@ -538,7 +538,7 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
                 }
 
                 if (is_localhost(normalized)) {
-                        log_debug_errno(r, "Detected 'localhost' as suggested hostname, ignoring.");
+                        log_debug_errno(r, "Detected 'localhost' as suggested domain name, ignoring.");
                         break;
                 }
 
@@ -565,7 +565,7 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
                 }
 
                 if (is_localhost(normalized)) {
-                        log_debug_errno(r, "Detected 'localhost' as suggested hostname, ignoring.");
+                        log_debug_errno(r, "Detected 'localhost' as suggested host name, ignoring.");
                         return 0;
                 }
 
