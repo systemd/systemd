@@ -270,18 +270,16 @@ static int dhcp_lease_lost(Link *link) {
         if (link->network->dhcp_hostname) {
                 const char *hostname = NULL;
 
-                if (!link->network->hostname)
-                        r = sd_dhcp_lease_get_hostname(link->dhcp_lease, &hostname);
-                else
+                if (link->network->hostname)
                         hostname = link->network->hostname;
+                else
+                        (void) sd_dhcp_lease_get_hostname(link->dhcp_lease, &hostname);
 
-                if (r >= 0 || hostname) {
-                        r = link_set_hostname(link, hostname);
+                if (hostname) {
+                        /* If a hostname was set due to the lease, then unset it now. */
+                        r = link_set_hostname(link, NULL);
                         if (r < 0)
-                                log_link_error_errno(link, r,
-                                                     "Failed to set transient hostname to '%s': %m",
-                                                     hostname);
-
+                                log_link_warning_errno(link, r, "Failed to reset transient hostname: %m");
                 }
         }
 
@@ -470,12 +468,12 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
         if (link->network->dhcp_hostname) {
                 const char *hostname = NULL;
 
-                if (!link->network->hostname)
-                        r = sd_dhcp_lease_get_hostname(lease, &hostname);
-                else
+                if (link->network->hostname)
                         hostname = link->network->hostname;
+                else
+                        (void) sd_dhcp_lease_get_hostname(lease, &hostname);
 
-                if (r >= 0 || hostname) {
+                if (hostname) {
                         r = link_set_hostname(link, hostname);
                         if (r < 0)
                                 log_link_error_errno(link, r, "Failed to set transient hostname to '%s': %m", hostname);

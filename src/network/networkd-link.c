@@ -801,9 +801,8 @@ int link_set_hostname(Link *link, const char *hostname) {
 
         assert(link);
         assert(link->manager);
-        assert(hostname);
 
-        log_link_debug(link, "Setting transient hostname: '%s'", hostname);
+        log_link_debug(link, "Setting transient hostname: '%s'", strna(hostname));
 
         if (!link->manager->bus) {
                 /* TODO: replace by assert when we can rely on kdbus */
