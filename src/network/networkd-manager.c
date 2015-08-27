@@ -869,7 +869,7 @@ Link* manager_find_uplink(Manager *m, Link *exclude) {
 
                 link = hashmap_get(m->links, INT_TO_PTR(gateways[i].ifindex));
                 if (!link) {
-                        log_debug("Weird, found a gateway for a link we don't now. Ignoring.");
+                        log_debug("Weird, found a gateway for a link we don't know. Ignoring.");
                         continue;
                 }
 
