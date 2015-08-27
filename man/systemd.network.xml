@@ -1,4 +1,4 @@
-<?xml version='1.0'?> <!--*-nxml-*-->
+<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
@@ -223,7 +223,7 @@
         <varlistentry>
           <term><varname>DHCP=</varname></term>
           <listitem>
-            <para>Enables DHCPv4 and/or DHCPv6 support. Accepts
+            <para>Enables DHCPv4 and/or DHCPv6 client support. Accepts
             <literal>yes</literal>, <literal>no</literal>,
             <literal>ipv4</literal>, or <literal>ipv6</literal>.</para>
 
@@ -235,9 +235,10 @@
         <varlistentry>
           <term><varname>DHCPServer=</varname></term>
           <listitem>
-            <para>A boolean. Enables a basic DHCPv4 server on the
-            device. Mostly useful for handing out leases to container
-            instances.</para>
+            <para>A boolean. Enables DHCPv4 server support. Defaults
+            to <literal>no</literal>. Further settings for the DHCP
+            server may be set in the <literal>[DHCPServer]</literal>
+            section described below.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -541,7 +542,9 @@
 
   <refsect1>
     <title>[DHCP] Section Options</title>
-      <para>The <literal>[DHCP]</literal> section accepts the following keys:</para>
+      <para>The <literal>[DHCP]</literal> section configures the
+      DHCPv4 and DHCP6 client, if it is enabled with the
+      <varname>DHCP=</varname> setting described above:</para>
 
       <variablelist class='network-directives'>
         <varlistentry>
@@ -552,7 +555,8 @@
             any statically configured ones.</para>
 
             <para>This corresponds to the <option>nameserver</option>
-            option in <citerefentry project='man-pages'><refentrytitle>resolv.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+            option in <citerefentry
+            project='man-pages'><refentrytitle>resolv.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -582,7 +586,7 @@
           <term><varname>UseHostname=</varname></term>
           <listitem>
             <para>When true (the default), the hostname received from
-            the DHCP server will be used as the transient hostname.
+            the DHCP server will be set as the transient hostname of the system
             </para>
           </listitem>
         </varlistentry>
@@ -615,6 +619,15 @@
             table with metric of 1024.</para>
           </listitem>
         </varlistentry>
+
+        <varlistentry>
+          <term><varname>UseTimezone=</varname></term>
+
+          <listitem><para>When true, the timezone received from the
+          DHCP server will be set as as timezone of the local
+          system. Defaults to <literal>no</literal>.</para></listitem>
+        </varlistentry>
+
         <varlistentry>
           <term><varname>CriticalConnection=</varname></term>
           <listitem>
@@ -658,8 +671,94 @@
             DHCP server.</para>
           </listitem>
         </varlistentry>
-           </variablelist>
+      </variablelist>
 
+  </refsect1>
+
+  <refsect1>
+    <title>[DHCPServer] Section Options</title>
+    <para>The <literal>[DHCPServer]</literal> section contains
+    settings for the DHCP server, if enabled via the
+    <varname>DHCPServer=</varname> option described above:</para>
+
+    <variablelist class='network-directives'>
+
+      <varlistentry>
+        <term><varname>DefaultLeaseTimeSec=</varname></term>
+        <term><varname>MaxLeaseTimeSec=</varname></term>
+
+        <listitem><para>Control the default and maximum DHCP lease
+        time to pass to clients. These settings take time values in seconds or
+        another common time unit, depending on the suffix. The default
+        lease time is used for clients that did not ask for a specific
+        lease time. If a client asks for a lease time longer than the
+        maximum lease time it is automatically shortened to the
+        specified time. The default lease time defaults to 1h, the
+        maximum lease time to 12h. Shorter lease times are beneficial
+        if the configuration data in DHCP leases changes frequently
+        and clients shall learn the new settings with shorter
+        latencies. Longer lease times reduce the generated DHCP
+        network traffic.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>EmitDNS=</varname></term>
+        <term><varname>DNS=</varname></term>
+
+        <listitem><para>Configures whether the DHCP leases handed out
+        to clients shall contain DNS server information. The
+        <varname>EmitDNS=</varname> setting takes a boolean argument
+        and defaults to <literal>yes</literal>. The DNS servers to
+        pass to clients may be configured with the
+        <varname>DNS=</varname> option, which takes a list of IPv4
+        addresses. If the <varname>EmitDNS=</varname> option is
+        enabled but no servers configured the servers are
+        automatically propagated from an "uplink" interface that has
+        appropriate servers set. The "uplink" interface is determined
+        by the default route of the system with the highest
+        priority. Note that this information is acquired at the time
+        the lease is handed out, and does not take uplink interfaces
+        into account that acquire DNS or NTP server information at a
+        later point. DNS server propagation does not take
+        <filename>/etc/resolv.conf</filename> into account. Also, note
+        that the leases are not refreshed if uplink network
+        configuration changes. To ensure clients regularly acquire the
+        most current uplink DNS server information it is thus
+        advisable to shorten the DHCP lease time via
+        <varname>MaxLeaseTimeSec=</varname> described
+        above.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>EmitNTP=</varname></term>
+        <term><varname>NTP=</varname></term>
+
+        <listitem><para>Similar to the <varname>EmitDNS=</varname> and
+        <varname>DNS=</varname> settings described above these
+        settings configure whether and what NTP server information
+        shall be emitted as part of the DHCP lease. The same syntax,
+        propagation semantics and defaults apply as for
+        <varname>EmitDNS=</varname> and
+        <varname>DNS=</varname>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>EmitTimezone=</varname></term>
+        <term><varname>Timezone=</varname></term>
+
+        <listitem><para>Configures whether the DHCP leases handed out
+        to clients shall contain timezone information. The
+        <varname>EmitTimezone=</varname> setting takes a boolean
+        argument and defaults to <literal>yes</literal>. The
+        <varname>Timezone=</varname> setting takes a timezone string
+        (such as <literal>Europe/Berlin</literal> or
+        <literal>UTC</literal>) to pass to clients. If no explicit
+        timezone is set the system timezone of the local host is
+        propagated, as determined by the
+        <filename>/etc/localtime</filename> symlink.</para></listitem>
+      </varlistentry>
+
+    </variablelist>
   </refsect1>
 
   <refsect1>

@@ -145,8 +145,8 @@ static void test_ignore_opts(uint8_t *descoption, int *descpos, int *desclen) {
         }
 }
 
-static int test_options_cb(uint8_t code, uint8_t len, const uint8_t *option, void *user_data) {
-        struct option_desc *desc = user_data;
+static int test_options_cb(uint8_t code, uint8_t len, const void *option, void *userdata) {
+        struct option_desc *desc = userdata;
         uint8_t *descoption = NULL;
         int *desclen = NULL, *descpos = NULL;
         uint8_t optcode = 0;
@@ -207,10 +207,10 @@ static int test_options_cb(uint8_t code, uint8_t len, const uint8_t *option, voi
         for (i = 0; i < len; i++) {
 
                 if (verbose)
-                        printf("0x%02x(0x%02x) ", option[i],
+                        printf("0x%02x(0x%02x) ", ((uint8_t*) option)[i],
                                         descoption[*descpos + 2 + i]);
 
-                assert_se(option[i] == descoption[*descpos + 2 + i]);
+                assert_se(((uint8_t*) option)[i] == descoption[*descpos + 2 + i]);
         }
 
         if (verbose)

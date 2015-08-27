@@ -214,6 +214,28 @@ _public_ int sd_network_link_get_lldp(int ifindex, char **lldp) {
         return 0;
 }
 
+int sd_network_link_get_timezone(int ifindex, char **ret) {
+        _cleanup_free_ char *s = NULL, *p = NULL;
+        int r;
+
+        assert_return(ifindex > 0, -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        if (asprintf(&p, "/run/systemd/netif/links/%d", ifindex) < 0)
+                return -ENOMEM;
+
+        r = parse_env_file(p, NEWLINE, "TIMEZONE", &s, NULL);
+        if (r == -ENOENT)
+                return -ENODATA;
+        if (r < 0)
+                return r;
+        if (isempty(s))
+                return -ENODATA;
+
+        *ret = s;
+        s = NULL;
+        return 0;
+}
 
 static int network_get_link_strv(const char *key, int ifindex, char ***ret) {
         _cleanup_free_ char *p = NULL, *s = NULL;

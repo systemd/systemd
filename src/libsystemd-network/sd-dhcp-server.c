@@ -28,7 +28,8 @@
 #include "dhcp-server-internal.h"
 #include "dhcp-internal.h"
 
-#define DHCP_DEFAULT_LEASE_TIME         3600 /* one hour */
+#define DHCP_DEFAULT_LEASE_TIME_USEC USEC_PER_HOUR
+#define DHCP_MAX_LEASE_TIME_USEC (USEC_PER_HOUR*12)
 
 int sd_dhcp_server_set_lease_pool(sd_dhcp_server *server,
                                   struct in_addr *address,
@@ -73,8 +74,12 @@ bool sd_dhcp_server_is_running(sd_dhcp_server *server) {
 }
 
 sd_dhcp_server *sd_dhcp_server_ref(sd_dhcp_server *server) {
-        if (server)
-                assert_se(REFCNT_INC(server->n_ref) >= 2);
+
+        if (!server)
+                return NULL;
+
+        assert(server->n_ref >= 1);
+        server->n_ref++;
 
         return server;
 }
@@ -127,7 +132,10 @@ sd_dhcp_server *sd_dhcp_server_unref(sd_dhcp_server *server) {
         if (!server)
                 return NULL;
 
-        if (REFCNT_DEC(server->n_ref) > 0)
+        assert(server->n_ref >= 1);
+        server->n_ref--;
+
+        if (server->n_ref > 0)
                 return NULL;
 
         log_dhcp_server(server, "UNREF");
@@ -135,6 +143,10 @@ sd_dhcp_server *sd_dhcp_server_unref(sd_dhcp_server *server) {
         sd_dhcp_server_stop(server);
 
         sd_event_unref(server->event);
+
+        free(server->timezone);
+        free(server->dns);
+        free(server->ntp);
 
         while ((lease = hashmap_steal_first(server->leases_by_client_id)))
                 dhcp_lease_free(lease);
@@ -156,13 +168,15 @@ int sd_dhcp_server_new(sd_dhcp_server **ret, int ifindex) {
         if (!server)
                 return -ENOMEM;
 
-        server->n_ref = REFCNT_INIT;
+        server->n_ref = 1;
         server->fd_raw = -1;
         server->fd = -1;
         server->address = htobe32(INADDR_ANY);
         server->netmask = htobe32(INADDR_ANY);
-        server->index = ifindex;
+        server->ifindex = ifindex;
         server->leases_by_client_id = hashmap_new(&client_id_hash_ops);
+        server->default_lease_time = DIV_ROUND_UP(DHCP_DEFAULT_LEASE_TIME_USEC, USEC_PER_SEC);
+        server->max_lease_time = DIV_ROUND_UP(DHCP_MAX_LEASE_TIME_USEC, USEC_PER_SEC);
 
         *ret = server;
         server = NULL;
@@ -223,13 +237,12 @@ static int dhcp_server_send_unicast_raw(sd_dhcp_server *server,
         union sockaddr_union link = {
                 .ll.sll_family = AF_PACKET,
                 .ll.sll_protocol = htons(ETH_P_IP),
-                .ll.sll_ifindex = server->index,
+                .ll.sll_ifindex = server->ifindex,
                 .ll.sll_halen = ETH_ALEN,
         };
-        int r;
 
         assert(server);
-        assert(server->index > 0);
+        assert(server->ifindex > 0);
         assert(server->address);
         assert(packet);
         assert(len > sizeof(DHCPPacket));
@@ -240,11 +253,7 @@ static int dhcp_server_send_unicast_raw(sd_dhcp_server *server,
                                       packet->dhcp.yiaddr,
                                       DHCP_PORT_CLIENT, len);
 
-        r = dhcp_network_send_raw_socket(server->fd_raw, &link, packet, len);
-        if (r < 0)
-                return r;
-
-        return 0;
+        return dhcp_network_send_raw_socket(server->fd_raw, &link, packet, len);
 }
 
 static int dhcp_server_send_udp(sd_dhcp_server *server, be32_t destination,
@@ -290,7 +299,7 @@ static int dhcp_server_send_udp(sd_dhcp_server *server, be32_t destination,
         pktinfo = (struct in_pktinfo*) CMSG_DATA(cmsg);
         assert(pktinfo);
 
-        pktinfo->ipi_ifindex = server->index;
+        pktinfo->ipi_ifindex = server->ifindex;
         pktinfo->ipi_spec_dst.s_addr = server->address;
 
         r = sendmsg(server->fd, &msg, 0);
@@ -474,6 +483,33 @@ static int server_send_ack(sd_dhcp_server *server, DHCPRequest *req,
         if (r < 0)
                 return r;
 
+        if (server->n_dns > 0) {
+                r = dhcp_option_append(
+                                &packet->dhcp, req->max_optlen, &offset, 0,
+                                DHCP_OPTION_DOMAIN_NAME_SERVER,
+                                sizeof(struct in_addr) * server->n_dns, server->dns);
+                if (r < 0)
+                        return r;
+        }
+
+        if (server->n_ntp > 0) {
+                r = dhcp_option_append(
+                                &packet->dhcp, req->max_optlen, &offset, 0,
+                                DHCP_OPTION_NTP_SERVER,
+                                sizeof(struct in_addr) * server->n_ntp, server->ntp);
+                if (r < 0)
+                        return r;
+        }
+
+        if (server->timezone) {
+                r = dhcp_option_append(
+                                &packet->dhcp, req->max_optlen, &offset, 0,
+                                DHCP_OPTION_NEW_TZDB_TIMEZONE,
+                                strlen(server->timezone), server->timezone);
+                if (r < 0)
+                        return r;
+        }
+
         r = dhcp_server_send_packet(server, req, packet, DHCP_ACK, offset);
         if (r < 0)
                 return r;
@@ -490,11 +526,7 @@ static int server_send_nak(sd_dhcp_server *server, DHCPRequest *req) {
         if (r < 0)
                 return r;
 
-        r = dhcp_server_send_packet(server, req, packet, DHCP_NAK, offset);
-        if (r < 0)
-                return r;
-
-        return 0;
+        return dhcp_server_send_packet(server, req, packet, DHCP_NAK, offset);
 }
 
 static int server_send_forcerenew(sd_dhcp_server *server, be32_t address,
@@ -532,9 +564,8 @@ static int server_send_forcerenew(sd_dhcp_server *server, be32_t address,
         return 0;
 }
 
-static int parse_request(uint8_t code, uint8_t len, const uint8_t *option,
-                         void *user_data) {
-        DHCPRequest *req = user_data;
+static int parse_request(uint8_t code, uint8_t len, const void *option, void *userdata) {
+        DHCPRequest *req = userdata;
 
         assert(req);
 
@@ -590,7 +621,7 @@ static void dhcp_request_free(DHCPRequest *req) {
 DEFINE_TRIVIAL_CLEANUP_FUNC(DHCPRequest*, dhcp_request_free);
 #define _cleanup_dhcp_request_free_ _cleanup_(dhcp_request_freep)
 
-static int ensure_sane_request(DHCPRequest *req, DHCPMessage *message) {
+static int ensure_sane_request(sd_dhcp_server *server, DHCPRequest *req, DHCPMessage *message) {
         assert(req);
         assert(message);
 
@@ -599,23 +630,27 @@ static int ensure_sane_request(DHCPRequest *req, DHCPMessage *message) {
         /* set client id based on MAC address if client did not send an explicit
            one */
         if (!req->client_id.data) {
-                uint8_t *data;
+                void *data;
 
-                data = new0(uint8_t, ETH_ALEN + 1);
+                data = malloc0(ETH_ALEN + 1);
                 if (!data)
                         return -ENOMEM;
 
+                ((uint8_t*) data)[0] = 0x01;
+                memcpy((uint8_t*) data + 1, &message->chaddr, ETH_ALEN);
+
                 req->client_id.length = ETH_ALEN + 1;
                 req->client_id.data = data;
-                req->client_id.data[0] = 0x01;
-                memcpy(&req->client_id.data[1], &message->chaddr, ETH_ALEN);
         }
 
         if (req->max_optlen < DHCP_MIN_OPTIONS_SIZE)
                 req->max_optlen = DHCP_MIN_OPTIONS_SIZE;
 
-        if (!req->lifetime)
-                req->lifetime = DHCP_DEFAULT_LEASE_TIME;
+        if (req->lifetime <= 0)
+                req->lifetime = MAX(1ULL, server->default_lease_time);
+
+        if (server->max_lease_time > 0 && req->lifetime > server->max_lease_time)
+                req->lifetime = server->max_lease_time;
 
         return 0;
 }
@@ -656,7 +691,7 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
         if (type < 0)
                 return 0;
 
-        r = ensure_sane_request(req, message);
+        r = ensure_sane_request(server, req, message);
         if (r < 0)
                 /* this only fails on critical errors */
                 return r;
@@ -665,8 +700,8 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
                                      &req->client_id);
 
         switch(type) {
-        case DHCP_DISCOVER:
-        {
+
+        case DHCP_DISCOVER: {
                 be32_t address = INADDR_ANY;
                 unsigned i;
 
@@ -716,9 +751,7 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
 
                 return 1;
 
-                break;
-        case DHCP_REQUEST:
-        {
+        case DHCP_REQUEST: {
                 be32_t address;
                 bool init_reboot = false;
                 int pool_offset;
@@ -840,6 +873,7 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
 
                 break;
         }
+
         case DHCP_RELEASE: {
                 int pool_offset;
 
@@ -883,13 +917,12 @@ static int server_receive_message(sd_event_source *s, int fd,
                 .msg_controllen = sizeof(cmsgbuf),
         };
         struct cmsghdr *cmsg;
-        int buflen = 0, len, r;
+        int buflen = 0, len;
 
         assert(server);
 
-        r = ioctl(fd, FIONREAD, &buflen);
-        if (r < 0)
-                return r;
+        if (ioctl(fd, FIONREAD, &buflen) < 0)
+                return -errno;
         if (buflen < 0)
                 return -EIO;
 
@@ -914,7 +947,7 @@ static int server_receive_message(sd_event_source *s, int fd,
 
                         /* TODO figure out if this can be done as a filter on
                          * the socket, like for IPv6 */
-                        if (server->index != info->ipi_ifindex)
+                        if (server->ifindex != info->ipi_ifindex)
                                 return 0;
 
                         break;
@@ -992,4 +1025,92 @@ int sd_dhcp_server_forcerenew(sd_dhcp_server *server) {
         }
 
         return r;
+}
+
+int sd_dhcp_server_set_timezone(sd_dhcp_server *server, const char *timezone) {
+        int r;
+
+        assert_return(server, -EINVAL);
+        assert_return(timezone_is_valid(timezone), -EINVAL);
+
+        if (streq_ptr(timezone, server->timezone))
+                return 0;
+
+        r = free_and_strdup(&server->timezone, timezone);
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
+int sd_dhcp_server_set_max_lease_time(sd_dhcp_server *server, uint32_t t) {
+        assert_return(server, -EINVAL);
+
+        if (t == server->max_lease_time)
+                return 0;
+
+        server->max_lease_time = t;
+        return 1;
+}
+
+int sd_dhcp_server_set_default_lease_time(sd_dhcp_server *server, uint32_t t) {
+        assert_return(server, -EINVAL);
+
+        if (t == server->default_lease_time)
+                return 0;
+
+        server->default_lease_time = t;
+        return 1;
+}
+
+int sd_dhcp_server_set_dns(sd_dhcp_server *server, const struct in_addr dns[], unsigned n) {
+        assert_return(server, -EINVAL);
+        assert_return(dns || n <= 0, -EINVAL);
+
+        if (server->n_dns == n &&
+            memcmp(server->dns, dns, sizeof(struct in_addr) * n) == 0)
+                return 0;
+
+        if (n <= 0) {
+                server->dns = mfree(server->dns);
+                server->n_dns = 0;
+        } else {
+                struct in_addr *c;
+
+                c = newdup(struct in_addr, dns, n);
+                if (!c)
+                        return -ENOMEM;
+
+                free(server->dns);
+                server->dns = c;
+                server->n_dns = n;
+        }
+
+        return 1;
+}
+
+int sd_dhcp_server_set_ntp(sd_dhcp_server *server, const struct in_addr ntp[], unsigned n) {
+        assert_return(server, -EINVAL);
+        assert_return(ntp || n <= 0, -EINVAL);
+
+        if (server->n_ntp == n &&
+            memcmp(server->ntp, ntp, sizeof(struct in_addr) * n) == 0)
+                return 0;
+
+        if (n <= 0) {
+                server->ntp = mfree(server->ntp);
+                server->n_ntp = 0;
+        } else {
+                struct in_addr *c;
+
+                c = newdup(struct in_addr, ntp, n);
+                if (!c)
+                        return -ENOMEM;
+
+                free(server->ntp);
+                server->ntp = c;
+                server->n_ntp = n;
+        }
+
+        return 1;
 }

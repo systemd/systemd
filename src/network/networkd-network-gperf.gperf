@@ -73,6 +73,15 @@ DHCP.RequestBroadcast,         config_parse_bool,                              0
 DHCP.CriticalConnection,       config_parse_bool,                              0,                             offsetof(Network, dhcp_critical)
 DHCP.VendorClassIdentifier,    config_parse_string,                            0,                             offsetof(Network, dhcp_vendor_class_identifier)
 DHCP.RouteMetric,              config_parse_unsigned,                          0,                             offsetof(Network, dhcp_route_metric)
+DHCP.UseTimezone,              config_parse_bool,                              0,                             offsetof(Network, dhcp_timezone)
+DHCPServer.MaxLeaseTimeSec,    config_parse_sec,                               0,                             offsetof(Network, dhcp_server_max_lease_time_usec)
+DHCPServer.DefaultLeaseTimeSec,config_parse_sec,                               0,                             offsetof(Network, dhcp_server_default_lease_time_usec)
+DHCPServer.EmitDNS,            config_parse_bool,                              0,                             offsetof(Network, dhcp_server_emit_dns)
+DHCPServer.DNS,                config_parse_dhcp_server_dns,                   0,                             0
+DHCPServer.EmitNTP,            config_parse_bool,                              0,                             offsetof(Network, dhcp_server_emit_ntp)
+DHCPServer.NTP,                config_parse_dhcp_server_ntp,                   0,                             0
+DHCPServer.EmitTimezone,       config_parse_bool,                              0,                             offsetof(Network, dhcp_server_emit_timezone)
+DHCPServer.Timezone,           config_parse_timezone,                          0,                             offsetof(Network, dhcp_server_timezone)
 Bridge.Cost,                   config_parse_unsigned,                          0,                             offsetof(Network, cost)
 Bridge.UseBPDU,                config_parse_bool,                              0,                             offsetof(Network, use_bpdu)
 Bridge.HairPin,                config_parse_bool,                              0,                             offsetof(Network, hairpin)

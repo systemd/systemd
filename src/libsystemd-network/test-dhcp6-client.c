@@ -501,8 +501,7 @@ static int test_client_verify_request(DHCP6Message *request, uint8_t *option,
         return 0;
 }
 
-static int test_client_send_advertise(DHCP6Message *solicit)
-{
+static int test_client_send_advertise(DHCP6Message *solicit) {
         DHCP6Message advertise;
 
         advertise.transaction_id = solicit->transaction_id;

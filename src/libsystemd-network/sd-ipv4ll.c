@@ -26,7 +26,6 @@
 #include "util.h"
 #include "siphash24.h"
 #include "list.h"
-#include "refcnt.h"
 #include "random-util.h"
 
 #include "ipv4ll-internal.h"
@@ -68,7 +67,7 @@ typedef enum IPv4LLState {
 } IPv4LLState;
 
 struct sd_ipv4ll {
-        RefCount n_ref;
+        unsigned n_ref;
 
         IPv4LLState state;
         int index;
@@ -598,30 +597,39 @@ int sd_ipv4ll_stop(sd_ipv4ll *ll) {
 }
 
 sd_ipv4ll *sd_ipv4ll_ref(sd_ipv4ll *ll) {
-        if (ll)
-                assert_se(REFCNT_INC(ll->n_ref) >= 2);
+
+        if (!ll)
+                return NULL;
+
+        assert(ll->n_ref >= 1);
+        ll->n_ref++;
 
         return ll;
 }
 
 sd_ipv4ll *sd_ipv4ll_unref(sd_ipv4ll *ll) {
-        if (ll && REFCNT_DEC(ll->n_ref) == 0) {
-                ll->receive_message =
-                        sd_event_source_unref(ll->receive_message);
-                ll->fd = safe_close(ll->fd);
 
-                ll->timer = sd_event_source_unref(ll->timer);
-
-                sd_ipv4ll_detach_event(ll);
-
-                free(ll->random_data);
-                free(ll->random_data_state);
-                free(ll);
-
+        if (!ll)
                 return NULL;
-        }
 
-        return ll;
+        assert(ll->n_ref >= 1);
+        ll->n_ref--;
+
+        if (ll->n_ref > 0)
+                return ll;
+
+        ll->receive_message = sd_event_source_unref(ll->receive_message);
+        ll->fd = safe_close(ll->fd);
+
+        ll->timer = sd_event_source_unref(ll->timer);
+
+        sd_ipv4ll_detach_event(ll);
+
+        free(ll->random_data);
+        free(ll->random_data_state);
+        free(ll);
+
+        return NULL;
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(sd_ipv4ll*, sd_ipv4ll_unref);
@@ -636,7 +644,7 @@ int sd_ipv4ll_new(sd_ipv4ll **ret) {
         if (!ll)
                 return -ENOMEM;
 
-        ll->n_ref = REFCNT_INIT;
+        ll->n_ref = 1;
         ll->state = IPV4LL_STATE_INIT;
         ll->index = -1;
         ll->fd = -1;

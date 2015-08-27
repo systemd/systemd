@@ -5,7 +5,7 @@
 /***
   This file is part of systemd.
 
-  Copyright 2013 Lennart Poettering
+  Copyright 2014 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -21,16 +21,23 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-/* A type-safe atomic refcounter.
- *
- * DO NOT USE THIS UNLESS YOU ACTUALLY CARE ABOUT THREAD SAFETY! */
+typedef struct AddressPool AddressPool;
 
-typedef struct {
-        volatile unsigned _value;
-} RefCount;
+#include "networkd.h"
 
-#define REFCNT_GET(r) ((r)._value)
-#define REFCNT_INC(r) (__sync_add_and_fetch(&(r)._value, 1))
-#define REFCNT_DEC(r) (__sync_sub_and_fetch(&(r)._value, 1))
+struct AddressPool {
+        Manager *manager;
 
-#define REFCNT_INIT ((RefCount) { ._value = 1 })
+        int family;
+        unsigned prefixlen;
+
+        union in_addr_union in_addr;
+
+        LIST_FIELDS(AddressPool, address_pools);
+};
+
+int address_pool_new(Manager *m, AddressPool **ret, int family, const union in_addr_union *u, unsigned prefixlen);
+int address_pool_new_from_string(Manager *m, AddressPool **ret, int family, const char *p, unsigned prefixlen);
+void address_pool_free(AddressPool *p);
+
+int address_pool_acquire(AddressPool *p, unsigned prefixlen, union in_addr_union *found);

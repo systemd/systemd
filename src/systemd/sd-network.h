@@ -122,6 +122,9 @@ int sd_network_link_get_carrier_bound_to(int ifindex, char ***carriers);
 /* Get the CARRIERS that are bound to current link. */
 int sd_network_link_get_carrier_bound_by(int ifindex, char ***carriers);
 
+/* Get the timezone that was learnt on a specific link. */
+int sd_network_link_get_timezone(int ifindex, char **timezone);
+
 /* Returns whether or not domains that don't match any link should be resolved
  * on this link. 1 for yes, 0 for no and negative value for error */
 int sd_network_link_get_wildcard_domain(int ifindex);

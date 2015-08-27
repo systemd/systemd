@@ -70,16 +70,14 @@ typedef struct {
         BOOLEAN no_editor;
 } Config;
 
-static VOID cursor_left(UINTN *cursor, UINTN *first)
-{
+static VOID cursor_left(UINTN *cursor, UINTN *first) {
         if ((*cursor) > 0)
                 (*cursor)--;
         else if ((*first) > 0)
                 (*first)--;
 }
 
-static VOID cursor_right(UINTN *cursor, UINTN *first, UINTN x_max, UINTN len)
-{
+static VOID cursor_right(UINTN *cursor, UINTN *first, UINTN x_max, UINTN len) {
         if ((*cursor)+1 < x_max)
                 (*cursor)++;
         else if ((*first) + (*cursor) < len)
@@ -856,13 +854,11 @@ static VOID config_entry_free(ConfigEntry *entry) {
         FreePool(entry->options);
 }
 
-static BOOLEAN is_digit(CHAR16 c)
-{
+static BOOLEAN is_digit(CHAR16 c) {
         return (c >= '0') && (c <= '9');
 }
 
-static UINTN c_order(CHAR16 c)
-{
+static UINTN c_order(CHAR16 c) {
         if (c == '\0')
                 return 0;
         if (is_digit(c))
@@ -873,8 +869,7 @@ static UINTN c_order(CHAR16 c)
                 return c + 0x10000;
 }
 
-static INTN str_verscmp(CHAR16 *s1, CHAR16 *s2)
-{
+static INTN str_verscmp(CHAR16 *s1, CHAR16 *s2) {
         CHAR16 *os1 = s1;
         CHAR16 *os2 = s2;
 

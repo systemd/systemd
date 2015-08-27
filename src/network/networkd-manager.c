@@ -22,20 +22,21 @@
 #include <sys/socket.h>
 #include <linux/if.h>
 
+#include "sd-netlink.h"
+#include "sd-daemon.h"
+
 #include "conf-parser.h"
 #include "path-util.h"
-#include "networkd.h"
-#include "networkd-netdev.h"
-#include "networkd-link.h"
 #include "libudev-private.h"
 #include "udev-util.h"
 #include "netlink-util.h"
 #include "bus-util.h"
 #include "def.h"
 #include "virt.h"
+#include "set.h"
+#include "local-addresses.h"
 
-#include "sd-netlink.h"
-#include "sd-daemon.h"
+#include "networkd.h"
 
 /* use 8 MB for receive socket kernel queue. */
 #define RCVBUF_SIZE    (8*1024*1024)
@@ -99,7 +100,7 @@ static int manager_reset_all(Manager *m) {
         HASHMAP_FOREACH(link, m->links, i) {
                 r = link_carrier_reset(link);
                 if (r < 0)
-                        log_link_warning_errno(link, r, "could not reset carrier: %m");
+                        log_link_warning_errno(link, r, "Could not reset carrier: %m");
         }
 
         return 0;
@@ -204,7 +205,7 @@ static int manager_udev_process_link(Manager *m, struct udev_device *device) {
 
         ifindex = udev_device_get_ifindex(device);
         if (ifindex <= 0) {
-                log_debug("ignoring udev ADD event for device with invalid ifindex");
+                log_debug("Ignoring udev ADD event for device with invalid ifindex");
                 return 0;
         }
 
@@ -291,23 +292,23 @@ static int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *messa
         if (sd_netlink_message_is_error(message)) {
                 r = sd_netlink_message_get_errno(message);
                 if (r < 0)
-                        log_warning_errno(r, "rtnl: could not receive link: %m");
+                        log_warning_errno(r, "rtnl: Could not receive link: %m");
 
                 return 0;
         }
 
         r = sd_netlink_message_get_type(message, &type);
         if (r < 0) {
-                log_warning_errno(r, "rtnl: could not get message type: %m");
+                log_warning_errno(r, "rtnl: Could not get message type: %m");
                 return 0;
         } else if (type != RTM_NEWLINK && type != RTM_DELLINK) {
-                log_warning("rtnl: received unexpected message type when processing link");
+                log_warning("rtnl: Received unexpected message type when processing link");
                 return 0;
         }
 
         r = sd_rtnl_message_link_get_ifindex(message, &ifindex);
         if (r < 0) {
-                log_warning_errno(r, "rtnl: could not get ifindex from link: %m");
+                log_warning_errno(r, "rtnl: Could not get ifindex from link: %m");
                 return 0;
         } else if (ifindex <= 0) {
                 log_warning("rtnl: received link message with invalid ifindex: %d", ifindex);
@@ -317,7 +318,7 @@ static int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *messa
 
         r = sd_netlink_message_read_string(message, IFLA_IFNAME, &name);
         if (r < 0) {
-                log_warning_errno(r, "rtnl: received link message without ifname: %m");
+                log_warning_errno(r, "rtnl: Received link message without ifname: %m");
                 return 0;
         } else
                 netdev_get(m, name, &netdev);
@@ -328,7 +329,7 @@ static int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *messa
                         /* link is new, so add it */
                         r = link_add(m, message, &link);
                         if (r < 0) {
-                                log_warning_errno(r, "could not add new link: %m");
+                                log_warning_errno(r, "Could not add new link: %m");
                                 return 0;
                         }
                 }
@@ -337,7 +338,7 @@ static int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *messa
                         /* netdev exists, so make sure the ifindex matches */
                         r = netdev_set_ifindex(netdev, message);
                         if (r < 0) {
-                                log_warning_errno(r, "could not set ifindex on netdev: %m");
+                                log_warning_errno(r, "Could not set ifindex on netdev: %m");
                                 return 0;
                         }
                 }
@@ -476,13 +477,13 @@ void manager_free(Manager *m) {
 
         free(m->state_file);
 
+        sd_event_source_unref(m->udev_event_source);
         udev_monitor_unref(m->udev_monitor);
         udev_unref(m->udev);
+
         sd_bus_unref(m->bus);
         sd_bus_slot_unref(m->prepare_for_sleep_slot);
-        sd_event_source_unref(m->udev_event_source);
         sd_event_source_unref(m->bus_retry_event_source);
-        sd_event_unref(m->event);
 
         while ((link = hashmap_first(m->links)))
                 link_unref(link);
@@ -501,6 +502,7 @@ void manager_free(Manager *m) {
                 address_pool_free(pool);
 
         sd_netlink_unref(m->rtnl);
+        sd_event_unref(m->event);
 
         free(m);
 }
@@ -846,36 +848,39 @@ int manager_address_pool_acquire(Manager *m, int family, unsigned prefixlen, uni
         return 0;
 }
 
-const char *address_family_boolean_to_string(AddressFamilyBoolean b) {
-        if (b == ADDRESS_FAMILY_YES ||
-            b == ADDRESS_FAMILY_NO)
-                return yes_no(b == ADDRESS_FAMILY_YES);
+Link* manager_find_uplink(Manager *m, Link *exclude) {
+        _cleanup_free_ struct local_address *gateways = NULL;
+        int n, i;
 
-        if (b == ADDRESS_FAMILY_IPV4)
-                return "ipv4";
-        if (b == ADDRESS_FAMILY_IPV6)
-                return "ipv6";
+        assert(m);
+
+        /* Looks for a suitable "uplink", via black magic: an
+         * interface that is up and where the default route with the
+         * highest priority points to. */
+
+        n = local_gateways(m->rtnl, 0, AF_UNSPEC, &gateways);
+        if (n < 0) {
+                log_warning_errno(n, "Failed to determine list of default gateways: %m");
+                return NULL;
+        }
+
+        for (i = 0; i < n; i++) {
+                Link *link;
+
+                link = hashmap_get(m->links, INT_TO_PTR(gateways[i].ifindex));
+                if (!link) {
+                        log_debug("Weird, found a gateway for a link we don't know. Ignoring.");
+                        continue;
+                }
+
+                if (link == exclude)
+                        continue;
+
+                if (link->operstate < LINK_OPERSTATE_ROUTABLE)
+                        continue;
+
+                return link;
+        }
 
         return NULL;
 }
-
-AddressFamilyBoolean address_family_boolean_from_string(const char *s) {
-        int r;
-
-        /* Make this a true superset of a boolean */
-
-        r = parse_boolean(s);
-        if (r > 0)
-                return ADDRESS_FAMILY_YES;
-        if (r == 0)
-                return ADDRESS_FAMILY_NO;
-
-        if (streq(s, "ipv4"))
-                return ADDRESS_FAMILY_IPV4;
-        if (streq(s, "ipv6"))
-                return ADDRESS_FAMILY_IPV6;
-
-        return _ADDRESS_FAMILY_BOOLEAN_INVALID;
-}
-
-DEFINE_CONFIG_PARSE_ENUM(config_parse_address_family_boolean, address_family_boolean, AddressFamilyBoolean, "Failed to parse option");

@@ -24,13 +24,11 @@
 
 #include <stdint.h>
 
-#include "refcnt.h"
-
 #include "sd-dhcp6-lease.h"
 #include "dhcp6-internal.h"
 
 struct sd_dhcp6_lease {
-        RefCount n_ref;
+        unsigned n_ref;
 
         uint8_t *serverid;
         size_t serverid_len;

@@ -79,8 +79,7 @@ static bool linebuf_add(struct linebuf *buf, const char *s, size_t len) {
         return true;
 }
 
-static bool linebuf_add_char(struct linebuf *buf, char c)
-{
+static bool linebuf_add_char(struct linebuf *buf, char c) {
         if (buf->len + 1 >= sizeof(buf->bytes))
                 return false;
         buf->bytes[buf->len++] = c;
@@ -269,13 +268,13 @@ static int trie_search_f(sd_hwdb *hwdb, const char *search) {
 }
 
 static const char hwdb_bin_paths[] =
-    "/etc/systemd/hwdb/hwdb.bin\0"
-    "/etc/udev/hwdb.bin\0"
-    "/usr/lib/systemd/hwdb/hwdb.bin\0"
+        "/etc/systemd/hwdb/hwdb.bin\0"
+        "/etc/udev/hwdb.bin\0"
+        "/usr/lib/systemd/hwdb/hwdb.bin\0"
 #ifdef HAVE_SPLIT_USR
-    "/lib/systemd/hwdb/hwdb.bin\0"
+        "/lib/systemd/hwdb/hwdb.bin\0"
 #endif
-    UDEVLIBEXECDIR "/hwdb.bin\0";
+        UDEVLIBEXECDIR "/hwdb.bin\0";
 
 _public_ int sd_hwdb_new(sd_hwdb **ret) {
         _cleanup_hwdb_unref_ sd_hwdb *hwdb = NULL;

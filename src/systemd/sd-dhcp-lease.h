@@ -34,6 +34,9 @@ sd_dhcp_lease *sd_dhcp_lease_unref(sd_dhcp_lease *lease);
 
 int sd_dhcp_lease_get_address(sd_dhcp_lease *lease, struct in_addr *addr);
 int sd_dhcp_lease_get_lifetime(sd_dhcp_lease *lease, uint32_t *lifetime);
+int sd_dhcp_lease_get_t1(sd_dhcp_lease *lease, uint32_t *t1);
+int sd_dhcp_lease_get_t2(sd_dhcp_lease *lease, uint32_t *t2);
+int sd_dhcp_lease_get_broadcast(sd_dhcp_lease *lease, struct in_addr *addr);
 int sd_dhcp_lease_get_netmask(sd_dhcp_lease *lease, struct in_addr *addr);
 int sd_dhcp_lease_get_router(sd_dhcp_lease *lease, struct in_addr *addr);
 int sd_dhcp_lease_get_next_server(sd_dhcp_lease *lease, struct in_addr *addr);
@@ -44,13 +47,9 @@ int sd_dhcp_lease_get_mtu(sd_dhcp_lease *lease, uint16_t *mtu);
 int sd_dhcp_lease_get_domainname(sd_dhcp_lease *lease, const char **domainname);
 int sd_dhcp_lease_get_hostname(sd_dhcp_lease *lease, const char **hostname);
 int sd_dhcp_lease_get_root_path(sd_dhcp_lease *lease, const char **root_path);
-int sd_dhcp_lease_get_routes(sd_dhcp_lease *lease, struct sd_dhcp_route **routesgn);
-int sd_dhcp_lease_get_vendor_specific(sd_dhcp_lease *lease, const uint8_t **data,
-                                      size_t *data_len);
-int sd_dhcp_lease_get_client_id(sd_dhcp_lease *lease, const uint8_t **client_id,
-                                size_t *client_id_len);
-
-int sd_dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file);
-int sd_dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file);
+int sd_dhcp_lease_get_routes(sd_dhcp_lease *lease, struct sd_dhcp_route **routes);
+int sd_dhcp_lease_get_vendor_specific(sd_dhcp_lease *lease, const void **data, size_t *data_len);
+int sd_dhcp_lease_get_client_id(sd_dhcp_lease *lease, const void **client_id, size_t *client_id_len);
+int sd_dhcp_lease_get_timezone(sd_dhcp_lease *lease, const char **timezone);
 
 #endif

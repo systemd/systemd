@@ -21,10 +21,13 @@
 
 #pragma once
 
-#include "networkd.h"
 #include "list.h"
 
+typedef struct NetDev NetDev;
 typedef struct NetDevVTable NetDevVTable;
+
+#include "networkd.h"
+#include "networkd-link.h"
 
 typedef struct netdev_join_callback netdev_join_callback;
 

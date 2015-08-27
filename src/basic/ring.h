@@ -50,7 +50,6 @@ int ring_push(Ring *r, const void *u8, size_t size);
 void ring_pull(Ring *r, size_t size);
 
 /* return size of occupied buffer in bytes */
-static inline size_t ring_get_size(Ring *r)
-{
+static inline size_t ring_get_size(Ring *r) {
         return r->used;
 }

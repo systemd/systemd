@@ -27,7 +27,6 @@
 #include <sys/ioctl.h>
 
 #include "util.h"
-#include "refcnt.h"
 #include "random-util.h"
 #include "async.h"
 
@@ -41,7 +40,7 @@
 #define MAX_MAC_ADDR_LEN CONST_MAX(INFINIBAND_ALEN, ETH_ALEN)
 
 struct sd_dhcp_client {
-        RefCount n_ref;
+        unsigned n_ref;
 
         DHCPState state;
         sd_event *event;
@@ -106,7 +105,6 @@ static const uint8_t default_req_opts[] = {
         DHCP_OPTION_HOST_NAME,
         DHCP_OPTION_DOMAIN_NAME,
         DHCP_OPTION_DOMAIN_NAME_SERVER,
-        DHCP_OPTION_NTP_SERVER,
 };
 
 static int client_receive_message_raw(sd_event_source *s, int fd,
@@ -377,8 +375,7 @@ static int client_initialize(sd_dhcp_client *client) {
         client->state = DHCP_STATE_INIT;
         client->xid = 0;
 
-        if (client->lease)
-                client->lease = sd_dhcp_lease_unref(client->lease);
+        client->lease = sd_dhcp_lease_unref(client->lease);
 
         return 0;
 }
@@ -1055,18 +1052,16 @@ static int client_handle_offer(sd_dhcp_client *client, DHCPMessage *offer,
         }
 
         lease->next_server = offer->siaddr;
-
         lease->address = offer->yiaddr;
 
-        if (lease->address == INADDR_ANY ||
-            lease->server_address == INADDR_ANY ||
+        if (lease->address == 0 ||
+            lease->server_address == 0 ||
             lease->lifetime == 0) {
-                log_dhcp_client(client, "received lease lacks address, server "
-                                "address or lease lifetime, ignoring");
+                log_dhcp_client(client, "received lease lacks address, server address or lease lifetime, ignoring");
                 return -ENOMSG;
         }
 
-        if (lease->subnet_mask == INADDR_ANY) {
+        if (!lease->have_subnet_mask) {
                 r = dhcp_lease_set_default_subnet_mask(lease);
                 if (r < 0) {
                         log_dhcp_client(client, "received lease lacks subnet "
@@ -1168,13 +1163,17 @@ static int client_handle_ack(sd_dhcp_client *client, DHCPMessage *ack,
         return r;
 }
 
-static uint64_t client_compute_timeout(sd_dhcp_client *client,
-                                       uint32_t lifetime, double factor) {
+static uint64_t client_compute_timeout(sd_dhcp_client *client, uint32_t lifetime, double factor) {
         assert(client);
         assert(client->request_sent);
-        assert(lifetime);
+        assert(lifetime > 0);
 
-        return client->request_sent + ((lifetime - 3) * USEC_PER_SEC * factor) +
+        if (lifetime > 3)
+                lifetime -= 3;
+        else
+                lifetime = 0;
+
+        return client->request_sent + (lifetime * USEC_PER_SEC * factor) +
                 + (random_u32() & 0x1fffff);
 }
 
@@ -1206,7 +1205,7 @@ static int client_set_lease_timeouts(sd_dhcp_client *client) {
 
         /* convert the various timeouts from relative (secs) to absolute (usecs) */
         lifetime_timeout = client_compute_timeout(client, client->lease->lifetime, 1);
-        if (client->lease->t1 && client->lease->t2) {
+        if (client->lease->t1 > 0 && client->lease->t2 > 0) {
                 /* both T1 and T2 are given */
                 if (client->lease->t1 < client->lease->t2 &&
                     client->lease->t2 < client->lease->lifetime) {
@@ -1220,7 +1219,7 @@ static int client_set_lease_timeouts(sd_dhcp_client *client) {
                         t1_timeout = client_compute_timeout(client, client->lease->lifetime, 0.5);
                         client->lease->t1 = client->lease->lifetime / 2;
                 }
-        } else if (client->lease->t2 && client->lease->t2 < client->lease->lifetime) {
+        } else if (client->lease->t2 > 0 && client->lease->t2 < client->lease->lifetime) {
                 /* only T2 is given, and it is valid */
                 t2_timeout = client_compute_timeout(client, client->lease->t2, 1);
                 t1_timeout = client_compute_timeout(client, client->lease->lifetime, 0.5);
@@ -1230,7 +1229,7 @@ static int client_set_lease_timeouts(sd_dhcp_client *client) {
                         t2_timeout = client_compute_timeout(client, client->lease->lifetime, 7.0 / 8.0);
                         client->lease->t2 = (client->lease->lifetime * 7) / 8;
                 }
-        } else if (client->lease->t1 && client->lease->t1 < client->lease->lifetime) {
+        } else if (client->lease->t1 > 0 && client->lease->t1 < client->lease->lifetime) {
                 /* only T1 is given, and it is valid */
                 t1_timeout = client_compute_timeout(client, client->lease->t1, 1);
                 t2_timeout = client_compute_timeout(client, client->lease->lifetime, 7.0 / 8.0);
@@ -1676,30 +1675,41 @@ sd_event *sd_dhcp_client_get_event(sd_dhcp_client *client) {
 }
 
 sd_dhcp_client *sd_dhcp_client_ref(sd_dhcp_client *client) {
-        if (client)
-                assert_se(REFCNT_INC(client->n_ref) >= 2);
+
+        if (!client)
+                return NULL;
+
+        assert(client->n_ref >= 1);
+        client->n_ref++;
 
         return client;
 }
 
 sd_dhcp_client *sd_dhcp_client_unref(sd_dhcp_client *client) {
-        if (client && REFCNT_DEC(client->n_ref) == 0) {
-                log_dhcp_client(client, "FREE");
 
-                client_initialize(client);
+        if (!client)
+                return NULL;
 
-                client->receive_message =
-                        sd_event_source_unref(client->receive_message);
+        assert(client->n_ref >= 1);
+        client->n_ref--;
 
-                sd_dhcp_client_detach_event(client);
+        if (client->n_ref > 0)
+                return NULL;
 
-                sd_dhcp_lease_unref(client->lease);
+        log_dhcp_client(client, "FREE");
 
-                free(client->req_opts);
-                free(client->hostname);
-                free(client->vendor_class_identifier);
-                free(client);
-        }
+        client_initialize(client);
+
+        client->receive_message = sd_event_source_unref(client->receive_message);
+
+        sd_dhcp_client_detach_event(client);
+
+        sd_dhcp_lease_unref(client->lease);
+
+        free(client->req_opts);
+        free(client->hostname);
+        free(client->vendor_class_identifier);
+        free(client);
 
         return NULL;
 }
@@ -1713,7 +1723,7 @@ int sd_dhcp_client_new(sd_dhcp_client **ret) {
         if (!client)
                 return -ENOMEM;
 
-        client->n_ref = REFCNT_INIT;
+        client->n_ref = 1;
         client->state = DHCP_STATE_INIT;
         client->index = -1;
         client->fd = -1;

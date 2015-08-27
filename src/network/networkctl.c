@@ -497,7 +497,7 @@ static int link_status_one(
                 sd_hwdb *hwdb,
                 const char *name) {
         _cleanup_strv_free_ char **dns = NULL, **ntp = NULL, **domains = NULL;
-        _cleanup_free_ char *setup_state = NULL, *operational_state = NULL;
+        _cleanup_free_ char *setup_state = NULL, *operational_state = NULL, *timezone = NULL;
         _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL, *reply = NULL;
         _cleanup_device_unref_ sd_device *d = NULL;
         char devid[2 + DECIMAL_STR_MAX(int)];
@@ -570,7 +570,6 @@ static int link_status_one(
         setup_state_to_color(setup_state, &on_color_setup, &off_color_setup);
 
         sd_network_link_get_dns(ifindex, &dns);
-        sd_network_link_get_ntp(ifindex, &ntp);
         sd_network_link_get_domains(ifindex, &domains);
         r = sd_network_link_get_wildcard_domain(ifindex);
         if (r > 0) {
@@ -652,6 +651,8 @@ static int link_status_one(
                 dump_list("             DNS: ", dns);
         if (!strv_isempty(domains))
                 dump_list("          Domain: ", domains);
+
+        (void) sd_network_link_get_ntp(ifindex, &ntp);
         if (!strv_isempty(ntp))
                 dump_list("             NTP: ", ntp);
 
@@ -660,6 +661,10 @@ static int link_status_one(
 
         if (!strv_isempty(carrier_bound_by))
                 dump_list("Carrier Bound By: ", carrier_bound_by);
+
+        (void) sd_network_link_get_timezone(ifindex, &timezone);
+        if (timezone)
+                printf("       Time Zone: %s", timezone);
 
         return 0;
 }

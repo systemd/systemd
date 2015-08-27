@@ -25,7 +25,6 @@
 #include <stdint.h>
 #include <linux/if_packet.h>
 
-#include "refcnt.h"
 #include "util.h"
 #include "list.h"
 
@@ -48,54 +47,62 @@ struct sd_dhcp_raw_option {
 };
 
 struct sd_dhcp_lease {
-        RefCount n_ref;
+        unsigned n_ref;
 
-        int32_t time_offset;
+        /* each 0 if unset */
         uint32_t t1;
         uint32_t t2;
         uint32_t lifetime;
-        uint32_t mtu_aging_timeout;
+
+        /* each 0 if unset */
         be32_t address;
         be32_t server_address;
-        be32_t subnet_mask;
         be32_t router;
         be32_t next_server;
+
+        bool have_subnet_mask;
+        be32_t subnet_mask;
+
+        bool have_broadcast;
         be32_t broadcast;
+
         struct in_addr *dns;
         size_t dns_size;
+
         struct in_addr *ntp;
         size_t ntp_size;
-        struct in_addr *policy_filter;
-        size_t policy_filter_size;
+
         struct sd_dhcp_route *static_route;
-        size_t static_route_size;
-        size_t static_route_allocated;
-        uint16_t boot_file_size;
-        uint16_t mdr;
-        uint16_t mtu;
-        uint8_t ttl;
-        bool ip_forward;
-        bool ip_forward_non_local;
+        size_t static_route_size, static_route_allocated;
+
+        uint16_t mtu; /* 0 if unset */
+
         char *domainname;
         char *hostname;
         char *root_path;
-        uint8_t *client_id;
+
+        void *client_id;
         size_t client_id_len;
-        uint8_t *vendor_specific;
+
+        void *vendor_specific;
         size_t vendor_specific_len;
+
+        char *timezone;
+
         LIST_HEAD(struct sd_dhcp_raw_option, private_options);
 };
 
 int dhcp_lease_new(sd_dhcp_lease **ret);
-int dhcp_lease_parse_options(uint8_t code, uint8_t len, const uint8_t *option,
-                              void *user_data);
-int dhcp_lease_insert_private_option(sd_dhcp_lease *lease, uint8_t tag,
-                                     const uint8_t *data, uint8_t len);
+
+int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void *userdata);
+int dhcp_lease_insert_private_option(sd_dhcp_lease *lease, uint8_t tag, const void *data, uint8_t len);
 
 int dhcp_lease_set_default_subnet_mask(sd_dhcp_lease *lease);
 
-int dhcp_lease_set_client_id(sd_dhcp_lease *lease, const uint8_t *client_id,
-                             size_t client_id_len);
+int dhcp_lease_set_client_id(sd_dhcp_lease *lease, const void *client_id, size_t client_id_len);
+
+int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file);
+int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(sd_dhcp_lease*, sd_dhcp_lease_unref);
 #define _cleanup_dhcp_lease_unref_ _cleanup_(sd_dhcp_lease_unrefp)

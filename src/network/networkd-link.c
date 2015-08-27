@@ -29,7 +29,10 @@
 #include "socket-util.h"
 #include "bus-util.h"
 #include "udev-util.h"
+#include "netlink-util.h"
+#include "dhcp-lease-internal.h"
 #include "network-internal.h"
+
 #include "networkd-link.h"
 #include "networkd-netdev.h"
 
@@ -613,6 +616,96 @@ static int address_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userda
         return 1;
 }
 
+static int link_push_dns_to_dhcp_server(Link *link, sd_dhcp_server *s) {
+        _cleanup_free_ struct in_addr *addresses = NULL;
+        size_t n_addresses = 0, n_allocated = 0;
+        char **a;
+
+        log_debug("Copying DNS server information from %s", link->ifname);
+
+        if (!link->network)
+                return 0;
+
+        STRV_FOREACH(a, link->network->dns) {
+                struct in_addr ia;
+
+                /* Only look for IPv4 addresses */
+                if (inet_pton(AF_INET, *a, &ia) <= 0)
+                        continue;
+
+                if (!GREEDY_REALLOC(addresses, n_allocated, n_addresses + 1))
+                        return log_oom();
+
+                addresses[n_addresses++] = ia;
+        }
+
+        if (link->network->dhcp_dns &&
+            link->dhcp_lease) {
+                const struct in_addr *da = NULL;
+                int n;
+
+                n = sd_dhcp_lease_get_dns(link->dhcp_lease, &da);
+                if (n > 0) {
+
+                        if (!GREEDY_REALLOC(addresses, n_allocated, n_addresses + n))
+                                return log_oom();
+
+                        memcpy(addresses + n_addresses, da, n * sizeof(struct in_addr));
+                        n_addresses += n;
+                }
+        }
+
+        if (n_addresses <= 0)
+                return 0;
+
+        return sd_dhcp_server_set_dns(s, addresses, n_addresses);
+}
+
+static int link_push_ntp_to_dhcp_server(Link *link, sd_dhcp_server *s) {
+        _cleanup_free_ struct in_addr *addresses = NULL;
+        size_t n_addresses = 0, n_allocated = 0;
+        char **a;
+
+        if (!link->network)
+                return 0;
+
+        log_debug("Copying NTP server information from %s", link->ifname);
+
+        STRV_FOREACH(a, link->network->ntp) {
+                struct in_addr ia;
+
+                /* Only look for IPv4 addresses */
+                if (inet_pton(AF_INET, *a, &ia) <= 0)
+                        continue;
+
+                if (!GREEDY_REALLOC(addresses, n_allocated, n_addresses + 1))
+                        return log_oom();
+
+                addresses[n_addresses++] = ia;
+        }
+
+        if (link->network->dhcp_ntp &&
+            link->dhcp_lease) {
+                const struct in_addr *da = NULL;
+                int n;
+
+                n = sd_dhcp_lease_get_ntp(link->dhcp_lease, &da);
+                if (n > 0) {
+
+                        if (!GREEDY_REALLOC(addresses, n_allocated, n_addresses + n))
+                                return log_oom();
+
+                        memcpy(addresses + n_addresses, da, n * sizeof(struct in_addr));
+                        n_addresses += n;
+                }
+        }
+
+        if (n_addresses <= 0)
+                return 0;
+
+        return sd_dhcp_server_set_ntp(s, addresses, n_addresses);
+}
+
 static int link_enter_set_addresses(Link *link) {
         Address *ad;
         int r;
@@ -639,6 +732,8 @@ static int link_enter_set_addresses(Link *link) {
         if (link_dhcp4_server_enabled(link)) {
                 struct in_addr pool_start;
                 Address *address;
+                Link *uplink = NULL;
+                bool acquired_uplink = false;
 
                 address = link_find_dhcp_server_address(link);
                 if (!address) {
@@ -671,6 +766,81 @@ static int link_enter_set_addresses(Link *link) {
                 if (r < 0)
                         return r;
                 */
+
+                if (link->network->dhcp_server_max_lease_time_usec > 0) {
+                        r = sd_dhcp_server_set_max_lease_time(
+                                        link->dhcp_server,
+                                        DIV_ROUND_UP(link->network->dhcp_server_max_lease_time_usec, USEC_PER_SEC));
+                        if (r < 0)
+                                return r;
+                }
+
+                if (link->network->dhcp_server_default_lease_time_usec > 0) {
+                        r = sd_dhcp_server_set_default_lease_time(
+                                        link->dhcp_server,
+                                        DIV_ROUND_UP(link->network->dhcp_server_default_lease_time_usec, USEC_PER_SEC));
+                        if (r < 0)
+                                return r;
+                }
+
+                if (link->network->dhcp_server_emit_dns) {
+
+                        if (link->network->n_dhcp_server_dns > 0)
+                                r = sd_dhcp_server_set_dns(link->dhcp_server, link->network->dhcp_server_dns, link->network->n_dhcp_server_dns);
+                        else {
+                                uplink = manager_find_uplink(link->manager, link);
+                                acquired_uplink = true;
+
+                                if (!uplink) {
+                                        log_link_debug(link, "Not emitting DNS server information on link, couldn't find suitable uplink.");
+                                        r = 0;
+                                } else
+                                        r = link_push_dns_to_dhcp_server(uplink, link->dhcp_server);
+                        }
+                        if (r < 0)
+                                log_link_warning_errno(link, r, "Failed to set DNS server for DHCP server, ignoring: %m");
+                }
+
+
+                if (link->network->dhcp_server_emit_ntp) {
+
+                        if (link->network->n_dhcp_server_ntp > 0)
+                                r = sd_dhcp_server_set_ntp(link->dhcp_server, link->network->dhcp_server_ntp, link->network->n_dhcp_server_ntp);
+                        else {
+                                if (!acquired_uplink)
+                                        uplink = manager_find_uplink(link->manager, link);
+
+                                if (!uplink) {
+                                        log_link_debug(link, "Not emitting NTP server information on link, couldn't find suitable uplink.");
+                                        r = 0;
+                                } else
+                                        r = link_push_ntp_to_dhcp_server(uplink, link->dhcp_server);
+
+                        }
+                        if (r < 0)
+                                log_link_warning_errno(link, r, "Failed to set NTP server for DHCP server, ignoring: %m");
+                }
+
+                if (link->network->dhcp_server_emit_timezone) {
+                        _cleanup_free_ char *buffer = NULL;
+                        const char *tz;
+
+                        if (link->network->dhcp_server_timezone)
+                                tz = link->network->dhcp_server_timezone;
+                        else {
+                                r = get_timezone(&buffer);
+                                if (r < 0)
+                                        log_warning_errno(r, "Failed to determine timezone: %m");
+                                else
+                                        tz = buffer;
+                        }
+
+                        if (tz) {
+                                r = sd_dhcp_server_set_timezone(link->dhcp_server, tz);
+                                if (r < 0)
+                                        return r;
+                        }
+                }
 
                 r = sd_dhcp_server_start(link->dhcp_server);
                 if (r < 0) {
@@ -743,7 +913,7 @@ static int link_set_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userd
 
 static int set_hostname_handler(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
         _cleanup_link_unref_ Link *link = userdata;
-        int r;
+        const sd_bus_error *e;
 
         assert(m);
         assert(link);
@@ -751,21 +921,20 @@ static int set_hostname_handler(sd_bus_message *m, void *userdata, sd_bus_error 
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return 1;
 
-        r = sd_bus_message_get_errno(m);
-        if (r > 0)
-                log_link_warning_errno(link, r, "Could not set hostname: %m");
+        e = sd_bus_message_get_error(m);
+        if (e)
+                log_link_warning_errno(link, sd_bus_error_get_errno(e), "Could not set hostname: %s", e->message);
 
         return 1;
 }
 
 int link_set_hostname(Link *link, const char *hostname) {
-        int r = 0;
+        int r;
 
         assert(link);
         assert(link->manager);
-        assert(hostname);
 
-        log_link_debug(link, "Setting transient hostname: '%s'", hostname);
+        log_link_debug(link, "Setting transient hostname: '%s'", strna(hostname));
 
         if (!link->manager->bus) {
                 /* TODO: replace by assert when we can rely on kdbus */
@@ -788,6 +957,57 @@ int link_set_hostname(Link *link, const char *hostname) {
 
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not set transient hostname: %m");
+
+        link_ref(link);
+
+        return 0;
+}
+
+static int set_timezone_handler(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+        _cleanup_link_unref_ Link *link = userdata;
+        const sd_bus_error *e;
+
+        assert(m);
+        assert(link);
+
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+                return 1;
+
+        e = sd_bus_message_get_error(m);
+        if (e)
+                log_link_warning_errno(link, sd_bus_error_get_errno(e), "Could not set timezone: %s", e->message);
+
+        return 1;
+}
+
+int link_set_timezone(Link *link, const char *timezone) {
+        int r;
+
+        assert(link);
+        assert(link->manager);
+        assert(timezone);
+
+        log_link_debug(link, "Setting system timezone: '%s'", timezone);
+
+        if (!link->manager->bus) {
+                log_link_info(link, "Not connected to system bus, ignoring timezone.");
+                return 0;
+        }
+
+        r = sd_bus_call_method_async(
+                        link->manager->bus,
+                        NULL,
+                        "org.freedesktop.timedate1",
+                        "/org/freedesktop/timedate1",
+                        "org.freedesktop.timedate1",
+                        "SetTimezone",
+                        set_timezone_handler,
+                        link,
+                        "sb",
+                        timezone,
+                        false);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not set timezone: %m");
 
         link_ref(link);
 
@@ -2414,9 +2634,17 @@ int link_save(Link *link) {
         }
 
         if (link->dhcp_lease) {
+                const char *tz = NULL;
+
+                r = sd_dhcp_lease_get_timezone(link->dhcp_lease, &tz);
+                if (r >= 0)
+                        fprintf(f, "TIMEZONE=%s\n", tz);
+        }
+
+        if (link->dhcp_lease) {
                 assert(link->network);
 
-                r = sd_dhcp_lease_save(link->dhcp_lease, link->lease_file);
+                r = dhcp_lease_save(link->dhcp_lease, link->lease_file);
                 if (r < 0)
                         goto fail;
 

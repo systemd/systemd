@@ -110,3 +110,5 @@ bool timezone_is_valid(const char *name);
 clockid_t clock_boottime_or_monotonic(void);
 
 #define xstrftime(buf, fmt, tm) assert_se(strftime(buf, ELEMENTSOF(buf), fmt, tm) > 0)
+
+int get_timezone(char **timezone);

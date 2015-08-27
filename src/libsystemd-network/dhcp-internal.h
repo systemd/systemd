@@ -45,10 +45,10 @@ int dhcp_option_append(DHCPMessage *message, size_t size, size_t *offset, uint8_
                        uint8_t code, size_t optlen, const void *optval);
 
 typedef int (*dhcp_option_cb_t)(uint8_t code, uint8_t len,
-                                const uint8_t *option, void *user_data);
+                                const void *option, void *userdata);
 
 int dhcp_option_parse(DHCPMessage *message, size_t len,
-                      dhcp_option_cb_t cb, void *user_data);
+                      dhcp_option_cb_t cb, void *userdata);
 
 int dhcp_message_init(DHCPMessage *message, uint8_t op, uint32_t xid,
                       uint8_t type, uint16_t arp_type, size_t optlen,

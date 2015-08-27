@@ -1,5 +1,7 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
+#pragma once
+
 /***
   This file is part of systemd.
 
@@ -19,7 +21,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#pragma once
+#include "in-addr-util.h"
 
 typedef struct Bond Bond;
 

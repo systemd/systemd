@@ -1,5 +1,7 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
+#pragma once
+
 /***
   This file is part of systemd.
 
@@ -19,11 +21,16 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#pragma once
-
 #include <endian.h>
 
-#include "networkd.h"
+#include "sd-dhcp-client.h"
+#include "sd-dhcp-server.h"
+#include "sd-ipv4ll.h"
+#include "sd-icmp6-nd.h"
+#include "sd-dhcp6-client.h"
+#include "sd-lldp.h"
+
+typedef struct Link Link;
 
 typedef enum LinkState {
         LINK_STATE_PENDING,
@@ -37,6 +44,21 @@ typedef enum LinkState {
         _LINK_STATE_MAX,
         _LINK_STATE_INVALID = -1
 } LinkState;
+
+typedef enum LinkOperationalState {
+        LINK_OPERSTATE_OFF,
+        LINK_OPERSTATE_NO_CARRIER,
+        LINK_OPERSTATE_DORMANT,
+        LINK_OPERSTATE_CARRIER,
+        LINK_OPERSTATE_DEGRADED,
+        LINK_OPERSTATE_ROUTABLE,
+        _LINK_OPERSTATE_MAX,
+        _LINK_OPERSTATE_INVALID = -1
+} LinkOperationalState;
+
+#include "networkd.h"
+#include "networkd-network.h"
+#include "networkd-address.h"
 
 struct Link {
         Manager *manager;
@@ -115,6 +137,7 @@ bool link_has_carrier(Link *link);
 
 int link_set_mtu(Link *link, uint32_t mtu);
 int link_set_hostname(Link *link, const char *hostname);
+int link_set_timezone(Link *link, const char *timezone);
 
 int ipv4ll_configure(Link *link);
 int dhcp4_configure(Link *link);
@@ -129,6 +152,9 @@ bool link_dhcp6_enabled(Link *link);
 
 const char* link_state_to_string(LinkState s) _const_;
 LinkState link_state_from_string(const char *s) _pure_;
+
+const char* link_operstate_to_string(LinkOperationalState s) _const_;
+LinkOperationalState link_operstate_from_string(const char *s) _pure_;
 
 extern const sd_bus_vtable link_vtable[];
 

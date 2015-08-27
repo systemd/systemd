@@ -525,7 +525,7 @@ int deserialize_dhcp_routes(struct sd_dhcp_route **ret, size_t *ret_size, size_t
         return 0;
 }
 
-int serialize_dhcp_option(FILE *f, const char *key, const uint8_t *data, size_t size) {
+int serialize_dhcp_option(FILE *f, const char *key, const void *data, size_t size) {
         _cleanup_free_ char *hex_buf = NULL;
 
         assert(f);
@@ -541,7 +541,7 @@ int serialize_dhcp_option(FILE *f, const char *key, const uint8_t *data, size_t 
         return 0;
 }
 
-int deserialize_dhcp_option(uint8_t **data, size_t *data_len, const char *string) {
+int deserialize_dhcp_option(void **data, size_t *data_len, const char *string) {
         assert(data);
         assert(data_len);
         assert(string);
