@@ -40,7 +40,6 @@ typedef struct sd_resolve_query sd_resolve_query;
 /* A callback on completion */
 typedef int (*sd_resolve_getaddrinfo_handler_t)(sd_resolve_query *q, int ret, const struct addrinfo *ai, void *userdata);
 typedef int (*sd_resolve_getnameinfo_handler_t)(sd_resolve_query *q, int ret, const char *host, const char *serv, void *userdata);
-typedef int (*sd_resolve_res_handler_t)(sd_resolve_query* q, int ret, unsigned char *answer, void *userdata);
 
 enum {
         SD_RESOLVE_GET_HOST = 1ULL,
@@ -98,18 +97,6 @@ int sd_resolve_getaddrinfo(sd_resolve *resolve, sd_resolve_query **q, const char
  * sd_resolve_getnameinfo_done(). Set gethost (resp. getserv) to non-zero
  * if you want to query the hostname (resp. the service name). */
 int sd_resolve_getnameinfo(sd_resolve *resolve, sd_resolve_query **q, const struct sockaddr *sa, socklen_t salen, int flags, uint64_t get, sd_resolve_getnameinfo_handler_t callback, void *userdata);
-
-/* Issue a resolver query on the specified session. The arguments are
- * compatible with those of libc's res_query(3). The function returns a new
- * query object. When the query is completed, you may retrieve the results using
- * sd_resolve_res_done(). */
-int sd_resolve_res_query(sd_resolve *resolve, sd_resolve_query **q, const char *dname, int clazz, int type, sd_resolve_res_handler_t callback, void *userdata);
-
-/* Issue a resolver query on the specified session. The arguments are
- * compatible with those of libc's res_search(3). The function returns a new
- * query object. When the query is completed, you may retrieve the results using
- * sd_resolve_res_done(). */
-int sd_resolve_res_search(sd_resolve *resolve, sd_resolve_query **q, const char *dname, int clazz, int type, sd_resolve_res_handler_t callback, void *userdata);
 
 sd_resolve_query *sd_resolve_query_ref(sd_resolve_query* q);
 sd_resolve_query *sd_resolve_query_unref(sd_resolve_query* q);
