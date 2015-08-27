@@ -29,8 +29,6 @@ void mac_selinux_access_free(void);
 
 int mac_selinux_generic_access_check(sd_bus_message *message, const char *path, const char *permission, sd_bus_error *error);
 
-int mac_selinux_unit_access_check_strv(char **units, sd_bus_message *message, Manager *m, const char *permission, sd_bus_error *error);
-
 #ifdef HAVE_SELINUX
 
 #define mac_selinux_access_check(message, permission, error) \

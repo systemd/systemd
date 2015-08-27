@@ -1650,10 +1650,6 @@ static int method_enable_unit_files_generic(
         if (r < 0)
                 return r;
 
-        r = mac_selinux_unit_access_check_strv(l, message, m, verb, error);
-        if (r < 0)
-                return r;
-
         r = bus_verify_manage_unit_files_async(m, message, error);
         if (r < 0)
                 return r;
@@ -1723,10 +1719,6 @@ static int method_preset_unit_files_with_mode(sd_bus_message *message, void *use
                         return -EINVAL;
         }
 
-        r = mac_selinux_unit_access_check_strv(l, message, m, "enable", error);
-        if (r < 0)
-                return r;
-
         r = bus_verify_manage_unit_files_async(m, message, error);
         if (r < 0)
                 return r;
@@ -1763,10 +1755,6 @@ static int method_disable_unit_files_generic(
                 return r;
 
         r = sd_bus_message_read(message, "b", &runtime);
-        if (r < 0)
-                return r;
-
-        r = mac_selinux_unit_access_check_strv(l, message, m, verb, error);
         if (r < 0)
                 return r;
 
@@ -1901,10 +1889,6 @@ static int method_add_dependency_unit_files(sd_bus_message *message, void *userd
         dep = unit_dependency_from_string(type);
         if (dep < 0)
                 return -EINVAL;
-
-        r = mac_selinux_unit_access_check_strv(l, message, m, "enable", error);
-        if (r < 0)
-                return r;
 
         scope = m->running_as == MANAGER_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER;
 
