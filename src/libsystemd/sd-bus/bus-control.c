@@ -1309,9 +1309,9 @@ int bus_add_match_internal_kernel(
                 }
 
                 case BUS_MATCH_ARG_HAS...BUS_MATCH_ARG_HAS_LAST: {
-                        char buf[sizeof("arg")-1 + 2 + sizeof("has")];
+                        char buf[sizeof("arg")-1 + 2 + sizeof("-has")];
 
-                        xsprintf(buf, "arg%ihas", c->type - BUS_MATCH_ARG_HAS);
+                        xsprintf(buf, "arg%i-has", c->type - BUS_MATCH_ARG_HAS);
                         bloom_add_pair(bloom, bus->bloom_size, bus->bloom_n_hash, buf, c->value_str);
                         using_bloom = true;
                         break;

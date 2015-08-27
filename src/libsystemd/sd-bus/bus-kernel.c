@@ -168,7 +168,7 @@ static void add_bloom_arg(void *data, size_t size, unsigned n_hash, unsigned i, 
 }
 
 static void add_bloom_arg_has(void *data, size_t size, unsigned n_hash, unsigned i, const char *t) {
-        char buf[sizeof("arg")-1 + 2 + sizeof("has")];
+        char buf[sizeof("arg")-1 + 2 + sizeof("-has")];
         char *e;
 
         assert(data);
@@ -184,7 +184,7 @@ static void add_bloom_arg_has(void *data, size_t size, unsigned n_hash, unsigned
                 *(e++) = '0' + (char) (i % 10);
         }
 
-        strcpy(e, "has");
+        strcpy(e, "-has");
         bloom_add_pair(data, size, n_hash, buf, t);
 }
 
