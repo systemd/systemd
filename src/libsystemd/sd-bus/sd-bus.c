@@ -1002,6 +1002,8 @@ static int bus_parse_next_address(sd_bus *b) {
 }
 
 static int bus_start_address(sd_bus *b) {
+        bool container_kdbus_available = false;
+        bool kdbus_available = false;
         int r;
 
         assert(b);
@@ -1011,15 +1013,29 @@ static int bus_start_address(sd_bus *b) {
 
                 bus_close_fds(b);
 
+                /*
+                 * Usually, if you provide multiple different bus-addresses, we
+                 * try all of them in order. We use the first one that
+                 * succeeds. However, if you mix kernel and unix addresses, we
+                 * never try unix-addresses if a previous kernel address was
+                 * tried and kdbus was available. This is required to prevent
+                 * clients to fallback to the bus-proxy if kdbus is available
+                 * but failed (eg., too many connections).
+                 */
+
                 if (b->exec_path)
                         r = bus_socket_exec(b);
-                else if ((b->nspid > 0 || b->machine) && b->kernel)
+                else if ((b->nspid > 0 || b->machine) && b->kernel) {
                         r = bus_container_connect_kernel(b);
-                else if ((b->nspid > 0 || b->machine) && b->sockaddr.sa.sa_family != AF_UNSPEC)
+                        if (r < 0 && !IN_SET(r, -ENOENT, -ESOCKTNOSUPPORT))
+                                container_kdbus_available = true;
+                } else if (!container_kdbus_available && (b->nspid > 0 || b->machine) && b->sockaddr.sa.sa_family != AF_UNSPEC)
                         r = bus_container_connect_socket(b);
-                else if (b->kernel)
+                else if (b->kernel) {
                         r = bus_kernel_connect(b);
-                else if (b->sockaddr.sa.sa_family != AF_UNSPEC)
+                        if (r < 0 && !IN_SET(r, -ENOENT, -ESOCKTNOSUPPORT))
+                                kdbus_available = true;
+                } else if (!kdbus_available && b->sockaddr.sa.sa_family != AF_UNSPEC)
                         r = bus_socket_connect(b);
                 else
                         skipped = true;
