@@ -482,6 +482,18 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
                 }
         }
 
+        if (link->network->dhcp_timezone) {
+                const char *tz = NULL;
+
+                (void) sd_dhcp_lease_get_timezone(link->dhcp_lease, &tz);
+
+                if (tz) {
+                        r = link_set_timezone(link, tz);
+                        if (r < 0)
+                                log_link_error_errno(link, r, "Failed to set timezone to '%s': %m", tz);
+                }
+        }
+
         if (!link->network->dhcp_critical) {
                 r = sd_dhcp_lease_get_lifetime(link->dhcp_lease, &lifetime);
                 if (r < 0) {

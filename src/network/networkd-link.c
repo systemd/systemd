@@ -781,7 +781,7 @@ static int link_set_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userd
 
 static int set_hostname_handler(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
         _cleanup_link_unref_ Link *link = userdata;
-        int r;
+        const sd_bus_error *e;
 
         assert(m);
         assert(link);
@@ -789,15 +789,15 @@ static int set_hostname_handler(sd_bus_message *m, void *userdata, sd_bus_error 
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return 1;
 
-        r = sd_bus_message_get_errno(m);
-        if (r > 0)
-                log_link_warning_errno(link, r, "Could not set hostname: %m");
+        e = sd_bus_message_get_error(m);
+        if (e)
+                log_link_warning_errno(link, sd_bus_error_get_errno(e), "Could not set hostname: %s", e->message);
 
         return 1;
 }
 
 int link_set_hostname(Link *link, const char *hostname) {
-        int r = 0;
+        int r;
 
         assert(link);
         assert(link->manager);
@@ -826,6 +826,57 @@ int link_set_hostname(Link *link, const char *hostname) {
 
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not set transient hostname: %m");
+
+        link_ref(link);
+
+        return 0;
+}
+
+static int set_timezone_handler(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+        _cleanup_link_unref_ Link *link = userdata;
+        const sd_bus_error *e;
+
+        assert(m);
+        assert(link);
+
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+                return 1;
+
+        e = sd_bus_message_get_error(m);
+        if (e)
+                log_link_warning_errno(link, sd_bus_error_get_errno(e), "Could not set timezone: %s", e->message);
+
+        return 1;
+}
+
+int link_set_timezone(Link *link, const char *timezone) {
+        int r;
+
+        assert(link);
+        assert(link->manager);
+        assert(timezone);
+
+        log_link_debug(link, "Setting system timezone: '%s'", timezone);
+
+        if (!link->manager->bus) {
+                log_link_info(link, "Not connected to system bus, ignoring timezone.");
+                return 0;
+        }
+
+        r = sd_bus_call_method_async(
+                        link->manager->bus,
+                        NULL,
+                        "org.freedesktop.timedate1",
+                        "/org/freedesktop/timedate1",
+                        "org.freedesktop.timedate1",
+                        "SetTimezone",
+                        set_timezone_handler,
+                        link,
+                        "sb",
+                        timezone,
+                        false);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not set timezone: %m");
 
         link_ref(link);
 
