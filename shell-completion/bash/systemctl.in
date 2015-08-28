@@ -112,7 +112,7 @@ _systemctl () {
                         ;;
                         --state)
                                 comps='loaded not-found stub
-                                       active inactive
+                                       active inactive failed
                                        dead elapsed exited listening mounted plugged running waiting'
                         ;;
                         --job-mode)
