@@ -30,6 +30,7 @@
 
 #include "path-util.h"
 #include "terminal-util.h"
+#include "process-util.h"
 #include "util.h"
 #include "hashmap.h"
 #include "cgroup-util.h"
@@ -64,6 +65,7 @@ static unsigned arg_iterations = (unsigned) -1;
 static bool arg_batch = false;
 static bool arg_raw = false;
 static usec_t arg_delay = 1*USEC_PER_SEC;
+static bool arg_kernel_threads = false;
 
 static enum {
         ORDER_PATH,
@@ -154,8 +156,13 @@ static int process(const char *controller, const char *path, Hashmap *a, Hashmap
                         return r;
 
                 g->n_tasks = 0;
-                while (cg_read_pid(f, &pid) > 0)
+                while (cg_read_pid(f, &pid) > 0) {
+
+                        if (!arg_kernel_threads && is_kernel_thread(pid) > 0)
+                                continue;
+
                         g->n_tasks++;
+                }
 
                 if (g->n_tasks > 0)
                         g->n_tasks_valid = true;
@@ -565,6 +572,7 @@ static void help(void) {
                "  -r --raw            Provide raw (not human-readable) numbers\n"
                "     --cpu=percentage Show CPU usage as percentage (default)\n"
                "     --cpu=time       Show CPU usage as time\n"
+               "  -k                  Include kernel threads in task count\n"
                "  -d --delay=DELAY    Delay between updates\n"
                "  -n --iterations=N   Run for N iterations before exiting\n"
                "  -b --batch          Run in batch mode, accepting no input\n"
@@ -600,7 +608,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 1);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hptcmin:brd:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hptcmin:brd:k", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -698,6 +706,10 @@ static int parse_argv(int argc, char *argv[]) {
                                 log_error("Invalid argument to --order=: %s", optarg);
                                 return -EINVAL;
                         }
+                        break;
+
+                case 'k':
+                        arg_kernel_threads = true;
                         break;
 
                 case '?':
