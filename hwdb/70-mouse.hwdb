@@ -173,6 +173,10 @@ mouse:usb:v093ap2510:name:PIXART USB OPTICAL MOUSE:
 mouse:usb:v17efp6019:name:Lenovo Optical USB Mouse:
  MOUSE_DPI=1000@125
 
+# Lenovo M-U0025-O
+mouse:usb:v17efp6019:name:Logitech Lenovo USB Optical Mouse:
+ MOUSE_DPI=1000@166
+
 # ThinkPad USB Laser Mouse
 mouse:usb:v17efp6044:name:ThinkPad USB Laser Mouse:
  MOUSE_DPI=1200@125
@@ -180,6 +184,13 @@ mouse:usb:v17efp6044:name:ThinkPad USB Laser Mouse:
 # Lenovo Precision USB Mouse
 mouse:usb:v17efp6050:name:Lenovo Precision USB Mouse:
  MOUSE_DPI=1200@127
+
+# Lenovo MOBGUL
+mouse:usb:v17efp601d:name:Primax Lenovo Laser Mouse:
+# Lenovo MOBGULA
+mouse:usb:v17efp6045:name:Lenovo USB Laser Mouse:
+ MOUSE_DPI=1600@125
+
 
 ##########################################
 # Logitech
