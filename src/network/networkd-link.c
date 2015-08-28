@@ -742,7 +742,8 @@ static int link_enter_set_addresses(Link *link) {
                 }
 
                 /* use the server address' subnet as the pool */
-                r = sd_dhcp_server_configure_pool(link->dhcp_server, &address->in_addr.in, address->prefixlen, 0, 0);
+                r = sd_dhcp_server_configure_pool(link->dhcp_server, &address->in_addr.in, address->prefixlen,
+                                                  link->network->dhcp_server_pool_offset, link->network->dhcp_server_pool_size);
                 if (r < 0)
                         return r;
 

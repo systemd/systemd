@@ -684,6 +684,23 @@
     <variablelist class='network-directives'>
 
       <varlistentry>
+        <term><varname>PoolOffset=</varname></term>
+        <term><varname>PoolSize=</varname></term>
+
+        <listitem><para>Configures the pool of addresses to hand out. The pool
+        is a contiguous sequence of IP addresses in the subnet configured for
+        the server address, which does not include the subnet nor the broadcast
+        address. <varname>PoolOffset=</varname> takes the offset of the pool
+        from the start of subnet, or zero to use the default value.
+        <varname>PoolSize=</varname> takes the number of IP addresses in the
+        pool or zero to use the default value. By default the pool starts at
+        the first address after the subnet address and takes up the rest of
+        the subnet, excluding the broadcast address. If the pool includes
+        the server address (the default), this is reserved and not handed
+        out to clients.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>DefaultLeaseTimeSec=</varname></term>
         <term><varname>MaxLeaseTimeSec=</varname></term>
 
