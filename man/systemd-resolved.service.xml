@@ -61,15 +61,22 @@
     resolver and an LLMNR resolver and responder. It also generates
     <filename>/run/systemd/resolve/resolv.conf</filename> for
     compatibility which may be symlinked from
-    <filename>/etc/resolv.conf</filename>.</para>
+    <filename>/etc/resolv.conf</filename>. The glibc NSS module
+    <citerefentry><refentrytitle>nss-resolve</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    is necessary to allow libc's NSS resolver functions to resolve
+    host names via <command>systemd-resolved</command>.</para>
 
     <para>The DNS servers contacted are determined from the global
-    settings in
-    <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-    the per-link static settings in <filename>.network</filename>
-    files, and the per-link dynamic settings received over DHCP. See
+    settings in <filename>/etc/systemd/resolved.conf</filename>, the
+    per-link static settings in <filename>/etc/systemd/network/*.network</filename> files,
+    and the per-link dynamic settings received over DHCP. See
+    <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    and
     <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    for more details.</para>
+    for details. To improve compatibility
+    <filename>/etc/resolv.conf</filename> is read in order to discover
+    configured system DNS servers, however only if it is not a symlink
+    to <filename>/run/systemd/resolve/resolv.conf</filename> (see above).</para>
 
     <para><command>systemd-resolved</command> synthesizes DNS RRs for the following cases:</para>
 
@@ -137,6 +144,7 @@
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>nss-resolve</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     </para>
