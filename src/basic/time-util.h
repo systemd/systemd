@@ -70,6 +70,7 @@ typedef struct dual_timestamp {
 #define DUAL_TIMESTAMP_NULL ((struct dual_timestamp) { 0ULL, 0ULL })
 
 usec_t now(clockid_t clock);
+nsec_t now_nsec(clockid_t clock);
 
 dual_timestamp* dual_timestamp_get(dual_timestamp *ts);
 dual_timestamp* dual_timestamp_from_realtime(dual_timestamp *ts, usec_t u);
@@ -86,6 +87,8 @@ struct timespec *timespec_store(struct timespec *ts, usec_t u);
 
 usec_t timeval_load(const struct timeval *tv) _pure_;
 struct timeval *timeval_store(struct timeval *tv, usec_t u);
+
+nsec_t timespec_load_nsec(const struct timespec *ts) _pure_;
 
 char *format_timestamp(char *buf, size_t l, usec_t t);
 char *format_timestamp_utc(char *buf, size_t l, usec_t t);

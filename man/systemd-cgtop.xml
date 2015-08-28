@@ -1,4 +1,4 @@
-<?xml version='1.0'?> <!--*-nxml-*-->
+<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
@@ -64,10 +64,10 @@
     regular intervals (by default every 1s), similar in style to
     <citerefentry project='man-pages'><refentrytitle>top</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
 
-    <para>If <command>systemd-cgtop</command> is not connected to a tty, no
-    column headers are printed and the default is to only run one iteration.
-    The <varname>--iterations</varname> argument, if given, is still honored.
-    This mode is suitable for scripting.</para>
+    <para>If <command>systemd-cgtop</command> is not connected to a
+    tty, no column headers are printed and the default is to only run
+    one iteration.  The <varname>--iterations=</varname> argument, if
+    given, is honored. This mode is suitable for scripting.</para>
 
     <para>Resource usage is only accounted for control groups in the
     relevant hierarchy, i.e. CPU usage is only accounted for control
@@ -104,6 +104,7 @@
     <variablelist>
       <varlistentry>
         <term><option>-p</option></term>
+        <term><option>--order=path</option></term>
 
         <listitem><para>Order by control group
         path name.</para></listitem>
@@ -111,25 +112,28 @@
 
       <varlistentry>
         <term><option>-t</option></term>
+        <term><option>--order=tasks</option></term>
 
-        <listitem><para>Order by number of tasks in control group
-        (i.e. threads and processes).</para></listitem>
+        <listitem><para>Order by number of processes in control group.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>-c</option></term>
+        <term><option>--order=cpu</option></term>
 
         <listitem><para>Order by CPU load.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>-m</option></term>
+        <term><option>--order=memory</option></term>
 
         <listitem><para>Order by memory usage.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>-i</option></term>
+        <term><option>--order=io</option></term>
 
         <listitem><para>Order by disk I/O load.</para></listitem>
       </varlistentry>
@@ -140,7 +144,7 @@
 
         <listitem><para>Run in "batch" mode: do not accept input and
         run until the iteration limit set with
-        <option>--iterations</option> is exhausted or until killed.
+        <option>--iterations=</option> is exhausted or until killed.
         This mode could be useful for sending output from
         <command>systemd-cgtop</command> to other programs or to a
         file.</para></listitem>
@@ -153,6 +157,15 @@
 	<listitem><para>Format byte counts (as in memory usage and IO metrics)
 	with raw numeric values rather than human-readable
         numbers.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--cpu=percentage</option></term>
+        <term><option>--cpu=time</option></term>
+
+        <listitem><para>Controls whether the CPU usage is shown as
+        percentage or time. By default the CPU usage is shown as
+        percentage.</para></listitem>
       </varlistentry>
 
       <varlistentry>
