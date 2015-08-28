@@ -669,6 +669,8 @@ static int get_pool_offset(sd_dhcp_server *server, be32_t requested_ip) {
         return be32toh(requested_ip) - be32toh(server->pool_start);
 }
 
+#define HASH_KEY SD_ID128_MAKE(0d,1d,fe,bd,f1,24,bd,b3,47,f1,dd,6e,73,21,93,30)
+
 int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
                                size_t length) {
         _cleanup_dhcp_request_free_ DHCPRequest *req = NULL;
@@ -716,12 +718,20 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
                 if (existing_lease)
                         address = existing_lease->address;
                 else {
+                        size_t next_offer;
+
+                        /* even with no persistence of leases, we try to offer the same client
+                           the same IP address. we do this by using the hash of the client id
+                           as the offset into the pool of leases when finding the next free one */
+
+                        next_offer = client_id_hash_func(&req->client_id, HASH_KEY.bytes) % server->pool_size;
+
                         for (i = 0; i < server->pool_size; i++) {
-                                if (!server->bound_leases[server->next_offer]) {
-                                        address = htobe32(be32toh(server->pool_start) + server->next_offer);
+                                if (!server->bound_leases[next_offer]) {
+                                        address = htobe32(be32toh(server->pool_start) + next_offer);
                                         break;
                                 } else
-                                        server->next_offer = (server->next_offer + 1) % server->pool_size;
+                                        next_offer = (next_offer + 1) % server->pool_size;
                         }
                 }
 
