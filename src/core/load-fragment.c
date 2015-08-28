@@ -2602,7 +2602,7 @@ int config_parse_unit_slice(
                 void *userdata) {
 
         _cleanup_free_ char *k = NULL;
-        Unit *u = userdata, *slice;
+        Unit *u = userdata, *slice = NULL;
         int r;
 
         assert(filename);
@@ -2611,29 +2611,23 @@ int config_parse_unit_slice(
         assert(u);
 
         r = unit_name_printf(u, rvalue, &k);
-        if (r < 0)
-                log_syntax(unit, LOG_ERR, filename, line, -r,
-                           "Failed to resolve unit specifiers on %s. Ignoring.", rvalue);
-        if (!k) {
-                k = strdup(rvalue);
-                if (!k)
-                        return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to resolve unit specifiers on %s. Ignoring.", rvalue);
+                return 0;
         }
 
         r = manager_load_unit(u->manager, k, NULL, NULL, &slice);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, -r,
-                           "Failed to load slice unit %s. Ignoring.", k);
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to load slice unit %s. Ignoring.", k);
                 return 0;
         }
 
-        if (slice->type != UNIT_SLICE) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Slice unit %s is not a slice. Ignoring.", k);
+        r = unit_set_slice(u, slice);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to assign slice %s to unit %s. Ignoring.", slice->id, u->id);
                 return 0;
         }
 
-        unit_ref_set(&u->slice, slice);
         return 0;
 }
 

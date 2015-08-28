@@ -2424,14 +2424,42 @@ char *unit_default_cgroup_path(Unit *u) {
                 return strjoin(u->manager->cgroup_root, "/", escaped, NULL);
 }
 
-int unit_add_default_slice(Unit *u, CGroupContext *c) {
+int unit_set_slice(Unit *u, Unit *slice) {
+        assert(u);
+        assert(slice);
+
+        /* Sets the unit slice if it has not been set before. Is extra
+         * careful, to only allow this for units that actually have a
+         * cgroup context. Also, we don't allow to set this for slices
+         * (since the parent slice is derived from the name). Make
+         * sure the unit we set is actually a slice. */
+
+        if (!UNIT_HAS_CGROUP_CONTEXT(u))
+                return -EOPNOTSUPP;
+
+        if (u->type == UNIT_SLICE)
+                return -EINVAL;
+
+        if (slice->type != UNIT_SLICE)
+                return -EINVAL;
+
+        if (UNIT_DEREF(u->slice) == slice)
+                return 0;
+
+        if (UNIT_ISSET(u->slice))
+                return -EBUSY;
+
+        unit_ref_set(&u->slice, slice);
+        return 1;
+}
+
+int unit_set_default_slice(Unit *u) {
         _cleanup_free_ char *b = NULL;
         const char *slice_name;
         Unit *slice;
         int r;
 
         assert(u);
-        assert(c);
 
         if (UNIT_ISSET(u->slice))
                 return 0;
@@ -2471,8 +2499,7 @@ int unit_add_default_slice(Unit *u, CGroupContext *c) {
         if (r < 0)
                 return r;
 
-        unit_ref_set(&u->slice, slice);
-        return 0;
+        return unit_set_slice(u, slice);
 }
 
 const char *unit_slice_name(Unit *u) {

@@ -164,7 +164,7 @@ static int scope_load(Unit *u) {
         if (r < 0)
                 return r;
 
-        r = unit_add_default_slice(u, &s->cgroup_context);
+        r = unit_set_default_slice(u);
         if (r < 0)
                 return r;
 

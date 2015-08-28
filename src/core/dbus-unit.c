@@ -965,38 +965,39 @@ static int bus_unit_set_transient_property(
 
                 return 1;
 
-        } else if (streq(name, "Slice") && UNIT_HAS_CGROUP_CONTEXT(u)) {
+        } else if (streq(name, "Slice")) {
+                Unit *slice;
                 const char *s;
+
+                if (!UNIT_HAS_CGROUP_CONTEXT(u))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "The slice property is only available for units with control groups.");
+                if (u->type == UNIT_SLICE)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Slice may not be set for slice units.");
 
                 r = sd_bus_message_read(message, "s", &s);
                 if (r < 0)
                         return r;
 
-                if (!unit_name_is_valid(s, UNIT_NAME_PLAIN) || !endswith(s, ".slice"))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid slice name %s", s);
+                if (!unit_name_is_valid(s, UNIT_NAME_PLAIN))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid unit name '%s'", s);
 
-                if (isempty(s)) {
-                        if (mode != UNIT_CHECK) {
-                                unit_ref_unset(&u->slice);
-                                unit_remove_drop_in(u, mode, name);
-                        }
-                } else {
-                        Unit *slice;
+                r = manager_load_unit(u->manager, s, NULL, error, &slice);
+                if (r < 0)
+                        return r;
 
-                        r = manager_load_unit(u->manager, s, NULL, error, &slice);
+                if (slice->type != UNIT_SLICE)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unit name '%s' is not a slice", s);
+
+                if (mode != UNIT_CHECK) {
+                        r = unit_set_slice(u, slice);
                         if (r < 0)
                                 return r;
 
-                        if (slice->type != UNIT_SLICE)
-                                return -EINVAL;
-
-                        if (mode != UNIT_CHECK) {
-                                unit_ref_set(&u->slice, slice);
-                                unit_write_drop_in_private_format(u, mode, name, "Slice=%s\n", s);
-                        }
+                        unit_write_drop_in_private_format(u, mode, name, "Slice=%s\n", s);
                 }
 
                 return 1;
+
         } else if (STR_IN_SET(name,
                               "Requires", "RequiresOverridable",
                               "Requisite", "RequisiteOverridable",

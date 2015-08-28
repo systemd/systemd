@@ -494,7 +494,8 @@ int unit_load_fragment_and_dropin(Unit *u);
 int unit_load_fragment_and_dropin_optional(Unit *u);
 int unit_load(Unit *unit);
 
-int unit_add_default_slice(Unit *u, CGroupContext *c);
+int unit_set_slice(Unit *u, Unit *slice);
+int unit_set_default_slice(Unit *u);
 
 const char *unit_description(Unit *u) _pure_;
 
