@@ -586,6 +586,42 @@ int unit_name_from_dbus_path(const char *path, char **name) {
         return 0;
 }
 
+const char* unit_dbus_interface_from_type(UnitType t) {
+
+        static const char *const table[_UNIT_TYPE_MAX] = {
+                [UNIT_SERVICE] = "org.freedesktop.systemd1.Service",
+                [UNIT_SOCKET] = "org.freedesktop.systemd1.Socket",
+                [UNIT_BUSNAME] = "org.freedesktop.systemd1.BusName",
+                [UNIT_TARGET] = "org.freedesktop.systemd1.Target",
+                [UNIT_SNAPSHOT] = "org.freedesktop.systemd1.Snapshot",
+                [UNIT_DEVICE] = "org.freedesktop.systemd1.Device",
+                [UNIT_MOUNT] = "org.freedesktop.systemd1.Mount",
+                [UNIT_AUTOMOUNT] = "org.freedesktop.systemd1.Automount",
+                [UNIT_SWAP] = "org.freedesktop.systemd1.Swap",
+                [UNIT_TIMER] = "org.freedesktop.systemd1.Timer",
+                [UNIT_PATH] = "org.freedesktop.systemd1.Path",
+                [UNIT_SLICE] = "org.freedesktop.systemd1.Slice",
+                [UNIT_SCOPE] = "org.freedesktop.systemd1.Scope",
+        };
+
+        if (t < 0)
+                return NULL;
+        if (t >= _UNIT_TYPE_MAX)
+                return NULL;
+
+        return table[t];
+}
+
+const char *unit_dbus_interface_from_name(const char *name) {
+        UnitType t;
+
+        t = unit_name_to_type(name);
+        if (t < 0)
+                return NULL;
+
+        return unit_dbus_interface_from_type(t);
+}
+
 static char *do_escape_mangle(const char *f, UnitNameMangle allow_globs, char *t) {
         const char *valid_chars;
 
@@ -787,7 +823,7 @@ static const char* const unit_type_table[_UNIT_TYPE_MAX] = {
         [UNIT_TIMER] = "timer",
         [UNIT_PATH] = "path",
         [UNIT_SLICE] = "slice",
-        [UNIT_SCOPE] = "scope"
+        [UNIT_SCOPE] = "scope",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(unit_type, UnitType);

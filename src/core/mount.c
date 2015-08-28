@@ -1871,7 +1871,6 @@ const UnitVTable mount_vtable = {
 
         .reset_failed = mount_reset_failed,
 
-        .bus_interface = "org.freedesktop.systemd1.Mount",
         .bus_vtable = bus_mount_vtable,
         .bus_set_property = bus_mount_set_property,
         .bus_commit_properties = bus_mount_commit_properties,
