@@ -231,6 +231,8 @@ mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:400a:
  MOUSE_DPI=600@166
  MOUSE_WHEEL_CLICK_ANGLE=20
 
+# Logitech MX400 Performance Laser Mouse
+mouse:usb:v046dpc043:name:Logitech USB-PS/2 Optical Mouse:
 # Logitech MX1000 Laser Cordless Mouse
 mouse:usb:v046dpc50e:name:Logitech USB RECEIVER:
 # Logitech Cordless Click! Plus
@@ -250,6 +252,8 @@ mouse:usb:v046dpc050:name:Logitech USB-PS/2 Optical Mouse:
 # Logitech Wireless Mouse M185
 mouse:usb:v046dp4008:name:Logitech M185:
 mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:4008:
+# Logitech Wireless Mouse M510
+mouse:usb:v046dp1025:name:Logitech M510:
 # Logitech M705 (marathon mouse)
 mouse:usb:v046dp101b:name:Logitech M705:
 mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:101b:
@@ -285,12 +289,18 @@ mouse:usb:v046dp101d:name:Logitech M505:
 mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:101d:
  MOUSE_DPI=900@166
 
+# Logitech Cordless Desktop Wave Mouse
+mouse:usb:v046dpc517:name:Logitech USB Receiver:
+ MOUSE_DPI=950@125
+
 # Logitech RX1000 Laser Mouse
 mouse:usb:v046dpc046:name:Logitech USB Optical Mouse:
 # Logitech M100 Optical Mouse
 mouse:usb:v046dpc05a:name:Logitech USB Optical Mouse:
 # Logitech USB Laser Mouse M-U0011-O rebranded as "terra Laser"
 mouse:usb:v046dpc065:name:Logitech USB Laser Mouse:
+# Logitech V500 Cordless Notebook Mouse
+mouse:usb:v046dpc510:name:Logitech USB Receiver:
  MOUSE_DPI=1000@125
 
 # Logitech MX Master
@@ -306,6 +316,10 @@ mouse:usb:v046dpc06b:name:Logitech G700 Laser Mouse:
 # Logitech G700 Laser Mouse (Wireless)
 mouse:usb:v046dpc531:name:Logitech USB Receiver:
  MOUSE_DPI=*1000@500 3800@500 500@1000 1500@1000 2000@1000
+
+# Logitech Wireless Mouse M310
+mouse:usb:v046dp1024:name:Logitech M310:
+ MOUSE_DPI=1100@168
 
 # Logitech USB Laser Mouse M-UAS144 [LS1 Laser Mouse]
 mouse:usb:v046dpc062:name:Logitech USB Laser Mouse:
@@ -331,6 +345,10 @@ mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:4026:
 # Logitech G500 Mouse
 mouse:usb:v046dpc068:name:Logitech G500:
  MOUSE_DPI=*1600@500 2600@500 3600@500
+
+# Logitech MX1000 Laser Cordless Mouse
+mouse:bluetooth:v046dpb003:name:Logitech MX1000 mouse:
+ MOUSE_DPI=800@80
 
 # Logitech Ultrathin Touch Mouse
 mouse:bluetooth:v046dpb00d:name:Ultrathin Touch Mouse:
