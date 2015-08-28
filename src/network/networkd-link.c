@@ -742,7 +742,7 @@ static int link_enter_set_addresses(Link *link) {
                 }
 
                 /* offer 32 addresses starting from the address following the server address */
-                r = sd_dhcp_server_configure_pool(link->dhcp_server, &address->in_addr.in, address->prefixlen, 0, 32);
+                r = sd_dhcp_server_configure_pool(link->dhcp_server, &address->in_addr.in, address->prefixlen, 0, 0);
                 if (r < 0)
                         return r;
 
