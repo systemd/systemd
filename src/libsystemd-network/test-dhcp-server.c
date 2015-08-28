@@ -69,9 +69,7 @@ static int test_basic(sd_event *event) {
         assert_se(sd_dhcp_server_configure_pool(server, &address_lo, 8, 0, 0) == -EBUSY);
 
         test_pool(&address_any, 1, -EINVAL);
-        test_pool(&address_lo, 0, -ERANGE);
         test_pool(&address_lo, 1, 0);
-        test_pool(&address_lo, 1, -EBUSY);
 
         r = sd_dhcp_server_start(server);
 
