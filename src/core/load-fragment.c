@@ -3603,6 +3603,11 @@ int unit_load_fragment(Unit *u) {
         assert(u->load_state == UNIT_STUB);
         assert(u->id);
 
+        if (u->transient) {
+                u->load_state = UNIT_LOADED;
+                return 0;
+        }
+
         /* First, try to find the unit under its id. We always look
          * for unit files in the default directories, to make it easy
          * to override things by placing things in /etc/systemd/system */

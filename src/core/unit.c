@@ -405,17 +405,17 @@ static void unit_remove_transient(Unit *u) {
                 return;
 
         if (u->fragment_path)
-                unlink(u->fragment_path);
+                (void) unlink(u->fragment_path);
 
         STRV_FOREACH(i, u->dropin_paths) {
                 _cleanup_free_ char *p = NULL;
                 int r;
 
-                unlink(*i);
+                (void) unlink(*i);
 
                 r = path_get_parent(*i, &p);
                 if (r >= 0)
-                        rmdir(p);
+                        (void) rmdir(p);
         }
 }
 
@@ -3317,6 +3317,8 @@ ExecRuntime *unit_get_exec_runtime(Unit *u) {
 }
 
 static int unit_drop_in_dir(Unit *u, UnitSetPropertiesMode mode, bool transient, char **dir) {
+        assert(u);
+
         if (u->manager->running_as == MANAGER_USER) {
                 int r;
 
@@ -3324,9 +3326,9 @@ static int unit_drop_in_dir(Unit *u, UnitSetPropertiesMode mode, bool transient,
                         r = user_config_home(dir);
                 else
                         r = user_runtime_dir(dir);
-
                 if (r == 0)
                         return -ENOENT;
+
                 return r;
         }
 
@@ -3340,8 +3342,7 @@ static int unit_drop_in_dir(Unit *u, UnitSetPropertiesMode mode, bool transient,
         return 0;
 }
 
-static int unit_drop_in_file(Unit *u,
-                             UnitSetPropertiesMode mode, const char *name, char **p, char **q) {
+static int unit_drop_in_file(Unit *u, UnitSetPropertiesMode mode, const char *name, char **p, char **q) {
         _cleanup_free_ char *dir = NULL;
         int r;
 
@@ -3475,40 +3476,17 @@ int unit_remove_drop_in(Unit *u, UnitSetPropertiesMode mode, const char *name) {
 }
 
 int unit_make_transient(Unit *u) {
-        int r;
-
         assert(u);
+
+        if (!UNIT_VTABLE(u)->can_transient)
+                return -EOPNOTSUPP;
 
         u->load_state = UNIT_STUB;
         u->load_error = 0;
         u->transient = true;
+        u->fragment_path = mfree(u->fragment_path);
 
-        free(u->fragment_path);
-        u->fragment_path = NULL;
-
-        if (u->manager->running_as == MANAGER_USER) {
-                _cleanup_free_ char *c = NULL;
-
-                r = user_runtime_dir(&c);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        return -ENOENT;
-
-                u->fragment_path = strjoin(c, "/", u->id, NULL);
-                if (!u->fragment_path)
-                        return -ENOMEM;
-
-                mkdir_p(c, 0755);
-        } else {
-                u->fragment_path = strappend("/run/systemd/system/", u->id);
-                if (!u->fragment_path)
-                        return -ENOMEM;
-
-                mkdir_p("/run/systemd/system", 0755);
-        }
-
-        return write_string_file_atomic_label(u->fragment_path, "# Transient stub");
+        return 0;
 }
 
 int unit_kill_context(
