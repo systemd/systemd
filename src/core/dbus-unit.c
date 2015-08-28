@@ -965,7 +965,7 @@ static int bus_unit_set_transient_property(
 
                 return 1;
 
-        } else if (streq(name, "Slice") && unit_get_cgroup_context(u)) {
+        } else if (streq(name, "Slice") && UNIT_HAS_CGROUP_CONTEXT(u)) {
                 const char *s;
 
                 r = sd_bus_message_read(message, "s", &s);

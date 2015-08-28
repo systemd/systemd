@@ -1122,7 +1122,7 @@ static int unit_add_target_dependencies(Unit *u) {
 static int unit_add_slice_dependencies(Unit *u) {
         assert(u);
 
-        if (!unit_get_cgroup_context(u))
+        if (!UNIT_HAS_CGROUP_CONTEXT(u))
                 return 0;
 
         if (UNIT_ISSET(u->slice))

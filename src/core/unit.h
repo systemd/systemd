@@ -439,6 +439,10 @@ extern const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX];
 /* For casting the various unit types into a unit */
 #define UNIT(u) (&(u)->meta)
 
+#define UNIT_HAS_EXEC_CONTEXT(u) (UNIT_VTABLE(u)->exec_context_offset > 0)
+#define UNIT_HAS_CGROUP_CONTEXT(u) (UNIT_VTABLE(u)->cgroup_context_offset > 0)
+#define UNIT_HAS_KILL_CONTEXT(u) (UNIT_VTABLE(u)->kill_context_offset > 0)
+
 #define UNIT_TRIGGER(u) ((Unit*) set_first((u)->dependencies[UNIT_TRIGGERS]))
 
 DEFINE_CAST(SERVICE, Service);
