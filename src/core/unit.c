@@ -3135,17 +3135,17 @@ int unit_kill_common(
 
         int r = 0;
 
-        if (who == KILL_MAIN && main_pid <= 0) {
+        if (who == KILL_MAIN) {
                 if (main_pid < 0)
                         return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_PROCESS, "%s units have no main processes", unit_type_to_string(u->type));
-                else
+                else if (main_pid == 0)
                         return sd_bus_error_set_const(error, BUS_ERROR_NO_SUCH_PROCESS, "No main process to kill");
         }
 
-        if (who == KILL_CONTROL && control_pid <= 0) {
+        if (who == KILL_CONTROL) {
                 if (control_pid < 0)
                         return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_PROCESS, "%s units have no control processes", unit_type_to_string(u->type));
-                else
+                else if (control_pid == 0)
                         return sd_bus_error_set_const(error, BUS_ERROR_NO_SUCH_PROCESS, "No control process to kill");
         }
 
