@@ -161,8 +161,7 @@ int show_cgroup_by_path(const char *path, const char *prefix, unsigned n_columns
                 }
 
                 if (last) {
-                        printf("%s%s%s\n", prefix, draw_special_char(DRAW_TREE_BRANCH),
-                                           basename(last));
+                        printf("%s%s%s\n", prefix, draw_special_char(DRAW_TREE_BRANCH), cg_unescape(basename(last)));
 
                         if (!p1) {
                                 p1 = strappend(prefix, draw_special_char(DRAW_TREE_VERTICAL));
@@ -185,8 +184,7 @@ int show_cgroup_by_path(const char *path, const char *prefix, unsigned n_columns
                 show_cgroup_one_by_path(path, prefix, n_columns, !!last, kernel_threads, flags);
 
         if (last) {
-                printf("%s%s%s\n", prefix, draw_special_char(DRAW_TREE_RIGHT),
-                                   basename(last));
+                printf("%s%s%s\n", prefix, draw_special_char(DRAW_TREE_RIGHT), cg_unescape(basename(last)));
 
                 if (!p2) {
                         p2 = strappend(prefix, "  ");
