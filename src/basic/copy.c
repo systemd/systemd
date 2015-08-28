@@ -30,7 +30,7 @@
 #define COPY_BUFFER_SIZE (16*1024)
 
 int copy_bytes(int fdf, int fdt, off_t max_bytes, bool try_reflink) {
-        bool try_sendfile = true;
+        bool try_sendfile = true, try_splice = true;
         int r;
 
         assert(fdf >= 0);
@@ -69,7 +69,23 @@ int copy_bytes(int fdf, int fdt, off_t max_bytes, bool try_reflink) {
                         } else if (n == 0) /* EOF */
                                 break;
                         else if (n > 0)
-                                /* Succcess! */
+                                /* Success! */
+                                goto next;
+                }
+
+                /* The try splice, unless we already tried */
+                if (try_splice) {
+                        n  = splice(fdf, NULL, fdt, NULL, m, 0);
+                        if (n < 0) {
+                                if (errno != EINVAL && errno != ENOSYS)
+                                        return -errno;
+
+                                try_splice = false;
+                                /* use fallback below */
+                        } else if (n == 0) /* EOF */
+                                break;
+                        else if (n > 0)
+                                /* Success! */
                                 goto next;
                 }
 
