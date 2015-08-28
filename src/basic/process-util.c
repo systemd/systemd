@@ -181,10 +181,10 @@ int is_kernel_thread(pid_t pid) {
         bool eof;
         FILE *f;
 
-        if (pid == 0)
+        if (pid == 0 || pid == 1) /* pid 1, and we ourselves certainly aren't a kernel thread */
                 return 0;
 
-        assert(pid > 0);
+        assert(pid > 1);
 
         p = procfs_file_alloca(pid, "cmdline");
         f = fopen(p, "re");
