@@ -348,21 +348,21 @@ static int refresh_one(
         return r;
 }
 
-static int refresh(Hashmap *a, Hashmap *b, unsigned iteration) {
+static int refresh(const char *root, Hashmap *a, Hashmap *b, unsigned iteration) {
         int r;
 
         assert(a);
 
-        r = refresh_one(SYSTEMD_CGROUP_CONTROLLER, "/", a, b, iteration, 0);
+        r = refresh_one(SYSTEMD_CGROUP_CONTROLLER, root, a, b, iteration, 0);
         if (r < 0)
                 return r;
-        r = refresh_one("cpuacct", "/", a, b, iteration, 0);
+        r = refresh_one("cpuacct", root, a, b, iteration, 0);
         if (r < 0)
                 return r;
-        r = refresh_one("memory", "/", a, b, iteration, 0);
+        r = refresh_one("memory", root, a, b, iteration, 0);
         if (r < 0)
                 return r;
-        r = refresh_one("blkio", "/", a, b, iteration, 0);
+        r = refresh_one("blkio", root, a, b, iteration, 0);
         if (r < 0)
                 return r;
 
@@ -721,6 +721,7 @@ int main(int argc, char *argv[]) {
         unsigned iteration = 0;
         usec_t last_refresh = 0;
         bool quit = false, immediate_refresh = false;
+        _cleanup_free_ char *root = NULL;
 
         log_parse_environment();
         log_open();
@@ -728,6 +729,12 @@ int main(int argc, char *argv[]) {
         r = parse_argv(argc, argv);
         if (r <= 0)
                 goto finish;
+
+        r = cg_get_root_path(&root);
+        if (r < 0) {
+                log_error_errno(r, "Failed to get root control group path: %m");
+                goto finish;
+        }
 
         a = hashmap_new(&string_hash_ops);
         b = hashmap_new(&string_hash_ops);
@@ -751,7 +758,7 @@ int main(int argc, char *argv[]) {
 
                 if (t >= last_refresh + arg_delay || immediate_refresh) {
 
-                        r = refresh(a, b, iteration++);
+                        r = refresh(root, a, b, iteration++);
                         if (r < 0)
                                 goto finish;
 
