@@ -1171,7 +1171,7 @@ static int parse_mount_bind_options(const char *options, unsigned long *mount_fl
 
         for (;;) {
                 _cleanup_free_ char *word = NULL;
-                int r = extract_first_word(&p, &word, ",", EXTRACT_QUOTES);
+                int r = extract_first_word(&p, &word, ",", 0);
                 if (r < 0)
                         return log_error_errno(r, "Failed to extract mount option: %m");
                 if (r == 0)
