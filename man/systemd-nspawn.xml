@@ -576,12 +576,15 @@
         <term><option>--bind-ro=</option></term>
 
         <listitem><para>Bind mount a file or directory from the host
-        into the container. Either takes a path argument -- in which
+        into the container. Takes one of: a path argument -- in which
         case the specified path will be mounted from the host to the
         same path in the container --, or a colon-separated pair of
         paths -- in which case the first specified path is the source
         in the host, and the second path is the destination in the
-        container. Backslash escapes are interpreted so
+        container --, or a colon-separated triple of source path,
+        destination path and mount options. Mount options are comma
+        separated and currently only "rbind" and "norbind"
+        are allowed. Defaults to "rbind". Backslash escapes are interpreted so
         <literal>\:</literal> may be used to embed colons in either path.
         This option may be specified multiple times for
         creating multiple independent bind mount points. The

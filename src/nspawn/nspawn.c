@@ -257,9 +257,11 @@ static void help(void) {
                "                            try-guest, try-host\n"
                "  -j                        Equivalent to --link-journal=try-guest\n"
                "     --read-only            Mount the root directory read-only\n"
-               "     --bind=PATH[:PATH]     Bind mount a file or directory from the host into\n"
+               "     --bind=PATH[:PATH[:OPTIONS]]\n"
+               "                            Bind mount a file or directory from the host into\n"
                "                            the container\n"
-               "     --bind-ro=PATH[:PATH]  Similar, but creates a read-only bind mount\n"
+               "     --bind-ro=PATH[:PATH[:OPTIONS]\n"
+               "                            Similar, but creates a read-only bind mount\n"
                "     --tmpfs=PATH:[OPTIONS] Mount an empty tmpfs to the specified directory\n"
                "     --overlay=PATH[:PATH...]:PATH\n"
                "                            Create an overlay mount from the host to \n"
@@ -656,14 +658,15 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_BIND:
                 case ARG_BIND_RO: {
                         const char *current = optarg;
-                        _cleanup_free_ char *source = NULL, *destination = NULL;
+                        _cleanup_free_ char *source = NULL, *destination = NULL, *opts = NULL;
                         CustomMount *m;
 
-                        r = extract_many_words(&current, ":", EXTRACT_DONT_COALESCE_SEPARATORS, &source, &destination, NULL);
+                        r = extract_many_words(&current, ":", EXTRACT_DONT_COALESCE_SEPARATORS, &source, &destination, &opts, NULL);
                         switch (r) {
                         case 1:
                                 destination = strdup(source);
                         case 2:
+                        case 3:
                                 break;
                         case -ENOMEM:
                                 return log_oom();
@@ -687,8 +690,9 @@ static int parse_argv(int argc, char *argv[]) {
                         m->source = source;
                         m->destination = destination;
                         m->read_only = c == ARG_BIND_RO;
+                        m->options = opts;
 
-                        source = destination = NULL;
+                        source = destination = opts = NULL;
 
                         break;
                 }
@@ -1158,12 +1162,52 @@ static int mount_all(const char *dest, bool userns) {
         return 0;
 }
 
+static int parse_mount_bind_options(const char *options, unsigned long *mount_flags, char **mount_opts) {
+        const char *p = options;
+        unsigned long flags = *mount_flags;
+        char *opts = NULL;
+
+        assert(options);
+
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
+                int r = extract_first_word(&p, &word, ",", EXTRACT_QUOTES);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to extract mount option: %m");
+                if (r == 0)
+                        break;
+
+                if (streq(word, "rbind"))
+                        flags |= MS_REC;
+                else if (streq(word, "norbind"))
+                        flags &= ~MS_REC;
+                else {
+                        log_error("Invalid bind mount option: %s", word);
+                        return -EINVAL;
+                }
+        }
+
+        *mount_flags = flags;
+        /* in the future mount_opts will hold string options for mount(2) */
+        *mount_opts = opts;
+
+        return 0;
+}
+
 static int mount_bind(const char *dest, CustomMount *m) {
         struct stat source_st, dest_st;
         const char *where;
+        unsigned long mount_flags = MS_BIND | MS_REC;
+        _cleanup_free_ char *mount_opts = NULL;
         int r;
 
         assert(m);
+
+        if (m->options) {
+                r = parse_mount_bind_options(m->options, &mount_flags, &mount_opts);
+                if (r < 0)
+                        return r;
+        }
 
         if (stat(m->source, &source_st) < 0)
                 return log_error_errno(errno, "Failed to stat %s: %m", m->source);
@@ -1201,7 +1245,7 @@ static int mount_bind(const char *dest, CustomMount *m) {
         if (r < 0 && r != -EEXIST)
                 return log_error_errno(r, "Failed to create mount point %s: %m", where);
 
-        if (mount(m->source, where, NULL, MS_BIND, NULL) < 0)
+        if (mount(m->source, where, NULL, mount_flags, mount_opts) < 0)
                 return log_error_errno(errno, "mount(%s) failed: %m", where);
 
         if (m->read_only) {
