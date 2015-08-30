@@ -823,7 +823,7 @@ static int link_enter_set_addresses(Link *link) {
 
                 if (link->network->dhcp_server_emit_timezone) {
                         _cleanup_free_ char *buffer = NULL;
-                        const char *tz;
+                        const char *tz = NULL;
 
                         if (link->network->dhcp_server_timezone)
                                 tz = link->network->dhcp_server_timezone;
