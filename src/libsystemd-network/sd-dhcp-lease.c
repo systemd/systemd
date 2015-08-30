@@ -1121,13 +1121,13 @@ int dhcp_lease_set_client_id(sd_dhcp_lease *lease, const void *client_id, size_t
         return 0;
 }
 
-int sd_dhcp_lease_get_timezone(sd_dhcp_lease *lease, const char **timezone) {
+int sd_dhcp_lease_get_timezone(sd_dhcp_lease *lease, const char **_timezone) {
         assert_return(lease, -EINVAL);
-        assert_return(timezone, -EINVAL);
+        assert_return(_timezone, -EINVAL);
 
         if (!lease->timezone)
                 return -ENODATA;
 
-        *timezone = lease->timezone;
+        *_timezone = lease->timezone;
         return 0;
 }
