@@ -895,6 +895,20 @@ int main(int argc, char *argv[]) {
                         arg_cpu_type = arg_cpu_type == CPU_TIME ? CPU_PERCENT : CPU_TIME;
                         break;
 
+                case 'k':
+                        arg_kernel_threads = !arg_kernel_threads;
+                        fprintf(stdout, "\nCounting kernel threads: %s.", yes_no(arg_kernel_threads));
+                        fflush(stdout);
+                        sleep(1);
+                        break;
+
+                case 'r':
+                        arg_recursive = !arg_recursive;
+                        fprintf(stdout, "\nRecursive task counting: %s", yes_no(arg_recursive));
+                        fflush(stdout);
+                        sleep(1);
+                        break;
+
                 case '+':
                         if (arg_delay < USEC_PER_SEC)
                                 arg_delay += USEC_PER_MSEC*250;
@@ -923,8 +937,8 @@ int main(int argc, char *argv[]) {
                 case 'h':
                         fprintf(stdout,
                                 "\t<" ON "p" OFF "> By path; <" ON "t" OFF "> By tasks; <" ON "c" OFF "> By CPU; <" ON "m" OFF "> By memory; <" ON "i" OFF "> By I/O\n"
-                                "\t<" ON "+" OFF "> Increase delay; <" ON "-" OFF "> Decrease delay; <" ON "%%" OFF "> Toggle time\n"
-                                "\t<" ON "q" OFF "> Quit; <" ON "SPACE" OFF "> Refresh");
+                                "\t<" ON "+" OFF "> Inc. delay; <" ON "-" OFF "> Dec. delay; <" ON "%%" OFF "> Toggle time; <" ON "SPACE" OFF "> Refresh\n"
+                                "\t<" ON "k" OFF "> Count kernel threads; <" ON "r" OFF "> Count recursively; <" ON "q" OFF "> Quit");
                         fflush(stdout);
                         sleep(3);
                         break;
