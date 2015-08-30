@@ -26,6 +26,10 @@ External:
 
 Features:
 
+* sd-event: somehow handle multiple queued incoming signals
+
+* sd-event: maybe add support for inotify events
+
 * PID 1 should send out sd_notify("WATCHDOG=1") messages (for usage in the --user mode, and when run via nspawn)
 
 * nspawn should send out sd_notify("WATCHDOG=1") messages
