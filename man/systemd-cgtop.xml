@@ -177,6 +177,18 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--recursive=</option></term>
+
+        <listitem><para>Controls whether the number of tasks shown for
+        a control group shall include all tasks that are contained in
+        any of the child control groups as well. Takes a boolean
+        argument, defaults to <literal>yes</literal>. If enabled the
+        tasks in child control groups are included, if disabled only
+        the tasks in the control group itself are
+        counted.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>-n</option></term>
         <term><option>--iterations=</option></term>
 
@@ -211,7 +223,6 @@
     </variablelist>
 
   </refsect1>
-
 
   <refsect1>
     <title>Keys</title>

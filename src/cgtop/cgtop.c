@@ -66,6 +66,7 @@ static bool arg_batch = false;
 static bool arg_raw = false;
 static usec_t arg_delay = 1*USEC_PER_SEC;
 static bool arg_kernel_threads = false;
+static bool arg_recursive = true;
 
 static enum {
         ORDER_PATH,
@@ -109,7 +110,14 @@ static const char *maybe_format_bytes(char *buf, size_t l, bool is_valid, off_t 
         return format_bytes(buf, l, t);
 }
 
-static int process(const char *controller, const char *path, Hashmap *a, Hashmap *b, unsigned iteration) {
+static int process(
+                const char *controller,
+                const char *path,
+                Hashmap *a,
+                Hashmap *b,
+                unsigned iteration,
+                Group **ret) {
+
         Group *g;
         int r;
 
@@ -303,6 +311,9 @@ static int process(const char *controller, const char *path, Hashmap *a, Hashmap
                 g->io_iteration = iteration;
         }
 
+        if (ret)
+                *ret = g;
+
         return 0;
 }
 
@@ -312,9 +323,11 @@ static int refresh_one(
                 Hashmap *a,
                 Hashmap *b,
                 unsigned iteration,
-                unsigned depth) {
+                unsigned depth,
+                Group **ret) {
 
         _cleanup_closedir_ DIR *d = NULL;
+        Group *ours;
         int r;
 
         assert(controller);
@@ -324,7 +337,7 @@ static int refresh_one(
         if (depth > arg_depth)
                 return 0;
 
-        r = process(controller, path, a, b, iteration);
+        r = process(controller, path, a, b, iteration, &ours);
         if (r < 0)
                 return r;
 
@@ -336,10 +349,13 @@ static int refresh_one(
 
         for (;;) {
                 _cleanup_free_ char *fn = NULL, *p = NULL;
+                Group *child = NULL;
 
                 r = cg_read_subgroup(d, &fn);
-                if (r <= 0)
+                if (r < 0)
                         return r;
+                if (r == 0)
+                        break;
 
                 p = strjoin(path, "/", fn, NULL);
                 if (!p)
@@ -347,12 +363,30 @@ static int refresh_one(
 
                 path_kill_slashes(p);
 
-                r = refresh_one(controller, p, a, b, iteration, depth + 1);
+                r = refresh_one(controller, p, a, b, iteration, depth + 1, &child);
                 if (r < 0)
                         return r;
+
+                if (arg_recursive &&
+                    child &&
+                    child->n_tasks_valid &&
+                    streq(controller, SYSTEMD_CGROUP_CONTROLLER)) {
+
+                        /* Recursively sum up processes */
+
+                        if (ours->n_tasks_valid)
+                                ours->n_tasks += child->n_tasks;
+                        else {
+                                ours->n_tasks = child->n_tasks;
+                                ours->n_tasks_valid = true;
+                        }
+                }
         }
 
-        return r;
+        if (ret)
+                *ret = ours;
+
+        return 1;
 }
 
 static int refresh(const char *root, Hashmap *a, Hashmap *b, unsigned iteration) {
@@ -360,16 +394,16 @@ static int refresh(const char *root, Hashmap *a, Hashmap *b, unsigned iteration)
 
         assert(a);
 
-        r = refresh_one(SYSTEMD_CGROUP_CONTROLLER, root, a, b, iteration, 0);
+        r = refresh_one(SYSTEMD_CGROUP_CONTROLLER, root, a, b, iteration, 0, NULL);
         if (r < 0)
                 return r;
-        r = refresh_one("cpuacct", root, a, b, iteration, 0);
+        r = refresh_one("cpuacct", root, a, b, iteration, 0, NULL);
         if (r < 0)
                 return r;
-        r = refresh_one("memory", root, a, b, iteration, 0);
+        r = refresh_one("memory", root, a, b, iteration, 0, NULL);
         if (r < 0)
                 return r;
-        r = refresh_one("blkio", root, a, b, iteration, 0);
+        r = refresh_one("blkio", root, a, b, iteration, 0, NULL);
         if (r < 0)
                 return r;
 
@@ -379,11 +413,11 @@ static int refresh(const char *root, Hashmap *a, Hashmap *b, unsigned iteration)
 static int group_compare(const void*a, const void *b) {
         const Group *x = *(Group**)a, *y = *(Group**)b;
 
-        if (arg_order != ORDER_TASKS) {
+        if (arg_order != ORDER_TASKS || arg_recursive) {
                 /* Let's make sure that the parent is always before
-                 * the child. Except when ordering by tasks, since
-                 * that is actually not accumulative for all
-                 * children. */
+                 * the child. Except when ordering by tasks and
+                 * recursive summing is off, since that is actually
+                 * not accumulative for all children. */
 
                 if (path_startswith(y->path, x->path))
                         return -1;
@@ -573,6 +607,7 @@ static void help(void) {
                "     --cpu=percentage Show CPU usage as percentage (default)\n"
                "     --cpu=time       Show CPU usage as time\n"
                "  -k                  Include kernel threads in task count\n"
+               "     --recursive=BOOL Sum up task count recursively\n"
                "  -d --delay=DELAY    Delay between updates\n"
                "  -n --iterations=N   Run for N iterations before exiting\n"
                "  -b --batch          Run in batch mode, accepting no input\n"
@@ -587,23 +622,24 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_DEPTH,
                 ARG_CPU_TYPE,
                 ARG_ORDER,
+                ARG_RECURSIVE,
         };
 
         static const struct option options[] = {
-                { "help",         no_argument,       NULL, 'h'          },
-                { "version",      no_argument,       NULL, ARG_VERSION  },
-                { "delay",        required_argument, NULL, 'd'          },
-                { "iterations",   required_argument, NULL, 'n'          },
-                { "batch",        no_argument,       NULL, 'b'          },
-                { "raw",          no_argument,       NULL, 'r'          },
-                { "depth",        required_argument, NULL, ARG_DEPTH    },
-                { "cpu",          optional_argument, NULL, ARG_CPU_TYPE },
-                { "order",        required_argument, NULL, ARG_ORDER    },
+                { "help",         no_argument,       NULL, 'h'           },
+                { "version",      no_argument,       NULL, ARG_VERSION   },
+                { "delay",        required_argument, NULL, 'd'           },
+                { "iterations",   required_argument, NULL, 'n'           },
+                { "batch",        no_argument,       NULL, 'b'           },
+                { "raw",          no_argument,       NULL, 'r'           },
+                { "depth",        required_argument, NULL, ARG_DEPTH     },
+                { "cpu",          optional_argument, NULL, ARG_CPU_TYPE  },
+                { "order",        required_argument, NULL, ARG_ORDER     },
+                { "recursive",    required_argument, NULL, ARG_RECURSIVE },
                 {}
         };
 
-        int c;
-        int r;
+        int c, r;
 
         assert(argc >= 1);
         assert(argv);
@@ -710,6 +746,16 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'k':
                         arg_kernel_threads = true;
+                        break;
+
+                case ARG_RECURSIVE:
+                        r = parse_boolean(optarg);
+                        if (r < 0) {
+                                log_error("Failed to parse --recursive= argument: %s", optarg);
+                                return r;
+                        }
+
+                        arg_recursive = r;
                         break;
 
                 case '?':
