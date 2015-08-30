@@ -83,7 +83,7 @@ int strcmp_ptr(const char *a, const char *b) _pure_;
 
 #define newdup(t, p, n) ((t*) memdup_multiply(p, sizeof(t), (n)))
 
-#define malloc0(n) (calloc((n), 1))
+#define malloc0(n) (calloc(1, (n)))
 
 static inline void *mfree(void *memory) {
         free(memory);
