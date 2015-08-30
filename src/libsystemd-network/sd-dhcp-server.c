@@ -1037,16 +1037,16 @@ int sd_dhcp_server_forcerenew(sd_dhcp_server *server) {
         return r;
 }
 
-int sd_dhcp_server_set_timezone(sd_dhcp_server *server, const char *timezone) {
+int sd_dhcp_server_set_timezone(sd_dhcp_server *server, const char *tz) {
         int r;
 
         assert_return(server, -EINVAL);
-        assert_return(timezone_is_valid(timezone), -EINVAL);
+        assert_return(timezone_is_valid(tz), -EINVAL);
 
-        if (streq_ptr(timezone, server->timezone))
+        if (streq_ptr(tz, server->timezone))
                 return 0;
 
-        r = free_and_strdup(&server->timezone, timezone);
+        r = free_and_strdup(&server->timezone, tz);
         if (r < 0)
                 return r;
 

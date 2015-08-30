@@ -980,14 +980,14 @@ static int set_timezone_handler(sd_bus_message *m, void *userdata, sd_bus_error 
         return 1;
 }
 
-int link_set_timezone(Link *link, const char *timezone) {
+int link_set_timezone(Link *link, const char *tz) {
         int r;
 
         assert(link);
         assert(link->manager);
-        assert(timezone);
+        assert(tz);
 
-        log_link_debug(link, "Setting system timezone: '%s'", timezone);
+        log_link_debug(link, "Setting system timezone: '%s'", tz);
 
         if (!link->manager->bus) {
                 log_link_info(link, "Not connected to system bus, ignoring timezone.");
@@ -1004,7 +1004,7 @@ int link_set_timezone(Link *link, const char *timezone) {
                         set_timezone_handler,
                         link,
                         "sb",
-                        timezone,
+                        tz,
                         false);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not set timezone: %m");

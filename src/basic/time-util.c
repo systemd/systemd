@@ -1046,7 +1046,7 @@ clockid_t clock_boottime_or_monotonic(void) {
         return clock;
 }
 
-int get_timezone(char **timezone) {
+int get_timezone(char **tz) {
         _cleanup_free_ char *t = NULL;
         const char *e;
         char *z;
@@ -1069,6 +1069,6 @@ int get_timezone(char **timezone) {
         if (!z)
                 return -ENOMEM;
 
-        *timezone = z;
+        *tz = z;
         return 0;
 }
