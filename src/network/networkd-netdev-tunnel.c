@@ -284,6 +284,12 @@ static int netdev_ip6tnl_fill_message_create(NetDev *netdev, Link *link, sd_netl
         if (t->copy_dscp)
                 t->flags |= IP6_TNL_F_RCV_DSCP_COPY;
 
+        if (t->encap_limit != IPV6_DEFAULT_TNL_ENCAP_LIMIT) {
+                r = sd_netlink_message_append_u8(m, IFLA_IPTUN_ENCAP_LIMIT, t->encap_limit);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_ENCAP_LIMIT attribute: %m");
+        }
+
         r = sd_netlink_message_append_u32(m, IFLA_IPTUN_FLAGS, t->flags);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_FLAGS attribute: %m");
@@ -436,6 +442,45 @@ int config_parse_ipv6_flowlabel(const char* unit,
                                 *ipv6_flowlabel = htonl(k) & IP6_FLOWINFO_FLOWLABEL;
                                 t->flags &= ~IP6_TNL_F_USE_ORIG_FLOWLABEL;
                         }
+                }
+        }
+
+        return 0;
+}
+
+int config_parse_encap_limit(const char* unit,
+                             const char *filename,
+                             unsigned line,
+                             const char *section,
+                             unsigned section_line,
+                             const char *lvalue,
+                              int ltype,
+                             const char *rvalue,
+                             void *data,
+                             void *userdata) {
+        Tunnel *t = userdata;
+        int k = 0;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (streq(rvalue, "none"))
+                t->flags |= IP6_TNL_F_IGN_ENCAP_LIMIT;
+        else {
+                r = safe_atoi(rvalue, &k);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to parse Tunnel Encapsulation Limit option, ignoring: %s", rvalue);
+                        return 0;
+                }
+
+                if (k > 255 || k < 0)
+                        log_syntax(unit, LOG_ERR, filename, line, k, "Invalid Tunnel Encapsulation value, ignoring: %d", k);
+                else {
+                        t->encap_limit = k;
+                        t->flags &= ~IP6_TNL_F_IGN_ENCAP_LIMIT;
                 }
         }
 
