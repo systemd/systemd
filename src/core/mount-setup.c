@@ -303,6 +303,17 @@ int mount_cgroup_controllers(char ***join_controllers) {
                                 r = symlink(options, t);
                                 if (r < 0 && errno != EEXIST)
                                         return log_error_errno(errno, "Failed to create symlink %s: %m", t);
+#ifdef SMACK_RUN_LABEL
+                                _cleanup_free_ char *label = NULL;
+                                r = mac_smack_read(options, SMACK_ATTR_ACCESS, &label);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to read original SMACK label: %m");
+
+                                r = mac_smack_apply(t, SMACK_ATTR_ACCESS, label);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to set SMACK label: %m");
+#endif
+
                         }
                 }
         }
