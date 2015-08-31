@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/bin/sh
 
 # udev test
 #
@@ -16,6 +16,18 @@
 #
 # Copyright (C) 2004-2012 Kay Sievers <kay@vrfy.org>
 # Copyright (C) 2004 Leann Ogasawara <ogasawara@osdl.org>
+
+# Find if there is a Perl interpreter available.
+# Otherwise, exit with status 77 to SKIP the test.
+# This is a shell script snippet:
+PERL=`which perl 2>/dev/null` || {
+        echo "Perl interpreter not found, skipping the test." >&2
+        exit 77
+}
+exec "${PERL}" -x -S "$0" ${1+"$@"}
+
+# Perl -x will look for the line below and start running there:
+#! -*-perl-*-
 
 use warnings;
 use strict;
