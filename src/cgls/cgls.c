@@ -263,7 +263,7 @@ int main(int argc, char *argv[]) {
                         if (r < 0)
                                 goto finish;
 
-                        printf("Control group %s:\n", root);
+                        printf("Control group %s:\n", isempty(root) ? "/" : root);
                         fflush(stdout);
 
                         r = show_cgroup(SYSTEMD_CGROUP_CONTROLLER, root, NULL, 0, arg_kernel_threads, output_flags);
