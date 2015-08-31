@@ -204,6 +204,7 @@ int bus_seat_method_terminate(sd_bus_message *message, void *userdata, sd_bus_er
                         message,
                         CAP_KILL,
                         "org.freedesktop.login1.manage",
+                        NULL,
                         false,
                         UID_INVALID,
                         &s->manager->polkit_registry,

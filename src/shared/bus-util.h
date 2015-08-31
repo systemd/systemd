@@ -60,9 +60,9 @@ int bus_name_has_owner(sd_bus *c, const char *name, sd_bus_error *error);
 
 int bus_check_peercred(sd_bus *c);
 
-int bus_test_polkit(sd_bus_message *call, int capability, const char *action, uid_t good_user, bool *_challenge, sd_bus_error *e);
+int bus_test_polkit(sd_bus_message *call, int capability, const char *action, char **details, uid_t good_user, bool *_challenge, sd_bus_error *e);
 
-int bus_verify_polkit_async(sd_bus_message *call, int capability, const char *action, bool interactive, uid_t good_user, Hashmap **registry, sd_bus_error *error);
+int bus_verify_polkit_async(sd_bus_message *call, int capability, const char *action, char **details, bool interactive, uid_t good_user, Hashmap **registry, sd_bus_error *error);
 void bus_verify_polkit_async_registry_free(Hashmap *registry);
 
 int bus_open_system_systemd(sd_bus **_bus);
