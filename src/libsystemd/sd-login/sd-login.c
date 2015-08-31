@@ -237,11 +237,13 @@ _public_ int sd_uid_get_display(uid_t uid, char **session) {
                 return r;
 
         r = parse_env_file(p, NEWLINE, "DISPLAY", &s, NULL);
+        if (r == -ENOENT)
+                return -ENXIO;
         if (r < 0)
                 return r;
 
         if (isempty(s))
-                return -ENOENT;
+                return -ENXIO;
 
         *session = s;
         s = NULL;
@@ -465,7 +467,7 @@ static int session_get_string(const char *session, const char *field, char **val
                 return r;
 
         if (isempty(s))
-                return -ENOENT;
+                return -ENXIO;
 
         *value = s;
         s = NULL;
