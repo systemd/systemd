@@ -5754,20 +5754,25 @@ int extract_first_word(const char **p, char **ret, const char *separators, Extra
                 switch (state) {
 
                 case START:
-                        if (c == 0) {
-                                if (flags & EXTRACT_DONT_COALESCE_SEPARATORS)
-                                        if (!GREEDY_REALLOC(s, allocated, sz+1))
-                                                return -ENOMEM;
+                        if (flags & EXTRACT_DONT_COALESCE_SEPARATORS)
+                                if (!GREEDY_REALLOC(s, allocated, sz+1))
+                                        return -ENOMEM;
+
+                        if (c == 0)
                                 goto finish_force_terminate;
-                        } else if (strchr(separators, c)) {
+                        else if (strchr(separators, c)) {
                                 if (flags & EXTRACT_DONT_COALESCE_SEPARATORS) {
-                                        if (!GREEDY_REALLOC(s, allocated, sz+1))
-                                                return -ENOMEM;
                                         (*p) ++;
                                         goto finish_force_next;
                                 }
                                 break;
                         }
+
+                        /* We found a non-blank character, so we will always
+                         * want to return a string (even if it is empty),
+                         * allocate it here. */
+                        if (!GREEDY_REALLOC(s, allocated, sz+1))
+                                return -ENOMEM;
 
                         state = VALUE;
                         /* fallthrough */
@@ -5775,19 +5780,13 @@ int extract_first_word(const char **p, char **ret, const char *separators, Extra
                 case VALUE:
                         if (c == 0)
                                 goto finish_force_terminate;
-                        else if (c == '\'' && (flags & EXTRACT_QUOTES)) {
-                                if (!GREEDY_REALLOC(s, allocated, sz+1))
-                                        return -ENOMEM;
-
+                        else if (c == '\'' && (flags & EXTRACT_QUOTES))
                                 state = SINGLE_QUOTE;
-                        } else if (c == '\\')
+                        else if (c == '\\')
                                 state = VALUE_ESCAPE;
-                        else if (c == '\"' && (flags & EXTRACT_QUOTES)) {
-                                if (!GREEDY_REALLOC(s, allocated, sz+1))
-                                        return -ENOMEM;
-
+                        else if (c == '\"' && (flags & EXTRACT_QUOTES))
                                 state = DOUBLE_QUOTE;
-                        } else if (strchr(separators, c)) {
+                        else if (strchr(separators, c)) {
                                 if (flags & EXTRACT_DONT_COALESCE_SEPARATORS) {
                                         (*p) ++;
                                         goto finish_force_next;
@@ -5891,8 +5890,6 @@ end_escape:
                 case SEPARATOR:
                         if (c == 0)
                                 goto finish_force_terminate;
-                        if (flags & EXTRACT_DONT_COALESCE_SEPARATORS)
-                                goto finish_force_next;
                         if (!strchr(separators, c))
                                 goto finish;
                         break;
