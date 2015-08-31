@@ -30,6 +30,7 @@
 
 #include "path-util.h"
 #include "terminal-util.h"
+#include "process-util.h"
 #include "util.h"
 #include "hashmap.h"
 #include "cgroup-util.h"
@@ -64,6 +65,8 @@ static unsigned arg_iterations = (unsigned) -1;
 static bool arg_batch = false;
 static bool arg_raw = false;
 static usec_t arg_delay = 1*USEC_PER_SEC;
+static bool arg_kernel_threads = false;
+static bool arg_recursive = true;
 
 static enum {
         ORDER_PATH,
@@ -107,7 +110,14 @@ static const char *maybe_format_bytes(char *buf, size_t l, bool is_valid, off_t 
         return format_bytes(buf, l, t);
 }
 
-static int process(const char *controller, const char *path, Hashmap *a, Hashmap *b, unsigned iteration) {
+static int process(
+                const char *controller,
+                const char *path,
+                Hashmap *a,
+                Hashmap *b,
+                unsigned iteration,
+                Group **ret) {
+
         Group *g;
         int r;
 
@@ -154,8 +164,13 @@ static int process(const char *controller, const char *path, Hashmap *a, Hashmap
                         return r;
 
                 g->n_tasks = 0;
-                while (cg_read_pid(f, &pid) > 0)
+                while (cg_read_pid(f, &pid) > 0) {
+
+                        if (!arg_kernel_threads && is_kernel_thread(pid) > 0)
+                                continue;
+
                         g->n_tasks++;
+                }
 
                 if (g->n_tasks > 0)
                         g->n_tasks_valid = true;
@@ -296,6 +311,9 @@ static int process(const char *controller, const char *path, Hashmap *a, Hashmap
                 g->io_iteration = iteration;
         }
 
+        if (ret)
+                *ret = g;
+
         return 0;
 }
 
@@ -305,9 +323,11 @@ static int refresh_one(
                 Hashmap *a,
                 Hashmap *b,
                 unsigned iteration,
-                unsigned depth) {
+                unsigned depth,
+                Group **ret) {
 
         _cleanup_closedir_ DIR *d = NULL;
+        Group *ours;
         int r;
 
         assert(controller);
@@ -317,7 +337,7 @@ static int refresh_one(
         if (depth > arg_depth)
                 return 0;
 
-        r = process(controller, path, a, b, iteration);
+        r = process(controller, path, a, b, iteration, &ours);
         if (r < 0)
                 return r;
 
@@ -329,10 +349,13 @@ static int refresh_one(
 
         for (;;) {
                 _cleanup_free_ char *fn = NULL, *p = NULL;
+                Group *child = NULL;
 
                 r = cg_read_subgroup(d, &fn);
-                if (r <= 0)
+                if (r < 0)
                         return r;
+                if (r == 0)
+                        break;
 
                 p = strjoin(path, "/", fn, NULL);
                 if (!p)
@@ -340,29 +363,47 @@ static int refresh_one(
 
                 path_kill_slashes(p);
 
-                r = refresh_one(controller, p, a, b, iteration, depth + 1);
+                r = refresh_one(controller, p, a, b, iteration, depth + 1, &child);
                 if (r < 0)
                         return r;
+
+                if (arg_recursive &&
+                    child &&
+                    child->n_tasks_valid &&
+                    streq(controller, SYSTEMD_CGROUP_CONTROLLER)) {
+
+                        /* Recursively sum up processes */
+
+                        if (ours->n_tasks_valid)
+                                ours->n_tasks += child->n_tasks;
+                        else {
+                                ours->n_tasks = child->n_tasks;
+                                ours->n_tasks_valid = true;
+                        }
+                }
         }
 
-        return r;
+        if (ret)
+                *ret = ours;
+
+        return 1;
 }
 
-static int refresh(Hashmap *a, Hashmap *b, unsigned iteration) {
+static int refresh(const char *root, Hashmap *a, Hashmap *b, unsigned iteration) {
         int r;
 
         assert(a);
 
-        r = refresh_one(SYSTEMD_CGROUP_CONTROLLER, "/", a, b, iteration, 0);
+        r = refresh_one(SYSTEMD_CGROUP_CONTROLLER, root, a, b, iteration, 0, NULL);
         if (r < 0)
                 return r;
-        r = refresh_one("cpuacct", "/", a, b, iteration, 0);
+        r = refresh_one("cpuacct", root, a, b, iteration, 0, NULL);
         if (r < 0)
                 return r;
-        r = refresh_one("memory", "/", a, b, iteration, 0);
+        r = refresh_one("memory", root, a, b, iteration, 0, NULL);
         if (r < 0)
                 return r;
-        r = refresh_one("blkio", "/", a, b, iteration, 0);
+        r = refresh_one("blkio", root, a, b, iteration, 0, NULL);
         if (r < 0)
                 return r;
 
@@ -372,11 +413,11 @@ static int refresh(Hashmap *a, Hashmap *b, unsigned iteration) {
 static int group_compare(const void*a, const void *b) {
         const Group *x = *(Group**)a, *y = *(Group**)b;
 
-        if (arg_order != ORDER_TASKS) {
+        if (arg_order != ORDER_TASKS || arg_recursive) {
                 /* Let's make sure that the parent is always before
-                 * the child. Except when ordering by tasks, since
-                 * that is actually not accumulative for all
-                 * children. */
+                 * the child. Except when ordering by tasks and
+                 * recursive summing is off, since that is actually
+                 * not accumulative for all children. */
 
                 if (path_startswith(y->path, x->path))
                         return -1;
@@ -453,7 +494,7 @@ static int group_compare(const void*a, const void *b) {
 #define ON ANSI_HIGHLIGHT_ON
 #define OFF ANSI_HIGHLIGHT_OFF
 
-static int display(Hashmap *a) {
+static void display(Hashmap *a) {
         Iterator i;
         Group *g;
         Group **array;
@@ -548,8 +589,6 @@ static int display(Hashmap *a) {
 
                 putchar('\n');
         }
-
-        return 0;
 }
 
 static void help(void) {
@@ -565,6 +604,8 @@ static void help(void) {
                "  -r --raw            Provide raw (not human-readable) numbers\n"
                "     --cpu=percentage Show CPU usage as percentage (default)\n"
                "     --cpu=time       Show CPU usage as time\n"
+               "  -k                  Include kernel threads in task count\n"
+               "     --recursive=BOOL Sum up task count recursively\n"
                "  -d --delay=DELAY    Delay between updates\n"
                "  -n --iterations=N   Run for N iterations before exiting\n"
                "  -b --batch          Run in batch mode, accepting no input\n"
@@ -579,28 +620,29 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_DEPTH,
                 ARG_CPU_TYPE,
                 ARG_ORDER,
+                ARG_RECURSIVE,
         };
 
         static const struct option options[] = {
-                { "help",         no_argument,       NULL, 'h'          },
-                { "version",      no_argument,       NULL, ARG_VERSION  },
-                { "delay",        required_argument, NULL, 'd'          },
-                { "iterations",   required_argument, NULL, 'n'          },
-                { "batch",        no_argument,       NULL, 'b'          },
-                { "raw",          no_argument,       NULL, 'r'          },
-                { "depth",        required_argument, NULL, ARG_DEPTH    },
-                { "cpu",          optional_argument, NULL, ARG_CPU_TYPE },
-                { "order",        required_argument, NULL, ARG_ORDER    },
+                { "help",         no_argument,       NULL, 'h'           },
+                { "version",      no_argument,       NULL, ARG_VERSION   },
+                { "delay",        required_argument, NULL, 'd'           },
+                { "iterations",   required_argument, NULL, 'n'           },
+                { "batch",        no_argument,       NULL, 'b'           },
+                { "raw",          no_argument,       NULL, 'r'           },
+                { "depth",        required_argument, NULL, ARG_DEPTH     },
+                { "cpu",          optional_argument, NULL, ARG_CPU_TYPE  },
+                { "order",        required_argument, NULL, ARG_ORDER     },
+                { "recursive",    required_argument, NULL, ARG_RECURSIVE },
                 {}
         };
 
-        int c;
-        int r;
+        int c, r;
 
         assert(argc >= 1);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hptcmin:brd:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hptcmin:brd:k", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -700,6 +742,20 @@ static int parse_argv(int argc, char *argv[]) {
                         }
                         break;
 
+                case 'k':
+                        arg_kernel_threads = true;
+                        break;
+
+                case ARG_RECURSIVE:
+                        r = parse_boolean(optarg);
+                        if (r < 0) {
+                                log_error("Failed to parse --recursive= argument: %s", optarg);
+                                return r;
+                        }
+
+                        arg_recursive = r;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -721,6 +777,7 @@ int main(int argc, char *argv[]) {
         unsigned iteration = 0;
         usec_t last_refresh = 0;
         bool quit = false, immediate_refresh = false;
+        _cleanup_free_ char *root = NULL;
 
         log_parse_environment();
         log_open();
@@ -728,6 +785,12 @@ int main(int argc, char *argv[]) {
         r = parse_argv(argc, argv);
         if (r <= 0)
                 goto finish;
+
+        r = cg_get_root_path(&root);
+        if (r < 0) {
+                log_error_errno(r, "Failed to get root control group path: %m");
+                goto finish;
+        }
 
         a = hashmap_new(&string_hash_ops);
         b = hashmap_new(&string_hash_ops);
@@ -751,9 +814,11 @@ int main(int argc, char *argv[]) {
 
                 if (t >= last_refresh + arg_delay || immediate_refresh) {
 
-                        r = refresh(a, b, iteration++);
-                        if (r < 0)
+                        r = refresh(root, a, b, iteration++);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to refresh: %m");
                                 goto finish;
+                        }
 
                         group_hashmap_clear(b);
 
@@ -765,9 +830,7 @@ int main(int argc, char *argv[]) {
                         immediate_refresh = false;
                 }
 
-                r = display(b);
-                if (r < 0)
-                        goto finish;
+                display(b);
 
                 if (arg_iterations && iteration >= arg_iterations)
                         break;
@@ -777,7 +840,7 @@ int main(int argc, char *argv[]) {
                 fflush(stdout);
 
                 if (arg_batch)
-                        usleep(last_refresh + arg_delay - t);
+                        (void) usleep(last_refresh + arg_delay - t);
                 else {
                         r = read_one_char(stdin, &key, last_refresh + arg_delay - t, NULL);
                         if (r == -ETIMEDOUT)
@@ -830,6 +893,20 @@ int main(int argc, char *argv[]) {
                         arg_cpu_type = arg_cpu_type == CPU_TIME ? CPU_PERCENT : CPU_TIME;
                         break;
 
+                case 'k':
+                        arg_kernel_threads = !arg_kernel_threads;
+                        fprintf(stdout, "\nCounting kernel threads: %s.", yes_no(arg_kernel_threads));
+                        fflush(stdout);
+                        sleep(1);
+                        break;
+
+                case 'r':
+                        arg_recursive = !arg_recursive;
+                        fprintf(stdout, "\nRecursive task counting: %s", yes_no(arg_recursive));
+                        fflush(stdout);
+                        sleep(1);
+                        break;
+
                 case '+':
                         if (arg_delay < USEC_PER_SEC)
                                 arg_delay += USEC_PER_MSEC*250;
@@ -858,8 +935,8 @@ int main(int argc, char *argv[]) {
                 case 'h':
                         fprintf(stdout,
                                 "\t<" ON "p" OFF "> By path; <" ON "t" OFF "> By tasks; <" ON "c" OFF "> By CPU; <" ON "m" OFF "> By memory; <" ON "i" OFF "> By I/O\n"
-                                "\t<" ON "+" OFF "> Increase delay; <" ON "-" OFF "> Decrease delay; <" ON "%%" OFF "> Toggle time\n"
-                                "\t<" ON "q" OFF "> Quit; <" ON "SPACE" OFF "> Refresh");
+                                "\t<" ON "+" OFF "> Inc. delay; <" ON "-" OFF "> Dec. delay; <" ON "%%" OFF "> Toggle time; <" ON "SPACE" OFF "> Refresh\n"
+                                "\t<" ON "k" OFF "> Count kernel threads; <" ON "r" OFF "> Count recursively; <" ON "q" OFF "> Quit");
                         fflush(stdout);
                         sleep(3);
                         break;
@@ -881,10 +958,5 @@ finish:
         group_hashmap_free(a);
         group_hashmap_free(b);
 
-        if (r < 0) {
-                log_error_errno(r, "Exiting with failure: %m");
-                return EXIT_FAILURE;
-        }
-
-        return EXIT_SUCCESS;
+        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

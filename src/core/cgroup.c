@@ -806,12 +806,9 @@ static void unit_queue_siblings(Unit *u) {
 }
 
 int unit_realize_cgroup(Unit *u) {
-        CGroupContext *c;
-
         assert(u);
 
-        c = unit_get_cgroup_context(u);
-        if (!c)
+        if (!UNIT_HAS_CGROUP_CONTEXT(u))
                 return 0;
 
         /* So, here's the deal: when realizing the cgroups for this

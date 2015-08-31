@@ -556,7 +556,7 @@ static int service_add_extras(Service *s) {
         if (r < 0)
                 return r;
 
-        r = unit_add_default_slice(UNIT(s), &s->cgroup_context);
+        r = unit_set_default_slice(UNIT(s));
         if (r < 0)
                 return r;
 

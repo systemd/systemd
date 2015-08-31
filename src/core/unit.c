@@ -405,17 +405,17 @@ static void unit_remove_transient(Unit *u) {
                 return;
 
         if (u->fragment_path)
-                unlink(u->fragment_path);
+                (void) unlink(u->fragment_path);
 
         STRV_FOREACH(i, u->dropin_paths) {
                 _cleanup_free_ char *p = NULL;
                 int r;
 
-                unlink(*i);
+                (void) unlink(*i);
 
                 r = path_get_parent(*i, &p);
                 if (r >= 0)
-                        rmdir(p);
+                        (void) rmdir(p);
         }
 }
 
@@ -1122,7 +1122,7 @@ static int unit_add_target_dependencies(Unit *u) {
 static int unit_add_slice_dependencies(Unit *u) {
         assert(u);
 
-        if (!unit_get_cgroup_context(u))
+        if (!UNIT_HAS_CGROUP_CONTEXT(u))
                 return 0;
 
         if (UNIT_ISSET(u->slice))
@@ -2424,14 +2424,42 @@ char *unit_default_cgroup_path(Unit *u) {
                 return strjoin(u->manager->cgroup_root, "/", escaped, NULL);
 }
 
-int unit_add_default_slice(Unit *u, CGroupContext *c) {
+int unit_set_slice(Unit *u, Unit *slice) {
+        assert(u);
+        assert(slice);
+
+        /* Sets the unit slice if it has not been set before. Is extra
+         * careful, to only allow this for units that actually have a
+         * cgroup context. Also, we don't allow to set this for slices
+         * (since the parent slice is derived from the name). Make
+         * sure the unit we set is actually a slice. */
+
+        if (!UNIT_HAS_CGROUP_CONTEXT(u))
+                return -EOPNOTSUPP;
+
+        if (u->type == UNIT_SLICE)
+                return -EINVAL;
+
+        if (slice->type != UNIT_SLICE)
+                return -EINVAL;
+
+        if (UNIT_DEREF(u->slice) == slice)
+                return 0;
+
+        if (UNIT_ISSET(u->slice))
+                return -EBUSY;
+
+        unit_ref_set(&u->slice, slice);
+        return 1;
+}
+
+int unit_set_default_slice(Unit *u) {
         _cleanup_free_ char *b = NULL;
         const char *slice_name;
         Unit *slice;
         int r;
 
         assert(u);
-        assert(c);
 
         if (UNIT_ISSET(u->slice))
                 return 0;
@@ -2471,8 +2499,7 @@ int unit_add_default_slice(Unit *u, CGroupContext *c) {
         if (r < 0)
                 return r;
 
-        unit_ref_set(&u->slice, slice);
-        return 0;
+        return unit_set_slice(u, slice);
 }
 
 const char *unit_slice_name(Unit *u) {
@@ -3108,17 +3135,17 @@ int unit_kill_common(
 
         int r = 0;
 
-        if (who == KILL_MAIN && main_pid <= 0) {
+        if (who == KILL_MAIN) {
                 if (main_pid < 0)
                         return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_PROCESS, "%s units have no main processes", unit_type_to_string(u->type));
-                else
+                else if (main_pid == 0)
                         return sd_bus_error_set_const(error, BUS_ERROR_NO_SUCH_PROCESS, "No main process to kill");
         }
 
-        if (who == KILL_CONTROL && control_pid <= 0) {
+        if (who == KILL_CONTROL) {
                 if (control_pid < 0)
                         return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_PROCESS, "%s units have no control processes", unit_type_to_string(u->type));
-                else
+                else if (control_pid == 0)
                         return sd_bus_error_set_const(error, BUS_ERROR_NO_SUCH_PROCESS, "No control process to kill");
         }
 
@@ -3317,6 +3344,8 @@ ExecRuntime *unit_get_exec_runtime(Unit *u) {
 }
 
 static int unit_drop_in_dir(Unit *u, UnitSetPropertiesMode mode, bool transient, char **dir) {
+        assert(u);
+
         if (u->manager->running_as == MANAGER_USER) {
                 int r;
 
@@ -3324,9 +3353,9 @@ static int unit_drop_in_dir(Unit *u, UnitSetPropertiesMode mode, bool transient,
                         r = user_config_home(dir);
                 else
                         r = user_runtime_dir(dir);
-
                 if (r == 0)
                         return -ENOENT;
+
                 return r;
         }
 
@@ -3340,8 +3369,7 @@ static int unit_drop_in_dir(Unit *u, UnitSetPropertiesMode mode, bool transient,
         return 0;
 }
 
-static int unit_drop_in_file(Unit *u,
-                             UnitSetPropertiesMode mode, const char *name, char **p, char **q) {
+static int unit_drop_in_file(Unit *u, UnitSetPropertiesMode mode, const char *name, char **p, char **q) {
         _cleanup_free_ char *dir = NULL;
         int r;
 
@@ -3475,40 +3503,17 @@ int unit_remove_drop_in(Unit *u, UnitSetPropertiesMode mode, const char *name) {
 }
 
 int unit_make_transient(Unit *u) {
-        int r;
-
         assert(u);
+
+        if (!UNIT_VTABLE(u)->can_transient)
+                return -EOPNOTSUPP;
 
         u->load_state = UNIT_STUB;
         u->load_error = 0;
         u->transient = true;
+        u->fragment_path = mfree(u->fragment_path);
 
-        free(u->fragment_path);
-        u->fragment_path = NULL;
-
-        if (u->manager->running_as == MANAGER_USER) {
-                _cleanup_free_ char *c = NULL;
-
-                r = user_runtime_dir(&c);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        return -ENOENT;
-
-                u->fragment_path = strjoin(c, "/", u->id, NULL);
-                if (!u->fragment_path)
-                        return -ENOMEM;
-
-                mkdir_p(c, 0755);
-        } else {
-                u->fragment_path = strappend("/run/systemd/system/", u->id);
-                if (!u->fragment_path)
-                        return -ENOMEM;
-
-                mkdir_p("/run/systemd/system", 0755);
-        }
-
-        return write_string_file_atomic_label(u->fragment_path, "# Transient stub");
+        return 0;
 }
 
 int unit_kill_context(

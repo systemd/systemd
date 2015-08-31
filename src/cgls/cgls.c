@@ -160,7 +160,7 @@ static int get_cgroup_root(char **ret) {
                         &error,
                         ret);
         if (r < 0)
-                return log_error_errno(r, "Failed to query unit control group path: %m");
+                return log_error_errno(r, "Failed to query unit control group path: %s", bus_error_message(&error, r));
 
         return 0;
 }
@@ -263,7 +263,7 @@ int main(int argc, char *argv[]) {
                         if (r < 0)
                                 goto finish;
 
-                        printf("Control group %s:\n", root);
+                        printf("Control group %s:\n", isempty(root) ? "/" : root);
                         fflush(stdout);
 
                         r = show_cgroup(SYSTEMD_CGROUP_CONTROLLER, root, NULL, 0, arg_kernel_threads, output_flags);

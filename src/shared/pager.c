@@ -82,7 +82,7 @@ int pager_open(bool jump_to_end) {
 
         /* In the child start the pager */
         if (pager_pid == 0) {
-                const char* less_opts;
+                const char* less_opts, *less_charset;
 
                 (void) reset_all_signal_handlers();
                 (void) reset_signal_mask();
@@ -90,12 +90,22 @@ int pager_open(bool jump_to_end) {
                 dup2(fd[0], STDIN_FILENO);
                 safe_close_pair(fd);
 
+                /* Initialize a good set of less options */
                 less_opts = getenv("SYSTEMD_LESS");
                 if (!less_opts)
                         less_opts = "FRSXMK";
                 if (jump_to_end)
                         less_opts = strjoina(less_opts, " +G");
                 setenv("LESS", less_opts, 1);
+
+                /* Initialize a good charset for less. This is
+                 * particularly important if we output UTF-8
+                 * characters. */
+                less_charset = getenv("SYSTEMD_LESSCHARSET");
+                if (!less_charset && is_locale_utf8())
+                        less_charset = "utf-8";
+                if (less_charset)
+                        setenv("LESSCHARSET", less_charset, 1);
 
                 /* Make sure the pager goes away when the parent dies */
                 if (prctl(PR_SET_PDEATHSIG, SIGTERM) < 0)

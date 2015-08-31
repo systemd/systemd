@@ -345,7 +345,7 @@ static int socket_add_extras(Socket *s) {
                 if (r < 0)
                         return r;
 
-                r = unit_add_default_slice(u, &s->cgroup_context);
+                r = unit_set_default_slice(u);
                 if (r < 0)
                         return r;
         }
