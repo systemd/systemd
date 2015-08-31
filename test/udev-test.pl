@@ -1487,7 +1487,7 @@ sub run_test {
 # due to mknod restrictions
 if (!($<==0)) {
         print "Must have root permissions to run properly.\n";
-        exit;
+        exit($EXIT_TEST_SKIP);
 }
 
 # skip the test when running in a container
