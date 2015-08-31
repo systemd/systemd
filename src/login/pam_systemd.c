@@ -179,24 +179,37 @@ static int export_legacy_dbus_address(
                 const char *runtime) {
 
         _cleanup_free_ char *s = NULL;
-        int r;
+        int r = PAM_BUF_ERR;
 
-        /* skip export if kdbus is not active */
-        if (!is_kdbus_available())
-                return PAM_SUCCESS;
+        if (is_kdbus_available()) {
+                if (asprintf(&s, KERNEL_USER_BUS_ADDRESS_FMT ";" UNIX_USER_BUS_ADDRESS_FMT, uid, runtime) < 0)
+                        goto error;
+        } else {
+                /* FIXME: We *realy* should move the access() check into the
+                 * daemons that spawn dbus-daemon, instead of forcing
+                 * DBUS_SESSION_BUS_ADDRESS= here. */
 
-        if (asprintf(&s, KERNEL_USER_BUS_ADDRESS_FMT ";" UNIX_USER_BUS_ADDRESS_FMT, uid, runtime) < 0) {
-                pam_syslog(handle, LOG_ERR, "Failed to set bus variable.");
-                return PAM_BUF_ERR;
+                s = strjoin(runtime, "/bus", NULL);
+                if (!s)
+                        goto error;
+
+                if (access(s, F_OK) < 0)
+                        return PAM_SUCCESS;
+
+                s = mfree(s);
+                if (asprintf(&s, UNIX_USER_BUS_ADDRESS_FMT, runtime) < 0)
+                        goto error;
         }
 
         r = pam_misc_setenv(handle, "DBUS_SESSION_BUS_ADDRESS", s, 0);
-        if (r != PAM_SUCCESS) {
-                pam_syslog(handle, LOG_ERR, "Failed to set bus variable.");
-                return r;
-        }
+        if (r != PAM_SUCCESS)
+                goto error;
 
         return PAM_SUCCESS;
+
+error:
+        pam_syslog(handle, LOG_ERR, "Failed to set bus variable.");
+        return r;
 }
 
 _public_ PAM_EXTERN int pam_sm_open_session(
