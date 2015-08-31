@@ -494,7 +494,7 @@ static int group_compare(const void*a, const void *b) {
 #define ON ANSI_HIGHLIGHT_ON
 #define OFF ANSI_HIGHLIGHT_OFF
 
-static int display(Hashmap *a) {
+static void display(Hashmap *a) {
         Iterator i;
         Group *g;
         Group **array;
@@ -589,8 +589,6 @@ static int display(Hashmap *a) {
 
                 putchar('\n');
         }
-
-        return 0;
 }
 
 static void help(void) {
@@ -817,8 +815,10 @@ int main(int argc, char *argv[]) {
                 if (t >= last_refresh + arg_delay || immediate_refresh) {
 
                         r = refresh(root, a, b, iteration++);
-                        if (r < 0)
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to refresh: %m");
                                 goto finish;
+                        }
 
                         group_hashmap_clear(b);
 
@@ -830,9 +830,7 @@ int main(int argc, char *argv[]) {
                         immediate_refresh = false;
                 }
 
-                r = display(b);
-                if (r < 0)
-                        goto finish;
+                display(b);
 
                 if (arg_iterations && iteration >= arg_iterations)
                         break;
@@ -842,7 +840,7 @@ int main(int argc, char *argv[]) {
                 fflush(stdout);
 
                 if (arg_batch)
-                        usleep(last_refresh + arg_delay - t);
+                        (void) usleep(last_refresh + arg_delay - t);
                 else {
                         r = read_one_char(stdin, &key, last_refresh + arg_delay - t, NULL);
                         if (r == -ETIMEDOUT)
@@ -960,10 +958,5 @@ finish:
         group_hashmap_free(a);
         group_hashmap_free(b);
 
-        if (r < 0) {
-                log_error_errno(r, "Exiting with failure: %m");
-                return EXIT_FAILURE;
-        }
-
-        return EXIT_SUCCESS;
+        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
