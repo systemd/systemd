@@ -560,15 +560,17 @@ static void display(Hashmap *a) {
                 path_columns = maxtpath;
 
         for (j = 0; j < n; j++) {
-                _cleanup_free_ char *p = NULL;
+                _cleanup_free_ char *ellipsized = NULL;
+                const char *path;
 
                 if (on_tty() && j + 5 > rows)
                         break;
 
                 g = array[j];
 
-                p = ellipsize(g->path, path_columns, 33);
-                printf("%-*s", path_columns, p ?: g->path);
+                path = isempty(g->path) ? "/" : g->path;
+                ellipsized = ellipsize(path, path_columns, 33);
+                printf("%-*s", path_columns, ellipsized ?: path);
 
                 if (g->n_tasks_valid)
                         printf(" %7u", g->n_tasks);
