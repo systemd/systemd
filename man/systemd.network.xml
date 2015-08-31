@@ -684,6 +684,19 @@
     <variablelist class='network-directives'>
 
       <varlistentry>
+        <term><varname>PoolOffset=</varname></term>
+        <term><varname>PoolSize=</varname></term>
+
+        <listitem><para>Configures the pool of addresses to hand out. The pool
+        is contiguous and a subset of the subnet configured for the server
+        address, which does not include the subnet address or the broadcast
+        address at the end of the subnet. By default it starts at the first
+        address after the subnet address and takes up the rest of the subnet.
+        If the pool includes the server address (the default), this is
+        reserved and not handed out to clients.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>DefaultLeaseTimeSec=</varname></term>
         <term><varname>MaxLeaseTimeSec=</varname></term>
 

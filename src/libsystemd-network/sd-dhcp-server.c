@@ -31,38 +31,62 @@
 #define DHCP_DEFAULT_LEASE_TIME_USEC USEC_PER_HOUR
 #define DHCP_MAX_LEASE_TIME_USEC (USEC_PER_HOUR*12)
 
-int sd_dhcp_server_set_lease_pool(sd_dhcp_server *server,
-                                  struct in_addr *address,
-                                  size_t size) {
+/* configures the server's address and subnet, and optionally the pool's size and offset into the subnet
+ * the whole pool must fit into the subnet, and may not contain the first (any) nor last (broadcast) address
+ * moreover, the server's own address may be in the pool, and is in that case reserved in order not to
+ * accidentally hand it out */
+int sd_dhcp_server_configure_pool(sd_dhcp_server *server, struct in_addr *address, unsigned char prefixlen, unsigned offset, unsigned size) {
+        be32_t netmask;
+        uint32_t server_off, broadcast_off;
+        unsigned size_max;
+
         assert_return(server, -EINVAL);
         assert_return(address, -EINVAL);
-        assert_return(address->s_addr, -EINVAL);
-        assert_return(size, -EINVAL);
-        assert_return(server->pool_start == htobe32(INADDR_ANY), -EBUSY);
-        assert_return(!server->pool_size, -EBUSY);
-        assert_return(!server->bound_leases, -EBUSY);
+        assert_return(address->s_addr != INADDR_ANY, -EINVAL);
+        assert_return(prefixlen <= 32, -ERANGE);
+        assert_return(server->address == INADDR_ANY, -EBUSY);
+
+        netmask = htobe32(0xfffffffflu << (32 - prefixlen));
+
+        server_off = be32toh(address->s_addr & ~netmask);
+        broadcast_off = be32toh(~netmask);
+
+        /* the server address cannot be the subnet address */
+        assert_return(server_off != 0, -ERANGE);
+
+        /* nor the broadcast address */
+        assert_return(server_off != broadcast_off, -ERANGE);
+
+        /* 0 offset means we should set a default, we skip the first (subnet) address
+           and take the next one */
+        if (offset == 0)
+                offset = 1;
+
+        size_max = (broadcast_off + 1) /* the number of addresses in the subnet */
+                   - offset /* exclude the addresses before the offset */
+                   - 1; /* exclude the last (broadcast) address */
+
+        /* The pool must contain at least one address */
+        assert_return(size_max >= 1, -ERANGE);
+
+        if (size != 0)
+                assert_return(size <= size_max, -ERANGE);
+        else
+                size = size_max;
 
         server->bound_leases = new0(DHCPLease*, size);
         if (!server->bound_leases)
                 return -ENOMEM;
 
-        server->pool_start = address->s_addr;
+        server->pool_offset = offset;
         server->pool_size = size;
 
-        return 0;
-}
-
-int sd_dhcp_server_set_address(sd_dhcp_server *server, struct in_addr *address,
-                               unsigned char prefixlen) {
-        assert_return(server, -EINVAL);
-        assert_return(address, -EINVAL);
-        assert_return(address->s_addr, -EINVAL);
-        assert_return(prefixlen <= 32, -ERANGE);
-        assert_return(server->address == htobe32(INADDR_ANY), -EBUSY);
-        assert_return(server->netmask == htobe32(INADDR_ANY), -EBUSY);
-
         server->address = address->s_addr;
-        server->netmask = htobe32(0xfffffffflu << (32 - prefixlen));
+        server->netmask = netmask;
+        server->subnet = address->s_addr & netmask;
+
+        if (server_off >= offset && server_off - offset < size)
+                server->bound_leases[server_off - offset] = &server->invalid_lease;
 
         return 0;
 }
@@ -661,12 +685,11 @@ static int get_pool_offset(sd_dhcp_server *server, be32_t requested_ip) {
         if (!server->pool_size)
                 return -EINVAL;
 
-        if (be32toh(requested_ip) < be32toh(server->pool_start) ||
-            be32toh(requested_ip) >= be32toh(server->pool_start) +
-                                             + server->pool_size)
-                return -EINVAL;
+        if (be32toh(requested_ip) < be32toh(server->subnet) + server->pool_offset ||
+            be32toh(requested_ip) >= be32toh(server->subnet) + server->pool_offset + server->pool_size)
+                return -ERANGE;
 
-        return be32toh(requested_ip) - be32toh(server->pool_start);
+        return be32toh(requested_ip & ~server->netmask) - server->pool_offset;
 }
 
 #define HASH_KEY SD_ID128_MAKE(0d,1d,fe,bd,f1,24,bd,b3,47,f1,dd,6e,73,21,93,30)
@@ -718,7 +741,7 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
                 if (existing_lease)
                         address = existing_lease->address;
                 else {
-                        size_t next_offer;
+                        unsigned next_offer;
 
                         /* even with no persistence of leases, we try to offer the same client
                            the same IP address. we do this by using the hash of the client id
@@ -728,7 +751,7 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
 
                         for (i = 0; i < server->pool_size; i++) {
                                 if (!server->bound_leases[next_offer]) {
-                                        address = htobe32(be32toh(server->pool_start) + next_offer);
+                                        address = server->subnet | htobe32(server->pool_offset + next_offer);
                                         break;
                                 } else
                                         next_offer = (next_offer + 1) % server->pool_size;
@@ -1022,7 +1045,7 @@ int sd_dhcp_server_forcerenew(sd_dhcp_server *server) {
         for (i = 0; i < server->pool_size; i++) {
                 DHCPLease *lease = server->bound_leases[i];
 
-                if (!lease)
+                if (!lease || lease->address == INADDR_ANY)
                         continue;
 
                 r = server_send_forcerenew(server, lease->address,

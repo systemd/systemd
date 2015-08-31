@@ -102,6 +102,8 @@ struct Network {
         bool dhcp_server_emit_timezone;
         char *dhcp_server_timezone;
         usec_t dhcp_server_default_lease_time_usec, dhcp_server_max_lease_time_usec;
+        unsigned dhcp_server_pool_offset;
+        unsigned dhcp_server_pool_size;
 
         /* IPV4LL Support */
         AddressFamilyBoolean link_local;

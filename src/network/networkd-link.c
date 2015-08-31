@@ -730,7 +730,6 @@ static int link_enter_set_addresses(Link *link) {
         /* now that we can figure out a default address for the dhcp server,
            start it */
         if (link_dhcp4_server_enabled(link)) {
-                struct in_addr pool_start;
                 Address *address;
                 Link *uplink = NULL;
                 bool acquired_uplink = false;
@@ -742,27 +741,15 @@ static int link_enter_set_addresses(Link *link) {
                         return 0;
                 }
 
-                r = sd_dhcp_server_set_address(link->dhcp_server,
-                                               &address->in_addr.in,
-                                               address->prefixlen);
-                if (r < 0)
-                        return r;
-
                 /* offer 32 addresses starting from the address following the server address */
-                pool_start.s_addr = htobe32(be32toh(address->in_addr.in.s_addr) + 1);
-                r = sd_dhcp_server_set_lease_pool(link->dhcp_server,
-                                                  &pool_start, 32);
+                r = sd_dhcp_server_configure_pool(link->dhcp_server, &address->in_addr.in, address->prefixlen,
+                                                  link->network->dhcp_server_pool_offset, link->network->dhcp_server_pool_size);
                 if (r < 0)
                         return r;
 
                 /* TODO:
                 r = sd_dhcp_server_set_router(link->dhcp_server,
                                               &main_address->in_addr.in);
-                if (r < 0)
-                        return r;
-
-                r = sd_dhcp_server_set_prefixlen(link->dhcp_server,
-                                                 main_address->prefixlen);
                 if (r < 0)
                         return r;
                 */

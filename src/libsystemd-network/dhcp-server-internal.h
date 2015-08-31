@@ -57,7 +57,8 @@ struct sd_dhcp_server {
         int ifindex;
         be32_t address;
         be32_t netmask;
-        be32_t pool_start;
+        be32_t subnet;
+        unsigned pool_offset;
         size_t pool_size;
 
         char *timezone;
@@ -67,6 +68,7 @@ struct sd_dhcp_server {
 
         Hashmap *leases_by_client_id;
         DHCPLease **bound_leases;
+        DHCPLease invalid_lease;
 
         uint32_t max_lease_time, default_lease_time;
 };
