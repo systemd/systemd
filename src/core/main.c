@@ -435,7 +435,7 @@ static int config_parse_cpu_affinity2(
 
         _cleanup_strv_free_ char **a = NULL;
         char **word;
-        cpu_set_t *c = NULL;
+        _cleanup_cpu_free_ cpu_set_t *c = NULL;
         unsigned ncpus = 0;
         int r;
 
@@ -459,19 +459,15 @@ static int config_parse_cpu_affinity2(
                 if (r < 0 || cpu >= ncpus) {
                         log_syntax(unit, LOG_ERR, filename, line, -r,
                                    "Failed to parse CPU affinity '%s'", rvalue);
-                        CPU_FREE(c);
                         return -EBADMSG;
                 }
 
                 CPU_SET_S(cpu, CPU_ALLOC_SIZE(ncpus), c);
         }
 
-        if (c) {
+        if (c)
                 if (sched_setaffinity(0, CPU_ALLOC_SIZE(ncpus), c) < 0)
                         log_warning("Failed to set CPU affinity: %m");
-
-                CPU_FREE(c);
-        }
 
         return 0;
 }
