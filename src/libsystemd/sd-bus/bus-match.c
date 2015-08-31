@@ -932,7 +932,7 @@ fail:
 }
 
 char *bus_match_to_string(struct bus_match_component *components, unsigned n_components) {
-        _cleanup_free_ FILE *f = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
         char *buffer = NULL;
         size_t size = 0;
         unsigned i;

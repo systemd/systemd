@@ -34,6 +34,7 @@
 #include "log.h"
 
 #ifdef HAVE_SELINUX
+_printf_(2,3)
 static int null_log(int type, const char *fmt, ...) {
         return 0;
 }
