@@ -257,8 +257,6 @@ mouse:usb:v046dp1025:name:Logitech M510:
 # Logitech M705 (marathon mouse)
 mouse:usb:v046dp101b:name:Logitech M705:
 mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:101b:
-# Logitech Performance MX
-mouse:usb:v046dp101a:name:Logitech Performance MX:
  MOUSE_DPI=800@166
 
 # Logitech MX Revolution
@@ -303,6 +301,8 @@ mouse:usb:v046dpc065:name:Logitech USB Laser Mouse:
 mouse:usb:v046dpc510:name:Logitech USB Receiver:
  MOUSE_DPI=1000@125
 
+# Logitech Performance MX
+mouse:usb:v046dp101a:name:Logitech Performance MX:
 # Logitech MX Master
 mouse:usb:v046dp4041:name:Logitech MX Master:
  MOUSE_DPI=1000@166
