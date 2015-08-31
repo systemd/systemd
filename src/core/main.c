@@ -433,25 +433,24 @@ static int config_parse_cpu_affinity2(
                 void *data,
                 void *userdata) {
 
-        const char *word, *state;
-        size_t l;
+        _cleanup_strv_free_ char **a = NULL;
+        char **word;
         cpu_set_t *c = NULL;
         unsigned ncpus = 0;
+        int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
 
-        FOREACH_WORD_QUOTED(word, l, rvalue, state) {
-                char *t;
-                int r;
+        r = strv_split_extract(&a, rvalue, WHITESPACE, EXTRACT_QUOTES);
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(word, a) {
                 unsigned cpu;
 
-                if (!(t = strndup(word, l)))
-                        return log_oom();
-
-                r = safe_atou(t, &cpu);
-                free(t);
+                r = safe_atou(*word, &cpu);
 
                 if (!c)
                         if (!(c = cpu_set_malloc(&ncpus)))
@@ -466,9 +465,6 @@ static int config_parse_cpu_affinity2(
 
                 CPU_SET_S(cpu, CPU_ALLOC_SIZE(ncpus), c);
         }
-        if (!isempty(state))
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Trailing garbage, ignoring.");
 
         if (c) {
                 if (sched_setaffinity(0, CPU_ALLOC_SIZE(ncpus), c) < 0)
