@@ -39,9 +39,14 @@ AM_SILENT_RULES([yes])
 AC_CANONICAL_HOST
 AC_DEFINE_UNQUOTED([CANONICAL_HOST], "$host", [Canonical host string.])
 
-AC_CHECK_TOOLS([AR], [gcc-ar ar], [:])
-AC_CHECK_TOOLS([NM], [gcc-nm nm], [:])
-AC_CHECK_TOOLS([RANLIB], [gcc-ranlib ranlib], [:])
+AC_PROG_CC_C99
+
+AX_COMPILER_VENDOR
+AS_IF([test "x$ax_cv_c_compiler_vendor" = "xgnu"], [
+      AC_CHECK_TOOLS([AR], [gcc-ar ar], [:])
+      AC_CHECK_TOOLS([NM], [gcc-nm nm], [:])
+      AC_CHECK_TOOLS([RANLIB], [gcc-ranlib ranlib], [:])
+])
 
 LT_PREREQ(2.2)
 LT_INIT([disable-static])
@@ -86,8 +91,6 @@ AC_PROG_LN_S
 AC_PROG_SED
 AC_PROG_GREP
 AC_PROG_AWK
-
-AC_PROG_CC_C99
 
 AC_PATH_PROG([M4], [m4])
 AC_PATH_PROG([XSLTPROC], [xsltproc])
