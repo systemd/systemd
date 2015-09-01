@@ -539,8 +539,9 @@ static int config_parse_join_controllers(const char *unit,
                                          void *userdata) {
 
         unsigned n = 0;
-        const char *word, *state;
-        size_t length;
+        _cleanup_strv_free_ char **groups = NULL;
+        char **word;
+        int r;
 
         assert(filename);
         assert(lvalue);
@@ -548,16 +549,14 @@ static int config_parse_join_controllers(const char *unit,
 
         free_join_controllers();
 
-        FOREACH_WORD_QUOTED(word, length, rvalue, state) {
-                char *s, **l;
+        r = strv_split_extract(&groups, rvalue, WHITESPACE, EXTRACT_QUOTES);
+        if (r < 0)
+                return r;
 
-                s = strndup(word, length);
-                if (!s)
-                        return log_oom();
+        STRV_FOREACH(word, groups) {
+                char **l;
 
-                l = strv_split(s, ",");
-                free(s);
-
+                l = strv_split(*word, ",");
                 strv_uniq(l);
 
                 if (strv_length(l) <= 1) {
@@ -617,10 +616,6 @@ static int config_parse_join_controllers(const char *unit,
                         arg_join_controllers = t;
                 }
         }
-        if (!isempty(state))
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Trailing garbage, ignoring.");
-
         return 0;
 }
 
