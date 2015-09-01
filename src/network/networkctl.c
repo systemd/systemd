@@ -497,7 +497,7 @@ static int link_status_one(
                 sd_hwdb *hwdb,
                 const char *name) {
         _cleanup_strv_free_ char **dns = NULL, **ntp = NULL, **domains = NULL;
-        _cleanup_free_ char *setup_state = NULL, *operational_state = NULL, *timezone = NULL;
+        _cleanup_free_ char *setup_state = NULL, *operational_state = NULL, *tz = NULL;
         _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL, *reply = NULL;
         _cleanup_device_unref_ sd_device *d = NULL;
         char devid[2 + DECIMAL_STR_MAX(int)];
@@ -662,9 +662,9 @@ static int link_status_one(
         if (!strv_isempty(carrier_bound_by))
                 dump_list("Carrier Bound By: ", carrier_bound_by);
 
-        (void) sd_network_link_get_timezone(ifindex, &timezone);
-        if (timezone)
-                printf("       Time Zone: %s", timezone);
+        (void) sd_network_link_get_timezone(ifindex, &tz);
+        if (tz)
+                printf("       Time Zone: %s", tz);
 
         return 0;
 }

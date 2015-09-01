@@ -786,7 +786,7 @@ int config_parse_timezone(
                 void *data,
                 void *userdata) {
 
-        char **timezone = data, *tz = NULL;
+        char **datap = data, *tz = NULL;
         int r;
 
         assert(filename);
@@ -803,8 +803,8 @@ int config_parse_timezone(
                 return 0;
         }
 
-        free(*timezone);
-        *timezone = tz;
+        free(*datap);
+        *datap = tz;
 
         return 0;
 }
