@@ -107,3 +107,5 @@ int get_ctty(pid_t, dev_t *_devnr, char **r);
 
 int getttyname_malloc(int fd, char **r);
 int getttyname_harder(int fd, char **r);
+
+int ptsname_namespace(int pty, char **ret);
