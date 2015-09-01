@@ -433,25 +433,28 @@ static int config_parse_cpu_affinity2(
                 void *data,
                 void *userdata) {
 
-        const char *word, *state;
-        size_t l;
-        cpu_set_t *c = NULL;
+        const char *whole_rvalue = rvalue;
+        _cleanup_cpu_free_ cpu_set_t *c = NULL;
         unsigned ncpus = 0;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
 
-        FOREACH_WORD_QUOTED(word, l, rvalue, state) {
-                char *t;
-                int r;
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
                 unsigned cpu;
+                int r;
 
-                if (!(t = strndup(word, l)))
-                        return log_oom();
+                r = extract_first_word(&rvalue, &word, WHITESPACE, EXTRACT_QUOTES);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Invalid value for %s: %s", lvalue, whole_rvalue);
+                        return r;
+                }
+                if (r == 0)
+                        break;
 
-                r = safe_atou(t, &cpu);
-                free(t);
+                r = safe_atou(word, &cpu);
 
                 if (!c)
                         if (!(c = cpu_set_malloc(&ncpus)))
@@ -460,22 +463,18 @@ static int config_parse_cpu_affinity2(
                 if (r < 0 || cpu >= ncpus) {
                         log_syntax(unit, LOG_ERR, filename, line, -r,
                                    "Failed to parse CPU affinity '%s'", rvalue);
-                        CPU_FREE(c);
                         return -EBADMSG;
                 }
 
                 CPU_SET_S(cpu, CPU_ALLOC_SIZE(ncpus), c);
         }
-        if (!isempty(state))
+        if (!isempty(rvalue))
                 log_syntax(unit, LOG_ERR, filename, line, EINVAL,
                            "Trailing garbage, ignoring.");
 
-        if (c) {
+        if (c)
                 if (sched_setaffinity(0, CPU_ALLOC_SIZE(ncpus), c) < 0)
                         log_warning("Failed to set CPU affinity: %m");
-
-                CPU_FREE(c);
-        }
 
         return 0;
 }
