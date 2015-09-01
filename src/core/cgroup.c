@@ -1005,12 +1005,21 @@ Unit* manager_get_unit_by_cgroup(Manager *m, const char *cgroup) {
 
 Unit *manager_get_unit_by_pid(Manager *m, pid_t pid) {
         _cleanup_free_ char *cgroup = NULL;
+        Unit *u;
         int r;
 
         assert(m);
 
         if (pid <= 1)
                 return NULL;
+
+        u = hashmap_get(m->watch_pids1, LONG_TO_PTR(pid));
+        if (u)
+                return u;
+
+        u = hashmap_get(m->watch_pids2, LONG_TO_PTR(pid));
+        if (u)
+                return u;
 
         r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, pid, &cgroup);
         if (r < 0)
