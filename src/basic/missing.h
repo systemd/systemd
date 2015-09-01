@@ -492,6 +492,14 @@ struct btrfs_ioctl_quota_ctl_args {
 #define BTRFS_SUPER_MAGIC 0x9123683E
 #endif
 
+#ifndef CGROUP_SUPER_MAGIC
+#define CGROUP_SUPER_MAGIC 0x27e0eb
+#endif
+
+#ifndef TMPFS_MAGIC
+#define TMPFS_MAGIC 0x01021994
+#endif
+
 #ifndef MS_MOVE
 #define MS_MOVE 8192
 #endif

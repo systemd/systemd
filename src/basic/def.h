@@ -35,7 +35,7 @@
  * the watchdog pings will keep the loop busy. */
 #define DEFAULT_EXIT_USEC (30*USEC_PER_SEC)
 
-#define SYSTEMD_CGROUP_CONTROLLER "systemd"
+#define SYSTEMD_CGROUP_CONTROLLER "name=systemd"
 
 #define SIGNALS_CRASH_HANDLER SIGSEGV,SIGILL,SIGFPE,SIGBUS,SIGQUIT,SIGABRT
 #define SIGNALS_IGNORE SIGPIPE

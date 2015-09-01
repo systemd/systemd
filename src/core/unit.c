@@ -91,6 +91,7 @@ Unit *unit_new(Manager *m, size_t size) {
         u->unit_file_state = _UNIT_FILE_STATE_INVALID;
         u->unit_file_preset = -1;
         u->on_failure_job_mode = JOB_REPLACE;
+        u->cgroup_inotify_wd = -1;
 
         RATELIMIT_INIT(u->auto_stop_ratelimit, 10 * USEC_PER_SEC, 16);
 
@@ -525,10 +526,7 @@ void unit_free(Unit *u) {
         if (u->in_cgroup_queue)
                 LIST_REMOVE(cgroup_queue, u->manager->cgroup_queue, u);
 
-        if (u->cgroup_path) {
-                hashmap_remove(u->manager->cgroup_unit, u->cgroup_path);
-                free(u->cgroup_path);
-        }
+        unit_release_cgroup(u);
 
         manager_update_failed_units(u->manager, u, false);
         set_remove(u->manager->startup_units, u);
@@ -1801,7 +1799,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
 
         /* Make sure the cgroup is always removed when we become inactive */
         if (UNIT_IS_INACTIVE_OR_FAILED(ns))
-                unit_destroy_cgroup_if_empty(u);
+                unit_prune_cgroup(u);
 
         /* Note that this doesn't apply to RemainAfterExit services exiting
          * successfully, since there's no change of state in that case. Which is
@@ -2028,70 +2026,7 @@ void unit_unwatch_all_pids(Unit *u) {
         while (!set_isempty(u->pids))
                 unit_unwatch_pid(u, PTR_TO_LONG(set_first(u->pids)));
 
-        set_free(u->pids);
-        u->pids = NULL;
-}
-
-static int unit_watch_pids_in_path(Unit *u, const char *path) {
-        _cleanup_closedir_ DIR *d = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
-        int ret = 0, r;
-
-        assert(u);
-        assert(path);
-
-        /* Adds all PIDs from a specific cgroup path to the set of PIDs we watch. */
-
-        r = cg_enumerate_processes(SYSTEMD_CGROUP_CONTROLLER, path, &f);
-        if (r >= 0) {
-                pid_t pid;
-
-                while ((r = cg_read_pid(f, &pid)) > 0) {
-                        r = unit_watch_pid(u, pid);
-                        if (r < 0 && ret >= 0)
-                                ret = r;
-                }
-                if (r < 0 && ret >= 0)
-                        ret = r;
-
-        } else if (ret >= 0)
-                ret = r;
-
-        r = cg_enumerate_subgroups(SYSTEMD_CGROUP_CONTROLLER, path, &d);
-        if (r >= 0) {
-                char *fn;
-
-                while ((r = cg_read_subgroup(d, &fn)) > 0) {
-                        _cleanup_free_ char *p = NULL;
-
-                        p = strjoin(path, "/", fn, NULL);
-                        free(fn);
-
-                        if (!p)
-                                return -ENOMEM;
-
-                        r = unit_watch_pids_in_path(u, p);
-                        if (r < 0 && ret >= 0)
-                                ret = r;
-                }
-                if (r < 0 && ret >= 0)
-                        ret = r;
-
-        } else if (ret >= 0)
-                ret = r;
-
-        return ret;
-}
-
-int unit_watch_all_pids(Unit *u) {
-        assert(u);
-
-        /* Adds all PIDs from our cgroup to the set of PIDs we watch */
-
-        if (!u->cgroup_path)
-                return -ENOENT;
-
-        return unit_watch_pids_in_path(u, u->cgroup_path);
+        u->pids = set_free(u->pids);
 }
 
 void unit_tidy_watch_pids(Unit *u, pid_t except1, pid_t except2) {
@@ -2400,31 +2335,6 @@ char *unit_dbus_path(Unit *u) {
         return unit_dbus_path_from_name(u->id);
 }
 
-char *unit_default_cgroup_path(Unit *u) {
-        _cleanup_free_ char *escaped = NULL, *slice = NULL;
-        int r;
-
-        assert(u);
-
-        if (unit_has_name(u, SPECIAL_ROOT_SLICE))
-                return strdup(u->manager->cgroup_root);
-
-        if (UNIT_ISSET(u->slice) && !unit_has_name(UNIT_DEREF(u->slice), SPECIAL_ROOT_SLICE)) {
-                r = cg_slice_to_path(UNIT_DEREF(u->slice)->id, &slice);
-                if (r < 0)
-                        return NULL;
-        }
-
-        escaped = cg_escape(u->id);
-        if (!escaped)
-                return NULL;
-
-        if (slice)
-                return strjoin(u->manager->cgroup_root, "/", slice, "/", escaped, NULL);
-        else
-                return strjoin(u->manager->cgroup_root, "/", escaped, NULL);
-}
-
 int unit_set_slice(Unit *u, Unit *slice) {
         assert(u);
         assert(slice);
@@ -2446,6 +2356,10 @@ int unit_set_slice(Unit *u, Unit *slice) {
 
         if (slice->type != UNIT_SLICE)
                 return -EINVAL;
+
+        if (unit_has_name(u, SPECIAL_INIT_SCOPE) &&
+            !unit_has_name(slice, SPECIAL_ROOT_SLICE))
+                return -EPERM;
 
         if (UNIT_DEREF(u->slice) == slice)
                 return 0;
@@ -2495,7 +2409,7 @@ int unit_set_default_slice(Unit *u) {
                 slice_name = b;
         } else
                 slice_name =
-                        u->manager->running_as == MANAGER_SYSTEM
+                        u->manager->running_as == MANAGER_SYSTEM && !unit_has_name(u, SPECIAL_INIT_SCOPE)
                         ? SPECIAL_SYSTEM_SLICE
                         : SPECIAL_ROOT_SLICE;
 
@@ -2704,40 +2618,6 @@ void unit_serialize_item(Unit *u, FILE *f, const char *key, const char *value) {
         fprintf(f, "%s=%s\n", key, value);
 }
 
-static int unit_set_cgroup_path(Unit *u, const char *path) {
-        _cleanup_free_ char *p = NULL;
-        int r;
-
-        assert(u);
-
-        if (path) {
-                p = strdup(path);
-                if (!p)
-                        return -ENOMEM;
-        } else
-                p = NULL;
-
-        if (streq_ptr(u->cgroup_path, p))
-                return 0;
-
-        if (p) {
-                r = hashmap_put(u->manager->cgroup_unit, p, u);
-                if (r < 0)
-                        return r;
-        }
-
-        if (u->cgroup_path) {
-                log_unit_debug(u, "Changing cgroup path from %s to %s.", u->cgroup_path, strna(p));
-                hashmap_remove(u->manager->cgroup_unit, u->cgroup_path);
-                free(u->cgroup_path);
-        }
-
-        u->cgroup_path = p;
-        p = NULL;
-
-        return 0;
-}
-
 int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
         ExecRuntime **rt = NULL;
         size_t offset;
@@ -2867,6 +2747,8 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                         r = unit_set_cgroup_path(u, v);
                         if (r < 0)
                                 log_unit_debug_errno(u, r, "Failed to set cgroup path %s, ignoring: %m", v);
+
+                        (void) unit_watch_cgroup(u);
 
                         continue;
                 } else if (streq(l, "cgroup-realized")) {
@@ -3600,18 +3482,22 @@ int unit_kill_context(
 
                 } else if (r > 0) {
 
-                        /* FIXME: For now, we will not wait for the
-                         * cgroup members to die if we are running in
-                         * a container or if this is a delegation
-                         * unit, simply because cgroup notification is
-                         * unreliable in these cases. It doesn't work
-                         * at all in containers, and outside of
-                         * containers it can be confused easily by
-                         * left-over directories in the cgroup --
-                         * which however should not exist in
-                         * non-delegated units. */
+                        /* FIXME: For now, on the legacy hierarchy, we
+                         * will not wait for the cgroup members to die
+                         * if we are running in a container or if this
+                         * is a delegation unit, simply because cgroup
+                         * notification is unreliable in these
+                         * cases. It doesn't work at all in
+                         * containers, and outside of containers it
+                         * can be confused easily by left-over
+                         * directories in the cgroup -- which however
+                         * should not exist in non-delegated units. On
+                         * the unified hierarchy that's different,
+                         * there we get proper events. Hence rely on
+                         * them.*/
 
-                        if  (detect_container(NULL) == 0 && !unit_cgroup_delegate(u))
+                        if  (cg_unified() > 0 ||
+                             (detect_container(NULL) == 0 && !unit_cgroup_delegate(u)))
                                 wait_for_exit = true;
 
                         if (c->send_sighup && k != KILL_KILL) {

@@ -214,7 +214,7 @@ struct ExecParameters {
         bool apply_tty_stdin;
         bool confirm_spawn;
         bool selinux_context_net;
-        CGroupControllerMask cgroup_supported;
+        CGroupMask cgroup_supported;
         const char *cgroup_path;
         bool cgroup_delegate;
         const char *runtime_prefix;

@@ -22,12 +22,13 @@
 #include <errno.h>
 #include <unistd.h>
 
-#include "unit.h"
-#include "scope.h"
 #include "log.h"
-#include "dbus-scope.h"
+#include "strv.h"
 #include "special.h"
 #include "unit-name.h"
+#include "unit.h"
+#include "scope.h"
+#include "dbus-scope.h"
 #include "load-dropin.h"
 
 static const UnitActiveState state_translation_table[_SCOPE_STATE_MAX] = {
@@ -136,7 +137,9 @@ static int scope_verify(Scope *s) {
         if (UNIT(s)->load_state != UNIT_LOADED)
                 return 0;
 
-        if (set_isempty(UNIT(s)->pids) && UNIT(s)->manager->n_reloading <= 0) {
+        if (set_isempty(UNIT(s)->pids) &&
+            !manager_is_reloading_or_reexecuting(UNIT(s)->manager) <= 0 &&
+            !unit_has_name(UNIT(s), SPECIAL_INIT_SCOPE)) {
                 log_unit_error(UNIT(s), "Scope has no PIDs. Refusing.");
                 return -EINVAL;
         }
@@ -151,7 +154,7 @@ static int scope_load(Unit *u) {
         assert(s);
         assert(u->load_state == UNIT_STUB);
 
-        if (!u->transient && UNIT(s)->manager->n_reloading <= 0)
+        if (!u->transient && !manager_is_reloading_or_reexecuting(u->manager))
                 return -ENOENT;
 
         u->load_state = UNIT_LOADED;
@@ -279,6 +282,9 @@ static int scope_start(Unit *u) {
 
         assert(s);
 
+        if (unit_has_name(u, SPECIAL_INIT_SCOPE))
+                return -EPERM;
+
         if (s->state == SCOPE_FAILED)
                 return -EPERM;
 
@@ -289,7 +295,7 @@ static int scope_start(Unit *u) {
 
         assert(s->state == SCOPE_DEAD);
 
-        if (!u->transient && UNIT(s)->manager->n_reloading <= 0)
+        if (!u->transient && !manager_is_reloading_or_reexecuting(u->manager))
                 return -ENOENT;
 
         (void) unit_realize_cgroup(u);
@@ -464,6 +470,9 @@ static int scope_dispatch_timer(sd_event_source *source, usec_t usec, void *user
 int scope_abandon(Scope *s) {
         assert(s);
 
+        if (unit_has_name(UNIT(s), SPECIAL_INIT_SCOPE))
+                return -EPERM;
+
         if (!IN_SET(s->state, SCOPE_RUNNING, SCOPE_ABANDONED))
                 return -ESTALE;
 
@@ -497,6 +506,48 @@ _pure_ static const char *scope_sub_state_to_string(Unit *u) {
         assert(u);
 
         return scope_state_to_string(SCOPE(u)->state);
+}
+
+static int scope_enumerate(Manager *m) {
+        Unit *u;
+        int r;
+
+        assert(m);
+
+        /* Let's unconditionally add the "init.scope" special unit
+         * that encapsulates PID 1. Note that PID 1 already is in the
+         * cgroup for this, we hence just need to allocate the object
+         * for it and that's it. */
+
+        u = manager_get_unit(m, SPECIAL_INIT_SCOPE);
+        if (!u) {
+                u = unit_new(m, sizeof(Scope));
+                if (!u)
+                        return log_oom();
+
+                r = unit_add_name(u, SPECIAL_INIT_SCOPE);
+                if (r < 0)  {
+                        unit_free(u);
+                        return log_error_errno(r, "Failed to add init.scope name");
+                }
+        }
+
+        u->transient = true;
+        u->default_dependencies = false;
+        u->no_gc = true;
+        SCOPE(u)->deserialized_state = SCOPE_RUNNING;
+        SCOPE(u)->kill_context.kill_signal = SIGRTMIN+14;
+
+        /* Prettify things, if we can. */
+        if (!u->description)
+                u->description = strdup("System and Service Manager");
+        if (!u->documentation)
+                (void) strv_extend(&u->documentation, "man:systemd(1)");
+
+        unit_add_to_load_queue(u);
+        unit_add_to_dbus_queue(u);
+
+        return 0;
 }
 
 static const char* const scope_state_table[_SCOPE_STATE_MAX] = {
@@ -565,5 +616,7 @@ const UnitVTable scope_vtable = {
         .bus_set_property = bus_scope_set_property,
         .bus_commit_properties = bus_scope_commit_properties,
 
-        .can_transient = true
+        .can_transient = true,
+
+        .enumerate = scope_enumerate,
 };

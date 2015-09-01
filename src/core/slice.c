@@ -21,12 +21,13 @@
 
 #include <errno.h>
 
-#include "unit.h"
-#include "slice.h"
 #include "log.h"
-#include "dbus-slice.h"
+#include "strv.h"
 #include "special.h"
 #include "unit-name.h"
+#include "unit.h"
+#include "slice.h"
+#include "dbus-slice.h"
 
 static const UnitActiveState state_translation_table[_SLICE_STATE_MAX] = {
         [SLICE_DEAD] = UNIT_INACTIVE,
@@ -252,6 +253,40 @@ _pure_ static const char *slice_sub_state_to_string(Unit *u) {
         return slice_state_to_string(SLICE(u)->state);
 }
 
+static int slice_enumerate(Manager *m) {
+        Unit *u;
+        int r;
+
+        assert(m);
+
+        u = manager_get_unit(m, SPECIAL_ROOT_SLICE);
+        if (!u) {
+                u = unit_new(m, sizeof(Slice));
+                if (!u)
+                        return log_oom();
+
+                r = unit_add_name(u, SPECIAL_ROOT_SLICE);
+                if (r < 0) {
+                        unit_free(u);
+                        return log_error_errno(r, "Failed to add -.slice name");
+                }
+        }
+
+        u->default_dependencies = false;
+        u->no_gc = true;
+        SLICE(u)->deserialized_state = SLICE_ACTIVE;
+
+        if (!u->description)
+                u->description = strdup("Root Slice");
+        if (!u->documentation)
+                (void) strv_extend(&u->documentation, "man:systemd.special(7)");
+
+        unit_add_to_load_queue(u);
+        unit_add_to_dbus_queue(u);
+
+        return 0;
+}
+
 static const char* const slice_state_table[_SLICE_STATE_MAX] = {
         [SLICE_DEAD] = "dead",
         [SLICE_ACTIVE] = "active"
@@ -292,6 +327,8 @@ const UnitVTable slice_vtable = {
         .bus_vtable = bus_slice_vtable,
         .bus_set_property = bus_slice_set_property,
         .bus_commit_properties = bus_slice_commit_properties,
+
+        .enumerate = slice_enumerate,
 
         .status_message_formats = {
                 .finished_start_job = {

@@ -74,8 +74,8 @@ int main(int argc, char*argv[]) {
 
         cg_trim(SYSTEMD_CGROUP_CONTROLLER, "/", false);
 
-        assert_se(cg_delete(SYSTEMD_CGROUP_CONTROLLER, "/test-b") < 0);
-        assert_se(cg_delete(SYSTEMD_CGROUP_CONTROLLER, "/test-a") >= 0);
+        assert_se(cg_rmdir(SYSTEMD_CGROUP_CONTROLLER, "/test-b") < 0);
+        assert_se(cg_rmdir(SYSTEMD_CGROUP_CONTROLLER, "/test-a") >= 0);
 
         assert_se(cg_split_spec("foobar:/", &c, &p) == 0);
         assert_se(streq(c, "foobar"));

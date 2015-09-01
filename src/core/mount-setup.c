@@ -93,12 +93,14 @@ static const MountPoint mount_table[] = {
 #endif
         { "tmpfs",       "/run",                      "tmpfs",      "mode=755",                MS_NOSUID|MS_NODEV|MS_STRICTATIME,
           NULL,          MNT_FATAL|MNT_IN_CONTAINER },
+        { "cgroup",      "/sys/fs/cgroup",            "cgroup",     "__DEVEL__sane_behavior",  MS_NOSUID|MS_NOEXEC|MS_NODEV,
+          cg_is_unified_wanted, MNT_FATAL|MNT_IN_CONTAINER },
         { "tmpfs",       "/sys/fs/cgroup",            "tmpfs",      "mode=755",                MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME,
-          NULL,          MNT_FATAL|MNT_IN_CONTAINER },
+          cg_is_legacy_wanted, MNT_FATAL|MNT_IN_CONTAINER },
         { "cgroup",      "/sys/fs/cgroup/systemd",    "cgroup",     "none,name=systemd,xattr", MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          NULL,          MNT_IN_CONTAINER           },
+          cg_is_legacy_wanted, MNT_IN_CONTAINER           },
         { "cgroup",      "/sys/fs/cgroup/systemd",    "cgroup",     "none,name=systemd",       MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          NULL,          MNT_FATAL|MNT_IN_CONTAINER },
+          cg_is_legacy_wanted, MNT_FATAL|MNT_IN_CONTAINER },
         { "pstore",      "/sys/fs/pstore",            "pstore",     NULL,                      MS_NOSUID|MS_NOEXEC|MS_NODEV,
           NULL,          MNT_NONE                   },
 #ifdef ENABLE_EFI
@@ -216,6 +218,9 @@ int mount_setup_early(void) {
 int mount_cgroup_controllers(char ***join_controllers) {
         _cleanup_set_free_free_ Set *controllers = NULL;
         int r;
+
+        if (!cg_is_legacy_wanted())
+                return 0;
 
         /* Mount all available cgroup controllers that are built into the kernel. */
 
