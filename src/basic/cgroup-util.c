@@ -918,6 +918,10 @@ int cg_is_empty_recursive(const char *controller, const char *path) {
 
         assert(path);
 
+        /* The root cgroup is always populated */
+        if (controller && (isempty(path) || path_equal(path, "/")))
+                return 0;
+
         r = cg_is_empty(controller, path);
         if (r <= 0)
                 return r;
