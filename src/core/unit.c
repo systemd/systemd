@@ -3172,7 +3172,7 @@ int unit_kill_common(
                 if (!pid_set)
                         return -ENOMEM;
 
-                q = cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, signo, false, true, false, pid_set);
+                q = cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, signo, false, false, false, pid_set);
                 if (q < 0 && q != -EAGAIN && q != -ESRCH && q != -ENOENT)
                         r = q;
         }
@@ -3563,8 +3563,8 @@ int unit_kill_context(
                         if (!main_pid_alien)
                                 wait_for_exit = true;
 
-                        if (c->send_sighup && k != KILL_KILL)
-                                kill(main_pid, SIGHUP);
+                        if (c->send_sighup && k == KILL_TERMINATE)
+                                (void) kill(main_pid, SIGHUP);
                 }
         }
 
@@ -3579,8 +3579,8 @@ int unit_kill_context(
                 } else {
                         wait_for_exit = true;
 
-                        if (c->send_sighup && k != KILL_KILL)
-                                kill(control_pid, SIGHUP);
+                        if (c->send_sighup && k == KILL_TERMINATE)
+                                (void) kill(control_pid, SIGHUP);
                 }
         }
 
@@ -3593,7 +3593,7 @@ int unit_kill_context(
                 if (!pid_set)
                         return -ENOMEM;
 
-                r = cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, sig, true, true, false, pid_set);
+                r = cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, sig, true, k != KILL_TERMINATE, false, pid_set);
                 if (r < 0) {
                         if (r != -EAGAIN && r != -ESRCH && r != -ENOENT)
                                 log_unit_warning_errno(u, r, "Failed to kill control group %s, ignoring: %m", u->cgroup_path);
