@@ -2441,6 +2441,9 @@ int unit_set_slice(Unit *u, Unit *slice) {
         if (u->type == UNIT_SLICE)
                 return -EINVAL;
 
+        if (unit_active_state(u) != UNIT_INACTIVE)
+                return -EBUSY;
+
         if (slice->type != UNIT_SLICE)
                 return -EINVAL;
 
