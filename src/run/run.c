@@ -36,7 +36,9 @@
 #include "ptyfwd.h"
 #include "formats-util.h"
 #include "signal-util.h"
+#include "spawn-polkit-agent.h"
 
+static bool arg_ask_password = true;
 static bool arg_scope = false;
 static bool arg_remain_after_exit = false;
 static bool arg_no_block = false;
@@ -64,6 +66,18 @@ static char *arg_on_calendar = NULL;
 static char **arg_timer_property = NULL;
 static bool arg_quiet = false;
 
+static void polkit_agent_open_if_enabled(void) {
+
+        /* Open the polkit agent as a child process if necessary */
+        if (!arg_ask_password)
+                return;
+
+        if (arg_transport != BUS_TRANSPORT_LOCAL)
+                return;
+
+        polkit_agent_open();
+}
+
 static void help(void) {
         printf("%s [OPTIONS...] {COMMAND} [ARGS...]\n\n"
                "Run the specified command in a transient scope or service or timer\n"
@@ -71,6 +85,7 @@ static void help(void) {
                "specified with --unit option then command can be omitted.\n\n"
                "  -h --help                       Show this help\n"
                "     --version                    Show package version\n"
+               "     --no-ask-password            Do not prompt for password\n"
                "     --user                       Run as user unit\n"
                "  -H --host=[USER@]HOST           Operate on remote host\n"
                "  -M --machine=CONTAINER          Operate on local container\n"
@@ -108,6 +123,7 @@ static int parse_argv(int argc, char *argv[]) {
 
         enum {
                 ARG_VERSION = 0x100,
+                ARG_NO_ASK_PASSWORD,
                 ARG_USER,
                 ARG_SYSTEM,
                 ARG_SCOPE,
@@ -160,6 +176,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "on-calendar",       required_argument, NULL, ARG_ON_CALENDAR      },
                 { "timer-property",    required_argument, NULL, ARG_TIMER_PROPERTY   },
                 { "no-block",          no_argument,       NULL, ARG_NO_BLOCK         },
+                { "no-ask-password",   no_argument,       NULL, ARG_NO_ASK_PASSWORD },
                 {},
         };
 
@@ -176,6 +193,10 @@ static int parse_argv(int argc, char *argv[]) {
                 case 'h':
                         help();
                         return 0;
+
+                case ARG_NO_ASK_PASSWORD:
+                        arg_ask_password = false;
+                        break;
 
                 case ARG_VERSION:
                         puts(PACKAGE_STRING);
@@ -745,6 +766,10 @@ static int start_transient_service(
         if (r < 0)
                 return bus_log_create_error(r);
 
+        r = sd_bus_message_set_allow_interactive_authorization(m, arg_ask_password);
+        if (r < 0)
+                return bus_log_create_error(r);
+
         /* Name and mode */
         r = sd_bus_message_append(m, "ss", service, "fail");
         if (r < 0)
@@ -767,6 +792,8 @@ static int start_transient_service(
         r = sd_bus_message_append(m, "a(sa(sv))", 0);
         if (r < 0)
                 return bus_log_create_error(r);
+
+        polkit_agent_open_if_enabled();
 
         r = sd_bus_call(bus, m, 0, &error, &reply);
         if (r < 0) {
@@ -860,6 +887,10 @@ static int start_transient_scope(
         if (r < 0)
                 return bus_log_create_error(r);
 
+        r = sd_bus_message_set_allow_interactive_authorization(m, arg_ask_password);
+        if (r < 0)
+                return bus_log_create_error(r);
+
         /* Name and Mode */
         r = sd_bus_message_append(m, "ss", scope, "fail");
         if (r < 0)
@@ -882,6 +913,8 @@ static int start_transient_scope(
         r = sd_bus_message_append(m, "a(sa(sv))", 0);
         if (r < 0)
                 return bus_log_create_error(r);
+
+        polkit_agent_open_if_enabled();
 
         r = sd_bus_call(bus, m, 0, &error, &reply);
         if (r < 0) {
@@ -1025,6 +1058,10 @@ static int start_transient_timer(
         if (r < 0)
                 return bus_log_create_error(r);
 
+        r = sd_bus_message_set_allow_interactive_authorization(m, arg_ask_password);
+        if (r < 0)
+                return bus_log_create_error(r);
+
         /* Name and Mode */
         r = sd_bus_message_append(m, "ss", timer, "fail");
         if (r < 0)
@@ -1076,6 +1113,8 @@ static int start_transient_timer(
         r = sd_bus_message_close_container(m);
         if (r < 0)
                 return bus_log_create_error(r);
+
+        polkit_agent_open_if_enabled();
 
         r = sd_bus_call(bus, m, 0, &error, &reply);
         if (r < 0) {
