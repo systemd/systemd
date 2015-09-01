@@ -124,6 +124,10 @@ mouse:usb:v04f2p0963:name:Chicony 2.4G Multimedia Wireless Kit:
 # Dell
 ##########################################
 
+# Dell MUAR DEL7
+mouse:usb:v413cp3012:name:Dell Dell USB Optical Mouse:
+ MOUSE_DPI=400@166
+
 # Dell USB Laser Mouse
 mouse:usb:v046dpc063:name:DELL DELL USB Laser Mouse:
  MOUSE_DPI=1000@125
@@ -301,6 +305,8 @@ mouse:usb:v046dpc065:name:Logitech USB Laser Mouse:
 mouse:usb:v046dpc510:name:Logitech USB Receiver:
  MOUSE_DPI=1000@125
 
+# Logitech V220 Cordless Optical Mouse
+mouse:usb:v046dpc51b:name:Logitech USB Receiver:
 # Logitech Performance MX
 mouse:usb:v046dp101a:name:Logitech Performance MX:
 # Logitech MX Master
@@ -376,6 +382,8 @@ mouse:usb:v045ep0040:name:Microsoft Microsoft 3-Button Mouse with IntelliEye(TM)
 mouse:usb:v045ep0745:name:Microsoft Microsoft® 2.4GHz Transceiver v6.0:
  MOUSE_DPI=800@142
 
+# Microsoft Wireless Mobile Mouse 4000
+mouse:usb:v045ep0745:name:Microsoft Microsoft® Nano Transceiver v2.0:
 # Microsoft Sculpt Ergonomic Mouse
 mouse:usb:v045ep07a5:name:Microsoft Microsoft® 2.4GHz Transceiver v9.0:
  MOUSE_DPI=1000@142
