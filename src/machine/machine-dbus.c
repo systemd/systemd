@@ -597,9 +597,6 @@ int bus_machine_method_open_login(sd_bus_message *message, void *userdata, sd_bu
         if (!p)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "PTS name %s is invalid", pty_name);
 
-        if (unlockpt(master) < 0)
-                return -errno;
-
         r = container_bus_new(m, &allocated_bus);
         if (r < 0)
                 return r;
@@ -700,9 +697,6 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
 
         utmp_id = path_startswith(pty_name, "/dev/");
         assert(utmp_id);
-
-        if (unlockpt(master) < 0)
-                return -errno;
 
         r = container_bus_new(m, &allocated_bus);
         if (r < 0)
