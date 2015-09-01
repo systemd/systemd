@@ -2017,9 +2017,9 @@ void unit_unwatch_pid(Unit *u, pid_t pid) {
         assert(u);
         assert(pid >= 1);
 
-        hashmap_remove_value(u->manager->watch_pids1, LONG_TO_PTR(pid), u);
-        hashmap_remove_value(u->manager->watch_pids2, LONG_TO_PTR(pid), u);
-        set_remove(u->pids, LONG_TO_PTR(pid));
+        (void) hashmap_remove_value(u->manager->watch_pids1, LONG_TO_PTR(pid), u);
+        (void) hashmap_remove_value(u->manager->watch_pids2, LONG_TO_PTR(pid), u);
+        (void) set_remove(u->pids, LONG_TO_PTR(pid));
 }
 
 void unit_unwatch_all_pids(Unit *u) {
@@ -3525,7 +3525,8 @@ int unit_kill_context(
                 pid_t control_pid,
                 bool main_pid_alien) {
 
-        int sig, wait_for_exit = false, r;
+        bool wait_for_exit = false;
+        int sig, r;
 
         assert(u);
         assert(c);
@@ -3554,7 +3555,7 @@ int unit_kill_context(
                         _cleanup_free_ char *comm = NULL;
                         get_process_comm(main_pid, &comm);
 
-                        log_unit_warning_errno(u, r, "Failed to kill main process " PID_FMT " (%s): %m", main_pid, strna(comm));
+                        log_unit_warning_errno(u, r, "Failed to kill main process " PID_FMT " (%s), ignoring: %m", main_pid, strna(comm));
                 } else {
                         if (!main_pid_alien)
                                 wait_for_exit = true;
@@ -3571,7 +3572,7 @@ int unit_kill_context(
                         _cleanup_free_ char *comm = NULL;
                         get_process_comm(control_pid, &comm);
 
-                        log_unit_warning_errno(u, r, "Failed to kill control process " PID_FMT " (%s): %m", control_pid, strna(comm));
+                        log_unit_warning_errno(u, r, "Failed to kill control process " PID_FMT " (%s), ignoring: %m", control_pid, strna(comm));
                 } else {
                         wait_for_exit = true;
 
@@ -3580,7 +3581,8 @@ int unit_kill_context(
                 }
         }
 
-        if ((c->kill_mode == KILL_CONTROL_GROUP || (c->kill_mode == KILL_MIXED && k == KILL_KILL)) && u->cgroup_path) {
+        if (u->cgroup_path &&
+            (c->kill_mode == KILL_CONTROL_GROUP || (c->kill_mode == KILL_MIXED && k == KILL_KILL))) {
                 _cleanup_set_free_ Set *pid_set = NULL;
 
                 /* Exclude the main/control pids from being killed via the cgroup */
@@ -3591,7 +3593,8 @@ int unit_kill_context(
                 r = cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, sig, true, true, false, pid_set);
                 if (r < 0) {
                         if (r != -EAGAIN && r != -ESRCH && r != -ENOENT)
-                                log_unit_warning_errno(u, r, "Failed to kill control group: %m");
+                                log_unit_warning_errno(u, r, "Failed to kill control group %s, ignoring: %m", u->cgroup_path);
+
                 } else if (r > 0) {
 
                         /* FIXME: For now, we will not wait for the
