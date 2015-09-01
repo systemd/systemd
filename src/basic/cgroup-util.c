@@ -113,7 +113,7 @@ int cg_read_subgroup(DIR *d, char **fn) {
         assert(d);
         assert(fn);
 
-        FOREACH_DIRENT(de, d, return -errno) {
+        FOREACH_DIRENT_ALL(de, d, return -errno) {
                 char *b;
 
                 if (de->d_type != DT_DIR)
