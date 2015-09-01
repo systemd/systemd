@@ -321,6 +321,14 @@ int cg_migrate(const char *cfrom, const char *pfrom, const char *cto, const char
                         if (set_get(s, LONG_TO_PTR(pid)) == LONG_TO_PTR(pid))
                                 continue;
 
+                        /* Ignore kernel threads. Since they can only
+                         * exist in the root cgroup, we only check for
+                         * them there. */
+                        if (cfrom &&
+                            (isempty(pfrom) || path_equal(pfrom, "/")) &&
+                            is_kernel_thread(pid) > 0)
+                                continue;
+
                         r = cg_attach(cto, pto, pid);
                         if (r < 0) {
                                 if (ret >= 0 && r != -ESRCH)
