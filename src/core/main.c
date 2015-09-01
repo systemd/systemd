@@ -433,6 +433,7 @@ static int config_parse_cpu_affinity2(
                 void *data,
                 void *userdata) {
 
+        const char *whole_rvalue = rvalue;
         _cleanup_cpu_free_ cpu_set_t *c = NULL;
         unsigned ncpus = 0;
 
@@ -446,8 +447,10 @@ static int config_parse_cpu_affinity2(
                 int r;
 
                 r = extract_first_word(&rvalue, &word, WHITESPACE, EXTRACT_QUOTES);
-                if (r < 0)
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Invalid value for %s: %s", lvalue, whole_rvalue);
                         return r;
+                }
                 if (r == 0)
                         break;
 
