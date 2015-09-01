@@ -125,15 +125,22 @@ int bus_container_connect_kernel(sd_bus *b) {
                 struct cmsghdr cmsghdr;
                 uint8_t buf[CMSG_SPACE(sizeof(int))];
         } control = {};
+        int error_buf = 0;
+        struct iovec iov = {
+                .iov_base = &error_buf,
+                .iov_len = sizeof(error_buf),
+        };
         struct msghdr mh = {
                 .msg_control = &control,
                 .msg_controllen = sizeof(control),
+                .msg_iov = &iov,
+                .msg_iovlen = 1,
         };
         struct cmsghdr *cmsg;
         pid_t child;
         siginfo_t si;
-        int r;
-        _cleanup_close_ int fd = -1;
+        int r, fd = -1;
+        ssize_t n;
 
         assert(b);
         assert(b->input_fd < 0);
@@ -178,10 +185,13 @@ int bus_container_connect_kernel(sd_bus *b) {
                         _exit(EXIT_FAILURE);
 
                 if (grandchild == 0) {
-
                         fd = open(b->kernel, O_RDWR|O_NOCTTY|O_CLOEXEC);
-                        if (fd < 0)
+                        if (fd < 0) {
+                                /* Try to send error up */
+                                error_buf = errno;
+                                (void) write(pair[1], &error_buf, sizeof(error_buf));
                                 _exit(EXIT_FAILURE);
+                        }
 
                         cmsg = CMSG_FIRSTHDR(&mh);
                         cmsg->cmsg_level = SOL_SOCKET;
@@ -213,19 +223,16 @@ int bus_container_connect_kernel(sd_bus *b) {
         if (r < 0)
                 return r;
 
-        if (si.si_code != CLD_EXITED)
-                return -EIO;
-
-        if (si.si_status != EXIT_SUCCESS)
-                return -EIO;
-
-        if (recvmsg(pair[0], &mh, MSG_NOSIGNAL|MSG_CMSG_CLOEXEC) < 0)
+        n = recvmsg(pair[0], &mh, MSG_NOSIGNAL|MSG_CMSG_CLOEXEC);
+        if (n < 0)
                 return -errno;
 
-        CMSG_FOREACH(cmsg, &mh)
+        CMSG_FOREACH(cmsg, &mh) {
                 if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_RIGHTS) {
                         int *fds;
                         unsigned n_fds;
+
+                        assert(fd < 0);
 
                         fds = (int*) CMSG_DATA(cmsg);
                         n_fds = (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int);
@@ -237,9 +244,18 @@ int bus_container_connect_kernel(sd_bus *b) {
 
                         fd = fds[0];
                 }
+        }
 
-        b->input_fd = b->output_fd = fd;
-        fd = -1;
+        /* If there's an fd passed, we are good. */
+        if (fd >= 0) {
+                b->input_fd = b->output_fd = fd;
+                return bus_kernel_take_fd(b);
+        }
 
-        return bus_kernel_take_fd(b);
+        /* If there's an error passed, use it */
+        if (n == sizeof(error_buf) && error_buf > 0)
+                return -error_buf;
+
+        /* Otherwise, we have no clue */
+        return -EIO;
 }
