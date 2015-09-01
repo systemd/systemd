@@ -538,6 +538,7 @@ static int config_parse_join_controllers(const char *unit,
                                          void *data,
                                          void *userdata) {
 
+        const char *whole_rvalue = rvalue;
         unsigned n = 0;
 
         assert(filename);
@@ -552,8 +553,10 @@ static int config_parse_join_controllers(const char *unit,
                 int r;
 
                 r = extract_first_word(&rvalue, &word, WHITESPACE, EXTRACT_QUOTES);
-                if (r < 0)
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Invalid value for %s: %s", lvalue, whole_rvalue);
                         return r;
+                }
                 if (r == 0)
                         break;
 
