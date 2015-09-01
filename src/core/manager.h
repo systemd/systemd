@@ -233,7 +233,6 @@ struct Manager {
         bool dispatching_dbus_queue:1;
 
         bool taint_usr:1;
-        bool first_boot:1;
 
         bool test_run:1;
 
@@ -295,6 +294,8 @@ struct Manager {
 
         const char *unit_log_field;
         const char *unit_log_format_string;
+
+        int first_boot;
 };
 
 int manager_new(ManagerRunningAs running_as, bool test_run, Manager **m);

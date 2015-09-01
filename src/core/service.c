@@ -1269,7 +1269,7 @@ static int cgroup_good(Service *s) {
         if (!UNIT(s)->cgroup_path)
                 return 0;
 
-        r = cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, UNIT(s)->cgroup_path, true);
+        r = cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, UNIT(s)->cgroup_path);
         if (r < 0)
                 return r;
 
@@ -1520,18 +1520,33 @@ fail:
         service_enter_signal(s, SERVICE_STOP_SIGTERM, SERVICE_FAILURE_RESOURCES);
 }
 
+static bool service_good(Service *s) {
+        int main_pid_ok;
+        assert(s);
+
+        if (s->type == SERVICE_DBUS && !s->bus_name_good)
+                return false;
+
+        main_pid_ok = main_pid_good(s);
+        if (main_pid_ok > 0) /* It's alive */
+                return true;
+        if (main_pid_ok == 0) /* It's dead */
+                return false;
+
+        /* OK, we don't know anything about the main PID, maybe
+         * because there is none. Let's check the control group
+         * instead. */
+
+        return cgroup_good(s) != 0;
+}
+
 static void service_enter_running(Service *s, ServiceResult f) {
-        int main_pid_ok, cgroup_ok;
         assert(s);
 
         if (f != SERVICE_SUCCESS)
                 s->result = f;
 
-        main_pid_ok = main_pid_good(s);
-        cgroup_ok = cgroup_good(s);
-
-        if ((main_pid_ok > 0 || (main_pid_ok < 0 && cgroup_ok != 0)) &&
-            (s->bus_name_good || s->type != SERVICE_DBUS)) {
+        if (service_good(s)) {
 
                 /* If there are any queued up sd_notify()
                  * notifications, process them now */

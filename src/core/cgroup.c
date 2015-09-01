@@ -1005,12 +1005,21 @@ Unit* manager_get_unit_by_cgroup(Manager *m, const char *cgroup) {
 
 Unit *manager_get_unit_by_pid(Manager *m, pid_t pid) {
         _cleanup_free_ char *cgroup = NULL;
+        Unit *u;
         int r;
 
         assert(m);
 
         if (pid <= 1)
                 return NULL;
+
+        u = hashmap_get(m->watch_pids1, LONG_TO_PTR(pid));
+        if (u)
+                return u;
+
+        u = hashmap_get(m->watch_pids2, LONG_TO_PTR(pid));
+        if (u)
+                return u;
 
         r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, pid, &cgroup);
         if (r < 0)
@@ -1030,7 +1039,7 @@ int manager_notify_cgroup_empty(Manager *m, const char *cgroup) {
         if (!u)
                 return 0;
 
-        r = cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, true);
+        r = cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path);
         if (r <= 0)
                 return r;
 
@@ -1122,6 +1131,18 @@ int unit_reset_cpu_usage(Unit *u) {
 
         u->cpuacct_usage_base = ns;
         return 0;
+}
+
+bool unit_cgroup_delegate(Unit *u) {
+        CGroupContext *c;
+
+        assert(u);
+
+        c = unit_get_cgroup_context(u);
+        if (!c)
+                return false;
+
+        return c->delegate;
 }
 
 static const char* const cgroup_device_policy_table[_CGROUP_DEVICE_POLICY_MAX] = {

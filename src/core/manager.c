@@ -573,6 +573,7 @@ int manager_new(ManagerRunningAs running_as, bool test_run, Manager **_m) {
 
         m->ask_password_inotify_fd = -1;
         m->have_ask_password = -EINVAL; /* we don't know */
+        m->first_boot = -1;
 
         m->test_run = test_run;
 
@@ -2998,12 +2999,14 @@ void manager_set_first_boot(Manager *m, bool b) {
         if (m->running_as != MANAGER_SYSTEM)
                 return;
 
-        m->first_boot = b;
+        if (m->first_boot != (int) b) {
+                if (b)
+                        (void) touch("/run/systemd/first-boot");
+                else
+                        (void) unlink("/run/systemd/first-boot");
+        }
 
-        if (m->first_boot)
-                touch("/run/systemd/first-boot");
-        else
-                unlink("/run/systemd/first-boot");
+        m->first_boot = b;
 }
 
 void manager_status_printf(Manager *m, StatusType type, const char *status, const char *format, ...) {

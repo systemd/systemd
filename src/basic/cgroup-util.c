@@ -29,7 +29,6 @@
 #include <sys/types.h>
 #include <ftw.h>
 
-#include "cgroup-util.h"
 #include "set.h"
 #include "macro.h"
 #include "util.h"
@@ -41,6 +40,7 @@
 #include "special.h"
 #include "mkdir.h"
 #include "login-util.h"
+#include "cgroup-util.h"
 
 int cg_enumerate_processes(const char *controller, const char *path, FILE **_f) {
         _cleanup_free_ char *fs = NULL;
@@ -113,7 +113,7 @@ int cg_read_subgroup(DIR *d, char **fn) {
         assert(d);
         assert(fn);
 
-        FOREACH_DIRENT(de, d, return -errno) {
+        FOREACH_DIRENT_ALL(de, d, return -errno) {
                 char *b;
 
                 if (de->d_type != DT_DIR)
@@ -197,7 +197,7 @@ int cg_kill(const char *controller, const char *path, int sig, bool sigcont, boo
                                         ret = -errno;
                         } else {
                                 if (sigcont && sig != SIGKILL)
-                                        kill(pid, SIGCONT);
+                                        (void) kill(pid, SIGCONT);
 
                                 if (ret == 0)
                                         ret = 1;
@@ -233,7 +233,7 @@ int cg_kill(const char *controller, const char *path, int sig, bool sigcont, boo
 int cg_kill_recursive(const char *controller, const char *path, int sig, bool sigcont, bool ignore_self, bool rem, Set *s) {
         _cleanup_set_free_ Set *allocated_set = NULL;
         _cleanup_closedir_ DIR *d = NULL;
-        int r, ret = 0;
+        int r, ret;
         char *fn;
 
         assert(path);
@@ -264,7 +264,7 @@ int cg_kill_recursive(const char *controller, const char *path, int sig, bool si
                         return -ENOMEM;
 
                 r = cg_kill_recursive(controller, p, sig, sigcont, ignore_self, rem, s);
-                if (ret >= 0 && r != 0)
+                if (r != 0 && ret >= 0)
                         ret = r;
         }
 
@@ -319,6 +319,14 @@ int cg_migrate(const char *cfrom, const char *pfrom, const char *cto, const char
                                 continue;
 
                         if (set_get(s, LONG_TO_PTR(pid)) == LONG_TO_PTR(pid))
+                                continue;
+
+                        /* Ignore kernel threads. Since they can only
+                         * exist in the root cgroup, we only check for
+                         * them there. */
+                        if (cfrom &&
+                            (isempty(pfrom) || path_equal(pfrom, "/")) &&
+                            is_kernel_thread(pid) > 0)
                                 continue;
 
                         r = cg_attach(cto, pto, pid);
@@ -382,12 +390,8 @@ int cg_migrate_recursive(
 
                 p = strjoin(pfrom, "/", fn, NULL);
                 free(fn);
-                if (!p) {
-                        if (ret >= 0)
-                                return -ENOMEM;
-
-                        return ret;
-                }
+                if (!p)
+                        return -ENOMEM;
 
                 r = cg_migrate_recursive(cfrom, p, cto, pto, ignore_self, rem);
                 if (r != 0 && ret >= 0)
@@ -428,13 +432,15 @@ int cg_migrate_recursive_fallback(
                 /* This didn't work? Then let's try all prefixes of the destination */
 
                 PATH_FOREACH_PREFIX(prefix, pto) {
-                        r = cg_migrate_recursive(cfrom, pfrom, cto, prefix, ignore_self, rem);
-                        if (r >= 0)
-                                break;
+                        int q;
+
+                        q = cg_migrate_recursive(cfrom, pfrom, cto, prefix, ignore_self, rem);
+                        if (q >= 0)
+                                return q;
                 }
         }
 
-        return 0;
+        return r;
 }
 
 static const char *normalize_controller(const char *controller) {
@@ -549,7 +555,7 @@ static int trim_cb(const char *path, const struct stat *sb, int typeflag, struct
         if (ftwbuf->level < 1)
                 return 0;
 
-        rmdir(path);
+        (void) rmdir(path);
         return 0;
 }
 
@@ -564,8 +570,14 @@ int cg_trim(const char *controller, const char *path, bool delete_root) {
                 return r;
 
         errno = 0;
-        if (nftw(fs, trim_cb, 64, FTW_DEPTH|FTW_MOUNT|FTW_PHYS) != 0)
-                r = errno ? -errno : -EIO;
+        if (nftw(fs, trim_cb, 64, FTW_DEPTH|FTW_MOUNT|FTW_PHYS) != 0) {
+                if (errno == ENOENT)
+                        r = 0;
+                else if (errno != 0)
+                        r = -errno;
+                else
+                        r = -EIO;
+        }
 
         if (delete_root) {
                 if (rmdir(fs) < 0 && errno != ENOENT)
@@ -664,13 +676,15 @@ int cg_attach_fallback(const char *controller, const char *path, pid_t pid) {
                  * the destination */
 
                 PATH_FOREACH_PREFIX(prefix, path) {
-                        r = cg_attach(controller, prefix, pid);
-                        if (r >= 0)
-                                break;
+                        int q;
+
+                        q = cg_attach(controller, prefix, pid);
+                        if (q >= 0)
+                                return q;
                 }
         }
 
-        return 0;
+        return r;
 }
 
 int cg_set_group_access(
@@ -683,7 +697,8 @@ int cg_set_group_access(
         _cleanup_free_ char *fs = NULL;
         int r;
 
-        assert(path);
+        if (mode == MODE_INVALID && uid == UID_INVALID && gid == GID_INVALID)
+                return 0;
 
         if (mode != MODE_INVALID)
                 mode &= 0777;
@@ -819,7 +834,7 @@ int cg_install_release_agent(const char *controller, const char *agent) {
                 return r;
 
         sc = strstrip(contents);
-        if (sc[0] == 0) {
+        if (isempty(sc)) {
                 r = write_string_file(fs, agent, 0);
                 if (r < 0)
                         return r;
@@ -876,49 +891,46 @@ int cg_uninstall_release_agent(const char *controller) {
         return 0;
 }
 
-int cg_is_empty(const char *controller, const char *path, bool ignore_self) {
+int cg_is_empty(const char *controller, const char *path) {
         _cleanup_fclose_ FILE *f = NULL;
-        pid_t pid = 0, self_pid;
-        bool found = false;
+        pid_t pid = 0;
         int r;
 
         assert(path);
 
         r = cg_enumerate_processes(controller, path, &f);
-        if (r < 0)
-                return r == -ENOENT ? 1 : r;
-
-        self_pid = getpid();
-
-        while ((r = cg_read_pid(f, &pid)) > 0) {
-
-                if (ignore_self && pid == self_pid)
-                        continue;
-
-                found = true;
-                break;
-        }
-
+        if (r == -ENOENT)
+                return 1;
         if (r < 0)
                 return r;
 
-        return !found;
+        r = cg_read_pid(f, &pid);
+        if (r < 0)
+                return r;
+
+        return r == 0;
 }
 
-int cg_is_empty_recursive(const char *controller, const char *path, bool ignore_self) {
+int cg_is_empty_recursive(const char *controller, const char *path) {
         _cleanup_closedir_ DIR *d = NULL;
         char *fn;
         int r;
 
         assert(path);
 
-        r = cg_is_empty(controller, path, ignore_self);
+        /* The root cgroup is always populated */
+        if (controller && (isempty(path) || path_equal(path, "/")))
+                return 0;
+
+        r = cg_is_empty(controller, path);
         if (r <= 0)
                 return r;
 
         r = cg_enumerate_subgroups(controller, path, &d);
+        if (r == -ENOENT)
+                return 1;
         if (r < 0)
-                return r == -ENOENT ? 1 : r;
+                return r;
 
         while ((r = cg_read_subgroup(d, &fn)) > 0) {
                 _cleanup_free_ char *p = NULL;
@@ -928,7 +940,7 @@ int cg_is_empty_recursive(const char *controller, const char *path, bool ignore_
                 if (!p)
                         return -ENOMEM;
 
-                r = cg_is_empty_recursive(controller, p, ignore_self);
+                r = cg_is_empty_recursive(controller, p);
                 if (r <= 0)
                         return r;
         }
@@ -1869,6 +1881,11 @@ int cg_kernel_controllers(Set *controllers) {
 
         assert(controllers);
 
+        /* Determines the full list of kernel-known controllers. Might
+         * include controllers we don't actually support, arbitrary
+         * named hierarchies and controllers that aren't currently
+         * accessible (because not mounted). */
+
         f = fopen("/proc/cgroups", "re");
         if (!f) {
                 if (errno == ENOENT)
@@ -1889,7 +1906,7 @@ int cg_kernel_controllers(Set *controllers) {
                         if (feof(f))
                                 break;
 
-                        if (ferror(f) && errno)
+                        if (ferror(f) && errno != 0)
                                 return -errno;
 
                         return -EBADMSG;

@@ -28,12 +28,14 @@ Set *internal_set_new(const struct hash_ops *hash_ops  HASHMAP_DEBUG_PARAMS);
 #define set_new(ops) internal_set_new(ops  HASHMAP_DEBUG_SRC_ARGS)
 
 
-static inline void set_free(Set *s) {
+static inline Set *set_free(Set *s) {
         internal_hashmap_free(HASHMAP_BASE(s));
+        return NULL;
 }
 
-static inline void set_free_free(Set *s) {
+static inline Set *set_free_free(Set *s) {
         internal_hashmap_free_free(HASHMAP_BASE(s));
+        return NULL;
 }
 
 /* no set_free_free_free */

@@ -28,27 +28,28 @@
 #include "sd-id128.h"
 #include "sd-messages.h"
 #include "set.h"
-#include "unit.h"
 #include "macro.h"
 #include "strv.h"
 #include "path-util.h"
-#include "load-fragment.h"
-#include "load-dropin.h"
 #include "log.h"
-#include "unit-name.h"
-#include "dbus-unit.h"
-#include "special.h"
 #include "cgroup-util.h"
 #include "missing.h"
 #include "mkdir.h"
 #include "fileio-label.h"
-#include "bus-common-errors.h"
-#include "dbus.h"
-#include "execute.h"
-#include "dropin.h"
 #include "formats-util.h"
 #include "process-util.h"
+#include "virt.h"
+#include "bus-common-errors.h"
 #include "bus-util.h"
+#include "dropin.h"
+#include "unit-name.h"
+#include "special.h"
+#include "unit.h"
+#include "load-fragment.h"
+#include "load-dropin.h"
+#include "dbus.h"
+#include "dbus-unit.h"
+#include "execute.h"
 
 const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX] = {
         [UNIT_SERVICE] = &service_vtable,
@@ -2016,9 +2017,9 @@ void unit_unwatch_pid(Unit *u, pid_t pid) {
         assert(u);
         assert(pid >= 1);
 
-        hashmap_remove_value(u->manager->watch_pids1, LONG_TO_PTR(pid), u);
-        hashmap_remove_value(u->manager->watch_pids2, LONG_TO_PTR(pid), u);
-        set_remove(u->pids, LONG_TO_PTR(pid));
+        (void) hashmap_remove_value(u->manager->watch_pids1, LONG_TO_PTR(pid), u);
+        (void) hashmap_remove_value(u->manager->watch_pids2, LONG_TO_PTR(pid), u);
+        (void) set_remove(u->pids, LONG_TO_PTR(pid));
 }
 
 void unit_unwatch_all_pids(Unit *u) {
@@ -2439,6 +2440,9 @@ int unit_set_slice(Unit *u, Unit *slice) {
 
         if (u->type == UNIT_SLICE)
                 return -EINVAL;
+
+        if (unit_active_state(u) != UNIT_INACTIVE)
+                return -EBUSY;
 
         if (slice->type != UNIT_SLICE)
                 return -EINVAL;
@@ -3168,7 +3172,7 @@ int unit_kill_common(
                 if (!pid_set)
                         return -ENOMEM;
 
-                q = cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, signo, false, true, false, pid_set);
+                q = cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, signo, false, false, false, pid_set);
                 if (q < 0 && q != -EAGAIN && q != -ESRCH && q != -ENOENT)
                         r = q;
         }
@@ -3524,7 +3528,8 @@ int unit_kill_context(
                 pid_t control_pid,
                 bool main_pid_alien) {
 
-        int sig, wait_for_exit = false, r;
+        bool wait_for_exit = false;
+        int sig, r;
 
         assert(u);
         assert(c);
@@ -3553,13 +3558,13 @@ int unit_kill_context(
                         _cleanup_free_ char *comm = NULL;
                         get_process_comm(main_pid, &comm);
 
-                        log_unit_warning_errno(u, r, "Failed to kill main process " PID_FMT " (%s): %m", main_pid, strna(comm));
+                        log_unit_warning_errno(u, r, "Failed to kill main process " PID_FMT " (%s), ignoring: %m", main_pid, strna(comm));
                 } else {
                         if (!main_pid_alien)
                                 wait_for_exit = true;
 
-                        if (c->send_sighup && k != KILL_KILL)
-                                kill(main_pid, SIGHUP);
+                        if (c->send_sighup && k == KILL_TERMINATE)
+                                (void) kill(main_pid, SIGHUP);
                 }
         }
 
@@ -3570,16 +3575,17 @@ int unit_kill_context(
                         _cleanup_free_ char *comm = NULL;
                         get_process_comm(control_pid, &comm);
 
-                        log_unit_warning_errno(u, r, "Failed to kill control process " PID_FMT " (%s): %m", control_pid, strna(comm));
+                        log_unit_warning_errno(u, r, "Failed to kill control process " PID_FMT " (%s), ignoring: %m", control_pid, strna(comm));
                 } else {
                         wait_for_exit = true;
 
-                        if (c->send_sighup && k != KILL_KILL)
-                                kill(control_pid, SIGHUP);
+                        if (c->send_sighup && k == KILL_TERMINATE)
+                                (void) kill(control_pid, SIGHUP);
                 }
         }
 
-        if ((c->kill_mode == KILL_CONTROL_GROUP || (c->kill_mode == KILL_MIXED && k == KILL_KILL)) && u->cgroup_path) {
+        if (u->cgroup_path &&
+            (c->kill_mode == KILL_CONTROL_GROUP || (c->kill_mode == KILL_MIXED && k == KILL_KILL))) {
                 _cleanup_set_free_ Set *pid_set = NULL;
 
                 /* Exclude the main/control pids from being killed via the cgroup */
@@ -3587,21 +3593,26 @@ int unit_kill_context(
                 if (!pid_set)
                         return -ENOMEM;
 
-                r = cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, sig, true, true, false, pid_set);
+                r = cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, sig, true, k != KILL_TERMINATE, false, pid_set);
                 if (r < 0) {
                         if (r != -EAGAIN && r != -ESRCH && r != -ENOENT)
-                                log_unit_warning_errno(u, r, "Failed to kill control group: %m");
+                                log_unit_warning_errno(u, r, "Failed to kill control group %s, ignoring: %m", u->cgroup_path);
+
                 } else if (r > 0) {
 
                         /* FIXME: For now, we will not wait for the
-                         * cgroup members to die, simply because
-                         * cgroup notification is unreliable. It
-                         * doesn't work at all in containers, and
-                         * outside of containers it can be confused
-                         * easily by leaving directories in the
-                         * cgroup. */
+                         * cgroup members to die if we are running in
+                         * a container or if this is a delegation
+                         * unit, simply because cgroup notification is
+                         * unreliable in these cases. It doesn't work
+                         * at all in containers, and outside of
+                         * containers it can be confused easily by
+                         * left-over directories in the cgroup --
+                         * which however should not exist in
+                         * non-delegated units. */
 
-                        /* wait_for_exit = true; */
+                        if  (detect_container(NULL) == 0 && !unit_cgroup_delegate(u))
+                                wait_for_exit = true;
 
                         if (c->send_sighup && k != KILL_KILL) {
                                 set_free(pid_set);
