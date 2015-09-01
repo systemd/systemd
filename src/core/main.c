@@ -2043,7 +2043,7 @@ finish:
                  * kernel; at this point, we will not listen to the
                  * signals anyway */
                 if (detect_container(NULL) <= 0)
-                        cg_uninstall_release_agent(SYSTEMD_CGROUP_CONTROLLER);
+                        (void) cg_uninstall_release_agent(SYSTEMD_CGROUP_CONTROLLER);
 
                 execve(SYSTEMD_SHUTDOWN_BINARY_PATH, (char **) command_line, env_block);
                 log_error_errno(errno, "Failed to execute shutdown binary, %s: %m",
