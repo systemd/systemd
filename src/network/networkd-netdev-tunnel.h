@@ -95,3 +95,9 @@ int config_parse_ipv6_flowlabel(const char *unit, const char *filename,
                                 unsigned section_line, const char *lvalue,
                                 int ltype, const char *rvalue, void *data,
                                 void *userdata);
+
+int config_parse_encap_limit(const char *unit, const char *filename,
+                             unsigned line, const char *section,
+                             unsigned section_line, const char *lvalue,
+                             int ltype, const char *rvalue, void *data,
+                             void *userdata);

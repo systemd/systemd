@@ -535,6 +535,19 @@
         </listitem>
       </varlistentry>
       <varlistentry>
+        <term><varname>EncapsulationLimit=</varname></term>
+        <listitem>
+          <para>The Tunnel Encapsulation Limit option specifies how many additional
+          levels of encapsulation are permitted to be prepended to the packet.
+          For example, a Tunnel Encapsulation Limit option containing a limit
+          value of zero means that a packet carrying that option may not enter
+          another tunnel before exiting the current tunnel.
+          (see <ulink url="https://tools.ietf.org/html/rfc2473#section-4.1.1"> RFC 2473</ulink>).
+          The valid range is 0-255 and <literal>none</literal>. Defaults to 4.
+        </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
         <term><varname>Mode=</varname></term>
         <listitem>
           <para>An <literal>ip6tnl</literal> tunnels can have three
