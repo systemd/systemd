@@ -246,7 +246,7 @@ int mac_selinux_generic_access_check(
         if (path) {
                 /* Get the file context of the unit file */
 
-                r = getfilecon(path, &fcon);
+                r = getfilecon_raw(path, &fcon);
                 if (r < 0) {
                         r = sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Failed to get file context on %s.", path);
                         goto finish;
@@ -254,7 +254,7 @@ int mac_selinux_generic_access_check(
 
                 tclass = "service";
         } else {
-                r = getcon(&fcon);
+                r = getcon_raw(&fcon);
                 if (r < 0) {
                         r = sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Failed to get current context.");
                         goto finish;
