@@ -215,6 +215,9 @@ struct Manager {
 
         /* Data specific to the cgroup subsystem */
         Hashmap *cgroup_unit;
+        int cgroup_populated_inotify_fd;
+        sd_event_source *cgroup_populated_event_source;
+        Hashmap *cgroup_populated_by_wd;
         CGroupControllerMask cgroup_supported;
         char *cgroup_root;
 

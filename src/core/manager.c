@@ -568,7 +568,7 @@ int manager_new(ManagerRunningAs running_as, bool test_run, Manager **_m) {
 
         m->idle_pipe[0] = m->idle_pipe[1] = m->idle_pipe[2] = m->idle_pipe[3] = -1;
 
-        m->pin_cgroupfs_fd = m->notify_fd = m->signal_fd = m->time_change_fd = m->dev_autofs_fd = m->private_listen_fd = m->kdbus_fd = m->utab_inotify_fd = -1;
+        m->pin_cgroupfs_fd = m->notify_fd = m->signal_fd = m->time_change_fd = m->dev_autofs_fd = m->private_listen_fd = m->kdbus_fd = m->utab_inotify_fd = m->cgroup_populated_inotify_fd = -1;
         m->current_job_id = 1; /* start as id #1, so that we can leave #0 around as "null-like" value */
 
         m->ask_password_inotify_fd = -1;
@@ -593,6 +593,10 @@ int manager_new(ManagerRunningAs running_as, bool test_run, Manager **_m) {
                 goto fail;
 
         r = hashmap_ensure_allocated(&m->cgroup_unit, &string_hash_ops);
+        if (r < 0)
+                goto fail;
+
+        r = hashmap_ensure_allocated(&m->cgroup_populated_by_wd, NULL);
         if (r < 0)
                 goto fail;
 
