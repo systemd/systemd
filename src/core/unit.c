@@ -28,27 +28,28 @@
 #include "sd-id128.h"
 #include "sd-messages.h"
 #include "set.h"
-#include "unit.h"
 #include "macro.h"
 #include "strv.h"
 #include "path-util.h"
-#include "load-fragment.h"
-#include "load-dropin.h"
 #include "log.h"
-#include "unit-name.h"
-#include "dbus-unit.h"
-#include "special.h"
 #include "cgroup-util.h"
 #include "missing.h"
 #include "mkdir.h"
 #include "fileio-label.h"
-#include "bus-common-errors.h"
-#include "dbus.h"
-#include "execute.h"
-#include "dropin.h"
 #include "formats-util.h"
 #include "process-util.h"
+#include "virt.h"
+#include "bus-common-errors.h"
 #include "bus-util.h"
+#include "dropin.h"
+#include "unit-name.h"
+#include "special.h"
+#include "unit.h"
+#include "load-fragment.h"
+#include "load-dropin.h"
+#include "dbus.h"
+#include "dbus-unit.h"
+#include "execute.h"
 
 const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX] = {
         [UNIT_SERVICE] = &service_vtable,
@@ -3594,14 +3595,18 @@ int unit_kill_context(
                 } else if (r > 0) {
 
                         /* FIXME: For now, we will not wait for the
-                         * cgroup members to die, simply because
-                         * cgroup notification is unreliable. It
-                         * doesn't work at all in containers, and
-                         * outside of containers it can be confused
-                         * easily by leaving directories in the
-                         * cgroup. */
+                         * cgroup members to die if we are running in
+                         * a container or if this is a delegation
+                         * unit, simply because cgroup notification is
+                         * unreliable in these cases. It doesn't work
+                         * at all in containers, and outside of
+                         * containers it can be confused easily by
+                         * left-over directories in the cgroup --
+                         * which however should not exist in
+                         * non-delegated units. */
 
-                        /* wait_for_exit = true; */
+                        if  (detect_container(NULL) == 0 && !unit_cgroup_delegate(u))
+                                wait_for_exit = true;
 
                         if (c->send_sighup && k != KILL_KILL) {
                                 set_free(pid_set);

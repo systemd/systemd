@@ -1124,6 +1124,18 @@ int unit_reset_cpu_usage(Unit *u) {
         return 0;
 }
 
+bool unit_cgroup_delegate(Unit *u) {
+        CGroupContext *c;
+
+        assert(u);
+
+        c = unit_get_cgroup_context(u);
+        if (!c)
+                return false;
+
+        return c->delegate;
+}
+
 static const char* const cgroup_device_policy_table[_CGROUP_DEVICE_POLICY_MAX] = {
         [CGROUP_AUTO] = "auto",
         [CGROUP_CLOSED] = "closed",

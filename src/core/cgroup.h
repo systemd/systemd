@@ -130,5 +130,7 @@ int unit_get_memory_current(Unit *u, uint64_t *ret);
 int unit_get_cpu_usage(Unit *u, nsec_t *ret);
 int unit_reset_cpu_usage(Unit *u);
 
+bool unit_cgroup_delegate(Unit *u);
+
 const char* cgroup_device_policy_to_string(CGroupDevicePolicy i) _const_;
 CGroupDevicePolicy cgroup_device_policy_from_string(const char *s) _pure_;
