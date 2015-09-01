@@ -1819,8 +1819,16 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
 
                 break;
 
-        case DNS_TYPE_NSEC:
-                r = dns_packet_read_name(p, &rr->nsec.next_domain_name, false, NULL);
+        case DNS_TYPE_NSEC: {
+
+                /*
+                 * RFC6762, section 18.14 explicly states mDNS should use name compression.
+                 * This contradicts RFC3845, section 2.1.1
+                 */
+
+                bool allow_compressed = p->protocol == DNS_PROTOCOL_MDNS;
+
+                r = dns_packet_read_name(p, &rr->nsec.next_domain_name, allow_compressed, NULL);
                 if (r < 0)
                         goto fail;
 
@@ -1833,7 +1841,7 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
                  * without the NSEC bit set. */
 
                 break;
-
+        }
         case DNS_TYPE_NSEC3: {
                 uint8_t size;
 
