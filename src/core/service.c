@@ -1269,7 +1269,7 @@ static int cgroup_good(Service *s) {
         if (!UNIT(s)->cgroup_path)
                 return 0;
 
-        r = cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, UNIT(s)->cgroup_path, true);
+        r = cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, UNIT(s)->cgroup_path);
         if (r < 0)
                 return r;
 

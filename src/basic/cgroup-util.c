@@ -891,49 +891,42 @@ int cg_uninstall_release_agent(const char *controller) {
         return 0;
 }
 
-int cg_is_empty(const char *controller, const char *path, bool ignore_self) {
+int cg_is_empty(const char *controller, const char *path) {
         _cleanup_fclose_ FILE *f = NULL;
-        pid_t pid = 0, self_pid;
-        bool found = false;
+        pid_t pid = 0;
         int r;
 
         assert(path);
 
         r = cg_enumerate_processes(controller, path, &f);
-        if (r < 0)
-                return r == -ENOENT ? 1 : r;
-
-        self_pid = getpid();
-
-        while ((r = cg_read_pid(f, &pid)) > 0) {
-
-                if (ignore_self && pid == self_pid)
-                        continue;
-
-                found = true;
-                break;
-        }
-
+        if (r == -ENOENT)
+                return 1;
         if (r < 0)
                 return r;
 
-        return !found;
+        r = cg_read_pid(f, &pid);
+        if (r < 0)
+                return r;
+
+        return r == 0;
 }
 
-int cg_is_empty_recursive(const char *controller, const char *path, bool ignore_self) {
+int cg_is_empty_recursive(const char *controller, const char *path) {
         _cleanup_closedir_ DIR *d = NULL;
         char *fn;
         int r;
 
         assert(path);
 
-        r = cg_is_empty(controller, path, ignore_self);
+        r = cg_is_empty(controller, path);
         if (r <= 0)
                 return r;
 
         r = cg_enumerate_subgroups(controller, path, &d);
+        if (r == -ENOENT)
+                return 1;
         if (r < 0)
-                return r == -ENOENT ? 1 : r;
+                return r;
 
         while ((r = cg_read_subgroup(d, &fn)) > 0) {
                 _cleanup_free_ char *p = NULL;
@@ -943,7 +936,7 @@ int cg_is_empty_recursive(const char *controller, const char *path, bool ignore_
                 if (!p)
                         return -ENOMEM;
 
-                r = cg_is_empty_recursive(controller, p, ignore_self);
+                r = cg_is_empty_recursive(controller, p);
                 if (r <= 0)
                         return r;
         }

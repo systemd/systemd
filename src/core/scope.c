@@ -396,7 +396,7 @@ static bool scope_check_gc(Unit *u) {
         if (u->cgroup_path) {
                 int r;
 
-                r = cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, true);
+                r = cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path);
                 if (r <= 0)
                         return true;
         }

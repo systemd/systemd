@@ -1030,7 +1030,7 @@ int manager_notify_cgroup_empty(Manager *m, const char *cgroup) {
         if (!u)
                 return 0;
 
-        r = cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, true);
+        r = cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path);
         if (r <= 0)
                 return r;
 
