@@ -225,7 +225,10 @@ int main(int argc, char *argv[]) {
                                 } else
                                         path = root;
 
-                                printf("Controller %s; control group %s:\n", controller, path);
+                                if (cg_unified() > 0)
+                                        printf("Control group %s:\n", path);
+                                else
+                                        printf("Controller %s; control group %s:\n", controller, path);
                                 fflush(stdout);
 
                                 q = show_cgroup(controller, path, NULL, 0, arg_kernel_threads, output_flags);

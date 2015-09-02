@@ -204,6 +204,7 @@ static char **arg_property = NULL;
 static uid_t arg_uid_shift = UID_INVALID, arg_uid_range = 0x10000U;
 static bool arg_userns = false;
 static int arg_kill_signal = 0;
+static bool arg_unified_cgroup_hierarchy = false;
 
 static void help(void) {
         printf("%s [OPTIONS...] [PATH] [ARGUMENTS...]\n\n"
@@ -382,6 +383,30 @@ static int set_sanitized_path(char **b, const char *path) {
 
         free(*b);
         *b = path_kill_slashes(p);
+        return 0;
+}
+
+static int detect_unified_cgroup_hierarchy(void) {
+        const char *e;
+        int r;
+
+        /* Allow the user to control whether the unified hierarchy is used */
+        e = getenv("UNIFIED_CGROUP_HIERARCHY");
+        if (e) {
+                r = parse_boolean(e);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse $UNIFIED_CGROUP_HIERARCHY.");
+
+                arg_unified_cgroup_hierarchy = r;
+                return 0;
+        }
+
+        /* Otherwise inherit the default from the host system */
+        r = cg_unified();
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine whether the unified cgroups hierarchy is used: %m");
+
+        arg_unified_cgroup_hierarchy = r;
         return 0;
 }
 
@@ -1037,6 +1062,10 @@ static int parse_argv(int argc, char *argv[]) {
         if (arg_boot && arg_kill_signal <= 0)
                 arg_kill_signal = SIGRTMIN+3;
 
+        r = detect_unified_cgroup_hierarchy();
+        if (r < 0)
+                return r;
+
         return 1;
 }
 
@@ -1095,7 +1124,6 @@ static int mount_all(const char *dest, bool userns) {
                 { "/proc/sys", "/proc/sys",      NULL,     NULL,        MS_BIND,                                                   true,  true  },   /* Bind mount first */
                 { NULL,        "/proc/sys",      NULL,     NULL,        MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT, true,  true  },   /* Then, make it r/o */
                 { "sysfs",     "/sys",           "sysfs",  NULL,        MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV,                    true,  false },
-                { "tmpfs",     "/sys/fs/cgroup", "tmpfs",  "mode=755",  MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME,               true,  false },
                 { "tmpfs",     "/dev",           "tmpfs",  "mode=755",  MS_NOSUID|MS_STRICTATIME,                                  true,  false },
                 { "tmpfs",     "/dev/shm",       "tmpfs",  "mode=1777", MS_NOSUID|MS_NODEV|MS_STRICTATIME,                         true,  false },
                 { "tmpfs",     "/run",           "tmpfs",  "mode=755",  MS_NOSUID|MS_NODEV|MS_STRICTATIME,                         true,  false },
@@ -1381,7 +1409,7 @@ static int mount_custom(const char *dest) {
         return 0;
 }
 
-static int mount_cgroup_hierarchy(const char *dest, const char *controller, const char *hierarchy, bool read_only) {
+static int mount_legacy_cgroup_hierarchy(const char *dest, const char *controller, const char *hierarchy, bool read_only) {
         char *to;
         int r;
 
@@ -1409,10 +1437,30 @@ static int mount_cgroup_hierarchy(const char *dest, const char *controller, cons
         return 1;
 }
 
-static int mount_cgroup(const char *dest) {
+static int mount_legacy_cgroups(const char *dest) {
         _cleanup_set_free_free_ Set *controllers = NULL;
         const char *cgroup_root;
         int r;
+
+        cgroup_root = prefix_roota(dest, "/sys/fs/cgroup");
+
+        /* Mount a tmpfs to /sys/fs/cgroup if it's not mounted there yet. */
+        r = path_is_mount_point(cgroup_root, AT_SYMLINK_FOLLOW);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine if /sys/fs/cgroup is already mounted: %m");
+        if (r == 0) {
+                _cleanup_free_ char *options = NULL;
+
+                r = tmpfs_patch_options("mode=755", &options);
+                if (r < 0)
+                        return log_oom();
+
+                if (mount("tmpfs", cgroup_root, "tmpfs", MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME, options) < 0)
+                        return log_error_errno(errno, "Failed to mount /sys/fs/cgroup: %m");
+        }
+
+        if (cg_unified() > 0)
+                goto skip_controllers;
 
         controllers = set_new(&string_hash_ops);
         if (!controllers)
@@ -1437,7 +1485,7 @@ static int mount_cgroup(const char *dest) {
                 if (r == -EINVAL) {
                         /* Not a symbolic link, but directly a single cgroup hierarchy */
 
-                        r = mount_cgroup_hierarchy(dest, controller, controller, true);
+                        r = mount_legacy_cgroup_hierarchy(dest, controller, controller, true);
                         if (r < 0)
                                 return r;
 
@@ -1457,7 +1505,7 @@ static int mount_cgroup(const char *dest) {
                                 continue;
                         }
 
-                        r = mount_cgroup_hierarchy(dest, combined, combined, true);
+                        r = mount_legacy_cgroup_hierarchy(dest, combined, combined, true);
                         if (r < 0)
                                 return r;
 
@@ -1471,15 +1519,50 @@ static int mount_cgroup(const char *dest) {
                 }
         }
 
-        r = mount_cgroup_hierarchy(dest, "name=systemd,xattr", "systemd", false);
+skip_controllers:
+        r = mount_legacy_cgroup_hierarchy(dest, "none,name=systemd,xattr", "systemd", false);
         if (r < 0)
                 return r;
 
-        cgroup_root = prefix_roota(dest, "/sys/fs/cgroup");
         if (mount(NULL, cgroup_root, NULL, MS_REMOUNT|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME|MS_RDONLY, "mode=755") < 0)
                 return log_error_errno(errno, "Failed to remount %s read-only: %m", cgroup_root);
 
         return 0;
+}
+
+static int mount_unified_cgroups(const char *dest) {
+        const char *p;
+        int r;
+
+        assert(dest);
+
+        p = strjoina(dest, "/sys/fs/cgroup");
+
+        r = path_is_mount_point(p, AT_SYMLINK_FOLLOW);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine if %s is mounted already: %m", p);
+        if (r > 0) {
+                p = strjoina(dest, "/sys/fs/cgroup/cgroup.procs");
+                if (access(p, F_OK) >= 0)
+                        return 0;
+                if (errno != ENOENT)
+                        return log_error_errno(errno, "Failed to determine if mount point %s contains the unified cgroup hierarchy: %m", p);
+
+                log_error("%s is already mounted but not a unified cgroup hierarchy. Refusing.", p);
+                return -EINVAL;
+        }
+
+        if (mount("cgroup", p, "cgroup", MS_NOSUID|MS_NOEXEC|MS_NODEV, "__DEVEL__sane_behavior") < 0)
+                return log_error_errno(errno, "Failed to mount unified cgroup hierarchy to %s: %m", p);
+
+        return 0;
+}
+
+static int mount_cgroups(const char *dest) {
+        if (arg_unified_cgroup_hierarchy)
+                return mount_unified_cgroups(dest);
+        else
+                return mount_legacy_cgroups(dest);
 }
 
 static int mount_systemd_cgroup_writable(const char *dest) {
@@ -1493,13 +1576,23 @@ static int mount_systemd_cgroup_writable(const char *dest) {
         if (r < 0)
                 return log_error_errno(r, "Failed to determine our own cgroup path: %m");
 
+        /* If we are living in the top-level, then there's nothing to do... */
+        if (path_equal(own_cgroup_path, "/"))
+                return 0;
+
+        if (arg_unified_cgroup_hierarchy) {
+                systemd_own = strjoina(dest, "/sys/fs/cgroup", own_cgroup_path);
+                systemd_root = prefix_roota(dest, "/sys/fs/cgroup");
+        } else {
+                systemd_own = strjoina(dest, "/sys/fs/cgroup/systemd", own_cgroup_path);
+                systemd_root = prefix_roota(dest, "/sys/fs/cgroup/systemd");
+        }
+
         /* Make our own cgroup a (writable) bind mount */
-        systemd_own = strjoina(dest, "/sys/fs/cgroup/systemd", own_cgroup_path);
         if (mount(systemd_own, systemd_own,  NULL, MS_BIND, NULL) < 0)
                 return log_error_errno(errno, "Failed to turn %s into a bind mount: %m", own_cgroup_path);
 
         /* And then remount the systemd cgroup root read-only */
-        systemd_root = prefix_roota(dest, "/sys/fs/cgroup/systemd");
         if (mount(NULL, systemd_root, NULL, MS_BIND|MS_REMOUNT|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_RDONLY, NULL) < 0)
                 return log_error_errno(errno, "Failed to mount cgroup root read-only: %m");
 
@@ -4187,6 +4280,8 @@ static int inner_child(
         assert(directory);
         assert(kmsg_socket >= 0);
 
+        cg_unified_flush();
+
         if (arg_userns) {
                 /* Tell the parent, that it now can write the UID map. */
                 (void) barrier_place(barrier); /* #1 */
@@ -4368,6 +4463,8 @@ static int outer_child(
         assert(pid_socket >= 0);
         assert(kmsg_socket >= 0);
 
+        cg_unified_flush();
+
         if (prctl(PR_SET_PDEATHSIG, SIGKILL) < 0)
                 return log_error_errno(errno, "PR_SET_PDEATHSIG failed: %m");
 
@@ -4484,7 +4581,7 @@ static int outer_child(
         if (r < 0)
                 return r;
 
-        r = mount_cgroup(directory);
+        r = mount_cgroups(directory);
         if (r < 0)
                 return r;
 
@@ -4499,7 +4596,6 @@ static int outer_child(
                         NULL);
         if (pid < 0)
                 return log_error_errno(errno, "Failed to fork inner child: %m");
-
         if (pid == 0) {
                 pid_socket = safe_close(pid_socket);
                 uid_shift_socket = safe_close(uid_shift_socket);
@@ -4567,9 +4663,112 @@ static int chown_cgroup(pid_t pid) {
         if (fd < 0)
                 return log_error_errno(errno, "Failed to open %s: %m", fs);
 
-        FOREACH_STRING(fn, ".", "tasks", "notify_on_release", "cgroup.procs", "cgroup.clone_children")
+        FOREACH_STRING(fn,
+                       ".",
+                       "tasks",
+                       "notify_on_release",
+                       "cgroup.procs",
+                       "cgroup.clone_children",
+                       "cgroup.controllers",
+                       "cgroup.subtree_control",
+                       "cgroup.populated")
                 if (fchownat(fd, fn, arg_uid_shift, arg_uid_shift, 0) < 0)
-                        log_warning_errno(errno, "Failed to chown() cgroup file %s, ignoring: %m", fn);
+                        log_full_errno(errno == ENOENT ? LOG_DEBUG :  LOG_WARNING, errno,
+                                       "Failed to chown() cgroup file %s, ignoring: %m", fn);
+
+        return 0;
+}
+
+static int sync_cgroup(pid_t pid) {
+        _cleanup_free_ char *cgroup = NULL;
+        char tree[] = "/tmp/unifiedXXXXXX", pid_string[DECIMAL_STR_MAX(pid) + 1];
+        bool undo_mount = false;
+        const char *fn;
+        int unified, r;
+
+        unified = cg_unified();
+        if (unified < 0)
+                return log_error_errno(unified, "Failed to determine whether the unified hierachy is used: %m");
+
+        if ((unified > 0) == arg_unified_cgroup_hierarchy)
+                return 0;
+
+        /* When the host uses the legacy cgroup setup, but the
+         * container shall use the unified hierarchy, let's make sure
+         * we copy the path from the name=systemd hierarchy into the
+         * unified hierarchy. Similar for the reverse situation. */
+
+        r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, pid, &cgroup);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get control group of " PID_FMT ": %m", pid);
+
+        /* In order to access the unified hierarchy we need to mount it */
+        if (!mkdtemp(tree))
+                return log_error_errno(errno, "Failed to generate temporary mount point for unified hierarchy: %m");
+
+        if (unified)
+                r = mount("cgroup", tree, "cgroup", MS_NOSUID|MS_NOEXEC|MS_NODEV, "none,name=systemd,xattr");
+        else
+                r = mount("cgroup", tree, "cgroup", MS_NOSUID|MS_NOEXEC|MS_NODEV, "__DEVEL__sane_behavior");
+        if (r < 0) {
+                r = log_error_errno(errno, "Failed to mount unified hierarchy: %m");
+                goto finish;
+        }
+
+        undo_mount = true;
+
+        fn = strjoina(tree, cgroup, "/cgroup.procs");
+        (void) mkdir_parents(fn, 0755);
+
+        sprintf(pid_string, PID_FMT, pid);
+        r = write_string_file(fn, pid_string, 0);
+        if (r < 0)
+                log_error_errno(r, "Failed to move process: %m");
+
+finish:
+        if (undo_mount)
+                (void) umount(tree);
+
+        (void) rmdir(tree);
+        return r;
+}
+
+static int create_subcgroup(pid_t pid) {
+        _cleanup_free_ char *cgroup = NULL;
+        const char *child;
+        int unified, r;
+
+        /* In the unified hierarchy inner nodes may only only contain
+         * subgroups, but not processes. Hence, if we running in the
+         * unified hierarchy and the container does the same, and we
+         * did not create a scope unit for the container move us and
+         * the container into two separate subcgroups. */
+
+        if (!arg_keep_unit)
+                return 0;
+
+        if (!arg_unified_cgroup_hierarchy)
+                return 0;
+
+        unified = cg_unified();
+        if (unified < 0)
+                return log_error_errno(unified, "Failed to determine whether the unified hierachy is used: %m");
+        if (unified == 0)
+                return 0;
+
+        r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, 0, &cgroup);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get our control group: %m");
+
+        child = strjoina(cgroup, "/payload");
+        r = cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, child, pid);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create %s subcgroup: %m", child);
+
+        child = strjoina(cgroup, "/supervisor");
+        r = cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, child, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create %s subcgroup: %m", child);
 
         return 0;
 }
@@ -4973,6 +5172,14 @@ int main(int argc, char *argv[]) {
                         goto finish;
 
                 r = register_machine(pid, ifi);
+                if (r < 0)
+                        goto finish;
+
+                r = sync_cgroup(pid);
+                if (r < 0)
+                        goto finish;
+
+                r = create_subcgroup(pid);
                 if (r < 0)
                         goto finish;
 

@@ -96,22 +96,32 @@ struct CGroupContext {
 void cgroup_context_init(CGroupContext *c);
 void cgroup_context_done(CGroupContext *c);
 void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix);
-void cgroup_context_apply(CGroupContext *c, CGroupControllerMask mask, const char *path, ManagerState state);
+void cgroup_context_apply(CGroupContext *c, CGroupMask mask, const char *path, ManagerState state);
 
-CGroupControllerMask cgroup_context_get_mask(CGroupContext *c);
+CGroupMask cgroup_context_get_mask(CGroupContext *c);
 
 void cgroup_context_free_device_allow(CGroupContext *c, CGroupDeviceAllow *a);
 void cgroup_context_free_blockio_device_weight(CGroupContext *c, CGroupBlockIODeviceWeight *w);
 void cgroup_context_free_blockio_device_bandwidth(CGroupContext *c, CGroupBlockIODeviceBandwidth *b);
 
-CGroupControllerMask unit_get_cgroup_mask(Unit *u);
-CGroupControllerMask unit_get_siblings_mask(Unit *u);
-CGroupControllerMask unit_get_members_mask(Unit *u);
-CGroupControllerMask unit_get_target_mask(Unit *u);
+CGroupMask unit_get_own_mask(Unit *u);
+CGroupMask unit_get_siblings_mask(Unit *u);
+CGroupMask unit_get_members_mask(Unit *u);
+CGroupMask unit_get_subtree_mask(Unit *u);
+
+CGroupMask unit_get_target_mask(Unit *u);
+CGroupMask unit_get_enable_mask(Unit *u);
 
 void unit_update_cgroup_members_masks(Unit *u);
+
+char *unit_default_cgroup_path(Unit *u);
+int unit_set_cgroup_path(Unit *u, const char *path);
+
 int unit_realize_cgroup(Unit *u);
-void unit_destroy_cgroup_if_empty(Unit *u);
+void unit_release_cgroup(Unit *u);
+void unit_prune_cgroup(Unit *u);
+int unit_watch_cgroup(Unit *u);
+
 int unit_attach_pids_to_cgroup(Unit *u);
 
 int manager_setup_cgroup(Manager *m);
@@ -122,15 +132,17 @@ unsigned manager_dispatch_cgroup_queue(Manager *m);
 Unit *manager_get_unit_by_cgroup(Manager *m, const char *cgroup);
 Unit* manager_get_unit_by_pid(Manager *m, pid_t pid);
 
-pid_t unit_search_main_pid(Unit *u);
-
-int manager_notify_cgroup_empty(Manager *m, const char *group);
+int unit_search_main_pid(Unit *u, pid_t *ret);
+int unit_watch_all_pids(Unit *u);
 
 int unit_get_memory_current(Unit *u, uint64_t *ret);
 int unit_get_cpu_usage(Unit *u, nsec_t *ret);
 int unit_reset_cpu_usage(Unit *u);
 
 bool unit_cgroup_delegate(Unit *u);
+
+int unit_notify_cgroup_empty(Unit *u);
+int manager_notify_cgroup_empty(Manager *m, const char *group);
 
 const char* cgroup_device_policy_to_string(CGroupDevicePolicy i) _const_;
 CGroupDevicePolicy cgroup_device_policy_from_string(const char *s) _pure_;

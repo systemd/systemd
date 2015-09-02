@@ -175,7 +175,7 @@ static int process(
                 if (g->n_tasks > 0)
                         g->n_tasks_valid = true;
 
-        } else if (streq(controller, "cpuacct")) {
+        } else if (streq(controller, "cpuacct") && cg_unified() <= 0) {
                 _cleanup_free_ char *p = NULL, *v = NULL;
                 uint64_t new_usage;
                 nsec_t timestamp;
@@ -217,7 +217,10 @@ static int process(
         } else if (streq(controller, "memory")) {
                 _cleanup_free_ char *p = NULL, *v = NULL;
 
-                r = cg_get_path(controller, path, "memory.usage_in_bytes", &p);
+                if (cg_unified() <= 0)
+                        r = cg_get_path(controller, path, "memory.usage_in_bytes", &p);
+                else
+                        r = cg_get_path(controller, path, "memory.current", &p);
                 if (r < 0)
                         return r;
 
@@ -234,7 +237,7 @@ static int process(
                 if (g->memory > 0)
                         g->memory_valid = true;
 
-        } else if (streq(controller, "blkio")) {
+        } else if (streq(controller, "blkio") && cg_unified() <= 0) {
                 _cleanup_fclose_ FILE *f = NULL;
                 _cleanup_free_ char *p = NULL;
                 uint64_t wr = 0, rd = 0;

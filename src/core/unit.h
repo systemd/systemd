@@ -184,9 +184,10 @@ struct Unit {
 
         /* Counterparts in the cgroup filesystem */
         char *cgroup_path;
-        CGroupControllerMask cgroup_realized_mask;
-        CGroupControllerMask cgroup_subtree_mask;
-        CGroupControllerMask cgroup_members_mask;
+        CGroupMask cgroup_realized_mask;
+        CGroupMask cgroup_subtree_mask;
+        CGroupMask cgroup_members_mask;
+        int cgroup_inotify_wd;
 
         /* How to start OnFailure units */
         JobMode on_failure_job_mode;
@@ -522,7 +523,6 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
 
 int unit_watch_pid(Unit *u, pid_t pid);
 void unit_unwatch_pid(Unit *u, pid_t pid);
-int unit_watch_all_pids(Unit *u);
 void unit_unwatch_all_pids(Unit *u);
 
 void unit_tidy_watch_pids(Unit *u, pid_t except1, pid_t except2);
@@ -566,8 +566,6 @@ bool unit_inactive_or_pending(Unit *u) _pure_;
 bool unit_active_or_pending(Unit *u);
 
 int unit_add_default_target_dependency(Unit *u, Unit *target);
-
-char *unit_default_cgroup_path(Unit *u);
 
 void unit_start_on_failure(Unit *u);
 void unit_trigger_notify(Unit *u);
