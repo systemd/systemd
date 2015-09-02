@@ -280,8 +280,16 @@ static int names_pci(struct udev_device *dev, struct netnames *names) {
         assert(names);
 
         parent = udev_device_get_parent(dev);
+
+        /* there can only ever be one virtio bus per parent device, so we can
+           safely ignore any virtio buses. see
+           <http://lists.linuxfoundation.org/pipermail/virtualization/2015-August/030331.html> */
+        while (parent && streq_ptr("virtio", udev_device_get_subsystem(parent)))
+                parent = udev_device_get_parent(parent);
+
         if (!parent)
                 return -ENOENT;
+
         /* check if our direct parent is a PCI device with no other bus in-between */
         if (streq_ptr("pci", udev_device_get_subsystem(parent))) {
                 names->type = NET_PCI;
