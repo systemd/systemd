@@ -138,7 +138,7 @@ static int scope_verify(Scope *s) {
                 return 0;
 
         if (set_isempty(UNIT(s)->pids) &&
-            !manager_is_reloading_or_reexecuting(UNIT(s)->manager) <= 0 &&
+            !manager_is_reloading_or_reexecuting(UNIT(s)->manager) &&
             !unit_has_name(UNIT(s), SPECIAL_INIT_SCOPE)) {
                 log_unit_error(UNIT(s), "Scope has no PIDs. Refusing.");
                 return -EINVAL;
