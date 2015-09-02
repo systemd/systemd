@@ -156,7 +156,8 @@ static int detect_vm_dmi(const char **_id) {
                 "VMW\0"                   "vmware\0"
                 "innotek GmbH\0"          "oracle\0"
                 "Xen\0"                   "xen\0"
-                "Bochs\0"                 "bochs\0";
+                "Bochs\0"                 "bochs\0"
+                "Parallels\0"             "parallels\0";
         unsigned i;
 
         for (i = 0; i < ELEMENTSOF(dmi_vendors); i++) {
@@ -244,8 +245,9 @@ int detect_vm(const char **id) {
         r = detect_vm_dmi(&_id);
 
         /* kvm with and without Virtualbox */
+        /* Parallels exports KVMKVMKVM leaf */
         if (streq_ptr(_id_cpuid, "kvm")) {
-                if (r > 0 && streq(_id, "oracle"))
+                if (r > 0 && (streq(_id, "oracle") || streq(_id, "parallels")))
                         goto finish;
 
                 _id = _id_cpuid;

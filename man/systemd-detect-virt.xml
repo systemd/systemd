@@ -88,7 +88,7 @@
         </thead>
         <tbody>
           <row>
-      <entry morerows="8">VM</entry>
+      <entry morerows="9">VM</entry>
       <entry><varname>qemu</varname></entry>
       <entry>QEMU software virtualization</entry>
           </row>
@@ -131,6 +131,11 @@
           <row>
       <entry><varname>uml</varname></entry>
       <entry>User-mode Linux</entry>
+          </row>
+
+          <row>
+      <entry><varname>parallels</varname></entry>
+      <entry>Parallels Desktop, Parallels Server</entry>
           </row>
 
           <row>
