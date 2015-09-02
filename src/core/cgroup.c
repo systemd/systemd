@@ -1076,7 +1076,7 @@ int unit_search_main_pid(Unit *u, pid_t *ret) {
 }
 
 static int unit_watch_pids_in_path(Unit *u, const char *path) {
-       _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_closedir_ DIR *d = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int ret = 0, r;
 
