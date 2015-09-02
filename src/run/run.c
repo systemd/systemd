@@ -702,6 +702,9 @@ static int start_transient_service(
                         if (r < 0)
                                 return log_error_errno(r, "Failed to determine tty name: %m");
 
+                        if (unlockpt(master) < 0)
+                                return log_error_errno(errno, "Failed to unlock tty: %m");
+
                 } else if (arg_transport == BUS_TRANSPORT_MACHINE) {
                         _cleanup_bus_unref_ sd_bus *system_bus = NULL;
                         const char *s;
@@ -738,9 +741,6 @@ static int start_transient_service(
                                 return log_oom();
                 } else
                         assert_not_reached("Can't allocate tty via ssh");
-
-                if (unlockpt(master) < 0)
-                        return log_error_errno(errno, "Failed to unlock tty: %m");
         }
 
         if (!arg_no_block) {

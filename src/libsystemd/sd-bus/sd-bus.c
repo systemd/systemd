@@ -1025,19 +1025,30 @@ static int bus_start_address(sd_bus *b) {
 
                 if (b->exec_path)
                         r = bus_socket_exec(b);
+
                 else if ((b->nspid > 0 || b->machine) && b->kernel) {
                         r = bus_container_connect_kernel(b);
                         if (r < 0 && !IN_SET(r, -ENOENT, -ESOCKTNOSUPPORT))
                                 container_kdbus_available = true;
-                } else if (!container_kdbus_available && (b->nspid > 0 || b->machine) && b->sockaddr.sa.sa_family != AF_UNSPEC)
-                        r = bus_container_connect_socket(b);
-                else if (b->kernel) {
+
+                } else if ((b->nspid > 0 || b->machine) && b->sockaddr.sa.sa_family != AF_UNSPEC) {
+                        if (!container_kdbus_available)
+                                r = bus_container_connect_socket(b);
+                        else
+                                skipped = true;
+
+                } else if (b->kernel) {
                         r = bus_kernel_connect(b);
                         if (r < 0 && !IN_SET(r, -ENOENT, -ESOCKTNOSUPPORT))
                                 kdbus_available = true;
-                } else if (!kdbus_available && b->sockaddr.sa.sa_family != AF_UNSPEC)
-                        r = bus_socket_connect(b);
-                else
+
+                } else if (b->sockaddr.sa.sa_family != AF_UNSPEC) {
+                        if (!kdbus_available)
+                                r = bus_socket_connect(b);
+                        else
+                                skipped = true;
+
+                } else
                         skipped = true;
 
                 if (!skipped) {
