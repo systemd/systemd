@@ -30,7 +30,9 @@
     the vendor, the recommended way is to place a symlink to
     <filename>/dev/null</filename> in the configuration directory in
     <filename>/etc/</filename>, with the same filename as the vendor
-    configuration file.</para>
+    configuration file. If the vendor configuration file is included in
+    the initrd image, the image has to be regenerated.</para>
+
   </refsection>
 
   <refsection id='main-conf'>
