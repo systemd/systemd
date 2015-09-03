@@ -243,7 +243,7 @@ static int on_stream_complete(DnsStream *s, int error) {
         }
 
         if (dns_packet_validate_reply(p) <= 0) {
-                log_debug("Invalid LLMNR TCP packet.");
+                log_debug("Invalid TCP reply packet.");
                 dns_transaction_complete(t, DNS_TRANSACTION_INVALID_REPLY);
                 return 0;
         }
