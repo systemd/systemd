@@ -564,6 +564,7 @@ void *xbsearch_r(const void *key, const void *base, size_t nmemb, size_t size,
                  void *arg);
 
 #define _(String) gettext (String)
+#define N_(String) String
 void init_gettext(void);
 bool is_locale_utf8(void);
 
