@@ -130,6 +130,7 @@ void manager_shutdown_cgroup(Manager *m, bool delete);
 unsigned manager_dispatch_cgroup_queue(Manager *m);
 
 Unit *manager_get_unit_by_cgroup(Manager *m, const char *cgroup);
+Unit *manager_get_unit_by_pid_cgroup(Manager *m, pid_t pid);
 Unit* manager_get_unit_by_pid(Manager *m, pid_t pid);
 
 int unit_search_main_pid(Unit *u, pid_t *ret);

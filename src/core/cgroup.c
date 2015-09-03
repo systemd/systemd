@@ -1378,10 +1378,24 @@ Unit* manager_get_unit_by_cgroup(Manager *m, const char *cgroup) {
         }
 }
 
-Unit *manager_get_unit_by_pid(Manager *m, pid_t pid) {
+Unit *manager_get_unit_by_pid_cgroup(Manager *m, pid_t pid) {
         _cleanup_free_ char *cgroup = NULL;
-        Unit *u;
         int r;
+
+        assert(m);
+
+        if (pid <= 0)
+                return NULL;
+
+        r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, pid, &cgroup);
+        if (r < 0)
+                return NULL;
+
+        return manager_get_unit_by_cgroup(m, cgroup);
+}
+
+Unit *manager_get_unit_by_pid(Manager *m, pid_t pid) {
+        Unit *u;
 
         assert(m);
 
@@ -1399,11 +1413,7 @@ Unit *manager_get_unit_by_pid(Manager *m, pid_t pid) {
         if (u)
                 return u;
 
-        r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, pid, &cgroup);
-        if (r < 0)
-                return NULL;
-
-        return manager_get_unit_by_cgroup(m, cgroup);
+        return manager_get_unit_by_pid_cgroup(m, pid);
 }
 
 int manager_notify_cgroup_empty(Manager *m, const char *cgroup) {
