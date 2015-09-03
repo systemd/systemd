@@ -831,7 +831,7 @@ void dns_query_ready(DnsQuery *q) {
         dns_query_complete(q, state);
 }
 
-int dns_query_cname_redirect(DnsQuery *q, const char *name) {
+int dns_query_cname_redirect(DnsQuery *q, const DnsResourceRecord *cname) {
         _cleanup_(dns_question_unrefp) DnsQuestion *nq = NULL;
         int r;
 
@@ -840,7 +840,7 @@ int dns_query_cname_redirect(DnsQuery *q, const char *name) {
         if (q->n_cname_redirects > CNAME_MAX)
                 return -ELOOP;
 
-        r = dns_question_cname_redirect(q->question, name, &nq);
+        r = dns_question_cname_redirect(q->question, cname, &nq);
         if (r < 0)
                 return r;
 
