@@ -401,6 +401,15 @@ mouse:bluetooth:v045ep07f3:name:Arc Touch Mouse SE:
  MOUSE_DPI=1000@2000
 
 ##########################################
+# Mionix
+##########################################
+
+#Mionix Avior 7000
+mouse:usb:v22d4p1308:name:Laview Technology Mionix Avior 7000:
+ MOUSE_DPI=400@1000 *1600@1000 7000@1000
+ MOUSE_WHEEL_CLICK_ANGLE=15
+
+##########################################
 # Oklick
 ##########################################
 
