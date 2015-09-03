@@ -1981,14 +1981,22 @@ int cg_mask_supported(CGroupMask *ret) {
         if (unified < 0)
                 return unified;
         if (unified > 0) {
-                _cleanup_free_ char *controllers = NULL;
+                _cleanup_free_ char *root = NULL, *controllers = NULL, *path = NULL;
                 const char *c;
 
                 /* In the unified hierarchy we can read the supported
                  * and accessible controllers from a the top-level
                  * cgroup attribute */
 
-                r = read_one_line_file("/sys/fs/cgroup/cgroup.controllers", &controllers);
+                r = cg_get_root_path(&root);
+                if (r < 0)
+                        return r;
+
+                r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, root, "cgroup.controllers", &path);
+                if (r < 0)
+                        return r;
+
+                r = read_one_line_file(path, &controllers);
                 if (r < 0)
                         return r;
 
