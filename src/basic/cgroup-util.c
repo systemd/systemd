@@ -540,10 +540,7 @@ int cg_get_path(const char *controller, const char *path, const char *suffix, ch
         else {
                 const char *dn;
 
-                if (controller)
-                        dn = controller_to_dirname(controller);
-                else
-                        dn = NULL;
+                dn = controller_to_dirname(controller);
 
                 r = join_path_legacy(dn, path, suffix, fs);
         }
