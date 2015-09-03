@@ -203,6 +203,7 @@ _public_ int sd_uid_get_state(uid_t uid, char**state) {
         char *s = NULL;
         int r;
 
+        assert_return(uid_is_valid(uid), -EINVAL);
         assert_return(state, -EINVAL);
 
         r = file_of_uid(uid, &p);
@@ -230,6 +231,7 @@ _public_ int sd_uid_get_display(uid_t uid, char **session) {
         _cleanup_free_ char *p = NULL, *s = NULL;
         int r;
 
+        assert_return(uid_is_valid(uid), -EINVAL);
         assert_return(session, -EINVAL);
 
         r = file_of_uid(uid, &p);
@@ -257,6 +259,7 @@ _public_ int sd_uid_is_on_seat(uid_t uid, int require_active, const char *seat) 
         int r;
         const char *word, *variable, *state;
 
+        assert_return(uid_is_valid(uid), -EINVAL);
         assert_return(seat, -EINVAL);
 
         variable = require_active ? "ACTIVE_UID" : "UIDS";
@@ -288,6 +291,8 @@ static int uid_get_array(uid_t uid, const char *variable, char ***array) {
         _cleanup_free_ char *p = NULL, *s = NULL;
         char **a;
         int r;
+
+        assert_return(uid_is_valid(uid), -EINVAL);
 
         r = file_of_uid(uid, &p);
         if (r < 0)

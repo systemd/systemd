@@ -373,6 +373,19 @@ int parse_pid(const char *s, pid_t* ret_pid) {
         return 0;
 }
 
+bool uid_is_valid(uid_t uid) {
+
+        /* Some libc APIs use UID_INVALID as special placeholder */
+        if (uid == (uid_t) 0xFFFFFFFF)
+                return false;
+
+        /* A long time ago UIDs where 16bit, hence explicitly avoid the 16bit -1 too */
+        if (uid == (uid_t) 0xFFFF)
+                return false;
+
+        return true;
+}
+
 int parse_uid(const char *s, uid_t* ret_uid) {
         unsigned long ul = 0;
         uid_t uid;
@@ -389,12 +402,7 @@ int parse_uid(const char *s, uid_t* ret_uid) {
         if ((unsigned long) uid != ul)
                 return -ERANGE;
 
-        /* Some libc APIs use UID_INVALID as special placeholder */
-        if (uid == (uid_t) 0xFFFFFFFF)
-                return -ENXIO;
-
-        /* A long time ago UIDs where 16bit, hence explicitly avoid the 16bit -1 too */
-        if (uid == (uid_t) 0xFFFF)
+        if (!uid_is_valid(uid))
                 return -ENXIO;
 
         if (ret_uid)

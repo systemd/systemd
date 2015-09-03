@@ -154,7 +154,10 @@ int parse_size(const char *t, off_t base, off_t *size);
 int parse_boolean(const char *v) _pure_;
 int parse_pid(const char *s, pid_t* ret_pid);
 int parse_uid(const char *s, uid_t* ret_uid);
-#define parse_gid(s, ret_uid) parse_uid(s, ret_uid)
+#define parse_gid(s, ret_gid) parse_uid(s, ret_gid)
+
+bool uid_is_valid(uid_t uid);
+#define gid_is_valid(gid) uid_is_valid(gid)
 
 int safe_atou(const char *s, unsigned *ret_u);
 int safe_atoi(const char *s, int *ret_i);
