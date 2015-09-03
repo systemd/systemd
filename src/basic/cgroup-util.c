@@ -870,7 +870,7 @@ int cg_pid_get_path(const char *controller, pid_t pid, char **path) {
                 return 0;
         }
 
-        return -ENOENT;
+        return -ENODATA;
 }
 
 int cg_install_release_agent(const char *controller, const char *agent) {
