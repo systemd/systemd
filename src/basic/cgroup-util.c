@@ -460,20 +460,23 @@ static const char *controller_to_dirname(const char *controller) {
         return controller;
 }
 
-static int join_path_legacy(const char *controller_dn, const char *path, const char *suffix, char **fs) {
+static int join_path_legacy(const char *controller, const char *path, const char *suffix, char **fs) {
+        const char *dn;
         char *t = NULL;
 
         assert(fs);
-        assert(controller_dn);
+        assert(controller);
+
+        dn = controller_to_dirname(controller);
 
         if (isempty(path) && isempty(suffix))
-                t = strappend("/sys/fs/cgroup/", controller_dn);
+                t = strappend("/sys/fs/cgroup/", dn);
         else if (isempty(path))
-                t = strjoin("/sys/fs/cgroup/", controller_dn, "/", suffix, NULL);
+                t = strjoin("/sys/fs/cgroup/", dn, "/", suffix, NULL);
         else if (isempty(suffix))
-                t = strjoin("/sys/fs/cgroup/", controller_dn, "/", path, NULL);
+                t = strjoin("/sys/fs/cgroup/", dn, "/", path, NULL);
         else
-                t = strjoin("/sys/fs/cgroup/", controller_dn, "/", path, "/", suffix, NULL);
+                t = strjoin("/sys/fs/cgroup/", dn, "/", path, "/", suffix, NULL);
         if (!t)
                 return -ENOMEM;
 
@@ -509,8 +512,8 @@ int cg_get_path(const char *controller, const char *path, const char *suffix, ch
         if (!controller) {
                 char *t;
 
-                /* If no controller is specified, we assume only the
-                 * path below the controller matters */
+                /* If no controller is specified, we return the path
+                 * *below* the controllers, without any prefix. */
 
                 if (!path && !suffix)
                         return -EINVAL;
@@ -537,14 +540,8 @@ int cg_get_path(const char *controller, const char *path, const char *suffix, ch
 
         if (unified > 0)
                 r = join_path_unified(path, suffix, fs);
-        else {
-                const char *dn;
-
-                dn = controller_to_dirname(controller);
-
-                r = join_path_legacy(dn, path, suffix, fs);
-        }
-
+        else
+                r = join_path_legacy(controller, path, suffix, fs);
         if (r < 0)
                 return r;
 
