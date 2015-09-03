@@ -518,9 +518,9 @@ int cg_get_path(const char *controller, const char *path, const char *suffix, ch
                 if (!path && !suffix)
                         return -EINVAL;
 
-                if (isempty(suffix))
+                if (!suffix)
                         t = strdup(path);
-                else if (isempty(path))
+                else if (!path)
                         t = strdup(suffix);
                 else
                         t = strjoin(path, "/", suffix, NULL);
