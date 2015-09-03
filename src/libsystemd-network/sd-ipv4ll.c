@@ -38,8 +38,6 @@
 #define IPV4LL_NETWORK 0xA9FE0000L
 #define IPV4LL_NETMASK 0xFFFF0000L
 
-#define log_ipv4ll(ll, fmt, ...) log_internal(LOG_DEBUG, 0, __FILE__, __LINE__, __func__, "IPv4LL: " fmt, ##__VA_ARGS__)
-
 #define IPV4LL_DONT_DESTROY(ll) \
         _cleanup_ipv4ll_unref_ _unused_ sd_ipv4ll *_dont_destroy_##ll = sd_ipv4ll_ref(ll)
 
