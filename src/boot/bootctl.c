@@ -936,7 +936,7 @@ static int help(void) {
         return 0;
 }
 
-static const char *arg_path = "/boot";
+static const char *arg_path = NULL;
 static bool arg_touch_variables = true;
 
 static int parse_argv(int argc, char *argv[]) {
@@ -996,6 +996,18 @@ static void read_loader_efi_var(const char *name, char **var) {
                 log_warning_errno(r, "Failed to read EFI variable %s: %m", name);
 }
 
+static void init_arg_path(void) {
+        struct stat st;
+
+        if (stat("/boot/efi/EFI", &st) == 0 && (st.st_mode & S_IFMT) == S_IFDIR) {
+                /* Suse, debian, ubuntu, gentoo, fedora */
+                arg_path = "/boot/efi";
+        } else {
+                /* arch */
+                arg_path = "/boot";
+        }
+}
+
 static int bootctl_main(int argc, char*argv[]) {
         enum action {
                 ACTION_STATUS,
@@ -1035,6 +1047,9 @@ static int bootctl_main(int argc, char*argv[]) {
 
         if (geteuid() != 0)
                 return log_error_errno(EPERM, "Need to be root.");
+
+        if (arg_path == NULL)
+                init_arg_path();
 
         r = verify_esp(arg_path, &part, &pstart, &psize, &uuid);
         if (r == -ENODEV && !arg_path)
