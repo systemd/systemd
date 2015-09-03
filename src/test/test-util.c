@@ -282,6 +282,9 @@ static void test_parse_uid(void) {
 
         r = parse_uid("65535", &uid);
         assert_se(r == -ENXIO);
+
+        r = parse_uid("asdsdas", &uid);
+        assert_se(r == -EINVAL);
 }
 
 static void test_safe_atou16(void) {
