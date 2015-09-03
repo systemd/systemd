@@ -403,7 +403,7 @@ static int dns_cache_put_negative(
 
 int dns_cache_put(
                 DnsCache *c,
-                DnsQuestion *q,
+                DnsResourceKey *key,
                 int rcode,
                 DnsAnswer *answer,
                 unsigned max_rrs,
@@ -411,16 +411,16 @@ int dns_cache_put(
                 int owner_family,
                 const union in_addr_union *owner_address) {
 
+        DnsResourceRecord *soa = NULL;
         unsigned cache_keys, i;
         int r;
 
         assert(c);
 
-        if (q) {
-                /* First, if we were passed a question, delete all matching old RRs,
+        if (key) {
+                /* First, if we were passed a key, delete all matching old RRs,
                  * so that we only keep complete by_key in place. */
-                for (i = 0; i < q->n_keys; i++)
-                        dns_cache_remove(c, q->keys[i]);
+                dns_cache_remove(c, key);
         }
 
         if (!answer)
@@ -438,8 +438,8 @@ int dns_cache_put(
 
         cache_keys = answer->n_rrs;
 
-        if (q)
-                cache_keys += q->n_keys;
+        if (key)
+                cache_keys ++;
 
         /* Make some space for our new entries */
         dns_cache_make_space(c, cache_keys);
@@ -454,33 +454,29 @@ int dns_cache_put(
                         goto fail;
         }
 
-        if (!q)
+        if (!key)
                 return 0;
 
-        /* Third, add in negative entries for all keys with no RR */
-        for (i = 0; i < q->n_keys; i++) {
-                DnsResourceRecord *soa = NULL;
+        /* Third, add in negative entries if the key has no RR */
+        r = dns_answer_contains(answer, key);
+        if (r < 0)
+                goto fail;
+        if (r > 0)
+                return 0;
 
-                r = dns_answer_contains(answer, q->keys[i]);
-                if (r < 0)
-                        goto fail;
-                if (r > 0)
-                        continue;
+        /* See https://tools.ietf.org/html/rfc2308, which
+         * say that a matching SOA record in the packet
+         * is used to to enable negative caching. */
 
-                /* See https://tools.ietf.org/html/rfc2308, which
-                 * say that a matching SOA record in the packet
-                 * is used to to enable negative caching. */
+        r = dns_answer_find_soa(answer, key, &soa);
+        if (r < 0)
+                goto fail;
+        if (r == 0)
+                return 0;
 
-                r = dns_answer_find_soa(answer, q->keys[i], &soa);
-                if (r < 0)
-                        goto fail;
-                if (r == 0)
-                        continue;
-
-                r = dns_cache_put_negative(c, q->keys[i], rcode, timestamp, MIN(soa->soa.minimum, soa->ttl), owner_family, owner_address);
-                if (r < 0)
-                        goto fail;
-        }
+        r = dns_cache_put_negative(c, key, rcode, timestamp, MIN(soa->soa.minimum, soa->ttl), owner_family, owner_address);
+        if (r < 0)
+                goto fail;
 
         return 0;
 
@@ -488,10 +484,8 @@ fail:
         /* Adding all RRs failed. Let's clean up what we already
          * added, just in case */
 
-        if (q) {
-                for (i = 0; i < q->n_keys; i++)
-                        dns_cache_remove(c, q->keys[i]);
-        }
+        if (key)
+                dns_cache_remove(c, key);
 
         for (i = 0; i < answer->n_rrs; i++)
                 dns_cache_remove(c, answer->items[i].rr->key);
