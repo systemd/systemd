@@ -458,6 +458,13 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
         }
 
         if (DNS_PACKET_TC(p)) {
+
+                /* Truncated packets for mDNS are not allowed. Give up immediately. */
+                if (t->scope->protocol == DNS_PROTOCOL_MDNS) {
+                        dns_transaction_complete(t, DNS_TRANSACTION_INVALID_REPLY);
+                        return;
+                }
+
                 /* Response was truncated, let's try again with good old TCP */
                 r = dns_transaction_open_tcp(t);
                 if (r == -ESRCH) {
@@ -466,7 +473,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                         return;
                 }
                 if (r < 0) {
-                        /* On LLMNR, if we cannot connect to the host,
+                        /* On LLMNR and mDNS, if we cannot connect to the host,
                          * we immediately give up */
                         if (t->scope->protocol == DNS_PROTOCOL_LLMNR) {
                                 dns_transaction_complete(t, DNS_TRANSACTION_RESOURCES);
@@ -493,29 +500,31 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                 return;
         }
 
-        /* Only consider responses with equivalent query section to the request */
-        if (p->question->n_keys != 1 || dns_resource_key_equal(p->question->keys[0], t->key) <= 0) {
-                dns_transaction_complete(t, DNS_TRANSACTION_INVALID_REPLY);
-                return;
+        if (t->scope->protocol == DNS_PROTOCOL_DNS) {
+                /* Only consider responses with equivalent query section to the request */
+                if (p->question->n_keys != 1 || dns_resource_key_equal(p->question->keys[0], t->key) <= 0) {
+                        dns_transaction_complete(t, DNS_TRANSACTION_INVALID_REPLY);
+                        return;
+                }
+
+                /* Install the answer as answer to the transaction */
+                dns_answer_unref(t->answer);
+                t->answer = dns_answer_ref(p->answer);
+                t->answer_rcode = DNS_PACKET_RCODE(p);
+                t->answer_authenticated = t->scope->dnssec_mode == DNSSEC_TRUST && DNS_PACKET_AD(p);
+
+                /* According to RFC 4795, section 2.9. only the RRs from the answer section shall be cached */
+                if (DNS_PACKET_SHALL_CACHE(p))
+                        dns_cache_put(&t->scope->cache,
+                                      t->key,
+                                      DNS_PACKET_RCODE(p),
+                                      p->answer,
+                                      DNS_PACKET_ANCOUNT(p),
+                                      t->answer_authenticated,
+                                      0,
+                                      p->family,
+                                      &p->sender);
         }
-
-        /* Install the answer as answer to the transaction */
-        dns_answer_unref(t->answer);
-        t->answer = dns_answer_ref(p->answer);
-        t->answer_rcode = DNS_PACKET_RCODE(p);
-        t->answer_authenticated = t->scope->dnssec_mode == DNSSEC_TRUST && DNS_PACKET_AD(p);
-
-        /* According to RFC 4795, section 2.9. only the RRs from the answer section shall be cached */
-        if (DNS_PACKET_SHALL_CACHE(p))
-                dns_cache_put(&t->scope->cache,
-                              t->key,
-                              DNS_PACKET_RCODE(p),
-                              p->answer,
-                              DNS_PACKET_ANCOUNT(p),
-                              t->answer_authenticated,
-                              0,
-                              p->family,
-                              &p->sender);
 
         if (DNS_PACKET_RCODE(p) == DNS_RCODE_SUCCESS)
                 dns_transaction_complete(t, DNS_TRANSACTION_SUCCESS);
