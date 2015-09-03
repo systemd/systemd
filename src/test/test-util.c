@@ -270,6 +270,9 @@ static void test_parse_pid(void) {
         r = parse_pid("0xFFFFFFFFFFFFFFFFF", &pid);
         assert_se(r == -ERANGE);
         assert_se(pid == 65);
+
+        r = parse_pid("junk", &pid);
+        assert_se(r == -EINVAL);
 }
 
 static void test_parse_uid(void) {
