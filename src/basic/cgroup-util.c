@@ -1002,6 +1002,8 @@ int cg_is_empty_recursive(const char *controller, const char *path) {
                         return r;
 
                 r = read_one_line_file(populated, &t);
+                if (r == -ENOENT)
+                        return 1;
                 if (r < 0)
                         return r;
 
