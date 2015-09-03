@@ -187,7 +187,7 @@ int cg_kill(const char *controller, const char *path, int sig, bool sigcont, boo
                         if (ignore_self && pid == my_pid)
                                 continue;
 
-                        if (set_get(s, LONG_TO_PTR(pid)) == LONG_TO_PTR(pid))
+                        if (set_get(s, PID_TO_PTR(pid)) == PID_TO_PTR(pid))
                                 continue;
 
                         /* If we haven't killed this process yet, kill
@@ -205,7 +205,7 @@ int cg_kill(const char *controller, const char *path, int sig, bool sigcont, boo
 
                         done = false;
 
-                        r = set_put(s, LONG_TO_PTR(pid));
+                        r = set_put(s, PID_TO_PTR(pid));
                         if (r < 0) {
                                 if (ret >= 0)
                                         return r;
@@ -318,7 +318,7 @@ int cg_migrate(const char *cfrom, const char *pfrom, const char *cto, const char
                         if (ignore_self && pid == my_pid)
                                 continue;
 
-                        if (set_get(s, LONG_TO_PTR(pid)) == LONG_TO_PTR(pid))
+                        if (set_get(s, PID_TO_PTR(pid)) == PID_TO_PTR(pid))
                                 continue;
 
                         /* Ignore kernel threads. Since they can only
@@ -338,7 +338,7 @@ int cg_migrate(const char *cfrom, const char *pfrom, const char *cto, const char
 
                         done = false;
 
-                        r = set_put(s, LONG_TO_PTR(pid));
+                        r = set_put(s, PID_TO_PTR(pid));
                         if (r < 0) {
                                 if (ret >= 0)
                                         return r;
@@ -1898,7 +1898,7 @@ int cg_attach_many_everywhere(CGroupMask supported, const char *path, Set* pids,
         int r = 0;
 
         SET_FOREACH(pidp, pids, i) {
-                pid_t pid = PTR_TO_LONG(pidp);
+                pid_t pid = PTR_TO_PID(pidp);
                 int q;
 
                 q = cg_attach_everywhere(supported, path, pid, path_callback, userdata);

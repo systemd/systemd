@@ -1995,16 +1995,16 @@ int unit_watch_pid(Unit *u, pid_t pid) {
         if (r < 0)
                 return r;
 
-        r = hashmap_put(u->manager->watch_pids1, LONG_TO_PTR(pid), u);
+        r = hashmap_put(u->manager->watch_pids1, PID_TO_PTR(pid), u);
         if (r == -EEXIST) {
                 r = hashmap_ensure_allocated(&u->manager->watch_pids2, NULL);
                 if (r < 0)
                         return r;
 
-                r = hashmap_put(u->manager->watch_pids2, LONG_TO_PTR(pid), u);
+                r = hashmap_put(u->manager->watch_pids2, PID_TO_PTR(pid), u);
         }
 
-        q = set_put(u->pids, LONG_TO_PTR(pid));
+        q = set_put(u->pids, PID_TO_PTR(pid));
         if (q < 0)
                 return q;
 
@@ -2015,16 +2015,16 @@ void unit_unwatch_pid(Unit *u, pid_t pid) {
         assert(u);
         assert(pid >= 1);
 
-        (void) hashmap_remove_value(u->manager->watch_pids1, LONG_TO_PTR(pid), u);
-        (void) hashmap_remove_value(u->manager->watch_pids2, LONG_TO_PTR(pid), u);
-        (void) set_remove(u->pids, LONG_TO_PTR(pid));
+        (void) hashmap_remove_value(u->manager->watch_pids1, PID_TO_PTR(pid), u);
+        (void) hashmap_remove_value(u->manager->watch_pids2, PID_TO_PTR(pid), u);
+        (void) set_remove(u->pids, PID_TO_PTR(pid));
 }
 
 void unit_unwatch_all_pids(Unit *u) {
         assert(u);
 
         while (!set_isempty(u->pids))
-                unit_unwatch_pid(u, PTR_TO_LONG(set_first(u->pids)));
+                unit_unwatch_pid(u, PTR_TO_PID(set_first(u->pids)));
 
         u->pids = set_free(u->pids);
 }
@@ -2038,7 +2038,7 @@ void unit_tidy_watch_pids(Unit *u, pid_t except1, pid_t except2) {
         /* Cleans dead PIDs from our list */
 
         SET_FOREACH(e, u->pids, i) {
-                pid_t pid = PTR_TO_LONG(e);
+                pid_t pid = PTR_TO_PID(e);
 
                 if (pid == except1 || pid == except2)
                         continue;
@@ -2993,13 +2993,13 @@ static Set *unit_pid_set(pid_t main_pid, pid_t control_pid) {
 
         /* Exclude the main/control pids from being killed via the cgroup */
         if (main_pid > 0) {
-                r = set_put(pid_set, LONG_TO_PTR(main_pid));
+                r = set_put(pid_set, PID_TO_PTR(main_pid));
                 if (r < 0)
                         goto fail;
         }
 
         if (control_pid > 0) {
-                r = set_put(pid_set, LONG_TO_PTR(control_pid));
+                r = set_put(pid_set, PID_TO_PTR(control_pid));
                 if (r < 0)
                         goto fail;
         }

@@ -1391,11 +1391,11 @@ Unit *manager_get_unit_by_pid(Manager *m, pid_t pid) {
         if (pid == 1)
                 return hashmap_get(m->units, SPECIAL_INIT_SCOPE);
 
-        u = hashmap_get(m->watch_pids1, LONG_TO_PTR(pid));
+        u = hashmap_get(m->watch_pids1, PID_TO_PTR(pid));
         if (u)
                 return u;
 
-        u = hashmap_get(m->watch_pids2, LONG_TO_PTR(pid));
+        u = hashmap_get(m->watch_pids2, PID_TO_PTR(pid));
         if (u)
                 return u;
 
