@@ -1062,8 +1062,8 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid) {
 
         if (missing & SD_BUS_CREDS_AUDIT_SESSION_ID) {
                 r = audit_session_from_pid(pid, &c->audit_session_id);
-                if (r == -ENXIO) {
-                        /* ENXIO means: no audit session id assigned */
+                if (r == -ENODATA) {
+                        /* ENODATA means: no audit session id assigned */
                         c->audit_session_id = AUDIT_SESSION_INVALID;
                         c->mask |= SD_BUS_CREDS_AUDIT_SESSION_ID;
                 } else if (r < 0) {
@@ -1075,8 +1075,8 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid) {
 
         if (missing & SD_BUS_CREDS_AUDIT_LOGIN_UID) {
                 r = audit_loginuid_from_pid(pid, &c->audit_login_uid);
-                if (r == -ENXIO) {
-                        /* ENXIO means: no audit login uid assigned */
+                if (r == -ENODATA) {
+                        /* ENODATA means: no audit login uid assigned */
                         c->audit_login_uid = UID_INVALID;
                         c->mask |= SD_BUS_CREDS_AUDIT_LOGIN_UID;
                 } else if (r < 0) {
