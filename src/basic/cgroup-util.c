@@ -2163,7 +2163,7 @@ int cg_enable_everywhere(CGroupMask supported, CGroupMask mask, const char *p) {
 
                         r = write_string_file(fs, s, 0);
                         if (r < 0)
-                                log_warning_errno(r, "Failed to enable controller %s for %s (%s): %m", n, p, fs);
+                                log_debug_errno(r, "Failed to enable controller %s for %s (%s): %m", n, p, fs);
                 }
         }
 
