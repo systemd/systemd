@@ -85,32 +85,32 @@ int sd_pid_get_machine_name(pid_t pid, char **machine);
  * hierarchy. */
 int sd_pid_get_cgroup(pid_t pid, char **cgroup);
 
-/* Similar to sd_pid_get_session(), but retrieves data about peer of
- * connected AF_UNIX socket */
+/* Similar to sd_pid_get_session(), but retrieves data about the peer
+ * of a connected AF_UNIX socket */
 int sd_peer_get_session(int fd, char **session);
 
-/* Similar to sd_pid_get_owner_uid(), but retrieves data about peer of
- * connected AF_UNIX socket */
+/* Similar to sd_pid_get_owner_uid(), but retrieves data about the peer of
+ * a connected AF_UNIX socket */
 int sd_peer_get_owner_uid(int fd, uid_t *uid);
 
-/* Similar to sd_pid_get_unit(), but retrieves data about peer of
- * connected AF_UNIX socket */
+/* Similar to sd_pid_get_unit(), but retrieves data about the peer of
+ * a connected AF_UNIX socket */
 int sd_peer_get_unit(int fd, char **unit);
 
-/* Similar to sd_pid_get_user_unit(), but retrieves data about peer of
- * connected AF_UNIX socket */
+/* Similar to sd_pid_get_user_unit(), but retrieves data about the peer of
+ * a connected AF_UNIX socket */
 int sd_peer_get_user_unit(int fd, char **unit);
 
-/* Similar to sd_pid_get_slice(), but retrieves data about peer of
- * connected AF_UNIX socket */
+/* Similar to sd_pid_get_slice(), but retrieves data about the peer of
+ * a connected AF_UNIX socket */
 int sd_peer_get_slice(int fd, char **slice);
 
-/* Similar to sd_pid_get_user_slice(), but retrieves data about peer of
- * connected AF_UNIX socket */
+/* Similar to sd_pid_get_user_slice(), but retrieves data about the peer of
+ * a connected AF_UNIX socket */
 int sd_peer_get_user_slice(int fd, char **slice);
 
-/* Similar to sd_pid_get_machine_name(), but retrieves data about peer
- * of connected AF_UNIX socket */
+/* Similar to sd_pid_get_machine_name(), but retrieves data about the
+ * peer of a a connected AF_UNIX socket */
 int sd_peer_get_machine_name(int fd, char **machine);
 
 /* Similar to sd_pid_get_cgroup(), but retrieves data about the peer
