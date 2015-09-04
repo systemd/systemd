@@ -85,6 +85,12 @@ __get_masked_units   () { __systemctl $1 list-unit-files  \
         | { while read -r a b c  ; do [[ $b == "masked"   ]] && echo " $a"; done; }; }
 __get_all_unit_files () { { __systemctl $1 list-unit-files; } | { while read -r a b; do echo " $a"; done; }; }
 
+__get_machines() {
+        local a b
+        (machinectl list-images --no-legend --no-pager; machinectl list --no-legend --no-pager) | \
+		{ while read a b; do echo " $a"; done; } | sort -u;
+}
+
 _systemctl () {
         local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
         local i verb comps mode
@@ -92,8 +98,10 @@ _systemctl () {
         local -A OPTS=(
                [STANDALONE]='--all -a --reverse --after --before --defaults --failed --force -f --full -l --global
                              --help -h --no-ask-password --no-block --no-legend --no-pager --no-reload --no-wall
-                             --quiet -q --privileged -P --system --user --version --runtime --recursive -r --firmware-setup'
-                      [ARG]='--host -H --kill-who --property -p --signal -s --type -t --state --job-mode --root'
+                             --quiet -q --privileged -P --system --user --version --runtime --recursive -r --firmware-setup
+                             --show-types -i --ignore-inhibitors --plain'
+                      [ARG]='--host -H --kill-who --property -p --signal -s --type -t --state --job-mode --root
+                             --preset-mode -n --lines -o --output -M --machine'
         )
 
         if __contains_word "--user" ${COMP_WORDS[*]}; then
@@ -131,6 +139,16 @@ _systemctl () {
                         ;;
                         --property|-p)
                                 comps=$(__systemd_properties $mode)
+                        ;;
+                        --preset-mode)
+                                comps='full enable-only disable-only'
+                        ;;
+                        --output|-o)
+                                comps='short short-iso short-precise short-monotonic verbose export json
+                                       json-pretty json-sse cat'
+                        ;;
+                        --machine|-M)
+                                comps=$( __get_machines )
                         ;;
                 esac
                 COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
