@@ -161,20 +161,20 @@
     is no timeout to wait for this will fill in <constant>(uint64_t)
     -1</constant> instead. Note that <function>poll()</function> takes
     a relative timeout in milliseconds rather than an absolute timeout
-    in microseconds. To convert the absolute 'us' timeout into
+    in microseconds. To convert the absolute 'µs' timeout into
     relative 'ms', use code like the following:</para>
 
     <programlisting>uint64_t t;
 int msec;
 sd_login_monitor_get_timeout(m, &amp;t);
 if (t == (uint64_t) -1)
-  msec = -1;
+         msec = -1;
 else {
-  struct timespec ts;
-  uint64_t n;
-  clock_getttime(CLOCK_MONOTONIC, &amp;ts);
-  n = (uint64_t) ts.tv_sec * 1000000 + ts.tv_nsec / 1000;
-  msec = t > n ? (int) ((t - n + 999) / 1000) : 0;
+         struct timespec ts;
+         uint64_t n;
+         clock_getttime(CLOCK_MONOTONIC, &amp;ts);
+         n = (uint64_t) ts.tv_sec * 1000000 + ts.tv_nsec / 1000;
+         msec = t > n ? (int) ((t - n + 999) / 1000) : 0;
 }</programlisting>
 
     <para>The code above does not do any error checking for brevity's
@@ -201,6 +201,29 @@ else {
 
     <para><function>sd_login_monitor_unref()</function>
     always returns <constant>NULL</constant>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Errors</title>
+
+    <para>Returned errors may indicate the following problems:</para>
+
+    <variablelist>
+
+      <varlistentry>
+        <term><constant>-EINVAL</constant></term>
+
+        <listitem><para>An input parameter was invalid (out of range,
+        or NULL, where that's not accepted). The specified category to
+        watch is not known.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><constant>-ENOMEM</constant></term>
+
+        <listitem><para>Memory allocation failed.</para></listitem>
+      </varlistentry>
+    </variablelist>
   </refsect1>
 
   <refsect1>

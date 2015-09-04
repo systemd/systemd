@@ -1,4 +1,4 @@
-<?xml version='1.0'?> <!--*-nxml-*-->
+<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
@@ -163,7 +163,7 @@
     processes, user processes that are shared between multiple
     sessions of the same user, or kernel threads). For processes not
     being part of a login session this function will fail with
-    -ENXIO. The returned string needs to be freed with the libc
+    -ENODATA. The returned string needs to be freed with the libc
     <citerefentry
     project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     call after use.</para>
@@ -175,9 +175,9 @@
     paths. Note that not all processes are part of a system
     unit/service (e.g. user processes, or kernel threads). For
     processes not being part of a systemd system unit this function
-    will fail with -ENXIO (More specifically: this call will not work
-    for kernel threads.) The returned string needs to be freed with
-    the libc <citerefentry
+    will fail with -ENODATA (More specifically: this call will not
+    work for kernel threads.) The returned string needs to be freed
+    with the libc <citerefentry
     project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     call after use.</para>
 
@@ -194,7 +194,7 @@
     multiple login sessions of the same user, where
     <function>sd_pid_get_session()</function> will fail. For processes
     not being part of a login session and not being a shared process
-    of a user this function will fail with -ENXIO.</para>
+    of a user this function will fail with -ENODATA.</para>
 
     <para><function>sd_pid_get_machine_name()</function> may be used
     to determine the name of the VM or container is a member of. The
@@ -203,7 +203,7 @@
     <citerefentry
     project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     call after use. For processes not part of a VM or containers this
-    function fails with -ENXIO.</para>
+    function fails with -ENODATA.</para>
 
     <para><function>sd_pid_get_slice()</function> may be used to
     determine the slice unit the process is a member of. See
@@ -251,7 +251,22 @@
     <variablelist>
 
       <varlistentry>
-        <term><constant>-ENXIO</constant></term>
+        <term><constant>-ESRCH</constant></term>
+
+        <listitem><para>The specified PID does not refer to a running
+        process.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><constant>-BADF</constant></term>
+
+        <listitem><para>The specified socket file descriptor was
+        invalid.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><constant>-ENODATA</constant></term>
 
         <listitem><para>Given field is not specified for the described
         process or peer.</para>
@@ -259,11 +274,10 @@
       </varlistentry>
 
       <varlistentry>
-        <term><constant>-ESRCH</constant></term>
+        <term><constant>-EINVAL</constant></term>
 
-        <listitem><para>The specified PID does not refer to a running
-        process.</para>
-        </listitem>
+        <listitem><para>An input parameter was invalid (out of range,
+        or NULL, where that's not accepted).</para></listitem>
       </varlistentry>
 
       <varlistentry>

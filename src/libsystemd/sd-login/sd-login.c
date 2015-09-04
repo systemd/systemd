@@ -35,6 +35,16 @@
 #include "hostname-util.h"
 #include "sd-login.h"
 
+/* Error codes:
+ *
+ *    invalid input parameters                → -EINVAL
+ *    invalid fd                              → -EBADF
+ *    process does not exist                  → -ESRCH
+ *    cgroup does not exist                   → -ENOENT
+ *    machine, session does not exist         → -ENXIO
+ *    requested metadata on object is missing → -ENODATA
+ */
+
 _public_ int sd_pid_get_session(pid_t pid, char **session) {
 
         assert_return(pid >= 0, -EINVAL);
@@ -190,6 +200,8 @@ _public_ int sd_peer_get_user_slice(int fd, char **slice) {
 }
 
 static int file_of_uid(uid_t uid, char **p) {
+
+        assert_return(uid_is_valid(uid), -EINVAL);
         assert(p);
 
         if (asprintf(p, "/run/systemd/users/" UID_FMT, uid) < 0)
@@ -203,7 +215,6 @@ _public_ int sd_uid_get_state(uid_t uid, char**state) {
         char *s = NULL;
         int r;
 
-        assert_return(uid_is_valid(uid), -EINVAL);
         assert_return(state, -EINVAL);
 
         r = file_of_uid(uid, &p);
@@ -217,11 +228,15 @@ _public_ int sd_uid_get_state(uid_t uid, char**state) {
                 if (!s)
                         return -ENOMEM;
 
-        } else if (r < 0) {
+        }
+        if (r < 0) {
                 free(s);
                 return r;
-        } else if (!s)
+        }
+        if (isempty(s)) {
+                free(s);
                 return -EIO;
+        }
 
         *state = s;
         return 0;
@@ -231,7 +246,6 @@ _public_ int sd_uid_get_display(uid_t uid, char **session) {
         _cleanup_free_ char *p = NULL, *s = NULL;
         int r;
 
-        assert_return(uid_is_valid(uid), -EINVAL);
         assert_return(session, -EINVAL);
 
         r = file_of_uid(uid, &p);
@@ -240,16 +254,44 @@ _public_ int sd_uid_get_display(uid_t uid, char **session) {
 
         r = parse_env_file(p, NEWLINE, "DISPLAY", &s, NULL);
         if (r == -ENOENT)
-                return -ENXIO;
+                return -ENODATA;
         if (r < 0)
                 return r;
-
         if (isempty(s))
-                return -ENXIO;
+                return -ENODATA;
 
         *session = s;
         s = NULL;
 
+        return 0;
+}
+
+static int file_of_seat(const char *seat, char **_p) {
+        char *p;
+        int r;
+
+        assert(_p);
+
+        if (seat) {
+                if (!filename_is_valid(seat))
+                        return -EINVAL;
+
+                p = strappend("/run/systemd/seats/", seat);
+        } else {
+                _cleanup_free_ char *buf = NULL;
+
+                r = sd_session_get_seat(NULL, &buf);
+                if (r < 0)
+                        return r;
+
+                p = strappend("/run/systemd/seats/", buf);
+        }
+
+        if (!p)
+                return -ENOMEM;
+
+        *_p = p;
+        p = NULL;
         return 0;
 }
 
@@ -260,29 +302,27 @@ _public_ int sd_uid_is_on_seat(uid_t uid, int require_active, const char *seat) 
         const char *word, *variable, *state;
 
         assert_return(uid_is_valid(uid), -EINVAL);
-        assert_return(seat, -EINVAL);
 
-        variable = require_active ? "ACTIVE_UID" : "UIDS";
-
-        p = strappend("/run/systemd/seats/", seat);
-        if (!p)
-                return -ENOMEM;
-
-        r = parse_env_file(p, NEWLINE, variable, &s, NULL);
-
+        r = file_of_seat(seat, &p);
         if (r < 0)
                 return r;
 
-        if (!s)
-                return -EIO;
+        variable = require_active ? "ACTIVE_UID" : "UIDS";
+
+        r = parse_env_file(p, NEWLINE, variable, &s, NULL);
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
+                return r;
+        if (isempty(s))
+                return 0;
 
         if (asprintf(&t, UID_FMT, uid) < 0)
                 return -ENOMEM;
 
-        FOREACH_WORD(word, l, s, state) {
+        FOREACH_WORD(word, l, s, state)
                 if (strneq(t, word, l))
                         return 1;
-        }
 
         return 0;
 }
@@ -292,33 +332,22 @@ static int uid_get_array(uid_t uid, const char *variable, char ***array) {
         char **a;
         int r;
 
-        assert_return(uid_is_valid(uid), -EINVAL);
+        assert(variable);
 
         r = file_of_uid(uid, &p);
         if (r < 0)
                 return r;
 
-        r = parse_env_file(p, NEWLINE,
-                           variable, &s,
-                           NULL);
-        if (r < 0) {
-                if (r == -ENOENT) {
-                        if (array)
-                                *array = NULL;
-                        return 0;
-                }
-
-                return r;
-        }
-
-        if (!s) {
+        r = parse_env_file(p, NEWLINE, variable, &s, NULL);
+        if (r == -ENOENT || (r >= 0 && isempty(s))) {
                 if (array)
                         *array = NULL;
                 return 0;
         }
+        if (r < 0)
+                return r;
 
         a = strv_split(s, " ");
-
         if (!a)
                 return -ENOMEM;
 
@@ -380,37 +409,39 @@ static int file_of_session(const char *session, char **_p) {
 }
 
 _public_ int sd_session_is_active(const char *session) {
-        int r;
         _cleanup_free_ char *p = NULL, *s = NULL;
+        int r;
 
         r = file_of_session(session, &p);
         if (r < 0)
                 return r;
 
         r = parse_env_file(p, NEWLINE, "ACTIVE", &s, NULL);
+        if (r == -ENOENT)
+                return -ENXIO;
         if (r < 0)
                 return r;
-
-        if (!s)
+        if (isempty(s))
                 return -EIO;
 
         return parse_boolean(s);
 }
 
 _public_ int sd_session_is_remote(const char *session) {
-        int r;
         _cleanup_free_ char *p = NULL, *s = NULL;
+        int r;
 
         r = file_of_session(session, &p);
         if (r < 0)
                 return r;
 
         r = parse_env_file(p, NEWLINE, "REMOTE", &s, NULL);
+        if (r == -ENOENT)
+                return -ENXIO;
         if (r < 0)
                 return r;
-
-        if (!s)
-                return -EIO;
+        if (isempty(s))
+                return -ENODATA;
 
         return parse_boolean(s);
 }
@@ -426,9 +457,11 @@ _public_ int sd_session_get_state(const char *session, char **state) {
                 return r;
 
         r = parse_env_file(p, NEWLINE, "STATE", &s, NULL);
+        if (r == -ENOENT)
+                return -ENXIO;
         if (r < 0)
                 return r;
-        else if (!s)
+        if (isempty(s))
                 return -EIO;
 
         *state = s;
@@ -448,10 +481,11 @@ _public_ int sd_session_get_uid(const char *session, uid_t *uid) {
                 return r;
 
         r = parse_env_file(p, NEWLINE, "UID", &s, NULL);
+        if (r == -ENOENT)
+                return -ENXIO;
         if (r < 0)
                 return r;
-
-        if (!s)
+        if (isempty(s))
                 return -EIO;
 
         return parse_uid(s, uid);
@@ -462,17 +496,19 @@ static int session_get_string(const char *session, const char *field, char **val
         int r;
 
         assert_return(value, -EINVAL);
+        assert(field);
 
         r = file_of_session(session, &p);
         if (r < 0)
                 return r;
 
         r = parse_env_file(p, NEWLINE, field, &s, NULL);
+        if (r == -ENOENT)
+                return -ENXIO;
         if (r < 0)
                 return r;
-
         if (isempty(s))
-                return -ENXIO;
+                return -ENODATA;
 
         *value = s;
         s = NULL;
@@ -491,6 +527,8 @@ _public_ int sd_session_get_vt(const char *session, unsigned *vtnr) {
         _cleanup_free_ char *vtnr_string = NULL;
         unsigned u;
         int r;
+
+        assert_return(vtnr, -EINVAL);
 
         r = session_get_string(session, "VTNR", &vtnr_string);
         if (r < 0)
@@ -547,32 +585,6 @@ _public_ int sd_session_get_remote_host(const char *session, char **remote_host)
         return session_get_string(session, "REMOTE_HOST", remote_host);
 }
 
-static int file_of_seat(const char *seat, char **_p) {
-        char *p;
-        int r;
-
-        assert(_p);
-
-        if (seat)
-                p = strappend("/run/systemd/seats/", seat);
-        else {
-                _cleanup_free_ char *buf = NULL;
-
-                r = sd_session_get_seat(NULL, &buf);
-                if (r < 0)
-                        return r;
-
-                p = strappend("/run/systemd/seats/", buf);
-        }
-
-        if (!p)
-                return -ENOMEM;
-
-        *_p = p;
-        p = NULL;
-        return 0;
-}
-
 _public_ int sd_seat_get_active(const char *seat, char **session, uid_t *uid) {
         _cleanup_free_ char *p = NULL, *s = NULL, *t = NULL;
         int r;
@@ -587,6 +599,8 @@ _public_ int sd_seat_get_active(const char *seat, char **session, uid_t *uid) {
                            "ACTIVE", &s,
                            "ACTIVE_UID", &t,
                            NULL);
+        if (r == -ENOENT)
+                return -ENXIO;
         if (r < 0)
                 return r;
 
@@ -625,7 +639,8 @@ _public_ int sd_seat_get_sessions(const char *seat, char ***sessions, uid_t **ui
                            "SESSIONS", &s,
                            "ACTIVE_SESSIONS", &t,
                            NULL);
-
+        if (r == -ENOENT)
+                return -ENXIO;
         if (r < 0)
                 return r;
 
@@ -657,7 +672,6 @@ _public_ int sd_seat_get_sessions(const char *seat, char ***sessions, uid_t **ui
                                         return -ENOMEM;
 
                                 r = parse_uid(k, b + i);
-
                                 if (r < 0)
                                         continue;
 
@@ -688,7 +702,7 @@ static int seat_get_can(const char *seat, const char *variable) {
         _cleanup_free_ char *p = NULL, *s = NULL;
         int r;
 
-        assert_return(variable, -EINVAL);
+        assert(variable);
 
         r = file_of_seat(seat, &p);
         if (r < 0)
@@ -697,10 +711,12 @@ static int seat_get_can(const char *seat, const char *variable) {
         r = parse_env_file(p, NEWLINE,
                            variable, &s,
                            NULL);
+        if (r == -ENOENT)
+                return -ENXIO;
         if (r < 0)
                 return r;
-        if (!s)
-                return 0;
+        if (isempty(s))
+                return -ENODATA;
 
         return parse_boolean(s);
 }
@@ -824,6 +840,8 @@ _public_ int sd_machine_get_class(const char *machine, char **class) {
 
         p = strjoina("/run/systemd/machines/", machine);
         r = parse_env_file(p, NEWLINE, "CLASS", &c, NULL);
+        if (r == -ENOENT)
+                return -ENXIO;
         if (r < 0)
                 return r;
         if (!c)
@@ -847,6 +865,8 @@ _public_ int sd_machine_get_ifindices(const char *machine, int **ifindices) {
 
         p = strjoina("/run/systemd/machines/", machine);
         r = parse_env_file(p, NEWLINE, "NETIF", &netif, NULL);
+        if (r == -ENOENT)
+                return -ENXIO;
         if (r < 0)
                 return r;
         if (!netif) {

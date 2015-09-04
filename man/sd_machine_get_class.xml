@@ -56,7 +56,7 @@
       <funcprototype>
         <funcdef>int <function>sd_machine_get_class</function></funcdef>
         <paramdef>const char* <parameter>machine</parameter></paramdef>
-        <paramdef>char *<parameter>class</parameter></paramdef>
+        <paramdef>char **<parameter>class</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
@@ -96,6 +96,35 @@
     <para>On success, these calls return 0 or a positive integer. On
     failure, these calls return a negative errno-style error
     code.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Errors</title>
+
+    <para>Returned errors may indicate the following problems:</para>
+
+    <variablelist>
+
+      <varlistentry>
+        <term><constant>-ENXIO</constant></term>
+
+        <listitem><para>The specified machine does not exist or is currently not running.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><constant>-EINVAL</constant></term>
+
+        <listitem><para>An input parameter was invalid (out of range,
+        or NULL, where that's not accepted).</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><constant>-ENOMEM</constant></term>
+
+        <listitem><para>Memory allocation failed.</para></listitem>
+      </varlistentry>
+    </variablelist>
   </refsect1>
 
   <refsect1>
