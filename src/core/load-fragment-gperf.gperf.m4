@@ -233,6 +233,8 @@ Service.FileDescriptorStoreMax,  config_parse_unsigned,              0,         
 Service.NotifyAccess,            config_parse_notify_access,         0,                             offsetof(Service, notify_access)
 Service.Sockets,                 config_parse_service_sockets,       0,                             0
 Service.BusPolicy,               config_parse_bus_endpoint_policy,   0,                             offsetof(Service, exec_context)
+Service.USBFunctionDescriptors,  config_parse_path,                  0,                             offsetof(Service, usb_function_descriptors)
+Service.USBFunctionStrings,      config_parse_path,                  0,                             offsetof(Service, usb_function_strings)
 EXEC_CONTEXT_CONFIG_ITEMS(Service)m4_dnl
 CGROUP_CONTEXT_CONFIG_ITEMS(Service)m4_dnl
 KILL_CONTEXT_CONFIG_ITEMS(Service)m4_dnl

@@ -482,6 +482,12 @@ static int service_verify(Service *s) {
                 return -EINVAL;
         }
 
+        if (s->usb_function_descriptors && !s->usb_function_strings)
+                log_unit_warning(UNIT(s), "Service has USBFunctionDescriptors= setting, but no USBFunctionStrings=. Ignoring.");
+
+        if (!s->usb_function_descriptors && s->usb_function_strings)
+                log_unit_warning(UNIT(s), "Service has USBFunctionStrings= setting, but no USBFunctionDescriptors=. Ignoring.");
+
         return 0;
 }
 
