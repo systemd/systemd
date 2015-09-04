@@ -18,3 +18,8 @@ PrivateDevices=yes
 PrivateNetwork=yes
 ProtectSystem=full
 ProtectHome=yes
+
+# The proxy manages connections of all users, so it needs an elevated file
+# limit. It does proper per-user accounting (indirectly via kdbus), therefore,
+# the effective per-user limits stay the same.
+LimitNOFILE=16384
