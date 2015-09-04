@@ -507,15 +507,20 @@ CGroupMask unit_get_own_mask(Unit *u) {
                 return 0;
 
         /* If delegation is turned on, then turn on all cgroups,
-         * unless the process we fork into it is known to drop
-         * privileges anyway, and shouldn't get access to the
-         * controllers anyway. */
+         * unless we are on the legacy hierarchy and the process we
+         * fork into it is known to drop privileges, and hence
+         * shouldn't get access to the controllers.
+         *
+         * Note that on the unified hierarchy it is safe to delegate
+         * controllers to unprivileged services. */
 
         if (c->delegate) {
                 ExecContext *e;
 
                 e = unit_get_exec_context(u);
-                if (!e || exec_context_maintains_privileges(e))
+                if (!e ||
+                    exec_context_maintains_privileges(e) ||
+                    cg_unified() > 0)
                         return _CGROUP_MASK_ALL;
         }
 
