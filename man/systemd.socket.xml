@@ -261,6 +261,17 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>ListenUSBFunction=</varname></term>
+        <listitem><para>Specifies a functionfs endpoint location
+        to listen on. This expects an absolute file system path as
+        argument. Behavior otherwise is very similar to the
+        <varname>ListenFIFO=</varname> directive above. Use this to
+        open functionfs endpoint ep0. When using this option, activated
+        service has to have <varname>USBFunctionDescriptors</varname>
+        and <varname>USBFunctionStrings</varname> options set.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>BindIPv6Only=</varname></term>
         <listitem><para>Takes a one of <option>default</option>,
         <option>both</option> or <option>ipv6-only</option>. Controls

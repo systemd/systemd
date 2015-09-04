@@ -903,6 +903,22 @@
         and no job queued or being executed for it.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>USBFunctionDescriptors=</varname></term>
+        <listitem><para>Configure the location of file containing
+        FunctionFS descriptors. This is is used only when socket with
+        <varname>ListenUSBFunction</varname> line want to activate this service. Content of
+        this file is writen to ep0 file after it is opened. This is required
+        for socket activation using <varname>ListenUSBFunction</varname>
+        (i.e. for passing all ffs endpoints to service).</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>USBFunctionStrings=</varname></term>
+        <listitem><para>Configure the location of file containing FunctionFS strings.
+        Behavior is similar to <varname>USBFunctionDescriptors</varname>.</para></listitem>
+      </varlistentry>
+
     </variablelist>
 
     <para>Check
