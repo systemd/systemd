@@ -60,7 +60,7 @@ static int link_set_dhcp_routes(Link *link) {
         assert(link->dhcp_lease);
 
         r = sd_dhcp_lease_get_router(link->dhcp_lease, &gateway);
-        if (r < 0 && r != -ENOENT)
+        if (r < 0 && r != -ENODATA)
                 return log_link_warning_errno(link, r, "DHCP error: could not get gateway: %m");
 
         if (r >= 0) {
@@ -112,7 +112,7 @@ static int link_set_dhcp_routes(Link *link) {
         }
 
         n = sd_dhcp_lease_get_routes(link->dhcp_lease, &static_routes);
-        if (n == -ENOENT)
+        if (n == -ENODATA)
                 return 0;
         if (n < 0)
                 return log_link_warning_errno(link, n, "DHCP error: could not get routes: %m");
@@ -378,7 +378,7 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
         prefixlen = in_addr_netmask_to_prefixlen(&netmask);
 
         r = sd_dhcp_lease_get_router(lease, &gateway);
-        if (r < 0 && r != -ENOENT)
+        if (r < 0 && r != -ENODATA)
                 return log_link_error_errno(link, r, "DHCP error: Could not get gateway: %m");
 
         if (r >= 0)
