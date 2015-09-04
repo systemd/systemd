@@ -543,22 +543,36 @@ int machine_kill(Machine *m, KillWho who, int signo) {
 }
 
 int machine_openpt(Machine *m, int flags) {
+        int r, master;
         assert(m);
 
         switch (m->class) {
 
         case MACHINE_HOST:
-                return posix_openpt(flags);
+                r = posix_openpt(flags);
+                if (r < 0)
+                        return -errno;
+                master = r;
+                break;
 
         case MACHINE_CONTAINER:
                 if (m->leader <= 0)
                         return -EINVAL;
 
-                return openpt_in_namespace(m->leader, flags);
+                r = openpt_in_namespace(m->leader, flags);
+                if (r < 0)
+                        return r;
+                master = r;
+                break;
 
         default:
                 return -EOPNOTSUPP;
         }
+
+        if (unlockpt(master) < 0)
+                return -errno;
+
+        return master;
 }
 
 MachineOperation *machine_operation_unref(MachineOperation *o) {

@@ -6095,9 +6095,6 @@ int openpt_in_namespace(pid_t pid, int flags) {
                 if (master < 0)
                         _exit(EXIT_FAILURE);
 
-                if (unlockpt(master) < 0)
-                        _exit(EXIT_FAILURE);
-
                 cmsg = CMSG_FIRSTHDR(&mh);
                 cmsg->cmsg_level = SOL_SOCKET;
                 cmsg->cmsg_type = SCM_RIGHTS;
