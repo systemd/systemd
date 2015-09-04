@@ -513,6 +513,25 @@ int strv_extend(char ***l, const char *value) {
         return strv_consume(l, v);
 }
 
+int strv_extend_pair(char ***l, const char *a, const char *b) {
+        char *c, *d;
+
+        if (!a && !b)
+                return 0;
+
+        c = strdup(a);
+        if (!c)
+                return -ENOMEM;
+
+        d = strdup(b);
+        if (!d) {
+                free(c);
+                return -ENOMEM;
+        }
+
+        return strv_consume_pair(l, c, d);
+}
+
 char **strv_uniq(char **l) {
         char **i;
 
