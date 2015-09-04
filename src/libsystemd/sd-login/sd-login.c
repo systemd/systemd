@@ -101,6 +101,32 @@ _public_ int sd_pid_get_owner_uid(pid_t pid, uid_t *uid) {
         return cg_pid_get_owner_uid(pid, uid);
 }
 
+_public_ int sd_pid_get_cgroup(pid_t pid, char **cgroup) {
+        char *c;
+        int r;
+
+        assert_return(pid >= 0, -EINVAL);
+        assert_return(cgroup, -EINVAL);
+
+        r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, pid, &c);
+        if (r < 0)
+                return r;
+
+        /* The internal APIs return the empty string for the root
+         * cgroup, let's return the "/" in the public APIs instead, as
+         * that's easier and less ambigious for people to grok. */
+        if (isempty(c)) {
+                free(c);
+                c = strdup("/");
+                if (!c)
+                        return -ENOMEM;
+
+        }
+
+        *cgroup = c;
+        return 0;
+}
+
 _public_ int sd_peer_get_session(int fd, char **session) {
         struct ucred ucred = {};
         int r;
@@ -197,6 +223,20 @@ _public_ int sd_peer_get_user_slice(int fd, char **slice) {
                 return r;
 
         return cg_pid_get_user_slice(ucred.pid, slice);
+}
+
+_public_ int sd_peer_get_cgroup(int fd, char **cgroup) {
+        struct ucred ucred;
+        int r;
+
+        assert_return(fd >= 0, -EBADF);
+        assert_return(cgroup, -EINVAL);
+
+        r = getpeercred(fd, &ucred);
+        if (r < 0)
+                return r;
+
+        return sd_pid_get_cgroup(ucred.pid, cgroup);
 }
 
 static int file_of_uid(uid_t uid, char **p) {

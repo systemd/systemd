@@ -33,7 +33,7 @@ static void test_login(void) {
         _cleanup_free_ char *pp = NULL, *qq = NULL;
         int r, k;
         uid_t u, u2;
-        char *seat, *type, *class, *display, *remote_user, *remote_host, *display_session;
+        char *seat, *type, *class, *display, *remote_user, *remote_host, *display_session, *cgroup;
         char *session;
         char *state;
         char *session2;
@@ -49,6 +49,10 @@ static void test_login(void) {
 
         assert_se(sd_pid_get_owner_uid(0, &u2) == 0);
         printf("user = "UID_FMT"\n", u2);
+
+        assert_se(sd_pid_get_cgroup(0, &cgroup) == 0);
+        printf("cgroup = %s\n", cgroup);
+        free(cgroup);
 
         display_session = NULL;
         r = sd_uid_get_display(u2, &display_session);
