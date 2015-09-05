@@ -810,6 +810,7 @@ static int method_set_pool_limit(sd_bus_message *message, void *userdata, sd_bus
                         message,
                         CAP_SYS_ADMIN,
                         "org.freedesktop.machine1.manage-machines",
+                        NULL,
                         false,
                         UID_INVALID,
                         &m->polkit_registry,

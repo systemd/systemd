@@ -220,6 +220,7 @@ int bus_test_polkit(
                 sd_bus_message *call,
                 int capability,
                 const char *action,
+                char **details,
                 uid_t good_user,
                 bool *_challenge,
                 sd_bus_error *e) {
@@ -242,29 +243,53 @@ int bus_test_polkit(
                 return 1;
 #ifdef ENABLE_POLKIT
         else {
+                _cleanup_bus_message_unref_ sd_bus_message *request = NULL;
                 _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
                 int authorized = false, challenge = false;
                 const char *sender;
+                char **k, **v;
 
                 sender = sd_bus_message_get_sender(call);
                 if (!sender)
                         return -EBADMSG;
 
-                r = sd_bus_call_method(
+                r = sd_bus_message_new_method_call(
                                 call->bus,
+                                &request,
                                 "org.freedesktop.PolicyKit1",
                                 "/org/freedesktop/PolicyKit1/Authority",
                                 "org.freedesktop.PolicyKit1.Authority",
-                                "CheckAuthorization",
-                                e,
-                                &reply,
-                                "(sa{sv})sa{ss}us",
-                                "system-bus-name", 1, "name", "s", sender,
-                                action,
-                                0,
-                                0,
-                                "");
+                                "CheckAuthorization");
+                if (r < 0)
+                        return r;
 
+                r = sd_bus_message_append(
+                                request,
+                                "(sa{sv})s",
+                                "system-bus-name", 1, "name", "s", sender,
+                                action);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_open_container(request, 'a', "{ss}");
+                if (r < 0)
+                        return r;
+
+                STRV_FOREACH_PAIR(k, v, details) {
+                        r = sd_bus_message_append(request, "{ss}", *k, *v);
+                        if (r < 0)
+                                return r;
+                }
+
+                r = sd_bus_message_close_container(request);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_append(request, "us", 0, NULL);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_call(call->bus, request, 0, e, &reply);
                 if (r < 0) {
                         /* Treat no PK available as access denied */
                         if (sd_bus_error_has_name(e, SD_BUS_ERROR_SERVICE_UNKNOWN)) {
@@ -354,6 +379,7 @@ int bus_verify_polkit_async(
                 sd_bus_message *call,
                 int capability,
                 const char *action,
+                char **details,
                 bool interactive,
                 uid_t good_user,
                 Hashmap **registry,
@@ -363,6 +389,7 @@ int bus_verify_polkit_async(
         _cleanup_bus_message_unref_ sd_bus_message *pk = NULL;
         AsyncPolkitQuery *q;
         const char *sender;
+        char **k, **v;
         sd_bus_message_handler_t callback;
         void *userdata;
         int c;
@@ -460,12 +487,27 @@ int bus_verify_polkit_async(
 
         r = sd_bus_message_append(
                         pk,
-                        "(sa{sv})sa{ss}us",
+                        "(sa{sv})s",
                         "system-bus-name", 1, "name", "s", sender,
-                        action,
-                        0,
-                        !!interactive,
-                        NULL);
+                        action);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_open_container(pk, 'a', "{ss}");
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH_PAIR(k, v, details) {
+                r = sd_bus_message_append(pk, "{ss}", *k, *v);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_bus_message_close_container(pk);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(pk, "us", !!interactive, NULL);
         if (r < 0)
                 return r;
 
