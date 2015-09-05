@@ -391,6 +391,29 @@ static int property_get_load_error(
         return sd_bus_message_append(reply, "(ss)", e.name, e.message);
 }
 
+static int bus_verify_manage_units_async_full(
+                Unit *u,
+                const char *verb,
+                int capability,
+                const char *polkit_message,
+                sd_bus_message *call,
+                sd_bus_error *error) {
+
+        const char *details[9] = {
+                "unit", u->id,
+                "verb", verb,
+        };
+
+        if (polkit_message) {
+                details[4] = "polkit.message";
+                details[5] = polkit_message;
+                details[6] = "polkit.gettext_domain";
+                details[7] = GETTEXT_PACKAGE;
+        }
+
+        return bus_verify_polkit_async(call, capability, "org.freedesktop.systemd1.manage-units", details, false, UID_INVALID, &u->manager->polkit_registry, error);
+}
+
 int bus_unit_method_start_generic(
                 sd_bus_message *message,
                 Unit *u,
@@ -400,6 +423,14 @@ int bus_unit_method_start_generic(
 
         const char *smode;
         JobMode mode;
+        _cleanup_free_ char *verb = NULL;
+        static const char *const polkit_message_for_job[_JOB_TYPE_MAX] = {
+                [JOB_START]       = N_("Authentication is required to start '$(unit)'."),
+                [JOB_STOP]        = N_("Authentication is required to stop '$(unit)'."),
+                [JOB_RELOAD]      = N_("Authentication is required to reload '$(unit)'."),
+                [JOB_RESTART]     = N_("Authentication is required to restart '$(unit)'."),
+                [JOB_TRY_RESTART] = N_("Authentication is required to restart '$(unit)'."),
+        };
         int r;
 
         assert(message);
@@ -418,7 +449,20 @@ int bus_unit_method_start_generic(
         if (mode < 0)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Job mode %s invalid", smode);
 
-        r = bus_verify_manage_units_async(u->manager, message, error);
+        if (reload_if_possible)
+                verb = strjoin("reload-or-", job_type_to_string(job_type), NULL);
+        else
+                verb = strdup(job_type_to_string(job_type));
+        if (!verb)
+                return -ENOMEM;
+
+        r = bus_verify_manage_units_async_full(
+                        u,
+                        verb,
+                        CAP_SYS_ADMIN,
+                        job_type < _JOB_TYPE_MAX ? polkit_message_for_job[job_type] : NULL,
+                        message,
+                        error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -484,7 +528,13 @@ int bus_unit_method_kill(sd_bus_message *message, void *userdata, sd_bus_error *
         if (signo <= 0 || signo >= _NSIG)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Signal number out of range.");
 
-        r = bus_verify_manage_units_async_for_kill(u->manager, message, error);
+        r = bus_verify_manage_units_async_full(
+                        u,
+                        "kill",
+                        CAP_KILL,
+                        N_("Authentication is required to kill '$(unit)'."),
+                        message,
+                        error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -508,7 +558,13 @@ int bus_unit_method_reset_failed(sd_bus_message *message, void *userdata, sd_bus
         if (r < 0)
                 return r;
 
-        r = bus_verify_manage_units_async(u->manager, message, error);
+        r = bus_verify_manage_units_async_full(
+                        u,
+                        "reset-failed",
+                        CAP_SYS_ADMIN,
+                        N_("Authentication is required to reset the \"failed\" state of '$(unit)'."),
+                        message,
+                        error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -534,7 +590,13 @@ int bus_unit_method_set_properties(sd_bus_message *message, void *userdata, sd_b
         if (r < 0)
                 return r;
 
-        r = bus_verify_manage_units_async(u->manager, message, error);
+        r = bus_verify_manage_units_async_full(
+                        u,
+                        "set-property",
+                        CAP_SYS_ADMIN,
+                        N_("Authentication is required to set properties on '$(unit)'."),
+                        message,
+                        error);
         if (r < 0)
                 return r;
         if (r == 0)
