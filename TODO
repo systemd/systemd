@@ -316,8 +316,6 @@ Features:
   (throughout the codebase, not only PID1)
 
 * networkd:
-  - make DHCP server IP range configurable, including only with a single IP address
-  - dhcp server: try to assign stable IP addresses based on client's MAC address
   - add LLDP client side support
   - the DHCP lease data (such as NTP/DNS) is still made available when
     a carrier is lost on a link. It should be removed instantly.
@@ -332,6 +330,7 @@ Features:
     support Name=foo*|bar*|baz ?
   - duplicate address check for static IPs (like ARPCHECK in network-scripts)
   - allow DUID/IAID to be customized, see issue #394.
+  - support configuration option for TSO (tcp segmentation offload)
   - networkd: whenever uplink info changes, make DHCP server send out FORCERENEW
 
 * resolved:
