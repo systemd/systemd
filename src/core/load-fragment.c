@@ -1048,7 +1048,7 @@ int config_parse_bounding_set(const char *unit,
 
                 cap = capability_from_name(t);
                 if (cap < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, errno, "Failed to parse capability in bounding set, ignoring: %s", t);
+                        log_syntax(unit, LOG_ERR, filename, line, EINVAL, "Failed to parse capability in bounding set, ignoring: %s", t);
                         continue;
                 }
 
