@@ -1241,12 +1241,18 @@ fail:
 
 int bus_set_address_user(sd_bus *b) {
         const char *e;
+        uid_t uid;
+        int r;
 
         assert(b);
 
         e = secure_getenv("DBUS_SESSION_BUS_ADDRESS");
         if (e)
                 return sd_bus_set_address(b, e);
+
+        r = cg_pid_get_owner_uid(0, &uid);
+        if (r < 0)
+                uid = getuid();
 
         e = secure_getenv("XDG_RUNTIME_DIR");
         if (e) {
@@ -1256,9 +1262,9 @@ int bus_set_address_user(sd_bus *b) {
                 if (!ee)
                         return -ENOMEM;
 
-                (void) asprintf(&b->address, KERNEL_USER_BUS_ADDRESS_FMT ";" UNIX_USER_BUS_ADDRESS_FMT, getuid(), ee);
+                (void) asprintf(&b->address, KERNEL_USER_BUS_ADDRESS_FMT ";" UNIX_USER_BUS_ADDRESS_FMT, uid, ee);
         } else
-                (void) asprintf(&b->address, KERNEL_USER_BUS_ADDRESS_FMT, getuid());
+                (void) asprintf(&b->address, KERNEL_USER_BUS_ADDRESS_FMT, uid);
 
         if (!b->address)
                 return -ENOMEM;
