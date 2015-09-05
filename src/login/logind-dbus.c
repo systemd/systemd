@@ -1796,9 +1796,11 @@ static int update_schedule_file(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to create shutdown subdirectory: %m");
 
-        t = cescape(m->wall_message);
-        if (!t)
-                return log_oom();
+        if (!isempty(m->wall_message)) {
+                t = cescape(m->wall_message);
+                if (!t)
+                        return log_oom();
+        }
 
         r = fopen_temporary("/run/systemd/shutdown/scheduled", &f, &temp_path);
         if (r < 0)
@@ -1814,7 +1816,7 @@ static int update_schedule_file(Manager *m) {
                 m->enable_wall_messages,
                 m->scheduled_shutdown_type);
 
-        if (!isempty(m->wall_message))
+        if (t)
                 fprintf(f, "WALL_MESSAGE=%s\n", t);
 
         r = fflush_and_check(f);
