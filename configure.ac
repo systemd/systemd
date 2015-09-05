@@ -171,7 +171,6 @@ CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
         -Werror=implicit-function-declaration \
         -Werror=missing-declarations \
         -Werror=return-type \
-        -Werror=shadow \
         -Wstrict-prototypes \
         -Wredundant-decls \
         -Wmissing-noreturn \
@@ -195,6 +194,13 @@ CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
         -fstack-protector-strong \
         -fPIE \
         --param=ssp-buffer-size=4])
+
+CC_CHECK_FLAG_APPEND([with_cflags], [CFLAGS], [-Werror=shadow], [\
+#include <unistd.h>
+int main(void) {
+        int unlink = 7;
+        return 0;
+} ])
 
 AS_CASE([$CC], [*clang*],
         [CC_CHECK_FLAGS_APPEND([with_cppflags], [CPPFLAGS], [\
