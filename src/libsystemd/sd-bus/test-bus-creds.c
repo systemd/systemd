@@ -22,10 +22,16 @@
 #include "sd-bus.h"
 #include "bus-dump.h"
 #include "bus-util.h"
+#include "cgroup-util.h"
 
 int main(int argc, char *argv[]) {
         _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
         int r;
+
+        if (cg_unified() == -ENOEXEC) {
+                puts("Skipping test: /sys/fs/cgroup/ not available");
+                return EXIT_TEST_SKIP;
+        }
 
         r = sd_bus_creds_new_from_pid(&creds, 0, _SD_BUS_CREDS_ALL);
         assert_se(r >= 0);
