@@ -169,11 +169,18 @@ static int add_enumerated_to_set(
         return 0;
 }
 
+enum {
+        /* if set, add_subtree() works recursively */
+        CHILDREN_RECURSIVE              = (1U << 1),
+        /* if set, add_subtree() scans object-manager hierarchies recursively */
+        CHILDREN_SUBHIERARCHIES         = (1U << 0),
+};
+
 static int add_subtree_to_set(
                 sd_bus *bus,
                 const char *prefix,
                 struct node *n,
-                bool skip_subhierarchies,
+                unsigned int flags,
                 Set *s,
                 sd_bus_error *error) {
 
@@ -205,8 +212,9 @@ static int add_subtree_to_set(
                 if (r < 0 && r != -EEXIST)
                         return r;
 
-                if (!skip_subhierarchies || !i->object_managers) {
-                        r = add_subtree_to_set(bus, prefix, i, skip_subhierarchies, s, error);
+                if ((flags & CHILDREN_RECURSIVE) &&
+                    ((flags & CHILDREN_SUBHIERARCHIES) || !i->object_managers)) {
+                        r = add_subtree_to_set(bus, prefix, i, flags, s, error);
                         if (r < 0)
                                 return r;
                         if (bus->nodes_modified)
@@ -221,7 +229,7 @@ static int get_child_nodes(
                 sd_bus *bus,
                 const char *prefix,
                 struct node *n,
-                bool skip_subhierarchies,
+                unsigned int flags,
                 Set **_s,
                 sd_bus_error *error) {
 
@@ -237,7 +245,7 @@ static int get_child_nodes(
         if (!s)
                 return -ENOMEM;
 
-        r = add_subtree_to_set(bus, prefix, n, skip_subhierarchies, s, error);
+        r = add_subtree_to_set(bus, prefix, n, flags, s, error);
         if (r < 0) {
                 set_free_free(s);
                 return r;
@@ -907,7 +915,7 @@ static int process_introspect(
         assert(n);
         assert(found_object);
 
-        r = get_child_nodes(bus, m->path, n, false, &s, &error);
+        r = get_child_nodes(bus, m->path, n, 0, &s, &error);
         if (r < 0)
                 return bus_maybe_reply_error(m, r, &error);
         if (bus->nodes_modified)
@@ -1173,7 +1181,7 @@ static int process_get_managed_objects(
         if (require_fallback || !n->object_managers)
                 return 0;
 
-        r = get_child_nodes(bus, m->path, n, true, &s, &error);
+        r = get_child_nodes(bus, m->path, n, CHILDREN_RECURSIVE, &s, &error);
         if (r < 0)
                 return r;
         if (bus->nodes_modified)
