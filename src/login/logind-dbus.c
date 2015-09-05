@@ -1785,22 +1785,15 @@ static int nologin_timeout_handler(
 }
 
 static int update_schedule_file(Manager *m) {
-
-        int r;
+        _cleanup_free_ char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_free_ char *t = NULL, *temp_path = NULL;
+        int r;
 
         assert(m);
 
         r = mkdir_safe_label("/run/systemd/shutdown", 0755, 0, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to create shutdown subdirectory: %m");
-
-        if (!isempty(m->wall_message)) {
-                t = cescape(m->wall_message);
-                if (!t)
-                        return log_oom();
-        }
 
         r = fopen_temporary("/run/systemd/shutdown/scheduled", &f, &temp_path);
         if (r < 0)
@@ -1816,8 +1809,17 @@ static int update_schedule_file(Manager *m) {
                 m->enable_wall_messages,
                 m->scheduled_shutdown_type);
 
-        if (t)
+        if (!isempty(m->wall_message)) {
+                _cleanup_free_ char *t;
+
+                t = cescape(m->wall_message);
+                if (!t) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
+
                 fprintf(f, "WALL_MESSAGE=%s\n", t);
+        }
 
         r = fflush_and_check(f);
         if (r < 0)
