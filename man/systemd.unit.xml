@@ -256,7 +256,7 @@
   </refsect1>
 
   <refsect1>
-    <title>Unit Load Path</title>
+    <title>Unit File Load Path</title>
 
     <para>Unit files are loaded from a set of paths determined during
     compilation, described in the two tables below. Unit files found

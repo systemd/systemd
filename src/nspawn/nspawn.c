@@ -102,12 +102,8 @@
 #include "seccomp-util.h"
 #endif
 
-typedef struct ExposePort {
-        int protocol;
-        uint16_t host_port;
-        uint16_t container_port;
-        LIST_FIELDS(struct ExposePort, ports);
-} ExposePort;
+#include "nspawn.h"
+#include "nspawn-settings.h"
 
 typedef enum ContainerStatus {
         CONTAINER_TERMINATED,
@@ -120,28 +116,6 @@ typedef enum LinkJournal {
         LINK_HOST,
         LINK_GUEST
 } LinkJournal;
-
-typedef enum Volatile {
-        VOLATILE_NO,
-        VOLATILE_YES,
-        VOLATILE_STATE,
-} Volatile;
-
-typedef enum CustomMountType {
-        CUSTOM_MOUNT_BIND,
-        CUSTOM_MOUNT_TMPFS,
-        CUSTOM_MOUNT_OVERLAY,
-} CustomMountType;
-
-typedef struct CustomMount {
-        CustomMountType type;
-        bool read_only;
-        char *source; /* for overlayfs this is the upper directory */
-        char *destination;
-        char *options;
-        char *work_dir;
-        char **lower;
-} CustomMount;
 
 static char *arg_directory = NULL;
 static char *arg_template = NULL;
@@ -195,16 +169,19 @@ static char **arg_network_interfaces = NULL;
 static char **arg_network_macvlan = NULL;
 static char **arg_network_ipvlan = NULL;
 static bool arg_network_veth = false;
-static const char *arg_network_bridge = NULL;
+static char *arg_network_bridge = NULL;
 static unsigned long arg_personality = PERSONALITY_INVALID;
 static char *arg_image = NULL;
-static Volatile arg_volatile = VOLATILE_NO;
+static VolatileMode arg_volatile_mode = VOLATILE_NO;
 static ExposePort *arg_expose_ports = NULL;
 static char **arg_property = NULL;
 static uid_t arg_uid_shift = UID_INVALID, arg_uid_range = 0x10000U;
 static bool arg_userns = false;
 static int arg_kill_signal = 0;
 static bool arg_unified_cgroup_hierarchy = false;
+static SettingsMask arg_settings_mask = 0;
+static int arg_settings_trusted = -1;
+static char **arg_parameters = NULL;
 
 static void help(void) {
         printf("%s [OPTIONS...] [PATH] [ARGUMENTS...]\n\n"
@@ -275,30 +252,36 @@ static void help(void) {
                "     --keep-unit            Do not register a scope for the machine, reuse\n"
                "                            the service unit nspawn is running in\n"
                "     --volatile[=MODE]      Run the system in volatile mode\n"
+               "     --settings=BOOLEAN     Load additional settings from .nspawn file\n"
                , program_invocation_short_name);
 }
 
-static CustomMount* custom_mount_add(CustomMountType t) {
+static CustomMount* custom_mount_add(CustomMount **l, unsigned *n, CustomMountType t) {
         CustomMount *c, *ret;
 
-        c = realloc(arg_custom_mounts, (arg_n_custom_mounts + 1) * sizeof(CustomMount));
+        assert(l);
+        assert(n);
+        assert(t >= 0);
+        assert(t < _CUSTOM_MOUNT_TYPE_MAX);
+
+        c = realloc(*l, (*n + 1) * sizeof(CustomMount));
         if (!c)
                 return NULL;
 
-        arg_custom_mounts = c;
-        ret = arg_custom_mounts + arg_n_custom_mounts;
-        arg_n_custom_mounts++;
+        *l = c;
+        ret = *l + *n;
+        (*n)++;
 
         *ret = (CustomMount) { .type = t };
 
         return ret;
 }
 
-static void custom_mount_free_all(void) {
+void custom_mount_free_all(CustomMount *l, unsigned n) {
         unsigned i;
 
-        for (i = 0; i < arg_n_custom_mounts; i++) {
-                CustomMount *m = &arg_custom_mounts[i];
+        for (i = 0; i < n; i++) {
+                CustomMount *m = l + i;
 
                 free(m->source);
                 free(m->destination);
@@ -312,8 +295,7 @@ static void custom_mount_free_all(void) {
                 strv_free(m->lower);
         }
 
-        arg_custom_mounts = mfree(arg_custom_mounts);
-        arg_n_custom_mounts = 0;
+        free(l);
 }
 
 static int custom_mount_compare(const void *a, const void *b) {
@@ -410,6 +392,161 @@ static int detect_unified_cgroup_hierarchy(void) {
         return 0;
 }
 
+VolatileMode volatile_mode_from_string(const char *s) {
+        int b;
+
+        if (isempty(s))
+                return _VOLATILE_MODE_INVALID;
+
+        b = parse_boolean(s);
+        if (b > 0)
+                return VOLATILE_YES;
+        if (b == 0)
+                return VOLATILE_NO;
+
+        if (streq(s, "state"))
+                return VOLATILE_STATE;
+
+        return _VOLATILE_MODE_INVALID;
+}
+
+int expose_port_parse(ExposePort **l, const char *s) {
+
+        const char *split, *e;
+        uint16_t container_port, host_port;
+        int protocol;
+        ExposePort *p;
+        int r;
+
+        if ((e = startswith(s, "tcp:")))
+                protocol = IPPROTO_TCP;
+        else if ((e = startswith(s, "udp:")))
+                protocol = IPPROTO_UDP;
+        else {
+                e = s;
+                protocol = IPPROTO_TCP;
+        }
+
+        split = strchr(e, ':');
+        if (split) {
+                char v[split - e + 1];
+
+                memcpy(v, e, split - e);
+                v[split - e] = 0;
+
+                r = safe_atou16(v, &host_port);
+                if (r < 0 || host_port <= 0)
+                        return -EINVAL;
+
+                r = safe_atou16(split + 1, &container_port);
+        } else {
+                r = safe_atou16(e, &container_port);
+                host_port = container_port;
+        }
+
+        if (r < 0 || container_port <= 0)
+                return -EINVAL;
+
+        LIST_FOREACH(ports, p, arg_expose_ports)
+                if (p->protocol == protocol && p->host_port == host_port)
+                        return -EEXIST;
+
+        p = new(ExposePort, 1);
+        if (!p)
+                return -ENOMEM;
+
+        p->protocol = protocol;
+        p->host_port = host_port;
+        p->container_port = container_port;
+
+        LIST_PREPEND(ports, *l, p);
+
+        return 0;
+}
+
+int bind_mount_parse(CustomMount **l, unsigned *n, const char *s, bool read_only) {
+        _cleanup_free_ char *source = NULL, *destination = NULL, *opts = NULL;
+        const char *p = s;
+        CustomMount *m;
+        int r;
+
+        assert(l);
+        assert(n);
+
+        r = extract_many_words(&p, ":", EXTRACT_DONT_COALESCE_SEPARATORS, &source, &destination, NULL);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EINVAL;
+
+        if (r == 1) {
+                destination = strdup(source);
+                if (!destination)
+                        return -ENOMEM;
+        }
+
+        if (r == 2 && !isempty(p)) {
+                opts = strdup(p);
+                if (!opts)
+                        return -ENOMEM;
+        }
+
+        if (!path_is_absolute(source))
+                return -EINVAL;
+
+        if (!path_is_absolute(destination))
+                return -EINVAL;
+
+        m = custom_mount_add(l, n, CUSTOM_MOUNT_BIND);
+        if (!m)
+                return log_oom();
+
+        m->source = source;
+        m->destination = destination;
+        m->read_only = read_only;
+        m->options = opts;
+
+        source = destination = opts = NULL;
+        return 0;
+}
+
+int tmpfs_mount_parse(CustomMount **l, unsigned *n, const char *s) {
+        _cleanup_free_ char *path = NULL, *opts = NULL;
+        const char *p = s;
+        CustomMount *m;
+        int r;
+
+        assert(l);
+        assert(n);
+        assert(s);
+
+        r = extract_first_word(&p, &path, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EINVAL;
+
+        if (isempty(p))
+                opts = strdup("mode=0755");
+        else
+                opts = strdup(p);
+        if (!opts)
+                return -ENOMEM;
+
+        if (!path_is_absolute(path))
+                return -EINVAL;
+
+        m = custom_mount_add(l, n, CUSTOM_MOUNT_TMPFS);
+        if (!m)
+                return -ENOMEM;
+
+        m->destination = path;
+        m->options = opts;
+
+        path = opts = NULL;
+        return 0;
+}
+
 static int parse_argv(int argc, char *argv[]) {
 
         enum {
@@ -439,6 +576,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_PROPERTY,
                 ARG_PRIVATE_USERS,
                 ARG_KILL_SIGNAL,
+                ARG_SETTINGS,
         };
 
         static const struct option options[] = {
@@ -481,11 +619,13 @@ static int parse_argv(int argc, char *argv[]) {
                 { "property",              required_argument, NULL, ARG_PROPERTY          },
                 { "private-users",         optional_argument, NULL, ARG_PRIVATE_USERS     },
                 { "kill-signal",           required_argument, NULL, ARG_KILL_SIGNAL       },
+                { "settings",              required_argument, NULL, ARG_SETTINGS          },
                 {}
         };
 
         int c, r;
         uint64_t plus = 0, minus = 0;
+        bool mask_all_settings = false, mask_no_settings = false;
 
         assert(argc >= 0);
         assert(argv);
@@ -533,16 +673,20 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_oom();
 
+                        arg_settings_mask |= SETTING_USER;
                         break;
 
                 case ARG_NETWORK_BRIDGE:
-                        arg_network_bridge = optarg;
+                        r = free_and_strdup(&arg_network_bridge, optarg);
+                        if (r < 0)
+                                return log_oom();
 
                         /* fall through */
 
                 case 'n':
                         arg_network_veth = true;
                         arg_private_network = true;
+                        arg_settings_mask |= SETTING_NETWORK;
                         break;
 
                 case ARG_NETWORK_INTERFACE:
@@ -550,6 +694,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_oom();
 
                         arg_private_network = true;
+                        arg_settings_mask |= SETTING_NETWORK;
                         break;
 
                 case ARG_NETWORK_MACVLAN:
@@ -557,6 +702,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_oom();
 
                         arg_private_network = true;
+                        arg_settings_mask |= SETTING_NETWORK;
                         break;
 
                 case ARG_NETWORK_IPVLAN:
@@ -567,10 +713,12 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_PRIVATE_NETWORK:
                         arg_private_network = true;
+                        arg_settings_mask |= SETTING_NETWORK;
                         break;
 
                 case 'b':
                         arg_boot = true;
+                        arg_settings_mask |= SETTING_BOOT;
                         break;
 
                 case ARG_UUID:
@@ -579,6 +727,8 @@ static int parse_argv(int argc, char *argv[]) {
                                 log_error("Invalid UUID: %s", optarg);
                                 return r;
                         }
+
+                        arg_settings_mask |= SETTING_MACHINE_ID;
                         break;
 
                 case 'S':
@@ -611,6 +761,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_READ_ONLY:
                         arg_read_only = true;
+                        arg_settings_mask |= SETTING_READ_ONLY;
                         break;
 
                 case ARG_CAPABILITY:
@@ -646,6 +797,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 }
                         }
 
+                        arg_settings_mask |= SETTING_CAPABILITY;
                         break;
                 }
 
@@ -681,83 +833,21 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_BIND:
-                case ARG_BIND_RO: {
-                        const char *current = optarg;
-                        _cleanup_free_ char *source = NULL, *destination = NULL, *opts = NULL;
-                        CustomMount *m;
+                case ARG_BIND_RO:
+                        r = bind_mount_parse(&arg_custom_mounts, &arg_n_custom_mounts, optarg, c == ARG_BIND_RO);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --bind(-ro)= argument %s: %m", optarg);
 
-                        r = extract_many_words(&current, ":", EXTRACT_DONT_COALESCE_SEPARATORS, &source, &destination, &opts, NULL);
-                        switch (r) {
-                        case 1:
-                                destination = strdup(source);
-                        case 2:
-                        case 3:
-                                break;
-                        case -ENOMEM:
-                                return log_oom();
-                        default:
-                                log_error("Invalid bind mount specification: %s", optarg);
-                                return -EINVAL;
-                        }
-
-                        if (!source || !destination)
-                                return log_oom();
-
-                        if (!path_is_absolute(source) || !path_is_absolute(destination)) {
-                                log_error("Invalid bind mount specification: %s", optarg);
-                                return -EINVAL;
-                        }
-
-                        m = custom_mount_add(CUSTOM_MOUNT_BIND);
-                        if (!m)
-                                return log_oom();
-
-                        m->source = source;
-                        m->destination = destination;
-                        m->read_only = c == ARG_BIND_RO;
-                        m->options = opts;
-
-                        source = destination = opts = NULL;
-
+                        arg_settings_mask |= SETTING_CUSTOM_MOUNTS;
                         break;
-                }
 
-                case ARG_TMPFS: {
-                        const char *current = optarg;
-                        _cleanup_free_ char *path = NULL, *opts = NULL;
-                        CustomMount *m;
+                case ARG_TMPFS:
+                        r = tmpfs_mount_parse(&arg_custom_mounts, &arg_n_custom_mounts, optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --tmpfs= argument %s: %m", optarg);
 
-                        r = extract_first_word(&current, &path, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
-                        if (r == -ENOMEM)
-                                return log_oom();
-                        else if (r < 0) {
-                                log_error("Invalid tmpfs specification: %s", optarg);
-                                return r;
-                        }
-                        if (r)
-                                opts = strdup(current);
-                        else
-                                opts = strdup("mode=0755");
-
-                        if (!path || !opts)
-                                return log_oom();
-
-                        if (!path_is_absolute(path)) {
-                                log_error("Invalid tmpfs specification: %s", optarg);
-                                return -EINVAL;
-                        }
-
-                        m = custom_mount_add(CUSTOM_MOUNT_TMPFS);
-                        if (!m)
-                                return log_oom();
-
-                        m->destination = path;
-                        m->options = opts;
-
-                        path = opts = NULL;
-
+                        arg_settings_mask |= SETTING_CUSTOM_MOUNTS;
                         break;
-                }
 
                 case ARG_OVERLAY:
                 case ARG_OVERLAY_RO: {
@@ -808,7 +898,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 lower[n - 2] = NULL;
                         }
 
-                        m = custom_mount_add(CUSTOM_MOUNT_OVERLAY);
+                        m = custom_mount_add(&arg_custom_mounts, &arg_n_custom_mounts, CUSTOM_MOUNT_OVERLAY);
                         if (!m)
                                 return log_oom();
 
@@ -820,6 +910,7 @@ static int parse_argv(int argc, char *argv[]) {
                         upper = destination = NULL;
                         lower = NULL;
 
+                        arg_settings_mask |= SETTING_CUSTOM_MOUNTS;
                         break;
                 }
 
@@ -837,6 +928,8 @@ static int parse_argv(int argc, char *argv[]) {
 
                         strv_free(arg_setenv);
                         arg_setenv = n;
+
+                        arg_settings_mask |= SETTING_ENVIRONMENT;
                         break;
                 }
 
@@ -870,85 +963,36 @@ static int parse_argv(int argc, char *argv[]) {
                                 return -EINVAL;
                         }
 
+                        arg_settings_mask |= SETTING_PERSONALITY;
                         break;
 
                 case ARG_VOLATILE:
 
                         if (!optarg)
-                                arg_volatile = VOLATILE_YES;
+                                arg_volatile_mode = VOLATILE_YES;
                         else {
-                                r = parse_boolean(optarg);
-                                if (r < 0) {
-                                        if (streq(optarg, "state"))
-                                                arg_volatile = VOLATILE_STATE;
-                                        else {
-                                                log_error("Failed to parse --volatile= argument: %s", optarg);
-                                                return r;
-                                        }
+                                VolatileMode m;
+
+                                m = volatile_mode_from_string(optarg);
+                                if (m < 0) {
+                                        log_error("Failed to parse --volatile= argument: %s", optarg);
+                                        return -EINVAL;
                                 } else
-                                        arg_volatile = r ? VOLATILE_YES : VOLATILE_NO;
+                                        arg_volatile_mode = m;
                         }
 
+                        arg_settings_mask |= SETTING_VOLATILE_MODE;
                         break;
 
-                case 'p': {
-                        const char *split, *e;
-                        uint16_t container_port, host_port;
-                        int protocol;
-                        ExposePort *p;
+                case 'p':
+                        r = expose_port_parse(&arg_expose_ports, optarg);
+                        if (r == -EEXIST)
+                                return log_error_errno(r, "Duplicate port specification: %s", optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse host port %s: %m", optarg);
 
-                        if ((e = startswith(optarg, "tcp:")))
-                                protocol = IPPROTO_TCP;
-                        else if ((e = startswith(optarg, "udp:")))
-                                protocol = IPPROTO_UDP;
-                        else {
-                                e = optarg;
-                                protocol = IPPROTO_TCP;
-                        }
-
-                        split = strchr(e, ':');
-                        if (split) {
-                                char v[split - e + 1];
-
-                                memcpy(v, e, split - e);
-                                v[split - e] = 0;
-
-                                r = safe_atou16(v, &host_port);
-                                if (r < 0 || host_port <= 0) {
-                                        log_error("Failed to parse host port: %s", optarg);
-                                        return -EINVAL;
-                                }
-
-                                r = safe_atou16(split + 1, &container_port);
-                        } else {
-                                r = safe_atou16(e, &container_port);
-                                host_port = container_port;
-                        }
-
-                        if (r < 0 || container_port <= 0) {
-                                log_error("Failed to parse host port: %s", optarg);
-                                return -EINVAL;
-                        }
-
-                        LIST_FOREACH(ports, p, arg_expose_ports) {
-                                if (p->protocol == protocol && p->host_port == host_port) {
-                                        log_error("Duplicate port specification: %s", optarg);
-                                        return -EINVAL;
-                                }
-                        }
-
-                        p = new(ExposePort, 1);
-                        if (!p)
-                                return log_oom();
-
-                        p->protocol = protocol;
-                        p->host_port = host_port;
-                        p->container_port = container_port;
-
-                        LIST_PREPEND(ports, arg_expose_ports, p);
-
+                        arg_settings_mask |= SETTING_EXPOSE_PORTS;
                         break;
-                }
 
                 case ARG_PROPERTY:
                         if (strv_extend(&arg_property, optarg) < 0)
@@ -990,6 +1034,42 @@ static int parse_argv(int argc, char *argv[]) {
                         if (arg_kill_signal < 0) {
                                 log_error("Cannot parse signal: %s", optarg);
                                 return -EINVAL;
+                        }
+
+                        arg_settings_mask |= SETTING_KILL_SIGNAL;
+                        break;
+
+                case ARG_SETTINGS:
+
+                        /* no               → do not read files
+                         * yes              → read files, do not override cmdline, trust only subset
+                         * override         → read files, override cmdline, trust only subset
+                         * trusted          → read files, do not override cmdline, trust all
+                         */
+
+                        r = parse_boolean(optarg);
+                        if (r < 0) {
+                                if (streq(optarg, "trusted")) {
+                                        mask_all_settings = false;
+                                        mask_no_settings = false;
+                                        arg_settings_trusted = true;
+
+                                } else if (streq(optarg, "override")) {
+                                        mask_all_settings = false;
+                                        mask_no_settings = true;
+                                        arg_settings_trusted = -1;
+                                } else
+                                        return log_error_errno(r, "Failed to parse --settings= argument: %s", optarg);
+                        } else if (r > 0) {
+                                /* yes */
+                                mask_all_settings = false;
+                                mask_no_settings = false;
+                                arg_settings_trusted = -1;
+                        } else {
+                                /* no */
+                                mask_all_settings = true;
+                                mask_no_settings = false;
+                                arg_settings_trusted = false;
                         }
 
                         break;
@@ -1044,7 +1124,37 @@ static int parse_argv(int argc, char *argv[]) {
                 return -EINVAL;
         }
 
-        if (arg_volatile != VOLATILE_NO && arg_read_only) {
+        if (arg_userns && access("/proc/self/uid_map", F_OK) < 0)
+                return log_error_errno(EOPNOTSUPP, "--private-users= is not supported, kernel compiled without user namespace support.");
+
+        if (argc > optind) {
+                arg_parameters = strv_copy(argv + optind);
+                if (!arg_parameters)
+                        return log_oom();
+
+                arg_settings_mask |= SETTING_BOOT;
+        }
+
+        /* Load all settings from .nspawn files */
+        if (mask_no_settings)
+                arg_settings_mask = 0;
+
+        /* Don't load any settings from .nspawn files */
+        if (mask_all_settings)
+                arg_settings_mask = _SETTINGS_MASK_ALL;
+
+        arg_retain = (arg_retain | plus | (arg_private_network ? 1ULL << CAP_NET_ADMIN : 0)) & ~minus;
+
+        r = detect_unified_cgroup_hierarchy();
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
+static int verify_arguments(void) {
+
+        if (arg_volatile_mode != VOLATILE_NO && arg_read_only) {
                 log_error("Cannot combine --read-only with --volatile. Note that --volatile already implies a read-only base hierarchy.");
                 return -EINVAL;
         }
@@ -1054,19 +1164,10 @@ static int parse_argv(int argc, char *argv[]) {
                 return -EINVAL;
         }
 
-        if (arg_userns && access("/proc/self/uid_map", F_OK) < 0)
-                return log_error_errno(EOPNOTSUPP, "--private-users= is not supported, kernel compiled without user namespace support.");
-
-        arg_retain = (arg_retain | plus | (arg_private_network ? 1ULL << CAP_NET_ADMIN : 0)) & ~minus;
-
         if (arg_boot && arg_kill_signal <= 0)
                 arg_kill_signal = SIGRTMIN+3;
 
-        r = detect_unified_cgroup_hierarchy();
-        if (r < 0)
-                return r;
-
-        return 1;
+        return 0;
 }
 
 static int tmpfs_patch_options(const char *options, char **ret) {
@@ -1743,7 +1844,7 @@ static int setup_volatile_state(const char *directory) {
 
         assert(directory);
 
-        if (arg_volatile != VOLATILE_STATE)
+        if (arg_volatile_mode != VOLATILE_STATE)
                 return 0;
 
         /* --volatile=state means we simply overmount /var
@@ -1780,7 +1881,7 @@ static int setup_volatile(const char *directory) {
 
         assert(directory);
 
-        if (arg_volatile != VOLATILE_YES)
+        if (arg_volatile_mode != VOLATILE_YES)
                 return 0;
 
         /* --volatile=yes means we mount a tmpfs to the root dir, and
@@ -2206,6 +2307,15 @@ static int expose_ports(sd_netlink *rtnl, union in_addr_union *exposed) {
 
         *exposed = new_exposed;
         return 0;
+}
+
+void expose_port_free_all(ExposePort *p) {
+
+        while (p) {
+                ExposePort *q = p;
+                LIST_REMOVE(ports, p, q);
+                free(q);
+        }
 }
 
 static int on_address_change(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
@@ -4254,9 +4364,7 @@ static int inner_child(
                 bool secondary,
                 int kmsg_socket,
                 int rtnl_socket,
-                FDSet *fds,
-                int argc,
-                char *argv[]) {
+                FDSet *fds) {
 
         _cleanup_free_ char *home = NULL;
         unsigned n_env = 2;
@@ -4412,9 +4520,12 @@ static int inner_child(
 
                 /* Automatically search for the init system */
 
-                m = 1 + argc - optind;
+                m = 1 + strv_length(arg_parameters);
                 a = newa(char*, m + 1);
-                memcpy(a + 1, argv + optind, m * sizeof(char*));
+                if (strv_isempty(arg_parameters))
+                        a[1] = NULL;
+                else
+                        memcpy(a + 1, arg_parameters, m * sizeof(char*));
 
                 a[0] = (char*) "/usr/lib/systemd/systemd";
                 execve(a[0], a, env_use);
@@ -4424,10 +4535,10 @@ static int inner_child(
 
                 a[0] = (char*) "/sbin/init";
                 execve(a[0], a, env_use);
-        } else if (argc > optind)
-                execvpe(argv[optind], argv + optind, env_use);
+        } else if (!strv_isempty(arg_parameters))
+                execvpe(arg_parameters[0], arg_parameters, env_use);
         else {
-                chdir(home ? home : "/root");
+                chdir(home ?: "/root");
                 execle("/bin/bash", "-bash", NULL, env_use);
                 execle("/bin/sh", "-sh", NULL, env_use);
         }
@@ -4449,9 +4560,7 @@ static int outer_child(
                 int kmsg_socket,
                 int rtnl_socket,
                 int uid_shift_socket,
-                FDSet *fds,
-                int argc,
-                char *argv[]) {
+                FDSet *fds) {
 
         pid_t pid;
         ssize_t l;
@@ -4604,7 +4713,7 @@ static int outer_child(
                  * requested, so that we all are owned by the user if
                  * user namespaces are turned on. */
 
-                r = inner_child(barrier, directory, secondary, kmsg_socket, rtnl_socket, fds, argc, argv);
+                r = inner_child(barrier, directory, secondary, kmsg_socket, rtnl_socket, fds);
                 if (r < 0)
                         _exit(EXIT_FAILURE);
 
@@ -4780,6 +4889,202 @@ static int create_subcgroup(pid_t pid) {
         return 0;
 }
 
+static int load_settings(void) {
+        _cleanup_(settings_freep) Settings *settings = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_free_ char *p = NULL;
+        const char *fn, *i;
+        int r;
+
+        /* If all settings are masked, there's no point in looking for
+         * the settings file */
+        if ((arg_settings_mask & _SETTINGS_MASK_ALL) == _SETTINGS_MASK_ALL)
+                return 0;
+
+        fn = strjoina(arg_machine, ".nspawn");
+
+        /* We first look in the admin's directories in /etc and /run */
+        FOREACH_STRING(i, "/etc/systemd/nspawn", "/run/systemd/nspawn") {
+                _cleanup_free_ char *j = NULL;
+
+                j = strjoin(i, "/", fn, NULL);
+                if (!j)
+                        return log_oom();
+
+                f = fopen(j, "re");
+                if (f) {
+                        p = j;
+                        j = NULL;
+
+                        /* By default we trust configuration from /etc and /run */
+                        if (arg_settings_trusted < 0)
+                                arg_settings_trusted = true;
+
+                        break;
+                }
+
+                if (errno != ENOENT)
+                        return log_error_errno(errno, "Failed to open %s: %m", j);
+        }
+
+        if (!f) {
+                /* After that, let's look for a file next to the
+                 * actual image we shall boot. */
+
+                if (arg_image) {
+                        p = file_in_same_dir(arg_image, fn);
+                        if (!p)
+                                return log_oom();
+                } else if (arg_directory) {
+                        p = file_in_same_dir(arg_directory, fn);
+                        if (!p)
+                                return log_oom();
+                }
+
+                if (p) {
+                        f = fopen(p, "re");
+                        if (!f && errno != ENOENT)
+                                return log_error_errno(errno, "Failed to open %s: %m", p);
+
+                        /* By default we do not trust configuration from /var/lib/machines */
+                        if (arg_settings_trusted < 0)
+                                arg_settings_trusted = false;
+                }
+        }
+
+        if (!f)
+                return 0;
+
+        log_debug("Settings are trusted: %s", yes_no(arg_settings_trusted));
+
+        r = settings_load(f, p, &settings);
+        if (r < 0)
+                return r;
+
+        /* Copy over bits from the settings, unless they have been
+         * explicitly masked by command line switches. */
+
+        if ((arg_settings_mask & SETTING_BOOT) == 0 &&
+            settings->boot >= 0) {
+                arg_boot = settings->boot;
+
+                strv_free(arg_parameters);
+                arg_parameters = settings->parameters;
+                settings->parameters = NULL;
+        }
+
+        if ((arg_settings_mask & SETTING_ENVIRONMENT) == 0 &&
+            settings->environment) {
+                strv_free(arg_setenv);
+                arg_setenv = settings->environment;
+                settings->environment = NULL;
+        }
+
+        if ((arg_settings_mask & SETTING_USER) == 0 &&
+            settings->user) {
+                free(arg_user);
+                arg_user = settings->user;
+                settings->user = NULL;
+        }
+
+        if ((arg_settings_mask & SETTING_CAPABILITY) == 0) {
+
+                if (!arg_settings_trusted && settings->capability != 0)
+                        log_warning("Ignoring Capability= setting, file %s is not trusted.", p);
+                else
+                        arg_retain |= settings->capability;
+
+                arg_retain &= ~settings->drop_capability;
+        }
+
+        if ((arg_settings_mask & SETTING_KILL_SIGNAL) == 0 &&
+            settings->kill_signal > 0)
+                arg_kill_signal = settings->kill_signal;
+
+        if ((arg_settings_mask & SETTING_PERSONALITY) == 0 &&
+            settings->personality != PERSONALITY_INVALID)
+                arg_personality = settings->personality;
+
+        if ((arg_settings_mask & SETTING_MACHINE_ID) == 0 &&
+            !sd_id128_is_null(settings->machine_id)) {
+
+                if (!arg_settings_trusted)
+                        log_warning("Ignoring MachineID= setting, file %s is not trusted.", p);
+                else
+                        arg_uuid = settings->machine_id;
+        }
+
+        if ((arg_settings_mask & SETTING_READ_ONLY) == 0 &&
+            settings->read_only >= 0)
+                arg_read_only = settings->read_only;
+
+        if ((arg_settings_mask & SETTING_VOLATILE_MODE) == 0 &&
+            settings->volatile_mode != _VOLATILE_MODE_INVALID)
+                arg_volatile_mode = settings->volatile_mode;
+
+        if ((arg_settings_mask & SETTING_CUSTOM_MOUNTS) == 0 &&
+            settings->n_custom_mounts > 0) {
+
+                if (!arg_settings_trusted)
+                        log_warning("Ignoring TemporaryFileSystem=, Bind= and BindReadOnly= settings, file %s is not trusted.", p);
+                else {
+                        custom_mount_free_all(arg_custom_mounts, arg_n_custom_mounts);
+                        arg_custom_mounts = settings->custom_mounts;
+                        arg_n_custom_mounts = settings->n_custom_mounts;
+
+                        settings->custom_mounts = NULL;
+                        settings->n_custom_mounts = 0;
+                }
+        }
+
+        if ((arg_settings_mask & SETTING_NETWORK) == 0 &&
+            (settings->private_network >= 0 ||
+             settings->network_veth >= 0 ||
+             settings->network_bridge ||
+             settings->network_interfaces ||
+             settings->network_macvlan ||
+             settings->network_ipvlan)) {
+
+                if (!arg_settings_trusted)
+                        log_warning("Ignoring network settings, file %s is not trusted.", p);
+                else {
+                        strv_free(arg_network_interfaces);
+                        arg_network_interfaces = settings->network_interfaces;
+                        settings->network_interfaces = NULL;
+
+                        strv_free(arg_network_macvlan);
+                        arg_network_macvlan = settings->network_macvlan;
+                        settings->network_macvlan = NULL;
+
+                        strv_free(arg_network_ipvlan);
+                        arg_network_ipvlan = settings->network_ipvlan;
+                        settings->network_ipvlan = NULL;
+
+                        free(arg_network_bridge);
+                        arg_network_bridge = settings->network_bridge;
+                        settings->network_bridge = NULL;
+
+                        arg_network_veth = settings->network_veth > 0 || settings->network_bridge;
+
+                        arg_private_network = true; /* all these settings imply private networking */
+                }
+        }
+
+        if ((arg_settings_mask & SETTING_EXPOSE_PORTS) == 0 &&
+            settings->expose_ports) {
+
+                if (!arg_settings_trusted)
+                        log_warning("Ignoring Port= setting, file %s is not trusted.", p);
+                else {
+                        expose_port_free_all(arg_expose_ports);
+                        arg_expose_ports = settings->expose_ports;
+                        settings->expose_ports = NULL;
+                }
+        }
+
+        return 0;
+}
+
 int main(int argc, char *argv[]) {
 
         _cleanup_free_ char *device_path = NULL, *root_device = NULL, *home_device = NULL, *srv_device = NULL, *console = NULL;
@@ -4803,15 +5108,22 @@ int main(int argc, char *argv[]) {
         if (r <= 0)
                 goto finish;
 
-        r = determine_names();
-        if (r < 0)
-                goto finish;
-
         if (geteuid() != 0) {
                 log_error("Need to be root.");
                 r = -EPERM;
                 goto finish;
         }
+        r = determine_names();
+        if (r < 0)
+                goto finish;
+
+        r = load_settings();
+        if (r < 0)
+                goto finish;
+
+        r = verify_arguments();
+        if (r < 0)
+                goto finish;
 
         n_fd_passed = sd_listen_fds(false);
         if (n_fd_passed > 0) {
@@ -5092,8 +5404,7 @@ int main(int argc, char *argv[]) {
                                         kmsg_socket_pair[1],
                                         rtnl_socket_pair[1],
                                         uid_shift_socket_pair[1],
-                                        fds,
-                                        argc, argv);
+                                        fds);
                         if (r < 0)
                                 _exit(EXIT_FAILURE);
 
@@ -5342,24 +5653,21 @@ finish:
                 (void) rm_rf(p, REMOVE_ROOT);
         }
 
+        flush_ports(&exposed);
+
         free(arg_directory);
         free(arg_template);
         free(arg_image);
         free(arg_machine);
         free(arg_user);
         strv_free(arg_setenv);
+        free(arg_network_bridge);
         strv_free(arg_network_interfaces);
         strv_free(arg_network_macvlan);
         strv_free(arg_network_ipvlan);
-        custom_mount_free_all();
-
-        flush_ports(&exposed);
-
-        while (arg_expose_ports) {
-                ExposePort *p = arg_expose_ports;
-                LIST_REMOVE(ports, arg_expose_ports, p);
-                free(p);
-        }
+        strv_free(arg_parameters);
+        custom_mount_free_all(arg_custom_mounts, arg_n_custom_mounts);
+        expose_port_free_all(arg_expose_ports);
 
         return r < 0 ? EXIT_FAILURE : ret;
 }

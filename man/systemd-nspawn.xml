@@ -1,4 +1,4 @@
-<?xml version='1.0'?> <!--*-nxml-*-->
+<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
@@ -748,32 +748,84 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--volatile</option><replaceable>=MODE</replaceable></term>
+        <term><option>--volatile</option></term>
+        <term><option>--volatile=</option><replaceable>MODE</replaceable></term>
 
         <listitem><para>Boots the container in volatile mode. When no
         mode parameter is passed or when mode is specified as
-        <literal>yes</literal> full volatile mode is enabled. This
+        <option>yes</option> full volatile mode is enabled. This
         means the root directory is mounted as mostly unpopulated
         <literal>tmpfs</literal> instance, and
         <filename>/usr</filename> from the OS tree is mounted into it,
         read-only (the system thus starts up with read-only OS
         resources, but pristine state and configuration, any changes
         to the either are lost on shutdown). When the mode parameter
-        is specified as <literal>state</literal> the OS tree is
+        is specified as <option>state</option> the OS tree is
         mounted read-only, but <filename>/var</filename> is mounted as
         <literal>tmpfs</literal> instance into it (the system thus
         starts up with read-only OS resources and configuration, but
         pristine state, any changes to the latter are lost on
         shutdown). When the mode parameter is specified as
-        <literal>no</literal> (the default) the whole OS tree is made
+        <option>no</option> (the default) the whole OS tree is made
         available writable.</para>
 
-        <para>Note that setting this to <literal>yes</literal> or
-        <literal>state</literal> will only work correctly with
+        <para>Note that setting this to <option>yes</option> or
+        <option>state</option> will only work correctly with
         operating systems in the container that can boot up with only
         <filename>/usr</filename> mounted, and are able to populate
         <filename>/var</filename> automatically, as
         needed.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--settings=</option><replaceable>MODE</replaceable></term>
+
+        <listitem><para>Controls whether
+        <command>systemd-nspawn</command> shall search for and use
+        additional per-container settings from
+        <filename>.nspawn</filename> files. Takes a boolean or the
+        special values <option>override</option> or
+        <option>trusted</option>.</para>
+
+        <para>If enabled (the default) a settings file named after the
+        machine (as specified with the <option>--machine=</option>
+        setting, or derived from the directory or image file name)
+        with the suffix <filename>.nspawn</filename> is searched in
+        <filename>/etc/systemd/nspawn/</filename> and
+        <filename>/run/systemd/nspawn/</filename>. If it is found
+        there, its settings are read and used. If it is not found
+        there it is subequently searched in the same directory as the
+        image file or in the immediate parent of the root directory of
+        the container. In this case, if the file is found its settings
+        will be also read and used, but potentially unsafe settings
+        are ignored. Note that in both these cases settings on the
+        command line take precendence over the corresponding settings
+        from loaded <filename>.nspawn</filename> files, if both are
+        specified. Unsafe settings are considered all settings that
+        elevate the container's privileges or grant access to
+        additional resources such as files or directories of the
+        host. For details about the format and contents of
+        <filename>.nspawn</filename> files consult
+        <citerefentry><refentrytitle>systemd.nspawn</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+        <para>If this option is set to <option>override</option> the
+        file is searched, read and used the same way, however the order of
+        precedence is reversed: settings read from the
+        <filename>.nspawn</filename> file will take precedence over
+        the corresponding command line options, if both are
+        specified.</para>
+
+        <para>If this option is set to <option>trusted</option> the
+        file is searched, read and used the same way, but regardless
+        if found in <filename>/etc/systemd/nspawn/</filename>,
+        <filename>/run/systemd/nspawn/</filename> or next to the image
+        file or container root directory, all settings will take
+        effect, however command line arguments still take precedence
+        over corresponding settings.</para>
+
+        <para>If disabled no <filename>.nspawn</filename> file is read
+        and no settings except the ones on the command line are in
+        effect.</para></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="help" />
@@ -859,6 +911,7 @@
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.nspawn</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>chroot</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry project='mankier'><refentrytitle>dnf</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry project='die-net'><refentrytitle>yum</refentrytitle><manvolnum>8</manvolnum></citerefentry>,

@@ -1143,38 +1143,7 @@ int config_parse_sysv_priority(const char *unit,
 #endif
 
 DEFINE_CONFIG_PARSE_ENUM(config_parse_exec_utmp_mode, exec_utmp_mode, ExecUtmpMode, "Failed to parse utmp mode");
-
 DEFINE_CONFIG_PARSE_ENUM(config_parse_kill_mode, kill_mode, KillMode, "Failed to parse kill mode");
-
-int config_parse_kill_signal(const char *unit,
-                             const char *filename,
-                             unsigned line,
-                             const char *section,
-                             unsigned section_line,
-                             const char *lvalue,
-                             int ltype,
-                             const char *rvalue,
-                             void *data,
-                             void *userdata) {
-
-        int *sig = data;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(sig);
-
-        r = signal_from_string_try_harder(rvalue);
-        if (r <= 0) {
-                log_syntax(unit, LOG_ERR, filename, line, -r,
-                           "Failed to parse kill signal, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        *sig = r;
-        return 0;
-}
 
 int config_parse_exec_mount_flags(const char *unit,
                                   const char *filename,
@@ -3021,36 +2990,6 @@ int config_parse_job_mode_isolate(
         return 0;
 }
 
-int config_parse_personality(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        unsigned long *personality = data, p;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(personality);
-
-        p = personality_from_string(rvalue);
-        if (p == PERSONALITY_INVALID) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Failed to parse personality, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        *personality = p;
-        return 0;
-}
-
 int config_parse_runtime_directory(
                 const char *unit,
                 const char *filename,
@@ -3720,7 +3659,7 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_sysv_priority,         "SYSVPRIORITY" },
 #endif
                 { config_parse_kill_mode,             "KILLMODE" },
-                { config_parse_kill_signal,           "SIGNAL" },
+                { config_parse_signal,                "SIGNAL" },
                 { config_parse_socket_listen,         "SOCKET [...]" },
                 { config_parse_socket_bind,           "SOCKETBIND" },
                 { config_parse_socket_bindtodevice,   "NETWORKINTERFACE" },
