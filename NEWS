@@ -1,5 +1,66 @@
 systemd System and Service Manager
 
+CHANGES WITH 226:
+
+        * The DHCP implementation of systemd-networkd gained a set of new
+          features:
+
+          - Server and client now support transmission and reception of
+            timezone information. It can be configured via the newly introduced
+            network options 'DHCP.UseTimezone=', 'DHCPServer.EmitTimezone=',
+            and 'DHCPServer.Timezone='.
+            Transmission of timezone information is enabled for containers by
+            default now. Furthermore, if systemd-timesyncd is running, it will
+            be updated with the received information.
+
+          - The DHCP server now supports emitting DNS and NTP information. It
+            can be enabled and configured via 'EmitDNS=', 'DNS=', 'EmitNTP=',
+            and 'NTP='.
+            If transmission of DNS and NTP information is enabled, but no
+            specific data-set is configured, the uplink information is used.
+
+          - Lease timeouts can now be configured via 'MaxLeaseTimeSec=' and
+            'DefaultLeaseTimeSec='.
+
+          - The DHCP server now supports improved predictability of leases.
+            Clients are more likely to get the same lease information back,
+            even if the server loses state.
+
+          - The DHCP server supports two new configuration options to specify
+            the lease pool, 'PoolOffset=' and 'PoolSize='.
+
+        * The encapsulation limit of tunnels in systemd-networkd can now be
+          configured via 'EncapsulationLimit='. It allows modifying the maximum
+          additional levels of encapsulation that are permitted to be prepended
+          to a packet.
+
+        * systemd now supports the concept of user-buses over session-buses, if
+          used with dbus-1.10 (and enabled via dbus --enable-user-session).
+
+        * systemd-networkd now supports predictable interface names for virtio
+          devices.
+
+        * systemd now optionally supports the unified cgroup hierarchy. If
+          enabled via the kernel command-line option
+          'systemd.unified_cgroup_hierarchy=1', systemd will try to mount the
+          unified cgroup hierarchy directly on /sys/fs/cgroup. If not enabled,
+          or not available, systemd will fall back to legacy cgroups.
+          Host system and containers can mix and match legacy and unified
+          hierarchies as they wish. By default, nspawn will use the same
+          hierarchy as the host.
+          Please note that the unified hierarchy is an experimental kernel
+          feature and is likely to change in one of the next kernel releases.
+          Therefore, it should not be enabled by default.
+
+        Contributions from: Cristian Rodríguez, Daniel Mack, David Herrmann,
+        Eugene Yakubovich, Evgeny Vereshchagin, Filipe Brandenburger, Jan
+        Alexander Steffens (heftig), Jan Synacek, Kay Sievers, Lennart
+        Poettering, Mangix, Marcel Holtmann, Martin Pitt, Michal Sekletar, Peter
+        Hutterer, Piotr Drąg, reverendhomer, Robin Hack, Susant Sahani, Sylvain
+        Pasche, Thomas Hindoe Paaboel Andersen, Tom Gundersen
+
+        -- Berlin, 2015-09-XX
+
 CHANGES WITH 225:
 
         * machinectl gained a new verb 'shell' which opens a fresh shell on the
