@@ -757,7 +757,7 @@ int manager_save(Manager *m) {
                                 r = set_put_in_addrv(dns, addresses, r);
                                 if (r < 0)
                                         return r;
-                        } else if (r < 0 && r != -ENOENT)
+                        } else if (r < 0 && r != -ENODATA)
                                 return r;
                 }
 
@@ -769,7 +769,7 @@ int manager_save(Manager *m) {
                                 r = set_put_in_addrv(ntp, addresses, r);
                                 if (r < 0)
                                         return r;
-                        } else if (r < 0 && r != -ENOENT)
+                        } else if (r < 0 && r != -ENODATA)
                                 return r;
                 }
 
@@ -781,7 +781,7 @@ int manager_save(Manager *m) {
                                 r = set_put_strdup(domains, domainname);
                                 if (r < 0)
                                         return r;
-                        } else if (r != -ENOENT)
+                        } else if (r != -ENODATA)
                                 return r;
                 }
         }
