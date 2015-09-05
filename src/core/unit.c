@@ -1416,8 +1416,13 @@ int unit_start(Unit *u) {
 
         assert(u);
 
+        /* Units that aren't loaded cannot be started */
         if (u->load_state != UNIT_LOADED)
                 return -EINVAL;
+
+        /* Units of types that aren't supported annot be started either */
+        if (!unit_supported(u))
+                return -EOPNOTSUPP;
 
         /* If this is already started, then this will succeed. Note
          * that this will even succeed if this unit is not startable
@@ -1451,9 +1456,6 @@ int unit_start(Unit *u) {
                 return unit_start(following);
         }
 
-        if (!unit_supported(u))
-                return -EOPNOTSUPP;
-
         /* If it is stopped, but we cannot start it, then fail */
         if (!UNIT_VTABLE(u)->start)
                 return -EBADR;
@@ -1471,6 +1473,12 @@ int unit_start(Unit *u) {
 
 bool unit_can_start(Unit *u) {
         assert(u);
+
+        if (u->load_state != UNIT_LOADED)
+                return false;
+
+        if (!unit_supported(u))
+                return false;
 
         return !!UNIT_VTABLE(u)->start;
 }
