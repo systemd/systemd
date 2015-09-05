@@ -547,8 +547,18 @@ int machine_openpt(Machine *m, int flags) {
 
         switch (m->class) {
 
-        case MACHINE_HOST:
-                return posix_openpt(flags);
+        case MACHINE_HOST: {
+                int fd;
+
+                fd = posix_openpt(flags);
+                if (fd < 0)
+                        return -errno;
+
+                if (unlockpt(fd) < 0)
+                        return -errno;
+
+                return fd;
+        }
 
         case MACHINE_CONTAINER:
                 if (m->leader <= 0)
