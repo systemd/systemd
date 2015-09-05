@@ -33,7 +33,7 @@
 
 static const char image_search_path[] =
         "/var/lib/machines\0"
-        "/var/lib/container\0"
+        "/var/lib/container\0" /* legacy */
         "/usr/local/lib/machines\0"
         "/usr/lib/machines\0";
 
