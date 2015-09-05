@@ -82,8 +82,8 @@
     <para>Here's an example <filename>/etc/nsswitch.conf</filename>
     file, that enables <command>resolve</command> correctly:</para>
 
-<programlisting>passwd:         compat
-group:          compat
+<programlisting>passwd:         compat mymachines
+group:          compat mymachines
 shadow:         compat
 
 hosts:          files <command>resolve</command> mymachines myhostname

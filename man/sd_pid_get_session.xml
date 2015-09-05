@@ -1,4 +1,4 @@
-<?xml version='1.0'?> <!--*-nxml-*-->
+<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
@@ -50,6 +50,7 @@
     <refname>sd_pid_get_machine_name</refname>
     <refname>sd_pid_get_slice</refname>
     <refname>sd_pid_get_user_slice</refname>
+    <refname>sd_pid_get_cgroup</refname>
     <refname>sd_peer_get_session</refname>
     <refname>sd_peer_get_unit</refname>
     <refname>sd_peer_get_user_unit</refname>
@@ -57,6 +58,7 @@
     <refname>sd_peer_get_machine_name</refname>
     <refname>sd_peer_get_slice</refname>
     <refname>sd_peer_get_user_slice</refname>
+    <refname>sd_peer_get_cgroup</refname>
     <refpurpose>Determine session, unit, owner of a session,
     container/VM or slice of a specific PID or socket
     peer</refpurpose>
@@ -109,6 +111,12 @@
       </funcprototype>
 
       <funcprototype>
+        <funcdef>int <function>sd_pid_get_cgroup</function></funcdef>
+        <paramdef>pid_t <parameter>pid</parameter></paramdef>
+        <paramdef>char **<parameter>cgroup</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
         <funcdef>int <function>sd_peer_get_session</function></funcdef>
         <paramdef>int <parameter>fd</parameter></paramdef>
         <paramdef>char **<parameter>session</parameter></paramdef>
@@ -149,6 +157,12 @@
         <paramdef>int <parameter>fd</parameter></paramdef>
         <paramdef>char **<parameter>slice</parameter></paramdef>
       </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_peer_get_cgroup</function></funcdef>
+        <paramdef>int <parameter>fd</parameter></paramdef>
+        <paramdef>char **<parameter>cgroup</parameter></paramdef>
+      </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
 
@@ -163,7 +177,7 @@
     processes, user processes that are shared between multiple
     sessions of the same user, or kernel threads). For processes not
     being part of a login session this function will fail with
-    -ENXIO. The returned string needs to be freed with the libc
+    -ENODATA. The returned string needs to be freed with the libc
     <citerefentry
     project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     call after use.</para>
@@ -175,9 +189,9 @@
     paths. Note that not all processes are part of a system
     unit/service (e.g. user processes, or kernel threads). For
     processes not being part of a systemd system unit this function
-    will fail with -ENXIO (More specifically: this call will not work
-    for kernel threads.) The returned string needs to be freed with
-    the libc <citerefentry
+    will fail with -ENODATA (More specifically: this call will not
+    work for kernel threads.) The returned string needs to be freed
+    with the libc <citerefentry
     project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     call after use.</para>
 
@@ -194,7 +208,7 @@
     multiple login sessions of the same user, where
     <function>sd_pid_get_session()</function> will fail. For processes
     not being part of a login session and not being a shared process
-    of a user this function will fail with -ENXIO.</para>
+    of a user this function will fail with -ENODATA.</para>
 
     <para><function>sd_pid_get_machine_name()</function> may be used
     to determine the name of the VM or container is a member of. The
@@ -203,7 +217,7 @@
     <citerefentry
     project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     call after use. For processes not part of a VM or containers this
-    function fails with -ENXIO.</para>
+    function fails with -ENODATA.</para>
 
     <para><function>sd_pid_get_slice()</function> may be used to
     determine the slice unit the process is a member of. See
@@ -217,6 +231,17 @@
     returns the user slice (as managed by the user's systemd instance)
     of a process.</para>
 
+    <para><function>sd_pid_get_cgroup()</function> returns the control
+    group path of the specified process, relative to the root of the
+    hierarchy. Returns the path without trailing slash, except for
+    processes located in the root control group, where "/" is
+    returned. To find the actual control group path in the file system
+    the returned path needs to be prefixed with
+    <filename>/sys/fs/cgroup/</filename> (if the unified control group
+    setup is used), or
+    <filename>/sys/fs/cgroup/<replaceable>HIERARCHY</replaceable>/</filename>
+    (if the legacy multi-hierarchy control group setup is used).</para>
+
     <para>If the <varname>pid</varname> parameter of any of these
     functions is passed as 0, the operation is executed for the
     calling process.</para>
@@ -226,13 +251,14 @@
     <function>sd_peer_get_user_unit()</function>,
     <function>sd_peer_get_owner_uid()</function>,
     <function>sd_peer_get_machine_name()</function>,
-    <function>sd_peer_get_slice()</function> and
-    <function>sd_peer_get_user_slice()</function> calls operate
-    similar to their PID counterparts, but operate on a connected
-    AF_UNIX socket and retrieve information about the connected peer
-    process. Note that these fields are retrieved via
-    <filename>/proc</filename>, and hence are not suitable for
-    authorization purposes, as they are subject to races.</para>
+    <function>sd_peer_get_slice()</function>,
+    <function>sd_peer_get_user_slice()</function> and
+    <function>sd_peer_get_cgroup()</function> calls operate similar to
+    their PID counterparts, but operate on a connected AF_UNIX socket
+    and retrieve information about the connected peer process. Note
+    that these fields are retrieved via <filename>/proc</filename>,
+    and hence are not suitable for authorization purposes, as they are
+    subject to races.</para>
   </refsect1>
 
   <refsect1>
@@ -251,7 +277,22 @@
     <variablelist>
 
       <varlistentry>
-        <term><constant>-ENXIO</constant></term>
+        <term><constant>-ESRCH</constant></term>
+
+        <listitem><para>The specified PID does not refer to a running
+        process.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><constant>-BADF</constant></term>
+
+        <listitem><para>The specified socket file descriptor was
+        invalid.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><constant>-ENODATA</constant></term>
 
         <listitem><para>Given field is not specified for the described
         process or peer.</para>
@@ -259,11 +300,10 @@
       </varlistentry>
 
       <varlistentry>
-        <term><constant>-ESRCH</constant></term>
+        <term><constant>-EINVAL</constant></term>
 
-        <listitem><para>The specified PID does not refer to a running
-        process.</para>
-        </listitem>
+        <listitem><para>An input parameter was invalid (out of range,
+        or NULL, where that's not accepted).</para></listitem>
       </varlistentry>
 
       <varlistentry>

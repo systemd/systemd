@@ -36,6 +36,11 @@ int audit_session_from_pid(pid_t pid, uint32_t *id) {
 
         assert(id);
 
+        /* We don't convert ENOENT to ESRCH here, since we can't
+         * really distuingish between "audit is not available in the
+         * kernel" and "the process does not exist", both which will
+         * result in ENOENT. */
+
         p = procfs_file_alloca(pid, "sessionid");
 
         r = read_one_line_file(p, &s);
@@ -47,7 +52,7 @@ int audit_session_from_pid(pid_t pid, uint32_t *id) {
                 return r;
 
         if (u == AUDIT_SESSION_INVALID || u <= 0)
-                return -ENXIO;
+                return -ENODATA;
 
         *id = u;
         return 0;
@@ -68,6 +73,8 @@ int audit_loginuid_from_pid(pid_t pid, uid_t *uid) {
                 return r;
 
         r = parse_uid(s, &u);
+        if (r == -ENXIO) /* the UID was -1 */
+                return -ENODATA;
         if (r < 0)
                 return r;
 

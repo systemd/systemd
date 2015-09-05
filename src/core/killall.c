@@ -108,7 +108,7 @@ static void wait_for_children(Set *pids, sigset_t *mask) {
                                 return;
                         }
 
-                        set_remove(pids, ULONG_TO_PTR(pid));
+                        (void) set_remove(pids, PID_TO_PTR(pid));
                 }
 
                 /* Now explicitly check who might be remaining, who
@@ -117,7 +117,7 @@ static void wait_for_children(Set *pids, sigset_t *mask) {
 
                         /* We misuse getpgid as a check whether a
                          * process still exists. */
-                        if (getpgid((pid_t) PTR_TO_ULONG(p)) >= 0)
+                        if (getpgid(PTR_TO_PID(p)) >= 0)
                                 continue;
 
                         if (errno != ESRCH)
@@ -179,7 +179,7 @@ static int killall(int sig, Set *pids, bool send_sighup) {
 
                 if (kill(pid, sig) >= 0) {
                         if (pids) {
-                                r = set_put(pids, ULONG_TO_PTR(pid));
+                                r = set_put(pids, PID_TO_PTR(pid));
                                 if (r < 0)
                                         log_oom();
                         }

@@ -295,6 +295,17 @@ static void test_shift_path(void) {
         test_shift_path_one("/foobar/waldo", "/fuckfuck", "/foobar/waldo");
 }
 
+static void test_mask_supported(void) {
+
+        CGroupMask m;
+        CGroupController c;
+
+        assert_se(cg_mask_supported(&m) >= 0);
+
+        for (c = 0; c < _CGROUP_CONTROLLER_MAX; c++)
+                printf("'%s' is supported: %s\n", cgroup_controller_to_string(c), yes_no(m & CGROUP_CONTROLLER_TO_MASK(c)));
+}
+
 int main(void) {
         test_path_decode_unit();
         test_path_get_unit();
@@ -309,6 +320,7 @@ int main(void) {
         test_controller_is_valid();
         test_slice_to_path();
         test_shift_path();
+        test_mask_supported();
 
         return 0;
 }

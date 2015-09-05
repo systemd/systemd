@@ -290,6 +290,43 @@
   </refsect1>
 
   <refsect1>
+    <title>Errors</title>
+
+    <para>Returned errors may indicate the following problems:</para>
+
+    <variablelist>
+
+      <varlistentry>
+        <term><constant>-ENXIO</constant></term>
+
+        <listitem><para>The specified session does not exist.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><constant>-ENODATA</constant></term>
+
+        <listitem><para>Given field is not specified for the described
+        session.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><constant>-EINVAL</constant></term>
+
+        <listitem><para>An input parameter was invalid (out of range,
+        or NULL, where that's not accepted).</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><constant>-ENOMEM</constant></term>
+
+        <listitem><para>Memory allocation failed.</para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>Notes</title>
 
     <para>The <function>sd_session_is_active()</function>,

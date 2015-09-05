@@ -1585,19 +1585,19 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
 
                 /* Notify every unit that might be interested, but try
                  * to avoid notifying the same one multiple times. */
-                u1 = manager_get_unit_by_pid(m, ucred->pid);
+                u1 = manager_get_unit_by_pid_cgroup(m, ucred->pid);
                 if (u1) {
                         manager_invoke_notify_message(m, u1, ucred->pid, buf, n, fds);
                         found = true;
                 }
 
-                u2 = hashmap_get(m->watch_pids1, LONG_TO_PTR(ucred->pid));
+                u2 = hashmap_get(m->watch_pids1, PID_TO_PTR(ucred->pid));
                 if (u2 && u2 != u1) {
                         manager_invoke_notify_message(m, u2, ucred->pid, buf, n, fds);
                         found = true;
                 }
 
-                u3 = hashmap_get(m->watch_pids2, LONG_TO_PTR(ucred->pid));
+                u3 = hashmap_get(m->watch_pids2, PID_TO_PTR(ucred->pid));
                 if (u3 && u3 != u2 && u3 != u1) {
                         manager_invoke_notify_message(m, u3, ucred->pid, buf, n, fds);
                         found = true;
@@ -1663,13 +1663,13 @@ static int manager_dispatch_sigchld(Manager *m) {
 
                         /* And now figure out the unit this belongs
                          * to, it might be multiple... */
-                        u1 = manager_get_unit_by_pid(m, si.si_pid);
+                        u1 = manager_get_unit_by_pid_cgroup(m, si.si_pid);
                         if (u1)
                                 invoke_sigchld_event(m, u1, &si);
-                        u2 = hashmap_get(m->watch_pids1, LONG_TO_PTR(si.si_pid));
+                        u2 = hashmap_get(m->watch_pids1, PID_TO_PTR(si.si_pid));
                         if (u2 && u2 != u1)
                                 invoke_sigchld_event(m, u2, &si);
-                        u3 = hashmap_get(m->watch_pids2, LONG_TO_PTR(si.si_pid));
+                        u3 = hashmap_get(m->watch_pids2, PID_TO_PTR(si.si_pid));
                         if (u3 && u3 != u2 && u3 != u1)
                                 invoke_sigchld_event(m, u3, &si);
                 }

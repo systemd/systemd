@@ -507,15 +507,20 @@ CGroupMask unit_get_own_mask(Unit *u) {
                 return 0;
 
         /* If delegation is turned on, then turn on all cgroups,
-         * unless the process we fork into it is known to drop
-         * privileges anyway, and shouldn't get access to the
-         * controllers anyway. */
+         * unless we are on the legacy hierarchy and the process we
+         * fork into it is known to drop privileges, and hence
+         * shouldn't get access to the controllers.
+         *
+         * Note that on the unified hierarchy it is safe to delegate
+         * controllers to unprivileged services. */
 
         if (c->delegate) {
                 ExecContext *e;
 
                 e = unit_get_exec_context(u);
-                if (!e || exec_context_maintains_privileges(e))
+                if (!e ||
+                    exec_context_maintains_privileges(e) ||
+                    cg_unified() > 0)
                         return _CGROUP_MASK_ALL;
         }
 
@@ -1378,10 +1383,24 @@ Unit* manager_get_unit_by_cgroup(Manager *m, const char *cgroup) {
         }
 }
 
-Unit *manager_get_unit_by_pid(Manager *m, pid_t pid) {
+Unit *manager_get_unit_by_pid_cgroup(Manager *m, pid_t pid) {
         _cleanup_free_ char *cgroup = NULL;
-        Unit *u;
         int r;
+
+        assert(m);
+
+        if (pid <= 0)
+                return NULL;
+
+        r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, pid, &cgroup);
+        if (r < 0)
+                return NULL;
+
+        return manager_get_unit_by_cgroup(m, cgroup);
+}
+
+Unit *manager_get_unit_by_pid(Manager *m, pid_t pid) {
+        Unit *u;
 
         assert(m);
 
@@ -1391,19 +1410,15 @@ Unit *manager_get_unit_by_pid(Manager *m, pid_t pid) {
         if (pid == 1)
                 return hashmap_get(m->units, SPECIAL_INIT_SCOPE);
 
-        u = hashmap_get(m->watch_pids1, LONG_TO_PTR(pid));
+        u = hashmap_get(m->watch_pids1, PID_TO_PTR(pid));
         if (u)
                 return u;
 
-        u = hashmap_get(m->watch_pids2, LONG_TO_PTR(pid));
+        u = hashmap_get(m->watch_pids2, PID_TO_PTR(pid));
         if (u)
                 return u;
 
-        r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, pid, &cgroup);
-        if (r < 0)
-                return NULL;
-
-        return manager_get_unit_by_cgroup(m, cgroup);
+        return manager_get_unit_by_pid_cgroup(m, pid);
 }
 
 int manager_notify_cgroup_empty(Manager *m, const char *cgroup) {

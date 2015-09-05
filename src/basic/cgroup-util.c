@@ -187,7 +187,7 @@ int cg_kill(const char *controller, const char *path, int sig, bool sigcont, boo
                         if (ignore_self && pid == my_pid)
                                 continue;
 
-                        if (set_get(s, LONG_TO_PTR(pid)) == LONG_TO_PTR(pid))
+                        if (set_get(s, PID_TO_PTR(pid)) == PID_TO_PTR(pid))
                                 continue;
 
                         /* If we haven't killed this process yet, kill
@@ -205,7 +205,7 @@ int cg_kill(const char *controller, const char *path, int sig, bool sigcont, boo
 
                         done = false;
 
-                        r = set_put(s, LONG_TO_PTR(pid));
+                        r = set_put(s, PID_TO_PTR(pid));
                         if (r < 0) {
                                 if (ret >= 0)
                                         return r;
@@ -318,7 +318,7 @@ int cg_migrate(const char *cfrom, const char *pfrom, const char *cto, const char
                         if (ignore_self && pid == my_pid)
                                 continue;
 
-                        if (set_get(s, LONG_TO_PTR(pid)) == LONG_TO_PTR(pid))
+                        if (set_get(s, PID_TO_PTR(pid)) == PID_TO_PTR(pid))
                                 continue;
 
                         /* Ignore kernel threads. Since they can only
@@ -338,7 +338,7 @@ int cg_migrate(const char *cfrom, const char *pfrom, const char *cto, const char
 
                         done = false;
 
-                        r = set_put(s, LONG_TO_PTR(pid));
+                        r = set_put(s, PID_TO_PTR(pid));
                         if (r < 0) {
                                 if (ret >= 0)
                                         return r;
@@ -460,20 +460,23 @@ static const char *controller_to_dirname(const char *controller) {
         return controller;
 }
 
-static int join_path_legacy(const char *controller_dn, const char *path, const char *suffix, char **fs) {
+static int join_path_legacy(const char *controller, const char *path, const char *suffix, char **fs) {
+        const char *dn;
         char *t = NULL;
 
         assert(fs);
-        assert(controller_dn);
+        assert(controller);
+
+        dn = controller_to_dirname(controller);
 
         if (isempty(path) && isempty(suffix))
-                t = strappend("/sys/fs/cgroup/", controller_dn);
+                t = strappend("/sys/fs/cgroup/", dn);
         else if (isempty(path))
-                t = strjoin("/sys/fs/cgroup/", controller_dn, "/", suffix, NULL);
+                t = strjoin("/sys/fs/cgroup/", dn, "/", suffix, NULL);
         else if (isempty(suffix))
-                t = strjoin("/sys/fs/cgroup/", controller_dn, "/", path, NULL);
+                t = strjoin("/sys/fs/cgroup/", dn, "/", path, NULL);
         else
-                t = strjoin("/sys/fs/cgroup/", controller_dn, "/", path, "/", suffix, NULL);
+                t = strjoin("/sys/fs/cgroup/", dn, "/", path, "/", suffix, NULL);
         if (!t)
                 return -ENOMEM;
 
@@ -509,15 +512,15 @@ int cg_get_path(const char *controller, const char *path, const char *suffix, ch
         if (!controller) {
                 char *t;
 
-                /* If no controller is specified, we assume only the
-                 * path below the controller matters */
+                /* If no controller is specified, we return the path
+                 * *below* the controllers, without any prefix. */
 
                 if (!path && !suffix)
                         return -EINVAL;
 
-                if (isempty(suffix))
+                if (!suffix)
                         t = strdup(path);
-                else if (isempty(path))
+                else if (!path)
                         t = strdup(suffix);
                 else
                         t = strjoin(path, "/", suffix, NULL);
@@ -537,14 +540,8 @@ int cg_get_path(const char *controller, const char *path, const char *suffix, ch
 
         if (unified > 0)
                 r = join_path_unified(path, suffix, fs);
-        else {
-                const char *dn;
-
-                dn = controller_to_dirname(controller);
-
-                r = join_path_legacy(dn, path, suffix, fs);
-        }
-
+        else
+                r = join_path_legacy(controller, path, suffix, fs);
         if (r < 0)
                 return r;
 
@@ -873,7 +870,7 @@ int cg_pid_get_path(const char *controller, pid_t pid, char **path) {
                 return 0;
         }
 
-        return -ENOENT;
+        return -ENODATA;
 }
 
 int cg_install_release_agent(const char *controller, const char *agent) {
@@ -902,7 +899,7 @@ int cg_install_release_agent(const char *controller, const char *agent) {
                 r = write_string_file(fs, agent, 0);
                 if (r < 0)
                         return r;
-        } else if (!streq(sc, agent))
+        } else if (!path_equal(sc, agent))
                 return -EEXIST;
 
         fs = mfree(fs);
@@ -1005,6 +1002,8 @@ int cg_is_empty_recursive(const char *controller, const char *path) {
                         return r;
 
                 r = read_one_line_file(populated, &t);
+                if (r == -ENOENT)
+                        return 1;
                 if (r < 0)
                         return r;
 
@@ -1898,7 +1897,7 @@ int cg_attach_many_everywhere(CGroupMask supported, const char *path, Set* pids,
         int r = 0;
 
         SET_FOREACH(pidp, pids, i) {
-                pid_t pid = PTR_TO_LONG(pidp);
+                pid_t pid = PTR_TO_PID(pidp);
                 int q;
 
                 q = cg_attach_everywhere(supported, path, pid, path_callback, userdata);
@@ -1911,7 +1910,7 @@ int cg_attach_many_everywhere(CGroupMask supported, const char *path, Set* pids,
 
 int cg_migrate_everywhere(CGroupMask supported, const char *from, const char *to, cg_migrate_callback_t to_callback, void *userdata) {
         CGroupController c;
-        int r, unified;
+        int r = 0, unified;
 
         if (!path_equal(from, to))  {
                 r = cg_migrate_recursive(SYSTEMD_CGROUP_CONTROLLER, from, SYSTEMD_CGROUP_CONTROLLER, to, false, true);
@@ -1982,14 +1981,22 @@ int cg_mask_supported(CGroupMask *ret) {
         if (unified < 0)
                 return unified;
         if (unified > 0) {
-                _cleanup_free_ char *controllers = NULL;
+                _cleanup_free_ char *root = NULL, *controllers = NULL, *path = NULL;
                 const char *c;
 
                 /* In the unified hierarchy we can read the supported
                  * and accessible controllers from a the top-level
                  * cgroup attribute */
 
-                r = read_one_line_file("/sys/fs/cgroup/cgroup.controllers", &controllers);
+                r = cg_get_root_path(&root);
+                if (r < 0)
+                        return r;
+
+                r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, root, "cgroup.controllers", &path);
+                if (r < 0)
+                        return r;
+
+                r = read_one_line_file(path, &controllers);
                 if (r < 0)
                         return r;
 
@@ -2156,7 +2163,7 @@ int cg_enable_everywhere(CGroupMask supported, CGroupMask mask, const char *p) {
 
                         r = write_string_file(fs, s, 0);
                         if (r < 0)
-                                log_warning_errno(r, "Failed to enable controller %s for %s (%s): %m", n, p, fs);
+                                log_debug_errno(r, "Failed to enable controller %s for %s (%s): %m", n, p, fs);
                 }
         }
 

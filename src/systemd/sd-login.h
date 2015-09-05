@@ -81,33 +81,41 @@ int sd_pid_get_user_slice(pid_t pid, char **slice);
  * container. This will return an error for non-machine processes. */
 int sd_pid_get_machine_name(pid_t pid, char **machine);
 
-/* Similar to sd_pid_get_session(), but retrieves data about peer of
- * connected AF_UNIX socket */
+/* Get the control group from a PID, relative to the root of the
+ * hierarchy. */
+int sd_pid_get_cgroup(pid_t pid, char **cgroup);
+
+/* Similar to sd_pid_get_session(), but retrieves data about the peer
+ * of a connected AF_UNIX socket */
 int sd_peer_get_session(int fd, char **session);
 
-/* Similar to sd_pid_get_owner_uid(), but retrieves data about peer of
- * connected AF_UNIX socket */
+/* Similar to sd_pid_get_owner_uid(), but retrieves data about the peer of
+ * a connected AF_UNIX socket */
 int sd_peer_get_owner_uid(int fd, uid_t *uid);
 
-/* Similar to sd_pid_get_unit(), but retrieves data about peer of
- * connected AF_UNIX socket */
+/* Similar to sd_pid_get_unit(), but retrieves data about the peer of
+ * a connected AF_UNIX socket */
 int sd_peer_get_unit(int fd, char **unit);
 
-/* Similar to sd_pid_get_user_unit(), but retrieves data about peer of
- * connected AF_UNIX socket */
+/* Similar to sd_pid_get_user_unit(), but retrieves data about the peer of
+ * a connected AF_UNIX socket */
 int sd_peer_get_user_unit(int fd, char **unit);
 
-/* Similar to sd_pid_get_slice(), but retrieves data about peer of
- * connected AF_UNIX socket */
+/* Similar to sd_pid_get_slice(), but retrieves data about the peer of
+ * a connected AF_UNIX socket */
 int sd_peer_get_slice(int fd, char **slice);
 
-/* Similar to sd_pid_get_user_slice(), but retrieves data about peer of
- * connected AF_UNIX socket */
+/* Similar to sd_pid_get_user_slice(), but retrieves data about the peer of
+ * a connected AF_UNIX socket */
 int sd_peer_get_user_slice(int fd, char **slice);
 
-/* Similar to sd_pid_get_machine_name(), but retrieves data about peer
- * of connected AF_UNIX socket */
+/* Similar to sd_pid_get_machine_name(), but retrieves data about the
+ * peer of a a connected AF_UNIX socket */
 int sd_peer_get_machine_name(int fd, char **machine);
+
+/* Similar to sd_pid_get_cgroup(), but retrieves data about the peer
+ * of a connected AF_UNIX socket. */
+int sd_peer_get_cgroup(pid_t pid, char **cgroup);
 
 /* Get state from UID. Possible states: offline, lingering, online, active, closing */
 int sd_uid_get_state(uid_t uid, char **state);

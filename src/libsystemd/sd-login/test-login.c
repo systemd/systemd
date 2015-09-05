@@ -33,7 +33,7 @@ static void test_login(void) {
         _cleanup_free_ char *pp = NULL, *qq = NULL;
         int r, k;
         uid_t u, u2;
-        char *seat, *type, *class, *display, *remote_user, *remote_host, *display_session;
+        char *seat, *type, *class, *display, *remote_user, *remote_host, *display_session, *cgroup;
         char *session;
         char *state;
         char *session2;
@@ -50,9 +50,13 @@ static void test_login(void) {
         assert_se(sd_pid_get_owner_uid(0, &u2) == 0);
         printf("user = "UID_FMT"\n", u2);
 
+        assert_se(sd_pid_get_cgroup(0, &cgroup) == 0);
+        printf("cgroup = %s\n", cgroup);
+        free(cgroup);
+
         display_session = NULL;
         r = sd_uid_get_display(u2, &display_session);
-        assert_se(r >= 0 || r == -ENXIO);
+        assert_se(r >= 0 || r == -ENODATA);
         printf("user's display session = %s\n", strna(display_session));
         free(display_session);
 
@@ -108,19 +112,19 @@ static void test_login(void) {
 
         display = NULL;
         r = sd_session_get_display(session, &display);
-        assert_se(r >= 0 || r == -ENXIO);
+        assert_se(r >= 0 || r == -ENODATA);
         printf("display = %s\n", strna(display));
         free(display);
 
         remote_user = NULL;
         r = sd_session_get_remote_user(session, &remote_user);
-        assert_se(r >= 0 || r == -ENXIO);
+        assert_se(r >= 0 || r == -ENODATA);
         printf("remote_user = %s\n", strna(remote_user));
         free(remote_user);
 
         remote_host = NULL;
         r = sd_session_get_remote_host(session, &remote_host);
-        assert_se(r >= 0 || r == -ENXIO);
+        assert_se(r >= 0 || r == -ENODATA);
         printf("remote_host = %s\n", strna(remote_host));
         free(remote_host);
 

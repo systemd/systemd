@@ -4737,6 +4737,7 @@ static int create_subcgroup(pid_t pid) {
         _cleanup_free_ char *cgroup = NULL;
         const char *child;
         int unified, r;
+        CGroupMask supported;
 
         /* In the unified hierarchy inner nodes may only only contain
          * subgroups, but not processes. Hence, if we running in the
@@ -4756,6 +4757,10 @@ static int create_subcgroup(pid_t pid) {
         if (unified == 0)
                 return 0;
 
+        r = cg_mask_supported(&supported);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine supported controllers: %m");
+
         r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, 0, &cgroup);
         if (r < 0)
                 return log_error_errno(r, "Failed to get our control group: %m");
@@ -4770,6 +4775,8 @@ static int create_subcgroup(pid_t pid) {
         if (r < 0)
                 return log_error_errno(r, "Failed to create %s subcgroup: %m", child);
 
+        /* Try to enable as many controllers as possible for the new payload. */
+        (void) cg_enable_everywhere(supported, supported, cgroup);
         return 0;
 }
 

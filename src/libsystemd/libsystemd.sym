@@ -467,3 +467,9 @@ global:
         sd_bus_emit_object_removed;
         sd_bus_flush_close_unref;
 } LIBSYSTEMD_221;
+
+LIBSYSTEMD_226 {
+global:
+        sd_pid_get_cgroup;
+        sd_peer_get_cgroup;
+} LIBSYSTEMD_222;
