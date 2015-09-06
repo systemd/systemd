@@ -666,6 +666,7 @@ static int enumerate_partitions(dev_t devnum) {
         first = udev_enumerate_get_list_entry(e);
         udev_list_entry_foreach(item, first) {
                 _cleanup_udev_device_unref_ struct udev_device *q;
+                unsigned long long flags;
                 const char *stype, *subnode;
                 sd_id128_t type_id;
                 blkid_partition pp;
@@ -705,10 +706,10 @@ static int enumerate_partitions(dev_t devnum) {
                 if (sd_id128_from_string(stype, &type_id) < 0)
                         continue;
 
-                if (sd_id128_equal(type_id, GPT_SWAP)) {
-                        unsigned long long flags;
+                flags = blkid_partition_get_flags(pp);
 
-                        flags = blkid_partition_get_flags(pp);
+                if (sd_id128_equal(type_id, GPT_SWAP)) {
+
                         if (flags & GPT_FLAG_NO_AUTO)
                                 continue;
 
@@ -727,6 +728,10 @@ static int enumerate_partitions(dev_t devnum) {
                         if (boot && nr >= boot_nr)
                                 continue;
 
+                        /* Note that we do not honour the "no-auto"
+                         * flag for the ESP, as it is often unset, to
+                         * hide it from Windows. */
+
                         boot_nr = nr;
 
                         r = free_and_strdup(&boot, subnode);
@@ -734,9 +739,7 @@ static int enumerate_partitions(dev_t devnum) {
                                 return log_oom();
 
                 } else if (sd_id128_equal(type_id, GPT_HOME)) {
-                        unsigned long long flags;
 
-                        flags = blkid_partition_get_flags(pp);
                         if (flags & GPT_FLAG_NO_AUTO)
                                 continue;
 
@@ -752,9 +755,7 @@ static int enumerate_partitions(dev_t devnum) {
                                 return log_oom();
 
                 } else if (sd_id128_equal(type_id, GPT_SRV)) {
-                        unsigned long long flags;
 
-                        flags = blkid_partition_get_flags(pp);
                         if (flags & GPT_FLAG_NO_AUTO)
                                 continue;
 
