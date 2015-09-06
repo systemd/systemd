@@ -2,55 +2,106 @@ systemd System and Service Manager
 
 CHANGES WITH 226:
 
-        * The DHCP implementation of systemd-networkd gained a set of new
-          features:
+        * The DHCP implementation of systemd-networkd gained a set of
+          new features:
 
-          - Server and client now support transmission and reception of
-            timezone information. It can be configured via the newly introduced
-            network options 'DHCP.UseTimezone=', 'DHCPServer.EmitTimezone=',
-            and 'DHCPServer.Timezone='.
-            Transmission of timezone information is enabled for containers by
-            default now. Furthermore, if systemd-timesyncd is running, it will
-            be updated with the received information.
+          - The DHCP server now supports emitting DNS and NTP
+            information. It may be enabled and configured via
+            EmitDNS=, DNS=, EmitNTP=, and NTP=. If transmission of DNS
+            and NTP information is enabled, but no servers are
+            configured, the corresponding uplink information (if there
+            is any) is propagated.
 
-          - The DHCP server now supports emitting DNS and NTP information. It
-            can be enabled and configured via 'EmitDNS=', 'DNS=', 'EmitNTP=',
-            and 'NTP='.
-            If transmission of DNS and NTP information is enabled, but no
-            specific data-set is configured, the uplink information is used.
+          - Server and client now support transmission and reception
+            of timezone information. It can be configured via the
+            newly introduced network options UseTimezone=,
+            EmitTimezone=, and Timezone=.  Transmission of timezone
+            information is enabled between host and containers by
+            default now: the container will change its local timezone
+            to what the host has set.
 
-          - Lease timeouts can now be configured via 'MaxLeaseTimeSec=' and
-            'DefaultLeaseTimeSec='.
+          - Lease timeouts can now be configured via
+            MaxLeaseTimeSec= and DefaultLeaseTimeSec=.
 
-          - The DHCP server now supports improved predictability of leases.
-            Clients are more likely to get the same lease information back,
-            even if the server loses state.
+          - The DHCP server improved on the stability of
+            leases. Clients are more likely to get the same lease
+            information back, even if the server loses state.
 
-          - The DHCP server supports two new configuration options to specify
-            the lease pool, 'PoolOffset=' and 'PoolSize='.
+          - The DHCP server supports two new configuration options to
+            control the lease address pool metrics, PoolOffset= and
+            PoolSize=.
 
-        * The encapsulation limit of tunnels in systemd-networkd can now be
-          configured via 'EncapsulationLimit='. It allows modifying the maximum
-          additional levels of encapsulation that are permitted to be prepended
-          to a packet.
+        * The encapsulation limit of tunnels in systemd-networkd may
+          now be configured via 'EncapsulationLimit='. It allows
+          modifying the maximum additional levels of encapsulation
+          that are permitted to be prepended to a packet.
 
-        * systemd now supports the concept of user-buses over session-buses, if
-          used with dbus-1.10 (and enabled via dbus --enable-user-session).
+        * systemd now supports the concept of user buses replacing
+          session buses, if used with dbus-1.10 (and enabled via dbus
+          --enable-user-session). It previously only supported this on
+          kdbus-enabled systems, and this release expands this to
+          'dbus-daemon' systems.
 
-        * systemd-networkd now supports predictable interface names for virtio
-          devices.
+        * systemd-networkd now supports predictable interface names
+          for virtio devices.
 
-        * systemd now optionally supports the unified cgroup hierarchy. If
-          enabled via the kernel command-line option
-          'systemd.unified_cgroup_hierarchy=1', systemd will try to mount the
-          unified cgroup hierarchy directly on /sys/fs/cgroup. If not enabled,
-          or not available, systemd will fall back to legacy cgroups.
-          Host system and containers can mix and match legacy and unified
-          hierarchies as they wish. By default, nspawn will use the same
-          hierarchy as the host.
-          Please note that the unified hierarchy is an experimental kernel
-          feature and is likely to change in one of the next kernel releases.
-          Therefore, it should not be enabled by default.
+        * systemd now optionally supports the new Linux kernel
+          "unified" control group hierarchy. If enabled via the kernel
+          command-line option 'systemd.unified_cgroup_hierarchy=1',
+          systemd will try to mount the unified cgroup hierarchy
+          directly on /sys/fs/cgroup. If not enabled, or not
+          available, systemd will fall back to the legacy cgroup
+          hierarchy setup, as before. Host system and containers can
+          mix and match legacy and unified hierarchies as they
+          wish. nspawn understands the $UNIFIED_CROUP_HIERARCHY
+          environment variable to individually select the hierarchy to
+          use for executed containers. By default, nspawn will use the
+          unified hierarchy for the containers if the host uses the
+          unified hierarchy, and the legacy hierarchy otherwise.
+          Please note that at this point the unified hierarchy is an
+          experimental kernel feature and is likely to change in one
+          of the next kernel releases.  Therefore, it should not be
+          enabled by default in downstream distributions yet. The
+          minimum required kernel version for the unified hierarchy to
+          work is 4.2. Note that when the unified hierarchy is used
+          for the first time delegated access to controllers is
+          safe. Because of this systemd-nspawn containers will get
+          access to controllers now, as will systemd user
+          sessions. This means containers and user sessions may now
+          manage their own resources, partitioning up what the system
+          grants them.
+
+        * A new special scope unit "init.scope" has been introduced
+          that encapsulates PID 1 of the system. It may be used to
+          determine resource usage and enforce resource limits on PID
+          1 itself. PID 1 hence moved out of the root of the control
+          group tree.
+
+        * The cgtop tool gained support for filtering out kernel
+          threads when counting tasks in a control group. Also, the
+          count of processes is now recursively summed up by
+          default. Two options -k and --recursive= have been added to
+          revert to old behaviour. The tool has also been updated to
+          work correctly in containers now.
+
+        * systemd-nspawn's --bind= and --bind-ro= options have been
+          extended to allow creation of non-recursive bind mounts.
+
+        * libsystemd gained two new calls sd_pid_get_cgroup() an
+          sd_peer_get_cgroup() which returns the control group path of
+          a process or peer of a connected AF_UNIX socket. This
+          function call is particularly useful when implementing
+          delegated subtrees support in the control group hierarchy.
+
+        * The "sd-event" event loop API of libsystemd now supports
+          correct dequeuing of real-time signals, without losing
+          signal events.
+
+        * When systemd requests a PolicyKit decision when managing
+          units it will now add additional fields to the request,
+          including unit name and desired operation. This enables more
+          powerful PolicyKit policies, that make decisions depending
+          on these parameters.
 
         Contributions from: Cristian Rodríguez, Daniel Mack, David Herrmann,
         Eugene Yakubovich, Evgeny Vereshchagin, Filipe Brandenburger, Jan
@@ -63,26 +114,74 @@ CHANGES WITH 226:
 
 CHANGES WITH 225:
 
-        * machinectl gained a new verb 'shell' which opens a fresh shell on the
-          target machine. It is similar to 'login', but spawns the shell
-          directly. The pseudo machine '.host' now refers to the local host and
-          is used by default. Hence, 'machinectl shell' can be used as
-          replacement for 'su' which spawns the session as a fresh systemd
-          unit.
+        * machinectl gained a new verb 'shell' which opens a fresh
+          shell on the target container or the host. It is similar to
+          the existing 'login' command of machinectl, but spawns the
+          shell directly without prompting for username or
+          password. The pseudo machine '.host' now refers to the local
+          host and is used by default. Hence, 'machinectl shell' can
+          be used as replacement for 'su -' which spawns a session as
+          a fresh systemd unit in a way that is fully isolated from
+          the originating session.
 
-        * systemd-networkd learned to cope with private-zone DHCP options and
-          allows other programs to query the values.
+        * systemd-networkd learned to cope with private-zone DHCP
+          options and allows other programs to query the values.
 
-        Contributions from: Alastair Hughes, Alex Crawford, Daniel Mack, David
-        Herrmann, Dimitri John Ledkov, Eric Kostrowski, Evgeny Vereshchagin,
-        Felipe Sateler, HATAYAMA Daisuke, Jan Pokorný, Jan Synacek, Johnny
-        Robeson, Karel Zak, Kay Sievers, Kefeng Wang, Lennart Poettering, Major
-        Hayden, Marcel Holtmann, Markus Elfring, Martin Mikkelsen, Martin Pitt,
-        Matt Turner, Maxim Mikityanskiy, Michael Biebl, Namhyung Kim, Nicolas
-        Cornu, Owen W. Taylor, Patrik Flykt, Peter Hutterer, reverendhomer,
-        Richard Maw, Ronny Chevalier, Seth Jennings, Stef Walter, Susant Sahani,
-        Thomas Blume, Thomas Hindoe Paaboel Andersen, Thomas Meyer, Tom
-        Gundersen, Vincent Batts, WaLyong Cho, Zbigniew Jędrzejewski-Szmek
+        * SELinux access control when enabling/disabling units is no
+          longer enforced with this release. The previous
+          implementation was incorrect, and a new corrected
+          implementation is not yet available. As unit file operations
+          are still protected via PolicyKit and D-Bus policy this is
+          not a security problem. Yet, distributions which care about
+          optimal SELinux support should probably not stabilize on
+          this release.
+
+        * sd-bus gained support for matches of type "arg0has=", that
+          test for membership of strings in string arrays sent in bus
+          messages.
+
+        * systemd-resolved now dumps the contents of its DNS and LLMNR
+          caches to the logs on reception of the SIGUSR1 signal. This
+          is useful to debug DNS behaviour.
+
+        * The coredumpctl tool gained a new --directory= option to
+          operate on journal files in a specific directory.
+
+        * "systemctl reboot" and related commands gained a new
+          "--message=" option which may be used to set a free-text
+          wall message when shutting down or rebooting the
+          system. This message is also logged, which is useful for
+          figuring out the reason for a reboot or shutdown a
+          posteriori.
+
+        * The "systemd-resolve-host" tool's -i switch now takes
+          network interface numbers as alternative to interface names.
+
+        * A new unit file setting for services has been introduced:
+          UtmpMode= allows configuration of how precisely systemd
+          handles utmp and wtmp entries for the service if this is
+          enabled. This allows writing services that appear similar to
+          user sessions in the output of the "w", "who", "last" and
+          "lastlog" tools.
+
+        * systemd-resolved will now locally synthesize DNS resource
+          records for the "localhost" and "gateway" domains as well as
+          the local hostname. This should ensure that clients querying
+          RRs via resolved will get similar results as those going via
+          NSS, if nss-myhostname is enabled.
+
+        Contributions from: Alastair Hughes, Alex Crawford, Daniel
+        Mack, David Herrmann, Dimitri John Ledkov, Eric Kostrowski,
+        Evgeny Vereshchagin, Felipe Sateler, HATAYAMA Daisuke, Jan
+        Pokorný, Jan Synacek, Johnny Robeson, Karel Zak, Kay Sievers,
+        Kefeng Wang, Lennart Poettering, Major Hayden, Marcel
+        Holtmann, Markus Elfring, Martin Mikkelsen, Martin Pitt, Matt
+        Turner, Maxim Mikityanskiy, Michael Biebl, Namhyung Kim,
+        Nicolas Cornu, Owen W. Taylor, Patrik Flykt, Peter Hutterer,
+        reverendhomer, Richard Maw, Ronny Chevalier, Seth Jennings,
+        Stef Walter, Susant Sahani, Thomas Blume, Thomas Hindoe
+        Paaboel Andersen, Thomas Meyer, Tom Gundersen, Vincent Batts,
+        WaLyong Cho, Zbigniew Jędrzejewski-Szmek
 
         -- Berlin, 2015-08-27
 
@@ -91,9 +190,9 @@ CHANGES WITH 224:
         * The systemd-efi-boot-generator functionality was merged into
           systemd-gpt-auto-generator.
 
-        * systemd-networkd now supports Group Policy for vxlan devices. It can
-          be enabled via the new boolean configuration option called
-          'GroupPolicyExtension='.
+        * systemd-networkd now supports Group Policy for vxlan
+          devices. It can be enabled via the new boolean configuration
+          option called 'GroupPolicyExtension='.
 
         Contributions from: Andreas Kempf, Christian Hesse, Daniel Mack, David
         Herrmann, Herman Fries, Johannes Nixdorf, Kay Sievers, Lennart
