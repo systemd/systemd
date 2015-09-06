@@ -6,8 +6,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2015-08-29 20:29+0200\n"
-"PO-Revision-Date: 2015-08-29 20:30+0200\n"
+"POT-Creation-Date: 2015-09-06 20:39+0200\n"
+"PO-Revision-Date: 2015-09-06 20:40+0200\n"
 "Last-Translator: Piotr Drąg <piotrdrag@gmail.com>\n"
 "Language-Team: Polish <trans-pl@lists.fedoraproject.org>\n"
 "Language: pl\n"
@@ -556,6 +556,40 @@ msgid ""
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby kontrolować, czy włączyć synchronizację "
 "czasu przez sieć."
+
+#: ../src/core/dbus-unit.c:428
+msgid "Authentication is required to start '$(unit)'."
+msgstr "Wymagane jest uwierzytelnienie, aby uruchomić jednostkę „$(unit)”."
+
+#: ../src/core/dbus-unit.c:429
+msgid "Authentication is required to stop '$(unit)'."
+msgstr "Wymagane jest uwierzytelnienie, aby zatrzymać jednostkę „$(unit)”."
+
+#: ../src/core/dbus-unit.c:430
+msgid "Authentication is required to reload '$(unit)'."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby ponownie wczytać jednostkę „$(unit)”."
+
+#: ../src/core/dbus-unit.c:431 ../src/core/dbus-unit.c:432
+msgid "Authentication is required to restart '$(unit)'."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby ponownie uruchomić jednostkę „$(unit)”."
+
+#: ../src/core/dbus-unit.c:535
+msgid "Authentication is required to kill '$(unit)'."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby wymusić wyłączenie jednostki „$(unit)”."
+
+#: ../src/core/dbus-unit.c:565
+msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby przywrócić stan „failed” (niepowodzenia) "
+"jednostki „$(unit)”."
+
+#: ../src/core/dbus-unit.c:597
+msgid "Authentication is required to set properties on '$(unit)'."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby ustawić właściwości jednostki „$(unit)”."
 
 #~ msgid "Press Ctrl+C to cancel all filesystem checks in progress"
 #~ msgstr ""
