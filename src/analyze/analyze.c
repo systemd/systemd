@@ -1092,11 +1092,58 @@ static int graph_one(sd_bus *bus, const UnitInfo *u, char *patterns[]) {
         return 0;
 }
 
+static int expand_patterns(sd_bus *bus, char **patterns, char ***ret) {
+        _cleanup_strv_free_ char **expanded_patterns = NULL;
+        char **pattern;
+        int r;
+
+        STRV_FOREACH(pattern, patterns) {
+                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_free_ char *unit = NULL, *unit_id = NULL;
+
+                if (strv_extend(&expanded_patterns, *pattern) < 0)
+                        return log_oom();
+
+                if (string_is_glob(*pattern))
+                        continue;
+
+                unit = unit_dbus_path_from_name(*pattern);
+                if (!unit)
+                        return log_oom();
+
+                r = sd_bus_get_property_string(
+                                bus,
+                                "org.freedesktop.systemd1",
+                                unit,
+                                "org.freedesktop.systemd1.Unit",
+                                "Id",
+                                &error,
+                                &unit_id);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get ID: %s", bus_error_message(&error, r));
+
+                if (!streq(*pattern, unit_id)) {
+                        if (strv_extend(&expanded_patterns, unit_id) < 0)
+                                return log_oom();
+                }
+        }
+
+        *ret = expanded_patterns;
+        expanded_patterns = NULL; /* do not free */
+
+        return 0;
+}
+
 static int dot(sd_bus *bus, char* patterns[]) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_strv_free_ char **expanded_patterns = NULL;
         int r;
         UnitInfo u;
+
+        r = expand_patterns(bus, patterns, &expanded_patterns);
+        if (r < 0)
+                return r;
 
         r = sd_bus_call_method(
                         bus,
@@ -1120,7 +1167,7 @@ static int dot(sd_bus *bus, char* patterns[]) {
 
         while ((r = bus_parse_unit_info(reply, &u)) > 0) {
 
-                r = graph_one(bus, &u, patterns);
+                r = graph_one(bus, &u, expanded_patterns);
                 if (r < 0)
                         return r;
         }
