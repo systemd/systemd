@@ -36,8 +36,8 @@ LICENSE:
         - except src/udev/* which is (currently still) GPLv2, GPLv2+
 
 REQUIREMENTS:
-        Linux kernel >= 3.7
-        Linux kernel >= 3.8 for Smack support
+        Linux kernel >= 3.11
+        Linux kernel >= 4.2 for unified cgroup hierarchy support
 
         Kernel Config Options:
           CONFIG_DEVTMPFS
