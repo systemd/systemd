@@ -1555,7 +1555,6 @@ AC_MSG_RESULT([
         SysV init scripts:       ${SYSTEM_SYSVINIT_PATH}
         SysV rc?.d directories:  ${SYSTEM_SYSVRCND_PATH}
         Build Python:            ${PYTHON}
-        sphinx binary:           ${SPHINX_BUILD}
         PAM modules dir:         ${with_pamlibdir}
         PAM configuration dir:   ${with_pamconfdir}
         D-Bus policy dir:        ${with_dbuspolicydir}
