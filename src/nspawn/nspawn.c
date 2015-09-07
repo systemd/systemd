@@ -3377,7 +3377,7 @@ int main(int argc, char *argv[]) {
                         goto finish;
                 }
                 if (l != sizeof(pid)) {
-                        log_error("Short read while reading inner child PID: %m");
+                        log_error("Short read while reading inner child PID.");
                         r = EIO;
                         goto finish;
                 }
@@ -3397,7 +3397,7 @@ int main(int argc, char *argv[]) {
                                 goto finish;
                         }
                         if (l != sizeof(arg_uid_shift)) {
-                                log_error("Short read while reading UID shift: %m");
+                                log_error("Short read while reading UID shift.");
                                 r = EIO;
                                 goto finish;
                         }
