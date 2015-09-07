@@ -2778,9 +2778,20 @@ systemd_cgtop_LDADD = \
 # ------------------------------------------------------------------------------
 systemd_nspawn_SOURCES = \
 	src/nspawn/nspawn.c \
-	src/nspawn/nspawn.h \
 	src/nspawn/nspawn-settings.c \
 	src/nspawn/nspawn-settings.h \
+	src/nspawn/nspawn-mount.c \
+	src/nspawn/nspawn-mount.h \
+	src/nspawn/nspawn-network.c \
+	src/nspawn/nspawn-network.h \
+	src/nspawn/nspawn-expose-ports.c \
+	src/nspawn/nspawn-expose-ports.h \
+	src/nspawn/nspawn-cgroup.c \
+	src/nspawn/nspawn-cgroup.h \
+	src/nspawn/nspawn-register.c \
+	src/nspawn/nspawn-register.h \
+	src/nspawn/nspawn-setuid.c \
+	src/nspawn/nspawn-setuid.h \
 	src/core/mount-setup.c \
 	src/core/mount-setup.h \
 	src/core/loopback-setup.c \

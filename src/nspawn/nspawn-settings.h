@@ -24,7 +24,9 @@
 #include <stdio.h>
 
 #include "macro.h"
-#include "nspawn.h"
+
+#include "nspawn-mount.h"
+#include "nspawn-expose-ports.h"
 
 typedef enum SettingsMask {
         SETTING_BOOT          = 1 << 0,

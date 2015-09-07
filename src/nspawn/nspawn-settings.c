@@ -24,7 +24,6 @@
 #include "strv.h"
 #include "cap-list.h"
 
-#include "nspawn.h"
 #include "nspawn-settings.h"
 
 int settings_load(FILE *f, const char *path, Settings **ret) {
