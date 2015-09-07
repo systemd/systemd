@@ -320,7 +320,7 @@ int main(void) {
         test_controller_is_valid();
         test_slice_to_path();
         test_shift_path();
-        test_mask_supported();
+        TEST_REQ_RUNNING_SYSTEMD(test_mask_supported());
 
         return 0;
 }
