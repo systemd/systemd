@@ -27,7 +27,6 @@
 #include "local-addresses.h"
 #include "netlink-util.h"
 
-#include "nspawn.h"
 #include "nspawn-expose-ports.h"
 
 int expose_port_parse(ExposePort **l, const char *s) {

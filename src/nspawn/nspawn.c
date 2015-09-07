@@ -96,7 +96,6 @@
 #include "seccomp-util.h"
 #endif
 
-#include "nspawn.h"
 #include "nspawn-settings.h"
 #include "nspawn-mount.h"
 #include "nspawn-network.h"

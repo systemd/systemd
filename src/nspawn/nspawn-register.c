@@ -26,7 +26,6 @@
 #include "bus-util.h"
 #include "bus-error.h"
 
-#include "nspawn.h"
 #include "nspawn-register.h"
 
 int register_machine(

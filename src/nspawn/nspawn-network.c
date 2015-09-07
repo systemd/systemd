@@ -32,7 +32,6 @@
 #include "netlink-util.h"
 #include "udev-util.h"
 
-#include "nspawn.h"
 #include "nspawn-network.h"
 
 #define HOST_HASH_KEY SD_ID128_MAKE(1a,37,6f,c7,46,ec,45,0b,ad,a3,d5,31,06,60,5d,b1)

@@ -28,7 +28,6 @@
 #include "mkdir.h"
 #include "process-util.h"
 
-#include "nspawn.h"
 #include "nspawn-setuid.h"
 
 static int spawn_getent(const char *database, const char *key, pid_t *rpid) {

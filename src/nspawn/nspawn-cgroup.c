@@ -27,7 +27,6 @@
 #include "fileio.h"
 #include "cgroup-util.h"
 
-#include "nspawn.h"
 #include "nspawn-cgroup.h"
 
 int chown_cgroup(pid_t pid, uid_t uid_shift) {

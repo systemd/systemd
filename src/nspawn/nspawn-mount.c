@@ -30,7 +30,6 @@
 #include "set.h"
 #include "cgroup-util.h"
 
-#include "nspawn.h"
 #include "nspawn-mount.h"
 
 CustomMount* custom_mount_add(CustomMount **l, unsigned *n, CustomMountType t) {

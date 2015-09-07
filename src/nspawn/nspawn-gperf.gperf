@@ -1,7 +1,6 @@
 %{
 #include <stddef.h>
 #include "conf-parser.h"
-#include "nspawn.h"
 #include "nspawn-settings.h"
 #include "nspawn-expose-ports.h"
 %}
