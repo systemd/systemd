@@ -55,7 +55,6 @@
 #include "sd-daemon.h"
 #include "sd-bus.h"
 #include "sd-id128.h"
-#include "sd-netlink.h"
 #include "random-util.h"
 #include "log.h"
 #include "util.h"
@@ -90,8 +89,6 @@
 #include "machine-image.h"
 #include "list.h"
 #include "in-addr-util.h"
-#include "firewall-util.h"
-#include "local-addresses.h"
 #include "formats-util.h"
 #include "process-util.h"
 #include "terminal-util.h"
@@ -105,6 +102,7 @@
 #include "nspawn.h"
 #include "nspawn-settings.h"
 #include "nspawn-mount.h"
+#include "nspawn-expose-ports.h"
 
 typedef enum ContainerStatus {
         CONTAINER_TERMINATED,
@@ -333,60 +331,6 @@ static int detect_unified_cgroup_hierarchy(void) {
                 return log_error_errno(r, "Failed to determine whether the unified cgroups hierarchy is used: %m");
 
         arg_unified_cgroup_hierarchy = r;
-        return 0;
-}
-
-int expose_port_parse(ExposePort **l, const char *s) {
-
-        const char *split, *e;
-        uint16_t container_port, host_port;
-        int protocol;
-        ExposePort *p;
-        int r;
-
-        if ((e = startswith(s, "tcp:")))
-                protocol = IPPROTO_TCP;
-        else if ((e = startswith(s, "udp:")))
-                protocol = IPPROTO_UDP;
-        else {
-                e = s;
-                protocol = IPPROTO_TCP;
-        }
-
-        split = strchr(e, ':');
-        if (split) {
-                char v[split - e + 1];
-
-                memcpy(v, e, split - e);
-                v[split - e] = 0;
-
-                r = safe_atou16(v, &host_port);
-                if (r < 0 || host_port <= 0)
-                        return -EINVAL;
-
-                r = safe_atou16(split + 1, &container_port);
-        } else {
-                r = safe_atou16(e, &container_port);
-                host_port = container_port;
-        }
-
-        if (r < 0 || container_port <= 0)
-                return -EINVAL;
-
-        LIST_FOREACH(ports, p, arg_expose_ports)
-                if (p->protocol == protocol && p->host_port == host_port)
-                        return -EEXIST;
-
-        p = new(ExposePort, 1);
-        if (!p)
-                return -ENOMEM;
-
-        p->protocol = protocol;
-        p->host_port = host_port;
-        p->container_port = container_port;
-
-        LIST_PREPEND(ports, *l, p);
-
         return 0;
 }
 
@@ -1388,141 +1332,6 @@ static int setup_kmsg(const char *dest, int kmsg_socket) {
         return 0;
 }
 
-static int send_rtnl(int send_fd) {
-        union {
-                struct cmsghdr cmsghdr;
-                uint8_t buf[CMSG_SPACE(sizeof(int))];
-        } control = {};
-        struct msghdr mh = {
-                .msg_control = &control,
-                .msg_controllen = sizeof(control),
-        };
-        struct cmsghdr *cmsg;
-        _cleanup_close_ int fd = -1;
-        ssize_t k;
-
-        assert(send_fd >= 0);
-
-        if (!arg_expose_ports)
-                return 0;
-
-        fd = socket(PF_NETLINK, SOCK_RAW|SOCK_CLOEXEC|SOCK_NONBLOCK, NETLINK_ROUTE);
-        if (fd < 0)
-                return log_error_errno(errno, "Failed to allocate container netlink: %m");
-
-        cmsg = CMSG_FIRSTHDR(&mh);
-        cmsg->cmsg_level = SOL_SOCKET;
-        cmsg->cmsg_type = SCM_RIGHTS;
-        cmsg->cmsg_len = CMSG_LEN(sizeof(int));
-        memcpy(CMSG_DATA(cmsg), &fd, sizeof(int));
-
-        mh.msg_controllen = cmsg->cmsg_len;
-
-        /* Store away the fd in the socket, so that it stays open as
-         * long as we run the child */
-        k = sendmsg(send_fd, &mh, MSG_NOSIGNAL);
-        if (k < 0)
-                return log_error_errno(errno, "Failed to send netlink fd: %m");
-
-        return 0;
-}
-
-static int flush_ports(union in_addr_union *exposed) {
-        ExposePort *p;
-        int r, af = AF_INET;
-
-        assert(exposed);
-
-        if (!arg_expose_ports)
-                return 0;
-
-        if (in_addr_is_null(af, exposed))
-                return 0;
-
-        log_debug("Lost IP address.");
-
-        LIST_FOREACH(ports, p, arg_expose_ports) {
-                r = fw_add_local_dnat(false,
-                                      af,
-                                      p->protocol,
-                                      NULL,
-                                      NULL, 0,
-                                      NULL, 0,
-                                      p->host_port,
-                                      exposed,
-                                      p->container_port,
-                                      NULL);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to modify firewall: %m");
-        }
-
-        *exposed = IN_ADDR_NULL;
-        return 0;
-}
-
-static int expose_ports(sd_netlink *rtnl, union in_addr_union *exposed) {
-        _cleanup_free_ struct local_address *addresses = NULL;
-        _cleanup_free_ char *pretty = NULL;
-        union in_addr_union new_exposed;
-        ExposePort *p;
-        bool add;
-        int af = AF_INET, r;
-
-        assert(exposed);
-
-        /* Invoked each time an address is added or removed inside the
-         * container */
-
-        if (!arg_expose_ports)
-                return 0;
-
-        r = local_addresses(rtnl, 0, af, &addresses);
-        if (r < 0)
-                return log_error_errno(r, "Failed to enumerate local addresses: %m");
-
-        add = r > 0 &&
-                addresses[0].family == af &&
-                addresses[0].scope < RT_SCOPE_LINK;
-
-        if (!add)
-                return flush_ports(exposed);
-
-        new_exposed = addresses[0].address;
-        if (in_addr_equal(af, exposed, &new_exposed))
-                return 0;
-
-        in_addr_to_string(af, &new_exposed, &pretty);
-        log_debug("New container IP is %s.", strna(pretty));
-
-        LIST_FOREACH(ports, p, arg_expose_ports) {
-
-                r = fw_add_local_dnat(true,
-                                      af,
-                                      p->protocol,
-                                      NULL,
-                                      NULL, 0,
-                                      NULL, 0,
-                                      p->host_port,
-                                      &new_exposed,
-                                      p->container_port,
-                                      in_addr_is_null(af, exposed) ? NULL : exposed);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to modify firewall: %m");
-        }
-
-        *exposed = new_exposed;
-        return 0;
-}
-
-void expose_port_free_all(ExposePort *p) {
-
-        while (p) {
-                ExposePort *q = p;
-                LIST_REMOVE(ports, p, q);
-                free(q);
-        }
-}
-
 static int on_address_change(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
         union in_addr_union *exposed = userdata;
 
@@ -1530,62 +1339,7 @@ static int on_address_change(sd_netlink *rtnl, sd_netlink_message *m, void *user
         assert(m);
         assert(exposed);
 
-        expose_ports(rtnl, exposed);
-        return 0;
-}
-
-static int watch_rtnl(sd_event *event, int recv_fd, union in_addr_union *exposed, sd_netlink **ret) {
-        union {
-                struct cmsghdr cmsghdr;
-                uint8_t buf[CMSG_SPACE(sizeof(int))];
-        } control = {};
-        struct msghdr mh = {
-                .msg_control = &control,
-                .msg_controllen = sizeof(control),
-        };
-        struct cmsghdr *cmsg;
-        _cleanup_netlink_unref_ sd_netlink *rtnl = NULL;
-        int fd, r;
-        ssize_t k;
-
-        assert(event);
-        assert(recv_fd >= 0);
-        assert(ret);
-
-        if (!arg_expose_ports)
-                return 0;
-
-        k = recvmsg(recv_fd, &mh, MSG_NOSIGNAL);
-        if (k < 0)
-                return log_error_errno(errno, "Failed to recv netlink fd: %m");
-
-        cmsg = CMSG_FIRSTHDR(&mh);
-        assert(cmsg->cmsg_level == SOL_SOCKET);
-        assert(cmsg->cmsg_type == SCM_RIGHTS);
-        assert(cmsg->cmsg_len == CMSG_LEN(sizeof(int)));
-        memcpy(&fd, CMSG_DATA(cmsg), sizeof(int));
-
-        r = sd_netlink_open_fd(&rtnl, fd);
-        if (r < 0) {
-                safe_close(fd);
-                return log_error_errno(r, "Failed to create rtnl object: %m");
-        }
-
-        r = sd_netlink_add_match(rtnl, RTM_NEWADDR, on_address_change, exposed);
-        if (r < 0)
-                return log_error_errno(r, "Failed to subscribe to RTM_NEWADDR messages: %m");
-
-        r = sd_netlink_add_match(rtnl, RTM_DELADDR, on_address_change, exposed);
-        if (r < 0)
-                return log_error_errno(r, "Failed to subscribe to RTM_DELADDR messages: %m");
-
-        r = sd_netlink_attach_event(rtnl, event, 0);
-        if (r < 0)
-                return log_error_errno(r, "Failed to add to even loop: %m");
-
-        *ret = rtnl;
-        rtnl = NULL;
-
+        expose_port_execute(rtnl, arg_expose_ports, exposed);
         return 0;
 }
 
@@ -3642,10 +3396,12 @@ static int inner_child(
         if (arg_private_network)
                 loopback_setup();
 
-        r = send_rtnl(rtnl_socket);
-        if (r < 0)
-                return r;
-        rtnl_socket = safe_close(rtnl_socket);
+        if (arg_expose_ports) {
+                r = expose_port_send_rtnl(rtnl_socket);
+                if (r < 0)
+                        return r;
+                rtnl_socket = safe_close(rtnl_socket);
+        }
 
         if (drop_capabilities() < 0)
                 return log_error_errno(errno, "drop_capabilities() failed: %m");
@@ -4759,11 +4515,11 @@ int main(int argc, char *argv[]) {
                 sd_event_add_signal(event, NULL, SIGCHLD, NULL, NULL);
 
                 if (arg_expose_ports) {
-                        r = watch_rtnl(event, rtnl_socket_pair[0], &exposed, &rtnl);
+                        r = expose_port_watch_rtnl(event, rtnl_socket_pair[0], on_address_change, &exposed, &rtnl);
                         if (r < 0)
                                 goto finish;
 
-                        (void) expose_ports(rtnl, &exposed);
+                        (void) expose_port_execute(rtnl, arg_expose_ports, &exposed);
                 }
 
                 rtnl_socket_pair[0] = safe_close(rtnl_socket_pair[0]);
@@ -4826,7 +4582,7 @@ int main(int argc, char *argv[]) {
                         break;
                 }
 
-                flush_ports(&exposed);
+                expose_port_flush(arg_expose_ports, &exposed);
         }
 
 finish:
@@ -4858,7 +4614,7 @@ finish:
                 (void) rm_rf(p, REMOVE_ROOT);
         }
 
-        flush_ports(&exposed);
+        expose_port_flush(arg_expose_ports, &exposed);
 
         free(arg_directory);
         free(arg_template);

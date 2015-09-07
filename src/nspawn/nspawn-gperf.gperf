@@ -3,6 +3,7 @@
 #include "conf-parser.h"
 #include "nspawn.h"
 #include "nspawn-settings.h"
+#include "nspawn-expose-ports.h"
 %}
 struct ConfigPerfItem;
 %null_strings
