@@ -109,12 +109,14 @@ CHANGES WITH 226:
           an alternative to configuring container parameters via the
           nspawn command line.
 
-        Contributions from: Cristian Rodríguez, Daniel Mack, David Herrmann,
-        Eugene Yakubovich, Evgeny Vereshchagin, Filipe Brandenburger, Jan
-        Alexander Steffens (heftig), Jan Synacek, Kay Sievers, Lennart
-        Poettering, Mangix, Marcel Holtmann, Martin Pitt, Michal Sekletar, Peter
-        Hutterer, Piotr Drąg, reverendhomer, Robin Hack, Susant Sahani, Sylvain
-        Pasche, Thomas Hindoe Paaboel Andersen, Tom Gundersen
+        Contributions from: Cristian Rodríguez, Daniel Mack, David
+        Herrmann, Eugene Yakubovich, Evgeny Vereshchagin, Filipe
+        Brandenburger, Hans de Goede, Jan Alexander Steffens, Jan
+        Synacek, Kay Sievers, Lennart Poettering, Mangix, Marcel
+        Holtmann, Martin Pitt, Michael Biebl, Michael Chapman, Michal
+        Sekletar, Peter Hutterer, Piotr Drąg, reverendhomer, Robin
+        Hack, Susant Sahani, Sylvain Pasche, Thomas Hindoe Paaboel
+        Andersen, Tom Gundersen,
 
         -- Berlin, 2015-09-XX
 
