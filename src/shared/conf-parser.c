@@ -24,7 +24,7 @@
 #include <errno.h>
 #include <stdlib.h>
 
-#include "conf-parser.h"
+#include "sd-messages.h"
 #include "conf-files.h"
 #include "util.h"
 #include "macro.h"
@@ -32,7 +32,8 @@
 #include "log.h"
 #include "utf8.h"
 #include "path-util.h"
-#include "sd-messages.h"
+#include "signal-util.h"
+#include "conf-parser.h"
 
 int config_item_table_lookup(
                 const void *table,
@@ -575,6 +576,39 @@ int config_parse_bool(const char* unit,
         return 0;
 }
 
+int config_parse_tristate(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        int k, *t = data;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        /* A tristate is pretty much a boolean, except that it can
+         * also take the special value -1, indicating "uninitialized",
+         * much like NULL is for a pointer type. */
+
+        k = parse_boolean(rvalue);
+        if (k < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, k, "Failed to parse boolean value, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        *t = !!k;
+        return 0;
+}
+
 int config_parse_string(
                 const char *unit,
                 const char *filename,
@@ -800,5 +834,63 @@ int config_parse_log_level(
         }
 
         *o = (*o & LOG_FACMASK) | x;
+        return 0;
+}
+
+int config_parse_signal(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        int *sig = data, r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(sig);
+
+        r = signal_from_string_try_harder(rvalue);
+        if (r <= 0) {
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL, "Failed to parse signal name, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        *sig = r;
+        return 0;
+}
+
+int config_parse_personality(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        unsigned long *personality = data, p;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(personality);
+
+        p = personality_from_string(rvalue);
+        if (p == PERSONALITY_INVALID) {
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL, "Failed to parse personality, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        *personality = p;
         return 0;
 }

@@ -155,6 +155,7 @@ noinst_PROGRAMS =
 TESTS =
 endif
 udevlibexec_PROGRAMS =
+gperf_gperf_sources =
 
 in_files = $(filter %.in,$(EXTRA_DIST))
 in_in_files = $(filter %.in.in, $(in_files))
@@ -220,6 +221,7 @@ AM_CPPFLAGS = \
 	-I $(top_builddir)/src/journal \
 	-I $(top_srcdir)/src/timedate \
 	-I $(top_srcdir)/src/timesync \
+	-I $(top_srcdir)/src/nspawn \
 	-I $(top_srcdir)/src/resolve \
 	-I $(top_builddir)/src/resolve \
 	-I $(top_srcdir)/src/systemd \
@@ -2776,10 +2778,19 @@ systemd_cgtop_LDADD = \
 # ------------------------------------------------------------------------------
 systemd_nspawn_SOURCES = \
 	src/nspawn/nspawn.c \
+	src/nspawn/nspawn.h \
+	src/nspawn/nspawn-settings.c \
+	src/nspawn/nspawn-settings.h \
 	src/core/mount-setup.c \
 	src/core/mount-setup.h \
 	src/core/loopback-setup.c \
 	src/core/loopback-setup.h
+
+nodist_systemd_nspawn_SOURCES = \
+	src/nspawn/nspawn-gperf.c
+
+gperf_gperf_sources += \
+	src/nspawn/nspawn-gperf.gperf
 
 systemd_nspawn_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -3486,7 +3497,7 @@ nodist_libudev_core_la_SOURCES = \
 	src/udev/keyboard-keys-to-name.h \
 	src/udev/net/link-config-gperf.c
 
-gperf_gperf_sources = \
+gperf_gperf_sources += \
 	src/udev/net/link-config-gperf.gperf
 
 libudev_core_la_CFLAGS = \
