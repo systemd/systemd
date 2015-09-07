@@ -103,6 +103,12 @@ CHANGES WITH 226:
           powerful PolicyKit policies, that make decisions depending
           on these parameters.
 
+        * nspawn learnt support for .nspawn settings files, that may
+          accompany the image files or directories of containers, and
+          may contain additional settings for the container. This is
+          an alternative to configuring container parameters via the
+          nspawn command line.
+
         Contributions from: Cristian Rodríguez, Daniel Mack, David Herrmann,
         Eugene Yakubovich, Evgeny Vereshchagin, Filipe Brandenburger, Jan
         Alexander Steffens (heftig), Jan Synacek, Kay Sievers, Lennart
