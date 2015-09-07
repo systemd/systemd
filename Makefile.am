@@ -2783,6 +2783,8 @@ systemd_nspawn_SOURCES = \
 	src/nspawn/nspawn-settings.h \
 	src/nspawn/nspawn-mount.c \
 	src/nspawn/nspawn-mount.h \
+	src/nspawn/nspawn-network.c \
+	src/nspawn/nspawn-network.h \
 	src/nspawn/nspawn-expose-ports.c \
 	src/nspawn/nspawn-expose-ports.h \
 	src/core/mount-setup.c \
