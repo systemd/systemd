@@ -2727,12 +2727,14 @@ static int outer_child(
         if (r < 0)
                 return r;
 
-        if (copy_devnodes(directory) < 0)
+        r = copy_devnodes(directory);
+        if (r < 0)
                 return r;
 
         dev_setup(directory, arg_uid_shift, arg_uid_shift);
 
-        if (setup_pts(directory) < 0)
+        r = setup_pts(directory);
+        if (r < 0)
                 return r;
 
         r = setup_propagate(directory);
