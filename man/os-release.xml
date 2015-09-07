@@ -214,10 +214,11 @@
       <varlistentry>
         <term><varname>CPE_NAME=</varname></term>
 
-        <listitem><para>A CPE name for the operating system, following
-        the <ulink url="https://cpe.mitre.org/specification/">Common
+        <listitem><para>A CPE name for the operating system, in URI
+        binding syntax, following the
+        <ulink url="http://scap.nist.gov/specifications/cpe/">Common
         Platform Enumeration Specification</ulink> as proposed by the
-        MITRE Corporation. This field is optional. Example:
+        NIST. This field is optional. Example:
         <literal>CPE_NAME="cpe:/o:fedoraproject:fedora:17"</literal>
         </para></listitem>
       </varlistentry>
