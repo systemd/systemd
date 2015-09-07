@@ -303,6 +303,33 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>PassEnvironment=</varname></term>
+
+        <listitem><para>Pass environment variables from the systemd system
+        manager to executed processes. Takes a space-separated list of variable
+        names. This option may be specified more than once, in which case all
+        listed variables will be set. If the empty string is assigned to this
+        option, the list of environment variables is reset, all prior
+        assignments have no effect. Variables that are not set in the system
+        manager will not be passed and will be silently ignored.</para>
+
+        <para>Variables passed from this setting are overridden by those passed
+        from <varname>Environment=</varname> or
+        <varname>EnvironmentFile=</varname>.</para>
+
+        <para>Example:
+        <programlisting>PassEnvironment=VAR1 VAR2 VAR3</programlisting>
+        passes three variables <literal>VAR1</literal>,
+        <literal>VAR2</literal>, <literal>VAR3</literal>
+        with the values set for those variables in PID1.</para>
+
+        <para>
+        See
+        <citerefentry project='man-pages'><refentrytitle>environ</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        for details about environment variables.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>StandardInput=</varname></term>
         <listitem><para>Controls where file descriptor 0 (STDIN) of
         the executed processes is connected to. Takes one of
