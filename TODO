@@ -26,8 +26,6 @@ External:
 
 Features:
 
-* sd-event: somehow handle multiple queued incoming signals
-
 * sd-event: maybe add support for inotify events
 
 * PID 1 should send out sd_notify("WATCHDOG=1") messages (for usage in the --user mode, and when run via nspawn)
@@ -204,8 +202,6 @@ Features:
 * "machinectl status" should also show internal logs of the container in question
 
 * "machinectl list-images" should show os-release data, as well as machine-info data (including deployment level)
-
-* nspawn: when start a container "foobar" look for its configuration in a file "foobar.nspawn" in /etc/systemd/nspawn/ as well as next to the actualy directory or image to boot
 
 * Port various tools to make use of verbs.[ch], where applicable
 
