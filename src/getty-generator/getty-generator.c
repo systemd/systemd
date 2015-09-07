@@ -142,7 +142,7 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        if (detect_container(NULL) > 0) {
+        if (detect_container() > 0) {
                 _cleanup_free_ char *container_ttys = NULL;
 
                 log_debug("Automatically adding console shell.");

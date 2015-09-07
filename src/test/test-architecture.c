@@ -25,18 +25,18 @@
 #include "log.h"
 
 int main(int argc, char *argv[]) {
-        const char *id = NULL;
         int a, v;
 
-        v = detect_virtualization(&id);
+        v = detect_virtualization();
         if (v == -EPERM || v == -EACCES)
                 return EXIT_TEST_SKIP;
 
         assert_se(v >= 0);
 
         log_info("virtualization=%s id=%s",
-                 v == VIRTUALIZATION_CONTAINER ? "container" : v == VIRTUALIZATION_VM ? "vm" : "n/a",
-                 strna(id));
+                 VIRTUALIZATION_IS_CONTAINER(v) ? "container" :
+                 VIRTUALIZATION_IS_VM(v)        ? "vm" : "n/a",
+                 virtualization_to_string(v));
 
         a = uname_architecture();
         assert_se(a >= 0);

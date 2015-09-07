@@ -4817,7 +4817,7 @@ int shall_restore_state(void) {
 int proc_cmdline(char **ret) {
         assert(ret);
 
-        if (detect_container(NULL) > 0)
+        if (detect_container() > 0)
                 return get_process_cmdline(1, 0, false, ret);
         else
                 return read_one_line_file("/proc/cmdline", ret);

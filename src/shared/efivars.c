@@ -101,7 +101,7 @@ int efi_reboot_to_firmware_supported(void) {
         uint64_t b;
         _cleanup_free_ void *v = NULL;
 
-        if (!is_efi_boot() || detect_container(NULL) > 0)
+        if (!is_efi_boot() || detect_container() > 0)
                 return -EOPNOTSUPP;
 
         r = efi_get_variable(EFI_VENDOR_GLOBAL, "OsIndicationsSupported", NULL, &v, &s);

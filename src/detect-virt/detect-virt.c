@@ -108,9 +108,7 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
-        const char *id = NULL;
-        int retval = EXIT_SUCCESS;
-        int r;
+        int retval = EXIT_SUCCESS, r;
 
         /* This is mostly intended to be used for scripts which want
          * to detect whether we are being run in a virtualized
@@ -125,42 +123,39 @@ int main(int argc, char *argv[]) {
 
         switch (arg_mode) {
 
-        case ANY_VIRTUALIZATION: {
-                int v;
-
-                v = detect_virtualization(&id);
-                if (v < 0) {
-                        log_error_errno(v, "Failed to check for virtualization: %m");
-                        return EXIT_FAILURE;
-                }
-
-                retval = v != VIRTUALIZATION_NONE ? EXIT_SUCCESS : EXIT_FAILURE;
-                break;
-        }
-
-        case ONLY_CONTAINER:
-                r = detect_container(&id);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to check for container: %m");
-                        return EXIT_FAILURE;
-                }
-
-                retval = r > 0 ? EXIT_SUCCESS : EXIT_FAILURE;
-                break;
-
         case ONLY_VM:
-                r = detect_vm(&id);
+                r = detect_vm();
                 if (r < 0) {
                         log_error_errno(r, "Failed to check for vm: %m");
                         return EXIT_FAILURE;
                 }
 
-                retval = r > 0 ? EXIT_SUCCESS : EXIT_FAILURE;
+                break;
+
+        case ONLY_CONTAINER:
+                r = detect_container();
+                if (r < 0) {
+                        log_error_errno(r, "Failed to check for container: %m");
+                        return EXIT_FAILURE;
+                }
+
+                break;
+
+        case ANY_VIRTUALIZATION:
+        default:
+                r = detect_virtualization();
+                if (r < 0) {
+                        log_error_errno(r, "Failed to check for virtualization: %m");
+                        return EXIT_FAILURE;
+                }
+
                 break;
         }
 
         if (!arg_quiet)
-                puts(id ? id : "none");
+                puts(virtualization_to_string(r));
+
+        retval = r != VIRTUALIZATION_NONE ? EXIT_SUCCESS : EXIT_FAILURE;
 
         return retval;
 }

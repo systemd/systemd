@@ -125,13 +125,12 @@ static int condition_test_kernel_command_line(Condition *c) {
 
 static int condition_test_virtualization(Condition *c) {
         int b, v;
-        const char *id;
 
         assert(c);
         assert(c->parameter);
         assert(c->type == CONDITION_VIRTUALIZATION);
 
-        v = detect_virtualization(&id);
+        v = detect_virtualization();
         if (v < 0)
                 return v;
 
@@ -145,14 +144,14 @@ static int condition_test_virtualization(Condition *c) {
                 return true;
 
         /* Then, compare categorization */
-        if (v == VIRTUALIZATION_VM && streq(c->parameter, "vm"))
+        if (VIRTUALIZATION_IS_VM(v) && streq(c->parameter, "vm"))
                 return true;
 
-        if (v == VIRTUALIZATION_CONTAINER && streq(c->parameter, "container"))
+        if (VIRTUALIZATION_IS_CONTAINER(v) && streq(c->parameter, "container"))
                 return true;
 
         /* Finally compare id */
-        return v > 0 && streq(c->parameter, id);
+        return v != VIRTUALIZATION_NONE && streq(c->parameter, virtualization_to_string(v));
 }
 
 static int condition_test_architecture(Condition *c) {

@@ -65,7 +65,7 @@ static int add_swap(
                 return 0;
         }
 
-        if (detect_container(NULL) > 0) {
+        if (detect_container() > 0) {
                 log_info("Running in a container, ignoring fstab swap entry for %s.", what);
                 return 0;
         }

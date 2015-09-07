@@ -202,7 +202,7 @@ int main(int argc, char *argv[]) {
         log_info("Sending SIGKILL to remaining processes...");
         broadcast_signal(SIGKILL, true, false);
 
-        in_container = detect_container(NULL) > 0;
+        in_container = detect_container() > 0;
 
         need_umount = !in_container;
         need_swapoff = !in_container;

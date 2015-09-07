@@ -3505,7 +3505,7 @@ int unit_kill_context(
                          * them.*/
 
                         if  (cg_unified() > 0 ||
-                             (detect_container(NULL) == 0 && !unit_cgroup_delegate(u)))
+                             (detect_container() == 0 && !unit_cgroup_delegate(u)))
                                 wait_for_exit = true;
 
                         if (c->send_sighup && k != KILL_KILL) {

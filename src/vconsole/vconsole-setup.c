@@ -293,7 +293,7 @@ int main(int argc, char **argv) {
                 log_warning_errno(r, "Failed to read /etc/vconsole.conf: %m");
 
         /* Let the kernel command line override /etc/vconsole.conf */
-        if (detect_container(NULL) <= 0) {
+        if (detect_container() <= 0) {
                 r = parse_env_file("/proc/cmdline", WHITESPACE,
                                    "vconsole.keymap", &vc_keymap,
                                    "vconsole.keymap.toggle", &vc_keymap_toggle,
