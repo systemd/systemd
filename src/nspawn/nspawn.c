@@ -3272,23 +3272,23 @@ int main(int argc, char *argv[]) {
                         goto finish;
                 }
 
-                if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, kmsg_socket_pair) < 0) {
+                if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, kmsg_socket_pair) < 0) {
                         r = log_error_errno(errno, "Failed to create kmsg socket pair: %m");
                         goto finish;
                 }
 
-                if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, rtnl_socket_pair) < 0) {
+                if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, rtnl_socket_pair) < 0) {
                         r = log_error_errno(errno, "Failed to create rtnl socket pair: %m");
                         goto finish;
                 }
 
-                if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, pid_socket_pair) < 0) {
+                if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, pid_socket_pair) < 0) {
                         r = log_error_errno(errno, "Failed to create pid socket pair: %m");
                         goto finish;
                 }
 
                 if (arg_userns)
-                        if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, uid_shift_socket_pair) < 0) {
+                        if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, uid_shift_socket_pair) < 0) {
                                 r = log_error_errno(errno, "Failed to create uid shift socket pair: %m");
                                 goto finish;
                         }
