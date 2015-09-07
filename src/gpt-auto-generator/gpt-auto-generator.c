@@ -666,6 +666,7 @@ static int enumerate_partitions(dev_t devnum) {
         first = udev_enumerate_get_list_entry(e);
         udev_list_entry_foreach(item, first) {
                 _cleanup_udev_device_unref_ struct udev_device *q;
+                unsigned long long flags;
                 const char *stype, *subnode;
                 sd_id128_t type_id;
                 blkid_partition pp;
@@ -705,10 +706,10 @@ static int enumerate_partitions(dev_t devnum) {
                 if (sd_id128_from_string(stype, &type_id) < 0)
                         continue;
 
-                if (sd_id128_equal(type_id, GPT_SWAP)) {
-                        unsigned long long flags;
+                flags = blkid_partition_get_flags(pp);
 
-                        flags = blkid_partition_get_flags(pp);
+                if (sd_id128_equal(type_id, GPT_SWAP)) {
+
                         if (flags & GPT_FLAG_NO_AUTO)
                                 continue;
 
@@ -727,6 +728,10 @@ static int enumerate_partitions(dev_t devnum) {
                         if (boot && nr >= boot_nr)
                                 continue;
 
+                        /* Note that we do not honour the "no-auto"
+                         * flag for the ESP, as it is often unset, to
+                         * hide it from Windows. */
+
                         boot_nr = nr;
 
                         r = free_and_strdup(&boot, subnode);
@@ -734,9 +739,7 @@ static int enumerate_partitions(dev_t devnum) {
                                 return log_oom();
 
                 } else if (sd_id128_equal(type_id, GPT_HOME)) {
-                        unsigned long long flags;
 
-                        flags = blkid_partition_get_flags(pp);
                         if (flags & GPT_FLAG_NO_AUTO)
                                 continue;
 
@@ -752,9 +755,7 @@ static int enumerate_partitions(dev_t devnum) {
                                 return log_oom();
 
                 } else if (sd_id128_equal(type_id, GPT_SRV)) {
-                        unsigned long long flags;
 
-                        flags = blkid_partition_get_flags(pp);
                         if (flags & GPT_FLAG_NO_AUTO)
                                 continue;
 
@@ -799,6 +800,10 @@ static int get_block_device(const char *path, dev_t *dev) {
         assert(path);
         assert(dev);
 
+        /* Get's the block device directly backing a file system. If
+         * the block device is encrypted, returns the device mapper
+         * block device. */
+
         if (lstat(path, &st))
                 return -errno;
 
@@ -814,6 +819,77 @@ static int get_block_device(const char *path, dev_t *dev) {
                 return btrfs_get_block_device(path, dev);
 
         return 0;
+}
+
+static int get_block_device_harder(const char *path, dev_t *dev) {
+        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_free_ char *p = NULL, *t = NULL;
+        struct dirent *de, *found = NULL;
+        const char *q;
+        unsigned maj, min;
+        dev_t dt;
+        int r;
+
+        assert(path);
+        assert(dev);
+
+        /* Gets the backing block device for a file system, and
+         * handles LUKS encrypted file systems, looking for its
+         * immediate parent, if there is one. */
+
+        r = get_block_device(path, &dt);
+        if (r <= 0)
+                return r;
+
+        if (asprintf(&p, "/sys/dev/block/%u:%u/slaves", major(dt), minor(dt)) < 0)
+                return -ENOMEM;
+
+        d = opendir(p);
+        if (!d) {
+                if (errno == ENOENT)
+                        goto fallback;
+
+                return -errno;
+        }
+
+        FOREACH_DIRENT_ALL(de, d, return -errno) {
+
+                if (STR_IN_SET(de->d_name, ".", ".."))
+                        continue;
+
+                if (!IN_SET(de->d_type, DT_LNK, DT_UNKNOWN))
+                        continue;
+
+                if (found) /* Don't try to support multiple backing block devices */
+                        goto fallback;
+
+                found = de;
+                break;
+        }
+
+        if (!found)
+                goto fallback;
+
+        q = strjoina(p, "/", found->d_name, "/dev");
+
+        r = read_one_line_file(q, &t);
+        if (r == -ENOENT)
+                goto fallback;
+        if (r < 0)
+                return r;
+
+        if (sscanf(t, "%u:%u", &maj, &min) != 2)
+                return -EINVAL;
+
+        if (maj == 0)
+                goto fallback;
+
+        *dev = makedev(maj, min);
+        return 1;
+
+fallback:
+        *dev = dt;
+        return 1;
 }
 
 static int parse_proc_cmdline_item(const char *key, const char *value) {
@@ -883,11 +959,11 @@ static int add_mounts(void) {
         dev_t devno;
         int r;
 
-        r = get_block_device("/", &devno);
+        r = get_block_device_harder("/", &devno);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine block device of root file system: %m");
         else if (r == 0) {
-                r = get_block_device("/usr", &devno);
+                r = get_block_device_harder("/usr", &devno);
                 if (r < 0)
                         return log_error_errno(r, "Failed to determine block device of /usr file system: %m");
                 else if (r == 0) {
