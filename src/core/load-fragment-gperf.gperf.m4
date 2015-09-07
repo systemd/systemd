@@ -33,6 +33,7 @@ $1.CPUAffinity,                  config_parse_exec_cpu_affinity,     0,         
 $1.UMask,                        config_parse_mode,                  0,                             offsetof($1, exec_context.umask)
 $1.Environment,                  config_parse_environ,               0,                             offsetof($1, exec_context.environment)
 $1.EnvironmentFile,              config_parse_unit_env_file,         0,                             offsetof($1, exec_context.environment_files)
+$1.PassEnvironment,              config_parse_pass_environ,          0,                             offsetof($1, exec_context.pass_environment)
 $1.StandardInput,                config_parse_input,                 0,                             offsetof($1, exec_context.std_input)
 $1.StandardOutput,               config_parse_output,                0,                             offsetof($1, exec_context.std_output)
 $1.StandardError,                config_parse_output,                0,                             offsetof($1, exec_context.std_error)

@@ -86,7 +86,7 @@ _systemd_run() {
                          TTYPath= SyslogIdentifier= SyslogLevelPrefix= SyslogLevel=
                          SyslogFacility= TimerSlackNSec= OOMScoreAdjust= ReadWriteDirectories=
                          ReadOnlyDirectories= InaccessibleDirectories= EnvironmentFile=
-                         ProtectSystem= ProtectHome= RuntimeDirectory='
+                         ProtectSystem= ProtectHome= RuntimeDirectory= PassEnvironment='
 
             COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
             return 0
