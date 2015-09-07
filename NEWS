@@ -87,8 +87,8 @@ CHANGES WITH 226:
         * systemd-nspawn's --bind= and --bind-ro= options have been
           extended to allow creation of non-recursive bind mounts.
 
-        * libsystemd gained two new calls sd_pid_get_cgroup() an
-          sd_peer_get_cgroup() which returns the control group path of
+        * libsystemd gained two new calls sd_pid_get_cgroup() and
+          sd_peer_get_cgroup() which return the control group path of
           a process or peer of a connected AF_UNIX socket. This
           function call is particularly useful when implementing
           delegated subtrees support in the control group hierarchy.
