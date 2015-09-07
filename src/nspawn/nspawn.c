@@ -3359,6 +3359,7 @@ int main(int argc, char *argv[]) {
                 kmsg_socket_pair[1] = safe_close(kmsg_socket_pair[1]);
                 rtnl_socket_pair[1] = safe_close(rtnl_socket_pair[1]);
                 pid_socket_pair[1] = safe_close(pid_socket_pair[1]);
+                uid_shift_socket_pair[1] = safe_close(uid_shift_socket_pair[1]);
 
                 /* Wait for the outer child. */
                 r = wait_for_terminate_and_warn("namespace helper", pid, NULL);
