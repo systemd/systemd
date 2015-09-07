@@ -794,12 +794,12 @@
         <filename>/etc/systemd/nspawn/</filename> and
         <filename>/run/systemd/nspawn/</filename>. If it is found
         there, its settings are read and used. If it is not found
-        there it is subequently searched in the same directory as the
+        there it is subsequently searched in the same directory as the
         image file or in the immediate parent of the root directory of
         the container. In this case, if the file is found its settings
         will be also read and used, but potentially unsafe settings
         are ignored. Note that in both these cases settings on the
-        command line take precendence over the corresponding settings
+        command line take precedence over the corresponding settings
         from loaded <filename>.nspawn</filename> files, if both are
         specified. Unsafe settings are considered all settings that
         elevate the container's privileges or grant access to
