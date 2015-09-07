@@ -1420,10 +1420,6 @@ int unit_start(Unit *u) {
         if (u->load_state != UNIT_LOADED)
                 return -EINVAL;
 
-        /* Units of types that aren't supported annot be started either */
-        if (!unit_supported(u))
-                return -EOPNOTSUPP;
-
         /* If this is already started, then this will succeed. Note
          * that this will even succeed if this unit is not startable
          * by the user. This is relied on to detect when we need to
@@ -1448,6 +1444,15 @@ int unit_start(Unit *u) {
                 log_unit_notice(u, "Starting requested but asserts failed.");
                 return -EPROTO;
         }
+
+        /* Units of types that aren't supported cannot be
+         * started. Note that we do this test only after the condition
+         * checks, so that we rather return condition check errors
+         * (which are usually not considered a true failure) than "not
+         * supported" errors (which are considered a failure).
+         */
+        if (!unit_supported(u))
+                return -EOPNOTSUPP;
 
         /* Forward to the main object, if we aren't it. */
         following = unit_following(u);
