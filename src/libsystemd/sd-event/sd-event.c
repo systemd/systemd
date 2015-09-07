@@ -1708,7 +1708,7 @@ _public_ int sd_event_source_set_enabled(sd_event_source *s, int m) {
 
                         s->enabled = m;
 
-                        r = event_make_signal_data(s->event, s->signal.sig, NULL);
+                        r = event_make_signal_data(s->event, SIGCHLD, NULL);
                         if (r < 0) {
                                 s->enabled = SD_EVENT_OFF;
                                 s->event->n_enabled_child_sources--;
