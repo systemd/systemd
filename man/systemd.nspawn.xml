@@ -103,7 +103,7 @@
     <filename>/etc/systemd/nspawn/</filename> and
     <filename>/run/systemd/nspawn/</filename>. If found in these
     directories its settings are read and all of them take full effect
-    (but are possibly overriden by corresponding command line
+    (but are possibly overridden by corresponding command line
     arguments). If not found the file will then be searched next to
     the image file or in the immediate parent of the root directory of
     the container. If the file is found there only a subset of the
@@ -195,7 +195,7 @@
         <citerefentry><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
         for details). The <varname>Capability=</varname> setting
         specifies additional capabilities to pass on top of the
-        default set of capabilites. The
+        default set of capabilities. The
         <varname>DropCapability=</varname> setting specifies
         capabilities to drop from the default set. These settings
         correspond to the <option>--capability=</option> and
@@ -280,7 +280,7 @@
 
         <listitem><para>Adds a <literal>tmpfs</literal> mount to the
         container. Takes a path or a pair of path and option string,
-        separated by a colon. This option may be used mutiple times to
+        separated by a colon. This option may be used multiple times to
         configure multiple <literal>tmpfs</literal> mounts. This
         option is equivalent to the command line switch
         <option>--tmpfs=</option>, see
