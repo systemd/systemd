@@ -19,82 +19,70 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <signal.h>
-#include <sched.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/mount.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdio.h>
-#include <errno.h>
-#include <sys/prctl.h>
-#include <getopt.h>
-#include <grp.h>
-#include <linux/fs.h>
-#include <sys/socket.h>
-#include <linux/netlink.h>
-#include <sys/personality.h>
-#include <linux/loop.h>
-#include <sys/file.h>
-
-#ifdef HAVE_SELINUX
-#include <selinux/selinux.h>
-#endif
-
-#ifdef HAVE_SECCOMP
-#include <seccomp.h>
-#endif
-
 #ifdef HAVE_BLKID
 #include <blkid/blkid.h>
 #endif
+#include <errno.h>
+#include <getopt.h>
+#include <linux/loop.h>
+#include <sched.h>
+#ifdef HAVE_SECCOMP
+#include <seccomp.h>
+#endif
+#ifdef HAVE_SELINUX
+#include <selinux/selinux.h>
+#endif
+#include <signal.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/file.h>
+#include <sys/mount.h>
+#include <sys/personality.h>
+#include <sys/prctl.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #include "sd-daemon.h"
-#include "sd-bus.h"
 #include "sd-id128.h"
-#include "random-util.h"
+
+#include "barrier.h"
+#include "base-filesystem.h"
+#include "blkid-util.h"
+#include "btrfs-util.h"
+#include "build.h"
+#include "cap-list.h"
+#include "capability.h"
+#include "cgroup-util.h"
+#include "copy.h"
+#include "dev-setup.h"
+#include "env-util.h"
+#include "event-util.h"
+#include "fdset.h"
+#include "fileio.h"
+#include "formats-util.h"
+#include "gpt.h"
+#include "hostname-util.h"
 #include "log.h"
-#include "util.h"
-#include "mkdir.h"
-#include "rm-rf.h"
+#include "loopback-setup.h"
+#include "machine-image.h"
 #include "macro.h"
 #include "missing.h"
-#include "cgroup-util.h"
-#include "strv.h"
-#include "path-util.h"
-#include "loopback-setup.h"
-#include "dev-setup.h"
-#include "fdset.h"
-#include "build.h"
-#include "fileio.h"
-#include "bus-util.h"
-#include "bus-error.h"
-#include "ptyfwd.h"
-#include "env-util.h"
+#include "mkdir.h"
 #include "netlink-util.h"
-#include "udev-util.h"
-#include "blkid-util.h"
-#include "gpt.h"
-#include "copy.h"
-#include "base-filesystem.h"
-#include "barrier.h"
-#include "event-util.h"
-#include "capability.h"
-#include "cap-list.h"
-#include "btrfs-util.h"
-#include "machine-image.h"
-#include "list.h"
-#include "in-addr-util.h"
-#include "formats-util.h"
+#include "path-util.h"
 #include "process-util.h"
-#include "terminal-util.h"
-#include "hostname-util.h"
-#include "signal-util.h"
-
+#include "ptyfwd.h"
+#include "random-util.h"
+#include "rm-rf.h"
 #ifdef HAVE_SECCOMP
 #include "seccomp-util.h"
 #endif
+#include "signal-util.h"
+#include "strv.h"
+#include "terminal-util.h"
+#include "udev-util.h"
+#include "util.h"
 
 #include "nspawn-settings.h"
 #include "nspawn-mount.h"
