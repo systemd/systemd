@@ -101,6 +101,7 @@
 #include "nspawn-mount.h"
 #include "nspawn-network.h"
 #include "nspawn-expose-ports.h"
+#include "nspawn-cgroup.h"
 
 typedef enum ContainerStatus {
         CONTAINER_TERMINATED,
@@ -3292,141 +3293,6 @@ static int setup_uid_map(pid_t pid) {
         return 0;
 }
 
-static int chown_cgroup(pid_t pid) {
-        _cleanup_free_ char *path = NULL, *fs = NULL;
-        _cleanup_close_ int fd = -1;
-        const char *fn;
-        int r;
-
-        r = cg_pid_get_path(NULL, pid, &path);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get container cgroup path: %m");
-
-        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, path, NULL, &fs);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get file system path for container cgroup: %m");
-
-        fd = open(fs, O_RDONLY|O_CLOEXEC|O_DIRECTORY);
-        if (fd < 0)
-                return log_error_errno(errno, "Failed to open %s: %m", fs);
-
-        FOREACH_STRING(fn,
-                       ".",
-                       "tasks",
-                       "notify_on_release",
-                       "cgroup.procs",
-                       "cgroup.clone_children",
-                       "cgroup.controllers",
-                       "cgroup.subtree_control",
-                       "cgroup.populated")
-                if (fchownat(fd, fn, arg_uid_shift, arg_uid_shift, 0) < 0)
-                        log_full_errno(errno == ENOENT ? LOG_DEBUG :  LOG_WARNING, errno,
-                                       "Failed to chown() cgroup file %s, ignoring: %m", fn);
-
-        return 0;
-}
-
-static int sync_cgroup(pid_t pid) {
-        _cleanup_free_ char *cgroup = NULL;
-        char tree[] = "/tmp/unifiedXXXXXX", pid_string[DECIMAL_STR_MAX(pid) + 1];
-        bool undo_mount = false;
-        const char *fn;
-        int unified, r;
-
-        unified = cg_unified();
-        if (unified < 0)
-                return log_error_errno(unified, "Failed to determine whether the unified hierachy is used: %m");
-
-        if ((unified > 0) == arg_unified_cgroup_hierarchy)
-                return 0;
-
-        /* When the host uses the legacy cgroup setup, but the
-         * container shall use the unified hierarchy, let's make sure
-         * we copy the path from the name=systemd hierarchy into the
-         * unified hierarchy. Similar for the reverse situation. */
-
-        r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, pid, &cgroup);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get control group of " PID_FMT ": %m", pid);
-
-        /* In order to access the unified hierarchy we need to mount it */
-        if (!mkdtemp(tree))
-                return log_error_errno(errno, "Failed to generate temporary mount point for unified hierarchy: %m");
-
-        if (unified)
-                r = mount("cgroup", tree, "cgroup", MS_NOSUID|MS_NOEXEC|MS_NODEV, "none,name=systemd,xattr");
-        else
-                r = mount("cgroup", tree, "cgroup", MS_NOSUID|MS_NOEXEC|MS_NODEV, "__DEVEL__sane_behavior");
-        if (r < 0) {
-                r = log_error_errno(errno, "Failed to mount unified hierarchy: %m");
-                goto finish;
-        }
-
-        undo_mount = true;
-
-        fn = strjoina(tree, cgroup, "/cgroup.procs");
-        (void) mkdir_parents(fn, 0755);
-
-        sprintf(pid_string, PID_FMT, pid);
-        r = write_string_file(fn, pid_string, 0);
-        if (r < 0)
-                log_error_errno(r, "Failed to move process: %m");
-
-finish:
-        if (undo_mount)
-                (void) umount(tree);
-
-        (void) rmdir(tree);
-        return r;
-}
-
-static int create_subcgroup(pid_t pid) {
-        _cleanup_free_ char *cgroup = NULL;
-        const char *child;
-        int unified, r;
-        CGroupMask supported;
-
-        /* In the unified hierarchy inner nodes may only only contain
-         * subgroups, but not processes. Hence, if we running in the
-         * unified hierarchy and the container does the same, and we
-         * did not create a scope unit for the container move us and
-         * the container into two separate subcgroups. */
-
-        if (!arg_keep_unit)
-                return 0;
-
-        if (!arg_unified_cgroup_hierarchy)
-                return 0;
-
-        unified = cg_unified();
-        if (unified < 0)
-                return log_error_errno(unified, "Failed to determine whether the unified hierachy is used: %m");
-        if (unified == 0)
-                return 0;
-
-        r = cg_mask_supported(&supported);
-        if (r < 0)
-                return log_error_errno(r, "Failed to determine supported controllers: %m");
-
-        r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, 0, &cgroup);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get our control group: %m");
-
-        child = strjoina(cgroup, "/payload");
-        r = cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, child, pid);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create %s subcgroup: %m", child);
-
-        child = strjoina(cgroup, "/supervisor");
-        r = cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, child, 0);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create %s subcgroup: %m", child);
-
-        /* Try to enable as many controllers as possible for the new payload. */
-        (void) cg_enable_everywhere(supported, supported, cgroup);
-        return 0;
-}
-
 static int load_settings(void) {
         _cleanup_(settings_freep) Settings *settings = NULL;
         _cleanup_fclose_ FILE *f = NULL;
@@ -4042,15 +3908,17 @@ int main(int argc, char *argv[]) {
                 if (r < 0)
                         goto finish;
 
-                r = sync_cgroup(pid);
+                r = sync_cgroup(pid, arg_unified_cgroup_hierarchy);
                 if (r < 0)
                         goto finish;
 
-                r = create_subcgroup(pid);
-                if (r < 0)
-                        goto finish;
+                if (arg_keep_unit) {
+                        r = create_subcgroup(pid, arg_unified_cgroup_hierarchy);
+                        if (r < 0)
+                                goto finish;
+                }
 
-                r = chown_cgroup(pid);
+                r = chown_cgroup(pid, arg_uid_shift);
                 if (r < 0)
                         goto finish;
 
