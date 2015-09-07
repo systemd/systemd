@@ -2196,6 +2196,70 @@ int config_parse_environ(const char *unit,
         return 0;
 }
 
+int config_parse_pass_environ(const char *unit,
+                              const char *filename,
+                              unsigned line,
+                              const char *section,
+                              unsigned section_line,
+                              const char *lvalue,
+                              int ltype,
+                              const char *rvalue,
+                              void *data,
+                              void *userdata) {
+
+        const char *whole_rvalue = rvalue;
+        char*** passenv = data;
+        _cleanup_strv_free_ char **n = NULL;
+        size_t nlen = 0, nbufsize = 0;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                /* Empty assignment resets the list */
+                *passenv = strv_free(*passenv);
+                return 0;
+        }
+
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
+
+                r = extract_first_word(&rvalue, &word, WHITESPACE, EXTRACT_QUOTES);
+                if (r == 0)
+                        break;
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Trailing garbage in %s, ignoring: %s", lvalue, whole_rvalue);
+                        break;
+                }
+
+                if (!env_name_is_valid(word)) {
+                        log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                                   "Invalid environment name for %s, ignoring: %s", lvalue, word);
+                        continue;
+                }
+
+                if (!GREEDY_REALLOC(n, nbufsize, nlen + 2))
+                        return log_oom();
+                n[nlen++] = word;
+                n[nlen] = NULL;
+                word = NULL;
+        }
+
+        if (n) {
+                r = strv_extend_strv(passenv, n, true);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 int config_parse_ip_tos(const char *unit,
                         const char *filename,
                         unsigned line,
