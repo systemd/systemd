@@ -2781,6 +2781,8 @@ systemd_nspawn_SOURCES = \
 	src/nspawn/nspawn.h \
 	src/nspawn/nspawn-settings.c \
 	src/nspawn/nspawn-settings.h \
+	src/nspawn/nspawn-mount.c \
+	src/nspawn/nspawn-mount.h \
 	src/core/mount-setup.c \
 	src/core/mount-setup.h \
 	src/core/loopback-setup.c \
