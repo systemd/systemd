@@ -6233,6 +6233,13 @@ tests += \
 cppcheck:
 	cppcheck --enable=all -q $(top_srcdir)
 
+# For git-version-gen:
+EXTRA_DIST += \
+	tools/git-version-gen
+
+dist-hook:
+	echo $(VERSION) >$(distdir)/.tarball-version
+
 # Used to extract compile flags for YCM.
 print-%:
 	@echo $($*)
