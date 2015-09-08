@@ -241,7 +241,7 @@ static int manager_connect_udev(Manager *m) {
         /* udev does not initialize devices inside containers,
          * so we rely on them being already initialized before
          * entering the container */
-        if (detect_container(NULL) > 0)
+        if (detect_container() > 0)
                 return 0;
 
         m->udev = udev_new();

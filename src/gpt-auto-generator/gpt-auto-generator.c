@@ -460,7 +460,7 @@ static int add_boot(const char *what) {
                 return 0;
         }
 
-        if (detect_container(NULL) > 0) {
+        if (detect_container() > 0) {
                 log_debug("In a container, ignoring /boot.");
                 return 0;
         }
@@ -992,7 +992,7 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        if (detect_container(NULL) > 0) {
+        if (detect_container() > 0) {
                 log_debug("In a container, exiting.");
                 return EXIT_SUCCESS;
         }

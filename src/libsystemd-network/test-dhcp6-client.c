@@ -357,18 +357,6 @@ static int test_hangcheck(sd_event_source *s, uint64_t usec, void *userdata) {
         return 0;
 }
 
-int detect_vm(const char **id) {
-        return 1;
-}
-
-int detect_container(const char **id) {
-        return 1;
-}
-
-int detect_virtualization(const char **id) {
-        return 1;
-}
-
 static void test_client_solicit_cb(sd_dhcp6_client *client, int event,
                                    void *userdata) {
         sd_event *e = userdata;

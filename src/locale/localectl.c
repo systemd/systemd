@@ -96,7 +96,7 @@ static void print_overridden_variables(void) {
         LocaleVariable j;
         bool print_warning = true;
 
-        if (detect_container(NULL) > 0 || arg_host)
+        if (detect_container() > 0 || arg_host)
                 return;
 
         r = parse_env_file("/proc/cmdline", WHITESPACE,

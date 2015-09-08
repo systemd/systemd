@@ -554,7 +554,7 @@ int manager_new(ManagerRunningAs running_as, bool test_run, Manager **_m) {
                 return -ENOMEM;
 
 #ifdef ENABLE_EFI
-        if (running_as == MANAGER_SYSTEM && detect_container(NULL) <= 0)
+        if (running_as == MANAGER_SYSTEM && detect_container() <= 0)
                 boot_timestamps(&m->userspace_timestamp, &m->firmware_timestamp, &m->loader_timestamp);
 #endif
 
@@ -2156,7 +2156,7 @@ void manager_send_unit_plymouth(Manager *m, Unit *u) {
         if (m->running_as != MANAGER_SYSTEM)
                 return;
 
-        if (detect_container(NULL) > 0)
+        if (detect_container() > 0)
                 return;
 
         if (u->type != UNIT_SERVICE &&
@@ -2613,7 +2613,7 @@ static void manager_notify_finished(Manager *m) {
         if (m->test_run)
                 return;
 
-        if (m->running_as == MANAGER_SYSTEM && detect_container(NULL) <= 0) {
+        if (m->running_as == MANAGER_SYSTEM && detect_container() <= 0) {
 
                 /* Note that m->kernel_usec.monotonic is always at 0,
                  * and m->firmware_usec.monotonic and

@@ -81,14 +81,10 @@ static int property_get_virtualization(
                 void *userdata,
                 sd_bus_error *error) {
 
-        const char *id = NULL;
-
         assert(bus);
         assert(reply);
 
-        detect_virtualization(&id);
-
-        return sd_bus_message_append(reply, "s", id);
+        return sd_bus_message_append(reply, "s", virtualization_to_string(detect_virtualization()));
 }
 
 static int property_get_architecture(

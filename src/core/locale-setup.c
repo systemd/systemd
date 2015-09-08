@@ -35,7 +35,7 @@ int locale_setup(char ***environment) {
         char *variables[_VARIABLE_LC_MAX] = {};
         int r = 0, i;
 
-        if (detect_container(NULL) <= 0) {
+        if (detect_container() <= 0) {
                 r = parse_env_file("/proc/cmdline", WHITESPACE,
                                    "locale.LANG",              &variables[VARIABLE_LANG],
                                    "locale.LANGUAGE",          &variables[VARIABLE_LANGUAGE],

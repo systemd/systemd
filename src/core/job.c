@@ -1137,7 +1137,7 @@ void job_shutdown_magic(Job *j) {
         /* In case messages on console has been disabled on boot */
         j->unit->manager->no_console_output = false;
 
-        if (detect_container(NULL) > 0)
+        if (detect_container() > 0)
                 return;
 
         asynchronous_sync();

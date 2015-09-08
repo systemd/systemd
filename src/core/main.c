@@ -374,7 +374,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
                 /* Note that log_parse_environment() handles 'debug'
                  * too, and sets the log level to LOG_DEBUG. */
 
-                if (detect_container(NULL) > 0)
+                if (detect_container() > 0)
                         log_set_target(LOG_TARGET_CONSOLE);
 
         } else if (!in_initrd() && !value) {
@@ -1297,7 +1297,7 @@ int main(int argc, char *argv[]) {
         if (getpid() == 1)
                 umask(0);
 
-        if (getpid() == 1 && detect_container(NULL) <= 0) {
+        if (getpid() == 1 && detect_container() <= 0) {
 
                 /* Running outside of a container as PID 1 */
                 arg_running_as = MANAGER_SYSTEM;
@@ -1551,14 +1551,14 @@ int main(int argc, char *argv[]) {
         }
 
         if (arg_running_as == MANAGER_SYSTEM) {
-                const char *virtualization = NULL;
+                int v;
 
                 log_info(PACKAGE_STRING " running in %ssystem mode. (" SYSTEMD_FEATURES ")",
                          arg_action == ACTION_TEST ? "test " : "" );
 
-                detect_virtualization(&virtualization);
-                if (virtualization)
-                        log_info("Detected virtualization %s.", virtualization);
+                v = detect_virtualization();
+                if (v > 0)
+                        log_info("Detected virtualization %s.", virtualization_to_string(v));
 
                 write_container_id();
 
@@ -2046,7 +2046,7 @@ finish:
                 /* Avoid the creation of new processes forked by the
                  * kernel; at this point, we will not listen to the
                  * signals anyway */
-                if (detect_container(NULL) <= 0)
+                if (detect_container() <= 0)
                         (void) cg_uninstall_release_agent(SYSTEMD_CGROUP_CONTROLLER);
 
                 execve(SYSTEMD_SHUTDOWN_BINARY_PATH, (char **) command_line, env_block);

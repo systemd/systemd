@@ -215,7 +215,7 @@ static int swap_add_default_dependencies(Swap *s) {
         if (UNIT(s)->manager->running_as != MANAGER_SYSTEM)
                 return 0;
 
-        if (detect_container(NULL) > 0)
+        if (detect_container() > 0)
                 return 0;
 
         return unit_add_two_dependencies_by_name(UNIT(s), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, NULL, true);
@@ -824,7 +824,7 @@ static int swap_start(Unit *u) {
 
         assert(s->state == SWAP_DEAD || s->state == SWAP_FAILED);
 
-        if (detect_container(NULL) > 0)
+        if (detect_container() > 0)
                 return -EPERM;
 
         /* If there's a job for another swap unit for the same node
@@ -857,7 +857,7 @@ static int swap_stop(Unit *u) {
                s->state == SWAP_ACTIVATING_DONE ||
                s->state == SWAP_ACTIVE);
 
-        if (detect_container(NULL) > 0)
+        if (detect_container() > 0)
                 return -EPERM;
 
         swap_enter_deactivating(s);
@@ -1404,7 +1404,7 @@ static bool swap_supported(void) {
         if (supported < 0)
                 supported =
                         access("/proc/swaps", F_OK) >= 0 &&
-                        detect_container(NULL) <= 0;
+                        detect_container() <= 0;
 
         return supported;
 }

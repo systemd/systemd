@@ -2152,7 +2152,7 @@ int link_add(Manager *m, sd_netlink_message *message, Link **ret) {
 
         log_link_debug(link, "Link %d added", link->ifindex);
 
-        if (detect_container(NULL) <= 0) {
+        if (detect_container() <= 0) {
                 /* not in a container, udev will be around */
                 sprintf(ifindex_str, "n%d", link->ifindex);
                 device = udev_device_new_from_device_id(m->udev, ifindex_str);

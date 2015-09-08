@@ -155,11 +155,11 @@ static const char* fallback_chassis(void) {
         unsigned t;
         int v;
 
-        v = detect_virtualization(NULL);
+        v = detect_virtualization();
 
-        if (v == VIRTUALIZATION_VM)
+        if (VIRTUALIZATION_IS_VM(v))
                 return "vm";
-        if (v == VIRTUALIZATION_CONTAINER)
+        if (VIRTUALIZATION_IS_CONTAINER(v))
                 return "container";
 
         r = read_one_line_file("/sys/firmware/acpi/pm_profile", &type);

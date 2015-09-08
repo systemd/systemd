@@ -66,7 +66,7 @@ int dhcp_identifier_set_iaid(int ifindex, uint8_t *mac, size_t mac_len, void *_i
         const char *name = NULL;
         uint64_t id;
 
-        if (detect_container(NULL) <= 0) {
+        if (detect_container() <= 0) {
                 /* not in a container, udev will be around */
                 _cleanup_udev_unref_ struct udev *udev;
                 char ifindex_str[2 + DECIMAL_STR_MAX(int)];

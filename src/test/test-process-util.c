@@ -85,7 +85,7 @@ static void test_get_process_comm(void) {
         assert_se(r >= 0 || r == -EACCES);
         log_info("self strlen(environ): '%zu'", strlen(env));
 
-        if (!detect_container(NULL))
+        if (!detect_container())
                 assert_se(get_ctty_devnr(1, &h) == -ENXIO);
 
         getenv_for_pid(1, "PATH", &i);

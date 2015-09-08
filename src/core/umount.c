@@ -368,7 +368,7 @@ static int mount_points_list_umount(MountPoint **head, bool *changed, bool log_e
                    read-only mount anything as that brings no real
                    benefits, but might confuse the host, as we remount
                    the superblock here, not the bind mound. */
-                if (detect_container(NULL) <= 0)  {
+                if (detect_container() <= 0)  {
                         /* We always try to remount directories
                          * read-only first, before we go on and umount
                          * them.
