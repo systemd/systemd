@@ -2211,7 +2211,7 @@ static const char *cgroup_controller_table[_CGROUP_CONTROLLER_MAX] = {
         [CGROUP_CONTROLLER_CPUACCT] = "cpuacct",
         [CGROUP_CONTROLLER_BLKIO] = "blkio",
         [CGROUP_CONTROLLER_MEMORY] = "memory",
-        [CGROUP_CONTROLLER_DEVICE] = "device",
+        [CGROUP_CONTROLLER_DEVICE] = "devices",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(cgroup_controller, CGroupController);
