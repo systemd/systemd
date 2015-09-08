@@ -122,16 +122,12 @@ int udev_ctrl_enable_receiving(struct udev_ctrl *uctrl) {
                 }
 
                 if (err < 0) {
-                        err = -errno;
-                        log_error_errno(errno, "bind failed: %m");
-                        return err;
+                        return log_error_errno(errno, "bind failed: %m");
                 }
 
                 err = listen(uctrl->sock, 0);
                 if (err < 0) {
-                        err = -errno;
-                        log_error_errno(errno, "listen failed: %m");
-                        return err;
+                        return log_error_errno(errno, "listen failed: %m");
                 }
 
                 uctrl->bound = true;

@@ -1428,8 +1428,7 @@ static int setup_keys(void) {
 
         fd = open("/dev/random", O_RDONLY|O_CLOEXEC|O_NOCTTY);
         if (fd < 0) {
-                log_error_errno(errno, "Failed to open /dev/random: %m");
-                r = -errno;
+                r = log_error_errno(errno, "Failed to open /dev/random: %m");
                 goto finish;
         }
 
@@ -1488,8 +1487,7 @@ static int setup_keys(void) {
         }
 
         if (link(k, p) < 0) {
-                log_error_errno(errno, "Failed to link file: %m");
-                r = -errno;
+                r = log_error_errno(errno, "Failed to link file: %m");
                 goto finish;
         }
 

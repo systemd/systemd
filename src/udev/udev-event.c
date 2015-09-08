@@ -731,15 +731,13 @@ int udev_event_spawn(struct udev_event *event,
         /* pipes from child to parent */
         if (result != NULL || log_get_max_level() >= LOG_INFO) {
                 if (pipe2(outpipe, O_NONBLOCK) != 0) {
-                        err = -errno;
-                        log_error_errno(errno, "pipe failed: %m");
+                        err = log_error_errno(errno, "pipe failed: %m");
                         goto out;
                 }
         }
         if (log_get_max_level() >= LOG_INFO) {
                 if (pipe2(errpipe, O_NONBLOCK) != 0) {
-                        err = -errno;
-                        log_error_errno(errno, "pipe failed: %m");
+                        err = log_error_errno(errno, "pipe failed: %m");
                         goto out;
                 }
         }

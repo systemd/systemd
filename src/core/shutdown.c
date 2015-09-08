@@ -404,8 +404,7 @@ int main(int argc, char *argv[]) {
                 exit(0);
         }
 
-        log_error_errno(errno, "Failed to invoke reboot(): %m");
-        r = -errno;
+        r = log_error_errno(errno, "Failed to invoke reboot(): %m");
 
   error:
         log_emergency_errno(r, "Critical error while doing system shutdown: %m");

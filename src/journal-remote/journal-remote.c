@@ -88,8 +88,7 @@ static int spawn_child(const char* child, char** argv) {
 
         child_pid = fork();
         if (child_pid < 0) {
-                r = -errno;
-                log_error_errno(errno, "Failed to fork: %m");
+                r = log_error_errno(errno, "Failed to fork: %m");
                 safe_close_pair(fd);
                 return r;
         }

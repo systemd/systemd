@@ -43,8 +43,8 @@ int main(int argc, char*argv[]) {
                 int r = 0;
 
                 if (unlink("/run/nologin") < 0 && errno != ENOENT) {
-                        log_error_errno(errno, "Failed to remove /run/nologin file: %m");
-                        r = -errno;
+                        r = log_error_errno(errno,
+                                            "Failed to remove /run/nologin file: %m");
                 }
 
                 if (unlink("/etc/nologin") < 0 && errno != ENOENT) {

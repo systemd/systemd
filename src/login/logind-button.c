@@ -248,8 +248,7 @@ int button_open(Button *b) {
                 return log_warning_errno(errno, "Failed to open %s: %m", b->name);
 
         if (ioctl(b->fd, EVIOCGNAME(sizeof(name)), name) < 0) {
-                log_error_errno(errno, "Failed to get input name: %m");
-                r = -errno;
+                r = log_error_errno(errno, "Failed to get input name: %m");
                 goto fail;
         }
 

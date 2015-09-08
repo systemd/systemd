@@ -928,8 +928,7 @@ fail:
                 log_error("PAM failed: %s", pam_strerror(handle, pam_code));
                 err = -EPERM;  /* PAM errors do not map to errno */
         } else {
-                log_error_errno(errno, "PAM failed: %m");
-                err = -errno;
+                err = log_error_errno(errno, "PAM failed: %m");
         }
 
         if (handle) {
