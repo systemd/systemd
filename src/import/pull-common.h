@@ -32,5 +32,7 @@ int pull_find_old_etags(const char *url, const char *root, int dt, const char *p
 
 int pull_make_path(const char *url, const char *etag, const char *image_root, const char *prefix, const char *suffix, char **ret);
 
+int pull_make_settings_job(PullJob **ret, const char *url, CurlGlue *glue, PullJobFinished on_finished, void *userdata);
 int pull_make_verification_jobs(PullJob **ret_checksum_job, PullJob **ret_signature_job, ImportVerify verify, const char *url, CurlGlue *glue, PullJobFinished on_finished, void *userdata);
-int pull_verify(PullJob *main_job, PullJob *checksum_job, PullJob *signature_job);
+
+int pull_verify(PullJob *main_job, PullJob *settings_job, PullJob *checksum_job, PullJob *signature_job);

@@ -57,6 +57,7 @@ struct RawPull {
         char *image_root;
 
         PullJob *raw_job;
+        PullJob *settings_job;
         PullJob *checksum_job;
         PullJob *signature_job;
 
@@ -66,9 +67,13 @@ struct RawPull {
         char *local;
         bool force_local;
         bool grow_machine_directory;
+        bool settings;
 
-        char *temp_path;
         char *final_path;
+        char *temp_path;
+
+        char *settings_path;
+        char *settings_temp_path;
 
         ImportVerify verify;
 };
@@ -78,6 +83,7 @@ RawPull* raw_pull_unref(RawPull *i) {
                 return NULL;
 
         pull_job_unref(i->raw_job);
+        pull_job_unref(i->settings_job);
         pull_job_unref(i->checksum_job);
         pull_job_unref(i->signature_job);
 
@@ -89,7 +95,13 @@ RawPull* raw_pull_unref(RawPull *i) {
                 free(i->temp_path);
         }
 
+        if (i->settings_temp_path) {
+                (void) unlink(i->settings_temp_path);
+                free(i->settings_temp_path);
+        }
+
         free(i->final_path);
+        free(i->settings_path);
         free(i->image_root);
         free(i->local);
         free(i);
@@ -154,6 +166,11 @@ static void raw_pull_report_progress(RawPull *i, RawProgress p) {
                 unsigned remain = 80;
 
                 percent = 0;
+
+                if (i->settings_job) {
+                        percent += i->settings_job->progress_percent * 5 / 100;
+                        remain -= 5;
+                }
 
                 if (i->checksum_job) {
                         percent += i->checksum_job->progress_percent * 5 / 100;
@@ -253,16 +270,16 @@ static int raw_pull_make_local_copy(RawPull *i) {
         if (!i->local)
                 return 0;
 
+        if (!i->final_path) {
+                r = pull_make_path(i->raw_job->url, i->raw_job->etag, i->image_root, ".raw-", ".raw", &i->final_path);
+                if (r < 0)
+                        return log_oom();
+        }
+
         if (i->raw_job->etag_exists) {
                 /* We have downloaded this one previously, reopen it */
 
                 assert(i->raw_job->disk_fd < 0);
-
-                if (!i->final_path) {
-                        r = pull_make_path(i->raw_job->url, i->raw_job->etag, i->image_root, ".raw-", ".raw", &i->final_path);
-                        if (r < 0)
-                                return log_oom();
-                }
 
                 i->raw_job->disk_fd = open(i->final_path, O_RDONLY|O_NOCTTY|O_CLOEXEC);
                 if (i->raw_job->disk_fd < 0)
@@ -315,6 +332,28 @@ static int raw_pull_make_local_copy(RawPull *i) {
         }
 
         log_info("Created new local image '%s'.", i->local);
+
+        if (i->settings) {
+                const char *local_settings;
+                assert(i->settings_job);
+
+                if (!i->settings_path) {
+                        r = pull_make_path(i->settings_job->url, i->settings_job->etag, i->image_root, ".settings-", NULL, &i->settings_path);
+                        if (r < 0)
+                                return log_oom();
+                }
+
+                local_settings = strjoina(i->image_root, "/", i->local, ".nspawn");
+
+                r = copy_file_atomic(i->settings_path, local_settings, 0644, i->force_local, 0);
+                if (r == -EEXIST)
+                        log_warning_errno(r, "Settings file %s already exists, not replacing.", local_settings);
+                else if (r < 0 && r != -ENOENT)
+                        log_warning_errno(r, "Failed to copy settings files %s: %m", local_settings);
+
+                log_info("Create new settings file '%s.nspawn'", i->local);
+        }
+
         return 0;
 }
 
@@ -322,11 +361,13 @@ static bool raw_pull_is_done(RawPull *i) {
         assert(i);
         assert(i->raw_job);
 
-        if (i->raw_job->state != PULL_JOB_DONE)
+        if (!PULL_JOB_IS_COMPLETE(i->raw_job))
                 return false;
-        if (i->checksum_job && i->checksum_job->state != PULL_JOB_DONE)
+        if (i->settings_job && !PULL_JOB_IS_COMPLETE(i->settings_job))
                 return false;
-        if (i->signature_job && i->signature_job->state != PULL_JOB_DONE)
+        if (i->checksum_job && !PULL_JOB_IS_COMPLETE(i->checksum_job))
+                return false;
+        if (i->signature_job && !PULL_JOB_IS_COMPLETE(i->signature_job))
                 return false;
 
         return true;
@@ -340,7 +381,10 @@ static void raw_pull_job_on_finished(PullJob *j) {
         assert(j->userdata);
 
         i = j->userdata;
-        if (j->error != 0) {
+        if (j == i->settings_job) {
+                if (j->error != 0)
+                        log_info_errno(j->error, "Settings file could not be retrieved, proceeding without.");
+        } else if (j->error != 0) {
                 if (j == i->checksum_job)
                         log_error_errno(j->error, "Failed to retrieve SHA256 checksum, cannot verify. (Try --verify=no?)");
                 else if (j == i->signature_job)
@@ -362,13 +406,16 @@ static void raw_pull_job_on_finished(PullJob *j) {
         if (!raw_pull_is_done(i))
                 return;
 
+        if (i->settings_job)
+                i->settings_job->disk_fd = safe_close(i->settings_job->disk_fd);
+
         if (!i->raw_job->etag_exists) {
                 /* This is a new download, verify it, and move it into place */
                 assert(i->raw_job->disk_fd >= 0);
 
                 raw_pull_report_progress(i, RAW_VERIFYING);
 
-                r = pull_verify(i->raw_job, i->checksum_job, i->signature_job);
+                r = pull_verify(i->raw_job, i->settings_job, i->checksum_job, i->signature_job);
                 if (r < 0)
                         goto finish;
 
@@ -390,8 +437,27 @@ static void raw_pull_job_on_finished(PullJob *j) {
                         goto finish;
                 }
 
-                free(i->temp_path);
-                i->temp_path = NULL;
+                i->temp_path = mfree(i->temp_path);
+
+                if (i->settings_job &&
+                    i->settings_job->error == 0 &&
+                    !i->settings_job->etag_exists) {
+
+                        assert(i->settings_temp_path);
+                        assert(i->settings_path);
+
+                        r = import_make_read_only(i->settings_temp_path);
+                        if (r < 0)
+                                goto finish;
+
+                        r = rename_noreplace(AT_FDCWD, i->settings_temp_path, AT_FDCWD, i->settings_path);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to rename settings file: %m");
+                                goto finish;
+                        }
+
+                        i->settings_temp_path = mfree(i->settings_temp_path);
+                }
         }
 
         raw_pull_report_progress(i, RAW_COPYING);
@@ -409,7 +475,7 @@ finish:
                 sd_event_exit(i->event, r);
 }
 
-static int raw_pull_job_on_open_disk(PullJob *j) {
+static int raw_pull_job_on_open_disk_raw(PullJob *j) {
         RawPull *i;
         int r;
 
@@ -442,6 +508,35 @@ static int raw_pull_job_on_open_disk(PullJob *j) {
         return 0;
 }
 
+static int raw_pull_job_on_open_disk_settings(PullJob *j) {
+        RawPull *i;
+        int r;
+
+        assert(j);
+        assert(j->userdata);
+
+        i = j->userdata;
+        assert(i->settings_job == j);
+        assert(!i->settings_path);
+        assert(!i->settings_temp_path);
+
+        r = pull_make_path(j->url, j->etag, i->image_root, ".settings-", NULL, &i->settings_path);
+        if (r < 0)
+                return log_oom();
+
+        r = tempfn_random(i->settings_path, NULL, &i->settings_temp_path);
+        if (r < 0)
+                return log_oom();
+
+        mkdir_parents_label(i->settings_temp_path, 0700);
+
+        j->disk_fd = open(i->settings_temp_path, O_RDWR|O_CREAT|O_EXCL|O_NOCTTY|O_CLOEXEC, 0664);
+        if (j->disk_fd < 0)
+                return log_error_errno(errno, "Failed to create %s: %m", i->settings_temp_path);
+
+        return 0;
+}
+
 static void raw_pull_job_on_progress(PullJob *j) {
         RawPull *i;
 
@@ -453,7 +548,14 @@ static void raw_pull_job_on_progress(PullJob *j) {
         raw_pull_report_progress(i, RAW_DOWNLOADING);
 }
 
-int raw_pull_start(RawPull *i, const char *url, const char *local, bool force_local, ImportVerify verify) {
+int raw_pull_start(
+                RawPull *i,
+                const char *url,
+                const char *local,
+                bool force_local,
+                ImportVerify verify,
+                bool settings) {
+
         int r;
 
         assert(i);
@@ -472,8 +574,10 @@ int raw_pull_start(RawPull *i, const char *url, const char *local, bool force_lo
         r = free_and_strdup(&i->local, local);
         if (r < 0)
                 return r;
+
         i->force_local = force_local;
         i->verify = verify;
+        i->settings = settings;
 
         /* Queue job for the image itself */
         r = pull_job_new(&i->raw_job, url, i->glue, i);
@@ -481,7 +585,7 @@ int raw_pull_start(RawPull *i, const char *url, const char *local, bool force_lo
                 return r;
 
         i->raw_job->on_finished = raw_pull_job_on_finished;
-        i->raw_job->on_open_disk = raw_pull_job_on_open_disk;
+        i->raw_job->on_open_disk = raw_pull_job_on_open_disk_raw;
         i->raw_job->on_progress = raw_pull_job_on_progress;
         i->raw_job->calc_checksum = verify != IMPORT_VERIFY_NO;
         i->raw_job->grow_machine_directory = i->grow_machine_directory;
@@ -490,6 +594,20 @@ int raw_pull_start(RawPull *i, const char *url, const char *local, bool force_lo
         if (r < 0)
                 return r;
 
+        if (settings) {
+                r = pull_make_settings_job(&i->settings_job, url, i->glue, raw_pull_job_on_finished, i);
+                if (r < 0)
+                        return r;
+
+                i->settings_job->on_open_disk = raw_pull_job_on_open_disk_settings;
+                i->settings_job->on_progress = raw_pull_job_on_progress;
+                i->settings_job->calc_checksum = verify != IMPORT_VERIFY_NO;
+
+                r = pull_find_old_etags(i->settings_job->url, i->image_root, DT_REG, ".settings-", NULL, &i->settings_job->old_etags);
+                if (r < 0)
+                        return r;
+        }
+
         r = pull_make_verification_jobs(&i->checksum_job, &i->signature_job, verify, url, i->glue, raw_pull_job_on_finished, i);
         if (r < 0)
                 return r;
@@ -497,6 +615,12 @@ int raw_pull_start(RawPull *i, const char *url, const char *local, bool force_lo
         r = pull_job_begin(i->raw_job);
         if (r < 0)
                 return r;
+
+        if (i->settings_job) {
+                r = pull_job_begin(i->settings_job);
+                if (r < 0)
+                        return r;
+        }
 
         if (i->checksum_job) {
                 i->checksum_job->on_progress = raw_pull_job_on_progress;
