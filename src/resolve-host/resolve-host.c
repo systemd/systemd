@@ -168,11 +168,10 @@ static int resolve_host(sd_bus *bus, const char *name) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        if (!streq(name, canonical)) {
+        if (!streq(name, canonical))
                 printf("%*s%s (%s)\n",
                        (int) strlen(name), c == 0 ? name : "", c == 0 ? ":" : " ",
                        canonical);
-        }
 
         if (c == 0) {
                 log_error("%s: no addresses found", name);

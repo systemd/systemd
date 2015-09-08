@@ -54,9 +54,8 @@ int ethtool_connect(int *ret) {
         assert_return(ret, -EINVAL);
 
         fd = socket(PF_INET, SOCK_DGRAM, 0);
-        if (fd < 0) {
+        if (fd < 0)
                 return -errno;
-        }
 
         *ret = fd;
 

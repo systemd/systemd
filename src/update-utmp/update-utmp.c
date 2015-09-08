@@ -210,11 +210,9 @@ static int on_runlevel(Context *c) {
                              runlevel > 0 ? runlevel : 'N') < 0)
                         return log_oom();
 
-                if (audit_log_user_comm_message(c->audit_fd, AUDIT_SYSTEM_RUNLEVEL, s, "systemd-update-utmp", NULL, NULL, NULL, 1) < 0 &&
-                    errno != EPERM) {
+                if (audit_log_user_comm_message(c->audit_fd, AUDIT_SYSTEM_RUNLEVEL, s, "systemd-update-utmp", NULL, NULL, NULL, 1) < 0 && errno != EPERM)
                         r = log_error_errno(errno,
                                             "Failed to send audit message: %m");
-                }
         }
 #endif
 

@@ -630,12 +630,11 @@ static void svg_io_bi_bar(FILE *of,
                                 pbi * (arg_scale_y * 5));
 
                 /* labels around highest value */
-                if (i == max_here) {
+                if (i == max_here)
                         fprintf(of, "  <text class=\"sec\" x=\"%.03f\" y=\"%.03f\">%0.2fmb/sec</text>\n",
                                 time_to_graph(sampledata->sampletime - graph_start) + 5,
                                 ((arg_scale_y * 5) - (pbi * (arg_scale_y * 5))) + 15,
                                 max / 1024.0 / (interval / 1000000000.0));
-                }
 
                 i++;
                 prev_sampledata = sampledata;
@@ -743,12 +742,11 @@ static void svg_io_bo_bar(FILE *of,
                                 pbo * (arg_scale_y * 5));
 
                 /* labels around highest bo value */
-                if (i == max_here) {
+                if (i == max_here)
                         fprintf(of, "  <text class=\"sec\" x=\"%.03f\" y=\"%.03f\">%0.2fmb/sec</text>\n",
                                 time_to_graph(sampledata->sampletime - graph_start) + 5,
                                 ((arg_scale_y * 5) - (pbo * (arg_scale_y * 5))),
                                 max / 1024.0 / (interval / 1000000000.0));
-                }
 
                 i++;
                 prev_sampledata = sampledata;

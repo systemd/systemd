@@ -463,9 +463,8 @@ int sd_ipv4ll_get_address(sd_ipv4ll *ll, struct in_addr *address){
         assert_return(ll, -EINVAL);
         assert_return(address, -EINVAL);
 
-        if (ll->claimed_address == 0) {
+        if (ll->claimed_address == 0)
                 return -ENOENT;
-        }
 
         address->s_addr = ll->claimed_address;
         return 0;

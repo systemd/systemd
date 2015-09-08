@@ -597,7 +597,7 @@ static void print_machine_status_info(sd_bus *bus, MachineStatusInfo *i) {
                 printf("\t    Unit: %s\n", i->unit);
                 show_unit_cgroup(bus, i->unit, i->leader);
 
-                if (arg_transport == BUS_TRANSPORT_LOCAL) {
+                if (arg_transport == BUS_TRANSPORT_LOCAL)
 
                         show_journal_by_unit(
                                         stdout,
@@ -611,7 +611,6 @@ static void print_machine_status_info(sd_bus *bus, MachineStatusInfo *i) {
                                         SD_JOURNAL_LOCAL_ONLY,
                                         true,
                                         NULL);
-                }
         }
 }
 

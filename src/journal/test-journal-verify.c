@@ -118,12 +118,11 @@ int main(int argc, char *argv[]) {
 
         assert_se(journal_file_verify(f, verification_key, &from, &to, &total, true) >= 0);
 
-        if (verification_key && JOURNAL_HEADER_SEALED(f->header)) {
+        if (verification_key && JOURNAL_HEADER_SEALED(f->header))
                 log_info("=> Validated from %s to %s, %s missing",
                          format_timestamp(a, sizeof(a), from),
                          format_timestamp(b, sizeof(b), to),
                          format_timespan(c, sizeof(c), total > to ? total - to : 0, 0));
-        }
 
         journal_file_close(f);
 

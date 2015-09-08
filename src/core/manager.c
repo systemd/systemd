@@ -2792,9 +2792,8 @@ static void trim_generator_dir(Manager *m, char **generator) {
         if (!*generator)
                 return;
 
-        if (rmdir(*generator) >= 0) {
+        if (rmdir(*generator) >= 0)
                 *generator = mfree(*generator);
-        }
 
         return;
 }

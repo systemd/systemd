@@ -1204,12 +1204,11 @@ static int status_welcome(void) {
                            "PRETTY_NAME", &pretty_name,
                            "ANSI_COLOR", &ansi_color,
                            NULL);
-        if (r == -ENOENT) {
+        if (r == -ENOENT)
                 r = parse_env_file("/usr/lib/os-release", NEWLINE,
                                    "PRETTY_NAME", &pretty_name,
                                    "ANSI_COLOR", &ansi_color,
                                    NULL);
-        }
 
         if (r < 0 && r != -ENOENT)
                 log_warning_errno(r, "Failed to read os-release file: %m");

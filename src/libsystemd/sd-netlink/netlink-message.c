@@ -898,10 +898,9 @@ int sd_netlink_message_rewind(sd_netlink_message *m) {
 
         m->n_containers = 0;
 
-        if (m->containers[0].attributes) {
+        if (m->containers[0].attributes)
                 /* top-level attributes have already been parsed */
                 return 0;
-        }
 
         assert(m->hdr);
 

@@ -324,10 +324,9 @@ static int map_all_fields(
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to parse audit array: %m");
 
-                        if (r == 0) {
+                        if (r == 0)
                                 /* Couldn't process as generic field, let's just skip over it */
                                 p += strcspn(p, WHITESPACE);
-                        }
                 }
         }
 }

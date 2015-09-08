@@ -374,10 +374,9 @@ int open_journal_for_upload(Uploader *u,
 
         if (cursor) {
                 r = sd_journal_seek_cursor(j, cursor);
-                if (r < 0) {
+                if (r < 0)
                         return log_error_errno(r, "Failed to seek to cursor %s: %m",
                                                cursor);
-                }
         }
 
         return process_journal_input(u, 1 + !!after_cursor);

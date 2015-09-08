@@ -337,9 +337,8 @@ static int request_parse_range(
                 return -ENOMEM;
 
         m->cursor[strcspn(m->cursor, WHITESPACE)] = 0;
-        if (isempty(m->cursor)) {
+        if (isempty(m->cursor))
                 m->cursor = mfree(m->cursor);
-        }
 
         return 0;
 }

@@ -3568,12 +3568,11 @@ int unit_load_fragment(Unit *u) {
                 if (r < 0)
                         return r;
 
-                if (u->load_state == UNIT_STUB) {
+                if (u->load_state == UNIT_STUB)
                         /* Hmm, this didn't work? Then let's get rid
                          * of the fragment path stored for us, so that
                          * we don't point to an invalid location. */
                         u->fragment_path = mfree(u->fragment_path);
-                }
         }
 
         /* Look for a template */

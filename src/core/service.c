@@ -695,13 +695,12 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                 fprintf(f, "%sStatus Text: %s\n",
                         prefix, s->status_text);
 
-        if (s->n_fd_store_max > 0) {
+        if (s->n_fd_store_max > 0)
                 fprintf(f,
                         "%sFile Descriptor Store Max: %u\n"
                         "%sFile Descriptor Store Current: %u\n",
                         prefix, s->n_fd_store_max,
                         prefix, s->n_fd_store);
-        }
 }
 
 static int service_load_pid_file(Service *s, bool may_warn) {

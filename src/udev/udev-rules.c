@@ -672,9 +672,8 @@ static int import_parent_into_properties(struct udev_device *dev, const char *fi
                 const char *key = udev_list_entry_get_name(list_entry);
                 const char *val = udev_list_entry_get_value(list_entry);
 
-                if (fnmatch(filter, key, 0) == 0) {
+                if (fnmatch(filter, key, 0) == 0)
                         udev_device_add_property(dev, key, val);
-                }
         }
         return 0;
 }

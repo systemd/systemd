@@ -577,9 +577,8 @@ static int check_fill_0x83_id(struct udev *udev,
 
         if (id_search->id_type == SCSI_ID_NAA && wwn != NULL) {
                 strncpy(wwn, &serial[s], 16);
-                if (wwn_vendor_extension != NULL) {
+                if (wwn_vendor_extension != NULL)
                         strncpy(wwn_vendor_extension, &serial[s + 16], 16);
-                }
         }
 
         return 0;

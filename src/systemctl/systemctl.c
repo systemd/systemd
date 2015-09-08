@@ -3585,7 +3585,7 @@ static void print_status_info(
                 }
         }
 
-        if (i->id && arg_transport == BUS_TRANSPORT_LOCAL) {
+        if (i->id && arg_transport == BUS_TRANSPORT_LOCAL)
                 show_journal_by_unit(
                                 stdout,
                                 i->id,
@@ -3598,7 +3598,6 @@ static void print_status_info(
                                 SD_JOURNAL_LOCAL_ONLY,
                                 arg_scope == UNIT_FILE_SYSTEM,
                                 ellipsized);
-        }
 
         if (i->need_daemon_reload)
                 warn_unit_file_changed(i->id);
