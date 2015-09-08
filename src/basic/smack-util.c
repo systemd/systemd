@@ -185,6 +185,23 @@ int mac_smack_fix(const char *path, bool ignore_enoent, bool ignore_erofs) {
         return r;
 }
 
+int mac_smack_copy(const char *dest, const char *src) {
+        int r = 0;
+        _cleanup_free_ char *label = NULL;
+
+        assert(dest);
+        assert(src);
+
+        r = mac_smack_read(src, SMACK_ATTR_ACCESS, &label);
+        if (r < 0)
+                return r;
+
+        r = mac_smack_apply(dest, SMACK_ATTR_ACCESS, label);
+        if (r < 0)
+                return r;
+
+        return r;
+}
 
 #else
 bool mac_smack_use(void) {
@@ -212,6 +229,10 @@ int mac_smack_apply_pid(pid_t pid, const char *label) {
 }
 
 int mac_smack_fix(const char *path, bool ignore_enoent, bool ignore_erofs) {
+        return 0;
+}
+
+int mac_smack_copy(const char *dest, const char *src) {
         return 0;
 }
 #endif
