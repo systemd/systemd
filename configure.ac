@@ -20,7 +20,7 @@
 AC_PREREQ([2.64])
 
 AC_INIT([systemd],
-        [225],
+        [226],
         [http://github.com/systemd/systemd/issues],
         [systemd],
         [http://www.freedesktop.org/wiki/Software/systemd])

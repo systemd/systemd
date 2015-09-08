@@ -42,9 +42,9 @@ LIBUDEV_CURRENT=7
 LIBUDEV_REVISION=4
 LIBUDEV_AGE=6
 
-LIBSYSTEMD_CURRENT=10
-LIBSYSTEMD_REVISION=2
-LIBSYSTEMD_AGE=10
+LIBSYSTEMD_CURRENT=11
+LIBSYSTEMD_REVISION=0
+LIBSYSTEMD_AGE=11
 
 # The following four libraries only exist for compatibility reasons,
 # their version info should not be bumped anymore
