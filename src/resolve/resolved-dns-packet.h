@@ -78,7 +78,7 @@ struct DnsPacket {
         DnsQuestion *question;
         DnsAnswer *answer;
 
-        /* Packet reception meta data */
+        /* Packet reception metadata */
         int ifindex;
         int family, ipproto;
         union in_addr_union sender, destination;
