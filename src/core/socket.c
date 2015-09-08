@@ -982,7 +982,9 @@ static int fifo_address_create(
                 goto fail;
         }
 
-        if ((fd = open(path, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK|O_NOFOLLOW)) < 0) {
+        fd = open(path,
+                  O_RDWR | O_CLOEXEC | O_NOCTTY | O_NONBLOCK | O_NOFOLLOW);
+        if (fd < 0) {
                 r = -errno;
                 goto fail;
         }

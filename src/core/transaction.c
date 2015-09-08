@@ -464,9 +464,11 @@ static int transaction_verify_order(Transaction *tr, unsigned *generation, sd_bu
 
         g = (*generation)++;
 
-        HASHMAP_FOREACH(j, tr->jobs, i)
-                if ((r = transaction_verify_order_one(tr, j, NULL, g, e)) < 0)
+        HASHMAP_FOREACH(j, tr->jobs, i) {
+                r = transaction_verify_order_one(tr, j, NULL, g, e);
+                if (r < 0)
                         return r;
+        }
 
         return 0;
 }

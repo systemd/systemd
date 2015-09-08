@@ -31,7 +31,8 @@ int main(int argc, char* argv[]) {
         log_open();
         log_parse_environment();
 
-        if ((r = loopback_setup()) < 0)
+        r = loopback_setup();
+        if (r < 0)
                 fprintf(stderr, "loopback: %s\n", strerror(-r));
 
         return 0;

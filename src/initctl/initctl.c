@@ -399,13 +399,10 @@ int main(int argc, char *argv[]) {
                 struct epoll_event event;
                 int k;
 
-                if ((k = epoll_wait(server.epoll_fd,
-                                    &event, 1,
-                                    TIMEOUT_MSEC)) < 0) {
-
+                k = epoll_wait(server.epoll_fd, &event, 1, TIMEOUT_MSEC);
+                if (k < 0) {
                         if (errno == EINTR)
                                 continue;
-
                         log_error_errno(errno, "epoll_wait() failed: %m");
                         goto fail;
                 }

@@ -122,7 +122,8 @@ static int shift_fds(int fds[], unsigned n_fds) {
                         if (fds[i] == i+3)
                                 continue;
 
-                        if ((nfd = fcntl(fds[i], F_DUPFD, i+3)) < 0)
+                        nfd = fcntl(fds[i], F_DUPFD, i + 3);
+                        if (nfd < 0)
                                 return -errno;
 
                         safe_close(fds[i]);
@@ -156,14 +157,16 @@ static int flags_fds(const int fds[], unsigned n_fds, bool nonblock) {
 
         for (i = 0; i < n_fds; i++) {
 
-                if ((r = fd_nonblock(fds[i], nonblock)) < 0)
+                r = fd_nonblock(fds[i], nonblock);
+                if (r < 0)
                         return r;
 
                 /* We unconditionally drop FD_CLOEXEC from the fds,
                  * since after all we want to pass these fds to our
                  * children */
 
-                if ((r = fd_cloexec(fds[i], false)) < 0)
+                r = fd_cloexec(fds[i], false);
+                if (r < 0)
                         return r;
         }
 
@@ -315,7 +318,8 @@ static int open_terminal_as(const char *path, mode_t mode, int nfd) {
         assert(path);
         assert(nfd >= 0);
 
-        if ((fd = open_terminal(path, mode | O_NOCTTY)) < 0)
+        fd = open_terminal(path, mode | O_NOCTTY);
+        if (fd < 0)
                 return fd;
 
         if (fd != nfd) {
@@ -629,7 +633,8 @@ static int enforce_groups(const ExecContext *context, const char *username, gid_
                 if (context->group) {
                         const char *g = context->group;
 
-                        if ((r = get_group_creds(&g, &gid)) < 0)
+                        r = get_group_creds(&g, &gid);
+                        if (r < 0)
                                 return r;
                 }
 
@@ -658,7 +663,8 @@ static int enforce_groups(const ExecContext *context, const char *username, gid_
                         return -ENOMEM;
 
                 if (keep_groups) {
-                        if ((k = getgroups(ngroups_max, gids)) < 0) {
+                        k = getgroups(ngroups_max, gids);
+                        if (k < 0) {
                                 free(gids);
                                 return -errno;
                         }
