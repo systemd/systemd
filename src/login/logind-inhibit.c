@@ -333,8 +333,7 @@ void inhibitor_remove_fifo(Inhibitor *i) {
 
         if (i->fifo_path) {
                 unlink(i->fifo_path);
-                free(i->fifo_path);
-                i->fifo_path = NULL;
+                i->fifo_path = mfree(i->fifo_path);
         }
 }
 

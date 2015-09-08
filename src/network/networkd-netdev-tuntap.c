@@ -143,11 +143,8 @@ static void tuntap_done(NetDev *netdev) {
 
         assert(t);
 
-        free(t->user_name);
-        t->user_name = NULL;
-
-        free(t->group_name);
-        t->group_name = NULL;
+        t->user_name = mfree(t->user_name);
+        t->group_name = mfree(t->group_name);
 }
 
 static int tuntap_verify(NetDev *netdev, const char *filename) {

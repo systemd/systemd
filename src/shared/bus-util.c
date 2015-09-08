@@ -1884,11 +1884,8 @@ int bus_wait_for_jobs(BusWaitForJobs *d, bool quiet) {
                         log_debug_errno(q, "Got result %s/%m for job %s", strna(d->result), strna(d->name));
                 }
 
-                free(d->name);
-                d->name = NULL;
-
-                free(d->result);
-                d->result = NULL;
+                d->name = mfree(d->name);
+                d->result = mfree(d->result);
         }
 
         return r;

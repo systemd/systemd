@@ -582,8 +582,7 @@ static int analyze_plot(sd_bus *bus) {
 
                 if (u->activating < boot->userspace_time ||
                     u->activating > boot->finish_time) {
-                        free(u->name);
-                        u->name = NULL;
+                        u->name = mfree(u->name);
                         continue;
                 }
 

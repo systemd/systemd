@@ -1686,12 +1686,10 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names) {
         strbuf_complete(rules->strbuf);
 
         /* cleanup uid/gid cache */
-        free(rules->uids);
-        rules->uids = NULL;
+        rules->uids = mfree(rules->uids);
         rules->uids_cur = 0;
         rules->uids_max = 0;
-        free(rules->gids);
-        rules->gids = NULL;
+        rules->gids = mfree(rules->gids);
         rules->gids_cur = 0;
         rules->gids_max = 0;
 
@@ -2064,8 +2062,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules,
                         char program[UTIL_PATH_SIZE];
                         char result[UTIL_LINE_SIZE];
 
-                        free(event->program_result);
-                        event->program_result = NULL;
+                        event->program_result = mfree(event->program_result);
                         udev_event_apply_format(event, rules_str(rules, cur->key.value_off), program, sizeof(program));
                         log_debug("PROGRAM '%s' %s:%u",
                                   program,

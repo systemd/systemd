@@ -145,8 +145,7 @@ void release_lock_file(LockFile *f) {
                 if ((f->operation & ~LOCK_NB) == LOCK_EX)
                         unlink_noerrno(f->path);
 
-                free(f->path);
-                f->path = NULL;
+                f->path = mfree(f->path);
         }
 
         f->fd = safe_close(f->fd);

@@ -142,8 +142,7 @@ static void service_unwatch_pid_file(Service *s) {
         log_unit_debug(UNIT(s), "Stopping watch for PID file %s", s->pid_file_pathspec->path);
         path_spec_unwatch(s->pid_file_pathspec);
         path_spec_done(s->pid_file_pathspec);
-        free(s->pid_file_pathspec);
-        s->pid_file_pathspec = NULL;
+        s->pid_file_pathspec = mfree(s->pid_file_pathspec);
 }
 
 static int service_set_main_pid(Service *s, pid_t pid) {
@@ -287,14 +286,9 @@ static void service_done(Unit *u) {
 
         assert(s);
 
-        free(s->pid_file);
-        s->pid_file = NULL;
-
-        free(s->status_text);
-        s->status_text = NULL;
-
-        free(s->reboot_arg);
-        s->reboot_arg = NULL;
+        s->pid_file = mfree(s->pid_file);
+        s->status_text = mfree(s->status_text);
+        s->reboot_arg = mfree(s->reboot_arg);
 
         s->exec_runtime = exec_runtime_unref(s->exec_runtime);
         exec_command_free_array(s->exec_command, _SERVICE_EXEC_COMMAND_MAX);
@@ -313,8 +307,7 @@ static void service_done(Unit *u) {
 
         if (s->bus_name)  {
                 unit_unwatch_bus_name(u, s->bus_name);
-                free(s->bus_name);
-                s->bus_name = NULL;
+                s->bus_name = mfree(s->bus_name);
         }
 
         s->bus_endpoint_fd = safe_close(s->bus_endpoint_fd);
@@ -1939,8 +1932,7 @@ static int service_start(Unit *u) {
         s->forbid_restart = false;
         s->reset_cpu_usage = true;
 
-        free(s->status_text);
-        s->status_text = NULL;
+        s->status_text = mfree(s->status_text);
         s->status_errno = 0;
 
         s->notify_state = NOTIFY_UNKNOWN;

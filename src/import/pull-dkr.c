@@ -1211,10 +1211,8 @@ static void dkr_pull_job_on_finished(PullJob *j) {
                 log_info("Completed writing to layer %s.", i->final_path);
 
                 i->layer_job = pull_job_unref(i->layer_job);
-                free(i->temp_path);
-                i->temp_path = NULL;
-                free(i->final_path);
-                i->final_path = NULL;
+                i->temp_path = mfree(i->temp_path);
+                i->final_path = mfree(i->final_path);
 
                 i->current_ancestry ++;
                 r = dkr_pull_pull_layer(i);

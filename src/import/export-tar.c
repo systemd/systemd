@@ -287,8 +287,7 @@ int tar_export_start(TarExport *e, const char *path, int fd, ImportCompressType 
                 if (r >= 0)
                         e->quota_referenced = q.referenced;
 
-                free(e->temp_path);
-                e->temp_path = NULL;
+                e->temp_path = mfree(e->temp_path);
 
                 r = tempfn_random(path, NULL, &e->temp_path);
                 if (r < 0)
@@ -298,8 +297,7 @@ int tar_export_start(TarExport *e, const char *path, int fd, ImportCompressType 
                 r = btrfs_subvol_snapshot_fd(sfd, e->temp_path, BTRFS_SNAPSHOT_READ_ONLY|BTRFS_SNAPSHOT_RECURSIVE);
                 if (r < 0) {
                         log_debug_errno(r, "Couldn't create snapshot %s of %s, not exporting atomically: %m", e->temp_path, path);
-                        free(e->temp_path);
-                        e->temp_path = NULL;
+                        e->temp_path = mfree(e->temp_path);
                 }
         }
 

@@ -55,8 +55,7 @@ static void context_reset_member(Context *c) {
 }
 
 static void context_reset_interface(Context *c) {
-        free(c->interface_name);
-        c->interface_name = NULL;
+        c->interface_name = mfree(c->interface_name);
         c->interface_flags = 0;
 
         context_reset_member(c);

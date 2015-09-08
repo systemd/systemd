@@ -1843,8 +1843,7 @@ finish:
         m = manager_free(m);
 
         for (j = 0; j < ELEMENTSOF(arg_default_rlimit); j++) {
-                free(arg_default_rlimit[j]);
-                arg_default_rlimit[j] = NULL;
+                arg_default_rlimit[j] = mfree(arg_default_rlimit[j]);
         }
 
         arg_default_unit = mfree(arg_default_unit);

@@ -60,8 +60,7 @@ static void device_unset_sysfs(Device *d) {
         else
                 hashmap_remove(devices, d->sysfs);
 
-        free(d->sysfs);
-        d->sysfs = NULL;
+        d->sysfs = mfree(d->sysfs);
 }
 
 static int device_set_sysfs(Device *d, const char *sysfs) {

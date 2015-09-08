@@ -205,8 +205,7 @@ static int tar_import_finish(TarImport *i) {
         if (r < 0)
                 return log_error_errno(r, "Failed to move image into place: %m");
 
-        free(i->temp_path);
-        i->temp_path = NULL;
+        i->temp_path = mfree(i->temp_path);
 
         return 0;
 }

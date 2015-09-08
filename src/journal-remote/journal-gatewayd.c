@@ -338,8 +338,7 @@ static int request_parse_range(
 
         m->cursor[strcspn(m->cursor, WHITESPACE)] = 0;
         if (isempty(m->cursor)) {
-                free(m->cursor);
-                m->cursor = NULL;
+                m->cursor = mfree(m->cursor);
         }
 
         return 0;
