@@ -775,10 +775,13 @@ int executable_is_script(const char *path, char **interpreter) {
 
 /**
  * Retrieve one field from a file like /proc/self/status.  pattern
- * should start with '\n' and end with a ':'. Whitespace and zeros
- * after the ':' will be skipped. field must be freed afterwards.
+ * should not include whitespace or the delimiter (':'). pattern matches only
+ * the beginning of a line. Whitespace before ':' is skipped. Whitespace and
+ * zeros after the ':' will be skipped. field must be freed afterwards.
+ * terminator specifies the terminating characters of the field (not included
+ * in the field); default is WHITESPACE.
  */
-int get_status_field(const char *filename, const char *pattern, char **field) {
+int get_proc_field(const char *filename, const char *pattern, const char *terminator, char **field) {
         _cleanup_free_ char *status = NULL;
         char *t, *f;
         size_t len;
@@ -792,11 +795,24 @@ int get_status_field(const char *filename, const char *pattern, char **field) {
         if (r < 0)
                 return r;
 
-        t = strstr(status, pattern);
-        if (!t)
+        t = status;
+retry:
+        t = strstr(t, pattern);
+        if (!t || !*t)
                 return -ENOENT;
+        if (t != status && status[t - status - 1] != '\n') {
+                t += strlen(pattern);
+                goto retry;
+        }
 
         t += strlen(pattern);
+        t += strspn(t, " \t");
+        if (!*t)
+                return -ENOENT;
+        if (*t != ':')
+                goto retry;
+        t++;
+
         if (*t) {
                 t += strspn(t, " \t");
 
@@ -812,7 +828,7 @@ int get_status_field(const char *filename, const char *pattern, char **field) {
                         t --;
         }
 
-        len = strcspn(t, WHITESPACE);
+        len = strcspn(t, terminator ? : WHITESPACE);
 
         f = strndup(t, len);
         if (!f)
