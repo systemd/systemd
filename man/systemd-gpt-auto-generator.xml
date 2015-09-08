@@ -69,7 +69,7 @@
     units are explicitly configured (for example, listed in
     <citerefentry
     project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>),
-    the units this generator creates are overriden, but additional
+    the units this generator creates are overridden, but additional
     automatic dependencies might be created.</para>
 
     <para>This generator will only look for root partitions on the

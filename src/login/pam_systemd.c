@@ -185,7 +185,7 @@ static int export_legacy_dbus_address(
                 if (asprintf(&s, KERNEL_USER_BUS_ADDRESS_FMT ";" UNIX_USER_BUS_ADDRESS_FMT, uid, runtime) < 0)
                         goto error;
         } else {
-                /* FIXME: We *realy* should move the access() check into the
+                /* FIXME: We *really* should move the access() check into the
                  * daemons that spawn dbus-daemon, instead of forcing
                  * DBUS_SESSION_BUS_ADDRESS= here. */
 

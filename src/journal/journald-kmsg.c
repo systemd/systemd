@@ -190,7 +190,7 @@ static void dev_kmsg_record(Server *s, const char *p, size_t l) {
 
         for (j = 0; l > 0 && j < N_IOVEC_KERNEL_FIELDS; j++) {
                 char *m;
-                /* Meta data fields attached */
+                /* Metadata fields attached */
 
                 if (*k != ' ')
                         break;
