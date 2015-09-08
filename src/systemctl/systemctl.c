@@ -1472,6 +1472,7 @@ static int list_dependencies_get_dependencies(sd_bus *bus, const char *name, cha
                                        "Requisite\0"
                                        "RequisiteOverridable\0"
                                        "Wants\0"
+                                       "ConsistsOf\0"
                                        "BindsTo\0",
                 [DEPENDENCY_REVERSE] = "RequiredBy\0"
                                        "RequiredByOverridable\0"
