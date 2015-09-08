@@ -754,12 +754,10 @@ int udev_event_spawn(struct udev_event *event,
 
                 /* child closes parent's ends of pipes */
                 if (outpipe[READ_END] >= 0) {
-                        close(outpipe[READ_END]);
-                        outpipe[READ_END] = -1;
+                        outpipe[READ_END] = safe_close(outpipe[READ_END]);
                 }
                 if (errpipe[READ_END] >= 0) {
-                        close(errpipe[READ_END]);
-                        errpipe[READ_END] = -1;
+                        errpipe[READ_END] = safe_close(errpipe[READ_END]);
                 }
 
                 strscpy(arg, sizeof(arg), cmd);
@@ -785,12 +783,10 @@ int udev_event_spawn(struct udev_event *event,
         default:
                 /* parent closed child's ends of pipes */
                 if (outpipe[WRITE_END] >= 0) {
-                        close(outpipe[WRITE_END]);
-                        outpipe[WRITE_END] = -1;
+                        outpipe[WRITE_END] = safe_close(outpipe[WRITE_END]);
                 }
                 if (errpipe[WRITE_END] >= 0) {
-                        close(errpipe[WRITE_END]);
-                        errpipe[WRITE_END] = -1;
+                        errpipe[WRITE_END] = safe_close(errpipe[WRITE_END]);
                 }
 
                 spawn_read(event,

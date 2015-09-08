@@ -240,8 +240,7 @@ int button_open(Button *b) {
         assert(b);
 
         if (b->fd >= 0) {
-                close(b->fd);
-                b->fd = -1;
+                b->fd = safe_close(b->fd);
         }
 
         p = strjoina("/dev/input/", b->name);
@@ -267,8 +266,7 @@ int button_open(Button *b) {
         return 0;
 
 fail:
-        close(b->fd);
-        b->fd = -1;
+        b->fd = safe_close(b->fd);
         return r;
 }
 
