@@ -303,6 +303,11 @@ int mount_cgroup_controllers(char ***join_controllers) {
                                 r = symlink(options, t);
                                 if (r < 0 && errno != EEXIST)
                                         return log_error_errno(errno, "Failed to create symlink %s: %m", t);
+#ifdef SMACK_RUN_LABEL
+                                r = mac_smack_copy(t, options);
+                                if (r < 0 && r != -EOPNOTSUPP)
+                                        return log_error_errno(r, "Failed to copy smack label from %s to %s: %m", options, t);
+#endif
                         }
                 }
         }
