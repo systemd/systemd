@@ -45,7 +45,7 @@ static int builtin_uaccess(struct udev_device *dev, int argc, char *argv[], bool
                 seat = "seat0";
 
         r = sd_seat_get_active(seat, NULL, &uid);
-        if (r == -ENOENT) {
+        if (r == -ENXIO || r == -ENODATA) {
                 /* No active session on this seat */
                 r = 0;
                 goto finish;

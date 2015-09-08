@@ -645,10 +645,10 @@ _public_ int sd_seat_get_active(const char *seat, char **session, uid_t *uid) {
                 return r;
 
         if (session && !s)
-                return -ENOENT;
+                return -ENODATA;
 
         if (uid && !t)
-                return -ENOENT;
+                return -ENODATA;
 
         if (uid && t) {
                 r = parse_uid(t, uid);
