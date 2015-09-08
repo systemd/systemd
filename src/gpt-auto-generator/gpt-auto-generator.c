@@ -526,9 +526,9 @@ static int add_boot(const char *what) {
                        what,
                        "/boot",
                        "vfat",
-                       "EFI System Partition Automount",
-                       false,
+                       true,
                        "umask=0077",
+                       "EFI System Partition Automount",
                        120 * USEC_PER_SEC);
 
         return r;
