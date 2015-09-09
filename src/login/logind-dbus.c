@@ -1423,6 +1423,20 @@ int manager_set_lid_switch_ignore(Manager *m, usec_t until) {
         return r;
 }
 
+static void reset_scheduled_shutdown(Manager *m) {
+        m->scheduled_shutdown_timeout_source = sd_event_source_unref(m->scheduled_shutdown_timeout_source);
+        m->wall_message_timeout_source = sd_event_source_unref(m->wall_message_timeout_source);
+        m->nologin_timeout_source = sd_event_source_unref(m->nologin_timeout_source);
+        m->scheduled_shutdown_type = mfree(m->scheduled_shutdown_type);
+        m->scheduled_shutdown_timeout = 0;
+        m->shutdown_dry_run = false;
+
+        if (m->unlink_nologin) {
+                (void) unlink("/run/nologin");
+                m->unlink_nologin = false;
+        }
+}
+
 static int execute_shutdown_or_sleep(
                 Manager *m,
                 InhibitWhat w,
@@ -1430,8 +1444,8 @@ static int execute_shutdown_or_sleep(
                 sd_bus_error *error) {
 
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        char *c = NULL;
         const char *p;
-        char *c;
         int r;
 
         assert(m);
@@ -1441,25 +1455,30 @@ static int execute_shutdown_or_sleep(
 
         bus_manager_log_shutdown(m, w, unit_name);
 
-        r = sd_bus_call_method(
-                        m->bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "StartUnit",
-                        error,
-                        &reply,
-                        "ss", unit_name, "replace-irreversibly");
-        if (r < 0)
-                return r;
+        if (m->shutdown_dry_run) {
+                log_info("Running in dry run, suppressing action.");
+                reset_scheduled_shutdown(m);
+        } else {
+                r = sd_bus_call_method(
+                                m->bus,
+                                "org.freedesktop.systemd1",
+                                "/org/freedesktop/systemd1",
+                                "org.freedesktop.systemd1.Manager",
+                                "StartUnit",
+                                error,
+                                &reply,
+                                "ss", unit_name, "replace-irreversibly");
+                if (r < 0)
+                        return r;
 
-        r = sd_bus_message_read(reply, "o", &p);
-        if (r < 0)
-                return r;
+                r = sd_bus_message_read(reply, "o", &p);
+                if (r < 0)
+                        return r;
 
-        c = strdup(p);
-        if (!c)
-                return -ENOMEM;
+                c = strdup(p);
+                if (!c)
+                        return -ENOMEM;
+        }
 
         m->action_unit = unit_name;
         free(m->action_job);
@@ -1889,6 +1908,11 @@ static int method_schedule_shutdown(sd_bus_message *message, void *userdata, sd_
         if (r < 0)
                 return r;
 
+        if (startswith(type, "dry-")) {
+                type += 4;
+                m->shutdown_dry_run = true;
+        }
+
         if (streq(type, "reboot")) {
                 action = "org.freedesktop.login1.reboot";
                 action_multiple_sessions = "org.freedesktop.login1.reboot-multiple-sessions";
@@ -1983,17 +2007,7 @@ static int method_cancel_scheduled_shutdown(sd_bus_message *message, void *userd
         assert(message);
 
         cancelled = m->scheduled_shutdown_type != NULL;
-
-        m->scheduled_shutdown_timeout_source = sd_event_source_unref(m->scheduled_shutdown_timeout_source);
-        m->wall_message_timeout_source = sd_event_source_unref(m->wall_message_timeout_source);
-        m->nologin_timeout_source = sd_event_source_unref(m->nologin_timeout_source);
-        m->scheduled_shutdown_type = mfree(m->scheduled_shutdown_type);
-        m->scheduled_shutdown_timeout = 0;
-
-        if (m->unlink_nologin) {
-                (void) unlink("/run/nologin");
-                m->unlink_nologin = false;
-        }
+        reset_scheduled_shutdown(m);
 
         if (cancelled) {
                 _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
