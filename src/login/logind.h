@@ -107,6 +107,8 @@ struct Manager {
         unsigned enable_wall_messages;
         sd_event_source *wall_message_timeout_source;
 
+        bool shutdown_dry_run;
+
         sd_event_source *idle_action_event_source;
         usec_t idle_action_usec;
         usec_t idle_action_not_before_usec;
