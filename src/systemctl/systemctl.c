@@ -1299,10 +1299,11 @@ static void output_unit_file_list(const UnitFileList *units, unsigned c) {
                 const char *on, *off;
                 const char *id;
 
-                if (u->state == UNIT_FILE_MASKED ||
-                    u->state == UNIT_FILE_MASKED_RUNTIME ||
-                    u->state == UNIT_FILE_DISABLED ||
-                    u->state == UNIT_FILE_INVALID) {
+                if (IN_SET(u->state,
+                           UNIT_FILE_MASKED,
+                           UNIT_FILE_MASKED_RUNTIME,
+                           UNIT_FILE_DISABLED,
+                           UNIT_FILE_INVALID)) {
                         on  = ansi_highlight_red();
                         off = ansi_highlight_off();
                 } else if (u->state == UNIT_FILE_ENABLED) {
@@ -2898,10 +2899,11 @@ static int check_inhibitors(sd_bus *bus, enum action a) {
                         return log_error_errno(ERANGE, "Bad PID %"PRIu32": %m", pid);
 
                 if (!strv_contains(sv,
-                                  a == ACTION_HALT ||
-                                  a == ACTION_POWEROFF ||
-                                  a == ACTION_REBOOT ||
-                                  a == ACTION_KEXEC ? "shutdown" : "sleep"))
+                                   IN_SET(a,
+                                          ACTION_HALT,
+                                          ACTION_POWEROFF,
+                                          ACTION_REBOOT,
+                                          ACTION_KEXEC) ? "shutdown" : "sleep"))
                         continue;
 
                 get_process_comm(pid, &comm);
@@ -3022,26 +3024,29 @@ static int start_special(sd_bus *bus, char **args) {
         }
 
         if (arg_force >= 2 &&
-            (a == ACTION_HALT ||
-             a == ACTION_POWEROFF ||
-             a == ACTION_REBOOT))
+            IN_SET(a,
+                   ACTION_HALT,
+                   ACTION_POWEROFF,
+                   ACTION_REBOOT))
                 return halt_now(a);
 
         if (arg_force >= 1 &&
-            (a == ACTION_HALT ||
-             a == ACTION_POWEROFF ||
-             a == ACTION_REBOOT ||
-             a == ACTION_KEXEC ||
-             a == ACTION_EXIT))
+            IN_SET(a,
+                   ACTION_HALT,
+                   ACTION_POWEROFF,
+                   ACTION_REBOOT,
+                   ACTION_KEXEC,
+                   ACTION_EXIT))
                 return daemon_reload(bus, args);
 
         /* first try logind, to allow authentication with polkit */
         if (geteuid() != 0 &&
-            (a == ACTION_POWEROFF ||
-             a == ACTION_REBOOT ||
-             a == ACTION_SUSPEND ||
-             a == ACTION_HIBERNATE ||
-             a == ACTION_HYBRID_SLEEP)) {
+            IN_SET(a,
+                   ACTION_POWEROFF,
+                   ACTION_REBOOT,
+                   ACTION_SUSPEND,
+                   ACTION_HIBERNATE,
+                   ACTION_HYBRID_SLEEP)) {
                 r = reboot_with_logind(bus, a);
                 if (r >= 0 || IN_SET(r, -EOPNOTSUPP, -EINPROGRESS))
                         return r;
@@ -3559,12 +3564,14 @@ static void print_status_info(
 
         if (i->control_group &&
             (i->main_pid > 0 || i->control_pid > 0 ||
-             ((arg_transport != BUS_TRANSPORT_LOCAL && arg_transport != BUS_TRANSPORT_MACHINE) || cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, i->control_group) == 0))) {
+             (!IN_SET(arg_transport, BUS_TRANSPORT_LOCAL, BUS_TRANSPORT_MACHINE) || cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, i->control_group) == 0))) {
                 unsigned c;
 
                 printf("   CGroup: %s\n", i->control_group);
 
-                if (arg_transport == BUS_TRANSPORT_LOCAL || arg_transport == BUS_TRANSPORT_MACHINE) {
+                if (IN_SET(arg_transport,
+                           BUS_TRANSPORT_LOCAL,
+                           BUS_TRANSPORT_MACHINE)) {
                         unsigned k = 0;
                         pid_t extra[2];
                         static const char prefix[] = "           ";
@@ -4467,7 +4474,9 @@ static int show_system_status(sd_bus *bus) {
                format_timestamp_relative(since1, sizeof(since1), mi.timestamp));
 
         printf("   CGroup: %s\n", mi.control_group ?: "/");
-        if (arg_transport == BUS_TRANSPORT_LOCAL || arg_transport == BUS_TRANSPORT_MACHINE) {
+        if (IN_SET(arg_transport,
+                   BUS_TRANSPORT_LOCAL,
+                   BUS_TRANSPORT_MACHINE)) {
                 static const char prefix[] = "           ";
                 unsigned c;
 
@@ -5134,9 +5143,10 @@ static int enable_sysv_units(const char *verb, char **args) {
         if (arg_scope != UNIT_FILE_SYSTEM)
                 return 0;
 
-        if (!streq(verb, "enable") &&
-            !streq(verb, "disable") &&
-            !streq(verb, "is-enabled"))
+        if (!STR_IN_SET(verb,
+                        "enable",
+                        "disable",
+                        "is-enabled"))
                 return 0;
 
         /* Processes all SysV units, and reshuffles the array so that
@@ -5636,10 +5646,11 @@ static int unit_is_enabled(sd_bus *bus, char **args) {
                         if (state < 0)
                                 return log_error_errno(state, "Failed to get unit file state for %s: %m", *name);
 
-                        if (state == UNIT_FILE_ENABLED ||
-                            state == UNIT_FILE_ENABLED_RUNTIME ||
-                            state == UNIT_FILE_STATIC ||
-                            state == UNIT_FILE_INDIRECT)
+                        if (IN_SET(state,
+                                   UNIT_FILE_ENABLED,
+                                   UNIT_FILE_ENABLED_RUNTIME,
+                                   UNIT_FILE_STATIC,
+                                   UNIT_FILE_INDIRECT))
                                 enabled = true;
 
                         if (!arg_quiet)
