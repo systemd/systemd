@@ -250,6 +250,7 @@ Socket.ExecStartPost,            config_parse_exec,                  SOCKET_EXEC
 Socket.ExecStopPre,              config_parse_exec,                  SOCKET_EXEC_STOP_PRE,          offsetof(Socket, exec_command)
 Socket.ExecStopPost,             config_parse_exec,                  SOCKET_EXEC_STOP_POST,         offsetof(Socket, exec_command)
 Socket.TimeoutSec,               config_parse_sec,                   0,                             offsetof(Socket, timeout_usec)
+Socket.FileDescriptorName,       config_parse_unit_string_printf,    0,                             offsetof(Socket, name)
 Socket.SocketUser,               config_parse_unit_string_printf,    0,                             offsetof(Socket, user)
 Socket.SocketGroup,              config_parse_unit_string_printf,    0,                             offsetof(Socket, group)
 Socket.SocketMode,               config_parse_mode,                  0,                             offsetof(Socket, socket_mode)

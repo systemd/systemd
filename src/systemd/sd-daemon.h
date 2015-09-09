@@ -196,6 +196,11 @@ int sd_is_mq(int fd, const char *path);
                   invocation. This variable is only supported with
                   sd_pid_notify_with_fds().
 
+     FDNAME=...   Name to label passed file descriptors. Only valid
+                  when FDSTORE=1 is set. Colon (":") is forbidden.
+                  To label different fds with different names
+                  multiple sd_pid_notify_with_fds() calls are needed.
+
   Daemons can choose to send additional variables. However, it is
   recommended to prefix variable names not listed above with X_.
 
