@@ -48,5 +48,5 @@ int mac_smack_read(const char *path, SmackAttr attr, char **label);
 int mac_smack_read_fd(int fd, SmackAttr attr, char **label);
 int mac_smack_apply(const char *path, SmackAttr attr, const char *label);
 int mac_smack_apply_fd(int fd, SmackAttr attr, const char *label);
-
 int mac_smack_apply_pid(pid_t pid, const char *label);
+int mac_smack_copy(const char *dest, const char *src);
