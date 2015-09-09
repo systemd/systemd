@@ -106,22 +106,22 @@ static bool startswith_comma(const char *s, const char *prefix) {
 }
 
 static void context_free_x11(Context *c) {
-        free_and_replace(&c->x11_layout, NULL);
-        free_and_replace(&c->x11_model, NULL);
-        free_and_replace(&c->x11_variant, NULL);
-        free_and_replace(&c->x11_options, NULL);
+        c->x11_layout = mfree(c->x11_layout);
+        c->x11_options = mfree(c->x11_options);
+        c->x11_model = mfree(c->x11_model);
+        c->x11_variant = mfree(c->x11_variant);
 }
 
 static void context_free_vconsole(Context *c) {
-        free_and_replace(&c->vc_keymap, NULL);
-        free_and_replace(&c->vc_keymap_toggle, NULL);
+        c->vc_keymap = mfree(c->vc_keymap);
+        c->vc_keymap_toggle = mfree(c->vc_keymap_toggle);
 }
 
 static void context_free_locale(Context *c) {
         int p;
 
         for (p = 0; p < _LOCALE_MAX; p++)
-                free_and_replace(&c->locale[p], NULL);
+                c->locale[p] = mfree(c->locale[p]);
 }
 
 static void context_free(Context *c) {
@@ -137,7 +137,7 @@ static void locale_simplify(Context *c) {
 
         for (p = LOCALE_LANG+1; p < _LOCALE_MAX; p++)
                 if (isempty(c->locale[p]) || streq_ptr(c->locale[LOCALE_LANG], c->locale[p]))
-                        free_and_replace(&c->locale[p], NULL);
+                        c->locale[p] = mfree(c->locale[p]);
 }
 
 static int locale_read_data(Context *c) {
@@ -227,17 +227,20 @@ static int x11_read_data(Context *c) {
                                 return r;
 
                         if (strv_length(a) == 3) {
-                                if (streq(a[1], "XkbLayout")) {
-                                        free_and_replace(&c->x11_layout, a[2]);
-                                        a[2] = NULL;
-                                } else if (streq(a[1], "XkbModel")) {
-                                        free_and_replace(&c->x11_model, a[2]);
-                                        a[2] = NULL;
-                                } else if (streq(a[1], "XkbVariant")) {
-                                        free_and_replace(&c->x11_variant, a[2]);
-                                        a[2] = NULL;
-                                } else if (streq(a[1], "XkbOptions")) {
-                                        free_and_replace(&c->x11_options, a[2]);
+                                char **p = NULL;
+
+                                if (streq(a[1], "XkbLayout"))
+                                        p = &c->x11_layout;
+                                else if (streq(a[1], "XkbModel"))
+                                        p = &c->x11_model;
+                                else if (streq(a[1], "XkbVariant"))
+                                        p = &c->x11_variant;
+                                else if (streq(a[1], "XkbOptions"))
+                                        p = &c->x11_options;
+
+                                if (p) {
+                                        free(*p);
+                                        *p = a[2];
                                         a[2] = NULL;
                                 }
                         }
@@ -753,8 +756,10 @@ static int find_legacy_keymap(Context *c, char **new_keymap) {
                 r = find_converted_keymap(l, v, &converted);
                 if (r < 0)
                         return r;
-                if (r > 0)
-                        free_and_replace(new_keymap, converted);
+                if (r > 0) {
+                        free(*new_keymap);
+                        *new_keymap = converted;
+                }
         }
 
         return 0;
@@ -815,8 +820,9 @@ static int x11_convert_to_vconsole(Context *c, sd_bus *bus) {
                 }
 
                 if (!streq_ptr(c->vc_keymap, new_keymap)) {
-                        free_and_replace(&c->vc_keymap, new_keymap);
-                        free_and_replace(&c->vc_keymap_toggle, NULL);
+                        free(c->vc_keymap);
+                        c->vc_keymap = new_keymap;
+                        c->vc_keymap_toggle = mfree(c->vc_keymap_toggle);
                         modified = true;
                 } else
                         free(new_keymap);
@@ -987,7 +993,7 @@ static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *er
                         if (have[p])
                                 continue;
 
-                        free_and_replace(&c->locale[p], NULL);
+                        c->locale[p] = mfree(c->locale[p]);
                 }
 
                 locale_simplify(c);

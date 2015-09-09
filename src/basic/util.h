@@ -871,11 +871,6 @@ int extract_first_word(const char **p, char **ret, const char *separators, Extra
 int extract_first_word_and_warn(const char **p, char **ret, const char *separators, ExtractFlags flags, const char *unit, const char *filename, unsigned line, const char *rvalue);
 int extract_many_words(const char **p, const char *separators, ExtractFlags flags, ...) _sentinel_;
 
-static inline void free_and_replace(char **s, char *v) {
-        free(*s);
-        *s = v;
-}
-
 int free_and_strdup(char **p, const char *s);
 
 #define INOTIFY_EVENT_MAX (sizeof(struct inotify_event) + NAME_MAX + 1)
