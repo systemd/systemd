@@ -151,13 +151,10 @@ void pager_close(void) {
                 return;
 
         /* Inform pager that we are done */
-        fclose(stdout);
-        stdout = NULL;
+        stdout = safe_fclose(stdout);
+        stderr = safe_fclose(stderr);
 
-        fclose(stderr);
-        stderr = NULL;
-
-        kill(pager_pid, SIGCONT);
+        (void) kill(pager_pid, SIGCONT);
         (void) wait_for_terminate(pager_pid, NULL);
         pager_pid = 0;
 }

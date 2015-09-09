@@ -1540,10 +1540,7 @@ static void mount_shutdown(Manager *m) {
         m->mount_event_source = sd_event_source_unref(m->mount_event_source);
         m->mount_utab_event_source = sd_event_source_unref(m->mount_utab_event_source);
 
-        if (m->proc_self_mountinfo) {
-                fclose(m->proc_self_mountinfo);
-                m->proc_self_mountinfo = NULL;
-        }
+        m->proc_self_mountinfo = safe_fclose(m->proc_self_mountinfo);
         m->utab_inotify_fd = safe_close(m->utab_inotify_fd);
 }
 

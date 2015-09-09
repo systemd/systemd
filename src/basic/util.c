@@ -327,6 +327,33 @@ void close_many(const int fds[], unsigned n_fd) {
                 safe_close(fds[i]);
 }
 
+int fclose_nointr(FILE *f) {
+        assert(f);
+
+        /* Same as close_nointr(), but for fclose() */
+
+        if (fclose(f) == 0)
+                return 0;
+
+        if (errno == EINTR)
+                return 0;
+
+        return -errno;
+}
+
+FILE* safe_fclose(FILE *f) {
+
+        /* Same as safe_close(), but for fclose() */
+
+        if (f) {
+                PROTECT_ERRNO;
+
+                assert_se(fclose_nointr(f) != EBADF);
+        }
+
+        return NULL;
+}
+
 int unlink_noerrno(const char *path) {
         PROTECT_ERRNO;
         int r;

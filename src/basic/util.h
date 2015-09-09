@@ -149,6 +149,9 @@ void safe_close_pair(int p[]);
 
 void close_many(const int fds[], unsigned n_fd);
 
+int fclose_nointr(FILE *f);
+FILE* safe_fclose(FILE *f);
+
 int parse_size(const char *t, off_t base, off_t *size);
 
 int parse_boolean(const char *v) _pure_;
@@ -514,7 +517,10 @@ static inline void close_pairp(int (*p)[2]) {
         safe_close_pair(*p);
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(FILE*, fclose);
+static inline void fclosep(FILE **f) {
+        safe_fclose(*f);
+}
+
 DEFINE_TRIVIAL_CLEANUP_FUNC(FILE*, pclose);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DIR*, closedir);
 DEFINE_TRIVIAL_CLEANUP_FUNC(FILE*, endmntent);

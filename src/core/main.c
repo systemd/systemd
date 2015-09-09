@@ -918,8 +918,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (!f)
                                 return log_error_errno(errno, "Failed to open serialization fd: %m");
 
-                        if (arg_serialization)
-                                fclose(arg_serialization);
+                        safe_fclose(arg_serialization);
 
                         arg_serialization = f;
 
@@ -1059,8 +1058,7 @@ static int prepare_reexecute(Manager *m, FILE **_f, FDSet **_fds, bool switching
 fail:
         fdset_free(fds);
 
-        if (f)
-                fclose(f);
+        safe_fclose(f);
 
         return r;
 }
@@ -1679,10 +1677,7 @@ int main(int argc, char *argv[]) {
         fdset_free(fds);
         fds = NULL;
 
-        if (arg_serialization) {
-                fclose(arg_serialization);
-                arg_serialization = NULL;
-        }
+        arg_serialization = safe_fclose(arg_serialization);
 
         if (queue_default_job) {
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -1923,10 +1918,7 @@ finish:
                  * getopt() in argv[], and some cleanups in envp[],
                  * but let's hope that doesn't matter.) */
 
-                if (arg_serialization) {
-                        fclose(arg_serialization);
-                        arg_serialization = NULL;
-                }
+                arg_serialization = safe_fclose(arg_serialization);
 
                 if (fds) {
                         fdset_free(fds);
@@ -1966,10 +1958,7 @@ finish:
                         log_warning_errno(errno, "Failed to execute /sbin/init, giving up: %m");
         }
 
-        if (arg_serialization) {
-                fclose(arg_serialization);
-                arg_serialization = NULL;
-        }
+        arg_serialization = safe_fclose(arg_serialization);
 
         if (fds) {
                 fdset_free(fds);
