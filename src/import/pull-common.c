@@ -328,7 +328,7 @@ int pull_verify(PullJob *main_job,
                    strlen(line));
 
         if (!p || (p != (char*) checksum_job->payload && p[-1] != '\n')) {
-                log_error("DOWNLOAD INVALID: Checksum did not check out, payload has been tempered with.");
+                log_error("DOWNLOAD INVALID: Checksum did not check out, payload has been tampered with.");
                 return -EBADMSG;
         }
 
@@ -362,7 +362,7 @@ int pull_verify(PullJob *main_job,
                            strlen(line));
 
                 if (!p || (p != (char*) checksum_job->payload && p[-1] != '\n')) {
-                        log_error("DOWNLOAD INVALID: Checksum of settings file did not checkout, settings file has been tempered with.");
+                        log_error("DOWNLOAD INVALID: Checksum of settings file did not checkout, settings file has been tampered with.");
                         return -EBADMSG;
                 }
 
