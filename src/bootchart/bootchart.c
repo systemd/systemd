@@ -338,10 +338,9 @@ int main(int argc, char *argv[]) {
          * - child logs data
          */
         if (getpid() == 1) {
-                if (fork()) {
+                if (fork())
                         /* parent */
                         execl(arg_init_path, arg_init_path, NULL);
-                }
         }
         argv[0][0] = '@';
 

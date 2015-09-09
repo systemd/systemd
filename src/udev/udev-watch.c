@@ -83,9 +83,8 @@ unlink:
                 closedir(dir);
                 rmdir("/run/udev/watch.old");
 
-        } else if (errno != ENOENT) {
+        } else if (errno != ENOENT)
                 log_error_errno(errno, "unable to move watches dir /run/udev/watch; old watches will not be restored: %m");
-        }
 }
 
 void udev_watch_begin(struct udev *udev, struct udev_device *dev) {
@@ -100,7 +99,7 @@ void udev_watch_begin(struct udev *udev, struct udev_device *dev) {
         wd = inotify_add_watch(inotify_fd, udev_device_get_devnode(dev), IN_CLOSE_WRITE);
         if (wd < 0) {
                 log_error_errno(errno, "inotify_add_watch(%d, %s, %o) failed: %m",
-                    inotify_fd, udev_device_get_devnode(dev), IN_CLOSE_WRITE);
+                                inotify_fd, udev_device_get_devnode(dev), IN_CLOSE_WRITE);
                 return;
         }
 

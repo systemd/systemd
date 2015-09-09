@@ -614,10 +614,9 @@ static int request_handler(
                         return code;
         } else {
                 r = getnameinfo_pretty(fd, &hostname);
-                if (r < 0) {
+                if (r < 0)
                         return mhd_respond(connection, MHD_HTTP_INTERNAL_SERVER_ERROR,
                                            "Cannot check remote hostname");
-                }
         }
 
         assert(hostname);

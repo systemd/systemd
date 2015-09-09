@@ -27,19 +27,16 @@ static void test_ratelimit_test(void) {
         int i;
         RATELIMIT_DEFINE(ratelimit, 1 * USEC_PER_SEC, 10);
 
-        for (i = 0; i < 10; i++) {
+        for (i = 0; i < 10; i++)
                 assert_se(ratelimit_test(&ratelimit));
-        }
         assert_se(!ratelimit_test(&ratelimit));
         sleep(1);
-        for (i = 0; i < 10; i++) {
+        for (i = 0; i < 10; i++)
                 assert_se(ratelimit_test(&ratelimit));
-        }
 
         RATELIMIT_INIT(ratelimit, 0, 10);
-        for (i = 0; i < 10000; i++) {
+        for (i = 0; i < 10000; i++)
                 assert_se(ratelimit_test(&ratelimit));
-        }
 }
 
 int main(int argc, char *argv[]) {

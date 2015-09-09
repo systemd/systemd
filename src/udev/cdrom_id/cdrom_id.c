@@ -565,9 +565,8 @@ static int cd_profiles(struct udev *udev, int fd)
         if (len > sizeof(features)) {
                 log_debug("can not get features in a single query, truncating");
                 len = sizeof(features);
-        } else if (len <= 8) {
+        } else if (len <= 8)
                 len = sizeof(features);
-        }
 
         /* Now get the full feature buffer */
         scsi_cmd_init(udev, &sc);

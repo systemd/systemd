@@ -2937,14 +2937,11 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags, FDSet *fds) 
         }
 
         /* Interpret WATCHDOG= */
-        if (strv_find(tags, "WATCHDOG=1")) {
+        if (strv_find(tags, "WATCHDOG=1"))
                 service_reset_watchdog(s);
-        }
 
-        /* Add the passed fds to the fd store */
-        if (strv_find(tags, "FDSTORE=1")) {
+        if (strv_find(tags, "FDSTORE=1"))
                 service_add_fd_store_set(s, fds);
-        }
 
         /* Notify clients about changed status or main pid */
         if (notify_dbus)

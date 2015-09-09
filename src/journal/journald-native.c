@@ -184,6 +184,7 @@ void server_process_native_message(
                                                 free(identifier);
                                                 identifier = t;
                                         }
+
                                 } else if (l >= 8 &&
                                            startswith(p, "MESSAGE=")) {
                                         char *t;
@@ -193,6 +194,7 @@ void server_process_native_message(
                                                 free(message);
                                                 message = t;
                                         }
+
                                 } else if (l > strlen("OBJECT_PID=") &&
                                            l < strlen("OBJECT_PID=")  + DECIMAL_STR_MAX(pid_t) &&
                                            startswith(p, "OBJECT_PID=") &&

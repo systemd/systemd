@@ -255,9 +255,8 @@ static int builtin_keyboard(struct udev_device *dev, int argc, char *argv[], boo
                         }
 
                         override_abs(fd, node, evcode, udev_list_entry_get_value(entry));
-                } else if (streq(key, "POINTINGSTICK_SENSITIVITY")) {
+                } else if (streq(key, "POINTINGSTICK_SENSITIVITY"))
                         set_trackpoint_sensitivity(dev, udev_list_entry_get_value(entry));
-                }
         }
 
         /* install list of force-release codes */

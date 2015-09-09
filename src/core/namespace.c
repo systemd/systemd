@@ -555,10 +555,9 @@ int setup_namespace(
         /* Remount / as the desired mode. Not that this will not
          * reestablish propagation from our side to the host, since
          * what's disconnected is disconnected. */
-        if (mount(NULL, "/", NULL, mount_flags | MS_REC, NULL) < 0) {
+        if (mount(NULL, "/", NULL, mount_flags | MS_REC, NULL) < 0)
                 /* at this point, we cannot rollback */
                 return -errno;
-        }
 
         return 0;
 
