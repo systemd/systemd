@@ -2025,14 +2025,9 @@ void exec_context_done(ExecContext *c) {
         c->selinux_context = mfree(c->selinux_context);
         c->apparmor_profile = mfree(c->apparmor_profile);
 
-        set_free(c->syscall_filter);
-        c->syscall_filter = NULL;
-
-        set_free(c->syscall_archs);
-        c->syscall_archs = NULL;
-
-        set_free(c->address_families);
-        c->address_families = NULL;
+        c->syscall_filter = set_free(c->syscall_filter);
+        c->syscall_archs = set_free(c->syscall_archs);
+        c->address_families = set_free(c->address_families);
 
         c->runtime_directory = strv_free(c->runtime_directory);
 

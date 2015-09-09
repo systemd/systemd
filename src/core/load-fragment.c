@@ -2302,8 +2302,7 @@ int config_parse_syscall_filter(
 
         if (isempty(rvalue)) {
                 /* Empty assignment resets the list */
-                set_free(c->syscall_filter);
-                c->syscall_filter = NULL;
+                c->syscall_filter = set_free(c->syscall_filter);
                 c->syscall_whitelist = false;
                 return 0;
         }
@@ -2401,8 +2400,7 @@ int config_parse_syscall_archs(
         int r;
 
         if (isempty(rvalue)) {
-                set_free(*archs);
-                *archs = NULL;
+                *archs = set_free(*archs);
                 return 0;
         }
 
@@ -2498,8 +2496,7 @@ int config_parse_address_families(
 
         if (isempty(rvalue)) {
                 /* Empty assignment resets the list */
-                set_free(c->address_families);
-                c->address_families = NULL;
+                c->address_families = set_free(c->address_families);
                 c->address_families_whitelist = false;
                 return 0;
         }

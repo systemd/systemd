@@ -594,8 +594,7 @@ static void device_shutdown(Manager *m) {
                 m->udev_monitor = NULL;
         }
 
-        hashmap_free(m->devices_by_sysfs);
-        m->devices_by_sysfs = NULL;
+        m->devices_by_sysfs = hashmap_free(m->devices_by_sysfs);
 }
 
 static int device_enumerate(Manager *m) {

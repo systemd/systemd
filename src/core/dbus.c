@@ -1055,8 +1055,7 @@ void bus_done(Manager *m) {
         while ((b = set_steal_first(m->private_buses)))
                 destroy_bus(m, &b);
 
-        set_free(m->private_buses);
-        m->private_buses = NULL;
+        m->private_buses = set_free(m->private_buses);
 
         m->subscribed = sd_bus_track_unref(m->subscribed);
         m->deserialized_subscribed = strv_free(m->deserialized_subscribed);

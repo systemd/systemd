@@ -673,8 +673,7 @@ static void merge_dependencies(Unit *u, Unit *other, const char *other_id, UnitD
         /* The move cannot fail. The caller must have performed a reservation. */
         assert_se(complete_move(&u->dependencies[d], &other->dependencies[d]) == 0);
 
-        set_free(other->dependencies[d]);
-        other->dependencies[d] = NULL;
+        other->dependencies[d] = set_free(other->dependencies[d]);
 }
 
 int unit_merge(Unit *u, Unit *other) {
