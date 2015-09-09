@@ -7358,7 +7358,6 @@ static int halt_main(sd_bus *bus) {
                  * the machine. */
 
                 if (arg_when <= 0 &&
-                    !arg_dry &&
                     arg_force <= 0 &&
                     (arg_action == ACTION_POWEROFF ||
                      arg_action == ACTION_REBOOT)) {
@@ -7375,6 +7374,7 @@ static int halt_main(sd_bus *bus) {
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_bus_flush_close_unref_ sd_bus *b = NULL;
                 _cleanup_free_ char *m = NULL;
+                const char *action;
 
                 if (avoid_bus()) {
                         log_error("Unable to perform operation without bus connection.");
@@ -7407,6 +7407,24 @@ static int halt_main(sd_bus *bus) {
                         sd_bus_error_free(&error);
                 }
 
+                switch (arg_action) {
+                case ACTION_HALT:
+                        action = "halt";
+                        break;
+                case ACTION_POWEROFF:
+                        action = "poweroff";
+                        break;
+                case ACTION_KEXEC:
+                        action = "kexec";
+                        break;
+                default:
+                        action = "reboot";
+                        break;
+                }
+
+                if (arg_dry)
+                        action = strjoina("dry-", action);
+
                 r = sd_bus_call_method(
                                 b,
                                 "org.freedesktop.login1",
@@ -7416,10 +7434,7 @@ static int halt_main(sd_bus *bus) {
                                 &error,
                                 NULL,
                                 "st",
-                                arg_action == ACTION_HALT     ? "halt" :
-                                arg_action == ACTION_POWEROFF ? "poweroff" :
-                                arg_action == ACTION_KEXEC    ? "kexec" :
-                                                                "reboot",
+                                action,
                                 arg_when);
                 if (r < 0)
                         log_warning_errno(r, "Failed to call ScheduleShutdown in logind, proceeding with immediate shutdown: %s",
