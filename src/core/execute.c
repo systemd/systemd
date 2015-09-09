@@ -1998,9 +1998,8 @@ void exec_context_done(ExecContext *c) {
         strv_free(c->environment_files);
         c->environment_files = NULL;
 
-        for (l = 0; l < ELEMENTSOF(c->rlimit); l++) {
+        for (l = 0; l < ELEMENTSOF(c->rlimit); l++)
                 c->rlimit[l] = mfree(c->rlimit[l]);
-        }
 
         c->working_directory = mfree(c->working_directory);
         c->root_directory = mfree(c->root_directory);

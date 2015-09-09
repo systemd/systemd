@@ -294,15 +294,15 @@ static int mount_kdbus(BindMount *m) {
 
         busnode = strjoina(root, "/bus");
         if (mknod(busnode, (st.st_mode & ~07777) | 0600, st.st_rdev) < 0) {
-                log_error_errno(errno, "mknod() for %s failed: %m", busnode);
-                r = -errno;
+                r = log_error_errno(errno, "mknod() for %s failed: %m",
+                                    busnode);
                 goto fail;
         }
 
         r = mount(m->path, busnode, NULL, MS_BIND, NULL);
         if (r < 0) {
-                log_error_errno(errno, "bind mount of %s failed: %m", m->path);
-                r = -errno;
+                r = log_error_errno(errno, "bind mount of %s failed: %m",
+                                    m->path);
                 goto fail;
         }
 
@@ -313,8 +313,8 @@ static int mount_kdbus(BindMount *m) {
         }
 
         if (mount(root, basepath, NULL, MS_MOVE, NULL) < 0) {
-                log_error_errno(errno, "bind mount of %s failed: %m", basepath);
-                r = -errno;
+                r = log_error_errno(errno, "bind mount of %s failed: %m",
+                                    basepath);
                 goto fail;
         }
 
@@ -555,10 +555,9 @@ int setup_namespace(
         /* Remount / as the desired mode. Not that this will not
          * reestablish propagation from our side to the host, since
          * what's disconnected is disconnected. */
-        if (mount(NULL, "/", NULL, mount_flags | MS_REC, NULL) < 0) {
+        if (mount(NULL, "/", NULL, mount_flags | MS_REC, NULL) < 0)
                 /* at this point, we cannot rollback */
                 return -errno;
-        }
 
         return 0;
 

@@ -135,9 +135,8 @@ static int sg_err_category_new(struct udev *udev,
                                         return SG_ERR_CAT_MEDIA_CHANGED;
                                 if (0x29 == asc)
                                         return SG_ERR_CAT_RESET;
-                        } else if (sense_key == ILLEGAL_REQUEST) {
+                        } else if (sense_key == ILLEGAL_REQUEST)
                                 return SG_ERR_CAT_NOTSUPPORTED;
-                        }
                 }
                 return SG_ERR_CAT_SENSE;
         }
@@ -490,9 +489,8 @@ static int check_fill_0x83_id(struct udev *udev,
         if ((page_83[1] & 0x30) == 0x10) {
                 if (id_search->id_type != SCSI_ID_TGTGROUP)
                         return 1;
-        } else if ((page_83[1] & 0x30) != 0) {
+        } else if ((page_83[1] & 0x30) != 0)
                 return 1;
-        }
 
         if ((page_83[1] & 0x0f) != id_search->id_type)
                 return 1;

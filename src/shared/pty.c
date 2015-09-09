@@ -311,9 +311,8 @@ static int pty_dispatch_read(Pty *pty) {
                                 continue;
 
                         return (errno == EAGAIN) ? 0 : -errno;
-                } else if (len == 0) {
+                } else if (len == 0)
                         continue;
-                }
 
                 /* set terminating zero for debugging safety */
                 pty->in_buf[len] = 0;
@@ -356,9 +355,8 @@ static int pty_dispatch_write(Pty *pty) {
                                 continue;
 
                         return (errno == EAGAIN) ? 1 : -errno;
-                } else if (len == 0) {
+                } else if (len == 0)
                         continue;
-                }
 
                 ring_pull(&pty->out_buf, (size_t)len);
         }

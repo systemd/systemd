@@ -190,7 +190,7 @@ static int get_file_options(struct udev *udev,
 
         *newargv = NULL;
         lineno = 0;
-        while (1) {
+        for (;;) {
                 vendor_in = model_in = options_in = NULL;
 
                 buf = fgets(buffer, MAX_BUFFER_LEN, f);
@@ -279,9 +279,9 @@ static int get_file_options(struct udev *udev,
                         strcpy(buffer, options_in);
                         c = argc_count(buffer) + 2;
                         *newargv = calloc(c, sizeof(**newargv));
-                        if (!*newargv) {
+                        if (!*newargv)
                                 retval = log_oom();
-                        } else {
+                        else {
                                 *argc = c;
                                 c = 0;
                                 /*
@@ -537,16 +537,13 @@ static int scsi_id(struct udev *udev, char *maj_min_dev)
                         if (dev_scsi.wwn_vendor_extension[0] != '\0') {
                                 printf("ID_WWN_VENDOR_EXTENSION=0x%s\n", dev_scsi.wwn_vendor_extension);
                                 printf("ID_WWN_WITH_EXTENSION=0x%s%s\n", dev_scsi.wwn, dev_scsi.wwn_vendor_extension);
-                        } else {
+                        } else
                                 printf("ID_WWN_WITH_EXTENSION=0x%s\n", dev_scsi.wwn);
-                        }
                 }
-                if (dev_scsi.tgpt_group[0] != '\0') {
+                if (dev_scsi.tgpt_group[0] != '\0')
                         printf("ID_TARGET_PORT=%s\n", dev_scsi.tgpt_group);
-                }
-                if (dev_scsi.unit_serial_number[0] != '\0') {
+                if (dev_scsi.unit_serial_number[0] != '\0')
                         printf("ID_SCSI_SERIAL=%s\n", dev_scsi.unit_serial_number);
-                }
                 goto out;
         }
 

@@ -432,7 +432,7 @@ int main(int argc, char *argv[])
         if (udev == NULL)
                 return 0;
 
-        while (1) {
+        for (;;) {
                 int option;
 
                 option = getopt_long(argc, argv, "xh", options, NULL);

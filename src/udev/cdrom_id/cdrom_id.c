@@ -565,9 +565,8 @@ static int cd_profiles(struct udev *udev, int fd)
         if (len > sizeof(features)) {
                 log_debug("can not get features in a single query, truncating");
                 len = sizeof(features);
-        } else if (len <= 8) {
+        } else if (len <= 8)
                 len = sizeof(features);
-        }
 
         /* Now get the full feature buffer */
         scsi_cmd_init(udev, &sc);
@@ -869,7 +868,7 @@ int main(int argc, char *argv[])
         if (udev == NULL)
                 goto exit;
 
-        while (1) {
+        for (;;) {
                 int option;
 
                 option = getopt_long(argc, argv, "deluh", options, NULL);

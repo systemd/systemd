@@ -63,9 +63,8 @@ static void context_reset(Context *c) {
 
         assert(c);
 
-        for (p = 0; p < _PROP_MAX; p++) {
+        for (p = 0; p < _PROP_MAX; p++)
                 c->data[p] = mfree(c->data[p]);
-        }
 }
 
 static void context_free(Context *c) {

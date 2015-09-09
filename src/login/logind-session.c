@@ -1005,22 +1005,25 @@ int session_prepare_vt(Session *s) {
 
         r = fchown(vt, s->user->uid, -1);
         if (r < 0) {
-                r = -errno;
-                log_error_errno(errno, "Cannot change owner of /dev/tty%u: %m", s->vtnr);
+                r = log_error_errno(errno,
+                                    "Cannot change owner of /dev/tty%u: %m",
+                                    s->vtnr);
                 goto error;
         }
 
         r = ioctl(vt, KDSKBMODE, K_OFF);
         if (r < 0) {
-                r = -errno;
-                log_error_errno(errno, "Cannot set K_OFF on /dev/tty%u: %m", s->vtnr);
+                r = log_error_errno(errno,
+                                    "Cannot set K_OFF on /dev/tty%u: %m",
+                                    s->vtnr);
                 goto error;
         }
 
         r = ioctl(vt, KDSETMODE, KD_GRAPHICS);
         if (r < 0) {
-                r = -errno;
-                log_error_errno(errno, "Cannot set KD_GRAPHICS on /dev/tty%u: %m", s->vtnr);
+                r = log_error_errno(errno,
+                                    "Cannot set KD_GRAPHICS on /dev/tty%u: %m",
+                                    s->vtnr);
                 goto error;
         }
 
@@ -1032,8 +1035,9 @@ int session_prepare_vt(Session *s) {
         mode.acqsig = SIGRTMIN + 1;
         r = ioctl(vt, VT_SETMODE, &mode);
         if (r < 0) {
-                r = -errno;
-                log_error_errno(errno, "Cannot set VT_PROCESS on /dev/tty%u: %m", s->vtnr);
+                r = log_error_errno(errno,
+                                    "Cannot set VT_PROCESS on /dev/tty%u: %m",
+                                    s->vtnr);
                 goto error;
         }
 

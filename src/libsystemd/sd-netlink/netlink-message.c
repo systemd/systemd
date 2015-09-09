@@ -892,9 +892,8 @@ int sd_netlink_message_rewind(sd_netlink_message *m) {
         if (!m->sealed)
                 rtnl_message_seal(m);
 
-        for (i = 1; i <= m->n_containers; i++) {
+        for (i = 1; i <= m->n_containers; i++)
                 m->containers[i].attributes = mfree(m->containers[i].attributes);
-        }
 
         m->n_containers = 0;
 

@@ -95,10 +95,10 @@ static int generate_mask_symlinks(void) {
                 if (!p)
                         return log_oom();
 
-                if (symlink("/dev/null", p) < 0) {
-                        log_error_errno(errno, "Failed to create mask symlink %s: %m", p);
-                        r = -errno;
-                }
+                if (symlink("/dev/null", p) < 0)
+                        r = log_error_errno(errno,
+                                            "Failed to create mask symlink %s: %m",
+                                            p);
         }
 
         return r;
@@ -124,10 +124,10 @@ static int generate_wants_symlinks(void) {
 
                 mkdir_parents_label(p, 0755);
 
-                if (symlink(f, p) < 0) {
-                        log_error_errno(errno, "Failed to create wants symlink %s: %m", p);
-                        r = -errno;
-                }
+                if (symlink(f, p) < 0)
+                        r = log_error_errno(errno,
+                                            "Failed to create wants symlink %s: %m",
+                                            p);
         }
 
         return r;

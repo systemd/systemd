@@ -67,10 +67,9 @@ EFI_STATUS graphics_mode(BOOLEAN on) {
         EFI_STATUS err;
 
         err = LibLocateProtocol(&ConsoleControlProtocolGuid, (VOID **)&ConsoleControl);
-        if (EFI_ERROR(err)) {
+        if (EFI_ERROR(err))
                 /* console control protocol is nonstandard and might not exist. */
                 return err == EFI_NOT_FOUND ? EFI_SUCCESS : err;
-        }
 
         /* check current mode */
         err = uefi_call_wrapper(ConsoleControl->GetMode, 4, ConsoleControl, &current, &uga_exists, &stdin_locked);
