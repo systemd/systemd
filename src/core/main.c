@@ -1118,9 +1118,10 @@ static void test_mtab(void) {
         if (r >= 0 && nulstr_contains(ok, p))
                 return;
 
-        log_warning("/etc/mtab is not a symlink or not pointing to /proc/self/mounts. "
-                    "This is not supported anymore. "
-                    "Please make sure to replace this file by a symlink to avoid incorrect or misleading mount(8) output.");
+        log_error("/etc/mtab is not a symlink or not pointing to /proc/self/mounts. "
+                  "This is not supported anymore. "
+                  "Please make sure to replace this file by a symlink to avoid incorrect or misleading mount(8) output.");
+        freeze();
 }
 
 static void test_usr(void) {
