@@ -7371,14 +7371,19 @@ static int halt_main(sd_bus *bus) {
                 return r;
 
         if (geteuid() != 0) {
+                if (arg_when > 0 ||
+                    arg_dry ||
+                    arg_force > 0) {
+                        log_error("Must be root.");
+                        return -EPERM;
+                }
+
                 /* Try logind if we are a normal user and no special
                  * mode applies. Maybe PolicyKit allows us to shutdown
                  * the machine. */
-
-                if (arg_when <= 0 &&
-                    arg_force <= 0 &&
-                    (arg_action == ACTION_POWEROFF ||
-                     arg_action == ACTION_REBOOT)) {
+                if (IN_SET(arg_action,
+                           ACTION_POWEROFF,
+                           ACTION_REBOOT)) {
                         r = reboot_with_logind(bus, arg_action);
                         if (r >= 0)
                                 return r;
@@ -7387,9 +7392,6 @@ static int halt_main(sd_bus *bus) {
                                 return r;
                         /* on all other errors, try low-level operation */
                 }
-
-                log_error("Must be root.");
-                return -EPERM;
         }
 
         if (arg_when > 0) {
@@ -7397,6 +7399,8 @@ static int halt_main(sd_bus *bus) {
                 _cleanup_bus_flush_close_unref_ sd_bus *b = NULL;
                 _cleanup_free_ char *m = NULL;
                 const char *action;
+
+                assert(geteuid() == 0);
 
                 if (avoid_bus()) {
                         log_error("Unable to perform operation without bus connection.");
@@ -7472,6 +7476,8 @@ static int halt_main(sd_bus *bus) {
 
         if (!arg_dry && !arg_force)
                 return start_with_fallback(bus);
+
+        assert(geteuid() == 0);
 
         if (!arg_no_wtmp) {
                 if (sd_booted() > 0)
