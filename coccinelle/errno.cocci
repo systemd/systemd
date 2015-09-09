@@ -1,42 +1,48 @@
 @@
 identifier r;
-expression t, e;
+expression e;
 @@
 - r = -e;
-- log_error_errno(e, t);
-+ r = log_error_errno(e, t);
+- log_error_errno(e,
++ r = log_error_errno(e,
+  ...);
 @@
 identifier r;
-expression t, e;
+expression e;
 @@
-- log_error_errno(e, t);
+- log_error_errno(e,
++ r = log_error_errno(e,
+  ...);
 - r = -e;
-+ r = log_error_errno(e, t);
 @@
 identifier r;
-expression t, e;
+expression e;
 @@
-- r = log_error_errno(e, t);
+- r = log_error_errno(e,
++ return log_error_errno(e,
+  ...);
 - return r;
-+ return log_error_errno(e, t);
 @@
 identifier r;
-expression t, e;
+expression e;
 @@
 - r = -e;
-- log_warning_errno(e, t);
-+ r = log_warning_errno(e, t);
+- log_warning_errno(e,
++ r = log_warning_errno(e,
+  ...);
 @@
 identifier r;
-expression t, e;
+expression e;
 @@
-- log_warning_errno(e, t);
+- log_warning_errno(e,
++ r = log_warning_errno(e,
+  ...);
 - r = -e;
-+ r = log_warning_errno(e, t);
 @@
 identifier r;
-expression t, e;
+expression e;
 @@
-- r = log_warning_errno(e, t);
+- r = log_warning_errno(e,
++ return log_warning_errno(e,
+  ...);
 - return r;
-+ return log_warning_errno(e, t);

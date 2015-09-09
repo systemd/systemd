@@ -646,8 +646,9 @@ static int save_core(sd_journal *j, int fd, char **path, bool *unlink_temp) {
 
                         fdf = open(filename, O_RDONLY | O_CLOEXEC);
                         if (fdf < 0) {
-                                log_error_errno(errno, "Failed to open %s: %m", filename);
-                                r = -errno;
+                                r = log_error_errno(errno,
+                                                    "Failed to open %s: %m",
+                                                    filename);
                                 goto error;
                         }
 

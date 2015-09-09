@@ -78,8 +78,9 @@ static int clean_sysvipc_shm(uid_t delete_uid) {
                         if (errno == EIDRM || errno == EINVAL)
                                 continue;
 
-                        log_warning_errno(errno, "Failed to remove SysV shared memory segment %i: %m", shmid);
-                        ret = -errno;
+                        ret = log_warning_errno(errno,
+                                                "Failed to remove SysV shared memory segment %i: %m",
+                                                shmid);
                 }
         }
 
@@ -130,8 +131,9 @@ static int clean_sysvipc_sem(uid_t delete_uid) {
                         if (errno == EIDRM || errno == EINVAL)
                                 continue;
 
-                        log_warning_errno(errno, "Failed to remove SysV semaphores object %i: %m", semid);
-                        ret = -errno;
+                        ret = log_warning_errno(errno,
+                                                "Failed to remove SysV semaphores object %i: %m",
+                                                semid);
                 }
         }
 
@@ -183,8 +185,9 @@ static int clean_sysvipc_msg(uid_t delete_uid) {
                         if (errno == EIDRM || errno == EINVAL)
                                 continue;
 
-                        log_warning_errno(errno, "Failed to remove SysV message queue %i: %m", msgid);
-                        ret = -errno;
+                        ret = log_warning_errno(errno,
+                                                "Failed to remove SysV message queue %i: %m",
+                                                msgid);
                 }
         }
 
@@ -302,8 +305,9 @@ static int clean_posix_mq(uid_t uid) {
                         if (errno == ENOENT)
                                 continue;
 
-                        log_warning_errno(errno, "Failed to stat() MQ segment %s: %m", de->d_name);
-                        ret = -errno;
+                        ret = log_warning_errno(errno,
+                                                "Failed to stat() MQ segment %s: %m",
+                                                de->d_name);
                         continue;
                 }
 
@@ -317,8 +321,9 @@ static int clean_posix_mq(uid_t uid) {
                         if (errno == ENOENT)
                                 continue;
 
-                        log_warning_errno(errno, "Failed to unlink POSIX message queue %s: %m", fn);
-                        ret = -errno;
+                        ret = log_warning_errno(errno,
+                                                "Failed to unlink POSIX message queue %s: %m",
+                                                fn);
                 }
         }
 

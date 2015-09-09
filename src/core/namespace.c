@@ -294,15 +294,15 @@ static int mount_kdbus(BindMount *m) {
 
         busnode = strjoina(root, "/bus");
         if (mknod(busnode, (st.st_mode & ~07777) | 0600, st.st_rdev) < 0) {
-                log_error_errno(errno, "mknod() for %s failed: %m", busnode);
-                r = -errno;
+                r = log_error_errno(errno, "mknod() for %s failed: %m",
+                                    busnode);
                 goto fail;
         }
 
         r = mount(m->path, busnode, NULL, MS_BIND, NULL);
         if (r < 0) {
-                log_error_errno(errno, "bind mount of %s failed: %m", m->path);
-                r = -errno;
+                r = log_error_errno(errno, "bind mount of %s failed: %m",
+                                    m->path);
                 goto fail;
         }
 
@@ -313,8 +313,8 @@ static int mount_kdbus(BindMount *m) {
         }
 
         if (mount(root, basepath, NULL, MS_MOVE, NULL) < 0) {
-                log_error_errno(errno, "bind mount of %s failed: %m", basepath);
-                r = -errno;
+                r = log_error_errno(errno, "bind mount of %s failed: %m",
+                                    basepath);
                 goto fail;
         }
 
