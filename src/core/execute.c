@@ -122,7 +122,8 @@ static int shift_fds(int fds[], unsigned n_fds) {
                         if (fds[i] == i+3)
                                 continue;
 
-                        if ((nfd = fcntl(fds[i], F_DUPFD, i+3)) < 0)
+                        nfd = fcntl(fds[i], F_DUPFD, i + 3);
+                        if (nfd < 0)
                                 return -errno;
 
                         safe_close(fds[i]);
@@ -156,14 +157,16 @@ static int flags_fds(const int fds[], unsigned n_fds, bool nonblock) {
 
         for (i = 0; i < n_fds; i++) {
 
-                if ((r = fd_nonblock(fds[i], nonblock)) < 0)
+                r = fd_nonblock(fds[i], nonblock);
+                if (r < 0)
                         return r;
 
                 /* We unconditionally drop FD_CLOEXEC from the fds,
                  * since after all we want to pass these fds to our
                  * children */
 
-                if ((r = fd_cloexec(fds[i], false)) < 0)
+                r = fd_cloexec(fds[i], false);
+                if (r < 0)
                         return r;
         }
 
@@ -315,7 +318,8 @@ static int open_terminal_as(const char *path, mode_t mode, int nfd) {
         assert(path);
         assert(nfd >= 0);
 
-        if ((fd = open_terminal(path, mode | O_NOCTTY)) < 0)
+        fd = open_terminal(path, mode | O_NOCTTY);
+        if (fd < 0)
                 return fd;
 
         if (fd != nfd) {
@@ -629,7 +633,8 @@ static int enforce_groups(const ExecContext *context, const char *username, gid_
                 if (context->group) {
                         const char *g = context->group;
 
-                        if ((r = get_group_creds(&g, &gid)) < 0)
+                        r = get_group_creds(&g, &gid);
+                        if (r < 0)
                                 return r;
                 }
 
@@ -658,7 +663,8 @@ static int enforce_groups(const ExecContext *context, const char *username, gid_
                         return -ENOMEM;
 
                 if (keep_groups) {
-                        if ((k = getgroups(ngroups_max, gids)) < 0) {
+                        k = getgroups(ngroups_max, gids);
+                        if (k < 0) {
                                 free(gids);
                                 return -errno;
                         }
@@ -922,8 +928,7 @@ fail:
                 log_error("PAM failed: %s", pam_strerror(handle, pam_code));
                 err = -EPERM;  /* PAM errors do not map to errno */
         } else {
-                log_error_errno(errno, "PAM failed: %m");
-                err = -errno;
+                err = log_error_errno(errno, "PAM failed: %m");
         }
 
         if (handle) {
@@ -1994,32 +1999,20 @@ void exec_context_done(ExecContext *c) {
         c->environment_files = NULL;
 
         for (l = 0; l < ELEMENTSOF(c->rlimit); l++) {
-                free(c->rlimit[l]);
-                c->rlimit[l] = NULL;
+                c->rlimit[l] = mfree(c->rlimit[l]);
         }
 
-        free(c->working_directory);
-        c->working_directory = NULL;
-        free(c->root_directory);
-        c->root_directory = NULL;
-
-        free(c->tty_path);
-        c->tty_path = NULL;
-
-        free(c->syslog_identifier);
-        c->syslog_identifier = NULL;
-
-        free(c->user);
-        c->user = NULL;
-
-        free(c->group);
-        c->group = NULL;
+        c->working_directory = mfree(c->working_directory);
+        c->root_directory = mfree(c->root_directory);
+        c->tty_path = mfree(c->tty_path);
+        c->syslog_identifier = mfree(c->syslog_identifier);
+        c->user = mfree(c->user);
+        c->group = mfree(c->group);
 
         strv_free(c->supplementary_groups);
         c->supplementary_groups = NULL;
 
-        free(c->pam_name);
-        c->pam_name = NULL;
+        c->pam_name = mfree(c->pam_name);
 
         if (c->capabilities) {
                 cap_free(c->capabilities);
@@ -2038,14 +2031,9 @@ void exec_context_done(ExecContext *c) {
         if (c->cpuset)
                 CPU_FREE(c->cpuset);
 
-        free(c->utmp_id);
-        c->utmp_id = NULL;
-
-        free(c->selinux_context);
-        c->selinux_context = NULL;
-
-        free(c->apparmor_profile);
-        c->apparmor_profile = NULL;
+        c->utmp_id = mfree(c->utmp_id);
+        c->selinux_context = mfree(c->selinux_context);
+        c->apparmor_profile = mfree(c->apparmor_profile);
 
         set_free(c->syscall_filter);
         c->syscall_filter = NULL;
@@ -2090,8 +2078,7 @@ int exec_context_destroy_runtime_directory(ExecContext *c, const char *runtime_p
 void exec_command_done(ExecCommand *c) {
         assert(c);
 
-        free(c->path);
-        c->path = NULL;
+        c->path = mfree(c->path);
 
         strv_free(c->argv);
         c->argv = NULL;

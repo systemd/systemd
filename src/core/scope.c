@@ -476,8 +476,7 @@ int scope_abandon(Scope *s) {
         if (!IN_SET(s->state, SCOPE_RUNNING, SCOPE_ABANDONED))
                 return -ESTALE;
 
-        free(s->controller);
-        s->controller = NULL;
+        s->controller = mfree(s->controller);
 
         /* The client is no longer watching the remaining processes,
          * so let's step in here, under the assumption that the

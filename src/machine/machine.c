@@ -600,8 +600,7 @@ void machine_release_unit(Machine *m) {
                 return;
 
         (void) hashmap_remove(m->manager->machine_units, m->unit);
-        free(m->unit);
-        m->unit = NULL;
+        m->unit = mfree(m->unit);
 }
 
 static const char* const machine_class_table[_MACHINE_CLASS_MAX] = {

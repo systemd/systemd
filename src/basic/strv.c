@@ -270,10 +270,8 @@ char **strv_split_newlines(const char *s) {
         if (n <= 0)
                 return l;
 
-        if (isempty(l[n-1])) {
-                free(l[n-1]);
-                l[n-1] = NULL;
-        }
+        if (isempty(l[n - 1]))
+                l[n - 1] = mfree(l[n - 1]);
 
         return l;
 }
@@ -292,9 +290,8 @@ int strv_split_extract(char ***t, const char *s, const char *separators, Extract
                 r = extract_first_word(&s, &word, separators, flags);
                 if (r < 0)
                         return r;
-                if (r == 0) {
+                if (r == 0)
                         break;
-                }
 
                 if (!GREEDY_REALLOC(l, allocated, n + 2))
                         return -ENOMEM;

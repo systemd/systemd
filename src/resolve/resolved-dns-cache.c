@@ -241,12 +241,11 @@ static void dns_cache_item_update_positive(DnsCache *c, DnsCacheItem *i, DnsReso
 
         i->type = DNS_CACHE_POSITIVE;
 
-        if (!i->by_key_prev) {
+        if (!i->by_key_prev)
                 /* We are the first item in the list, we need to
                  * update the key used in the hashmap */
 
                 assert_se(hashmap_replace(c->by_key, rr->key, i) >= 0);
-        }
 
         dns_resource_record_ref(rr);
         dns_resource_record_unref(i->rr);

@@ -156,7 +156,9 @@ int main(int argc, char *argv[]) {
         if (arg_use_tty && isatty(STDIN_FILENO)) {
                 char *password = NULL;
 
-                if ((r = ask_password_tty(arg_message, timeout, arg_echo, NULL, &password)) >= 0) {
+                r = ask_password_tty(arg_message, timeout, arg_echo, NULL,
+                                     &password);
+                if (r >= 0) {
                         puts(password);
                         free(password);
                 }
@@ -164,7 +166,9 @@ int main(int argc, char *argv[]) {
         } else {
                 char **l;
 
-                if ((r = ask_password_agent(arg_message, arg_icon, arg_id, timeout, arg_echo, arg_accept_cached, &l)) >= 0) {
+                r = ask_password_agent(arg_message, arg_icon, arg_id, timeout,
+                                       arg_echo, arg_accept_cached, &l);
+                if (r >= 0) {
                         char **p;
 
                         STRV_FOREACH(p, l) {

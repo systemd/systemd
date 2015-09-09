@@ -631,8 +631,8 @@ static int save_core(sd_journal *j, int fd, char **path, bool *unlink_temp) {
 
                         sz = write(fdt, data, len);
                         if (sz < 0) {
-                                log_error_errno(errno, "Failed to write temporary file: %m");
-                                r = -errno;
+                                r = log_error_errno(errno,
+                                                    "Failed to write temporary file: %m");
                                 goto error;
                         }
                         if (sz != (ssize_t) len) {
@@ -758,8 +758,7 @@ static int run_gdb(sd_journal *j) {
 
         pid = fork();
         if (pid < 0) {
-                log_error_errno(errno, "Failed to fork(): %m");
-                r = -errno;
+                r = log_error_errno(errno, "Failed to fork(): %m");
                 goto finish;
         }
         if (pid == 0) {

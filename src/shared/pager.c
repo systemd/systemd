@@ -74,8 +74,7 @@ int pager_open(bool jump_to_end) {
 
         pager_pid = fork();
         if (pager_pid < 0) {
-                r = -errno;
-                log_error_errno(errno, "Failed to fork pager: %m");
+                r = log_error_errno(errno, "Failed to fork pager: %m");
                 safe_close_pair(fd);
                 return r;
         }

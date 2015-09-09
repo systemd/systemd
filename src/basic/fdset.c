@@ -201,9 +201,11 @@ int fdset_cloexec(FDSet *fds, bool b) {
 
         assert(fds);
 
-        SET_FOREACH(p, MAKE_SET(fds), i)
-                if ((r = fd_cloexec(PTR_TO_FD(p), b)) < 0)
+        SET_FOREACH(p, MAKE_SET(fds), i) {
+                r = fd_cloexec(PTR_TO_FD(p), b);
+                if (r < 0)
                         return r;
+        }
 
         return 0;
 }

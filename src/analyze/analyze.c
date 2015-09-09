@@ -582,8 +582,7 @@ static int analyze_plot(sd_bus *bus) {
 
                 if (u->activating < boot->userspace_time ||
                     u->activating > boot->finish_time) {
-                        free(u->name);
-                        u->name = NULL;
+                        u->name = mfree(u->name);
                         continue;
                 }
 
@@ -845,11 +844,8 @@ static int list_dependencies_one(sd_bus *bus, const char *name, unsigned int lev
 
         STRV_FOREACH(c, deps) {
                 times = hashmap_get(unit_times_hashmap, *c);
-                if (times && times->activated
-                    && times->activated <= boot->finish_time
-                    && (service_longest - times->activated) <= arg_fuzz) {
+                if (times && times->activated && times->activated <= boot->finish_time && (service_longest - times->activated) <= arg_fuzz)
                         to_print++;
-                }
         }
 
         if (!to_print)

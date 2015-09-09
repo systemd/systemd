@@ -42,10 +42,9 @@ int main(int argc, char*argv[]) {
         if (streq(argv[1], "start")) {
                 int r = 0;
 
-                if (unlink("/run/nologin") < 0 && errno != ENOENT) {
-                        log_error_errno(errno, "Failed to remove /run/nologin file: %m");
-                        r = -errno;
-                }
+                if (unlink("/run/nologin") < 0 && errno != ENOENT)
+                        r = log_error_errno(errno,
+                                            "Failed to remove /run/nologin file: %m");
 
                 if (unlink("/etc/nologin") < 0 && errno != ENOENT) {
                         /* If the file doesn't exist and /etc simply

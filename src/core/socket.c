@@ -135,11 +135,8 @@ static void socket_done(Unit *u) {
 
         unit_ref_unset(&s->service);
 
-        free(s->tcp_congestion);
-        s->tcp_congestion = NULL;
-
-        free(s->bind_to_device);
-        s->bind_to_device = NULL;
+        s->tcp_congestion = mfree(s->tcp_congestion);
+        s->bind_to_device = mfree(s->bind_to_device);
 
         free(s->smack);
         free(s->smack_ip_in);
@@ -985,7 +982,9 @@ static int fifo_address_create(
                 goto fail;
         }
 
-        if ((fd = open(path, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK|O_NOFOLLOW)) < 0) {
+        fd = open(path,
+                  O_RDWR | O_CLOEXEC | O_NOCTTY | O_NONBLOCK | O_NOFOLLOW);
+        if (fd < 0) {
                 r = -errno;
                 goto fail;
         }

@@ -204,9 +204,8 @@ static int netdev_bond_fill_message_create(NetDev *netdev, Link *link, sd_netlin
         if (b->lacp_rate != _NETDEV_BOND_LACP_RATE_INVALID &&
             b->mode == NETDEV_BOND_MODE_802_3AD) {
                 r = sd_netlink_message_append_u8(m, IFLA_BOND_AD_LACP_RATE, b->lacp_rate );
-                if (r < 0) {
+                if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_AD_LACP_RATE attribute: %m");
-                }
         }
 
         if (b->miimon != 0) {

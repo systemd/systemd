@@ -95,8 +95,7 @@ static void busname_done(Unit *u) {
 
         assert(n);
 
-        free(n->name);
-        n->name = NULL;
+        n->name = mfree(n->name);
 
         busname_free_policy(n);
         busname_unwatch_control_pid(n);

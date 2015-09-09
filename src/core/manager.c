@@ -674,8 +674,7 @@ static int manager_setup_notify(Manager *m) {
                 static const int one = 1;
 
                 /* First free all secondary fields */
-                free(m->notify_socket);
-                m->notify_socket = NULL;
+                m->notify_socket = mfree(m->notify_socket);
                 m->notify_event_source = sd_event_source_unref(m->notify_event_source);
 
                 fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
@@ -2793,10 +2792,8 @@ static void trim_generator_dir(Manager *m, char **generator) {
         if (!*generator)
                 return;
 
-        if (rmdir(*generator) >= 0) {
-                free(*generator);
-                *generator = NULL;
-        }
+        if (rmdir(*generator) >= 0)
+                *generator = mfree(*generator);
 
         return;
 }
@@ -2866,8 +2863,7 @@ static void remove_generator_dir(Manager *m, char **generator) {
         strv_remove(m->lookup_paths.unit_path, *generator);
         (void) rm_rf(*generator, REMOVE_ROOT);
 
-        free(*generator);
-        *generator = NULL;
+        *generator = mfree(*generator);
 }
 
 static void manager_undo_generators(Manager *m) {

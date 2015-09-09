@@ -329,12 +329,11 @@ static int get_password(const char *vol, const char *src, usec_t until, bool acc
         description = disk_description(src);
         mount_point = disk_mount_point(vol);
 
-        if (description && streq(vol, description)) {
+        if (description && streq(vol, description))
                 /* If the description string is simply the
                  * volume name, then let's not show this
                  * twice */
                 description = mfree(description);
-        }
 
         if (mount_point && description)
                 r = asprintf(&name_buffer, "%s (%s) on %s", description, vol, mount_point);

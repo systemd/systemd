@@ -1204,12 +1204,11 @@ static int status_welcome(void) {
                            "PRETTY_NAME", &pretty_name,
                            "ANSI_COLOR", &ansi_color,
                            NULL);
-        if (r == -ENOENT) {
+        if (r == -ENOENT)
                 r = parse_env_file("/usr/lib/os-release", NEWLINE,
                                    "PRETTY_NAME", &pretty_name,
                                    "ANSI_COLOR", &ansi_color,
                                    NULL);
-        }
 
         if (r < 0 && r != -ENOENT)
                 log_warning_errno(r, "Failed to read os-release file: %m");
@@ -1843,8 +1842,7 @@ finish:
         m = manager_free(m);
 
         for (j = 0; j < ELEMENTSOF(arg_default_rlimit); j++) {
-                free(arg_default_rlimit[j]);
-                arg_default_rlimit[j] = NULL;
+                arg_default_rlimit[j] = mfree(arg_default_rlimit[j]);
         }
 
         arg_default_unit = mfree(arg_default_unit);

@@ -203,8 +203,7 @@ static void mount_done(Unit *u) {
 
         assert(m);
 
-        free(m->where);
-        m->where = NULL;
+        m->where = mfree(m->where);
 
         mount_parameters_done(&m->parameters_proc_self_mountinfo);
         mount_parameters_done(&m->parameters_fragment);

@@ -672,9 +672,8 @@ static int import_parent_into_properties(struct udev_device *dev, const char *fi
                 const char *key = udev_list_entry_get_name(list_entry);
                 const char *val = udev_list_entry_get_value(list_entry);
 
-                if (fnmatch(filter, key, 0) == 0) {
+                if (fnmatch(filter, key, 0) == 0)
                         udev_device_add_property(dev, key, val);
-                }
         }
         return 0;
 }
@@ -1686,12 +1685,10 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names) {
         strbuf_complete(rules->strbuf);
 
         /* cleanup uid/gid cache */
-        free(rules->uids);
-        rules->uids = NULL;
+        rules->uids = mfree(rules->uids);
         rules->uids_cur = 0;
         rules->uids_max = 0;
-        free(rules->gids);
-        rules->gids = NULL;
+        rules->gids = mfree(rules->gids);
         rules->gids_cur = 0;
         rules->gids_max = 0;
 
@@ -2064,8 +2061,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules,
                         char program[UTIL_PATH_SIZE];
                         char result[UTIL_LINE_SIZE];
 
-                        free(event->program_result);
-                        event->program_result = NULL;
+                        event->program_result = mfree(event->program_result);
                         udev_event_apply_format(event, rules_str(rules, cur->key.value_off), program, sizeof(program));
                         log_debug("PROGRAM '%s' %s:%u",
                                   program,

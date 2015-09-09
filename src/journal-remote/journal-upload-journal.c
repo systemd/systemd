@@ -21,8 +21,7 @@ static ssize_t write_entry(char *buf, size_t size, Uploader *u) {
 
                 switch(u->entry_state) {
                 case ENTRY_CURSOR: {
-                        free(u->current_cursor);
-                        u->current_cursor = NULL;
+                        u->current_cursor = mfree(u->current_cursor);
 
                         r = sd_journal_get_cursor(u->journal, &u->current_cursor);
                         if (r < 0)
@@ -375,10 +374,9 @@ int open_journal_for_upload(Uploader *u,
 
         if (cursor) {
                 r = sd_journal_seek_cursor(j, cursor);
-                if (r < 0) {
+                if (r < 0)
                         return log_error_errno(r, "Failed to seek to cursor %s: %m",
                                                cursor);
-                }
         }
 
         return process_journal_input(u, 1 + !!after_cursor);

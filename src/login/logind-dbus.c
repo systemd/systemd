@@ -1987,8 +1987,7 @@ static int method_cancel_scheduled_shutdown(sd_bus_message *message, void *userd
         m->scheduled_shutdown_timeout_source = sd_event_source_unref(m->scheduled_shutdown_timeout_source);
         m->wall_message_timeout_source = sd_event_source_unref(m->wall_message_timeout_source);
         m->nologin_timeout_source = sd_event_source_unref(m->nologin_timeout_source);
-        free(m->scheduled_shutdown_type);
-        m->scheduled_shutdown_type = NULL;
+        m->scheduled_shutdown_type = mfree(m->scheduled_shutdown_type);
         m->scheduled_shutdown_timeout = 0;
 
         if (m->unlink_nologin) {

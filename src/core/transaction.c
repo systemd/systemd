@@ -380,12 +380,10 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
                                          "Found dependency on %s/%s",
                                          k->unit->id, job_type_to_string(k->type));
 
-                        if (!delete && hashmap_get(tr->jobs, k->unit) &&
-                            !unit_matters_to_anchor(k->unit, k)) {
+                        if (!delete && hashmap_get(tr->jobs, k->unit) && !unit_matters_to_anchor(k->unit, k))
                                 /* Ok, we can drop this one, so let's
                                  * do so. */
                                 delete = k;
-                        }
 
                         /* Check if this in fact was the beginning of
                          * the cycle */
@@ -464,9 +462,11 @@ static int transaction_verify_order(Transaction *tr, unsigned *generation, sd_bu
 
         g = (*generation)++;
 
-        HASHMAP_FOREACH(j, tr->jobs, i)
-                if ((r = transaction_verify_order_one(tr, j, NULL, g, e)) < 0)
+        HASHMAP_FOREACH(j, tr->jobs, i) {
+                r = transaction_verify_order_one(tr, j, NULL, g, e);
+                if (r < 0)
                         return r;
+        }
 
         return 0;
 }

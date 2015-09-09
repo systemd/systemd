@@ -269,8 +269,8 @@ static int server_init(Server *s, unsigned n_sockets) {
 
         s->epoll_fd = epoll_create1(EPOLL_CLOEXEC);
         if (s->epoll_fd < 0) {
-                r = -errno;
-                log_error_errno(errno, "Failed to create epoll object: %m");
+                r = log_error_errno(errno,
+                                    "Failed to create epoll object: %m");
                 goto fail;
         }
 
@@ -399,13 +399,10 @@ int main(int argc, char *argv[]) {
                 struct epoll_event event;
                 int k;
 
-                if ((k = epoll_wait(server.epoll_fd,
-                                    &event, 1,
-                                    TIMEOUT_MSEC)) < 0) {
-
+                k = epoll_wait(server.epoll_fd, &event, 1, TIMEOUT_MSEC);
+                if (k < 0) {
                         if (errno == EINTR)
                                 continue;
-
                         log_error_errno(errno, "epoll_wait() failed: %m");
                         goto fail;
                 }

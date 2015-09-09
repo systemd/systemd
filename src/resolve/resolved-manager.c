@@ -619,8 +619,7 @@ int manager_read_resolv_conf(Manager *m) {
         }
 
         if (fstat(fileno(f), &st) < 0) {
-                log_error_errno(errno, "Failed to stat open file: %m");
-                r = -errno;
+                r = log_error_errno(errno, "Failed to stat open file: %m");
                 goto clear;
         }
 

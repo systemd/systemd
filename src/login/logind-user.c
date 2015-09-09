@@ -560,8 +560,7 @@ static int user_remove_runtime_path(User *u) {
         if (r < 0)
                 log_error_errno(r, "Failed to remove runtime directory %s: %m", u->runtime_path);
 
-        free(u->runtime_path);
-        u->runtime_path = NULL;
+        u->runtime_path = mfree(u->runtime_path);
 
         return r;
 }

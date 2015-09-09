@@ -113,8 +113,7 @@ static void message_reset_containers(sd_bus_message *m) {
                 free(m->containers[i].offsets);
         }
 
-        free(m->containers);
-        m->containers = NULL;
+        m->containers = mfree(m->containers);
 
         m->n_containers = m->containers_allocated = 0;
         m->root_container.index = 0;

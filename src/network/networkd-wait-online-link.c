@@ -120,13 +120,11 @@ int link_update_rtnl(Link *l, sd_netlink_message *m) {
 int link_update_monitor(Link *l) {
         assert(l);
 
-        free(l->operational_state);
-        l->operational_state = NULL;
+        l->operational_state = mfree(l->operational_state);
 
         sd_network_link_get_operational_state(l->ifindex, &l->operational_state);
 
-        free(l->state);
-        l->state = NULL;
+        l->state = mfree(l->state);
 
         sd_network_link_get_setup_state(l->ifindex, &l->state);
 

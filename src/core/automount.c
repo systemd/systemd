@@ -127,8 +127,7 @@ static void automount_done(Unit *u) {
 
         unmount_autofs(a);
 
-        free(a->where);
-        a->where = NULL;
+        a->where = mfree(a->where);
 
         set_free(a->tokens);
         a->tokens = NULL;

@@ -1670,9 +1670,8 @@ int main(int argc, char *argv[]) {
 
                 arg_children_max = 8;
 
-                if (sched_getaffinity(0, sizeof (cpu_set), &cpu_set) == 0) {
+                if (sched_getaffinity(0, sizeof(cpu_set), &cpu_set) == 0)
                         arg_children_max += CPU_COUNT(&cpu_set) * 2;
-                }
 
                 log_debug("set children_max to %u", arg_children_max);
         }

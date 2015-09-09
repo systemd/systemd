@@ -288,8 +288,7 @@ static int mount_kdbus(BindMount *m) {
         /* create a new /dev/null dev node copy so we have some fodder to
          * bind-mount the custom endpoint over. */
         if (stat("/dev/null", &st) < 0) {
-                log_error_errno(errno, "Failed to stat /dev/null: %m");
-                r = -errno;
+                r = log_error_errno(errno, "Failed to stat /dev/null: %m");
                 goto fail;
         }
 

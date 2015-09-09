@@ -59,8 +59,7 @@ static void swap_unset_proc_swaps(Swap *s) {
         if (!s->from_proc_swaps)
                 return;
 
-        free(s->parameters_proc_swaps.what);
-        s->parameters_proc_swaps.what = NULL;
+        s->parameters_proc_swaps.what = mfree(s->parameters_proc_swaps.what);
 
         s->from_proc_swaps = false;
 }
@@ -87,8 +86,7 @@ static int swap_set_devnode(Swap *s, const char *devnode) {
                 else
                         hashmap_remove(swaps, s->devnode);
 
-                free(s->devnode);
-                s->devnode = NULL;
+                s->devnode = mfree(s->devnode);
         }
 
         if (devnode) {
@@ -141,14 +139,9 @@ static void swap_done(Unit *u) {
         swap_unset_proc_swaps(s);
         swap_set_devnode(s, NULL);
 
-        free(s->what);
-        s->what = NULL;
-
-        free(s->parameters_fragment.what);
-        s->parameters_fragment.what = NULL;
-
-        free(s->parameters_fragment.options);
-        s->parameters_fragment.options = NULL;
+        s->what = mfree(s->what);
+        s->parameters_fragment.what = mfree(s->parameters_fragment.what);
+        s->parameters_fragment.options = mfree(s->parameters_fragment.options);
 
         s->exec_runtime = exec_runtime_unref(s->exec_runtime);
         exec_command_done_array(s->exec_command, _SWAP_EXEC_COMMAND_MAX);

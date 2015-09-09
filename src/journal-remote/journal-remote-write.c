@@ -30,8 +30,7 @@ int iovw_put(struct iovec_wrapper *iovw, void* data, size_t len) {
 }
 
 void iovw_free_contents(struct iovec_wrapper *iovw) {
-        free(iovw->iovec);
-        iovw->iovec = NULL;
+        iovw->iovec = mfree(iovw->iovec);
         iovw->size_bytes = iovw->count = 0;
 }
 

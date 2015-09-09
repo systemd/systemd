@@ -438,10 +438,9 @@ int main(int argc, char *argv[]) {
 
                         res = nanosleep(&req, NULL);
                         if (res) {
-                                if (errno == EINTR) {
+                                if (errno == EINTR)
                                         /* caught signal, probably HUP! */
                                         break;
-                                }
                                 log_error_errno(errno, "nanosleep() failed: %m");
                                 return EXIT_FAILURE;
                         }

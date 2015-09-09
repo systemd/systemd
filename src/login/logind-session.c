@@ -913,8 +913,7 @@ static void session_remove_fifo(Session *s) {
 
         if (s->fifo_path) {
                 unlink(s->fifo_path);
-                free(s->fifo_path);
-                s->fifo_path = NULL;
+                s->fifo_path = mfree(s->fifo_path);
         }
 }
 

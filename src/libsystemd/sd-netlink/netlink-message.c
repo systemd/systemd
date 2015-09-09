@@ -843,8 +843,7 @@ int sd_netlink_message_exit_container(sd_netlink_message *m) {
         assert_return(m->sealed, -EINVAL);
         assert_return(m->n_containers > 0, -EINVAL);
 
-        free(m->containers[m->n_containers].attributes);
-        m->containers[m->n_containers].attributes = NULL;
+        m->containers[m->n_containers].attributes = mfree(m->containers[m->n_containers].attributes);
         m->containers[m->n_containers].type_system = NULL;
 
         m->n_containers --;
@@ -894,16 +893,14 @@ int sd_netlink_message_rewind(sd_netlink_message *m) {
                 rtnl_message_seal(m);
 
         for (i = 1; i <= m->n_containers; i++) {
-                free(m->containers[i].attributes);
-                m->containers[i].attributes = NULL;
+                m->containers[i].attributes = mfree(m->containers[i].attributes);
         }
 
         m->n_containers = 0;
 
-        if (m->containers[0].attributes) {
+        if (m->containers[0].attributes)
                 /* top-level attributes have already been parsed */
                 return 0;
-        }
 
         assert(m->hdr);
 

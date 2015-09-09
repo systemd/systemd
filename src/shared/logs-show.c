@@ -334,10 +334,9 @@ static int output_short(
                         break;
                 case OUTPUT_SHORT_PRECISE:
                         r = strftime(buf, sizeof(buf), "%b %d %H:%M:%S", gettime_r(&t, &tm));
-                        if (r > 0) {
+                        if (r > 0)
                                 snprintf(buf + strlen(buf), sizeof(buf) - strlen(buf),
                                          ".%06llu", (unsigned long long) (x % USEC_PER_SEC));
-                        }
                         break;
                 default:
                         r = strftime(buf, sizeof(buf), "%b %d %H:%M:%S", gettime_r(&t, &tm));

@@ -331,8 +331,8 @@ int ask_password_agent(
 
         fd = mkostemp_safe(temp, O_WRONLY|O_CLOEXEC);
         if (fd < 0) {
-                log_error_errno(errno, "Failed to create password file: %m");
-                r = -errno;
+                r = log_error_errno(errno,
+                                    "Failed to create password file: %m");
                 goto finish;
         }
 
@@ -340,8 +340,7 @@ int ask_password_agent(
 
         f = fdopen(fd, "w");
         if (!f) {
-                log_error_errno(errno, "Failed to allocate FILE: %m");
-                r = -errno;
+                r = log_error_errno(errno, "Failed to allocate FILE: %m");
                 goto finish;
         }
 
@@ -349,8 +348,7 @@ int ask_password_agent(
 
         signal_fd = signalfd(-1, &mask, SFD_NONBLOCK|SFD_CLOEXEC);
         if (signal_fd < 0) {
-                log_error_errno(errno, "signalfd(): %m");
-                r = -errno;
+                r = log_error_errno(errno, "signalfd(): %m");
                 goto finish;
         }
 
@@ -395,8 +393,7 @@ int ask_password_agent(
         final[sizeof(final)-9] = 'k';
 
         if (rename(temp, final) < 0) {
-                log_error_errno(errno, "Failed to rename query file: %m");
-                r = -errno;
+                r = log_error_errno(errno, "Failed to rename query file: %m");
                 goto finish;
         }
 
@@ -432,8 +429,7 @@ int ask_password_agent(
                         if (errno == EINTR)
                                 continue;
 
-                        log_error_errno(errno, "poll() failed: %m");
-                        r = -errno;
+                        r = log_error_errno(errno, "poll() failed: %m");
                         goto finish;
                 }
 
@@ -471,8 +467,7 @@ int ask_password_agent(
                             errno == EINTR)
                                 continue;
 
-                        log_error_errno(errno, "recvmsg() failed: %m");
-                        r = -errno;
+                        r = log_error_errno(errno, "recvmsg() failed: %m");
                         goto finish;
                 }
 

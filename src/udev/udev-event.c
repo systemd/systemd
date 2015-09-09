@@ -731,15 +731,13 @@ int udev_event_spawn(struct udev_event *event,
         /* pipes from child to parent */
         if (result != NULL || log_get_max_level() >= LOG_INFO) {
                 if (pipe2(outpipe, O_NONBLOCK) != 0) {
-                        err = -errno;
-                        log_error_errno(errno, "pipe failed: %m");
+                        err = log_error_errno(errno, "pipe failed: %m");
                         goto out;
                 }
         }
         if (log_get_max_level() >= LOG_INFO) {
                 if (pipe2(errpipe, O_NONBLOCK) != 0) {
-                        err = -errno;
-                        log_error_errno(errno, "pipe failed: %m");
+                        err = log_error_errno(errno, "pipe failed: %m");
                         goto out;
                 }
         }
@@ -753,14 +751,8 @@ int udev_event_spawn(struct udev_event *event,
                 char program[UTIL_PATH_SIZE];
 
                 /* child closes parent's ends of pipes */
-                if (outpipe[READ_END] >= 0) {
-                        close(outpipe[READ_END]);
-                        outpipe[READ_END] = -1;
-                }
-                if (errpipe[READ_END] >= 0) {
-                        close(errpipe[READ_END]);
-                        errpipe[READ_END] = -1;
-                }
+                outpipe[READ_END] = safe_close(outpipe[READ_END]);
+                errpipe[READ_END] = safe_close(errpipe[READ_END]);
 
                 strscpy(arg, sizeof(arg), cmd);
                 udev_build_argv(event->udev, arg, NULL, argv);
@@ -784,14 +776,8 @@ int udev_event_spawn(struct udev_event *event,
                 goto out;
         default:
                 /* parent closed child's ends of pipes */
-                if (outpipe[WRITE_END] >= 0) {
-                        close(outpipe[WRITE_END]);
-                        outpipe[WRITE_END] = -1;
-                }
-                if (errpipe[WRITE_END] >= 0) {
-                        close(errpipe[WRITE_END]);
-                        errpipe[WRITE_END] = -1;
-                }
+                outpipe[WRITE_END] = safe_close(outpipe[WRITE_END]);
+                errpipe[WRITE_END] = safe_close(errpipe[WRITE_END]);
 
                 spawn_read(event,
                            timeout_usec,

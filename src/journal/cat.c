@@ -142,8 +142,7 @@ int main(int argc, char *argv[]) {
 
         if (dup3(fd, STDOUT_FILENO, 0) < 0 ||
             dup3(fd, STDERR_FILENO, 0) < 0) {
-                log_error_errno(errno, "Failed to duplicate fd: %m");
-                r = -errno;
+                r = log_error_errno(errno, "Failed to duplicate fd: %m");
                 goto finish;
         }
 
