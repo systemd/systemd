@@ -1023,7 +1023,6 @@ static int bus_start_address(sd_bus *b) {
 
                 if (b->exec_path)
                         r = bus_socket_exec(b);
-
                 else if ((b->nspid > 0 || b->machine) && b->kernel) {
                         r = bus_container_connect_kernel(b);
                         if (r < 0 && !IN_SET(r, -ENOENT, -ESOCKTNOSUPPORT))
@@ -1045,7 +1044,6 @@ static int bus_start_address(sd_bus *b) {
                                 r = bus_socket_connect(b);
                         else
                                 skipped = true;
-
                 } else
                         skipped = true;
 
