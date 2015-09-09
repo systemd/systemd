@@ -89,6 +89,7 @@ const sd_bus_vtable bus_socket_vtable[] = {
         SD_BUS_PROPERTY("Backlog", "u", bus_property_get_unsigned, offsetof(Socket, backlog), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("TimeoutUSec", "t", bus_property_get_usec, offsetof(Socket, timeout_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("BindToDevice", "s", NULL, offsetof(Socket, bind_to_device), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("FileDescriptorName", "s", NULL, offsetof(Socket, name), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SocketUser", "s", NULL, offsetof(Socket, user), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SocketGroup", "s", NULL, offsetof(Socket, group), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SocketMode", "u", bus_property_get_mode, offsetof(Socket, socket_mode), SD_BUS_VTABLE_PROPERTY_CONST),

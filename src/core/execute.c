@@ -1183,9 +1183,31 @@ static void do_idle_pipe_dance(int idle_pipe[4]) {
         safe_close(idle_pipe[3]);
 }
 
+static int build_listen_names(char **fds_names, char **env) {
+        char *l = NULL, *names = NULL;
+
+        assert(fds_names);
+        assert(env);
+
+        l = strv_join(fds_names, ":");
+        if (!l)
+                return -ENOMEM;
+
+        names  = strjoin("LISTEN_NAMES=", l, NULL);
+        if (!names) {
+                free(l);
+                return -ENOMEM;
+        }
+
+        *env = names;
+        free(l);
+        return 0;
+}
+
 static int build_environment(
                 const ExecContext *c,
                 unsigned n_fds,
+                char **fds_names,
                 usec_t watchdog_usec,
                 const char *home,
                 const char *username,
@@ -1195,11 +1217,12 @@ static int build_environment(
         _cleanup_strv_free_ char **our_env = NULL;
         unsigned n_env = 0;
         char *x;
+        int r;
 
         assert(c);
         assert(ret);
 
-        our_env = new0(char*, 10);
+        our_env = new0(char*, 11);
         if (!our_env)
                 return -ENOMEM;
 
@@ -1211,6 +1234,13 @@ static int build_environment(
                 if (asprintf(&x, "LISTEN_FDS=%u", n_fds) < 0)
                         return -ENOMEM;
                 our_env[n_env++] = x;
+
+                if (fds_names) {
+                        r = build_listen_names(fds_names, &x);
+                        if (r < 0)
+                                return r;
+                        our_env[n_env++] = x;
+                }
         }
 
         if (watchdog_usec > 0) {
@@ -1261,7 +1291,7 @@ static int build_environment(
         }
 
         our_env[n_env++] = NULL;
-        assert(n_env <= 10);
+        assert(n_env <= 11);
 
         *ret = our_env;
         our_env = NULL;
@@ -1307,7 +1337,9 @@ static int exec_child(
                 ExecRuntime *runtime,
                 char **argv,
                 int socket_fd,
-                int *fds, unsigned n_fds,
+                int *fds,
+                char **fds_names,
+                unsigned n_fds,
                 char **files_env,
                 int *exit_status) {
 
@@ -1828,7 +1860,7 @@ static int exec_child(
 #endif
         }
 
-        r = build_environment(context, n_fds, params->watchdog_usec, home, username, shell, &our_env);
+        r = build_environment(context, n_fds, fds_names, params->watchdog_usec, home, username, shell, &our_env);
         if (r < 0) {
                 *exit_status = EXIT_MEMORY;
                 return r;
@@ -1882,7 +1914,9 @@ int exec_spawn(Unit *unit,
                pid_t *ret) {
 
         _cleanup_strv_free_ char **files_env = NULL;
-        int *fds = NULL; unsigned n_fds = 0;
+        int *fds = NULL;
+        char **fds_names = NULL;
+        unsigned n_fds = 0;
         _cleanup_free_ char *line = NULL;
         int socket_fd, r;
         char **argv;
@@ -1909,6 +1943,7 @@ int exec_spawn(Unit *unit,
                 socket_fd = -1;
                 fds = params->fds;
                 n_fds = params->n_fds;
+                fds_names = params->fds_names;
         }
 
         r = exec_context_load_environment(unit, context, &files_env);
@@ -1939,7 +1974,9 @@ int exec_spawn(Unit *unit,
                                runtime,
                                argv,
                                socket_fd,
-                               fds, n_fds,
+                               fds,
+                               fds_names,
+                               n_fds,
                                files_env,
                                &exit_status);
                 if (r < 0) {

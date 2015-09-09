@@ -82,6 +82,7 @@ finish:
         if (unset_environment) {
                 unsetenv("LISTEN_PID");
                 unsetenv("LISTEN_FDS");
+                unsetenv("LISTEN_NAMES");
         }
 
         return r;
