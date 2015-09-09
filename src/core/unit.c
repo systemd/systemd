@@ -445,8 +445,7 @@ static void unit_free_requires_mounts_for(Unit *u) {
                 }
         }
 
-        strv_free(u->requires_mounts_for);
-        u->requires_mounts_for = NULL;
+        u->requires_mounts_for = strv_free(u->requires_mounts_for);
 }
 
 static void unit_done(Unit *u) {
