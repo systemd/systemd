@@ -161,7 +161,6 @@ REQUIREMENTS:
         gperf
         python (optional)
         python-lxml (optional, but required to build the indices)
-        sphinx (optional)
 
         The build system is initialized with ./autogen.sh. A tar ball
         can be created with:
@@ -172,12 +171,6 @@ REQUIREMENTS:
         dynamically changing hostnames, the hostname stays resolvable
         under all circumstances. In fact, systemd-hostnamed will warn
         if nss-myhostname is not installed.
-
-        To build HTML documentation for python-systemd using sphinx,
-        please first install systemd (using 'make install'), and then
-        invoke sphinx-build with 'make sphinx-<target>', with <target>
-        being 'html' or 'latexpdf'. If using DESTDIR for installation,
-        pass the same DESTDIR to 'make sphinx-html' invocation.
 
 USERS AND GROUPS:
         Default udev rules use the following standard system group
