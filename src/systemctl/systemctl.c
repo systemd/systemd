@@ -2763,7 +2763,7 @@ static int start_unit(sd_bus *bus, char **args) {
 static int reboot_with_logind(sd_bus *bus, enum action a) {
 #ifdef HAVE_LOGIND
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        const char *method;
+        const char *method, *description;
         int r;
 
         if (!bus)
@@ -2775,22 +2775,27 @@ static int reboot_with_logind(sd_bus *bus, enum action a) {
 
         case ACTION_REBOOT:
                 method = "Reboot";
+                description = "reboot system";
                 break;
 
         case ACTION_POWEROFF:
                 method = "PowerOff";
+                description = "power off system";
                 break;
 
         case ACTION_SUSPEND:
                 method = "Suspend";
+                description = "suspend system";
                 break;
 
         case ACTION_HIBERNATE:
                 method = "Hibernate";
+                description = "hibernate system";
                 break;
 
         case ACTION_HYBRID_SLEEP:
                 method = "HybridSleep";
+                description = "put system into hybrid sleep";
                 break;
 
         default:
@@ -2834,7 +2839,7 @@ static int reboot_with_logind(sd_bus *bus, enum action a) {
                         NULL,
                         "b", arg_ask_password);
         if (r < 0)
-                log_error("Failed to execute operation: %s", bus_error_message(&error, r));
+                log_error("Failed to %s via logind: %s", description, bus_error_message(&error, r));
 
         return r;
 #else
