@@ -190,7 +190,7 @@ static int get_file_options(struct udev *udev,
 
         *newargv = NULL;
         lineno = 0;
-        while (1) {
+        for (;;) {
                 vendor_in = model_in = options_in = NULL;
 
                 buf = fgets(buffer, MAX_BUFFER_LEN, f);

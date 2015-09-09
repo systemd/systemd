@@ -17,7 +17,7 @@ static ssize_t write_entry(char *buf, size_t size, Uploader *u) {
 
         assert(size <= SSIZE_MAX);
 
-        while (true) {
+        for (;;) {
 
                 switch(u->entry_state) {
                 case ENTRY_CURSOR: {

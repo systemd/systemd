@@ -364,7 +364,7 @@ int main(int argc, char **argv)
                 goto exit;
         }
 
-        while (1) {
+        for (;;) {
                 int option;
 
                 option = getopt_long(argc, argv, "ardh", options, NULL);

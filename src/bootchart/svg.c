@@ -888,7 +888,7 @@ static struct ps_struct *get_next_ps(struct ps_struct *ps, struct ps_struct *ps_
                 return ps->next;
 
         /* go back for parent siblings */
-        while (1) {
+        for (;;) {
                 if (ps->parent && ps->parent->next)
                         return ps->parent->next;
 

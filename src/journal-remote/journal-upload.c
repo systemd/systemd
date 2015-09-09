@@ -828,7 +828,7 @@ int main(int argc, char **argv) {
                   "READY=1\n"
                   "STATUS=Processing input...");
 
-        while (true) {
+        for (;;) {
                 r = sd_event_get_state(u.events);
                 if (r < 0)
                         break;

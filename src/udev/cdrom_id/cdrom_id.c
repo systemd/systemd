@@ -868,7 +868,7 @@ int main(int argc, char *argv[])
         if (udev == NULL)
                 goto exit;
 
-        while (1) {
+        for (;;) {
                 int option;
 
                 option = getopt_long(argc, argv, "deluh", options, NULL);

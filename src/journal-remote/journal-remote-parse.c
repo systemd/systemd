@@ -94,7 +94,7 @@ static int get_line(RemoteSource *source, char **line, size_t *size) {
         assert(source->buf == NULL || source->size > 0);
         assert(source->fd >= 0);
 
-        while (true) {
+        for (;;) {
                 if (source->buf) {
                         size_t start = MAX(source->scanned, source->offset);
 

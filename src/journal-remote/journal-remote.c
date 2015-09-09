@@ -518,7 +518,7 @@ static int process_http_upload(
         } else
                 finished = true;
 
-        while (true) {
+        for (;;) {
                 r = process_source(source, arg_compress, arg_seal);
                 if (r == -EAGAIN)
                         break;
