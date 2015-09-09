@@ -1016,7 +1016,7 @@ static int analyze_time(sd_bus *bus) {
         return 0;
 }
 
-static int graph_one_property(sd_bus *bus, const UnitInfo *u, const char* prop, const char *color, char* patterns[]) {
+static int graph_one_property(sd_bus *bus, const UnitInfo *u, const char* prop, const char *color, char* patterns[], char* from_patterns[], char* to_patterns[]) {
         _cleanup_strv_free_ char **units = NULL;
         char **unit;
         int r;
@@ -1028,9 +1028,9 @@ static int graph_one_property(sd_bus *bus, const UnitInfo *u, const char* prop, 
 
         match_patterns = strv_fnmatch(patterns, u->id, 0);
 
-        if (!strv_isempty(arg_dot_from_patterns) &&
+        if (!strv_isempty(from_patterns) &&
             !match_patterns &&
-            !strv_fnmatch(arg_dot_from_patterns, u->id, 0))
+            !strv_fnmatch(from_patterns, u->id, 0))
                         return 0;
 
         r = bus_get_unit_property_strv(bus, u->unit_path, prop, &units);
@@ -1042,9 +1042,9 @@ static int graph_one_property(sd_bus *bus, const UnitInfo *u, const char* prop, 
 
                 match_patterns2 = strv_fnmatch(patterns, *unit, 0);
 
-                if (!strv_isempty(arg_dot_to_patterns) &&
+                if (!strv_isempty(to_patterns) &&
                     !match_patterns2 &&
-                    !strv_fnmatch(arg_dot_to_patterns, *unit, 0))
+                    !strv_fnmatch(to_patterns, *unit, 0))
                         continue;
 
                 if (!strv_isempty(patterns) && !match_patterns && !match_patterns2)
@@ -1056,35 +1056,35 @@ static int graph_one_property(sd_bus *bus, const UnitInfo *u, const char* prop, 
         return 0;
 }
 
-static int graph_one(sd_bus *bus, const UnitInfo *u, char *patterns[]) {
+static int graph_one(sd_bus *bus, const UnitInfo *u, char *patterns[], char *from_patterns[], char *to_patterns[]) {
         int r;
 
         assert(bus);
         assert(u);
 
         if (arg_dot == DEP_ORDER ||arg_dot == DEP_ALL) {
-                r = graph_one_property(bus, u, "After", "green", patterns);
+                r = graph_one_property(bus, u, "After", "green", patterns, from_patterns, to_patterns);
                 if (r < 0)
                         return r;
         }
 
         if (arg_dot == DEP_REQUIRE ||arg_dot == DEP_ALL) {
-                r = graph_one_property(bus, u, "Requires", "black", patterns);
+                r = graph_one_property(bus, u, "Requires", "black", patterns, from_patterns, to_patterns);
                 if (r < 0)
                         return r;
-                r = graph_one_property(bus, u, "RequiresOverridable", "black", patterns);
+                r = graph_one_property(bus, u, "RequiresOverridable", "black", patterns, from_patterns, to_patterns);
                 if (r < 0)
                         return r;
-                r = graph_one_property(bus, u, "RequisiteOverridable", "darkblue", patterns);
+                r = graph_one_property(bus, u, "RequisiteOverridable", "darkblue", patterns, from_patterns, to_patterns);
                 if (r < 0)
                         return r;
-                r = graph_one_property(bus, u, "Wants", "grey66", patterns);
+                r = graph_one_property(bus, u, "Wants", "grey66", patterns, from_patterns, to_patterns);
                 if (r < 0)
                         return r;
-                r = graph_one_property(bus, u, "Conflicts", "red", patterns);
+                r = graph_one_property(bus, u, "Conflicts", "red", patterns, from_patterns, to_patterns);
                 if (r < 0)
                         return r;
-                r = graph_one_property(bus, u, "ConflictedBy", "red", patterns);
+                r = graph_one_property(bus, u, "ConflictedBy", "red", patterns, from_patterns, to_patterns);
                 if (r < 0)
                         return r;
         }
@@ -1138,10 +1138,20 @@ static int dot(sd_bus *bus, char* patterns[]) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_strv_free_ char **expanded_patterns = NULL;
+        _cleanup_strv_free_ char **expanded_from_patterns = NULL;
+        _cleanup_strv_free_ char **expanded_to_patterns = NULL;
         int r;
         UnitInfo u;
 
         r = expand_patterns(bus, patterns, &expanded_patterns);
+        if (r < 0)
+                return r;
+
+        r = expand_patterns(bus, arg_dot_from_patterns, &expanded_from_patterns);
+        if (r < 0)
+                return r;
+
+        r = expand_patterns(bus, arg_dot_to_patterns, &expanded_to_patterns);
         if (r < 0)
                 return r;
 
@@ -1167,7 +1177,7 @@ static int dot(sd_bus *bus, char* patterns[]) {
 
         while ((r = bus_parse_unit_info(reply, &u)) > 0) {
 
-                r = graph_one(bus, &u, expanded_patterns);
+                r = graph_one(bus, &u, expanded_patterns, expanded_from_patterns, expanded_to_patterns);
                 if (r < 0)
                         return r;
         }
