@@ -3048,8 +3048,12 @@ static int start_special(sd_bus *bus, char **args) {
                    ACTION_HIBERNATE,
                    ACTION_HYBRID_SLEEP)) {
                 r = reboot_with_logind(bus, a);
-                if (r >= 0 || IN_SET(r, -EOPNOTSUPP, -EINPROGRESS))
+                if (r >= 0)
                         return r;
+                if (IN_SET(r, -EOPNOTSUPP, -EINPROGRESS))
+                        /* requested operation is not supported or already in progress */
+                        return r;
+                /* on all other errors, try low-level operation */
         }
 
         r = start_unit(bus, args);
@@ -7378,6 +7382,10 @@ static int halt_main(sd_bus *bus) {
                         r = reboot_with_logind(bus, arg_action);
                         if (r >= 0)
                                 return r;
+                        if (IN_SET(r, -EOPNOTSUPP, -EINPROGRESS))
+                                /* requested operation is not supported or already in progress */
+                                return r;
+                        /* on all other errors, try low-level operation */
                 }
 
                 log_error("Must be root.");
