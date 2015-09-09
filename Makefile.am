@@ -6110,7 +6110,7 @@ doc-sync: all
 	rsync -rlv --delete-excluded --include="*.html" --exclude="*" --omit-dir-times man/ $(www_target)/man/
 
 .PHONY: gardel
-gardel: upload
+gardel:
 	scp man/*.html gardel:public/systemd-man/
 
 .PHONY: lennart-fedora
