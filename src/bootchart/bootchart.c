@@ -458,10 +458,7 @@ int main(int argc, char *argv[]) {
                 ps = ps->next_ps;
                 ps->schedstat = safe_close(ps->schedstat);
                 ps->sched = safe_close(ps->sched);
-                if (ps->smaps) {
-                        fclose(ps->smaps);
-                        ps->smaps = NULL;
-                }
+                ps->smaps = safe_fclose(ps->smaps);
         }
 
         if (!of) {

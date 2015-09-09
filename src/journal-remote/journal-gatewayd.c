@@ -105,8 +105,7 @@ static void request_meta_free(
 
         sd_journal_close(m->journal);
 
-        if (m->tmp)
-                fclose(m->tmp);
+        safe_fclose(m->tmp);
 
         free(m->cursor);
         free(m);

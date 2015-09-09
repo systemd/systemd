@@ -1252,10 +1252,7 @@ static void swap_shutdown(Manager *m) {
 
         m->swap_event_source = sd_event_source_unref(m->swap_event_source);
 
-        if (m->proc_swaps) {
-                fclose(m->proc_swaps);
-                m->proc_swaps = NULL;
-        }
+        m->proc_swaps = safe_fclose(m->proc_swaps);
 
         hashmap_free(m->swaps_by_devnode);
         m->swaps_by_devnode = NULL;

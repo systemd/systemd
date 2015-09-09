@@ -344,8 +344,7 @@ _public_ sd_hwdb *sd_hwdb_unref(sd_hwdb *hwdb) {
         if (hwdb && REFCNT_DEC(hwdb->n_ref) == 0) {
                 if (hwdb->map)
                         munmap((void *)hwdb->map, hwdb->st.st_size);
-                if (hwdb->f)
-                        fclose(hwdb->f);
+                safe_fclose(hwdb->f);
                 free(hwdb->modalias);
                 ordered_hashmap_free(hwdb->properties);
                 free(hwdb);

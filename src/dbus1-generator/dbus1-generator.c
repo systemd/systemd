@@ -103,8 +103,7 @@ static int create_dbus_files(
                 if (r < 0)
                         return log_error_errno(r, "Failed to write %s: %m", a);
 
-                fclose(f);
-                f = NULL;
+                f = safe_fclose(f);
 
                 service = s;
         }

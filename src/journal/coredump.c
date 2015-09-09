@@ -512,8 +512,7 @@ static int compose_open_fds(pid_t pid, char **open_fds) {
         }
 
         errno = 0;
-        fclose(stream);
-        stream = NULL;
+        stream = safe_fclose(stream);
 
         if (errno != 0)
                 return -errno;

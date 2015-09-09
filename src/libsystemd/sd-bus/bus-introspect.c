@@ -204,8 +204,7 @@ int introspect_finish(struct introspect *i, sd_bus *bus, sd_bus_message *m, sd_b
 void introspect_free(struct introspect *i) {
         assert(i);
 
-        if (i->f)
-                fclose(i->f);
+        safe_fclose(i->f);
 
         free(i->introspection);
         zero(*i);
