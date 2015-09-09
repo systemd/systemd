@@ -404,7 +404,7 @@ void cgroup_context_apply(CGroupContext *c, CGroupMask mask, const char *path, M
                                        "Failed to set memory.limit_in_bytes/memory.max on %s: %m", path);
         }
 
-        if ((mask & CGROUP_MASK_DEVICE) && !is_root) {
+        if ((mask & CGROUP_MASK_DEVICES) && !is_root) {
                 CGroupDeviceAllow *a;
 
                 /* Changing the devices list of a populated cgroup
@@ -492,7 +492,7 @@ CGroupMask cgroup_context_get_mask(CGroupContext *c) {
 
         if (c->device_allow ||
             c->device_policy != CGROUP_AUTO)
-                mask |= CGROUP_MASK_DEVICE;
+                mask |= CGROUP_MASK_DEVICES;
 
         return mask;
 }

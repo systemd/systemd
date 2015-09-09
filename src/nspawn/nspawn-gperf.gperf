@@ -34,5 +34,5 @@ Network.Interface,         config_parse_strv,          0, offsetof(Settings, net
 Network.MACVLAN,           config_parse_strv,          0, offsetof(Settings, network_macvlan)
 Network.IPVLAN,            config_parse_strv,          0, offsetof(Settings, network_ipvlan)
 Network.VirtualEthernet,   config_parse_tristate,      0, offsetof(Settings, network_veth)
-Network.Bridge             config_parse_string,        0, offsetof(Settings, network_bridge)
+Network.Bridge,            config_parse_string,        0, offsetof(Settings, network_bridge)
 Network.Port,              config_parse_expose_port,   0, 0

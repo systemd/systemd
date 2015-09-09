@@ -572,7 +572,7 @@ int bus_cgroup_set_property(
                         char *buf;
 
                         c->device_policy = p;
-                        u->cgroup_realized_mask &= ~CGROUP_MASK_DEVICE;
+                        u->cgroup_realized_mask &= ~CGROUP_MASK_DEVICES;
 
                         buf = strjoina("DevicePolicy=", policy);
                         unit_write_drop_in_private(u, mode, name, buf);
@@ -651,7 +651,7 @@ int bus_cgroup_set_property(
                                         cgroup_context_free_device_allow(c, c->device_allow);
                         }
 
-                        u->cgroup_realized_mask &= ~CGROUP_MASK_DEVICE;
+                        u->cgroup_realized_mask &= ~CGROUP_MASK_DEVICES;
 
                         f = open_memstream(&buf, &size);
                         if (!f)

@@ -44,7 +44,7 @@ typedef enum PullJobState {
         _PULL_JOB_STATE_INVALID = -1,
 } PullJobState;
 
-#define PULL_JOB_STATE_IS_COMPLETE(j) (IN_SET((j)->state, PULL_JOB_DONE, PULL_JOB_FAILED))
+#define PULL_JOB_IS_COMPLETE(j) (IN_SET((j)->state, PULL_JOB_DONE, PULL_JOB_FAILED))
 
 typedef enum PullJobCompression {
         PULL_JOB_UNCOMPRESSED,

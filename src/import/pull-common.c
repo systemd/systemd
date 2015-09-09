@@ -34,7 +34,14 @@
 
 #define FILENAME_ESCAPE "/.#\"\'"
 
-int pull_find_old_etags(const char *url, const char *image_root, int dt, const char *prefix, const char *suffix, char ***etags) {
+int pull_find_old_etags(
+                const char *url,
+                const char *image_root,
+                int dt,
+                const char *prefix,
+                const char *suffix,
+                char ***etags) {
+
         _cleanup_free_ char *escaped_url = NULL;
         _cleanup_closedir_ DIR *d = NULL;
         _cleanup_strv_free_ char **l = NULL;
@@ -173,6 +180,49 @@ int pull_make_path(const char *url, const char *etag, const char *image_root, co
         return 0;
 }
 
+int pull_make_settings_job(
+                PullJob **ret,
+                const char *url,
+                CurlGlue *glue,
+                PullJobFinished on_finished,
+                void *userdata) {
+
+        _cleanup_free_ char *last_component = NULL, *ll = NULL, *settings_url = NULL;
+        _cleanup_(pull_job_unrefp) PullJob *job = NULL;
+        const char *q;
+        int r;
+
+        assert(ret);
+        assert(url);
+        assert(glue);
+
+        r = import_url_last_component(url, &last_component);
+        if (r < 0)
+                return r;
+
+        r = tar_strip_suffixes(last_component, &ll);
+        if (r < 0)
+                return r;
+
+        q = strjoina(ll, ".nspawn");
+
+        r = import_url_change_last_component(url, q, &settings_url);
+        if (r < 0)
+                return r;
+
+        r = pull_job_new(&job, settings_url, glue, userdata);
+        if (r < 0)
+                return r;
+
+        job->on_finished = on_finished;
+        job->compressed_max = job->uncompressed_max = 1ULL * 1024ULL * 1024ULL;
+
+        *ret = job;
+        job = NULL;
+
+        return 0;
+}
+
 int pull_make_verification_jobs(
                 PullJob **ret_checksum_job,
                 PullJob **ret_signature_job,
@@ -232,8 +282,8 @@ int pull_make_verification_jobs(
         return 0;
 }
 
-int pull_verify(
-                PullJob *main_job,
+int pull_verify(PullJob *main_job,
+                PullJob *settings_job,
                 PullJob *checksum_job,
                 PullJob *signature_job) {
 
@@ -278,11 +328,46 @@ int pull_verify(
                    strlen(line));
 
         if (!p || (p != (char*) checksum_job->payload && p[-1] != '\n')) {
-                log_error("Checksum did not check out, payload has been tempered with.");
+                log_error("DOWNLOAD INVALID: Checksum did not check out, payload has been tempered with.");
                 return -EBADMSG;
         }
 
         log_info("SHA256 checksum of %s is valid.", main_job->url);
+
+        assert(!settings_job || settings_job->state == PULL_JOB_DONE);
+
+        if (settings_job &&
+            settings_job->error == 0 &&
+            !settings_job->etag_exists) {
+
+                _cleanup_free_ char *settings_fn = NULL;
+
+                assert(settings_job->calc_checksum);
+                assert(settings_job->checksum);
+
+                r = import_url_last_component(settings_job->url, &settings_fn);
+                if (r < 0)
+                        return log_oom();
+
+                if (!filename_is_valid(settings_fn)) {
+                        log_error("Cannot verify checksum, could not determine server-side settings file name.");
+                        return -EBADMSG;
+                }
+
+                line = strjoina(settings_job->checksum, " *", settings_fn, "\n");
+
+                p = memmem(checksum_job->payload,
+                           checksum_job->payload_size,
+                           line,
+                           strlen(line));
+
+                if (!p || (p != (char*) checksum_job->payload && p[-1] != '\n')) {
+                        log_error("DOWNLOAD INVALID: Checksum of settings file did not checkout, settings file has been tempered with.");
+                        return -EBADMSG;
+                }
+
+                log_info("SHA256 checksum of %s is valid.", settings_job->url);
+        }
 
         if (!signature_job)
                 return 0;
@@ -407,7 +492,7 @@ int pull_verify(
         if (r < 0)
                 goto finish;
         if (r > 0) {
-                log_error("Signature verification failed.");
+                log_error("DOWNLOAD INVALID: Signature verification failed.");
                 r = -EBADMSG;
         } else {
                 log_info("Signature verification succeeded.");
@@ -416,7 +501,7 @@ int pull_verify(
 
 finish:
         if (sig_file >= 0)
-                unlink(sig_file_path);
+                (void) unlink(sig_file_path);
 
         if (gpg_home_created)
                 (void) rm_rf(gpg_home, REMOVE_ROOT|REMOVE_PHYSICAL);
