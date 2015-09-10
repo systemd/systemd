@@ -100,7 +100,7 @@ static void group_hashmap_free(Hashmap *h) {
         hashmap_free(h);
 }
 
-static const char *maybe_format_bytes(char *buf, size_t l, bool is_valid, off_t t) {
+static const char *maybe_format_bytes(char *buf, size_t l, bool is_valid, uint64_t t) {
         if (!is_valid)
                 return "-";
         if (arg_raw) {

@@ -28,10 +28,10 @@
 
 #include "coredump-vacuum.h"
 
-#define DEFAULT_MAX_USE_LOWER (off_t) (1ULL*1024ULL*1024ULL)           /* 1 MiB */
-#define DEFAULT_MAX_USE_UPPER (off_t) (4ULL*1024ULL*1024ULL*1024ULL)   /* 4 GiB */
-#define DEFAULT_KEEP_FREE_UPPER (off_t) (4ULL*1024ULL*1024ULL*1024ULL) /* 4 GiB */
-#define DEFAULT_KEEP_FREE (off_t) (1024ULL*1024ULL)                    /* 1 MB */
+#define DEFAULT_MAX_USE_LOWER (uint64_t) (1ULL*1024ULL*1024ULL)           /* 1 MiB */
+#define DEFAULT_MAX_USE_UPPER (uint64_t) (4ULL*1024ULL*1024ULL*1024ULL)   /* 4 GiB */
+#define DEFAULT_KEEP_FREE_UPPER (uint64_t) (4ULL*1024ULL*1024ULL*1024ULL) /* 4 GiB */
+#define DEFAULT_KEEP_FREE (uint64_t) (1024ULL*1024ULL)                    /* 1 MB */
 
 struct vacuum_candidate {
         unsigned n_files;
@@ -82,8 +82,8 @@ static int uid_from_file_name(const char *filename, uid_t *uid) {
         return parse_uid(u, uid);
 }
 
-static bool vacuum_necessary(int fd, off_t sum, off_t keep_free, off_t max_use) {
-        off_t fs_size = 0, fs_free = (off_t) -1;
+static bool vacuum_necessary(int fd, uint64_t sum, uint64_t keep_free, uint64_t max_use) {
+        uint64_t fs_size = 0, fs_free = (uint64_t) -1;
         struct statvfs sv;
 
         assert(fd >= 0);
@@ -93,7 +93,7 @@ static bool vacuum_necessary(int fd, off_t sum, off_t keep_free, off_t max_use) 
                 fs_free = sv.f_frsize * sv.f_bfree;
         }
 
-        if (max_use == (off_t) -1) {
+        if (max_use == (uint64_t) -1) {
 
                 if (fs_size > 0) {
                         max_use = PAGE_ALIGN(fs_size / 10); /* 10% */
@@ -111,7 +111,7 @@ static bool vacuum_necessary(int fd, off_t sum, off_t keep_free, off_t max_use) 
         if (max_use > 0 && sum > max_use)
                 return true;
 
-        if (keep_free == (off_t) -1) {
+        if (keep_free == (uint64_t) -1) {
 
                 if (fs_size > 0) {
                         keep_free = PAGE_ALIGN((fs_size * 3) / 20); /* 15% */
@@ -129,7 +129,7 @@ static bool vacuum_necessary(int fd, off_t sum, off_t keep_free, off_t max_use) 
         return false;
 }
 
-int coredump_vacuum(int exclude_fd, off_t keep_free, off_t max_use) {
+int coredump_vacuum(int exclude_fd, uint64_t keep_free, uint64_t max_use) {
         _cleanup_closedir_ DIR *d = NULL;
         struct stat exclude_st;
         int r;
@@ -161,7 +161,7 @@ int coredump_vacuum(int exclude_fd, off_t keep_free, off_t max_use) {
                 _cleanup_(vacuum_candidate_hasmap_freep) Hashmap *h = NULL;
                 struct vacuum_candidate *worst = NULL;
                 struct dirent *de;
-                off_t sum = 0;
+                uint64_t sum = 0;
 
                 rewinddir(d);
 

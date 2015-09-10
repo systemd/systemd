@@ -146,7 +146,7 @@ static void test_copy_bytes(void) {
 
         assert_se(pipe2(pipefd, O_CLOEXEC) == 0);
 
-        r = copy_bytes(infd, pipefd[1], (off_t) -1, false);
+        r = copy_bytes(infd, pipefd[1], (uint64_t) -1, false);
         assert_se(r == 0);
 
         r = read(pipefd[0], buf, sizeof(buf));

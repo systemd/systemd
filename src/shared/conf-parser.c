@@ -469,7 +469,7 @@ int config_parse_iec_size(const char* unit,
                             void *userdata) {
 
         size_t *sz = data;
-        off_t o;
+        uint64_t v;
         int r;
 
         assert(filename);
@@ -477,13 +477,13 @@ int config_parse_iec_size(const char* unit,
         assert(rvalue);
         assert(data);
 
-        r = parse_size(rvalue, 1024, &o);
-        if (r < 0 || (off_t) (size_t) o != o) {
-                log_syntax(unit, LOG_ERR, filename, line, r < 0 ? -r : ERANGE, "Failed to parse size value, ignoring: %s", rvalue);
+        r = parse_size(rvalue, 1024, &v);
+        if (r < 0 || (uint64_t) (size_t) v != v) {
+                log_syntax(unit, LOG_ERR, filename, line, r < 0 ? r : ERANGE, "Failed to parse size value, ignoring: %s", rvalue);
                 return 0;
         }
 
-        *sz = (size_t) o;
+        *sz = (size_t) v;
         return 0;
 }
 
@@ -499,7 +499,7 @@ int config_parse_si_size(const char* unit,
                             void *userdata) {
 
         size_t *sz = data;
-        off_t o;
+        uint64_t v;
         int r;
 
         assert(filename);
@@ -507,17 +507,17 @@ int config_parse_si_size(const char* unit,
         assert(rvalue);
         assert(data);
 
-        r = parse_size(rvalue, 1000, &o);
-        if (r < 0 || (off_t) (size_t) o != o) {
-                log_syntax(unit, LOG_ERR, filename, line, r < 0 ? -r : ERANGE, "Failed to parse size value, ignoring: %s", rvalue);
+        r = parse_size(rvalue, 1000, &v);
+        if (r < 0 || (uint64_t) (size_t) v != v) {
+                log_syntax(unit, LOG_ERR, filename, line, r < 0 ? r : ERANGE, "Failed to parse size value, ignoring: %s", rvalue);
                 return 0;
         }
 
-        *sz = (size_t) o;
+        *sz = (size_t) v;
         return 0;
 }
 
-int config_parse_iec_off(const char* unit,
+int config_parse_iec_uint64(const char* unit,
                            const char *filename,
                            unsigned line,
                            const char *section,
@@ -528,7 +528,7 @@ int config_parse_iec_off(const char* unit,
                            void *data,
                            void *userdata) {
 
-        off_t *bytes = data;
+        uint64_t *bytes = data;
         int r;
 
         assert(filename);
@@ -536,11 +536,9 @@ int config_parse_iec_off(const char* unit,
         assert(rvalue);
         assert(data);
 
-        assert_cc(sizeof(off_t) == sizeof(uint64_t));
-
         r = parse_size(rvalue, 1024, bytes);
         if (r < 0)
-                log_syntax(unit, LOG_ERR, filename, line, -r, "Failed to parse size value, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse size value, ignoring: %s", rvalue);
 
         return 0;
 }

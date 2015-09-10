@@ -21,6 +21,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <inttypes.h>
 #include <sys/types.h>
 
-int coredump_vacuum(int exclude_fd, off_t keep_free, off_t max_use);
+int coredump_vacuum(int exclude_fd, uint64_t keep_free, uint64_t max_use);

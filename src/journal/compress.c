@@ -342,11 +342,10 @@ int decompress_startswith(int compression,
                 return -EBADMSG;
 }
 
-int compress_stream_xz(int fdf, int fdt, off_t max_bytes) {
+int compress_stream_xz(int fdf, int fdt, uint64_t max_bytes) {
 #ifdef HAVE_XZ
         _cleanup_(lzma_end) lzma_stream s = LZMA_STREAM_INIT;
         lzma_ret ret;
-
         uint8_t buf[BUFSIZ], out[BUFSIZ];
         lzma_action action = LZMA_RUN;
 
@@ -364,8 +363,8 @@ int compress_stream_xz(int fdf, int fdt, off_t max_bytes) {
                         size_t m = sizeof(buf);
                         ssize_t n;
 
-                        if (max_bytes != -1 && m > (size_t) max_bytes)
-                                m = max_bytes;
+                        if (max_bytes != (uint64_t) -1 && (uint64_t) m > max_bytes)
+                                m = (size_t) max_bytes;
 
                         n = read(fdf, buf, m);
                         if (n < 0)
@@ -376,8 +375,8 @@ int compress_stream_xz(int fdf, int fdt, off_t max_bytes) {
                                 s.next_in = buf;
                                 s.avail_in = n;
 
-                                if (max_bytes != -1) {
-                                        assert(max_bytes >= n);
+                                if (max_bytes != (uint64_t) -1) {
+                                        assert(max_bytes >= (uint64_t) n);
                                         max_bytes -= n;
                                 }
                         }
@@ -419,7 +418,7 @@ int compress_stream_xz(int fdf, int fdt, off_t max_bytes) {
 
 #define LZ4_BUFSIZE (512*1024)
 
-int compress_stream_lz4(int fdf, int fdt, off_t max_bytes) {
+int compress_stream_lz4(int fdf, int fdt, uint64_t max_bytes) {
 
 #ifdef HAVE_LZ4
 
@@ -445,8 +444,8 @@ int compress_stream_lz4(int fdf, int fdt, off_t max_bytes) {
                 int r;
 
                 m = LZ4_BUFSIZE;
-                if (max_bytes != -1 && m > (size_t) max_bytes - total_in)
-                        m = max_bytes - total_in;
+                if (max_bytes != (uint64_t) -1 && (uint64_t) m > (max_bytes - total_in))
+                        m = (size_t) (max_bytes - total_in);
 
                 n = read(fdf, buf, m);
                 if (n < 0)
@@ -497,7 +496,7 @@ int compress_stream_lz4(int fdf, int fdt, off_t max_bytes) {
 #endif
 }
 
-int decompress_stream_xz(int fdf, int fdt, off_t max_bytes) {
+int decompress_stream_xz(int fdf, int fdt, uint64_t max_bytes) {
 
 #ifdef HAVE_XZ
         _cleanup_(lzma_end) lzma_stream s = LZMA_STREAM_INIT;
@@ -546,8 +545,8 @@ int decompress_stream_xz(int fdf, int fdt, off_t max_bytes) {
 
                         n = sizeof(out) - s.avail_out;
 
-                        if (max_bytes != -1) {
-                                if (max_bytes < n)
+                        if (max_bytes != (uint64_t) -1) {
+                                if (max_bytes < (uint64_t) n)
                                         return -EFBIG;
 
                                 max_bytes -= n;
@@ -572,7 +571,7 @@ int decompress_stream_xz(int fdf, int fdt, off_t max_bytes) {
 #endif
 }
 
-int decompress_stream_lz4(int fdf, int fdt, off_t max_bytes) {
+int decompress_stream_lz4(int fdf, int fdt, uint64_t max_bytes) {
 
 #ifdef HAVE_LZ4
         _cleanup_free_ char *buf = NULL, *out = NULL;
@@ -626,8 +625,8 @@ int decompress_stream_lz4(int fdf, int fdt, off_t max_bytes) {
 
                 total_out += r;
 
-                if (max_bytes != -1 && total_out > (size_t) max_bytes) {
-                        log_debug("Decompressed stream longer than %zd bytes", max_bytes);
+                if (max_bytes != (uint64_t) -1 && (uint64_t) total_out > max_bytes) {
+                        log_debug("Decompressed stream longer than %" PRIu64 " bytes", max_bytes);
                         return -EFBIG;
                 }
 
@@ -647,7 +646,7 @@ int decompress_stream_lz4(int fdf, int fdt, off_t max_bytes) {
 #endif
 }
 
-int decompress_stream(const char *filename, int fdf, int fdt, off_t max_bytes) {
+int decompress_stream(const char *filename, int fdf, int fdt, uint64_t max_bytes) {
 
         if (endswith(filename, ".lz4"))
                 return decompress_stream_lz4(fdf, fdt, max_bytes);

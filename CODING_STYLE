@@ -311,3 +311,13 @@
   always-true expression for an infinite while() loop is our
   recommendation is to simply write it without any such expression by
   using "for (;;)".
+
+- Never use the "off_t" type, and particularly avoid it in public
+  APIs. It's really weirdly defined, as it usually is 64bit and we
+  don't support it any other way, but it could in theory also be
+  32bit. Which one it is depends on a compiler switch chosen by the
+  compiled program, which hence corrupts APIs using it unless they can
+  also follow the program's choice. Moreover, in systemd we should
+  parse values the same way on all architectures and cannot expose
+  off_t values over D-Bus. To avoid any confusion regarding conversion
+  and ABIs, always use simply uint64_t directly.

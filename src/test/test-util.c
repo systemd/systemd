@@ -893,7 +893,7 @@ static void test_protect_errno(void) {
 }
 
 static void test_parse_size(void) {
-        off_t bytes;
+        uint64_t bytes;
 
         assert_se(parse_size("111", 1024, &bytes) == 0);
         assert_se(bytes == 111);
@@ -960,12 +960,12 @@ static void test_parse_size(void) {
         assert_se(parse_size("-10B 20K", 1024, &bytes) == -ERANGE);
 }
 
-static void test_config_parse_iec_off(void) {
-        off_t offset = 0;
-        assert_se(config_parse_iec_off(NULL, "/this/file", 11, "Section", 22, "Size", 0, "4M", &offset, NULL) == 0);
+static void test_config_parse_iec_uint64(void) {
+        uint64_t offset = 0;
+        assert_se(config_parse_iec_uint64(NULL, "/this/file", 11, "Section", 22, "Size", 0, "4M", &offset, NULL) == 0);
         assert_se(offset == 4 * 1024 * 1024);
 
-        assert_se(config_parse_iec_off(NULL, "/this/file", 11, "Section", 22, "Size", 0, "4.5M", &offset, NULL) == 0);
+        assert_se(config_parse_iec_uint64(NULL, "/this/file", 11, "Section", 22, "Size", 0, "4.5M", &offset, NULL) == 0);
 }
 
 static void test_strextend(void) {
@@ -2250,7 +2250,7 @@ int main(int argc, char *argv[]) {
         test_u64log2();
         test_protect_errno();
         test_parse_size();
-        test_config_parse_iec_off();
+        test_config_parse_iec_uint64();
         test_strextend();
         test_strrep();
         test_split_pair();

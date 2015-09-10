@@ -2683,15 +2683,13 @@ int config_parse_memory_limit(
                 void *userdata) {
 
         CGroupContext *c = data;
-        off_t bytes;
+        uint64_t bytes;
         int r;
 
         if (isempty(rvalue)) {
                 c->memory_limit = (uint64_t) -1;
                 return 0;
         }
-
-        assert_cc(sizeof(uint64_t) == sizeof(off_t));
 
         r = parse_size(rvalue, 1024, &bytes);
         if (r < 0) {
@@ -2700,7 +2698,7 @@ int config_parse_memory_limit(
                 return 0;
         }
 
-        c->memory_limit = (uint64_t) bytes;
+        c->memory_limit = bytes;
         return 0;
 }
 
@@ -2887,7 +2885,7 @@ int config_parse_blockio_bandwidth(
         CGroupBlockIODeviceBandwidth *b;
         CGroupContext *c = data;
         const char *bandwidth;
-        off_t bytes;
+        uint64_t bytes;
         bool read;
         size_t n;
         int r;
@@ -2941,7 +2939,7 @@ int config_parse_blockio_bandwidth(
 
         b->path = path;
         path = NULL;
-        b->bandwidth = (uint64_t) bytes;
+        b->bandwidth = bytes;
         b->read = read;
 
         LIST_PREPEND(device_bandwidths, c->blockio_device_bandwidths, b);
@@ -3614,7 +3612,7 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_int,                   "INTEGER" },
                 { config_parse_unsigned,              "UNSIGNED" },
                 { config_parse_iec_size,              "SIZE" },
-                { config_parse_iec_off,               "SIZE" },
+                { config_parse_iec_uint64,            "SIZE" },
                 { config_parse_si_size,               "SIZE" },
                 { config_parse_bool,                  "BOOLEAN" },
                 { config_parse_string,                "STRING" },
