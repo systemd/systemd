@@ -330,7 +330,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
                         free(d->keyfile);
                         d->keyfile = uuid_value;
                         uuid_value = NULL;
-                } else if (free_and_strdup(&arg_default_keyfile, value))
+                } else if (free_and_strdup(&arg_default_keyfile, value) < 0)
                         return log_oom();
 
         } else if (STR_IN_SET(key, "luks.name", "rd.luks.name") && value) {
