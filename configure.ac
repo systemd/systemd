@@ -657,11 +657,16 @@ if test "x${have_smack}" = xauto; then
         have_smack=yes
 fi
 
+have_smack_run_label=no
 AC_ARG_WITH(smack-run-label,
 AS_HELP_STRING([--with-smack-run-label=STRING],
         [run systemd --system itself with a specific SMACK label]),
-        [AC_DEFINE_UNQUOTED(SMACK_RUN_LABEL, ["$withval"], [Run systemd itself with SMACK label])],
+        [AC_DEFINE_UNQUOTED(SMACK_RUN_LABEL, ["$withval"], [Run systemd itself with SMACK label]) have_smack_run_label=yes],
         [])
+
+if test "x${have_smack_run_label}" = xyes; then
+        M4_DEFINES="$M4_DEFINES -DHAVE_SMACK_RUN_LABEL"
+fi
 
 AC_ARG_WITH(smack-default-process-label,
 AS_HELP_STRING([--with-smack-default-process-label=STRING],
