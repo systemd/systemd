@@ -448,6 +448,16 @@ static void test_path_is_mount_point(void) {
         assert_se(rm_rf(tmp_dir, REMOVE_ROOT|REMOVE_PHYSICAL) == 0);
 }
 
+static void test_path_prefix_in_list(void) {
+        assert_se(path_prefix_in_list("/foo/bar/baz", "/foo", NULL) == true);
+        assert_se(path_prefix_in_list(NULL, "/foo", NULL) == false);
+        assert_se(path_prefix_in_list(NULL, NULL, NULL) == false);
+        assert_se(path_prefix_in_list("/foo/bar/baz", "/baz", NULL) == false);
+        assert_se(path_prefix_in_list("/foo/bar/baz", "/baz", "/bar", "/bar/baz", "/foo",  NULL) == true);
+        assert_se(path_prefix_in_list("/", "/", NULL) == true);
+        assert_se(path_prefix_in_list("/", NULL, NULL) == false);
+}
+
 int main(int argc, char **argv) {
         test_path();
         test_find_binary(argv[0], true);
@@ -460,6 +470,7 @@ int main(int argc, char **argv) {
         test_path_startswith();
         test_prefix_root();
         test_path_is_mount_point();
+        test_path_prefix_in_list();
 
         return 0;
 }

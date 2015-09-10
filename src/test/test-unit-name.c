@@ -456,6 +456,22 @@ static void test_unit_name_path_unescape(void) {
         test_unit_name_path_unescape_one("", NULL, -EINVAL);
 }
 
+static void test_unit_name_to_instance_and_suffix(void) {
+        char *i;
+
+        unit_name_to_instance_and_suffix("foo@bar.service", &i);
+        assert_se(streq_ptr(i, "bar.service"));
+
+        unit_name_to_instance_and_suffix("foo@bar.socket", &i);
+        assert_se(streq_ptr(i, "bar.socket"));
+
+        unit_name_to_instance_and_suffix("foo@@@@@bar.service", &i);
+        assert_se(streq_ptr(i, "@@@@bar.service"));
+
+        unit_name_to_instance_and_suffix("foobar.service", &i);
+        assert_se(streq_ptr(i, NULL));
+}
+
 int main(int argc, char* argv[]) {
         int rc = 0;
         test_unit_name_is_valid();
@@ -476,6 +492,7 @@ int main(int argc, char* argv[]) {
         test_unit_name_escape();
         test_unit_name_template();
         test_unit_name_path_unescape();
+        test_unit_name_to_instance_and_suffix();
 
         return rc;
 }
