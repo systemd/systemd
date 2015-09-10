@@ -1846,8 +1846,7 @@ finish:
 
         arg_default_environment = strv_free(arg_default_environment);
 
-        set_free(arg_syscall_archs);
-        arg_syscall_archs = NULL;
+        arg_syscall_archs = set_free(arg_syscall_archs);
 
         mac_selinux_finish();
 

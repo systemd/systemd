@@ -1055,12 +1055,10 @@ void bus_done(Manager *m) {
         while ((b = set_steal_first(m->private_buses)))
                 destroy_bus(m, &b);
 
-        set_free(m->private_buses);
-        m->private_buses = NULL;
+        m->private_buses = set_free(m->private_buses);
 
         m->subscribed = sd_bus_track_unref(m->subscribed);
-        strv_free(m->deserialized_subscribed);
-        m->deserialized_subscribed = NULL;
+        m->deserialized_subscribed = strv_free(m->deserialized_subscribed);
 
         if (m->private_listen_event_source)
                 m->private_listen_event_source = sd_event_source_unref(m->private_listen_event_source);
@@ -1191,8 +1189,7 @@ int bus_track_coldplug(Manager *m, sd_bus_track **t, char ***l) {
                 }
         }
 
-        strv_free(*l);
-        *l = NULL;
+        *l = strv_free(*l);
 
         return r;
 }

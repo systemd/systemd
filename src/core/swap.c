@@ -1254,8 +1254,7 @@ static void swap_shutdown(Manager *m) {
 
         m->proc_swaps = safe_fclose(m->proc_swaps);
 
-        hashmap_free(m->swaps_by_devnode);
-        m->swaps_by_devnode = NULL;
+        m->swaps_by_devnode = hashmap_free(m->swaps_by_devnode);
 }
 
 static int swap_enumerate(Manager *m) {

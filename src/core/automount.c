@@ -129,10 +129,8 @@ static void automount_done(Unit *u) {
 
         a->where = mfree(a->where);
 
-        set_free(a->tokens);
-        a->tokens = NULL;
-        set_free(a->expire_tokens);
-        a->expire_tokens = NULL;
+        a->tokens = set_free(a->tokens);
+        a->expire_tokens = set_free(a->expire_tokens);
 
         a->expire_event_source = sd_event_source_unref(a->expire_event_source);
 }

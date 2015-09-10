@@ -1992,11 +1992,8 @@ void exec_context_done(ExecContext *c) {
 
         assert(c);
 
-        strv_free(c->environment);
-        c->environment = NULL;
-
-        strv_free(c->environment_files);
-        c->environment_files = NULL;
+        c->environment = strv_free(c->environment);
+        c->environment_files = strv_free(c->environment_files);
 
         for (l = 0; l < ELEMENTSOF(c->rlimit); l++)
                 c->rlimit[l] = mfree(c->rlimit[l]);
@@ -2008,8 +2005,7 @@ void exec_context_done(ExecContext *c) {
         c->user = mfree(c->user);
         c->group = mfree(c->group);
 
-        strv_free(c->supplementary_groups);
-        c->supplementary_groups = NULL;
+        c->supplementary_groups = strv_free(c->supplementary_groups);
 
         c->pam_name = mfree(c->pam_name);
 
@@ -2018,14 +2014,9 @@ void exec_context_done(ExecContext *c) {
                 c->capabilities = NULL;
         }
 
-        strv_free(c->read_only_dirs);
-        c->read_only_dirs = NULL;
-
-        strv_free(c->read_write_dirs);
-        c->read_write_dirs = NULL;
-
-        strv_free(c->inaccessible_dirs);
-        c->inaccessible_dirs = NULL;
+        c->read_only_dirs = strv_free(c->read_only_dirs);
+        c->read_write_dirs = strv_free(c->read_write_dirs);
+        c->inaccessible_dirs = strv_free(c->inaccessible_dirs);
 
         if (c->cpuset)
                 CPU_FREE(c->cpuset);
@@ -2034,17 +2025,11 @@ void exec_context_done(ExecContext *c) {
         c->selinux_context = mfree(c->selinux_context);
         c->apparmor_profile = mfree(c->apparmor_profile);
 
-        set_free(c->syscall_filter);
-        c->syscall_filter = NULL;
+        c->syscall_filter = set_free(c->syscall_filter);
+        c->syscall_archs = set_free(c->syscall_archs);
+        c->address_families = set_free(c->address_families);
 
-        set_free(c->syscall_archs);
-        c->syscall_archs = NULL;
-
-        set_free(c->address_families);
-        c->address_families = NULL;
-
-        strv_free(c->runtime_directory);
-        c->runtime_directory = NULL;
+        c->runtime_directory = strv_free(c->runtime_directory);
 
         bus_endpoint_free(c->bus_endpoint);
         c->bus_endpoint = NULL;
@@ -2079,8 +2064,7 @@ void exec_command_done(ExecCommand *c) {
 
         c->path = mfree(c->path);
 
-        strv_free(c->argv);
-        c->argv = NULL;
+        c->argv = strv_free(c->argv);
 }
 
 void exec_command_done_array(ExecCommand *c, unsigned n) {

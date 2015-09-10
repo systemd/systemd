@@ -90,11 +90,8 @@ void dns_zone_flush(DnsZone *z) {
         assert(hashmap_size(z->by_key) == 0);
         assert(hashmap_size(z->by_name) == 0);
 
-        hashmap_free(z->by_key);
-        z->by_key = NULL;
-
-        hashmap_free(z->by_name);
-        z->by_name = NULL;
+        z->by_key = hashmap_free(z->by_key);
+        z->by_name = hashmap_free(z->by_name);
 }
 
 static DnsZoneItem* dns_zone_get(DnsZone *z, DnsResourceRecord *rr) {

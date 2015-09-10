@@ -238,8 +238,7 @@ static int link_update_domains(Link *l) {
         if (!l->unicast_scope)
                 return 0;
 
-        strv_free(l->unicast_scope->domains);
-        l->unicast_scope->domains = NULL;
+        l->unicast_scope->domains = strv_free(l->unicast_scope->domains);
 
         r = sd_network_link_get_domains(l->ifindex,
                                         &l->unicast_scope->domains);

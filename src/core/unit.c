@@ -445,8 +445,7 @@ static void unit_free_requires_mounts_for(Unit *u) {
                 }
         }
 
-        strv_free(u->requires_mounts_for);
-        u->requires_mounts_for = NULL;
+        u->requires_mounts_for = strv_free(u->requires_mounts_for);
 }
 
 static void unit_done(Unit *u) {
@@ -674,8 +673,7 @@ static void merge_dependencies(Unit *u, Unit *other, const char *other_id, UnitD
         /* The move cannot fail. The caller must have performed a reservation. */
         assert_se(complete_move(&u->dependencies[d], &other->dependencies[d]) == 0);
 
-        set_free(other->dependencies[d]);
-        other->dependencies[d] = NULL;
+        other->dependencies[d] = set_free(other->dependencies[d]);
 }
 
 int unit_merge(Unit *u, Unit *other) {

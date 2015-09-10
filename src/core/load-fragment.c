@@ -1888,8 +1888,7 @@ int config_parse_unit_env_file(const char *unit,
 
         if (isempty(rvalue)) {
                 /* Empty assignment frees the list */
-                strv_free(*env);
-                *env = NULL;
+                *env = strv_free(*env);
                 return 0;
         }
 
@@ -1937,8 +1936,7 @@ int config_parse_environ(const char *unit,
 
         if (isempty(rvalue)) {
                 /* Empty assignment resets the list */
-                strv_free(*env);
-                *env = NULL;
+                *env = strv_free(*env);
                 return 0;
         }
 
@@ -2245,8 +2243,7 @@ int config_parse_documentation(const char *unit,
 
         if (isempty(rvalue)) {
                 /* Empty assignment resets the list */
-                strv_free(u->documentation);
-                u->documentation = NULL;
+                u->documentation = strv_free(u->documentation);
                 return 0;
         }
 
@@ -2305,8 +2302,7 @@ int config_parse_syscall_filter(
 
         if (isempty(rvalue)) {
                 /* Empty assignment resets the list */
-                set_free(c->syscall_filter);
-                c->syscall_filter = NULL;
+                c->syscall_filter = set_free(c->syscall_filter);
                 c->syscall_whitelist = false;
                 return 0;
         }
@@ -2404,8 +2400,7 @@ int config_parse_syscall_archs(
         int r;
 
         if (isempty(rvalue)) {
-                set_free(*archs);
-                *archs = NULL;
+                *archs = set_free(*archs);
                 return 0;
         }
 
@@ -2501,8 +2496,7 @@ int config_parse_address_families(
 
         if (isempty(rvalue)) {
                 /* Empty assignment resets the list */
-                set_free(c->address_families);
-                c->address_families = NULL;
+                c->address_families = set_free(c->address_families);
                 c->address_families_whitelist = false;
                 return 0;
         }
@@ -3011,8 +3005,7 @@ int config_parse_runtime_directory(
 
         if (isempty(rvalue)) {
                 /* Empty assignment resets the list */
-                strv_free(*rt);
-                *rt = NULL;
+                *rt = strv_free(*rt);
                 return 0;
         }
 
@@ -3140,8 +3133,7 @@ int config_parse_namespace_path_strv(
 
         if (isempty(rvalue)) {
                 /* Empty assignment resets the list */
-                strv_free(*sv);
-                *sv = NULL;
+                *sv = strv_free(*sv);
                 return 0;
         }
 

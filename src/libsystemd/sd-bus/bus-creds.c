@@ -109,8 +109,7 @@ _public_ sd_bus_creds *sd_bus_creds_unref(sd_bus_creds *c) {
 
                         c->supplementary_gids = mfree(c->supplementary_gids);
 
-                        strv_free(c->well_known_names);
-                        c->well_known_names = NULL;
+                        c->well_known_names = strv_free(c->well_known_names);
 
                         bus_creds_done(c);
 
