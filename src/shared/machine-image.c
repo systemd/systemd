@@ -19,16 +19,18 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/statfs.h>
-#include <linux/fs.h>
 #include <fcntl.h>
+#include <linux/fs.h>
+#include <sys/statfs.h>
 
-#include "utf8.h"
 #include "btrfs-util.h"
-#include "path-util.h"
 #include "copy.h"
 #include "mkdir.h"
+#include "path-util.h"
 #include "rm-rf.h"
+#include "strv.h"
+#include "utf8.h"
+
 #include "machine-image.h"
 
 static const char image_search_path[] =
@@ -45,6 +47,38 @@ Image *image_unref(Image *i) {
         free(i->path);
         free(i);
         return NULL;
+}
+
+static char **image_settings_path(Image *image) {
+        _cleanup_strv_free_ char **l = NULL;
+        char **ret;
+        const char *fn, *s;
+        unsigned i = 0;
+
+        assert(image);
+
+        l = new0(char*, 4);
+        if (!l)
+                return NULL;
+
+        fn = strjoina(image->name, ".nspawn");
+
+        FOREACH_STRING(s, "/etc/systemd/nspawn/", "/run/systemd/nspawn/") {
+                l[i] = strappend(s, fn);
+                if (!l[i])
+                        return NULL;
+
+                i++;
+        }
+
+        l[i] = file_in_same_dir(image->path, fn);
+        if (!l[i])
+                return NULL;
+
+        ret = l;
+        l = NULL;
+
+        return ret;
 }
 
 static int image_new(
@@ -341,6 +375,8 @@ void image_hashmap_free(Hashmap *map) {
 
 int image_remove(Image *i) {
         _cleanup_release_lock_file_ LockFile global_lock = LOCK_FILE_INIT, local_lock = LOCK_FILE_INIT;
+        _cleanup_strv_free_ char **settings = NULL;
+        char **j;
         int r;
 
         assert(i);
@@ -348,6 +384,10 @@ int image_remove(Image *i) {
         if (path_equal(i->path, "/") ||
             path_startswith(i->path, "/usr"))
                 return -EROFS;
+
+        settings = image_settings_path(i);
+        if (!settings)
+                return -ENOMEM;
 
         /* Make sure we don't interfere with a running nspawn */
         r = image_path_lock(i->path, LOCK_EX|LOCK_NB, &global_lock, &local_lock);
@@ -357,28 +397,56 @@ int image_remove(Image *i) {
         switch (i->type) {
 
         case IMAGE_SUBVOLUME:
-                return btrfs_subvol_remove(i->path, true);
+                r = btrfs_subvol_remove(i->path, true);
+                if (r < 0)
+                        return r;
+                break;
 
         case IMAGE_DIRECTORY:
                 /* Allow deletion of read-only directories */
                 (void) chattr_path(i->path, false, FS_IMMUTABLE_FL);
-                return rm_rf(i->path, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
+                r = rm_rf(i->path, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
+                if (r < 0)
+                        return r;
+
+                break;
 
         case IMAGE_RAW:
                 if (unlink(i->path) < 0)
                         return -errno;
-
-                return 0;
+                break;
 
         default:
                 return -EOPNOTSUPP;
         }
+
+        STRV_FOREACH(j, settings) {
+                if (unlink(*j) < 0 && errno != ENOENT)
+                        log_debug_errno(errno, "Failed to unlink %s, ignoring: %m", *j);
+        }
+
+        return 0;
+}
+
+static int rename_settings_file(const char *path, const char *new_name) {
+        _cleanup_free_ char *rs = NULL;
+        const char *fn;
+
+        fn = strjoina(new_name, ".nspawn");
+
+        rs = file_in_same_dir(path, fn);
+        if (!rs)
+                return -ENOMEM;
+
+        return rename_noreplace(AT_FDCWD, path, AT_FDCWD, rs);
 }
 
 int image_rename(Image *i, const char *new_name) {
         _cleanup_release_lock_file_ LockFile global_lock = LOCK_FILE_INIT, local_lock = LOCK_FILE_INIT, name_lock = LOCK_FILE_INIT;
         _cleanup_free_ char *new_path = NULL, *nn = NULL;
+        _cleanup_strv_free_ char **settings = NULL;
         unsigned file_attr = 0;
+        char **j;
         int r;
 
         assert(i);
@@ -389,6 +457,10 @@ int image_rename(Image *i, const char *new_name) {
         if (path_equal(i->path, "/") ||
             path_startswith(i->path, "/usr"))
                 return -EROFS;
+
+        settings = image_settings_path(i);
+        if (!settings)
+                return -ENOMEM;
 
         /* Make sure we don't interfere with a running nspawn */
         r = image_path_lock(i->path, LOCK_EX|LOCK_NB, &global_lock, &local_lock);
@@ -458,18 +530,43 @@ int image_rename(Image *i, const char *new_name) {
         i->name = nn;
         nn = NULL;
 
+        STRV_FOREACH(j, settings) {
+                r = rename_settings_file(*j, new_name);
+                if (r < 0 && r != -ENOENT)
+                        log_debug_errno(r, "Failed to rename settings file %s, ignoring: %m", *j);
+        }
+
         return 0;
+}
+
+static int clone_settings_file(const char *path, const char *new_name) {
+        _cleanup_free_ char *rs = NULL;
+        const char *fn;
+
+        fn = strjoina(new_name, ".nspawn");
+
+        rs = file_in_same_dir(path, fn);
+        if (!rs)
+                return -ENOMEM;
+
+        return copy_file_atomic(path, rs, 0664, false, 0);
 }
 
 int image_clone(Image *i, const char *new_name, bool read_only) {
         _cleanup_release_lock_file_ LockFile name_lock = LOCK_FILE_INIT;
+        _cleanup_strv_free_ char **settings = NULL;
         const char *new_path;
+        char **j;
         int r;
 
         assert(i);
 
         if (!image_name_is_valid(new_name))
                 return -EINVAL;
+
+        settings = image_settings_path(i);
+        if (!settings)
+                return -ENOMEM;
 
         /* Make sure nobody takes the new name, between the time we
          * checked it is currently unused in all search paths, and the
@@ -505,6 +602,12 @@ int image_clone(Image *i, const char *new_name, bool read_only) {
 
         if (r < 0)
                 return r;
+
+        STRV_FOREACH(j, settings) {
+                r = clone_settings_file(*j, new_name);
+                if (r < 0 && r != -ENOENT)
+                        log_debug_errno(r, "Failed to clone settings %s, ignoring: %m", *j);
+        }
 
         return 0;
 }
