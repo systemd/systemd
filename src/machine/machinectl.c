@@ -2385,13 +2385,9 @@ static int set_limit(int argc, char *argv[], void *userdata) {
         if (streq(argv[argc-1], "-"))
                 limit = (uint64_t) -1;
         else {
-                off_t off;
-
-                r = parse_size(argv[argc-1], 1024, &off);
+                r = parse_size(argv[argc-1], 1024, &limit);
                 if (r < 0)
                         return log_error("Failed to parse size: %s", argv[argc-1]);
-
-                limit = (uint64_t) off;
         }
 
         if (argc > 2)

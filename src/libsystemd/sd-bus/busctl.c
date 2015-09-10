@@ -1823,20 +1823,20 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_SIZE: {
-                        off_t o;
+                        uint64_t sz;
 
-                        r = parse_size(optarg, 1024, &o);
+                        r = parse_size(optarg, 1024, &sz);
                         if (r < 0) {
                                 log_error("Failed to parse size: %s", optarg);
                                 return r;
                         }
 
-                        if ((off_t) (size_t) o !=  o) {
+                        if ((uint64_t) (size_t) sz !=  sz) {
                                 log_error("Size out of range.");
                                 return -E2BIG;
                         }
 
-                        arg_snaplen = (size_t) o;
+                        arg_snaplen = (size_t) sz;
                         break;
                 }
 

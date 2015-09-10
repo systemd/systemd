@@ -67,11 +67,11 @@ int decompress_startswith(int compression,
                           const void *prefix, size_t prefix_len,
                           uint8_t extra);
 
-int compress_stream_xz(int fdf, int fdt, off_t max_bytes);
-int compress_stream_lz4(int fdf, int fdt, off_t max_bytes);
+int compress_stream_xz(int fdf, int fdt, uint64_t max_bytes);
+int compress_stream_lz4(int fdf, int fdt, uint64_t max_bytes);
 
-int decompress_stream_xz(int fdf, int fdt, off_t max_size);
-int decompress_stream_lz4(int fdf, int fdt, off_t max_size);
+int decompress_stream_xz(int fdf, int fdt, uint64_t max_size);
+int decompress_stream_lz4(int fdf, int fdt, uint64_t max_size);
 
 #ifdef HAVE_LZ4
 #  define compress_stream compress_stream_lz4
@@ -81,4 +81,4 @@ int decompress_stream_lz4(int fdf, int fdt, off_t max_size);
 #  define COMPRESSED_EXT ".xz"
 #endif
 
-int decompress_stream(const char *filename, int fdf, int fdt, off_t max_bytes);
+int decompress_stream(const char *filename, int fdf, int fdt, uint64_t max_bytes);

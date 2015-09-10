@@ -2214,7 +2214,7 @@ int loop_write(int fd, const void *buf, size_t nbytes, bool do_poll) {
         return 0;
 }
 
-int parse_size(const char *t, off_t base, off_t *size) {
+int parse_size(const char *t, uint64_t base, uint64_t *size) {
 
         /* Soo, sometimes we want to parse IEC binary suffixes, and
          * sometimes SI decimal suffixes. This function can parse
@@ -2242,8 +2242,8 @@ int parse_size(const char *t, off_t base, off_t *size) {
                 { "G", 1024ULL*1024ULL*1024ULL },
                 { "M", 1024ULL*1024ULL },
                 { "K", 1024ULL },
-                { "B", 1 },
-                { "", 1 },
+                { "B", 1ULL },
+                { "",  1ULL },
         };
 
         static const struct table si[] = {
@@ -2253,8 +2253,8 @@ int parse_size(const char *t, off_t base, off_t *size) {
                 { "G", 1000ULL*1000ULL*1000ULL },
                 { "M", 1000ULL*1000ULL },
                 { "K", 1000ULL },
-                { "B", 1 },
-                { "", 1 },
+                { "B", 1ULL },
+                { "",  1ULL },
         };
 
         const struct table *table;
@@ -2276,33 +2276,32 @@ int parse_size(const char *t, off_t base, off_t *size) {
 
         p = t;
         do {
-                long long l;
-                unsigned long long l2;
+                unsigned long long l, tmp;
                 double frac = 0;
                 char *e;
                 unsigned i;
 
-                errno = 0;
-                l = strtoll(p, &e, 10);
-
-                if (errno > 0)
-                        return -errno;
-
-                if (l < 0)
+                p += strspn(p, WHITESPACE);
+                if (*p == '-')
                         return -ERANGE;
 
+                errno = 0;
+                l = strtoull(p, &e, 10);
+                if (errno > 0)
+                        return -errno;
                 if (e == p)
                         return -EINVAL;
 
                 if (*e == '.') {
                         e++;
+
+                        /* strtoull() itself would accept space/+/- */
                         if (*e >= '0' && *e <= '9') {
+                                unsigned long long l2;
                                 char *e2;
 
-                                /* strotoull itself would accept space/+/- */
                                 l2 = strtoull(e, &e2, 10);
-
-                                if (errno == ERANGE)
+                                if (errno > 0)
                                         return -errno;
 
                                 /* Ignore failure. E.g. 10.M is valid */
@@ -2315,26 +2314,26 @@ int parse_size(const char *t, off_t base, off_t *size) {
                 e += strspn(e, WHITESPACE);
 
                 for (i = start_pos; i < n_entries; i++)
-                        if (startswith(e, table[i].suffix)) {
-                                unsigned long long tmp;
-                                if ((unsigned long long) l + (frac > 0) > ULLONG_MAX / table[i].factor)
-                                        return -ERANGE;
-                                tmp = l * table[i].factor + (unsigned long long) (frac * table[i].factor);
-                                if (tmp > ULLONG_MAX - r)
-                                        return -ERANGE;
-
-                                r += tmp;
-                                if ((unsigned long long) (off_t) r != r)
-                                        return -ERANGE;
-
-                                p = e + strlen(table[i].suffix);
-
-                                start_pos = i + 1;
+                        if (startswith(e, table[i].suffix))
                                 break;
-                        }
 
                 if (i >= n_entries)
                         return -EINVAL;
+
+                if (l + (frac > 0) > ULLONG_MAX / table[i].factor)
+                        return -ERANGE;
+
+                tmp = l * table[i].factor + (unsigned long long) (frac * table[i].factor);
+                if (tmp > ULLONG_MAX - r)
+                        return -ERANGE;
+
+                r += tmp;
+                if ((unsigned long long) (uint64_t) r != r)
+                        return -ERANGE;
+
+                p = e + strlen(table[i].suffix);
+
+                start_pos = i + 1;
 
         } while (*p);
 
@@ -3785,38 +3784,38 @@ int prot_from_flags(int flags) {
         }
 }
 
-char *format_bytes(char *buf, size_t l, off_t t) {
+char *format_bytes(char *buf, size_t l, uint64_t t) {
         unsigned i;
 
         static const struct {
                 const char *suffix;
-                off_t factor;
+                uint64_t factor;
         } table[] = {
-                { "E", 1024ULL*1024ULL*1024ULL*1024ULL*1024ULL*1024ULL },
-                { "P", 1024ULL*1024ULL*1024ULL*1024ULL*1024ULL },
-                { "T", 1024ULL*1024ULL*1024ULL*1024ULL },
-                { "G", 1024ULL*1024ULL*1024ULL },
-                { "M", 1024ULL*1024ULL },
-                { "K", 1024ULL },
+                { "E", UINT64_C(1024)*UINT64_C(1024)*UINT64_C(1024)*UINT64_C(1024)*UINT64_C(1024)*UINT64_C(1024) },
+                { "P", UINT64_C(1024)*UINT64_C(1024)*UINT64_C(1024)*UINT64_C(1024)*UINT64_C(1024) },
+                { "T", UINT64_C(1024)*UINT64_C(1024)*UINT64_C(1024)*UINT64_C(1024) },
+                { "G", UINT64_C(1024)*UINT64_C(1024)*UINT64_C(1024) },
+                { "M", UINT64_C(1024)*UINT64_C(1024) },
+                { "K", UINT64_C(1024) },
         };
 
-        if (t == (off_t) -1)
+        if (t == (uint64_t) -1)
                 return NULL;
 
         for (i = 0; i < ELEMENTSOF(table); i++) {
 
                 if (t >= table[i].factor) {
                         snprintf(buf, l,
-                                 "%llu.%llu%s",
-                                 (unsigned long long) (t / table[i].factor),
-                                 (unsigned long long) (((t*10ULL) / table[i].factor) % 10ULL),
+                                 "%" PRIu64 ".%" PRIu64 "%s",
+                                 t / table[i].factor,
+                                 ((t*UINT64_C(10)) / table[i].factor) % UINT64_C(10),
                                  table[i].suffix);
 
                         goto finish;
                 }
         }
 
-        snprintf(buf, l, "%lluB", (unsigned long long) t);
+        snprintf(buf, l, "%" PRIu64 "B", t);
 
 finish:
         buf[l-1] = 0;

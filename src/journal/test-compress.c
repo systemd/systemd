@@ -44,8 +44,8 @@ typedef int (decompress_sw_t)(const void *src, uint64_t src_size,
                               const void *prefix, size_t prefix_len,
                               uint8_t extra);
 
-typedef int (compress_stream_t)(int fdf, int fdt, off_t max_bytes);
-typedef int (decompress_stream_t)(int fdf, int fdt, off_t max_size);
+typedef int (compress_stream_t)(int fdf, int fdt, uint64_t max_bytes);
+typedef int (decompress_stream_t)(int fdf, int fdt, uint64_t max_size);
 
 static void test_compress_decompress(int compression,
                                      compress_blob_t compress,

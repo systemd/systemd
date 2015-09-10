@@ -152,7 +152,7 @@ void close_many(const int fds[], unsigned n_fd);
 int fclose_nointr(FILE *f);
 FILE* safe_fclose(FILE *f);
 
-int parse_size(const char *t, off_t base, off_t *size);
+int parse_size(const char *t, uint64_t base, uint64_t *size);
 
 int parse_boolean(const char *v) _pure_;
 int parse_pid(const char *s, pid_t* ret_pid);
@@ -478,7 +478,7 @@ bool kexec_loaded(void);
 
 int prot_from_flags(int flags) _const_;
 
-char *format_bytes(char *buf, size_t l, off_t t);
+char *format_bytes(char *buf, size_t l, uint64_t t);
 
 int fd_wait_for_event(int fd, int event, usec_t timeout);
 

@@ -879,15 +879,15 @@ int config_parse_tmpfs_size(
 
                 *sz = PAGE_ALIGN((size_t) ((physical_memory() * (uint64_t) ul) / (uint64_t) 100));
         } else {
-                off_t o;
+                uint64_t k;
 
-                r = parse_size(rvalue, 1024, &o);
-                if (r < 0 || (off_t) (size_t) o != o) {
-                        log_syntax(unit, LOG_ERR, filename, line, r < 0 ? -r : ERANGE, "Failed to parse size value, ignoring: %s", rvalue);
+                r = parse_size(rvalue, 1024, &k);
+                if (r < 0 || (uint64_t) (size_t) k != k) {
+                        log_syntax(unit, LOG_ERR, filename, line, r < 0 ? r : ERANGE, "Failed to parse size value, ignoring: %s", rvalue);
                         return 0;
                 }
 
-                *sz = PAGE_ALIGN((size_t) o);
+                *sz = PAGE_ALIGN((size_t) k);
         }
 
         return 0;

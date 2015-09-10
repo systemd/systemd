@@ -2542,7 +2542,7 @@ void journal_file_print_header(JournalFile *f) {
                        le64toh(f->header->n_entry_arrays));
 
         if (fstat(f->fd, &st) >= 0)
-                printf("Disk usage: %s\n", format_bytes(bytes, sizeof(bytes), (off_t) st.st_blocks * 512ULL));
+                printf("Disk usage: %s\n", format_bytes(bytes, sizeof(bytes), (uint64_t) st.st_blocks * 512ULL));
 }
 
 static int journal_file_warn_btrfs(JournalFile *f) {

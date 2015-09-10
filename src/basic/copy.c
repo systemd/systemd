@@ -29,7 +29,7 @@
 
 #define COPY_BUFFER_SIZE (16*1024)
 
-int copy_bytes(int fdf, int fdt, off_t max_bytes, bool try_reflink) {
+int copy_bytes(int fdf, int fdt, uint64_t max_bytes, bool try_reflink) {
         bool try_sendfile = true, try_splice = true;
         int r;
 
@@ -37,7 +37,7 @@ int copy_bytes(int fdf, int fdt, off_t max_bytes, bool try_reflink) {
         assert(fdt >= 0);
 
         /* Try btrfs reflinks first. */
-        if (try_reflink && max_bytes == (off_t) -1) {
+        if (try_reflink && max_bytes == (uint64_t) -1) {
                 r = btrfs_reflink(fdf, fdt);
                 if (r >= 0)
                         return r;
@@ -47,12 +47,12 @@ int copy_bytes(int fdf, int fdt, off_t max_bytes, bool try_reflink) {
                 size_t m = COPY_BUFFER_SIZE;
                 ssize_t n;
 
-                if (max_bytes != (off_t) -1) {
+                if (max_bytes != (uint64_t) -1) {
 
                         if (max_bytes <= 0)
                                 return -EFBIG;
 
-                        if ((off_t) m > max_bytes)
+                        if ((uint64_t) m > max_bytes)
                                 m = (size_t) max_bytes;
                 }
 
@@ -105,8 +105,8 @@ int copy_bytes(int fdf, int fdt, off_t max_bytes, bool try_reflink) {
                 }
 
         next:
-                if (max_bytes != (off_t) -1) {
-                        assert(max_bytes >= n);
+                if (max_bytes != (uint64_t) -1) {
+                        assert(max_bytes >= (uint64_t) n);
                         max_bytes -= n;
                 }
         }
@@ -152,7 +152,7 @@ static int fd_copy_regular(int df, const char *from, const struct stat *st, int 
         if (fdt < 0)
                 return -errno;
 
-        r = copy_bytes(fdf, fdt, (off_t) -1, true);
+        r = copy_bytes(fdf, fdt, (uint64_t) -1, true);
         if (r < 0) {
                 unlinkat(dt, to, 0);
                 return r;
@@ -371,7 +371,7 @@ int copy_file_fd(const char *from, int fdt, bool try_reflink) {
         if (fdf < 0)
                 return -errno;
 
-        r = copy_bytes(fdf, fdt, (off_t) -1, try_reflink);
+        r = copy_bytes(fdf, fdt, (uint64_t) -1, try_reflink);
 
         (void) copy_times(fdf, fdt);
         (void) copy_xattr(fdf, fdt);

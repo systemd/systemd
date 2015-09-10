@@ -1434,7 +1434,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                 r = sd_bus_message_append(m, "v", "b", r);
 
         } else if (streq(field, "MemoryLimit")) {
-                off_t bytes;
+                uint64_t bytes;
 
                 r = parse_size(eq, 1024, &bytes);
                 if (r < 0) {
@@ -1442,7 +1442,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                         return -EINVAL;
                 }
 
-                r = sd_bus_message_append(m, "v", "t", (uint64_t) bytes);
+                r = sd_bus_message_append(m, "v", "t", bytes);
 
         } else if (STR_IN_SET(field, "CPUShares", "BlockIOWeight")) {
                 uint64_t u;
@@ -1492,7 +1492,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                         r = sd_bus_message_append(m, "v", "a(st)", 0);
                 else {
                         const char *path, *bandwidth, *e;
-                        off_t bytes;
+                        uint64_t bytes;
 
                         e = strchr(eq, ' ');
                         if (e) {
@@ -1514,7 +1514,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                                 return -EINVAL;
                         }
 
-                        r = sd_bus_message_append(m, "v", "a(st)", 1, path, (uint64_t) bytes);
+                        r = sd_bus_message_append(m, "v", "a(st)", 1, path, bytes);
                 }
 
         } else if (streq(field, "BlockIODeviceWeight")) {

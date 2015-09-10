@@ -4623,7 +4623,7 @@ static int cat_file(const char *filename, bool newline) {
                ansi_highlight_off());
         fflush(stdout);
 
-        return copy_bytes(fd, STDOUT_FILENO, (off_t) -1, false);
+        return copy_bytes(fd, STDOUT_FILENO, (uint64_t) -1, false);
 }
 
 static int cat(sd_bus *bus, char **args) {

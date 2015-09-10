@@ -314,7 +314,7 @@ static int raw_pull_make_local_copy(RawPull *i) {
         if (r < 0)
                 log_warning_errno(errno, "Failed to set file attributes on %s: %m", tp);
 
-        r = copy_bytes(i->raw_job->disk_fd, dfd, (off_t) -1, true);
+        r = copy_bytes(i->raw_job->disk_fd, dfd, (uint64_t) -1, true);
         if (r < 0) {
                 unlink(tp);
                 return log_error_errno(r, "Failed to make writable copy of image: %m");

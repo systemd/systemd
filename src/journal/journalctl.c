@@ -107,7 +107,7 @@ static bool arg_reverse = false;
 static int arg_journal_type = 0;
 static const char *arg_root = NULL;
 static const char *arg_machine = NULL;
-static off_t arg_vacuum_size = (off_t) -1;
+static uint64_t arg_vacuum_size = (uint64_t) -1;
 static usec_t arg_vacuum_time = USEC_INFINITY;
 
 static enum {

@@ -51,7 +51,7 @@
 #include "process-util.h"
 
 /* The maximum size up to which we process coredumps */
-#define PROCESS_SIZE_MAX ((off_t) (2LLU*1024LLU*1024LLU*1024LLU))
+#define PROCESS_SIZE_MAX ((uint64_t) (2LLU*1024LLU*1024LLU*1024LLU))
 
 /* The maximum size up to which we leave the coredump around on
  * disk */
@@ -97,21 +97,21 @@ static DEFINE_CONFIG_PARSE_ENUM(config_parse_coredump_storage, coredump_storage,
 
 static CoredumpStorage arg_storage = COREDUMP_STORAGE_EXTERNAL;
 static bool arg_compress = true;
-static off_t arg_process_size_max = PROCESS_SIZE_MAX;
-static off_t arg_external_size_max = EXTERNAL_SIZE_MAX;
+static uint64_t arg_process_size_max = PROCESS_SIZE_MAX;
+static uint64_t arg_external_size_max = EXTERNAL_SIZE_MAX;
 static size_t arg_journal_size_max = JOURNAL_SIZE_MAX;
-static off_t arg_keep_free = (off_t) -1;
-static off_t arg_max_use = (off_t) -1;
+static uint64_t arg_keep_free = (uint64_t) -1;
+static uint64_t arg_max_use = (uint64_t) -1;
 
 static int parse_config(void) {
         static const ConfigTableItem items[] = {
                 { "Coredump", "Storage",          config_parse_coredump_storage,  0, &arg_storage           },
                 { "Coredump", "Compress",         config_parse_bool,              0, &arg_compress          },
-                { "Coredump", "ProcessSizeMax",   config_parse_iec_off,           0, &arg_process_size_max  },
-                { "Coredump", "ExternalSizeMax",  config_parse_iec_off,           0, &arg_external_size_max },
+                { "Coredump", "ProcessSizeMax",   config_parse_iec_uint64,        0, &arg_process_size_max  },
+                { "Coredump", "ExternalSizeMax",  config_parse_iec_uint64,        0, &arg_external_size_max },
                 { "Coredump", "JournalSizeMax",   config_parse_iec_size,          0, &arg_journal_size_max  },
-                { "Coredump", "KeepFree",         config_parse_iec_off,           0, &arg_keep_free         },
-                { "Coredump", "MaxUse",           config_parse_iec_off,           0, &arg_max_use           },
+                { "Coredump", "KeepFree",         config_parse_iec_uint64,        0, &arg_keep_free         },
+                { "Coredump", "MaxUse",           config_parse_iec_uint64,        0, &arg_max_use           },
                 {}
         };
 
@@ -224,7 +224,7 @@ static int fix_permissions(
         return 0;
 }
 
-static int maybe_remove_external_coredump(const char *filename, off_t size) {
+static int maybe_remove_external_coredump(const char *filename, uint64_t size) {
 
         /* Returns 1 if might remove, 0 if will not remove, < 0 on error. */
 
@@ -285,7 +285,7 @@ static int save_external_coredump(
                 uid_t uid,
                 char **ret_filename,
                 int *ret_fd,
-                off_t *ret_size) {
+                uint64_t *ret_size) {
 
         _cleanup_free_ char *fn = NULL, *tmp = NULL;
         _cleanup_close_ int fd = -1;
@@ -372,9 +372,9 @@ static int save_external_coredump(
                 /* OK, this worked, we can get rid of the uncompressed version now */
                 unlink_noerrno(tmp);
 
-                *ret_filename = fn_compressed;    /* compressed */
-                *ret_fd = fd;                     /* uncompressed */
-                *ret_size = st.st_size;           /* uncompressed */
+                *ret_filename = fn_compressed;     /* compressed */
+                *ret_fd = fd;                      /* uncompressed */
+                *ret_size = (uint64_t) st.st_size; /* uncompressed */
 
                 fn_compressed = NULL;
                 fd = -1;
@@ -393,7 +393,7 @@ uncompressed:
 
         *ret_filename = fn;
         *ret_fd = fd;
-        *ret_size = st.st_size;
+        *ret_size = (uint64_t) st.st_size;
 
         fn = NULL;
         fd = -1;
@@ -544,7 +544,7 @@ int main(int argc, char* argv[]) {
         _cleanup_close_ int coredump_fd = -1;
 
         struct iovec iovec[26];
-        off_t coredump_size;
+        uint64_t coredump_size;
         int r, j = 0;
         uid_t uid, owner_uid;
         gid_t gid;
@@ -840,7 +840,7 @@ log:
 
         /* Optionally store the entire coredump in the journal */
         if (IN_SET(arg_storage, COREDUMP_STORAGE_JOURNAL, COREDUMP_STORAGE_BOTH) &&
-            coredump_size <= (off_t) arg_journal_size_max) {
+            coredump_size <= arg_journal_size_max) {
                 size_t sz = 0;
 
                 /* Store the coredump itself in the journal */
