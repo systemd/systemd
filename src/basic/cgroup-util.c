@@ -2018,9 +2018,10 @@ int cg_mask_supported(CGroupMask *ret) {
                         mask |= CGROUP_CONTROLLER_TO_MASK(v);
                 }
 
-                /* Currently, we only support the memory controller in
-                 * the unified hierarchy, mask everything else off. */
-                mask &= CGROUP_MASK_MEMORY;
+                /* Currently, we only support the memory and pids
+                 * controller in the unified hierarchy, mask
+                 * everything else off. */
+                mask &= CGROUP_MASK_MEMORY | CGROUP_MASK_PIDS;
 
         } else {
                 CGroupController c;
@@ -2212,6 +2213,7 @@ static const char *cgroup_controller_table[_CGROUP_CONTROLLER_MAX] = {
         [CGROUP_CONTROLLER_BLKIO] = "blkio",
         [CGROUP_CONTROLLER_MEMORY] = "memory",
         [CGROUP_CONTROLLER_DEVICES] = "devices",
+        [CGROUP_CONTROLLER_PIDS] = "pids",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(cgroup_controller, CGroupController);

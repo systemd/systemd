@@ -1421,7 +1421,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                 return bus_log_create_error(r);
 
         if (STR_IN_SET(field,
-                       "CPUAccounting", "MemoryAccounting", "BlockIOAccounting",
+                       "CPUAccounting", "MemoryAccounting", "BlockIOAccounting", "TasksAccounting",
                        "SendSIGHUP", "SendSIGKILL", "WakeSystem", "DefaultDependencies",
                        "IgnoreSIGPIPE", "TTYVHangup", "TTYReset", "RemainAfterExit")) {
 
@@ -1436,13 +1436,32 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
         } else if (streq(field, "MemoryLimit")) {
                 uint64_t bytes;
 
-                r = parse_size(eq, 1024, &bytes);
-                if (r < 0) {
-                        log_error("Failed to parse bytes specification %s", assignment);
-                        return -EINVAL;
+                if (isempty(eq) || streq(eq, "infinity"))
+                        bytes = (uint64_t) -1;
+                else {
+                        r = parse_size(eq, 1024, &bytes);
+                        if (r < 0) {
+                                log_error("Failed to parse bytes specification %s", assignment);
+                                return -EINVAL;
+                        }
                 }
 
                 r = sd_bus_message_append(m, "v", "t", bytes);
+
+        } else if (streq(field, "TasksMax")) {
+                uint64_t n;
+
+                if (isempty(eq) || streq(eq, "infinity"))
+                        n = (uint64_t) -1;
+                else {
+                        r = safe_atou64(eq, &n);
+                        if (r < 0) {
+                                log_error("Failed to parse maximum tasks specification %s", assignment);
+                                return -EINVAL;
+                        }
+                }
+
+                r = sd_bus_message_append(m, "v", "t", n);
 
         } else if (STR_IN_SET(field, "CPUShares", "BlockIOWeight")) {
                 uint64_t u;

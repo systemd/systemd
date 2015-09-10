@@ -114,6 +114,7 @@ static FILE* arg_serialization = NULL;
 static bool arg_default_cpu_accounting = false;
 static bool arg_default_blockio_accounting = false;
 static bool arg_default_memory_accounting = false;
+static bool arg_default_tasks_accounting = false;
 
 static void nop_handler(int sig) {}
 
@@ -676,6 +677,7 @@ static int parse_config_file(void) {
                 { "Manager", "DefaultCPUAccounting",      config_parse_bool,             0, &arg_default_cpu_accounting            },
                 { "Manager", "DefaultBlockIOAccounting",  config_parse_bool,             0, &arg_default_blockio_accounting        },
                 { "Manager", "DefaultMemoryAccounting",   config_parse_bool,             0, &arg_default_memory_accounting         },
+                { "Manager", "DefaultTasksAccounting",    config_parse_bool,             0, &arg_default_tasks_accounting          },
                 {}
         };
 
@@ -704,6 +706,7 @@ static void manager_set_defaults(Manager *m) {
         m->default_cpu_accounting = arg_default_cpu_accounting;
         m->default_blockio_accounting = arg_default_blockio_accounting;
         m->default_memory_accounting = arg_default_memory_accounting;
+        m->default_tasks_accounting = arg_default_tasks_accounting;
 
         manager_set_default_rlimits(m, arg_default_rlimit);
         manager_environment_add(m, NULL, arg_default_environment);

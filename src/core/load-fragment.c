@@ -2686,19 +2686,48 @@ int config_parse_memory_limit(
         uint64_t bytes;
         int r;
 
-        if (isempty(rvalue)) {
+        if (isempty(rvalue) || streq(rvalue, "infinity")) {
                 c->memory_limit = (uint64_t) -1;
                 return 0;
         }
 
         r = parse_size(rvalue, 1024, &bytes);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Memory limit '%s' invalid. Ignoring.", rvalue);
+        if (r < 0 || bytes < 1) {
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL, "Memory limit '%s' invalid. Ignoring.", rvalue);
                 return 0;
         }
 
         c->memory_limit = bytes;
+        return 0;
+}
+
+int config_parse_tasks_max(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        CGroupContext *c = data;
+        uint64_t u;
+        int r;
+
+        if (isempty(rvalue) || streq(rvalue, "infinity")) {
+                c->tasks_max = (uint64_t) -1;
+                return 0;
+        }
+
+        r = safe_atou64(rvalue, &u);
+        if (r < 0 || u < 1) {
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL, "Maximum tasks value '%s' invalid. Ignoring.", rvalue);
+                return 0;
+        }
+
         return 0;
 }
 

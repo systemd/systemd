@@ -45,7 +45,7 @@ typedef struct Group {
         bool memory_valid:1;
         bool io_valid:1;
 
-        unsigned n_tasks;
+        uint64_t n_tasks;
 
         unsigned cpu_iteration;
         nsec_t cpu_usage;
@@ -65,7 +65,12 @@ static unsigned arg_iterations = (unsigned) -1;
 static bool arg_batch = false;
 static bool arg_raw = false;
 static usec_t arg_delay = 1*USEC_PER_SEC;
-static bool arg_kernel_threads = false;
+
+enum {
+        COUNT_PIDS,
+        COUNT_USERSPACE_PROCESSES,
+        COUNT_ALL_PROCESSES,
+} arg_count = COUNT_PIDS;
 static bool arg_recursive = true;
 
 static enum {
@@ -73,7 +78,7 @@ static enum {
         ORDER_TASKS,
         ORDER_CPU,
         ORDER_MEMORY,
-        ORDER_IO
+        ORDER_IO,
 } arg_order = ORDER_CPU;
 
 static enum {
@@ -153,7 +158,7 @@ static int process(
                 }
         }
 
-        if (streq(controller, SYSTEMD_CGROUP_CONTROLLER)) {
+        if (streq(controller, SYSTEMD_CGROUP_CONTROLLER) && IN_SET(arg_count, COUNT_ALL_PROCESSES, COUNT_USERSPACE_PROCESSES)) {
                 _cleanup_fclose_ FILE *f = NULL;
                 pid_t pid;
 
@@ -166,11 +171,31 @@ static int process(
                 g->n_tasks = 0;
                 while (cg_read_pid(f, &pid) > 0) {
 
-                        if (!arg_kernel_threads && is_kernel_thread(pid) > 0)
+                        if (arg_count == COUNT_USERSPACE_PROCESSES && is_kernel_thread(pid) > 0)
                                 continue;
 
                         g->n_tasks++;
                 }
+
+                if (g->n_tasks > 0)
+                        g->n_tasks_valid = true;
+
+        } else if (streq(controller, "pids") && arg_count == COUNT_PIDS) {
+                _cleanup_free_ char *p = NULL, *v = NULL;
+
+                r = cg_get_path(controller, path, "pids.current", &p);
+                if (r < 0)
+                        return r;
+
+                r = read_one_line_file(p, &v);
+                if (r == -ENOENT)
+                        return 0;
+                if (r < 0)
+                        return r;
+
+                r = safe_atou64(v, &g->n_tasks);
+                if (r < 0)
+                        return r;
 
                 if (g->n_tasks > 0)
                         g->n_tasks_valid = true;
@@ -371,6 +396,7 @@ static int refresh_one(
                         return r;
 
                 if (arg_recursive &&
+                    IN_SET(arg_count, COUNT_ALL_PROCESSES, COUNT_USERSPACE_PROCESSES) &&
                     child &&
                     child->n_tasks_valid &&
                     streq(controller, SYSTEMD_CGROUP_CONTROLLER)) {
@@ -407,6 +433,9 @@ static int refresh(const char *root, Hashmap *a, Hashmap *b, unsigned iteration)
         if (r < 0)
                 return r;
         r = refresh_one("blkio", root, a, b, iteration, 0, NULL);
+        if (r < 0)
+                return r;
+        r = refresh_one("pids", root, a, b, iteration, 0, NULL);
         if (r < 0)
                 return r;
 
@@ -549,7 +578,7 @@ static void display(Hashmap *a) {
                 printf("%s%-*s%s %s%7s%s %s%s%s %s%8s%s %s%8s%s %s%8s%s\n\n",
                        arg_order == ORDER_PATH ? ON : "", path_columns, "Control Group",
                        arg_order == ORDER_PATH ? OFF : "",
-                       arg_order == ORDER_TASKS ? ON : "", "Tasks",
+                       arg_order == ORDER_TASKS ? ON : "", arg_count == COUNT_PIDS ? "Tasks" : arg_count == COUNT_USERSPACE_PROCESSES ? "Procs" : "Proc+",
                        arg_order == ORDER_TASKS ? OFF : "",
                        arg_order == ORDER_CPU ? ON : "", buffer,
                        arg_order == ORDER_CPU ? OFF : "",
@@ -576,7 +605,7 @@ static void display(Hashmap *a) {
                 printf("%-*s", path_columns, ellipsized ?: path);
 
                 if (g->n_tasks_valid)
-                        printf(" %7u", g->n_tasks);
+                        printf(" %7" PRIu64, g->n_tasks);
                 else
                         fputs("       -", stdout);
 
@@ -602,15 +631,16 @@ static void help(void) {
                "  -h --help           Show this help\n"
                "     --version        Show package version\n"
                "  -p --order=path     Order by path\n"
-               "  -t --order=tasks    Order by number of tasks\n"
+               "  -t --order=tasks    Order by number of tasks/processes\n"
                "  -c --order=cpu      Order by CPU load (default)\n"
                "  -m --order=memory   Order by memory load\n"
                "  -i --order=io       Order by IO load\n"
                "  -r --raw            Provide raw (not human-readable) numbers\n"
                "     --cpu=percentage Show CPU usage as percentage (default)\n"
                "     --cpu=time       Show CPU usage as time\n"
-               "  -k                  Include kernel threads in task count\n"
-               "     --recursive=BOOL Sum up task count recursively\n"
+               "  -P                  Count userspace processes instead of tasks (excl. kernel)\n"
+               "  -k                  Count all processes instead of tasks (incl. kernel)\n"
+               "     --recursive=BOOL Sum up process count recursively\n"
                "  -d --delay=DELAY    Delay between updates\n"
                "  -n --iterations=N   Run for N iterations before exiting\n"
                "  -b --batch          Run in batch mode, accepting no input\n"
@@ -642,12 +672,13 @@ static int parse_argv(int argc, char *argv[]) {
                 {}
         };
 
+        bool recursive_unset = false;
         int c, r;
 
         assert(argc >= 1);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hptcmin:brd:k", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hptcmin:brd:kP", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -748,7 +779,11 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'k':
-                        arg_kernel_threads = true;
+                        arg_count = COUNT_ALL_PROCESSES;
+                        break;
+
+                case 'P':
+                        arg_count = COUNT_USERSPACE_PROCESSES;
                         break;
 
                 case ARG_RECURSIVE:
@@ -759,6 +794,7 @@ static int parse_argv(int argc, char *argv[]) {
                         }
 
                         arg_recursive = r;
+                        recursive_unset = r == 0;
                         break;
 
                 case '?':
@@ -773,7 +809,21 @@ static int parse_argv(int argc, char *argv[]) {
                 return -EINVAL;
         }
 
+        if (recursive_unset && arg_count == COUNT_PIDS) {
+                log_error("Non-recursive counting is only supported when counting processes, not tasks. Use -P or -k.");
+                return -EINVAL;
+        }
+
         return 1;
+}
+
+static const char* counting_what(void) {
+        if (arg_count == COUNT_PIDS)
+                return "tasks";
+        else if (arg_count == COUNT_ALL_PROCESSES)
+                return "all processes (incl. kernel)";
+        else
+                return "userspace processes (excl. kernel)";
 }
 
 int main(int argc, char *argv[]) {
@@ -783,9 +833,18 @@ int main(int argc, char *argv[]) {
         usec_t last_refresh = 0;
         bool quit = false, immediate_refresh = false;
         _cleanup_free_ char *root = NULL;
+        CGroupMask mask;
 
         log_parse_environment();
         log_open();
+
+        r = cg_mask_supported(&mask);
+        if (r < 0) {
+                log_error_errno(r, "Failed to determine supported controllers: %m");
+                goto finish;
+        }
+
+        arg_count = (mask & CGROUP_MASK_PIDS) ? COUNT_PIDS : COUNT_USERSPACE_PROCESSES;
 
         r = parse_argv(argc, argv);
         if (r <= 0)
@@ -899,15 +958,26 @@ int main(int argc, char *argv[]) {
                         break;
 
                 case 'k':
-                        arg_kernel_threads = !arg_kernel_threads;
-                        fprintf(stdout, "\nCounting kernel threads: %s.", yes_no(arg_kernel_threads));
+                        arg_count = arg_count != COUNT_ALL_PROCESSES ? COUNT_ALL_PROCESSES : COUNT_PIDS;
+                        fprintf(stdout, "\nCounting: %s.", counting_what());
+                        fflush(stdout);
+                        sleep(1);
+                        break;
+
+                case 'P':
+                        arg_count = arg_count != COUNT_USERSPACE_PROCESSES ? COUNT_USERSPACE_PROCESSES : COUNT_PIDS;
+                        fprintf(stdout, "\nCounting: %s.", counting_what());
                         fflush(stdout);
                         sleep(1);
                         break;
 
                 case 'r':
-                        arg_recursive = !arg_recursive;
-                        fprintf(stdout, "\nRecursive task counting: %s", yes_no(arg_recursive));
+                        if (arg_count == COUNT_PIDS)
+                                fprintf(stdout, "\n\aCannot toggle recursive counting, not available in task counting mode.");
+                        else {
+                                arg_recursive = !arg_recursive;
+                                fprintf(stdout, "\nRecursive process counting: %s", yes_no(arg_recursive));
+                        }
                         fflush(stdout);
                         sleep(1);
                         break;
@@ -939,9 +1009,10 @@ int main(int argc, char *argv[]) {
                 case '?':
                 case 'h':
                         fprintf(stdout,
-                                "\t<" ON "p" OFF "> By path; <" ON "t" OFF "> By tasks; <" ON "c" OFF "> By CPU; <" ON "m" OFF "> By memory; <" ON "i" OFF "> By I/O\n"
+                                "\t<" ON "p" OFF "> By path; <" ON "t" OFF "> By tasks/procs; <" ON "c" OFF "> By CPU; <" ON "m" OFF "> By memory; <" ON "i" OFF "> By I/O\n"
                                 "\t<" ON "+" OFF "> Inc. delay; <" ON "-" OFF "> Dec. delay; <" ON "%%" OFF "> Toggle time; <" ON "SPACE" OFF "> Refresh\n"
-                                "\t<" ON "k" OFF "> Count kernel threads; <" ON "r" OFF "> Count recursively; <" ON "q" OFF "> Quit");
+                                "\t<" ON "P" OFF "> Toggle count userspace processes; <" ON "k" OFF "> Toggle count all processes\n"
+                                "\t<" ON "r" OFF "> Count processes recursively; <" ON "q" OFF "> Quit");
                         fflush(stdout);
                         sleep(3);
                         break;

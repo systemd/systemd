@@ -736,6 +736,30 @@ static int property_get_current_memory(
         return sd_bus_message_append(reply, "t", sz);
 }
 
+static int property_get_current_tasks(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        uint64_t cn = (uint64_t) -1;
+        Unit *u = userdata;
+        int r;
+
+        assert(bus);
+        assert(reply);
+        assert(u);
+
+        r = unit_get_tasks_current(u, &cn);
+        if (r < 0 && r != -ENODATA)
+                log_unit_warning_errno(u, r, "Failed to get pids.current attribute: %m");
+
+        return sd_bus_message_append(reply, "t", cn);
+}
+
 static int property_get_cpu_usage(
                 sd_bus *bus,
                 const char *path,
@@ -796,6 +820,7 @@ const sd_bus_vtable bus_unit_cgroup_vtable[] = {
         SD_BUS_PROPERTY("ControlGroup", "s", property_get_cgroup, 0, 0),
         SD_BUS_PROPERTY("MemoryCurrent", "t", property_get_current_memory, 0, 0),
         SD_BUS_PROPERTY("CPUUsageNSec", "t", property_get_cpu_usage, 0, 0),
+        SD_BUS_PROPERTY("TasksCurrent", "t", property_get_current_tasks, 0, 0),
         SD_BUS_VTABLE_END
 };
 

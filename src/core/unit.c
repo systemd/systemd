@@ -125,6 +125,7 @@ static void unit_init(Unit *u) {
                 cc->cpu_accounting = u->manager->default_cpu_accounting;
                 cc->blockio_accounting = u->manager->default_blockio_accounting;
                 cc->memory_accounting = u->manager->default_memory_accounting;
+                cc->tasks_accounting = u->manager->default_tasks_accounting;
         }
 
         ec = unit_get_exec_context(u);

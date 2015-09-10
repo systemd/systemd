@@ -20,59 +20,60 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/reboot.h>
-#include <linux/reboot.h>
-#include <stdio.h>
+#include <errno.h>
+#include <fcntl.h>
 #include <getopt.h>
+#include <linux/reboot.h>
 #include <locale.h>
 #include <stdbool.h>
-#include <string.h>
-#include <errno.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <sys/socket.h>
 #include <stddef.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/reboot.h>
+#include <sys/socket.h>
+#include <unistd.h>
 
+#include "sd-bus.h"
 #include "sd-daemon.h"
 #include "sd-login.h"
-#include "sd-bus.h"
-#include "log.h"
-#include "util.h"
-#include "macro.h"
-#include "set.h"
-#include "utmp-wtmp.h"
-#include "special.h"
-#include "initreq.h"
-#include "path-util.h"
-#include "strv.h"
+
+#include "build.h"
+#include "bus-common-errors.h"
+#include "bus-error.h"
+#include "bus-message.h"
+#include "bus-util.h"
 #include "cgroup-show.h"
 #include "cgroup-util.h"
-#include "list.h"
-#include "path-lookup.h"
-#include "exit-status.h"
-#include "build.h"
-#include "unit-name.h"
-#include "pager.h"
-#include "spawn-ask-password-agent.h"
-#include "spawn-polkit-agent.h"
-#include "install.h"
-#include "logs-show.h"
-#include "socket-util.h"
-#include "fileio.h"
 #include "copy.h"
-#include "env-util.h"
-#include "bus-util.h"
-#include "bus-message.h"
-#include "bus-error.h"
-#include "bus-common-errors.h"
-#include "mkdir.h"
 #include "dropin.h"
 #include "efivars.h"
+#include "env-util.h"
+#include "exit-status.h"
+#include "fileio.h"
 #include "formats-util.h"
-#include "process-util.h"
-#include "terminal-util.h"
 #include "hostname-util.h"
+#include "initreq.h"
+#include "install.h"
+#include "list.h"
+#include "log.h"
+#include "logs-show.h"
+#include "macro.h"
+#include "mkdir.h"
+#include "pager.h"
+#include "path-lookup.h"
+#include "path-util.h"
+#include "process-util.h"
+#include "set.h"
 #include "signal-util.h"
+#include "socket-util.h"
+#include "spawn-ask-password-agent.h"
+#include "spawn-polkit-agent.h"
+#include "special.h"
+#include "strv.h"
+#include "terminal-util.h"
+#include "unit-name.h"
+#include "util.h"
+#include "utmp-wtmp.h"
 
 static char **arg_types = NULL;
 static char **arg_states = NULL;
@@ -3285,6 +3286,8 @@ typedef struct UnitStatusInfo {
         uint64_t memory_current;
         uint64_t memory_limit;
         uint64_t cpu_usage_nsec;
+        uint64_t tasks_current;
+        uint64_t tasks_max;
 
         LIST_HEAD(ExecStatusInfo, exec);
 } UnitStatusInfo;
@@ -3543,6 +3546,15 @@ static void print_status_info(
         if (i->status_errno > 0)
                 printf("    Error: %i (%s)\n", i->status_errno, strerror(i->status_errno));
 
+        if (i->tasks_current != (uint64_t) -1) {
+                printf("    Tasks: %" PRIu64, i->tasks_current);
+
+                if (i->tasks_max != (uint64_t) -1)
+                        printf(" (limit: %" PRIi64 ")\n", i->tasks_max);
+                else
+                        printf("\n");
+        }
+
         if (i->memory_current != (uint64_t) -1) {
                 char buf[FORMAT_BYTES_MAX];
 
@@ -3776,6 +3788,10 @@ static int status_property(const char *name, sd_bus_message *m, UnitStatusInfo *
                         i->memory_current = u;
                 else if (streq(name, "MemoryLimit"))
                         i->memory_limit = u;
+                else if (streq(name, "TasksCurrent"))
+                        i->tasks_current = u;
+                else if (streq(name, "TasksMax"))
+                        i->tasks_max = u;
                 else if (streq(name, "CPUUsageNSec"))
                         i->cpu_usage_nsec = u;
 
@@ -4252,6 +4268,8 @@ static int show_one(
                 .memory_current = (uint64_t) -1,
                 .memory_limit = (uint64_t) -1,
                 .cpu_usage_nsec = (uint64_t) -1,
+                .tasks_current = (uint64_t) -1,
+                .tasks_max = (uint64_t) -1,
         };
         ExecStatusInfo *p;
         int r;
