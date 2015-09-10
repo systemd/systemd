@@ -114,7 +114,7 @@
         <term><option>-t</option></term>
         <term><option>--order=tasks</option></term>
 
-        <listitem><para>Order by number of processes in control group.</para></listitem>
+        <listitem><para>Order by number of tasks/processes in the control group.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -170,25 +170,48 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>-P</option></term>
+
+        <listitem><para>Count only userspace processes instead of all
+        tasks. By default all tasks are counted: each kernel thread
+        and each userspace thread individually. With this setting
+        kernel threads are excluded from the counting and each
+        userspace process only counts as one, regardless how many
+        threads it consists of. This setting may also be toggled at
+        runtime by pressing the <keycap>P</keycap> key. This option
+        may not be combined with
+        <option>-k</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>-k</option></term>
 
-        <listitem><para>Include kernel threads when counting tasks in
-        control groups. By default, kernel threads are not included in
-        the count. This setting may also be toggled at runtime by
-        pressing the <keycap>k</keycap> key.</para></listitem>
+        <listitem><para>Count only userspace processes and kernel
+        threads instead of all tasks. By default all tasks are
+        counted: each kernel thread and each userspace thread
+        individually. With this setting kernel threads are included in
+        the counting and each userspace process only counts as on one,
+        regardless how many threads it consists of. This setting may
+        also be toggled at runtime by pressing the <keycap>k</keycap>
+        key. This option may not be combined with
+        <option>-P</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--recursive=</option></term>
 
-        <listitem><para>Controls whether the number of tasks shown for
-        a control group shall include all tasks that are contained in
-        any of the child control groups as well. Takes a boolean
-        argument, defaults to <literal>yes</literal>. If enabled the
-        tasks in child control groups are included, if disabled only
-        the tasks in the control group itself are counted. This
-        setting may also be toggled at runtime by pressing the
-        <keycap>r</keycap> key.</para></listitem>
+        <listitem><para>Controls whether the number of processes shown
+        for a control group shall include all processes that are
+        contained in any of the child control groups as well. Takes a
+        boolean argument, defaults to <literal>yes</literal>. If
+        enabled the processes in child control groups are included, if
+        disabled only the processes in the control group itself are
+        counted. This setting may also be toggled at runtime by
+        pressing the <keycap>r</keycap> key. Note that this setting
+        only applies to process counting, i.e. when the
+        <option>-P</option> or <option>-k</option> options are
+        used. It has not effect if all tasks are counted, in which
+        case the counting is always recursive.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -287,22 +310,34 @@
       </varlistentry>
 
       <varlistentry>
+        <term><keycap>P</keycap></term>
+
+        <listitem><para>Toggle between counting all tasks, or only
+        userspace processes. This setting may also be controlled using
+        the <option>-P</option> command line switch (see
+        above).</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><keycap>k</keycap></term>
 
-        <listitem><para>Toggle between including or excluding kernel
-        threads in control group task counts. This setting may also be
-        controlled using the <option>-k</option> command line
-        switch.</para></listitem>
+        <listitem><para>Toggle between counting all tasks, or only
+        userspace processes and kernel threads. This setting may also
+        be controlled using the <option>-k</option> command line
+        switch (see above).</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><keycap>r</keycap></term>
 
         <listitem><para>Toggle between recursively including or
-        excluding tasks in child control groups in control group task
-        counts. This setting may also be controlled using the
-        <option>--recursive=</option> command line
-        switch.</para></listitem>
+        excluding processes in child control groups in control group
+        process counts. This setting may also be controlled using the
+        <option>--recursive=</option> command line switch. This key is
+        not available of all tasks are counted, it is only available
+        if processes are counted, as enabled with the
+        <keycap>P</keycap> or <keycap>k</keycap>
+        keys.</para></listitem>
       </varlistentry>
 
     </variablelist>

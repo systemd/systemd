@@ -103,10 +103,10 @@
         <listitem>
           <para>Turn on CPU usage accounting for this unit. Takes a
           boolean argument. Note that turning on CPU accounting for
-          one unit might also implicitly turn it on for all units
+          one unit will also implicitly turn it on for all units
           contained in the same slice and for all its parent slices
           and the units contained therein. The system default for this
-          setting maybe controlled with
+          setting may be controlled with
           <varname>DefaultCPUAccounting=</varname> in
           <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
         </listitem>
@@ -134,7 +134,7 @@
           prioritizing specific services at boot-up differently than
           during normal runtime.</para>
 
-          <para>Those options imply
+          <para>These options imply
           <literal>CPUAccounting=true</literal>.</para>
         </listitem>
       </varlistentry>
@@ -168,9 +168,10 @@
         <listitem>
           <para>Turn on process and kernel memory accounting for this
           unit. Takes a boolean argument. Note that turning on memory
-          accounting for one unit might also implicitly turn it on for
-          all its parent slices. The system default for this setting
-          maybe controlled with
+          accounting for one unit will also implicitly turn it on for
+          all units contained in the same slice and for all its parent
+          slices and the units contained therein. The system default
+          for this setting may be controlled with
           <varname>DefaultMemoryAccounting=</varname> in
           <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
         </listitem>
@@ -186,13 +187,51 @@
           memory size in bytes. If the value is suffixed with K, M, G
           or T, the specified memory size is parsed as Kilobytes,
           Megabytes, Gigabytes, or Terabytes (with the base 1024),
-          respectively. This controls the
-          <literal>memory.limit_in_bytes</literal> control group
-          attribute. For details about this control group attribute,
-          see <ulink
+          respectively. If assigned the special value
+          <literal>infinity</literal> no memory limit is applied. This
+          controls the <literal>memory.limit_in_bytes</literal>
+          control group attribute. For details about this control
+          group attribute, see <ulink
           url="https://www.kernel.org/doc/Documentation/cgroups/memory.txt">memory.txt</ulink>.</para>
 
           <para>Implies <literal>MemoryAccounting=true</literal>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>TasksAccounting=</varname></term>
+
+        <listitem>
+          <para>Turn on task accounting for this unit. Takes a
+          boolean argument. If enabled, the system manager will keep
+          track of the number of tasks in the unit. The number of
+          tasks accounted this way includes both kernel threads and
+          userspace processes, with each thread counting
+          individually. Note that turning on tasks accounting for one
+          unit will also implicitly turn it on for all units contained
+          in the same slice and for all its parent slices and the
+          units contained therein. The system default for this setting
+          may be controlled with
+          <varname>DefaultTasksAccounting=</varname> in
+          <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>TasksMax=<replaceable>N</replaceable></varname></term>
+
+        <listitem>
+          <para>Specify the maximum number of tasks that may be
+          created in the unit. This ensures that the number of tasks
+          accounted for the unit (see above) stays below a specific
+          limit. If assigned the special value
+          <literal>infinity</literal> no tasks limit is applied. This
+          controls the <literal>pids.max</literal> control group
+          attribute. For details about this control group attribute,
+          see <ulink
+          url="https://www.kernel.org/doc/Documentation/cgroups/pids.txt">pids.txt</ulink>.</para>
+
+          <para>Implies <literal>TasksAccounting=true</literal>.</para>
         </listitem>
       </varlistentry>
 
@@ -202,10 +241,10 @@
         <listitem>
           <para>Turn on Block IO accounting for this unit. Takes a
           boolean argument. Note that turning on block IO accounting
-          for one unit might also implicitly turn it on for all units
+          for one unit will also implicitly turn it on for all units
           contained in the same slice and all for its parent slices
           and the units contained therein. The system default for this
-          setting maybe controlled with
+          setting may be controlled with
           <varname>DefaultBlockIOAccounting=</varname> in
           <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
         </listitem>

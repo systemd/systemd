@@ -168,6 +168,8 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("MemoryLimit", "t", NULL, offsetof(CGroupContext, memory_limit), 0),
         SD_BUS_PROPERTY("DevicePolicy", "s", property_get_cgroup_device_policy, offsetof(CGroupContext, device_policy), 0),
         SD_BUS_PROPERTY("DeviceAllow", "a(ss)", property_get_device_allow, 0, 0),
+        SD_BUS_PROPERTY("TasksAccounting", "b", bus_property_get_bool, offsetof(CGroupContext, tasks_accounting), 0),
+        SD_BUS_PROPERTY("TasksMax", "t", NULL, offsetof(CGroupContext, tasks_max), 0),
         SD_BUS_VTABLE_END
 };
 
@@ -551,7 +553,11 @@ int bus_cgroup_set_property(
                 if (mode != UNIT_CHECK) {
                         c->memory_limit = limit;
                         u->cgroup_realized_mask &= ~CGROUP_MASK_MEMORY;
-                        unit_write_drop_in_private_format(u, mode, name, "%s=%" PRIu64, name, limit);
+
+                        if (limit == (uint64_t) -1)
+                                unit_write_drop_in_private(u, mode, name, "MemoryLimit=infinity");
+                        else
+                                unit_write_drop_in_private_format(u, mode, name, "MemoryLimit=%" PRIu64, limit);
                 }
 
                 return 1;
@@ -667,6 +673,39 @@ int bus_cgroup_set_property(
 
                 return 1;
 
+        } else if (streq(name, "TasksAccounting")) {
+                int b;
+
+                r = sd_bus_message_read(message, "b", &b);
+                if (r < 0)
+                        return r;
+
+                if (mode != UNIT_CHECK) {
+                        c->tasks_accounting = b;
+                        u->cgroup_realized_mask &= ~CGROUP_MASK_PIDS;
+                        unit_write_drop_in_private(u, mode, name, b ? "TasksAccounting=yes" : "TasksAccounting=no");
+                }
+
+                return 1;
+
+        } else if (streq(name, "TasksMax")) {
+                uint64_t limit;
+
+                r = sd_bus_message_read(message, "t", &limit);
+                if (r < 0)
+                        return r;
+
+                if (mode != UNIT_CHECK) {
+                        c->tasks_max = limit;
+                        u->cgroup_realized_mask &= ~CGROUP_MASK_PIDS;
+
+                        if (limit == (uint64_t) -1)
+                                unit_write_drop_in_private(u, mode, name, "TasksMax=infinity");
+                        else
+                                unit_write_drop_in_private_format(u, mode, name, "TasksMax=%" PRIu64, limit);
+                }
+
+                return 1;
         }
 
         if (u->transient && u->load_state == UNIT_STUB) {

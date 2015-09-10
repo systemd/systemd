@@ -72,6 +72,7 @@ struct CGroupContext {
         bool cpu_accounting;
         bool blockio_accounting;
         bool memory_accounting;
+        bool tasks_accounting;
 
         unsigned long cpu_shares;
         unsigned long startup_cpu_shares;
@@ -88,6 +89,8 @@ struct CGroupContext {
         LIST_HEAD(CGroupDeviceAllow, device_allow);
 
         bool delegate;
+
+        uint64_t tasks_max;
 };
 
 #include "unit.h"
@@ -137,6 +140,7 @@ int unit_search_main_pid(Unit *u, pid_t *ret);
 int unit_watch_all_pids(Unit *u);
 
 int unit_get_memory_current(Unit *u, uint64_t *ret);
+int unit_get_tasks_current(Unit *u, uint64_t *ret);
 int unit_get_cpu_usage(Unit *u, nsec_t *ret);
 int unit_reset_cpu_usage(Unit *u);
 
