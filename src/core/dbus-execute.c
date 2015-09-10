@@ -933,7 +933,10 @@ int bus_exec_context_set_transient_property(
 
                 return 1;
 
-        } else if (streq(name, "IgnoreSIGPIPE")) {
+        } else if (STR_IN_SET(name,
+                              "IgnoreSIGPIPE", "TTYVHangup", "TTYReset",
+                              "PrivateTmp", "PrivateDevices", "PrivateNetwork",
+                              "NoNewPrivileges")) {
                 int b;
 
                 r = sd_bus_message_read(message, "b", &b);
@@ -941,39 +944,22 @@ int bus_exec_context_set_transient_property(
                         return r;
 
                 if (mode != UNIT_CHECK) {
-                        c->ignore_sigpipe = b;
+                        if (streq(name, "IgnoreSIGPIPE"))
+                                c->ignore_sigpipe = b;
+                        else if (streq(name, "TTYVHangup"))
+                                c->tty_vhangup = b;
+                        else if (streq(name, "TTYReset"))
+                                c->tty_reset = b;
+                        else if (streq(name, "PrivateTmp"))
+                                c->private_tmp = b;
+                        else if (streq(name, "PrivateDevices"))
+                                c->private_devices = b;
+                        else if (streq(name, "PrivateNetwork"))
+                                c->private_network = b;
+                        else if (streq(name, "NoNewPrivileges"))
+                                c->no_new_privileges = b;
 
-                        unit_write_drop_in_private_format(u, mode, name, "IgnoreSIGPIPE=%s\n", yes_no(b));
-                }
-
-                return 1;
-
-        } else if (streq(name, "TTYVHangup")) {
-                int b;
-
-                r = sd_bus_message_read(message, "b", &b);
-                if (r < 0)
-                        return r;
-
-                if (mode != UNIT_CHECK) {
-                        c->tty_vhangup = b;
-
-                        unit_write_drop_in_private_format(u, mode, name, "TTYVHangup=%s\n", yes_no(b));
-                }
-
-                return 1;
-
-        } else if (streq(name, "TTYReset")) {
-                int b;
-
-                r = sd_bus_message_read(message, "b", &b);
-                if (r < 0)
-                        return r;
-
-                if (mode != UNIT_CHECK) {
-                        c->tty_reset = b;
-
-                        unit_write_drop_in_private_format(u, mode, name, "TTYReset=%s\n", yes_no(b));
+                        unit_write_drop_in_private_format(u, mode, name, "%s=%s\n", name, yes_no(b));
                 }
 
                 return 1;
