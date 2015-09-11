@@ -131,7 +131,7 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 log_warning_errno(r, "Failed to parse configuration file: %m");
 
-        log_debug("systemd-timesyncd running as pid %lu", (unsigned long) getpid());
+        log_debug("systemd-timesyncd running as pid " PID_FMT, getpid());
         sd_notify(false,
                   "READY=1\n"
                   "STATUS=Daemon is running");
