@@ -149,5 +149,9 @@ bool unit_cgroup_delegate(Unit *u);
 int unit_notify_cgroup_empty(Unit *u);
 int manager_notify_cgroup_empty(Manager *m, const char *group);
 
+void unit_invalidate_cgroup(Unit *u, CGroupMask m);
+
+void manager_invalidate_startup_units(Manager *m);
+
 const char* cgroup_device_policy_to_string(CGroupDevicePolicy i) _const_;
 CGroupDevicePolicy cgroup_device_policy_from_string(const char *s) _pure_;

@@ -1581,6 +1581,32 @@ bool unit_cgroup_delegate(Unit *u) {
         return c->delegate;
 }
 
+void unit_invalidate_cgroup(Unit *u, CGroupMask m) {
+        assert(u);
+
+        if (!UNIT_HAS_CGROUP_CONTEXT(u))
+                return;
+
+        if (m == 0)
+                return;
+
+        if ((u->cgroup_realized_mask & m) == 0)
+                return;
+
+        u->cgroup_realized_mask &= ~m;
+        unit_add_to_cgroup_queue(u);
+}
+
+void manager_invalidate_startup_units(Manager *m) {
+        Iterator i;
+        Unit *u;
+
+        assert(m);
+
+        SET_FOREACH(u, m->startup_units, i)
+                unit_invalidate_cgroup(u, CGROUP_MASK_CPU|CGROUP_MASK_BLKIO);
+}
+
 static const char* const cgroup_device_policy_table[_CGROUP_DEVICE_POLICY_MAX] = {
         [CGROUP_AUTO] = "auto",
         [CGROUP_CLOSED] = "closed",

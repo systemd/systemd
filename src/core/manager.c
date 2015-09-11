@@ -2667,9 +2667,6 @@ static void manager_notify_finished(Manager *m) {
 }
 
 void manager_check_finished(Manager *m) {
-        Unit *u = NULL;
-        Iterator i;
-
         assert(m);
 
         if (m->n_reloading > 0)
@@ -2682,11 +2679,9 @@ void manager_check_finished(Manager *m) {
                 return;
 
         if (hashmap_size(m->jobs) > 0) {
-
                 if (m->jobs_in_progress_event_source)
                         /* Ignore any failure, this is only for feedback */
-                        (void) sd_event_source_set_time(m->jobs_in_progress_event_source,
-                                                        now(CLOCK_MONOTONIC) + JOBS_IN_PROGRESS_WAIT_USEC);
+                        (void) sd_event_source_set_time(m->jobs_in_progress_event_source, now(CLOCK_MONOTONIC) + JOBS_IN_PROGRESS_WAIT_USEC);
 
                 return;
         }
@@ -2712,9 +2707,7 @@ void manager_check_finished(Manager *m) {
 
         manager_notify_finished(m);
 
-        SET_FOREACH(u, m->startup_units, i)
-                if (u->cgroup_path)
-                        cgroup_context_apply(unit_get_cgroup_context(u), unit_get_own_mask(u), u->cgroup_path, manager_state(m));
+        manager_invalidate_startup_units(m);
 }
 
 static int create_generator_dir(Manager *m, char **generator, const char *name) {
