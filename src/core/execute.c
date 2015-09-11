@@ -1169,9 +1169,11 @@ static void do_idle_pipe_dance(int idle_pipe[4]) {
                 r = fd_wait_for_event(idle_pipe[0], POLLHUP, IDLE_TIMEOUT_USEC);
 
                 if (idle_pipe[3] >= 0 && r == 0 /* timeout */) {
+                        ssize_t n;
+
                         /* Signal systemd that we are bored and want to continue. */
-                        r = write(idle_pipe[3], "x", 1);
-                        if (r > 0)
+                        n = write(idle_pipe[3], "x", 1);
+                        if (n > 0)
                                 /* Wait for systemd to react to the signal above. */
                                 fd_wait_for_event(idle_pipe[0], POLLHUP, IDLE_TIMEOUT2_USEC);
                 }
