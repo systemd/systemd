@@ -71,11 +71,11 @@
 
     <para>If the <parameter>unset_environment</parameter> parameter is
     non-zero, <function>sd_listen_fds()</function> will unset the
-    <varname>$LISTEN_FDS</varname> and <varname>$LISTEN_PID</varname>
-    environment variables before returning (regardless of whether the
-    function call itself succeeded or not). Further calls to
-    <function>sd_listen_fds()</function> will then fail, but the
-    variables are no longer inherited by child processes.</para>
+    <varname>$LISTEN_FDS</varname>i, <varname>$LISTEN_PID</varname>
+    and <varname>$LISTEN_NAMES</varname>environment variables before
+    returning (regardless of whether the function call itself
+    succeeded or not). Further calls to <function>sd_listen_fds()</function>
+    will then fail, but the variables are no longer inherited by child processes.</para>
 
     <para>If a daemon receives more than one file descriptor, they
     will be passed in the same order as configured in the systemd
@@ -108,6 +108,10 @@
     <literal>FDSTORE=1</literal> messages, these file descriptors are
     passed last, in arbitrary order, and with duplicates
     removed.</para>
+
+    <para>If passed file descriptors were labeled, then their names are
+    passed in <varname>$LISTEN_NAMES</varname> environment variable.
+    Colon is used to separate labels.</para>
   </refsect1>
 
   <refsect1>
@@ -144,6 +148,7 @@
       <varlistentry>
         <term><varname>$LISTEN_PID</varname></term>
         <term><varname>$LISTEN_FDS</varname></term>
+        <term><varname>$LISTEN_NAMES</varname></term>
 
         <listitem><para>Set by the init system
         for supervised processes that use

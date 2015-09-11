@@ -92,6 +92,8 @@ static void socket_init(Unit *u) {
         s->exec_context.std_error = u->manager->default_std_error;
 
         s->control_command_id = _SOCKET_EXEC_COMMAND_INVALID;
+
+        s->name = NULL;
 }
 
 static void socket_unwatch_control_pid(Socket *s) {
@@ -144,6 +146,8 @@ static void socket_done(Unit *u) {
 
         strv_free(s->symlinks);
 
+        free(s->name);
+        s->name = NULL;
         free(s->user);
         free(s->group);
 
@@ -425,6 +429,11 @@ static int socket_verify(Socket *s) {
                 return -EINVAL;
         }
 
+        if (s->name && strchr(s->name, ':')) {
+                log_unit_error(UNIT(s), "FileDescriptorName= contains colon. Refusing.");
+                return -EINVAL;
+        }
+
         return 0;
 }
 
@@ -595,6 +604,11 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 fprintf(f,
                         "%sSmackLabelIPOut: %s\n",
                         prefix, s->smack_ip_out);
+
+        if (!isempty(s->name))
+                fprintf(f,
+                        "%sFileDescriptorName: %s\n",
+                        prefix, strna(s->name));
 
         if (!isempty(s->user) || !isempty(s->group))
                 fprintf(f,
@@ -2493,43 +2507,73 @@ static int socket_dispatch_timer(sd_event_source *source, usec_t usec, void *use
         return 0;
 }
 
-int socket_collect_fds(Socket *s, int **fds, unsigned *n_fds) {
+int socket_collect_fds(Socket *s, int **fds, char ***fds_names, unsigned *n_fds) {
         int *rfds;
-        unsigned rn_fds, k;
+        char **rfds_names;
+        unsigned rn_fds = 0;
+        int k = 0;
+        int ret = 0;
         SocketPort *p;
 
         assert(s);
         assert(fds);
+        assert(fds_names);
         assert(n_fds);
 
         /* Called from the service code for requesting our fds */
 
-        rn_fds = 0;
         LIST_FOREACH(port, p, s->ports)
                 if (p->fd >= 0)
                         rn_fds++;
 
-        if (rn_fds <= 0) {
-                *fds = NULL;
-                *n_fds = 0;
-                return 0;
-        }
+        if (rn_fds <= 0)
+                goto out;
 
+        ret = -ENOMEM;
         rfds = new(int, rn_fds);
         if (!rfds)
-                return -ENOMEM;
+                goto out;
 
-        k = 0;
-        LIST_FOREACH(port, p, s->ports)
-                if (p->fd >= 0)
-                        rfds[k++] = p->fd;
+        rfds_names = new0(char *, rn_fds + 1);
+        if (!rfds_names)
+                goto err_free_rfds;
 
-        assert(k == rn_fds);
+        LIST_FOREACH(port, p, s->ports) {
+                if (p->fd < 0)
+                        continue;
+
+                rfds[k] = p->fd;
+                if (!s->name) {
+                        ++k;
+                        continue;
+                }
+                rfds_names[k] = strdup(s->name);
+                if (!rfds_names[k])
+                        goto err_free_rfds_names;
+                ++k;
+        }
+
+        assert((unsigned)k == rn_fds);
+        rfds_names[k] = NULL;
 
         *fds = rfds;
+        *fds_names = rfds_names;
         *n_fds = rn_fds;
 
         return 0;
+
+err_free_rfds_names:
+        while (--k >= 0)
+                free(rfds_names[k]);
+        free(rfds_names);
+err_free_rfds:
+        free(rfds);
+out:
+        *fds = NULL;
+        *fds_names = NULL;
+        *n_fds = 0;
+
+        return ret;
 }
 
 static void socket_reset_failed(Unit *u) {

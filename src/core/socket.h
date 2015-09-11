@@ -168,10 +168,13 @@ struct Socket {
         char *user, *group;
 
         bool reset_cpu_usage:1;
+
+        /* Name to be used in $LISTEN_NAMES */
+        char *name;
 };
 
 /* Called from the service code when collecting fds */
-int socket_collect_fds(Socket *s, int **fds, unsigned *n_fds);
+int socket_collect_fds(Socket *s, int **fds, char ***fds_names, unsigned *n_fds);
 
 /* Called from the service code when a per-connection service ended */
 void socket_connection_unref(Socket *s);

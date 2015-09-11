@@ -229,6 +229,16 @@
         below.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term>FDNAME=...</term>
+
+        <listitem><para>Labels passed file descriptors with name. Applies
+        to all file descriptors passed it this call. To apply different
+        names to multiple file descriptors proper number of calls to
+        <function>sd_pid_notify_with_fds()</function> needs to be made.
+        Colon (":") if forbidden.</para></listitem>
+      </varlistentry>
+
     </variablelist>
 
     <para>It is recommended to prefix variable names that are not
