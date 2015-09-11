@@ -2737,6 +2737,8 @@ static int service_dispatch_timer(sd_event_source *source, usec_t usec, void *us
 
         case SERVICE_RELOAD:
                 log_unit_warning(UNIT(s), "Reload operation timed out. Stopping.");
+                service_unwatch_control_pid(s);
+                service_kill_control_processes(s);
                 s->reload_result = SERVICE_FAILURE_TIMEOUT;
                 service_enter_running(s, SERVICE_SUCCESS);
                 break;
