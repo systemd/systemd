@@ -38,15 +38,15 @@
 #include "signal-util.h"
 
 static const char prefixes[] =
-        "/etc\0"
-        "/run\0"
-        "/usr/local/lib\0"
-        "/usr/local/share\0"
-        "/usr/lib\0"
-        "/usr/share\0"
 #ifdef HAVE_SPLIT_USR
         "/lib\0"
 #endif
+        "/usr/share\0"
+        "/usr/lib\0"
+        "/usr/local/share\0"
+        "/usr/local/lib\0"
+        "/run\0"
+        "/etc\0"
         ;
 
 static const char suffixes[] =
@@ -207,102 +207,126 @@ static int found_override(const char *top, const char *bottom) {
         return k;
 }
 
-static int enumerate_dir_d(Hashmap *top, Hashmap *bottom, Hashmap *drops, const char *toppath, const char *drop) {
+static int unit_name_cut_instance(const char *f, char **ret) {
+        const char *p, *e;
+        char *s;
+        size_t a;
+
+        assert(f);
+        assert(ret);
+
+        p = strchr(f, '@');
+        if (!p)
+                return -EINVAL;
+        e = strchr(f, '.');
+        if (!e)
+                return -EINVAL;
+
+        a = p - f;
+
+        s = new(char, a + 1 + strlen(e) + 1);
+        if (!s)
+                return -ENOMEM;
+
+        strcpy(mempcpy(s, f, a + 1), e);
+
+        *ret = s;
+        return 0;
+}
+
+static int enumerate_dir_d(Hashmap *bottom, const char *toppath, const char *drop) {
         _cleanup_free_ char *unit = NULL;
-        _cleanup_free_ char *path = NULL;
         _cleanup_strv_free_ char **list = NULL;
-        char **file;
-        char *c;
+        char **file, *c, *path;
         int r;
 
         assert(!endswith(drop, "/"));
 
-        path = strjoin(toppath, "/", drop, NULL);
+        log_debug("Looking at %s", toppath);
+
+        path = strdup(toppath);
         if (!path)
                 return -ENOMEM;
 
-        log_debug("Looking at %s", path);
-
-        unit = strdup(drop);
-        if (!unit)
-                return -ENOMEM;
-
-        c = strrchr(unit, '.');
+        c = strrchr(path, '.');
         if (!c)
                 return -EINVAL;
         *c = 0;
 
-        r = get_files_in_directory(path, &list);
+        r = get_files_in_directory(toppath, &list);
         if (r < 0)
-                return log_error_errno(r, "Failed to enumerate %s: %m", path);
+                return log_error_errno(r, "Failed to enumerate %s: %m", toppath);
+
 
         STRV_FOREACH(file, list) {
-                Hashmap *h;
                 int k;
-                char *p;
-                char *d;
+                Hashmap *drops;
+                char **d, *tmp = NULL, *key;
 
                 if (!endswith(*file, ".conf"))
                         continue;
 
-                p = strjoin(path, "/", *file, NULL);
-                if (!p)
-                        return -ENOMEM;
-                d = p + strlen(toppath) + 1;
-
-                log_debug("Adding at top: %s %s %s", d, draw_special_char(DRAW_ARROW), p);
-                k = hashmap_put(top, d, p);
-                if (k >= 0) {
-                        p = strdup(p);
-                        if (!p)
-                                return -ENOMEM;
-                        d = p + strlen(toppath) + 1;
-                } else if (k != -EEXIST) {
-                        free(p);
+                k = unit_name_cut_instance(basename(path), &tmp);
+                if (k < 0 && k != -EINVAL) {
+                        free(path);
                         return k;
                 }
+                key = tmp ? tmp : basename(path);
 
-                log_debug("Adding at bottom: %s %s %s", d, draw_special_char(DRAW_ARROW), p);
-                free(hashmap_remove(bottom, d));
-                k = hashmap_put(bottom, d, p);
-                if (k < 0) {
-                        free(p);
-                        return k;
-                }
+                drops = hashmap_get(bottom, key);
+                if (!drops) {
+                        _cleanup_free_ char *p;
 
-                h = hashmap_get(drops, unit);
-                if (!h) {
-                        h = hashmap_new(&string_hash_ops);
-                        if (!h)
+                        drops = hashmap_new(&string_hash_ops);
+                        if (!drops) {
+                                free(tmp);
                                 return -ENOMEM;
-                        hashmap_put(drops, unit, h);
-                        unit = strdup(unit);
-                        if (!unit)
+                        }
+
+                        p = strjoin(toppath, "/", *file, NULL);
+                        if (!p) {
+                                free(tmp);
                                 return -ENOMEM;
-                }
+                        }
 
-                p = strdup(p);
-                if (!p)
-                        return -ENOMEM;
+                        log_debug("Adding: drops[%s] %s []",
+                                  p, draw_special_char(DRAW_ARROW));
 
-                log_debug("Adding to drops: %s %s %s %s %s",
-                          unit, draw_special_char(DRAW_ARROW), basename(p), draw_special_char(DRAW_ARROW), p);
-                k = hashmap_put(h, basename(p), p);
-                if (k < 0) {
-                        free(p);
-                        if (k != -EEXIST)
+                        k = hashmap_put(drops, path, NULL);
+                        if (k < 0) {
+                                free(tmp);
                                 return k;
+                        }
                 }
+
+                d = hashmap_get(drops, path);
+                strv_extend(&d, *file);
+
+                log_debug("Extending: %s %s drops[%s]", *file, draw_special_char(DRAW_ARROW), path);
+
+                key = strdup(key);
+                if (!key) {
+                        free(path);
+                        return -ENOMEM;
+                }
+
+                path = strdup(path);
+                if (!path) {
+                        free(key);
+                        return -ENOMEM;
+                }
+
+                hashmap_replace(drops, path, d);
+                hashmap_replace(bottom, key, drops);
         }
+
         return 0;
 }
 
-static int enumerate_dir(Hashmap *top, Hashmap *bottom, Hashmap *drops, const char *path, bool dropins) {
+static int enumerate_dir(Hashmap *top, Hashmap *bottom, const char *path, bool dropins) {
         _cleanup_closedir_ DIR *d;
 
-        assert(top);
         assert(bottom);
-        assert(drops);
         assert(path);
 
         log_debug("Looking at %s", path);
@@ -319,7 +343,8 @@ static int enumerate_dir(Hashmap *top, Hashmap *bottom, Hashmap *drops, const ch
         for (;;) {
                 struct dirent *de;
                 int k;
-                char *p;
+                char *p, *key, *tmp = NULL;
+                Hashmap *drops;
 
                 errno = 0;
                 de = readdir(d);
@@ -328,47 +353,115 @@ static int enumerate_dir(Hashmap *top, Hashmap *bottom, Hashmap *drops, const ch
 
                 dirent_ensure_type(d, de);
 
-                if (dropins && de->d_type == DT_DIR && endswith(de->d_name, ".d"))
-                        enumerate_dir_d(top, bottom, drops, path, de->d_name);
-
-                if (!dirent_is_file(de))
-                        continue;
-
                 p = strjoin(path, "/", de->d_name, NULL);
                 if (!p)
                         return -ENOMEM;
 
-                log_debug("Adding at top: %s %s %s", basename(p), draw_special_char(DRAW_ARROW), p);
-                k = hashmap_put(top, basename(p), p);
-                if (k >= 0) {
-                        p = strdup(p);
-                        if (!p)
-                                return -ENOMEM;
-                } else if (k != -EEXIST) {
+                if (dropins && de->d_type == DT_DIR && endswith(de->d_name, ".d"))
+                        enumerate_dir_d(bottom, p, de->d_name);
+
+                if (!dirent_is_file(de)) {
+                        free(p);
+                        continue;
+                }
+
+                k = unit_name_cut_instance(basename(p), &tmp);
+                if (k < 0 && k != -EINVAL) {
                         free(p);
                         return k;
                 }
+                key = tmp ? tmp : basename(p);
 
-                log_debug("Adding at bottom: %s %s %s", basename(p), draw_special_char(DRAW_ARROW), p);
-                free(hashmap_remove(bottom, basename(p)));
-                k = hashmap_put(bottom, basename(p), p);
+                log_debug("Adding: top[%s] %s %s", key, draw_special_char(DRAW_ARROW), p);
+                k = hashmap_put(top, key, p);
                 if (k < 0) {
-                        free(p);
-                        return k;
+                        if (k == -EEXIST) {
+                                p = strdup(p);
+                                if (!p)
+                                        return -ENOMEM;
+                                if (tmp) {
+                                        key = strdup(tmp);
+                                        if (!key)
+                                                return -ENOMEM;
+                                } else
+                                        key = basename(p);
+
+                                drops = hashmap_get(bottom, key);
+                                if (!drops) {
+                                        drops = hashmap_new(&string_hash_ops);
+                                        if (!drops)
+                                                return -ENOMEM;
+
+                                        log_debug("Adding: bottom[%s] %s drops[%s] %s []",
+                                                  key, draw_special_char(DRAW_ARROW),
+                                                  p, draw_special_char(DRAW_ARROW));
+
+                                        k = hashmap_put(drops, p, NULL);
+                                        if (k < 0) {
+                                                free(tmp);
+                                                free(p);
+                                                return k;
+                                        }
+
+                                        key = strdup(key);
+                                        if (!key)
+                                                return -ENOMEM;
+
+                                        k = hashmap_put(bottom, key, drops);
+                                        if (k < 0) {
+                                                free(tmp);
+                                                free(p);
+                                                return k;
+                                        }
+
+                                } else if (!hashmap_contains(drops, p)) {
+                                        log_debug("Adding: bottom[%s] %s drops[%s] %s []",
+                                                  key, draw_special_char(DRAW_ARROW),
+                                                  p, draw_special_char(DRAW_ARROW));
+
+                                        k = hashmap_put(drops, p, NULL);
+                                        if (k < 0) {
+                                                free(tmp);
+                                                free(p);
+                                                return k;
+                                        }
+
+                                        k = hashmap_put(bottom, key, drops);
+                                        if (k < 0) {
+                                                free(tmp);
+                                                free(p);
+                                                return k;
+                                        }
+                                }
+                        } else {
+                                free(tmp);
+                                free(p);
+                                return k;
+                        }
                 }
         }
 }
 
+static bool path_exists(const char *path)
+{
+        struct stat st;
+
+        if (stat(path, &st) < 0 && errno == ENOENT)
+                return false;
+
+        return true;
+}
+
 static int process_suffix(const char *suffix, const char *onlyprefix) {
         const char *p;
-        char *f;
-        Hashmap *top, *bottom, *drops;
-        Hashmap *h;
-        char *key;
+        char *file;
+        Hashmap *bottom, *top, *drops;
+        char *key, *path, **drop;
         int r = 0, k;
         Iterator i, j;
         int n_found = 0;
         bool dropins;
+        _cleanup_strv_free_ char **extended = NULL;
 
         assert(suffix);
         assert(!startswith(suffix, "/"));
@@ -377,9 +470,12 @@ static int process_suffix(const char *suffix, const char *onlyprefix) {
         dropins = nulstr_contains(have_dropins, suffix);
 
         top = hashmap_new(&string_hash_ops);
+        if (!top) {
+                r = -ENOMEM;
+                goto finish;
+        }
         bottom = hashmap_new(&string_hash_ops);
-        drops = hashmap_new(&string_hash_ops);
-        if (!top || !bottom || !drops) {
+        if (!bottom) {
                 r = -ENOMEM;
                 goto finish;
         }
@@ -393,48 +489,54 @@ static int process_suffix(const char *suffix, const char *onlyprefix) {
                         goto finish;
                 }
 
-                k = enumerate_dir(top, bottom, drops, t, dropins);
+                k = enumerate_dir(top, bottom, t, dropins);
                 if (r == 0)
                         r = k;
         }
 
-        HASHMAP_FOREACH_KEY(f, key, top, i) {
-                char *o;
+        HASHMAP_FOREACH_KEY(file, key, top, i) {
+                drops = hashmap_get(bottom, key);
+                if (!drops)
+                        continue;
 
-                o = hashmap_get(bottom, key);
-                assert(o);
+                HASHMAP_FOREACH_KEY(drop, path, drops, j) {
+                        char **dd;
 
-                if (!onlyprefix || startswith(o, onlyprefix)) {
-                        if (path_equal(o, f)) {
-                                notify_override_unchanged(f);
-                        } else {
-                                k = found_override(f, o);
-                                if (k < 0)
-                                        r = k;
-                                else
-                                        n_found += k;
+                        if (path_exists(path) && (!onlyprefix || startswith(file, onlyprefix))) {
+                                if (path_equal(file, path)) {
+                                        notify_override_unchanged(path);
+                                } else {
+                                        k = found_override(path, file);
+                                        if (k < 0)
+                                                r = k;
+                                        else
+                                                n_found += k;
+                                }
                         }
-                }
 
-                h = hashmap_get(drops, key);
-                if (h)
-                        HASHMAP_FOREACH(o, h, j)
-                                if (!onlyprefix || startswith(o, onlyprefix))
-                                        n_found += notify_override_extended(f, o);
+                        STRV_FOREACH(dd, drop)
+                                if (!onlyprefix || startswith(file, onlyprefix) || startswith(path, onlyprefix)) {
+                                        _cleanup_free_ char *ext = NULL;
+
+                                        ext = strjoin(path, ".d/", *dd, NULL);
+                                        n_found += notify_override_extended(path, ext);
+                                }
+                }
         }
 
 finish:
         if (top)
                 hashmap_free_free(top);
-        if (bottom)
-                hashmap_free_free(bottom);
-        if (drops) {
-                HASHMAP_FOREACH_KEY(h, key, drops, i){
-                        hashmap_free_free(hashmap_remove(drops, key));
-                        hashmap_remove(drops, key);
+        if (bottom) {
+                HASHMAP_FOREACH_KEY(drops, key, bottom, i){
+                        char **d;
+
+                        while ((d = hashmap_steal_first(drops)))
+                                strv_free(d);
+                        hashmap_free_free(drops);
                         free(key);
                 }
-                hashmap_free(drops);
+                hashmap_free(bottom);
         }
         return r < 0 ? r : n_found;
 }
@@ -632,7 +734,7 @@ int main(int argc, char *argv[]) {
         }
 
         if (r >= 0)
-                printf("%s%i overridden configuration files found.\n",
+                printf("%s%i overridden configurations found.\n",
                        n_found ? "\n" : "", n_found);
 
 finish:
