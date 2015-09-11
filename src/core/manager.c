@@ -317,6 +317,8 @@ static int manager_watch_idle_pipe(Manager *m) {
 static void manager_close_idle_pipe(Manager *m) {
         assert(m);
 
+        m->idle_pipe_event_source = sd_event_source_unref(m->idle_pipe_event_source);
+
         safe_close_pair(m->idle_pipe);
         safe_close_pair(m->idle_pipe + 2);
 }
@@ -936,7 +938,6 @@ Manager* manager_free(Manager *m) {
         sd_event_source_unref(m->notify_event_source);
         sd_event_source_unref(m->time_change_event_source);
         sd_event_source_unref(m->jobs_in_progress_event_source);
-        sd_event_source_unref(m->idle_pipe_event_source);
         sd_event_source_unref(m->run_queue_event_source);
 
         safe_close(m->signal_fd);
@@ -1954,7 +1955,6 @@ static int manager_dispatch_idle_pipe_fd(sd_event_source *source, int fd, uint32
 
         m->no_console_output = m->n_on_console > 0;
 
-        m->idle_pipe_event_source = sd_event_source_unref(m->idle_pipe_event_source);
         manager_close_idle_pipe(m);
 
         return 0;
@@ -2694,7 +2694,6 @@ void manager_check_finished(Manager *m) {
         manager_flip_auto_status(m, false);
 
         /* Notify Type=idle units that we are done now */
-        m->idle_pipe_event_source = sd_event_source_unref(m->idle_pipe_event_source);
         manager_close_idle_pipe(m);
 
         /* Turn off confirm spawn now */
