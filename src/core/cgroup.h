@@ -58,7 +58,7 @@ struct CGroupDeviceAllow {
 struct CGroupBlockIODeviceWeight {
         LIST_FIELDS(CGroupBlockIODeviceWeight, device_weights);
         char *path;
-        unsigned long weight;
+        uint64_t weight;
 };
 
 struct CGroupBlockIODeviceBandwidth {
@@ -74,12 +74,12 @@ struct CGroupContext {
         bool memory_accounting;
         bool tasks_accounting;
 
-        unsigned long cpu_shares;
-        unsigned long startup_cpu_shares;
+        uint64_t cpu_shares;
+        uint64_t startup_cpu_shares;
         usec_t cpu_quota_per_sec_usec;
 
-        unsigned long blockio_weight;
-        unsigned long startup_blockio_weight;
+        uint64_t blockio_weight;
+        uint64_t startup_blockio_weight;
         LIST_HEAD(CGroupBlockIODeviceWeight, blockio_device_weights);
         LIST_HEAD(CGroupBlockIODeviceBandwidth, blockio_device_bandwidths);
 
@@ -88,9 +88,9 @@ struct CGroupContext {
         CGroupDevicePolicy device_policy;
         LIST_HEAD(CGroupDeviceAllow, device_allow);
 
-        bool delegate;
-
         uint64_t tasks_max;
+
+        bool delegate;
 };
 
 #include "unit.h"

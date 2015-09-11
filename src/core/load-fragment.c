@@ -2605,26 +2605,19 @@ int config_parse_cpu_shares(
                 void *data,
                 void *userdata) {
 
-        unsigned long *shares = data, lu;
+        uint64_t *shares = data;
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
 
-        if (isempty(rvalue)) {
-                *shares = (unsigned long) -1;
+        r = cg_cpu_shares_parse(rvalue, shares);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "CPU shares '%s' invalid. Ignoring.", rvalue);
                 return 0;
         }
 
-        r = safe_atolu(rvalue, &lu);
-        if (r < 0 || lu <= 0) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "CPU shares '%s' invalid. Ignoring.", rvalue);
-                return 0;
-        }
-
-        *shares = lu;
         return 0;
 }
 
@@ -2805,26 +2798,19 @@ int config_parse_blockio_weight(
                 void *data,
                 void *userdata) {
 
-        unsigned long *weight = data, lu;
+        uint64_t *weight = data;
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
 
-        if (isempty(rvalue)) {
-                *weight = (unsigned long) -1;
+        r = cg_blkio_weight_parse(rvalue, weight);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Block IO weight '%s' invalid. Ignoring.", rvalue);
                 return 0;
         }
 
-        r = safe_atolu(rvalue, &lu);
-        if (r < 0 || lu < 10 || lu > 1000) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Block IO weight '%s' invalid. Ignoring.", rvalue);
-                return 0;
-        }
-
-        *weight = lu;
         return 0;
 }
 
@@ -2843,8 +2829,8 @@ int config_parse_blockio_device_weight(
         _cleanup_free_ char *path = NULL;
         CGroupBlockIODeviceWeight *w;
         CGroupContext *c = data;
-        unsigned long lu;
         const char *weight;
+        uint64_t u;
         size_t n;
         int r;
 
@@ -2861,9 +2847,10 @@ int config_parse_blockio_device_weight(
 
         n = strcspn(rvalue, WHITESPACE);
         weight = rvalue + n;
-        if (!*weight) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Expected block device and device weight. Ignoring.");
+        weight += strspn(weight, WHITESPACE);
+
+        if (isempty(weight)) {
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL, "Expected block device and device weight. Ignoring.");
                 return 0;
         }
 
@@ -2872,18 +2859,17 @@ int config_parse_blockio_device_weight(
                 return log_oom();
 
         if (!path_startswith(path, "/dev")) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Invalid device node path '%s'. Ignoring.", path);
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL, "Invalid device node path '%s'. Ignoring.", path);
                 return 0;
         }
 
-        weight += strspn(weight, WHITESPACE);
-        r = safe_atolu(weight, &lu);
-        if (r < 0 || lu < 10 || lu > 1000) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Block IO weight '%s' invalid. Ignoring.", rvalue);
+        r = cg_blkio_weight_parse(weight, &u);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Block IO weight '%s' invalid. Ignoring.", weight);
                 return 0;
         }
+
+        assert(u != CGROUP_BLKIO_WEIGHT_INVALID);
 
         w = new0(CGroupBlockIODeviceWeight, 1);
         if (!w)
@@ -2892,7 +2878,7 @@ int config_parse_blockio_device_weight(
         w->path = path;
         path = NULL;
 
-        w->weight = lu;
+        w->weight = u;
 
         LIST_PREPEND(device_weights, c->blockio_device_weights, w);
         return 0;

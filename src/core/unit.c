@@ -1177,8 +1177,8 @@ static int unit_add_startup_units(Unit *u) {
         if (!c)
                 return 0;
 
-        if (c->startup_cpu_shares == (unsigned long) -1 &&
-            c->startup_blockio_weight == (unsigned long) -1)
+        if (c->startup_cpu_shares == CGROUP_CPU_SHARES_INVALID &&
+            c->startup_blockio_weight == CGROUP_BLKIO_WEIGHT_INVALID)
                 return 0;
 
         return set_put(u->manager->startup_units, u);

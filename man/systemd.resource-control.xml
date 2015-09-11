@@ -118,10 +118,11 @@
 
         <listitem>
           <para>Assign the specified CPU time share weight to the
-          processes executed. Those options take an integer value and
+          processes executed. These options take an integer value and
           control the <literal>cpu.shares</literal> control group
-          attribute, which defaults to 1024. For details about this
-          control group attribute, see <ulink
+          attribute. The allowed range is 2 to 262144. Defaults to
+          1024. For details about this control group attribute, see
+          <ulink
           url="https://www.kernel.org/doc/Documentation/scheduler/sched-design-CFS.txt">sched-design-CFS.txt</ulink>.
           The available CPU time is split up among all units within
           one slice relative to their CPU time share weight.</para>
@@ -258,7 +259,7 @@
         the executed processes. Takes a single weight value (between
         10 and 1000) to set the default block IO weight. This controls
         the <literal>blkio.weight</literal> control group attribute,
-        which defaults to 1000. For details about this control group
+        which defaults to 500. For details about this control group
         attribute, see <ulink
         url="https://www.kernel.org/doc/Documentation/cgroups/blkio-controller.txt">blkio-controller.txt</ulink>.
         The available IO bandwidth is split up among all units within
