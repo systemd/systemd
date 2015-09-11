@@ -865,8 +865,6 @@ libbasic_la_SOURCES = \
 	src/basic/xml.h \
 	src/basic/json.c \
 	src/basic/json.h \
-	src/basic/ring.c \
-	src/basic/ring.h \
 	src/basic/barrier.c \
 	src/basic/barrier.h \
 	src/basic/async.c \
@@ -954,8 +952,6 @@ libshared_la_SOURCES = \
 	src/shared/ima-util.h \
 	src/shared/ptyfwd.c \
 	src/shared/ptyfwd.h \
-	src/shared/pty.c \
-	src/shared/pty.h \
 	src/shared/base-filesystem.c \
 	src/shared/base-filesystem.h \
 	src/shared/uid-range.c \
@@ -1402,9 +1398,7 @@ tests += \
 	test-process-util \
 	test-terminal-util \
 	test-path-lookup \
-	test-ring \
 	test-barrier \
-	test-pty \
 	test-tmpfiles \
 	test-namespace \
 	test-date \
@@ -1721,23 +1715,11 @@ test_socket_util_SOURCES = \
 test_socket_util_LDADD = \
 	libshared.la
 
-test_ring_SOURCES = \
-	src/test/test-ring.c
-
-test_ring_LDADD = \
-	libshared.la
-
 test_barrier_SOURCES = \
 	src/test/test-barrier.c
 
 test_barrier_LDADD = \
 	libshared.la
-
-test_pty_SOURCES = \
-	src/test/test-pty.c
-
-test_pty_LDADD = \
-	libcore.la
 
 test_tmpfiles_SOURCES = \
 	src/test/test-tmpfiles.c
