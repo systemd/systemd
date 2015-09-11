@@ -528,7 +528,7 @@ void unit_free(Unit *u) {
 
         unit_release_cgroup(u);
 
-        manager_update_failed_units(u->manager, u, false);
+        (void) manager_update_failed_units(u->manager, u, false);
         set_remove(u->manager->startup_units, u);
 
         free(u->description);
@@ -1172,6 +1172,7 @@ static int unit_add_mount_dependencies(Unit *u) {
 
 static int unit_add_startup_units(Unit *u) {
         CGroupContext *c;
+        int r;
 
         c = unit_get_cgroup_context(u);
         if (!c)
@@ -1180,6 +1181,10 @@ static int unit_add_startup_units(Unit *u) {
         if (c->startup_cpu_shares == CGROUP_CPU_SHARES_INVALID &&
             c->startup_blockio_weight == CGROUP_BLKIO_WEIGHT_INVALID)
                 return 0;
+
+        r = set_ensure_allocated(&u->manager->startup_units, NULL);
+        if (r < 0)
+                return r;
 
         return set_put(u->manager->startup_units, u);
 }
@@ -1807,7 +1812,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
         }
 
         /* Keep track of failed units */
-        manager_update_failed_units(u->manager, u, ns == UNIT_FAILED);
+        (void) manager_update_failed_units(u->manager, u, ns == UNIT_FAILED);
 
         /* Make sure the cgroup is always removed when we become inactive */
         if (UNIT_IS_INACTIVE_OR_FAILED(ns))

@@ -602,14 +602,6 @@ int manager_new(ManagerRunningAs running_as, bool test_run, Manager **_m) {
         if (r < 0)
                 goto fail;
 
-        r = set_ensure_allocated(&m->startup_units, NULL);
-        if (r < 0)
-                goto fail;
-
-        r = set_ensure_allocated(&m->failed_units, NULL);
-        if (r < 0)
-                goto fail;
-
         r = sd_event_default(&m->event);
         if (r < 0)
                 goto fail;
@@ -3069,8 +3061,9 @@ const char *manager_get_runtime_prefix(Manager *m) {
                getenv("XDG_RUNTIME_DIR");
 }
 
-void manager_update_failed_units(Manager *m, Unit *u, bool failed) {
+int manager_update_failed_units(Manager *m, Unit *u, bool failed) {
         unsigned size;
+        int r;
 
         assert(m);
         assert(u->manager == m);
@@ -3078,13 +3071,19 @@ void manager_update_failed_units(Manager *m, Unit *u, bool failed) {
         size = set_size(m->failed_units);
 
         if (failed) {
+                r = set_ensure_allocated(&m->failed_units, NULL);
+                if (r < 0)
+                        return log_oom();
+
                 if (set_put(m->failed_units, u) < 0)
-                        log_oom();
+                        return log_oom();
         } else
-                set_remove(m->failed_units, u);
+                (void) set_remove(m->failed_units, u);
 
         if (set_size(m->failed_units) != size)
                 bus_manager_send_change_signal(m);
+
+        return 0;
 }
 
 ManagerState manager_state(Manager *m) {
