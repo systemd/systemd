@@ -739,7 +739,7 @@ static int enumerate_sysv(const LookupPaths *lp, Hashmap *all_services) {
                         if (hidden_file(de->d_name))
                                 continue;
 
-                        if (fstatat(dirfd(d), de->d_name, &st, AT_SYMLINK_NOFOLLOW) < 0) {
+                        if (fstatat(dirfd(d), de->d_name, &st, 0) < 0) {
                                 log_warning_errno(errno, "stat() failed on %s/%s: %m", *path, de->d_name);
                                 continue;
                         }
