@@ -1160,8 +1160,8 @@ static void do_idle_pipe_dance(int idle_pipe[4]) {
         assert(idle_pipe);
 
 
-        safe_close(idle_pipe[1]);
-        safe_close(idle_pipe[2]);
+        idle_pipe[1] = safe_close(idle_pipe[1]);
+        idle_pipe[2] = safe_close(idle_pipe[2]);
 
         if (idle_pipe[0] >= 0) {
                 int r;
@@ -1176,11 +1176,11 @@ static void do_idle_pipe_dance(int idle_pipe[4]) {
                                 fd_wait_for_event(idle_pipe[0], POLLHUP, IDLE_TIMEOUT2_USEC);
                 }
 
-                safe_close(idle_pipe[0]);
+                idle_pipe[0] = safe_close(idle_pipe[0]);
 
         }
 
-        safe_close(idle_pipe[3]);
+        idle_pipe[3] = safe_close(idle_pipe[3]);
 }
 
 static int build_environment(
