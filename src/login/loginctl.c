@@ -686,19 +686,165 @@ static int print_seat_status_info(sd_bus *bus, const char *path, bool *new_line)
         return 0;
 }
 
-static int show_properties(sd_bus *bus, const char *path, bool *new_line) {
+static int print_property(const char *name, sd_bus_message *m, const char *contents) {
         int r;
+
+        assert(name);
+        assert(m);
+        assert(contents);
+
+        if (arg_property && !strv_find(arg_property, name))
+                /* skip what we didn't read */
+                return sd_bus_message_skip(m, contents);
+
+        switch (contents[0]) {
+
+        case SD_BUS_TYPE_STRUCT_BEGIN:
+
+                if (contents[1] == SD_BUS_TYPE_STRING && STR_IN_SET(name, "Display", "Seat", "ActiveSession")) {
+                        const char *s;
+
+                        r = sd_bus_message_read(m, "(so)", &s, NULL);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        if (arg_all || !isempty(s))
+                                printf("%s=%s\n", name, s);
+
+                        return 0;
+
+                } else if (contents[1] == SD_BUS_TYPE_UINT32 && streq(name, "User")) {
+                        uint32_t uid;
+
+                        r = sd_bus_message_read(m, "(uo)", &uid, NULL);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        if (UID_IS_INVALID(uid)) {
+                                log_error("Invalid user ID: " UID_FMT, uid);
+                                return -EINVAL;
+                        }
+
+                        printf("%s=" UID_FMT "\n", name, uid);
+
+                        return 0;
+                }
+
+                break;
+
+        case SD_BUS_TYPE_ARRAY:
+
+                if (contents[1] == SD_BUS_TYPE_STRUCT_BEGIN && streq(name, "Sessions")) {
+                        const char *s;
+                        bool space = false;
+
+                        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "(so)");
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        printf("%s=", name);
+
+                        while ((r = sd_bus_message_read(m, "(so)", &s, NULL)) > 0) {
+                                printf("%s%s", space ? " " : "", s);
+                                space = true;
+                        }
+
+                        printf("\n");
+
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        r = sd_bus_message_exit_container(m);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        return 0;
+                }
+
+                break;
+        }
+
+        r = bus_print_property(name, m, arg_all);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        if (r == 0) {
+                r = sd_bus_message_skip(m, contents);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                if (arg_all)
+                        printf("%s=[unprintable]\n", name);
+        }
+
+        return 0;
+}
+
+static int show_properties(sd_bus *bus, const char *path, bool *new_line) {
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r;
+
+        assert(bus);
+        assert(path);
+        assert(new_line);
+
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.login1",
+                        path,
+                        "org.freedesktop.DBus.Properties",
+                        "GetAll",
+                        &error,
+                        &reply,
+                        "s", "");
+        if (r < 0)
+                return log_error_errno(r, "Failed to get properties: %s", bus_error_message(&error, r));
+
+        r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "{sv}");
+        if (r < 0)
+                return bus_log_parse_error(r);
 
         if (*new_line)
                 printf("\n");
 
         *new_line = true;
 
-        r = bus_print_all_properties(bus, "org.freedesktop.login1", path, arg_property, arg_all);
-        if (r < 0)
-                log_error_errno(r, "Could not get properties: %m");
+        while ((r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_DICT_ENTRY, "sv")) > 0) {
+                const char *name, *contents;
 
-        return r;
+                r = sd_bus_message_read(reply, "s", &name);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                r = sd_bus_message_peek_type(reply, NULL, &contents);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_VARIANT, contents);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                r = print_property(name, reply, contents);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_exit_container(reply);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                r = sd_bus_message_exit_container(reply);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+        }
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        r = sd_bus_message_exit_container(reply);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        return 0;
 }
 
 static int show_session(int argc, char *argv[], void *userdata) {
