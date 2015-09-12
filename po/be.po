@@ -2,14 +2,14 @@
 # Copyright (C) 2015 systemd's COPYRIGHT HOLDER
 # This file is distributed under the same license as the systemd package.
 #
-# Viktar Vaŭčkievič <victorenator@gmail.com>, 2015.
 #
+# Viktar Vaŭčkievič <victorenator@gmail.com>, 2015.
 msgid ""
 msgstr ""
 "Project-Id-Version: systemd master\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2015-06-18 00:53+0200\n"
-"PO-Revision-Date: 2015-06-14 11:17+0300\n"
+"POT-Creation-Date: 2015-09-12 13:42+0300\n"
+"PO-Revision-Date: 2015-09-12 16:25+0300\n"
 "Last-Translator: Viktar Vaŭčkievič <victorenator@gmail.com>\n"
 "Language-Team: \n"
 "Language: be\n"
@@ -18,7 +18,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n"
 "%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2)\n"
-"X-Generator: Lokalize 1.5\n"
+"X-Generator: Lokalize 2.0\n"
 
 #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:1
 msgid "Send passphrase back to system"
@@ -369,7 +369,7 @@ msgstr ""
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:43
 msgid "Hibernate the system"
-msgstr "Гіберніраваць сістэму"
+msgstr "Гібернаваць сістэму"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:44
 msgid "Authentication is required for hibernating the system."
@@ -377,7 +377,7 @@ msgstr "Неабходна аўтэнтыфікацыя для гібернац�
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:45
 msgid "Hibernate the system while other users are logged in"
-msgstr "Гіберніраваць сістэму пры прысутнасці іншых карыстальнікаў"
+msgstr "Гібернаваць сістэму пры прысутнасці іншых карыстальнікаў"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:46
 msgid ""
@@ -389,7 +389,7 @@ msgstr ""
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:47
 msgid "Hibernate the system while an application asked to inhibit it"
-msgstr "Гіберніраваць сістэму, калі праграмы перашкаджаюць гэтаму"
+msgstr "Гібернаваць сістэму, калі праграмы перашкаджаюць гэтаму"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:48
 msgid ""
@@ -412,7 +412,7 @@ msgstr ""
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:51
 msgid "Lock or unlock active sessions"
-msgstr "Блакіраваць або разблакіраваць актыўную сесію"
+msgstr "Блакаваць або разблакаваць актыўную сесію"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:52
 msgid "Authentication is required to lock or unlock active sessions."
@@ -430,6 +430,14 @@ msgid ""
 msgstr ""
 "Неабходна аўтэнтыфікацыя для ўказання прашыўцы на загрузку інтэрфейсу налад."
 
+#: ../src/login/org.freedesktop.login1.policy.in.h:55
+msgid "Set a wall message"
+msgstr "Усталяваць усеагульнае паведамленне"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:56
+msgid "Authentication is required to set a wall message"
+msgstr "Неабходна аўтэнтыфікацыя для ўсталявання усеагульнага паведамлення."
+
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:1
 msgid "Log into a local container"
 msgstr "Увайсці ў лакальны кантэйнер"
@@ -439,21 +447,64 @@ msgid "Authentication is required to log into a local container."
 msgstr "Неабходна аўтэнтыфікацыя для ўваходу ў лакальны кантэйнер."
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:3
+msgid "Log into the local host"
+msgstr "Увайсці ў лакальны вузел"
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:4
+msgid "Authentication is required to log into the local host."
+msgstr "Неабходна аўтэнтыфікацыя для ўваходу ў лакальны вузел."
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:5
+msgid "Acquire a shell in a local container"
+msgstr "Атрымаць абалонку на лакальным кантэйнеры"
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:6
+msgid "Authentication is required to acquire a shell in a local container."
+msgstr ""
+"Неабходна аўтэнтыфікацыя для атрымання абалонкі на лакальным кантэйнеры."
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:7
+msgid "Acquire a shell on the local host"
+msgstr "Атрымаць абалонку на лакальным вузле"
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:8
+msgid "Authentication is required to acquire a shell on the local host."
+msgstr "Неабходна аўтэнтыфікацыя для атрымання абалонкі на лакальным вузле."
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:9
+msgid "Acquire a pseudo TTY in a local container"
+msgstr "Атрымаць псеўда TTY на лакальным кантэйнеры"
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:10
+msgid ""
+"Authentication is required to acquire a pseudo TTY in a local container."
+msgstr ""
+"Неабходна аўтэнтыфікацыя для атрымання псеўда TTY на лакальным кантэйнеры."
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:11
+msgid "Acquire a pseudo TTY on the local host"
+msgstr "Атрымаць псеўда TTY на лакальным вузле"
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:12
+msgid "Authentication is required to acquire a pseudo TTY on the local host."
+msgstr "Неабходна аўтэнтыфікацыя для атрымання псеўда TTY на лакальным вузле."
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:13
 msgid "Manage local virtual machines and containers"
 msgstr "Кіраваць лакальнымі віртуальнымі машынамі або кантэйнерамі"
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:4
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:14
 msgid ""
 "Authentication is required to manage local virtual machines and containers."
 msgstr ""
 "Неабходна аўтэнтыфікацыя для кіравання лакальнымі віртуальнымі машынамі і "
 "кантэйнерамі."
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:5
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:15
 msgid "Manage local virtual machine and container images"
 msgstr "Кіраваць вобразамі лакальных віртуальных машын і кантэйнераў"
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:6
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:16
 msgid ""
 "Authentication is required to manage local virtual machine and container "
 "images."
@@ -500,3 +551,31 @@ msgid ""
 msgstr ""
 "Неабходна аўтэнтыфікацыя для ўключэння або выключэння сінхранізацыі часу па "
 "сетцы."
+
+#: ../src/core/dbus-unit.c:428
+msgid "Authentication is required to start '$(unit)'."
+msgstr "Неабходна аўтэнтыфікацыя для запуску '$(unit)'."
+
+#: ../src/core/dbus-unit.c:429
+msgid "Authentication is required to stop '$(unit)'."
+msgstr "Неабходна аўтэнтыфікацыя для ."
+
+#: ../src/core/dbus-unit.c:430
+msgid "Authentication is required to reload '$(unit)'."
+msgstr "Неабходна аўтэнтыфікацыя для перачытання стану '$(unit)'."
+
+#: ../src/core/dbus-unit.c:431 ../src/core/dbus-unit.c:432
+msgid "Authentication is required to restart '$(unit)'."
+msgstr "Неабходна аўтэнтыфікацыя для перазапуску '$(unit)'."
+
+#: ../src/core/dbus-unit.c:535
+msgid "Authentication is required to kill '$(unit)'."
+msgstr "Неабходна аўтэнтыфікацыя для забойства '$(unit)'."
+
+#: ../src/core/dbus-unit.c:565
+msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
+msgstr "Неабходна аўтэнтыфікацыя для анулявання памылковага стану '$(unit)'."
+
+#: ../src/core/dbus-unit.c:597
+msgid "Authentication is required to set properties on '$(unit)'."
+msgstr "Неабходна аўтэнтыфікацыя для ўсталявання ўласцівасцей '$(unit)'."
