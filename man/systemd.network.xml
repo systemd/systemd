@@ -408,6 +408,14 @@
           <literal>no</literal>.</para></listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>IPv6AcceptRouterAdvertisements=</varname></term>
+          <listitem><para>Configures Accept Router Advertisements.
+          This is enabled if local forwarding is disabled.
+          Disabled if local forwarding is enabled.
+          Takes a boolean. Defaults to unset.
+        </para></listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>Bridge=</varname></term>
           <listitem>
             <para>The name of the bridge to add the link to.</para>
