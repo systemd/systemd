@@ -120,6 +120,7 @@ static int network_load_one(Manager *manager, const char *filename) {
         network->link_local = ADDRESS_FAMILY_IPV6;
 
         network->ipv6_privacy_extensions = IPV6_PRIVACY_EXTENSIONS_NO;
+        network->ipv6_accept_ra = -1;
 
         r = config_parse(NULL, filename, file,
                          "Match\0"
