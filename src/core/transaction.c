@@ -736,8 +736,8 @@ int transaction_activate(Transaction *tr, Manager *m, JobMode mode, sd_bus_error
 
                 if (m->idle_pipe[0] < 0 && m->idle_pipe[1] < 0 &&
                     m->idle_pipe[2] < 0 && m->idle_pipe[3] < 0) {
-                        pipe2(m->idle_pipe, O_NONBLOCK|O_CLOEXEC);
-                        pipe2(m->idle_pipe + 2, O_NONBLOCK|O_CLOEXEC);
+                        (void) pipe2(m->idle_pipe, O_NONBLOCK|O_CLOEXEC);
+                        (void) pipe2(m->idle_pipe + 2, O_NONBLOCK|O_CLOEXEC);
                 }
         }
 

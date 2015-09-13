@@ -23,22 +23,24 @@
 
 #include "sd-daemon.h"
 #include "sd-event.h"
-#include "util.h"
-#include "strv.h"
-#include "macro.h"
-#include "def.h"
-#include "path-util.h"
-#include "missing.h"
-#include "set.h"
-#include "signal-util.h"
-#include "unit-name.h"
-
 #include "sd-bus.h"
+
 #include "bus-error.h"
+#include "bus-internal.h"
 #include "bus-label.h"
 #include "bus-message.h"
+#include "cgroup-util.h"
+#include "def.h"
+#include "macro.h"
+#include "missing.h"
+#include "path-util.h"
+#include "set.h"
+#include "signal-util.h"
+#include "strv.h"
+#include "unit-name.h"
+#include "util.h"
+
 #include "bus-util.h"
-#include "bus-internal.h"
 
 static int name_owner_change_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
         sd_event *e = userdata;
@@ -1463,10 +1465,21 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
 
                 r = sd_bus_message_append(m, "v", "t", n);
 
-        } else if (STR_IN_SET(field, "CPUShares", "BlockIOWeight")) {
+        } else if (STR_IN_SET(field, "CPUShares", "StartupCPUShares")) {
                 uint64_t u;
 
-                r = safe_atou64(eq, &u);
+                r = cg_cpu_shares_parse(eq, &u);
+                if (r < 0) {
+                        log_error("Failed to parse %s value %s.", field, eq);
+                        return -EINVAL;
+                }
+
+                r = sd_bus_message_append(m, "v", "t", u);
+
+        } else if (STR_IN_SET(field, "BlockIOWeight", "StartupBlockIOWeight")) {
+                uint64_t u;
+
+                r = cg_cpu_shares_parse(eq, &u);
                 if (r < 0) {
                         log_error("Failed to parse %s value %s.", field, eq);
                         return -EINVAL;

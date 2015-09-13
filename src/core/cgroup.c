@@ -37,14 +37,16 @@ void cgroup_context_init(CGroupContext *c) {
         /* Initialize everything to the kernel defaults, assuming the
          * structure is preinitialized to 0 */
 
-        c->cpu_shares = (unsigned long) -1;
-        c->startup_cpu_shares = (unsigned long) -1;
-        c->memory_limit = (uint64_t) -1;
-        c->blockio_weight = (unsigned long) -1;
-        c->startup_blockio_weight = (unsigned long) -1;
-        c->tasks_max = (uint64_t) -1;
-
+        c->cpu_shares = CGROUP_CPU_SHARES_INVALID;
+        c->startup_cpu_shares = CGROUP_CPU_SHARES_INVALID;
         c->cpu_quota_per_sec_usec = USEC_INFINITY;
+
+        c->memory_limit = (uint64_t) -1;
+
+        c->blockio_weight = CGROUP_BLKIO_WEIGHT_INVALID;
+        c->startup_blockio_weight = CGROUP_BLKIO_WEIGHT_INVALID;
+
+        c->tasks_max = (uint64_t) -1;
 }
 
 void cgroup_context_free_device_allow(CGroupContext *c, CGroupDeviceAllow *a) {
@@ -102,11 +104,12 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
                 "%sCPUAccounting=%s\n"
                 "%sBlockIOAccounting=%s\n"
                 "%sMemoryAccounting=%s\n"
-                "%sCPUShares=%lu\n"
-                "%sStartupCPUShares=%lu\n"
+                "%sTasksAccounting=%s\n"
+                "%sCPUShares=%" PRIu64 "\n"
+                "%sStartupCPUShares=%" PRIu64 "\n"
                 "%sCPUQuotaPerSecSec=%s\n"
-                "%sBlockIOWeight=%lu\n"
-                "%sStartupBlockIOWeight=%lu\n"
+                "%sBlockIOWeight=%" PRIu64 "\n"
+                "%sStartupBlockIOWeight=%" PRIu64 "\n"
                 "%sMemoryLimit=%" PRIu64 "\n"
                 "%sTasksMax=%" PRIu64 "\n"
                 "%sDevicePolicy=%s\n"
@@ -114,6 +117,7 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
                 prefix, yes_no(c->cpu_accounting),
                 prefix, yes_no(c->blockio_accounting),
                 prefix, yes_no(c->memory_accounting),
+                prefix, yes_no(c->tasks_accounting),
                 prefix, c->cpu_shares,
                 prefix, c->startup_cpu_shares,
                 prefix, format_timespan(u, sizeof(u), c->cpu_quota_per_sec_usec, 1),
@@ -133,7 +137,7 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
 
         LIST_FOREACH(device_weights, w, c->blockio_device_weights)
                 fprintf(f,
-                        "%sBlockIODeviceWeight=%s %lu",
+                        "%sBlockIODeviceWeight=%s %" PRIu64,
                         prefix,
                         w->path,
                         w->weight);
@@ -309,11 +313,11 @@ void cgroup_context_apply(CGroupContext *c, CGroupMask mask, const char *path, M
          * and missing cgroups, i.e. EROFS and ENOENT. */
 
         if ((mask & CGROUP_MASK_CPU) && !is_root) {
-                char buf[MAX(DECIMAL_STR_MAX(unsigned long), DECIMAL_STR_MAX(usec_t)) + 1];
+                char buf[MAX(DECIMAL_STR_MAX(uint64_t), DECIMAL_STR_MAX(usec_t)) + 1];
 
-                sprintf(buf, "%lu\n",
-                        IN_SET(state, MANAGER_STARTING, MANAGER_INITIALIZING) && c->startup_cpu_shares != (unsigned long) -1 ? c->startup_cpu_shares :
-                        c->cpu_shares != (unsigned long) -1 ? c->cpu_shares : 1024);
+                sprintf(buf, "%" PRIu64 "\n",
+                        IN_SET(state, MANAGER_STARTING, MANAGER_INITIALIZING) && c->startup_cpu_shares != CGROUP_CPU_SHARES_INVALID ? c->startup_cpu_shares :
+                        c->cpu_shares != CGROUP_CPU_SHARES_INVALID ? c->cpu_shares : CGROUP_CPU_SHARES_DEFAULT);
                 r = cg_set_attribute("cpu", path, "cpu.shares", buf);
                 if (r < 0)
                         log_full_errno(IN_SET(r, -ENOENT, -EROFS) ? LOG_DEBUG : LOG_WARNING, r,
@@ -336,15 +340,15 @@ void cgroup_context_apply(CGroupContext *c, CGroupMask mask, const char *path, M
         }
 
         if (mask & CGROUP_MASK_BLKIO) {
-                char buf[MAX3(DECIMAL_STR_MAX(unsigned long)+1,
-                              DECIMAL_STR_MAX(dev_t)*2+2+DECIMAL_STR_MAX(unsigned long)*1,
-                              DECIMAL_STR_MAX(dev_t)*2+2+DECIMAL_STR_MAX(uint64_t)+1)];
+                char buf[MAX(DECIMAL_STR_MAX(uint64_t)+1,
+                             DECIMAL_STR_MAX(dev_t)*2+2+DECIMAL_STR_MAX(uint64_t)+1)];
                 CGroupBlockIODeviceWeight *w;
                 CGroupBlockIODeviceBandwidth *b;
 
                 if (!is_root) {
-                        sprintf(buf, "%lu\n", IN_SET(state, MANAGER_STARTING, MANAGER_INITIALIZING) && c->startup_blockio_weight != (unsigned long) -1 ? c->startup_blockio_weight :
-                                c->blockio_weight != (unsigned long) -1 ? c->blockio_weight : 1000);
+                        sprintf(buf, "%" PRIu64 "\n",
+                                IN_SET(state, MANAGER_STARTING, MANAGER_INITIALIZING) && c->startup_blockio_weight != CGROUP_BLKIO_WEIGHT_INVALID ? c->startup_blockio_weight :
+                                c->blockio_weight != CGROUP_BLKIO_WEIGHT_INVALID ? c->blockio_weight : CGROUP_BLKIO_WEIGHT_DEFAULT);
                         r = cg_set_attribute("blkio", path, "blkio.weight", buf);
                         if (r < 0)
                                 log_full_errno(IN_SET(r, -ENOENT, -EROFS) ? LOG_DEBUG : LOG_WARNING, r,
@@ -358,7 +362,7 @@ void cgroup_context_apply(CGroupContext *c, CGroupMask mask, const char *path, M
                                 if (r < 0)
                                         continue;
 
-                                sprintf(buf, "%u:%u %lu", major(dev), minor(dev), w->weight);
+                                sprintf(buf, "%u:%u %" PRIu64 "\n", major(dev), minor(dev), w->weight);
                                 r = cg_set_attribute("blkio", path, "blkio.weight_device", buf);
                                 if (r < 0)
                                         log_full_errno(IN_SET(r, -ENOENT, -EROFS) ? LOG_DEBUG : LOG_WARNING, r,
@@ -493,14 +497,14 @@ CGroupMask cgroup_context_get_mask(CGroupContext *c) {
         /* Figure out which controllers we need */
 
         if (c->cpu_accounting ||
-            c->cpu_shares != (unsigned long) -1 ||
-            c->startup_cpu_shares != (unsigned long) -1 ||
+            c->cpu_shares != CGROUP_CPU_SHARES_INVALID ||
+            c->startup_cpu_shares != CGROUP_CPU_SHARES_INVALID ||
             c->cpu_quota_per_sec_usec != USEC_INFINITY)
                 mask |= CGROUP_MASK_CPUACCT | CGROUP_MASK_CPU;
 
         if (c->blockio_accounting ||
-            c->blockio_weight != (unsigned long) -1 ||
-            c->startup_blockio_weight != (unsigned long) -1 ||
+            c->blockio_weight != CGROUP_BLKIO_WEIGHT_INVALID ||
+            c->startup_blockio_weight != CGROUP_BLKIO_WEIGHT_INVALID ||
             c->blockio_device_weights ||
             c->blockio_device_bandwidths)
                 mask |= CGROUP_MASK_BLKIO;
@@ -1575,6 +1579,32 @@ bool unit_cgroup_delegate(Unit *u) {
                 return false;
 
         return c->delegate;
+}
+
+void unit_invalidate_cgroup(Unit *u, CGroupMask m) {
+        assert(u);
+
+        if (!UNIT_HAS_CGROUP_CONTEXT(u))
+                return;
+
+        if (m == 0)
+                return;
+
+        if ((u->cgroup_realized_mask & m) == 0)
+                return;
+
+        u->cgroup_realized_mask &= ~m;
+        unit_add_to_cgroup_queue(u);
+}
+
+void manager_invalidate_startup_units(Manager *m) {
+        Iterator i;
+        Unit *u;
+
+        assert(m);
+
+        SET_FOREACH(u, m->startup_units, i)
+                unit_invalidate_cgroup(u, CGROUP_MASK_CPU|CGROUP_MASK_BLKIO);
 }
 
 static const char* const cgroup_device_policy_table[_CGROUP_DEVICE_POLICY_MAX] = {

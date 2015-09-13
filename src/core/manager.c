@@ -317,6 +317,8 @@ static int manager_watch_idle_pipe(Manager *m) {
 static void manager_close_idle_pipe(Manager *m) {
         assert(m);
 
+        m->idle_pipe_event_source = sd_event_source_unref(m->idle_pipe_event_source);
+
         safe_close_pair(m->idle_pipe);
         safe_close_pair(m->idle_pipe + 2);
 }
@@ -599,14 +601,6 @@ int manager_new(ManagerRunningAs running_as, bool test_run, Manager **_m) {
                 goto fail;
 
         r = hashmap_ensure_allocated(&m->watch_bus, &string_hash_ops);
-        if (r < 0)
-                goto fail;
-
-        r = set_ensure_allocated(&m->startup_units, NULL);
-        if (r < 0)
-                goto fail;
-
-        r = set_ensure_allocated(&m->failed_units, NULL);
         if (r < 0)
                 goto fail;
 
@@ -944,7 +938,6 @@ Manager* manager_free(Manager *m) {
         sd_event_source_unref(m->notify_event_source);
         sd_event_source_unref(m->time_change_event_source);
         sd_event_source_unref(m->jobs_in_progress_event_source);
-        sd_event_source_unref(m->idle_pipe_event_source);
         sd_event_source_unref(m->run_queue_event_source);
 
         safe_close(m->signal_fd);
@@ -1962,7 +1955,6 @@ static int manager_dispatch_idle_pipe_fd(sd_event_source *source, int fd, uint32
 
         m->no_console_output = m->n_on_console > 0;
 
-        m->idle_pipe_event_source = sd_event_source_unref(m->idle_pipe_event_source);
         manager_close_idle_pipe(m);
 
         return 0;
@@ -2675,9 +2667,6 @@ static void manager_notify_finished(Manager *m) {
 }
 
 void manager_check_finished(Manager *m) {
-        Unit *u = NULL;
-        Iterator i;
-
         assert(m);
 
         if (m->n_reloading > 0)
@@ -2690,11 +2679,9 @@ void manager_check_finished(Manager *m) {
                 return;
 
         if (hashmap_size(m->jobs) > 0) {
-
                 if (m->jobs_in_progress_event_source)
                         /* Ignore any failure, this is only for feedback */
-                        (void) sd_event_source_set_time(m->jobs_in_progress_event_source,
-                                                        now(CLOCK_MONOTONIC) + JOBS_IN_PROGRESS_WAIT_USEC);
+                        (void) sd_event_source_set_time(m->jobs_in_progress_event_source, now(CLOCK_MONOTONIC) + JOBS_IN_PROGRESS_WAIT_USEC);
 
                 return;
         }
@@ -2702,7 +2689,6 @@ void manager_check_finished(Manager *m) {
         manager_flip_auto_status(m, false);
 
         /* Notify Type=idle units that we are done now */
-        m->idle_pipe_event_source = sd_event_source_unref(m->idle_pipe_event_source);
         manager_close_idle_pipe(m);
 
         /* Turn off confirm spawn now */
@@ -2721,9 +2707,7 @@ void manager_check_finished(Manager *m) {
 
         manager_notify_finished(m);
 
-        SET_FOREACH(u, m->startup_units, i)
-                if (u->cgroup_path)
-                        cgroup_context_apply(unit_get_cgroup_context(u), unit_get_own_mask(u), u->cgroup_path, manager_state(m));
+        manager_invalidate_startup_units(m);
 }
 
 static int create_generator_dir(Manager *m, char **generator, const char *name) {
@@ -3069,8 +3053,9 @@ const char *manager_get_runtime_prefix(Manager *m) {
                getenv("XDG_RUNTIME_DIR");
 }
 
-void manager_update_failed_units(Manager *m, Unit *u, bool failed) {
+int manager_update_failed_units(Manager *m, Unit *u, bool failed) {
         unsigned size;
+        int r;
 
         assert(m);
         assert(u->manager == m);
@@ -3078,13 +3063,19 @@ void manager_update_failed_units(Manager *m, Unit *u, bool failed) {
         size = set_size(m->failed_units);
 
         if (failed) {
+                r = set_ensure_allocated(&m->failed_units, NULL);
+                if (r < 0)
+                        return log_oom();
+
                 if (set_put(m->failed_units, u) < 0)
-                        log_oom();
+                        return log_oom();
         } else
-                set_remove(m->failed_units, u);
+                (void) set_remove(m->failed_units, u);
 
         if (set_size(m->failed_units) != size)
                 bus_manager_send_change_signal(m);
+
+        return 0;
 }
 
 ManagerState manager_state(Manager *m) {
