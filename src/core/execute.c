@@ -1590,16 +1590,6 @@ static int exec_child(
 
         umask(context->umask);
 
-#ifdef HAVE_PAM
-        if (params->apply_permissions && context->pam_name && username) {
-                r = setup_pam(context->pam_name, username, uid, context->tty_path, &pam_env, fds, n_fds);
-                if (r < 0) {
-                        *exit_status = EXIT_PAM;
-                        return r;
-                }
-        }
-#endif
-
         if (context->private_network && runtime && runtime->netns_storage_socket[0] >= 0) {
                 r = setup_netns(runtime->netns_storage_socket);
                 if (r < 0) {
@@ -1754,6 +1744,15 @@ static int exec_child(
 #endif
 #endif
 
+#ifdef HAVE_PAM
+                if (context->pam_name && username) {
+                        r = setup_pam(context->pam_name, username, uid, context->tty_path, &pam_env, fds, n_fds);
+                        if (r < 0) {
+                                *exit_status = EXIT_PAM;
+                                return r;
+                        }
+                }
+#endif
                 if (context->user) {
                         r = enforce_user(context, uid);
                         if (r < 0) {
