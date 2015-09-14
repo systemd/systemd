@@ -100,6 +100,8 @@ evdev:name:TPPS/2 IBM TrackPoint:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPadT440
 evdev:name:TPPS/2 IBM TrackPoint:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPadT540p:*
 # Lenovo Thinkpad T550 / W550s
 evdev:name:TPPS/2 IBM TrackPoint:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPadT550:*
+# Lenovo Thinkpad X1 Carbon 3rd gen
+evdev:name:TPPS/2 IBM TrackPoint:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPadX1Carbon3rd:*
   POINTINGSTICK_SENSITIVITY=200
   POINTINGSTICK_CONST_ACCEL=1.0
 
