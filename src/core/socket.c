@@ -104,6 +104,18 @@ static void socket_unwatch_control_pid(Socket *s) {
         s->control_pid = 0;
 }
 
+static void socket_cleanup_fd_list(SocketPort *p) {
+        int k = p->n_fds;
+
+        while (k--) {
+                safe_close(p->fds[p->n_fds]);
+        }
+
+        free(p->fds);
+        p->fds = NULL;
+        p->n_fds = 0;
+}
+
 void socket_free_ports(Socket *s) {
         SocketPort *p;
 
@@ -114,6 +126,7 @@ void socket_free_ports(Socket *s) {
 
                 sd_event_source_unref(p->event_source);
 
+                socket_cleanup_fd_list(p);
                 safe_close(p->fd);
                 free(p->path);
                 free(p);
@@ -775,6 +788,7 @@ static void socket_close_fds(Socket *s) {
                         continue;
 
                 p->fd = safe_close(p->fd);
+                socket_cleanup_fd_list(p);
 
                 /* One little note: we should normally not delete any
                  * sockets in the file system here! After all some
@@ -2495,7 +2509,7 @@ static int socket_dispatch_timer(sd_event_source *source, usec_t usec, void *use
 
 int socket_collect_fds(Socket *s, int **fds, unsigned *n_fds) {
         int *rfds;
-        unsigned rn_fds, k;
+        unsigned rn_fds, k, i;
         SocketPort *p;
 
         assert(s);
@@ -2505,9 +2519,11 @@ int socket_collect_fds(Socket *s, int **fds, unsigned *n_fds) {
         /* Called from the service code for requesting our fds */
 
         rn_fds = 0;
-        LIST_FOREACH(port, p, s->ports)
+        LIST_FOREACH(port, p, s->ports) {
                 if (p->fd >= 0)
                         rn_fds++;
+                rn_fds += p->n_fds;
+        }
 
         if (rn_fds <= 0) {
                 *fds = NULL;
@@ -2520,9 +2536,12 @@ int socket_collect_fds(Socket *s, int **fds, unsigned *n_fds) {
                 return -ENOMEM;
 
         k = 0;
-        LIST_FOREACH(port, p, s->ports)
+        LIST_FOREACH(port, p, s->ports) {
                 if (p->fd >= 0)
                         rfds[k++] = p->fd;
+                for (i = 0; i < p->n_fds; ++i)
+                        rfds[k++] = p->fds[i];
+        }
 
         assert(k == rn_fds);
 
