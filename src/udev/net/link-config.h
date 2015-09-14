@@ -71,6 +71,8 @@ struct link_config {
         Duplex duplex;
         WakeOnLan wol;
 
+        int tcp_offload;
+
         LIST_FIELDS(link_config, links);
 };
 

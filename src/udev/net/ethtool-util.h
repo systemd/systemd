@@ -45,6 +45,7 @@ int ethtool_connect(int *ret);
 int ethtool_get_driver(int *fd, const char *ifname, char **ret);
 int ethtool_set_speed(int *fd, const char *ifname, unsigned int speed, Duplex duplex);
 int ethtool_set_wol(int *fd, const char *ifname, WakeOnLan wol);
+int ethtool_set_tcp_offload(int *fd, const char *ifname, bool offload);
 
 const char *duplex_to_string(Duplex d) _const_;
 Duplex duplex_from_string(const char *d) _pure_;
