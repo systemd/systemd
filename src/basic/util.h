@@ -374,7 +374,9 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(cpu_set_t*, CPU_FREE);
 
 cpu_set_t* cpu_set_malloc(unsigned *ncpus);
 
-#define xsprintf(buf, fmt, ...) assert_se((size_t) snprintf(buf, ELEMENTSOF(buf), fmt, __VA_ARGS__) < ELEMENTSOF(buf))
+#define xsprintf(buf, fmt, ...) \
+        assert_message_se((size_t) snprintf(buf, ELEMENTSOF(buf), fmt, __VA_ARGS__) < ELEMENTSOF(buf), \
+                          "xsprintf: " #buf "[] must be big enough")
 
 int files_same(const char *filea, const char *fileb);
 
