@@ -1580,25 +1580,7 @@ static int exec_child(
                 }
         }
 
-        if (params->apply_permissions) {
-                r = enforce_groups(context, username, gid);
-                if (r < 0) {
-                        *exit_status = EXIT_GROUP;
-                        return r;
-                }
-        }
-
         umask(context->umask);
-
-#ifdef HAVE_PAM
-        if (params->apply_permissions && context->pam_name && username) {
-                r = setup_pam(context->pam_name, username, uid, context->tty_path, &pam_env, fds, n_fds);
-                if (r < 0) {
-                        *exit_status = EXIT_PAM;
-                        return r;
-                }
-        }
-#endif
 
         if (context->private_network && runtime && runtime->netns_storage_socket[0] >= 0) {
                 r = setup_netns(runtime->netns_storage_socket);
@@ -1681,16 +1663,6 @@ static int exec_child(
                 }
         }
 
-#ifdef HAVE_SELINUX
-        if (params->apply_permissions && mac_selinux_use() && params->selinux_context_net && socket_fd >= 0) {
-                r = mac_selinux_get_child_mls_label(socket_fd, command->path, context->selinux_context, &mac_selinux_context_net);
-                if (r < 0) {
-                        *exit_status = EXIT_SELINUX_CONTEXT;
-                        return r;
-                }
-        }
-#endif
-
         /* We repeat the fd closing here, to make sure that
          * nothing is leaked from the PAM modules. Note that
          * we are more aggressive this time since socket_fd
@@ -1708,6 +1680,11 @@ static int exec_child(
         }
 
         if (params->apply_permissions) {
+                r = enforce_groups(context, username, gid);
+                if (r < 0) {
+                        *exit_status = EXIT_GROUP;
+                        return r;
+                }
 
                 for (i = 0; i < _RLIMIT_MAX; i++) {
                         if (!context->rlimit[i])
@@ -1726,6 +1703,16 @@ static int exec_child(
                                 return r;
                         }
                 }
+#ifdef HAVE_SELINUX
+                if (mac_selinux_use() && params->selinux_context_net && socket_fd >= 0) {
+                        r = mac_selinux_get_child_mls_label(socket_fd, command->path,
+                                                            context->selinux_context,
+                                                             &mac_selinux_context_net);
+                        if (r < 0) {
+                                *exit_status = EXIT_SELINUX_CONTEXT;
+                                return r;
+                        }
+#endif
 
 #ifdef HAVE_SMACK
                 if (context->smack_process_label) {
@@ -1754,6 +1741,15 @@ static int exec_child(
 #endif
 #endif
 
+#ifdef HAVE_PAM
+                if (context->pam_name && username) {
+                        r = setup_pam(context->pam_name, username, uid, context->tty_path, &pam_env, fds, n_fds);
+                        if (r < 0) {
+                                *exit_status = EXIT_PAM;
+                                return r;
+                        }
+                }
+#endif
                 if (context->user) {
                         r = enforce_user(context, uid);
                         if (r < 0) {
