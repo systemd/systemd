@@ -123,8 +123,11 @@ static inline unsigned long ALIGN_POWER2(unsigned long u) {
         return 1UL << (sizeof(u) * 8 - __builtin_clzl(u - 1UL));
 }
 
-#define ELEMENTSOF(x) (sizeof(x)/sizeof((x)[0]))
-
+#define ELEMENTSOF(x)                                                    \
+        __extension__ (__builtin_choose_expr(                            \
+                !__builtin_types_compatible_p(typeof(x), typeof(&*(x))), \
+                sizeof(x)/sizeof((x)[0]),                                \
+                (void)0))
 /*
  * container_of - cast a member of a structure out to the containing structure
  * @ptr: the pointer to the member.
