@@ -1425,7 +1425,8 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
         if (STR_IN_SET(field,
                        "CPUAccounting", "MemoryAccounting", "BlockIOAccounting", "TasksAccounting",
                        "SendSIGHUP", "SendSIGKILL", "WakeSystem", "DefaultDependencies",
-                       "IgnoreSIGPIPE", "TTYVHangup", "TTYReset", "RemainAfterExit")) {
+                       "IgnoreSIGPIPE", "TTYVHangup", "TTYReset", "RemainAfterExit",
+                       "PrivateTmp", "PrivateDevices", "PrivateNetwork", "NoNewPrivileges")) {
 
                 r = parse_boolean(eq);
                 if (r < 0) {
