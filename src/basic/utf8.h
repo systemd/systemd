@@ -55,3 +55,8 @@ static inline bool utf16_is_trailing_surrogate(uint16_t c) {
 static inline uint32_t utf16_surrogate_pair_to_unichar(uint16_t lead, uint16_t trail) {
                 return ((lead - 0xd800) << 10) + (trail - 0xdc00) + 0x10000;
 }
+
+char *utf8_to_utf16_len(const char *str, int *out_len, int len);
+char *utf8_to_utf16(const char *str, int *out_len);
+char *utf8_to_ucs2_len(const char *str, int *out_len, int len);
+char *utf8_to_ucs2(const char *str, int *out_len);

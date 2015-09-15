@@ -105,6 +105,101 @@ static void test_utf16_to_utf8(void) {
         free(a);
 }
 
+static void test_utf8_to_utf16(void) {
+        char *a = NULL;
+        int out_len;
+        const uint16_t utf16[] = { htole16('a'), htole16('b'), htole16(0x1234), htole16(0) };
+        const char utf8[] = { 'a', 'b', 0xe1, 0x88, 0xb4, 0x00 };
+
+        /* test the U+010437 symbol */
+        const uint16_t utf16_smp[] = { htole16(0xd801), htole16(0xdc37), htole16(0) };
+        const char utf8_smp[] = { 0xf0, 0x90, 0x90, 0xb7, 0x00 };
+
+        /* invalid unicode character: U+0d800 */
+        const char utf8_invalid[] = { 0xf0, 0x90, 0x80, 0x80, 0x00 };
+
+        a = utf8_to_utf16(utf8, &out_len);
+        assert_se(out_len == ELEMENTSOF(utf16)*2);
+        assert_se(a);
+        assert_se(!memcmp(a, (char*)utf16, out_len));
+
+        free(a);
+
+        a = utf8_to_utf16_len(utf8, &out_len, ELEMENTSOF(utf8));
+        assert_se(out_len == ELEMENTSOF(utf16)*2);
+        assert_se(a);
+        assert_se(!memcmp(a, (char*)utf16, out_len));
+
+        free(a);
+
+        /* utf8 too short */
+        a = utf8_to_utf16_len(utf8, &out_len, 3);
+        assert_se(a == NULL);
+
+        a = utf8_to_utf16(utf8_smp, &out_len);
+        assert_se(out_len == ELEMENTSOF(utf16_smp)*2);
+        assert_se(a);
+        assert_se(!memcmp(a, (char*)utf16_smp, out_len));
+
+        free(a);
+
+        a = utf8_to_utf16_len(utf8_smp, &out_len, ELEMENTSOF(utf8_smp));
+        assert_se(out_len = ELEMENTSOF(utf16_smp)*2);
+        assert_se(a);
+        assert_se(!memcmp(a, (char*)utf16_smp, out_len));
+
+        free(a);
+
+        /* utf8 too short */
+        a = utf8_to_utf16_len(utf8_smp, &out_len, 3);
+        assert_se(a == NULL);
+
+        /* invalid unicode character*/
+        a = utf8_to_utf16_len(utf8_invalid, &out_len, 3);
+        assert_se(a == NULL);
+
+}
+
+static void test_utf8_to_ucs2(void) {
+        char *a = NULL;
+        int out_len;
+        const uint16_t ucs2[] = { htole16('a'), htole16('b'), htole16(0x1234), htole16(0) };
+        const char utf8[] = { 'a', 'b', 0xe1, 0x88, 0xb4, 0x00 };
+
+        /* test the U+010437 symbol: valid unicode, invalid ucs2 */
+        const char utf8_smp[] = { 0xf0, 0x90, 0x90, 0xb7, 0x00 };
+
+        /* invalid unicode character: U+0d800 */
+        const char utf8_invalid[] = { 0xf0, 0x90, 0x80, 0x80, 0x00 };
+
+        a = utf8_to_ucs2(utf8, &out_len);
+        assert_se(out_len == ELEMENTSOF(ucs2)*2);
+        assert_se(a);
+        assert_se(!memcmp(a, (char*)ucs2, out_len));
+
+        free(a);
+
+        a = utf8_to_ucs2_len(utf8, &out_len, ELEMENTSOF(utf8));
+        assert_se(out_len == ELEMENTSOF(ucs2)*2);
+        assert_se(a);
+        assert_se(!memcmp(a, (char*)ucs2, out_len));
+
+        free(a);
+
+        /* utf8 too short */
+        a = utf8_to_ucs2_len(utf8, &out_len, 3);
+        assert_se(a == NULL);
+
+        /* ucs2 are only BMP planes */
+        a = utf8_to_ucs2(utf8_smp, &out_len);
+        assert_se(a == NULL);
+
+        /* invalid unicode character*/
+        a = utf8_to_ucs2_len(utf8_invalid, &out_len, 3);
+        assert_se(a == NULL);
+
+}
+
 int main(int argc, char *argv[]) {
         test_utf8_is_valid();
         test_utf8_is_printable();
@@ -113,6 +208,8 @@ int main(int argc, char *argv[]) {
         test_utf8_escaping();
         test_utf8_escaping_printable();
         test_utf16_to_utf8();
+        test_utf8_to_utf16();
+        test_utf8_to_ucs2();
 
         return 0;
 }
