@@ -42,6 +42,7 @@
 #include "util.h"
 #include "rm-rf.h"
 #include "blkid-util.h"
+#include "utf8.h"
 
 struct file_conf {
         struct file_conf *next;
@@ -1304,7 +1305,8 @@ static int help(void) {
                "     install         Install systemd-boot to the ESP and EFI variables\n"
                "     update          Update systemd-boot in the ESP and EFI variables\n"
                "     remove          Remove systemd-boot from the ESP and EFI variables\n"
-               "     list-entries    Show the boot loader entries\n",
+               "     list-entries    Show the boot loader entries\n"
+               "     set-boot-entry  Set the defaul entry to boot\n",
                program_invocation_short_name);
 
         return 0;
@@ -1404,23 +1406,194 @@ static void show_loader_variables(void) {
 
 }
 
+static int extract_loader_entry(const char *entry, char **ret) {
+        _cleanup_(free_file_confp) struct file_conf *fc = NULL;
+        struct file_conf *p;
+        int result = 0;
+        int entry_nr, l;
+        _cleanup_free_ char *absesp = NULL;
+        _cleanup_free_ char *abs_entry = NULL;
+
+        *ret = NULL;
+
+        if (!*entry || !strcmp(entry, "delete")) {
+                *ret = strdup("");
+                result = 0;
+                goto exit;
+        }
+
+        result = enumerate_entries(arg_path, &fc);
+        if (result)
+                return result;
+
+        if (!strcmp("default", entry)) {
+                if (!fc) {
+                        log_error("Cannot find any bootloader entry\n");
+                        return -1;
+                }
+                *ret = strdup(fc->name);
+                result = 0;
+                goto exit;
+        }
+
+        if (!safe_atoi(entry, &entry_nr)) {
+                int c = entry_nr;
+                if (!fc) {
+                        log_error("Cannot find any bootloader entry\n");
+                        return -1;
+                }
+                if (entry_nr < 1) {
+                        log_error("Cannot find entry #%d\n", entry_nr);
+                        return -1;
+                }
+                while(--c && fc)
+                        fc = fc->next;
+
+                if (!fc) {
+                        log_error("Cannot find entry #%d\n", entry_nr);
+                        return -1;
+                }
+printf("1\n");
+                *ret = strdup(fc->name);
+                result = 0;
+                goto exit;
+        }
+
+        for (p = fc ; p ; p = p->next) {
+                if (!strcmp(p->name, entry)) {
+                        *ret = strdup(entry);
+                        result = 0;
+                        goto exit;
+                }
+        }
+
+        absesp = realpath(arg_path, NULL);
+        if (!absesp) {
+                if (errno == ENOMEM) {
+                        log_error("Not enough memory\n");
+                        return -ENOMEM;
+                } else {
+                        log_error("Incorrect ESP path ('%s') : %m\n", arg_path);
+                        return -1;
+                }
+        }
+
+
+        abs_entry = realpath(entry, NULL);
+        if (!abs_entry && errno == ENOMEM) {
+                log_error("Not enough memory\n");
+                return -ENOMEM;
+        }
+
+        if (abs_entry) {
+                if (!startswith(abs_entry, absesp)) {
+                        *ret = strdup(entry);
+                        printf("WARNING: parameter '%s' doesn't match any entry\n",
+                                entry);
+                        result = 1;
+                        goto exit;
+                }
+
+                l = strlen(absesp);
+
+                for (p = fc ; p ; p = p->next) {
+                        assert((int)strlen(p->fullpath)>l);
+                        if(!strcasecmp(p->fullpath+l, abs_entry+l)) {
+                                *ret = strdup(p->name);
+                                result = 0;
+                                goto exit;
+                        }
+                }
+        }
+
+        *ret = strdup(entry);
+        printf("WARNING: parameter '%s' doesn't match to any entry\n", entry);
+        result = 1;
+
+exit:
+        if (!*ret) {
+                log_error("Not enough memory\n");
+                return -ENOMEM;
+        }
+        return result;
+
+}
+
+static int set_entry(int argc, char **argv) {
+        const char *name;
+        _cleanup_free_ char *value_ucs2 = NULL;
+        _cleanup_free_ char *value_utf8 = NULL;
+        char *arg;
+        int len;
+        int r;
+        int ret = 0;
+
+        if (argc < 1) {
+                log_error("Missing argument\n");
+                return -1;
+        }
+        if (argc > 2) {
+                log_error("Too many arguments\n");
+                return -1;
+        }
+        if (argc == 2 && strcmp(argv[0], "one-shot")) {
+                log_error("The first argument must be 'one-shot'\n");
+                return -1;
+        }
+
+        if (argc == 2) {
+                name = "LoaderEntryOneShot";
+                arg = argv[1];
+        } else {
+                name = "LoaderEntryDefault";
+                arg = argv[0];
+        }
+
+        if (extract_loader_entry(arg, &value_utf8)<0) {
+                return -1;
+        }
+
+        if (strlen(value_utf8)>0) {
+                value_ucs2 = utf8_to_ucs2(value_utf8, &len);
+        } else {
+                value_ucs2 = NULL;
+                len = 0;
+        }
+
+        r = efi_set_variable(EFI_VENDOR_LOADER, "LoaderEntryOneShot",
+                        value_ucs2, len);
+        if (r) {
+                printf("Can't set '%s' to '%s'\n", name, value_utf8);
+                ret = -1;
+        } else if (value_ucs2 == NULL) {
+                printf("Unset %s\n", name);
+        } else {
+                printf("Set %s='%s'\n", name, value_utf8);
+        }
+
+        return ret;
+
+}
+
 static int bootctl_main(int argc, char*argv[]) {
         enum action {
                 ACTION_STATUS,
                 ACTION_INSTALL,
                 ACTION_UPDATE,
                 ACTION_REMOVE,
-                ACTION_LIST_ENTRIES
+                ACTION_LIST_ENTRIES,
+                ACTION_SET_ENTRY
         } arg_action = ACTION_STATUS;
         static const struct {
                 const char* verb;
                 enum action action;
         } verbs[] = {
-                { "status",  ACTION_STATUS },
-                { "install", ACTION_INSTALL },
-                { "update",  ACTION_UPDATE },
-                { "remove",  ACTION_REMOVE },
-                { "list-entries", ACTION_LIST_ENTRIES }
+                { "status",		ACTION_STATUS },
+                { "install",		ACTION_INSTALL },
+                { "update",		ACTION_UPDATE },
+                { "remove",		ACTION_REMOVE },
+                { "list-entries",	ACTION_LIST_ENTRIES },
+                { "set-boot-entry",	ACTION_SET_ENTRY }
         };
 
         sd_id128_t uuid = {};
@@ -1539,6 +1712,10 @@ static int bootctl_main(int argc, char*argv[]) {
                         if (q < 0 && r == 0)
                                 r = q;
                 }
+                break;
+
+        case ACTION_SET_ENTRY:
+                r = set_entry(argc-optind-1, argv+optind+1);
                 break;
 
         case ACTION_LIST_ENTRIES:
