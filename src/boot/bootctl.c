@@ -996,6 +996,40 @@ static void read_loader_efi_var(const char *name, char **var) {
                 log_warning_errno(r, "Failed to read EFI variable %s: %m", name);
 }
 
+static void show_loader_variables(void) {
+        const char * variables[] = {
+                "LoaderEntryOneShot",
+                "LoaderEntryDefault",
+                "LoaderEntrySelected",
+                "LoaderConfigTimeout"
+        };
+        int i;
+        usec_t firmware_time, loader_time;
+
+        printf("Loader variables:\n");
+        for (i = 0 ; i < (int)ELEMENTSOF(variables) ; i++) {
+                _cleanup_free_ char *value = NULL;
+                read_loader_efi_var(variables[i], &value);
+                if (value)
+                        printf("\t%20s:\t%s\n", variables[i], value);
+                else
+                        printf("\t%20s\t(unset)\n", variables[i]);
+        }
+
+        if (!efi_loader_get_boot_usec(&firmware_time, &loader_time)) {
+                printf("\t  LoaderTimeInitUSec:\t%3.2f (sec)\n",
+                        firmware_time/1000000.0);
+                printf("\t  LoaderTimeExecUSec:\t%3.2f (sec)\n",
+                        loader_time/1000000.0);
+        } else {
+                printf("\t  LoaderTimeInitUSec\t(unset)\n");
+                printf("\t  LoaderTimeExecUSec\t(unset)\n");
+        }
+
+        printf("\n");
+
+}
+
 static int bootctl_main(int argc, char*argv[]) {
         enum action {
                 ACTION_STATUS,
@@ -1086,6 +1120,8 @@ static int bootctl_main(int argc, char*argv[]) {
                                 printf("    Partition: n/a\n");
                         printf("         File: %s%s\n", draw_special_char(DRAW_TREE_RIGHT), strna(loader_path));
                         printf("\n");
+
+                        show_loader_variables();
                 } else
                         printf("System:\n    Not booted with EFI\n");
 
