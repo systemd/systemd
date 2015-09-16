@@ -169,6 +169,7 @@ static bool arg_unified_cgroup_hierarchy = false;
 static SettingsMask arg_settings_mask = 0;
 static int arg_settings_trusted = -1;
 static char **arg_parameters = NULL;
+static unsigned mtu = 0;
 
 static void help(void) {
         printf("%s [OPTIONS...] [PATH] [ARGUMENTS...]\n\n"
@@ -206,6 +207,8 @@ static void help(void) {
                "                            Add a virtual ethernet connection between host\n"
                "                            and container and add it to an existing bridge on\n"
                "                            the host\n"
+               "     --mtu=                 Set the maximum transmission unit or largest packet\n"
+               "                            length that the interface will allow\n"
                "  -p --port=[PROTOCOL:]HOSTPORT[:CONTAINERPORT]\n"
                "                            Expose a container IP port on the host\n"
                "  -Z --selinux-context=SECLABEL\n"
@@ -352,6 +355,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_PRIVATE_USERS,
                 ARG_KILL_SIGNAL,
                 ARG_SETTINGS,
+                ARG_MTU,
         };
 
         static const struct option options[] = {
@@ -387,6 +391,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "network-ipvlan",        required_argument, NULL, ARG_NETWORK_IPVLAN    },
                 { "network-veth",          no_argument,       NULL, 'n'                   },
                 { "network-bridge",        required_argument, NULL, ARG_NETWORK_BRIDGE    },
+                { "mtu",                   required_argument, NULL, ARG_MTU               },
                 { "personality",           required_argument, NULL, ARG_PERSONALITY       },
                 { "image",                 required_argument, NULL, 'i'                   },
                 { "volatile",              optional_argument, NULL, ARG_VOLATILE          },
@@ -489,6 +494,10 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_PRIVATE_NETWORK:
                         arg_private_network = true;
                         arg_settings_mask |= SETTING_NETWORK;
+                        break;
+
+                case ARG_MTU:
+                        r = safe_atou(optarg, &mtu);
                         break;
 
                 case 'b':
@@ -3417,14 +3426,14 @@ int main(int argc, char *argv[]) {
                                 goto finish;
 
                         if (arg_network_veth) {
-                                r = setup_veth(arg_machine, pid, veth_name, !!arg_network_bridge);
+                                r = setup_veth(arg_machine, pid, veth_name, !!arg_network_bridge, mtu);
                                 if (r < 0)
                                         goto finish;
                                 else if (r > 0)
                                         ifi = r;
 
                                 if (arg_network_bridge) {
-                                        r = setup_bridge(veth_name, arg_network_bridge);
+                                        r = setup_bridge(veth_name, arg_network_bridge, mtu);
                                         if (r < 0)
                                                 goto finish;
                                         if (r > 0)
@@ -3432,11 +3441,11 @@ int main(int argc, char *argv[]) {
                                 }
                         }
 
-                        r = setup_macvlan(arg_machine, pid, arg_network_macvlan);
+                        r = setup_macvlan(arg_machine, pid, arg_network_macvlan, mtu);
                         if (r < 0)
                                 goto finish;
 
-                        r = setup_ipvlan(arg_machine, pid, arg_network_ipvlan);
+                        r = setup_ipvlan(arg_machine, pid, arg_network_ipvlan, mtu);
                         if (r < 0)
                                 goto finish;
                 }
