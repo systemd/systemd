@@ -446,6 +446,14 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--mtu=</option></term>
+
+        <listitem><para>Configures the maximum transmission unit (MTU)
+        or largest packet length that the interface will allow.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>-p</option></term>
         <term><option>--port=</option></term>
 
