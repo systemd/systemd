@@ -46,6 +46,6 @@ int dns_question_is_superset(DnsQuestion *q, DnsQuestion *other);
 int dns_question_contains(DnsQuestion *a, DnsResourceKey *k);
 int dns_question_is_equal(DnsQuestion *a, DnsQuestion *b);
 
-int dns_question_cname_redirect(DnsQuestion *q, const char *name, DnsQuestion **ret);
+int dns_question_cname_redirect(DnsQuestion *q, const DnsResourceRecord *cname, DnsQuestion **ret);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsQuestion*, dns_question_unref);

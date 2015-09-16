@@ -191,7 +191,7 @@ static void bus_method_resolve_hostname_complete(DnsQuery *q) {
 
                 /* This has a cname? Then update the query with the
                  * new cname. */
-                r = dns_query_cname_redirect(q, cname->cname.name);
+                r = dns_query_cname_redirect(q, cname);
                 if (r < 0) {
                         if (r == -ELOOP)
                                 r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_CNAME_LOOP, "CNAME loop on '%s'", q->request_hostname);
@@ -219,8 +219,6 @@ static void bus_method_resolve_hostname_complete(DnsQuery *q) {
 
                         added++;
                 }
-
-                // what about the cache?
 
                 /* If we didn't find anything, then let's restart the
                  * query, this time with the cname */

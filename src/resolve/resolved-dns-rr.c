@@ -48,6 +48,19 @@ DnsResourceKey* dns_resource_key_new(uint16_t class, uint16_t type, const char *
         return k;
 }
 
+DnsResourceKey* dns_resource_key_new_cname(const DnsResourceKey *key) {
+        assert(key);
+
+        return dns_resource_key_new(key->class, DNS_TYPE_CNAME, DNS_RESOURCE_KEY_NAME(key));
+}
+
+DnsResourceKey* dns_resource_key_new_redirect(const DnsResourceKey *key, const DnsResourceRecord *cname) {
+        assert(key);
+        assert(cname);
+
+        return dns_resource_key_new(key->class, key->type, cname->cname.name);
+}
+
 DnsResourceKey* dns_resource_key_new_consume(uint16_t class, uint16_t type, char *name) {
         DnsResourceKey *k;
 

@@ -242,13 +242,13 @@ int dns_question_is_equal(DnsQuestion *a, DnsQuestion *b) {
         return 1;
 }
 
-int dns_question_cname_redirect(DnsQuestion *q, const char *name, DnsQuestion **ret) {
+int dns_question_cname_redirect(DnsQuestion *q, const DnsResourceRecord *cname, DnsQuestion **ret) {
         _cleanup_(dns_question_unrefp) DnsQuestion *n = NULL;
         bool same = true;
         unsigned i;
         int r;
 
-        assert(name);
+        assert(cname);
         assert(ret);
 
         if (!q) {
@@ -262,7 +262,7 @@ int dns_question_cname_redirect(DnsQuestion *q, const char *name, DnsQuestion **
         }
 
         for (i = 0; i < q->n_keys; i++) {
-                r = dns_name_equal(DNS_RESOURCE_KEY_NAME(q->keys[i]), name);
+                r = dns_name_equal(DNS_RESOURCE_KEY_NAME(q->keys[i]), cname->cname.name);
                 if (r < 0)
                         return r;
 
@@ -286,7 +286,7 @@ int dns_question_cname_redirect(DnsQuestion *q, const char *name, DnsQuestion **
         for (i = 0; i < q->n_keys; i++) {
                 _cleanup_(dns_resource_key_unrefp) DnsResourceKey *k = NULL;
 
-                k = dns_resource_key_new(q->keys[i]->class, q->keys[i]->type, name);
+                k = dns_resource_key_new_redirect(q->keys[i], cname);
                 if (!k)
                         return -ENOMEM;
 
