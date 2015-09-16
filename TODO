@@ -26,9 +26,20 @@ External:
 
 Features:
 
-* add a new command "systemctl reset-dropins" or so, that removes all dropin
-  snippets in /run and /etc, and thus undoes what "systemctl set-property" and
-  "systemctl edit" create.
+* add "requires=" deps on slices from services, not just "wants="
+
+* add a concept of RemainAfterExit= to scope units
+
+* add sd_booted() check into "systemctl is-system-running", and return
+  a new state "foreign" or so if we are not running on systemd.
+
+* add journal vacuum by max number of files
+
+* add a new command "systemctl revert" or so, that removes all dropin
+  snippets in /run and /etc, and all unit files with counterparts in
+  /usr, and thus undoes what "systemctl set-property" and "systemctl
+  edit" create. Maybe even add "systemctl revert -a" to do this for
+  all units.
 
 * sd-event: maybe add support for inotify events
 
