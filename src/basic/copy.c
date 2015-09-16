@@ -44,7 +44,7 @@ int copy_bytes(int fdf, int fdt, uint64_t max_bytes, bool try_reflink) {
 
                 r = btrfs_reflink(fdf, fdt);
                 if (r >= 0)
-                        return r;
+                        return 0; /* we copied the whole thing, hence hit EOF, return 0 */
         }
 
         for (;;) {
@@ -54,7 +54,7 @@ int copy_bytes(int fdf, int fdt, uint64_t max_bytes, bool try_reflink) {
                 if (max_bytes != (uint64_t) -1) {
 
                         if (max_bytes <= 0)
-                                return -EFBIG;
+                                return 1; /* return > 0 if we hit the max_bytes limit */
 
                         if ((uint64_t) m > max_bytes)
                                 m = (size_t) max_bytes;
@@ -79,7 +79,7 @@ int copy_bytes(int fdf, int fdt, uint64_t max_bytes, bool try_reflink) {
 
                 /* The try splice, unless we already tried */
                 if (try_splice) {
-                        n  = splice(fdf, NULL, fdt, NULL, m, 0);
+                        n = splice(fdf, NULL, fdt, NULL, m, 0);
                         if (n < 0) {
                                 if (errno != EINVAL && errno != ENOSYS)
                                         return -errno;
@@ -95,7 +95,7 @@ int copy_bytes(int fdf, int fdt, uint64_t max_bytes, bool try_reflink) {
 
                 /* As a fallback just copy bits by hand */
                 {
-                        char buf[m];
+                        uint8_t buf[m];
 
                         n = read(fdf, buf, m);
                         if (n < 0)
@@ -115,7 +115,7 @@ int copy_bytes(int fdf, int fdt, uint64_t max_bytes, bool try_reflink) {
                 }
         }
 
-        return 0;
+        return 0; /* return 0 if we hit EOF earlier than the size limit */
 }
 
 static int fd_copy_symlink(int df, const char *from, const struct stat *st, int dt, const char *to) {
