@@ -354,6 +354,17 @@ FILE* safe_fclose(FILE *f) {
         return NULL;
 }
 
+DIR* safe_closedir(DIR *d) {
+
+        if (d) {
+                PROTECT_ERRNO;
+
+                assert_se(closedir(d) >= 0 || errno != EBADF);
+        }
+
+        return NULL;
+}
+
 int unlink_noerrno(const char *path) {
         PROTECT_ERRNO;
         int r;

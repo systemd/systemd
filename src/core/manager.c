@@ -1071,8 +1071,7 @@ static void manager_build_unit_path_cache(Manager *m) {
                                 goto fail;
                 }
 
-                closedir(d);
-                d = NULL;
+                d = safe_closedir(d);
         }
 
         return;

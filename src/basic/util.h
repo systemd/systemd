@@ -151,6 +151,7 @@ void close_many(const int fds[], unsigned n_fd);
 
 int fclose_nointr(FILE *f);
 FILE* safe_fclose(FILE *f);
+DIR* safe_closedir(DIR *f);
 
 int parse_size(const char *t, uint64_t base, uint64_t *size);
 
