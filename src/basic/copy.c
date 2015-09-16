@@ -37,7 +37,11 @@ int copy_bytes(int fdf, int fdt, uint64_t max_bytes, bool try_reflink) {
         assert(fdt >= 0);
 
         /* Try btrfs reflinks first. */
-        if (try_reflink && max_bytes == (uint64_t) -1) {
+        if (try_reflink &&
+            max_bytes == (uint64_t) -1 &&
+            lseek(fdf, 0, SEEK_CUR) == 0 &&
+            lseek(fdt, 0, SEEK_CUR) == 0) {
+
                 r = btrfs_reflink(fdf, fdt);
                 if (r >= 0)
                         return r;
