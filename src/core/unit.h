@@ -161,6 +161,9 @@ struct Unit {
         /* CGroup realize members queue */
         LIST_FIELDS(Unit, cgroup_queue);
 
+        /* Units with the same CGroup netclass */
+        LIST_FIELDS(Unit, cgroup_netclass);
+
         /* PIDs we keep an eye on. Note that a unit might have many
          * more, but these are the ones we care enough about to
          * process SIGCHLD for */
@@ -188,6 +191,8 @@ struct Unit {
         CGroupMask cgroup_subtree_mask;
         CGroupMask cgroup_members_mask;
         int cgroup_inotify_wd;
+
+        uint32_t cgroup_netclass_id;
 
         /* How to start OnFailure units */
         JobMode on_failure_job_mode;
