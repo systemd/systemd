@@ -86,7 +86,8 @@ static int generate_mac(
 int setup_veth(const char *machine_name,
                pid_t pid,
                char iface_name[IFNAMSIZ],
-               bool bridge) {
+               bool bridge,
+               unsigned mtu) {
 
         _cleanup_netlink_message_unref_ sd_netlink_message *m = NULL;
         _cleanup_netlink_unref_ sd_netlink *rtnl = NULL;
@@ -121,6 +122,12 @@ int setup_veth(const char *machine_name,
         r = sd_netlink_message_append_ether_addr(m, IFLA_ADDRESS, &mac_host);
         if (r < 0)
                 return log_error_errno(r, "Failed to add netlink MAC address: %m");
+
+        if (mtu > 0) {
+                r = sd_netlink_message_append_u32(m, IFLA_MTU, mtu);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add netlink IFLA_MTU field: %m");
+        }
 
         r = sd_netlink_message_open_container(m, IFLA_LINKINFO);
         if (r < 0)
@@ -169,7 +176,7 @@ int setup_veth(const char *machine_name,
         return i;
 }
 
-int setup_bridge(const char *veth_name, const char *bridge_name) {
+int setup_bridge(const char *veth_name, const char *bridge_name, unsigned mtu) {
         _cleanup_netlink_message_unref_ sd_netlink_message *m = NULL;
         _cleanup_netlink_unref_ sd_netlink *rtnl = NULL;
         int r, bridge_ifi;
@@ -200,6 +207,12 @@ int setup_bridge(const char *veth_name, const char *bridge_name) {
         r = sd_netlink_message_append_u32(m, IFLA_MASTER, bridge_ifi);
         if (r < 0)
                 return log_error_errno(r, "Failed to add netlink master field: %m");
+
+        if (mtu > 0) {
+                r = sd_netlink_message_append_u32(m, IFLA_MTU, mtu);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add netlink IFLA_MTU field: %m");
+        }
 
         r = sd_netlink_call(rtnl, m, 0, NULL);
         if (r < 0)
@@ -273,7 +286,7 @@ int move_network_interfaces(pid_t pid, char **ifaces) {
         return 0;
 }
 
-int setup_macvlan(const char *machine_name, pid_t pid, char **ifaces) {
+int setup_macvlan(const char *machine_name, pid_t pid, char **ifaces, unsigned mtu) {
         _cleanup_udev_unref_ struct udev *udev = NULL;
         _cleanup_netlink_unref_ sd_netlink *rtnl = NULL;
         unsigned idx = 0;
@@ -329,6 +342,12 @@ int setup_macvlan(const char *machine_name, pid_t pid, char **ifaces) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to add netlink MAC address: %m");
 
+                if (mtu > 0) {
+                        r = sd_netlink_message_append_u32(m, IFLA_MTU, mtu);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to add netlink IFLA_MTU field: %m");
+                }
+
                 r = sd_netlink_message_append_u32(m, IFLA_NET_NS_PID, pid);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add netlink namespace field: %m");
@@ -361,7 +380,7 @@ int setup_macvlan(const char *machine_name, pid_t pid, char **ifaces) {
         return 0;
 }
 
-int setup_ipvlan(const char *machine_name, pid_t pid, char **ifaces) {
+int setup_ipvlan(const char *machine_name, pid_t pid, char **ifaces, unsigned mtu) {
         _cleanup_udev_unref_ struct udev *udev = NULL;
         _cleanup_netlink_unref_ sd_netlink *rtnl = NULL;
         char **i;
@@ -396,6 +415,12 @@ int setup_ipvlan(const char *machine_name, pid_t pid, char **ifaces) {
                 r = sd_netlink_message_append_u32(m, IFLA_LINK, ifi);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add netlink interface index: %m");
+
+                if (mtu > 0) {
+                        r = sd_netlink_message_append_u32(m, IFLA_MTU, mtu);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to add netlink IFLA_MTU field: %m");
+                }
 
                 n = strappend("iv-", *i);
                 if (!n)
