@@ -3,4 +3,7 @@
 # Used by systemd --user instances.
 
 account  include system-auth
+
+-session  required pam_selinux.so close
+-session  required pam_selinux.so nottys open
 session  include system-auth
