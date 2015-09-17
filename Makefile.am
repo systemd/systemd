@@ -5488,6 +5488,8 @@ pamlib_LTLIBRARIES = \
 dist_pamconf_DATA = \
 	src/login/systemd-user
 
+EXTRA_DIST += \
+	src/login/systemd-user.m4
 endif
 
 nodist_systemunit_DATA += \
