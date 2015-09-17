@@ -7,6 +7,7 @@
 
 [Unit]
 Description=Journal Remote Sink Socket
+PartOf=systemd-journal-remote.service
 
 [Socket]
 ListenStream=19532
