@@ -876,7 +876,7 @@ static int method_map_from_machine_user(sd_bus_message *message, void *userdata,
         if (r < 0)
                 return r;
 
-        if (UID_IS_INVALID(uid))
+        if (!uid_is_valid(uid))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid user ID " UID_FMT, uid);
 
         machine = hashmap_get(m->machines, name);
@@ -910,7 +910,7 @@ static int method_map_from_machine_user(sd_bus_message *message, void *userdata,
                         continue;
 
                 converted = uid - uid_base + uid_shift;
-                if (UID_IS_INVALID(converted))
+                if (!uid_is_valid(converted))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid user ID " UID_FMT, uid);
 
                 return sd_bus_reply_method_return(message, "u", (uint32_t) converted);
@@ -929,7 +929,7 @@ static int method_map_to_machine_user(sd_bus_message *message, void *userdata, s
         r = sd_bus_message_read(message, "u", &uid);
         if (r < 0)
                 return r;
-        if (UID_IS_INVALID(uid))
+        if (!uid_is_valid(uid))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid user ID " UID_FMT, uid);
         if (uid < 0x10000)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_USER_MAPPING, "User " UID_FMT " belongs to host UID range", uid);
@@ -968,7 +968,7 @@ static int method_map_to_machine_user(sd_bus_message *message, void *userdata, s
                                 continue;
 
                         converted = (uid - uid_shift + uid_base);
-                        if (UID_IS_INVALID(converted))
+                        if (!uid_is_valid(converted))
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid user ID " UID_FMT, uid);
 
                         o = machine_bus_path(machine);
@@ -994,7 +994,7 @@ static int method_map_from_machine_group(sd_bus_message *message, void *groupdat
         if (r < 0)
                 return r;
 
-        if (GID_IS_INVALID(gid))
+        if (!gid_is_valid(gid))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid group ID " GID_FMT, gid);
 
         machine = hashmap_get(m->machines, name);
@@ -1028,7 +1028,7 @@ static int method_map_from_machine_group(sd_bus_message *message, void *groupdat
                         continue;
 
                 converted = gid - gid_base + gid_shift;
-                if (GID_IS_INVALID(converted))
+                if (!gid_is_valid(converted))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid group ID " GID_FMT, gid);
 
                 return sd_bus_reply_method_return(message, "u", (uint32_t) converted);
@@ -1047,7 +1047,7 @@ static int method_map_to_machine_group(sd_bus_message *message, void *groupdata,
         r = sd_bus_message_read(message, "u", &gid);
         if (r < 0)
                 return r;
-        if (GID_IS_INVALID(gid))
+        if (!gid_is_valid(gid))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid group ID " GID_FMT, gid);
         if (gid < 0x10000)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_GROUP_MAPPING, "Group " GID_FMT " belongs to host GID range", gid);
@@ -1086,7 +1086,7 @@ static int method_map_to_machine_group(sd_bus_message *message, void *groupdata,
                                 continue;
 
                         converted = (gid - gid_shift + gid_base);
-                        if (GID_IS_INVALID(converted))
+                        if (!gid_is_valid(converted))
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid group ID " GID_FMT, gid);
 
                         o = machine_bus_path(machine);

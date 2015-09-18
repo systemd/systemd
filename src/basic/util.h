@@ -161,7 +161,10 @@ int parse_uid(const char *s, uid_t* ret_uid);
 #define parse_gid(s, ret_gid) parse_uid(s, ret_gid)
 
 bool uid_is_valid(uid_t uid);
-#define gid_is_valid(gid) uid_is_valid(gid)
+
+static inline bool gid_is_valid(gid_t gid) {
+        return uid_is_valid((uid_t) gid);
+}
 
 int safe_atou(const char *s, unsigned *ret_u);
 int safe_atoi(const char *s, int *ret_i);
