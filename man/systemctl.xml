@@ -295,6 +295,17 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--fail</option></term>
+
+        <listitem>
+          <para>Shorthand for <option>--job-mode=</option>fail.</para>
+          <para>When used with the <command>kill</command> command,
+          if no units were killed, the operation results in an error.
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>-i</option></term>
         <term><option>--ignore-inhibitors</option></term>
 
