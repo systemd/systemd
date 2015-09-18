@@ -19,49 +19,48 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <string.h>
-#include <unistd.h>
-#include <errno.h>
-#include <stdlib.h>
-#include <signal.h>
-#include <libintl.h>
-#include <stdio.h>
-#include <syslog.h>
-#include <sched.h>
-#include <sys/resource.h>
-#include <linux/sched.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <dirent.h>
-#include <sys/ioctl.h>
-#include <stdarg.h>
-#include <poll.h>
 #include <ctype.h>
-#include <sys/prctl.h>
-#include <sys/utsname.h>
-#include <pwd.h>
-#include <netinet/ip.h>
-#include <sys/wait.h>
-#include <sys/time.h>
+#include <dirent.h>
+#include <errno.h>
+#include <fcntl.h>
 #include <glob.h>
 #include <grp.h>
-#include <sys/mman.h>
-#include <sys/vfs.h>
-#include <sys/mount.h>
-#include <linux/magic.h>
-#include <limits.h>
 #include <langinfo.h>
+#include <libintl.h>
+#include <limits.h>
+#include <linux/magic.h>
+#include <linux/sched.h>
 #include <locale.h>
-#include <sys/personality.h>
-#include <sys/xattr.h>
-#include <sys/statvfs.h>
+#include <netinet/ip.h>
+#include <poll.h>
+#include <pwd.h>
+#include <sched.h>
+#include <signal.h>
+#include <stdarg.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/file.h>
-#include <linux/fs.h>
+#include <sys/ioctl.h>
+#include <sys/mman.h>
+#include <sys/mount.h>
+#include <sys/personality.h>
+#include <sys/prctl.h>
+#include <sys/resource.h>
+#include <sys/stat.h>
+#include <sys/statvfs.h>
+#include <sys/time.h>
+#include <sys/types.h>
+#include <sys/utsname.h>
+#include <sys/vfs.h>
+#include <sys/wait.h>
+#include <sys/xattr.h>
+#include <syslog.h>
+#include <unistd.h>
 
 /* When we include libgen.h because we need dirname() we immediately
- * undefine basename() since libgen.h defines it as a macro to the POSIX
- * version which is really broken. We prefer GNU basename(). */
+ * undefine basename() since libgen.h defines it as a macro to the
+ * POSIX version which is really broken. We prefer GNU basename(). */
 #include <libgen.h>
 #undef basename
 
@@ -69,31 +68,34 @@
 #include <sys/auxv.h>
 #endif
 
-#include "config.h"
-#include "macro.h"
-#include "util.h"
+/* We include linux/fs.h as last of the system headers, as it
+ * otherwise conflicts with sys/mount.h. Yay, Linux is great! */
+#include <linux/fs.h>
+
+#include "def.h"
+#include "device-nodes.h"
+#include "env-util.h"
+#include "exit-status.h"
+#include "fileio.h"
+#include "formats-util.h"
+#include "gunicode.h"
+#include "hashmap.h"
+#include "hostname-util.h"
 #include "ioprio.h"
-#include "missing.h"
 #include "log.h"
-#include "strv.h"
+#include "macro.h"
+#include "missing.h"
 #include "mkdir.h"
 #include "path-util.h"
-#include "exit-status.h"
-#include "hashmap.h"
-#include "env-util.h"
-#include "fileio.h"
-#include "device-nodes.h"
-#include "utf8.h"
-#include "gunicode.h"
-#include "virt.h"
-#include "def.h"
-#include "sparse-endian.h"
-#include "formats-util.h"
 #include "process-util.h"
 #include "random-util.h"
-#include "terminal-util.h"
-#include "hostname-util.h"
 #include "signal-util.h"
+#include "sparse-endian.h"
+#include "strv.h"
+#include "terminal-util.h"
+#include "utf8.h"
+#include "util.h"
+#include "virt.h"
 
 /* Put this test here for a lack of better place */
 assert_cc(EAGAIN == EWOULDBLOCK);

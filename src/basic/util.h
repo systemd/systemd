@@ -22,30 +22,30 @@
 ***/
 
 #include <alloca.h>
+#include <dirent.h>
 #include <fcntl.h>
 #include <inttypes.h>
-#include <time.h>
-#include <stdarg.h>
-#include <stdbool.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <sched.h>
 #include <limits.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/stat.h>
-#include <dirent.h>
-#include <stddef.h>
-#include <unistd.h>
 #include <locale.h>
 #include <mntent.h>
+#include <sched.h>
+#include <stdarg.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <sys/inotify.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/statfs.h>
+#include <sys/types.h>
+#include <time.h>
+#include <unistd.h>
 
+#include "formats-util.h"
 #include "macro.h"
 #include "missing.h"
 #include "time-util.h"
-#include "formats-util.h"
 
 /* What is interpreted as whitespace? */
 #define WHITESPACE " \t\n\r"
