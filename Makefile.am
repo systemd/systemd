@@ -469,6 +469,7 @@ dist_systemunit_DATA = \
 	units/getty.target \
 	units/halt.target \
 	units/kexec.target \
+	units/exit.target \
 	units/local-fs.target \
 	units/local-fs-pre.target \
 	units/initrd.target \
