@@ -1789,6 +1789,45 @@ static int link_set_ipv6_privacy_extensions(Link *link) {
         return 0;
 }
 
+static int link_set_ipv6_accept_ra(Link *link) {
+        const char *p = NULL, *v = NULL;
+        bool b;
+        int r;
+
+        /* Make this a NOP if IPv6 is not available */
+        if (!socket_ipv6_is_supported())
+                return 0;
+
+        if (link->flags & IFF_LOOPBACK)
+                return 0;
+
+        /* if unset check the ip forwarding setting maintained for the interface
+         * and then set it to depending on that. enabled if local forwarding
+         * is disabled. disabled if local forwarding is enabled.
+         */
+        if (link->network->ipv6_accept_ra < 0) {
+                if (IN_SET(link->network->ip_forward, ADDRESS_FAMILY_YES, ADDRESS_FAMILY_IPV6))
+                        b = false;
+                else
+                        b = true;
+        } else
+                b = link->network->ipv6_accept_ra;
+
+        p = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/accept_ra");
+        v = one_zero(b);
+
+        r = write_string_file(p, v, 0);
+        if (r < 0) {
+                /* If the right value is set anyway, don't complain */
+                if (verify_one_line_file(p, v) > 0)
+                        return 0;
+
+                log_link_warning_errno(link, r, "Cannot configure IPv6 accept_ra for interface: %m");
+        }
+
+        return 0;
+}
+
 static int link_configure(Link *link) {
         int r;
 
@@ -1809,6 +1848,10 @@ static int link_configure(Link *link) {
                 return r;
 
         r = link_set_ipv6_privacy_extensions(link);
+        if (r < 0)
+                return r;
+
+        r = link_set_ipv6_accept_ra(link);
         if (r < 0)
                 return r;
 
