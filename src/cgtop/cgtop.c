@@ -602,7 +602,7 @@ static void display(Hashmap *a) {
                 _cleanup_free_ char *ellipsized = NULL;
                 const char *path;
 
-                if (on_tty() && j + 5 > rows)
+                if (on_tty() && j + 6 > rows)
                         break;
 
                 g = array[j];
