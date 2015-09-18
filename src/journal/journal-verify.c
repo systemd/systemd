@@ -53,12 +53,12 @@ static void draw_progress(uint64_t p, usec_t *last_usec) {
         j = (n * (unsigned) p) / 65535ULL;
         k = n - j;
 
-        fputs("\r\x1B[?25l" ANSI_HIGHLIGHT_GREEN_ON, stdout);
+        fputs("\r\x1B[?25l" ANSI_HIGHLIGHT_GREEN, stdout);
 
         for (i = 0; i < j; i++)
                 fputs("\xe2\x96\x88", stdout);
 
-        fputs(ANSI_HIGHLIGHT_OFF, stdout);
+        fputs(ANSI_NORMAL, stdout);
 
         for (i = 0; i < k; i++)
                 fputs("\xe2\x96\x91", stdout);

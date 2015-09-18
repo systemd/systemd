@@ -32,7 +32,7 @@
 static void log_and_status(Manager *m, const char *message) {
         log_warning("%s", message);
         manager_status_printf(m, STATUS_TYPE_EMERGENCY,
-                              ANSI_HIGHLIGHT_RED_ON " !!  " ANSI_HIGHLIGHT_OFF,
+                              ANSI_HIGHLIGHT_RED " !!  " ANSI_NORMAL,
                               "%s", message);
 }
 

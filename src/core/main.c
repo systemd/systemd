@@ -2053,7 +2053,7 @@ finish:
         if (getpid() == 1) {
                 if (error_message)
                         manager_status_printf(NULL, STATUS_TYPE_EMERGENCY,
-                                              ANSI_HIGHLIGHT_RED_ON "!!!!!!" ANSI_HIGHLIGHT_OFF,
+                                              ANSI_HIGHLIGHT_RED "!!!!!!" ANSI_NORMAL,
                                               "%s, freezing.", error_message);
                 freeze();
         }

@@ -402,11 +402,11 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
         if (comm)
                 fprintf(file,
                         "           PID: %s%s%s (%s)\n",
-                        ansi_highlight(), strna(pid), ansi_highlight_off(), comm);
+                        ansi_highlight(), strna(pid), ansi_normal(), comm);
         else
                 fprintf(file,
                         "           PID: %s%s%s\n",
-                        ansi_highlight(), strna(pid), ansi_highlight_off());
+                        ansi_highlight(), strna(pid), ansi_normal());
 
         if (uid) {
                 uid_t n;
@@ -470,7 +470,7 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
         if (cmdline)
                 fprintf(file, "  Command Line: %s\n", cmdline);
         if (exe)
-                fprintf(file, "    Executable: %s%s%s\n", ansi_highlight(), exe, ansi_highlight_off());
+                fprintf(file, "    Executable: %s%s%s\n", ansi_highlight(), exe, ansi_normal());
         if (cgroup)
                 fprintf(file, " Control Group: %s\n", cgroup);
         if (unit)

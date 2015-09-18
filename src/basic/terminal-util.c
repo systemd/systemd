@@ -139,14 +139,14 @@ int ask_char(char *ret, const char *replies, const char *text, ...) {
                 bool need_nl = true;
 
                 if (on_tty())
-                        fputs(ANSI_HIGHLIGHT_ON, stdout);
+                        fputs(ANSI_HIGHLIGHT, stdout);
 
                 va_start(ap, text);
                 vprintf(text, ap);
                 va_end(ap);
 
                 if (on_tty())
-                        fputs(ANSI_HIGHLIGHT_OFF, stdout);
+                        fputs(ANSI_NORMAL, stdout);
 
                 fflush(stdout);
 
@@ -183,14 +183,14 @@ int ask_string(char **ret, const char *text, ...) {
                 va_list ap;
 
                 if (on_tty())
-                        fputs(ANSI_HIGHLIGHT_ON, stdout);
+                        fputs(ANSI_HIGHLIGHT, stdout);
 
                 va_start(ap, text);
                 vprintf(text, ap);
                 va_end(ap);
 
                 if (on_tty())
-                        fputs(ANSI_HIGHLIGHT_OFF, stdout);
+                        fputs(ANSI_NORMAL, stdout);
 
                 fflush(stdout);
 

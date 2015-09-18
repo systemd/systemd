@@ -670,13 +670,13 @@ _pure_ static const char *job_get_status_message_format(Unit *u, JobType t, JobR
 static void job_print_status_message(Unit *u, JobType t, JobResult result) {
         const char *format;
         static const char* const job_result_status_table[_JOB_RESULT_MAX] = {
-                [JOB_DONE]        = ANSI_GREEN_ON            "  OK  " ANSI_HIGHLIGHT_OFF,
-                [JOB_TIMEOUT]     = ANSI_HIGHLIGHT_RED_ON    " TIME " ANSI_HIGHLIGHT_OFF,
-                [JOB_FAILED]      = ANSI_HIGHLIGHT_RED_ON    "FAILED" ANSI_HIGHLIGHT_OFF,
-                [JOB_DEPENDENCY]  = ANSI_HIGHLIGHT_YELLOW_ON "DEPEND" ANSI_HIGHLIGHT_OFF,
-                [JOB_SKIPPED]     = ANSI_HIGHLIGHT_ON        " INFO " ANSI_HIGHLIGHT_OFF,
-                [JOB_ASSERT]      = ANSI_HIGHLIGHT_YELLOW_ON "ASSERT" ANSI_HIGHLIGHT_OFF,
-                [JOB_UNSUPPORTED] = ANSI_HIGHLIGHT_YELLOW_ON "UNSUPP" ANSI_HIGHLIGHT_OFF,
+                [JOB_DONE]        = ANSI_GREEN            "  OK  " ANSI_NORMAL,
+                [JOB_TIMEOUT]     = ANSI_HIGHLIGHT_RED    " TIME " ANSI_NORMAL,
+                [JOB_FAILED]      = ANSI_HIGHLIGHT_RED    "FAILED" ANSI_NORMAL,
+                [JOB_DEPENDENCY]  = ANSI_HIGHLIGHT_YELLOW "DEPEND" ANSI_NORMAL,
+                [JOB_SKIPPED]     = ANSI_HIGHLIGHT        " INFO " ANSI_NORMAL,
+                [JOB_ASSERT]      = ANSI_HIGHLIGHT_YELLOW "ASSERT" ANSI_NORMAL,
+                [JOB_UNSUPPORTED] = ANSI_HIGHLIGHT_YELLOW "UNSUPP" ANSI_NORMAL,
         };
 
         assert(u);

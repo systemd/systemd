@@ -107,7 +107,7 @@ static int notify_override_masked(const char *top, const char *bottom) {
                 return 0;
 
         printf("%s%s%s     %s %s %s\n",
-               ansi_highlight_red(), "[MASKED]", ansi_highlight_off(),
+               ansi_highlight_red(), "[MASKED]", ansi_normal(),
                top, draw_special_char(DRAW_ARROW), bottom);
         return 1;
 }
@@ -117,7 +117,7 @@ static int notify_override_equivalent(const char *top, const char *bottom) {
                 return 0;
 
         printf("%s%s%s %s %s %s\n",
-               ansi_highlight_green(), "[EQUIVALENT]", ansi_highlight_off(),
+               ansi_highlight_green(), "[EQUIVALENT]", ansi_normal(),
                top, draw_special_char(DRAW_ARROW), bottom);
         return 1;
 }
@@ -127,7 +127,7 @@ static int notify_override_redirected(const char *top, const char *bottom) {
                 return 0;
 
         printf("%s%s%s %s %s %s\n",
-               ansi_highlight(), "[REDIRECTED]", ansi_highlight_off(),
+               ansi_highlight(), "[REDIRECTED]", ansi_normal(),
                top, draw_special_char(DRAW_ARROW), bottom);
         return 1;
 }
@@ -137,7 +137,7 @@ static int notify_override_overridden(const char *top, const char *bottom) {
                 return 0;
 
         printf("%s%s%s %s %s %s\n",
-               ansi_highlight(), "[OVERRIDDEN]", ansi_highlight_off(),
+               ansi_highlight(), "[OVERRIDDEN]", ansi_normal(),
                top, draw_special_char(DRAW_ARROW), bottom);
         return 1;
 }
@@ -147,7 +147,7 @@ static int notify_override_extended(const char *top, const char *bottom) {
                return 0;
 
         printf("%s%s%s   %s %s %s\n",
-               ansi_highlight(), "[EXTENDED]", ansi_highlight_off(),
+               ansi_highlight(), "[EXTENDED]", ansi_normal(),
                top, draw_special_char(DRAW_ARROW), bottom);
         return 1;
 }

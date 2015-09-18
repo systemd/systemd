@@ -73,8 +73,8 @@ int bus_message_dump(sd_bus_message *m, FILE *f, unsigned flags) {
                         "%s%s%s Type=%s%s%s  Endian=%c  Flags=%u  Version=%u  Priority=%"PRIi64,
                         m->header->type == SD_BUS_MESSAGE_METHOD_ERROR ? ansi_highlight_red() :
                         m->header->type == SD_BUS_MESSAGE_METHOD_RETURN ? ansi_highlight_green() :
-                        m->header->type != SD_BUS_MESSAGE_SIGNAL ? ansi_highlight() : "", draw_special_char(DRAW_TRIANGULAR_BULLET), ansi_highlight_off(),
-                        ansi_highlight(), bus_message_type_to_string(m->header->type), ansi_highlight_off(),
+                        m->header->type != SD_BUS_MESSAGE_SIGNAL ? ansi_highlight() : "", draw_special_char(DRAW_TRIANGULAR_BULLET), ansi_normal(),
+                        ansi_highlight(), bus_message_type_to_string(m->header->type), ansi_normal(),
                         m->header->endian,
                         m->header->flags,
                         m->header->version,
@@ -93,15 +93,15 @@ int bus_message_dump(sd_bus_message *m, FILE *f, unsigned flags) {
                 fputs("\n", f);
 
                 if (m->sender)
-                        fprintf(f, "  Sender=%s%s%s", ansi_highlight(), m->sender, ansi_highlight_off());
+                        fprintf(f, "  Sender=%s%s%s", ansi_highlight(), m->sender, ansi_normal());
                 if (m->destination)
-                        fprintf(f, "  Destination=%s%s%s", ansi_highlight(), m->destination, ansi_highlight_off());
+                        fprintf(f, "  Destination=%s%s%s", ansi_highlight(), m->destination, ansi_normal());
                 if (m->path)
-                        fprintf(f, "  Path=%s%s%s", ansi_highlight(), m->path, ansi_highlight_off());
+                        fprintf(f, "  Path=%s%s%s", ansi_highlight(), m->path, ansi_normal());
                 if (m->interface)
-                        fprintf(f, "  Interface=%s%s%s", ansi_highlight(), m->interface, ansi_highlight_off());
+                        fprintf(f, "  Interface=%s%s%s", ansi_highlight(), m->interface, ansi_normal());
                 if (m->member)
-                        fprintf(f, "  Member=%s%s%s", ansi_highlight(), m->member, ansi_highlight_off());
+                        fprintf(f, "  Member=%s%s%s", ansi_highlight(), m->member, ansi_normal());
 
                 if (m->sender || m->destination || m->path || m->interface || m->member)
                         fputs("\n", f);
@@ -110,8 +110,8 @@ int bus_message_dump(sd_bus_message *m, FILE *f, unsigned flags) {
                         fprintf(f,
                                 "  ErrorName=%s%s%s"
                                 "  ErrorMessage=%s\"%s\"%s\n",
-                                ansi_highlight_red(), strna(m->error.name), ansi_highlight_off(),
-                                ansi_highlight_red(), strna(m->error.message), ansi_highlight_off());
+                                ansi_highlight_red(), strna(m->error.name), ansi_normal(),
+                                ansi_highlight_red(), strna(m->error.message), ansi_normal());
 
                 if (m->monotonic != 0)
                         fprintf(f, "  Monotonic="USEC_FMT, m->monotonic);
@@ -211,55 +211,55 @@ int bus_message_dump(sd_bus_message *m, FILE *f, unsigned flags) {
                 switch (type) {
 
                 case SD_BUS_TYPE_BYTE:
-                        fprintf(f, "%sBYTE %s%u%s;\n", prefix, ansi_highlight(), basic.u8, ansi_highlight_off());
+                        fprintf(f, "%sBYTE %s%u%s;\n", prefix, ansi_highlight(), basic.u8, ansi_normal());
                         break;
 
                 case SD_BUS_TYPE_BOOLEAN:
-                        fprintf(f, "%sBOOLEAN %s%s%s;\n", prefix, ansi_highlight(), true_false(basic.i), ansi_highlight_off());
+                        fprintf(f, "%sBOOLEAN %s%s%s;\n", prefix, ansi_highlight(), true_false(basic.i), ansi_normal());
                         break;
 
                 case SD_BUS_TYPE_INT16:
-                        fprintf(f, "%sINT16 %s%i%s;\n", prefix, ansi_highlight(), basic.s16, ansi_highlight_off());
+                        fprintf(f, "%sINT16 %s%i%s;\n", prefix, ansi_highlight(), basic.s16, ansi_normal());
                         break;
 
                 case SD_BUS_TYPE_UINT16:
-                        fprintf(f, "%sUINT16 %s%u%s;\n", prefix, ansi_highlight(), basic.u16, ansi_highlight_off());
+                        fprintf(f, "%sUINT16 %s%u%s;\n", prefix, ansi_highlight(), basic.u16, ansi_normal());
                         break;
 
                 case SD_BUS_TYPE_INT32:
-                        fprintf(f, "%sINT32 %s%i%s;\n", prefix, ansi_highlight(), basic.s32, ansi_highlight_off());
+                        fprintf(f, "%sINT32 %s%i%s;\n", prefix, ansi_highlight(), basic.s32, ansi_normal());
                         break;
 
                 case SD_BUS_TYPE_UINT32:
-                        fprintf(f, "%sUINT32 %s%u%s;\n", prefix, ansi_highlight(), basic.u32, ansi_highlight_off());
+                        fprintf(f, "%sUINT32 %s%u%s;\n", prefix, ansi_highlight(), basic.u32, ansi_normal());
                         break;
 
                 case SD_BUS_TYPE_INT64:
-                        fprintf(f, "%sINT64 %s%"PRIi64"%s;\n", prefix, ansi_highlight(), basic.s64, ansi_highlight_off());
+                        fprintf(f, "%sINT64 %s%"PRIi64"%s;\n", prefix, ansi_highlight(), basic.s64, ansi_normal());
                         break;
 
                 case SD_BUS_TYPE_UINT64:
-                        fprintf(f, "%sUINT64 %s%"PRIu64"%s;\n", prefix, ansi_highlight(), basic.u64, ansi_highlight_off());
+                        fprintf(f, "%sUINT64 %s%"PRIu64"%s;\n", prefix, ansi_highlight(), basic.u64, ansi_normal());
                         break;
 
                 case SD_BUS_TYPE_DOUBLE:
-                        fprintf(f, "%sDOUBLE %s%g%s;\n", prefix, ansi_highlight(), basic.d64, ansi_highlight_off());
+                        fprintf(f, "%sDOUBLE %s%g%s;\n", prefix, ansi_highlight(), basic.d64, ansi_normal());
                         break;
 
                 case SD_BUS_TYPE_STRING:
-                        fprintf(f, "%sSTRING \"%s%s%s\";\n", prefix, ansi_highlight(), basic.string, ansi_highlight_off());
+                        fprintf(f, "%sSTRING \"%s%s%s\";\n", prefix, ansi_highlight(), basic.string, ansi_normal());
                         break;
 
                 case SD_BUS_TYPE_OBJECT_PATH:
-                        fprintf(f, "%sOBJECT_PATH \"%s%s%s\";\n", prefix, ansi_highlight(), basic.string, ansi_highlight_off());
+                        fprintf(f, "%sOBJECT_PATH \"%s%s%s\";\n", prefix, ansi_highlight(), basic.string, ansi_normal());
                         break;
 
                 case SD_BUS_TYPE_SIGNATURE:
-                        fprintf(f, "%sSIGNATURE \"%s%s%s\";\n", prefix, ansi_highlight(), basic.string, ansi_highlight_off());
+                        fprintf(f, "%sSIGNATURE \"%s%s%s\";\n", prefix, ansi_highlight(), basic.string, ansi_normal());
                         break;
 
                 case SD_BUS_TYPE_UNIX_FD:
-                        fprintf(f, "%sUNIX_FD %s%i%s;\n", prefix, ansi_highlight(), basic.i, ansi_highlight_off());
+                        fprintf(f, "%sUNIX_FD %s%i%s;\n", prefix, ansi_highlight(), basic.i, ansi_normal());
                         break;
 
                 default:
@@ -327,7 +327,7 @@ static void dump_capabilities(
         fputs("\n", f);
 
         if (!terse)
-                fputs(ansi_highlight_off(), f);
+                fputs(ansi_normal(), f);
 }
 
 int bus_creds_dump(sd_bus_creds *c, FILE *f, bool terse) {
@@ -352,7 +352,7 @@ int bus_creds_dump(sd_bus_creds *c, FILE *f, bool terse) {
                 prefix = "";
                 color = ansi_highlight();
 
-                off = ansi_highlight_off();
+                off = ansi_normal();
                 suffix = strjoina(off, "\n");
         }
 
