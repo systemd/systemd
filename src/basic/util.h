@@ -290,9 +290,9 @@ bool chars_intersect(const char *a, const char *b) _pure_;
 
 ssize_t string_table_lookup(const char * const *table, size_t len, const char *key);
 
-#define _DEFINE_STRING_TABLE_LOOKUP_FROM_STRING(name,type,scope)                                \
-        scope inline type name##_from_string(const char *s) {                                   \
-                return (type)string_table_lookup(name##_table, ELEMENTSOF(name##_table), s);    \
+#define _DEFINE_STRING_TABLE_LOOKUP_FROM_STRING(name,type,scope)        \
+        scope type name##_from_string(const char *s) {                  \
+                return (type) string_table_lookup(name##_table, ELEMENTSOF(name##_table), s); \
         }
 
 #define _DEFINE_STRING_TABLE_LOOKUP(name,type,scope)                    \
@@ -309,17 +309,15 @@ ssize_t string_table_lookup(const char * const *table, size_t len, const char *k
 #define DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(name,type,max)         \
         int name##_to_string_alloc(type i, char **str) {                \
                 char *s;                                                \
-                int r;                                                  \
                 if (i < 0 || i > max)                                   \
                         return -ERANGE;                                 \
                 if (i < (type) ELEMENTSOF(name##_table)) {              \
                         s = strdup(name##_table[i]);                    \
                         if (!s)                                         \
-                                return log_oom();                       \
+                                return -ENOMEM;                         \
                 } else {                                                \
-                        r = asprintf(&s, "%i", i);                      \
-                        if (r < 0)                                      \
-                                return log_oom();                       \
+                        if (asprintf(&s, "%i", i) < 0)                  \
+                                return -ENOMEM;                         \
                 }                                                       \
                 *str = s;                                               \
                 return 0;                                               \
@@ -327,10 +325,10 @@ ssize_t string_table_lookup(const char * const *table, size_t len, const char *k
         type name##_from_string(const char *s) {                        \
                 type i;                                                 \
                 unsigned u = 0;                                         \
-                assert(s);                                              \
-                for (i = 0; i < (type)ELEMENTSOF(name##_table); i++)    \
-                        if (name##_table[i] &&                          \
-                            streq(name##_table[i], s))                  \
+                if (!s)                                                 \
+                        return (type) -1;                               \
+                for (i = 0; i < (type) ELEMENTSOF(name##_table); i++)   \
+                        if (streq_ptr(name##_table[i], s))              \
                                 return i;                               \
                 if (safe_atou(s, &u) >= 0 && u <= max)                  \
                         return (type) u;                                \

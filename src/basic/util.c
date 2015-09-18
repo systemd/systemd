@@ -6561,7 +6561,7 @@ ssize_t string_table_lookup(const char * const *table, size_t len, const char *k
 
         for (i = 0; i < len; ++i)
                 if (streq_ptr(table[i], key))
-                        return (ssize_t)i;
+                        return (ssize_t) i;
 
         return -1;
 }
