@@ -1254,6 +1254,7 @@ int main(int argc, char *argv[]) {
         char *switch_root_dir = NULL, *switch_root_init = NULL;
         struct rlimit saved_rlimit_nofile = RLIMIT_MAKE_CONST(0);
         const char *error_message = NULL;
+        uint8_t shutdown_exit_code = 0;
 
 #ifdef HAVE_SYSV_COMPAT
         if (getpid() != 1 && strstr(program_invocation_short_name, "init")) {
@@ -1764,11 +1765,6 @@ int main(int argc, char *argv[]) {
 
                 switch (m->exit_code) {
 
-                case MANAGER_EXIT:
-                        retval = EXIT_SUCCESS;
-                        log_debug("Exit.");
-                        goto finish;
-
                 case MANAGER_RELOAD:
                         log_info("Reloading.");
 
@@ -1815,6 +1811,7 @@ int main(int argc, char *argv[]) {
                 case MANAGER_HALT:
                 case MANAGER_KEXEC: {
                         static const char * const table[_MANAGER_EXIT_CODE_MAX] = {
+                                [MANAGER_EXIT] = "exit",
                                 [MANAGER_REBOOT] = "reboot",
                                 [MANAGER_POWEROFF] = "poweroff",
                                 [MANAGER_HALT] = "halt",
@@ -1836,8 +1833,10 @@ int main(int argc, char *argv[]) {
 finish:
         pager_close();
 
-        if (m)
+        if (m) {
                 arg_shutdown_watchdog = m->shutdown_watchdog;
+                shutdown_exit_code = m->return_value;
+        }
         m = manager_free(m);
 
         for (j = 0; j < ELEMENTSOF(arg_default_rlimit); j++)
@@ -1978,7 +1977,8 @@ finish:
 
         if (shutdown_verb) {
                 char log_level[DECIMAL_STR_MAX(int) + 1];
-                const char* command_line[9] = {
+                char exit_code[DECIMAL_STR_MAX(int) + 1];
+                const char* command_line[11] = {
                         SYSTEMD_SHUTDOWN_BINARY_PATH,
                         shutdown_verb,
                         "--log-level", log_level,
@@ -2014,6 +2014,12 @@ finish:
 
                 if (log_get_show_location())
                         command_line[pos++] = "--log-location";
+
+                if (streq(shutdown_verb, "exit")) {
+                        command_line[pos++] = "--exit-code";
+                        command_line[pos++] = exit_code;
+                        xsprintf(exit_code, "%d", shutdown_exit_code);
+                }
 
                 assert(pos < ELEMENTSOF(command_line));
 
