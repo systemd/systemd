@@ -165,6 +165,13 @@ static int get_cgroup_root(char **ret) {
         return 0;
 }
 
+static void show_cg_info(const char *controller, const char *path) {
+        if (cg_unified() <= 0)
+                printf("Controller %s; ", controller);
+        printf("Control group %s:\n", isempty(path) ? "/" : path);
+        fflush(stdout);
+}
+
 int main(int argc, char *argv[]) {
         int r, output_flags;
 
@@ -225,11 +232,7 @@ int main(int argc, char *argv[]) {
                                 } else
                                         path = root;
 
-                                if (cg_unified() > 0)
-                                        printf("Control group %s:\n", path);
-                                else
-                                        printf("Controller %s; control group %s:\n", controller, path);
-                                fflush(stdout);
+                                show_cg_info(controller, path);
 
                                 q = show_cgroup(controller, path, NULL, 0, arg_kernel_threads, output_flags);
                         }
@@ -266,8 +269,7 @@ int main(int argc, char *argv[]) {
                         if (r < 0)
                                 goto finish;
 
-                        printf("Control group %s:\n", isempty(root) ? "/" : root);
-                        fflush(stdout);
+                        show_cg_info(SYSTEMD_CGROUP_CONTROLLER, root);
 
                         r = show_cgroup(SYSTEMD_CGROUP_CONTROLLER, root, NULL, 0, arg_kernel_threads, output_flags);
                 }
