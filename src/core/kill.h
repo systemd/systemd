@@ -50,6 +50,9 @@ typedef enum KillWho {
         KILL_MAIN,
         KILL_CONTROL,
         KILL_ALL,
+        KILL_MAIN_FAIL,
+        KILL_CONTROL_FAIL,
+        KILL_ALL_FAIL,
         _KILL_WHO_MAX,
         _KILL_WHO_INVALID = -1
 } KillWho;
