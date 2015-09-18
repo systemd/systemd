@@ -275,11 +275,11 @@ mouse:usb:v046dpc24e:name:Logitech G500s Laser Gaming Mouse:
  
  # Logitech G9
 mouse:usb:v046dpc048:name:Logitech G9 Laser Mouse:
- MOUSE_DPI=400@1000 600@1000 800@1000 1000@1000 1200@1000 1400@1000 1600@1000 1800@1000 2000@1000 2200@1000 2400@1000
+ MOUSE_DPI=400@1000 800@1000 *1600@1000
 
 # Logitech G9x [Call of Duty MW3 Edition]
 mouse:usb:v046dpc249:name:Logitech G9x Laser Mouse:
- MOUSE_DPI=400@1000 600@1000 800@1000 1000@1000 1200@1000 1400@1000 1600@1000 1800@1000 2000@1000 2200@1000 2400@1000
+ MOUSE_DPI=400@1000 800@1000 *1600@1000 32000@1000
 
 # Logitech G400 (Wired)
 mouse:usb:v046dpc245:name:Logitech Gaming Mouse G400:
