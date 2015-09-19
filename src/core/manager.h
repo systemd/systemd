@@ -242,6 +242,11 @@ struct Manager {
 
         bool test_run:1;
 
+        /* If non-zero, exit with the following value when the systemd
+         * process terminate. Useful for containers: systemd-nspawn could get
+         * the return value. */
+        unsigned return_value;
+
         ShowStatus show_status;
         bool confirm_spawn;
         bool no_console_output;

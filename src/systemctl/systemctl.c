@@ -4901,6 +4901,31 @@ static int daemon_reload(sd_bus *bus, char **args) {
                                     /* "daemon-reload" */ "Reload";
         }
 
+        if (streq(args[0], "exit")) {
+                unsigned code = 0;
+                if (strv_length(args) > 1) {
+                        r = safe_atou(args[1], &code);
+                        if (r < 0) {
+                                log_error("Invalid exit code.");
+                                return -EINVAL;
+                        }
+                }
+
+                r = sd_bus_call_method(
+                                bus,
+                                "org.freedesktop.systemd1",
+                                "/org/freedesktop/systemd1",
+                                "org.freedesktop.systemd1.Manager",
+                                "SetExitCode",
+                                &error,
+                                NULL,
+                                "u", code);
+                if (r < 0) {
+                        log_error("Failed to execute operation: %s", bus_error_message(&error, r));
+                        return r;
+                }
+        }
+
         r = sd_bus_call_method(
                         bus,
                         "org.freedesktop.systemd1",
@@ -6220,7 +6245,7 @@ static void systemctl_help(void) {
                "  poweroff                        Shut down and power-off the system\n"
                "  reboot [ARG]                    Shut down and reboot the system\n"
                "  kexec                           Shut down and reboot the system with kexec\n"
-               "  exit                            Request user instance exit\n"
+               "  exit [EXIT_CODE]                Request user instance or container exit\n"
                "  switch-root ROOT [INIT]         Change to a different root file system\n"
                "  suspend                         Suspend the system\n"
                "  hibernate                       Hibernate the system\n"
@@ -7207,7 +7232,7 @@ static int systemctl_main(sd_bus *bus, int argc, char *argv[], int bus_error) {
                 { "default",               EQUAL, 1, start_special     },
                 { "rescue",                EQUAL, 1, start_special     },
                 { "emergency",             EQUAL, 1, start_special     },
-                { "exit",                  EQUAL, 1, start_special     },
+                { "exit",                  LESS,  2, start_special     },
                 { "reset-failed",          MORE,  1, reset_failed      },
                 { "enable",                MORE,  2, enable_unit,      NOBUS },
                 { "disable",               MORE,  2, enable_unit,      NOBUS },

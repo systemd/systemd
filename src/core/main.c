@@ -1765,7 +1765,7 @@ int main(int argc, char *argv[]) {
                 switch (m->exit_code) {
 
                 case MANAGER_EXIT:
-                        retval = EXIT_SUCCESS;
+                        retval = m->return_value;
                         log_debug("Exit.");
                         goto finish;
 
@@ -2043,7 +2043,7 @@ finish:
                           getpid() == 1 ? "freezing" : "quitting");
         }
 
-        if (getpid() == 1) {
+        if (getpid() == 1 && detect_container(NULL) <= 0) {
                 if (error_message)
                         manager_status_printf(NULL, STATUS_TYPE_EMERGENCY,
                                               ANSI_HIGHLIGHT_RED_ON "!!!!!!" ANSI_HIGHLIGHT_OFF,
