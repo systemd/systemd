@@ -191,7 +191,7 @@ int main(int argc, char* argv[]) {
                 goto finish;
         }
 
-        r = sd_pid_notify(arg_pid, false, n);
+        r = sd_pid_notify(arg_pid ? arg_pid : getppid(), false, n);
         if (r < 0) {
                 log_error_errno(r, "Failed to notify init system: %m");
                 goto finish;
