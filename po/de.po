@@ -1,23 +1,24 @@
 # German translation for systemd.
 # Copyright (C) 2014 systemd's COPYRIGHT HOLDER
 # This file is distributed under the same license as the systemd package.
-# Christian Kirbach <Christian.Kirbach@gmail.com>, 2014.
+# Christian Kirbach <Christian.Kirbach@gmail.com>, 2014, 2015.
 # Benjamin Steinwender <b@stbe.at>, 2014.
+# Bernd Homuth <dev@hmt.im>, 2015.
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: systemd master\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2015-06-18 00:53+0200\n"
-"PO-Revision-Date: 2015-02-18 17:08+0100\n"
-"Last-Translator: Martin Pitt <martin.pitt@ubuntu.com>\n"
-"Language-Team: German <gnome-de@gnome.org>\n"
+"Report-Msgid-Bugs-To: https://github.com/systemd/systemd/issues\n"
+"POT-Creation-Date: 2015-09-19 12:09+0000\n"
+"PO-Revision-Date: 2015-09-19 20:02+0200\n"
+"Last-Translator: Bernd Homuth <dev@hmt.im>\n"
+"Language-Team: Deutsch <gnome-de@gnome.org>\n"
 "Language: de\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
-"X-Generator: Poedit 1.5.4\n"
+"X-Generator: Gtranslator 2.91.6\n"
 
 #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:1
 msgid "Send passphrase back to system"
@@ -31,16 +32,14 @@ msgstr ""
 "notwendig."
 
 #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:3
-#, fuzzy
 msgid "Manage system services or other units"
-msgstr "Systemdienste und Einheiten verwalten"
+msgstr "Systemdienste und andere Einheiten verwalten"
 
 #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:4
-#, fuzzy
 msgid "Authentication is required to manage system services or other units."
 msgstr ""
 "Legitimierung ist notwendig für die Verwaltung von Systemdiensten und "
-"Einheiten"
+"anderen Einheiten."
 
 #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:5
 msgid "Manage system service or unit files"
@@ -53,18 +52,15 @@ msgstr ""
 "Einheitendateien."
 
 #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:7
-#, fuzzy
 msgid "Set or unset system and service manager environment variables"
-msgstr "Privilegierter Zugriff auf die System- und Dienstverwaltung"
+msgstr ""
+"Umgebungsvariablen der System- und Dienstverwaltung festlegen oder entfernen"
 
 #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:8
-#, fuzzy
 msgid ""
 "Authentication is required to set or unset system and service manager "
 "environment variables."
-msgstr ""
-"Legitimierung ist notwendig für die Verwaltung von Systemdiensten und "
-"Einheitendateien."
+msgstr "Legitimierung ist notwendig für die System- und Dienstverwaltung."
 
 #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:9
 msgid "Reload the systemd state"
@@ -105,27 +101,23 @@ msgstr ""
 "erforderlich."
 
 #: ../src/import/org.freedesktop.import1.policy.in.h:1
-#, fuzzy
 msgid "Import a VM or container image"
-msgstr "Abbild einer VM oder eines Containers herunterladen"
+msgstr "Abbild einer VM oder eines Containers importieren"
 
 #: ../src/import/org.freedesktop.import1.policy.in.h:2
-#, fuzzy
 msgid "Authentication is required to import a VM or container image"
 msgstr ""
-"Legitimierung ist zum Herunterladen eines VM- oder Containerabbilds "
+"Legitimierung ist zum Importieren eines VM- oder Containerabbilds "
 "erforderlich"
 
 #: ../src/import/org.freedesktop.import1.policy.in.h:3
-#, fuzzy
 msgid "Export a VM or container image"
-msgstr "Abbild einer VM oder eines Containers herunterladen"
+msgstr "Abbild einer VM oder eines Containers exportieren"
 
 #: ../src/import/org.freedesktop.import1.policy.in.h:4
-#, fuzzy
 msgid "Authentication is required to export a VM or container image"
 msgstr ""
-"Legitimierung ist zum Herunterladen eines VM- oder Containerabbilds "
+"Legitimierung ist zum Exportieren eines VM- oder Containerabbilds "
 "erforderlich"
 
 #: ../src/import/org.freedesktop.import1.policy.in.h:5
@@ -441,70 +433,125 @@ msgstr ""
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:49
 msgid "Manage active sessions, users and seats"
-msgstr ""
+msgstr "Aktive Sitzungen, Benutzer und Arbeitsstationen verwalten"
 
 # www.freedesktop.org/wiki/Software/systemd/multiseat/
 #: ../src/login/org.freedesktop.login1.policy.in.h:50
-#, fuzzy
 msgid ""
 "Authentication is required for managing active sessions, users and seats."
 msgstr ""
-"Legitimierung ist zum Anschließen eines Geräts an eine Arbeitsstation "
-"notwendig."
+"Legitimierung ist zur Verwaltung aktiver Sitzungen, Benutzern und "
+"Arbeitsstationen notwendig."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:51
 msgid "Lock or unlock active sessions"
-msgstr ""
+msgstr "Aktive Sitzungen sperren und entsperren"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:52
-#, fuzzy
 msgid "Authentication is required to lock or unlock active sessions."
-msgstr "Legitimierung ist zum Anmelden in einem lokalen Container notwendig"
+msgstr ""
+"Legitimierung ist zum Sperren und Entsperren aktiver Sitzungen notwendig."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:53
 msgid "Allow indication to the firmware to boot to setup interface"
 msgstr ""
+"Mitteilungen an die Firmware zum Starten in die Einrichtungsoberfläche "
+"zulassen"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:54
-#, fuzzy
 msgid ""
 "Authentication is required to indicate to the firmware to boot to setup "
 "interface."
-msgstr "Legitimierung ist zum Festlegen des lokalen Rechnernamens notwendig"
+msgstr ""
+"Legitimierung ist zum Starten der Firmware in die Einrichtungsoberfläche "
+"notwendig."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:55
+msgid "Set a wall message"
+msgstr "Nachricht an alle einstellen"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:56
+msgid "Authentication is required to set a wall message"
+msgstr "Legitimierung ist zum Einstellen einer Nachricht an alle notwendig"
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:1
 msgid "Log into a local container"
 msgstr "In einem lokalen Container anmelden"
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:2
-#, fuzzy
 msgid "Authentication is required to log into a local container."
-msgstr "Legitimierung ist zum Anmelden in einem lokalen Container notwendig"
+msgstr "Legitimierung ist zum Anmelden in einem lokalen Container notwendig."
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:3
-msgid "Manage local virtual machines and containers"
-msgstr ""
+msgid "Log into the local host"
+msgstr "Am lokalen Rechner anmelden"
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:4
-#, fuzzy
+msgid "Authentication is required to log into the local host."
+msgstr "Legitimierung ist zum Anmelden am lokalen Rechner notwendig."
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:5
+msgid "Acquire a shell in a local container"
+msgstr "Eine Shell in einem lokalen Container erhalten"
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:6
+msgid "Authentication is required to acquire a shell in a local container."
+msgstr ""
+"Legitimierung ist zum Erhalten einer Shell in einem lokalen Container "
+"notwendig."
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:7
+msgid "Acquire a shell on the local host"
+msgstr "Eine Shell auf dem lokalen Rechner erhalten"
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:8
+msgid "Authentication is required to acquire a shell on the local host."
+msgstr ""
+"Legitimierung ist zum Erhalten einer Shell auf dem lokalen Rechner notwendig."
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:9
+msgid "Acquire a pseudo TTY in a local container"
+msgstr "Ein Pseudo-TTY in einem lokalen Container erhalten"
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:10
+msgid ""
+"Authentication is required to acquire a pseudo TTY in a local container."
+msgstr ""
+"Legitimierung ist zum Erhalten eines Pseudo-TTY in einem lokalen Container "
+"notwendig."
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:11
+msgid "Acquire a pseudo TTY on the local host"
+msgstr "Ein Pseudo-TTY auf dem lokalen Rechner erhalten"
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:12
+msgid "Authentication is required to acquire a pseudo TTY on the local host."
+msgstr ""
+"Legitimierung ist zum Erhalten eines Pseudo-TTY auf dem lokalen Rechner "
+"notwendig."
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:13
+msgid "Manage local virtual machines and containers"
+msgstr "Lokale virtuelle Maschinen und Container verwalten"
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:14
 msgid ""
 "Authentication is required to manage local virtual machines and containers."
 msgstr ""
-"Legitimierung ist zum Festlegen der lokalen Maschinen-Information "
+"Legitimierung ist zum Verwalten lokaler virtueller Maschinen und Container "
 "erforderlich."
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:5
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:15
 msgid "Manage local virtual machine and container images"
-msgstr ""
+msgstr "Lokale virtuelle Maschinen und Containerabbilder verwalten"
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:6
-#, fuzzy
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:16
 msgid ""
 "Authentication is required to manage local virtual machine and container "
 "images."
 msgstr ""
-"Legitimierung ist zum Herunterladen eines VM- oder Containerabbilds "
-"erforderlich"
+"Legitimierung ist zum Verwalten lokaler virtueller Maschinen und "
+"Containerabbildern erforderlich."
 
 #: ../src/timedate/org.freedesktop.timedate1.policy.in.h:1
 msgid "Set system time"
@@ -545,6 +592,37 @@ msgid ""
 msgstr ""
 "Legitimierung ist zum Festlegen, ob Netzwerkzeitabgeich eingeschaltet sein "
 "soll, erforderlich."
+
+#: ../src/core/dbus-unit.c:428
+msgid "Authentication is required to start '$(unit)'."
+msgstr "Legitimierung ist zum Starten von »$(unit)« notwendig."
+
+#: ../src/core/dbus-unit.c:429
+msgid "Authentication is required to stop '$(unit)'."
+msgstr "Legitimierung ist zum Stoppen von »$(unit)« notwendig."
+
+#: ../src/core/dbus-unit.c:430
+msgid "Authentication is required to reload '$(unit)'."
+msgstr "Legitimierung ist zum erneuten Laden von »$(unit)« notwendig."
+
+#: ../src/core/dbus-unit.c:431 ../src/core/dbus-unit.c:432
+msgid "Authentication is required to restart '$(unit)'."
+msgstr "Legitimierung ist zum Neustarten von »$(unit)« notwendig."
+
+#: ../src/core/dbus-unit.c:535
+msgid "Authentication is required to kill '$(unit)'."
+msgstr "Legitimierung ist zum Eliminieren von »$(unit)« notwendig."
+
+#: ../src/core/dbus-unit.c:565
+msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
+msgstr ""
+"Legitimierung ist zum Zurücksetzen des Status »fehlgeschlagen« von »$(unit)« "
+"notwendig"
+
+#: ../src/core/dbus-unit.c:597
+msgid "Authentication is required to set properties on '$(unit)'."
+msgstr ""
+"Legitimierung ist zum Festlegen der Eigenschaften von »$(unit)« notwendig."
 
 #~ msgid "Press Ctrl+C to cancel all filesystem checks in progress"
 #~ msgstr "Strl+C drücken um laufende Dateisystem-Prüfungen abzubrechen"
