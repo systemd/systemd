@@ -3049,6 +3049,7 @@ int config_parse_runtime_directory(
                 void *userdata) {
 
         char***rt = data;
+        Unit *u = userdata;
         const char *word, *state;
         size_t l;
         int r;
@@ -3065,11 +3066,18 @@ int config_parse_runtime_directory(
         }
 
         FOREACH_WORD_QUOTED(word, l, rvalue, state) {
-                _cleanup_free_ char *n;
+                _cleanup_free_ char *t = NULL, *n = NULL;
 
-                n = strndup(word, l);
-                if (!n)
+                t = strndup(word, l);
+                if (!t)
                         return log_oom();
+
+                r = unit_name_printf(u, t, &n);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, -r,
+                                   "Failed to resolve specifiers, ignoring: %s", strerror(-r));
+                        continue;
+                }
 
                 if (!filename_is_valid(n)) {
                         log_syntax(unit, LOG_ERR, filename, line, EINVAL,
