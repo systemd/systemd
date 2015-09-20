@@ -48,6 +48,7 @@
 #define FINALIZE_ATTEMPTS 50
 
 static char* arg_verb;
+static uint8_t exit_code;
 
 static int parse_argv(int argc, char *argv[]) {
         enum {
@@ -55,6 +56,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_LOG_TARGET,
                 ARG_LOG_COLOR,
                 ARG_LOG_LOCATION,
+                ARG_EXIT_CODE,
         };
 
         static const struct option options[] = {
@@ -62,6 +64,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "log-target",    required_argument, NULL, ARG_LOG_TARGET   },
                 { "log-color",     optional_argument, NULL, ARG_LOG_COLOR    },
                 { "log-location",  optional_argument, NULL, ARG_LOG_LOCATION },
+                { "exit-code",     required_argument, NULL, ARG_EXIT_CODE    },
                 {}
         };
 
@@ -107,6 +110,13 @@ static int parse_argv(int argc, char *argv[]) {
                                         log_error("Failed to parse log location setting %s, ignoring", optarg);
                         } else
                                 log_show_location(true);
+
+                        break;
+
+                case ARG_EXIT_CODE:
+                        r = safe_atou8(optarg, &exit_code);
+                        if (r < 0)
+                                log_error("Failed to parse exit code %s, ignoring", optarg);
 
                         break;
 
@@ -183,6 +193,8 @@ int main(int argc, char *argv[]) {
                 cmd = RB_HALT_SYSTEM;
         else if (streq(arg_verb, "kexec"))
                 cmd = LINUX_REBOOT_CMD_KEXEC;
+        else if (streq(arg_verb, "exit"))
+                cmd = 0; /* ignored, just checking that arg_verb is valid */
         else {
                 r = -EINVAL;
                 log_error("Unknown action '%s'.", arg_verb);
@@ -338,6 +350,10 @@ int main(int argc, char *argv[]) {
          * needlessly slow down containers. */
         if (!in_container)
                 sync();
+
+        if (streq(arg_verb, "exit")) {
+                exit(exit_code);
+        }
 
         switch (cmd) {
 

@@ -30,6 +30,7 @@
 /systemd-fsck@.service
 /systemd-machine-id-commit.service
 /systemd-halt.service
+/systemd-exit.service
 /systemd-hibernate.service
 /systemd-hostnamed.service
 /systemd-hybrid-sleep.service

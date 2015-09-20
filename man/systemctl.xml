@@ -1622,13 +1622,17 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
         </varlistentry>
 
         <varlistentry>
-          <term><command>exit</command></term>
+          <term><command>exit <optional><replaceable>EXIT_CODE</replaceable></optional></command></term>
 
           <listitem>
             <para>Ask the systemd manager to quit. This is only
             supported for user service managers (i.e. in conjunction
-            with the <option>--user</option> option) and will fail
-            otherwise.</para>
+            with the <option>--user</option> option) or in containers
+            and will fail otherwise.</para>
+
+            <para>The systemd manager can exit with a non-zero exit
+            code if the optional argument
+            <replaceable>EXIT_CODE</replaceable> is given.</para>
           </listitem>
         </varlistentry>
 
