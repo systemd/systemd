@@ -60,7 +60,10 @@ DEFINE_STRING_TABLE_LOOKUP(kill_mode, KillMode);
 static const char* const kill_who_table[_KILL_WHO_MAX] = {
         [KILL_MAIN] = "main",
         [KILL_CONTROL] = "control",
-        [KILL_ALL] = "all"
+        [KILL_ALL] = "all",
+        [KILL_MAIN_FAIL] = "main-fail",
+        [KILL_CONTROL_FAIL] = "control-fail",
+        [KILL_ALL_FAIL] = "all-fail"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(kill_who, KillWho);

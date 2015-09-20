@@ -3107,6 +3107,7 @@ static int check_unit_failed(sd_bus *bus, char **args) {
 
 static int kill_unit(sd_bus *bus, char **args) {
         _cleanup_strv_free_ char **names = NULL;
+        _cleanup_free_ char *kill_who = NULL;
         char **name;
         int r, q;
 
@@ -3117,6 +3118,13 @@ static int kill_unit(sd_bus *bus, char **args) {
 
         if (!arg_kill_who)
                 arg_kill_who = "all";
+
+        /* --fail was specified */
+        if (streq(arg_job_mode, "fail")) {
+                kill_who = strjoin(arg_kill_who, "-fail", NULL);
+                if (!kill_who)
+                        return -ENOMEM;
+        }
 
         r = expand_names(bus, args + 1, NULL, &names);
         if (r < 0)
@@ -3133,7 +3141,7 @@ static int kill_unit(sd_bus *bus, char **args) {
                                 "KillUnit",
                                 &error,
                                 NULL,
-                                "ssi", *names, arg_kill_who, arg_signal);
+                                "ssi", *names, kill_who ? kill_who : arg_kill_who, arg_signal);
                 if (q < 0) {
                         log_error("Failed to kill unit %s: %s", *names, bus_error_message(&error, q));
                         if (r == 0)

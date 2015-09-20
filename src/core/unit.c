@@ -3064,6 +3064,7 @@ int unit_kill_common(
                 sd_bus_error *error) {
 
         int r = 0;
+        bool killed = false;
 
         if (who == KILL_MAIN) {
                 if (main_pid < 0)
@@ -3080,14 +3081,25 @@ int unit_kill_common(
         }
 
         if (who == KILL_CONTROL || who == KILL_ALL)
-                if (control_pid > 0)
+                if (control_pid > 0) {
                         if (kill(control_pid, signo) < 0)
                                 r = -errno;
+                        else
+                                killed = true;
+                }
 
         if (who == KILL_MAIN || who == KILL_ALL)
-                if (main_pid > 0)
+                if (main_pid > 0) {
                         if (kill(main_pid, signo) < 0)
                                 r = -errno;
+                        else
+                                killed = true;
+                }
+
+        /* If nothing was killed, consider it an error */
+        if (r == 0 && !killed &&
+            (who == KILL_ALL_FAIL || who == KILL_CONTROL_FAIL || who == KILL_ALL_FAIL))
+                r = -ESRCH;
 
         if (who == KILL_ALL && u->cgroup_path) {
                 _cleanup_set_free_ Set *pid_set = NULL;
