@@ -36,6 +36,10 @@
 #include "cgroup-util.h"
 #include "build.h"
 #include "fileio.h"
+#include "sd-bus.h"
+#include "bus-util.h"
+#include "bus-error.h"
+#include "unit-name.h"
 
 typedef struct Group {
         char *path;
@@ -65,6 +69,7 @@ static unsigned arg_iterations = (unsigned) -1;
 static bool arg_batch = false;
 static bool arg_raw = false;
 static usec_t arg_delay = 1*USEC_PER_SEC;
+static char* arg_machine = NULL;
 
 enum {
         COUNT_PIDS,
@@ -645,6 +650,7 @@ static void help(void) {
                "  -n --iterations=N   Run for N iterations before exiting\n"
                "  -b --batch          Run in batch mode, accepting no input\n"
                "     --depth=DEPTH    Maximum traversal depth (default: %u)\n"
+               "  -M --machine=       Show container\n"
                , program_invocation_short_name, arg_depth);
 }
 
@@ -669,6 +675,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "cpu",          optional_argument, NULL, ARG_CPU_TYPE  },
                 { "order",        required_argument, NULL, ARG_ORDER     },
                 { "recursive",    required_argument, NULL, ARG_RECURSIVE },
+                { "machine",      required_argument, NULL, 'M'           },
                 {}
         };
 
@@ -678,7 +685,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 1);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hptcmin:brd:kP", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hptcmin:brd:kPM:", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -797,6 +804,10 @@ static int parse_argv(int argc, char *argv[]) {
                         recursive_unset = r == 0;
                         break;
 
+                case 'M':
+                        arg_machine = optarg;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -826,6 +837,48 @@ static const char* counting_what(void) {
                 return "userspace processes (excl. kernel)";
 }
 
+static int get_cgroup_root(char **ret) {
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
+        _cleanup_free_ char *unit = NULL, *path = NULL;
+        const char *m;
+        int r;
+
+        if (!arg_machine) {
+                r = cg_get_root_path(ret);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get root control group path: %m");
+
+                return 0;
+        }
+
+        m = strjoina("/run/systemd/machines/", arg_machine);
+        r = parse_env_file(m, NEWLINE, "SCOPE", &unit, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to load machine data: %m");
+
+        path = unit_dbus_path_from_name(unit);
+        if (!path)
+                return log_oom();
+
+        r = bus_open_transport(BUS_TRANSPORT_LOCAL, NULL, false, &bus);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create bus connection: %m");
+
+        r = sd_bus_get_property_string(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        path,
+                        unit_dbus_interface_from_name(unit),
+                        "ControlGroup",
+                        &error,
+                        ret);
+        if (r < 0)
+                return log_error_errno(r, "Failed to query unit control group path: %s", bus_error_message(&error, r));
+
+        return 0;
+}
+
 int main(int argc, char *argv[]) {
         int r;
         Hashmap *a = NULL, *b = NULL;
@@ -850,7 +903,7 @@ int main(int argc, char *argv[]) {
         if (r <= 0)
                 goto finish;
 
-        r = cg_get_root_path(&root);
+        r = get_cgroup_root(&root);
         if (r < 0) {
                 log_error_errno(r, "Failed to get root control group path: %m");
                 goto finish;
