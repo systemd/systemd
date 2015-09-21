@@ -246,6 +246,15 @@
         3.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>-M <replaceable>MACHINE</replaceable></option></term>
+        <term><option>--machine=<replaceable>MACHINE</replaceable></option></term>
+
+        <listitem><para>Limit control groups shown to the part
+        corresponding to the container
+        <replaceable>MACHINE</replaceable>.</para></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>
