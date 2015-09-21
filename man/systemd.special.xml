@@ -212,6 +212,26 @@
         </listitem>
       </varlistentry>
       <varlistentry>
+        <term><filename>exit.target</filename></term>
+        <listitem>
+          <para>A special service unit for shutting down the system or
+          user service manager. It also works in containers and is
+          equivalent to <filename>poweroff.target</filename> on
+          non-container systems.</para>
+
+          <para>Applications wanting to terminate the user service
+          manager should start this unit. If systemd receives
+          <constant>SIGTERM</constant> or <constant>SIGINT</constant>
+          when running as user service daemon, it will start this
+          unit.</para>
+
+          <para>Normally, this pulls in
+          <filename>shutdown.target</filename> which in turn should be
+          conflicted by all units that want to be shut down on user
+          service manager exit.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
         <term><filename>final.target</filename></term>
         <listitem>
           <para>A special target unit that is used during the shutdown
@@ -797,6 +817,7 @@
     <para>When systemd runs as a user instance, the following special
     units are available, which have similar definitions as their
     system counterparts:
+    <filename>exit.target</filename>,
     <filename>default.target</filename>,
     <filename>shutdown.target</filename>,
     <filename>sockets.target</filename>,
@@ -806,30 +827,6 @@
     <filename>printer.target</filename>,
     <filename>smartcard.target</filename>,
     <filename>sound.target</filename>.</para>
-
-    <para>In addition, the following special unit is understood only
-    when systemd runs as service instance:</para>
-
-    <variablelist>
-      <varlistentry>
-        <term><filename>exit.target</filename></term>
-        <listitem>
-          <para>A special service unit for shutting down the user
-          service manager.</para>
-
-          <para>Applications wanting to terminate the user service
-          manager should start this unit. If systemd receives
-          <constant>SIGTERM</constant> or <constant>SIGINT</constant>
-          when running as user service daemon, it will start this
-          unit.</para>
-
-          <para>Normally, this pulls in
-          <filename>shutdown.target</filename> which in turn should be
-          conflicted by all units that want to be shut down on user
-          service manager exit.</para>
-        </listitem>
-      </varlistentry>
-    </variablelist>
   </refsect1>
 
   <refsect1>

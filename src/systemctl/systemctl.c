@@ -3005,6 +3005,7 @@ static int prepare_firmware_setup(sd_bus *bus) {
 }
 
 static int start_special(sd_bus *bus, char **args) {
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         enum action a;
         int r;
 
@@ -3029,6 +3030,31 @@ static int start_special(sd_bus *bus, char **args) {
                 r = update_reboot_param_file(args[1]);
                 if (r < 0)
                         return r;
+        } else if (a == ACTION_EXIT && strv_length(args) > 1) {
+                /* If the exit code is not given on the command line, don't
+                 * reset it to zero: just keep it as it might have been set
+                 * previously. */
+                uint8_t code = 0;
+
+                r = safe_atou8(args[1], &code);
+                if (r < 0) {
+                        log_error("Invalid exit code.");
+                        return -EINVAL;
+                }
+
+                r = sd_bus_call_method(
+                                bus,
+                                "org.freedesktop.systemd1",
+                                "/org/freedesktop/systemd1",
+                                "org.freedesktop.systemd1.Manager",
+                                "SetExitCode",
+                                &error,
+                                NULL,
+                                "y", code);
+                if (r < 0) {
+                        log_error("Failed to execute operation: %s", bus_error_message(&error, r));
+                        return r;
+                }
         }
 
         if (arg_force >= 2 &&
@@ -6224,7 +6250,7 @@ static void systemctl_help(void) {
                "  poweroff                        Shut down and power-off the system\n"
                "  reboot [ARG]                    Shut down and reboot the system\n"
                "  kexec                           Shut down and reboot the system with kexec\n"
-               "  exit                            Request user instance exit\n"
+               "  exit [EXIT_CODE]                Request user instance or container exit\n"
                "  switch-root ROOT [INIT]         Change to a different root file system\n"
                "  suspend                         Suspend the system\n"
                "  hibernate                       Hibernate the system\n"
@@ -7211,7 +7237,7 @@ static int systemctl_main(sd_bus *bus, int argc, char *argv[], int bus_error) {
                 { "default",               EQUAL, 1, start_special     },
                 { "rescue",                EQUAL, 1, start_special     },
                 { "emergency",             EQUAL, 1, start_special     },
-                { "exit",                  EQUAL, 1, start_special     },
+                { "exit",                  LESS,  2, start_special     },
                 { "reset-failed",          MORE,  1, reset_failed      },
                 { "enable",                MORE,  2, enable_unit,      NOBUS },
                 { "disable",               MORE,  2, enable_unit,      NOBUS },

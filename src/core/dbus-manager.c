@@ -1201,8 +1201,10 @@ static int method_exit(sd_bus_message *message, void *userdata, sd_bus_error *er
         if (r < 0)
                 return r;
 
-        if (m->running_as == MANAGER_SYSTEM)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Exit is only supported for user service managers.");
+        /* Exit() (in contrast to SetExitCode()) is actually allowed even if
+         * we are running on the host. It will fall back on reboot() in
+         * systemd-shutdown if it cannot do the exit() because it isn't a
+         * container. */
 
         m->exit_code = MANAGER_EXIT;
 
@@ -1446,6 +1448,30 @@ static int method_unset_and_set_environment(sd_bus_message *message, void *userd
         r = manager_environment_add(m, minus, plus);
         if (r < 0)
                 return r;
+
+        return sd_bus_reply_method_return(message, NULL);
+}
+
+static int method_set_exit_code(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        uint8_t code;
+        Manager *m = userdata;
+        int r;
+
+        assert(message);
+        assert(m);
+
+        r = mac_selinux_access_check(message, "exit", error);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_read_basic(message, 'y', &code);
+        if (r < 0)
+                return r;
+
+        if (m->running_as == MANAGER_SYSTEM && detect_container() <= 0)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "ExitCode can only be set for user service managers or in containers.");
+
+        m->return_value = code;
 
         return sd_bus_reply_method_return(message, NULL);
 }
@@ -1933,6 +1959,7 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_WRITABLE_PROPERTY("ShutdownWatchdogUSec", "t", bus_property_get_usec, bus_property_set_usec, offsetof(Manager, shutdown_watchdog), 0),
         SD_BUS_PROPERTY("ControlGroup", "s", NULL, offsetof(Manager, cgroup_root), 0),
         SD_BUS_PROPERTY("SystemState", "s", property_get_system_state, 0, 0),
+        SD_BUS_PROPERTY("ExitCode", "y", bus_property_get_unsigned, offsetof(Manager, return_value), 0),
 
         SD_BUS_METHOD("GetUnit", "s", "o", method_get_unit, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("GetUnitByPID", "u", "o", method_get_unit_by_pid, SD_BUS_VTABLE_UNPRIVILEGED),
@@ -1986,6 +2013,7 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_METHOD("GetDefaultTarget", NULL, "s", method_get_default_target, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("PresetAllUnitFiles", "sbb", "a(sss)", method_preset_all_unit_files, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("AddDependencyUnitFiles", "asssbb", "a(sss)", method_add_dependency_unit_files, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("SetExitCode", "y", NULL, method_set_exit_code, SD_BUS_VTABLE_UNPRIVILEGED),
 
         SD_BUS_SIGNAL("UnitNew", "so", 0),
         SD_BUS_SIGNAL("UnitRemoved", "so", 0),
