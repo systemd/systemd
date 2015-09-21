@@ -140,6 +140,7 @@ static void test_exec_umask(Manager *m) {
 static void test_exec_runtimedirectory(Manager *m) {
         test(m, "exec-runtimedirectory.service", 0, CLD_EXITED);
         test(m, "exec-runtimedirectory-mode.service", 0, CLD_EXITED);
+        test(m, "exec-runtimedirectory-owner.service", 0, CLD_EXITED);
 }
 
 int main(int argc, char *argv[]) {
