@@ -1556,6 +1556,20 @@ static int exec_child(
 
         if (!strv_isempty(context->runtime_directory) && params->runtime_prefix) {
                 char **rt;
+                gid_t gid_temp = gid;
+
+                /* If Group= is set, the runtime directories are owned by this group and not
+                 * the default group of the user.
+                 */
+                if (context->group) {
+                        const char *g = context->group;
+
+                        r = get_group_creds(&g, &gid_temp);
+                        if (r < 0) {
+                                *exit_status = EXIT_GROUP;
+                                return r;
+                        }
+                }
 
                 STRV_FOREACH(rt, context->runtime_directory) {
                         _cleanup_free_ char *p;
@@ -1572,7 +1586,7 @@ static int exec_child(
                                 return r;
                         }
 
-                        r = chmod_and_chown(p, context->runtime_directory_mode, uid, gid);
+                        r = chmod_and_chown(p, context->runtime_directory_mode, uid, gid_temp);
                         if (r < 0) {
                                 *exit_status = EXIT_RUNTIME_DIRECTORY;
                                 return r;

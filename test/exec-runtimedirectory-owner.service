@@ -1,0 +1,9 @@
+[Unit]
+Description=Test for RuntimeDirectory owner (must not be the default group of the user if Group is set)
+
+[Service]
+ExecStart=/bin/sh -c 'f=/tmp/test-exec_runtimedirectory-owner;g=$(stat -c %G $f); echo "$g"; exit $(test $g = "nobody")'
+Type=oneshot
+Group=nobody
+User=root
+RuntimeDirectory=test-exec_runtimedirectory-owner
