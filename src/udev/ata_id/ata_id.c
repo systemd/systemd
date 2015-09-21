@@ -484,6 +484,10 @@ int main(int argc, char *argv[])
                 disk_identify_fixup_uint16(identify.byte,  90);     /* time required for enhanced SECURITY ERASE UNIT */
                 disk_identify_fixup_uint16(identify.byte,  91);     /* current APM values */
                 disk_identify_fixup_uint16(identify.byte,  94);     /* current AAM value */
+                disk_identify_fixup_uint16(identify.byte, 108);     /* wwn */
+                disk_identify_fixup_uint16(identify.byte, 109);     /* wwn */
+                disk_identify_fixup_uint16(identify.byte, 110);     /* wwn */
+                disk_identify_fixup_uint16(identify.byte, 111);     /* wwn */
                 disk_identify_fixup_uint16(identify.byte, 128);     /* device lock function */
                 disk_identify_fixup_uint16(identify.byte, 217);     /* nominal media rotation rate */
                 memcpy(&id, identify.byte, sizeof id);
