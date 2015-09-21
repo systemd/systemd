@@ -81,6 +81,8 @@ typedef struct SocketPort {
 
         SocketType type;
         int fd;
+        int *auxiliary_fds;
+        int n_auxiliary_fds;
 
         SocketAddress address;
         char *path;
