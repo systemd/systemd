@@ -629,15 +629,6 @@ static int enforce_groups(const ExecContext *context, const char *username, gid_
          * we avoid NSS lookups for gid=0. */
 
         if (context->group || username) {
-
-                if (context->group) {
-                        const char *g = context->group;
-
-                        r = get_group_creds(&g, &gid);
-                        if (r < 0)
-                                return r;
-                }
-
                 /* First step, initialize groups from /etc/groups */
                 if (username && gid != 0) {
                         if (initgroups(username, gid) < 0)
@@ -1413,6 +1404,17 @@ static int exec_child(
                         return r;
                 }
         }
+
+        if (context->group) {
+                const char *g = context->group;
+
+                r = get_group_creds(&g, &gid);
+                if (r < 0) {
+                        *exit_status = EXIT_GROUP;
+                        return r;
+                }
+        }
+
 
         /* If a socket is connected to STDIN/STDOUT/STDERR, we
          * must sure to drop O_NONBLOCK */
