@@ -35,7 +35,7 @@ _systemd_cgtop() {
 
         local -A OPTS=(
                [STANDALONE]='-h --help --version -p -t -c -m -i -b --batch -n --iterations -d --delay'
-               [ARG]='--cpu --depth -M --machine'
+               [ARG]='--cpu --depth -M --machine --recursive'
                )
 
         _init_completion || return
@@ -45,6 +45,8 @@ _systemd_cgtop() {
                         --machine|-M)
                                 comps=$( __get_machines )
                         ;;
+                        --recursive)
+                                comps='yes no'
                 esac
                 COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
                 return 0
