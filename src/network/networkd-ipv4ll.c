@@ -195,10 +195,7 @@ static void ipv4ll_handler(sd_ipv4ll *ll, int event, void *userdata){
                         }
                         break;
                 default:
-                        if (event < 0)
-                                log_link_warning(link, "IPv4 link-local error: %s", strerror(-event));
-                        else
-                                log_link_warning(link, "IPv4 link-local unknown event: %d", event);
+                        log_link_warning(link, "IPv4 link-local unknown event: %d", event);
                         break;
         }
 }
@@ -218,7 +215,9 @@ int ipv4ll_configure(Link *link) {
         if (link->udev_device) {
                 r = net_get_unique_predictable_data(link->udev_device, seed);
                 if (r >= 0) {
-                        r = sd_ipv4ll_set_address_seed(link->ipv4ll, seed);
+                        assert_cc(sizeof(unsigned) <= 8);
+
+                        r = sd_ipv4ll_set_address_seed(link->ipv4ll, *(unsigned *)seed);
                         if (r < 0)
                                 return r;
                 }
