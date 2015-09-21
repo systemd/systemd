@@ -100,7 +100,7 @@ int arp_network_bind_raw_socket(int index, be32_t address, const struct ether_ad
 }
 
 static void test_public_api_setters(sd_event *e) {
-        uint8_t seed[8];
+        unsigned seed = 0;
         sd_ipv4ll *ll;
         struct ether_addr mac_addr = {
                 .ether_addr_octet = {'A', 'B', 'C', '1', '2', '3'}};
@@ -118,8 +118,8 @@ static void test_public_api_setters(sd_event *e) {
         assert_se(sd_ipv4ll_set_callback(NULL, NULL, NULL) == -EINVAL);
         assert_se(sd_ipv4ll_set_callback(ll, NULL, NULL) == 0);
 
-        assert_se(sd_ipv4ll_set_address_seed(NULL, *(unsigned *) seed) == -EINVAL);
-        assert_se(sd_ipv4ll_set_address_seed(ll, *(unsigned *) seed) == 0);
+        assert_se(sd_ipv4ll_set_address_seed(NULL, seed) == -EINVAL);
+        assert_se(sd_ipv4ll_set_address_seed(ll, seed) == 0);
 
         assert_se(sd_ipv4ll_set_mac(NULL, NULL) == -EINVAL);
         assert_se(sd_ipv4ll_set_mac(ll, NULL) == -EINVAL);
