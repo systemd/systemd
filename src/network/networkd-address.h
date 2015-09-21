@@ -56,7 +56,7 @@ struct Address {
 };
 
 int address_new_static(Network *network, unsigned section, Address **ret);
-int address_new_dynamic(Address **ret);
+int address_new(Address **ret);
 void address_free(Address *address);
 int address_configure(Address *address, Link *link, sd_netlink_message_handler_t callback);
 int address_update(Address *address, Link *link, sd_netlink_message_handler_t callback);

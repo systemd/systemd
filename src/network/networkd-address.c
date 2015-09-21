@@ -30,17 +30,27 @@
 #include "networkd.h"
 #include "networkd-address.h"
 
-static void address_init(Address *address) {
-        assert(address);
+int address_new(Address **ret) {
+        _cleanup_address_free_ Address *address = NULL;
+
+        address = new0(Address, 1);
+        if (!address)
+                return -ENOMEM;
 
         address->family = AF_UNSPEC;
         address->scope = RT_SCOPE_UNIVERSE;
         address->cinfo.ifa_prefered = CACHE_INFO_INFINITY_LIFE_TIME;
         address->cinfo.ifa_valid = CACHE_INFO_INFINITY_LIFE_TIME;
+
+        *ret = address;
+        address = NULL;
+
+        return 0;
 }
 
 int address_new_static(Network *network, unsigned section, Address **ret) {
         _cleanup_address_free_ Address *address = NULL;
+        int r;
 
         if (section) {
                 address = hashmap_get(network->addresses_by_section, UINT_TO_PTR(section));
@@ -52,11 +62,9 @@ int address_new_static(Network *network, unsigned section, Address **ret) {
                 }
         }
 
-        address = new0(Address, 1);
-        if (!address)
-                return -ENOMEM;
-
-        address_init(address);
+        r = address_new(&address);
+        if (r < 0)
+                return r;
 
         address->network = network;
 
@@ -67,21 +75,6 @@ int address_new_static(Network *network, unsigned section, Address **ret) {
                 hashmap_put(network->addresses_by_section,
                             UINT_TO_PTR(address->section), address);
         }
-
-        *ret = address;
-        address = NULL;
-
-        return 0;
-}
-
-int address_new_dynamic(Address **ret) {
-        _cleanup_address_free_ Address *address = NULL;
-
-        address = new0(Address, 1);
-        if (!address)
-                return -ENOMEM;
-
-        address_init(address);
 
         *ret = address;
         address = NULL;
@@ -292,7 +285,7 @@ static int address_acquire(Link *link, Address *original, Address **ret) {
         } else if (original->family == AF_INET6)
                 in_addr.in6.s6_addr[15] |= 1;
 
-        r = address_new_dynamic(&na);
+        r = address_new(&na);
         if (r < 0)
                 return r;
 
