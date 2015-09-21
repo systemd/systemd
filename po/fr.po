@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2015-06-18 00:53+0200\n"
+"POT-Creation-Date: 2015-09-21 20:11+0200\n"
 "PO-Revision-Date: 2014-12-28 13:04+0100\n"
 "Last-Translator: Sylvain Plantefève <sylvain.plantefeve@gmail.com>\n"
 "Language-Team: French\n"
@@ -200,7 +200,7 @@ msgstr ""
 #: ../src/login/org.freedesktop.login1.policy.in.h:11
 msgid "Allow applications to inhibit system handling of the power key"
 msgstr ""
-"Permet aux applications d'empêcher la gestion du bouton d'alimentation  du "
+"Permet aux applications d'empêcher la gestion du bouton d'alimentation du "
 "système"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:12
@@ -344,8 +344,8 @@ msgid ""
 "Authentication is required for rebooting the system while an application "
 "asked to inhibit it."
 msgstr ""
-"Authentification requise pour redémarrer le système alors qu'une "
-"application  a demandé de l'empêcher."
+"Authentification requise pour redémarrer le système alors qu'une application "
+"a demandé de l'empêcher."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:37
 msgid "Suspend the system"
@@ -452,6 +452,14 @@ msgstr ""
 "Authentification requise pour indiquer au micrologiciel de démarrer sur "
 "l'interface de configuration."
 
+#: ../src/login/org.freedesktop.login1.policy.in.h:55
+msgid "Set a wall message"
+msgstr "Définir un message wall"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:56
+msgid "Authentication is required to set a wall message"
+msgstr "Authentification requise pour définir un message wall."
+
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:1
 msgid "Log into a local container"
 msgstr "Connexion dans un conteneur local"
@@ -462,21 +470,68 @@ msgstr ""
 "Authentification requise pour permettre la connexion dans un conteneur local."
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:3
+msgid "Log into the local host"
+msgstr "Connexion à l'hôte local"
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:4
+msgid "Authentication is required to log into the local host."
+msgstr "Authentification requise pour permettre la connexion à l'hôte local."
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:5
+msgid "Acquire a shell in a local container"
+msgstr "Obtenir une interface système dans un conteneur local"
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:6
+msgid "Authentication is required to acquire a shell in a local container."
+msgstr ""
+"Authentification requise pour obtenir une interface système dans un "
+"conteneur local."
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:7
+msgid "Acquire a shell on the local host"
+msgstr "Obtenir une interface système sur l'hôte local"
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:8
+msgid "Authentication is required to acquire a shell on the local host."
+msgstr ""
+"Authentification requise pour obtenir une interface système sur l'hôte local."
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:9
+msgid "Acquire a pseudo TTY in a local container"
+msgstr "Obtenir un pseudo terminal dans un conteneur local"
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:10
+msgid ""
+"Authentication is required to acquire a pseudo TTY in a local container."
+msgstr ""
+"Authentification requise pour obtenir un pseudo terminal dans un conteneur "
+"local."
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:11
+msgid "Acquire a pseudo TTY on the local host"
+msgstr "Obtenir un pseudo terminal sur l'hôte local"
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:12
+msgid "Authentication is required to acquire a pseudo TTY on the local host."
+msgstr ""
+"Authentification requise pour obtenir un pseudo terminal sur l'hôte local."
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:13
 msgid "Manage local virtual machines and containers"
 msgstr "Gérer les machines virtuelles (VM) et conteneurs locaux"
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:4
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:14
 msgid ""
 "Authentication is required to manage local virtual machines and containers."
 msgstr ""
 "Authentification requise pour gérer les machines virtuelles (VM) et les "
 "conteneurs locaux."
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:5
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:15
 msgid "Manage local virtual machine and container images"
 msgstr "Gérer les images locales de machines virtuelles (VM) et de conteneurs"
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:6
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:16
 msgid ""
 "Authentication is required to manage local virtual machine and container "
 "images."
@@ -525,6 +580,36 @@ msgid ""
 msgstr ""
 "Authentification requise pour activer ou désactiver la synchronisation de "
 "l'heure avec le réseau."
+
+#: ../src/core/dbus-unit.c:428
+msgid "Authentication is required to start '$(unit)'."
+msgstr "Authentification requise pour démarrer « $(unit) »."
+
+#: ../src/core/dbus-unit.c:429
+msgid "Authentication is required to stop '$(unit)'."
+msgstr "Authentification requise pour arrêter « $(unit) »."
+
+#: ../src/core/dbus-unit.c:430
+msgid "Authentication is required to reload '$(unit)'."
+msgstr "Authentification requise pour recharger « $(unit) »."
+
+#: ../src/core/dbus-unit.c:431 ../src/core/dbus-unit.c:432
+msgid "Authentication is required to restart '$(unit)'."
+msgstr "Authentification requise pour redémarrer « $(unit) »."
+
+#: ../src/core/dbus-unit.c:535
+msgid "Authentication is required to kill '$(unit)'."
+msgstr "Authentification requise pour tuer « $(unit) »."
+
+#: ../src/core/dbus-unit.c:565
+msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
+msgstr ""
+"Authentification requise pour réinitialiser l'état d'« échec » de "
+"« $(unit) »."
+
+#: ../src/core/dbus-unit.c:597
+msgid "Authentication is required to set properties on '$(unit)'."
+msgstr "Authentification requise pour définir des propriétés de « $(unit) »."
 
 #~ msgid "Press Ctrl+C to cancel all filesystem checks in progress"
 #~ msgstr ""
