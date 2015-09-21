@@ -69,7 +69,7 @@ static int dhcp6_address_update(Link *link, struct in6_addr *ip6_addr,
         int r;
         _cleanup_address_free_ Address *addr = NULL;
 
-        r = address_new_dynamic(&addr);
+        r = address_new(&addr);
         if (r < 0)
                 return r;
 

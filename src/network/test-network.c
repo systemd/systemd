@@ -143,8 +143,8 @@ static void test_network_get(Manager *manager, struct udev_device *loopback) {
 static void test_address_equality(void) {
         _cleanup_address_free_ Address *a1 = NULL, *a2 = NULL;
 
-        assert_se(address_new_dynamic(&a1) >= 0);
-        assert_se(address_new_dynamic(&a2) >= 0);
+        assert_se(address_new(&a1) >= 0);
+        assert_se(address_new(&a2) >= 0);
 
         assert_se(address_equal(NULL, NULL));
         assert_se(!address_equal(a1, NULL));

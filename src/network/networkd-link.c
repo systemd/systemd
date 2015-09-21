@@ -2074,7 +2074,7 @@ int link_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, voi
                 }
         }
 
-        r = address_new_dynamic(&address);
+        r = address_new(&address);
         if (r < 0)
                 return r;
 
