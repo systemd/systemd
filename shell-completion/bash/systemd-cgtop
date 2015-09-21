@@ -34,8 +34,8 @@ _systemd_cgtop() {
         local comps
 
         local -A OPTS=(
-               [STANDALONE]='-h --help --version -p -t -c -m -i -b --batch'
-               [ARG]='--cpu --depth -M --machine --recursive -n --iterations -d --delay'
+               [STANDALONE]='-h --help --version -p -t -c -m -i -b --batch -r --raw -k -P'
+               [ARG]='--cpu --depth -M --machine --recursive -n --iterations -d --delay --order'
                )
 
         _init_completion || return
@@ -47,6 +47,10 @@ _systemd_cgtop() {
                         ;;
                         --recursive)
                                 comps='yes no'
+                        ;;
+                        --order)
+                                comps='path tasks cpu memory io'
+                        ;;
                 esac
                 COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
                 return 0
