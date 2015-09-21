@@ -202,7 +202,6 @@ int sd_ipv4ll_set_address_seed(sd_ipv4ll *ll, unsigned seed) {
         int r;
 
         assert_return(ll, -EINVAL);
-        assert_return(seed, -EINVAL);
 
         random_data = new0(struct random_data, 1);
         if (!random_data)
