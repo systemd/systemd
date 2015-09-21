@@ -68,6 +68,7 @@ static int property_get_listen(
                         case SOCKET_SPECIAL:
                         case SOCKET_MQUEUE:
                         case SOCKET_FIFO:
+                        case SOCKET_USB_FUNCTION:
                                 a = p->path;
                                 break;
 
