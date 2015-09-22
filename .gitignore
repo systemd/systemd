@@ -135,6 +135,7 @@
 /systemd-user-sessions
 /systemd-vconsole-setup
 /tags
+/test-acd
 /test-architecture
 /test-audit-type
 /test-af-list
@@ -201,6 +202,7 @@
 /test-install
 /test-ipcrm
 /test-ipv4ll
+/test-ipv4ll-manual
 /test-job-type
 /test-journal
 /test-journal-enum
