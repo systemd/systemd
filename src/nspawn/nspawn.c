@@ -3338,8 +3338,7 @@ int main(int argc, char *argv[]) {
 
                 barrier_set_role(&barrier, BARRIER_PARENT);
 
-                fdset_free(fds);
-                fds = NULL;
+                fds = fdset_free(fds);
 
                 kmsg_socket_pair[1] = safe_close(kmsg_socket_pair[1]);
                 rtnl_socket_pair[1] = safe_close(rtnl_socket_pair[1]);

@@ -1632,8 +1632,7 @@ int main(int argc, char *argv[]) {
 
         /* This will close all file descriptors that were opened, but
          * not claimed by any unit. */
-        fdset_free(fds);
-        fds = NULL;
+        fds = fdset_free(fds);
 
         arg_serialization = safe_fclose(arg_serialization);
 
@@ -1880,11 +1879,7 @@ finish:
                  * but let's hope that doesn't matter.) */
 
                 arg_serialization = safe_fclose(arg_serialization);
-
-                if (fds) {
-                        fdset_free(fds);
-                        fds = NULL;
-                }
+                fds = fdset_free(fds);
 
                 /* Reopen the console */
                 make_console_stdio();
@@ -1920,11 +1915,7 @@ finish:
         }
 
         arg_serialization = safe_fclose(arg_serialization);
-
-        if (fds) {
-                fdset_free(fds);
-                fds = NULL;
-        }
+        fds = fdset_free(fds);
 
 #ifdef HAVE_VALGRIND_VALGRIND_H
         /* If we are PID 1 and running under valgrind, then let's exit
