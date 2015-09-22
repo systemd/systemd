@@ -32,14 +32,6 @@ enum {
         UPDATE_INFO = 10,
 };
 
-typedef enum LLDPPortStatus {
-        LLDP_PORT_STATUS_NONE,
-        LLDP_PORT_STATUS_ENABLED,
-        LLDP_PORT_STATUS_DISABLED,
-        _LLDP_PORT_STATUS_MAX,
-        _LLDP_PORT_STATUS_INVALID = -1,
-} LLDPPortStatus;
-
 int sd_lldp_new(int ifindex, const char *ifname, const struct ether_addr *mac, sd_lldp **ret);
 void sd_lldp_free(sd_lldp *lldp);
 
