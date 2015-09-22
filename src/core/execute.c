@@ -50,6 +50,7 @@
 #include <sys/apparmor.h>
 #endif
 
+#include "barrier.h"
 #include "sd-messages.h"
 #include "rm-rf.h"
 #include "strv.h"
@@ -768,10 +769,11 @@ static int setup_pam(
                 .appdata_ptr = NULL
         };
 
+        _cleanup_(barrier_destroy) Barrier barrier = BARRIER_NULL;
         pam_handle_t *handle = NULL;
         sigset_t old_ss;
         int pam_code = PAM_SUCCESS;
-        int err;
+        int err = 0;
         char **e = NULL;
         bool close_session = false;
         pid_t pam_pid = 0, parent_pid;
@@ -787,6 +789,10 @@ static int setup_pam(
          * session again. The parent process will exec() the actual
          * daemon. We do things this way to ensure that the main PID
          * of the daemon is the one we initially fork()ed. */
+
+        err = barrier_create(&barrier);
+        if (err < 0)
+                goto fail;
 
         if (log_get_max_level() < LOG_DEBUG)
                 flags |= PAM_SILENT;
@@ -836,6 +842,7 @@ static int setup_pam(
 
                 /* The child's job is to reset the PAM session on
                  * termination */
+                barrier_set_role(&barrier, BARRIER_CHILD);
 
                 /* This string must fit in 10 chars (i.e. the length
                  * of "/sbin/init"), to look pretty in /bin/ps */
@@ -862,6 +869,11 @@ static int setup_pam(
                  * to do the rest for us. */
                 if (prctl(PR_SET_PDEATHSIG, SIGTERM) < 0)
                         goto child_finish;
+
+                /* Tell the parent that our setup is done. This is especially
+                 * important regarding dropping privileges. Otherwise, unit
+                 * setup might race against our setresuid(2) call. */
+                barrier_place(&barrier);
 
                 /* Check if our parent process might already have
                  * died? */
@@ -898,6 +910,8 @@ static int setup_pam(
                 _exit(r);
         }
 
+        barrier_set_role(&barrier, BARRIER_PARENT);
+
         /* If the child was forked off successfully it will do all the
          * cleanups, so forget about the handle here. */
         handle = NULL;
@@ -909,6 +923,11 @@ static int setup_pam(
          * might have opened it, but we don't want this fd around. */
         closelog();
 
+        /* Synchronously wait for the child to initialize. We don't care for
+         * errors as we cannot recover. However, warn loudly if it happens. */
+        if (!barrier_place_and_sync(&barrier))
+                log_error("PAM initialization failed");
+
         *pam_env = e;
         e = NULL;
 
@@ -919,7 +938,7 @@ fail:
                 log_error("PAM failed: %s", pam_strerror(handle, pam_code));
                 err = -EPERM;  /* PAM errors do not map to errno */
         } else {
-                err = log_error_errno(errno, "PAM failed: %m");
+                err = log_error_errno(err < 0 ? err : errno, "PAM failed: %m");
         }
 
         if (handle) {
