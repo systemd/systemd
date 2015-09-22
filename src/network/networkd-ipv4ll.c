@@ -105,7 +105,7 @@ static int ipv4ll_address_handler(sd_netlink *rtnl, sd_netlink_message *m, void 
                 log_link_error_errno(link, r, "could not set ipv4ll address: %m");
                 link_enter_failed(link);
         } else if (r >= 0)
-                link_rtnl_process_address(rtnl, m, link->manager);
+                manager_rtnl_process_address(rtnl, m, link->manager);
 
         link->ipv4ll_address = true;
 

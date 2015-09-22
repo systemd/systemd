@@ -58,7 +58,7 @@ static int dhcp6_address_handler(sd_netlink *rtnl, sd_netlink_message *m,
                 link_enter_failed(link);
 
         } else if (r >= 0)
-                link_rtnl_process_address(rtnl, m, link->manager);
+                manager_rtnl_process_address(rtnl, m, link->manager);
 
         return 1;
 }
