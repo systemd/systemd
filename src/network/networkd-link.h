@@ -83,7 +83,7 @@ struct Link {
         unsigned link_messages;
         unsigned enslaving;
 
-        LIST_HEAD(Address, addresses);
+        Set *addresses;
 
         sd_dhcp_client *dhcp_client;
         sd_dhcp_lease *dhcp_lease;
@@ -119,8 +119,6 @@ Link *link_ref(Link *link);
 int link_get(Manager *m, int ifindex, Link **ret);
 int link_add(Manager *manager, sd_netlink_message *message, Link **ret);
 void link_drop(Link *link);
-
-Address *link_get_equal_address(Link *link, Address *address);
 
 int link_address_drop_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata);
 int link_route_drop_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata);

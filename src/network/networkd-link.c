@@ -23,15 +23,16 @@
 #include <linux/if.h>
 #include <unistd.h>
 
+#include "bus-util.h"
+#include "dhcp-lease-internal.h"
+#include "fileio.h"
+#include "netlink-util.h"
+#include "network-internal.h"
+#include "set.h"
+#include "socket-util.h"
+#include "udev-util.h"
 #include "util.h"
 #include "virt.h"
-#include "fileio.h"
-#include "socket-util.h"
-#include "bus-util.h"
-#include "udev-util.h"
-#include "netlink-util.h"
-#include "dhcp-lease-internal.h"
-#include "network-internal.h"
 
 #include "networkd-link.h"
 #include "networkd-netdev.h"
@@ -291,10 +292,10 @@ static void link_free(Link *link) {
         if (!link)
                 return;
 
-        while ((address = link->addresses)) {
-                LIST_REMOVE(addresses, link->addresses, address);
-                address_free(address);
-        }
+        while (!set_isempty(link->addresses))
+                address_free(set_first(link->addresses));
+
+        set_free(link->addresses);
 
         while ((address = link->pool_addresses)) {
                 LIST_REMOVE(addresses, link->pool_addresses, address);
@@ -2024,19 +2025,6 @@ int link_initialized(Link *link, struct udev_device *device) {
         return 0;
 }
 
-Address* link_get_equal_address(Link *link, Address *needle) {
-        Address *i;
-
-        assert(link);
-        assert(needle);
-
-        LIST_FOREACH(addresses, i, link->addresses)
-                if (address_equal(i, needle))
-                        return i;
-
-        return NULL;
-}
-
 int link_add(Manager *m, sd_netlink_message *message, Link **ret) {
         Link *link;
         _cleanup_udev_device_unref_ struct udev_device *device = NULL;
@@ -2283,9 +2271,10 @@ static void link_update_operstate(Link *link) {
         else if (link_has_carrier(link)) {
                 Address *address;
                 uint8_t scope = RT_SCOPE_NOWHERE;
+                Iterator i;
 
                 /* if we have carrier, check what addresses we have */
-                LIST_FOREACH(addresses, address, link->addresses) {
+                SET_FOREACH(address, link->addresses, i) {
                         if (address->flags & (IFA_F_TENTATIVE | IFA_F_DEPRECATED))
                                 continue;
 

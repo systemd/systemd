@@ -38,6 +38,8 @@ struct Address {
         Network *network;
         unsigned section;
 
+        Link *link;
+
         int family;
         unsigned char prefixlen;
         unsigned char scope;
@@ -58,6 +60,8 @@ struct Address {
 int address_new_static(Network *network, unsigned section, Address **ret);
 int address_new(Address **ret);
 void address_free(Address *address);
+int address_add(Link *link, Address *address);
+int address_get(Link *link, int family, const union in_addr_union *in_addr, unsigned char prefixlen, Address **ret);
 int address_configure(Address *address, Link *link, sd_netlink_message_handler_t callback);
 int address_update(Address *address, Link *link, sd_netlink_message_handler_t callback);
 int address_drop(Address *address, Link *link, sd_netlink_message_handler_t callback);

@@ -283,7 +283,7 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
         uint16_t type;
         _cleanup_address_free_ Address *address = NULL;
         unsigned char flags;
-        Address *existing;
+        Address *existing = NULL;
         char buf[INET6_ADDRSTRLEN], valid_buf[FORMAT_TIMESPAN_MAX];
         const char *valid_str = NULL;
         int r, ifindex;
@@ -394,7 +394,7 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
                                                     USEC_PER_SEC);
         }
 
-        existing = link_get_equal_address(link, address);
+        address_get(link, address->family, &address->in_addr, address->prefixlen, &existing);
 
         switch (type) {
         case RTM_NEWADDR:
@@ -407,9 +407,14 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
                         existing->cinfo = address->cinfo;
 
                 } else {
-                        log_link_debug(link, "Adding address: %s/%u (valid for %s)", buf, address->prefixlen, valid_str);
+                        r = address_add(link, address);
+                        if (r < 0) {
+                                log_link_warning_errno(link, r, "Failed to add address %s/%u: %m", buf, address->prefixlen);
+                                return 0;
+                        } else
+                                log_link_debug(link, "Adding address: %s/%u (valid for %s)", buf, address->prefixlen, valid_str);
 
-                        LIST_PREPEND(addresses, link->addresses, address);
+
                         address_establish(address, link);
 
                         address = NULL;
@@ -424,7 +429,6 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
                 if (existing) {
                         log_link_debug(link, "Removing address: %s/%u (valid for %s)", buf, address->prefixlen, valid_str);
                         address_release(existing, link);
-                        LIST_REMOVE(addresses, link->addresses, existing);
                         address_free(existing);
                 } else
                         log_link_warning(link, "Removing non-existent address: %s/%u (valid for %s)", buf, address->prefixlen, valid_str);

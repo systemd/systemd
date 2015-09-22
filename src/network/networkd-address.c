@@ -95,6 +95,9 @@ void address_free(Address *address) {
                                        UINT_TO_PTR(address->section));
         }
 
+        if (address->link)
+                set_remove(address->link->addresses, address);
+
         free(address);
 }
 
@@ -193,6 +196,45 @@ bool address_equal(Address *a1, Address *a2) {
                 return false;
 
         return address_compare_func(a1, a2) == 0;
+}
+
+int address_add(Link *link, Address *address) {
+        int r;
+
+        assert(link);
+        assert(address);
+
+        r = set_ensure_allocated(&link->addresses, &address_hash_ops);
+        if (r < 0)
+                return r;
+
+        r = set_put(link->addresses, address);
+        if (r < 0)
+                return r;
+
+        address->link = link;
+
+        return 0;
+}
+
+int address_get(Link *link, int family, const union in_addr_union *in_addr, unsigned char prefixlen, Address **ret) {
+        Address address = {}, *existing;
+
+        assert(link);
+        assert(in_addr);
+        assert(ret);
+
+        address.family = family;
+        address.in_addr = *in_addr;
+        address.prefixlen = prefixlen;
+
+        existing = set_get(link->addresses, &address);
+        if (!existing)
+                return -ENOENT;
+
+        *ret = existing;
+
+        return 0;
 }
 
 int address_establish(Address *address, Link *link) {
