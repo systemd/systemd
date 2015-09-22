@@ -54,8 +54,8 @@ AC_DEFUN([CC_CHECK_FLAG_APPEND], [
 
 dnl CC_CHECK_FLAGS_APPEND([WHERE-TO-APPEND], [ENV-VAR], [FLAG1 FLAG2])
 AC_DEFUN([CC_CHECK_FLAGS_APPEND], [
-  for flag in $3; do
-    CC_CHECK_FLAG_APPEND($1, $2, $flag)
+  for flag in [$3]; do
+    CC_CHECK_FLAG_APPEND([$1], [$2], $flag)
   done
 ])
 
