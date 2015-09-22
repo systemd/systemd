@@ -1096,6 +1096,15 @@ static int monitor(sd_bus *bus, char *argv[], int (*dump)(sd_bus_message *m, FIL
                 if (r < 0)
                         return log_error_errno(r, "Failed to add match: %m");
 
+                free(m);
+                m = strjoin("destination='", *i, "'", NULL);
+                if (!m)
+                        return log_oom();
+
+                r = sd_bus_add_match(bus, NULL, m, NULL, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add match: %m");
+
                 added_something = true;
         }
 
