@@ -129,7 +129,7 @@ noreturn static void crash(int sig) {
 
         if (getpid() != 1)
                 /* Pass this on immediately, if this is not PID 1 */
-                raise(sig);
+                (void) raise(sig);
         else if (!arg_dump_core)
                 log_emergency("Caught <%s>, not dumping core.", signal_to_string(sig));
         else {
@@ -140,34 +140,35 @@ noreturn static void crash(int sig) {
                 pid_t pid;
 
                 /* We want to wait for the core process, hence let's enable SIGCHLD */
-                sigaction(SIGCHLD, &sa, NULL);
+                (void) sigaction(SIGCHLD, &sa, NULL);
 
                 pid = raw_clone(SIGCHLD, NULL);
                 if (pid < 0)
                         log_emergency_errno(errno, "Caught <%s>, cannot fork for core dump: %m", signal_to_string(sig));
-
                 else if (pid == 0) {
-                        struct rlimit rl = {};
+                        struct rlimit rl = {
+                                .rlim_cur = RLIM_INFINITY,
+                                .rlim_max = RLIM_INFINITY,
+                        };
 
                         /* Enable default signal handler for core dump */
-                        zero(sa);
-                        sa.sa_handler = SIG_DFL;
-                        sigaction(sig, &sa, NULL);
+                        sa = (struct sigaction) {
+                                .sa_handler = SIG_DFL,
+                        };
+                        (void) sigaction(sig, &sa, NULL);
 
                         /* Don't limit the core dump size */
-                        rl.rlim_cur = RLIM_INFINITY;
-                        rl.rlim_max = RLIM_INFINITY;
-                        setrlimit(RLIMIT_CORE, &rl);
+                        (void) setrlimit(RLIMIT_CORE, &rl);
 
                         /* Just to be sure... */
                         (void) chdir("/");
 
                         /* Raise the signal again */
                         pid = raw_getpid();
-                        kill(pid, sig); /* raise() would kill the parent */
+                        (void) kill(pid, sig); /* raise() would kill the parent */
 
                         assert_not_reached("We shouldn't be here...");
-                        _exit(1);
+                        _exit(EXIT_FAILURE);
                 } else {
                         siginfo_t status;
                         int r;
@@ -190,7 +191,7 @@ noreturn static void crash(int sig) {
         }
 
         if (arg_crash_chvt)
-                chvt(arg_crash_chvt);
+                (void) chvt(arg_crash_chvt);
 
         if (arg_crash_shell) {
                 struct sigaction sa = {
@@ -200,20 +201,20 @@ noreturn static void crash(int sig) {
                 pid_t pid;
 
                 log_info("Executing crash shell in 10s...");
-                sleep(10);
+                (void) sleep(10);
 
                 /* Let the kernel reap children for us */
-                assert_se(sigaction(SIGCHLD, &sa, NULL) == 0);
+                (void) sigaction(SIGCHLD, &sa, NULL);
 
                 pid = raw_clone(SIGCHLD, NULL);
                 if (pid < 0)
                         log_emergency_errno(errno, "Failed to fork off crash shell: %m");
                 else if (pid == 0) {
-                        make_console_stdio();
-                        execle("/bin/sh", "/bin/sh", NULL, environ);
+                        (void) make_console_stdio();
+                        (void) execle("/bin/sh", "/bin/sh", NULL, environ);
 
                         log_emergency_errno(errno, "execle() failed: %m");
-                        _exit(1);
+                        _exit(EXIT_FAILURE);
                 } else
                         log_info("Successfully spawned crash shell as PID "PID_FMT".", pid);
         }
@@ -1824,7 +1825,7 @@ finish:
                  * that the new systemd can pass the kernel default to
                  * its child processes */
                 if (saved_rlimit_nofile.rlim_cur > 0)
-                        setrlimit(RLIMIT_NOFILE, &saved_rlimit_nofile);
+                        (void) setrlimit(RLIMIT_NOFILE, &saved_rlimit_nofile);
 
                 if (switch_root_dir) {
                         /* Kill all remaining processes from the
@@ -1866,10 +1867,10 @@ finish:
 
                         /* do not pass along the environment we inherit from the kernel or initrd */
                         if (switch_root_dir)
-                                clearenv();
+                                (void) clearenv();
 
                         assert(i <= args_size);
-                        execv(args[0], (char* const*) args);
+                        (void) execv(args[0], (char* const*) args);
                 }
 
                 /* Try the fallback, if there is any, without any
@@ -1882,7 +1883,7 @@ finish:
                 fds = fdset_free(fds);
 
                 /* Reopen the console */
-                make_console_stdio();
+                (void) make_console_stdio();
 
                 for (j = 1, i = 1; j < (unsigned) argc; j++)
                         args[i++] = argv[j];
@@ -1896,19 +1897,19 @@ finish:
 
                 if (switch_root_init) {
                         args[0] = switch_root_init;
-                        execv(args[0], (char* const*) args);
+                        (void) execv(args[0], (char* const*) args);
                         log_warning_errno(errno, "Failed to execute configured init, trying fallback: %m");
                 }
 
                 args[0] = "/sbin/init";
-                execv(args[0], (char* const*) args);
+                (void) execv(args[0], (char* const*) args);
 
                 if (errno == ENOENT) {
                         log_warning("No /sbin/init, trying fallback");
 
                         args[0] = "/bin/sh";
                         args[1] = NULL;
-                        execv(args[0], (char* const*) args);
+                        (void) execv(args[0], (char* const*) args);
                         log_error_errno(errno, "Failed to execute /bin/sh, giving up: %m");
                 } else
                         log_warning_errno(errno, "Failed to execute /sbin/init, giving up: %m");
@@ -1944,6 +1945,7 @@ finish:
                 xsprintf(log_level, "%d", log_get_max_level());
 
                 switch (log_get_target()) {
+
                 case LOG_TARGET_KMSG:
                 case LOG_TARGET_JOURNAL_OR_KMSG:
                 case LOG_TARGET_SYSLOG_OR_KMSG:
@@ -1985,7 +1987,7 @@ finish:
 
                         /* Tell the binary how often to ping, ignore failure */
                         if (asprintf(&e, "WATCHDOG_USEC="USEC_FMT, arg_shutdown_watchdog) > 0)
-                                strv_push(&env_block, e);
+                                (void) strv_push(&env_block, e);
                 } else
                         watchdog_close(true);
 
