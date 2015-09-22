@@ -1807,6 +1807,13 @@ int main(int argc, char *argv[]) {
                         goto finish;
 
                 case MANAGER_EXIT:
+                        if (m->running_as == MANAGER_USER) {
+                                retval = EXIT_SUCCESS;
+                                log_debug("Exit.");
+                                goto finish;
+                        }
+
+                        /* fallthrough */
                 case MANAGER_REBOOT:
                 case MANAGER_POWEROFF:
                 case MANAGER_HALT:
