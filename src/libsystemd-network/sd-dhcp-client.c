@@ -213,7 +213,7 @@ int sd_dhcp_client_set_mac(sd_dhcp_client *client, const uint8_t *addr,
                 log_dhcp_client(client, "Changing MAC address on running DHCP "
                                 "client, restarting");
                 need_restart = true;
-                client_stop(client, DHCP_EVENT_STOP);
+                client_stop(client, SD_DHCP_CLIENT_EVENT_STOP);
         }
 
         memcpy(&client->mac_addr, addr, addr_len);
@@ -277,7 +277,7 @@ int sd_dhcp_client_set_client_id(sd_dhcp_client *client, uint8_t type,
                 log_dhcp_client(client, "Changing client ID on running DHCP "
                                 "client, restarting");
                 need_restart = true;
-                client_stop(client, DHCP_EVENT_STOP);
+                client_stop(client, SD_DHCP_CLIENT_EVENT_STOP);
         }
 
         client->client_id.type = type;
@@ -385,7 +385,7 @@ static void client_stop(sd_dhcp_client *client, int error) {
 
         if (error < 0)
                 log_dhcp_client(client, "STOPPED: %s", strerror(-error));
-        else if (error == DHCP_EVENT_STOP)
+        else if (error == SD_DHCP_CLIENT_EVENT_STOP)
                 log_dhcp_client(client, "STOPPED");
         else
                 log_dhcp_client(client, "STOPPED: Unknown event");
@@ -983,7 +983,7 @@ static int client_timeout_expire(sd_event_source *s, uint64_t usec,
 
         log_dhcp_client(client, "EXPIRED");
 
-        client_notify(client, DHCP_EVENT_EXPIRED);
+        client_notify(client, SD_DHCP_CLIENT_EVENT_EXPIRED);
 
         /* lease was lost, start over if not freed or stopped in callback */
         if (client->state != DHCP_STATE_STOPPED) {
@@ -1143,14 +1143,14 @@ static int client_handle_ack(sd_dhcp_client *client, DHCPMessage *ack,
                 }
         }
 
-        r = DHCP_EVENT_IP_ACQUIRE;
+        r = SD_DHCP_CLIENT_EVENT_IP_ACQUIRE;
         if (client->lease) {
                 if (client->lease->address != lease->address ||
                     client->lease->subnet_mask != lease->subnet_mask ||
                     client->lease->router != lease->router) {
-                        r = DHCP_EVENT_IP_CHANGE;
+                        r = SD_DHCP_CLIENT_EVENT_IP_CHANGE;
                 } else
-                        r = DHCP_EVENT_RENEW;
+                        r = SD_DHCP_CLIENT_EVENT_RENEW;
 
                 client->lease = sd_dhcp_lease_unref(client->lease);
         }
@@ -1382,8 +1382,8 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message,
 
                         if (IN_SET(client->state, DHCP_STATE_REQUESTING,
                                    DHCP_STATE_REBOOTING))
-                                notify_event = DHCP_EVENT_IP_ACQUIRE;
-                        else if (r != DHCP_EVENT_IP_ACQUIRE)
+                                notify_event = SD_DHCP_CLIENT_EVENT_IP_ACQUIRE;
+                        else if (r != SD_DHCP_CLIENT_EVENT_IP_ACQUIRE)
                                 notify_event = r;
 
                         client->state = DHCP_STATE_BOUND;
@@ -1633,7 +1633,7 @@ int sd_dhcp_client_stop(sd_dhcp_client *client) {
 
         assert_return(client, -EINVAL);
 
-        client_stop(client, DHCP_EVENT_STOP);
+        client_stop(client, SD_DHCP_CLIENT_EVENT_STOP);
         client->state = DHCP_STATE_STOPPED;
 
         return 0;

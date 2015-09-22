@@ -471,9 +471,9 @@ static void dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
                 return;
 
         switch (event) {
-                case DHCP_EVENT_EXPIRED:
-                case DHCP_EVENT_STOP:
-                case DHCP_EVENT_IP_CHANGE:
+                case SD_DHCP_CLIENT_EVENT_EXPIRED:
+                case SD_DHCP_CLIENT_EVENT_STOP:
+                case SD_DHCP_CLIENT_EVENT_IP_CHANGE:
                         if (link->network->dhcp_critical) {
                                 log_link_error(link, "DHCPv4 connection considered system critical, ignoring request to reconfigure it.");
                                 return;
@@ -487,7 +487,7 @@ static void dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
                                 }
                         }
 
-                        if (event == DHCP_EVENT_IP_CHANGE) {
+                        if (event == SD_DHCP_CLIENT_EVENT_IP_CHANGE) {
                                 r = dhcp_lease_acquired(client, link);
                                 if (r < 0) {
                                         link_enter_failed(link);
@@ -496,14 +496,14 @@ static void dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
                         }
 
                         break;
-                case DHCP_EVENT_RENEW:
+                case SD_DHCP_CLIENT_EVENT_RENEW:
                         r = dhcp_lease_renew(client, link);
                         if (r < 0) {
                                 link_enter_failed(link);
                                 return;
                         }
                         break;
-                case DHCP_EVENT_IP_ACQUIRE:
+                case SD_DHCP_CLIENT_EVENT_IP_ACQUIRE:
                         r = dhcp_lease_acquired(client, link);
                         if (r < 0) {
                                 link_enter_failed(link);

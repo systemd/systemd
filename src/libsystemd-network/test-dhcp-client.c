@@ -360,7 +360,7 @@ static void test_addr_acq_acquired(sd_dhcp_client *client, int event,
         struct in_addr addr;
 
         assert_se(client);
-        assert_se(event == DHCP_EVENT_IP_ACQUIRE);
+        assert_se(event == SD_DHCP_CLIENT_EVENT_IP_ACQUIRE);
 
         assert_se(sd_dhcp_client_get_lease(client, &lease) >= 0);
         assert_se(lease);
