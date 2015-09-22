@@ -7705,5 +7705,7 @@ finish:
         strv_free(arg_states);
         strv_free(arg_properties);
 
+        sd_bus_default_flush_close();
+
         return r < 0 ? EXIT_FAILURE : r;
 }
