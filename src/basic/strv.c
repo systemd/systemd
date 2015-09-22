@@ -720,3 +720,16 @@ bool strv_fnmatch(char* const* patterns, const char *s, int flags) {
 
         return false;
 }
+
+char ***strv_free_free(char ***l) {
+        char ***i;
+
+        if (!l)
+                return NULL;
+
+        for (i = l; *i; i++)
+                strv_free(*i);
+
+        free(l);
+        return NULL;
+}

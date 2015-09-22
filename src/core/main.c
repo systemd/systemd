@@ -478,23 +478,6 @@ static int config_parse_show_status(
         return 0;
 }
 
-static void strv_free_free(char ***l) {
-        char ***i;
-
-        if (!l)
-                return;
-
-        for (i = l; *i; i++)
-                strv_free(*i);
-
-        free(l);
-}
-
-static void free_join_controllers(void) {
-        strv_free_free(arg_join_controllers);
-        arg_join_controllers = NULL;
-}
-
 static int config_parse_join_controllers(const char *unit,
                                          const char *filename,
                                          unsigned line,
@@ -513,7 +496,7 @@ static int config_parse_join_controllers(const char *unit,
         assert(lvalue);
         assert(rvalue);
 
-        free_join_controllers();
+        arg_join_controllers = strv_free_free(arg_join_controllers);
 
         for (;;) {
                 _cleanup_free_ char *word = NULL;
@@ -1116,15 +1099,19 @@ static int initialize_join_controllers(void) {
                 return -ENOMEM;
 
         arg_join_controllers[0] = strv_new("cpu", "cpuacct", NULL);
+        if (!arg_join_controllers[0])
+                goto oom;
+
         arg_join_controllers[1] = strv_new("net_cls", "net_prio", NULL);
+        if (!arg_join_controllers[1])
+                goto oom;
+
         arg_join_controllers[2] = NULL;
-
-        if (!arg_join_controllers[0] || !arg_join_controllers[1]) {
-                free_join_controllers();
-                return -ENOMEM;
-        }
-
         return 0;
+
+oom:
+        arg_join_controllers = strv_free_free(arg_join_controllers);
+        return -ENOMEM;
 }
 
 static int enforce_syscall_archs(Set *archs) {
@@ -1813,17 +1800,15 @@ finish:
                 arg_shutdown_watchdog = m->shutdown_watchdog;
                 shutdown_exit_code = m->return_value;
         }
+
         m = manager_free(m);
 
         for (j = 0; j < ELEMENTSOF(arg_default_rlimit); j++)
                 arg_default_rlimit[j] = mfree(arg_default_rlimit[j]);
 
         arg_default_unit = mfree(arg_default_unit);
-
-        free_join_controllers();
-
+        arg_join_controllers = strv_free_free(arg_join_controllers);
         arg_default_environment = strv_free(arg_default_environment);
-
         arg_syscall_archs = set_free(arg_syscall_archs);
 
         mac_selinux_finish();
