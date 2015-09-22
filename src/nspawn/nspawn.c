@@ -1264,16 +1264,7 @@ static int setup_dev_console(const char *dest, const char *console) {
 static int setup_kmsg(const char *dest, int kmsg_socket) {
         const char *from, *to;
         _cleanup_umask_ mode_t u;
-        int fd, k;
-        union {
-                struct cmsghdr cmsghdr;
-                uint8_t buf[CMSG_SPACE(sizeof(int))];
-        } control = {};
-        struct msghdr mh = {
-                .msg_control = &control,
-                .msg_controllen = sizeof(control),
-        };
-        struct cmsghdr *cmsg;
+        int fd, r;
 
         assert(kmsg_socket >= 0);
 
@@ -1298,21 +1289,13 @@ static int setup_kmsg(const char *dest, int kmsg_socket) {
         if (fd < 0)
                 return log_error_errno(errno, "Failed to open fifo: %m");
 
-        cmsg = CMSG_FIRSTHDR(&mh);
-        cmsg->cmsg_level = SOL_SOCKET;
-        cmsg->cmsg_type = SCM_RIGHTS;
-        cmsg->cmsg_len = CMSG_LEN(sizeof(int));
-        memcpy(CMSG_DATA(cmsg), &fd, sizeof(int));
-
-        mh.msg_controllen = cmsg->cmsg_len;
-
         /* Store away the fd in the socket, so that it stays open as
          * long as we run the child */
-        k = sendmsg(kmsg_socket, &mh, MSG_NOSIGNAL);
+        r = send_one_fd(kmsg_socket, fd);
         safe_close(fd);
 
-        if (k < 0)
-                return log_error_errno(errno, "Failed to send FIFO fd: %m");
+        if (r < 0)
+                return log_error_errno(r, "Failed to send FIFO fd: %m");
 
         /* And now make the FIFO unavailable as /run/kmsg... */
         (void) unlink(from);
@@ -2804,6 +2787,8 @@ static int outer_child(
         }
 
         pid_socket = safe_close(pid_socket);
+        kmsg_socket = safe_close(kmsg_socket);
+        rtnl_socket = safe_close(rtnl_socket);
 
         return 0;
 }
@@ -3489,8 +3474,8 @@ int main(int argc, char *argv[]) {
                 }
 
                 /* Let the child know that we are ready and wait that the child is completely ready now. */
-                if (!barrier_place_and_sync(&barrier)) { /* #5 */
-                        log_error("Client died too early.");
+                if (!barrier_place_and_sync(&barrier)) { /* #4 */
+                        log_error("Child died too early.");
                         r = -ESRCH;
                         goto finish;
                 }

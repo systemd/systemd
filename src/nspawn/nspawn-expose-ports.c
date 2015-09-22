@@ -183,17 +183,8 @@ int expose_port_execute(sd_netlink *rtnl, ExposePort *l, union in_addr_union *ex
 }
 
 int expose_port_send_rtnl(int send_fd) {
-        union {
-                struct cmsghdr cmsghdr;
-                uint8_t buf[CMSG_SPACE(sizeof(int))];
-        } control = {};
-        struct msghdr mh = {
-                .msg_control = &control,
-                .msg_controllen = sizeof(control),
-        };
-        struct cmsghdr *cmsg;
         _cleanup_close_ int fd = -1;
-        ssize_t k;
+        int r;
 
         assert(send_fd >= 0);
 
@@ -201,19 +192,11 @@ int expose_port_send_rtnl(int send_fd) {
         if (fd < 0)
                 return log_error_errno(errno, "Failed to allocate container netlink: %m");
 
-        cmsg = CMSG_FIRSTHDR(&mh);
-        cmsg->cmsg_level = SOL_SOCKET;
-        cmsg->cmsg_type = SCM_RIGHTS;
-        cmsg->cmsg_len = CMSG_LEN(sizeof(int));
-        memcpy(CMSG_DATA(cmsg), &fd, sizeof(int));
-
-        mh.msg_controllen = cmsg->cmsg_len;
-
         /* Store away the fd in the socket, so that it stays open as
          * long as we run the child */
-        k = sendmsg(send_fd, &mh, MSG_NOSIGNAL);
-        if (k < 0)
-                return log_error_errno(errno, "Failed to send netlink fd: %m");
+        r = send_one_fd(send_fd, fd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to send netlink fd: %m");
 
         return 0;
 }
@@ -224,33 +207,16 @@ int expose_port_watch_rtnl(
                 sd_netlink_message_handler_t handler,
                 union in_addr_union *exposed,
                 sd_netlink **ret) {
-
-        union {
-                struct cmsghdr cmsghdr;
-                uint8_t buf[CMSG_SPACE(sizeof(int))];
-        } control = {};
-        struct msghdr mh = {
-                .msg_control = &control,
-                .msg_controllen = sizeof(control),
-        };
-        struct cmsghdr *cmsg;
         _cleanup_netlink_unref_ sd_netlink *rtnl = NULL;
         int fd, r;
-        ssize_t k;
 
         assert(event);
         assert(recv_fd >= 0);
         assert(ret);
 
-        k = recvmsg(recv_fd, &mh, MSG_NOSIGNAL);
-        if (k < 0)
-                return log_error_errno(errno, "Failed to recv netlink fd: %m");
-
-        cmsg = CMSG_FIRSTHDR(&mh);
-        assert(cmsg->cmsg_level == SOL_SOCKET);
-        assert(cmsg->cmsg_type == SCM_RIGHTS);
-        assert(cmsg->cmsg_len == CMSG_LEN(sizeof(int)));
-        memcpy(&fd, CMSG_DATA(cmsg), sizeof(int));
+        fd = receive_one_fd(recv_fd);
+        if (fd < 0)
+                return log_error_errno(fd, "Failed to recv netlink fd: %m");
 
         r = sd_netlink_open_fd(&rtnl, fd);
         if (r < 0) {
