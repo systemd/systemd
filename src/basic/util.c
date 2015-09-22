@@ -6916,3 +6916,7 @@ int receive_one_fd(int transport_fd, int flags) {
 
         return *(int*) CMSG_DATA(found);
 }
+
+void nop_signal_handler(int sig) {
+        /* nothing here */
+}

@@ -2282,8 +2282,6 @@ static int wait_for_container(pid_t pid, ContainerStatus *container) {
         return r;
 }
 
-static void nop_handler(int sig) {}
-
 static int on_orderly_shutdown(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
         pid_t pid;
 
@@ -3241,7 +3239,7 @@ int main(int argc, char *argv[]) {
                 ContainerStatus container_status;
                 _cleanup_(barrier_destroy) Barrier barrier = BARRIER_NULL;
                 static const struct sigaction sa = {
-                        .sa_handler = nop_handler,
+                        .sa_handler = nop_signal_handler,
                         .sa_flags = SA_NOCLDSTOP,
                 };
                 int ifi = 0;

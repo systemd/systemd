@@ -115,8 +115,6 @@ static bool arg_default_blockio_accounting = false;
 static bool arg_default_memory_accounting = false;
 static bool arg_default_tasks_accounting = false;
 
-static void nop_handler(int sig) {}
-
 static void pager_open_if_enabled(void) {
 
         if (arg_no_pager <= 0)
@@ -134,7 +132,7 @@ noreturn static void crash(int sig) {
                 log_emergency("Caught <%s>, not dumping core.", signal_to_string(sig));
         else {
                 struct sigaction sa = {
-                        .sa_handler = nop_handler,
+                        .sa_handler = nop_signal_handler,
                         .sa_flags = SA_NOCLDSTOP|SA_RESTART,
                 };
                 pid_t pid;
