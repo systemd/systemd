@@ -21,11 +21,12 @@
 
 #include <net/if.h>
 
-#include "utf8.h"
-#include "util.h"
 #include "conf-parser.h"
 #include "firewall-util.h"
 #include "netlink-util.h"
+#include "set.h"
+#include "utf8.h"
+#include "util.h"
 
 #include "networkd.h"
 #include "networkd-address.h"
@@ -95,6 +96,103 @@ void address_free(Address *address) {
         }
 
         free(address);
+}
+
+static void address_hash_func(const void *b, struct siphash *state) {
+        const Address *a = b;
+
+        assert(a);
+
+        siphash24_compress(&a->family, sizeof(a->family), state);
+
+        switch (a->family) {
+        case AF_INET:
+                siphash24_compress(&a->prefixlen, sizeof(a->prefixlen), state);
+
+                /* peer prefix */
+                if (a->prefixlen != 0) {
+                        uint32_t prefix;
+
+                        if (a->in_addr_peer.in.s_addr != 0)
+                                prefix = be32toh(a->in_addr_peer.in.s_addr) >> (32 - a->prefixlen);
+                        else
+                                prefix = be32toh(a->in_addr.in.s_addr) >> (32 - a->prefixlen);
+
+                        siphash24_compress(&prefix, sizeof(prefix), state);
+                }
+
+                /* fallthrough */
+        case AF_INET6:
+                /* local address */
+                siphash24_compress(&a->in_addr, FAMILY_ADDRESS_SIZE(a->family), state);
+
+                break;
+        default:
+                /* treat any other address family as AF_UNSPEC */
+                break;
+        }
+}
+
+static int address_compare_func(const void *c1, const void *c2) {
+        const Address *a1 = c1, *a2 = c2;
+
+        if (a1->family < a2->family)
+                return -1;
+        if (a1->family > a2->family)
+                return 1;
+
+        switch (a1->family) {
+        /* use the same notion of equality as the kernel does */
+        case AF_INET:
+                if (a1->prefixlen < a2->prefixlen)
+                        return -1;
+                if (a1->prefixlen > a2->prefixlen)
+                        return 1;
+
+                /* compare the peer prefixes */
+                if (a1->prefixlen != 0) {
+                        /* make sure we don't try to shift by 32.
+                         * See ISO/IEC 9899:TC3 § 6.5.7.3. */
+                        uint32_t b1, b2;
+
+                        if (a1->in_addr_peer.in.s_addr != 0)
+                                b1 = be32toh(a1->in_addr_peer.in.s_addr) >> (32 - a1->prefixlen);
+                        else
+                                b1 = be32toh(a1->in_addr.in.s_addr) >> (32 - a1->prefixlen);
+
+                        if (a2->in_addr_peer.in.s_addr != 0)
+                                b2 = be32toh(a2->in_addr_peer.in.s_addr) >> (32 - a1->prefixlen);
+                        else
+                                b2 = be32toh(a2->in_addr.in.s_addr) >> (32 - a1->prefixlen);
+
+                        if (b1 < b2)
+                                return -1;
+                        if (b1 > b2)
+                                return 1;
+                }
+
+                /* fall-through */
+        case AF_INET6:
+                return memcmp(&a1->in_addr, &a2->in_addr, FAMILY_ADDRESS_SIZE(a1->family));
+        default:
+                /* treat any other address family as AF_UNSPEC */
+                return 0;
+        }
+}
+
+static const struct hash_ops address_hash_ops = {
+        .hash = address_hash_func,
+        .compare = address_compare_func
+};
+
+bool address_equal(Address *a1, Address *a2) {
+        if (a1 == a2)
+                return true;
+
+        if (!a1 || !a2)
+                return false;
+
+        return address_compare_func(a1, a2) == 0;
 }
 
 int address_establish(Address *address, Link *link) {
@@ -571,51 +669,4 @@ int config_parse_label(const char *unit,
         n = NULL;
 
         return 0;
-}
-
-bool address_equal(Address *a1, Address *a2) {
-        /* same object */
-        if (a1 == a2)
-                return true;
-
-        /* one, but not both, is NULL */
-        if (!a1 || !a2)
-                return false;
-
-        if (a1->family != a2->family)
-                return false;
-
-        switch (a1->family) {
-        /* use the same notion of equality as the kernel does */
-        case AF_UNSPEC:
-                return true;
-
-        case AF_INET:
-                if (a1->prefixlen != a2->prefixlen)
-                        return false;
-                else if (a1->prefixlen == 0)
-                        /* make sure we don't try to shift by 32.
-                         * See ISO/IEC 9899:TC3 § 6.5.7.3. */
-                        return true;
-                else {
-                        uint32_t b1, b2;
-
-                        b1 = be32toh(a1->in_addr.in.s_addr);
-                        b2 = be32toh(a2->in_addr.in.s_addr);
-
-                        return (b1 >> (32 - a1->prefixlen)) == (b2 >> (32 - a1->prefixlen));
-                }
-
-        case AF_INET6: {
-                uint64_t *b1, *b2;
-
-                b1 = (uint64_t*)&a1->in_addr.in6;
-                b2 = (uint64_t*)&a2->in_addr.in6;
-
-                return (((b1[0] ^ b2[0]) | (b1[1] ^ b2[1])) == 0UL);
-        }
-
-        default:
-                assert_not_reached("Invalid address family");
-        }
 }
