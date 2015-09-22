@@ -42,6 +42,19 @@
 #include "util.h"
 #include "rm-rf.h"
 #include "blkid-util.h"
+#include "utf8.h"
+
+struct file_conf {
+        struct file_conf *next;
+        char *name;
+        char *fullpath;
+        struct file_conf_props *props;
+};
+struct file_conf_props {
+        struct file_conf_props *next;
+        char *name;
+        char *value;
+};
 
 static int verify_esp(const char *p, uint32_t *part, uint64_t *pstart, uint64_t *psize, sd_id128_t *uuid) {
         struct statfs sfs;
@@ -882,25 +895,38 @@ static int remove_variables(sd_id128_t uuid, const char *path, bool in_order) {
                 return 0;
 }
 
-static int install_loader_config(const char *esp_path) {
-        char *p;
-        char line[64];
-        char *machine = NULL;
-        _cleanup_fclose_ FILE *f = NULL, *g = NULL;
 
-        f = fopen("/etc/machine-id", "re");
-        if (!f)
-                return errno == ENOENT ? 0 : -errno;
+static const char *get_machine_id(void) {
+        static char machine[64] = {0};
+        static bool loaded = false;
 
-        if (fgets(line, sizeof(line), f) != NULL) {
+        if (!loaded) {
+                _cleanup_fclose_ FILE *f = NULL, *g = NULL;
                 char *s;
 
-                s = strchr(line, '\n');
+                loaded = true;
+
+                f = fopen("/etc/machine-id", "re");
+                if (!f)
+                        return NULL;
+
+                if (fgets(machine, sizeof(machine), f) == NULL)
+                        return NULL;
+
+                s = strchr(machine, '\n');
                 if (s)
                         s[0] = '\0';
-                if (strlen(line) == 32)
-                        machine = line;
+                if (strlen(machine) != 32)
+                        machine[0] = 0;
         }
+        return machine[0] ? machine : NULL;
+
+}
+
+static int install_loader_config(const char *esp_path) {
+        char *p;
+        const char *machine = get_machine_id();
+        _cleanup_fclose_ FILE *g = NULL;
 
         if (!machine)
                 return -ESRCH;
@@ -917,6 +943,354 @@ static int install_loader_config(const char *esp_path) {
         return 0;
 }
 
+static void free_file_conf(struct file_conf *fc) {
+        while(fc) {
+                struct file_conf *next = fc->next;
+                struct file_conf_props *p = fc->props;
+
+                free(fc->name);
+                free(fc->fullpath);
+                free(fc);
+                fc = next;
+
+                while (p) {
+                        struct file_conf_props *next_prop = p->next;
+                        free(p->name);
+                        free(p->value);
+                        p = next_prop;
+                }
+        }
+}
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct file_conf *, free_file_conf);
+
+static int read_file_conf(int fd, struct file_conf **ret) {
+        struct stat st;
+        char *buf;
+        char *p;
+        int r = 0;
+        int l = 0;
+
+        assert(fd >= 0);
+        *ret = NULL;
+
+        if (fstat(fd, &st) < 0)
+                return -errno;
+
+        if (st.st_size < 27)
+                return 0;
+
+        buf = mmap(NULL, st.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
+        if (buf == MAP_FAILED)
+                return -errno;
+
+        *ret = calloc(1, sizeof(struct file_conf));
+        if (!*ret) {
+                r = -ENOMEM;
+                goto fail;
+        }
+
+        p = buf;
+        l = 0;
+
+        while (true) {
+                struct file_conf_props *prop;
+                char *name;
+                char *end_name;
+                char *end_line;
+                char *value;
+
+                /* skip initial space */
+                while (l < st.st_size && (*p==' ' || *p == '\t' || *p == '\n')) {
+                        l--;
+                        p++;
+                }
+
+                if (l == st.st_size)
+                        break;
+
+                name = p;
+                end_name = memmem(p, st.st_size - l, " ", 1);
+                end_line = memmem(p, st.st_size - l, "\n", 1);
+                value = end_name+1;
+
+                if (!end_line)
+                        break;
+                if (end_line < end_name) {
+                        r = -EBADMSG;
+                        goto fail;
+                }
+
+                prop = calloc(sizeof(struct file_conf_props),1);
+                if (!prop) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
+
+                prop->name = strndup(name, end_name-name);
+                prop->value = strndup(value, end_line-value);
+                if (!prop->name || !prop->value) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
+
+                if (!(*ret)->props) {
+                        (*ret)->props = prop;
+                } else if (strcmp((*ret)->props->name, prop->name) > 0) {
+                        prop->next = (*ret)->props;
+                        (*ret)->props = prop;
+                } else {
+                        struct file_conf_props *pp = (*ret)->props;
+                        while (pp->next && strcmp(pp->next->name, prop->name) < 0)
+                                pp = pp->next;
+
+                        prop->next = pp->next;
+                        pp->next = prop;
+                }
+
+                l -= (end_line - p) + 1;
+                p = end_line + 1;
+        }
+
+        munmap(buf, st.st_size);
+        return 0;
+
+fail:
+        free_file_conf(*ret);
+        *ret = NULL;
+        munmap(buf, st.st_size);
+        return r;
+
+}
+
+static char *get_file_conf_prop(struct file_conf *fc, const char *name) {
+        struct file_conf_props *p;
+
+        for (p = fc->props; p ; p = p->next)
+                if (!strcmp(p->name, name))
+                        return p->value;
+        return NULL;
+}
+
+static bool is_digit(char c) {
+        return (c >= '0') && (c <= '9');
+}
+
+static int c_order(char c) {
+        if (c == '\0')
+                return 0;
+        if (is_digit(c))
+                return 0;
+        if (c == '~')
+                return -1;
+        else if ((c >= 'a') && (c <= 'z'))
+                return c;
+        else
+                return c + 0x10000;
+}
+
+/*
+ * Comparing version as debian does
+ */
+static int debian_version_cmp(char *s1, char *s2) {
+        while (*s1 || *s2) {
+                int first;
+
+                while ((*s1 && !is_digit(*s1)) || (*s2 && !is_digit(*s2))) {
+                        int order;
+
+                        order = c_order(*s1) - c_order(*s2);
+                        if (order)
+                                return order;
+                        s1++;
+                        s2++;
+                }
+
+                while (*s1 == '0')
+                        s1++;
+                while (*s2 == '0')
+                        s2++;
+
+                first = 0;
+                while (is_digit(*s1) && is_digit(*s2)) {
+                        if (first == 0)
+                                first = *s1 - *s2;
+                        s1++;
+                        s2++;
+                }
+
+                if (is_digit(*s1))
+                        return 1;
+                if (is_digit(*s2))
+                        return -1;
+
+                if (first)
+                        return first;
+        }
+        return 0;
+
+}
+
+static int cmp_entries(struct file_conf *a, struct file_conf *b) {
+
+        const char *machine_id = get_machine_id();
+        char *sa, *sb;
+
+        sa = get_file_conf_prop(a, "machine-id");
+        sb = get_file_conf_prop(b, "machine-id");
+
+        /* entries of this machine come first */
+        if (sa && !sb && !strcmp(sa, machine_id))
+                return 1;
+        if (sb && !sa && !strcmp(sa, machine_id))
+                return -1;
+
+        if (sa && sb) {
+                int ret = strcmp(sa, sb);
+                if (ret) {
+                        if (!strcmp(sa, machine_id))
+                                return 1;
+                        if (!strcmp(sa, machine_id))
+                                return -1;
+                        return ret;
+                }
+        }
+
+        sa = get_file_conf_prop(a, "title");
+        sb = get_file_conf_prop(b, "title");
+
+        if (sa && sb) {
+                int ret = strcmp(sa, sb);
+                if (ret)
+                        return ret;
+        }
+
+        sa = get_file_conf_prop(a, "version");
+        sb = get_file_conf_prop(b, "version");
+
+        if (sa && sb) {
+                int ret = debian_version_cmp(sa, sb);
+                if (ret)
+                        return ret;
+        }
+
+        // last resort
+        return strcmp(a->name, b->name);
+}
+
+static int enumerate_entries(const char *esp_path, struct file_conf **ret) {
+        char *p;
+        _cleanup_closedir_ DIR *d = NULL;
+        struct dirent *de;
+        int r = 0;
+
+        *ret = NULL;
+
+        p = strjoina(esp_path, "/loader/entries");
+        d = opendir(p);
+        if (!d) {
+                if (errno == ENOENT)
+                        return 0;
+
+                return log_error_errno(errno, "Failed to read \"%s\": %m", p);
+        }
+
+        while ((de = readdir(d))) {
+                struct file_conf *fc;
+
+                _cleanup_close_ int fd = -1;
+                _cleanup_free_ char *v = NULL;
+
+                if (de->d_name[0] == '.')
+                        continue;
+
+                if (!endswith_no_case(de->d_name, ".conf"))
+                        continue;
+
+                fd = openat(dirfd(d), de->d_name, O_RDONLY|O_CLOEXEC);
+                if (fd < 0)
+                        return log_error_errno(errno, "Failed to open \"%s/%s\" for reading: %m", p, de->d_name);
+
+                r = read_file_conf(fd, &fc);
+                if (r < 0) {
+                        free_file_conf(*ret);
+                        return log_error_errno(errno, "Can't parse file \"%s/%s\": %m", p, de->d_name);
+                }
+
+                fc->name = strndup(de->d_name, strlen(de->d_name)-5);
+                fc->fullpath = realpath(strjoina(p, "/", de->d_name), NULL);
+                if (!fc->name || !fc->fullpath) {
+                        free_file_conf(fc);
+                        free_file_conf(*ret);
+                        return log_error_errno(errno, "Cannot create path: %m");
+                }
+
+                if (*ret == NULL) {
+                        *ret = fc;
+                } else if (cmp_entries(fc, *ret) > 0) {
+                        fc->next = *ret;
+                        *ret = fc;
+                } else {
+                        struct file_conf *pp;
+                        for (pp = *ret ; pp->next ; pp = pp->next)
+                                if (cmp_entries(fc, pp->next) > 0)
+                                        break;
+                        fc->next = pp->next;
+                        pp->next = fc;
+                }
+        }
+
+        return 0;
+}
+
+static void print_entries(const char *esp_path) {
+
+        _cleanup_(free_file_confp) struct file_conf *fc = NULL;
+        struct file_conf *p;
+        int ret;
+        int c = 0;
+
+        ret = enumerate_entries(esp_path, &fc);
+        if (ret < 0) {
+                return;
+        }
+
+        printf("Boot loader entries:\n");
+
+        for (p = fc ; p ; p=p->next) {
+                const char *main_props[] = {
+                        "title",
+                        "version"
+                };
+                unsigned int i;
+                struct file_conf_props *pp;
+
+                printf("    Entry #%d:\t'%s'\n", ++c, p->name);
+                for (i = 0 ; i < ELEMENTSOF(main_props) ; i++) {
+                        for (pp = p->props; pp ; pp = pp->next) {
+                                if (!strcmp(main_props[i], pp->name)) {
+                                        printf("\t%s: %s\n",pp->name, pp->value);
+                                        break;
+                                }
+                        }
+                        if (!pp)
+                                printf("\t%s  n/a\n", main_props[i]);
+                }
+
+                printf("\n");
+
+                for (pp = p->props; pp ; pp = pp->next) {
+                        for (i = 0 ; i < ELEMENTSOF(main_props) ; i++)
+                                if (!strcmp(main_props[i], pp->name))
+                                        break;
+                        if (i >= ELEMENTSOF(main_props))
+                                printf("\t%s: %s\n",pp->name, pp->value);
+                }
+
+                printf("\n");
+        }
+
+}
+
 static int help(void) {
         printf("%s [COMMAND] [OPTIONS...]\n"
                "\n"
@@ -930,7 +1304,9 @@ static int help(void) {
                "     status          Show status of installed systemd-boot and EFI variables\n"
                "     install         Install systemd-boot to the ESP and EFI variables\n"
                "     update          Update systemd-boot in the ESP and EFI variables\n"
-               "     remove          Remove systemd-boot from the ESP and EFI variables\n",
+               "     remove          Remove systemd-boot from the ESP and EFI variables\n"
+               "     list-entries    Show the boot loader entries\n"
+               "     set-boot-entry  Set the defaul entry to boot\n",
                program_invocation_short_name);
 
         return 0;
@@ -996,21 +1372,228 @@ static void read_loader_efi_var(const char *name, char **var) {
                 log_warning_errno(r, "Failed to read EFI variable %s: %m", name);
 }
 
+static void show_loader_variables(void) {
+        const char * variables[] = {
+                "LoaderEntryOneShot",
+                "LoaderEntryDefault",
+                "LoaderEntrySelected",
+                "LoaderConfigTimeout"
+        };
+        int i;
+        usec_t firmware_time, loader_time;
+
+        printf("Loader variables:\n");
+        for (i = 0 ; i < (int)ELEMENTSOF(variables) ; i++) {
+                _cleanup_free_ char *value = NULL;
+                read_loader_efi_var(variables[i], &value);
+                if (value)
+                        printf("\t%20s:\t%s\n", variables[i], value);
+                else
+                        printf("\t%20s\t(unset)\n", variables[i]);
+        }
+
+        if (!efi_loader_get_boot_usec(&firmware_time, &loader_time)) {
+                printf("\t  LoaderTimeInitUSec:\t%3.2f (sec)\n",
+                        firmware_time/1000000.0);
+                printf("\t  LoaderTimeExecUSec:\t%3.2f (sec)\n",
+                        loader_time/1000000.0);
+        } else {
+                printf("\t  LoaderTimeInitUSec\t(unset)\n");
+                printf("\t  LoaderTimeExecUSec\t(unset)\n");
+        }
+
+        printf("\n");
+
+}
+
+static int extract_loader_entry(const char *entry, char **ret) {
+        _cleanup_(free_file_confp) struct file_conf *fc = NULL;
+        struct file_conf *p;
+        int result = 0;
+        int entry_nr, l;
+        _cleanup_free_ char *absesp = NULL;
+        _cleanup_free_ char *abs_entry = NULL;
+
+        *ret = NULL;
+
+        if (!*entry || !strcmp(entry, "delete")) {
+                *ret = strdup("");
+                result = 0;
+                goto exit;
+        }
+
+        result = enumerate_entries(arg_path, &fc);
+        if (result)
+                return result;
+
+        if (!strcmp("default", entry)) {
+                if (!fc) {
+                        log_error("Cannot find any bootloader entry\n");
+                        return -1;
+                }
+                *ret = strdup(fc->name);
+                result = 0;
+                goto exit;
+        }
+
+        if (!safe_atoi(entry, &entry_nr)) {
+                int c = entry_nr;
+                if (!fc) {
+                        log_error("Cannot find any bootloader entry\n");
+                        return -1;
+                }
+                if (entry_nr < 1) {
+                        log_error("Cannot find entry #%d\n", entry_nr);
+                        return -1;
+                }
+                while(--c && fc)
+                        fc = fc->next;
+
+                if (!fc) {
+                        log_error("Cannot find entry #%d\n", entry_nr);
+                        return -1;
+                }
+printf("1\n");
+                *ret = strdup(fc->name);
+                result = 0;
+                goto exit;
+        }
+
+        for (p = fc ; p ; p = p->next) {
+                if (!strcmp(p->name, entry)) {
+                        *ret = strdup(entry);
+                        result = 0;
+                        goto exit;
+                }
+        }
+
+        absesp = realpath(arg_path, NULL);
+        if (!absesp) {
+                if (errno == ENOMEM) {
+                        log_error("Not enough memory\n");
+                        return -ENOMEM;
+                } else {
+                        log_error("Incorrect ESP path ('%s') : %m\n", arg_path);
+                        return -1;
+                }
+        }
+
+
+        abs_entry = realpath(entry, NULL);
+        if (!abs_entry && errno == ENOMEM) {
+                log_error("Not enough memory\n");
+                return -ENOMEM;
+        }
+
+        if (abs_entry) {
+                if (!startswith(abs_entry, absesp)) {
+                        *ret = strdup(entry);
+                        printf("WARNING: parameter '%s' doesn't match any entry\n",
+                                entry);
+                        result = 1;
+                        goto exit;
+                }
+
+                l = strlen(absesp);
+
+                for (p = fc ; p ; p = p->next) {
+                        assert((int)strlen(p->fullpath)>l);
+                        if(!strcasecmp(p->fullpath+l, abs_entry+l)) {
+                                *ret = strdup(p->name);
+                                result = 0;
+                                goto exit;
+                        }
+                }
+        }
+
+        *ret = strdup(entry);
+        printf("WARNING: parameter '%s' doesn't match to any entry\n", entry);
+        result = 1;
+
+exit:
+        if (!*ret) {
+                log_error("Not enough memory\n");
+                return -ENOMEM;
+        }
+        return result;
+
+}
+
+static int set_entry(int argc, char **argv) {
+        const char *name;
+        _cleanup_free_ char *value_ucs2 = NULL;
+        _cleanup_free_ char *value_utf8 = NULL;
+        char *arg;
+        int len;
+        int r;
+        int ret = 0;
+
+        if (argc < 1) {
+                log_error("Missing argument\n");
+                return -1;
+        }
+        if (argc > 2) {
+                log_error("Too many arguments\n");
+                return -1;
+        }
+        if (argc == 2 && strcmp(argv[0], "one-shot")) {
+                log_error("The first argument must be 'one-shot'\n");
+                return -1;
+        }
+
+        if (argc == 2) {
+                name = "LoaderEntryOneShot";
+                arg = argv[1];
+        } else {
+                name = "LoaderEntryDefault";
+                arg = argv[0];
+        }
+
+        if (extract_loader_entry(arg, &value_utf8)<0) {
+                return -1;
+        }
+
+        if (strlen(value_utf8)>0) {
+                value_ucs2 = utf8_to_ucs2(value_utf8, &len);
+        } else {
+                value_ucs2 = NULL;
+                len = 0;
+        }
+
+        r = efi_set_variable(EFI_VENDOR_LOADER, "LoaderEntryOneShot",
+                        value_ucs2, len);
+        if (r) {
+                printf("Can't set '%s' to '%s'\n", name, value_utf8);
+                ret = -1;
+        } else if (value_ucs2 == NULL) {
+                printf("Unset %s\n", name);
+        } else {
+                printf("Set %s='%s'\n", name, value_utf8);
+        }
+
+        return ret;
+
+}
+
 static int bootctl_main(int argc, char*argv[]) {
         enum action {
                 ACTION_STATUS,
                 ACTION_INSTALL,
                 ACTION_UPDATE,
-                ACTION_REMOVE
+                ACTION_REMOVE,
+                ACTION_LIST_ENTRIES,
+                ACTION_SET_ENTRY
         } arg_action = ACTION_STATUS;
         static const struct {
                 const char* verb;
                 enum action action;
         } verbs[] = {
-                { "status",  ACTION_STATUS },
-                { "install", ACTION_INSTALL },
-                { "update",  ACTION_UPDATE },
-                { "remove",  ACTION_REMOVE },
+                { "status",		ACTION_STATUS },
+                { "install",		ACTION_INSTALL },
+                { "update",		ACTION_UPDATE },
+                { "remove",		ACTION_REMOVE },
+                { "list-entries",	ACTION_LIST_ENTRIES },
+                { "set-boot-entry",	ACTION_SET_ENTRY }
         };
 
         sd_id128_t uuid = {};
@@ -1086,6 +1669,8 @@ static int bootctl_main(int argc, char*argv[]) {
                                 printf("    Partition: n/a\n");
                         printf("         File: %s%s\n", draw_special_char(DRAW_TREE_RIGHT), strna(loader_path));
                         printf("\n");
+
+                        show_loader_variables();
                 } else
                         printf("System:\n    Not booted with EFI\n");
 
@@ -1128,6 +1713,15 @@ static int bootctl_main(int argc, char*argv[]) {
                                 r = q;
                 }
                 break;
+
+        case ACTION_SET_ENTRY:
+                r = set_entry(argc-optind-1, argv+optind+1);
+                break;
+
+        case ACTION_LIST_ENTRIES:
+                print_entries(arg_path);
+                break;
+
         }
 
         return r;

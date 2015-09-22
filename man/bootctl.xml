@@ -58,6 +58,12 @@
     <cmdsynopsis>
       <command>bootctl <arg choice="opt" rep="repeat">OPTIONS</arg>remove</command>
     </cmdsynopsis>
+    <cmdsynopsis>
+      <command>bootctl <arg choice="opt" rep="repeat">OPTIONS</arg>list-entries</command>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>bootctl <arg choice="opt" rep="repeat">OPTIONS</arg>set-boot-entry</command>
+    </cmdsynopsis>
   </refsynopsisdiv>
 
   <refsect1>
@@ -88,6 +94,43 @@
     <para><command>bootctl remove</command> removes all installed
     versions of systemd-boot from the EFI system partition, and removes
     systemd-boot from the EFI boot variables.</para>
+
+    <para><command>bootctl list-entries</command> lists all installed
+    menu entries stored in /loader/entries/*.conf files. The entries are sorted
+    on the basis of the
+    <option>machine-id</option>, <option>title</option>,
+    <option>version</option> fields of the .conf files. The sorting is done
+    to show as first entry the latest kernel (i.e. the one with the greater
+    version) of the local system. </para>
+
+    <para><command>bootctl set-boot-entry
+	<arg choice="opt">one-shot</arg>
+	<replaceable>ENTRY</replaceable></command>
+    sets the boot entry. If <option>one-shot</option> is passed, the
+    selection is valid only for the next boot.
+    <arg choice="plain">ENTRY</arg> may be one of the following:
+    <variablelist>
+      <varlistentry><para>the path of the file .conf which describe the entry.
+      For example:
+      <option> /loader/entries/7a6e45a122f849e3b2a14b53893b0de5-4.1.5+.conf </option>.
+      Pay attention that this must be the preferred method for
+      script.</para></varlistentry>
+
+      <varlistentry><para>The number showed in the output of the
+      <command>list-entries</command> command. So '1' for the first entry,
+      '2' for the second....</para></varlistentry>
+
+      <varlistentry><para><option>default</option> to select the first entry
+      showed by the <command>list-entries</command> command.</para>
+      </varlistentry>
+
+      <varlistentry><para>The name (without .conf) of the file; for example
+      <option>7a6e45a122f849e3b2a14b53893b0de5-4.1.5+</option>; this name is
+      showed by the command <command>list-entries</command>.</para>
+      </varlistentry>
+
+    </variablelist>
+    </para>
 
     <para>If no command is passed <command>status</command> is
     implied.</para>

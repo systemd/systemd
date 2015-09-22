@@ -400,3 +400,94 @@ int utf8_encoded_valid_unichar(const char *str) {
 
         return len;
 }
+
+static char *_utf8_to_utf16(const char *str, int *out_len, int len, bool ucs2_only) {
+
+        int dstsize;
+        int srclen;
+        const char *p;
+        char *d;
+        char *dest;
+
+        if (len == 0)
+                return NULL;
+
+        assert(out_len);
+
+        *out_len = 0;
+        p = str;
+        dstsize = 0;
+        srclen = 0;
+        while (*p) {
+                int l, c;
+
+                l = utf8_encoded_expected_len(p);
+                if (len != -1 && srclen+l > len)
+                        return NULL;
+
+                srclen += l;
+                c = utf8_encoded_to_unichar(p);
+
+                if (l == 0)
+                        return NULL;
+                if (!unichar_is_valid(c))
+                        return NULL;
+                if (c>=0x10000) {
+                        if (ucs2_only)
+                                return NULL;
+                        dstsize += 4; /* supplementary planes */
+                } else {
+                        dstsize += 2; /* BMP */
+                }
+                p += l;
+        }
+        dstsize += 2; /* for the 0 final character */
+
+        *out_len = dstsize;
+        dest = new(char, dstsize + 2);
+        if (!dest)
+                return NULL;
+
+        p = str;
+        d = dest;
+        while (*p) {
+                int l = utf8_encoded_expected_len(p);
+                int c = utf8_encoded_to_unichar(p);
+
+                if (c>=0x10000) {
+                        c -= 0x10000;
+                        *d++ = (c >> 10) & 0x0ff;
+                        *d++ = ((c >> 18) & 0x003) + 0x0d8;
+                        *d++ = (c & 0x0ff);
+                        *d++ = ((c >>  8) & 0x003) + 0x0dc;
+                } else {
+                        *d++ = (c & 0x0ff);
+                        *d++ = (c >> 8 ) & 0xff;
+                }
+
+                p += l;
+        }
+        *d++ = 0;
+        *d = 0;
+
+        return dest;
+
+}
+
+char *utf8_to_utf16_len(const char *str, int *out_len, int len) {
+        assert(len >0);
+        return _utf8_to_utf16(str, out_len, len, false);
+}
+
+char *utf8_to_utf16(const char *str, int *out_len) {
+        return _utf8_to_utf16(str, out_len, -1, false);
+}
+
+char *utf8_to_ucs2_len(const char *str, int *out_len, int len) {
+        assert(len >0);
+        return _utf8_to_utf16(str, out_len, len, true);
+}
+
+char *utf8_to_ucs2(const char *str, int *out_len) {
+        return _utf8_to_utf16(str, out_len, -1, true);
+}
