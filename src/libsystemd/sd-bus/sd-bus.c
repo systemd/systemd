@@ -69,6 +69,10 @@ static int bus_poll(sd_bus *bus, bool need_more, uint64_t timeout_usec);
 static int attach_io_events(sd_bus *b);
 static void detach_io_events(sd_bus *b);
 
+static thread_local sd_bus *default_system_bus = NULL;
+static thread_local sd_bus *default_user_bus = NULL;
+static thread_local sd_bus *default_starter_bus = NULL;
+
 static void bus_close_fds(sd_bus *b) {
         assert(b);
 
@@ -3348,14 +3352,11 @@ static int bus_default(int (*bus_open)(sd_bus **), sd_bus **default_bus, sd_bus 
 }
 
 _public_ int sd_bus_default_system(sd_bus **ret) {
-        static thread_local sd_bus *default_system_bus = NULL;
-
         return bus_default(sd_bus_open_system, &default_system_bus, ret);
 }
 
-_public_ int sd_bus_default_user(sd_bus **ret) {
-        static thread_local sd_bus *default_user_bus = NULL;
 
+_public_ int sd_bus_default_user(sd_bus **ret) {
         return bus_default(sd_bus_open_user, &default_user_bus, ret);
 }
 
@@ -3382,7 +3383,6 @@ _public_ int sd_bus_default(sd_bus **ret) {
 
         e = secure_getenv("DBUS_STARTER_ADDRESS");
         if (e) {
-                static thread_local sd_bus *default_starter_bus = NULL;
 
                 return bus_default(sd_bus_open, &default_starter_bus, ret);
         }
@@ -3604,4 +3604,21 @@ _public_ int sd_bus_is_monitor(sd_bus *bus) {
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
         return !!(bus->hello_flags & KDBUS_HELLO_MONITOR);
+}
+
+static void flush_close(sd_bus *bus) {
+        if (!bus)
+                return;
+
+        /* Flushes and closes the specified bus. We take a ref before,
+         * to ensure the flushing does not cause the bus to be
+         * unreferenced. */
+
+        sd_bus_flush_close_unref(sd_bus_ref(bus));
+}
+
+_public_ void sd_bus_default_flush_close(void) {
+        flush_close(default_starter_bus);
+        flush_close(default_user_bus);
+        flush_close(default_system_bus);
 }

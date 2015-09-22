@@ -473,3 +473,8 @@ global:
         sd_pid_get_cgroup;
         sd_peer_get_cgroup;
 } LIBSYSTEMD_222;
+
+LIBSYSTEMD_227 {
+global:
+        sd_bus_default_flush_close;
+} LIBSYSTEMD_226;
