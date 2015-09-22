@@ -274,15 +274,15 @@ static int icmp6_ra_prefix_timeout(sd_event_source *s, uint64_t usec,
                 if (prefix->timeout_valid != s)
                         continue;
 
-                log_icmp6_nd(nd, "Prefix expired "SD_ICMP6_ADDRESS_FORMAT_STR"/%d",
-                             SD_ICMP6_ADDRESS_FORMAT_VAL(prefix->addr),
+                log_icmp6_nd(nd, "Prefix expired "SD_ICMP6_ND_ADDRESS_FORMAT_STR"/%d",
+                             SD_ICMP6_ND_ADDRESS_FORMAT_VAL(prefix->addr),
                              prefix->len);
 
                 LIST_REMOVE(prefixes, nd->prefixes, prefix);
 
                 nd->expired_prefix = prefix;
                 icmp6_nd_notify(nd,
-                                ICMP6_EVENT_ROUTER_ADVERTISMENT_PREFIX_EXPIRED);
+                                SD_ICMP6_ND_EVENT_ROUTER_ADVERTISMENT_PREFIX_EXPIRED);
                 nd->expired_prefix = NULL;
 
                 prefix = icmp6_prefix_unref(prefix);
@@ -441,8 +441,8 @@ static int icmp6_ra_prefix_update(sd_icmp6_nd *nd, ssize_t len,
                 memcpy(&prefix->addr, &prefix_opt->nd_opt_pi_prefix,
                         sizeof(prefix->addr));
 
-                log_icmp6_nd(nd, "New prefix "SD_ICMP6_ADDRESS_FORMAT_STR"/%d lifetime %d expires in %s",
-                             SD_ICMP6_ADDRESS_FORMAT_VAL(prefix->addr),
+                log_icmp6_nd(nd, "New prefix "SD_ICMP6_ND_ADDRESS_FORMAT_STR"/%d lifetime %d expires in %s",
+                             SD_ICMP6_ND_ADDRESS_FORMAT_VAL(prefix->addr),
                              prefix->len, lifetime,
                              format_timespan(time_string, FORMAT_TIMESPAN_MAX,
                                              lifetime * USEC_PER_SEC, 0));
@@ -463,8 +463,8 @@ static int icmp6_ra_prefix_update(sd_icmp6_nd *nd, ssize_t len,
                         prefix->len = prefixlen;
                 }
 
-                log_icmp6_nd(nd, "Update prefix "SD_ICMP6_ADDRESS_FORMAT_STR"/%d lifetime %d expires in %s",
-                             SD_ICMP6_ADDRESS_FORMAT_VAL(prefix->addr),
+                log_icmp6_nd(nd, "Update prefix "SD_ICMP6_ND_ADDRESS_FORMAT_STR"/%d lifetime %d expires in %s",
+                             SD_ICMP6_ND_ADDRESS_FORMAT_VAL(prefix->addr),
                              prefix->len, lifetime,
                              format_timespan(time_string, FORMAT_TIMESPAN_MAX,
                                              lifetime * USEC_PER_SEC, 0));
@@ -541,7 +541,7 @@ static int icmp6_router_advertisment_recv(sd_event_source *s, int fd, uint32_t r
         int r, buflen = 0;
         ssize_t len;
         _cleanup_free_ struct nd_router_advert *ra = NULL;
-        int event = ICMP6_EVENT_ROUTER_ADVERTISMENT_NONE;
+        int event = SD_ICMP6_ND_EVENT_ROUTER_ADVERTISMENT_NONE;
 
         assert(s);
         assert(nd);
@@ -572,16 +572,16 @@ static int icmp6_router_advertisment_recv(sd_event_source *s, int fd, uint32_t r
         nd->state = ICMP6_ROUTER_ADVERTISMENT_LISTEN;
 
         if (ra->nd_ra_flags_reserved & ND_RA_FLAG_OTHER )
-                event = ICMP6_EVENT_ROUTER_ADVERTISMENT_OTHER;
+                event = SD_ICMP6_ND_EVENT_ROUTER_ADVERTISMENT_OTHER;
 
         if (ra->nd_ra_flags_reserved & ND_RA_FLAG_MANAGED)
-                event = ICMP6_EVENT_ROUTER_ADVERTISMENT_MANAGED;
+                event = SD_ICMP6_ND_EVENT_ROUTER_ADVERTISMENT_MANAGED;
 
         log_icmp6_nd(nd, "Received Router Advertisement flags %s/%s",
                      ra->nd_ra_flags_reserved & ND_RA_FLAG_MANAGED? "MANAGED": "none",
                      ra->nd_ra_flags_reserved & ND_RA_FLAG_OTHER? "OTHER": "none");
 
-        if (event != ICMP6_EVENT_ROUTER_ADVERTISMENT_NONE) {
+        if (event != SD_ICMP6_ND_EVENT_ROUTER_ADVERTISMENT_NONE) {
                 r = icmp6_ra_parse(nd, ra, len);
                 if (r < 0) {
                         log_icmp6_nd(nd, "Could not parse Router Advertisement: %s",
@@ -609,7 +609,7 @@ static int icmp6_router_solicitation_timeout(sd_event_source *s, uint64_t usec, 
         nd->timeout = sd_event_source_unref(nd->timeout);
 
         if (nd->nd_sent >= ICMP6_MAX_ROUTER_SOLICITATIONS) {
-                icmp6_nd_notify(nd, ICMP6_EVENT_ROUTER_ADVERTISMENT_TIMEOUT);
+                icmp6_nd_notify(nd, SD_ICMP6_ND_EVENT_ROUTER_ADVERTISMENT_TIMEOUT);
                 nd->state = ICMP6_ROUTER_ADVERTISMENT_LISTEN;
         } else {
                 if (memcmp(&nd->mac_addr, &unset, sizeof(struct ether_addr)))

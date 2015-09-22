@@ -277,9 +277,9 @@ static void test_rs_done(sd_icmp6_nd *nd, int event, void *userdata) {
                 uint8_t flag;
                 int event;
         } flag_event[] = {
-                { 0, ICMP6_EVENT_ROUTER_ADVERTISMENT_NONE },
-                { ND_RA_FLAG_OTHER, ICMP6_EVENT_ROUTER_ADVERTISMENT_OTHER },
-                { ND_RA_FLAG_MANAGED, ICMP6_EVENT_ROUTER_ADVERTISMENT_MANAGED }
+                { 0, SD_ICMP6_ND_EVENT_ROUTER_ADVERTISMENT_NONE },
+                { ND_RA_FLAG_OTHER, SD_ICMP6_ND_EVENT_ROUTER_ADVERTISMENT_OTHER },
+                { ND_RA_FLAG_MANAGED, SD_ICMP6_ND_EVENT_ROUTER_ADVERTISMENT_MANAGED }
         };
         uint32_t mtu;
 
