@@ -1112,13 +1112,16 @@ static void lldp_handler(sd_lldp *lldp, int event, void *userdata) {
         assert(link->network);
         assert(link->manager);
 
-        if (event != UPDATE_INFO)
-                return;
+        switch (event) {
+        case SD_LLDP_EVENT_UPDATE_INFO:
+                r = sd_lldp_save(link->lldp, link->lldp_file);
+                if (r < 0)
+                        log_link_warning_errno(link, r, "Could not save LLDP: %m");
 
-        r = sd_lldp_save(link->lldp, link->lldp_file);
-        if (r < 0)
-                log_link_warning_errno(link, r, "Could not save LLDP: %m");
-
+                break;
+        default:
+                break;
+        }
 }
 
 static int link_acquire_conf(Link *link) {

@@ -24,13 +24,13 @@
 
 #include "sd-event.h"
 
+enum {
+        SD_LLDP_EVENT_UPDATE_INFO       = 0,
+};
+
 typedef struct sd_lldp sd_lldp;
 
 typedef void (*sd_lldp_cb_t)(sd_lldp *lldp, int event, void *userdata);
-
-enum {
-        UPDATE_INFO = 10,
-};
 
 int sd_lldp_new(int ifindex, const char *ifname, const struct ether_addr *mac, sd_lldp **ret);
 void sd_lldp_free(sd_lldp *lldp);
