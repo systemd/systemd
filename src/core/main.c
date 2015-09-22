@@ -410,9 +410,9 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
                                                                       \
                 r = func(rvalue);                                     \
                 if (r < 0)                                            \
-                        log_syntax(unit, LOG_ERR, filename, line, -r, \
-                                   "Invalid " descr "'%s': %s",       \
-                                   rvalue, strerror(-r));             \
+                        log_syntax(unit, LOG_ERR, filename, line, r,  \
+                                   "Invalid " descr "'%s': %m",       \
+                                   rvalue);                           \
                                                                       \
                 return 0;                                             \
         }
