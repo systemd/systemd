@@ -1,5 +1,45 @@
 systemd System and Service Manager
 
+CHANGES WITH 227:
+
+        * systemd now depends on util-linux v2.27. More specifically,
+          the newly added mount monitor feature in libmount now
+          replaces systemd's former own implementation.
+
+        * libmount mandates /etc/mtab not to be regular file, and
+          systemd now enforces this condition at early boot.
+          /etc/mtab has been deprecated and warned about for a very
+          long time, so systems running systemd should already have
+          stopped having this file around as anything else than a
+          symlink to /proc/self/mounts.
+
+        * Support for the "pids" cgroup controller has been added.
+          It allows accounting the number of tasks in a cgroup and
+          enforcing limits on it. This adds two new setting
+          TasksAccounting= and TasksMax= to each unit, as well as a
+          gloabl option DefaultTasksAccounting=.
+
+        * Support for the "net_cls" cgroup controller has been added.
+          It allows assigning a net class ID to each task in the cgroup,
+          which can then be used in firewall rules and traffic shaping
+          configurations. Note that the kernel netfilter code does not
+          currently work reliably for ingress packets on unestablished
+          sockets.
+
+          This adds a new config directive called NetClass= to CGroup
+          enabled units. Allowed values are positive numbers for fix
+          assignments and "auto" for picking a free value
+          automatically.
+
+        * The PrivateTmp, PrivateDevices, PrivateNetwork and
+          NoNewPrivileges properties can now be set for transient units.
+
+        * Galician and Turkish translations were added.
+
+        Contributions from:
+
+        -- Berlin, 2015-09-xx
+
 CHANGES WITH 226:
 
         * The DHCP implementation of systemd-networkd gained a set of
