@@ -234,6 +234,8 @@ Service.FileDescriptorStoreMax,  config_parse_unsigned,              0,         
 Service.NotifyAccess,            config_parse_notify_access,         0,                             offsetof(Service, notify_access)
 Service.Sockets,                 config_parse_service_sockets,       0,                             0
 Service.BusPolicy,               config_parse_bus_endpoint_policy,   0,                             offsetof(Service, exec_context)
+Service.USBFunctionDescriptors,  config_parse_path,                  0,                             offsetof(Service, usb_function_descriptors)
+Service.USBFunctionStrings,      config_parse_path,                  0,                             offsetof(Service, usb_function_strings)
 EXEC_CONTEXT_CONFIG_ITEMS(Service)m4_dnl
 CGROUP_CONTEXT_CONFIG_ITEMS(Service)m4_dnl
 KILL_CONTEXT_CONFIG_ITEMS(Service)m4_dnl
@@ -245,6 +247,7 @@ Socket.ListenFIFO,               config_parse_socket_listen,         SOCKET_FIFO
 Socket.ListenNetlink,            config_parse_socket_listen,         SOCKET_SOCKET,                 0
 Socket.ListenSpecial,            config_parse_socket_listen,         SOCKET_SPECIAL,                0
 Socket.ListenMessageQueue,       config_parse_socket_listen,         SOCKET_MQUEUE,                 0
+Socket.ListenUSBFunction,        config_parse_socket_listen,         SOCKET_USB_FUNCTION,           0
 Socket.BindIPv6Only,             config_parse_socket_bind,           0,                             0,
 Socket.Backlog,                  config_parse_unsigned,              0,                             offsetof(Socket, backlog)
 Socket.BindToDevice,             config_parse_socket_bindtodevice,   0,                             0

@@ -60,6 +60,7 @@ typedef enum SocketType {
         SOCKET_FIFO,
         SOCKET_SPECIAL,
         SOCKET_MQUEUE,
+        SOCKET_USB_FUNCTION,
         _SOCKET_FIFO_MAX,
         _SOCKET_FIFO_INVALID = -1
 } SocketType;
@@ -81,6 +82,8 @@ typedef struct SocketPort {
 
         SocketType type;
         int fd;
+        int *auxiliary_fds;
+        int n_auxiliary_fds;
 
         SocketAddress address;
         char *path;

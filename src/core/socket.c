@@ -50,6 +50,7 @@
 #include "formats-util.h"
 #include "signal-util.h"
 #include "socket.h"
+#include "copy.h"
 
 static const UnitActiveState state_translation_table[_SOCKET_STATE_MAX] = {
         [SOCKET_DEAD] = UNIT_INACTIVE,
@@ -104,6 +105,16 @@ static void socket_unwatch_control_pid(Socket *s) {
         s->control_pid = 0;
 }
 
+static void socket_cleanup_fd_list(SocketPort *p) {
+        int k = p->n_auxiliary_fds;
+
+        while (k--)
+                safe_close(p->auxiliary_fds[k]);
+
+        p->auxiliary_fds = mfree(p->auxiliary_fds);
+        p->n_auxiliary_fds = 0;
+}
+
 void socket_free_ports(Socket *s) {
         SocketPort *p;
 
@@ -114,6 +125,7 @@ void socket_free_ports(Socket *s) {
 
                 sd_event_source_unref(p->event_source);
 
+                socket_cleanup_fd_list(p);
                 safe_close(p->fd);
                 free(p->path);
                 free(p);
@@ -248,7 +260,7 @@ static int socket_add_mount_links(Socket *s) {
 
                 if (p->type == SOCKET_SOCKET)
                         path = socket_address_get_path(&p->address);
-                else if (p->type == SOCKET_FIFO || p->type == SOCKET_SPECIAL)
+                else if (IN_SET(p->type, SOCKET_FIFO, SOCKET_SPECIAL, SOCKET_USB_FUNCTION))
                         path = p->path;
 
                 if (!path)
@@ -639,6 +651,8 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                         free(k);
                 } else if (p->type == SOCKET_SPECIAL)
                         fprintf(f, "%sListenSpecial: %s\n", prefix, p->path);
+                else if (p->type == SOCKET_USB_FUNCTION)
+                        fprintf(f, "%sListenUSBFunction: %s\n", prefix, p->path);
                 else if (p->type == SOCKET_MQUEUE)
                         fprintf(f, "%sListenMessageQueue: %s\n", prefix, p->path);
                 else
@@ -775,6 +789,7 @@ static void socket_close_fds(Socket *s) {
                         continue;
 
                 p->fd = safe_close(p->fd);
+                socket_cleanup_fd_list(p);
 
                 /* One little note: we should normally not delete any
                  * sockets in the file system here! After all some
@@ -1051,6 +1066,33 @@ fail:
         return r;
 }
 
+static int ffs_address_create(
+                const char *path,
+                int *_fd) {
+
+        _cleanup_close_ int fd = -1;
+        struct stat st;
+
+        assert(path);
+        assert(_fd);
+
+        fd = open(path, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK|O_NOFOLLOW);
+        if (fd < 0)
+                return -errno;
+
+        if (fstat(fd, &st) < 0)
+                return -errno;
+
+        /* Check whether this is a regular file (ffs endpoint)*/
+        if (!S_ISREG(st.st_mode))
+                return -EEXIST;
+
+        *_fd = fd;
+        fd = -1;
+
+        return 0;
+}
+
 static int mq_address_create(
                 const char *path,
                 mode_t mq_mode,
@@ -1122,6 +1164,76 @@ static int socket_symlink(Socket *s) {
                 symlink_label(p, *i);
 
         return 0;
+}
+
+static int ffs_write_descs(int fd, Unit *u) {
+        Service *s = SERVICE(u);
+        int r;
+
+        if (!s->usb_function_descriptors || !s->usb_function_strings)
+                return -EINVAL;
+
+        r = copy_file_fd(s->usb_function_descriptors, fd, false);
+        if (r < 0)
+                return 0;
+
+        r = copy_file_fd(s->usb_function_strings, fd, false);
+
+        return r;
+}
+
+static int select_ep(const struct dirent *d) {
+        return d->d_name[0] != '.' && !streq(d->d_name, "ep0");
+}
+
+static int ffs_dispatch_eps(SocketPort *p) {
+        _cleanup_free_ struct dirent **ent = NULL;
+        int r, i, n, k;
+        _cleanup_free_ char *path = NULL;
+
+        r = path_get_parent(p->path, &path);
+        if (r < 0)
+                return r;
+
+        r = scandir(path, &ent, select_ep, alphasort);
+        if (r < 0)
+                return -errno;
+
+        n = r;
+        p->auxiliary_fds = new(int, n);
+        if (!p->auxiliary_fds)
+                return -ENOMEM;
+
+        p->n_auxiliary_fds = n;
+
+        k = 0;
+        for (i = 0; i < n; ++i) {
+                _cleanup_free_ char *ep = NULL;
+
+                ep = path_make_absolute(ent[i]->d_name, path);
+                if (!ep)
+                        return -ENOMEM;
+
+                path_kill_slashes(ep);
+
+                r = ffs_address_create(ep, &p->auxiliary_fds[k]);
+                if (r < 0)
+                        goto fail;
+
+                ++k;
+                free(ent[i]);
+        }
+
+        return r;
+
+fail:
+        while (k)
+                safe_close(p->auxiliary_fds[--k]);
+
+        p->auxiliary_fds = mfree(p->auxiliary_fds);
+        p->n_auxiliary_fds = 0;
+
+        return r;
 }
 
 static int socket_open_fds(Socket *s) {
@@ -1218,6 +1330,21 @@ static int socket_open_fds(Socket *s) {
                                         s->mq_maxmsg,
                                         s->mq_msgsize,
                                         &p->fd);
+                        if (r < 0)
+                                goto rollback;
+                } else  if (p->type == SOCKET_USB_FUNCTION) {
+
+                        r = ffs_address_create(
+                                        p->path,
+                                        &p->fd);
+                        if (r < 0)
+                                goto rollback;
+
+                        r = ffs_write_descs(p->fd, s->service.unit);
+                        if (r < 0)
+                                goto rollback;
+
+                        r = ffs_dispatch_eps(p);
                         if (r < 0)
                                 goto rollback;
                 } else
@@ -2035,6 +2162,8 @@ static int socket_serialize(Unit *u, FILE *f, FDSet *fds) {
                         unit_serialize_item_format(u, f, "special", "%i %s", copy, p->path);
                 else if (p->type == SOCKET_MQUEUE)
                         unit_serialize_item_format(u, f, "mqueue", "%i %s", copy, p->path);
+                else if (p->type == SOCKET_USB_FUNCTION)
+                        unit_serialize_item_format(u, f, "ffs", "%i %s", copy, p->path);
                 else {
                         assert(p->type == SOCKET_FIFO);
                         unit_serialize_item_format(u, f, "fifo", "%i %s", copy, p->path);
@@ -2184,6 +2313,26 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
                                 p->fd = fdset_remove(fds, fd);
                         }
                 }
+
+        } else if (streq(key, "ffs")) {
+                int fd, skip = 0;
+                SocketPort *p;
+
+                if (sscanf(value, "%i %n", &fd, &skip) < 1 || fd < 0 || !fdset_contains(fds, fd))
+                        log_unit_debug(u, "Failed to parse ffs value: %s", value);
+                else {
+
+                        LIST_FOREACH(port, p, s->ports)
+                                if (p->type == SOCKET_USB_FUNCTION &&
+                                    path_equal_or_files_same(p->path, value+skip))
+                                        break;
+
+                        if (p) {
+                                safe_close(p->fd);
+                                p->fd = fdset_remove(fds, fd);
+                        }
+                }
+
         } else
                 log_unit_debug(UNIT(s), "Unknown serialization key: %s", key);
 
@@ -2266,6 +2415,9 @@ const char* socket_port_type_to_string(SocketPort *p) {
         case SOCKET_FIFO:
                 return "FIFO";
 
+        case SOCKET_USB_FUNCTION:
+                return "USBFunction";
+
         default:
                 return NULL;
         }
@@ -2297,7 +2449,6 @@ static int socket_dispatch_io(sd_event_source *source, int fd, uint32_t revents,
                         log_unit_error(UNIT(p->socket), "Got POLLHUP on a listening socket. The service probably invoked shutdown() on it, and should better not do that.");
                 else
                         log_unit_error(UNIT(p->socket), "Got unexpected poll event (0x%x) on socket.", revents);
-
                 goto fail;
         }
 
@@ -2496,6 +2647,7 @@ static int socket_dispatch_timer(sd_event_source *source, usec_t usec, void *use
 int socket_collect_fds(Socket *s, int **fds, unsigned *n_fds) {
         int *rfds;
         unsigned rn_fds, k;
+        int i;
         SocketPort *p;
 
         assert(s);
@@ -2505,9 +2657,11 @@ int socket_collect_fds(Socket *s, int **fds, unsigned *n_fds) {
         /* Called from the service code for requesting our fds */
 
         rn_fds = 0;
-        LIST_FOREACH(port, p, s->ports)
+        LIST_FOREACH(port, p, s->ports) {
                 if (p->fd >= 0)
                         rn_fds++;
+                rn_fds += p->n_auxiliary_fds;
+        }
 
         if (rn_fds <= 0) {
                 *fds = NULL;
@@ -2520,9 +2674,12 @@ int socket_collect_fds(Socket *s, int **fds, unsigned *n_fds) {
                 return -ENOMEM;
 
         k = 0;
-        LIST_FOREACH(port, p, s->ports)
+        LIST_FOREACH(port, p, s->ports) {
                 if (p->fd >= 0)
                         rfds[k++] = p->fd;
+                for (i = 0; i < p->n_auxiliary_fds; ++i)
+                        rfds[k++] = p->auxiliary_fds[i];
+        }
 
         assert(k == rn_fds);
 

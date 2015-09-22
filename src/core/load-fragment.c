@@ -381,6 +381,8 @@ int config_parse_socket_listen(const char *unit,
         }
 
         p->fd = -1;
+        p->auxiliary_fds = NULL;
+        p->n_auxiliary_fds = 0;
         p->socket = s;
 
         if (s->ports) {
