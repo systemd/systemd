@@ -27,8 +27,8 @@
 
 #include "sd-bus.h"
 #include "sd-event.h"
-#include "fdset.h"
 #include "cgroup-util.h"
+#include "fdset.h"
 #include "hashmap.h"
 #include "list.h"
 #include "ratelimit.h"
@@ -69,11 +69,11 @@ typedef enum StatusType {
         STATUS_TYPE_EMERGENCY,
 } StatusType;
 
+#include "execute.h"
 #include "job.h"
 #include "path-lookup.h"
-#include "execute.h"
-#include "unit-name.h"
 #include "show-status.h"
+#include "unit-name.h"
 
 struct Manager {
         /* Note that the set of units we know of is allowed to be
