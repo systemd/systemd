@@ -938,3 +938,6 @@ int reset_uid_gid(void);
 
 int getxattr_malloc(const char *path, const char *name, char **value, bool allow_symlink);
 int fgetxattr_malloc(int fd, const char *name, char **value);
+
+int send_one_fd(int transport_fd, int fd);
+int receive_one_fd(int transport_fd);

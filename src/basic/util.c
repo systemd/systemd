@@ -6775,3 +6775,72 @@ int fgetxattr_malloc(int fd, const char *name, char **value) {
                         return -errno;
         }
 }
+
+int send_one_fd(int transport_fd, int fd) {
+        union {
+                struct cmsghdr cmsghdr;
+                uint8_t buf[CMSG_SPACE(sizeof(int))];
+        } control = {};
+        struct msghdr mh = {
+                .msg_control = &control,
+                .msg_controllen = sizeof(control),
+        };
+        struct cmsghdr *cmsg;
+        ssize_t k;
+
+        assert(transport_fd >= 0);
+        assert(fd >= 0);
+
+        cmsg = CMSG_FIRSTHDR(&mh);
+        cmsg->cmsg_level = SOL_SOCKET;
+        cmsg->cmsg_type = SCM_RIGHTS;
+        cmsg->cmsg_len = CMSG_LEN(sizeof(int));
+        memcpy(CMSG_DATA(cmsg), &fd, sizeof(int));
+
+        mh.msg_controllen = CMSG_SPACE(sizeof(int));
+        k = sendmsg(transport_fd, &mh, MSG_NOSIGNAL);
+        if (k < 0)
+                return -errno;
+
+        return 0;
+}
+
+int receive_one_fd(int transport_fd) {
+        union {
+                struct cmsghdr cmsghdr;
+                uint8_t buf[CMSG_SPACE(sizeof(int))];
+        } control = {};
+        struct msghdr mh = {
+                .msg_control = &control,
+                .msg_controllen = sizeof(control),
+        };
+        struct cmsghdr *cmsg;
+        ssize_t k;
+
+        assert(transport_fd >= 0);
+
+        /*
+         * Receive a single FD via @transport_fd. We don't care for the
+         * transport-type, but the caller must assure that no other CMSG types
+         * than SCM_RIGHTS is enabled. We also retrieve a single FD at most, so
+         * for packet-based transports, the caller must ensure to send only a
+         * single FD per packet.
+         * This is best used in combination with send_one_fd().
+         */
+
+        k = recvmsg(transport_fd, &mh, MSG_NOSIGNAL | MSG_CMSG_CLOEXEC);
+        if (k < 0)
+                return -errno;
+
+        cmsg = CMSG_FIRSTHDR(&mh);
+        if (!cmsg || CMSG_NXTHDR(&mh, cmsg) ||
+            cmsg->cmsg_level != SOL_SOCKET ||
+            cmsg->cmsg_type != SCM_RIGHTS ||
+            cmsg->cmsg_len != CMSG_LEN(sizeof(int)) ||
+            *(const int *)CMSG_DATA(cmsg) < 0) {
+                cmsg_close_all(&mh);
+                return -EIO;
+        }
+
+        return *(const int *)CMSG_DATA(cmsg);
+}
