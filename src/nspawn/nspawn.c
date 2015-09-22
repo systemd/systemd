@@ -3474,8 +3474,8 @@ int main(int argc, char *argv[]) {
                 }
 
                 /* Let the child know that we are ready and wait that the child is completely ready now. */
-                if (!barrier_place_and_sync(&barrier)) { /* #5 */
-                        log_error("Client died too early.");
+                if (!barrier_place_and_sync(&barrier)) { /* #4 */
+                        log_error("Child died too early.");
                         r = -ESRCH;
                         goto finish;
                 }
