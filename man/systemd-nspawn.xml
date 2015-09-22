@@ -96,7 +96,6 @@
 
     <para>Use a tool like
     <citerefentry project='mankier'><refentrytitle>dnf</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-    <citerefentry project='die-net'><refentrytitle>yum</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
     <citerefentry project='die-net'><refentrytitle>debootstrap</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
     or
     <citerefentry project='archlinux'><refentrytitle>pacman</refentrytitle><manvolnum>8</manvolnum></citerefentry>
@@ -914,7 +913,6 @@
       <citerefentry><refentrytitle>systemd.nspawn</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>chroot</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry project='mankier'><refentrytitle>dnf</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      <citerefentry project='die-net'><refentrytitle>yum</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry project='die-net'><refentrytitle>debootstrap</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry project='archlinux'><refentrytitle>pacman</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>,

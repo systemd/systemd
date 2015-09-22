@@ -528,9 +528,6 @@ static int group_compare(const void*a, const void *b) {
         return path_compare(x->path, y->path);
 }
 
-#define ON ANSI_HIGHLIGHT_ON
-#define OFF ANSI_HIGHLIGHT_OFF
-
 static void display(Hashmap *a) {
         Iterator i;
         Group *g;
@@ -541,10 +538,8 @@ static void display(Hashmap *a) {
 
         assert(a);
 
-        /* Set cursor to top left corner and clear screen */
         if (on_tty())
-                fputs("\033[H"
-                      "\033[2J", stdout);
+                fputs(ANSI_HOME_CLEAR, stdout);
 
         array = alloca(sizeof(Group*) * hashmap_size(a));
 
@@ -576,23 +571,30 @@ static void display(Hashmap *a) {
                 rows = 10;
 
         if (on_tty()) {
+                const char *on, *off;
+
                 path_columns = columns() - 36 - strlen(buffer);
                 if (path_columns < 10)
                         path_columns = 10;
 
-                printf("%s%-*s%s %s%7s%s %s%s%s %s%8s%s %s%8s%s %s%8s%s\n\n",
-                       arg_order == ORDER_PATH ? ON : "", path_columns, "Control Group",
-                       arg_order == ORDER_PATH ? OFF : "",
-                       arg_order == ORDER_TASKS ? ON : "", arg_count == COUNT_PIDS ? "Tasks" : arg_count == COUNT_USERSPACE_PROCESSES ? "Procs" : "Proc+",
-                       arg_order == ORDER_TASKS ? OFF : "",
-                       arg_order == ORDER_CPU ? ON : "", buffer,
-                       arg_order == ORDER_CPU ? OFF : "",
-                       arg_order == ORDER_MEMORY ? ON : "", "Memory",
-                       arg_order == ORDER_MEMORY ? OFF : "",
-                       arg_order == ORDER_IO ? ON : "", "Input/s",
-                       arg_order == ORDER_IO ? OFF : "",
-                       arg_order == ORDER_IO ? ON : "", "Output/s",
-                       arg_order == ORDER_IO ? OFF : "");
+                on = ansi_highlight_underline();
+                off = ansi_underline();
+
+                printf("%s%s%-*s%s %s%7s%s %s%s%s %s%8s%s %s%8s%s %s%8s%s%s\n",
+                       ansi_underline(),
+                       arg_order == ORDER_PATH ? on : "", path_columns, "Control Group",
+                       arg_order == ORDER_PATH ? off : "",
+                       arg_order == ORDER_TASKS ? on : "", arg_count == COUNT_PIDS ? "Tasks" : arg_count == COUNT_USERSPACE_PROCESSES ? "Procs" : "Proc+",
+                       arg_order == ORDER_TASKS ? off : "",
+                       arg_order == ORDER_CPU ? on : "", buffer,
+                       arg_order == ORDER_CPU ? off : "",
+                       arg_order == ORDER_MEMORY ? on : "", "Memory",
+                       arg_order == ORDER_MEMORY ? off : "",
+                       arg_order == ORDER_IO ? on : "", "Input/s",
+                       arg_order == ORDER_IO ? off : "",
+                       arg_order == ORDER_IO ? on : "", "Output/s",
+                       arg_order == ORDER_IO ? off : "",
+                       ansi_normal());
         } else
                 path_columns = maxtpath;
 
@@ -600,7 +602,7 @@ static void display(Hashmap *a) {
                 _cleanup_free_ char *ellipsized = NULL;
                 const char *path;
 
-                if (on_tty() && j + 5 > rows)
+                if (on_tty() && j + 6 > rows)
                         break;
 
                 g = array[j];
@@ -1061,6 +1063,10 @@ int main(int argc, char *argv[]) {
 
                 case '?':
                 case 'h':
+
+#define ON ANSI_HIGHLIGHT
+#define OFF ANSI_NORMAL
+
                         fprintf(stdout,
                                 "\t<" ON "p" OFF "> By path; <" ON "t" OFF "> By tasks/procs; <" ON "c" OFF "> By CPU; <" ON "m" OFF "> By memory; <" ON "i" OFF "> By I/O\n"
                                 "\t<" ON "+" OFF "> Inc. delay; <" ON "-" OFF "> Dec. delay; <" ON "%%" OFF "> Toggle time; <" ON "SPACE" OFF "> Refresh\n"

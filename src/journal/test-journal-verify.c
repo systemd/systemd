@@ -137,7 +137,7 @@ int main(int argc, char *argv[]) {
                         log_info("[ %"PRIu64"+%"PRIu64"]", p / 8, p % 8);
 
                         if (raw_verify("test.journal", verification_key) >= 0)
-                                log_notice(ANSI_HIGHLIGHT_RED_ON ">>>> %"PRIu64" (bit %"PRIu64") can be toggled without detection." ANSI_HIGHLIGHT_OFF, p / 8, p % 8);
+                                log_notice(ANSI_HIGHLIGHT_RED ">>>> %"PRIu64" (bit %"PRIu64") can be toggled without detection." ANSI_NORMAL, p / 8, p % 8);
 
                         bit_toggle("test.journal", p);
                 }

@@ -449,7 +449,7 @@ static int tree(sd_bus *bus, char **argv) {
                         if (not_first)
                                 printf("\n");
 
-                        printf("Service %s%s%s:\n", ansi_highlight(), *i, ansi_highlight_off());
+                        printf("Service %s%s%s:\n", ansi_highlight(), *i, ansi_normal());
 
                         q = tree_one(bus, *i, NULL, true);
                         if (q < 0 && r >= 0)
@@ -466,7 +466,7 @@ static int tree(sd_bus *bus, char **argv) {
 
                         if (argv[2]) {
                                 pager_open_if_enabled();
-                                printf("Service %s%s%s:\n", ansi_highlight(), *i, ansi_highlight_off());
+                                printf("Service %s%s%s:\n", ansi_highlight(), *i, ansi_normal());
                         }
 
                         q = tree_one(bus, *i, NULL, !!argv[2]);
@@ -1052,7 +1052,7 @@ static int introspect(sd_bus *bus, char **argv) {
                        is_interface ? ansi_highlight() : "",
                        is_interface ? "" : ".",
                        - !is_interface + (int) name_width, strdash(streq_ptr(m->type, "interface") ? m->interface : m->name),
-                       is_interface ? ansi_highlight_off() : "",
+                       is_interface ? ansi_normal() : "",
                        (int) type_width, strdash(m->type),
                        (int) signature_width, strdash(m->signature),
                        (int) result_width, rv,
@@ -1196,15 +1196,15 @@ static int status(sd_bus *bus, char *argv[]) {
 
                 r = sd_bus_get_address(bus, &address);
                 if (r >= 0)
-                        printf("BusAddress=%s%s%s\n", ansi_highlight(), address, ansi_highlight_off());
+                        printf("BusAddress=%s%s%s\n", ansi_highlight(), address, ansi_normal());
 
                 r = sd_bus_get_scope(bus, &scope);
                 if (r >= 0)
-                        printf("BusScope=%s%s%s\n", ansi_highlight(), scope, ansi_highlight_off());
+                        printf("BusScope=%s%s%s\n", ansi_highlight(), scope, ansi_normal());
 
                 r = sd_bus_get_bus_id(bus, &bus_id);
                 if (r >= 0)
-                        printf("BusID=%s" SD_ID128_FORMAT_STR "%s\n", ansi_highlight(), SD_ID128_FORMAT_VAL(bus_id), ansi_highlight_off());
+                        printf("BusID=%s" SD_ID128_FORMAT_STR "%s\n", ansi_highlight(), SD_ID128_FORMAT_VAL(bus_id), ansi_normal());
 
                 r = sd_bus_get_owner_creds(
                                 bus,

@@ -28,7 +28,7 @@
 #include "sd-id128.h"
 #include "random-util.h"
 
-_public_ char *sd_id128_to_string(sd_id128_t id, char s[33]) {
+_public_ char *sd_id128_to_string(sd_id128_t id, char s[SD_ID128_STRING_MAX]) {
         unsigned n;
 
         assert_return(s, NULL);

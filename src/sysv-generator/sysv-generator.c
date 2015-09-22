@@ -806,8 +806,7 @@ static int set_dependencies_from_rcnd(const LookupPaths *lp, Hashmap *all_servic
                         if (!path)
                                 return -ENOMEM;
 
-                        if (d)
-                                closedir(d);
+                        safe_closedir(d);
 
                         d = opendir(path);
                         if (!d) {

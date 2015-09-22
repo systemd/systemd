@@ -22,30 +22,30 @@
 ***/
 
 #include <alloca.h>
+#include <dirent.h>
 #include <fcntl.h>
 #include <inttypes.h>
-#include <time.h>
-#include <stdarg.h>
-#include <stdbool.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <sched.h>
 #include <limits.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/stat.h>
-#include <dirent.h>
-#include <stddef.h>
-#include <unistd.h>
 #include <locale.h>
 #include <mntent.h>
+#include <sched.h>
+#include <stdarg.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <sys/inotify.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/statfs.h>
+#include <sys/types.h>
+#include <time.h>
+#include <unistd.h>
 
+#include "formats-util.h"
 #include "macro.h"
 #include "missing.h"
 #include "time-util.h"
-#include "formats-util.h"
 
 /* What is interpreted as whitespace? */
 #define WHITESPACE " \t\n\r"
@@ -151,6 +151,7 @@ void close_many(const int fds[], unsigned n_fd);
 
 int fclose_nointr(FILE *f);
 FILE* safe_fclose(FILE *f);
+DIR* safe_closedir(DIR *f);
 
 int parse_size(const char *t, uint64_t base, uint64_t *size);
 
@@ -160,7 +161,10 @@ int parse_uid(const char *s, uid_t* ret_uid);
 #define parse_gid(s, ret_gid) parse_uid(s, ret_gid)
 
 bool uid_is_valid(uid_t uid);
-#define gid_is_valid(gid) uid_is_valid(gid)
+
+static inline bool gid_is_valid(gid_t gid) {
+        return uid_is_valid((uid_t) gid);
+}
 
 int safe_atou(const char *s, unsigned *ret_u);
 int safe_atoi(const char *s, int *ret_i);
@@ -289,9 +293,9 @@ bool chars_intersect(const char *a, const char *b) _pure_;
 
 ssize_t string_table_lookup(const char * const *table, size_t len, const char *key);
 
-#define _DEFINE_STRING_TABLE_LOOKUP_FROM_STRING(name,type,scope)                                \
-        scope inline type name##_from_string(const char *s) {                                   \
-                return (type)string_table_lookup(name##_table, ELEMENTSOF(name##_table), s);    \
+#define _DEFINE_STRING_TABLE_LOOKUP_FROM_STRING(name,type,scope)        \
+        scope type name##_from_string(const char *s) {                  \
+                return (type) string_table_lookup(name##_table, ELEMENTSOF(name##_table), s); \
         }
 
 #define _DEFINE_STRING_TABLE_LOOKUP(name,type,scope)                    \
@@ -308,17 +312,15 @@ ssize_t string_table_lookup(const char * const *table, size_t len, const char *k
 #define DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(name,type,max)         \
         int name##_to_string_alloc(type i, char **str) {                \
                 char *s;                                                \
-                int r;                                                  \
                 if (i < 0 || i > max)                                   \
                         return -ERANGE;                                 \
                 if (i < (type) ELEMENTSOF(name##_table)) {              \
                         s = strdup(name##_table[i]);                    \
                         if (!s)                                         \
-                                return log_oom();                       \
+                                return -ENOMEM;                         \
                 } else {                                                \
-                        r = asprintf(&s, "%i", i);                      \
-                        if (r < 0)                                      \
-                                return log_oom();                       \
+                        if (asprintf(&s, "%i", i) < 0)                  \
+                                return -ENOMEM;                         \
                 }                                                       \
                 *str = s;                                               \
                 return 0;                                               \
@@ -326,10 +328,10 @@ ssize_t string_table_lookup(const char * const *table, size_t len, const char *k
         type name##_from_string(const char *s) {                        \
                 type i;                                                 \
                 unsigned u = 0;                                         \
-                assert(s);                                              \
-                for (i = 0; i < (type)ELEMENTSOF(name##_table); i++)    \
-                        if (name##_table[i] &&                          \
-                            streq(name##_table[i], s))                  \
+                if (!s)                                                 \
+                        return (type) -1;                               \
+                for (i = 0; i < (type) ELEMENTSOF(name##_table); i++)   \
+                        if (streq_ptr(name##_table[i], s))              \
                                 return i;                               \
                 if (safe_atou(s, &u) >= 0 && u <= max)                  \
                         return (type) u;                                \

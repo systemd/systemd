@@ -485,7 +485,7 @@ enum nss_status _nss_mymachines_getpwuid_r(
         uint32_t mapped;
         int r;
 
-        if (UID_IS_INVALID(uid)) {
+        if (!uid_is_valid(uid)) {
                 r = -EINVAL;
                 goto fail;
         }
@@ -640,7 +640,7 @@ enum nss_status _nss_mymachines_getgrgid_r(
         uint32_t mapped;
         int r;
 
-        if (GID_IS_INVALID(gid)) {
+        if (!gid_is_valid(gid)) {
                 r = -EINVAL;
                 goto fail;
         }

@@ -117,11 +117,11 @@ static bool print_multiline(FILE *f, unsigned prefix, unsigned n_columns, Output
 
         if (flags & OUTPUT_COLOR) {
                 if (priority <= LOG_ERR) {
-                        color_on = ANSI_HIGHLIGHT_RED_ON;
-                        color_off = ANSI_HIGHLIGHT_OFF;
+                        color_on = ANSI_HIGHLIGHT_RED;
+                        color_off = ANSI_NORMAL;
                 } else if (priority <= LOG_NOTICE) {
-                        color_on = ANSI_HIGHLIGHT_ON;
-                        color_off = ANSI_HIGHLIGHT_OFF;
+                        color_on = ANSI_HIGHLIGHT;
+                        color_off = ANSI_NORMAL;
                 }
         }
 
@@ -455,8 +455,8 @@ static int output_verbose(
                 fieldlen = c - (const char*) data;
 
                 if (flags & OUTPUT_COLOR && startswith(data, "MESSAGE=")) {
-                        on = ANSI_HIGHLIGHT_ON;
-                        off = ANSI_HIGHLIGHT_OFF;
+                        on = ANSI_HIGHLIGHT;
+                        off = ANSI_NORMAL;
                 }
 
                 if (flags & OUTPUT_SHOW_ALL ||

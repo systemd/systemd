@@ -166,10 +166,10 @@ static void operational_state_to_color(const char *state, const char **on, const
 
         if (streq_ptr(state, "routable")) {
                 *on = ansi_highlight_green();
-                *off = ansi_highlight_off();
+                *off = ansi_normal();
         } else if (streq_ptr(state, "degraded")) {
                 *on = ansi_highlight_yellow();
-                *off = ansi_highlight_off();
+                *off = ansi_normal();
         } else
                 *on = *off = "";
 }
@@ -180,13 +180,13 @@ static void setup_state_to_color(const char *state, const char **on, const char 
 
         if (streq_ptr(state, "configured")) {
                 *on = ansi_highlight_green();
-                *off = ansi_highlight_off();
+                *off = ansi_normal();
         } else if (streq_ptr(state, "configuring")) {
                 *on = ansi_highlight_yellow();
-                *off = ansi_highlight_off();
+                *off = ansi_normal();
         } else if (streq_ptr(state, "failed") || streq_ptr(state, "linger")) {
                 *on = ansi_highlight_red();
-                *off = ansi_highlight_off();
+                *off = ansi_normal();
         } else
                 *on = *off = "";
 }

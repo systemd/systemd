@@ -327,7 +327,7 @@ static int list_images(int argc, char *argv[], void *userdata) {
                 printf("%-*s %-*s %s%-3s%s %-*s %-*s %-*s\n",
                        (int) max_name, images[j].name,
                        (int) max_type, images[j].type,
-                       images[j].read_only ? ansi_highlight_red() : "", yes_no(images[j].read_only), images[j].read_only ? ansi_highlight_off() : "",
+                       images[j].read_only ? ansi_highlight_red() : "", yes_no(images[j].read_only), images[j].read_only ? ansi_normal() : "",
                        (int) max_size, strna(format_bytes(size_buf, sizeof(size_buf), images[j].size)),
                        (int) max_crtime, strna(format_timestamp(crtime_buf, sizeof(crtime_buf), images[j].crtime)),
                        (int) max_mtime, strna(format_timestamp(mtime_buf, sizeof(mtime_buf), images[j].mtime)));
@@ -793,7 +793,7 @@ static void print_image_status_info(sd_bus *bus, ImageStatusInfo *i) {
         printf("\t      RO: %s%s%s\n",
                i->read_only ? ansi_highlight_red() : "",
                i->read_only ? "read-only" : "writable",
-               i->read_only ? ansi_highlight_off() : "");
+               i->read_only ? ansi_normal() : "");
 
         s1 = format_timestamp_relative(ts_relative, sizeof(ts_relative), i->crtime);
         s2 = format_timestamp(ts_absolute, sizeof(ts_absolute), i->crtime);

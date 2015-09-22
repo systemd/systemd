@@ -720,7 +720,7 @@ static int print_property(const char *name, sd_bus_message *m, const char *conte
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        if (UID_IS_INVALID(uid)) {
+                        if (!uid_is_valid(uid)) {
                                 log_error("Invalid user ID: " UID_FMT, uid);
                                 return -EINVAL;
                         }

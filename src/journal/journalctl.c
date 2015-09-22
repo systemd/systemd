@@ -1493,15 +1493,15 @@ static int setup_keys(void) {
         if (on_tty()) {
                 fprintf(stderr,
                         "\n"
-                        "The new key pair has been generated. The " ANSI_HIGHLIGHT_ON "secret sealing key" ANSI_HIGHLIGHT_OFF " has been written to\n"
+                        "The new key pair has been generated. The " ANSI_HIGHLIGHT "secret sealing key" ANSI_NORMAL " has been written to\n"
                         "the following local file. This key file is automatically updated when the\n"
                         "sealing key is advanced. It should not be used on multiple hosts.\n"
                         "\n"
                         "\t%s\n"
                         "\n"
-                        "Please write down the following " ANSI_HIGHLIGHT_ON "secret verification key" ANSI_HIGHLIGHT_OFF ". It should be stored\n"
+                        "Please write down the following " ANSI_HIGHLIGHT "secret verification key" ANSI_NORMAL ". It should be stored\n"
                         "at a safe location and should not be saved locally on disk.\n"
-                        "\n\t" ANSI_HIGHLIGHT_RED_ON, p);
+                        "\n\t" ANSI_HIGHLIGHT_RED, p);
                 fflush(stderr);
         }
         for (i = 0; i < seed_size; i++) {
@@ -1516,7 +1516,7 @@ static int setup_keys(void) {
                 char tsb[FORMAT_TIMESPAN_MAX], *hn;
 
                 fprintf(stderr,
-                        ANSI_HIGHLIGHT_OFF "\n"
+                        ANSI_NORMAL "\n"
                         "The sealing key is automatically changed every %s.\n",
                         format_timespan(tsb, sizeof(tsb), arg_interval, 0));
 
@@ -2144,7 +2144,7 @@ int main(int argc, char *argv[]) {
                                         if (previous_boot_id_valid &&
                                             !sd_id128_equal(boot_id, previous_boot_id))
                                                 printf("%s-- Reboot --%s\n",
-                                                       ansi_highlight(), ansi_highlight_off());
+                                                       ansi_highlight(), ansi_normal());
 
                                         previous_boot_id = boot_id;
                                         previous_boot_id_valid = true;
