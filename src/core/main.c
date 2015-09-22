@@ -254,21 +254,6 @@ static int console_setup(void) {
         return 0;
 }
 
-static int set_default_unit(const char *u) {
-        char *c;
-
-        assert(u);
-
-        c = strdup(u);
-        if (!c)
-                return -ENOMEM;
-
-        free(arg_default_unit);
-        arg_default_unit = c;
-
-        return 0;
-}
-
 static int parse_proc_cmdline_item(const char *key, const char *value) {
 
         static const char * const rlmap[] = {
@@ -292,12 +277,12 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
         if (streq(key, "systemd.unit") && value) {
 
                 if (!in_initrd())
-                        return set_default_unit(value);
+                        return free_and_strdup(&arg_default_unit, value);
 
         } else if (streq(key, "rd.systemd.unit") && value) {
 
                 if (in_initrd())
-                        return set_default_unit(value);
+                        return free_and_strdup(&arg_default_unit, value);
 
         } else if (streq(key, "systemd.dump_core") && value) {
 
@@ -384,7 +369,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
                 /* SysV compatibility */
                 for (i = 0; i < ELEMENTSOF(rlmap); i += 2)
                         if (streq(key, rlmap[i]))
-                                return set_default_unit(rlmap[i+1]);
+                                return free_and_strdup(&arg_default_unit, rlmap[i+1]);
         }
 
         return 0;
@@ -786,7 +771,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_UNIT:
 
-                        r = set_default_unit(optarg);
+                        r = free_and_strdup(&arg_default_unit, optarg);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set default unit %s: %m", optarg);
 
@@ -1339,7 +1324,7 @@ int main(int argc, char *argv[]) {
         }
 
         /* Initialize default unit */
-        r = set_default_unit(SPECIAL_DEFAULT_TARGET);
+        r = free_and_strdup(&arg_default_unit, SPECIAL_DEFAULT_TARGET);
         if (r < 0) {
                 log_emergency_errno(r, "Failed to set default unit %s: %m", SPECIAL_DEFAULT_TARGET);
                 error_message = "Failed to set default unit";
