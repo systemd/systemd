@@ -365,7 +365,7 @@ static void test_client_solicit_cb(sd_dhcp6_client *client, int event,
         char **domains;
 
         assert_se(e);
-        assert_se(event == DHCP6_EVENT_IP_ACQUIRE);
+        assert_se(event == SD_DHCP6_CLIENT_EVENT_IP_ACQUIRE);
 
         assert_se(sd_dhcp6_client_get_lease(client, &lease) >= 0);
 
@@ -564,7 +564,7 @@ static void test_client_information_cb(sd_dhcp6_client *client, int event,
         char **domains;
 
         assert_se(e);
-        assert_se(event == DHCP6_EVENT_INFORMATION_REQUEST);
+        assert_se(event == SD_DHCP6_CLIENT_EVENT_INFORMATION_REQUEST);
 
         assert_se(sd_dhcp6_client_get_lease(client, &lease) >= 0);
 

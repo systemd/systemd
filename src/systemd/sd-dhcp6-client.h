@@ -29,11 +29,11 @@
 #include "sd-dhcp6-lease.h"
 
 enum {
-        DHCP6_EVENT_STOP                        = 0,
-        DHCP6_EVENT_RESEND_EXPIRE               = 10,
-        DHCP6_EVENT_RETRANS_MAX                 = 11,
-        DHCP6_EVENT_IP_ACQUIRE                  = 12,
-        DHCP6_EVENT_INFORMATION_REQUEST         = 13,
+        SD_DHCP6_CLIENT_EVENT_STOP                      = 0,
+        SD_DHCP6_CLIENT_EVENT_RESEND_EXPIRE             = 10,
+        SD_DHCP6_CLIENT_EVENT_RETRANS_MAX               = 11,
+        SD_DHCP6_CLIENT_EVENT_IP_ACQUIRE                = 12,
+        SD_DHCP6_CLIENT_EVENT_INFORMATION_REQUEST       = 13,
 };
 
 typedef struct sd_dhcp6_client sd_dhcp6_client;

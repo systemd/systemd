@@ -144,13 +144,13 @@ static void dhcp6_handler(sd_dhcp6_client *client, int event, void *userdata) {
                 return;
 
         switch(event) {
-        case DHCP6_EVENT_STOP:
-        case DHCP6_EVENT_RESEND_EXPIRE:
-        case DHCP6_EVENT_RETRANS_MAX:
+        case SD_DHCP6_CLIENT_EVENT_STOP:
+        case SD_DHCP6_CLIENT_EVENT_RESEND_EXPIRE:
+        case SD_DHCP6_CLIENT_EVENT_RETRANS_MAX:
                 log_link_debug(link, "DHCPv6 event %d", event);
                 break;
 
-        case DHCP6_EVENT_IP_ACQUIRE:
+        case SD_DHCP6_CLIENT_EVENT_IP_ACQUIRE:
                 r = dhcp6_lease_address_acquired(client, link);
                 if (r < 0) {
                         link_enter_failed(link);
@@ -158,7 +158,7 @@ static void dhcp6_handler(sd_dhcp6_client *client, int event, void *userdata) {
                 }
 
                 /* fall through */
-        case DHCP6_EVENT_INFORMATION_REQUEST:
+        case SD_DHCP6_CLIENT_EVENT_INFORMATION_REQUEST:
                 r = dhcp6_lease_information_acquired(client, link);
                 if (r < 0) {
                         link_enter_failed(link);
