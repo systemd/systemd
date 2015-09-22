@@ -23,6 +23,7 @@
 
 #include <stdbool.h>
 #include <stdio.h>
+#include <libmount.h>
 
 #include "sd-bus.h"
 #include "sd-event.h"
@@ -176,10 +177,8 @@ struct Manager {
         Hashmap *devices_by_sysfs;
 
         /* Data specific to the mount subsystem */
-        FILE *proc_self_mountinfo;
+        struct libmnt_monitor *mount_monitor;
         sd_event_source *mount_event_source;
-        int utab_inotify_fd;
-        sd_event_source *mount_utab_event_source;
 
         /* Data specific to the swap filesystem */
         FILE *proc_swaps;
