@@ -298,21 +298,21 @@ void ipv4ll_on_acd(sd_ipv4acd *acd, int event, void *userdata) {
 
         switch (event) {
         case SD_IPV4ACD_EVENT_STOP:
-                ipv4ll_client_notify(ll, IPV4LL_EVENT_STOP);
+                ipv4ll_client_notify(ll, SD_IPV4LL_EVENT_STOP);
 
                 ll->claimed_address = 0;
 
                 break;
         case SD_IPV4ACD_EVENT_BIND:
                 ll->claimed_address = ll->address;
-                ipv4ll_client_notify(ll, IPV4LL_EVENT_BIND);
+                ipv4ll_client_notify(ll, SD_IPV4LL_EVENT_BIND);
 
                 break;
         case SD_IPV4ACD_EVENT_CONFLICT:
                 /* if an address was already bound we must call up to the
                    user to handle this, otherwise we just try again */
                 if (ll->claimed_address != 0) {
-                        ipv4ll_client_notify(ll, IPV4LL_EVENT_CONFLICT);
+                        ipv4ll_client_notify(ll, SD_IPV4LL_EVENT_CONFLICT);
 
                         ll->claimed_address = 0;
                 } else {
@@ -333,5 +333,5 @@ void ipv4ll_on_acd(sd_ipv4acd *acd, int event, void *userdata) {
         return;
 
 error:
-        ipv4ll_client_notify(ll, IPV4LL_EVENT_STOP);
+        ipv4ll_client_notify(ll, SD_IPV4LL_EVENT_STOP);
 }

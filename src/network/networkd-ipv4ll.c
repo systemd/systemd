@@ -179,15 +179,15 @@ static void ipv4ll_handler(sd_ipv4ll *ll, int event, void *userdata){
                 return;
 
         switch(event) {
-                case IPV4LL_EVENT_STOP:
-                case IPV4LL_EVENT_CONFLICT:
+                case SD_IPV4LL_EVENT_STOP:
+                case SD_IPV4LL_EVENT_CONFLICT:
                         r = ipv4ll_address_lost(link);
                         if (r < 0) {
                                 link_enter_failed(link);
                                 return;
                         }
                         break;
-                case IPV4LL_EVENT_BIND:
+                case SD_IPV4LL_EVENT_BIND:
                         r = ipv4ll_address_claimed(ll, link);
                         if (r < 0) {
                                 link_enter_failed(link);
