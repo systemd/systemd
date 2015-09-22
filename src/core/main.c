@@ -956,8 +956,8 @@ static int version(void) {
 }
 
 static int prepare_reexecute(Manager *m, FILE **_f, FDSet **_fds, bool switching_root) {
-        FILE *f = NULL;
-        FDSet *fds = NULL;
+        _cleanup_fdset_free_ FDSet *fds = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
         int r;
 
         assert(m);
@@ -965,56 +965,39 @@ static int prepare_reexecute(Manager *m, FILE **_f, FDSet **_fds, bool switching
         assert(_fds);
 
         r = manager_open_serialization(m, &f);
-        if (r < 0) {
-                log_error_errno(r, "Failed to create serialization file: %m");
-                goto fail;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to create serialization file: %m");
 
         /* Make sure nothing is really destructed when we shut down */
         m->n_reloading ++;
         bus_manager_send_reloading(m, true);
 
         fds = fdset_new();
-        if (!fds) {
-                r = -ENOMEM;
-                log_error_errno(r, "Failed to allocate fd set: %m");
-                goto fail;
-        }
+        if (!fds)
+                return log_oom();
 
         r = manager_serialize(m, f, fds, switching_root);
-        if (r < 0) {
-                log_error_errno(r, "Failed to serialize state: %m");
-                goto fail;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to serialize state: %m");
 
-        if (fseeko(f, 0, SEEK_SET) < 0) {
-                log_error_errno(errno, "Failed to rewind serialization fd: %m");
-                goto fail;
-        }
+        if (fseeko(f, 0, SEEK_SET) == (off_t) -1)
+                return log_error_errno(errno, "Failed to rewind serialization fd: %m");
 
         r = fd_cloexec(fileno(f), false);
-        if (r < 0) {
-                log_error_errno(r, "Failed to disable O_CLOEXEC for serialization: %m");
-                goto fail;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to disable O_CLOEXEC for serialization: %m");
 
         r = fdset_cloexec(fds, false);
-        if (r < 0) {
-                log_error_errno(r, "Failed to disable O_CLOEXEC for serialization fds: %m");
-                goto fail;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to disable O_CLOEXEC for serialization fds: %m");
 
         *_f = f;
         *_fds = fds;
 
+        f = NULL;
+        fds = NULL;
+
         return 0;
-
-fail:
-        fdset_free(fds);
-
-        safe_fclose(f);
-
-        return r;
 }
 
 static int bump_rlimit_nofile(struct rlimit *saved_rlimit) {
