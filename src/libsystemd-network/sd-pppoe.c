@@ -670,7 +670,7 @@ static int pppoe_handle_message(sd_pppoe *ppp, struct pppoe_hdr *packet, struct 
 
                 ppp->timeout = sd_event_source_unref(ppp->timeout);
                 assert(ppp->cb);
-                ppp->cb(ppp, PPPOE_EVENT_RUNNING, ppp->userdata);
+                ppp->cb(ppp, SD_PPPOE_EVENT_RUNNING, ppp->userdata);
 
                 break;
         case PPPOE_STATE_RUNNING:
@@ -688,7 +688,7 @@ static int pppoe_handle_message(sd_pppoe *ppp, struct pppoe_hdr *packet, struct 
                 ppp->state = PPPOE_STATE_STOPPED;
 
                 assert(ppp->cb);
-                ppp->cb(ppp, PPPOE_EVENT_STOPPED, ppp->userdata);
+                ppp->cb(ppp, SD_PPPOE_EVENT_STOPPED, ppp->userdata);
 
                 break;
         case PPPOE_STATE_STOPPED:
