@@ -30,8 +30,8 @@
 #include "sparse-endian.h"
 
 enum {
-        PPPOE_EVENT_RUNNING                     = 0,
-        PPPOE_EVENT_STOPPED                     = 1,
+        SD_PPPOE_EVENT_RUNNING          = 0,
+        SD_PPPOE_EVENT_STOPPED          = 1,
 };
 
 typedef struct sd_pppoe sd_pppoe;

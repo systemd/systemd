@@ -41,12 +41,12 @@ static void pppoe_handler(sd_pppoe *ppp, int event, void *userdata) {
         assert_se(e);
 
         switch (event) {
-        case PPPOE_EVENT_RUNNING:
+        case SD_PPPOE_EVENT_RUNNING:
                 assert_se(pppoe_state == -1);
                 log_info("running");
                 break;
-        case PPPOE_EVENT_STOPPED:
-                assert_se(pppoe_state == PPPOE_EVENT_RUNNING);
+        case SD_PPPOE_EVENT_STOPPED:
+                assert_se(pppoe_state == SD_PPPOE_EVENT_RUNNING);
                 log_info("stopped");
                 assert_se(sd_event_exit(e, 0) >= 0);
                 break;

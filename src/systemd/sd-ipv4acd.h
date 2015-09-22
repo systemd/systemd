@@ -30,9 +30,9 @@
 #include "sd-event.h"
 
 enum {
-        IPV4ACD_EVENT_STOP           = 0,
-        IPV4ACD_EVENT_BIND           = 1,
-        IPV4ACD_EVENT_CONFLICT       = 2,
+        SD_IPV4ACD_EVENT_STOP           = 0,
+        SD_IPV4ACD_EVENT_BIND           = 1,
+        SD_IPV4ACD_EVENT_CONFLICT       = 2,
 };
 
 typedef struct sd_ipv4acd sd_ipv4acd;

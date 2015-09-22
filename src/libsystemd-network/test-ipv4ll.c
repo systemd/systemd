@@ -44,10 +44,10 @@ static void basic_request_handler(sd_ipv4ll *ll, int event, void *userdata) {
         assert_se(userdata == basic_request_handler_userdata);
 
         switch(event) {
-                case IPV4LL_EVENT_STOP:
+                case SD_IPV4LL_EVENT_STOP:
                         basic_request_handler_stop = 1;
                         break;
-                case IPV4LL_EVENT_BIND:
+                case SD_IPV4LL_EVENT_BIND:
                         basic_request_handler_bind = 1;
                         break;
                 default:

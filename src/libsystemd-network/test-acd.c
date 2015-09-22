@@ -39,13 +39,13 @@ static void acd_handler(sd_ipv4acd *acd, int event, void *userdata) {
         assert_se(acd);
 
         switch (event) {
-        case IPV4ACD_EVENT_BIND:
+        case SD_IPV4ACD_EVENT_BIND:
                 log_info("bound");
                 break;
-        case IPV4ACD_EVENT_CONFLICT:
+        case SD_IPV4ACD_EVENT_CONFLICT:
                 log_info("conflict");
                 break;
-        case IPV4ACD_EVENT_STOP:
+        case SD_IPV4ACD_EVENT_STOP:
                 log_error("the client was stopped");
                 break;
         default:

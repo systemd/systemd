@@ -464,7 +464,7 @@ static int client_timeout_resend_expire(sd_event_source *s, uint64_t usec,
 
         state = client->state;
 
-        client_stop(client, DHCP6_EVENT_RESEND_EXPIRE);
+        client_stop(client, SD_DHCP6_CLIENT_EVENT_RESEND_EXPIRE);
 
         /* RFC 3315, section 18.1.4., says that "...the client may choose to
            use a Solicit message to locate a new DHCP server..." */
@@ -554,7 +554,7 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec,
 
         if (max_retransmit_count &&
             client->retransmit_count >= max_retransmit_count) {
-                client_stop(client, DHCP6_EVENT_RETRANS_MAX);
+                client_stop(client, SD_DHCP6_CLIENT_EVENT_RETRANS_MAX);
                 return 0;
         }
 
@@ -930,7 +930,7 @@ static int client_receive_message(sd_event_source *s, int fd, uint32_t revents, 
                 if (r < 0)
                         return 0;
 
-                client_notify(client, DHCP6_EVENT_INFORMATION_REQUEST);
+                client_notify(client, SD_DHCP6_CLIENT_EVENT_INFORMATION_REQUEST);
 
                 client_start(client, DHCP6_STATE_STOPPED);
 
@@ -962,7 +962,7 @@ static int client_receive_message(sd_event_source *s, int fd, uint32_t revents, 
                                 return 0;
                         }
 
-                        client_notify(client, DHCP6_EVENT_IP_ACQUIRE);
+                        client_notify(client, SD_DHCP6_CLIENT_EVENT_IP_ACQUIRE);
                 }
 
                 break;
@@ -1113,7 +1113,7 @@ static int client_start(sd_dhcp6_client *client, enum DHCP6State state) {
 }
 
 int sd_dhcp6_client_stop(sd_dhcp6_client *client) {
-        client_stop(client, DHCP6_EVENT_STOP);
+        client_stop(client, SD_DHCP6_CLIENT_EVENT_STOP);
 
         return 0;
 }

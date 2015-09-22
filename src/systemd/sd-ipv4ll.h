@@ -29,9 +29,9 @@
 #include "sd-event.h"
 
 enum {
-        IPV4LL_EVENT_STOP           = 0,
-        IPV4LL_EVENT_BIND           = 1,
-        IPV4LL_EVENT_CONFLICT       = 2,
+        SD_IPV4LL_EVENT_STOP            = 0,
+        SD_IPV4LL_EVENT_BIND            = 1,
+        SD_IPV4LL_EVENT_CONFLICT        = 2,
 };
 
 typedef struct sd_ipv4ll sd_ipv4ll;

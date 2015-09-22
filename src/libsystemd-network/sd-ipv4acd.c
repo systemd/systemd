@@ -179,7 +179,7 @@ int sd_ipv4acd_stop(sd_ipv4acd *ll) {
 
         ipv4acd_stop(ll);
 
-        ipv4acd_client_notify(ll, IPV4ACD_EVENT_STOP);
+        ipv4acd_client_notify(ll, SD_IPV4ACD_EVENT_STOP);
 
         return 0;
 }
@@ -315,7 +315,7 @@ static int ipv4acd_on_timeout(sd_event_source *s, uint64_t usec, void *userdata)
 
                 if (ll->iteration == 0) {
                         ll->conflict = 0;
-                        ipv4acd_client_notify(ll, IPV4ACD_EVENT_BIND);
+                        ipv4acd_client_notify(ll, SD_IPV4ACD_EVENT_BIND);
                 }
 
                 break;
@@ -345,7 +345,7 @@ static void ipv4acd_on_conflict(sd_ipv4acd *ll) {
 
         ipv4acd_stop(ll);
 
-        ipv4acd_client_notify(ll, IPV4ACD_EVENT_CONFLICT);
+        ipv4acd_client_notify(ll, SD_IPV4ACD_EVENT_CONFLICT);
 }
 
 static int ipv4acd_on_packet(sd_event_source *s, int fd,

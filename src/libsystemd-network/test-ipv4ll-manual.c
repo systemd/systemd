@@ -45,13 +45,13 @@ static void ll_handler(sd_ipv4ll *ll, int event, void *userdata) {
                 assert_se(in_addr_to_string(AF_INET, (const union in_addr_union*) &addr, &address) >= 0);
 
         switch (event) {
-        case IPV4LL_EVENT_BIND:
+        case SD_IPV4LL_EVENT_BIND:
                 log_info("bound %s", strna(address));
                 break;
-        case IPV4LL_EVENT_CONFLICT:
+        case SD_IPV4LL_EVENT_CONFLICT:
                 log_info("conflict on %s", strna(address));
                 break;
-        case IPV4LL_EVENT_STOP:
+        case SD_IPV4LL_EVENT_STOP:
                 log_error("the client was stopped with address %s", strna(address));
                 break;
         default:

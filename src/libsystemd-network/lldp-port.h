@@ -31,6 +31,14 @@
 
 typedef struct lldp_port lldp_port;
 
+typedef enum LLDPPortStatus {
+        LLDP_PORT_STATUS_NONE,
+        LLDP_PORT_STATUS_ENABLED,
+        LLDP_PORT_STATUS_DISABLED,
+        _LLDP_PORT_STATUS_MAX,
+        _LLDP_PORT_STATUS_INVALID = -1,
+} LLDPPortStatus;
+
 struct lldp_port {
         LLDPPortStatus status;
 

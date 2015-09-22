@@ -366,10 +366,16 @@ static void lldp_set_state(sd_lldp *lldp, LLDPAgentRXState state) {
 }
 
 static void lldp_run_state_machine(sd_lldp *lldp) {
+        if (!lldp->cb)
+                return;
 
-        if (lldp->rx_state == LLDP_AGENT_RX_UPDATE_INFO)
-                if (lldp->cb)
-                        lldp->cb(lldp, LLDP_AGENT_RX_UPDATE_INFO, lldp->userdata);
+        switch (lldp->rx_state) {
+        case LLDP_AGENT_RX_UPDATE_INFO:
+                lldp->cb(lldp, SD_LLDP_EVENT_UPDATE_INFO, lldp->userdata);
+                break;
+        default:
+                break;
+        }
 }
 
 /* 10.5.5.2.1 mibDeleteObjects ()
