@@ -212,6 +212,9 @@ struct Service {
         ServiceFDStore *fd_store;
         unsigned n_fd_store;
         unsigned n_fd_store_max;
+
+        char *usb_function_descriptors;
+        char *usb_function_strings;
 };
 
 extern const UnitVTable service_vtable;
