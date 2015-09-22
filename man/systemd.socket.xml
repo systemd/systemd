@@ -724,6 +724,16 @@
         list.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>FileDescriptorName=</varname></term>
+       <listitem><para>Takes a name, which will be used to label
+       file descriptors passed by this socket unit. To apply
+       distinct names to multiple file descriptors consider splitting up
+       the unit into multiple socket units (one unit per one file descriptor).
+       This option is ignored when <varname>StandardInput=socket</varname>
+       is set in service unit.</para></listitem>
+       </varlistentry>
+
     </variablelist>
 
     <para>Check

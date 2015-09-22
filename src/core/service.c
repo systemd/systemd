@@ -262,6 +262,7 @@ static void service_fd_store_unlink(ServiceFDStore *fs) {
         }
 
         safe_close(fs->fd);
+        free(fs->name);
         free(fs);
 }
 
@@ -334,8 +335,8 @@ static int on_fd_store_io(sd_event_source *e, int fd, uint32_t revents, void *us
         return 0;
 }
 
-static int service_add_fd_store(Service *s, int fd) {
-        ServiceFDStore *fs;
+static int service_add_fd_store(Service *s, int fd, const char *name) {
+        _cleanup_free_ ServiceFDStore *fs;
         int r;
 
         assert(s);
@@ -361,10 +362,15 @@ static int service_add_fd_store(Service *s, int fd) {
 
         fs->fd = fd;
         fs->service = s;
+        if (name) {
+                fs->name = strdup(name);
+                if (!fs->name)
+                        return -ENOMEM;
+        }
 
         r = sd_event_add_io(UNIT(s)->manager->event, &fs->event_source, fd, 0, on_fd_store_io, fs);
         if (r < 0) {
-                free(fs);
+                free(fs->name);
                 return r;
         }
 
@@ -372,11 +378,12 @@ static int service_add_fd_store(Service *s, int fd) {
 
         LIST_PREPEND(fd_store, s->fd_store, fs);
         s->n_fd_store++;
+        fs = NULL;
 
         return 1;
 }
 
-static int service_add_fd_store_set(Service *s, FDSet *fds) {
+static int service_add_fd_store_set(Service *s, FDSet *fds, const char *name) {
         int r;
 
         assert(s);
@@ -391,7 +398,7 @@ static int service_add_fd_store_set(Service *s, FDSet *fds) {
                 if (fd < 0)
                         break;
 
-                r = service_add_fd_store(s, fd);
+                r = service_add_fd_store(s, fd, name);
                 if (r < 0)
                         return log_unit_error_errno(UNIT(s), r, "Couldn't add fd to fd store: %m");
                 if (r > 0) {
@@ -951,8 +958,9 @@ static int service_coldplug(Unit *u) {
         return 0;
 }
 
-static int service_collect_fds(Service *s, int **fds, unsigned *n_fds) {
+static int service_collect_fds(Service *s, int **fds, char ***fds_names, unsigned *n_fds) {
         _cleanup_free_ int *rfds = NULL;
+        _cleanup_strv_free_ char **rfds_names = NULL;
         unsigned rn_fds = 0;
         Iterator i;
         int r;
@@ -960,13 +968,15 @@ static int service_collect_fds(Service *s, int **fds, unsigned *n_fds) {
 
         assert(s);
         assert(fds);
+        assert(fds_names);
         assert(n_fds);
 
         if (s->socket_fd >= 0)
                 return 0;
 
         SET_FOREACH(u, UNIT(s)->dependencies[UNIT_TRIGGERED_BY], i) {
-                int *cfds;
+                _cleanup_free_ int *cfds = NULL;
+                _cleanup_strv_free_ char **cfds_names = NULL;
                 unsigned cn_fds;
                 Socket *sock;
 
@@ -975,32 +985,33 @@ static int service_collect_fds(Service *s, int **fds, unsigned *n_fds) {
 
                 sock = SOCKET(u);
 
-                r = socket_collect_fds(sock, &cfds, &cn_fds);
+                r = socket_collect_fds(sock, &cfds, &cfds_names, &cn_fds);
                 if (r < 0)
                         return r;
 
-                if (cn_fds <= 0) {
-                        free(cfds);
+                if (cn_fds <= 0)
                         continue;
-                }
 
                 if (!rfds) {
                         rfds = cfds;
+                        cfds = NULL;
+                        rfds_names = cfds_names;
+                        cfds_names = NULL;
                         rn_fds = cn_fds;
                 } else {
-                        int *t;
+                        int *tfds;
 
-                        t = realloc(rfds, (rn_fds + cn_fds) * sizeof(int));
-                        if (!t) {
-                                free(cfds);
+                        tfds = realloc(rfds, (rn_fds + cn_fds) * sizeof(*tfds));
+                        if (!tfds)
                                 return -ENOMEM;
-                        }
 
-                        memcpy(t + rn_fds, cfds, cn_fds * sizeof(int));
-                        rfds = t;
+                        memcpy(tfds + rn_fds, cfds, cn_fds * sizeof(*tfds));
+                        rfds = tfds;
+
+                        r = strv_extend_strv(&rfds_names, cfds_names);
+                        if (r < 0)
+                                return r;
                         rn_fds += cn_fds;
-
-                        free(cfds);
 
                 }
         }
@@ -1009,19 +1020,27 @@ static int service_collect_fds(Service *s, int **fds, unsigned *n_fds) {
                 ServiceFDStore *fs;
                 int *t;
 
-                t = realloc(rfds, (rn_fds + s->n_fd_store) * sizeof(int));
+                t = realloc(rfds, (rn_fds + s->n_fd_store) * sizeof(*rfds));
                 if (!t)
                         return -ENOMEM;
-
                 rfds = t;
-                LIST_FOREACH(fd_store, fs, s->fd_store)
-                        rfds[rn_fds++] = fs->fd;
+
+                LIST_FOREACH(fd_store, fs, s->fd_store) {
+                        rfds[rn_fds] = fs->fd;
+                        r = strv_extend(&rfds_names, fs->name);
+                        if (r < 0)
+                                return r;
+                        ++rn_fds;
+                }
+                rfds_names[rn_fds] = NULL;
         }
 
         *fds = rfds;
+        *fds_names = rfds_names;
         *n_fds = rn_fds;
 
         rfds = NULL;
+        rfds_names = NULL;
         return 0;
 }
 
@@ -1039,6 +1058,7 @@ static int service_spawn(
         pid_t pid;
         int r;
         int *fds = NULL;
+        _cleanup_strv_free_ char **fds_names = NULL;
         _cleanup_free_ int *fdsbuf = NULL;
         unsigned n_fds = 0, n_env = 0;
         _cleanup_free_ char *bus_endpoint_path = NULL;
@@ -1076,7 +1096,7 @@ static int service_spawn(
                         fds = &s->socket_fd;
                         n_fds = 1;
                 } else {
-                        r = service_collect_fds(s, &fdsbuf, &n_fds);
+                        r = service_collect_fds(s, &fdsbuf, &fds_names, &n_fds);
                         if (r < 0)
                                 goto fail;
 
@@ -1185,6 +1205,7 @@ static int service_spawn(
 
         exec_params.argv = argv;
         exec_params.fds = fds;
+        exec_params.fds_names = fds_names;
         exec_params.n_fds = n_fds;
         exec_params.environment = final_env;
         exec_params.confirm_spawn = UNIT(s)->manager->confirm_spawn;
@@ -1203,6 +1224,7 @@ static int service_spawn(
                        &exec_params,
                        s->exec_runtime,
                        &pid);
+
         if (r < 0)
                 goto fail;
 
@@ -2048,12 +2070,19 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
 
         LIST_FOREACH(fd_store, fs, s->fd_store) {
                 int copy;
+                _cleanup_free_ char *escaped = NULL;
 
                 copy = fdset_put_dup(fds, fs->fd);
                 if (copy < 0)
                         return copy;
 
-                unit_serialize_item_format(u, f, "fd-store-fd", "%i", copy);
+                if (fs->name) {
+                        escaped = cescape(fs->name);
+                        if (!escaped)
+                                return -ENOMEM;
+                        unit_serialize_item_format(u, f, "fd-store-fd", "%i:%s", copy, escaped);
+                } else
+                        unit_serialize_item_format(u, f, "fd-store-fd", "%i", copy);
         }
 
         if (s->main_exec_status.pid > 0) {
@@ -2184,11 +2213,26 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                 }
         } else if (streq(key, "fd-store-fd")) {
                 int fd;
+                _cleanup_free_ char *name = NULL;
 
-                if (safe_atoi(value, &fd) < 0 || fd < 0 || !fdset_contains(fds, fd))
+                r = 0;
+                if (strchr(value, ':')) {
+                        _cleanup_free_ char *tmp = NULL;
+                        if (sscanf(value, "%i:%ms", &fd, &tmp) != 2) {
+                                log_unit_debug(u, "Failed to parse fd-store-fd value: %s", value);
+                                r = -1;
+                        } else {
+                                if (cunescape(tmp, UNESCAPE_RELAX, &name) < 0) {
+                                        log_unit_debug(u, "Failed to parse fd-store-fd value: %s", value);
+                                        r = -1;
+                                }
+                        }
+                } else if (safe_atoi(value, &fd) < 0 || fd < 0 || !fdset_contains(fds, fd)) {
                         log_unit_debug(u, "Failed to parse fd-store-fd value: %s", value);
-                else {
-                        r = service_add_fd_store(s, fd);
+                        r = -1;
+                }
+                if (r == 0) {
+                        r = service_add_fd_store(s, fd, name);
                         if (r < 0)
                                 log_unit_error_errno(u, r, "Failed to add fd to store: %m");
                         else if (r > 0)
@@ -2942,8 +2986,17 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags, FDSet *fds) 
         if (strv_find(tags, "WATCHDOG=1"))
                 service_reset_watchdog(s);
 
-        if (strv_find(tags, "FDSTORE=1"))
-                service_add_fd_store_set(s, fds);
+        if (strv_find(tags, "FDSTORE=1")) {
+                char *name = NULL;
+                e = strv_find_startswith(tags, "FDNAME=");
+                if (e) {
+                        if (strchr(e, ':'))
+                                log_unit_error(u, "FDNAME contains colon. Skipping name.");
+                        else
+                                name = e;
+                }
+                service_add_fd_store_set(s, fds, name);
+        }
 
         /* Notify clients about changed status or main pid */
         if (notify_dbus)
