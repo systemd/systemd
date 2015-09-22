@@ -38,7 +38,7 @@ static struct ether_addr mac_addr = {
 };
 
 static int lldp_build_tlv_packet(tlv_packet **ret) {
-        _cleanup_tlv_packet_free_ tlv_packet *m = NULL;
+        _cleanup_tlv_packet_unref_ tlv_packet *m = NULL;
         const uint8_t lldp_dst[] = LLDP_MULTICAST_ADDR;
         struct ether_header ether = {
                 .ether_type = htons(ETHERTYPE_LLDP),
@@ -202,6 +202,15 @@ static int lldp_parse_ttl_tlv(tlv_packet *m) {
         return 0;
 }
 
+static int lldp_get_destination_type(tlv_packet *m) {
+        LLDPDestinationType dest;
+
+        assert_se(sd_lldp_tlv_packet_get_destination_type(m, &dest) >= 0);
+        assert_se(dest == LLDP_DEST_TYPE_NEAREST_BRIDGE);
+
+        return 0;
+}
+
 static int lldp_parse_tlv_packet(tlv_packet *m, int len) {
         uint8_t subtype;
 
@@ -212,11 +221,13 @@ static int lldp_parse_tlv_packet(tlv_packet *m, int len) {
         assert_se(lldp_parse_ttl_tlv(m) >= 0);
         assert_se(lldp_parse_system_desc_tlv(m) >= 0);
 
+        assert_se(lldp_get_destination_type(m) >= 0);
+
         return 0;
 }
 
 int main(int argc, char *argv[]) {
-        _cleanup_tlv_packet_free_ tlv_packet *tlv = NULL;
+        _cleanup_tlv_packet_unref_ tlv_packet *tlv = NULL;
 
         /* form a packet */
         lldp_build_tlv_packet(&tlv);
