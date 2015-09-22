@@ -167,6 +167,7 @@ static int transfer_new(Manager *m, Transfer **ret) {
         t->type = _TRANSFER_TYPE_INVALID;
         t->log_fd = -1;
         t->stdin_fd = -1;
+        t->stdout_fd = -1;
         t->verify = _IMPORT_VERIFY_INVALID;
 
         id = m->current_transfer_id + 1;
