@@ -513,7 +513,7 @@ static int config_parse_join_controllers(const char *unit,
 
                 l = strv_split(word, ",");
                 if (!l)
-                        log_oom();
+                        return log_oom();
                 strv_uniq(l);
 
                 if (strv_length(l) <= 1) {
