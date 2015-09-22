@@ -19,63 +19,62 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdio.h>
 #include <errno.h>
-#include <string.h>
-#include <unistd.h>
-#include <sys/stat.h>
+#include <fcntl.h>
 #include <getopt.h>
 #include <signal.h>
-#include <fcntl.h>
-#include <sys/prctl.h>
+#include <stdio.h>
+#include <string.h>
 #include <sys/mount.h>
-
-#ifdef HAVE_VALGRIND_VALGRIND_H
-#include <valgrind/valgrind.h>
-#endif
+#include <sys/prctl.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #ifdef HAVE_SECCOMP
 #include <seccomp.h>
+#endif
+#ifdef HAVE_VALGRIND_VALGRIND_H
+#include <valgrind/valgrind.h>
 #endif
 
 #include "sd-daemon.h"
 #include "sd-bus.h"
-#include "log.h"
-#include "fdset.h"
-#include "special.h"
-#include "conf-parser.h"
-#include "missing.h"
-#include "pager.h"
-#include "build.h"
-#include "strv.h"
-#include "def.h"
-#include "virt.h"
+
 #include "architecture.h"
-#include "watchdog.h"
-#include "switch-root.h"
-#include "capability.h"
-#include "killall.h"
-#include "env-util.h"
-#include "clock-util.h"
-#include "fileio.h"
+#include "build.h"
 #include "bus-error.h"
 #include "bus-util.h"
-#include "selinux-util.h"
-#include "formats-util.h"
-#include "process-util.h"
-#include "terminal-util.h"
-#include "signal-util.h"
-#include "manager.h"
+#include "capability.h"
+#include "clock-util.h"
+#include "conf-parser.h"
 #include "dbus-manager.h"
-#include "load-fragment.h"
-
-#include "mount-setup.h"
-#include "loopback-setup.h"
+#include "def.h"
+#include "env-util.h"
+#include "fdset.h"
+#include "fileio.h"
+#include "formats-util.h"
 #include "hostname-setup.h"
-#include "machine-id-setup.h"
-#include "selinux-setup.h"
 #include "ima-setup.h"
-#include "smack-setup.h"
+#include "killall.h"
 #include "kmod-setup.h"
+#include "load-fragment.h"
+#include "log.h"
+#include "loopback-setup.h"
+#include "machine-id-setup.h"
+#include "manager.h"
+#include "missing.h"
+#include "mount-setup.h"
+#include "pager.h"
+#include "process-util.h"
+#include "selinux-setup.h"
+#include "selinux-util.h"
+#include "signal-util.h"
+#include "smack-setup.h"
+#include "special.h"
+#include "strv.h"
+#include "switch-root.h"
+#include "terminal-util.h"
+#include "virt.h"
+#include "watchdog.h"
 
 static enum {
         ACTION_RUN,
