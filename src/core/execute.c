@@ -1582,18 +1582,15 @@ static int exec_child(
                 }
         }
 
+        umask(context->umask);
+
         if (params->apply_permissions) {
                 r = enforce_groups(context, username, gid);
                 if (r < 0) {
                         *exit_status = EXIT_GROUP;
                         return r;
                 }
-        }
-
-        umask(context->umask);
-
 #ifdef HAVE_SMACK
-        if (params->apply_permissions) {
                 if (context->smack_process_label) {
                         r = mac_smack_apply_pid(0, context->smack_process_label);
                         if (r < 0) {
@@ -1617,19 +1614,18 @@ static int exec_child(
                                 return r;
                         }
                 }
-        }
 #endif
 #endif
-
 #ifdef HAVE_PAM
-        if (params->apply_permissions && context->pam_name && username) {
-                r = setup_pam(context->pam_name, username, uid, context->tty_path, &pam_env, fds, n_fds);
-                if (r < 0) {
-                        *exit_status = EXIT_PAM;
-                        return r;
+                if (context->pam_name && username) {
+                        r = setup_pam(context->pam_name, username, uid, context->tty_path, &pam_env, fds, n_fds);
+                        if (r < 0) {
+                                *exit_status = EXIT_PAM;
+                                return r;
+                        }
                 }
-        }
 #endif
+        }
 
         if (context->private_network && runtime && runtime->netns_storage_socket[0] >= 0) {
                 r = setup_netns(runtime->netns_storage_socket);
