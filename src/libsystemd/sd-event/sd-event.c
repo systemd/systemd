@@ -257,18 +257,18 @@ static int prepare_prioq_compare(const void *a, const void *b) {
         assert(x->prepare);
         assert(y->prepare);
 
+        /* Enabled ones first */
+        if (x->enabled != SD_EVENT_OFF && y->enabled == SD_EVENT_OFF)
+                return -1;
+        if (x->enabled == SD_EVENT_OFF && y->enabled != SD_EVENT_OFF)
+                return 1;
+
         /* Move most recently prepared ones last, so that we can stop
          * preparing as soon as we hit one that has already been
          * prepared in the current iteration */
         if (x->prepare_iteration < y->prepare_iteration)
                 return -1;
         if (x->prepare_iteration > y->prepare_iteration)
-                return 1;
-
-        /* Enabled ones first */
-        if (x->enabled != SD_EVENT_OFF && y->enabled == SD_EVENT_OFF)
-                return -1;
-        if (x->enabled == SD_EVENT_OFF && y->enabled != SD_EVENT_OFF)
                 return 1;
 
         /* Lower priority values first */
