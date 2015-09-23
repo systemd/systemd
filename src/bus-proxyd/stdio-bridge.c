@@ -21,23 +21,23 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <unistd.h>
-#include <string.h>
 #include <errno.h>
-#include <stddef.h>
 #include <getopt.h>
+#include <stddef.h>
+#include <string.h>
+#include <unistd.h>
 
-#include "log.h"
-#include "util.h"
 #include "sd-daemon.h"
 #include "sd-bus.h"
+
 #include "bus-internal.h"
 #include "bus-util.h"
-#include "build.h"
-#include "strv.h"
 #include "def.h"
-#include "proxy.h"
 #include "formats-util.h"
+#include "log.h"
+#include "proxy.h"
+#include "strv.h"
+#include "util.h"
 
 static char *arg_address = NULL;
 static char *arg_command_line_buffer = NULL;
@@ -86,9 +86,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return 0;
 
                 case ARG_VERSION:
-                        puts(PACKAGE_STRING);
-                        puts(SYSTEMD_FEATURES);
-                        return 0;
+                        return version();
 
                 case ARG_ADDRESS: {
                         char *a;

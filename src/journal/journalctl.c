@@ -19,48 +19,47 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <locale.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <fnmatch.h>
-#include <errno.h>
-#include <stddef.h>
-#include <string.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <stdlib.h>
 #include <getopt.h>
-#include <signal.h>
-#include <poll.h>
-#include <sys/stat.h>
-#include <sys/inotify.h>
 #include <linux/fs.h>
+#include <locale.h>
+#include <poll.h>
+#include <signal.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/inotify.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
-#include "sd-journal.h"
 #include "sd-bus.h"
-#include "log.h"
-#include "logs-show.h"
-#include "util.h"
+#include "sd-journal.h"
+
 #include "acl-util.h"
-#include "path-util.h"
+#include "bus-error.h"
+#include "bus-util.h"
+#include "catalog.h"
 #include "fileio.h"
-#include "build.h"
-#include "pager.h"
-#include "strv.h"
-#include "set.h"
-#include "sigbus.h"
-#include "journal-internal.h"
+#include "fsprg.h"
+#include "hostname-util.h"
 #include "journal-def.h"
-#include "journal-verify.h"
+#include "journal-internal.h"
 #include "journal-qrcode.h"
 #include "journal-vacuum.h"
-#include "fsprg.h"
-#include "unit-name.h"
-#include "catalog.h"
+#include "journal-verify.h"
+#include "log.h"
+#include "logs-show.h"
 #include "mkdir.h"
-#include "bus-util.h"
-#include "bus-error.h"
+#include "pager.h"
+#include "path-util.h"
+#include "set.h"
+#include "sigbus.h"
+#include "strv.h"
 #include "terminal-util.h"
-#include "hostname-util.h"
+#include "unit-name.h"
 
 #define DEFAULT_FSS_INTERVAL_USEC (15*USEC_PER_MINUTE)
 
@@ -350,9 +349,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return 0;
 
                 case ARG_VERSION:
-                        puts(PACKAGE_STRING);
-                        puts(SYSTEMD_FEATURES);
-                        return 0;
+                        return version();
 
                 case ARG_NO_PAGER:
                         arg_no_pager = true;

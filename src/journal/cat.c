@@ -19,17 +19,16 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdio.h>
-#include <getopt.h>
-#include <unistd.h>
-#include <stdlib.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <getopt.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
 
-#include "systemd/sd-journal.h"
+#include "sd-journal.h"
 
 #include "util.h"
-#include "build.h"
 
 static char *arg_identifier = NULL;
 static int arg_priority = LOG_INFO;
@@ -76,9 +75,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return 0;
 
                 case ARG_VERSION:
-                        puts(PACKAGE_STRING);
-                        puts(SYSTEMD_FEATURES);
-                        return 0;
+                        return version();
 
                 case 't':
                         free(arg_identifier);

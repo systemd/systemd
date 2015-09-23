@@ -21,22 +21,21 @@
 
 #include <getopt.h>
 
-#include "strv.h"
-#include "util.h"
+#include "sd-bus.h"
+
+#include "bus-dump.h"
+#include "bus-internal.h"
+#include "bus-signature.h"
+#include "bus-type.h"
+#include "bus-util.h"
+#include "busctl-introspect.h"
 #include "log.h"
-#include "build.h"
 #include "pager.h"
 #include "path-util.h"
 #include "set.h"
-
-#include "sd-bus.h"
-#include "bus-internal.h"
-#include "bus-util.h"
-#include "bus-dump.h"
-#include "bus-signature.h"
-#include "bus-type.h"
-#include "busctl-introspect.h"
+#include "strv.h"
 #include "terminal-util.h"
+#include "util.h"
 
 static bool arg_no_pager = false;
 static bool arg_legend = true;
@@ -1786,9 +1785,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return help();
 
                 case ARG_VERSION:
-                        puts(PACKAGE_STRING);
-                        puts(SYSTEMD_FEATURES);
-                        return 0;
+                        return version();
 
                 case ARG_NO_PAGER:
                         arg_no_pager = true;

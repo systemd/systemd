@@ -19,20 +19,19 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdlib.h>
-#include <stdbool.h>
 #include <errno.h>
-#include <string.h>
-#include <stdio.h>
-#include <limits.h>
 #include <getopt.h>
+#include <limits.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
+#include "conf-files.h"
+#include "fileio.h"
 #include "log.h"
 #include "strv.h"
 #include "util.h"
-#include "conf-files.h"
-#include "fileio.h"
-#include "build.h"
 
 static const char conf_file_dirs[] = CONF_DIRS_NULSTR("binfmt");
 
@@ -143,9 +142,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return 0;
 
                 case ARG_VERSION:
-                        puts(PACKAGE_STRING);
-                        puts(SYSTEMD_FEATURES);
-                        return 0;
+                        return version();
 
                 case '?':
                         return -EINVAL;

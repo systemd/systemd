@@ -19,22 +19,22 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdio.h>
-#include <curl/curl.h>
-#include <sys/stat.h>
 #include <fcntl.h>
 #include <getopt.h>
+#include <stdio.h>
+#include <sys/stat.h>
+#include <curl/curl.h>
 
 #include "sd-daemon.h"
-#include "log.h"
-#include "util.h"
-#include "build.h"
-#include "fileio.h"
-#include "mkdir.h"
+
 #include "conf-parser.h"
-#include "sigbus.h"
+#include "fileio.h"
 #include "formats-util.h"
+#include "log.h"
+#include "mkdir.h"
+#include "sigbus.h"
 #include "signal-util.h"
+#include "util.h"
 #include "journal-upload.h"
 
 #define PRIV_KEY_FILE CERTIFICATE_ROOT "/private/journal-upload.pem"
@@ -619,9 +619,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return 0 /* done */;
 
                 case ARG_VERSION:
-                        puts(PACKAGE_STRING);
-                        puts(SYSTEMD_FEATURES);
-                        return 0 /* done */;
+                        return version();
 
                 case 'u':
                         if (arg_url) {

@@ -19,23 +19,22 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdlib.h>
-#include <stdbool.h>
 #include <errno.h>
-#include <string.h>
-#include <stdio.h>
-#include <limits.h>
 #include <getopt.h>
+#include <limits.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
-#include "log.h"
-#include "strv.h"
-#include "util.h"
-#include "hashmap.h"
-#include "path-util.h"
 #include "conf-files.h"
 #include "fileio.h"
-#include "build.h"
+#include "hashmap.h"
+#include "log.h"
+#include "path-util.h"
+#include "strv.h"
 #include "sysctl-util.h"
+#include "util.h"
 
 static char **arg_prefixes = NULL;
 
@@ -195,9 +194,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return 0;
 
                 case ARG_VERSION:
-                        puts(PACKAGE_STRING);
-                        puts(SYSTEMD_FEATURES);
-                        return 0;
+                        return version();
 
                 case ARG_PREFIX: {
                         char *p;

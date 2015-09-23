@@ -19,21 +19,20 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <unistd.h>
+#include <getopt.h>
 #include <sys/epoll.h>
 #include <sys/prctl.h>
 #include <sys/socket.h>
 #include <sys/wait.h>
-#include <getopt.h>
+#include <unistd.h>
 
 #include "systemd/sd-daemon.h"
 
-#include "socket-util.h"
-#include "build.h"
 #include "log.h"
-#include "strv.h"
 #include "macro.h"
 #include "signal-util.h"
+#include "socket-util.h"
+#include "strv.h"
 
 static char** arg_listen = NULL;
 static bool arg_accept = false;
@@ -314,9 +313,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return 0;
 
                 case ARG_VERSION:
-                        puts(PACKAGE_STRING);
-                        puts(SYSTEMD_FEATURES);
-                        return 0 /* done */;
+                        return version();
 
                 case 'l': {
                         int r = strv_extend(&arg_listen, optarg);

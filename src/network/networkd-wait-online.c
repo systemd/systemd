@@ -21,10 +21,10 @@
 #include <getopt.h>
 
 #include "sd-daemon.h"
-#include "strv.h"
-#include "build.h"
-#include "signal-util.h"
+
 #include "networkd-wait-online.h"
+#include "signal-util.h"
+#include "strv.h"
 
 static bool arg_quiet = false;
 static usec_t arg_timeout = 120 * USEC_PER_SEC;
@@ -79,9 +79,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_VERSION:
-                        puts(PACKAGE_STRING);
-                        puts(SYSTEMD_FEATURES);
-                        return 0;
+                        return version();
 
                 case 'i':
                         if (strv_extend(&arg_interfaces, optarg) < 0)

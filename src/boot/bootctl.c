@@ -20,28 +20,27 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdio.h>
-#include <getopt.h>
-#include <stdlib.h>
 #include <assert.h>
-#include <sys/statfs.h>
-#include <sys/stat.h>
-#include <errno.h>
-#include <string.h>
-#include <unistd.h>
-#include <sys/mman.h>
-#include <dirent.h>
-#include <ctype.h>
-#include <limits.h>
-#include <ftw.h>
-#include <stdbool.h>
 #include <blkid/blkid.h>
+#include <ctype.h>
+#include <dirent.h>
+#include <errno.h>
+#include <ftw.h>
+#include <getopt.h>
+#include <limits.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <sys/statfs.h>
+#include <unistd.h>
 
-#include "efivars.h"
-#include "build.h"
-#include "util.h"
-#include "rm-rf.h"
 #include "blkid-util.h"
+#include "efivars.h"
+#include "rm-rf.h"
+#include "util.h"
 
 static int verify_esp(const char *p, uint32_t *part, uint64_t *pstart, uint64_t *psize, sd_id128_t *uuid) {
         struct statfs sfs;
@@ -967,8 +966,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return 0;
 
                 case ARG_VERSION:
-                        printf(VERSION "\n");
-                        return 0;
+                        return version();
 
                 case ARG_PATH:
                         arg_path = optarg;

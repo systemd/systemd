@@ -19,25 +19,25 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdio.h>
-#include <unistd.h>
 #include <errno.h>
 #include <getopt.h>
+#include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
+#include "sd-bus.h"
+
+#include "bus-error.h"
+#include "bus-util.h"
 #include "cgroup-show.h"
 #include "cgroup-util.h"
-#include "log.h"
-#include "path-util.h"
-#include "util.h"
-#include "pager.h"
-#include "build.h"
-#include "output-mode.h"
 #include "fileio.h"
-#include "sd-bus.h"
-#include "bus-util.h"
-#include "bus-error.h"
+#include "log.h"
+#include "output-mode.h"
+#include "pager.h"
+#include "path-util.h"
 #include "unit-name.h"
+#include "util.h"
 
 static bool arg_no_pager = false;
 static bool arg_kernel_threads = false;
@@ -89,9 +89,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return 0;
 
                 case ARG_VERSION:
-                        puts(PACKAGE_STRING);
-                        puts(SYSTEMD_FEATURES);
-                        return 0;
+                        return version();
 
                 case ARG_NO_PAGER:
                         arg_no_pager = true;

@@ -20,43 +20,42 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <unistd.h>
-#include <fcntl.h>
-#include <errno.h>
-#include <string.h>
-#include <limits.h>
 #include <dirent.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <fnmatch.h>
+#include <getopt.h>
+#include <glob.h>
+#include <limits.h>
+#include <linux/fs.h>
+#include <stdbool.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stddef.h>
-#include <getopt.h>
-#include <stdbool.h>
-#include <time.h>
-#include <glob.h>
-#include <fnmatch.h>
+#include <string.h>
 #include <sys/stat.h>
 #include <sys/xattr.h>
-#include <linux/fs.h>
+#include <time.h>
+#include <unistd.h>
 
+#include "acl-util.h"
+#include "btrfs-util.h"
+#include "capability.h"
+#include "conf-files.h"
+#include "copy.h"
+#include "formats-util.h"
+#include "label.h"
 #include "log.h"
-#include "util.h"
 #include "macro.h"
 #include "missing.h"
 #include "mkdir.h"
 #include "path-util.h"
-#include "strv.h"
-#include "label.h"
-#include "set.h"
-#include "conf-files.h"
-#include "capability.h"
-#include "specifier.h"
-#include "build.h"
-#include "copy.h"
 #include "rm-rf.h"
 #include "selinux-util.h"
-#include "btrfs-util.h"
-#include "acl-util.h"
-#include "formats-util.h"
+#include "set.h"
+#include "specifier.h"
+#include "strv.h"
+#include "util.h"
 
 /* This reads all files listed in /etc/tmpfiles.d/?*.conf and creates
  * them in the file system. This is intended to be used to create
@@ -2090,9 +2089,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return 0;
 
                 case ARG_VERSION:
-                        puts(PACKAGE_STRING);
-                        puts(SYSTEMD_FEATURES);
-                        return 0;
+                        return version();
 
                 case ARG_CREATE:
                         arg_create = true;

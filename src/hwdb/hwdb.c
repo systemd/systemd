@@ -17,21 +17,19 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdlib.h>
-#include <getopt.h>
-#include <string.h>
 #include <ctype.h>
+#include <getopt.h>
+#include <stdlib.h>
+#include <string.h>
 
-#include "util.h"
-#include "strbuf.h"
 #include "conf-files.h"
-#include "strv.h"
-#include "mkdir.h"
-#include "verbs.h"
-#include "build.h"
-
 #include "hwdb-internal.h"
 #include "hwdb-util.h"
+#include "mkdir.h"
+#include "strbuf.h"
+#include "strv.h"
+#include "util.h"
+#include "verbs.h"
 
 /*
  * Generic udev properties, key/value database based on modalias strings.
@@ -688,9 +686,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return 0;
 
                 case ARG_VERSION:
-                        puts(PACKAGE_STRING);
-                        puts(SYSTEMD_FEATURES);
-                        return 0;
+                        return version();
 
                 case ARG_USR:
                         arg_hwdb_bin_dir = UDEVLIBEXECDIR;

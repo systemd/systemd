@@ -19,14 +19,13 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdlib.h>
-#include <stdbool.h>
 #include <errno.h>
 #include <getopt.h>
+#include <stdbool.h>
+#include <stdlib.h>
 
 #include "util.h"
 #include "virt.h"
-#include "build.h"
 
 static bool arg_quiet = false;
 static enum {
@@ -75,9 +74,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return 0;
 
                 case ARG_VERSION:
-                        puts(PACKAGE_STRING);
-                        puts(SYSTEMD_FEATURES);
-                        return 0;
+                        return version();
 
                 case 'q':
                         arg_quiet = true;

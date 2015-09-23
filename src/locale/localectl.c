@@ -20,26 +20,26 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <locale.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <getopt.h>
-#include <string.h>
 #include <ftw.h>
+#include <getopt.h>
+#include <locale.h>
+#include <stdbool.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "sd-bus.h"
-#include "bus-util.h"
+
 #include "bus-error.h"
-#include "util.h"
-#include "spawn-polkit-agent.h"
-#include "build.h"
-#include "strv.h"
-#include "pager.h"
-#include "set.h"
+#include "bus-util.h"
 #include "def.h"
-#include "virt.h"
 #include "fileio.h"
 #include "locale-util.h"
+#include "pager.h"
+#include "set.h"
+#include "spawn-polkit-agent.h"
+#include "strv.h"
+#include "util.h"
+#include "virt.h"
 
 static bool arg_no_pager = false;
 static bool arg_ask_password = true;
@@ -546,9 +546,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return 0;
 
                 case ARG_VERSION:
-                        puts(PACKAGE_STRING);
-                        puts(SYSTEMD_FEATURES);
-                        return 0;
+                        return version();
 
                 case ARG_NO_CONVERT:
                         arg_convert = false;

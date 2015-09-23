@@ -19,32 +19,31 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdbool.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <getopt.h>
+#include <poll.h>
+#include <stdbool.h>
+#include <stddef.h>
 #include <string.h>
+#include <sys/inotify.h>
+#include <sys/signalfd.h>
 #include <sys/socket.h>
 #include <sys/un.h>
-#include <stddef.h>
-#include <poll.h>
-#include <sys/inotify.h>
 #include <unistd.h>
-#include <getopt.h>
-#include <sys/signalfd.h>
-#include <fcntl.h>
 
-#include "util.h"
+#include "ask-password-api.h"
+#include "conf-parser.h"
+#include "def.h"
 #include "mkdir.h"
 #include "path-util.h"
-#include "conf-parser.h"
-#include "utmp-wtmp.h"
-#include "socket-util.h"
-#include "ask-password-api.h"
-#include "strv.h"
-#include "build.h"
-#include "def.h"
 #include "process-util.h"
-#include "terminal-util.h"
 #include "signal-util.h"
+#include "socket-util.h"
+#include "strv.h"
+#include "terminal-util.h"
+#include "util.h"
+#include "utmp-wtmp.h"
 
 static enum {
         ACTION_LIST,
@@ -571,9 +570,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return 0;
 
                 case ARG_VERSION:
-                        puts(PACKAGE_STRING);
-                        puts(SYSTEMD_FEATURES);
-                        return 0;
+                        return version();
 
                 case ARG_LIST:
                         arg_action = ACTION_LIST;

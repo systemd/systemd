@@ -72,6 +72,7 @@
  * otherwise conflicts with sys/mount.h. Yay, Linux is great! */
 #include <linux/fs.h>
 
+#include "build.h"
 #include "def.h"
 #include "device-nodes.h"
 #include "env-util.h"
@@ -6919,4 +6920,10 @@ int receive_one_fd(int transport_fd, int flags) {
 
 void nop_signal_handler(int sig) {
         /* nothing here */
+}
+
+int version(void) {
+        puts(PACKAGE_STRING "\n"
+             SYSTEMD_FEATURES);
+        return 0;
 }

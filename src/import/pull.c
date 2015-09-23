@@ -22,16 +22,16 @@
 #include <getopt.h>
 
 #include "sd-event.h"
+
 #include "event-util.h"
-#include "verbs.h"
-#include "build.h"
-#include "signal-util.h"
 #include "hostname-util.h"
-#include "machine-image.h"
 #include "import-util.h"
-#include "pull-tar.h"
-#include "pull-raw.h"
+#include "machine-image.h"
 #include "pull-dkr.h"
+#include "pull-raw.h"
+#include "pull-tar.h"
+#include "signal-util.h"
+#include "verbs.h"
 
 static bool arg_force = false;
 static const char *arg_image_root = "/var/lib/machines";
@@ -381,9 +381,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return help(0, NULL, NULL);
 
                 case ARG_VERSION:
-                        puts(PACKAGE_STRING);
-                        puts(SYSTEMD_FEATURES);
-                        return 0;
+                        return version();
 
                 case ARG_FORCE:
                         arg_force = true;

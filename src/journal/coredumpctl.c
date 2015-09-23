@@ -19,27 +19,27 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <fcntl.h>
+#include <getopt.h>
 #include <locale.h>
 #include <stdio.h>
 #include <string.h>
-#include <getopt.h>
-#include <fcntl.h>
 #include <unistd.h>
 
 #include "sd-journal.h"
-#include "build.h"
-#include "set.h"
-#include "util.h"
-#include "log.h"
-#include "path-util.h"
-#include "pager.h"
-#include "macro.h"
-#include "journal-internal.h"
+
 #include "compress.h"
-#include "sigbus.h"
+#include "journal-internal.h"
+#include "log.h"
+#include "macro.h"
+#include "pager.h"
+#include "path-util.h"
 #include "process-util.h"
-#include "terminal-util.h"
+#include "set.h"
+#include "sigbus.h"
 #include "signal-util.h"
+#include "terminal-util.h"
+#include "util.h"
 
 static enum {
         ACTION_NONE,
@@ -175,9 +175,7 @@ static int parse_argv(int argc, char *argv[], Set *matches) {
 
                 case ARG_VERSION:
                         arg_action = ACTION_NONE;
-                        puts(PACKAGE_STRING);
-                        puts(SYSTEMD_FEATURES);
-                        return 0;
+                        return version();
 
                 case ARG_NO_PAGER:
                         arg_no_pager = true;

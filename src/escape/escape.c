@@ -19,14 +19,13 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <getopt.h>
 
 #include "log.h"
-#include "unit-name.h"
-#include "build.h"
 #include "strv.h"
+#include "unit-name.h"
 
 static enum {
         ACTION_ESCAPE,
@@ -83,9 +82,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return 0;
 
                 case ARG_VERSION:
-                        puts(PACKAGE_STRING);
-                        puts(SYSTEMD_FEATURES);
-                        return 0;
+                        return version();
 
                 case ARG_SUFFIX:
 

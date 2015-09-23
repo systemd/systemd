@@ -20,18 +20,18 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdio.h>
 #include <errno.h>
 #include <getopt.h>
+#include <stdio.h>
 
 #include "sd-messages.h"
-#include "log.h"
-#include "util.h"
-#include "strv.h"
-#include "fileio.h"
-#include "build.h"
-#include "sleep-config.h"
+
 #include "def.h"
+#include "fileio.h"
+#include "log.h"
+#include "sleep-config.h"
+#include "strv.h"
+#include "util.h"
 
 static char* arg_verb = NULL;
 
@@ -165,9 +165,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return 0; /* done */
 
                 case ARG_VERSION:
-                        puts(PACKAGE_STRING);
-                        puts(SYSTEMD_FEATURES);
-                        return 0 /* done */;
+                        return version();
 
                 case '?':
                         return -EINVAL;

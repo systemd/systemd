@@ -19,6 +19,7 @@
 #pragma once
 
 #include "sparse-endian.h"
+#include "util.h"
 
 #define HWDB_SIG { 'K', 'S', 'L', 'P', 'H', 'H', 'R', 'H' }
 

@@ -19,14 +19,14 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <getopt.h>
 #include <errno.h>
+#include <getopt.h>
+#include <stdio.h>
+#include <stdlib.h>
 
-#include "machine-id-setup.h"
 #include "log.h"
-#include "build.h"
+#include "machine-id-setup.h"
+#include "util.h"
 
 static const char *arg_root = NULL;
 
@@ -66,9 +66,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return 0;
 
                 case ARG_VERSION:
-                        puts(PACKAGE_STRING);
-                        puts(SYSTEMD_FEATURES);
-                        return 0;
+                        return version();
 
                 case ARG_ROOT:
                         arg_root = optarg;

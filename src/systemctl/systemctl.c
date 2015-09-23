@@ -37,7 +37,6 @@
 #include "sd-daemon.h"
 #include "sd-login.h"
 
-#include "build.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-message.h"
@@ -6422,9 +6421,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         return 0;
 
                 case ARG_VERSION:
-                        puts(PACKAGE_STRING);
-                        puts(SYSTEMD_FEATURES);
-                        return 0;
+                        return version();
 
                 case 't': {
                         const char *word, *state;

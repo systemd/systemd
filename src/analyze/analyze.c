@@ -20,25 +20,25 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdio.h>
-#include <stdlib.h>
 #include <getopt.h>
 #include <locale.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 #include "sd-bus.h"
-#include "bus-util.h"
-#include "bus-error.h"
-#include "log.h"
-#include "build.h"
-#include "util.h"
-#include "strxcpyx.h"
-#include "strv.h"
-#include "unit-name.h"
-#include "special.h"
-#include "hashmap.h"
-#include "pager.h"
+
 #include "analyze-verify.h"
+#include "bus-error.h"
+#include "bus-util.h"
+#include "hashmap.h"
+#include "log.h"
+#include "pager.h"
+#include "special.h"
+#include "strv.h"
+#include "strxcpyx.h"
 #include "terminal-util.h"
+#include "unit-name.h"
+#include "util.h"
 
 #define SCALE_X (0.1 / 1000.0)   /* pixels per us */
 #define SCALE_Y (20.0)
@@ -1339,9 +1339,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return 0;
 
                 case ARG_VERSION:
-                        puts(PACKAGE_STRING);
-                        puts(SYSTEMD_FEATURES);
-                        return 0;
+                        return version();
 
                 case ARG_USER:
                         arg_user = true;

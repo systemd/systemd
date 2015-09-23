@@ -931,13 +931,6 @@ static int help(void) {
         return 0;
 }
 
-static int version(void) {
-        puts(PACKAGE_STRING);
-        puts(SYSTEMD_FEATURES);
-
-        return 0;
-}
-
 static int prepare_reexecute(Manager *m, FILE **_f, FDSet **_fds, bool switching_root) {
         _cleanup_fdset_free_ FDSet *fds = NULL;
         _cleanup_fclose_ FILE *f = NULL;

@@ -19,26 +19,25 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <pwd.h>
-#include <grp.h>
-#include <shadow.h>
-#include <gshadow.h>
 #include <getopt.h>
+#include <grp.h>
+#include <gshadow.h>
+#include <pwd.h>
+#include <shadow.h>
 #include <utmp.h>
 
-#include "util.h"
-#include "hashmap.h"
-#include "specifier.h"
-#include "path-util.h"
-#include "build.h"
-#include "strv.h"
 #include "conf-files.h"
 #include "copy.h"
-#include "utf8.h"
 #include "fileio-label.h"
-#include "uid-range.h"
-#include "selinux-util.h"
 #include "formats-util.h"
+#include "hashmap.h"
+#include "path-util.h"
+#include "selinux-util.h"
+#include "specifier.h"
+#include "strv.h"
+#include "uid-range.h"
+#include "utf8.h"
+#include "util.h"
 
 typedef enum ItemType {
         ADD_USER = 'u',
@@ -1767,9 +1766,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return 0;
 
                 case ARG_VERSION:
-                        puts(PACKAGE_STRING);
-                        puts(SYSTEMD_FEATURES);
-                        return 0;
+                        return version();
 
                 case ARG_ROOT:
                         free(arg_root);

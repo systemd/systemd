@@ -19,44 +19,44 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/socket.h>
-#include <unistd.h>
+#include <arpa/inet.h>
 #include <errno.h>
-#include <string.h>
+#include <fcntl.h>
 #include <getopt.h>
 #include <locale.h>
-#include <fcntl.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
 #include <net/if.h>
+#include <netinet/in.h>
+#include <string.h>
 #include <sys/mount.h>
+#include <sys/socket.h>
+#include <unistd.h>
 
 #include "sd-bus.h"
-#include "log.h"
-#include "util.h"
-#include "macro.h"
-#include "pager.h"
-#include "spawn-polkit-agent.h"
-#include "bus-util.h"
+
 #include "bus-error.h"
-#include "build.h"
-#include "strv.h"
-#include "unit-name.h"
+#include "bus-util.h"
 #include "cgroup-show.h"
-#include "logs-show.h"
 #include "cgroup-util.h"
-#include "ptyfwd.h"
-#include "event-util.h"
-#include "path-util.h"
-#include "mkdir.h"
 #include "copy.h"
-#include "verbs.h"
-#include "import-util.h"
-#include "process-util.h"
-#include "terminal-util.h"
-#include "signal-util.h"
 #include "env-util.h"
+#include "event-util.h"
 #include "hostname-util.h"
+#include "import-util.h"
+#include "log.h"
+#include "logs-show.h"
+#include "macro.h"
+#include "mkdir.h"
+#include "pager.h"
+#include "path-util.h"
+#include "process-util.h"
+#include "ptyfwd.h"
+#include "signal-util.h"
+#include "spawn-polkit-agent.h"
+#include "strv.h"
+#include "terminal-util.h"
+#include "unit-name.h"
+#include "util.h"
+#include "verbs.h"
 
 static char **arg_property = NULL;
 static bool arg_all = false;
@@ -2554,9 +2554,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return help(0, NULL, NULL);
 
                 case ARG_VERSION:
-                        puts(PACKAGE_STRING);
-                        puts(SYSTEMD_FEATURES);
-                        return 0;
+                        return version();
 
                 case 'p':
                         r = strv_extend(&arg_property, optarg);

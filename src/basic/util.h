@@ -946,3 +946,5 @@ int send_one_fd(int transport_fd, int fd, int flags);
 int receive_one_fd(int transport_fd, int flags);
 
 void nop_signal_handler(int sig);
+
+int version(void);

@@ -50,7 +50,6 @@
 #include "base-filesystem.h"
 #include "blkid-util.h"
 #include "btrfs-util.h"
-#include "build.h"
 #include "cap-list.h"
 #include "capability.h"
 #include "cgroup-util.h"
@@ -414,9 +413,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return 0;
 
                 case ARG_VERSION:
-                        puts(PACKAGE_STRING);
-                        puts(SYSTEMD_FEATURES);
-                        return 0;
+                        return version();
 
                 case 'D':
                         r = set_sanitized_path(&arg_directory, optarg);
