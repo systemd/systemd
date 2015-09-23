@@ -171,7 +171,6 @@ CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
         -Werror=implicit-function-declaration \
         -Werror=missing-declarations \
         -Werror=return-type \
-        -Werror=shadow \
         -Wstrict-prototypes \
         -Wredundant-decls \
         -Wmissing-noreturn \
@@ -195,6 +194,17 @@ CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
         -fstack-protector-strong \
         -fPIE \
         --param=ssp-buffer-size=4])
+
+CC_CHECK_FLAG_APPEND([with_cflags], [CFLAGS], [-Werror=shadow], [
+#include <time.h>
+#include <inttypes.h>
+typedef uint64_t usec_t;
+usec_t now(clockid_t clock);
+int main(void) {
+        struct timespec now;
+        return 0;
+}
+])
 
 AS_CASE([$CC], [*clang*],
         [CC_CHECK_FLAGS_APPEND([with_cppflags], [CPPFLAGS], [\
