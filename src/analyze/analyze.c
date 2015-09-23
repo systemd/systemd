@@ -436,6 +436,7 @@ fail:
 static int acquire_host_info(sd_bus *bus, struct host_info **hi) {
         int r;
         struct host_info *host;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
 
         static const struct bus_properties_map hostname_map[] = {
                 { "Hostname", "s", NULL, offsetof(struct host_info, hostname) },
@@ -462,21 +463,22 @@ static int acquire_host_info(sd_bus *bus, struct host_info **hi) {
                                    hostname_map,
                                    host);
         if (r < 0)
-                goto fail;
+                log_debug_errno(r, "Failed to get host information from systemd-hostnamed: %s",
+                                bus_error_message(&error, r));
 
         r = bus_map_all_properties(bus,
                                    "org.freedesktop.systemd1",
                                    "/org/freedesktop/systemd1",
                                    manager_map,
                                    host);
-        if (r < 0)
-                goto fail;
+        if (r < 0) {
+                free_host_info(host);
+                return log_error_errno(r, "Failed to get host information from systemd: %s",
+                                       bus_error_message(&error, r));
+        }
 
         *hi = host;
         return 0;
-fail:
-        free_host_info(host);
-        return r;
 }
 
 static int pretty_boot_time(sd_bus *bus, char **_buf) {
