@@ -938,12 +938,14 @@ static int help(void) {
 
 static const char *arg_path = "/boot";
 static bool arg_touch_variables = true;
+static bool arg_force = false;
 
 static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_PATH = 0x100,
                 ARG_VERSION,
                 ARG_NO_VARIABLES,
+                ARG_FORCE,
         };
 
         static const struct option options[] = {
@@ -951,6 +953,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "version",      no_argument,       NULL, ARG_VERSION      },
                 { "path",         required_argument, NULL, ARG_PATH         },
                 { "no-variables", no_argument,       NULL, ARG_NO_VARIABLES },
+                { "force",        no_argument,       NULL, ARG_FORCE        },
                 { NULL,           0,                 NULL, 0                }
         };
 
@@ -976,6 +979,9 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_NO_VARIABLES:
                         arg_touch_variables = false;
+                        break;
+                case ARG_FORCE:
+                        arg_force = true;
                         break;
 
                 case '?':
@@ -1036,10 +1042,13 @@ static int bootctl_main(int argc, char*argv[]) {
         if (geteuid() != 0)
                 return log_error_errno(EPERM, "Need to be root.");
 
+        if (arg_force && arg_action < ACTION_INSTALL)
+                log_error("Can only force install, update or remove operations");
+
         r = verify_esp(arg_path, &part, &pstart, &psize, &uuid);
         if (r == -ENODEV && !arg_path)
                 log_notice("You might want to use --path= to indicate the path to your ESP, in case it is not mounted on /boot.");
-        if (r < 0)
+        if (r < 0 && !arg_force)
                 return r;
 
         switch (arg_action) {
@@ -1112,7 +1121,7 @@ static int bootctl_main(int argc, char*argv[]) {
                                 return r;
                 }
 
-                if (arg_touch_variables)
+                if (arg_touch_variables && !arg_force)
                         r = install_variables(arg_path,
                                               part, pstart, psize, uuid,
                                               "/EFI/systemd/systemd-boot" EFI_MACHINE_TYPE_NAME ".efi",
@@ -1122,7 +1131,7 @@ static int bootctl_main(int argc, char*argv[]) {
         case ACTION_REMOVE:
                 r = remove_binaries(arg_path);
 
-                if (arg_touch_variables) {
+                if (arg_touch_variables && !arg_force) {
                         q = remove_variables(uuid, "/EFI/systemd/systemd-boot" EFI_MACHINE_TYPE_NAME ".efi", true);
                         if (q < 0 && r == 0)
                                 r = q;
