@@ -295,14 +295,20 @@ int mac_selinux_get_child_mls_label(int socket_fd, const char *exe, const char *
         return r;
 }
 
-void mac_selinux_free(char *label) {
+char* mac_selinux_free(char *label) {
 
 #ifdef HAVE_SELINUX
+        if (!label)
+                return NULL;
+
         if (!mac_selinux_use())
-                return;
+                return NULL;
+
 
         freecon((security_context_t) label);
 #endif
+
+        return NULL;
 }
 
 int mac_selinux_create_file_prepare(const char *path, mode_t mode) {

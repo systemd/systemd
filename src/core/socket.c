@@ -1210,10 +1210,10 @@ fail:
 }
 
 static int socket_open_fds(Socket *s) {
+        _cleanup_(mac_selinux_freep) char *label = NULL;
+        bool know_label = false;
         SocketPort *p;
         int r;
-        char *label = NULL;
-        bool know_label = false;
 
         assert(s);
 
@@ -1327,13 +1327,10 @@ static int socket_open_fds(Socket *s) {
                         assert_not_reached("Unknown port type");
         }
 
-        mac_selinux_free(label);
         return 0;
 
 rollback:
         socket_close_fds(s);
-        mac_selinux_free(label);
-
         return r;
 }
 
