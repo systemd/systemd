@@ -1592,6 +1592,35 @@ static int exec_child(
 
         umask(context->umask);
 
+#ifdef HAVE_SMACK
+        if (params->apply_permissions) {
+                if (context->smack_process_label) {
+                        r = mac_smack_apply_pid(0, context->smack_process_label);
+                        if (r < 0) {
+                                *exit_status = EXIT_SMACK_PROCESS_LABEL;
+                                return r;
+                        }
+                }
+#ifdef SMACK_DEFAULT_PROCESS_LABEL
+                else {
+                        _cleanup_free_ char *exec_label = NULL;
+
+                        r = mac_smack_read(command->path, SMACK_ATTR_EXEC, &exec_label);
+                        if (r < 0 && r != -ENODATA && r != -EOPNOTSUPP) {
+                                *exit_status = EXIT_SMACK_PROCESS_LABEL;
+                                return r;
+                        }
+
+                        r = mac_smack_apply_pid(0, exec_label ? : SMACK_DEFAULT_PROCESS_LABEL);
+                        if (r < 0) {
+                                *exit_status = EXIT_SMACK_PROCESS_LABEL;
+                                return r;
+                        }
+                }
+        }
+#endif
+#endif
+
 #ifdef HAVE_PAM
         if (params->apply_permissions && context->pam_name && username) {
                 r = setup_pam(context->pam_name, username, uid, context->tty_path, &pam_env, fds, n_fds);
@@ -1728,33 +1757,6 @@ static int exec_child(
                                 return r;
                         }
                 }
-
-#ifdef HAVE_SMACK
-                if (context->smack_process_label) {
-                        r = mac_smack_apply_pid(0, context->smack_process_label);
-                        if (r < 0) {
-                                *exit_status = EXIT_SMACK_PROCESS_LABEL;
-                                return r;
-                        }
-                }
-#ifdef SMACK_DEFAULT_PROCESS_LABEL
-                else {
-                        _cleanup_free_ char *exec_label = NULL;
-
-                        r = mac_smack_read(command->path, SMACK_ATTR_EXEC, &exec_label);
-                        if (r < 0 && r != -ENODATA && r != -EOPNOTSUPP) {
-                                *exit_status = EXIT_SMACK_PROCESS_LABEL;
-                                return r;
-                        }
-
-                        r = mac_smack_apply_pid(0, exec_label ? : SMACK_DEFAULT_PROCESS_LABEL);
-                        if (r < 0) {
-                                *exit_status = EXIT_SMACK_PROCESS_LABEL;
-                                return r;
-                        }
-                }
-#endif
-#endif
 
                 if (context->user) {
                         r = enforce_user(context, uid);
