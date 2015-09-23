@@ -198,11 +198,21 @@ bool address_equal(Address *a1, Address *a2) {
         return address_compare_func(a1, a2) == 0;
 }
 
-int address_add(Link *link, Address *address) {
+int address_add(Link *link, int family, const union in_addr_union *in_addr, unsigned char prefixlen, Address **ret) {
+        _cleanup_address_free_ Address *address = NULL;
         int r;
 
         assert(link);
-        assert(address);
+        assert(in_addr);
+        assert(ret);
+
+        r = address_new(&address);
+        if (r < 0)
+                return r;
+
+        address->family = family;
+        address->in_addr = *in_addr;
+        address->prefixlen = prefixlen;
 
         r = set_ensure_allocated(&link->addresses, &address_hash_ops);
         if (r < 0)
@@ -213,6 +223,9 @@ int address_add(Link *link, Address *address) {
                 return r;
 
         address->link = link;
+
+        *ret = address;
+        address = NULL;
 
         return 0;
 }

@@ -281,9 +281,13 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
         Manager *m = userdata;
         Link *link = NULL;
         uint16_t type;
-        _cleanup_address_free_ Address *address = NULL;
         unsigned char flags;
-        Address *existing = NULL;
+        int family;
+        unsigned char prefixlen;
+        unsigned char scope;
+        union in_addr_union in_addr;
+        struct ifa_cacheinfo cinfo;
+        Address *address = NULL;
         char buf[INET6_ADDRSTRLEN], valid_buf[FORMAT_TIMESPAN_MAX];
         const char *valid_str = NULL;
         int r, ifindex;
@@ -327,23 +331,19 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
                 }
         }
 
-        r = address_new(&address);
-        if (r < 0)
-                return r;
-
-        r = sd_rtnl_message_addr_get_family(message, &address->family);
-        if (r < 0 || !IN_SET(address->family, AF_INET, AF_INET6)) {
+        r = sd_rtnl_message_addr_get_family(message, &family);
+        if (r < 0 || !IN_SET(family, AF_INET, AF_INET6)) {
                 log_link_warning(link, "rtnl: received address with invalid family, ignoring.");
                 return 0;
         }
 
-        r = sd_rtnl_message_addr_get_prefixlen(message, &address->prefixlen);
+        r = sd_rtnl_message_addr_get_prefixlen(message, &prefixlen);
         if (r < 0) {
                 log_link_warning_errno(link, r, "rtnl: received address with invalid prefixlen, ignoring: %m");
                 return 0;
         }
 
-        r = sd_rtnl_message_addr_get_scope(message, &address->scope);
+        r = sd_rtnl_message_addr_get_scope(message, &scope);
         if (r < 0) {
                 log_link_warning_errno(link, r, "rtnl: received address with invalid scope, ignoring: %m");
                 return 0;
@@ -354,11 +354,10 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
                 log_link_warning_errno(link, r, "rtnl: received address with invalid flags, ignoring: %m");
                 return 0;
         }
-        address->flags = flags;
 
-        switch (address->family) {
+        switch (family) {
         case AF_INET:
-                r = sd_netlink_message_read_in_addr(message, IFA_LOCAL, &address->in_addr.in);
+                r = sd_netlink_message_read_in_addr(message, IFA_LOCAL, &in_addr.in);
                 if (r < 0) {
                         log_link_warning_errno(link, r, "rtnl: received address without valid address, ignoring: %m");
                         return 0;
@@ -367,7 +366,7 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
                 break;
 
         case AF_INET6:
-                r = sd_netlink_message_read_in6_addr(message, IFA_ADDRESS, &address->in_addr.in6);
+                r = sd_netlink_message_read_in6_addr(message, IFA_ADDRESS, &in_addr.in6);
                 if (r < 0) {
                         log_link_warning_errno(link, r, "rtnl: received address without valid address, ignoring: %m");
                         return 0;
@@ -379,45 +378,45 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
                 assert_not_reached("invalid address family");
         }
 
-        if (!inet_ntop(address->family, &address->in_addr, buf, INET6_ADDRSTRLEN)) {
+        if (!inet_ntop(family, &in_addr, buf, INET6_ADDRSTRLEN)) {
                 log_link_warning(link, "Could not print address");
                 return 0;
         }
 
-        r = sd_netlink_message_read_cache_info(message, IFA_CACHEINFO, &address->cinfo);
+        r = sd_netlink_message_read_cache_info(message, IFA_CACHEINFO, &cinfo);
         if (r >= 0) {
-                if (address->cinfo.ifa_valid == CACHE_INFO_INFINITY_LIFE_TIME)
+                if (cinfo.ifa_valid == CACHE_INFO_INFINITY_LIFE_TIME)
                         valid_str = "ever";
                 else
                         valid_str = format_timespan(valid_buf, FORMAT_TIMESPAN_MAX,
-                                                    address->cinfo.ifa_valid * USEC_PER_SEC,
+                                                    cinfo.ifa_valid * USEC_PER_SEC,
                                                     USEC_PER_SEC);
         }
 
-        address_get(link, address->family, &address->in_addr, address->prefixlen, &existing);
+        address_get(link, family, &in_addr, prefixlen, &address);
 
         switch (type) {
         case RTM_NEWADDR:
-                if (existing) {
-                        log_link_debug(link, "Updating address: %s/%u (valid for %s)", buf, address->prefixlen, valid_str);
+                if (address) {
+                        log_link_debug(link, "Updating address: %s/%u (valid for %s)", buf, prefixlen, valid_str);
 
-
-                        existing->scope = address->scope;
-                        existing->flags = address->flags;
-                        existing->cinfo = address->cinfo;
+                        address->scope = scope;
+                        address->flags = flags;
+                        address->cinfo = cinfo;
 
                 } else {
-                        r = address_add(link, address);
+                        r = address_add(link, family, &in_addr, prefixlen, &address);
                         if (r < 0) {
-                                log_link_warning_errno(link, r, "Failed to add address %s/%u: %m", buf, address->prefixlen);
+                                log_link_warning_errno(link, r, "Failed to add address %s/%u: %m", buf, prefixlen);
                                 return 0;
                         } else
-                                log_link_debug(link, "Adding address: %s/%u (valid for %s)", buf, address->prefixlen, valid_str);
+                                log_link_debug(link, "Adding address: %s/%u (valid for %s)", buf, prefixlen, valid_str);
 
+                        address->scope = scope;
+                        address->flags = flags;
+                        address->cinfo = cinfo;
 
                         address_establish(address, link);
-
-                        address = NULL;
 
                         link_save(link);
                 }
@@ -426,12 +425,12 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
 
         case RTM_DELADDR:
 
-                if (existing) {
-                        log_link_debug(link, "Removing address: %s/%u (valid for %s)", buf, address->prefixlen, valid_str);
-                        address_release(existing, link);
-                        address_free(existing);
+                if (address) {
+                        log_link_debug(link, "Removing address: %s/%u (valid for %s)", buf, prefixlen, valid_str);
+                        address_release(address, link);
+                        address_free(address);
                 } else
-                        log_link_warning(link, "Removing non-existent address: %s/%u (valid for %s)", buf, address->prefixlen, valid_str);
+                        log_link_warning(link, "Removing non-existent address: %s/%u (valid for %s)", buf, prefixlen, valid_str);
 
                 break;
         default:
