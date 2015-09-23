@@ -125,6 +125,8 @@ int sd_dhcp6_client_set_index(sd_dhcp6_client *client, int interface_index) {
         assert_return(client, -EINVAL);
         assert_return(interface_index >= -1, -EINVAL);
 
+        assert_return(IN_SET(client->state, DHCP6_STATE_STOPPED), -EBUSY);
+
         client->index = interface_index;
 
         return 0;
@@ -139,6 +141,8 @@ int sd_dhcp6_client_set_mac(
         assert_return(addr, -EINVAL);
         assert_return(addr_len > 0 && addr_len <= MAX_MAC_ADDR_LEN, -EINVAL);
         assert_return(arp_type > 0, -EINVAL);
+
+        assert_return(IN_SET(client->state, DHCP6_STATE_STOPPED), -EBUSY);
 
         if (arp_type == ARPHRD_ETHER)
                 assert_return(addr_len == ETH_ALEN, -EINVAL);
@@ -173,6 +177,8 @@ int sd_dhcp6_client_set_duid(
         assert_return(duid, -EINVAL);
         assert_return(duid_len > 0 && duid_len <= MAX_DUID_LEN, -EINVAL);
 
+        assert_return(IN_SET(client->state, DHCP6_STATE_STOPPED), -EBUSY);
+
         switch (type) {
         case DHCP6_DUID_LLT:
                 if (duid_len <= sizeof(client->duid.llt))
@@ -204,6 +210,8 @@ int sd_dhcp6_client_set_duid(
 
 int sd_dhcp6_client_set_information_request(sd_dhcp6_client *client, bool enabled) {
         assert_return(client, -EINVAL);
+
+        assert_return(IN_SET(client->state, DHCP6_STATE_STOPPED), -EBUSY);
 
         client->information_request = enabled;
 
@@ -1125,6 +1133,9 @@ int sd_dhcp6_client_start(sd_dhcp6_client *client) {
         assert_return(client, -EINVAL);
         assert_return(client->event, -EINVAL);
         assert_return(client->index > 0, -EINVAL);
+
+        if (!IN_SET(client->state, DHCP6_STATE_STOPPED))
+                return -EALREADY;
 
         r = client_reset(client);
         if (r < 0)
