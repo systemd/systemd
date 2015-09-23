@@ -96,8 +96,7 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
         if (optind < argc) {
-                log_error("%s takes no arguments.",
-                          program_invocation_short_name);
+                log_error("%s takes no arguments.", program_invocation_short_name);
                 return -EINVAL;
         }
 
@@ -105,7 +104,7 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
-        int retval = EXIT_SUCCESS, r;
+        int r;
 
         /* This is mostly intended to be used for scripts which want
          * to detect whether we are being run in a virtualized
@@ -123,7 +122,7 @@ int main(int argc, char *argv[]) {
         case ONLY_VM:
                 r = detect_vm();
                 if (r < 0) {
-                        log_error_errno(r, "Failed to check for vm: %m");
+                        log_error_errno(r, "Failed to check for VM: %m");
                         return EXIT_FAILURE;
                 }
 
@@ -152,7 +151,5 @@ int main(int argc, char *argv[]) {
         if (!arg_quiet)
                 puts(virtualization_to_string(r));
 
-        retval = r != VIRTUALIZATION_NONE ? EXIT_SUCCESS : EXIT_FAILURE;
-
-        return retval;
+        return r != VIRTUALIZATION_NONE ? EXIT_SUCCESS : EXIT_FAILURE;
 }
