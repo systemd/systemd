@@ -5753,6 +5753,12 @@ static int is_system_running(sd_bus *bus, char **args) {
         _cleanup_free_ char *state = NULL;
         int r;
 
+        if (arg_transport == BUS_TRANSPORT_LOCAL && !sd_booted()) {
+                if (!arg_quiet)
+                        puts("offline");
+                return EXIT_FAILURE;
+        }
+
         r = sd_bus_get_property_string(
                         bus,
                         "org.freedesktop.systemd1",
