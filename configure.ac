@@ -1261,7 +1261,6 @@ if test "x$enable_myhostname" != "xno"; then
         AC_TYPE_SIZE_T
         AC_HEADER_TIME
 
-        AC_FUNC_MALLOC
         AC_FUNC_SELECT_ARGTYPES
         AC_CHECK_FUNCS([gethostbyaddr gethostbyname gettimeofday inet_ntoa memset select socket strcspn strdup strerror strncasecmp strcasecmp strspn])
 
