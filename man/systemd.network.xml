@@ -545,6 +545,14 @@
             <literal>global</literal>.</para>
           </listitem>
         </varlistentry>
+        <varlistentry>
+          <term><varname>PreferredSource=</varname></term>
+          <listitem>
+            <para>The preferred source address of the route. The address
+            must be in the format described in
+            <citerefentry project='man-pages'><refentrytitle>inet_pton</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
+          </listitem>
+        </varlistentry>
       </variablelist>
   </refsect1>
 
