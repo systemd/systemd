@@ -1,4 +1,4 @@
-<?xml version='1.0'?> <!--*-nxml-*-->
+<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
@@ -35,6 +35,12 @@
         <surname>Poettering</surname>
         <email>lennart@poettering.net</email>
       </author>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>Didier</firstname>
+        <surname>Roche</surname>
+        <email>didrocks@ubuntu.com</email>
+      </author>
     </authorgroup>
   </refentryinfo>
 
@@ -59,30 +65,43 @@
 
     <para><command>systemd-machine-id-setup</command> may be used by
     system installer tools to initialize the machine ID stored in
-    <filename>/etc/machine-id</filename> at install time with a
-    randomly generated ID. See
+    <filename>/etc/machine-id</filename> at install time, with a
+    provisioned or randomly generated ID. See
     <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     for more information about this file.</para>
 
-    <para>This tool will execute no operation if
-    <filename>/etc/machine-id</filename> is already
-    initialized.</para>
+    <para>If the tool is invoked without the <option>--commit</option>
+    switch <filename>/etc/machine-id</filename> is initialized with a
+    valid, new machined ID if it is missing or empty. The new machine
+    ID will be acquired in the following fashion:</para>
 
-    <para>If a valid D-Bus machine ID is already configured for the
-    system, the D-Bus machine ID is copied and used to initialize the
-    machine ID in <filename>/etc/machine-id</filename>.</para>
+    <orderedlist>
+      <listitem><para>If a valid D-Bus machine ID is already
+      configured for the system, the D-Bus machine ID is copied and
+      used to initialize the machine ID in
+      <filename>/etc/machine-id</filename>.</para></listitem>
 
-    <para>If run inside a KVM virtual machine and a UUID is passed via
-    the <option>-uuid</option> option, this UUID is used to initialize
-    the machine ID instead of a randomly generated one. The caller
-    must ensure that the UUID passed is sufficiently unique and is
-    different for every booted instanced of the VM.</para>
+      <listitem><para>If run inside a KVM virtual machine and a UUID
+      is was configured (via the <option>-uuid</option>
+      option), this UUID is used to initialize the machine ID. The
+      caller must ensure that the UUID passed is sufficiently unique
+      and is different for every booted instance of the
+      VM.</para></listitem>
 
-    <para>Similar, if run inside a Linux container environment and a
-    UUID is set for the container this is used to initialize the
-    machine ID. For details see the documentation of the <ulink
-    url="http://www.freedesktop.org/wiki/Software/systemd/ContainerInterface">Container
-    Interface</ulink>.</para>
+      <listitem><para>Similar, if run inside a Linux container
+      environment and a UUID is configured for the container this is
+      used to initialize the machine ID. For details see the
+      documentation of the <ulink
+      url="http://www.freedesktop.org/wiki/Software/systemd/ContainerInterface">Container
+      Interface</ulink>.</para></listitem>
+
+      <listitem><para>Otherwise a new ID is randomly
+      generated.</para></listitem>
+    </orderedlist>
+
+    <para>The <option>--commit</option> switch may be used to commit a
+    transient machined ID to disk, making it persistent. For details,
+    see below.</para>
 
     <para>Use
     <citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
@@ -97,13 +116,41 @@
     <para>The following options are understood:</para>
 
     <variablelist>
+
       <varlistentry>
         <term><option>--root=<replaceable>root</replaceable></option></term>
-        <listitem><para>Takes a directory path as an argument. All
-        paths will be prefixed with the given alternate
-        <replaceable>root</replaceable> path, including config search
-        paths. </para></listitem>
+        <listitem><para>Takes a directory path as argument. All paths
+        operated will be prefixed with the given alternate
+        <replaceable>root</replaceable> path, including the path for
+        <filename>/etc/machine-id</filename> itself.</para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><option>--commit</option></term>
+        <listitem><para>Commit a transient machine ID to disk. This
+        command may be used to convert a transient machine ID into a
+        persistent one. A transient machine ID file is one that was
+        bind mounted from a memory file system (usually
+        <literal>tmpfs</literal>) to
+        <filename>/etc/machine-id</filename> during the early phase of
+        the boot process. This may happen because
+        <filename>/etc</filename> is initially read-only and was
+        missing a valid machine ID file at that point.</para>
+
+        <para>This command will execute no operation if
+        <filename>/etc/machine-id</filename> is not mounted from a
+        memory file system, or if <filename>/etc</filename> is
+        read-only. The command will write the current transient
+        machine ID to disk and unmount the
+        <filename>/etc/machine-id</filename> mount point in a
+        race-free manner to ensure that this file is always valid and
+        accessible for other processes.</para>
+
+        <para>This command is primarily used by the
+        <citerefentry><refentrytitle>systemd-machine-id-commit.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        early-boot service.</para></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>
@@ -122,6 +169,7 @@
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-machine-id-commit.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry project='dbus'><refentrytitle>dbus-uuidgen</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     </para>
