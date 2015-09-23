@@ -92,7 +92,7 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_priority = log_level_from_string(optarg);
                         if (arg_priority < 0) {
                                 log_error("Failed to parse priority value.");
-                                return arg_priority;
+                                return -EINVAL;
                         }
                         break;
 
