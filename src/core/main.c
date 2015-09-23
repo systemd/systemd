@@ -1168,7 +1168,6 @@ int main(int argc, char *argv[]) {
         char *switch_root_dir = NULL, *switch_root_init = NULL;
         struct rlimit saved_rlimit_nofile = RLIMIT_MAKE_CONST(0);
         const char *error_message = NULL;
-        uint8_t shutdown_exit_code = 0;
 
 #ifdef HAVE_SYSV_COMPAT
         if (getpid() != 1 && strstr(program_invocation_short_name, "init")) {
@@ -1720,8 +1719,9 @@ int main(int argc, char *argv[]) {
                         goto finish;
 
                 case MANAGER_EXIT:
+                        retval = m->return_value;
+
                         if (m->running_as == MANAGER_USER) {
-                                retval = EXIT_SUCCESS;
                                 log_debug("Exit.");
                                 goto finish;
                         }
@@ -1754,10 +1754,8 @@ int main(int argc, char *argv[]) {
 finish:
         pager_close();
 
-        if (m) {
+        if (m)
                 arg_shutdown_watchdog = m->shutdown_watchdog;
-                shutdown_exit_code = m->return_value;
-        }
 
         m = manager_free(m);
 
@@ -1930,7 +1928,7 @@ finish:
                 if (streq(shutdown_verb, "exit")) {
                         command_line[pos++] = "--exit-code";
                         command_line[pos++] = exit_code;
-                        xsprintf(exit_code, "%d", shutdown_exit_code);
+                        xsprintf(exit_code, "%d", retval);
                 }
 
                 assert(pos < ELEMENTSOF(command_line));
