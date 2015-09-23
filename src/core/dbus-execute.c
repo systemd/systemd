@@ -847,27 +847,36 @@ int bus_exec_context_set_transient_property(
 
                 return 1;
 
-        } else if (streq(name, "TTYPath")) {
-                const char *tty;
+        } else if (STR_IN_SET(name,
+                              "TTYPath", "WorkingDirectory", "RootDirectory")) {
+                const char *s;
 
-                r = sd_bus_message_read(message, "s", &tty);
+                r = sd_bus_message_read(message, "s", &s);
                 if (r < 0)
                         return r;
 
-                if (!path_is_absolute(tty))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "TTY device not absolute path");
+                if (!path_is_absolute(s))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "%s takes an absolute path", name);
 
                 if (mode != UNIT_CHECK) {
                         char *t;
 
-                        t = strdup(tty);
+                        t = strdup(s);
                         if (!t)
                                 return -ENOMEM;
 
-                        free(c->tty_path);
-                        c->tty_path = t;
+                        if (streq(name, "TTYPath")) {
+                                free(c->tty_path);
+                                c->tty_path = t;
+                        } else if (streq(name, "WorkingDirectory")) {
+                                free(c->working_directory);
+                                c->working_directory = t;
+                        } else if (streq(name, "RootDirectory")) {
+                                free(c->root_directory);
+                                c->root_directory = t;
+                        }
 
-                        unit_write_drop_in_private_format(u, mode, name, "TTYPath=%s\n", tty);
+                        unit_write_drop_in_private_format(u, mode, name, "%s=%s\n", name, s);
                 }
 
                 return 1;
