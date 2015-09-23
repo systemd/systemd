@@ -31,8 +31,9 @@ CHANGES WITH 227:
           assignments and "auto" for picking a free value
           automatically.
 
-        * The PrivateTmp, PrivateDevices, PrivateNetwork and
-          NoNewPrivileges properties can now be set for transient units.
+        * The PrivateTmp, PrivateDevices, PrivateNetwork,
+          NoNewPrivileges, TTYPath, WorkingDirectory and RootDirectory
+          properties can now be set for transient units.
 
         * Galician and Turkish translations were added.
 
