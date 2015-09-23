@@ -1222,7 +1222,9 @@ static int socket_open_fds(Socket *s) {
                 if (p->fd >= 0)
                         continue;
 
-                if (p->type == SOCKET_SOCKET) {
+                switch (p->type) {
+
+                case SOCKET_SOCKET:
 
                         if (!know_label) {
                                 /* Figure out label, if we don't it know
@@ -1273,16 +1275,18 @@ static int socket_open_fds(Socket *s) {
                         p->fd = r;
                         socket_apply_socket_options(s, p->fd);
                         socket_symlink(s);
+                        break;
 
-                } else  if (p->type == SOCKET_SPECIAL) {
+                case SOCKET_SPECIAL:
 
                         p->fd = special_address_create(p->path);
                         if (p->fd < 0) {
                                 r = p->fd;
                                 goto rollback;
                         }
+                        break;
 
-                } else  if (p->type == SOCKET_FIFO) {
+                case SOCKET_FIFO:
 
                         p->fd = fifo_address_create(
                                         p->path,
@@ -1295,8 +1299,9 @@ static int socket_open_fds(Socket *s) {
 
                         socket_apply_fifo_options(s, p->fd);
                         socket_symlink(s);
+                        break;
 
-                } else if (p->type == SOCKET_MQUEUE) {
+                case SOCKET_MQUEUE:
 
                         p->fd = mq_address_create(
                                         p->path,
@@ -1307,8 +1312,9 @@ static int socket_open_fds(Socket *s) {
                                 r = p->fd;
                                 goto rollback;
                         }
+                        break;
 
-                } else  if (p->type == SOCKET_USB_FUNCTION) {
+                case SOCKET_USB_FUNCTION:
 
                         p->fd = ffs_address_create(p->path);
                         if (p->fd < 0) {
@@ -1323,8 +1329,12 @@ static int socket_open_fds(Socket *s) {
                         r = ffs_dispatch_eps(p);
                         if (r < 0)
                                 goto rollback;
-                } else
+
+                        break;
+
+                default:
                         assert_not_reached("Unknown port type");
+                }
         }
 
         return 0;
