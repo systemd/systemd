@@ -625,15 +625,14 @@ int main(int argc, char *argv[]) {
                 goto finish;
 
         if (arg_console) {
-                setsid();
-                release_terminal();
+                (void) setsid();
+                (void) release_terminal();
         }
 
         if (IN_SET(arg_action, ACTION_WATCH, ACTION_WALL))
                 r = watch_passwords();
         else
                 r = show_passwords();
-
         if (r < 0)
                 log_error_errno(r, "Error: %m");
 
