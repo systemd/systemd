@@ -23,6 +23,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <stdlib.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <fcntl.h>
 #include <sys/statvfs.h>
@@ -852,4 +853,25 @@ char *prefix_root(const char *root, const char *path) {
 
         strcpy(p, path);
         return n;
+}
+
+bool path_prefix_in_list(const char *path, ...) {
+        bool r = false;
+        const char *p;
+        va_list ap;
+
+        if (!path)
+                return false;
+
+        va_start(ap, path);
+
+        while ((p = va_arg(ap, const char*)))
+                if (path_startswith(path, p)) {
+                        r = true;
+                        break;
+                }
+
+        va_end(ap);
+
+        return r;
 }
