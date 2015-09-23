@@ -318,13 +318,22 @@ finish:
 }
 
 static void free_host_info(struct host_info *hi) {
-        free(hi->hostname);
-        free(hi->kernel_name);
-        free(hi->kernel_release);
-        free(hi->kernel_version);
-        free(hi->os_pretty_name);
-        free(hi->virtualization);
-        free(hi->architecture);
+        if (hi == NULL)
+                return;
+        if (hi->hostname != NULL)
+                free(hi->hostname);
+        if (hi->kernel_name != NULL)
+                free(hi->kernel_name);
+        if (hi->kernel_release != NULL)
+                free(hi->kernel_release);
+        if (hi->kernel_version != NULL)
+                free(hi->kernel_version);
+        if (hi->os_pretty_name != NULL)
+                free(hi->os_pretty_name);
+        if (hi->virtualization != NULL)
+                free(hi->virtualization);
+        if (hi->architecture != NULL)
+                free(hi->architecture);
         free(hi);
 }
 
@@ -458,21 +467,21 @@ static int acquire_host_info(sd_bus *bus, struct host_info **hi) {
                                    hostname_map,
                                    host);
         if (r < 0)
-                goto fail;
+                log_debug("Failed to get host information from systemd-hostnamed");
 
         r = bus_map_all_properties(bus,
                                    "org.freedesktop.systemd1",
                                    "/org/freedesktop/systemd1",
                                    manager_map,
                                    host);
-        if (r < 0)
-                goto fail;
+        if (r < 0) {
+                log_error("Failed to get host information from systemd");
+                free_host_info(host);
+                return r;
+        }
 
         *hi = host;
         return 0;
-fail:
-        free_host_info(host);
-        return r;
 }
 
 static int pretty_boot_time(sd_bus *bus, char **_buf) {
@@ -651,14 +660,16 @@ static int analyze_plot(sd_bus *bus) {
 
         svg("<rect class=\"background\" width=\"100%%\" height=\"100%%\" />\n");
         svg("<text x=\"20\" y=\"50\">%s</text>", pretty_times);
-        svg("<text x=\"20\" y=\"30\">%s %s (%s %s %s) %s %s</text>",
-            isempty(host->os_pretty_name) ? "Linux" : host->os_pretty_name,
-            isempty(host->hostname) ? "" : host->hostname,
-            isempty(host->kernel_name) ? "" : host->kernel_name,
-            isempty(host->kernel_release) ? "" : host->kernel_release,
-            isempty(host->kernel_version) ? "" : host->kernel_version,
-            isempty(host->architecture) ? "" : host->architecture,
-            isempty(host->virtualization) ? "" : host->virtualization);
+        if (host != NULL) {
+                svg("<text x=\"20\" y=\"30\">%s %s (%s %s %s) %s %s</text>",
+                    isempty(host->os_pretty_name) ? "Linux" : host->os_pretty_name,
+                    isempty(host->hostname) ? "" : host->hostname,
+                    isempty(host->kernel_name) ? "" : host->kernel_name,
+                    isempty(host->kernel_release) ? "" : host->kernel_release,
+                    isempty(host->kernel_version) ? "" : host->kernel_version,
+                    isempty(host->architecture) ? "" : host->architecture,
+                    isempty(host->virtualization) ? "" : host->virtualization);
+        }
 
         svg("<g transform=\"translate(%.3f,100)\">\n", 20.0 + (SCALE_X * boot->firmware_time));
         svg_graph_box(m, -(double) boot->firmware_time, boot->finish_time);
