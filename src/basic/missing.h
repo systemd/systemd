@@ -139,6 +139,8 @@ static inline int pivot_root(const char *new_root, const char *put_old) {
 #    define __NR_memfd_create 385
 #  elif defined __aarch64__
 #    define __NR_memfd_create 279
+#  elif defined __s390__
+#    define __NR_memfd_create 350
 #  elif defined _MIPS_SIM
 #    if _MIPS_SIM == _MIPS_SIM_ABI32
 #      define __NR_memfd_create 4354
