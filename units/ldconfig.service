@@ -12,7 +12,8 @@ DefaultDependencies=no
 Conflicts=shutdown.target
 After=systemd-remount-fs.service
 Before=sysinit.target shutdown.target systemd-update-done.service
-ConditionNeedsUpdate=/etc
+ConditionNeedsUpdate=|/etc
+ConditionFileNotEmpty=|!/etc/ld.so.cache
 
 [Service]
 Type=oneshot
