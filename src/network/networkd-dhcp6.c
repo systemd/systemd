@@ -147,7 +147,9 @@ static void dhcp6_handler(sd_dhcp6_client *client, int event, void *userdata) {
         case SD_DHCP6_CLIENT_EVENT_STOP:
         case SD_DHCP6_CLIENT_EVENT_RESEND_EXPIRE:
         case SD_DHCP6_CLIENT_EVENT_RETRANS_MAX:
-                log_link_debug(link, "DHCPv6 event %d", event);
+                log_link_warning(link, "DHCPv6 lease lost");
+
+                link->dhcp6_configured = false;
                 break;
 
         case SD_DHCP6_CLIENT_EVENT_IP_ACQUIRE:
@@ -165,6 +167,7 @@ static void dhcp6_handler(sd_dhcp6_client *client, int event, void *userdata) {
                         return;
                 }
 
+                link->dhcp6_configured = true;
                 break;
 
         default:
@@ -176,6 +179,8 @@ static void dhcp6_handler(sd_dhcp6_client *client, int event, void *userdata) {
                                          event);
                 return;
         }
+
+        link_client_handler(link);
 }
 
 static int dhcp6_configure(Link *link, int event) {
@@ -186,6 +191,8 @@ static int dhcp6_configure(Link *link, int event) {
         assert_return(IN_SET(event, SD_ICMP6_ND_EVENT_ROUTER_ADVERTISMENT_TIMEOUT,
                              SD_ICMP6_ND_EVENT_ROUTER_ADVERTISMENT_OTHER,
                              SD_ICMP6_ND_EVENT_ROUTER_ADVERTISMENT_MANAGED), -EINVAL);
+
+        link->dhcp6_configured = false;
 
         if (link->dhcp6_client) {
                 r = sd_dhcp6_client_get_information_request(link->dhcp6_client,
@@ -220,6 +227,9 @@ static int dhcp6_configure(Link *link, int event) {
                                          strerror(-r));
                         goto error;
                 }
+
+                if (r == -EALREADY)
+                        link->dhcp6_configured = true;
 
                 return r;
         }
