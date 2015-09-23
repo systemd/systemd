@@ -91,6 +91,7 @@ struct Link {
         uint16_t original_mtu;
         unsigned dhcp4_messages;
         bool dhcp4_configured;
+        bool dhcp6_configured;
 
         sd_ipv4ll *ipv4ll;
         bool ipv4ll_address;

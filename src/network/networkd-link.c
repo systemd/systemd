@@ -504,6 +504,9 @@ void link_client_handler(Link *link) {
         if (link_dhcp4_enabled(link) && !link->dhcp4_configured)
                         return;
 
+        if (link_dhcp6_enabled(link) && !link->dhcp6_configured)
+                return;
+
         if (link->state != LINK_STATE_CONFIGURED)
                 link_enter_configured(link);
 
