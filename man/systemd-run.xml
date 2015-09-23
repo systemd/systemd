@@ -381,7 +381,7 @@ Dec 08 20:44:48 container systemd[1]: Started /bin/touch /tmp/foo.</programlisti
     as a service passing its standard input, output and error to
     the calling TTY.</para>
 
-    <programlisting># systemd-run -t /bin/bash</programlisting>
+    <programlisting># systemd-run -t --send-sighup /bin/bash</programlisting>
 
   </refsect1>
 
