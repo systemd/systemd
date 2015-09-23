@@ -581,7 +581,11 @@ static void test_client_information_cb(sd_dhcp6_client *client, int event,
         if (verbose)
                 printf("  got DHCPv6 event %d\n", event);
 
+        assert_se(sd_dhcp6_client_set_information_request(client, false) == -EBUSY);
+        assert_se(sd_dhcp6_client_set_callback(client, NULL, e) >= 0);
+        assert_se(sd_dhcp6_client_stop(client) >= 0);
         assert_se(sd_dhcp6_client_set_information_request(client, false) >= 0);
+
         assert_se(sd_dhcp6_client_set_callback(client,
                                                test_client_solicit_cb, e) >= 0);
 
