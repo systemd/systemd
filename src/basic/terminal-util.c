@@ -48,7 +48,7 @@ int chvt(int vt) {
         if (fd < 0)
                 return -errno;
 
-        if (vt < 0) {
+        if (vt <= 0) {
                 int tiocl[2] = {
                         TIOCL_GETKMSGREDIRECT,
                         0

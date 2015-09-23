@@ -27,6 +27,7 @@
 #include <string.h>
 #include <sys/mount.h>
 #include <sys/prctl.h>
+#include <sys/reboot.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #ifdef HAVE_SECCOMP
@@ -87,8 +88,9 @@ static enum {
 static char *arg_default_unit = NULL;
 static ManagerRunningAs arg_running_as = _MANAGER_RUNNING_AS_INVALID;
 static bool arg_dump_core = true;
-static bool arg_crash_shell = false;
 static int arg_crash_chvt = -1;
+static bool arg_crash_shell = false;
+static bool arg_crash_reboot = false;
 static bool arg_confirm_spawn = false;
 static ShowStatus arg_show_status = _SHOW_STATUS_UNSET;
 static bool arg_switched_root = false;
@@ -121,6 +123,21 @@ static void pager_open_if_enabled(void) {
                 return;
 
         pager_open(false);
+}
+
+noreturn static void freeze_or_reboot(void) {
+
+        if (arg_crash_reboot) {
+                log_notice("Rebooting in 10s...");
+                (void) sleep(10);
+
+                log_notice("Rebooting now...");
+                (void) reboot(RB_AUTOBOOT);
+                log_emergency_errno(errno, "Failed to reboot: %m");
+        }
+
+        log_emergency("Freezing execution.");
+        freeze();
 }
 
 noreturn static void crash(int sig) {
@@ -188,7 +205,7 @@ noreturn static void crash(int sig) {
                 }
         }
 
-        if (arg_crash_chvt)
+        if (arg_crash_chvt >= 0)
                 (void) chvt(arg_crash_chvt);
 
         if (arg_crash_shell) {
@@ -198,7 +215,7 @@ noreturn static void crash(int sig) {
                 };
                 pid_t pid;
 
-                log_info("Executing crash shell in 10s...");
+                log_notice("Executing crash shell in 10s...");
                 (void) sleep(10);
 
                 /* Let the kernel reap children for us */
@@ -208,17 +225,20 @@ noreturn static void crash(int sig) {
                 if (pid < 0)
                         log_emergency_errno(errno, "Failed to fork off crash shell: %m");
                 else if (pid == 0) {
+                        (void) setsid();
                         (void) make_console_stdio();
                         (void) execle("/bin/sh", "/bin/sh", NULL, environ);
 
                         log_emergency_errno(errno, "execle() failed: %m");
+                        freeze_or_reboot();
                         _exit(EXIT_FAILURE);
-                } else
-                        log_info("Successfully spawned crash shell as PID "PID_FMT".", pid);
+                } else {
+                        log_info("Spawned crash shell as PID "PID_FMT".", pid);
+                        freeze();
+                }
         }
 
-        log_emergency("Freezing execution.");
-        freeze();
+        freeze_or_reboot();
 }
 
 static void install_crash_handler(void) {
@@ -248,6 +268,24 @@ static int console_setup(void) {
         r = reset_terminal_fd(tty_fd, false);
         if (r < 0)
                 return log_error_errno(r, "Failed to reset /dev/console: %m");
+
+        return 0;
+}
+
+static int parse_crash_chvt(const char *value) {
+        int b;
+
+        if (safe_atoi(value, &arg_crash_chvt) >= 0)
+                return 0;
+
+        b = parse_boolean(value);
+        if (b < 0)
+                return b;
+
+        if (b > 0)
+                arg_crash_chvt = 0; /* switch to where kmsg goes */
+        else
+                arg_crash_chvt = -1; /* turn off switching */
 
         return 0;
 }
@@ -290,6 +328,11 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
                 else
                         arg_dump_core = r;
 
+        } else if (streq(key, "systemd.crash_chvt") && value) {
+
+                if (parse_crash_chvt(value) < 0)
+                        log_warning("Failed to parse crash chvt switch %s. Ignoring.", value);
+
         } else if (streq(key, "systemd.crash_shell") && value) {
 
                 r = parse_boolean(value);
@@ -298,12 +341,13 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
                 else
                         arg_crash_shell = r;
 
-        } else if (streq(key, "systemd.crash_chvt") && value) {
+        } else if (streq(key, "systemd.crash_reboot") && value) {
 
-                if (safe_atoi(value, &r) < 0)
-                        log_warning("Failed to parse crash chvt switch %s. Ignoring.", value);
+                r = parse_boolean(value);
+                if (r < 0)
+                        log_warning("Failed to parse crash reboot switch %s. Ignoring.", value);
                 else
-                        arg_crash_chvt = r;
+                        arg_crash_reboot = r;
 
         } else if (streq(key, "systemd.confirm_spawn") && value) {
 
@@ -461,6 +505,34 @@ static int config_parse_show_status(
         return 0;
 }
 
+static int config_parse_crash_chvt(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = parse_crash_chvt(rvalue);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse CrashChangeVT= setting, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        return 0;
+}
+
 static int config_parse_join_controllers(const char *unit,
                                          const char *filename,
                                          unsigned line,
@@ -571,9 +643,11 @@ static int parse_config_file(void) {
                 { "Manager", "LogColor",                  config_parse_color,            0, NULL                                   },
                 { "Manager", "LogLocation",               config_parse_location,         0, NULL                                   },
                 { "Manager", "DumpCore",                  config_parse_bool,             0, &arg_dump_core                         },
+                { "Manager", "CrashChVT", /* legacy */    config_parse_crash_chvt,       0, NULL                                   },
+                { "Manager", "CrashChangeVT",             config_parse_crash_chvt,       0, NULL                                   },
                 { "Manager", "CrashShell",                config_parse_bool,             0, &arg_crash_shell                       },
+                { "Manager", "CrashReboot",               config_parse_bool,             0, &arg_crash_reboot                      },
                 { "Manager", "ShowStatus",                config_parse_show_status,      0, &arg_show_status                       },
-                { "Manager", "CrashChVT",                 config_parse_int,              0, &arg_crash_chvt                        },
                 { "Manager", "CPUAffinity",               config_parse_cpu_affinity2,    0, NULL                                   },
                 { "Manager", "JoinControllers",           config_parse_join_controllers, 0, &arg_join_controllers                  },
                 { "Manager", "RuntimeWatchdogSec",        config_parse_sec,              0, &arg_runtime_watchdog                  },
@@ -661,7 +735,9 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VERSION,
                 ARG_DUMP_CONFIGURATION_ITEMS,
                 ARG_DUMP_CORE,
+                ARG_CRASH_CHVT,
                 ARG_CRASH_SHELL,
+                ARG_CRASH_REBOOT,
                 ARG_CONFIRM_SPAWN,
                 ARG_SHOW_STATUS,
                 ARG_DESERIALIZE,
@@ -684,7 +760,9 @@ static int parse_argv(int argc, char *argv[]) {
                 { "version",                  no_argument,       NULL, ARG_VERSION                  },
                 { "dump-configuration-items", no_argument,       NULL, ARG_DUMP_CONFIGURATION_ITEMS },
                 { "dump-core",                optional_argument, NULL, ARG_DUMP_CORE                },
+                { "crash-chvt",               required_argument, NULL, ARG_CRASH_CHVT               },
                 { "crash-shell",              optional_argument, NULL, ARG_CRASH_SHELL              },
+                { "crash-reboot",             optional_argument, NULL, ARG_CRASH_REBOOT             },
                 { "confirm-spawn",            optional_argument, NULL, ARG_CONFIRM_SPAWN            },
                 { "show-status",              optional_argument, NULL, ARG_SHOW_STATUS              },
                 { "deserialize",              required_argument, NULL, ARG_DESERIALIZE              },
@@ -802,21 +880,42 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_DUMP_CORE:
-                        r = optarg ? parse_boolean(optarg) : 1;
-                        if (r < 0) {
-                                log_error("Failed to parse dump core boolean %s.", optarg);
-                                return r;
+                        if (!optarg)
+                                arg_dump_core = true;
+                        else {
+                                r = parse_boolean(optarg);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse dump core boolean: %s", optarg);
+                                arg_dump_core = r;
                         }
-                        arg_dump_core = r;
+                        break;
+
+                case ARG_CRASH_CHVT:
+                        r = parse_crash_chvt(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse crash virtual terminal index: %s", optarg);
                         break;
 
                 case ARG_CRASH_SHELL:
-                        r = optarg ? parse_boolean(optarg) : 1;
-                        if (r < 0) {
-                                log_error("Failed to parse crash shell boolean %s.", optarg);
-                                return r;
+                        if (!optarg)
+                                arg_crash_shell = true;
+                        else {
+                                r = parse_boolean(optarg);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse crash shell boolean: %s", optarg);
+                                arg_crash_shell = r;
                         }
-                        arg_crash_shell = r;
+                        break;
+
+                case ARG_CRASH_REBOOT:
+                        if (!optarg)
+                                arg_crash_reboot = true;
+                        else {
+                                r = parse_boolean(optarg);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse crash shell boolean: %s", optarg);
+                                arg_crash_reboot = r;
+                        }
                         break;
 
                 case ARG_CONFIRM_SPAWN:
@@ -846,17 +945,16 @@ static int parse_argv(int argc, char *argv[]) {
                         r = safe_atoi(optarg, &fd);
                         if (r < 0 || fd < 0) {
                                 log_error("Failed to parse deserialize option %s.", optarg);
-                                return r < 0 ? r : -EINVAL;
+                                return -EINVAL;
                         }
 
-                        fd_cloexec(fd, true);
+                        (void) fd_cloexec(fd, true);
 
                         f = fdopen(fd, "r");
                         if (!f)
                                 return log_error_errno(errno, "Failed to open serialization fd: %m");
 
                         safe_fclose(arg_serialization);
-
                         arg_serialization = f;
 
                         break;
@@ -916,14 +1014,16 @@ static int help(void) {
                "     --unit=UNIT                 Set default unit\n"
                "     --system                    Run a system instance, even if PID != 1\n"
                "     --user                      Run a user instance\n"
-               "     --dump-core[=0|1]           Dump core on crash\n"
-               "     --crash-shell[=0|1]         Run shell on crash\n"
-               "     --confirm-spawn[=0|1]       Ask for confirmation when spawning processes\n"
-               "     --show-status[=0|1]         Show status updates on the console during bootup\n"
+               "     --dump-core[=BOOL]          Dump core on crash\n"
+               "     --crash-vt=NR               Change to specified VT on crash\n"
+               "     --crash-reboot[=BOOL]       Reboot on crash\n"
+               "     --crash-shell[=BOOL]        Run shell on crash\n"
+               "     --confirm-spawn[=BOOL]      Ask for confirmation when spawning processes\n"
+               "     --show-status[=BOOL]        Show status updates on the console during bootup\n"
                "     --log-target=TARGET         Set log target (console, journal, kmsg, journal-or-kmsg, null)\n"
                "     --log-level=LEVEL           Set log level (debug, info, notice, warning, err, crit, alert, emerg)\n"
-               "     --log-color[=0|1]           Highlight important log messages\n"
-               "     --log-location[=0|1]        Include code location in log messages\n"
+               "     --log-color[=BOOL]          Highlight important log messages\n"
+               "     --log-location[=BOOL]       Include code location in log messages\n"
                "     --default-standard-output=  Set default standard output for services\n"
                "     --default-standard-error=   Set default standard error output for services\n",
                program_invocation_short_name);
@@ -1032,7 +1132,7 @@ static void test_mtab(void) {
         log_error("/etc/mtab is not a symlink or not pointing to /proc/self/mounts. "
                   "This is not supported anymore. "
                   "Please make sure to replace this file by a symlink to avoid incorrect or misleading mount(8) output.");
-        freeze();
+        freeze_or_reboot();
 }
 
 static void test_usr(void) {
@@ -1964,7 +2064,7 @@ finish:
                         manager_status_printf(NULL, STATUS_TYPE_EMERGENCY,
                                               ANSI_HIGHLIGHT_RED "!!!!!!" ANSI_NORMAL,
                                               "%s, freezing.", error_message);
-                freeze();
+                freeze_or_reboot();
         }
 
         return retval;

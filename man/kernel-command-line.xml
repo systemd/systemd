@@ -79,8 +79,9 @@
         <term><varname>systemd.unit=</varname></term>
         <term><varname>rd.systemd.unit=</varname></term>
         <term><varname>systemd.dump_core=</varname></term>
-        <term><varname>systemd.crash_shell=</varname></term>
         <term><varname>systemd.crash_chvt=</varname></term>
+        <term><varname>systemd.crash_shell=</varname></term>
+        <term><varname>systemd.crash_reboot=</varname></term>
         <term><varname>systemd.confirm_spawn=</varname></term>
         <term><varname>systemd.show_status=</varname></term>
         <term><varname>systemd.log_target=</varname></term>

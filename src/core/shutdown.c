@@ -430,6 +430,5 @@ int main(int argc, char *argv[]) {
 
   error:
         log_emergency_errno(r, "Critical error while doing system shutdown: %m");
-
         freeze();
 }
