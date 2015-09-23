@@ -23,7 +23,7 @@ ExecStart=@rootlibexecdir@/systemd-resolved
 CapabilityBoundingSet=CAP_SETUID CAP_SETGID CAP_SETPCAP CAP_CHOWN CAP_DAC_OVERRIDE CAP_FOWNER
 ProtectSystem=full
 ProtectHome=yes
-WatchdogSec=1min
+WatchdogSec=3min
 
 [Install]
 WantedBy=multi-user.target

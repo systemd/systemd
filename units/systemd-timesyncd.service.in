@@ -27,7 +27,7 @@ PrivateTmp=yes
 PrivateDevices=yes
 ProtectSystem=full
 ProtectHome=yes
-WatchdogSec=1min
+WatchdogSec=3min
 
 [Install]
 WantedBy=sysinit.target

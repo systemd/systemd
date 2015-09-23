@@ -15,7 +15,7 @@ ExecStart=@rootlibexecdir@/systemd-journal-upload \
 User=systemd-journal-upload
 PrivateTmp=yes
 PrivateDevices=yes
-WatchdogSec=20min
+WatchdogSec=3min
 
 # If there are many split up journal files we need a lot of fds to
 # access them all and combine

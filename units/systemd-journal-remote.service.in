@@ -18,7 +18,7 @@ Group=systemd-journal-remote
 PrivateTmp=yes
 PrivateDevices=yes
 PrivateNetwork=yes
-WatchdogSec=10min
+WatchdogSec=3min
 
 [Install]
 Also=systemd-journal-remote.socket
