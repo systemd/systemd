@@ -955,12 +955,12 @@ static void socket_apply_fifo_options(Socket *s, int fd) {
 
         if (s->pipe_size > 0)
                 if (fcntl(fd, F_SETPIPE_SZ, s->pipe_size) < 0)
-                        log_unit_warning_errno(UNIT(s), errno, "F_SETPIPE_SZ: %m");
+                        log_unit_warning_errno(UNIT(s), errno, "Setting pipe size failed, ignoring: %m");
 
         if (s->smack) {
                 r = mac_smack_apply_fd(fd, SMACK_ATTR_ACCESS, s->smack);
                 if (r < 0)
-                        log_unit_error_errno(UNIT(s), r, "mac_smack_apply_fd: %m");
+                        log_unit_error_errno(UNIT(s), r, "SMACK relabelling failed, ignoring: %m");
         }
 }
 
