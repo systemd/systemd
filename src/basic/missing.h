@@ -1030,7 +1030,12 @@ static inline int renameat2(int oldfd, const char *oldname, int newfd, const cha
 
 #if !HAVE_DECL_KCMP
 static inline int kcmp(pid_t pid1, pid_t pid2, int type, unsigned long idx1, unsigned long idx2) {
+#if defined(__NR_kcmp)
         return syscall(__NR_kcmp, pid1, pid2, type, idx1, idx2);
+#else
+        errno = ENOSYS;
+        return -1;
+#endif
 }
 #endif
 
