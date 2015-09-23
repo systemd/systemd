@@ -183,41 +183,42 @@ static int dhcp6_configure(Link *link, int event) {
         bool information_request;
 
         assert_return(link, -EINVAL);
+        assert_return(IN_SET(event, SD_ICMP6_ND_EVENT_ROUTER_ADVERTISMENT_TIMEOUT,
+                             SD_ICMP6_ND_EVENT_ROUTER_ADVERTISMENT_OTHER,
+                             SD_ICMP6_ND_EVENT_ROUTER_ADVERTISMENT_MANAGED), -EINVAL);
 
         if (link->dhcp6_client) {
-                if (event != SD_ICMP6_ND_EVENT_ROUTER_ADVERTISMENT_MANAGED)
-                        return 0;
-
                 r = sd_dhcp6_client_get_information_request(link->dhcp6_client,
                                                         &information_request);
                 if (r < 0) {
                         log_link_warning(link, "Could not get DHCPv6 Information request setting: %s",
-                                        strerror(-r));
-                        link->dhcp6_client =
-                                sd_dhcp6_client_unref(link->dhcp6_client);
-                        return r;
+                                         strerror(-r));
+                        goto error;
                 }
 
-                if (!information_request)
-                        return r;
+                if (information_request && event != SD_ICMP6_ND_EVENT_ROUTER_ADVERTISMENT_OTHER) {
+                        r = sd_dhcp6_client_stop(link->dhcp6_client);
+                        if (r < 0) {
+                                log_link_warning(link, "Could not stop DHCPv6 while setting Managed mode %s",
+                                                 strerror(-r));
+                                goto error;
+                        }
 
-                r = sd_dhcp6_client_set_information_request(link->dhcp6_client,
-                                                        false);
-                if (r < 0) {
-                        log_link_warning(link, "Could not unset DHCPv6 Information request: %s",
-                                        strerror(-r));
-                        link->dhcp6_client =
-                                sd_dhcp6_client_unref(link->dhcp6_client);
-                        return r;
+                        r = sd_dhcp6_client_set_information_request(link->dhcp6_client,
+                                                                    false);
+                        if (r < 0) {
+                                log_link_warning(link, "Could not unset DHCPv6 Information request: %s",
+                                                 strerror(-r));
+                                goto error;
+                        }
+
                 }
 
                 r = sd_dhcp6_client_start(link->dhcp6_client);
-                if (r < 0) {
-                        log_link_warning(link, "Could not restart DHCPv6 after enabling Information request: %s",
-                                        strerror(-r));
-                        link->dhcp6_client =
-                                sd_dhcp6_client_unref(link->dhcp6_client);
-                        return r;
+                if (r < 0 && r != -EALREADY) {
+                        log_link_warning(link, "Could not restart DHCPv6: %s",
+                                         strerror(-r));
+                        goto error;
                 }
 
                 return r;
@@ -225,49 +226,42 @@ static int dhcp6_configure(Link *link, int event) {
 
         r = sd_dhcp6_client_new(&link->dhcp6_client);
         if (r < 0)
-                return r;
+                goto error;
 
         r = sd_dhcp6_client_attach_event(link->dhcp6_client, NULL, 0);
-        if (r < 0) {
-                link->dhcp6_client = sd_dhcp6_client_unref(link->dhcp6_client);
-                return r;
-        }
+        if (r < 0)
+                goto error;
 
         r = sd_dhcp6_client_set_mac(link->dhcp6_client,
                                     (const uint8_t *) &link->mac,
                                     sizeof (link->mac), ARPHRD_ETHER);
-        if (r < 0) {
-                link->dhcp6_client = sd_dhcp6_client_unref(link->dhcp6_client);
-                return r;
-        }
+        if (r < 0)
+                goto error;
 
         r = sd_dhcp6_client_set_index(link->dhcp6_client, link->ifindex);
-        if (r < 0) {
-                link->dhcp6_client = sd_dhcp6_client_unref(link->dhcp6_client);
-                return r;
-        }
+        if (r < 0)
+                goto error;
 
         r = sd_dhcp6_client_set_callback(link->dhcp6_client, dhcp6_handler,
                                          link);
-        if (r < 0) {
-                link->dhcp6_client = sd_dhcp6_client_unref(link->dhcp6_client);
-                return r;
-        }
+        if (r < 0)
+                goto error;
 
         if (event == SD_ICMP6_ND_EVENT_ROUTER_ADVERTISMENT_OTHER) {
                 r = sd_dhcp6_client_set_information_request(link->dhcp6_client,
                                                         true);
-                if (r < 0) {
-                        link->dhcp6_client =
-                                sd_dhcp6_client_unref(link->dhcp6_client);
-                        return r;
-                }
+                if (r < 0)
+                        goto error;
         }
 
         r = sd_dhcp6_client_start(link->dhcp6_client);
         if (r < 0)
-                link->dhcp6_client = sd_dhcp6_client_unref(link->dhcp6_client);
+                goto error;
 
+        return r;
+
+ error:
+        link->dhcp6_client = sd_dhcp6_client_unref(link->dhcp6_client);
         return r;
 }
 
