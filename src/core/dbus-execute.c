@@ -595,6 +595,33 @@ static int property_get_address_families(
         return sd_bus_message_close_container(reply);
 }
 
+static int property_get_working_directory(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        ExecContext *c = userdata;
+        const char *wd;
+
+        assert(bus);
+        assert(reply);
+        assert(c);
+
+        if (c->working_directory_home)
+                wd = "~";
+        else
+                wd = c->working_directory;
+
+        if (c->working_directory_missing_ok)
+                wd = strjoina("!", wd);
+
+        return sd_bus_message_append(reply, "s", wd);
+}
+
 const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Environment", "as", NULL, offsetof(ExecContext, environment), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -616,7 +643,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("LimitNICE", "t", property_get_rlimit, offsetof(ExecContext, rlimit[RLIMIT_NICE]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("LimitRTPRIO", "t", property_get_rlimit, offsetof(ExecContext, rlimit[RLIMIT_RTPRIO]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("LimitRTTIME", "t", property_get_rlimit, offsetof(ExecContext, rlimit[RLIMIT_RTTIME]), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("WorkingDirectory", "s", NULL, offsetof(ExecContext, working_directory), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("WorkingDirectory", "s", property_get_working_directory, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RootDirectory", "s", NULL, offsetof(ExecContext, root_directory), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("OOMScoreAdjust", "i", property_get_oom_score_adjust, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Nice", "i", property_get_nice, 0, SD_BUS_VTABLE_PROPERTY_CONST),
@@ -847,8 +874,7 @@ int bus_exec_context_set_transient_property(
 
                 return 1;
 
-        } else if (STR_IN_SET(name,
-                              "TTYPath", "WorkingDirectory", "RootDirectory")) {
+        } else if (STR_IN_SET(name, "TTYPath", "RootDirectory")) {
                 const char *s;
 
                 r = sd_bus_message_read(message, "s", &s);
@@ -859,24 +885,51 @@ int bus_exec_context_set_transient_property(
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "%s takes an absolute path", name);
 
                 if (mode != UNIT_CHECK) {
-                        char *t;
-
-                        t = strdup(s);
-                        if (!t)
-                                return -ENOMEM;
-
-                        if (streq(name, "TTYPath")) {
-                                free(c->tty_path);
-                                c->tty_path = t;
-                        } else if (streq(name, "WorkingDirectory")) {
-                                free(c->working_directory);
-                                c->working_directory = t;
-                        } else if (streq(name, "RootDirectory")) {
-                                free(c->root_directory);
-                                c->root_directory = t;
+                        if (streq(name, "TTYPath"))
+                                r = free_and_strdup(&c->tty_path, s);
+                        else {
+                                assert(streq(name, "RootDirectory"));
+                                r = free_and_strdup(&c->root_directory, s);
                         }
+                        if (r < 0)
+                                return r;
 
                         unit_write_drop_in_private_format(u, mode, name, "%s=%s\n", name, s);
+                }
+
+                return 1;
+
+        } else if (streq(name, "WorkingDirectory")) {
+                const char *s;
+                bool missing_ok;
+
+                r = sd_bus_message_read(message, "s", &s);
+                if (r < 0)
+                        return r;
+
+                if (s[0] == '-') {
+                        missing_ok = true;
+                        s++;
+                } else
+                        missing_ok = false;
+
+                if (!streq(s, "~") && !path_is_absolute(s))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "WorkingDirectory= expects an absolute path or '~'");
+
+                if (mode != UNIT_CHECK) {
+                        if (streq(s, "~")) {
+                                c->working_directory = mfree(c->working_directory);
+                                c->working_directory_home = true;
+                        } else {
+                                r = free_and_strdup(&c->working_directory, s);
+                                if (r < 0)
+                                        return r;
+
+                                c->working_directory_home = false;
+                        }
+
+                        c->working_directory_missing_ok = missing_ok;
+                        unit_write_drop_in_private_format(u, mode, name, "WorkingDirectory=%s%s", missing_ok ? "-" : "", s);
                 }
 
                 return 1;

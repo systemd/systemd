@@ -20,44 +20,42 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <linux/oom.h>
 #include <errno.h>
-#include <string.h>
 #include <fcntl.h>
-#include <sched.h>
 #include <linux/fs.h>
-#include <sys/stat.h>
+#include <linux/oom.h>
+#include <sched.h>
+#include <string.h>
 #include <sys/resource.h>
-
+#include <sys/stat.h>
 #ifdef HAVE_SECCOMP
 #include <seccomp.h>
 #endif
 
-#include "unit.h"
-#include "strv.h"
-#include "conf-parser.h"
-#include "load-fragment.h"
-#include "log.h"
-#include "ioprio.h"
-#include "securebits.h"
-#include "missing.h"
-#include "unit-name.h"
-#include "unit-printf.h"
-#include "utf8.h"
-#include "path-util.h"
-#include "env-util.h"
-#include "cgroup.h"
-#include "bus-util.h"
-#include "bus-error.h"
-#include "errno-list.h"
 #include "af-list.h"
-#include "cap-list.h"
-#include "signal-util.h"
+#include "bus-error.h"
 #include "bus-internal.h"
-
+#include "bus-util.h"
+#include "cap-list.h"
+#include "cgroup.h"
+#include "conf-parser.h"
+#include "env-util.h"
+#include "errno-list.h"
+#include "ioprio.h"
+#include "log.h"
+#include "missing.h"
+#include "path-util.h"
 #ifdef HAVE_SECCOMP
 #include "seccomp-util.h"
 #endif
+#include "securebits.h"
+#include "signal-util.h"
+#include "strv.h"
+#include "unit-name.h"
+#include "unit-printf.h"
+#include "unit.h"
+#include "utf8.h"
+#include "load-fragment.h"
 
 int config_parse_warn_compat(
                 const char *unit,
@@ -195,16 +193,17 @@ int config_parse_unit_strv_printf(const char *unit,
                                  k ? k : rvalue, data, userdata);
 }
 
-int config_parse_unit_path_printf(const char *unit,
-                                  const char *filename,
-                                  unsigned line,
-                                  const char *section,
-                                  unsigned section_line,
-                                  const char *lvalue,
-                                  int ltype,
-                                  const char *rvalue,
-                                  void *data,
-                                  void *userdata) {
+int config_parse_unit_path_printf(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
         _cleanup_free_ char *k = NULL;
         Unit *u = userdata;
@@ -1844,6 +1843,70 @@ int config_parse_bus_endpoint_policy(
         }
 
         return bus_endpoint_add_policy(c->bus_endpoint, name, access);
+}
+
+int config_parse_working_directory(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        ExecContext *c = data;
+        Unit *u = userdata;
+        bool missing_ok;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(c);
+        assert(u);
+
+        if (rvalue[0] == '-') {
+                missing_ok = true;
+                rvalue++;
+        } else
+                missing_ok = false;
+
+        if (streq(rvalue, "~")) {
+                c->working_directory_home = true;
+                c->working_directory = mfree(c->working_directory);
+        } else {
+                _cleanup_free_ char *k = NULL;
+
+                r = unit_full_printf(u, rvalue, &k);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to resolve unit specifiers in working directory path '%s', ignoring: %m", rvalue);
+                        return 0;
+                }
+
+                path_kill_slashes(k);
+
+                if (!utf8_is_valid(k)) {
+                        log_invalid_utf8(unit, LOG_ERR, filename, line, 0, rvalue);
+                        return 0;
+                }
+
+                if (!path_is_absolute(k)) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "Working directory path '%s' is not absolute, ignoring.", rvalue);
+                        return 0;
+                }
+
+                free(c->working_directory);
+                c->working_directory = k;
+                k = NULL;
+
+                c->working_directory_home = false;
+        }
+
+        c->working_directory_missing_ok = missing_ok;
+        return 0;
 }
 
 int config_parse_unit_env_file(const char *unit,

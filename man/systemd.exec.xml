@@ -84,22 +84,27 @@
       <varlistentry>
         <term><varname>WorkingDirectory=</varname></term>
 
-        <listitem><para>Takes an absolute directory path. Sets the
-        working directory for executed processes. If not set, defaults
-        to the root directory when systemd is running as a system
-        instance and the respective user's home directory if run as
-        user.</para></listitem>
+        <listitem><para>Takes an absolute directory path, or the
+        special value <literal>~</literal>. Sets the working directory
+        for executed processes. If set to <literal>~</literal> the
+        home directory of the user specified in
+        <varname>User=</varname> is used. If not set, defaults to the
+        root directory when systemd is running as a system instance
+        and the respective user's home directory if run as user. If
+        the setting is prefixed with the <literal>-</literal>
+        character, a missing working directory is not considered
+        fatal.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>RootDirectory=</varname></term>
 
         <listitem><para>Takes an absolute directory path. Sets the
-        root directory for executed processes, with the
-        <citerefentry project='man-pages'><refentrytitle>chroot</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+        root directory for executed processes, with the <citerefentry
+        project='man-pages'><refentrytitle>chroot</refentrytitle><manvolnum>2</manvolnum></citerefentry>
         system call. If this is used, it must be ensured that the
-        process and all its auxiliary files are available in the
-        <function>chroot()</function> jail.</para></listitem>
+        process binary and all its auxiliary files are available in
+        the <function>chroot()</function> jail.</para></listitem>
       </varlistentry>
 
       <varlistentry>

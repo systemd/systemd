@@ -735,7 +735,7 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
 
         description = strjoina("Shell for User ", isempty(user) ? "root" : user);
         r = sd_bus_message_append(tm,
-                                  "(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)",
+                                  "(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)",
                                   "Description", "s", description,
                                   "StandardInput", "s", "tty",
                                   "StandardOutput", "s", "tty",
@@ -748,7 +748,8 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
                                   "TTYReset", "b", true,
                                   "UtmpIdentifier", "s", utmp_id,
                                   "UtmpMode", "s", "user",
-                                  "PAMName", "s", "login");
+                                  "PAMName", "s", "login",
+                                  "WorkingDirectory", "s", "-~");
         if (r < 0)
                 return r;
 
