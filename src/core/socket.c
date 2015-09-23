@@ -1054,7 +1054,7 @@ static int special_address_create(const char *path) {
         return r;
 }
 
-static int ffs_address_create(const char *path) {
+static int usbffs_address_create(const char *path) {
         _cleanup_close_ int fd = -1;
         struct stat st;
         int r;
@@ -1142,7 +1142,7 @@ static int socket_symlink(Socket *s) {
         return 0;
 }
 
-static int ffs_write_descs(int fd, Service *s) {
+static int usbffs_write_descs(int fd, Service *s) {
         int r;
 
         if (!s->usb_function_descriptors || !s->usb_function_strings)
@@ -1155,20 +1155,20 @@ static int ffs_write_descs(int fd, Service *s) {
         return copy_file_fd(s->usb_function_strings, fd, false);
 }
 
-static int select_ep(const struct dirent *d) {
+static int usbffs_select_ep(const struct dirent *d) {
         return d->d_name[0] != '.' && !streq(d->d_name, "ep0");
 }
 
-static int ffs_dispatch_eps(SocketPort *p) {
+static int usbffs_dispatch_eps(SocketPort *p) {
         _cleanup_free_ struct dirent **ent = NULL;
-        int r, i, n, k;
         _cleanup_free_ char *path = NULL;
+        int r, i, n, k;
 
         r = path_get_parent(p->path, &path);
         if (r < 0)
                 return r;
 
-        r = scandir(path, &ent, select_ep, alphasort);
+        r = scandir(path, &ent, usbffs_select_ep, alphasort);
         if (r < 0)
                 return -errno;
 
@@ -1189,7 +1189,7 @@ static int ffs_dispatch_eps(SocketPort *p) {
 
                 path_kill_slashes(ep);
 
-                r = ffs_address_create(ep);
+                r = usbffs_address_create(ep);
                 if (r < 0)
                         goto fail;
 
@@ -1316,17 +1316,17 @@ static int socket_open_fds(Socket *s) {
 
                 case SOCKET_USB_FUNCTION:
 
-                        p->fd = ffs_address_create(p->path);
+                        p->fd = usbffs_address_create(p->path);
                         if (p->fd < 0) {
                                 r = p->fd;
                                 goto rollback;
                         }
 
-                        r = ffs_write_descs(p->fd, SERVICE(UNIT_DEREF(s->service)));
+                        r = usbffs_write_descs(p->fd, SERVICE(UNIT_DEREF(s->service)));
                         if (r < 0)
                                 goto rollback;
 
-                        r = ffs_dispatch_eps(p);
+                        r = usbffs_dispatch_eps(p);
                         if (r < 0)
                                 goto rollback;
 
