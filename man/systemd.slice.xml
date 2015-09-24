@@ -93,6 +93,11 @@
     <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry> are allowed.
     </para>
 
+    <para>See the <ulink
+    url="http://www.freedesktop.org/wiki/Software/systemd/ControlGroupInterface/">New
+    Control Group Interfaces</ulink> for an introduction on how to make
+    use of slice units from programs.</para>
+
     <para>Unless <varname>DefaultDependencies=false</varname>
     is used, slice units will implicitly have dependencies of
     type <varname>Conflicts=</varname> and
