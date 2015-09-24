@@ -266,6 +266,11 @@ static void warn_wall(enum action a) {
 
 static bool avoid_bus(void) {
 
+        /* /sbin/runlevel doesn't need to communicate via D-Bus, so
+         * let's shortcut this */
+        if (arg_action == ACTION_RUNLEVEL)
+                return true;
+
         if (running_in_chroot() > 0)
                 return true;
 
@@ -7574,13 +7579,6 @@ int main(int argc, char*argv[]) {
         if (r <= 0)
                 goto finish;
 
-        /* /sbin/runlevel doesn't need to communicate via D-Bus, so
-         * let's shortcut this */
-        if (arg_action == ACTION_RUNLEVEL) {
-                r = runlevel_main();
-                goto finish;
-        }
-
         if (running_in_chroot() > 0 && arg_action != ACTION_SYSTEMCTL) {
                 log_info("Running in chroot, ignoring request.");
                 r = 0;
@@ -7654,6 +7652,9 @@ int main(int argc, char*argv[]) {
         }
 
         case ACTION_RUNLEVEL:
+                r = runlevel_main();
+                break;
+
         case _ACTION_INVALID:
         default:
                 assert_not_reached("Unknown action");
