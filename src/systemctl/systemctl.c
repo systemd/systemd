@@ -6769,7 +6769,7 @@ static int halt_parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-static int parse_time_spec(const char *t, usec_t *_u) {
+static int parse_shutdown_time_spec(const char *t, usec_t *_u) {
         assert(t);
         assert(_u);
 
@@ -6899,7 +6899,7 @@ static int shutdown_parse_argv(int argc, char *argv[]) {
                 }
 
         if (argc > optind && arg_action != ACTION_CANCEL_SHUTDOWN) {
-                r = parse_time_spec(argv[optind], &arg_when);
+                r = parse_shutdown_time_spec(argv[optind], &arg_when);
                 if (r < 0) {
                         log_error("Failed to parse time specification: %s", argv[optind]);
                         return r;
