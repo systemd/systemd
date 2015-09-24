@@ -709,12 +709,6 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        if (argc != 1) {
-                log_error("This program takes no arguments.");
-                r = -EINVAL;
-                goto finish;
-        }
-
         r = sd_event_default(&event);
         if (r < 0) {
                 log_error_errno(r, "Failed to allocate event loop: %m");
