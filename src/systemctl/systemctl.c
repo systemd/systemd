@@ -6835,6 +6835,7 @@ static int shutdown_parse_argv(int argc, char *argv[]) {
                 {}
         };
 
+        char **wall = NULL;
         int c, r;
 
         assert(argc >= 0);
@@ -6908,10 +6909,16 @@ static int shutdown_parse_argv(int argc, char *argv[]) {
 
         if (argc > optind && arg_action == ACTION_CANCEL_SHUTDOWN)
                 /* No time argument for shutdown cancel */
-                arg_wall = argv + optind;
+                wall = argv + optind;
         else if (argc > optind + 1)
                 /* We skip the time argument */
-                arg_wall = argv + optind + 1;
+                wall = argv + optind + 1;
+
+        if (wall) {
+                arg_wall = strv_copy(wall);
+                if (!arg_wall)
+                        return log_oom();
+        }
 
         optind = argc;
 
@@ -7638,6 +7645,8 @@ finish:
         strv_free(arg_types);
         strv_free(arg_states);
         strv_free(arg_properties);
+
+        strv_free(arg_wall);
 
         sd_bus_default_flush_close();
 
