@@ -569,6 +569,28 @@ static void test_strv_shell_escape(void) {
         assert_se(streq_ptr(v[3], NULL));
 }
 
+static void test_strv_skip_one(char **a, size_t n, char **b) {
+        a = strv_skip(a, n);
+        assert_se(strv_equal(a, b));
+}
+
+static void test_strv_skip(void) {
+        test_strv_skip_one(STRV_MAKE("foo", "bar", "baz"), 0, STRV_MAKE("foo", "bar", "baz"));
+        test_strv_skip_one(STRV_MAKE("foo", "bar", "baz"), 1, STRV_MAKE("bar", "baz"));
+        test_strv_skip_one(STRV_MAKE("foo", "bar", "baz"), 2, STRV_MAKE("baz"));
+        test_strv_skip_one(STRV_MAKE("foo", "bar", "baz"), 3, STRV_MAKE(NULL));
+        test_strv_skip_one(STRV_MAKE("foo", "bar", "baz"), 4, STRV_MAKE(NULL));
+        test_strv_skip_one(STRV_MAKE("foo", "bar", "baz"), 55, STRV_MAKE(NULL));
+
+        test_strv_skip_one(STRV_MAKE("quux"), 0, STRV_MAKE("quux"));
+        test_strv_skip_one(STRV_MAKE("quux"), 1, STRV_MAKE(NULL));
+        test_strv_skip_one(STRV_MAKE("quux"), 55, STRV_MAKE(NULL));
+
+        test_strv_skip_one(STRV_MAKE(NULL), 0, STRV_MAKE(NULL));
+        test_strv_skip_one(STRV_MAKE(NULL), 1, STRV_MAKE(NULL));
+        test_strv_skip_one(STRV_MAKE(NULL), 55, STRV_MAKE(NULL));
+}
+
 int main(int argc, char *argv[]) {
         test_specifier_printf();
         test_strv_foreach();
@@ -627,6 +649,7 @@ int main(int argc, char *argv[]) {
         test_strv_is_uniq();
         test_strv_reverse();
         test_strv_shell_escape();
+        test_strv_skip();
 
         return 0;
 }

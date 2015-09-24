@@ -146,12 +146,6 @@ static int daemon_reload(sd_bus *bus, char **args);
 static int halt_now(enum action a);
 static int check_one_unit(sd_bus *bus, const char *name, const char *good_states, bool quiet);
 
-static char** strv_skip_first(char **strv) {
-        if (strv_length(strv) > 0)
-                return strv + 1;
-        return NULL;
-}
-
 static void pager_open_if_enabled(void) {
 
         if (arg_no_pager)
@@ -664,7 +658,7 @@ static int list_units(sd_bus *bus, char **args) {
 
         pager_open_if_enabled();
 
-        r = get_unit_list_recursive(bus, strv_skip_first(args), &unit_infos, &replies, &machines);
+        r = get_unit_list_recursive(bus, strv_skip(args, 1), &unit_infos, &replies, &machines);
         if (r < 0)
                 return r;
 
@@ -870,7 +864,7 @@ static int list_sockets(sd_bus *bus, char **args) {
 
         pager_open_if_enabled();
 
-        n = get_unit_list_recursive(bus, strv_skip_first(args), &unit_infos, &replies, &machines);
+        n = get_unit_list_recursive(bus, strv_skip(args, 1), &unit_infos, &replies, &machines);
         if (n < 0)
                 return n;
 
@@ -1178,7 +1172,7 @@ static int list_timers(sd_bus *bus, char **args) {
 
         pager_open_if_enabled();
 
-        n = get_unit_list_recursive(bus, strv_skip_first(args), &unit_infos, &replies, &machines);
+        n = get_unit_list_recursive(bus, strv_skip(args, 1), &unit_infos, &replies, &machines);
         if (n < 0)
                 return n;
 
@@ -1368,7 +1362,7 @@ static int list_unit_files(sd_bus *bus, char **args) {
                 }
 
                 HASHMAP_FOREACH(u, h, i) {
-                        if (!output_show_unit_file(u, strv_skip_first(args)))
+                        if (!output_show_unit_file(u, strv_skip(args, 1)))
                                 continue;
 
                         units[c++] = *u;
@@ -1408,7 +1402,7 @@ static int list_unit_files(sd_bus *bus, char **args) {
                                 unit_file_state_from_string(state)
                         };
 
-                        if (output_show_unit_file(&units[c], strv_skip_first(args)))
+                        if (output_show_unit_file(&units[c], strv_skip(args, 1)))
                                 c ++;
 
                 }
@@ -1889,7 +1883,7 @@ static int list_machines(sd_bus *bus, char **args) {
 
         pager_open_if_enabled();
 
-        r = get_machine_list(bus, &machine_infos, strv_skip_first(args));
+        r = get_machine_list(bus, &machine_infos, strv_skip(args, 1));
         if (r < 0)
                 return r;
 
@@ -2121,7 +2115,7 @@ static int list_jobs(sd_bus *bus, char **args) {
         while ((r = sd_bus_message_read(reply, "(usssoo)", &id, &name, &type, &state, &job_path, &unit_path)) > 0) {
                 struct job_info job = { id, name, type, state };
 
-                if (!output_show_job(&job, strv_skip_first(args))) {
+                if (!output_show_job(&job, strv_skip(args, 1))) {
                         skipped = true;
                         continue;
                 }
