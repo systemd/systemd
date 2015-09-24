@@ -133,7 +133,7 @@ static enum action {
         _ACTION_MAX
 } arg_action = ACTION_SYSTEMCTL;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
-static char *arg_host = NULL;
+static const char *arg_host = NULL;
 static unsigned arg_lines = 10;
 static OutputMode arg_output = OUTPUT_SHORT;
 static bool arg_plain = false;
