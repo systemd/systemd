@@ -1502,6 +1502,7 @@ EXTRA_DIST += \
 	test/exec-ignoresigpipe-yes.service \
 	test/exec-personality-x86-64.service \
 	test/exec-personality-x86.service \
+	test/exec-personality-s390.service \
 	test/exec-privatedevices-no.service \
 	test/exec-privatedevices-yes.service \
 	test/exec-privatetmp-no.service \

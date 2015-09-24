@@ -5261,6 +5261,19 @@ unsigned long personality_from_string(const char *p) {
 
         if (streq(p, "x86"))
                 return PER_LINUX;
+
+#elif defined(__s390x__)
+
+        if (streq(p, "s390"))
+                return PER_LINUX32;
+
+        if (streq(p, "s390x"))
+                return PER_LINUX;
+
+#elif defined(__s390__)
+
+        if (streq(p, "s390"))
+                return PER_LINUX;
 #endif
 
         return PERSONALITY_INVALID;
@@ -5280,6 +5293,20 @@ const char* personality_to_string(unsigned long p) {
 
         if (p == PER_LINUX)
                 return "x86";
+
+#elif defined(__s390x__)
+
+        if (p == PER_LINUX)
+                return "s390x";
+
+        if (p == PER_LINUX32)
+                return "s390";
+
+#elif defined(__s390__)
+
+        if (p == PER_LINUX)
+                return "s390";
+
 #endif
 
         return NULL;

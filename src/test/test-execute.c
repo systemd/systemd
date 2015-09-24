@@ -77,10 +77,14 @@ static void test_exec_workingdirectory(Manager *m) {
 }
 
 static void test_exec_personality(Manager *m) {
-        test(m, "exec-personality-x86.service", 0, CLD_EXITED);
-
 #if defined(__x86_64__)
         test(m, "exec-personality-x86-64.service", 0, CLD_EXITED);
+
+#elif defined(__s390__)
+        test(m, "exec-personality-s390.service", 0, CLD_EXITED);
+
+#else
+        test(m, "exec-personality-x86.service", 0, CLD_EXITED);
 #endif
 }
 
