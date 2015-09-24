@@ -279,6 +279,6 @@ finish:
                 audit_close(c.audit_fd);
 #endif
 
-        sd_bus_unref(c.bus);
+        sd_bus_flush_close_unref(c.bus);
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
