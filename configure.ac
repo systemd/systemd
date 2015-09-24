@@ -701,12 +701,21 @@ AC_ARG_ENABLE([gcrypt],
                 [have_gcrypt=auto])
 
 if test "x${have_gcrypt}" != xno ; then
-        AM_PATH_LIBGCRYPT(
-                [1.4.5],
-                [have_gcrypt=yes],
-                [if test "x$have_gcrypt" = xyes ; then
-                        AC_MSG_ERROR([*** GCRYPT headers not found.])
-                fi])
+        m4_define([AM_PATH_LIBGCRYPT_FAIL],
+                [{ test "x$have_gcrypt" != xyes || AC_MSG_ERROR([*** GCRYPT headers not found.]); }]
+        )
+        m4_ifdef([AM_PATH_LIBGCRYPT], [AM_PATH_LIBGCRYPT(
+                        [1.4.5],
+                        [have_gcrypt=yes],
+                        dnl  If we have the gcrypt m4 macros, but don't have
+                        dnl  gcrypt, throw an error if gcrypt is explicitly
+                        dnl  requested.
+                        [AM_PATH_LIBGCRYPT_FAIL]
+                )],
+                dnl  If we don't have the gcrypt m4 macros, but build with
+                dnl  gcrypt explicitly requested, throw an error.
+                [AM_PATH_LIBGCRYPT_FAIL]
+        )
 
         if test "x$have_gcrypt" = xyes ; then
                 GCRYPT_LIBS="$LIBGCRYPT_LIBS"
