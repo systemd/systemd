@@ -223,41 +223,6 @@ static int translate_bus_error_to_exit_status(int r, const sd_bus_error *error) 
         return EXIT_FAILURE;
 }
 
-static void warn_wall(enum action a) {
-        static const char *table[_ACTION_MAX] = {
-                [ACTION_HALT]            = "The system is going down for system halt NOW!",
-                [ACTION_REBOOT]          = "The system is going down for reboot NOW!",
-                [ACTION_POWEROFF]        = "The system is going down for power-off NOW!",
-                [ACTION_KEXEC]           = "The system is going down for kexec reboot NOW!",
-                [ACTION_RESCUE]          = "The system is going down to rescue mode NOW!",
-                [ACTION_EMERGENCY]       = "The system is going down to emergency mode NOW!",
-                [ACTION_CANCEL_SHUTDOWN] = "The system shutdown has been cancelled NOW!"
-        };
-
-        if (arg_no_wall)
-                return;
-
-        if (arg_wall) {
-                _cleanup_free_ char *p;
-
-                p = strv_join(arg_wall, " ");
-                if (!p) {
-                        log_oom();
-                        return;
-                }
-
-                if (*p) {
-                        utmp_wall(p, NULL, NULL, NULL, NULL);
-                        return;
-                }
-        }
-
-        if (!table[a])
-                return;
-
-        utmp_wall(table[a], NULL, NULL, NULL, NULL);
-}
-
 static bool avoid_bus(void) {
 
         /* /sbin/runlevel doesn't need to communicate via D-Bus, so
@@ -3094,11 +3059,7 @@ static int start_special(sd_bus *bus, char **args) {
                 /* on all other errors, try low-level operation */
         }
 
-        r = start_unit(bus, args);
-        if (r == EXIT_SUCCESS)
-                warn_wall(a);
-
-        return r;
+        return start_unit(bus, args);
 }
 
 static int check_unit_generic(sd_bus *bus, int code, const char *good_states, char **args) {
@@ -7367,20 +7328,16 @@ static int start_with_fallback(sd_bus *bus) {
         if (bus) {
                 /* First, try systemd via D-Bus. */
                 if (start_unit(bus, NULL) >= 0)
-                        goto done;
+                        return 0;
         }
 
         /* Nothing else worked, so let's try
          * /dev/initctl */
         if (talk_initctl() > 0)
-                goto done;
+                return 0;
 
         log_error("Failed to talk to init daemon.");
         return -EIO;
-
-done:
-        warn_wall(arg_action);
-        return 0;
 }
 
 static int halt_now(enum action a) {
