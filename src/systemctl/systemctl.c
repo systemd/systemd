@@ -7432,6 +7432,68 @@ static int halt_now(enum action a) {
         }
 }
 
+static int logind_schedule_shutdown(void) {
+
+#ifdef HAVE_LOGIND
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_bus_flush_close_unref_ sd_bus *b = NULL;
+        char date[FORMAT_TIMESTAMP_MAX];
+        const char *action;
+        int r;
+
+        assert(geteuid() == 0);
+
+        if (avoid_bus()) {
+                log_error("Unable to perform operation without bus connection.");
+                return -ENOSYS;
+        }
+
+        r = sd_bus_open_system(&b);
+        if (r < 0)
+                return log_error_errno(r, "Unable to open system bus: %m");
+
+        (void) logind_set_wall_message(b);
+
+        switch (arg_action) {
+        case ACTION_HALT:
+                action = "halt";
+                break;
+        case ACTION_POWEROFF:
+                action = "poweroff";
+                break;
+        case ACTION_KEXEC:
+                action = "kexec";
+                break;
+        default:
+                action = "reboot";
+                break;
+        }
+
+        if (arg_dry)
+                action = strjoina("dry-", action);
+
+        r = sd_bus_call_method(
+                        b,
+                        "org.freedesktop.login1",
+                        "/org/freedesktop/login1",
+                        "org.freedesktop.login1.Manager",
+                        "ScheduleShutdown",
+                        &error,
+                        NULL,
+                        "st",
+                        action,
+                        arg_when);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to call ScheduleShutdown in logind, proceeding with immediate shutdown: %s", bus_error_message(&error, r));
+
+        log_info("Shutdown scheduled for %s, use 'shutdown -c' to cancel.", format_timestamp(date, sizeof(date), arg_when));
+        return 0;
+#else
+        log_error("Cannot schedule shutdown without logind support, proceeding with immediate shutdown.");
+        return -ENOSYS;
+#endif
+}
+
 static int halt_main(sd_bus *bus) {
         int r;
 
@@ -7464,62 +7526,9 @@ static int halt_main(sd_bus *bus) {
         }
 
         if (arg_when > 0) {
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_bus_flush_close_unref_ sd_bus *b = NULL;
-                const char *action;
-
-                assert(geteuid() == 0);
-
-                if (avoid_bus()) {
-                        log_error("Unable to perform operation without bus connection.");
-                        return -ENOSYS;
-                }
-
-                r = sd_bus_open_system(&b);
-                if (r < 0)
-                        return log_error_errno(r, "Unable to open system bus: %m");
-
-                (void) set_wall_message(b);
-
-                switch (arg_action) {
-                case ACTION_HALT:
-                        action = "halt";
-                        break;
-                case ACTION_POWEROFF:
-                        action = "poweroff";
-                        break;
-                case ACTION_KEXEC:
-                        action = "kexec";
-                        break;
-                default:
-                        action = "reboot";
-                        break;
-                }
-
-                if (arg_dry)
-                        action = strjoina("dry-", action);
-
-                r = sd_bus_call_method(
-                                b,
-                                "org.freedesktop.login1",
-                                "/org/freedesktop/login1",
-                                "org.freedesktop.login1.Manager",
-                                "ScheduleShutdown",
-                                &error,
-                                NULL,
-                                "st",
-                                action,
-                                arg_when);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to call ScheduleShutdown in logind, proceeding with immediate shutdown: %s",
-                                          bus_error_message(&error, r));
-                else {
-                        char date[FORMAT_TIMESTAMP_MAX];
-
-                        log_info("Shutdown scheduled for %s, use 'shutdown -c' to cancel.",
-                                 format_timestamp(date, sizeof(date), arg_when));
-                        return 0;
-                }
+                r = logind_schedule_shutdown();
+                if (r >= 0)
+                        return r;
         }
 
         if (!arg_dry && !arg_force)
