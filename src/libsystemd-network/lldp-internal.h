@@ -26,6 +26,7 @@
 #include "list.h"
 #include "lldp-tlv.h"
 #include "prioq.h"
+#include "sd-event.h"
 
 typedef struct lldp_neighbour_port lldp_neighbour_port;
 typedef struct lldp_chassis lldp_chassis;
@@ -87,4 +88,5 @@ int lldp_mib_add_objects(Prioq *by_expiry, Hashmap *neighbour_mib, tlv_packet *t
 int lldp_mib_remove_objects(lldp_chassis *c, tlv_packet *tlv);
 
 int lldp_handle_packet(tlv_packet *m, uint16_t length);
+int lldp_receive_packet(sd_event_source *s, int fd, uint32_t revents, void *userdata);
 #define log_lldp(fmt, ...) log_internal(LOG_DEBUG, 0, __FILE__, __LINE__, __func__, "LLDP: " fmt, ##__VA_ARGS__)
