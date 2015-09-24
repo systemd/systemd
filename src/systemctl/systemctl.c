@@ -2760,6 +2760,37 @@ static int start_unit(sd_bus *bus, char **args) {
         return r;
 }
 
+static int set_wall_message(sd_bus *bus) {
+#ifdef HAVE_LOGIND
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free_ char *m = NULL;
+        int r;
+
+        assert(bus);
+
+        m = strv_join(arg_wall, " ");
+        if (!m)
+                return log_oom();
+
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.login1",
+                        "/org/freedesktop/login1",
+                        "org.freedesktop.login1.Manager",
+                        "SetWallMessage",
+                        &error,
+                        NULL,
+                        "sb",
+                        m,
+                        !arg_no_wall);
+
+        if (r < 0)
+                return log_warning_errno(r, "Failed to set wall message, ignoring: %s", bus_error_message(&error, r));
+
+#endif
+        return 0;
+}
+
 /* Ask systemd-logind, which might grant access to unprivileged users
  * through PolicyKit */
 static int reboot_with_logind(sd_bus *bus, enum action a) {
@@ -2772,6 +2803,8 @@ static int reboot_with_logind(sd_bus *bus, enum action a) {
                 return -EIO;
 
         polkit_agent_open_if_enabled();
+
+        (void) set_wall_message(bus);
 
         switch (a) {
 
@@ -2803,33 +2836,6 @@ static int reboot_with_logind(sd_bus *bus, enum action a) {
         default:
                 return -EINVAL;
         }
-
-        if (!strv_isempty(arg_wall)) {
-                _cleanup_free_ char *m;
-
-                m = strv_join(arg_wall, " ");
-                if (!m)
-                        return log_oom();
-
-                r = sd_bus_call_method(
-                               bus,
-                               "org.freedesktop.login1",
-                               "/org/freedesktop/login1",
-                               "org.freedesktop.login1.Manager",
-                               "SetWallMessage",
-                               &error,
-                               NULL,
-                               "sb",
-                               m,
-                               !arg_no_wall);
-
-                if (r < 0) {
-                        log_warning_errno(r, "Failed to set wall message, ignoring: %s",
-                                          bus_error_message(&error, r));
-                        sd_bus_error_free(&error);
-                }
-        }
-
 
         r = sd_bus_call_method(
                         bus,
@@ -7455,7 +7461,6 @@ static int halt_main(sd_bus *bus) {
         if (arg_when > 0) {
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_bus_flush_close_unref_ sd_bus *b = NULL;
-                _cleanup_free_ char *m = NULL;
                 const char *action;
 
                 assert(geteuid() == 0);
@@ -7469,27 +7474,7 @@ static int halt_main(sd_bus *bus) {
                 if (r < 0)
                         return log_error_errno(r, "Unable to open system bus: %m");
 
-                m = strv_join(arg_wall, " ");
-                if (!m)
-                        return log_oom();
-
-                r = sd_bus_call_method(
-                               b,
-                               "org.freedesktop.login1",
-                               "/org/freedesktop/login1",
-                               "org.freedesktop.login1.Manager",
-                               "SetWallMessage",
-                               &error,
-                               NULL,
-                               "sb",
-                               m,
-                               !arg_no_wall);
-
-                if (r < 0) {
-                        log_warning_errno(r, "Failed to set wall message, ignoring: %s",
-                                          bus_error_message(&error, r));
-                        sd_bus_error_free(&error);
-                }
+                (void) set_wall_message(b);
 
                 switch (arg_action) {
                 case ACTION_HALT:
@@ -7642,7 +7627,6 @@ int main(int argc, char*argv[]) {
         case ACTION_CANCEL_SHUTDOWN: {
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_bus_flush_close_unref_ sd_bus *b = NULL;
-                _cleanup_free_ char *m = NULL;
 
                 if (avoid_bus()) {
                         log_error("Unable to perform operation without bus connection.");
@@ -7653,31 +7637,7 @@ int main(int argc, char*argv[]) {
                 if (r < 0)
                         return log_error_errno(r, "Unable to open system bus: %m");
 
-                if (arg_wall) {
-                        m = strv_join(arg_wall, " ");
-                        if (!m) {
-                                r = log_oom();
-                                goto finish;
-                        }
-                }
-
-                r = sd_bus_call_method(
-                               b,
-                               "org.freedesktop.login1",
-                               "/org/freedesktop/login1",
-                               "org.freedesktop.login1.Manager",
-                               "SetWallMessage",
-                               &error,
-                               NULL,
-                               "sb",
-                               m,
-                               !arg_no_wall);
-
-                if (r < 0) {
-                        log_warning_errno(r, "Failed to set wall message, ignoring: %s",
-                                          bus_error_message(&error, r));
-                        sd_bus_error_free(&error);
-                }
+                (void) set_wall_message(b);
 
                 r = sd_bus_call_method(
                                 b,
