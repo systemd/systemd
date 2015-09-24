@@ -7118,7 +7118,7 @@ _pure_ static int action_to_runlevel(void) {
 }
 
 static int talk_initctl(void) {
-
+#ifdef HAVE_SYSV_COMPAT
         struct init_request request = {
                 .magic = INIT_MAGIC,
                 .sleeptime  = 0,
@@ -7140,8 +7140,7 @@ static int talk_initctl(void) {
                 if (errno == ENOENT)
                         return 0;
 
-                log_error_errno(errno, "Failed to open "INIT_FIFO": %m");
-                return -errno;
+                return log_error_errno(errno, "Failed to open "INIT_FIFO": %m");
         }
 
         r = loop_write(fd, &request, sizeof(request), false);
@@ -7149,6 +7148,9 @@ static int talk_initctl(void) {
                 return log_error_errno(r, "Failed to write to "INIT_FIFO": %m");
 
         return 1;
+#else
+        return 0;
+#endif
 }
 
 static int systemctl_main(sd_bus *bus, int argc, char *argv[], int bus_error) {
