@@ -7562,6 +7562,36 @@ static int runlevel_main(void) {
         return 0;
 }
 
+static int cancel_shutdown(void) {
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_bus_flush_close_unref_ sd_bus *b = NULL;
+        int r;
+
+        if (avoid_bus()) {
+                log_error("Unable to perform operation without bus connection.");
+                return -ENOSYS;
+        }
+
+        r = sd_bus_open_system(&b);
+        if (r < 0)
+                return log_error_errno(r, "Unable to open system bus: %m");
+
+        (void) set_wall_message(b);
+
+        r = sd_bus_call_method(
+                        b,
+                        "org.freedesktop.login1",
+                        "/org/freedesktop/login1",
+                        "org.freedesktop.login1.Manager",
+                        "CancelScheduledShutdown",
+                        &error,
+                        NULL, NULL);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to talk to logind, shutdown hasn't been cancelled: %s", bus_error_message(&error, r));
+
+        return 0;
+}
+
 int main(int argc, char*argv[]) {
         _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
         int r;
@@ -7622,34 +7652,9 @@ int main(int argc, char*argv[]) {
                 r = reload_with_fallback(bus);
                 break;
 
-        case ACTION_CANCEL_SHUTDOWN: {
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_bus_flush_close_unref_ sd_bus *b = NULL;
-
-                if (avoid_bus()) {
-                        log_error("Unable to perform operation without bus connection.");
-                        return -ENOSYS;
-                }
-
-                r = sd_bus_open_system(&b);
-                if (r < 0)
-                        return log_error_errno(r, "Unable to open system bus: %m");
-
-                (void) set_wall_message(b);
-
-                r = sd_bus_call_method(
-                                b,
-                                "org.freedesktop.login1",
-                                "/org/freedesktop/login1",
-                                "org.freedesktop.login1.Manager",
-                                "CancelScheduledShutdown",
-                                &error,
-                                NULL, NULL);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to talk to logind, shutdown hasn't been cancelled: %s",
-                                          bus_error_message(&error, r));
+        case ACTION_CANCEL_SHUTDOWN:
+                r = cancel_shutdown();
                 break;
-        }
 
         case ACTION_RUNLEVEL:
                 r = runlevel_main();
