@@ -1432,7 +1432,7 @@ int main(int argc, char *argv[]) {
         else {
                 _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
 
-                r = bus_open_transport_systemd(arg_transport, arg_host, arg_user, &bus);
+                r = bus_connect_transport_systemd(arg_transport, arg_host, arg_user, &bus);
                 if (r < 0) {
                         log_error_errno(r, "Failed to create bus connection: %m");
                         goto finish;

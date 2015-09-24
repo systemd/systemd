@@ -1722,7 +1722,7 @@ static int flush_to_var(void) {
 
         /* OK, let's actually do the full logic, send SIGUSR1 to the
          * daemon and set up inotify to wait for the flushed file to appear */
-        r = bus_open_system_systemd(&bus);
+        r = bus_connect_system_systemd(&bus);
         if (r < 0)
                 return log_error_errno(r, "Failed to get D-Bus connection: %m");
 

@@ -318,7 +318,7 @@ static int server_init(Server *s, unsigned n_sockets) {
                 s->n_fifos ++;
         }
 
-        r = bus_open_system_systemd(&s->bus);
+        r = bus_connect_system_systemd(&s->bus);
         if (r < 0) {
                 log_error_errno(r, "Failed to get D-Bus connection: %m");
                 r = -EIO;

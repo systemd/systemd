@@ -145,7 +145,7 @@ static int get_cgroup_root(char **ret) {
         if (!path)
                 return log_oom();
 
-        r = bus_open_transport(BUS_TRANSPORT_LOCAL, NULL, false, &bus);
+        r = bus_connect_transport_systemd(BUS_TRANSPORT_LOCAL, NULL, false, &bus);
         if (r < 0)
                 return log_error_errno(r, "Failed to create bus connection: %m");
 

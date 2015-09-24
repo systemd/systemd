@@ -7590,7 +7590,7 @@ int main(int argc, char*argv[]) {
         }
 
         if (!avoid_bus())
-                r = bus_open_transport_systemd(arg_transport, arg_host, arg_scope != UNIT_FILE_SYSTEM, &bus);
+                r = bus_connect_transport_systemd(arg_transport, arg_host, arg_scope != UNIT_FILE_SYSTEM, &bus);
 
         if (bus)
                 sd_bus_set_allow_interactive_authorization(bus, arg_ask_password);

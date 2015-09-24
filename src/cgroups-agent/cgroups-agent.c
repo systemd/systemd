@@ -43,7 +43,7 @@ int main(int argc, char *argv[]) {
          * this to avoid an activation loop when we start dbus when we
          * are called when the dbus service is shut down. */
 
-        r = bus_open_system_systemd(&bus);
+        r = bus_connect_system_systemd(&bus);
         if (r < 0) {
                 /* If we couldn't connect we assume this was triggered
                  * while systemd got restarted/transitioned from

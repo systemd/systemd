@@ -256,7 +256,7 @@ int main(int argc, char *argv[]) {
         if (c.audit_fd < 0 && errno != EAFNOSUPPORT && errno != EPROTONOSUPPORT)
                 log_error_errno(errno, "Failed to connect to audit log: %m");
 #endif
-        r = bus_open_system_systemd(&c.bus);
+        r = bus_connect_system_systemd(&c.bus);
         if (r < 0) {
                 log_error_errno(r, "Failed to get D-Bus connection: %m");
                 r = -EIO;

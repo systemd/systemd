@@ -67,7 +67,7 @@ static void start_target(const char *target) {
 
         assert(target);
 
-        r = bus_open_system_systemd(&bus);
+        r = bus_connect_system_systemd(&bus);
         if (r < 0) {
                 log_error_errno(r, "Failed to get D-Bus connection: %m");
                 return;
