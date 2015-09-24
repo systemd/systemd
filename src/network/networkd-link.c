@@ -501,10 +501,12 @@ void link_client_handler(Link *link) {
                     !link->ipv4ll_route)
                         return;
 
-        if (link_dhcp4_enabled(link) && !link->dhcp4_configured)
-                        return;
-
-        if (link_dhcp6_enabled(link) && !link->dhcp6_configured)
+        if ((link_dhcp4_enabled(link) && !link_dhcp6_enabled(link) &&
+             !link->dhcp4_configured) ||
+            (link_dhcp6_enabled(link) && !link_dhcp4_enabled(link) &&
+             !link->dhcp6_configured) ||
+            (link_dhcp4_enabled(link) && link_dhcp6_enabled(link) &&
+             !link->dhcp4_configured && !link->dhcp6_configured))
                 return;
 
         if (link->state != LINK_STATE_CONFIGURED)
