@@ -2765,7 +2765,7 @@ static int start_unit(sd_bus *bus, char **args) {
         return r;
 }
 
-static int set_wall_message(sd_bus *bus) {
+static int logind_set_wall_message(sd_bus *bus) {
 #ifdef HAVE_LOGIND
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *m = NULL;
@@ -2798,7 +2798,7 @@ static int set_wall_message(sd_bus *bus) {
 
 /* Ask systemd-logind, which might grant access to unprivileged users
  * through PolicyKit */
-static int reboot_with_logind(sd_bus *bus, enum action a) {
+static int logind_reboot(sd_bus *bus, enum action a) {
 #ifdef HAVE_LOGIND
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *method, *description;
@@ -2809,7 +2809,7 @@ static int reboot_with_logind(sd_bus *bus, enum action a) {
 
         polkit_agent_open_if_enabled();
 
-        (void) set_wall_message(bus);
+        (void) logind_set_wall_message(bus);
 
         switch (a) {
 
@@ -2860,7 +2860,7 @@ static int reboot_with_logind(sd_bus *bus, enum action a) {
 #endif
 }
 
-static int check_inhibitors(sd_bus *bus, enum action a) {
+static int logind_check_inhibitors(sd_bus *bus, enum action a) {
 #ifdef HAVE_LOGIND
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_strv_free_ char **sessions = NULL;
@@ -3023,7 +3023,7 @@ static int start_special(sd_bus *bus, char **args) {
 
         a = verb_to_action(args[0]);
 
-        r = check_inhibitors(bus, a);
+        r = logind_check_inhibitors(bus, a);
         if (r < 0)
                 return r;
 
@@ -3091,7 +3091,7 @@ static int start_special(sd_bus *bus, char **args) {
                    ACTION_SUSPEND,
                    ACTION_HIBERNATE,
                    ACTION_HYBRID_SLEEP)) {
-                r = reboot_with_logind(bus, a);
+                r = logind_reboot(bus, a);
                 if (r >= 0)
                         return r;
                 if (IN_SET(r, -EOPNOTSUPP, -EINPROGRESS))
@@ -7435,7 +7435,7 @@ static int halt_now(enum action a) {
 static int halt_main(sd_bus *bus) {
         int r;
 
-        r = check_inhibitors(bus, arg_action);
+        r = logind_check_inhibitors(bus, arg_action);
         if (r < 0)
                 return r;
 
@@ -7453,7 +7453,7 @@ static int halt_main(sd_bus *bus) {
                 if (IN_SET(arg_action,
                            ACTION_POWEROFF,
                            ACTION_REBOOT)) {
-                        r = reboot_with_logind(bus, arg_action);
+                        r = logind_reboot(bus, arg_action);
                         if (r >= 0)
                                 return r;
                         if (IN_SET(r, -EOPNOTSUPP, -EINPROGRESS))
@@ -7562,7 +7562,8 @@ static int runlevel_main(void) {
         return 0;
 }
 
-static int cancel_shutdown(void) {
+static int logind_cancel_shutdown(void) {
+#ifdef HAVE_LOGIND
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_bus_flush_close_unref_ sd_bus *b = NULL;
         int r;
@@ -7576,7 +7577,7 @@ static int cancel_shutdown(void) {
         if (r < 0)
                 return log_error_errno(r, "Unable to open system bus: %m");
 
-        (void) set_wall_message(b);
+        (void) logind_set_wall_message(b);
 
         r = sd_bus_call_method(
                         b,
@@ -7590,6 +7591,10 @@ static int cancel_shutdown(void) {
                 return log_warning_errno(r, "Failed to talk to logind, shutdown hasn't been cancelled: %s", bus_error_message(&error, r));
 
         return 0;
+#else
+        log_error("Not compiled with logind support, cannot cancel scheduled shutdowns.");
+        return -ENOSYS;
+#endif
 }
 
 int main(int argc, char*argv[]) {
@@ -7653,7 +7658,7 @@ int main(int argc, char*argv[]) {
                 break;
 
         case ACTION_CANCEL_SHUTDOWN:
-                r = cancel_shutdown();
+                r = logind_cancel_shutdown();
                 break;
 
         case ACTION_RUNLEVEL:
