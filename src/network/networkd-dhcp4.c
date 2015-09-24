@@ -169,8 +169,8 @@ static int dhcp_lease_lost(Link *link) {
                                         route->dst_addr.in = routes[i].dst_addr;
                                         route->dst_prefixlen = routes[i].dst_prefixlen;
 
-                                        route_drop(route, link,
-                                                   &link_route_drop_handler);
+                                        route_remove(route, link,
+                                                   &link_route_remove_handler);
                                 }
                         }
                 }
@@ -190,8 +190,8 @@ static int dhcp_lease_lost(Link *link) {
                                 route_gw->dst_prefixlen = 32;
                                 route_gw->scope = RT_SCOPE_LINK;
 
-                                route_drop(route_gw, link,
-                                           &link_route_drop_handler);
+                                route_remove(route_gw, link,
+                                           &link_route_remove_handler);
                         }
 
                         r = route_new(&route, RTPROT_UNSPEC);
@@ -199,8 +199,8 @@ static int dhcp_lease_lost(Link *link) {
                                 route->family = AF_INET;
                                 route->in_addr.in = gateway;
 
-                                route_drop(route, link,
-                                           &link_route_drop_handler);
+                                route_remove(route, link,
+                                           &link_route_remove_handler);
                         }
                 }
 
@@ -214,7 +214,7 @@ static int dhcp_lease_lost(Link *link) {
                         address->in_addr.in = addr;
                         address->prefixlen = prefixlen;
 
-                        address_drop(address, link, &link_address_drop_handler);
+                        address_remove(address, link, &link_address_remove_handler);
                 }
         }
 

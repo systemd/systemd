@@ -198,59 +198,7 @@ bool address_equal(Address *a1, Address *a2) {
         return address_compare_func(a1, a2) == 0;
 }
 
-int address_add(Link *link, int family, const union in_addr_union *in_addr, unsigned char prefixlen, Address **ret) {
-        _cleanup_address_free_ Address *address = NULL;
-        int r;
-
-        assert(link);
-        assert(in_addr);
-        assert(ret);
-
-        r = address_new(&address);
-        if (r < 0)
-                return r;
-
-        address->family = family;
-        address->in_addr = *in_addr;
-        address->prefixlen = prefixlen;
-
-        r = set_ensure_allocated(&link->addresses, &address_hash_ops);
-        if (r < 0)
-                return r;
-
-        r = set_put(link->addresses, address);
-        if (r < 0)
-                return r;
-
-        address->link = link;
-
-        *ret = address;
-        address = NULL;
-
-        return 0;
-}
-
-int address_get(Link *link, int family, const union in_addr_union *in_addr, unsigned char prefixlen, Address **ret) {
-        Address address = {}, *existing;
-
-        assert(link);
-        assert(in_addr);
-        assert(ret);
-
-        address.family = family;
-        address.in_addr = *in_addr;
-        address.prefixlen = prefixlen;
-
-        existing = set_get(link->addresses, &address);
-        if (!existing)
-                return -ENOENT;
-
-        *ret = existing;
-
-        return 0;
-}
-
-int address_establish(Address *address, Link *link) {
+static int address_establish(Address *address, Link *link) {
         bool masq;
         int r;
 
@@ -277,7 +225,43 @@ int address_establish(Address *address, Link *link) {
         return 0;
 }
 
-int address_release(Address *address, Link *link) {
+int address_add(Link *link, int family, const union in_addr_union *in_addr, unsigned char prefixlen, Address **ret) {
+        _cleanup_address_free_ Address *address = NULL;
+        int r;
+
+        assert(link);
+        assert(in_addr);
+        assert(ret);
+
+        r = address_new(&address);
+        if (r < 0)
+                return r;
+
+        address->family = family;
+        address->in_addr = *in_addr;
+        address->prefixlen = prefixlen;
+
+        r = set_ensure_allocated(&link->addresses, &address_hash_ops);
+        if (r < 0)
+                return r;
+
+        r = set_put(link->addresses, address);
+        if (r < 0)
+                return r;
+
+        address->link = link;
+
+        r = address_establish(address, link);
+        if (r < 0)
+                return r;
+
+        *ret = address;
+        address = NULL;
+
+        return 0;
+}
+
+static int address_release(Address *address, Link *link) {
         int r;
 
         assert(address);
@@ -298,7 +282,36 @@ int address_release(Address *address, Link *link) {
         return 0;
 }
 
-int address_drop(Address *address, Link *link,
+int address_drop(Address *address) {
+        assert(address);
+
+        address_release(address, address->link);
+        address_free(address);
+
+        return 0;
+}
+
+int address_get(Link *link, int family, const union in_addr_union *in_addr, unsigned char prefixlen, Address **ret) {
+        Address address = {}, *existing;
+
+        assert(link);
+        assert(in_addr);
+        assert(ret);
+
+        address.family = family;
+        address.in_addr = *in_addr;
+        address.prefixlen = prefixlen;
+
+        existing = set_get(link->addresses, &address);
+        if (!existing)
+                return -ENOENT;
+
+        *ret = existing;
+
+        return 0;
+}
+
+int address_remove(Address *address, Link *link,
                  sd_netlink_message_handler_t callback) {
         _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL;
         int r;

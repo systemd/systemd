@@ -62,11 +62,10 @@ int address_new(Address **ret);
 void address_free(Address *address);
 int address_add(Link *link, int family, const union in_addr_union *in_addr, unsigned char prefixlen, Address **ret);
 int address_get(Link *link, int family, const union in_addr_union *in_addr, unsigned char prefixlen, Address **ret);
+int address_drop(Address *address);
 int address_configure(Address *address, Link *link, sd_netlink_message_handler_t callback);
 int address_update(Address *address, Link *link, sd_netlink_message_handler_t callback);
-int address_drop(Address *address, Link *link, sd_netlink_message_handler_t callback);
-int address_establish(Address *address, Link *link);
-int address_release(Address *address, Link *link);
+int address_remove(Address *address, Link *link, sd_netlink_message_handler_t callback);
 bool address_equal(Address *a1, Address *a2);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Address*, address_free);

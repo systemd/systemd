@@ -586,7 +586,7 @@ static int link_enter_set_routes(Link *link) {
         return 0;
 }
 
-int link_route_drop_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
+int link_route_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
         _cleanup_link_unref_ Link *link = userdata;
         int r;
 
@@ -868,7 +868,7 @@ static int link_enter_set_addresses(Link *link) {
         return 0;
 }
 
-int link_address_drop_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
+int link_address_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
         _cleanup_link_unref_ Link *link = userdata;
         int r;
 

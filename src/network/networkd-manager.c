@@ -416,8 +416,6 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
                         address->flags = flags;
                         address->cinfo = cinfo;
 
-                        address_establish(address, link);
-
                         link_save(link);
                 }
 
@@ -427,8 +425,7 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
 
                 if (address) {
                         log_link_debug(link, "Removing address: %s/%u (valid for %s)", buf, prefixlen, valid_str);
-                        address_release(address, link);
-                        address_free(address);
+                        address_drop(address);
                 } else
                         log_link_warning(link, "Removing non-existent address: %s/%u (valid for %s)", buf, prefixlen, valid_str);
 

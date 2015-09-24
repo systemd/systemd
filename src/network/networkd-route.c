@@ -93,7 +93,7 @@ void route_free(Route *route) {
         free(route);
 }
 
-int route_drop(Route *route, Link *link,
+int route_remove(Route *route, Link *link,
                sd_netlink_message_handler_t callback) {
         _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL;
         int r;
