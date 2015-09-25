@@ -3524,7 +3524,7 @@ static void print_status_info(
 
                 printf("Condition: start %scondition failed%s at %s%s%s\n",
                        ansi_highlight_yellow(), ansi_normal(),
-                       s2, s1 ? "; " : "", s1 ? s1 : "");
+                       s2, s1 ? "; " : "", strempty(s1));
                 if (i->failed_condition_trigger)
                         printf("           none of the trigger conditions were met\n");
                 else if (i->failed_condition)
@@ -3540,7 +3540,7 @@ static void print_status_info(
 
                 printf("   Assert: start %sassertion failed%s at %s%s%s\n",
                        ansi_highlight_red(), ansi_normal(),
-                       s2, s1 ? "; " : "", s1 ? s1 : "");
+                       s2, s1 ? "; " : "", strempty(s1));
                 if (i->failed_assert_trigger)
                         printf("           none of the trigger assertions were met\n");
                 else if (i->failed_assert)

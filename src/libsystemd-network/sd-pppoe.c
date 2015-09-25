@@ -385,7 +385,7 @@ static int pppoe_send_initiation(sd_pppoe *ppp) {
                 return r;
 
         log_debug("PPPoE: sent DISCOVER (Service-Name: %s)",
-                  ppp->service_name ? : "");
+                  strempty(ppp->service_name));
 
         pppoe_arm_timeout(ppp);
 
@@ -625,8 +625,8 @@ static int pppoe_handle_message(sd_pppoe *ppp, struct pppoe_hdr *packet, struct 
                   mac->ether_addr_octet[3],
                   mac->ether_addr_octet[4],
                   mac->ether_addr_octet[5],
-                  ppp->tags.service_name ? : "",
-                  ppp->tags.ac_name ? : "");
+                  strempty(ppp->tags.service_name),
+                  strempty(ppp->tags.ac_name));
 
                 memcpy(&ppp->peer_mac, mac, ETH_ALEN);
 
