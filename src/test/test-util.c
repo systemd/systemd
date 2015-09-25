@@ -1012,8 +1012,21 @@ static void test_parse_cpu_set(void) {
 
         /* Use commas as separators */
         ncpus = parse_cpu_set_and_warn("0,1,2,3 8,9,10,11", &c, NULL, "fake", 1, "CPUAffinity");
-        assert_se(ncpus < 0);
-        assert_se(!c);
+        assert_se(ncpus >= 1024);
+        assert_se(CPU_COUNT_S(CPU_ALLOC_SIZE(ncpus), c) == 8);
+        for (cpu = 0; cpu < 4; cpu++)
+                assert_se(CPU_ISSET_S(cpu, CPU_ALLOC_SIZE(ncpus), c));
+        for (cpu = 8; cpu < 12; cpu++)
+                assert_se(CPU_ISSET_S(cpu, CPU_ALLOC_SIZE(ncpus), c));
+        c = mfree(c);
+
+        /* Commas with spaces (and trailing comma, space) */
+        ncpus = parse_cpu_set_and_warn("0, 1, 2, 3, 4, 5, 6, 7, ", &c, NULL, "fake", 1, "CPUAffinity");
+        assert_se(ncpus >= 1024);
+        assert_se(CPU_COUNT_S(CPU_ALLOC_SIZE(ncpus), c) == 8);
+        for (cpu = 0; cpu < 8; cpu++)
+                assert_se(CPU_ISSET_S(cpu, CPU_ALLOC_SIZE(ncpus), c));
+        c = mfree(c);
 
         /* Ranges */
         ncpus = parse_cpu_set_and_warn("0-3,8-11", &c, NULL, "fake", 1, "CPUAffinity");
