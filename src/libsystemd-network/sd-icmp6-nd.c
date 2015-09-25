@@ -444,8 +444,7 @@ static int icmp6_ra_prefix_update(sd_icmp6_nd *nd, ssize_t len,
                 log_icmp6_nd(nd, "New prefix "SD_ICMP6_ND_ADDRESS_FORMAT_STR"/%d lifetime %d expires in %s",
                              SD_ICMP6_ND_ADDRESS_FORMAT_VAL(prefix->addr),
                              prefix->len, lifetime,
-                             format_timespan(time_string, FORMAT_TIMESPAN_MAX,
-                                             lifetime * USEC_PER_SEC, 0));
+                             format_timespan(time_string, FORMAT_TIMESPAN_MAX, lifetime * USEC_PER_SEC, USEC_PER_SEC));
 
                 LIST_PREPEND(prefixes, nd->prefixes, prefix);
 
@@ -466,8 +465,7 @@ static int icmp6_ra_prefix_update(sd_icmp6_nd *nd, ssize_t len,
                 log_icmp6_nd(nd, "Update prefix "SD_ICMP6_ND_ADDRESS_FORMAT_STR"/%d lifetime %d expires in %s",
                              SD_ICMP6_ND_ADDRESS_FORMAT_VAL(prefix->addr),
                              prefix->len, lifetime,
-                             format_timespan(time_string, FORMAT_TIMESPAN_MAX,
-                                             lifetime * USEC_PER_SEC, 0));
+                             format_timespan(time_string, FORMAT_TIMESPAN_MAX, lifetime * USEC_PER_SEC, USEC_PER_SEC));
         }
 
         r = icmp6_ra_prefix_set_timeout(nd, prefix, lifetime * USEC_PER_SEC);
