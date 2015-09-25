@@ -49,10 +49,11 @@ _journalctl() {
                               --utc -x --catalog --no-full --force --dump-catalog
                               --flush'
                        [ARG]='-b --boot --this-boot -D --directory --file -F --field
-                              -o --output -u --unit --user-unit -p --priority'
+                              -o --output -u --unit --user-unit -p --priority
+                              --vacuum-size --vacuum-time'
                 [ARGUNKNOWN]='-c --cursor --interval -n --lines --since --until
-                              --after-cursor --verify-key --identifier
-                              --root --machine'
+                              --after-cursor --verify-key -t --identifier
+                              --root -M --machine'
         )
 
         if __contains_word "$prev" ${OPTS[ARG]} ${OPTS[ARGUNKNOWN]}; then
