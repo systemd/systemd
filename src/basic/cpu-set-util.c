@@ -69,7 +69,7 @@ int parse_cpu_set_and_warn(
 
         for (;;) {
                 _cleanup_free_ char *word = NULL;
-                unsigned cpu;
+                unsigned cpu, cpu_lower, cpu_upper;
                 int r;
 
                 r = extract_first_word(&rvalue, &word, WHITESPACE ",", EXTRACT_QUOTES);
@@ -86,13 +86,21 @@ int parse_cpu_set_and_warn(
                                 return log_oom();
                 }
 
-                r = safe_atou(word, &cpu);
-                if (r < 0 || cpu >= ncpus) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse CPU affinity '%s'", rvalue);
+                r = parse_range(word, &cpu_lower, &cpu_upper);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse CPU affinity '%s'", word);
+                        return r;
+                }
+                if (cpu_lower >= ncpus || cpu_upper >= ncpus) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "CPU out of range '%s' ncpus is %u", word, ncpus);
                         return -EINVAL;
                 }
 
-                CPU_SET_S(cpu, CPU_ALLOC_SIZE(ncpus), c);
+                if (cpu_lower > cpu_upper)
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Range '%s' is invalid, %u > %u", word, cpu_lower, cpu_upper);
+                else
+                        for (cpu = cpu_lower; cpu <= cpu_upper; cpu++)
+                                CPU_SET_S(cpu, CPU_ALLOC_SIZE(ncpus), c);
         }
 
         /* On success, sets *cpu_set and returns ncpus for the system. */
