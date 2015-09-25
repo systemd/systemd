@@ -434,48 +434,16 @@ static int config_parse_cpu_affinity2(
                 void *data,
                 void *userdata) {
 
-        const char *whole_rvalue = rvalue;
         _cleanup_cpu_free_ cpu_set_t *c = NULL;
-        unsigned ncpus = 0;
+        int ncpus;
 
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
+        ncpus = parse_cpu_set(rvalue, &c, unit, filename, line, lvalue);
 
-        for (;;) {
-                _cleanup_free_ char *word = NULL;
-                unsigned cpu;
-                int r;
+        if (ncpus < 0)
+                return ncpus;
 
-                r = extract_first_word(&rvalue, &word, WHITESPACE, EXTRACT_QUOTES);
-                if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Invalid value for %s: %s", lvalue, whole_rvalue);
-                        return r;
-                }
-                if (r == 0)
-                        break;
-
-                r = safe_atou(word, &cpu);
-
-                if (!c)
-                        if (!(c = cpu_set_malloc(&ncpus)))
-                                return log_oom();
-
-                if (r < 0 || cpu >= ncpus) {
-                        log_syntax(unit, LOG_ERR, filename, line, -r,
-                                   "Failed to parse CPU affinity '%s'", rvalue);
-                        return -EBADMSG;
-                }
-
-                CPU_SET_S(cpu, CPU_ALLOC_SIZE(ncpus), c);
-        }
-        if (!isempty(rvalue))
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Trailing garbage, ignoring.");
-
-        if (c)
-                if (sched_setaffinity(0, CPU_ALLOC_SIZE(ncpus), c) < 0)
-                        log_warning("Failed to set CPU affinity: %m");
+        if (sched_setaffinity(0, CPU_ALLOC_SIZE(ncpus), c) < 0)
+                log_warning("Failed to set CPU affinity: %m");
 
         return 0;
 }

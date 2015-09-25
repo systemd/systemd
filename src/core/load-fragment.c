@@ -875,50 +875,30 @@ int config_parse_exec_cpu_affinity(const char *unit,
                                    void *userdata) {
 
         ExecContext *c = data;
-        const char *word, *state;
-        size_t l;
+        _cleanup_cpu_free_ cpu_set_t *cpuset = NULL;
+        int ncpus;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
-        if (isempty(rvalue)) {
+        ncpus = parse_cpu_set(rvalue, &cpuset, unit, filename, line, lvalue);
+
+        if (ncpus < 0)
+                return ncpus;
+
+        if (c->cpuset)
+                CPU_FREE(c->cpuset);
+
+        if (ncpus == 0)
                 /* An empty assignment resets the CPU list */
-                if (c->cpuset)
-                        CPU_FREE(c->cpuset);
                 c->cpuset = NULL;
-                return 0;
+        else {
+                c->cpuset = cpuset;
+                cpuset = NULL;
         }
-
-        FOREACH_WORD_QUOTED(word, l, rvalue, state) {
-                _cleanup_free_ char *t = NULL;
-                int r;
-                unsigned cpu;
-
-                t = strndup(word, l);
-                if (!t)
-                        return log_oom();
-
-                r = safe_atou(t, &cpu);
-
-                if (!c->cpuset) {
-                        c->cpuset = cpu_set_malloc(&c->cpuset_ncpus);
-                        if (!c->cpuset)
-                                return log_oom();
-                }
-
-                if (r < 0 || cpu >= c->cpuset_ncpus) {
-                        log_syntax(unit, LOG_ERR, filename, line, ERANGE,
-                                   "Failed to parse CPU affinity '%s', ignoring: %s", t, rvalue);
-                        return 0;
-                }
-
-                CPU_SET_S(cpu, CPU_ALLOC_SIZE(c->cpuset_ncpus), c->cpuset);
-        }
-        if (!isempty(state))
-                log_syntax(unit, LOG_WARNING, filename, line, EINVAL,
-                           "Trailing garbage, ignoring.");
+        c->cpuset_ncpus = ncpus;
 
         return 0;
 }

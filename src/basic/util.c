@@ -2578,6 +2578,62 @@ cpu_set_t* cpu_set_malloc(unsigned *ncpus) {
         }
 }
 
+int parse_cpu_set(
+                const char *rvalue,
+                cpu_set_t **cpu_set,
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *lvalue) {
+
+        const char *whole_rvalue = rvalue;
+        _cleanup_cpu_free_ cpu_set_t *c = NULL;
+        unsigned ncpus = 0;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
+                unsigned cpu;
+                int r;
+
+                r = extract_first_word(&rvalue, &word, WHITESPACE, EXTRACT_QUOTES);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Invalid value for %s: %s", lvalue, whole_rvalue);
+                        return r;
+                }
+                if (r == 0)
+                        break;
+
+                r = safe_atou(word, &cpu);
+
+                if (!c)
+                        if (!(c = cpu_set_malloc(&ncpus)))
+                                return log_oom();
+
+                if (r < 0 || cpu >= ncpus) {
+                        log_syntax(unit, LOG_ERR, filename, line, -r,
+                                   "Failed to parse CPU affinity '%s'", rvalue);
+                        return -EBADMSG;
+                }
+
+                CPU_SET_S(cpu, CPU_ALLOC_SIZE(ncpus), c);
+        }
+        if (!isempty(rvalue))
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                           "Trailing garbage, ignoring.");
+
+        /* On success, sets *cpu_set and returns ncpus for the system. */
+        if (c) {
+                *cpu_set = c;
+                c = NULL;
+        }
+        return (int) ncpus;
+}
+
 int files_same(const char *filea, const char *fileb) {
         struct stat a, b;
 

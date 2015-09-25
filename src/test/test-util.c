@@ -960,6 +960,64 @@ static void test_parse_size(void) {
         assert_se(parse_size("-10B 20K", 1024, &bytes) == -ERANGE);
 }
 
+static void test_parse_cpu_set(void) {
+        cpu_set_t *c = NULL;
+        int ncpus;
+        int cpu;
+
+        /* Simple range (from CPUAffinity example) */
+        ncpus = parse_cpu_set("1 2", &c, NULL, "fake", 1, "CPUAffinity");
+        assert_se(ncpus >= 1024);
+        assert_se(CPU_ISSET_S(1, CPU_ALLOC_SIZE(ncpus), c));
+        assert_se(CPU_ISSET_S(2, CPU_ALLOC_SIZE(ncpus), c));
+        assert_se(CPU_COUNT_S(CPU_ALLOC_SIZE(ncpus), c) == 2);
+        c = mfree(c);
+
+        /* A more interesting range */
+        ncpus = parse_cpu_set("0 1 2 3 8 9 10 11", &c, NULL, "fake", 1, "CPUAffinity");
+        assert_se(ncpus >= 1024);
+        assert_se(CPU_COUNT_S(CPU_ALLOC_SIZE(ncpus), c) == 8);
+        for (cpu = 0; cpu < 4; cpu++)
+                assert_se(CPU_ISSET_S(cpu, CPU_ALLOC_SIZE(ncpus), c));
+        for (cpu = 8; cpu < 12; cpu++)
+                assert_se(CPU_ISSET_S(cpu, CPU_ALLOC_SIZE(ncpus), c));
+        c = mfree(c);
+
+        /* Quoted strings */
+        ncpus = parse_cpu_set("8 '9' 10 \"11\"", &c, NULL, "fake", 1, "CPUAffinity");
+        assert_se(ncpus >= 1024);
+        assert_se(CPU_COUNT_S(CPU_ALLOC_SIZE(ncpus), c) == 4);
+        for (cpu = 8; cpu < 12; cpu++)
+                assert_se(CPU_ISSET_S(cpu, CPU_ALLOC_SIZE(ncpus), c));
+        c = mfree(c);
+
+        /* Use commas as separators */
+        ncpus = parse_cpu_set("0,1,2,3 8,9,10,11", &c, NULL, "fake", 1, "CPUAffinity");
+        assert_se(ncpus < 0);
+        assert_se(!c);
+
+        /* Ranges */
+        ncpus = parse_cpu_set("0-3,8-11", &c, NULL, "fake", 1, "CPUAffinity");
+        assert_se(ncpus < 0);
+        assert_se(!c);
+
+        /* Garbage */
+        ncpus = parse_cpu_set("0 1 2 3 garbage", &c, NULL, "fake", 1, "CPUAffinity");
+        assert_se(ncpus < 0);
+        assert_se(!c);
+
+        /* Empty string */
+        c = NULL;
+        ncpus = parse_cpu_set("", &c, NULL, "fake", 1, "CPUAffinity");
+        assert_se(ncpus == 0);  /* empty string returns 0 */
+        assert_se(!c);
+
+        /* Runnaway quoted string */
+        ncpus = parse_cpu_set("0 1 2 3 \"4 5 6 7 ", &c, NULL, "fake", 1, "CPUAffinity");
+        assert_se(ncpus < 0);
+        assert_se(!c);
+}
+
 static void test_config_parse_iec_uint64(void) {
         uint64_t offset = 0;
         assert_se(config_parse_iec_uint64(NULL, "/this/file", 11, "Section", 22, "Size", 0, "4M", &offset, NULL) == 0);
@@ -2250,6 +2308,7 @@ int main(int argc, char *argv[]) {
         test_u64log2();
         test_protect_errno();
         test_parse_size();
+        test_parse_cpu_set();
         test_config_parse_iec_uint64();
         test_strextend();
         test_strrep();
