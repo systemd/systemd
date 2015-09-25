@@ -35,7 +35,7 @@ CHANGES WITH 227:
           NoNewPrivileges, TTYPath, WorkingDirectory and RootDirectory
           properties can now be set for transient units.
 
-        * Galician and Turkish translations were added.
+        * Galician, Turkish and Korean translations were added.
 
         Contributions from:
 
