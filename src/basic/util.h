@@ -375,6 +375,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(cpu_set_t*, CPU_FREE);
 #define _cleanup_cpu_free_ _cleanup_(CPU_FREEp)
 
 cpu_set_t* cpu_set_malloc(unsigned *ncpus);
+int parse_cpu_affinity(const char **rvalue, cpu_set_t **cpu_affinity, unsigned *ncpus);
 
 #define xsprintf(buf, fmt, ...) \
         assert_message_se((size_t) snprintf(buf, ELEMENTSOF(buf), fmt, __VA_ARGS__) < ELEMENTSOF(buf), \

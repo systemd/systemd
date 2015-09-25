@@ -2578,6 +2578,41 @@ cpu_set_t* cpu_set_malloc(unsigned *ncpus) {
         }
 }
 
+int parse_cpu_affinity(const char **rvalue, cpu_set_t **cpu_affinity, unsigned *ncpus) {
+        _cleanup_cpu_free_ cpu_set_t *c = NULL;
+        unsigned n = 0;
+
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
+                unsigned cpu;
+                int r;
+
+                r = extract_first_word(rvalue, &word, WHITESPACE, EXTRACT_QUOTES);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                r = safe_atou(word, &cpu);
+
+                if (!c) {
+                        if (!(c = cpu_set_malloc(&n)))
+                                return -ENOMEM;
+                        if (ncpus)
+                                *ncpus = n;
+                }
+
+                if (r < 0 || cpu >= n)
+                        return -EBADMSG;
+
+                CPU_SET_S(cpu, CPU_ALLOC_SIZE(n), c);
+        }
+
+        *cpu_affinity = c;
+        c = NULL;
+        return 0;
+}
+
 int files_same(const char *filea, const char *fileb) {
         struct stat a, b;
 
