@@ -27,8 +27,8 @@ __contains_word () {
 __journal_fields=(MESSAGE{,_ID} PRIORITY CODE_{FILE,LINE,FUNC}
                   ERRNO SYSLOG_{FACILITY,IDENTIFIER,PID} COREDUMP_EXE
                   _{P,U,G}ID _COMM _EXE _CMDLINE
-                  _AUDIT_{SESSION,LOGINUID}
-                  _SYSTEMD_{CGROUP,SESSION,UNIT,OWNER_UID}
+                  _CAP_EFFECTIVE _AUDIT_{SESSION,LOGINUID}
+                  _SYSTEMD_{CGROUP,SESSION,{,USER_}UNIT,OWNER_UID,SLICE}
                   _SELINUX_CONTEXT _SOURCE_REALTIME_TIMESTAMP
                   _{BOOT,MACHINE}_ID _HOSTNAME _TRANSPORT
                   _KERNEL_{DEVICE,SUBSYSTEM}
@@ -49,10 +49,11 @@ _journalctl() {
                               --utc -x --catalog --no-full --force --dump-catalog
                               --flush'
                        [ARG]='-b --boot --this-boot -D --directory --file -F --field
-                              -o --output -u --unit --user-unit -p --priority'
+                              -o --output -u --unit --user-unit -p --priority
+                              --vacuum-size --vacuum-time'
                 [ARGUNKNOWN]='-c --cursor --interval -n --lines --since --until
-                              --after-cursor --verify-key --identifier
-                              --root --machine'
+                              --after-cursor --verify-key -t --identifier
+                              --root -M --machine'
         )
 
         if __contains_word "$prev" ${OPTS[ARG]} ${OPTS[ARGUNKNOWN]}; then
