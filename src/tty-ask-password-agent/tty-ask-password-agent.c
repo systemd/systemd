@@ -31,6 +31,10 @@
 #include <getopt.h>
 #include <sys/signalfd.h>
 #include <fcntl.h>
+#include <sys/prctl.h>
+#include <signal.h>
+#include <sys/wait.h>
+#include <sys/mman.h>
 
 #include "util.h"
 #include "mkdir.h"
@@ -45,6 +49,8 @@
 #include "process-util.h"
 #include "terminal-util.h"
 #include "signal-util.h"
+#include "fileio.h"
+#include "macro.h"
 
 static enum {
         ACTION_LIST,
@@ -52,6 +58,19 @@ static enum {
         ACTION_WATCH,
         ACTION_WALL
 } arg_action = ACTION_QUERY;
+
+struct console {
+        pid_t pid;
+        char *tty;
+};
+
+static volatile unsigned long *usemask;
+static volatile sig_atomic_t sigchild;
+static void chld_handler(int sig)
+{
+        (void)sig;
+        ++sigchild;
+}
 
 static bool arg_plymouth = false;
 static bool arg_console = false;
@@ -210,6 +229,69 @@ static int ask_password_plymouth(
         return 0;
 }
 
+static void free_consoles(struct console *con, const unsigned int num) {
+        unsigned int n;
+        if (!con || !num)
+                return;
+        for (n = 0; n < num; n++)
+                free(con[n].tty);
+        free(con);
+}
+
+static const char *current_dev = "/dev/console";
+static struct console* collect_consoles(unsigned int * num) {
+        _cleanup_free_ char *active = NULL;
+        const char *word, *state;
+        struct console *con = NULL;
+        size_t con_len = 0, len;
+        int ret, id = 0;
+
+        assert(num);
+        assert(*num == 0);
+
+        ret = read_one_line_file("/sys/class/tty/console/active", &active);
+        if (ret < 0)
+                return con;
+        FOREACH_WORD(word, len, active, state) {
+                _cleanup_free_ char *tty = NULL;
+
+                if (strneq(word, "tty0", len) &&
+                    read_one_line_file("/sys/class/tty/tty0/active", &tty) >= 0) {
+                        word = tty;
+                        len = strlen(tty);
+                }
+                con = greedy_realloc((void**)&con, &con_len, 1+(*num), sizeof(struct console));
+                if (con == NULL) {
+                        log_oom();
+                        return NULL;
+                }
+                if (asprintf(&con[id].tty, "/dev/%.*s", (int)len, word) < 0) {
+                        free_consoles(con, *num);
+                        log_oom();
+			*num = 0;
+                        return NULL;
+                }
+		con[*num].pid = 0;
+                (*num)++;
+        }
+        if (con == NULL) {
+                con = greedy_realloc((void**)&con, &con_len, 1, sizeof(struct console));
+                if (con == NULL) {
+                        log_oom();
+                        return NULL;
+                }
+                con[0].tty = strdup(current_dev);
+                if (con[id].tty == NULL) {
+                        free_consoles(con, 1);
+                        log_oom();
+                        return NULL;
+                }
+		con[0].pid = 0;
+                (*num)++;
+        }
+        return con;
+}
+
 static int parse_password(const char *filename, char **wall) {
         _cleanup_free_ char *socket_name = NULL, *message = NULL, *packet = NULL;
         uint64_t not_after = 0;
@@ -310,7 +392,7 @@ static int parse_password(const char *filename, char **wall) {
                         _cleanup_free_ char *password = NULL;
 
                         if (arg_console) {
-                                tty_fd = acquire_terminal("/dev/console", false, false, false, USEC_INFINITY);
+                                tty_fd = acquire_terminal(current_dev, false, false, false, USEC_INFINITY);
                                 if (tty_fd < 0)
                                         return tty_fd;
                         }
@@ -614,8 +696,90 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
+static unsigned int wfa_child(const struct console * con, const unsigned int id)
+{
+        setsid();
+        release_terminal();
+        *usemask |= 1 << id;   /* shared memory area */
+        current_dev = con[id].tty;
+        return id;
+}
+
+static unsigned int wait_for_answer(void)
+{
+        struct console *consoles;
+        struct sigaction sig = {
+                .sa_handler = chld_handler,
+                .sa_flags = SA_NOCLDSTOP | SA_RESTART,
+        };
+        struct sigaction oldsig;
+        sigset_t set, oldset;
+        unsigned int num = 0, id;
+        int status = 0, ret;
+        pid_t job;
+
+        consoles = collect_consoles(&num);
+        if (!consoles) {
+                log_error("Failed to query password: %m");
+                exit(EXIT_FAILURE);
+        }
+        if (num < 2)
+                return wfa_child(consoles, 0);
+
+        assert_se(sigemptyset(&set) == 0);
+        assert_se(sigaddset(&set, SIGHUP) == 0);
+        assert_se(sigaddset(&set, SIGCHLD) == 0);
+        assert_se(sigemptyset(&sig.sa_mask) == 0);
+        assert_se(sigprocmask(SIG_UNBLOCK, &set, &oldset) == 0);
+        assert_se(sigaction(SIGCHLD, &sig, &oldsig) == 0);
+        sig.sa_handler = SIG_DFL;
+        assert_se(sigaction(SIGHUP, &sig, NULL) == 0);
+
+        for (id = 0; id < num; id++) {
+                consoles[id].pid = fork();
+
+                if (consoles[id].pid < 0) {
+                        log_error("Failed to query password: %m");
+                        exit(EXIT_FAILURE);
+                }
+
+                if (consoles[id].pid == 0) {
+                        if (prctl(PR_SET_PDEATHSIG, SIGHUP) < 0)
+                                _exit(EXIT_FAILURE);
+                        zero(sig);
+                        assert_se(sigprocmask(SIG_UNBLOCK, &oldset, NULL) == 0);
+                        assert_se(sigaction(SIGCHLD, &oldsig, NULL) == 0);
+                        return wfa_child(consoles, id);
+                }
+        }
+
+        ret = 0;
+        while ((job = wait(&status)) != 0) {
+                if (job < 0) {
+                        if (errno != EINTR)
+                                break;
+                        continue;
+                }
+                for (id = 0; id < num; id++) {
+                        if (consoles[id].pid == job || kill(consoles[id].pid, 0) < 0) {
+                                *usemask &= ~(1 << id);  /* shared memory area */
+                                continue;
+                        }
+                        if (*usemask & (1 << id))        /* shared memory area */
+                                continue;
+                        kill(consoles[id].pid, SIGHUP);
+                        usleep(50000);
+                        kill(consoles[id].pid, SIGKILL);
+                }
+                if (WIFEXITED(status) && ret == 0)
+                        ret = WEXITSTATUS(status);
+        }
+        free_consoles(consoles, num);
+        exit(ret != 0 ? EXIT_FAILURE : EXIT_SUCCESS); /* parent */
+}
+
 int main(int argc, char *argv[]) {
-        int r;
+        int r, id = 0;
 
         log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();
@@ -627,11 +791,27 @@ int main(int argc, char *argv[]) {
         if (r <= 0)
                 goto finish;
 
-        if (arg_console) {
-                setsid();
-                release_terminal();
-        }
+        /*
+         * Use this shared memory area to be able to synchronize the
+         * workers asking for password with the main process.
+         * This allows to continue if one of the consoles had been
+         * used as afterwards the remaining asking processes will
+         * be terminated.  The wait_for_terminate() does not help
+         * for this use case.
+         */
+        usemask = mmap(NULL, sizeof(*usemask), PROT_READ | PROT_WRITE,
+                       MAP_ANONYMOUS | MAP_SHARED, -1, 0);
+        assert_se(usemask != NULL);
 
+        if (arg_console) {
+                if (!arg_plymouth &&
+                    !IN_SET(arg_action, ACTION_WALL, ACTION_LIST)) {
+                        id = wait_for_answer();
+                } else {
+                        setsid();
+                        release_terminal();
+                }
+        }
         if (IN_SET(arg_action, ACTION_WATCH, ACTION_WALL))
                 r = watch_passwords();
         else
@@ -640,6 +820,7 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 log_error_errno(r, "Error: %m");
 
+        *usemask &= ~(1 << id);         /* shared memory area */
 finish:
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
