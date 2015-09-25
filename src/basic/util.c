@@ -2599,7 +2599,7 @@ int parse_cpu_set(
                 unsigned cpu;
                 int r;
 
-                r = extract_first_word(&rvalue, &word, WHITESPACE, EXTRACT_QUOTES);
+                r = extract_first_word(&rvalue, &word, WHITESPACE ",", EXTRACT_QUOTES);
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, r,
                                    "Invalid value for %s: %s", lvalue, whole_rvalue);
