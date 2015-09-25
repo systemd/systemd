@@ -244,7 +244,7 @@ static struct console* collect_consoles(unsigned int * num) {
         const char *word, *state;
         struct console *con = NULL;
         size_t con_len = 0, len;
-        int ret, id = 0;
+        int ret;
 
         assert(num);
         assert(*num == 0);
@@ -265,13 +265,13 @@ static struct console* collect_consoles(unsigned int * num) {
                         log_oom();
                         return NULL;
                 }
-                if (asprintf(&con[id].tty, "/dev/%.*s", (int)len, word) < 0) {
+                if (asprintf(&con[*num].tty, "/dev/%.*s", (int)len, word) < 0) {
                         free_consoles(con, *num);
                         log_oom();
-			*num = 0;
+                        *num = 0;
                         return NULL;
                 }
-		con[*num].pid = 0;
+                con[*num].pid = 0;
                 (*num)++;
         }
         if (con == NULL) {
@@ -281,12 +281,12 @@ static struct console* collect_consoles(unsigned int * num) {
                         return NULL;
                 }
                 con[0].tty = strdup(current_dev);
-                if (con[id].tty == NULL) {
+                if (con[0].tty == NULL) {
                         free_consoles(con, 1);
                         log_oom();
                         return NULL;
                 }
-		con[0].pid = 0;
+                con[0].pid = 0;
                 (*num)++;
         }
         return con;
