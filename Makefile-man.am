@@ -292,6 +292,8 @@ MANPAGES_ALIAS += \
 	man/sd_bus_open_system_remote.3 \
 	man/sd_bus_open_user.3 \
 	man/sd_bus_path_decode.3 \
+	man/sd_bus_path_decode_many.3 \
+	man/sd_bus_path_encode_many.3 \
 	man/sd_bus_ref.3 \
 	man/sd_bus_release_name.3 \
 	man/sd_bus_unref.3 \
@@ -578,6 +580,8 @@ man/sd_bus_open_system_machine.3: man/sd_bus_default.3
 man/sd_bus_open_system_remote.3: man/sd_bus_default.3
 man/sd_bus_open_user.3: man/sd_bus_default.3
 man/sd_bus_path_decode.3: man/sd_bus_path_encode.3
+man/sd_bus_path_decode_many.3: man/sd_bus_path_encode.3
+man/sd_bus_path_encode_many.3: man/sd_bus_path_encode.3
 man/sd_bus_ref.3: man/sd_bus_new.3
 man/sd_bus_release_name.3: man/sd_bus_request_name.3
 man/sd_bus_unref.3: man/sd_bus_new.3
@@ -1122,6 +1126,12 @@ man/sd_bus_open_user.html: man/sd_bus_default.html
 	$(html-alias)
 
 man/sd_bus_path_decode.html: man/sd_bus_path_encode.html
+	$(html-alias)
+
+man/sd_bus_path_decode_many.html: man/sd_bus_path_encode.html
+	$(html-alias)
+
+man/sd_bus_path_encode_many.html: man/sd_bus_path_encode.html
 	$(html-alias)
 
 man/sd_bus_ref.html: man/sd_bus_new.html

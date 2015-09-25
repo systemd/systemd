@@ -420,7 +420,9 @@ int sd_bus_error_add_map(const sd_bus_error_map *map);
 /* Label escaping */
 
 int sd_bus_path_encode(const char *prefix, const char *external_id, char **ret_path);
+int sd_bus_path_encode_many(char **out, const char *path_template, ...);
 int sd_bus_path_decode(const char *path, const char *prefix, char **ret_external_id);
+int sd_bus_path_decode_many(const char *path, const char *path_template, ...);
 
 /* Tracking peers */
 

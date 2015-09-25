@@ -44,7 +44,9 @@
 
   <refnamediv>
     <refname>sd_bus_path_encode</refname>
+    <refname>sd_bus_path_encode_many</refname>
     <refname>sd_bus_path_decode</refname>
+    <refname>sd_bus_path_decode_many</refname>
 
     <refpurpose>Convert an external identifier into an object path and back</refpurpose>
   </refnamediv>
@@ -61,10 +63,24 @@
       </funcprototype>
 
       <funcprototype>
+        <funcdef>int <function>sd_bus_path_encode_many</function></funcdef>
+        <paramdef>char **<parameter>out</parameter></paramdef>
+        <paramdef>const char *<parameter>path_template</parameter></paramdef>
+        <paramdef>...</paramdef>
+      </funcprototype>
+
+      <funcprototype>
         <funcdef>int <function>sd_bus_path_decode</function></funcdef>
         <paramdef>const char *<parameter>path</parameter></paramdef>
         <paramdef>const char *<parameter>prefix</parameter></paramdef>
         <paramdef>char **<parameter>ret_external_id</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_path_decode_many</function></funcdef>
+        <paramdef>const char *<parameter>path</parameter></paramdef>
+        <paramdef>const char *<parameter>path_template</parameter></paramdef>
+        <paramdef>...</paramdef>
       </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
@@ -109,6 +125,28 @@
     invalid in a bus object path by <literal>_</literal>, followed by a
     hexadecimal value. As a special case, the empty string will be
     replaced by a lone <literal>_</literal>.</para>
+
+    <para><function>sd_bus_path_encode_many()</function> works like
+    its counterpart <function>sd_bus_path_encode()</function>, but
+    takes a path-template as argument and encodes multiple labels
+    according to its embedded directives. For each
+    <literal>%</literal> character found in the template, the caller
+    must provide a string via var-args, which will be encoded and
+    embedded at the position of the <literal>%</literal> character.
+    Any other character in the template is copied verbatim into the
+    encoded path.</para>
+
+    <para><function>sd_bus_path_decode_many()</function> does the
+    reverse of <function>sd_bus_path_encode_many()</function>. It
+    decodes the passed object path, according to the given
+    path-template. For each <literal>%</literal> character in the
+    template, the caller must provide an output storage
+    (<literal>char **</literal>) via var-args. The decoded label
+    will be stored there. Each <literal>%</literal> character will
+    only match the current label. It will never match across labels.
+    Furthermore, only a single such directive is allowed per label.
+    If <literal>NULL</literal> is passed as output storage, the
+    label is verified but not returned to the caller.</para>
   </refsect1>
 
   <refsect1>
