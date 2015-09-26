@@ -829,7 +829,7 @@ bluetooth:v0111*
  ID_VENDOR_FROM_DATABASE=Steelseries ApS
 
 bluetooth:v0112*
- ID_VENDOR_FROM_DATABASE=vyzybl Inc.
+ ID_VENDOR_FROM_DATABASE=Visybl Inc.
 
 bluetooth:v0113*
  ID_VENDOR_FROM_DATABASE=Openbrain Technologies, Co., Ltd.
@@ -1931,3 +1931,54 @@ bluetooth:v0280*
 
 bluetooth:v0281*
  ID_VENDOR_FROM_DATABASE=StoneL
+
+bluetooth:v0282*
+ ID_VENDOR_FROM_DATABASE=Sonova AG
+
+bluetooth:v0283*
+ ID_VENDOR_FROM_DATABASE=Maven Machines, Inc.
+
+bluetooth:v0284*
+ ID_VENDOR_FROM_DATABASE=Synapse Electronics
+
+bluetooth:v0285*
+ ID_VENDOR_FROM_DATABASE=Standard Innovation Inc.
+
+bluetooth:v0286*
+ ID_VENDOR_FROM_DATABASE=RF Code, Inc.
+
+bluetooth:v0287*
+ ID_VENDOR_FROM_DATABASE=Wally Ventures S.L.
+
+bluetooth:v0288*
+ ID_VENDOR_FROM_DATABASE=Willowbank Electronics Ltd
+
+bluetooth:v0289*
+ ID_VENDOR_FROM_DATABASE=SK Telecom
+
+bluetooth:v028A*
+ ID_VENDOR_FROM_DATABASE=Jetro AS
+
+bluetooth:v028B*
+ ID_VENDOR_FROM_DATABASE=Code Gears LTD
+
+bluetooth:v028C*
+ ID_VENDOR_FROM_DATABASE=NANOLINK APS
+
+bluetooth:v028D*
+ ID_VENDOR_FROM_DATABASE=IF, LLC
+
+bluetooth:v028E*
+ ID_VENDOR_FROM_DATABASE=RF Digital Corp
+
+bluetooth:v028F*
+ ID_VENDOR_FROM_DATABASE=Church & Dwight Co., Inc
+
+bluetooth:v0290*
+ ID_VENDOR_FROM_DATABASE=Multibit Oy
+
+bluetooth:v0291*
+ ID_VENDOR_FROM_DATABASE=CliniCloud Inc
+
+bluetooth:v0292*
+ ID_VENDOR_FROM_DATABASE=SwiftSensors
