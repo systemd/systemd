@@ -243,9 +243,9 @@ static int pending_prioq_compare(const void *a, const void *b) {
                 return 1;
 
         /* Stability for the rest */
-        if (x < y)
+        if (x->pending_index < y->pending_index)
                 return -1;
-        if (x > y)
+        if (x->pending_index > y->pending_index)
                 return 1;
 
         return 0;
@@ -278,9 +278,9 @@ static int prepare_prioq_compare(const void *a, const void *b) {
                 return 1;
 
         /* Stability for the rest */
-        if (x < y)
+        if (x->prepare_index < y->prepare_index)
                 return -1;
-        if (x > y)
+        if (x->prepare_index > y->prepare_index)
                 return 1;
 
         return 0;
@@ -311,9 +311,9 @@ static int earliest_time_prioq_compare(const void *a, const void *b) {
                 return 1;
 
         /* Stability for the rest */
-        if (x < y)
+        if (x->time.earliest_index < y->time.earliest_index)
                 return -1;
-        if (x > y)
+        if (x->time.earliest_index > y->time.earliest_index)
                 return 1;
 
         return 0;
@@ -344,9 +344,9 @@ static int latest_time_prioq_compare(const void *a, const void *b) {
                 return 1;
 
         /* Stability for the rest */
-        if (x < y)
+        if (x->time.latest_index < y->time.latest_index)
                 return -1;
-        if (x > y)
+        if (x->time.latest_index > y->time.latest_index)
                 return 1;
 
         return 0;
@@ -371,9 +371,9 @@ static int exit_prioq_compare(const void *a, const void *b) {
                 return 1;
 
         /* Stability for the rest */
-        if (x < y)
+        if (x->exit.prioq_index < y->exit.prioq_index)
                 return -1;
-        if (x > y)
+        if (x->exit.prioq_index > y->exit.prioq_index)
                 return 1;
 
         return 0;
