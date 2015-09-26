@@ -3454,6 +3454,139 @@ _public_ int sd_bus_path_decode(const char *path, const char *prefix, char **ext
         return 1;
 }
 
+_public_ int sd_bus_path_encode_many(const char *format, char **out, ...) {
+        _cleanup_strv_free_ char **labels = NULL;
+        char *path, *path_pos, **label_pos;
+        const char *sep, *format_pos;
+        size_t path_length;
+        va_list list;
+        int r;
+
+        assert_return(format, -EINVAL);
+        assert_return(out, -EINVAL);
+
+        path_length = strlen(format);
+
+        va_start(list, out);
+        for (sep = strchr(format, '%'); sep; sep = strchr(sep + 1, '%')) {
+                const char *arg;
+                char *label;
+
+                arg = va_arg(list, const char *);
+                if (!arg) {
+                        va_end(list);
+                        return -EINVAL;
+                }
+
+                label = bus_label_escape(arg);
+                if (!label) {
+                        va_end(list);
+                        return -ENOMEM;
+                }
+
+                r = strv_consume(&labels, label);
+                if (r < 0) {
+                        va_end(list);
+                        return r;
+                }
+
+                /* add label length, but account for the format character */
+                path_length += strlen(label) - 1;
+        }
+        va_end(list);
+
+        path = malloc(path_length + 1);
+        if (!path)
+                return -ENOMEM;
+
+        path_pos = path;
+        label_pos = labels;
+
+        for (format_pos = format; *format_pos; ) {
+                sep = strchrnul(format_pos, '%');
+                path_pos = mempcpy(path_pos, format_pos, sep - format_pos);
+                if (!*sep)
+                        break;
+
+                path_pos = stpcpy(path_pos, *label_pos++);
+                format_pos = sep + 1;
+        }
+
+        *path_pos = 0;
+        *out = path;
+        return 0;
+}
+
+_public_ int sd_bus_path_decode_many(const char *format, const char *path, ...) {
+        _cleanup_strv_free_ char **labels = NULL;
+        const char *format_pos, *path_pos;
+        char **label_pos;
+        va_list list;
+        int r;
+
+        assert_return(format, -EINVAL);
+        assert_return(path, -EINVAL);
+
+        path_pos = path;
+
+        for (format_pos = format; *format_pos; ) {
+                const char *sep;
+                size_t length;
+                char *label;
+
+                sep = strchrnul(format_pos, '%');
+                length = sep - format_pos;
+                if (strncmp(path_pos, format_pos, length))
+                        return 0;
+
+                path_pos += length;
+                format_pos += length;
+
+                if (!*format_pos)
+                        break;
+
+                /* Right now, each '%' must be followed by a slash. Otherwise,
+                 * we'd have to implement a 'greedy' algorithm to figure out
+                 * what to match against. We might support that in the future,
+                 * but we don't see an immediate need to implement it now. */
+                ++format_pos;
+                if (*format_pos && *format_pos != '/')
+                        return -EINVAL;
+
+                sep = strchrnul(path_pos, '/');
+                length = sep - path_pos;
+
+                label = bus_label_unescape_n(path_pos, length);
+                if (!label)
+                        return -ENOMEM;
+
+                r = strv_consume(&labels, label);
+                if (r < 0)
+                        return r;
+
+                path_pos += length;
+        }
+
+        if (*path_pos)
+                return 0;
+
+        va_start(list, path);
+        for (label_pos = labels; label_pos && *label_pos; ++label_pos) {
+                char **arg;
+
+                arg = va_arg(list, char **);
+                if (arg)
+                        *arg = *label_pos;
+                else
+                        free(label_pos);
+        }
+        va_end(list);
+
+        free(labels);
+        labels = NULL;
+        return 1;
+}
+
 _public_ int sd_bus_try_close(sd_bus *bus) {
         int r;
 

@@ -66,6 +66,18 @@ static void test_bus_path_encode(void) {
         assert_se(sd_bus_path_decode(e, "/foo/bar", &f) > 0 && streq(f, "foo.bar"));
 }
 
+static void test_bus_path_encode_many(void) {
+        _cleanup_free_ char *a = NULL, *b = NULL, *c = NULL, *d = NULL, *e = NULL, *f = NULL;
+
+        assert_se(sd_bus_path_decode_many("/prefix/%", "/foo/bar") == 0);
+        assert_se(sd_bus_path_decode_many("/prefix/%bar", "/prefix/bar") < 0);
+        assert_se(sd_bus_path_decode_many("/prefix/%/suffix", "/foo/bar") == 0);
+        assert_se(sd_bus_path_decode_many("/prefix/%/suffix", "/prefix/foobar/suffix", &a) == 1 && streq_ptr(a, "foobar"));
+        assert_se(sd_bus_path_decode_many("/prefix/one_%/mid/two_%/suffix", "/prefix/one_foo/mid/two_bar/suffix", &b, &c) == 1 && streq_ptr(b, "foo") && streq_ptr(c, "bar"));
+
+        assert_se(sd_bus_path_encode_many("/prefix/one_%/mid/two_%/suffix", &d, "foo", "bar") >= 0 && streq_ptr(d, "/prefix/one_foo/mid/two_bar/suffix"));
+}
+
 static void test_bus_label_escape_one(const char *a, const char *b) {
         _cleanup_free_ char *t = NULL, *x = NULL, *y = NULL;
 
@@ -393,6 +405,7 @@ int main(int argc, char *argv[]) {
         test_bus_label_escape();
         test_bus_path_encode();
         test_bus_path_encode_unique();
+        test_bus_path_encode_many();
 
         return 0;
 }
