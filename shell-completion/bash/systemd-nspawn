@@ -85,7 +85,7 @@ _systemd_nspawn() {
                                        CAP_SYS_CHROOT CAP_SYS_NICE CAP_SYS_PTRACE CAP_SYS_RESOURCE CAP_SYS_TTY_CONFIG'
                         ;;
                         --link-journal)
-                                comps='no auto guest host'
+                                comps='no auto guest try-guest host try-host'
                         ;;
                         --bind|--bind-ro)
                                 compopt -o nospace
