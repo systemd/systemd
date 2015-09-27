@@ -477,4 +477,6 @@ global:
 LIBSYSTEMD_227 {
 global:
         sd_bus_default_flush_close;
+        sd_bus_path_decode_many;
+        sd_bus_path_encode_many;
 } LIBSYSTEMD_226;
