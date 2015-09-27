@@ -3467,7 +3467,7 @@ _public_ int sd_bus_path_encode_many(char **out, const char *path_template, ...)
 
         path_length = strlen(path_template);
 
-        va_start(list, out);
+        va_start(list, path_template);
         for (sep = strchr(path_template, '%'); sep; sep = strchr(sep + 1, '%')) {
                 const char *arg;
                 char *label;
@@ -3602,7 +3602,7 @@ _public_ int sd_bus_path_decode_many(const char *path, const char *path_template
                 return 0;
 
         /* copy the labels over to the caller */
-        va_start(list, path);
+        va_start(list, path_template);
         for (label_pos = labels; label_pos && *label_pos; ++label_pos) {
                 char **arg;
 
