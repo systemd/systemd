@@ -4951,10 +4951,16 @@ systemd_import_SOURCES = \
 	src/import/import-raw.h \
 	src/import/import-tar.c \
 	src/import/import-tar.h \
+	src/import/import-dkr.c \
+	src/import/import-dkr.h \
+	src/import/untar-job.c \
+	src/import/untar-job.h \
 	src/import/import-common.c \
 	src/import/import-common.h \
 	src/import/import-compress.c \
 	src/import/import-compress.h \
+	src/import/aufs-util.c \
+	src/import/aufs-util.h \
 	src/import/qcow2-util.c \
 	src/import/qcow2-util.h
 

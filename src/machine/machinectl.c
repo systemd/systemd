@@ -1921,6 +1921,73 @@ static int import_raw(int argc, char *argv[], void *userdata) {
         return transfer_image_common(bus, m);
 }
 
+static int import_dkr(int argc, char *argv[], void *userdata) {
+        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_free_ char *ll = NULL;
+        _cleanup_close_ int fd = -1;
+        const char *local = NULL, *path = NULL;
+        sd_bus *bus = userdata;
+        int r;
+
+        assert(bus);
+
+        if (argc >= 2)
+                path = argv[1];
+        if (isempty(path) || streq(path, "-"))
+                path = NULL;
+
+        if (argc >= 3)
+                local = argv[2];
+        else if (path)
+                local = basename(path);
+        if (isempty(local) || streq(local, "-"))
+                local = NULL;
+
+        if (!local) {
+                log_error("Need either path or local name.");
+                return -EINVAL;
+        }
+
+        r = tar_strip_suffixes(local, &ll);
+        if (r < 0)
+                return log_oom();
+
+        local = ll;
+
+        if (!machine_name_is_valid(local)) {
+                log_error("Local name %s is not a suitable machine name.", local);
+                return -EINVAL;
+        }
+
+        if (path) {
+                fd = open(path, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                if (fd < 0)
+                        return log_error_errno(errno, "Failed to open %s: %m", path);
+        }
+
+        r = sd_bus_message_new_method_call(
+                        bus,
+                        &m,
+                        "org.freedesktop.import1",
+                        "/org/freedesktop/import1",
+                        "org.freedesktop.import1.Manager",
+                        "ImportDkr");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append(
+                        m,
+                        "hsbb",
+                        fd >= 0 ? fd : STDIN_FILENO,
+                        local,
+                        arg_force,
+                        arg_read_only);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        return transfer_image_common(bus, m);
+}
+
 static void determine_compression_from_filename(const char *p) {
         if (arg_format)
                 return;
@@ -2487,6 +2554,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  pull-dkr REMOTE [NAME]      Download a DKR container image\n"
                "  import-tar FILE [NAME]      Import a local TAR container image\n"
                "  import-raw FILE [NAME]      Import a local RAW container or VM image\n"
+               "  import-dkr FILE [NAME]      Import a local DKR container image\n"
                "  export-tar NAME [FILE]      Export a TAR container image locally\n"
                "  export-raw NAME [FILE]      Export a RAW container or VM image locally\n"
                "  list-transfers              Show list of downloads in progress\n"
@@ -2721,6 +2789,7 @@ static int machinectl_main(int argc, char *argv[], sd_bus *bus) {
                 { "disable",         2,        VERB_ANY, 0,            enable_machine    },
                 { "import-tar",      2,        3,        0,            import_tar        },
                 { "import-raw",      2,        3,        0,            import_raw        },
+                { "import-dkr",      2,        3,        0,            import_dkr        },
                 { "export-tar",      2,        3,        0,            export_tar        },
                 { "export-raw",      2,        3,        0,            export_raw        },
                 { "pull-tar",        2,        3,        0,            pull_tar          },

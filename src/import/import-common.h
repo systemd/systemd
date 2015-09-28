@@ -26,3 +26,5 @@ int import_make_read_only(const char *path);
 
 int import_fork_tar_c(const char *path, pid_t *ret);
 int import_fork_tar_x(const char *path, pid_t *ret);
+
+int import_make_local_copy(const char *final, const char *root, const char *local, bool force_local);

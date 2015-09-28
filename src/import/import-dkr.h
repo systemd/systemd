@@ -5,7 +5,7 @@
 /***
   This file is part of systemd.
 
-  Copyright 2015 Lennart Poettering
+  Copyright 2015 Codethink Limited.
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -21,16 +21,17 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdbool.h>
-
-#include "pull-job.h"
+#include "sd-event.h"
+#include "macro.h"
 #include "import-util.h"
 
-int pull_find_old_etags(const char *url, const char *root, int dt, const char *prefix, const char *suffix, char ***etags);
+typedef struct DkrImport DkrImport;
 
-int pull_make_path(const char *url, const char *etag, const char *image_root, const char *prefix, const char *suffix, char **ret);
+typedef void (*DkrImportFinished)(DkrImport *import, int error, void *userdata);
 
-int pull_make_settings_job(PullJob **ret, const char *url, CurlGlue *glue, PullJobFinished on_finished, void *userdata);
-int pull_make_verification_jobs(PullJob **ret_checksum_job, PullJob **ret_signature_job, ImportVerify verify, const char *url, CurlGlue *glue, PullJobFinished on_finished, void *userdata);
+int dkr_import_new(DkrImport **import, sd_event *event, const char *image_root, DkrImportFinished on_finished, void *userdata);
+DkrImport* dkr_import_unref(DkrImport *import);
 
-int pull_verify(PullJob *main_job, PullJob *settings_job, PullJob *checksum_job, PullJob *signature_job);
+DEFINE_TRIVIAL_CLEANUP_FUNC(DkrImport*, dkr_import_unref);
+
+int dkr_import_start(DkrImport *import, int fd, const char *local, bool force_local, bool read_only);

@@ -27,6 +27,8 @@
 #include "btrfs-util.h"
 #include "capability.h"
 #include "signal-util.h"
+#include "rm-rf.h"
+#include "copy.h"
 #include "import-common.h"
 
 int import_make_read_only_fd(int fd) {
@@ -222,4 +224,32 @@ int import_fork_tar_c(const char *path, pid_t *ret) {
         *ret = pid;
 
         return r;
+}
+
+int import_make_local_copy(const char *final, const char *image_root, const char *local, bool force_local) {
+        const char *p;
+        int r;
+
+        assert(final);
+        assert(local);
+
+        if (!image_root)
+                image_root = "/var/lib/machines";
+
+        p = strjoina(image_root, "/", local);
+
+        if (force_local)
+                (void) rm_rf(p, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
+
+        r = btrfs_subvol_snapshot(final, p, 0);
+        if (r == -ENOTTY) {
+                r = copy_tree(final, p, false);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to copy image: %m");
+        } else if (r < 0)
+                return log_error_errno(r, "Failed to create local image: %m");
+
+        log_info("Created new local image '%s'.", local);
+
+        return 0;
 }
