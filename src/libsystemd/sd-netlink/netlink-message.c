@@ -149,6 +149,15 @@ int sd_netlink_message_get_type(sd_netlink_message *m, uint16_t *type) {
         return 0;
 }
 
+int sd_netlink_message_set_flags(sd_netlink_message *m, uint16_t flags) {
+        assert_return(m, -EINVAL);
+        assert_return(flags, -EINVAL);
+
+        m->hdr->nlmsg_flags = flags;
+
+        return 0;
+}
+
 int sd_netlink_message_is_broadcast(sd_netlink_message *m) {
         assert_return(m, -EINVAL);
 

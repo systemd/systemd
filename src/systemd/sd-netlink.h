@@ -104,6 +104,7 @@ int sd_netlink_message_request_dump(sd_netlink_message *m, int dump);
 int sd_netlink_message_is_error(sd_netlink_message *m);
 int sd_netlink_message_get_errno(sd_netlink_message *m);
 int sd_netlink_message_get_type(sd_netlink_message *m, uint16_t *type);
+int sd_netlink_message_set_flags(sd_netlink_message *m, uint16_t flags);
 int sd_netlink_message_is_broadcast(sd_netlink_message *m);
 
 /* rtnl */
