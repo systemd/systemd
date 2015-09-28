@@ -287,13 +287,6 @@ static int slice_enumerate(Manager *m) {
         return 0;
 }
 
-static const char* const slice_state_table[_SLICE_STATE_MAX] = {
-        [SLICE_DEAD] = "dead",
-        [SLICE_ACTIVE] = "active"
-};
-
-DEFINE_STRING_TABLE_LOOKUP(slice_state, SliceState);
-
 const UnitVTable slice_vtable = {
         .object_size = sizeof(Slice),
         .cgroup_context_offset = offsetof(Slice, cgroup_context),

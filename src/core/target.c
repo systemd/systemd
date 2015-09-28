@@ -192,13 +192,6 @@ _pure_ static const char *target_sub_state_to_string(Unit *u) {
         return target_state_to_string(TARGET(u)->state);
 }
 
-static const char* const target_state_table[_TARGET_STATE_MAX] = {
-        [TARGET_DEAD] = "dead",
-        [TARGET_ACTIVE] = "active"
-};
-
-DEFINE_STRING_TABLE_LOOKUP(target_state, TargetState);
-
 const UnitVTable target_vtable = {
         .object_size = sizeof(Target),
 

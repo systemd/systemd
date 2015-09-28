@@ -715,15 +715,6 @@ static void path_reset_failed(Unit *u) {
         p->result = PATH_SUCCESS;
 }
 
-static const char* const path_state_table[_PATH_STATE_MAX] = {
-        [PATH_DEAD] = "dead",
-        [PATH_WAITING] = "waiting",
-        [PATH_RUNNING] = "running",
-        [PATH_FAILED] = "failed"
-};
-
-DEFINE_STRING_TABLE_LOOKUP(path_state, PathState);
-
 static const char* const path_type_table[_PATH_TYPE_MAX] = {
         [PATH_EXISTS] = "PathExists",
         [PATH_EXISTS_GLOB] = "PathExistsGlob",

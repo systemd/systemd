@@ -6333,6 +6333,71 @@ static void help_states(void) {
                 puts("\nAvailable unit active states:");
         for (i = 0; i < _UNIT_ACTIVE_STATE_MAX; i++)
                 puts(unit_active_state_to_string(i));
+
+        if (!arg_no_legend)
+                puts("\nAvailable automount unit substates:");
+        for (i = 0; i < _AUTOMOUNT_STATE_MAX; i++)
+                puts(automount_state_to_string(i));
+
+        if (!arg_no_legend)
+                puts("\nAvailable busname unit substates:");
+        for (i = 0; i < _BUSNAME_STATE_MAX; i++)
+                puts(busname_state_to_string(i));
+
+        if (!arg_no_legend)
+                puts("\nAvailable device unit substates:");
+        for (i = 0; i < _DEVICE_STATE_MAX; i++)
+                puts(device_state_to_string(i));
+
+        if (!arg_no_legend)
+                puts("\nAvailable mount unit substates:");
+        for (i = 0; i < _MOUNT_STATE_MAX; i++)
+                puts(mount_state_to_string(i));
+
+        if (!arg_no_legend)
+                puts("\nAvailable path unit substates:");
+        for (i = 0; i < _PATH_STATE_MAX; i++)
+                puts(path_state_to_string(i));
+
+        if (!arg_no_legend)
+                puts("\nAvailable scope unit substates:");
+        for (i = 0; i < _SCOPE_STATE_MAX; i++)
+                puts(scope_state_to_string(i));
+
+        if (!arg_no_legend)
+                puts("\nAvailable service unit substates:");
+        for (i = 0; i < _SERVICE_STATE_MAX; i++)
+                puts(service_state_to_string(i));
+
+        if (!arg_no_legend)
+                puts("\nAvailable slice unit substates:");
+        for (i = 0; i < _SLICE_STATE_MAX; i++)
+                puts(slice_state_to_string(i));
+
+        if (!arg_no_legend)
+                puts("\nAvailable snapshot unit substates:");
+        for (i = 0; i < _SNAPSHOT_STATE_MAX; i++)
+                puts(snapshot_state_to_string(i));
+
+        if (!arg_no_legend)
+                puts("\nAvailable socket unit substates:");
+        for (i = 0; i < _SOCKET_STATE_MAX; i++)
+                puts(socket_state_to_string(i));
+
+        if (!arg_no_legend)
+                puts("\nAvailable swap unit substates:");
+        for (i = 0; i < _SWAP_STATE_MAX; i++)
+                puts(swap_state_to_string(i));
+
+        if (!arg_no_legend)
+                puts("\nAvailable target unit substates:");
+        for (i = 0; i < _TARGET_STATE_MAX; i++)
+                puts(target_state_to_string(i));
+
+        if (!arg_no_legend)
+                puts("\nAvailable timer unit substates:");
+        for (i = 0; i < _TIMER_STATE_MAX; i++)
+                puts(timer_state_to_string(i));
 }
 
 static int systemctl_parse_argv(int argc, char *argv[]) {

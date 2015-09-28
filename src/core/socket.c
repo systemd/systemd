@@ -2782,24 +2782,6 @@ static int socket_get_timeout(Unit *u, uint64_t *timeout) {
         return 1;
 }
 
-static const char* const socket_state_table[_SOCKET_STATE_MAX] = {
-        [SOCKET_DEAD] = "dead",
-        [SOCKET_START_PRE] = "start-pre",
-        [SOCKET_START_CHOWN] = "start-chown",
-        [SOCKET_START_POST] = "start-post",
-        [SOCKET_LISTENING] = "listening",
-        [SOCKET_RUNNING] = "running",
-        [SOCKET_STOP_PRE] = "stop-pre",
-        [SOCKET_STOP_PRE_SIGTERM] = "stop-pre-sigterm",
-        [SOCKET_STOP_PRE_SIGKILL] = "stop-pre-sigkill",
-        [SOCKET_STOP_POST] = "stop-post",
-        [SOCKET_FINAL_SIGTERM] = "final-sigterm",
-        [SOCKET_FINAL_SIGKILL] = "final-sigkill",
-        [SOCKET_FAILED] = "failed"
-};
-
-DEFINE_STRING_TABLE_LOOKUP(socket_state, SocketState);
-
 static const char* const socket_exec_command_table[_SOCKET_EXEC_COMMAND_MAX] = {
         [SOCKET_EXEC_START_PRE] = "StartPre",
         [SOCKET_EXEC_START_CHOWN] = "StartChown",

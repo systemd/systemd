@@ -25,16 +25,6 @@ typedef struct Timer Timer;
 
 #include "calendarspec.h"
 
-typedef enum TimerState {
-        TIMER_DEAD,
-        TIMER_WAITING,
-        TIMER_RUNNING,
-        TIMER_ELAPSED,
-        TIMER_FAILED,
-        _TIMER_STATE_MAX,
-        _TIMER_STATE_INVALID = -1
-} TimerState;
-
 typedef enum TimerBase {
         TIMER_ACTIVE,
         TIMER_BOOT,
@@ -90,9 +80,6 @@ struct Timer {
 void timer_free_values(Timer *t);
 
 extern const UnitVTable timer_vtable;
-
-const char *timer_state_to_string(TimerState i) _const_;
-TimerState timer_state_from_string(const char *s) _pure_;
 
 const char *timer_base_to_string(TimerBase i) _const_;
 TimerBase timer_base_from_string(const char *s) _pure_;

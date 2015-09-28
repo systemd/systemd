@@ -23,14 +23,6 @@
 
 typedef struct Snapshot Snapshot;
 
-
-typedef enum SnapshotState {
-        SNAPSHOT_DEAD,
-        SNAPSHOT_ACTIVE,
-        _SNAPSHOT_STATE_MAX,
-        _SNAPSHOT_STATE_INVALID = -1
-} SnapshotState;
-
 struct Snapshot {
         Unit meta;
 
@@ -43,6 +35,3 @@ extern const UnitVTable snapshot_vtable;
 
 int snapshot_create(Manager *m, const char *name, bool cleanup, sd_bus_error *e, Snapshot **s);
 void snapshot_remove(Snapshot *s);
-
-const char* snapshot_state_to_string(SnapshotState i) _const_;
-SnapshotState snapshot_state_from_string(const char *s) _pure_;

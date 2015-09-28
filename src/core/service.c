@@ -3092,27 +3092,6 @@ static int service_kill(Unit *u, KillWho who, int signo, sd_bus_error *error) {
         return unit_kill_common(u, who, signo, s->main_pid, s->control_pid, error);
 }
 
-static const char* const service_state_table[_SERVICE_STATE_MAX] = {
-        [SERVICE_DEAD] = "dead",
-        [SERVICE_START_PRE] = "start-pre",
-        [SERVICE_START] = "start",
-        [SERVICE_START_POST] = "start-post",
-        [SERVICE_RUNNING] = "running",
-        [SERVICE_EXITED] = "exited",
-        [SERVICE_RELOAD] = "reload",
-        [SERVICE_STOP] = "stop",
-        [SERVICE_STOP_SIGABRT] = "stop-sigabrt",
-        [SERVICE_STOP_SIGTERM] = "stop-sigterm",
-        [SERVICE_STOP_SIGKILL] = "stop-sigkill",
-        [SERVICE_STOP_POST] = "stop-post",
-        [SERVICE_FINAL_SIGTERM] = "final-sigterm",
-        [SERVICE_FINAL_SIGKILL] = "final-sigkill",
-        [SERVICE_FAILED] = "failed",
-        [SERVICE_AUTO_RESTART] = "auto-restart",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(service_state, ServiceState);
-
 static const char* const service_restart_table[_SERVICE_RESTART_MAX] = {
         [SERVICE_RESTART_NO] = "no",
         [SERVICE_RESTART_ON_SUCCESS] = "on-success",
