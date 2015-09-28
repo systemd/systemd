@@ -68,6 +68,9 @@ User* user_new(Manager *m, uid_t uid, gid_t gid, const char *name) {
         if (asprintf(&u->state_file, "/run/systemd/users/"UID_FMT, uid) < 0)
                 goto fail;
 
+        if (asprintf(&u->runtime_path, "/run/user/"UID_FMT, uid) < 0)
+                goto fail;
+
         if (hashmap_put(m->users, UID_TO_PTR(uid), u) < 0)
                 goto fail;
 
@@ -78,6 +81,7 @@ User* user_new(Manager *m, uid_t uid, gid_t gid, const char *name) {
         return u;
 
 fail:
+        free(u->runtime_path);
         free(u->state_file);
         free(u->name);
         free(u);
@@ -141,6 +145,7 @@ static int user_save_internal(User *u) {
                 u->name,
                 user_state_to_string(user_get_state(u)));
 
+        /* LEGACY: no-one reads RUNTIME= anymore, drop it at some point */
         if (u->runtime_path)
                 fprintf(f, "RUNTIME=%s\n", u->runtime_path);
 
@@ -288,7 +293,6 @@ int user_load(User *u) {
         assert(u);
 
         r = parse_env_file(u->state_file, NEWLINE,
-                           "RUNTIME",     &u->runtime_path,
                            "SERVICE",     &u->service,
                            "SERVICE_JOB", &u->service_job,
                            "SLICE",       &u->slice,
@@ -327,7 +331,6 @@ int user_load(User *u) {
 }
 
 static int user_mkdir_runtime_path(User *u) {
-        char *p;
         int r;
 
         assert(u);
@@ -336,16 +339,10 @@ static int user_mkdir_runtime_path(User *u) {
         if (r < 0)
                 return log_error_errno(r, "Failed to create /run/user: %m");
 
-        if (!u->runtime_path) {
-                if (asprintf(&p, "/run/user/" UID_FMT, u->uid) < 0)
-                        return log_oom();
-        } else
-                p = u->runtime_path;
-
-        if (path_is_mount_point(p, 0) <= 0) {
+        if (path_is_mount_point(u->runtime_path, 0) <= 0) {
                 _cleanup_free_ char *t = NULL;
 
-                (void) mkdir_label(p, 0700);
+                (void) mkdir_label(u->runtime_path, 0700);
 
                 if (mac_smack_use())
                         r = asprintf(&t, "mode=0700,smackfsroot=*,uid=" UID_FMT ",gid=" GID_FMT ",size=%zu", u->uid, u->gid, u->manager->runtime_dir_size);
@@ -356,10 +353,10 @@ static int user_mkdir_runtime_path(User *u) {
                         goto fail;
                 }
 
-                r = mount("tmpfs", p, "tmpfs", MS_NODEV|MS_NOSUID, t);
+                r = mount("tmpfs", u->runtime_path, "tmpfs", MS_NODEV|MS_NOSUID, t);
                 if (r < 0) {
                         if (errno != EPERM) {
-                                r = log_error_errno(errno, "Failed to mount per-user tmpfs directory %s: %m", p);
+                                r = log_error_errno(errno, "Failed to mount per-user tmpfs directory %s: %m", u->runtime_path);
                                 goto fail;
                         }
 
@@ -367,29 +364,23 @@ static int user_mkdir_runtime_path(User *u) {
                          * CAP_SYS_ADMIN-less container? In this case,
                          * just use a normal directory. */
 
-                        r = chmod_and_chown(p, 0700, u->uid, u->gid);
+                        r = chmod_and_chown(u->runtime_path, 0700, u->uid, u->gid);
                         if (r < 0) {
                                 log_error_errno(r, "Failed to change runtime directory ownership and mode: %m");
                                 goto fail;
                         }
                 }
 
-                r = label_fix(p, false, false);
+                r = label_fix(u->runtime_path, false, false);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to fix label of '%s', ignoring: %m", p);
+                        log_warning_errno(r, "Failed to fix label of '%s', ignoring: %m", u->runtime_path);
         }
 
-        u->runtime_path = p;
         return 0;
 
 fail:
-        if (p) {
-                /* Try to clean up, but ignore errors */
-                (void) rmdir(p);
-                free(p);
-        }
-
-        u->runtime_path = NULL;
+        /* Try to clean up, but ignore errors */
+        (void) rmdir(u->runtime_path);
         return r;
 }
 
@@ -574,9 +565,6 @@ static int user_remove_runtime_path(User *u) {
 
         assert(u);
 
-        if (!u->runtime_path)
-                return 0;
-
         r = rm_rf(u->runtime_path, 0);
         if (r < 0)
                 log_error_errno(r, "Failed to remove runtime directory %s: %m", u->runtime_path);
@@ -591,8 +579,6 @@ static int user_remove_runtime_path(User *u) {
         r = rm_rf(u->runtime_path, REMOVE_ROOT);
         if (r < 0)
                 log_error_errno(r, "Failed to remove runtime directory %s: %m", u->runtime_path);
-
-        u->runtime_path = mfree(u->runtime_path);
 
         return r;
 }
