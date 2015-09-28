@@ -404,6 +404,7 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
                         address->flags = flags;
                         address->cinfo = cinfo;
 
+                        link_check_ready(link);
                 } else {
                         r = address_add(link, family, &in_addr, prefixlen, &address);
                         if (r < 0) {
@@ -416,7 +417,7 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
                         address->flags = flags;
                         address->cinfo = cinfo;
 
-                        link_save(link);
+                        link_check_ready(link);
                 }
 
                 break;

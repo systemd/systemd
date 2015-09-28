@@ -176,7 +176,7 @@ static void dhcp6_handler(sd_dhcp6_client *client, int event, void *userdata) {
                 return;
         }
 
-        link_client_handler(link);
+        link_check_ready(link);
 }
 
 static int dhcp6_configure(Link *link, int event) {

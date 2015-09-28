@@ -283,10 +283,19 @@ static int address_release(Address *address, Link *link) {
 }
 
 int address_drop(Address *address) {
+        Link *link;
+        bool ready;
+
         assert(address);
+
+        ready = address_is_ready(address);
+        link = address->link;
 
         address_release(address, address->link);
         address_free(address);
+
+        if (link && !ready)
+                link_check_ready(link);
 
         return 0;
 }

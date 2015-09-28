@@ -126,7 +126,7 @@ int link_route_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, void *use
 void link_enter_failed(Link *link);
 int link_initialized(Link *link, struct udev_device *device);
 
-void link_client_handler(Link *link);
+void link_check_ready(Link *link);
 
 int link_update(Link *link, sd_netlink_message *message);
 

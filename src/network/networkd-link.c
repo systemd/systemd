@@ -503,7 +503,10 @@ static int link_enter_configured(Link *link) {
         return 0;
 }
 
-void link_client_handler(Link *link) {
+void link_check_ready(Link *link) {
+        Address *a;
+        Iterator i;
+
         assert(link);
         assert(link->network);
 
@@ -522,6 +525,10 @@ void link_client_handler(Link *link) {
             (link_dhcp4_enabled(link) && link_dhcp6_enabled(link) &&
              !link->dhcp4_configured && !link->dhcp6_configured))
                 return;
+
+        SET_FOREACH(a, link->addresses, i)
+                if (!address_is_ready(a))
+                        return;
 
         if (link->state != LINK_STATE_CONFIGURED)
                 link_enter_configured(link);
@@ -550,7 +557,7 @@ static int route_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata
         if (link->link_messages == 0) {
                 log_link_debug(link, "Routes set");
                 link->static_configured = true;
-                link_client_handler(link);
+                link_check_ready(link);
         }
 
         return 1;
@@ -579,7 +586,7 @@ static int link_enter_set_routes(Link *link) {
 
         if (link->link_messages == 0) {
                 link->static_configured = true;
-                link_client_handler(link);
+                link_check_ready(link);
         } else
                 log_link_debug(link, "Setting routes");
 

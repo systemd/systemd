@@ -45,7 +45,7 @@ static int dhcp4_route_handler(sd_netlink *rtnl, sd_netlink_message *m,
 
         if (!link->dhcp4_messages) {
                 link->dhcp4_configured = true;
-                link_client_handler(link);
+                link_check_ready(link);
         }
 
         return 1;
