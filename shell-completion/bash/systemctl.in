@@ -87,8 +87,8 @@ __get_all_unit_files () { { __systemctl $1 list-unit-files; } | { while read -r 
 
 __get_machines() {
         local a b
-        (machinectl list-images --no-legend --no-pager; machinectl list --no-legend --no-pager) | \
-		{ while read a b; do echo " $a"; done; } | sort -u;
+        { machinectl list-images --no-legend --no-pager; machinectl list --no-legend --no-pager; } | \
+		{ while read a b; do echo " $a"; done; }
 }
 
 _systemctl () {
