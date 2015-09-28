@@ -29,6 +29,7 @@
 
 typedef enum UnitType UnitType;
 typedef enum UnitLoadState UnitLoadState;
+typedef enum UnitActiveState UnitActiveState;
 typedef enum UnitDependency UnitDependency;
 
 enum UnitType {
@@ -58,6 +59,17 @@ enum UnitLoadState {
         UNIT_MASKED,
         _UNIT_LOAD_STATE_MAX,
         _UNIT_LOAD_STATE_INVALID = -1
+};
+
+enum UnitActiveState {
+        UNIT_ACTIVE,
+        UNIT_RELOADING,
+        UNIT_INACTIVE,
+        UNIT_FAILED,
+        UNIT_ACTIVATING,
+        UNIT_DEACTIVATING,
+        _UNIT_ACTIVE_STATE_MAX,
+        _UNIT_ACTIVE_STATE_INVALID = -1
 };
 
 enum UnitDependency {
@@ -175,6 +187,9 @@ UnitType unit_type_from_string(const char *s) _pure_;
 
 const char *unit_load_state_to_string(UnitLoadState i) _const_;
 UnitLoadState unit_load_state_from_string(const char *s) _pure_;
+
+const char *unit_active_state_to_string(UnitActiveState i) _const_;
+UnitActiveState unit_active_state_from_string(const char *s) _pure_;
 
 const char *unit_dependency_to_string(UnitDependency i) _const_;
 UnitDependency unit_dependency_from_string(const char *s) _pure_;
