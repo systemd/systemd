@@ -397,28 +397,18 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
 
         switch (type) {
         case RTM_NEWADDR:
-                if (address) {
+                if (address)
                         log_link_debug(link, "Updating address: %s/%u (valid for %s)", buf, prefixlen, valid_str);
-
-                        address->scope = scope;
-                        address->flags = flags;
-                        address->cinfo = cinfo;
-
-                        link_check_ready(link);
-                } else {
+                else {
                         r = address_add(link, family, &in_addr, prefixlen, &address);
                         if (r < 0) {
                                 log_link_warning_errno(link, r, "Failed to add address %s/%u: %m", buf, prefixlen);
                                 return 0;
                         } else
                                 log_link_debug(link, "Adding address: %s/%u (valid for %s)", buf, prefixlen, valid_str);
-
-                        address->scope = scope;
-                        address->flags = flags;
-                        address->cinfo = cinfo;
-
-                        link_check_ready(link);
                 }
+
+                address_update(address, scope, flags, &cinfo);
 
                 break;
 

@@ -282,6 +282,24 @@ static int address_release(Address *address, Link *link) {
         return 0;
 }
 
+int address_update(Address *address, unsigned char flags, unsigned char scope, struct ifa_cacheinfo *cinfo) {
+        bool ready;
+
+        assert(address);
+        assert(cinfo);
+
+        ready = address_is_ready(address);
+
+        address->flags = flags;
+        address->scope = scope;
+        address->cinfo = *cinfo;
+
+        if (!ready && address_is_ready(address) && address->link)
+                link_check_ready(address->link);
+
+        return 0;
+}
+
 int address_drop(Address *address) {
         Link *link;
         bool ready;
@@ -359,7 +377,7 @@ int address_remove(Address *address, Link *link,
         return 0;
 }
 
-int address_update(Address *address, Link *link,
+int address_change(Address *address, Link *link,
                    sd_netlink_message_handler_t callback) {
         _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL;
         int r;
