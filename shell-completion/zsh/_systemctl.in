@@ -334,13 +334,13 @@ _systemctl_caching_policy()
 
 _unit_states() {
     local -a _states
-    _states=(loaded failed active inactive not-found listening running waiting plugged mounted exited dead masked)
+    _states=("${(fo)$(__systemctl --state=help)}")
     _values -s , "${_states[@]}"
 }
 
 _unit_types() {
     local -a _types
-    _types=(automount busname device mount path service snapshot socket swap target timer)
+    _types=("${(fo)$(__systemctl -t help)}")
     _values -s , "${_types[@]}"
 }
 
