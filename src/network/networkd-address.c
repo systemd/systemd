@@ -738,3 +738,9 @@ int config_parse_label(const char *unit,
 
         return 0;
 }
+
+bool address_is_ready(const Address *a) {
+        assert(a);
+
+        return !(a->flags & (IFA_F_TENTATIVE | IFA_F_DEPRECATED));
+}

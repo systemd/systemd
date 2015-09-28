@@ -67,6 +67,7 @@ int address_configure(Address *address, Link *link, sd_netlink_message_handler_t
 int address_update(Address *address, Link *link, sd_netlink_message_handler_t callback);
 int address_remove(Address *address, Link *link, sd_netlink_message_handler_t callback);
 bool address_equal(Address *a1, Address *a2);
+bool address_is_ready(const Address *a);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Address*, address_free);
 #define _cleanup_address_free_ _cleanup_(address_freep)

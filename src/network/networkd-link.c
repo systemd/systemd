@@ -2275,7 +2275,7 @@ static void link_update_operstate(Link *link) {
 
                 /* if we have carrier, check what addresses we have */
                 SET_FOREACH(address, link->addresses, i) {
-                        if (address->flags & (IFA_F_TENTATIVE | IFA_F_DEPRECATED))
+                        if (!address_is_ready(address))
                                 continue;
 
                         if (address->scope < scope)
