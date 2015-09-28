@@ -6314,15 +6314,25 @@ static void runlevel_help(void) {
 
 static void help_types(void) {
         int i;
-        const char *t;
 
         if (!arg_no_legend)
                 puts("Available unit types:");
-        for (i = 0; i < _UNIT_TYPE_MAX; i++) {
-                t = unit_type_to_string(i);
-                if (t)
-                        puts(t);
-        }
+        for (i = 0; i < _UNIT_TYPE_MAX; i++)
+                puts(unit_type_to_string(i));
+}
+
+static void help_states(void) {
+        int i;
+
+        if (!arg_no_legend)
+                puts("Available unit load states:");
+        for (i = 0; i < _UNIT_LOAD_STATE_MAX; i++)
+                puts(unit_load_state_to_string(i));
+
+        if (!arg_no_legend)
+                puts("\nAvailable unit active states:");
+        for (i = 0; i < _UNIT_ACTIVE_STATE_MAX; i++)
+                puts(unit_active_state_to_string(i));
 }
 
 static int systemctl_parse_argv(int argc, char *argv[]) {
@@ -6659,6 +6669,11 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                                 s = strndup(word, size);
                                 if (!s)
                                         return log_oom();
+
+                                if (streq(s, "help")) {
+                                        help_states();
+                                        return 0;
+                                }
 
                                 if (strv_consume(&arg_states, s) < 0)
                                         return log_oom();

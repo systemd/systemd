@@ -101,10 +101,14 @@
         <term><option>--state=</option></term>
 
         <listitem>
-        <para>The argument should be a comma-separated list of unit
-        LOAD, SUB, or ACTIVE states. When listing units, show only
-        those in specified states. Use <option>--state=failed</option>
-        to show only failed units.</para>
+          <para>The argument should be a comma-separated list of unit
+          LOAD, SUB, or ACTIVE states. When listing units, show only
+          those in specified states. Use <option>--state=failed</option>
+          to show only failed units.</para>
+
+          <para>As a special case, if one of the arguments is
+          <option>help</option>, a list of allowed values will be
+          printed and the program will exit.</para>
         </listitem>
       </varlistentry>
 
