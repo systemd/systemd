@@ -119,7 +119,7 @@ id[8] = (id[8] &amp; 0x3F) | 0x80;</programlisting>
     <filename>/etc/machine-id</filename> originates in the
     <filename>/var/lib/dbus/machine-id</filename> file introduced by
     D-Bus. In fact, this latter file might be a symlink to
-    <varname>/etc/machine-id</varname>.</para>
+    <filename>/etc/machine-id</filename>.</para>
   </refsect1>
 
   <refsect1>

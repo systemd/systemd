@@ -270,8 +270,8 @@
         <varname>ListenFIFO=</varname> directive above. Use this to
         open functionfs endpoint <filename>ep0</filename>. When using
         this option, activated service has to have the
-        <varname>USBFunctionDescriptors</varname> and
-        <varname>USBFunctionStrings</varname> options set.
+        <varname>USBFunctionDescriptors=</varname> and
+        <varname>USBFunctionStrings=</varname> options set.
         </para></listitem>
       </varlistentry>
 
