@@ -3136,9 +3136,8 @@ static int start_special(char **args) {
                    ACTION_EXIT))
                 return daemon_reload(args);
 
-        /* first try logind, to allow authentication with polkit */
-        if (geteuid() != 0 &&
-            IN_SET(a,
+        /* First try logind, to allow authentication with polkit */
+        if (IN_SET(a,
                    ACTION_POWEROFF,
                    ACTION_REBOOT,
                    ACTION_SUSPEND,
@@ -3150,7 +3149,8 @@ static int start_special(char **args) {
                 if (IN_SET(r, -EOPNOTSUPP, -EINPROGRESS))
                         /* requested operation is not supported or already in progress */
                         return r;
-                /* on all other errors, try low-level operation */
+
+                /* On all other errors, try low-level operation */
         }
 
         return start_unit(args);
