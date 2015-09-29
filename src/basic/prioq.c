@@ -101,7 +101,7 @@ static unsigned shuffle_up(Prioq *q, unsigned idx) {
 
                 k = (idx-1)/2;
 
-                if (q->compare_func(q->items[k].data, q->items[idx].data) < 0)
+                if (q->compare_func(q->items[k].data, q->items[idx].data) <= 0)
                         break;
 
                 swap(q, idx, k);
