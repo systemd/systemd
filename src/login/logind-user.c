@@ -452,15 +452,32 @@ int user_start(User *u) {
 
         assert(u);
 
-        if (u->started)
+        if (u->started && !u->stopping)
                 return 0;
 
-        log_debug("New user %s logged in.", u->name);
+        /*
+         * If u->stopping is set, the user is marked for removal and the slice
+         * and service stop-jobs are queued. We have to clear that flag before
+         * queing the start-jobs again. If they succeed, the user object can be
+         * re-used just fine (pid1 takes care of job-ordering and proper
+         * restart), but if they fail, we want to force another user_stop() so
+         * possibly pending units are stopped.
+         * Note that we don't clear u->started, as we have no clue what state
+         * the user is in on failure here. Hence, we pretend the user is
+         * running so it will be properly taken down by GC. However, we clearly
+         * return an error from user_start() in that case, so no further
+         * reference to the user is taken.
+         */
+        u->stopping = false;
 
-        /* Make XDG_RUNTIME_DIR */
-        r = user_mkdir_runtime_path(u);
-        if (r < 0)
-                return r;
+        if (!u->started) {
+                log_debug("New user %s logged in.", u->name);
+
+                /* Make XDG_RUNTIME_DIR */
+                r = user_mkdir_runtime_path(u);
+                if (r < 0)
+                        return r;
+        }
 
         /* Create cgroup */
         r = user_start_slice(u);
@@ -478,15 +495,15 @@ int user_start(User *u) {
         if (r < 0)
                 return r;
 
-        if (!dual_timestamp_is_set(&u->timestamp))
-                dual_timestamp_get(&u->timestamp);
-
-        u->started = true;
+        if (!u->started) {
+                if (!dual_timestamp_is_set(&u->timestamp))
+                        dual_timestamp_get(&u->timestamp);
+                user_send_signal(u, true);
+                u->started = true;
+        }
 
         /* Save new user data */
         user_save(u);
-
-        user_send_signal(u, true);
 
         return 0;
 }
