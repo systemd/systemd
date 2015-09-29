@@ -7425,22 +7425,22 @@ static int halt_now(enum action a) {
         /* The kernel will automaticall flush ATA disks and suchlike
          * on reboot(), but the file systems need to be synce'd
          * explicitly in advance. */
-        sync();
+        (void) sync();
 
         /* Make sure C-A-D is handled by the kernel from this point
          * on... */
-        reboot(RB_ENABLE_CAD);
+        (void) reboot(RB_ENABLE_CAD);
 
         switch (a) {
 
         case ACTION_HALT:
                 log_info("Halting.");
-                reboot(RB_HALT_SYSTEM);
+                (void) reboot(RB_HALT_SYSTEM);
                 return -errno;
 
         case ACTION_POWEROFF:
                 log_info("Powering off.");
-                reboot(RB_POWER_OFF);
+                (void) reboot(RB_POWER_OFF);
                 return -errno;
 
         case ACTION_KEXEC:
@@ -7449,11 +7449,11 @@ static int halt_now(enum action a) {
 
                 if (read_one_line_file(REBOOT_PARAM_FILE, &param) >= 0) {
                         log_info("Rebooting with argument '%s'.", param);
-                        syscall(SYS_reboot, LINUX_REBOOT_MAGIC1, LINUX_REBOOT_MAGIC2, LINUX_REBOOT_CMD_RESTART2, param);
+                        (void) syscall(SYS_reboot, LINUX_REBOOT_MAGIC1, LINUX_REBOOT_MAGIC2, LINUX_REBOOT_CMD_RESTART2, param);
                 }
 
                 log_info("Rebooting.");
-                reboot(RB_AUTOBOOT);
+                (void) reboot(RB_AUTOBOOT);
                 return -errno;
         }
 
