@@ -51,60 +51,54 @@
 #include "user-util.h"
 #include "util.h"
 
-User* user_new(Manager *m, uid_t uid, gid_t gid, const char *name) {
+int user_new(User **out, Manager *m, uid_t uid, gid_t gid, const char *name) {
+        _cleanup_(user_freep) User *u = NULL;
         char lu[DECIMAL_STR_MAX(uid_t) + 1];
-        User *u;
         int r;
 
+        assert(out);
         assert(m);
         assert(name);
 
         u = new0(User, 1);
         if (!u)
-                return NULL;
-
-        u->name = strdup(name);
-        if (!u->name)
-                goto fail;
-
-        if (asprintf(&u->state_file, "/run/systemd/users/"UID_FMT, uid) < 0)
-                goto fail;
-
-        if (asprintf(&u->runtime_path, "/run/user/"UID_FMT, uid) < 0)
-                goto fail;
-
-        sprintf(lu, UID_FMT, uid);
-        r = slice_build_subslice(SPECIAL_USER_SLICE, lu, &u->slice);
-        if (r < 0)
-                goto fail;
-
-        if (hashmap_put(m->users, UID_TO_PTR(uid), u) < 0)
-                goto fail;
-
-        if (hashmap_put(m->user_units, u->slice, u) < 0)
-                goto fail;
+                return -ENOMEM;
 
         u->manager = m;
         u->uid = uid;
         u->gid = gid;
 
-        return u;
+        u->name = strdup(name);
+        if (!u->name)
+                return -ENOMEM;
 
-fail:
-        if (u->slice)
-                hashmap_remove(m->user_units, u->slice);
-        hashmap_remove(m->users, UID_TO_PTR(uid));
-        free(u->slice);
-        free(u->runtime_path);
-        free(u->state_file);
-        free(u->name);
-        free(u);
+        if (asprintf(&u->state_file, "/run/systemd/users/"UID_FMT, uid) < 0)
+                return -ENOMEM;
 
-        return NULL;
+        if (asprintf(&u->runtime_path, "/run/user/"UID_FMT, uid) < 0)
+                return -ENOMEM;
+
+        xsprintf(lu, UID_FMT, uid);
+        r = slice_build_subslice(SPECIAL_USER_SLICE, lu, &u->slice);
+        if (r < 0)
+                return r;
+
+        r = hashmap_put(m->users, UID_TO_PTR(uid), u);
+        if (r < 0)
+                return r;
+
+        r = hashmap_put(m->user_units, u->slice, u);
+        if (r < 0)
+                return r;
+
+        *out = u;
+        u = NULL;
+        return 0;
 }
 
-void user_free(User *u) {
-        assert(u);
+User *user_free(User *u) {
+        if (!u)
+                return NULL;
 
         if (u->in_gc_queue)
                 LIST_REMOVE(gc_queue, u->manager->user_gc_queue, u);
@@ -112,23 +106,24 @@ void user_free(User *u) {
         while (u->sessions)
                 session_free(u->sessions);
 
-        if (u->service) {
-                hashmap_remove(u->manager->user_units, u->service);
-                free(u->service);
-        }
+        if (u->service)
+                hashmap_remove_value(u->manager->user_units, u->service, u);
 
-        hashmap_remove(u->manager->user_units, u->slice);
-        hashmap_remove(u->manager->users, UID_TO_PTR(u->uid));
+        if (u->slice)
+                hashmap_remove_value(u->manager->user_units, u->slice, u);
 
-        free(u->slice_job);
-        free(u->service_job);
+        hashmap_remove_value(u->manager->users, UID_TO_PTR(u->uid), u);
 
-        free(u->slice);
-        free(u->runtime_path);
+        u->slice_job = mfree(u->slice_job);
+        u->service_job = mfree(u->service_job);
 
-        free(u->name);
-        free(u->state_file);
-        free(u);
+        u->service = mfree(u->service);
+        u->slice = mfree(u->slice);
+        u->runtime_path = mfree(u->runtime_path);
+        u->state_file = mfree(u->state_file);
+        u->name = mfree(u->name);
+
+        return mfree(u);
 }
 
 static int user_save_internal(User *u) {
