@@ -240,9 +240,9 @@ int tlv_packet_read_string(tlv_packet *m, char **data, uint16_t *data_length) {
                 return r;
 
         *data = (char *) val;
-        *data_length = m->container->length;
+        *data_length = m->container->data + m->container->length - m->container->read_pos;
 
-        m->container->read_pos += m->container->length;
+        m->container->read_pos += *data_length;
 
         return 0;
 }
@@ -258,9 +258,9 @@ int tlv_packet_read_bytes(tlv_packet *m, uint8_t **data, uint16_t *data_length) 
                 return r;
 
         *data = (uint8_t *) val;
-        *data_length = m->container->length;
+        *data_length = m->container->data + m->container->length - m->container->read_pos;
 
-        m->container->read_pos += m->container->length;
+        m->container->read_pos += *data_length;
 
         return 0;
 }
@@ -336,7 +336,7 @@ int lldp_tlv_packet_enter_container(tlv_packet *m, uint16_t type) {
 
         m->container->read_pos = s->data;
         if (!m->container->read_pos) {
-                m->container = 0;
+                m->container = NULL;
                 return -1;
         }
 
@@ -364,7 +364,7 @@ int lldp_tlv_packet_enter_container_oui(tlv_packet *m, const uint8_t *oui, uint8
 
         m->container->read_pos = s->data;
         if (!m->container->read_pos) {
-                m->container = 0;
+                m->container = NULL;
                 return -1;
         }
 
