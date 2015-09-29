@@ -954,7 +954,7 @@ static int remoteserver_init(RemoteServer *s,
         }
 
         if (s->active == 0) {
-                log_error("Zarro sources specified");
+                log_error("Zero sources specified");
                 return -EINVAL;
         }
 
