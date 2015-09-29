@@ -698,9 +698,8 @@ static int get_triggered_units(
                         "Triggers",
                         &error,
                         ret);
-
         if (r < 0)
-                log_error("Failed to determine triggers: %s", bus_error_message(&error, r));
+                return log_error_errno(r, "Failed to determine triggers: %s", bus_error_message(&error, r));
 
         return 0;
 }
@@ -724,10 +723,8 @@ static int get_listening(
                         &error,
                         &reply,
                         "a(ss)");
-        if (r < 0) {
-                log_error("Failed to get list of listening sockets: %s", bus_error_message(&error, r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to get list of listening sockets: %s", bus_error_message(&error, r));
 
         r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "(ss)");
         if (r < 0)
@@ -966,10 +963,8 @@ static int get_next_elapse(
                         &error,
                         't',
                         &t.monotonic);
-        if (r < 0) {
-                log_error("Failed to get next elapsation time: %s", bus_error_message(&error, r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to get next elapsation time: %s", bus_error_message(&error, r));
 
         r = sd_bus_get_property_trivial(
                         bus,
@@ -980,10 +975,8 @@ static int get_next_elapse(
                         &error,
                         't',
                         &t.realtime);
-        if (r < 0) {
-                log_error("Failed to get next elapsation time: %s", bus_error_message(&error, r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to get next elapsation time: %s", bus_error_message(&error, r));
 
         *next = t;
         return 0;
@@ -1010,10 +1003,8 @@ static int get_last_trigger(
                         &error,
                         't',
                         last);
-        if (r < 0) {
-                log_error("Failed to get last trigger time: %s", bus_error_message(&error, r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to get last trigger time: %s", bus_error_message(&error, r));
 
         return 0;
 }
@@ -1375,8 +1366,7 @@ static int list_unit_files(char **args) {
                 r = unit_file_get_list(arg_scope, arg_root, h);
                 if (r < 0) {
                         unit_file_list_free(h);
-                        log_error_errno(r, "Failed to get unit file list: %m");
-                        return r;
+                        return log_error_errno(r, "Failed to get unit file list: %m");
                 }
 
                 n_units = hashmap_size(h);
@@ -1414,10 +1404,8 @@ static int list_unit_files(char **args) {
                                 &error,
                                 &reply,
                                 NULL);
-                if (r < 0) {
-                        log_error("Failed to list unit files: %s", bus_error_message(&error, r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to list unit files: %s", bus_error_message(&error, r));
 
                 r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "(ss)");
                 if (r < 0)
@@ -1540,10 +1528,8 @@ static int list_dependencies_get_dependencies(sd_bus *bus, const char *name, cha
                         &error,
                         &reply,
                         "s", "org.freedesktop.systemd1.Unit");
-        if (r < 0) {
-                log_error("Failed to get properties of %s: %s", name, bus_error_message(&error, r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to get properties of %s: %s", name, bus_error_message(&error, r));
 
         r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "{sv}");
         if (r < 0)
@@ -1960,10 +1946,8 @@ static int get_default(char **args) {
                                 &error,
                                 &reply,
                                 NULL);
-                if (r < 0) {
-                        log_error("Failed to get default target: %s", bus_error_message(&error, -r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get default target: %s", bus_error_message(&error, r));
 
                 r = sd_bus_message_read(reply, "s", &path);
                 if (r < 0)
@@ -2030,10 +2014,8 @@ static int set_default(char **args) {
                                 &error,
                                 &reply,
                                 "sb", unit, 1);
-                if (r < 0) {
-                        log_error("Failed to set default target: %s", bus_error_message(&error, -r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set default target: %s", bus_error_message(&error, r));
 
                 r = bus_deserialize_and_dump_unit_file_changes(reply, arg_quiet, NULL, NULL);
                 if (r < 0)
@@ -2157,10 +2139,8 @@ static int list_jobs(char **args) {
                         &error,
                         &reply,
                         NULL);
-        if (r < 0) {
-                log_error("Failed to list jobs: %s", bus_error_message(&error, r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to list jobs: %s", bus_error_message(&error, r));
 
         r = sd_bus_message_enter_container(reply, 'a', "(usssoo)");
         if (r < 0)
@@ -2225,7 +2205,7 @@ static int cancel_job(char **args) {
                                 NULL,
                                 "u", id);
                 if (q < 0) {
-                        log_error("Failed to cancel job %"PRIu32": %s", id, bus_error_message(&error, q));
+                        log_error_errno(q, "Failed to cancel job %"PRIu32": %s", id, bus_error_message(&error, q));
                         if (r == 0)
                                 r = q;
                 }
@@ -2527,10 +2507,8 @@ static int check_triggering_units(
                         "LoadState",
                         &error,
                         &state);
-        if (r < 0) {
-                log_error("Failed to get load state of %s: %s", n, bus_error_message(&error, r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to get load state of %s: %s", n, bus_error_message(&error, r));
 
         if (streq(state, "masked"))
                 return 0;
@@ -2543,10 +2521,8 @@ static int check_triggering_units(
                         "TriggeredBy",
                         &error,
                         &triggered_by);
-        if (r < 0) {
-                log_error("Failed to get triggered by array of %s: %s", n, bus_error_message(&error, r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to get triggered by array of %s: %s", n, bus_error_message(&error, r));
 
         STRV_FOREACH(i, triggered_by) {
                 r = check_one_unit(bus, *i, "active\0reloading\0", true);
@@ -2642,8 +2618,7 @@ static int start_unit_one(
 
                 verb = method_to_verb(method);
 
-                log_error("Failed to %s %s: %s", verb, name, bus_error_message(error, r));
-                return r;
+                return log_error_errno(r, "Failed to %s %s: %s", verb, name, bus_error_message(error, r));
         }
 
         r = sd_bus_message_read(reply, "o", &path);
@@ -2784,7 +2759,7 @@ static int start_unit(char **args) {
         else {
                 r = expand_names(bus, strv_skip(args, 1), suffix, &names);
                 if (r < 0)
-                        log_error_errno(r, "Failed to expand names: %m");
+                        return log_error_errno(r, "Failed to expand names: %m");
         }
 
         if (!arg_no_block) {
@@ -2910,9 +2885,9 @@ static int logind_reboot(enum action a) {
                         NULL,
                         "b", arg_ask_password);
         if (r < 0)
-                log_error("Failed to %s via logind: %s", description, bus_error_message(&error, r));
+                return log_error_errno(r, "Failed to %s via logind: %s", description, bus_error_message(&error, r));
 
-        return r;
+        return 0;
 #else
         return -ENOSYS;
 #endif
@@ -3133,10 +3108,8 @@ static int start_special(char **args) {
                                 &error,
                                 NULL,
                                 "y", code);
-                if (r < 0) {
-                        log_error("Failed to execute operation: %s", bus_error_message(&error, r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to execute operation: %s", bus_error_message(&error, r));
         }
 
         if (arg_force >= 2 &&
@@ -3236,7 +3209,7 @@ static int kill_unit(char **args) {
 
         r = expand_names(bus, args + 1, NULL, &names);
         if (r < 0)
-                log_error_errno(r, "Failed to expand names: %m");
+                return log_error_errno(r, "Failed to expand names: %m");
 
         STRV_FOREACH(name, names) {
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -3251,7 +3224,7 @@ static int kill_unit(char **args) {
                                 NULL,
                                 "ssi", *names, kill_who ? kill_who : arg_kill_who, arg_signal);
                 if (q < 0) {
-                        log_error("Failed to kill unit %s: %s", *names, bus_error_message(&error, q));
+                        log_error_errno(q, "Failed to kill unit %s: %s", *names, bus_error_message(&error, q));
                         if (r == 0)
                                 r = q;
                 }
@@ -3947,13 +3920,13 @@ static int status_property(const char *name, sd_bus_message *m, UnitStatusInfo *
 
                                 info->name = strdup(name);
                                 if (!info->name)
-                                        log_oom();
+                                        return log_oom();
 
                                 LIST_PREPEND(exec, i->exec, info);
 
                                 info = new0(ExecStatusInfo, 1);
                                 if (!info)
-                                        log_oom();
+                                        return log_oom();
                         }
 
                         if (r < 0)
@@ -4525,10 +4498,8 @@ static int get_unit_dbus_path_by_pid(
                         &error,
                         &reply,
                         "u", pid);
-        if (r < 0) {
-                log_error("Failed to get unit for PID %"PRIu32": %s", pid, bus_error_message(&error, r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to get unit for PID %"PRIu32": %s", pid, bus_error_message(&error, r));
 
         r = sd_bus_message_read(reply, "o", &u);
         if (r < 0)
@@ -4713,7 +4684,7 @@ static int show(char **args) {
 
                         r = expand_names(bus, patterns, NULL, &names);
                         if (r < 0)
-                                log_error_errno(r, "Failed to expand names: %m");
+                                return log_error_errno(r, "Failed to expand names: %m");
 
                         STRV_FOREACH(name, names) {
                                 _cleanup_free_ char *unit;
@@ -4901,10 +4872,8 @@ static int set_property(char **args) {
                 return bus_log_create_error(r);
 
         r = sd_bus_call(bus, m, 0, &error, NULL);
-        if (r < 0) {
-                log_error("Failed to set unit properties on %s: %s", n, bus_error_message(&error, r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to set unit properties on %s: %s", n, bus_error_message(&error, r));
 
         return 0;
 }
@@ -4942,10 +4911,8 @@ static int snapshot(char **args) {
                         &error,
                         &reply,
                         "sb", n, false);
-        if (r < 0) {
-                log_error("Failed to create snapshot: %s", bus_error_message(&error, r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to create snapshot: %s", bus_error_message(&error, r));
 
         r = sd_bus_message_read(reply, "o", &path);
         if (r < 0)
@@ -4959,10 +4926,8 @@ static int snapshot(char **args) {
                         "Id",
                         &error,
                         &id);
-        if (r < 0) {
-                log_error("Failed to get ID of snapshot: %s", bus_error_message(&error, r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to get ID of snapshot: %s", bus_error_message(&error, r));
 
         if (!arg_quiet)
                 puts(id);
@@ -5002,7 +4967,7 @@ static int delete_snapshot(char **args) {
                                 NULL,
                                 "s", *name);
                 if (q < 0) {
-                        log_error("Failed to remove snapshot %s: %s", *name, bus_error_message(&error, q));
+                        log_error_errno(q, "Failed to remove snapshot %s: %s", *name, bus_error_message(&error, q));
                         if (r == 0)
                                 r = q;
                 }
@@ -5061,7 +5026,7 @@ static int daemon_reload(char **args) {
                  * reply */
                 r = 0;
         else if (r < 0)
-                log_error("Failed to execute operation: %s", bus_error_message(&error, r));
+                return log_error_errno(r, "Failed to execute operation: %s", bus_error_message(&error, r));
 
         return r < 0 ? r : 0;
 }
@@ -5083,7 +5048,7 @@ static int reset_failed(char **args) {
 
         r = expand_names(bus, strv_skip(args, 1), NULL, &names);
         if (r < 0)
-                log_error_errno(r, "Failed to expand names: %m");
+                return log_error_errno(r, "Failed to expand names: %m");
 
         STRV_FOREACH(name, names) {
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -5098,7 +5063,7 @@ static int reset_failed(char **args) {
                                 NULL,
                                 "s", *name);
                 if (q < 0) {
-                        log_error("Failed to reset failed state of unit %s: %s", *name, bus_error_message(&error, q));
+                        log_error_errno(q, "Failed to reset failed state of unit %s: %s", *name, bus_error_message(&error, q));
                         if (r == 0)
                                 r = q;
                 }
@@ -5129,10 +5094,8 @@ static int show_environment(char **args) {
                         &error,
                         &reply,
                         "as");
-        if (r < 0) {
-                log_error("Failed to get environment: %s", bus_error_message(&error, r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to get environment: %s", bus_error_message(&error, r));
 
         r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "s");
         if (r < 0)
@@ -5213,10 +5176,8 @@ static int switch_root(char **args) {
                         &error,
                         NULL,
                         "ss", root, init);
-        if (r < 0) {
-                log_error("Failed to switch root: %s", bus_error_message(&error, r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to switch root: %s", bus_error_message(&error, r));
 
         return 0;
 }
@@ -5255,10 +5216,8 @@ static int set_environment(char **args) {
                 return bus_log_create_error(r);
 
         r = sd_bus_call(bus, m, 0, &error, NULL);
-        if (r < 0) {
-                log_error("Failed to set environment: %s", bus_error_message(&error, r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to set environment: %s", bus_error_message(&error, r));
 
         return 0;
 }
@@ -5324,10 +5283,8 @@ static int import_environment(char **args) {
                 return bus_log_create_error(r);
 
         r = sd_bus_call(bus, m, 0, &error, NULL);
-        if (r < 0) {
-                log_error("Failed to import environment: %s", bus_error_message(&error, r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to import environment: %s", bus_error_message(&error, r));
 
         return 0;
 }
@@ -5430,13 +5387,13 @@ static int enable_sysv_units(const char *verb, char **args) {
                         (void) reset_signal_mask();
 
                         execv(argv[0], (char**) argv);
-                        log_error("Failed to execute %s: %m", argv[0]);
+                        log_error_errno(r, "Failed to execute %s: %m", argv[0]);
                         _exit(EXIT_FAILURE);
                 }
 
                 j = wait_for_terminate(pid, &status);
                 if (j < 0) {
-                        log_error_errno(r, "Failed to wait for child: %m");
+                        log_error_errno(j, "Failed to wait for child: %m");
                         return j;
                 }
 
@@ -5633,10 +5590,8 @@ static int enable_unit(char **args) {
                 }
 
                 r = sd_bus_call(bus, m, 0, &error, &reply);
-                if (r < 0) {
-                        log_error("Failed to execute operation: %s", bus_error_message(&error, r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to execute operation: %s", bus_error_message(&error, r));
 
                 if (expect_carries_install_info) {
                         r = sd_bus_message_read(reply, "b", &carries_install_info);
@@ -5758,10 +5713,8 @@ static int add_dependency(char **args) {
                         return bus_log_create_error(r);
 
                 r = sd_bus_call(bus, m, 0, &error, &reply);
-                if (r < 0) {
-                        log_error("Failed to execute operation: %s", bus_error_message(&error, r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to execute operation: %s", bus_error_message(&error, r));
 
                 r = bus_deserialize_and_dump_unit_file_changes(reply, arg_quiet, NULL, NULL);
                 if (r < 0)
@@ -5817,10 +5770,8 @@ static int preset_all(char **args) {
                                 unit_file_preset_mode_to_string(arg_preset_mode),
                                 arg_runtime,
                                 arg_force);
-                if (r < 0) {
-                        log_error("Failed to execute operation: %s", bus_error_message(&error, r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to execute operation: %s", bus_error_message(&error, r));
 
                 r = bus_deserialize_and_dump_unit_file_changes(reply, arg_quiet, NULL, NULL);
                 if (r < 0)
@@ -5896,10 +5847,8 @@ static int unit_is_enabled(char **args) {
                                         &error,
                                         &reply,
                                         "s", *name);
-                        if (r < 0) {
-                                log_error("Failed to get unit file state for %s: %s", *name, bus_error_message(&error, r));
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to get unit file state for %s: %s", *name, bus_error_message(&error, r));
 
                         r = sd_bus_message_read(reply, "s", &s);
                         if (r < 0)
@@ -5965,9 +5914,8 @@ static int create_edit_temp_file(const char *new_path, const char *original_path
 
         r = mkdir_parents(new_path, 0755);
         if (r < 0) {
-                log_error_errno(r, "Failed to create directories for \"%s\": %m", new_path);
                 free(t);
-                return r;
+                return log_error_errno(r, "Failed to create directories for \"%s\": %m", new_path);
         }
 
         r = copy_file(original_path, t, 0, 0644, 0);
@@ -6022,12 +5970,16 @@ static int get_file_to_edit(const char *name, const char *user_home, const char 
                 return log_oom();
 
         if (arg_runtime) {
-                if (access(path, F_OK) >= 0)
-                        return log_error_errno(EEXIST, "Refusing to create \"%s\" because it would be overridden by \"%s\" anyway.",
-                                               run, path);
-                if (path2 && access(path2, F_OK) >= 0)
-                        return log_error_errno(EEXIST, "Refusing to create \"%s\" because it would be overridden by \"%s\" anyway.",
-                                               run, path2);
+                if (access(path, F_OK) >= 0) {
+                        log_error("Refusing to create \"%s\" because it would be overridden by \"%s\" anyway.", run, path);
+                        return -EEXIST;
+                }
+
+                if (path2 && access(path2, F_OK) >= 0) {
+                        log_error("Refusing to create \"%s\" because it would be overridden by \"%s\" anyway.", run, path2);
+                        return -EEXIST;
+                }
+
                 *ret_path = run;
                 run = NULL;
         } else {
@@ -6120,10 +6072,8 @@ static int run_editor(char **paths) {
         assert(paths);
 
         pid = fork();
-        if (pid < 0) {
-                log_error_errno(errno, "Failed to fork: %m");
-                return -errno;
-        }
+        if (pid < 0)
+                return log_error_errno(errno, "Failed to fork: %m");
 
         if (pid == 0) {
                 const char **args;
@@ -6181,7 +6131,7 @@ static int run_editor(char **paths) {
                          * failing.
                          */
                         if (errno != ENOENT) {
-                                log_error("Failed to execute %s: %m", editor);
+                                log_error_errno(errno, "Failed to execute %s: %m", editor);
                                 _exit(EXIT_FAILURE);
                         }
                 }
@@ -6775,7 +6725,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 's':
-                        if ((arg_signal = signal_from_string_try_harder(optarg)) < 0) {
+                        arg_signal = signal_from_string_try_harder(optarg);
+                        if (arg_signal < 0) {
                                 log_error("Failed to parse signal string %s.", optarg);
                                 return -EINVAL;
                         }
@@ -7190,8 +7141,7 @@ static int telinit_parse_argv(int argc, char *argv[]) {
                 }
 
         if (optind >= argc) {
-                log_error("%s: required argument missing.",
-                          program_invocation_short_name);
+                log_error("%s: required argument missing.", program_invocation_short_name);
                 return -EINVAL;
         }
 
@@ -7452,8 +7402,7 @@ static int systemctl_main(int argc, char *argv[], int bus_error) {
         /* Special rule: no arguments (left == 0) means "list-units" */
         if (left > 0) {
                 if (streq(argv[optind], "help") && !argv[optind+1]) {
-                        log_error("This command expects one or more "
-                                  "unit names. Did you mean --help?");
+                        log_error("This command expects one or more unit names. Did you mean --help?");
                         return -EINVAL;
                 }
 
@@ -7558,8 +7507,7 @@ static int halt_now(enum action a) {
 
                 if (read_one_line_file(REBOOT_PARAM_FILE, &param) >= 0) {
                         log_info("Rebooting with argument '%s'.", param);
-                        syscall(SYS_reboot, LINUX_REBOOT_MAGIC1, LINUX_REBOOT_MAGIC2,
-                                LINUX_REBOOT_CMD_RESTART2, param);
+                        syscall(SYS_reboot, LINUX_REBOOT_MAGIC1, LINUX_REBOOT_MAGIC2, LINUX_REBOOT_CMD_RESTART2, param);
                 }
 
                 log_info("Rebooting.");
@@ -7683,9 +7631,8 @@ static int halt_main(void) {
                 return 0;
 
         r = halt_now(arg_action);
-        log_error_errno(r, "Failed to reboot: %m");
 
-        return r;
+        return log_error_errno(r, "Failed to reboot: %m");
 }
 
 static int runlevel_main(void) {
