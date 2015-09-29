@@ -48,24 +48,27 @@ noreturn static void pager_fallback(void) {
 }
 
 int pager_open(bool jump_to_end) {
-        int fd[2];
+        _cleanup_close_pair_ int fd[2] = { -1, -1 };
         const char *pager;
         pid_t parent_pid;
-        int r;
 
         if (pager_pid > 0)
                 return 1;
 
-        if ((pager = getenv("SYSTEMD_PAGER")) || (pager = getenv("PAGER")))
-                if (!*pager || streq(pager, "cat"))
-                        return 0;
-
         if (!on_tty())
+                return 0;
+
+        pager = getenv("SYSTEMD_PAGER");
+        if (!pager)
+                pager = getenv("PAGER");
+
+        /* If the pager is explicitly turned off, honour it */
+        if (pager && (pager[0] == 0 || streq(pager, "cat")))
                 return 0;
 
         /* Determine and cache number of columns before we spawn the
          * pager so that we get the value from the actual tty */
-        columns();
+        (void) columns();
 
         if (pipe(fd) < 0)
                 return log_error_errno(errno, "Failed to create pager pipe: %m");
@@ -73,10 +76,8 @@ int pager_open(bool jump_to_end) {
         parent_pid = getpid();
 
         pager_pid = fork();
-        if (pager_pid < 0) {
-                safe_close_pair(fd);
+        if (pager_pid < 0)
                 return log_error_errno(errno, "Failed to fork pager: %m");
-        }
 
         /* In the child start the pager */
         if (pager_pid == 0) {
@@ -85,7 +86,7 @@ int pager_open(bool jump_to_end) {
                 (void) reset_all_signal_handlers();
                 (void) reset_signal_mask();
 
-                dup2(fd[0], STDIN_FILENO);
+                (void) dup2(fd[0], STDIN_FILENO);
                 safe_close_pair(fd);
 
                 /* Initialize a good set of less options */
@@ -140,7 +141,6 @@ int pager_open(bool jump_to_end) {
         if (dup2(fd[1], STDERR_FILENO) < 0)
                 return log_error_errno(errno, "Failed to duplicate pager pipe: %m");
 
-        safe_close_pair(fd);
         return 1;
 }
 
