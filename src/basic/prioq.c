@@ -19,6 +19,16 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+/*
+ * Priority Queue
+ * The prioq object implements a priority queue. That is, it orders objects by
+ * their priority and allows O(1) access to the object with the highest
+ * priority. Insertion and removal are Θ(log n). Optionally, the caller can
+ * provide a pointer to an index which will be kept up-to-date by the prioq.
+ *
+ * The underlying algorithm used in this implementation is a Heap.
+ */
+
 #include "util.h"
 #include "prioq.h"
 
