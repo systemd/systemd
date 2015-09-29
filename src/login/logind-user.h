@@ -39,16 +39,13 @@ typedef enum UserState {
 
 struct User {
         Manager *manager;
-
         uid_t uid;
         gid_t gid;
         char *name;
-
         char *state_file;
         char *runtime_path;
-
-        char *service;
         char *slice;
+        char *service;
 
         char *service_job;
         char *slice_job;
