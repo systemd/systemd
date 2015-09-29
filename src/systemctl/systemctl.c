@@ -7003,7 +7003,7 @@ static int shutdown_parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "HPrhkKt:afFc", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "HPrhkKtafFc", options, NULL)) >= 0)
                 switch (c) {
 
                 case ARG_HELP:
@@ -7486,6 +7486,10 @@ static int logind_schedule_shutdown(void) {
         case ACTION_KEXEC:
                 action = "kexec";
                 break;
+        case ACTION_EXIT:
+                action = "exit";
+                break;
+        case ACTION_REBOOT:
         default:
                 action = "reboot";
                 break;
