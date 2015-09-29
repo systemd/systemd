@@ -3207,7 +3207,7 @@ static int kill_unit(char **args) {
         if (streq(arg_job_mode, "fail"))
                 kill_who = strjoina(arg_kill_who, "-fail", NULL);
 
-        r = expand_names(bus, args + 1, NULL, &names);
+        r = expand_names(bus, strv_skip(args, 1), NULL, &names);
         if (r < 0)
                 return log_error_errno(r, "Failed to expand names: %m");
 
@@ -4648,7 +4648,7 @@ static int show(char **args) {
                 _cleanup_free_ char **patterns = NULL;
                 char **name;
 
-                STRV_FOREACH(name, args + 1) {
+                STRV_FOREACH(name, strv_skip(args, 1)) {
                         _cleanup_free_ char *unit = NULL;
                         uint32_t id;
 
@@ -5211,7 +5211,7 @@ static int set_environment(char **args) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_message_append_strv(m, args + 1);
+        r = sd_bus_message_append_strv(m, strv_skip(args, 1));
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -5246,7 +5246,7 @@ static int import_environment(char **args) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        if (strv_isempty(args + 1))
+        if (strv_isempty(strv_skip(args, 1)))
                 r = sd_bus_message_append_strv(m, environ);
         else {
                 char **a, **b;
@@ -5255,7 +5255,7 @@ static int import_environment(char **args) {
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                STRV_FOREACH(a, args + 1) {
+                STRV_FOREACH(a, strv_skip(args, 1)) {
 
                         if (!env_name_is_valid(*a)) {
                                 log_error("Not a valid environment variable name: %s", *a);
