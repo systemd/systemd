@@ -19,24 +19,24 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdio.h>
 #include <getopt.h>
+#include <stdio.h>
 
 #include "sd-bus.h"
 #include "sd-event.h"
-#include "bus-util.h"
-#include "event-util.h"
-#include "strv.h"
-#include "build.h"
-#include "unit-name.h"
-#include "env-util.h"
-#include "path-util.h"
+
 #include "bus-error.h"
+#include "bus-util.h"
 #include "calendarspec.h"
-#include "ptyfwd.h"
+#include "env-util.h"
+#include "event-util.h"
 #include "formats-util.h"
+#include "path-util.h"
+#include "ptyfwd.h"
 #include "signal-util.h"
 #include "spawn-polkit-agent.h"
+#include "strv.h"
+#include "unit-name.h"
 
 static bool arg_ask_password = true;
 static bool arg_scope = false;
@@ -199,9 +199,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_VERSION:
-                        puts(PACKAGE_STRING);
-                        puts(SYSTEMD_FEATURES);
-                        return 0;
+                        return version();
 
                 case ARG_USER:
                         arg_user = true;
@@ -1176,7 +1174,7 @@ int main(int argc, char* argv[]) {
                 arg_description = description;
         }
 
-        r = bus_open_transport_systemd(arg_transport, arg_host, arg_user, &bus);
+        r = bus_connect_transport_systemd(arg_transport, arg_host, arg_user, &bus);
         if (r < 0) {
                 log_error_errno(r, "Failed to create bus connection: %m");
                 goto finish;

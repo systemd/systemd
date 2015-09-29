@@ -720,3 +720,28 @@ bool strv_fnmatch(char* const* patterns, const char *s, int flags) {
 
         return false;
 }
+
+char ***strv_free_free(char ***l) {
+        char ***i;
+
+        if (!l)
+                return NULL;
+
+        for (i = l; *i; i++)
+                strv_free(*i);
+
+        free(l);
+        return NULL;
+}
+
+char **strv_skip(char **l, size_t n) {
+
+        while (n > 0) {
+                if (strv_isempty(l))
+                        return l;
+
+                l++, n--;
+        }
+
+        return l;
+}

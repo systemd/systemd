@@ -19,29 +19,28 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdbool.h>
 #include <getopt.h>
 #include <net/if.h>
+#include <stdbool.h>
 
-#include "sd-network.h"
-#include "sd-netlink.h"
-#include "sd-hwdb.h"
 #include "sd-device.h"
+#include "sd-hwdb.h"
+#include "sd-netlink.h"
+#include "sd-network.h"
 
-#include "strv.h"
-#include "build.h"
-#include "util.h"
-#include "pager.h"
-#include "lldp.h"
-#include "netlink-util.h"
-#include "device-util.h"
-#include "hwdb-util.h"
 #include "arphrd-list.h"
-#include "local-addresses.h"
-#include "socket-util.h"
+#include "device-util.h"
 #include "ether-addr-util.h"
-#include "verbs.h"
+#include "hwdb-util.h"
+#include "lldp.h"
+#include "local-addresses.h"
+#include "netlink-util.h"
+#include "pager.h"
+#include "socket-util.h"
+#include "strv.h"
 #include "terminal-util.h"
+#include "util.h"
+#include "verbs.h"
 
 static bool arg_no_pager = false;
 static bool arg_legend = true;
@@ -1063,9 +1062,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return 0;
 
                 case ARG_VERSION:
-                        puts(PACKAGE_STRING);
-                        puts(SYSTEMD_FEATURES);
-                        return 0;
+                        return version();
 
                 case ARG_NO_PAGER:
                         arg_no_pager = true;

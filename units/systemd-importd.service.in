@@ -14,5 +14,5 @@ ExecStart=@rootlibexecdir@/systemd-importd
 BusName=org.freedesktop.import1
 CapabilityBoundingSet=CAP_CHOWN CAP_FOWNER CAP_FSETID CAP_MKNOD CAP_SETFCAP CAP_SYS_ADMIN CAP_SETPCAP CAP_DAC_OVERRIDE
 NoNewPrivileges=yes
-WatchdogSec=1min
+WatchdogSec=3min
 KillMode=mixed

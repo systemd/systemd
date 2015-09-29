@@ -643,16 +643,7 @@ int setup_tmp_dirs(const char *id, char **tmp_dir, char **var_tmp_dir) {
 
 int setup_netns(int netns_storage_socket[2]) {
         _cleanup_close_ int netns = -1;
-        union {
-                struct cmsghdr cmsghdr;
-                uint8_t buf[CMSG_SPACE(sizeof(int))];
-        } control = {};
-        struct msghdr mh = {
-                .msg_control = &control,
-                .msg_controllen = sizeof(control),
-        };
-        struct cmsghdr *cmsg;
-        int r;
+        int r, q;
 
         assert(netns_storage_socket);
         assert(netns_storage_socket[0] >= 0);
@@ -669,12 +660,8 @@ int setup_netns(int netns_storage_socket[2]) {
         if (lockf(netns_storage_socket[0], F_LOCK, 0) < 0)
                 return -errno;
 
-        if (recvmsg(netns_storage_socket[0], &mh, MSG_DONTWAIT|MSG_CMSG_CLOEXEC) < 0) {
-                if (errno != EAGAIN) {
-                        r = -errno;
-                        goto fail;
-                }
-
+        netns = receive_one_fd(netns_storage_socket[0], MSG_DONTWAIT);
+        if (netns == -EAGAIN) {
                 /* Nothing stored yet, so let's create a new namespace */
 
                 if (unshare(CLONE_NEWNET) < 0) {
@@ -691,15 +678,13 @@ int setup_netns(int netns_storage_socket[2]) {
                 }
 
                 r = 1;
+
+        } else if (netns < 0) {
+                r = netns;
+                goto fail;
+
         } else {
                 /* Yay, found something, so let's join the namespace */
-
-                CMSG_FOREACH(cmsg, &mh)
-                        if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_RIGHTS) {
-                                assert(cmsg->cmsg_len == CMSG_LEN(sizeof(int)));
-                                netns = *(int*) CMSG_DATA(cmsg);
-                        }
-
                 if (setns(netns, CLONE_NEWNET) < 0) {
                         r = -errno;
                         goto fail;
@@ -708,21 +693,14 @@ int setup_netns(int netns_storage_socket[2]) {
                 r = 0;
         }
 
-        cmsg = CMSG_FIRSTHDR(&mh);
-        cmsg->cmsg_level = SOL_SOCKET;
-        cmsg->cmsg_type = SCM_RIGHTS;
-        cmsg->cmsg_len = CMSG_LEN(sizeof(int));
-        memcpy(CMSG_DATA(cmsg), &netns, sizeof(int));
-        mh.msg_controllen = cmsg->cmsg_len;
-
-        if (sendmsg(netns_storage_socket[1], &mh, MSG_DONTWAIT|MSG_NOSIGNAL) < 0) {
-                r = -errno;
+        q = send_one_fd(netns_storage_socket[1], netns, MSG_DONTWAIT);
+        if (q < 0) {
+                r = q;
                 goto fail;
         }
 
 fail:
         lockf(netns_storage_socket[0], F_ULOCK, 0);
-
         return r;
 }
 

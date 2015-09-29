@@ -42,55 +42,50 @@
 
   <refnamediv>
     <refname>systemd-machine-id-commit.service</refname>
-    <refpurpose>Commit transient machine-id to disk</refpurpose>
+    <refpurpose>Commit a transient machine-id to disk</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
     <para><filename>systemd-machine-id-commit.service</filename></para>
-    <para><filename>/usr/lib/systemd/systemd-machine-id-commit</filename></para>
   </refsynopsisdiv>
 
   <refsect1>
     <title>Description</title>
 
-    <para><filename>systemd-machine-id-commit.service</filename> is a
-    service responsible for committing any transient
-    <filename>/etc/machine-id</filename> file to a writable file
+    <para><filename>systemd-machine-id-commit.service</filename> is an
+    early-boot service responsible for committing transient
+    <filename>/etc/machine-id</filename> files to a writable disk file
     system. See
     <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    for more information about this file.</para>
+    for more information about machine IDs.</para>
 
-    <para>This service is started shortly after
-    <filename>local-fs.target</filename> if
-    <filename>/etc/machine-id</filename> is an independent mount point
-    (probably a tmpfs one) and /etc is writable.
-    <command>systemd-machine-id-commit</command> will then write
-    current machine ID to disk and unmount the transient
+    <para>This service is started after
+    <filename>local-fs.target</filename> in case
+    <filename>/etc/machine-id</filename> is a mount point of its own
+    (usually from a memory file system such as
+    <literal>tmpfs</literal>) and /etc is writable. The service will
+    invoke <command>systemd-machine-id-setup --commit</command>, which
+    writes the current transient machine ID to disk and unmount the
     <filename>/etc/machine-id</filename> file in a race-free manner to
-    ensure that file is always valid for other processes.</para>
+    ensure that file is always valid and accessible for other
+    processes. See
+    <citerefentry><refentrytitle>systemd-machine-id-setup</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    for details.</para>
 
-    <para>Note that the traditional way to initialize the machine ID
-    in <filename>/etc/machine-id</filename> is to use
-    <command>systemd-machine-id-setup</command> by system installer
-    tools. You can also use
-    <citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    to initialize the machine ID on mounted (but not booted) system
-    images. The main use case for that service is
-    <filename>/etc/machine-id</filename> being an empty file at boot
-    and initrd chaining to systemd giving it a read only file system
-    that will be turned read-write later during the boot
-    process.</para>
-
-    <para>There is no consequence if that service fails other than a
-    newer machine-id will be generated during next system boot.
-    </para>
+    <para>The main use case of this service are systems where
+    <filename>/etc/machine-id</filename> is read-only and initially
+    not initialized. In this case the system manager will generate a
+    transient machine ID file on a memory file system, and mount it
+    over <filename>/etc/machine-id</filename>, during the early boot
+    phase. This service is then invoked in a later boot phase, as soon
+    as <filename>/etc</filename> has been remounted writable and the
+    ID may thus be committed to disk to make it permanent.</para>
   </refsect1>
 
   <refsect1>
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-machine-id-commit</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-machine-id-setup</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>

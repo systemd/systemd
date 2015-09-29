@@ -62,7 +62,7 @@ static usec_t get_startup_time(Context *c) {
                         &error,
                         't', &t);
         if (r < 0) {
-                log_error("Failed to get timestamp: %s", bus_error_message(&error, -r));
+                log_error_errno(r, "Failed to get timestamp: %s", bus_error_message(&error, r));
                 return 0;
         }
 
@@ -105,10 +105,8 @@ static int get_current_runlevel(Context *c) {
                                 "ActiveState",
                                 &error,
                                 &state);
-                if (r < 0) {
-                        log_warning("Failed to get state: %s", bus_error_message(&error, -r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to get state: %s", bus_error_message(&error, r));
 
                 if (streq(state, "active") || streq(state, "reloading"))
                         return table[i].runlevel;
@@ -130,8 +128,7 @@ static int on_reboot(Context *c) {
         if (c->audit_fd >= 0)
                 if (audit_log_user_comm_message(c->audit_fd, AUDIT_SYSTEM_BOOT, "", "systemd-update-utmp", NULL, NULL, NULL, 1) < 0 &&
                     errno != EPERM) {
-                        r = log_error_errno(errno,
-                                            "Failed to send audit message: %m");
+                        r = log_error_errno(errno, "Failed to send audit message: %m");
                 }
 #endif
 
@@ -160,8 +157,7 @@ static int on_shutdown(Context *c) {
         if (c->audit_fd >= 0)
                 if (audit_log_user_comm_message(c->audit_fd, AUDIT_SYSTEM_SHUTDOWN, "", "systemd-update-utmp", NULL, NULL, NULL, 1) < 0 &&
                     errno != EPERM) {
-                        r = log_error_errno(errno,
-                                            "Failed to send audit message: %m");
+                        r = log_error_errno(errno, "Failed to send audit message: %m");
                 }
 #endif
 
@@ -211,8 +207,7 @@ static int on_runlevel(Context *c) {
                         return log_oom();
 
                 if (audit_log_user_comm_message(c->audit_fd, AUDIT_SYSTEM_RUNLEVEL, s, "systemd-update-utmp", NULL, NULL, NULL, 1) < 0 && errno != EPERM)
-                        r = log_error_errno(errno,
-                                            "Failed to send audit message: %m");
+                        r = log_error_errno(errno, "Failed to send audit message: %m");
         }
 #endif
 
@@ -256,7 +251,7 @@ int main(int argc, char *argv[]) {
         if (c.audit_fd < 0 && errno != EAFNOSUPPORT && errno != EPROTONOSUPPORT)
                 log_error_errno(errno, "Failed to connect to audit log: %m");
 #endif
-        r = bus_open_system_systemd(&c.bus);
+        r = bus_connect_system_systemd(&c.bus);
         if (r < 0) {
                 log_error_errno(r, "Failed to get D-Bus connection: %m");
                 r = -EIO;
@@ -284,6 +279,6 @@ finish:
                 audit_close(c.audit_fd);
 #endif
 
-        sd_bus_unref(c.bus);
+        sd_bus_flush_close_unref(c.bus);
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

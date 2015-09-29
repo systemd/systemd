@@ -19,31 +19,31 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <unistd.h>
 #include <errno.h>
-#include <string.h>
 #include <getopt.h>
 #include <locale.h>
+#include <string.h>
+#include <unistd.h>
 
 #include "sd-bus.h"
-#include "bus-util.h"
+
 #include "bus-error.h"
-#include "log.h"
-#include "util.h"
-#include "macro.h"
-#include "pager.h"
-#include "build.h"
-#include "strv.h"
-#include "unit-name.h"
-#include "sysfs-show.h"
-#include "logs-show.h"
+#include "bus-util.h"
 #include "cgroup-show.h"
 #include "cgroup-util.h"
-#include "spawn-polkit-agent.h"
-#include "verbs.h"
+#include "log.h"
+#include "logs-show.h"
+#include "macro.h"
+#include "pager.h"
 #include "process-util.h"
-#include "terminal-util.h"
 #include "signal-util.h"
+#include "spawn-polkit-agent.h"
+#include "strv.h"
+#include "sysfs-show.h"
+#include "terminal-util.h"
+#include "unit-name.h"
+#include "util.h"
+#include "verbs.h"
 
 static char **arg_property = NULL;
 static bool arg_all = false;
@@ -1416,9 +1416,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return 0;
 
                 case ARG_VERSION:
-                        puts(PACKAGE_STRING);
-                        puts(SYSTEMD_FEATURES);
-                        return 0;
+                        return version();
 
                 case 'p': {
                         r = strv_extend(&arg_property, optarg);
@@ -1544,7 +1542,7 @@ int main(int argc, char *argv[]) {
         if (r <= 0)
                 goto finish;
 
-        r = bus_open_transport(arg_transport, arg_host, false, &bus);
+        r = bus_connect_transport(arg_transport, arg_host, false, &bus);
         if (r < 0) {
                 log_error_errno(r, "Failed to create bus connection: %m");
                 goto finish;

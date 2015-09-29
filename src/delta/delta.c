@@ -21,21 +21,20 @@
 ***/
 
 #include <errno.h>
-#include <string.h>
-#include <unistd.h>
 #include <getopt.h>
+#include <string.h>
 #include <sys/prctl.h>
+#include <unistd.h>
 
 #include "hashmap.h"
-#include "util.h"
-#include "path-util.h"
 #include "log.h"
 #include "pager.h"
-#include "build.h"
-#include "strv.h"
+#include "path-util.h"
 #include "process-util.h"
-#include "terminal-util.h"
 #include "signal-util.h"
+#include "strv.h"
+#include "terminal-util.h"
+#include "util.h"
 
 static const char prefixes[] =
         "/etc\0"
@@ -544,9 +543,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return 0;
 
                 case ARG_VERSION:
-                        puts(PACKAGE_STRING);
-                        puts(SYSTEMD_FEATURES);
-                        return 0;
+                        return version();
 
                 case ARG_NO_PAGER:
                         arg_no_pager = true;

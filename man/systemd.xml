@@ -1,4 +1,4 @@
-<?xml version='1.0'?> <!--*-nxml-*-->
+<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
@@ -131,17 +131,48 @@
       <varlistentry>
         <term><option>--dump-core</option></term>
 
-        <listitem><para>Dump core on crash. This switch has no effect
-        when run as user instance.</para></listitem>
+        <listitem><para>Enable core dumping on crash. This switch has
+        no effect when running as user instance. This setting may also
+        be enabled during boot on the kernel command line via the
+        <varname>systemd.dump_core=</varname> option, see
+        below.</para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><option>--crash-vt=</option><replaceable>VT</replaceable></term>
+
+        <listitem><para>Switch to a specific virtual console (VT) on
+        crash. Takes a positive integer in the range 1..63, or a
+        boolean argument. If an integer is passed, selects which VT to
+        switch to. If <constant>yes</constant>, the VT kernel messages
+        are written to is selected. If <constant>no</constant>, no VT
+        switch is attempted. This switch has no effect when running as
+        user instance. This setting may also be enabled during boot,
+        on the kernel command line via the
+        <varname>systemd.crash_vt=</varname> option, see
+        below.</para></listitem>
+      </varlistentry>
+
       <varlistentry>
         <term><option>--crash-shell</option></term>
 
-        <listitem><para>Run shell on
-        crash. This switch has no effect when
-        run as user
-        instance.</para></listitem>
+        <listitem><para>Run a shell on crash. This switch has no
+        effect when running as user instance. This setting may also be
+        enabled during boot, on the kernel command line via the
+        <varname>systemd.crash_shell=</varname> option, see
+        below.</para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><option>--crash-reboot</option></term>
+
+        <listitem><para>Automatically reboot the system on crash. This
+        switch has no effect when running as user instance. This
+        setting may also be enabled during boot, on the kernel command
+        line via the <varname>systemd.crash_reboot=</varname> option,
+        see below.</para></listitem>
+      </varlistentry>
+
       <varlistentry>
         <term><option>--confirm-spawn</option></term>
 
@@ -854,50 +885,67 @@
         <term><varname>systemd.dump_core=</varname></term>
 
         <listitem><para>Takes a boolean argument. If
-        <option>true</option>, systemd dumps core when it crashes.
-        Otherwise, no core dump is created. Defaults to
-        <option>true</option>.</para></listitem>
+        <option>yes</option>, the systemd manager (PID 1) dumps core
+        when it crashes.  Otherwise, no core dump is created. Defaults
+        to <option>yes</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>systemd.crash_chvt=</varname></term>
+
+        <listitem><para>Takes a positive integer, or a boolean
+        argument. If a positive integer (in the range 1..63) is
+        specified the system manager (PID 1) will activate the specified
+        virtual terminal (VT) when it crashes. Defaults to
+        <constant>no</constant>, meaning that no such switch is
+        attempted. If set to <constant>yes</constant> the VT the
+        kernel messages are written to is selected.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>systemd.crash_shell=</varname></term>
 
         <listitem><para>Takes a boolean argument. If
-        <option>true</option>, systemd spawns a shell when it crashes.
-        Otherwise, no shell is spawned. Defaults to
-        <option>false</option>, for security reasons, as the shell is
-        not protected by any password
+        <option>yes</option>, the system manager (PID 1) spawns a
+        shell when it crashes, after a 10s delay. Otherwise, no shell
+        is spawned. Defaults to <option>no</option>, for security
+        reasons, as the shell is not protected by password
         authentication.</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term><varname>systemd.crash_chvt=</varname></term>
+        <term><varname>systemd.crash_reboot=</varname></term>
 
-        <listitem><para>Takes an integer argument. If positive systemd
-        activates the specified virtual terminal when it crashes.
-        Defaults to <constant>-1</constant>.</para></listitem>
+        <listitem><para>Takes a boolean argument. If
+        <option>yes</option>, the system manager (PID 1) will reboot
+        the machine automatically when it crashes, after a 10s delay.
+        Otherwise, the system will hang indefinitely. Defaults to
+        <option>no</option>, in order to avoid a reboot loop. If
+        combined with <varname>systemd.crash_shell=</varname>, it is
+        first attempted to invoke a shell, and if this is not
+        successful the system is rebooted.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>systemd.confirm_spawn=</varname></term>
 
         <listitem><para>Takes a boolean argument. If
-        <option>true</option>, asks for confirmation when spawning
-        processes. Defaults to
-        <option>false</option>.</para></listitem>
+        <option>yes</option>, the system manager (PID 1) asks for
+        confirmation when spawning processes. Defaults to
+        <option>no</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>systemd.show_status=</varname></term>
 
         <listitem><para>Takes a boolean argument or the constant
-        <constant>auto</constant>. If <option>true</option>, shows
-        terse service status updates on the console during bootup.
-        <constant>auto</constant> behaves like <option>false</option>
-        until a service fails or there is a significant delay in boot.
-        Defaults to <option>true</option>, unless
-        <option>quiet</option> is passed as kernel command line option
-        in which case it defaults to
+        <constant>auto</constant>. If <option>yes</option>, the
+        systemd manager (PID 1) shows terse service status updates on
+        the console during bootup.  <constant>auto</constant> behaves
+        like <option>false</option> until a service fails or there is
+        a significant delay in boot.  Defaults to
+        <option>yes</option>, unless <option>quiet</option> is passed
+        as kernel command line option in which case it defaults to
         <constant>auto</constant>.</para></listitem>
       </varlistentry>
 

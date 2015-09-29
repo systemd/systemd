@@ -19,17 +19,16 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdio.h>
-#include <getopt.h>
-#include <unistd.h>
-#include <stdlib.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <getopt.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
 
-#include "systemd/sd-journal.h"
+#include "sd-journal.h"
 
 #include "util.h"
-#include "build.h"
 
 static char *arg_identifier = NULL;
 static int arg_priority = LOG_INFO;
@@ -76,9 +75,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return 0;
 
                 case ARG_VERSION:
-                        puts(PACKAGE_STRING);
-                        puts(SYSTEMD_FEATURES);
-                        return 0;
+                        return version();
 
                 case 't':
                         free(arg_identifier);
@@ -95,7 +92,7 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_priority = log_level_from_string(optarg);
                         if (arg_priority < 0) {
                                 log_error("Failed to parse priority value.");
-                                return arg_priority;
+                                return -EINVAL;
                         }
                         break;
 
@@ -103,10 +100,9 @@ static int parse_argv(int argc, char *argv[]) {
                         int k;
 
                         k = parse_boolean(optarg);
-                        if (k < 0) {
-                                log_error("Failed to parse level prefix value.");
-                                return k;
-                        }
+                        if (k < 0)
+                                return log_error_errno(k, "Failed to parse level prefix value.");
+
                         arg_level_prefix = k;
                         break;
                 }
@@ -122,7 +118,8 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
-        int r, fd = -1, saved_stderr = -1;
+        _cleanup_close_ int  fd = -1, saved_stderr = -1;
+        int r;
 
         log_parse_environment();
         log_open();
@@ -133,8 +130,7 @@ int main(int argc, char *argv[]) {
 
         fd = sd_journal_stream_fd(arg_identifier, arg_priority, arg_level_prefix);
         if (fd < 0) {
-                log_error_errno(fd, "Failed to create stream fd: %m");
-                r = fd;
+                r = log_error_errno(fd, "Failed to create stream fd: %m");
                 goto finish;
         }
 
@@ -148,25 +144,20 @@ int main(int argc, char *argv[]) {
 
         if (fd >= 3)
                 safe_close(fd);
-
         fd = -1;
 
         if (argc <= optind)
-                execl("/bin/cat", "/bin/cat", NULL);
+                (void) execl("/bin/cat", "/bin/cat", NULL);
         else
-                execvp(argv[optind], argv + optind);
-
+                (void) execvp(argv[optind], argv + optind);
         r = -errno;
 
         /* Let's try to restore a working stderr, so we can print the error message */
         if (saved_stderr >= 0)
-                dup3(saved_stderr, STDERR_FILENO, 0);
+                (void) dup3(saved_stderr, STDERR_FILENO, 0);
 
         log_error_errno(r, "Failed to execute process: %m");
 
 finish:
-        safe_close(fd);
-        safe_close(saved_stderr);
-
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

@@ -124,7 +124,12 @@
         systemd, non-zero otherwise. If this option is passed, no
         message is sent. This option is hence unrelated to the other
         options. For details about the semantics of this option, see
-        <citerefentry><refentrytitle>sd_booted</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para></listitem>
+        <citerefentry><refentrytitle>sd_booted</refentrytitle><manvolnum>3</manvolnum></citerefentry>. An
+        alternative way to check for this state is to call
+        <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        with the <command>is-system-running</command> command. It will
+        return <literal>offline</literal> if the system was not booted
+        with systemd.  </para></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="help" />
@@ -156,12 +161,12 @@ mkfifo /tmp/waldo
 systemd-notify --ready --status="Waiting for data..."
 
 while : ; do
-  read a &lt; /tmp/waldo
-  systemd-notify --status="Processing $a"
+        read a &lt; /tmp/waldo
+        systemd-notify --status="Processing $a"
 
-  # Do something with $a ...
+        # Do something with $a ...
 
-  systemd-notify --status="Waiting for data..."
+        systemd-notify --status="Waiting for data..."
 done</programlisting>
     </example>
   </refsect1>

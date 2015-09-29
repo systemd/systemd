@@ -50,7 +50,6 @@
 #include "base-filesystem.h"
 #include "blkid-util.h"
 #include "btrfs-util.h"
-#include "build.h"
 #include "cap-list.h"
 #include "capability.h"
 #include "cgroup-util.h"
@@ -414,9 +413,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return 0;
 
                 case ARG_VERSION:
-                        puts(PACKAGE_STRING);
-                        puts(SYSTEMD_FEATURES);
-                        return 0;
+                        return version();
 
                 case 'D':
                         r = set_sanitized_path(&arg_directory, optarg);
@@ -1291,7 +1288,7 @@ static int setup_kmsg(const char *dest, int kmsg_socket) {
 
         /* Store away the fd in the socket, so that it stays open as
          * long as we run the child */
-        r = send_one_fd(kmsg_socket, fd);
+        r = send_one_fd(kmsg_socket, fd, 0);
         safe_close(fd);
 
         if (r < 0)
@@ -2282,8 +2279,6 @@ static int wait_for_container(pid_t pid, ContainerStatus *container) {
         return r;
 }
 
-static void nop_handler(int sig) {}
-
 static int on_orderly_shutdown(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
         pid_t pid;
 
@@ -3241,7 +3236,7 @@ int main(int argc, char *argv[]) {
                 ContainerStatus container_status;
                 _cleanup_(barrier_destroy) Barrier barrier = BARRIER_NULL;
                 static const struct sigaction sa = {
-                        .sa_handler = nop_handler,
+                        .sa_handler = nop_signal_handler,
                         .sa_flags = SA_NOCLDSTOP,
                 };
                 int ifi = 0;
@@ -3338,8 +3333,7 @@ int main(int argc, char *argv[]) {
 
                 barrier_set_role(&barrier, BARRIER_PARENT);
 
-                fdset_free(fds);
-                fds = NULL;
+                fds = fdset_free(fds);
 
                 kmsg_socket_pair[1] = safe_close(kmsg_socket_pair[1]);
                 rtnl_socket_pair[1] = safe_close(rtnl_socket_pair[1]);

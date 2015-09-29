@@ -27,7 +27,6 @@
 
 #include "sd-daemon.h"
 
-#include "build.h"
 #include "env-util.h"
 #include "formats-util.h"
 #include "log.h"
@@ -85,9 +84,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return 0;
 
                 case ARG_VERSION:
-                        puts(PACKAGE_STRING);
-                        puts(SYSTEMD_FEATURES);
-                        return 0;
+                        return version();
 
                 case ARG_READY:
                         arg_ready = true;

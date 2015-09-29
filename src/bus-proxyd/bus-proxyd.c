@@ -22,26 +22,26 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/socket.h>
-#include <unistd.h>
-#include <string.h>
 #include <errno.h>
-#include <sys/prctl.h>
-#include <stddef.h>
 #include <getopt.h>
 #include <pthread.h>
+#include <stddef.h>
+#include <string.h>
+#include <sys/prctl.h>
+#include <sys/socket.h>
+#include <unistd.h>
 
-#include "log.h"
-#include "util.h"
 #include "sd-daemon.h"
+
 #include "bus-internal.h"
-#include "build.h"
-#include "strv.h"
-#include "def.h"
-#include "capability.h"
 #include "bus-xml-policy.h"
-#include "proxy.h"
+#include "capability.h"
+#include "def.h"
 #include "formats-util.h"
+#include "log.h"
+#include "proxy.h"
+#include "strv.h"
+#include "util.h"
 
 static char *arg_address = NULL;
 static char **arg_configuration = NULL;
@@ -215,9 +215,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return 0;
 
                 case ARG_VERSION:
-                        puts(PACKAGE_STRING);
-                        puts(SYSTEMD_FEATURES);
-                        return 0;
+                        return version();
 
                 case ARG_ADDRESS:
                         r = free_and_strdup(&arg_address, optarg);

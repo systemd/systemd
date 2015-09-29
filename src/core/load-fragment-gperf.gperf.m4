@@ -17,7 +17,7 @@ struct ConfigPerfItem;
 %%
 m4_dnl Define the context options only once
 m4_define(`EXEC_CONTEXT_CONFIG_ITEMS',
-`$1.WorkingDirectory,            config_parse_unit_path_printf,      0,                             offsetof($1, exec_context.working_directory)
+`$1.WorkingDirectory,            config_parse_working_directory,     0,                             offsetof($1, exec_context)
 $1.RootDirectory,                config_parse_unit_path_printf,      0,                             offsetof($1, exec_context.root_directory)
 $1.User,                         config_parse_unit_string_printf,    0,                             offsetof($1, exec_context.user)
 $1.Group,                        config_parse_unit_string_printf,    0,                             offsetof($1, exec_context.group)

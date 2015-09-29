@@ -194,7 +194,7 @@ int expose_port_send_rtnl(int send_fd) {
 
         /* Store away the fd in the socket, so that it stays open as
          * long as we run the child */
-        r = send_one_fd(send_fd, fd);
+        r = send_one_fd(send_fd, fd, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to send netlink fd: %m");
 
@@ -214,7 +214,7 @@ int expose_port_watch_rtnl(
         assert(recv_fd >= 0);
         assert(ret);
 
-        fd = receive_one_fd(recv_fd);
+        fd = receive_one_fd(recv_fd, 0);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to recv netlink fd: %m");
 

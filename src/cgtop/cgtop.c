@@ -19,27 +19,27 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <errno.h>
-#include <string.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <unistd.h>
 #include <alloca.h>
+#include <errno.h>
 #include <getopt.h>
 #include <signal.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 
-#include "path-util.h"
-#include "terminal-util.h"
-#include "process-util.h"
-#include "util.h"
-#include "hashmap.h"
-#include "cgroup-util.h"
-#include "build.h"
-#include "fileio.h"
 #include "sd-bus.h"
-#include "bus-util.h"
+
 #include "bus-error.h"
+#include "bus-util.h"
+#include "cgroup-util.h"
+#include "fileio.h"
+#include "hashmap.h"
+#include "path-util.h"
+#include "process-util.h"
+#include "terminal-util.h"
 #include "unit-name.h"
+#include "util.h"
 
 typedef struct Group {
         char *path;
@@ -696,9 +696,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return 0;
 
                 case ARG_VERSION:
-                        puts(PACKAGE_STRING);
-                        puts(SYSTEMD_FEATURES);
-                        return 0;
+                        return version();
 
                 case ARG_CPU_TYPE:
                         if (optarg) {
@@ -863,7 +861,7 @@ static int get_cgroup_root(char **ret) {
         if (!path)
                 return log_oom();
 
-        r = bus_open_transport(BUS_TRANSPORT_LOCAL, NULL, false, &bus);
+        r = bus_connect_transport_systemd(BUS_TRANSPORT_LOCAL, NULL, false, &bus);
         if (r < 0)
                 return log_error_errno(r, "Failed to create bus connection: %m");
 

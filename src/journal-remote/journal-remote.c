@@ -21,31 +21,30 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/prctl.h>
 #include <sys/socket.h>
 #include <unistd.h>
-#include <getopt.h>
-
-#include "sd-daemon.h"
-#include "signal-util.h"
-#include "journal-file.h"
-#include "journald-native.h"
-#include "socket-util.h"
-#include "build.h"
-#include "macro.h"
-#include "strv.h"
-#include "fileio.h"
-#include "conf-parser.h"
 
 #ifdef HAVE_GNUTLS
 #include <gnutls/gnutls.h>
 #endif
 
-#include "journal-remote.h"
+#include "sd-daemon.h"
+
+#include "conf-parser.h"
+#include "fileio.h"
+#include "journal-file.h"
+#include "journald-native.h"
+#include "macro.h"
+#include "signal-util.h"
+#include "socket-util.h"
+#include "strv.h"
 #include "journal-remote-write.h"
+#include "journal-remote.h"
 
 #define REMOTE_JOURNAL_PATH "/var/log/journal/remote"
 
@@ -1259,9 +1258,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return 0 /* done */;
 
                 case ARG_VERSION:
-                        puts(PACKAGE_STRING);
-                        puts(SYSTEMD_FEATURES);
-                        return 0 /* done */;
+                        return version();
 
                 case ARG_URL:
                         if (arg_url) {

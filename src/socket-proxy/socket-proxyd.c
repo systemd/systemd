@@ -20,12 +20,12 @@
  ***/
 
 #include <errno.h>
+#include <fcntl.h>
 #include <getopt.h>
+#include <netdb.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <netdb.h>
-#include <fcntl.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
@@ -33,12 +33,12 @@
 #include "sd-daemon.h"
 #include "sd-event.h"
 #include "sd-resolve.h"
+
 #include "log.h"
+#include "path-util.h"
+#include "set.h"
 #include "socket-util.h"
 #include "util.h"
-#include "build.h"
-#include "set.h"
-#include "path-util.h"
 
 #define BUFFER_SIZE (256 * 1024)
 #define CONNECTIONS_MAX 256
@@ -603,9 +603,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return 0;
 
                 case ARG_VERSION:
-                        puts(PACKAGE_STRING);
-                        puts(SYSTEMD_FEATURES);
-                        return 0;
+                        return version();
 
                 case '?':
                         return -EINVAL;

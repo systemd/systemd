@@ -24,9 +24,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <getopt.h>
-
 #include <microhttpd.h>
-
 #ifdef HAVE_GNUTLS
 #include <gnutls/gnutls.h>
 #endif
@@ -34,15 +32,15 @@
 #include "sd-journal.h"
 #include "sd-daemon.h"
 #include "sd-bus.h"
-#include "log.h"
-#include "util.h"
+
 #include "bus-util.h"
+#include "fileio.h"
+#include "hostname-util.h"
+#include "log.h"
 #include "logs-show.h"
 #include "microhttpd-util.h"
-#include "build.h"
-#include "fileio.h"
 #include "sigbus.h"
-#include "hostname-util.h"
+#include "util.h"
 
 static char *arg_key_pem = NULL;
 static char *arg_cert_pem = NULL;
@@ -909,9 +907,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return 0;
 
                 case ARG_VERSION:
-                        puts(PACKAGE_STRING);
-                        puts(SYSTEMD_FEATURES);
-                        return 0;
+                        return version();
 
                 case ARG_KEY:
                         if (arg_key_pem) {

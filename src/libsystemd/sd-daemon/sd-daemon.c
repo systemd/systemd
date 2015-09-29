@@ -498,16 +498,11 @@ _public_ int sd_notifyf(int unset_environment, const char *format, ...) {
 }
 
 _public_ int sd_booted(void) {
-        struct stat st;
-
         /* We test whether the runtime unit file directory has been
          * created. This takes place in mount-setup.c, so is
          * guaranteed to happen very early during boot. */
 
-        if (lstat("/run/systemd/system/", &st) < 0)
-                return 0;
-
-        return !!S_ISDIR(st.st_mode);
+        return laccess("/run/systemd/system/", F_OK) >= 0;
 }
 
 _public_ int sd_watchdog_enabled(int unset_environment, uint64_t *usec) {

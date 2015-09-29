@@ -20,17 +20,16 @@
 ***/
 
 #include <errno.h>
+#include <getopt.h>
+#include <limits.h>
 #include <string.h>
 #include <sys/stat.h>
-#include <limits.h>
-#include <getopt.h>
 #include <libkmod.h>
 
-#include "log.h"
-#include "util.h"
-#include "strv.h"
 #include "conf-files.h"
-#include "build.h"
+#include "log.h"
+#include "strv.h"
+#include "util.h"
 
 static char **arg_proc_cmdline_modules = NULL;
 
@@ -199,9 +198,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return 0;
 
                 case ARG_VERSION:
-                        puts(PACKAGE_STRING);
-                        puts(SYSTEMD_FEATURES);
-                        return 0;
+                        return version();
 
                 case '?':
                         return -EINVAL;

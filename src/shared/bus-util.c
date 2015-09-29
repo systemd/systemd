@@ -574,14 +574,14 @@ int bus_check_peercred(sd_bus *c) {
         return 1;
 }
 
-int bus_open_system_systemd(sd_bus **_bus) {
+int bus_connect_system_systemd(sd_bus **_bus) {
         _cleanup_bus_unref_ sd_bus *bus = NULL;
         int r;
 
         assert(_bus);
 
         if (geteuid() != 0)
-                return sd_bus_open_system(_bus);
+                return sd_bus_default_system(_bus);
 
         /* If we are root and kdbus is not available, then let's talk
          * directly to the system instance, instead of going via the
@@ -616,7 +616,7 @@ int bus_open_system_systemd(sd_bus **_bus) {
 
         r = sd_bus_start(bus);
         if (r < 0)
-                return sd_bus_open_system(_bus);
+                return sd_bus_default_system(_bus);
 
         r = bus_check_peercred(bus);
         if (r < 0)
@@ -628,7 +628,7 @@ int bus_open_system_systemd(sd_bus **_bus) {
         return 0;
 }
 
-int bus_open_user_systemd(sd_bus **_bus) {
+int bus_connect_user_systemd(sd_bus **_bus) {
         _cleanup_bus_unref_ sd_bus *bus = NULL;
         _cleanup_free_ char *ee = NULL;
         const char *e;
@@ -658,7 +658,7 @@ int bus_open_user_systemd(sd_bus **_bus) {
 
         e = secure_getenv("XDG_RUNTIME_DIR");
         if (!e)
-                return sd_bus_open_user(_bus);
+                return sd_bus_default_user(_bus);
 
         ee = bus_address_escape(e);
         if (!ee)
@@ -674,7 +674,7 @@ int bus_open_user_systemd(sd_bus **_bus) {
 
         r = sd_bus_start(bus);
         if (r < 0)
-                return sd_bus_open_user(_bus);
+                return sd_bus_default_user(_bus);
 
         r = bus_check_peercred(bus);
         if (r < 0)
@@ -1209,7 +1209,7 @@ int bus_map_all_properties(
         return bus_message_map_all_properties(m, map, userdata);
 }
 
-int bus_open_transport(BusTransport transport, const char *host, bool user, sd_bus **bus) {
+int bus_connect_transport(BusTransport transport, const char *host, bool user, sd_bus **bus) {
         int r;
 
         assert(transport >= 0);
@@ -1244,7 +1244,7 @@ int bus_open_transport(BusTransport transport, const char *host, bool user, sd_b
         return r;
 }
 
-int bus_open_transport_systemd(BusTransport transport, const char *host, bool user, sd_bus **bus) {
+int bus_connect_transport_systemd(BusTransport transport, const char *host, bool user, sd_bus **bus) {
         int r;
 
         assert(transport >= 0);
@@ -1258,9 +1258,9 @@ int bus_open_transport_systemd(BusTransport transport, const char *host, bool us
 
         case BUS_TRANSPORT_LOCAL:
                 if (user)
-                        r = bus_open_user_systemd(bus);
+                        r = bus_connect_user_systemd(bus);
                 else
-                        r = bus_open_system_systemd(bus);
+                        r = bus_connect_system_systemd(bus);
 
                 break;
 

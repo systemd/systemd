@@ -217,15 +217,8 @@ int bus_container_connect_kernel(sd_bus *b) {
                                 _exit(EXIT_FAILURE);
                         }
 
-                        cmsg = CMSG_FIRSTHDR(&mh);
-                        cmsg->cmsg_level = SOL_SOCKET;
-                        cmsg->cmsg_type = SCM_RIGHTS;
-                        cmsg->cmsg_len = CMSG_LEN(sizeof(int));
-                        memcpy(CMSG_DATA(cmsg), &fd, sizeof(int));
-
-                        mh.msg_controllen = cmsg->cmsg_len;
-
-                        if (sendmsg(pair[1], &mh, MSG_NOSIGNAL) < 0)
+                        r = send_one_fd(pair[1], fd, 0);
+                        if (r < 0)
                                 _exit(EXIT_FAILURE);
 
                         _exit(EXIT_SUCCESS);

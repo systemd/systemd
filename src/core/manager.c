@@ -19,19 +19,19 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <dirent.h>
 #include <errno.h>
-#include <string.h>
+#include <fcntl.h>
+#include <linux/kd.h>
 #include <signal.h>
+#include <string.h>
+#include <sys/epoll.h>
+#include <sys/inotify.h>
+#include <sys/ioctl.h>
+#include <sys/reboot.h>
+#include <sys/timerfd.h>
 #include <sys/wait.h>
 #include <unistd.h>
-#include <sys/inotify.h>
-#include <sys/epoll.h>
-#include <sys/reboot.h>
-#include <sys/ioctl.h>
-#include <linux/kd.h>
-#include <fcntl.h>
-#include <dirent.h>
-#include <sys/timerfd.h>
 
 #ifdef HAVE_AUDIT
 #include <libaudit.h>
@@ -40,40 +40,40 @@
 #include "sd-daemon.h"
 #include "sd-messages.h"
 
-#include "hashmap.h"
-#include "macro.h"
-#include "strv.h"
-#include "log.h"
-#include "util.h"
-#include "mkdir.h"
-#include "ratelimit.h"
-#include "locale-setup.h"
-#include "unit-name.h"
-#include "missing.h"
-#include "rm-rf.h"
-#include "path-lookup.h"
-#include "special.h"
-#include "exit-status.h"
-#include "virt.h"
-#include "watchdog.h"
-#include "path-util.h"
 #include "audit-fd.h"
 #include "boot-timestamps.h"
-#include "env-util.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
-#include "bus-util.h"
 #include "bus-kernel.h"
-#include "time-util.h"
-#include "process-util.h"
-#include "terminal-util.h"
-#include "signal-util.h"
-#include "dbus.h"
-#include "dbus-unit.h"
+#include "bus-util.h"
 #include "dbus-job.h"
 #include "dbus-manager.h"
-#include "manager.h"
+#include "dbus-unit.h"
+#include "dbus.h"
+#include "env-util.h"
+#include "exit-status.h"
+#include "hashmap.h"
+#include "locale-setup.h"
+#include "log.h"
+#include "macro.h"
+#include "missing.h"
+#include "mkdir.h"
+#include "path-lookup.h"
+#include "path-util.h"
+#include "process-util.h"
+#include "ratelimit.h"
+#include "rm-rf.h"
+#include "signal-util.h"
+#include "special.h"
+#include "strv.h"
+#include "terminal-util.h"
+#include "time-util.h"
 #include "transaction.h"
+#include "unit-name.h"
+#include "util.h"
+#include "virt.h"
+#include "watchdog.h"
+#include "manager.h"
 
 /* Initial delay and the interval for printing status messages about running jobs */
 #define JOBS_IN_PROGRESS_WAIT_USEC (5*USEC_PER_SEC)

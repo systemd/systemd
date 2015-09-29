@@ -1325,7 +1325,7 @@ static int exec_child(
 
         _cleanup_strv_free_ char **our_env = NULL, **pam_env = NULL, **final_env = NULL, **final_argv = NULL;
         _cleanup_free_ char *mac_selinux_context_net = NULL;
-        const char *username = NULL, *home = NULL, *shell = NULL;
+        const char *username = NULL, *home = NULL, *shell = NULL, *wd;
         unsigned n_dont_close = 0;
         int dont_close[n_fds + 4];
         uid_t uid = UID_INVALID;
@@ -1698,6 +1698,13 @@ static int exec_child(
                 }
         }
 
+        if (context->working_directory_home)
+                wd = home;
+        else if (context->working_directory)
+                wd = context->working_directory;
+        else
+                wd = "/";
+
         if (params->apply_chroot) {
                 if (!needs_mount_namespace && context->root_directory)
                         if (chroot(context->root_directory) < 0) {
@@ -1705,21 +1712,15 @@ static int exec_child(
                                 return -errno;
                         }
 
-                if (chdir(context->working_directory ?: "/") < 0 &&
+                if (chdir(wd) < 0 &&
                     !context->working_directory_missing_ok) {
                         *exit_status = EXIT_CHDIR;
                         return -errno;
                 }
         } else {
-                _cleanup_free_ char *d = NULL;
+                const char *d;
 
-                if (asprintf(&d, "%s/%s",
-                             context->root_directory ?: "",
-                             context->working_directory ?: "") < 0) {
-                        *exit_status = EXIT_MEMORY;
-                        return -ENOMEM;
-                }
-
+                d = strjoina(strempty(context->root_directory), "/", strempty(wd));
                 if (chdir(d) < 0 &&
                     !context->working_directory_missing_ok) {
                         *exit_status = EXIT_CHDIR;

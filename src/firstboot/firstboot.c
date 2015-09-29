@@ -19,24 +19,22 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-
 #include <fcntl.h>
-#include <unistd.h>
 #include <getopt.h>
 #include <shadow.h>
+#include <unistd.h>
 
-#include "strv.h"
-#include "fileio.h"
+#include "ask-password-api.h"
 #include "copy.h"
-#include "build.h"
+#include "fileio.h"
+#include "hostname-util.h"
+#include "locale-util.h"
 #include "mkdir.h"
-#include "time-util.h"
 #include "path-util.h"
 #include "random-util.h"
-#include "locale-util.h"
-#include "ask-password-api.h"
+#include "strv.h"
 #include "terminal-util.h"
-#include "hostname-util.h"
+#include "time-util.h"
 
 static char *arg_root = NULL;
 static char *arg_locale = NULL;  /* $LANG */
@@ -704,9 +702,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return 0;
 
                 case ARG_VERSION:
-                        puts(PACKAGE_STRING);
-                        puts(SYSTEMD_FEATURES);
-                        return 0;
+                        return version();
 
                 case ARG_ROOT:
                         free(arg_root);

@@ -20,20 +20,20 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdlib.h>
-#include <stdbool.h>
 #include <getopt.h>
 #include <locale.h>
+#include <stdbool.h>
+#include <stdlib.h>
 
 #include "sd-bus.h"
-#include "bus-util.h"
+
 #include "bus-error.h"
-#include "util.h"
-#include "spawn-polkit-agent.h"
-#include "build.h"
-#include "strv.h"
+#include "bus-util.h"
 #include "pager.h"
+#include "spawn-polkit-agent.h"
+#include "strv.h"
 #include "terminal-util.h"
+#include "util.h"
 
 static bool arg_no_pager = false;
 static bool arg_ask_password = true;
@@ -374,9 +374,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return 0;
 
                 case ARG_VERSION:
-                        puts(PACKAGE_STRING);
-                        puts(SYSTEMD_FEATURES);
-                        return 0;
+                        return version();
 
                 case 'H':
                         arg_transport = BUS_TRANSPORT_REMOTE;
@@ -502,7 +500,7 @@ int main(int argc, char *argv[]) {
         if (r <= 0)
                 goto finish;
 
-        r = bus_open_transport(arg_transport, arg_host, false, &bus);
+        r = bus_connect_transport(arg_transport, arg_host, false, &bus);
         if (r < 0) {
                 log_error_errno(r, "Failed to create bus connection: %m");
                 goto finish;

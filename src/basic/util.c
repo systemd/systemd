@@ -72,6 +72,7 @@
  * otherwise conflicts with sys/mount.h. Yay, Linux is great! */
 #include <linux/fs.h>
 
+#include "build.h"
 #include "def.h"
 #include "device-nodes.h"
 #include "env-util.h"
@@ -6201,15 +6202,6 @@ int ptsname_malloc(int fd, char **ret) {
 int openpt_in_namespace(pid_t pid, int flags) {
         _cleanup_close_ int pidnsfd = -1, mntnsfd = -1, usernsfd = -1, rootfd = -1;
         _cleanup_close_pair_ int pair[2] = { -1, -1 };
-        union {
-                struct cmsghdr cmsghdr;
-                uint8_t buf[CMSG_SPACE(sizeof(int))];
-        } control = {};
-        struct msghdr mh = {
-                .msg_control = &control,
-                .msg_controllen = sizeof(control),
-        };
-        struct cmsghdr *cmsg;
         siginfo_t si;
         pid_t child;
         int r;
@@ -6243,15 +6235,7 @@ int openpt_in_namespace(pid_t pid, int flags) {
                 if (unlockpt(master) < 0)
                         _exit(EXIT_FAILURE);
 
-                cmsg = CMSG_FIRSTHDR(&mh);
-                cmsg->cmsg_level = SOL_SOCKET;
-                cmsg->cmsg_type = SCM_RIGHTS;
-                cmsg->cmsg_len = CMSG_LEN(sizeof(int));
-                memcpy(CMSG_DATA(cmsg), &master, sizeof(int));
-
-                mh.msg_controllen = cmsg->cmsg_len;
-
-                if (sendmsg(pair[1], &mh, MSG_NOSIGNAL) < 0)
+                if (send_one_fd(pair[1], master, 0) < 0)
                         _exit(EXIT_FAILURE);
 
                 _exit(EXIT_SUCCESS);
@@ -6265,26 +6249,7 @@ int openpt_in_namespace(pid_t pid, int flags) {
         if (si.si_code != CLD_EXITED || si.si_status != EXIT_SUCCESS)
                 return -EIO;
 
-        if (recvmsg(pair[0], &mh, MSG_NOSIGNAL|MSG_CMSG_CLOEXEC) < 0)
-                return -errno;
-
-        CMSG_FOREACH(cmsg, &mh)
-                if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_RIGHTS) {
-                        int *fds;
-                        unsigned n_fds;
-
-                        fds = (int*) CMSG_DATA(cmsg);
-                        n_fds = (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int);
-
-                        if (n_fds != 1) {
-                                close_many(fds, n_fds);
-                                return -EIO;
-                        }
-
-                        return fds[0];
-                }
-
-        return -EIO;
+        return receive_one_fd(pair[0], 0);
 }
 
 ssize_t fgetxattrat_fake(int dirfd, const char *filename, const char *attribute, void *value, size_t size, int flags) {
@@ -6884,7 +6849,7 @@ int fgetxattr_malloc(int fd, const char *name, char **value) {
         }
 }
 
-int send_one_fd(int transport_fd, int fd) {
+int send_one_fd(int transport_fd, int fd, int flags) {
         union {
                 struct cmsghdr cmsghdr;
                 uint8_t buf[CMSG_SPACE(sizeof(int))];
@@ -6894,7 +6859,6 @@ int send_one_fd(int transport_fd, int fd) {
                 .msg_controllen = sizeof(control),
         };
         struct cmsghdr *cmsg;
-        ssize_t k;
 
         assert(transport_fd >= 0);
         assert(fd >= 0);
@@ -6906,14 +6870,13 @@ int send_one_fd(int transport_fd, int fd) {
         memcpy(CMSG_DATA(cmsg), &fd, sizeof(int));
 
         mh.msg_controllen = CMSG_SPACE(sizeof(int));
-        k = sendmsg(transport_fd, &mh, MSG_NOSIGNAL);
-        if (k < 0)
+        if (sendmsg(transport_fd, &mh, MSG_NOSIGNAL | flags) < 0)
                 return -errno;
 
         return 0;
 }
 
-int receive_one_fd(int transport_fd) {
+int receive_one_fd(int transport_fd, int flags) {
         union {
                 struct cmsghdr cmsghdr;
                 uint8_t buf[CMSG_SPACE(sizeof(int))];
@@ -6922,33 +6885,45 @@ int receive_one_fd(int transport_fd) {
                 .msg_control = &control,
                 .msg_controllen = sizeof(control),
         };
-        struct cmsghdr *cmsg;
-        ssize_t k;
+        struct cmsghdr *cmsg, *found = NULL;
 
         assert(transport_fd >= 0);
 
         /*
-         * Receive a single FD via @transport_fd. We don't care for the
-         * transport-type, but the caller must assure that no other CMSG types
-         * than SCM_RIGHTS is enabled. We also retrieve a single FD at most, so
-         * for packet-based transports, the caller must ensure to send only a
-         * single FD per packet.
-         * This is best used in combination with send_one_fd().
+         * Receive a single FD via @transport_fd. We don't care for
+         * the transport-type. We retrieve a single FD at most, so for
+         * packet-based transports, the caller must ensure to send
+         * only a single FD per packet.  This is best used in
+         * combination with send_one_fd().
          */
 
-        k = recvmsg(transport_fd, &mh, MSG_NOSIGNAL | MSG_CMSG_CLOEXEC);
-        if (k < 0)
+        if (recvmsg(transport_fd, &mh, MSG_NOSIGNAL | MSG_CMSG_CLOEXEC | flags) < 0)
                 return -errno;
 
-        cmsg = CMSG_FIRSTHDR(&mh);
-        if (!cmsg || CMSG_NXTHDR(&mh, cmsg) ||
-            cmsg->cmsg_level != SOL_SOCKET ||
-            cmsg->cmsg_type != SCM_RIGHTS ||
-            cmsg->cmsg_len != CMSG_LEN(sizeof(int)) ||
-            *(const int *)CMSG_DATA(cmsg) < 0) {
+        CMSG_FOREACH(cmsg, &mh) {
+                if (cmsg->cmsg_level == SOL_SOCKET &&
+                    cmsg->cmsg_type == SCM_RIGHTS &&
+                    cmsg->cmsg_len == CMSG_LEN(sizeof(int))) {
+                        assert(!found);
+                        found = cmsg;
+                        break;
+                }
+        }
+
+        if (!found) {
                 cmsg_close_all(&mh);
                 return -EIO;
         }
 
-        return *(const int *)CMSG_DATA(cmsg);
+        return *(int*) CMSG_DATA(found);
+}
+
+void nop_signal_handler(int sig) {
+        /* nothing here */
+}
+
+int version(void) {
+        puts(PACKAGE_STRING "\n"
+             SYSTEMD_FEATURES);
+        return 0;
 }

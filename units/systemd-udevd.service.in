@@ -23,4 +23,4 @@ RestartSec=0
 ExecStart=@rootlibexecdir@/systemd-udevd
 MountFlags=slave
 KillMode=mixed
-WatchdogSec=1min
+WatchdogSec=3min

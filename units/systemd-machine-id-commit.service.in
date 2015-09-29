@@ -18,5 +18,5 @@ ConditionPathIsMountPoint=/etc/machine-id
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=@rootlibexecdir@/systemd-machine-id-commit
+ExecStart=@rootbindir@/systemd-machine-id-setup --commit
 TimeoutSec=30s

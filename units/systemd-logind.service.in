@@ -24,7 +24,7 @@ Restart=always
 RestartSec=0
 BusName=org.freedesktop.login1
 CapabilityBoundingSet=CAP_SYS_ADMIN CAP_MAC_ADMIN CAP_AUDIT_CONTROL CAP_CHOWN CAP_KILL CAP_DAC_READ_SEARCH CAP_DAC_OVERRIDE CAP_FOWNER CAP_SYS_TTY_CONFIG
-WatchdogSec=1min
+WatchdogSec=3min
 
 # Increase the default a bit in order to allow many simultaneous
 # logins since we keep one fd open per session.
