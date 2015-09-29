@@ -3054,6 +3054,30 @@ static int prepare_firmware_setup(void) {
         return logind_prepare_firmware_setup();
 }
 
+static int set_exit_code(uint8_t code) {
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        sd_bus *bus;
+        int r;
+
+        r = acquire_bus(BUS_MANAGER, &bus);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "SetExitCode",
+                        &error,
+                        NULL,
+                        "y", code);
+        if (r < 0)
+                return log_error_errno(r, "Failed to execute operation: %s", bus_error_message(&error, r));
+
+        return 0;
+}
+
 static int start_special(char **args) {
         enum action a;
         int r;
@@ -3075,39 +3099,25 @@ static int start_special(char **args) {
         if (r < 0)
                 return r;
 
-        if (a == ACTION_REBOOT && args[1]) {
+        if (a == ACTION_REBOOT && strv_length(args) > 1) {
                 r = update_reboot_param_file(args[1]);
                 if (r < 0)
                         return r;
+
         } else if (a == ACTION_EXIT && strv_length(args) > 1) {
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-                /* If the exit code is not given on the command line, don't
-                 * reset it to zero: just keep it as it might have been set
-                 * previously. */
                 uint8_t code = 0;
-                sd_bus *bus;
+
+                /* If the exit code is not given on the command line,
+                 * don't reset it to zero: just keep it as it might
+                 * have been set previously. */
 
                 r = safe_atou8(args[1], &code);
-                if (r < 0) {
-                        log_error("Invalid exit code.");
-                        return -EINVAL;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Invalid exit code.");
 
-                r = acquire_bus(BUS_MANAGER, &bus);
+                r = set_exit_code(code);
                 if (r < 0)
                         return r;
-
-                r = sd_bus_call_method(
-                                bus,
-                                "org.freedesktop.systemd1",
-                                "/org/freedesktop/systemd1",
-                                "org.freedesktop.systemd1.Manager",
-                                "SetExitCode",
-                                &error,
-                                NULL,
-                                "y", code);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to execute operation: %s", bus_error_message(&error, r));
         }
 
         if (arg_force >= 2 &&
