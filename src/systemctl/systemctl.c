@@ -140,11 +140,55 @@ static bool arg_plain = false;
 static bool arg_firmware_setup = false;
 static bool arg_now = false;
 
-static bool original_stdout_is_tty;
-
-static int daemon_reload(sd_bus *bus, char **args);
+static int daemon_reload(char **args);
 static int halt_now(enum action a);
 static int check_one_unit(sd_bus *bus, const char *name, const char *good_states, bool quiet);
+
+static bool original_stdout_is_tty;
+
+typedef enum BusFocus {
+        BUS_FULL,      /* The full bus indicated via --system or --user */
+        BUS_MANAGER,   /* The manager itself, possibly directly, possibly via the bus */
+        _BUS_FOCUS_MAX
+} BusFocus;
+
+static sd_bus *busses[_BUS_FOCUS_MAX] = {};
+
+static int acquire_bus(BusFocus focus, sd_bus **ret) {
+        int r;
+
+        assert(focus < _BUS_FOCUS_MAX);
+        assert(ret);
+
+        /* We only go directly to the manager, if we are using a local transport */
+        if (arg_transport != BUS_TRANSPORT_LOCAL)
+                focus = BUS_FULL;
+
+        if (!busses[focus]) {
+                bool user;
+
+                user = arg_scope != UNIT_FILE_SYSTEM;
+
+                if (focus == BUS_MANAGER)
+                        r = bus_connect_transport_systemd(arg_transport, arg_host, user, &busses[focus]);
+                else
+                        r = bus_connect_transport(arg_transport, arg_host, user, &busses[focus]);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to connect to bus: %m");
+
+                (void) sd_bus_set_allow_interactive_authorization(busses[focus], arg_ask_password);
+        }
+
+        *ret = busses[focus];
+        return 0;
+}
+
+static void release_busses(void) {
+        BusFocus w;
+
+        for (w = 0; w < _BUS_FOCUS_MAX; w++)
+                busses[w] = sd_bus_flush_close_unref(busses[w]);
+}
 
 static void pager_open_if_enabled(void) {
 
@@ -223,12 +267,10 @@ static int translate_bus_error_to_exit_status(int r, const sd_bus_error *error) 
         return EXIT_FAILURE;
 }
 
-static bool avoid_bus(void) {
+static bool install_client_side(void) {
 
-        /* /sbin/runlevel doesn't need to communicate via D-Bus, so
-         * let's shortcut this */
-        if (arg_action == ACTION_RUNLEVEL)
-                return true;
+        /* Decides when to execute enable/disable/... operations
+         * client-side rather than server-side. */
 
         if (running_in_chroot() > 0)
                 return true;
@@ -615,13 +657,18 @@ static int get_unit_list_recursive(
         return c;
 }
 
-static int list_units(sd_bus *bus, char **args) {
+static int list_units(char **args) {
         _cleanup_free_ UnitInfo *unit_infos = NULL;
         _cleanup_(message_set_freep) Set *replies = NULL;
         _cleanup_strv_free_ char **machines = NULL;
+        sd_bus *bus;
         int r;
 
         pager_open_if_enabled();
+
+        r = acquire_bus(BUS_MANAGER, &bus);
+        if (r < 0)
+                return r;
 
         r = get_unit_list_recursive(bus, strv_skip(args, 1), &unit_infos, &replies, &machines);
         if (r < 0)
@@ -638,6 +685,10 @@ static int get_triggered_units(
 
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
+
+        assert(bus);
+        assert(path);
+        assert(ret);
 
         r = sd_bus_get_property_strv(
                         bus,
@@ -816,7 +867,7 @@ static int output_sockets_list(struct socket_info *socket_infos, unsigned cs) {
         return 0;
 }
 
-static int list_sockets(sd_bus *bus, char **args) {
+static int list_sockets(char **args) {
         _cleanup_(message_set_freep) Set *replies = NULL;
         _cleanup_strv_free_ char **machines = NULL;
         _cleanup_free_ UnitInfo *unit_infos = NULL;
@@ -826,8 +877,13 @@ static int list_sockets(sd_bus *bus, char **args) {
         unsigned cs = 0;
         size_t size = 0;
         int r = 0, n;
+        sd_bus *bus;
 
         pager_open_if_enabled();
+
+        r = acquire_bus(BUS_MANAGER, &bus);
+        if (r < 0)
+                return r;
 
         n = get_unit_list_recursive(bus, strv_skip(args, 1), &unit_infos, &replies, &machines);
         if (n < 0)
@@ -1123,7 +1179,7 @@ static usec_t calc_next_elapse(dual_timestamp *nw, dual_timestamp *next) {
         return next_elapse;
 }
 
-static int list_timers(sd_bus *bus, char **args) {
+static int list_timers(char **args) {
         _cleanup_(message_set_freep) Set *replies = NULL;
         _cleanup_strv_free_ char **machines = NULL;
         _cleanup_free_ struct timer_info *timer_infos = NULL;
@@ -1133,9 +1189,14 @@ static int list_timers(sd_bus *bus, char **args) {
         size_t size = 0;
         int n, c = 0;
         dual_timestamp nw;
+        sd_bus *bus;
         int r = 0;
 
         pager_open_if_enabled();
+
+        r = acquire_bus(BUS_MANAGER, &bus);
+        if (r < 0)
+                return r;
 
         n = get_unit_list_recursive(bus, strv_skip(args, 1), &unit_infos, &replies, &machines);
         if (n < 0)
@@ -1289,7 +1350,7 @@ static void output_unit_file_list(const UnitFileList *units, unsigned c) {
                 printf("\n%u unit files listed.\n", c);
 }
 
-static int list_unit_files(sd_bus *bus, char **args) {
+static int list_unit_files(char **args) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_free_ UnitFileList *units = NULL;
         UnitFileList *unit;
@@ -1301,7 +1362,7 @@ static int list_unit_files(sd_bus *bus, char **args) {
 
         pager_open_if_enabled();
 
-        if (avoid_bus()) {
+        if (install_client_side()) {
                 Hashmap *h;
                 UnitFileList *u;
                 Iterator i;
@@ -1338,6 +1399,11 @@ static int list_unit_files(sd_bus *bus, char **args) {
                 hashmap_free(h);
         } else {
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+                sd_bus *bus;
+
+                r = acquire_bus(BUS_MANAGER, &bus);
+                if (r < 0)
+                        return r;
 
                 r = sd_bus_call_method(
                                 bus,
@@ -1382,7 +1448,7 @@ static int list_unit_files(sd_bus *bus, char **args) {
         qsort_safe(units, c, sizeof(UnitFileList), compare_unit_file_list);
         output_unit_file_list(units, c);
 
-        if (avoid_bus()) {
+        if (install_client_side()) {
                 for (unit = units; unit < units + c; unit++)
                         free(unit->path);
         }
@@ -1601,13 +1667,12 @@ static int list_dependencies_one(
         return 0;
 }
 
-static int list_dependencies(sd_bus *bus, char **args) {
+static int list_dependencies(char **args) {
         _cleanup_strv_free_ char **units = NULL;
         _cleanup_free_ char *unit = NULL;
         const char *u;
+        sd_bus *bus;
         int r;
-
-        assert(bus);
 
         if (args[1]) {
                 r = unit_name_mangle(args[1], UNIT_NAME_NOGLOB, &unit);
@@ -1619,6 +1684,10 @@ static int list_dependencies(sd_bus *bus, char **args) {
                 u = SPECIAL_DEFAULT_TARGET;
 
         pager_open_if_enabled();
+
+        r = acquire_bus(BUS_MANAGER, &bus);
+        if (r < 0)
+                return r;
 
         puts(u);
 
@@ -1835,11 +1904,10 @@ static void output_machines_list(struct machine_info *machine_infos, unsigned n)
                 printf("\n%u machines listed.\n", n);
 }
 
-static int list_machines(sd_bus *bus, char **args) {
+static int list_machines(char **args) {
         struct machine_info *machine_infos = NULL;
+        sd_bus *bus;
         int r;
-
-        assert(bus);
 
         if (geteuid() != 0) {
                 log_error("Must be root.");
@@ -1847,6 +1915,10 @@ static int list_machines(sd_bus *bus, char **args) {
         }
 
         pager_open_if_enabled();
+
+        r = acquire_bus(BUS_MANAGER, &bus);
+        if (r < 0)
+                return r;
 
         r = get_machine_list(bus, &machine_infos, strv_skip(args, 1));
         if (r < 0)
@@ -1859,13 +1931,13 @@ static int list_machines(sd_bus *bus, char **args) {
         return 0;
 }
 
-static int get_default(sd_bus *bus, char **args) {
+static int get_default(char **args) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_free_ char *_path = NULL;
         const char *path;
         int r;
 
-        if (!bus || avoid_bus()) {
+        if (install_client_side()) {
                 r = unit_file_get_default(arg_scope, arg_root, &_path);
                 if (r < 0)
                         return log_error_errno(r, "Failed to get default target: %m");
@@ -1873,6 +1945,11 @@ static int get_default(sd_bus *bus, char **args) {
 
         } else {
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+                sd_bus *bus;
+
+                r = acquire_bus(BUS_MANAGER, &bus);
+                if (r < 0)
+                        return r;
 
                 r = sd_bus_call_method(
                                 bus,
@@ -1912,17 +1989,18 @@ static void dump_unit_file_changes(const UnitFileChange *changes, unsigned n_cha
         }
 }
 
-static int set_default(sd_bus *bus, char **args) {
+static int set_default(char **args) {
         _cleanup_free_ char *unit = NULL;
-        UnitFileChange *changes = NULL;
-        unsigned n_changes = 0;
         int r;
 
         r = unit_name_mangle_with_suffix(args[1], UNIT_NAME_NOGLOB, ".target", &unit);
         if (r < 0)
                 return log_error_errno(r, "Failed to mangle unit name: %m");
 
-        if (!bus || avoid_bus()) {
+        if (install_client_side()) {
+                UnitFileChange *changes = NULL;
+                unsigned n_changes = 0;
+
                 r = unit_file_set_default(arg_scope, arg_root, unit, true, &changes, &n_changes);
                 if (r < 0)
                         return log_error_errno(r, "Failed to set default target: %m");
@@ -1930,12 +2008,18 @@ static int set_default(sd_bus *bus, char **args) {
                 if (!arg_quiet)
                         dump_unit_file_changes(changes, n_changes);
 
+                unit_file_changes_free(changes, n_changes);
                 r = 0;
         } else {
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+                sd_bus *bus;
 
                 polkit_agent_open_if_enabled();
+
+                r = acquire_bus(BUS_MANAGER, &bus);
+                if (r < 0)
+                        return r;
 
                 r = sd_bus_call_method(
                                 bus,
@@ -1957,12 +2041,10 @@ static int set_default(sd_bus *bus, char **args) {
 
                 /* Try to reload if enabled */
                 if (!arg_no_reload)
-                        r = daemon_reload(bus, args);
+                        r = daemon_reload(args);
                 else
                         r = 0;
         }
-
-        unit_file_changes_free(changes, n_changes);
 
         return r;
 }
@@ -2048,16 +2130,23 @@ static bool output_show_job(struct job_info *job, char **patterns) {
         return strv_fnmatch_or_empty(patterns, job->name, FNM_NOESCAPE);
 }
 
-static int list_jobs(sd_bus *bus, char **args) {
+static int list_jobs(char **args) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         const char *name, *type, *state, *job_path, *unit_path;
         _cleanup_free_ struct job_info *jobs = NULL;
         size_t size = 0;
         unsigned c = 0;
+        sd_bus *bus;
         uint32_t id;
         int r;
         bool skipped = false;
+
+        pager_open_if_enabled();
+
+        r = acquire_bus(BUS_MANAGER, &bus);
+        if (r < 0)
+                return r;
 
         r = sd_bus_call_method(
                         bus,
@@ -2101,16 +2190,21 @@ static int list_jobs(sd_bus *bus, char **args) {
         return r;
 }
 
-static int cancel_job(sd_bus *bus, char **args) {
+static int cancel_job(char **args) {
+        sd_bus *bus;
         char **name;
         int r = 0;
 
         assert(args);
 
         if (strv_length(args) <= 1)
-                return daemon_reload(bus, args);
+                return daemon_reload(args);
 
         polkit_agent_open_if_enabled();
+
+        r = acquire_bus(BUS_MANAGER, &bus);
+        if (r < 0)
+                return r;
 
         STRV_FOREACH(name, args+1) {
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -2216,7 +2310,6 @@ static int unit_file_find_path(LookupPaths *lp, const char *unit_name, char **un
 static int unit_find_paths(
                 sd_bus *bus,
                 const char *unit_name,
-                bool avoid_bus_cache,
                 LookupPaths *lp,
                 char **fragment_path,
                 char ***dropin_paths) {
@@ -2237,7 +2330,7 @@ static int unit_find_paths(
         assert(fragment_path);
         assert(lp);
 
-        if (!avoid_bus_cache && !unit_name_is_valid(unit_name, UNIT_NAME_TEMPLATE)) {
+        if (!install_client_side() && !unit_name_is_valid(unit_name, UNIT_NAME_TEMPLATE)) {
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_bus_message_unref_ sd_bus_message *unit_load_error = NULL;
                 _cleanup_free_ char *unit = NULL;
@@ -2571,10 +2664,12 @@ static int start_unit_one(
 }
 
 static int expand_names(sd_bus *bus, char **names, const char* suffix, char ***ret) {
-
         _cleanup_strv_free_ char **mangled = NULL, **globs = NULL;
         char **name;
         int r, i;
+
+        assert(bus);
+        assert(ret);
 
         STRV_FOREACH(name, names) {
                 char *t;
@@ -2599,9 +2694,6 @@ static int expand_names(sd_bus *bus, char **names, const char* suffix, char ***r
         if (!strv_isempty(globs)) {
                 _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
                 _cleanup_free_ UnitInfo *unit_infos = NULL;
-
-                if (!bus)
-                        return log_error_errno(EOPNOTSUPP, "Unit name globbing without bus is not implemented.");
 
                 r = get_unit_list(bus, NULL, globs, &unit_infos, 0, &reply);
                 if (r < 0)
@@ -2650,17 +2742,20 @@ static enum action verb_to_action(const char *verb) {
         return _ACTION_INVALID;
 }
 
-static int start_unit(sd_bus *bus, char **args) {
+static int start_unit(char **args) {
         _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
         const char *method, *mode, *one_name, *suffix = NULL;
         _cleanup_strv_free_ char **names = NULL;
+        sd_bus *bus;
         char **name;
         int r = 0;
 
-        assert(bus);
-
         ask_password_agent_open_if_enabled();
         polkit_agent_open_if_enabled();
+
+        r = acquire_bus(BUS_MANAGER, &bus);
+        if (r < 0)
+                return r;
 
         if (arg_action == ACTION_SYSTEMCTL) {
                 enum action action;
@@ -2687,7 +2782,7 @@ static int start_unit(sd_bus *bus, char **args) {
         if (one_name)
                 names = strv_new(one_name, NULL);
         else {
-                r = expand_names(bus, args + 1, suffix, &names);
+                r = expand_names(bus, strv_skip(args, 1), suffix, &names);
                 if (r < 0)
                         log_error_errno(r, "Failed to expand names: %m");
         }
@@ -2724,13 +2819,16 @@ static int start_unit(sd_bus *bus, char **args) {
         return r;
 }
 
-static int logind_set_wall_message(sd_bus *bus) {
+static int logind_set_wall_message(void) {
 #ifdef HAVE_LOGIND
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        sd_bus *bus;
         _cleanup_free_ char *m = NULL;
         int r;
 
-        assert(bus);
+        r = acquire_bus(BUS_FULL, &bus);
+        if (r < 0)
+                return r;
 
         m = strv_join(arg_wall, " ");
         if (!m)
@@ -2757,18 +2855,19 @@ static int logind_set_wall_message(sd_bus *bus) {
 
 /* Ask systemd-logind, which might grant access to unprivileged users
  * through PolicyKit */
-static int logind_reboot(sd_bus *bus, enum action a) {
+static int logind_reboot(enum action a) {
 #ifdef HAVE_LOGIND
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *method, *description;
+        sd_bus *bus;
         int r;
 
-        if (!bus)
-                return -EIO;
-
         polkit_agent_open_if_enabled();
+        (void) logind_set_wall_message();
 
-        (void) logind_set_wall_message(bus);
+        r = acquire_bus(BUS_FULL, &bus);
+        if (r < 0)
+                return r;
 
         switch (a) {
 
@@ -2819,18 +2918,16 @@ static int logind_reboot(sd_bus *bus, enum action a) {
 #endif
 }
 
-static int logind_check_inhibitors(sd_bus *bus, enum action a) {
+static int logind_check_inhibitors(enum action a) {
 #ifdef HAVE_LOGIND
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_strv_free_ char **sessions = NULL;
         const char *what, *who, *why, *mode;
         uint32_t uid, pid;
+        sd_bus *bus;
         unsigned c = 0;
         char **s;
         int r;
-
-        if (!bus)
-                return 0;
 
         if (arg_ignore_inhibitors || arg_force > 0)
                 return 0;
@@ -2843,6 +2940,10 @@ static int logind_check_inhibitors(sd_bus *bus, enum action a) {
 
         if (!on_tty())
                 return 0;
+
+        r = acquire_bus(BUS_FULL, &bus);
+        if (r < 0)
+                return r;
 
         r = sd_bus_call_method(
                         bus,
@@ -2933,10 +3034,36 @@ static int logind_check_inhibitors(sd_bus *bus, enum action a) {
 #endif
 }
 
-static int prepare_firmware_setup(sd_bus *bus) {
+static int logind_prepare_firmware_setup(void) {
 #ifdef HAVE_LOGIND
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        sd_bus *bus;
+        int r;
+
+        r = acquire_bus(BUS_FULL, &bus);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.login1",
+                        "/org/freedesktop/login1",
+                        "org.freedesktop.login1.Manager",
+                        "SetRebootToFirmwareSetup",
+                        &error,
+                        NULL,
+                        "b", true);
+        if (r < 0)
+                return log_error_errno(r, "Cannot indicate to EFI to boot into setup mode: %s", bus_error_message(&error, r));
+
+        return 0;
+#else
+        log_error("Cannot remotely indicate to EFI to boot into setup mode.");
+        return -ENOSYS;
 #endif
+}
+
+static int prepare_firmware_setup(void) {
         int r;
 
         if (!arg_firmware_setup)
@@ -2951,30 +3078,10 @@ static int prepare_firmware_setup(sd_bus *bus) {
                         return r;
         }
 
-#ifdef HAVE_LOGIND
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.login1",
-                        "/org/freedesktop/login1",
-                        "org.freedesktop.login1.Manager",
-                        "SetRebootToFirmwareSetup",
-                        &error,
-                        NULL,
-                        "b", true);
-        if (r < 0) {
-                log_error("Cannot indicate to EFI to boot into setup mode: %s", bus_error_message(&error, r));
-                return r;
-        }
-
-        return 0;
-#else
-        log_error("Cannot remotely indicate to EFI to boot into setup mode.");
-        return -EINVAL;
-#endif
+        return logind_prepare_firmware_setup();
 }
 
-static int start_special(sd_bus *bus, char **args) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+static int start_special(char **args) {
         enum action a;
         int r;
 
@@ -2982,7 +3089,7 @@ static int start_special(sd_bus *bus, char **args) {
 
         a = verb_to_action(args[0]);
 
-        r = logind_check_inhibitors(bus, a);
+        r = logind_check_inhibitors(a);
         if (r < 0)
                 return r;
 
@@ -2991,7 +3098,7 @@ static int start_special(sd_bus *bus, char **args) {
                 return -EPERM;
         }
 
-        r = prepare_firmware_setup(bus);
+        r = prepare_firmware_setup();
         if (r < 0)
                 return r;
 
@@ -3000,16 +3107,22 @@ static int start_special(sd_bus *bus, char **args) {
                 if (r < 0)
                         return r;
         } else if (a == ACTION_EXIT && strv_length(args) > 1) {
+                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
                 /* If the exit code is not given on the command line, don't
                  * reset it to zero: just keep it as it might have been set
                  * previously. */
                 uint8_t code = 0;
+                sd_bus *bus;
 
                 r = safe_atou8(args[1], &code);
                 if (r < 0) {
                         log_error("Invalid exit code.");
                         return -EINVAL;
                 }
+
+                r = acquire_bus(BUS_MANAGER, &bus);
+                if (r < 0)
+                        return r;
 
                 r = sd_bus_call_method(
                                 bus,
@@ -3040,7 +3153,7 @@ static int start_special(sd_bus *bus, char **args) {
                    ACTION_REBOOT,
                    ACTION_KEXEC,
                    ACTION_EXIT))
-                return daemon_reload(bus, args);
+                return daemon_reload(args);
 
         /* first try logind, to allow authentication with polkit */
         if (geteuid() != 0 &&
@@ -3050,7 +3163,7 @@ static int start_special(sd_bus *bus, char **args) {
                    ACTION_SUSPEND,
                    ACTION_HIBERNATE,
                    ACTION_HYBRID_SLEEP)) {
-                r = logind_reboot(bus, a);
+                r = logind_reboot(a);
                 if (r >= 0)
                         return r;
                 if (IN_SET(r, -EOPNOTSUPP, -EINPROGRESS))
@@ -3059,16 +3172,20 @@ static int start_special(sd_bus *bus, char **args) {
                 /* on all other errors, try low-level operation */
         }
 
-        return start_unit(bus, args);
+        return start_unit(args);
 }
 
-static int check_unit_generic(sd_bus *bus, int code, const char *good_states, char **args) {
+static int check_unit_generic(int code, const char *good_states, char **args) {
         _cleanup_strv_free_ char **names = NULL;
+        sd_bus *bus;
         char **name;
         int r;
 
-        assert(bus);
         assert(args);
+
+        r = acquire_bus(BUS_MANAGER, &bus);
+        if (r < 0)
+                return r;
 
         r = expand_names(bus, args, NULL, &names);
         if (r < 0)
@@ -3087,24 +3204,28 @@ static int check_unit_generic(sd_bus *bus, int code, const char *good_states, ch
         return r;
 }
 
-static int check_unit_active(sd_bus *bus, char **args) {
+static int check_unit_active(char **args) {
         /* According to LSB: 3, "program is not running" */
-        return check_unit_generic(bus, 3, "active\0reloading\0", args + 1);
+        return check_unit_generic(3, "active\0reloading\0", strv_skip(args, 1));
 }
 
-static int check_unit_failed(sd_bus *bus, char **args) {
-        return check_unit_generic(bus, 1, "failed\0", args + 1);
+static int check_unit_failed(char **args) {
+        return check_unit_generic(1, "failed\0", strv_skip(args, 1));
 }
 
-static int kill_unit(sd_bus *bus, char **args) {
+static int kill_unit(char **args) {
         _cleanup_strv_free_ char **names = NULL;
         char *kill_who = NULL, **name;
+        sd_bus *bus;
         int r, q;
 
-        assert(bus);
         assert(args);
 
         polkit_agent_open_if_enabled();
+
+        r = acquire_bus(BUS_MANAGER, &bus);
+        if (r < 0)
+                return r;
 
         if (!arg_kill_who)
                 arg_kill_who = "all";
@@ -4516,12 +4637,12 @@ static int show_system_status(sd_bus *bus) {
         return 0;
 }
 
-static int show(sd_bus *bus, char **args) {
+static int show(char **args) {
         bool show_properties, show_status, new_line = false;
         bool ellipsized = false;
         int r, ret = 0;
+        sd_bus *bus;
 
-        assert(bus);
         assert(args);
 
         show_properties = streq(args[0], "show");
@@ -4536,8 +4657,11 @@ static int show(sd_bus *bus, char **args) {
                  * be split up into many files. */
                 setrlimit_closest(RLIMIT_NOFILE, &RLIMIT_MAKE_CONST(16384));
 
-        /* If no argument is specified inspect the manager itself */
+        r = acquire_bus(BUS_MANAGER, &bus);
+        if (r < 0)
+                return r;
 
+        /* If no argument is specified inspect the manager itself */
         if (show_properties && strv_length(args) <= 1)
                 return show_one(args[0], bus, "/org/freedesktop/systemd1", show_properties, &new_line, &ellipsized);
 
@@ -4659,19 +4783,20 @@ static int cat_file(const char *filename, bool newline) {
         return copy_bytes(fd, STDOUT_FILENO, (uint64_t) -1, false);
 }
 
-static int cat(sd_bus *bus, char **args) {
+static int cat(char **args) {
         _cleanup_free_ char *user_home = NULL;
         _cleanup_free_ char *user_runtime = NULL;
         _cleanup_lookup_paths_free_ LookupPaths lp = {};
         _cleanup_strv_free_ char **names = NULL;
         char **name;
-        bool first = true, avoid_bus_cache;
+        sd_bus *bus;
+        bool first = true;
         int r;
 
         assert(args);
 
         if (arg_transport != BUS_TRANSPORT_LOCAL) {
-                log_error("Cannot remotely cat units");
+                log_error("Cannot remotely cat units.");
                 return -EINVAL;
         }
 
@@ -4679,11 +4804,13 @@ static int cat(sd_bus *bus, char **args) {
         if (r < 0)
                 return r;
 
-        r = expand_names(bus, args + 1, NULL, &names);
+        r = acquire_bus(BUS_MANAGER, &bus);
+        if (r < 0)
+                return r;
+
+        r = expand_names(bus, strv_skip(args, 1), NULL, &names);
         if (r < 0)
                 return log_error_errno(r, "Failed to expand names: %m");
-
-        avoid_bus_cache = !bus || avoid_bus();
 
         pager_open_if_enabled();
 
@@ -4692,7 +4819,7 @@ static int cat(sd_bus *bus, char **args) {
                 _cleanup_strv_free_ char **dropin_paths = NULL;
                 char **path;
 
-                r = unit_find_paths(bus, *name, avoid_bus_cache, &lp, &fragment_path, &dropin_paths);
+                r = unit_find_paths(bus, *name, &lp, &fragment_path, &dropin_paths);
                 if (r < 0)
                         return r;
                 else if (r == 0)
@@ -4719,14 +4846,19 @@ static int cat(sd_bus *bus, char **args) {
         return 0;
 }
 
-static int set_property(sd_bus *bus, char **args) {
+static int set_property(char **args) {
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *n = NULL;
+        sd_bus *bus;
         char **i;
         int r;
 
         polkit_agent_open_if_enabled();
+
+        r = acquire_bus(BUS_MANAGER, &bus);
+        if (r < 0)
+                return r;
 
         r = sd_bus_message_new_method_call(
                         bus,
@@ -4777,11 +4909,12 @@ static int set_property(sd_bus *bus, char **args) {
         return 0;
 }
 
-static int snapshot(sd_bus *bus, char **args) {
+static int snapshot(char **args) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_free_ char *n = NULL, *id = NULL;
         const char *path;
+        sd_bus *bus;
         int r;
 
         polkit_agent_open_if_enabled();
@@ -4795,6 +4928,10 @@ static int snapshot(sd_bus *bus, char **args) {
                 if (!n)
                         return log_oom();
         }
+
+        r = acquire_bus(BUS_MANAGER, &bus);
+        if (r < 0)
+                return r;
 
         r = sd_bus_call_method(
                         bus,
@@ -4833,8 +4970,9 @@ static int snapshot(sd_bus *bus, char **args) {
         return 0;
 }
 
-static int delete_snapshot(sd_bus *bus, char **args) {
+static int delete_snapshot(char **args) {
         _cleanup_strv_free_ char **names = NULL;
+        sd_bus *bus;
         char **name;
         int r;
 
@@ -4842,9 +4980,13 @@ static int delete_snapshot(sd_bus *bus, char **args) {
 
         polkit_agent_open_if_enabled();
 
-        r = expand_names(bus, args + 1, ".snapshot", &names);
+        r = acquire_bus(BUS_MANAGER, &bus);
         if (r < 0)
-                log_error_errno(r, "Failed to expand names: %m");
+                return r;
+
+        r = expand_names(bus, strv_skip(args, 1), ".snapshot", &names);
+        if (r < 0)
+                return log_error_errno(r, "Failed to expand names: %m");
 
         STRV_FOREACH(name, names) {
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -4869,12 +5011,17 @@ static int delete_snapshot(sd_bus *bus, char **args) {
         return r;
 }
 
-static int daemon_reload(sd_bus *bus, char **args) {
+static int daemon_reload(char **args) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *method;
+        sd_bus *bus;
         int r;
 
         polkit_agent_open_if_enabled();
+
+        r = acquire_bus(BUS_MANAGER, &bus);
+        if (r < 0)
+                return r;
 
         if (arg_action == ACTION_RELOAD)
                 method = "Reload";
@@ -4919,17 +5066,22 @@ static int daemon_reload(sd_bus *bus, char **args) {
         return r < 0 ? r : 0;
 }
 
-static int reset_failed(sd_bus *bus, char **args) {
+static int reset_failed(char **args) {
         _cleanup_strv_free_ char **names = NULL;
+        sd_bus *bus;
         char **name;
         int r, q;
 
         if (strv_length(args) <= 1)
-                return daemon_reload(bus, args);
+                return daemon_reload(args);
 
         polkit_agent_open_if_enabled();
 
-        r = expand_names(bus, args + 1, NULL, &names);
+        r = acquire_bus(BUS_MANAGER, &bus);
+        if (r < 0)
+                return r;
+
+        r = expand_names(bus, strv_skip(args, 1), NULL, &names);
         if (r < 0)
                 log_error_errno(r, "Failed to expand names: %m");
 
@@ -4955,13 +5107,18 @@ static int reset_failed(sd_bus *bus, char **args) {
         return r;
 }
 
-static int show_environment(sd_bus *bus, char **args) {
+static int show_environment(char **args) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         const char *text;
+        sd_bus *bus;
         int r;
 
         pager_open_if_enabled();
+
+        r = acquire_bus(BUS_MANAGER, &bus);
+        if (r < 0)
+                return r;
 
         r = sd_bus_get_property(
                         bus,
@@ -4993,12 +5150,18 @@ static int show_environment(sd_bus *bus, char **args) {
         return 0;
 }
 
-static int switch_root(sd_bus *bus, char **args) {
+static int switch_root(char **args) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *cmdline_init = NULL;
         const char *root, *init;
+        sd_bus *bus;
         unsigned l;
         int r;
+
+        if (arg_transport != BUS_TRANSPORT_LOCAL) {
+                log_error("Cannot switch root remotely.");
+                return -EINVAL;
+        }
 
         l = strv_length(args);
         if (l < 2 || l > 3) {
@@ -5035,6 +5198,10 @@ static int switch_root(sd_bus *bus, char **args) {
                         init = NULL;
         }
 
+        r = acquire_bus(BUS_MANAGER, &bus);
+        if (r < 0)
+                return r;
+
         log_debug("Switching root - root: %s; init: %s", root, strna(init));
 
         r = sd_bus_call_method(
@@ -5054,16 +5221,20 @@ static int switch_root(sd_bus *bus, char **args) {
         return 0;
 }
 
-static int set_environment(sd_bus *bus, char **args) {
+static int set_environment(char **args) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
         const char *method;
+        sd_bus *bus;
         int r;
 
-        assert(bus);
         assert(args);
 
         polkit_agent_open_if_enabled();
+
+        r = acquire_bus(BUS_MANAGER, &bus);
+        if (r < 0)
+                return r;
 
         method = streq(args[0], "set-environment")
                 ? "SetEnvironment"
@@ -5092,15 +5263,19 @@ static int set_environment(sd_bus *bus, char **args) {
         return 0;
 }
 
-static int import_environment(sd_bus *bus, char **args) {
+static int import_environment(char **args) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        sd_bus *bus;
         int r;
 
-        assert(bus);
         assert(args);
 
         polkit_agent_open_if_enabled();
+
+        r = acquire_bus(BUS_MANAGER, &bus);
+        if (r < 0)
+                return r;
 
         r = sd_bus_message_new_method_call(
                         bus,
@@ -5331,7 +5506,7 @@ static int mangle_names(char **original_names, char ***mangled_names) {
         return 0;
 }
 
-static int enable_unit(sd_bus *bus, char **args) {
+static int enable_unit(char **args) {
         _cleanup_strv_free_ char **names = NULL;
         const char *verb = args[0];
         UnitFileChange *changes = NULL;
@@ -5355,7 +5530,7 @@ static int enable_unit(sd_bus *bus, char **args) {
         if (strv_isempty(names))
                 return 0;
 
-        if (!bus || avoid_bus()) {
+        if (install_client_side()) {
                 if (streq(verb, "enable")) {
                         r = unit_file_enable(arg_scope, arg_runtime, arg_root, names, arg_force, &changes, &n_changes);
                         carries_install_info = r;
@@ -5391,8 +5566,13 @@ static int enable_unit(sd_bus *bus, char **args) {
                 int expect_carries_install_info = false;
                 bool send_force = true, send_preset_mode = false;
                 const char *method;
+                sd_bus *bus;
 
                 polkit_agent_open_if_enabled();
+
+                r = acquire_bus(BUS_MANAGER, &bus);
+                if (r < 0)
+                        return r;
 
                 if (streq(verb, "enable")) {
                         method = "EnableUnitFiles";
@@ -5470,7 +5650,7 @@ static int enable_unit(sd_bus *bus, char **args) {
 
                 /* Try to reload if enabled */
                 if (!arg_no_reload)
-                        r = daemon_reload(bus, args);
+                        r = daemon_reload(args);
                 else
                         r = 0;
         }
@@ -5488,14 +5668,19 @@ static int enable_unit(sd_bus *bus, char **args) {
 
         if (arg_now && n_changes > 0 && STR_IN_SET(args[0], "enable", "disable", "mask")) {
                 char *new_args[n_changes + 2];
+                sd_bus *bus;
                 unsigned i;
 
-                new_args[0] = streq(args[0], "enable") ? (char *)"start" : (char *)"stop";
+                r = acquire_bus(BUS_MANAGER, &bus);
+                if (r < 0)
+                        return r;
+
+                new_args[0] = (char*) (streq(args[0], "enable") ? "start" : "stop");
                 for (i = 0; i < n_changes; i++)
                         new_args[i + 1] = basename(changes[i].path);
                 new_args[i + 1] = NULL;
 
-                r = start_unit(bus, new_args);
+                r = start_unit(new_args);
         }
 
 finish:
@@ -5504,7 +5689,7 @@ finish:
         return r;
 }
 
-static int add_dependency(sd_bus *bus, char **args) {
+static int add_dependency(char **args) {
         _cleanup_strv_free_ char **names = NULL;
         _cleanup_free_ char *target = NULL;
         const char *verb = args[0];
@@ -5529,7 +5714,7 @@ static int add_dependency(sd_bus *bus, char **args) {
         else
                 assert_not_reached("Unknown verb");
 
-        if (!bus || avoid_bus()) {
+        if (install_client_side()) {
                 UnitFileChange *changes = NULL;
                 unsigned n_changes = 0;
 
@@ -5546,8 +5731,13 @@ static int add_dependency(sd_bus *bus, char **args) {
         } else {
                 _cleanup_bus_message_unref_ sd_bus_message *reply = NULL, *m = NULL;
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+                sd_bus *bus;
 
                 polkit_agent_open_if_enabled();
+
+                r = acquire_bus(BUS_MANAGER, &bus);
+                if (r < 0)
+                        return r;
 
                 r = sd_bus_message_new_method_call(
                                 bus,
@@ -5578,7 +5768,7 @@ static int add_dependency(sd_bus *bus, char **args) {
                         return r;
 
                 if (!arg_no_reload)
-                        r = daemon_reload(bus, args);
+                        r = daemon_reload(args);
                 else
                         r = 0;
         }
@@ -5586,12 +5776,12 @@ static int add_dependency(sd_bus *bus, char **args) {
         return r;
 }
 
-static int preset_all(sd_bus *bus, char **args) {
+static int preset_all(char **args) {
         UnitFileChange *changes = NULL;
         unsigned n_changes = 0;
         int r;
 
-        if (!bus || avoid_bus()) {
+        if (install_client_side()) {
 
                 r = unit_file_preset_all(arg_scope, arg_runtime, arg_root, arg_preset_mode, arg_force, &changes, &n_changes);
                 if (r < 0) {
@@ -5607,8 +5797,13 @@ static int preset_all(sd_bus *bus, char **args) {
         } else {
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+                sd_bus *bus;
 
                 polkit_agent_open_if_enabled();
+
+                r = acquire_bus(BUS_MANAGER, &bus);
+                if (r < 0)
+                        return r;
 
                 r = sd_bus_call_method(
                                 bus,
@@ -5632,7 +5827,7 @@ static int preset_all(sd_bus *bus, char **args) {
                         return r;
 
                 if (!arg_no_reload)
-                        r = daemon_reload(bus, args);
+                        r = daemon_reload(args);
                 else
                         r = 0;
         }
@@ -5643,9 +5838,8 @@ finish:
         return r;
 }
 
-static int unit_is_enabled(sd_bus *bus, char **args) {
+static int unit_is_enabled(char **args) {
 
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_strv_free_ char **names = NULL;
         bool enabled;
         char **name;
@@ -5661,7 +5855,7 @@ static int unit_is_enabled(sd_bus *bus, char **args) {
 
         enabled = r > 0;
 
-        if (!bus || avoid_bus()) {
+        if (install_client_side()) {
 
                 STRV_FOREACH(name, names) {
                         UnitFileState state;
@@ -5682,6 +5876,13 @@ static int unit_is_enabled(sd_bus *bus, char **args) {
                 }
 
         } else {
+                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+                sd_bus *bus;
+
+                r = acquire_bus(BUS_MANAGER, &bus);
+                if (r < 0)
+                        return r;
+
                 STRV_FOREACH(name, names) {
                         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
                         const char *s;
@@ -5715,8 +5916,9 @@ static int unit_is_enabled(sd_bus *bus, char **args) {
         return !enabled;
 }
 
-static int is_system_running(sd_bus *bus, char **args) {
+static int is_system_running(char **args) {
         _cleanup_free_ char *state = NULL;
+        sd_bus *bus;
         int r;
 
         if (arg_transport == BUS_TRANSPORT_LOCAL && !sd_booted()) {
@@ -5724,6 +5926,10 @@ static int is_system_running(sd_bus *bus, char **args) {
                         puts("offline");
                 return EXIT_FAILURE;
         }
+
+        r = acquire_bus(BUS_MANAGER, &bus);
+        if (r < 0)
+                return r;
 
         r = sd_bus_get_property_string(
                         bus,
@@ -5995,7 +6201,6 @@ static int find_paths_to_edit(sd_bus *bus, char **names, char ***paths) {
         _cleanup_free_ char *user_home = NULL;
         _cleanup_free_ char *user_runtime = NULL;
         _cleanup_lookup_paths_free_ LookupPaths lp = {};
-        bool avoid_bus_cache;
         char **name;
         int r;
 
@@ -6006,13 +6211,11 @@ static int find_paths_to_edit(sd_bus *bus, char **names, char ***paths) {
         if (r < 0)
                 return r;
 
-        avoid_bus_cache = !bus || avoid_bus();
-
         STRV_FOREACH(name, names) {
                 _cleanup_free_ char *path = NULL;
                 char *new_path, *tmp_path;
 
-                r = unit_find_paths(bus, *name, avoid_bus_cache, &lp, &path, NULL);
+                r = unit_find_paths(bus, *name, &lp, &path, NULL);
                 if (r < 0)
                         return r;
                 else if (r == 0)
@@ -6038,25 +6241,30 @@ static int find_paths_to_edit(sd_bus *bus, char **names, char ***paths) {
         return 0;
 }
 
-static int edit(sd_bus *bus, char **args) {
+static int edit(char **args) {
         _cleanup_strv_free_ char **names = NULL;
         _cleanup_strv_free_ char **paths = NULL;
         char **original, **tmp;
+        sd_bus *bus;
         int r;
 
         assert(args);
 
         if (!on_tty()) {
-                log_error("Cannot edit units if not on a tty");
+                log_error("Cannot edit units if not on a tty.");
                 return -EINVAL;
         }
 
         if (arg_transport != BUS_TRANSPORT_LOCAL) {
-                log_error("Cannot remotely edit units");
+                log_error("Cannot edit units remotely.");
                 return -EINVAL;
         }
 
-        r = expand_names(bus, args + 1, NULL, &names);
+        r = acquire_bus(BUS_MANAGER, &bus);
+        if (r < 0)
+                return r;
+
+        r = expand_names(bus, strv_skip(args, 1), NULL, &names);
         if (r < 0)
                 return log_error_errno(r, "Failed to expand names: %m");
 
@@ -6086,8 +6294,8 @@ static int edit(sd_bus *bus, char **args) {
                 }
         }
 
-        if (!arg_no_reload && bus && !avoid_bus())
-                r = daemon_reload(bus, args);
+        if (!arg_no_reload && bus && !install_client_side())
+                r = daemon_reload(args);
 
 end:
         STRV_FOREACH_PAIR(original, tmp, paths)
@@ -7153,7 +7361,7 @@ static int talk_initctl(void) {
 #endif
 }
 
-static int systemctl_main(sd_bus *bus, int argc, char *argv[], int bus_error) {
+static int systemctl_main(int argc, char *argv[], int bus_error) {
 
         static const struct {
                 const char* verb;
@@ -7163,14 +7371,10 @@ static int systemctl_main(sd_bus *bus, int argc, char *argv[], int bus_error) {
                         EQUAL
                 } argc_cmp;
                 const int argc;
-                int (* const dispatch)(sd_bus *bus, char **args);
-                const enum {
-                        NOBUS = 1,
-                        FORCE,
-                } bus;
+                int (* const dispatch)(char **args);
         } verbs[] = {
                 { "list-units",            MORE,  0, list_units        },
-                { "list-unit-files",       MORE,  1, list_unit_files,  NOBUS },
+                { "list-unit-files",       MORE,  1, list_unit_files   },
                 { "list-sockets",          MORE,  1, list_sockets      },
                 { "list-timers",           MORE,  1, list_timers       },
                 { "list-jobs",             MORE,  1, list_jobs         },
@@ -7194,7 +7398,7 @@ static int systemctl_main(sd_bus *bus, int argc, char *argv[], int bus_error) {
                 { "check",                 MORE,  2, check_unit_active },
                 { "is-failed",             MORE,  2, check_unit_failed },
                 { "show",                  MORE,  1, show              },
-                { "cat",                   MORE,  2, cat,              NOBUS },
+                { "cat",                   MORE,  2, cat,              },
                 { "status",                MORE,  1, show              },
                 { "help",                  MORE,  2, show              },
                 { "snapshot",              LESS,  2, snapshot          },
@@ -7205,9 +7409,9 @@ static int systemctl_main(sd_bus *bus, int argc, char *argv[], int bus_error) {
                 { "set-environment",       MORE,  2, set_environment   },
                 { "unset-environment",     MORE,  2, set_environment   },
                 { "import-environment",    MORE,  1, import_environment},
-                { "halt",                  EQUAL, 1, start_special,    FORCE },
-                { "poweroff",              EQUAL, 1, start_special,    FORCE },
-                { "reboot",                MORE,  1, start_special,    FORCE },
+                { "halt",                  EQUAL, 1, start_special,    },
+                { "poweroff",              EQUAL, 1, start_special,    },
+                { "reboot",                MORE,  1, start_special,    },
                 { "kexec",                 EQUAL, 1, start_special     },
                 { "suspend",               EQUAL, 1, start_special     },
                 { "hibernate",             EQUAL, 1, start_special     },
@@ -7217,24 +7421,24 @@ static int systemctl_main(sd_bus *bus, int argc, char *argv[], int bus_error) {
                 { "emergency",             EQUAL, 1, start_special     },
                 { "exit",                  LESS,  2, start_special     },
                 { "reset-failed",          MORE,  1, reset_failed      },
-                { "enable",                MORE,  2, enable_unit,      NOBUS },
-                { "disable",               MORE,  2, enable_unit,      NOBUS },
-                { "is-enabled",            MORE,  2, unit_is_enabled,  NOBUS },
-                { "reenable",              MORE,  2, enable_unit,      NOBUS },
-                { "preset",                MORE,  2, enable_unit,      NOBUS },
-                { "preset-all",            EQUAL, 1, preset_all,       NOBUS },
-                { "mask",                  MORE,  2, enable_unit,      NOBUS },
-                { "unmask",                MORE,  2, enable_unit,      NOBUS },
-                { "link",                  MORE,  2, enable_unit,      NOBUS },
+                { "enable",                MORE,  2, enable_unit,      },
+                { "disable",               MORE,  2, enable_unit,      },
+                { "is-enabled",            MORE,  2, unit_is_enabled,  },
+                { "reenable",              MORE,  2, enable_unit,      },
+                { "preset",                MORE,  2, enable_unit,      },
+                { "preset-all",            EQUAL, 1, preset_all,       },
+                { "mask",                  MORE,  2, enable_unit,      },
+                { "unmask",                MORE,  2, enable_unit,      },
+                { "link",                  MORE,  2, enable_unit,      },
                 { "switch-root",           MORE,  2, switch_root       },
                 { "list-dependencies",     LESS,  2, list_dependencies },
-                { "set-default",           EQUAL, 2, set_default,      NOBUS },
-                { "get-default",           EQUAL, 1, get_default,      NOBUS },
+                { "set-default",           EQUAL, 2, set_default,      },
+                { "get-default",           EQUAL, 1, get_default,      },
                 { "set-property",          MORE,  3, set_property      },
                 { "is-system-running",     EQUAL, 1, is_system_running },
-                { "add-wants",             MORE,  3, add_dependency,   NOBUS },
-                { "add-requires",          MORE,  3, add_dependency,   NOBUS },
-                { "edit",                  MORE,  2, edit,             NOBUS },
+                { "add-wants",             MORE,  3, add_dependency,   },
+                { "add-requires",          MORE,  3, add_dependency,   },
+                { "edit",                  MORE,  2, edit,             },
                 {}
         }, *verb = verbs;
 
@@ -7292,36 +7496,14 @@ found:
                 assert_not_reached("Unknown comparison operator.");
         }
 
-        /* Require a bus connection for all operations but
-         * enable/disable */
-        if (verb->bus == NOBUS) {
-                if (!bus && !avoid_bus()) {
-                        log_error_errno(bus_error, "Failed to get D-Bus connection: %m");
-                        return -EIO;
-                }
-
-        } else {
-                if (running_in_chroot() > 0) {
-                        log_info("Running in chroot, ignoring request.");
-                        return 0;
-                }
-
-                if ((verb->bus != FORCE || arg_force <= 0) && !bus) {
-                        log_error_errno(bus_error, "Failed to get D-Bus connection: %m");
-                        return -EIO;
-                }
-        }
-
-        return verb->dispatch(bus, argv + optind);
+        return verb->dispatch(argv + optind);
 }
 
-static int reload_with_fallback(sd_bus *bus) {
+static int reload_with_fallback(void) {
 
-        if (bus) {
-                /* First, try systemd via D-Bus. */
-                if (daemon_reload(bus, NULL) >= 0)
-                        return 0;
-        }
+        /* First, try systemd via D-Bus. */
+        if (daemon_reload(NULL) >= 0)
+                return 0;
 
         /* Nothing else worked, so let's try signals */
         assert(arg_action == ACTION_RELOAD || arg_action == ACTION_REEXEC);
@@ -7332,13 +7514,11 @@ static int reload_with_fallback(sd_bus *bus) {
         return 0;
 }
 
-static int start_with_fallback(sd_bus *bus) {
+static int start_with_fallback(void) {
 
-        if (bus) {
-                /* First, try systemd via D-Bus. */
-                if (start_unit(bus, NULL) >= 0)
-                        return 0;
-        }
+        /* First, try systemd via D-Bus. */
+        if (start_unit(NULL) >= 0)
+                return 0;
 
         /* Nothing else worked, so let's try
          * /dev/initctl */
@@ -7396,23 +7576,16 @@ static int logind_schedule_shutdown(void) {
 
 #ifdef HAVE_LOGIND
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_flush_close_unref_ sd_bus *b = NULL;
         char date[FORMAT_TIMESTAMP_MAX];
         const char *action;
+        sd_bus *bus;
         int r;
 
-        assert(geteuid() == 0);
+        (void) logind_set_wall_message();
 
-        if (avoid_bus()) {
-                log_error("Unable to perform operation without bus connection.");
-                return -ENOSYS;
-        }
-
-        r = sd_bus_open_system(&b);
+        r = acquire_bus(BUS_FULL, &bus);
         if (r < 0)
-                return log_error_errno(r, "Unable to open system bus: %m");
-
-        (void) logind_set_wall_message(b);
+                return r;
 
         switch (arg_action) {
         case ACTION_HALT:
@@ -7433,7 +7606,7 @@ static int logind_schedule_shutdown(void) {
                 action = strjoina("dry-", action);
 
         r = sd_bus_call_method(
-                        b,
+                        bus,
                         "org.freedesktop.login1",
                         "/org/freedesktop/login1",
                         "org.freedesktop.login1.Manager",
@@ -7454,10 +7627,10 @@ static int logind_schedule_shutdown(void) {
 #endif
 }
 
-static int halt_main(sd_bus *bus) {
+static int halt_main(void) {
         int r;
 
-        r = logind_check_inhibitors(bus, arg_action);
+        r = logind_check_inhibitors(arg_action);
         if (r < 0)
                 return r;
 
@@ -7475,7 +7648,7 @@ static int halt_main(sd_bus *bus) {
                 if (IN_SET(arg_action,
                            ACTION_POWEROFF,
                            ACTION_REBOOT)) {
-                        r = logind_reboot(bus, arg_action);
+                        r = logind_reboot(arg_action);
                         if (r >= 0)
                                 return r;
                         if (IN_SET(r, -EOPNOTSUPP, -EINPROGRESS))
@@ -7492,7 +7665,7 @@ static int halt_main(sd_bus *bus) {
         }
 
         if (!arg_dry && !arg_force)
-                return start_with_fallback(bus);
+                return start_with_fallback();
 
         assert(geteuid() == 0);
 
@@ -7534,22 +7707,17 @@ static int runlevel_main(void) {
 static int logind_cancel_shutdown(void) {
 #ifdef HAVE_LOGIND
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_flush_close_unref_ sd_bus *b = NULL;
+        sd_bus *bus;
         int r;
 
-        if (avoid_bus()) {
-                log_error("Unable to perform operation without bus connection.");
-                return -ENOSYS;
-        }
-
-        r = sd_bus_open_system(&b);
+        r = acquire_bus(BUS_FULL, &bus);
         if (r < 0)
-                return log_error_errno(r, "Unable to open system bus: %m");
+                return r;
 
-        (void) logind_set_wall_message(b);
+        (void) logind_set_wall_message();
 
         r = sd_bus_call_method(
-                        b,
+                        bus,
                         "org.freedesktop.login1",
                         "/org/freedesktop/login1",
                         "org.freedesktop.login1.Manager",
@@ -7567,7 +7735,6 @@ static int logind_cancel_shutdown(void) {
 }
 
 int main(int argc, char*argv[]) {
-        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
         int r;
 
         setlocale(LC_ALL, "");
@@ -7589,26 +7756,20 @@ int main(int argc, char*argv[]) {
                 goto finish;
         }
 
-        if (!avoid_bus())
-                r = bus_connect_transport_systemd(arg_transport, arg_host, arg_scope != UNIT_FILE_SYSTEM, &bus);
-
-        if (bus)
-                sd_bus_set_allow_interactive_authorization(bus, arg_ask_password);
-
         /* systemctl_main() will print an error message for the bus
          * connection, but only if it needs to */
 
         switch (arg_action) {
 
         case ACTION_SYSTEMCTL:
-                r = systemctl_main(bus, argc, argv, r);
+                r = systemctl_main(argc, argv, r);
                 break;
 
         case ACTION_HALT:
         case ACTION_POWEROFF:
         case ACTION_REBOOT:
         case ACTION_KEXEC:
-                r = halt_main(bus);
+                r = halt_main();
                 break;
 
         case ACTION_RUNLEVEL2:
@@ -7618,12 +7779,12 @@ int main(int argc, char*argv[]) {
         case ACTION_RESCUE:
         case ACTION_EMERGENCY:
         case ACTION_DEFAULT:
-                r = start_with_fallback(bus);
+                r = start_with_fallback();
                 break;
 
         case ACTION_RELOAD:
         case ACTION_REEXEC:
-                r = reload_with_fallback(bus);
+                r = reload_with_fallback();
                 break;
 
         case ACTION_CANCEL_SHUTDOWN:
@@ -7650,7 +7811,7 @@ finish:
 
         strv_free(arg_wall);
 
-        sd_bus_default_flush_close();
+        release_busses();
 
         return r < 0 ? EXIT_FAILURE : r;
 }
