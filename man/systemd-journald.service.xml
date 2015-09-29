@@ -99,7 +99,10 @@
     reboot. To make the data persistent, it is sufficient to create
     <filename>/var/log/journal/</filename> where
     <filename>systemd-journald</filename> will then store the
-    data.</para>
+    data:</para>
+
+    <programlisting>mkdir -p /var/log/journal
+systemd-tmpfiles --create --prefix /var/log/journal</programlisting>
 
     <para><filename>systemd-journald</filename> will forward all
     received log messages to the
