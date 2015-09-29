@@ -42,7 +42,9 @@
 #include "logind-user.h"
 
 User* user_new(Manager *m, uid_t uid, gid_t gid, const char *name) {
+        char lu[DECIMAL_STR_MAX(uid_t) + 1];
         User *u;
+        int r;
 
         assert(m);
         assert(name);
@@ -61,7 +63,15 @@ User* user_new(Manager *m, uid_t uid, gid_t gid, const char *name) {
         if (asprintf(&u->runtime_path, "/run/user/"UID_FMT, uid) < 0)
                 goto fail;
 
+        sprintf(lu, UID_FMT, uid);
+        r = slice_build_subslice(SPECIAL_USER_SLICE, lu, &u->slice);
+        if (r < 0)
+                goto fail;
+
         if (hashmap_put(m->users, UID_TO_PTR(uid), u) < 0)
+                goto fail;
+
+        if (hashmap_put(m->user_units, u->slice, u) < 0)
                 goto fail;
 
         u->manager = m;
@@ -71,6 +81,10 @@ User* user_new(Manager *m, uid_t uid, gid_t gid, const char *name) {
         return u;
 
 fail:
+        if (u->slice)
+                hashmap_remove(m->user_units, u->slice);
+        hashmap_remove(m->users, UID_TO_PTR(uid));
+        free(u->slice);
         free(u->runtime_path);
         free(u->state_file);
         free(u->name);
@@ -88,22 +102,19 @@ void user_free(User *u) {
         while (u->sessions)
                 session_free(u->sessions);
 
-        if (u->slice) {
-                hashmap_remove(u->manager->user_units, u->slice);
-                free(u->slice);
-        }
-
         if (u->service) {
                 hashmap_remove(u->manager->user_units, u->service);
                 free(u->service);
         }
 
+        hashmap_remove(u->manager->user_units, u->slice);
+        hashmap_remove(u->manager->users, UID_TO_PTR(u->uid));
+
         free(u->slice_job);
         free(u->service_job);
 
+        free(u->slice);
         free(u->runtime_path);
-
-        hashmap_remove(u->manager->users, UID_TO_PTR(u->uid));
 
         free(u->name);
         free(u->state_file);
@@ -144,8 +155,6 @@ static int user_save_internal(User *u) {
         if (u->service_job)
                 fprintf(f, "SERVICE_JOB=%s\n", u->service_job);
 
-        if (u->slice)
-                fprintf(f, "SLICE=%s\n", u->slice);
         if (u->slice_job)
                 fprintf(f, "SLICE_JOB=%s\n", u->slice_job);
 
@@ -285,7 +294,6 @@ int user_load(User *u) {
         r = parse_env_file(u->state_file, NEWLINE,
                            "SERVICE",     &u->service,
                            "SERVICE_JOB", &u->service_job,
-                           "SLICE",       &u->slice,
                            "SLICE_JOB",   &u->slice_job,
                            "DISPLAY",     &display,
                            "REALTIME",    &realtime,
@@ -375,34 +383,18 @@ fail:
 }
 
 static int user_start_slice(User *u) {
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         char *job;
         int r;
 
         assert(u);
 
-        if (!u->slice) {
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-                char lu[DECIMAL_STR_MAX(uid_t) + 1], *slice;
-                sprintf(lu, UID_FMT, u->uid);
+        r = manager_start_unit(u->manager, u->slice, &error, &job);
+        if (r < 0)
+                return log_error_errno(r, "Failed to start user slice: %s", bus_error_message(&error, r));
 
-                r = slice_build_subslice(SPECIAL_USER_SLICE, lu, &slice);
-                if (r < 0)
-                        return r;
-
-                r = manager_start_unit(u->manager, slice, &error, &job);
-                if (r < 0) {
-                        log_error("Failed to start user slice: %s", bus_error_message(&error, r));
-                        free(slice);
-                } else {
-                        u->slice = slice;
-
-                        free(u->slice_job);
-                        u->slice_job = job;
-                }
-        }
-
-        if (u->slice)
-                hashmap_put(u->manager->user_units, u->slice, u);
+        free(u->slice_job);
+        u->slice_job = job;
 
         return 0;
 }
@@ -490,9 +482,6 @@ static int user_stop_slice(User *u) {
         int r;
 
         assert(u);
-
-        if (!u->slice)
-                return 0;
 
         r = manager_stop_unit(u->manager, u->slice, &error, &job);
         if (r < 0) {
@@ -738,9 +727,6 @@ UserState user_get_state(User *u) {
 
 int user_kill(User *u, int signo) {
         assert(u);
-
-        if (!u->slice)
-                return -ESRCH;
 
         return manager_kill_unit(u->manager, u->slice, KILL_ALL, signo, NULL);
 }
