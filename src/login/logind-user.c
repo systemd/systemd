@@ -57,6 +57,7 @@ int user_new(User **out, Manager *m, uid_t uid, gid_t gid, const char *name) {
         u->manager = m;
         u->uid = uid;
         u->gid = gid;
+        xsprintf(lu, UID_FMT, uid);
 
         u->name = strdup(name);
         if (!u->name)
@@ -68,8 +69,11 @@ int user_new(User **out, Manager *m, uid_t uid, gid_t gid, const char *name) {
         if (asprintf(&u->runtime_path, "/run/user/"UID_FMT, uid) < 0)
                 return -ENOMEM;
 
-        xsprintf(lu, UID_FMT, uid);
         r = slice_build_subslice(SPECIAL_USER_SLICE, lu, &u->slice);
+        if (r < 0)
+                return r;
+
+        r = unit_name_build("user", lu, ".service", &u->service);
         if (r < 0)
                 return r;
 
@@ -78,6 +82,10 @@ int user_new(User **out, Manager *m, uid_t uid, gid_t gid, const char *name) {
                 return r;
 
         r = hashmap_put(m->user_units, u->slice, u);
+        if (r < 0)
+                return r;
+
+        r = hashmap_put(m->user_units, u->service, u);
         if (r < 0)
                 return r;
 
@@ -145,8 +153,6 @@ static int user_save_internal(User *u) {
         if (u->runtime_path)
                 fprintf(f, "RUNTIME=%s\n", u->runtime_path);
 
-        if (u->service)
-                fprintf(f, "SERVICE=%s\n", u->service);
         if (u->service_job)
                 fprintf(f, "SERVICE_JOB=%s\n", u->service_job);
 
@@ -287,7 +293,6 @@ int user_load(User *u) {
         assert(u);
 
         r = parse_env_file(u->state_file, NEWLINE,
-                           "SERVICE",     &u->service,
                            "SERVICE_JOB", &u->service_job,
                            "SLICE_JOB",   &u->slice_job,
                            "DISPLAY",     &display,
@@ -401,28 +406,12 @@ static int user_start_service(User *u) {
 
         assert(u);
 
-        if (!u->service) {
-                char lu[DECIMAL_STR_MAX(uid_t) + 1], *service;
-                sprintf(lu, UID_FMT, u->uid);
+        r = manager_start_unit(u->manager, u->service, &error, &job);
+        if (r < 0)
+                return log_error_errno(r, "Failed to start user service: %s", bus_error_message(&error, r));
 
-                r = unit_name_build("user", lu, ".service", &service);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to build service name: %m");
-
-                r = manager_start_unit(u->manager, service, &error, &job);
-                if (r < 0) {
-                        log_error("Failed to start user service: %s", bus_error_message(&error, r));
-                        free(service);
-                } else {
-                        u->service = service;
-
-                        free(u->service_job);
-                        u->service_job = job;
-                }
-        }
-
-        if (u->service)
-                hashmap_put(u->manager->user_units, u->service, u);
+        free(u->service_job);
+        u->service_job = job;
 
         return 0;
 }
@@ -496,9 +485,6 @@ static int user_stop_service(User *u) {
         int r;
 
         assert(u);
-
-        if (!u->service)
-                return 0;
 
         r = manager_stop_unit(u->manager, u->service, &error, &job);
         if (r < 0) {
