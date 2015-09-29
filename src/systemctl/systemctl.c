@@ -7524,10 +7524,11 @@ static int halt_main(void) {
         if (r < 0)
                 return r;
 
+        if (arg_when > 0)
+                return logind_schedule_shutdown();
+
         if (geteuid() != 0) {
-                if (arg_when > 0 ||
-                    arg_dry ||
-                    arg_force > 0) {
+                if (arg_dry || arg_force > 0) {
                         log_error("Must be root.");
                         return -EPERM;
                 }
@@ -7535,23 +7536,17 @@ static int halt_main(void) {
                 /* Try logind if we are a normal user and no special
                  * mode applies. Maybe PolicyKit allows us to shutdown
                  * the machine. */
-                if (IN_SET(arg_action,
-                           ACTION_POWEROFF,
-                           ACTION_REBOOT)) {
+                if (IN_SET(arg_action, ACTION_POWEROFF, ACTION_REBOOT)) {
                         r = logind_reboot(arg_action);
                         if (r >= 0)
                                 return r;
                         if (IN_SET(r, -EOPNOTSUPP, -EINPROGRESS))
-                                /* requested operation is not supported or already in progress */
+                                /* requested operation is not
+                                 * supported on the local system or
+                                 * already in progress */
                                 return r;
                         /* on all other errors, try low-level operation */
                 }
-        }
-
-        if (arg_when > 0) {
-                r = logind_schedule_shutdown();
-                if (r >= 0)
-                        return r;
         }
 
         if (!arg_dry && !arg_force)
@@ -7573,7 +7568,6 @@ static int halt_main(void) {
                 return 0;
 
         r = halt_now(arg_action);
-
         return log_error_errno(r, "Failed to reboot: %m");
 }
 
