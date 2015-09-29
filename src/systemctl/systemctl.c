@@ -2175,8 +2175,6 @@ static int cancel_job(char **args) {
         char **name;
         int r = 0;
 
-        assert(args);
-
         if (strv_length(args) <= 1)
                 return daemon_reload(args);
 
@@ -3154,8 +3152,6 @@ static int check_unit_generic(int code, const char *good_states, char **args) {
         char **name;
         int r;
 
-        assert(args);
-
         r = acquire_bus(BUS_MANAGER, &bus);
         if (r < 0)
                 return r;
@@ -3191,8 +3187,6 @@ static int kill_unit(char **args) {
         char *kill_who = NULL, **name;
         sd_bus *bus;
         int r, q;
-
-        assert(args);
 
         polkit_agent_open_if_enabled();
 
@@ -4764,8 +4758,6 @@ static int cat(char **args) {
         bool first = true;
         int r;
 
-        assert(args);
-
         if (arg_transport != BUS_TRANSPORT_LOCAL) {
                 log_error("Cannot remotely cat units.");
                 return -EINVAL;
@@ -4940,8 +4932,6 @@ static int delete_snapshot(char **args) {
         sd_bus *bus;
         char **name;
         int r;
-
-        assert(args);
 
         polkit_agent_open_if_enabled();
 
@@ -5227,8 +5217,6 @@ static int import_environment(char **args) {
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
         sd_bus *bus;
         int r;
-
-        assert(args);
 
         polkit_agent_open_if_enabled();
 
@@ -6197,8 +6185,6 @@ static int edit(char **args) {
         char **original, **tmp;
         sd_bus *bus;
         int r;
-
-        assert(args);
 
         if (!on_tty()) {
                 log_error("Cannot edit units if not on a tty.");
