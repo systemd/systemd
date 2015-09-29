@@ -52,7 +52,9 @@
 #include "util.h"
 
 User* user_new(Manager *m, uid_t uid, gid_t gid, const char *name) {
+        char lu[DECIMAL_STR_MAX(uid_t) + 1];
         User *u;
+        int r;
 
         assert(m);
         assert(name);
@@ -71,7 +73,15 @@ User* user_new(Manager *m, uid_t uid, gid_t gid, const char *name) {
         if (asprintf(&u->runtime_path, "/run/user/"UID_FMT, uid) < 0)
                 goto fail;
 
+        sprintf(lu, UID_FMT, uid);
+        r = slice_build_subslice(SPECIAL_USER_SLICE, lu, &u->slice);
+        if (r < 0)
+                goto fail;
+
         if (hashmap_put(m->users, UID_TO_PTR(uid), u) < 0)
+                goto fail;
+
+        if (hashmap_put(m->user_units, u->slice, u) < 0)
                 goto fail;
 
         u->manager = m;
@@ -81,6 +91,10 @@ User* user_new(Manager *m, uid_t uid, gid_t gid, const char *name) {
         return u;
 
 fail:
+        if (u->slice)
+                hashmap_remove(m->user_units, u->slice);
+        hashmap_remove(m->users, UID_TO_PTR(uid));
+        free(u->slice);
         free(u->runtime_path);
         free(u->state_file);
         free(u->name);
@@ -98,22 +112,19 @@ void user_free(User *u) {
         while (u->sessions)
                 session_free(u->sessions);
 
-        if (u->slice) {
-                hashmap_remove(u->manager->user_units, u->slice);
-                free(u->slice);
-        }
-
         if (u->service) {
                 hashmap_remove(u->manager->user_units, u->service);
                 free(u->service);
         }
 
+        hashmap_remove(u->manager->user_units, u->slice);
+        hashmap_remove(u->manager->users, UID_TO_PTR(u->uid));
+
         free(u->slice_job);
         free(u->service_job);
 
+        free(u->slice);
         free(u->runtime_path);
-
-        hashmap_remove(u->manager->users, UID_TO_PTR(u->uid));
 
         free(u->name);
         free(u->state_file);
@@ -154,8 +165,6 @@ static int user_save_internal(User *u) {
         if (u->service_job)
                 fprintf(f, "SERVICE_JOB=%s\n", u->service_job);
 
-        if (u->slice)
-                fprintf(f, "SLICE=%s\n", u->slice);
         if (u->slice_job)
                 fprintf(f, "SLICE_JOB=%s\n", u->slice_job);
 
@@ -295,7 +304,6 @@ int user_load(User *u) {
         r = parse_env_file(u->state_file, NEWLINE,
                            "SERVICE",     &u->service,
                            "SERVICE_JOB", &u->service_job,
-                           "SLICE",       &u->slice,
                            "SLICE_JOB",   &u->slice_job,
                            "DISPLAY",     &display,
                            "REALTIME",    &realtime,
@@ -385,51 +393,32 @@ fail:
 }
 
 static int user_start_slice(User *u) {
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        const char *description;
+        char *job;
         int r;
 
         assert(u);
 
-        if (!u->slice) {
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-                char lu[DECIMAL_STR_MAX(uid_t) + 1], *slice, *job;
-                const char *description;
+        u->slice_job = mfree(u->slice_job);
+        description = strjoina("User Slice of ", u->name);
 
-                u->slice_job  = mfree(u->slice_job);
-
-                xsprintf(lu, UID_FMT, u->uid);
-                r = slice_build_subslice(SPECIAL_USER_SLICE, lu, &slice);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to build slice name: %m");
-
-                description = strjoina("User Slice of ", u->name);
-
-                r = manager_start_slice(
-                                u->manager,
-                                slice,
-                                description,
-                                "systemd-logind.service",
-                                "systemd-user-sessions.service",
-                                u->manager->user_tasks_max,
-                                &error,
-                                &job);
-                if (r < 0) {
-
-                        if (sd_bus_error_has_name(&error, BUS_ERROR_UNIT_EXISTS))
-                                /* The slice already exists? If so, that's fine, let's just reuse it */
-                                u->slice = slice;
-                        else {
-                                log_error_errno(r, "Failed to start user slice %s, ignoring: %s (%s)", slice, bus_error_message(&error, r), error.name);
-                                free(slice);
-                                /* we don't fail due to this, let's try to continue */
-                        }
-                } else {
-                        u->slice = slice;
-                        u->slice_job = job;
-                }
+        r = manager_start_slice(
+                        u->manager,
+                        u->slice,
+                        description,
+                        "systemd-logind.service",
+                        "systemd-user-sessions.service",
+                        u->manager->user_tasks_max,
+                        &error,
+                        &job);
+        if (r < 0) {
+                /* we don't fail due to this, let's try to continue */
+                if (!sd_bus_error_has_name(&error, BUS_ERROR_UNIT_EXISTS))
+                        log_error_errno(r, "Failed to start user slice %s, ignoring: %s (%s)", u->slice, bus_error_message(&error, r), error.name);
+        } else {
+                u->slice_job = job;
         }
-
-        if (u->slice)
-                (void) hashmap_put(u->manager->user_units, u->slice, u);
 
         return 0;
 }
@@ -522,9 +511,6 @@ static int user_stop_slice(User *u) {
         int r;
 
         assert(u);
-
-        if (!u->slice)
-                return 0;
 
         r = manager_stop_unit(u->manager, u->slice, &error, &job);
         if (r < 0) {
@@ -770,9 +756,6 @@ UserState user_get_state(User *u) {
 
 int user_kill(User *u, int signo) {
         assert(u);
-
-        if (!u->slice)
-                return -ESRCH;
 
         return manager_kill_unit(u->manager, u->slice, KILL_ALL, signo, NULL);
 }
