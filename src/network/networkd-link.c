@@ -531,7 +531,7 @@ static int route_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST)
-                log_link_warning_errno(link, r, "%-*s: could not set route: %m", IFNAMSIZ, link->ifname);
+                log_link_warning_errno(link, r, "Could not set route: %m");
 
         if (link->link_messages == 0) {
                 log_link_debug(link, "Routes set");
@@ -585,7 +585,7 @@ int link_route_drop_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userd
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -ESRCH)
-                log_link_warning_errno(link, r, "%-*s: could not drop route: %m", IFNAMSIZ, link->ifname);
+                log_link_warning_errno(link, r, "Could not drop route: %m");
 
         return 1;
 }
@@ -609,7 +609,7 @@ static int address_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userda
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST)
-                log_link_warning_errno(link, r, "%-*s: could not set address: %m", IFNAMSIZ, link->ifname);
+                log_link_warning_errno(link, r, "could not set address: %m");
         else if (r >= 0)
                 link_rtnl_process_address(rtnl, m, link->manager);
 
@@ -867,7 +867,7 @@ int link_address_drop_handler(sd_netlink *rtnl, sd_netlink_message *m, void *use
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EADDRNOTAVAIL)
-                log_link_warning_errno(link, r, "%-*s: could not drop address: %m", IFNAMSIZ, link->ifname);
+                log_link_warning_errno(link, r, "Could not drop address: %m");
 
         return 1;
 }
@@ -1019,7 +1019,7 @@ static int set_mtu_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userda
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0)
-                log_link_warning_errno(link, r, "%-*s: could not set MTU: %m", IFNAMSIZ, link->ifname);
+                log_link_warning_errno(link, r, "Could not set MTU: %m");
 
         return 1;
 }
@@ -1207,7 +1207,7 @@ static int link_up_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userda
         if (r < 0)
                 /* we warn but don't fail the link, as it may be
                    brought up later */
-                log_link_warning_errno(link, r, "%-*s: could not bring up interface: %m", IFNAMSIZ, link->ifname);
+                log_link_warning_errno(link, r, "Could not bring up interface: %m");
 
         return 1;
 }
@@ -1294,7 +1294,7 @@ static int link_down_handler(sd_netlink *rtnl, sd_netlink_message *m, void *user
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0)
-                log_link_warning_errno(link, r, "%-*s: could not bring down interface: %m", IFNAMSIZ, link->ifname);
+                log_link_warning_errno(link, r, "Could not bring down interface: %m");
 
         return 1;
 }
@@ -1616,7 +1616,7 @@ static int netdev_join_handler(sd_netlink *rtnl, sd_netlink_message *m, void *us
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
-                log_link_error_errno(link, r, "%-*s: could not join netdev: %m", IFNAMSIZ, link->ifname);
+                log_link_error_errno(link, r, "Could not join netdev: %m");
                 link_enter_failed(link);
                 return 1;
         } else
