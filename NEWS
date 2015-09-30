@@ -17,7 +17,7 @@ CHANGES WITH 227:
           It allows accounting the number of tasks in a cgroup and
           enforcing limits on it. This adds two new setting
           TasksAccounting= and TasksMax= to each unit, as well as a
-          gloabl option DefaultTasksAccounting=.
+          global option DefaultTasksAccounting=.
 
         * Support for the "net_cls" cgroup controller has been added.
           It allows assigning a net class ID to each task in the cgroup,
@@ -27,7 +27,7 @@ CHANGES WITH 227:
           sockets.
 
           This adds a new config directive called NetClass= to CGroup
-          enabled units. Allowed values are positive numbers for fix
+          enabled units. Allowed values are positive numbers for fixed
           assignments and "auto" for picking a free value
           automatically.
 
