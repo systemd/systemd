@@ -430,15 +430,13 @@ int config_parse_broadcast(
                 return r;
 
         if (n->family == AF_INET6) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Broadcast is not valid for IPv6 addresses, ignoring assignment: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Broadcast is not valid for IPv6 addresses, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
         r = in_addr_from_string(AF_INET, rvalue, (union in_addr_union*) &n->broadcast);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Broadcast is invalid, ignoring assignment: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, r, "Broadcast is invalid, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
@@ -487,10 +485,10 @@ int config_parse_address(const char *unit,
         e = strchr(rvalue, '/');
         if (e) {
                 unsigned i;
+
                 r = safe_atou(e + 1, &i);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                                   "Prefix length is invalid, ignoring assignment: %s", e + 1);
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Prefix length is invalid, ignoring assignment: %s", e + 1);
                         return 0;
                 }
 
@@ -502,23 +500,20 @@ int config_parse_address(const char *unit,
 
         r = in_addr_from_string_auto(address, &f, &buffer);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Address is invalid, ignoring assignment: %s", address);
+                log_syntax(unit, LOG_ERR, filename, line, r, "Address is invalid, ignoring assignment: %s", address);
                 return 0;
         }
 
         if (!e && f == AF_INET) {
                 r = in_addr_default_prefixlen(&buffer.in, &n->prefixlen);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                                   "Prefix length not specified, and a default one can not be deduced for '%s', ignoring assignment", address);
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Prefix length not specified, and a default one can not be deduced for '%s', ignoring assignment", address);
                         return 0;
                 }
         }
 
         if (n->family != AF_UNSPEC && f != n->family) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Address is incompatible, ignoring assignment: %s", address);
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Address is incompatible, ignoring assignment: %s", address);
                 return 0;
         }
 
@@ -567,9 +562,7 @@ int config_parse_label(const char *unit,
                 return log_oom();
 
         if (!ascii_is_valid(label) || strlen(label) >= IFNAMSIZ) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Interface label is not ASCII clean or is too"
-                           " long, ignoring assignment: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Interface label is not ASCII clean or is too long, ignoring assignment: %s", rvalue);
                 free(label);
                 return 0;
         }

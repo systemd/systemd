@@ -85,7 +85,7 @@ int config_parse_servers(
         else {
                 r = manager_parse_server_string(m, ltype, rvalue);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, -r, "Failed to parse NTP server string '%s'. Ignoring.", rvalue);
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse NTP server string '%s'. Ignoring.", rvalue);
                         return 0;
                 }
         }

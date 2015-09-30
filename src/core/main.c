@@ -497,8 +497,7 @@ static int config_parse_show_status(
 
         k = parse_show_status(rvalue, b);
         if (k < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, -k,
-                           "Failed to parse show status setting, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, k, "Failed to parse show status setting, ignoring: %s", rvalue);
                 return 0;
         }
 
@@ -629,8 +628,7 @@ static int config_parse_join_controllers(const char *unit,
                 }
         }
         if (!isempty(rvalue))
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Trailing garbage, ignoring.");
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Trailing garbage, ignoring.");
 
         return 0;
 }

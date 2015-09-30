@@ -95,7 +95,7 @@ int config_parse_dnsv(
                 /* Otherwise add to the list */
                 r = manager_parse_dns_server(m, ltype, rvalue);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, -r, "Failed to parse DNS server string '%s'. Ignoring.", rvalue);
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse DNS server string '%s'. Ignoring.", rvalue);
                         return 0;
                 }
         }
@@ -131,7 +131,7 @@ int config_parse_support(
         if (support < 0) {
                 r = parse_boolean(rvalue);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, -r, "Failed to parse support level '%s'. Ignoring.", rvalue);
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse support level '%s'. Ignoring.", rvalue);
                         return 0;
                 }
 

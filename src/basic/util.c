@@ -2602,30 +2602,28 @@ int parse_cpu_set(
 
                 r = extract_first_word(&rvalue, &word, WHITESPACE, EXTRACT_QUOTES);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r,
-                                   "Invalid value for %s: %s", lvalue, whole_rvalue);
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Invalid value for %s: %s", lvalue, whole_rvalue);
                         return r;
                 }
                 if (r == 0)
                         break;
 
-                r = safe_atou(word, &cpu);
-
-                if (!c)
-                        if (!(c = cpu_set_malloc(&ncpus)))
+                if (!c) {
+                        c = cpu_set_malloc(&ncpus);
+                        if (!c)
                                 return log_oom();
+                }
 
+                r = safe_atou(word, &cpu);
                 if (r < 0 || cpu >= ncpus) {
-                        log_syntax(unit, LOG_ERR, filename, line, -r,
-                                   "Failed to parse CPU affinity '%s'", rvalue);
-                        return -EBADMSG;
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse CPU affinity '%s'", rvalue);
+                        return -EINVAL;
                 }
 
                 CPU_SET_S(cpu, CPU_ALLOC_SIZE(ncpus), c);
         }
         if (!isempty(rvalue))
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Trailing garbage, ignoring.");
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Trailing garbage, ignoring.");
 
         /* On success, sets *cpu_set and returns ncpus for the system. */
         if (c) {
@@ -6070,6 +6068,7 @@ int extract_first_word_and_warn(
                 const char *filename,
                 unsigned line,
                 const char *rvalue) {
+
         /* Try to unquote it, if it fails, warn about it and try again but this
          * time using EXTRACT_CUNESCAPE_RELAX to keep the backslashes verbatim
          * in invalid escape sequences. */
@@ -6078,17 +6077,17 @@ int extract_first_word_and_warn(
 
         save = *p;
         r = extract_first_word(p, ret, separators, flags);
-        if (r < 0 && !(flags&EXTRACT_CUNESCAPE_RELAX)) {
+        if (r < 0 && !(flags & EXTRACT_CUNESCAPE_RELAX)) {
+
                 /* Retry it with EXTRACT_CUNESCAPE_RELAX. */
                 *p = save;
                 r = extract_first_word(p, ret, separators, flags|EXTRACT_CUNESCAPE_RELAX);
                 if (r < 0)
-                        log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                                   "Unbalanced quoting in command line, ignoring: \"%s\"", rvalue);
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Unbalanced quoting in command line, ignoring: \"%s\"", rvalue);
                 else
-                        log_syntax(unit, LOG_WARNING, filename, line, EINVAL,
-                                   "Invalid escape sequences in command line: \"%s\"", rvalue);
+                        log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid escape sequences in command line: \"%s\"", rvalue);
         }
+
         return r;
 }
 

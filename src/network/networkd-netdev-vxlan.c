@@ -131,14 +131,12 @@ int config_parse_vxlan_group_address(const char *unit,
 
         r = in_addr_from_string_auto(rvalue, &f, &buffer);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "vxlan multicast group address is invalid, ignoring assignment: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, r, "vxlan multicast group address is invalid, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
-        if(v->family != AF_UNSPEC && v->family != f) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "vxlan multicast group incompatible, ignoring assignment: %s", rvalue);
+        if (v->family != AF_UNSPEC && v->family != f) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "vxlan multicast group incompatible, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
