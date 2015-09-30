@@ -121,6 +121,7 @@ static enum {
         ACTION_UPDATE_CATALOG,
         ACTION_LIST_BOOTS,
         ACTION_FLUSH,
+        ACTION_ROTATE,
         ACTION_VACUUM,
 } arg_action = ACTION_SHOW;
 
@@ -236,6 +237,7 @@ static void help(void) {
                "     --vacuum-size=BYTES   Reduce disk usage below specified size\n"
                "     --vacuum-time=TIME    Remove journal files older than specified date\n"
                "     --flush               Flush all journal data from /run into /var\n"
+               "     --rotate              Request immediate rotation of the journal files\n"
                "     --header              Show journal header information\n"
                "     --list-catalog        Show all message IDs in the catalog\n"
                "     --dump-catalog        Show entries in the message catalog\n"
@@ -277,6 +279,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_FORCE,
                 ARG_UTC,
                 ARG_FLUSH,
+                ARG_ROTATE,
                 ARG_VACUUM_SIZE,
                 ARG_VACUUM_TIME,
         };
@@ -330,6 +333,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "machine",        required_argument, NULL, 'M'                },
                 { "utc",            no_argument,       NULL, ARG_UTC            },
                 { "flush",          no_argument,       NULL, ARG_FLUSH          },
+                { "rotate",         no_argument,       NULL, ARG_ROTATE         },
                 { "vacuum-size",    required_argument, NULL, ARG_VACUUM_SIZE    },
                 { "vacuum-time",    required_argument, NULL, ARG_VACUUM_TIME    },
                 {}
@@ -694,6 +698,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_FLUSH:
                         arg_action = ACTION_FLUSH;
+                        break;
+
+                case ARG_ROTATE:
+                        arg_action = ACTION_ROTATE;
                         break;
 
                 case '?':
@@ -1769,6 +1777,30 @@ static int flush_to_var(void) {
         return 0;
 }
 
+static int rotate(void) {
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
+        int r;
+
+        r = bus_connect_system_systemd(&bus);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get D-Bus connection: %m");
+
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "KillUnit",
+                        &error,
+                        NULL,
+                        "ssi", "systemd-journald.service", "main", SIGUSR2);
+        if (r < 0)
+                return log_error_errno(r, "Failed to kill journal service: %s", bus_error_message(&error, r));
+
+        return 0;
+}
+
 int main(int argc, char *argv[]) {
         int r;
         _cleanup_journal_close_ sd_journal *j = NULL;
@@ -1801,6 +1833,11 @@ int main(int argc, char *argv[]) {
 
         if (arg_action == ACTION_FLUSH) {
                 r = flush_to_var();
+                goto finish;
+        }
+
+        if (arg_action == ACTION_ROTATE) {
+                r = rotate();
                 goto finish;
         }
 
