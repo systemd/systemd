@@ -98,6 +98,7 @@ void address_free(Address *address) {
         if (address->link) {
                 set_remove(address->link->addresses, address);
                 set_remove(address->link->addresses_foreign, address);
+                link_save(address->link);
         }
 
         free(address);
@@ -270,7 +271,15 @@ int address_add_foreign(Link *link, int family, const union in_addr_union *in_ad
 }
 
 static int address_add(Link *link, int family, const union in_addr_union *in_addr, unsigned char prefixlen, Address **ret) {
-        return address_add_internal(link, &link->addresses, family, in_addr, prefixlen, ret);
+        int r;
+
+        r = address_add_internal(link, &link->addresses, family, in_addr, prefixlen, ret);
+        if (r < 0)
+                return r;
+
+        link_save(link);
+
+        return 0;
 }
 
 static int address_release(Address *address) {

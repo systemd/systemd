@@ -2364,6 +2364,8 @@ int link_save(Link *link) {
         _cleanup_free_ char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         const char *admin_state, *oper_state;
+        Address *a;
+        Iterator i;
         int r;
 
         assert(link);
@@ -2541,11 +2543,27 @@ int link_save(Link *link) {
 
                 fprintf(f, "LLMNR=%s\n",
                         resolve_support_to_string(link->network->llmnr));
+
+                fprintf(f, "ADDRESSES=");
+                space = false;
+                SET_FOREACH(a, link->addresses, i) {
+                        _cleanup_free_ char *address_str = NULL;
+
+                        r = in_addr_to_string(a->family, &a->in_addr, &address_str);
+                        if (r < 0)
+                                goto fail;
+
+                        if (space)
+                                fputc(' ', f);
+                        fprintf(f, "%s%s/%u", space ? " " : "", address_str, a->prefixlen);
+                        space = true;
+                }
+
+                fputs("\n", f);
         }
 
         if (!hashmap_isempty(link->bound_to_links)) {
                 Link *carrier;
-                Iterator i;
                 bool space = false;
 
                 fputs("CARRIER_BOUND_TO=", f);
@@ -2561,7 +2579,6 @@ int link_save(Link *link) {
 
         if (!hashmap_isempty(link->bound_by_links)) {
                 Link *carrier;
-                Iterator i;
                 bool space = false;
 
                 fputs("CARRIER_BOUND_BY=", f);
