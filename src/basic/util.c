@@ -2552,25 +2552,26 @@ int fchmod_and_fchown(int fd, mode_t mode, uid_t uid, gid_t gid) {
 }
 
 cpu_set_t* cpu_set_malloc(unsigned *ncpus) {
-        cpu_set_t *r;
+        cpu_set_t *c;
         unsigned n = 1024;
 
         /* Allocates the cpuset in the right size */
 
         for (;;) {
-                if (!(r = CPU_ALLOC(n)))
+                c = CPU_ALLOC(n);
+                if (!c)
                         return NULL;
 
-                if (sched_getaffinity(0, CPU_ALLOC_SIZE(n), r) >= 0) {
-                        CPU_ZERO_S(CPU_ALLOC_SIZE(n), r);
+                if (sched_getaffinity(0, CPU_ALLOC_SIZE(n), c) >= 0) {
+                        CPU_ZERO_S(CPU_ALLOC_SIZE(n), c);
 
                         if (ncpus)
                                 *ncpus = n;
 
-                        return r;
+                        return c;
                 }
 
-                CPU_FREE(r);
+                CPU_FREE(c);
 
                 if (errno != EINVAL)
                         return NULL;
@@ -2579,7 +2580,7 @@ cpu_set_t* cpu_set_malloc(unsigned *ncpus) {
         }
 }
 
-int parse_cpu_set(
+int parse_cpu_set_and_warn(
                 const char *rvalue,
                 cpu_set_t **cpu_set,
                 const char *unit,
@@ -2591,7 +2592,6 @@ int parse_cpu_set(
         _cleanup_cpu_free_ cpu_set_t *c = NULL;
         unsigned ncpus = 0;
 
-        assert(filename);
         assert(lvalue);
         assert(rvalue);
 

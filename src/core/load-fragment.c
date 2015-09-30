@@ -860,8 +860,7 @@ int config_parse_exec_cpu_affinity(const char *unit,
         assert(rvalue);
         assert(data);
 
-        ncpus = parse_cpu_set(rvalue, &cpuset, unit, filename, line, lvalue);
-
+        ncpus = parse_cpu_set_and_warn(rvalue, &cpuset, unit, filename, line, lvalue);
         if (ncpus < 0)
                 return ncpus;
 

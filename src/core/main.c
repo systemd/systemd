@@ -464,8 +464,7 @@ static int config_parse_cpu_affinity2(
         _cleanup_cpu_free_ cpu_set_t *c = NULL;
         int ncpus;
 
-        ncpus = parse_cpu_set(rvalue, &c, unit, filename, line, lvalue);
-
+        ncpus = parse_cpu_set_and_warn(rvalue, &c, unit, filename, line, lvalue);
         if (ncpus < 0)
                 return ncpus;
 
