@@ -231,11 +231,10 @@ noreturn static void crash(int sig) {
                         (void) execle("/bin/sh", "/bin/sh", NULL, environ);
 
                         log_emergency_errno(errno, "execle() failed: %m");
-                        freeze_or_reboot();
                         _exit(EXIT_FAILURE);
                 } else {
                         log_info("Spawned crash shell as PID "PID_FMT".", pid);
-                        freeze();
+                        (void) wait_for_terminate(pid, NULL);
                 }
         }
 
