@@ -767,6 +767,12 @@
         complete.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--rotate</option></term>
+
+        <listitem><para>Asks the Journal daemon to rotate journal files.
+        </para></listitem>
+      </varlistentry>
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
       <xi:include href="standard-options.xml" xpointer="no-pager" />
