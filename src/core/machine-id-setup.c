@@ -19,24 +19,25 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <unistd.h>
-#include <stdio.h>
 #include <errno.h>
-#include <string.h>
 #include <fcntl.h>
+#include <sched.h>
+#include <stdio.h>
+#include <string.h>
 #include <sys/mount.h>
+#include <unistd.h>
 
-#include "systemd/sd-id128.h"
+#include "sd-id128.h"
 
-#include "machine-id-setup.h"
-#include "macro.h"
-#include "util.h"
-#include "mkdir.h"
-#include "log.h"
-#include "virt.h"
 #include "fileio.h"
+#include "log.h"
+#include "macro.h"
+#include "mkdir.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "util.h"
+#include "virt.h"
+#include "machine-id-setup.h"
 
 static int shorten_uuid(char destination[34], const char source[36]) {
         unsigned i, j;

@@ -20,25 +20,26 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <string.h>
-#include <unistd.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <locale.h>
-#include <errno.h>
-#include <signal.h>
 #include <math.h>
+#include <signal.h>
+#include <string.h>
 #include <sys/wait.h>
+#include <unistd.h>
 
-#include "util.h"
-#include "mkdir.h"
-#include "rm-rf.h"
-#include "strv.h"
+#include "conf-parser.h"
+#include "cpu-set-util.h"
 #include "def.h"
 #include "fileio.h"
-#include "conf-parser.h"
-#include "virt.h"
+#include "mkdir.h"
 #include "process-util.h"
+#include "rm-rf.h"
 #include "signal-util.h"
+#include "strv.h"
+#include "util.h"
+#include "virt.h"
 
 static void test_streq_ptr(void) {
         assert_se(streq_ptr(NULL, NULL));

@@ -780,6 +780,8 @@ libbasic_la_SOURCES = \
 	src/basic/refcnt.h \
 	src/basic/util.c \
 	src/basic/util.h \
+	src/basic/cpu-set-util.c \
+	src/basic/cpu-set-util.h \
 	src/basic/lockfile-util.c \
 	src/basic/lockfile-util.h \
 	src/basic/path-util.c \

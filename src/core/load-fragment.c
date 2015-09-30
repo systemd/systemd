@@ -24,13 +24,13 @@
 #include <fcntl.h>
 #include <linux/fs.h>
 #include <linux/oom.h>
+#ifdef HAVE_SECCOMP
+#include <seccomp.h>
+#endif
 #include <sched.h>
 #include <string.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
-#ifdef HAVE_SECCOMP
-#include <seccomp.h>
-#endif
 
 #include "af-list.h"
 #include "bus-error.h"
@@ -39,6 +39,7 @@
 #include "cap-list.h"
 #include "cgroup.h"
 #include "conf-parser.h"
+#include "cpu-set-util.h"
 #include "env-util.h"
 #include "errno-list.h"
 #include "ioprio.h"

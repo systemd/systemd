@@ -47,6 +47,7 @@
 #include "capability.h"
 #include "clock-util.h"
 #include "conf-parser.h"
+#include "cpu-set-util.h"
 #include "dbus-manager.h"
 #include "def.h"
 #include "env-util.h"
