@@ -2454,6 +2454,10 @@ static int inner_child(
         if (r < 0)
                 return r;
 
+        r = mount_sysfs(NULL);
+        if (r < 0)
+                return r;
+
         /* Wait until we are cgroup-ified, so that we
          * can mount the right cgroup path writable */
         if (!barrier_place_and_sync(barrier)) { /* #3 */
