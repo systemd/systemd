@@ -34,12 +34,13 @@ typedef struct BaseFilesystem {
         mode_t mode;
         const char *target;
         const char *exists;
+        bool ignore_failure;
 } BaseFilesystem;
 
 static const BaseFilesystem table[] = {
         { "bin",      0, "usr/bin\0",                  NULL },
         { "lib",      0, "usr/lib\0",                  NULL },
-        { "root",  0755, NULL,                         NULL },
+        { "root",  0755, NULL,                         NULL, true },
         { "sbin",     0, "usr/sbin\0",                 NULL },
         { "usr",   0755, NULL,                         NULL },
         { "var",   0755, NULL,                         NULL },
@@ -104,8 +105,13 @@ int base_filesystem_create(const char *root, uid_t uid, gid_t gid) {
 
                 RUN_WITH_UMASK(0000)
                         r = mkdirat(fd, table[i].dir, table[i].mode);
-                if (r < 0 && errno != EEXIST)
-                        return log_error_errno(errno, "Failed to create directory at %s/%s: %m", root, table[i].dir);
+                if (r < 0 && errno != EEXIST) {
+                        log_full_errno(table[i].ignore_failure ? LOG_DEBUG : LOG_ERR, errno,
+                                       "Failed to create directory at %s/%s: %m", root, table[i].dir);
+
+                        if (!table[i].ignore_failure)
+                                return -errno;
+                }
 
                 if (uid != UID_INVALID || gid != UID_INVALID) {
                         if (fchownat(fd, table[i].dir, uid, gid, AT_SYMLINK_NOFOLLOW) < 0)
