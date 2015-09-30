@@ -1129,7 +1129,7 @@ static void test_mtab(void) {
 
         log_error("/etc/mtab is not a symlink or not pointing to /proc/self/mounts. "
                   "This is not supported anymore. "
-                  "Please make sure to replace this file by a symlink to avoid incorrect or misleading mount(8) output.");
+                  "Please replace /etc/mtab with a symlink to /proc/self/mounts.");
         freeze_or_reboot();
 }
 
