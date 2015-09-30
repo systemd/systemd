@@ -643,7 +643,8 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                         int r;
                         char *k = NULL;
 
-                        if ((r = socket_address_print(&p->address, &k)) < 0)
+                        r = socket_address_print(&p->address, &k);
+                        if (r < 0)
                                 t = strerror(-r);
                         else
                                 t = k;

@@ -65,10 +65,9 @@ static int adm_settle(struct udev *udev, int argc, char *argv[]) {
 
                         r = safe_atou(optarg, &timeout);
                         if (r < 0) {
-                                fprintf(stderr, "Invalid timeout value '%s': %s\n",
-                                        optarg, strerror(-r));
-                                exit(EXIT_FAILURE);
-                        };
+                                log_error_errno(r, "Invalid timeout value '%s': %m", optarg);
+                                return EXIT_FAILURE;
+                        }
                         break;
                 }
 

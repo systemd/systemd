@@ -38,19 +38,19 @@ int lldp_port_start(lldp_port *p) {
         r = sd_event_add_io(p->event, &p->lldp_port_rx,
                             p->rawfd, EPOLLIN, lldp_receive_packet, p);
         if (r < 0) {
-                log_debug("Failed to allocate event source: %s", strerror(-r));
-                return r;
+                log_debug_errno(r, "Failed to allocate event source: %m");
+                goto fail;
         }
 
         r = sd_event_source_set_priority(p->lldp_port_rx, p->event_priority);
         if (r < 0) {
-                log_debug("Failed to set event priority: %s", strerror(-r));
+                log_debug_errno(r, "Failed to set event priority: %m");
                 goto fail;
         }
 
         r = sd_event_source_set_description(p->lldp_port_rx, "lldp-port-rx");
         if (r < 0) {
-                log_debug("Failed to set event name: %s", strerror(-r));
+                log_debug_errno(r, "Failed to set event name: %m");
                 goto fail;
         }
 

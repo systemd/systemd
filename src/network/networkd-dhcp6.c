@@ -53,8 +53,7 @@ static int dhcp6_address_handler(sd_netlink *rtnl, sd_netlink_message *m,
                         return 1;
                 }
 
-                log_link_error(link, "Could not set DHCPv6 address: %s",
-                               strerror(-r));
+                log_link_error_errno(link, r, "Could not set DHCPv6 address: %m");
 
                 link_enter_failed(link);
 
@@ -115,8 +114,7 @@ static int dhcp6_lease_address_acquired(sd_dhcp6_client *client, Link *link) {
                 r = sd_icmp6_ra_get_prefixlen(link->icmp6_router_discovery,
                                         &ip6_addr, &prefixlen);
                 if (r < 0 && r != -EADDRNOTAVAIL) {
-                        log_link_warning(link, "Could not get prefix information: %s",
-                                        strerror(-r));
+                        log_link_warning_errno(link, r, "Could not get prefix information: %m");
                         return r;
                 }
 
@@ -172,11 +170,9 @@ static void dhcp6_handler(sd_dhcp6_client *client, int event, void *userdata) {
 
         default:
                 if (event < 0)
-                        log_link_warning(link, "DHCPv6 error: %s",
-                                         strerror(-event));
+                        log_link_warning_errno(link, event, "DHCPv6 error: %m");
                 else
-                        log_link_warning(link, "DHCPv6 unknown event: %d",
-                                         event);
+                        log_link_warning(link, "DHCPv6 unknown event: %d", event);
                 return;
         }
 
@@ -198,24 +194,21 @@ static int dhcp6_configure(Link *link, int event) {
                 r = sd_dhcp6_client_get_information_request(link->dhcp6_client,
                                                         &information_request);
                 if (r < 0) {
-                        log_link_warning(link, "Could not get DHCPv6 Information request setting: %s",
-                                         strerror(-r));
+                        log_link_warning_errno(link, r, "Could not get DHCPv6 Information request setting: %m");
                         goto error;
                 }
 
                 if (information_request && event != SD_ICMP6_ND_EVENT_ROUTER_ADVERTISMENT_OTHER) {
                         r = sd_dhcp6_client_stop(link->dhcp6_client);
                         if (r < 0) {
-                                log_link_warning(link, "Could not stop DHCPv6 while setting Managed mode %s",
-                                                 strerror(-r));
+                                log_link_warning_errno(link, r, "Could not stop DHCPv6 while setting Managed mode: %m");
                                 goto error;
                         }
 
                         r = sd_dhcp6_client_set_information_request(link->dhcp6_client,
                                                                     false);
                         if (r < 0) {
-                                log_link_warning(link, "Could not unset DHCPv6 Information request: %s",
-                                                 strerror(-r));
+                                log_link_warning_errno(link, r, "Could not unset DHCPv6 Information request: %m");
                                 goto error;
                         }
 
@@ -223,8 +216,7 @@ static int dhcp6_configure(Link *link, int event) {
 
                 r = sd_dhcp6_client_start(link->dhcp6_client);
                 if (r < 0 && r != -EALREADY) {
-                        log_link_warning(link, "Could not restart DHCPv6: %s",
-                                         strerror(-r));
+                        log_link_warning_errno(link, r, "Could not restart DHCPv6: %m");
                         goto error;
                 }
 
@@ -343,11 +335,9 @@ static void icmp6_router_handler(sd_icmp6_nd *nd, int event, void *userdata) {
 
         default:
                 if (event < 0)
-                        log_link_warning(link, "ICMPv6 error: %s",
-                                         strerror(-event));
+                        log_link_warning_errno(link, event, "ICMPv6 error: %m");
                 else
-                        log_link_warning(link, "ICMPv6 unknown event: %d",
-                                         event);
+                        log_link_warning(link, "ICMPv6 unknown event: %d", event);
 
                 break;
         }

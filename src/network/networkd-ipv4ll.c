@@ -44,7 +44,7 @@ static int ipv4ll_address_lost(Link *link) {
 
         r = address_new_dynamic(&address);
         if (r < 0) {
-                log_link_error(link, "Could not allocate address: %s", strerror(-r));
+                log_link_error_errno(link, r, "Could not allocate address: %m");
                 return r;
         }
 
@@ -57,8 +57,7 @@ static int ipv4ll_address_lost(Link *link) {
 
         r = route_new_dynamic(&route, RTPROT_UNSPEC);
         if (r < 0) {
-                log_link_error(link, "Could not allocate route: %s",
-                               strerror(-r));
+                log_link_error_errno(link, r, "Could not allocate route: %m");
                 return r;
         }
 
@@ -82,7 +81,7 @@ static int ipv4ll_route_handler(sd_netlink *rtnl, sd_netlink_message *m, void *u
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
-                log_link_error(link, "could not set ipv4ll route: %s", strerror(-r));
+                log_link_error_errno(link, r, "could not set ipv4ll route: %m");
                 link_enter_failed(link);
         }
 
@@ -103,7 +102,7 @@ static int ipv4ll_address_handler(sd_netlink *rtnl, sd_netlink_message *m, void 
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
-                log_link_error(link, "could not set ipv4ll address: %s", strerror(-r));
+                log_link_error_errno(link, r, "could not set ipv4ll address: %m");
                 link_enter_failed(link);
         } else if (r >= 0)
                 link_rtnl_process_address(rtnl, m, link->manager);

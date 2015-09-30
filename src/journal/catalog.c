@@ -419,8 +419,7 @@ int catalog_update(const char* database, const char* root, const char* const* di
                 log_debug("Reading file '%s'", *f);
                 r = catalog_import_file(h, sb, *f);
                 if (r < 0) {
-                        log_error("Failed to import file '%s': %s.",
-                                  *f, strerror(-r));
+                        log_error_errno(r, "Failed to import file '%s': %m", *f);
                         goto finish;
                 }
         }
@@ -676,8 +675,7 @@ int catalog_list_items(FILE *f, const char *database, bool oneline, char **items
 
                 k = sd_id128_from_string(*item, &id);
                 if (k < 0) {
-                        log_error_errno(k, "Failed to parse id128 '%s': %m",
-                                        *item);
+                        log_error_errno(k, "Failed to parse id128 '%s': %m", *item);
                         if (r == 0)
                                 r = k;
                         continue;
@@ -685,9 +683,8 @@ int catalog_list_items(FILE *f, const char *database, bool oneline, char **items
 
                 k = catalog_get(database, id, &msg);
                 if (k < 0) {
-                        log_full(k == -ENOENT ? LOG_NOTICE : LOG_ERR,
-                                 "Failed to retrieve catalog entry for '%s': %s",
-                                  *item, strerror(-k));
+                        log_full_errno(k == -ENOENT ? LOG_NOTICE : LOG_ERR, k,
+                                       "Failed to retrieve catalog entry for '%s': %m", *item);
                         if (r == 0)
                                 r = k;
                         continue;

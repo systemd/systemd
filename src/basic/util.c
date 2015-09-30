@@ -5344,15 +5344,13 @@ int update_reboot_param_file(const char *param) {
         int r = 0;
 
         if (param) {
-
                 r = write_string_file(REBOOT_PARAM_FILE, param, WRITE_STRING_FILE_CREATE);
                 if (r < 0)
-                        log_error("Failed to write reboot param to "
-                                  REBOOT_PARAM_FILE": %s", strerror(-r));
+                        return log_error_errno(r, "Failed to write reboot param to "REBOOT_PARAM_FILE": %m");
         } else
-                unlink(REBOOT_PARAM_FILE);
+                (void) unlink(REBOOT_PARAM_FILE);
 
-        return r;
+        return 0;
 }
 
 int umount_recursive(const char *prefix, int flags) {
