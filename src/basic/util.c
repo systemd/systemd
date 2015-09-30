@@ -2622,14 +2622,13 @@ int parse_cpu_set_and_warn(
 
                 CPU_SET_S(cpu, CPU_ALLOC_SIZE(ncpus), c);
         }
-        if (!isempty(rvalue))
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Trailing garbage, ignoring.");
 
         /* On success, sets *cpu_set and returns ncpus for the system. */
         if (c) {
                 *cpu_set = c;
                 c = NULL;
         }
+
         return (int) ncpus;
 }
 
