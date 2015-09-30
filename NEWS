@@ -31,6 +31,35 @@ CHANGES WITH 227:
           assignments and "auto" for picking a free value
           automatically.
 
+        * 'systemctl is-system-running' now returns 'offline' if the
+          system is not booted with systemd. This command can now be
+          used as a substitute for 'systemd-notify --booted'.
+
+        * Watchdog timeouts have been increased to 3 minutes for all
+          in-tree service files. Apparently, disk IO issues are more
+          frequent than we hoped, and user reported >1 minute waiting
+          for disk IO.
+
+        * 'machine-id-commit' functionality has been merged into
+          'machine-id-setup --commit'. The separate binary has been
+          removed.
+
+        * The WorkingDirectory= directive in unit files may now be
+          set to the special value '~'. In this case, the working
+          directory is set to the home directory of the user configured
+          in User=.
+
+        * A new systemd.crash_reboot=1 kernel command line option has
+          been added that triggers a reboot after crashing. This can
+          also be set through CrashReboot=no in systemd.conf.
+
+        * The CrashChVT= configuration file setting is renamed to
+          CrashChangeVT=, following our usual logic of not abbreviating
+          unnecessarily. The old directive is still suppored for compat
+          reasons. Also, this directive now takes an interger value
+          between 1 and 63, or a boolean value. The formerly supported
+          '-1' value for disabling stays around for compat reasons.
+
         * The PrivateTmp, PrivateDevices, PrivateNetwork,
           NoNewPrivileges, TTYPath, WorkingDirectory and RootDirectory
           properties can now be set for transient units.
