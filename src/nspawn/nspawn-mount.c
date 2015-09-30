@@ -534,7 +534,7 @@ static int mount_legacy_cgroup_hierarchy(const char *dest, const char *controlle
         char *to;
         int r;
 
-        to = strjoina(dest, "/sys/fs/cgroup/", hierarchy);
+        to = strjoina(strempty(dest), "/sys/fs/cgroup/", hierarchy);
 
         r = path_is_mount_point(to, 0);
         if (r < 0 && r != -ENOENT)
