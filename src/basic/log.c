@@ -922,7 +922,7 @@ int log_set_max_level_from_string(const char *e) {
 
         t = log_level_from_string(e);
         if (t < 0)
-                return t;
+                return -EINVAL;
 
         log_set_max_level(t);
         return 0;
