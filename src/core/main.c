@@ -142,6 +142,8 @@ noreturn static void freeze_or_reboot(void) {
 }
 
 noreturn static void crash(int sig) {
+        struct sigaction sa;
+        pid_t pid;
 
         if (getpid() != 1)
                 /* Pass this on immediately, if this is not PID 1 */
@@ -149,11 +151,10 @@ noreturn static void crash(int sig) {
         else if (!arg_dump_core)
                 log_emergency("Caught <%s>, not dumping core.", signal_to_string(sig));
         else {
-                struct sigaction sa = {
+                sa = (struct sigaction) {
                         .sa_handler = nop_signal_handler,
                         .sa_flags = SA_NOCLDSTOP|SA_RESTART,
                 };
-                pid_t pid;
 
                 /* We want to wait for the core process, hence let's enable SIGCHLD */
                 (void) sigaction(SIGCHLD, &sa, NULL);
@@ -209,18 +210,17 @@ noreturn static void crash(int sig) {
         if (arg_crash_chvt >= 0)
                 (void) chvt(arg_crash_chvt);
 
-        if (arg_crash_shell) {
-                struct sigaction sa = {
-                        .sa_handler = SIG_IGN,
-                        .sa_flags = SA_NOCLDSTOP|SA_NOCLDWAIT|SA_RESTART,
-                };
-                pid_t pid;
+        sa = (struct sigaction) {
+                .sa_handler = SIG_IGN,
+                .sa_flags = SA_NOCLDSTOP|SA_NOCLDWAIT|SA_RESTART,
+        };
 
+        /* Let the kernel reap children for us */
+        (void) sigaction(SIGCHLD, &sa, NULL);
+
+        if (arg_crash_shell) {
                 log_notice("Executing crash shell in 10s...");
                 (void) sleep(10);
-
-                /* Let the kernel reap children for us */
-                (void) sigaction(SIGCHLD, &sa, NULL);
 
                 pid = raw_clone(SIGCHLD, NULL);
                 if (pid < 0)
