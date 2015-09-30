@@ -206,9 +206,9 @@ static int address_establish(Address *address, Link *link) {
         assert(link);
 
         masq = link->network &&
-                link->network->ip_masquerade &&
-                address->family == AF_INET &&
-                address->scope < RT_SCOPE_LINK;
+               link->network->ip_masquerade &&
+               address->family == AF_INET &&
+               address->scope < RT_SCOPE_LINK;
 
         /* Add firewall entry if this is requested */
         if (address->ip_masquerade_done != masq) {
@@ -251,21 +251,17 @@ int address_add(Link *link, int family, const union in_addr_union *in_addr, unsi
 
         address->link = link;
 
-        r = address_establish(address, link);
-        if (r < 0)
-                return r;
-
         *ret = address;
         address = NULL;
 
         return 0;
 }
 
-static int address_release(Address *address, Link *link) {
+static int address_release(Address *address) {
         int r;
 
         assert(address);
-        assert(link);
+        assert(address->link);
 
         /* Remove masquerading firewall entry if it was added */
         if (address->ip_masquerade_done) {
@@ -274,7 +270,7 @@ static int address_release(Address *address, Link *link) {
 
                 r = fw_add_masquerade(false, AF_INET, 0, &masked, address->prefixlen, NULL, NULL, 0);
                 if (r < 0)
-                        log_link_warning_errno(link, r, "Failed to disable IP masquerading: %m");
+                        log_link_warning_errno(address->link, r, "Failed to disable IP masquerading: %m");
 
                 address->ip_masquerade_done = false;
         }
@@ -309,7 +305,7 @@ int address_drop(Address *address) {
         ready = address_is_ready(address);
         link = address->link;
 
-        address_release(address, address->link);
+        address_release(address);
         address_free(address);
 
         if (link && !ready)
@@ -349,8 +345,6 @@ int address_remove(Address *address, Link *link,
         assert(link->ifindex > 0);
         assert(link->manager);
         assert(link->manager->rtnl);
-
-        address_release(address, link);
 
         r = sd_rtnl_message_new_addr(link->manager->rtnl, &req, RTM_DELADDR,
                                      link->ifindex, address->family);
@@ -513,13 +507,17 @@ int address_configure(Address *address, Link *link, sd_netlink_message_handler_t
         if (r < 0)
                 return log_error_errno(r, "Could not append IFA_CACHEINFO attribute: %m");
 
-        r = sd_netlink_call_async(link->manager->rtnl, req, callback, link, 0, NULL);
+        r = address_establish(address, link);
         if (r < 0)
+                return r;
+
+        r = sd_netlink_call_async(link->manager->rtnl, req, callback, link, 0, NULL);
+        if (r < 0) {
+                address_release(address);
                 return log_error_errno(r, "Could not send rtnetlink message: %m");
+        }
 
         link_ref(link);
-
-        address_establish(address, link);
 
         return 0;
 }
