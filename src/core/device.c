@@ -816,14 +816,6 @@ int device_found_node(Manager *m, const char *node, bool add, DeviceFound found,
         return device_update_found_by_name(m, node, add, found, now);
 }
 
-static const char* const device_state_table[_DEVICE_STATE_MAX] = {
-        [DEVICE_DEAD] = "dead",
-        [DEVICE_TENTATIVE] = "tentative",
-        [DEVICE_PLUGGED] = "plugged",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(device_state, DeviceState);
-
 const UnitVTable device_vtable = {
         .object_size = sizeof(Device),
         .sections =

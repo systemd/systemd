@@ -24,7 +24,7 @@ __contains_word () {
 }
 
 __get_names() {
-        systemd-path | cut -d: -f1 | sort -u
+        systemd-path | { while IFS=: read -r a b; do echo " $a"; done; }
 }
 
 _systemd_path() {

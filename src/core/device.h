@@ -23,16 +23,6 @@
 
 typedef struct Device Device;
 
-/* We simply watch devices, we cannot plug/unplug them. That
- * simplifies the state engine greatly */
-typedef enum DeviceState {
-        DEVICE_DEAD,
-        DEVICE_TENTATIVE, /* mounted or swapped, but not (yet) announced by udev */
-        DEVICE_PLUGGED,   /* announced by udev */
-        _DEVICE_STATE_MAX,
-        _DEVICE_STATE_INVALID = -1
-} DeviceState;
-
 typedef enum DeviceFound {
         DEVICE_NOT_FOUND = 0,
         DEVICE_FOUND_UDEV = 1,
@@ -55,8 +45,5 @@ struct Device {
 };
 
 extern const UnitVTable device_vtable;
-
-const char* device_state_to_string(DeviceState i) _const_;
-DeviceState device_state_from_string(const char *s) _pure_;
 
 int device_found_node(Manager *m, const char *node, bool add, DeviceFound found, bool now);

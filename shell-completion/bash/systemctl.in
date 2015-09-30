@@ -87,8 +87,8 @@ __get_all_unit_files () { { __systemctl $1 list-unit-files; } | { while read -r 
 
 __get_machines() {
         local a b
-        (machinectl list-images --no-legend --no-pager; machinectl list --no-legend --no-pager) | \
-		{ while read a b; do echo " $a"; done; } | sort -u;
+        { machinectl list-images --no-legend --no-pager; machinectl list --no-legend --no-pager; } | \
+		{ while read a b; do echo " $a"; done; }
 }
 
 _systemctl () {
@@ -119,9 +119,7 @@ _systemctl () {
                                 comps=$(__systemctl $mode -t help)
                         ;;
                         --state)
-                                comps='loaded not-found stub
-                                       active inactive failed
-                                       dead elapsed exited listening mounted plugged running waiting'
+                                comps=$(__systemctl $mode --state=help)
                         ;;
                         --job-mode)
                                 comps='fail replace replace-irreversibly isolate

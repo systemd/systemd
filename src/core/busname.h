@@ -24,20 +24,6 @@
 typedef struct BusName BusName;
 typedef struct BusNamePolicy BusNamePolicy;
 
-
-typedef enum BusNameState {
-        BUSNAME_DEAD,
-        BUSNAME_MAKING,
-        BUSNAME_REGISTERED,
-        BUSNAME_LISTENING,
-        BUSNAME_RUNNING,
-        BUSNAME_SIGTERM,
-        BUSNAME_SIGKILL,
-        BUSNAME_FAILED,
-        _BUSNAME_STATE_MAX,
-        _BUSNAME_STATE_INVALID = -1
-} BusNameState;
-
 typedef enum BusNameResult {
         BUSNAME_SUCCESS,
         BUSNAME_FAILURE_RESOURCES,
@@ -76,9 +62,6 @@ struct BusName {
 };
 
 extern const UnitVTable busname_vtable;
-
-const char* busname_state_to_string(BusNameState i) _const_;
-BusNameState busname_state_from_string(const char *s) _pure_;
 
 const char* busname_result_to_string(BusNameResult i) _const_;
 BusNameResult busname_result_from_string(const char *s) _pure_;

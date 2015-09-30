@@ -26,24 +26,6 @@ typedef struct Mount Mount;
 #include "kill.h"
 #include "execute.h"
 
-typedef enum MountState {
-        MOUNT_DEAD,
-        MOUNT_MOUNTING,               /* /usr/bin/mount is running, but the mount is not done yet. */
-        MOUNT_MOUNTING_DONE,          /* /usr/bin/mount is running, and the mount is done. */
-        MOUNT_MOUNTED,
-        MOUNT_REMOUNTING,
-        MOUNT_UNMOUNTING,
-        MOUNT_MOUNTING_SIGTERM,
-        MOUNT_MOUNTING_SIGKILL,
-        MOUNT_REMOUNTING_SIGTERM,
-        MOUNT_REMOUNTING_SIGKILL,
-        MOUNT_UNMOUNTING_SIGTERM,
-        MOUNT_UNMOUNTING_SIGKILL,
-        MOUNT_FAILED,
-        _MOUNT_STATE_MAX,
-        _MOUNT_STATE_INVALID = -1
-} MountState;
-
 typedef enum MountExecCommand {
         MOUNT_EXEC_MOUNT,
         MOUNT_EXEC_UNMOUNT,
@@ -119,9 +101,6 @@ struct Mount {
 extern const UnitVTable mount_vtable;
 
 void mount_fd_event(Manager *m, int events);
-
-const char* mount_state_to_string(MountState i) _const_;
-MountState mount_state_from_string(const char *s) _pure_;
 
 const char* mount_exec_command_to_string(MountExecCommand i) _const_;
 MountExecCommand mount_exec_command_from_string(const char *s) _pure_;

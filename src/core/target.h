@@ -23,14 +23,6 @@
 
 typedef struct Target Target;
 
-
-typedef enum TargetState {
-        TARGET_DEAD,
-        TARGET_ACTIVE,
-        _TARGET_STATE_MAX,
-        _TARGET_STATE_INVALID = -1
-} TargetState;
-
 struct Target {
         Unit meta;
 
@@ -38,6 +30,3 @@ struct Target {
 };
 
 extern const UnitVTable target_vtable;
-
-const char* target_state_to_string(TargetState i) _const_;
-TargetState target_state_from_string(const char *s) _pure_;

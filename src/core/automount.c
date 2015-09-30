@@ -1024,15 +1024,6 @@ static bool automount_supported(void) {
         return supported;
 }
 
-static const char* const automount_state_table[_AUTOMOUNT_STATE_MAX] = {
-        [AUTOMOUNT_DEAD] = "dead",
-        [AUTOMOUNT_WAITING] = "waiting",
-        [AUTOMOUNT_RUNNING] = "running",
-        [AUTOMOUNT_FAILED] = "failed"
-};
-
-DEFINE_STRING_TABLE_LOOKUP(automount_state, AutomountState);
-
 static const char* const automount_result_table[_AUTOMOUNT_RESULT_MAX] = {
         [AUTOMOUNT_SUCCESS] = "success",
         [AUTOMOUNT_FAILURE_RESOURCES] = "resources"

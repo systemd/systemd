@@ -24,7 +24,7 @@ __contains_word () {
 }
 
 __get_links() {
-        networkctl list --no-legend --no-pager --all | awk '{ print $2 }' | sort -u
+        networkctl list --no-legend --no-pager --all | { while read -r a b c; do echo " $b"; done; };
 }
 
 _networkctl() {

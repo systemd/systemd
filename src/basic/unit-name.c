@@ -839,6 +839,170 @@ static const char* const unit_load_state_table[_UNIT_LOAD_STATE_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(unit_load_state, UnitLoadState);
 
+static const char* const unit_active_state_table[_UNIT_ACTIVE_STATE_MAX] = {
+        [UNIT_ACTIVE] = "active",
+        [UNIT_RELOADING] = "reloading",
+        [UNIT_INACTIVE] = "inactive",
+        [UNIT_FAILED] = "failed",
+        [UNIT_ACTIVATING] = "activating",
+        [UNIT_DEACTIVATING] = "deactivating"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(unit_active_state, UnitActiveState);
+
+static const char* const automount_state_table[_AUTOMOUNT_STATE_MAX] = {
+        [AUTOMOUNT_DEAD] = "dead",
+        [AUTOMOUNT_WAITING] = "waiting",
+        [AUTOMOUNT_RUNNING] = "running",
+        [AUTOMOUNT_FAILED] = "failed"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(automount_state, AutomountState);
+
+static const char* const busname_state_table[_BUSNAME_STATE_MAX] = {
+        [BUSNAME_DEAD] = "dead",
+        [BUSNAME_MAKING] = "making",
+        [BUSNAME_REGISTERED] = "registered",
+        [BUSNAME_LISTENING] = "listening",
+        [BUSNAME_RUNNING] = "running",
+        [BUSNAME_SIGTERM] = "sigterm",
+        [BUSNAME_SIGKILL] = "sigkill",
+        [BUSNAME_FAILED] = "failed",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(busname_state, BusNameState);
+
+static const char* const device_state_table[_DEVICE_STATE_MAX] = {
+        [DEVICE_DEAD] = "dead",
+        [DEVICE_TENTATIVE] = "tentative",
+        [DEVICE_PLUGGED] = "plugged",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(device_state, DeviceState);
+
+static const char* const mount_state_table[_MOUNT_STATE_MAX] = {
+        [MOUNT_DEAD] = "dead",
+        [MOUNT_MOUNTING] = "mounting",
+        [MOUNT_MOUNTING_DONE] = "mounting-done",
+        [MOUNT_MOUNTED] = "mounted",
+        [MOUNT_REMOUNTING] = "remounting",
+        [MOUNT_UNMOUNTING] = "unmounting",
+        [MOUNT_MOUNTING_SIGTERM] = "mounting-sigterm",
+        [MOUNT_MOUNTING_SIGKILL] = "mounting-sigkill",
+        [MOUNT_REMOUNTING_SIGTERM] = "remounting-sigterm",
+        [MOUNT_REMOUNTING_SIGKILL] = "remounting-sigkill",
+        [MOUNT_UNMOUNTING_SIGTERM] = "unmounting-sigterm",
+        [MOUNT_UNMOUNTING_SIGKILL] = "unmounting-sigkill",
+        [MOUNT_FAILED] = "failed"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(mount_state, MountState);
+
+static const char* const path_state_table[_PATH_STATE_MAX] = {
+        [PATH_DEAD] = "dead",
+        [PATH_WAITING] = "waiting",
+        [PATH_RUNNING] = "running",
+        [PATH_FAILED] = "failed"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(path_state, PathState);
+
+static const char* const scope_state_table[_SCOPE_STATE_MAX] = {
+        [SCOPE_DEAD] = "dead",
+        [SCOPE_RUNNING] = "running",
+        [SCOPE_ABANDONED] = "abandoned",
+        [SCOPE_STOP_SIGTERM] = "stop-sigterm",
+        [SCOPE_STOP_SIGKILL] = "stop-sigkill",
+        [SCOPE_FAILED] = "failed",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(scope_state, ScopeState);
+
+static const char* const service_state_table[_SERVICE_STATE_MAX] = {
+        [SERVICE_DEAD] = "dead",
+        [SERVICE_START_PRE] = "start-pre",
+        [SERVICE_START] = "start",
+        [SERVICE_START_POST] = "start-post",
+        [SERVICE_RUNNING] = "running",
+        [SERVICE_EXITED] = "exited",
+        [SERVICE_RELOAD] = "reload",
+        [SERVICE_STOP] = "stop",
+        [SERVICE_STOP_SIGABRT] = "stop-sigabrt",
+        [SERVICE_STOP_SIGTERM] = "stop-sigterm",
+        [SERVICE_STOP_SIGKILL] = "stop-sigkill",
+        [SERVICE_STOP_POST] = "stop-post",
+        [SERVICE_FINAL_SIGTERM] = "final-sigterm",
+        [SERVICE_FINAL_SIGKILL] = "final-sigkill",
+        [SERVICE_FAILED] = "failed",
+        [SERVICE_AUTO_RESTART] = "auto-restart",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(service_state, ServiceState);
+
+static const char* const slice_state_table[_SLICE_STATE_MAX] = {
+        [SLICE_DEAD] = "dead",
+        [SLICE_ACTIVE] = "active"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(slice_state, SliceState);
+
+static const char* const snapshot_state_table[_SNAPSHOT_STATE_MAX] = {
+        [SNAPSHOT_DEAD] = "dead",
+        [SNAPSHOT_ACTIVE] = "active"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(snapshot_state, SnapshotState);
+
+static const char* const socket_state_table[_SOCKET_STATE_MAX] = {
+        [SOCKET_DEAD] = "dead",
+        [SOCKET_START_PRE] = "start-pre",
+        [SOCKET_START_CHOWN] = "start-chown",
+        [SOCKET_START_POST] = "start-post",
+        [SOCKET_LISTENING] = "listening",
+        [SOCKET_RUNNING] = "running",
+        [SOCKET_STOP_PRE] = "stop-pre",
+        [SOCKET_STOP_PRE_SIGTERM] = "stop-pre-sigterm",
+        [SOCKET_STOP_PRE_SIGKILL] = "stop-pre-sigkill",
+        [SOCKET_STOP_POST] = "stop-post",
+        [SOCKET_FINAL_SIGTERM] = "final-sigterm",
+        [SOCKET_FINAL_SIGKILL] = "final-sigkill",
+        [SOCKET_FAILED] = "failed"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(socket_state, SocketState);
+
+static const char* const swap_state_table[_SWAP_STATE_MAX] = {
+        [SWAP_DEAD] = "dead",
+        [SWAP_ACTIVATING] = "activating",
+        [SWAP_ACTIVATING_DONE] = "activating-done",
+        [SWAP_ACTIVE] = "active",
+        [SWAP_DEACTIVATING] = "deactivating",
+        [SWAP_ACTIVATING_SIGTERM] = "activating-sigterm",
+        [SWAP_ACTIVATING_SIGKILL] = "activating-sigkill",
+        [SWAP_DEACTIVATING_SIGTERM] = "deactivating-sigterm",
+        [SWAP_DEACTIVATING_SIGKILL] = "deactivating-sigkill",
+        [SWAP_FAILED] = "failed"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(swap_state, SwapState);
+
+static const char* const target_state_table[_TARGET_STATE_MAX] = {
+        [TARGET_DEAD] = "dead",
+        [TARGET_ACTIVE] = "active"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(target_state, TargetState);
+
+static const char* const timer_state_table[_TIMER_STATE_MAX] = {
+        [TIMER_DEAD] = "dead",
+        [TIMER_WAITING] = "waiting",
+        [TIMER_RUNNING] = "running",
+        [TIMER_ELAPSED] = "elapsed",
+        [TIMER_FAILED] = "failed"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(timer_state, TimerState);
+
 static const char* const unit_dependency_table[_UNIT_DEPENDENCY_MAX] = {
         [UNIT_REQUIRES] = "Requires",
         [UNIT_REQUIRES_OVERRIDABLE] = "RequiresOverridable",

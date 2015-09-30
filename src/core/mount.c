@@ -1756,24 +1756,6 @@ static int mount_kill(Unit *u, KillWho who, int signo, sd_bus_error *error) {
         return unit_kill_common(u, who, signo, -1, MOUNT(u)->control_pid, error);
 }
 
-static const char* const mount_state_table[_MOUNT_STATE_MAX] = {
-        [MOUNT_DEAD] = "dead",
-        [MOUNT_MOUNTING] = "mounting",
-        [MOUNT_MOUNTING_DONE] = "mounting-done",
-        [MOUNT_MOUNTED] = "mounted",
-        [MOUNT_REMOUNTING] = "remounting",
-        [MOUNT_UNMOUNTING] = "unmounting",
-        [MOUNT_MOUNTING_SIGTERM] = "mounting-sigterm",
-        [MOUNT_MOUNTING_SIGKILL] = "mounting-sigkill",
-        [MOUNT_REMOUNTING_SIGTERM] = "remounting-sigterm",
-        [MOUNT_REMOUNTING_SIGKILL] = "remounting-sigkill",
-        [MOUNT_UNMOUNTING_SIGTERM] = "unmounting-sigterm",
-        [MOUNT_UNMOUNTING_SIGKILL] = "unmounting-sigkill",
-        [MOUNT_FAILED] = "failed"
-};
-
-DEFINE_STRING_TABLE_LOOKUP(mount_state, MountState);
-
 static const char* const mount_exec_command_table[_MOUNT_EXEC_COMMAND_MAX] = {
         [MOUNT_EXEC_MOUNT] = "ExecMount",
         [MOUNT_EXEC_UNMOUNT] = "ExecUnmount",

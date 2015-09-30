@@ -27,24 +27,6 @@ typedef struct Socket Socket;
 #include "mount.h"
 #include "service.h"
 
-typedef enum SocketState {
-        SOCKET_DEAD,
-        SOCKET_START_PRE,
-        SOCKET_START_CHOWN,
-        SOCKET_START_POST,
-        SOCKET_LISTENING,
-        SOCKET_RUNNING,
-        SOCKET_STOP_PRE,
-        SOCKET_STOP_PRE_SIGTERM,
-        SOCKET_STOP_PRE_SIGKILL,
-        SOCKET_STOP_POST,
-        SOCKET_FINAL_SIGTERM,
-        SOCKET_FINAL_SIGKILL,
-        SOCKET_FAILED,
-        _SOCKET_STATE_MAX,
-        _SOCKET_STATE_INVALID = -1
-} SocketState;
-
 typedef enum SocketExecCommand {
         SOCKET_EXEC_START_PRE,
         SOCKET_EXEC_START_CHOWN,
@@ -182,9 +164,6 @@ void socket_connection_unref(Socket *s);
 void socket_free_ports(Socket *s);
 
 extern const UnitVTable socket_vtable;
-
-const char* socket_state_to_string(SocketState i) _const_;
-SocketState socket_state_from_string(const char *s) _pure_;
 
 const char* socket_exec_command_to_string(SocketExecCommand i) _const_;
 SocketExecCommand socket_exec_command_from_string(const char *s) _pure_;

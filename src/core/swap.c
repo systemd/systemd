@@ -1398,21 +1398,6 @@ static bool swap_supported(void) {
         return supported;
 }
 
-static const char* const swap_state_table[_SWAP_STATE_MAX] = {
-        [SWAP_DEAD] = "dead",
-        [SWAP_ACTIVATING] = "activating",
-        [SWAP_ACTIVATING_DONE] = "activating-done",
-        [SWAP_ACTIVE] = "active",
-        [SWAP_DEACTIVATING] = "deactivating",
-        [SWAP_ACTIVATING_SIGTERM] = "activating-sigterm",
-        [SWAP_ACTIVATING_SIGKILL] = "activating-sigkill",
-        [SWAP_DEACTIVATING_SIGTERM] = "deactivating-sigterm",
-        [SWAP_DEACTIVATING_SIGKILL] = "deactivating-sigkill",
-        [SWAP_FAILED] = "failed"
-};
-
-DEFINE_STRING_TABLE_LOOKUP(swap_state, SwapState);
-
 static const char* const swap_exec_command_table[_SWAP_EXEC_COMMAND_MAX] = {
         [SWAP_EXEC_ACTIVATE] = "ExecActivate",
         [SWAP_EXEC_DEACTIVATE] = "ExecDeactivate",

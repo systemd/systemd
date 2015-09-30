@@ -29,27 +29,6 @@ typedef struct ServiceFDStore ServiceFDStore;
 #include "kill.h"
 #include "exit-status.h"
 
-typedef enum ServiceState {
-        SERVICE_DEAD,
-        SERVICE_START_PRE,
-        SERVICE_START,
-        SERVICE_START_POST,
-        SERVICE_RUNNING,
-        SERVICE_EXITED,            /* Nothing is running anymore, but RemainAfterExit is true hence this is OK */
-        SERVICE_RELOAD,
-        SERVICE_STOP,              /* No STOP_PRE state, instead just register multiple STOP executables */
-        SERVICE_STOP_SIGABRT,      /* Watchdog timeout */
-        SERVICE_STOP_SIGTERM,
-        SERVICE_STOP_SIGKILL,
-        SERVICE_STOP_POST,
-        SERVICE_FINAL_SIGTERM,     /* In case the STOP_POST executable hangs, we shoot that down, too */
-        SERVICE_FINAL_SIGKILL,
-        SERVICE_FAILED,
-        SERVICE_AUTO_RESTART,
-        _SERVICE_STATE_MAX,
-        _SERVICE_STATE_INVALID = -1
-} ServiceState;
-
 typedef enum ServiceRestart {
         SERVICE_RESTART_NO,
         SERVICE_RESTART_ON_SUCCESS,
@@ -220,9 +199,6 @@ struct Service {
 extern const UnitVTable service_vtable;
 
 int service_set_socket_fd(Service *s, int fd, struct Socket *socket, bool selinux_context_net);
-
-const char* service_state_to_string(ServiceState i) _const_;
-ServiceState service_state_from_string(const char *s) _pure_;
 
 const char* service_restart_to_string(ServiceRestart i) _const_;
 ServiceRestart service_restart_from_string(const char *s) _pure_;

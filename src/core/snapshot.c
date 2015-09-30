@@ -272,13 +272,6 @@ void snapshot_remove(Snapshot *s) {
         unit_add_to_cleanup_queue(UNIT(s));
 }
 
-static const char* const snapshot_state_table[_SNAPSHOT_STATE_MAX] = {
-        [SNAPSHOT_DEAD] = "dead",
-        [SNAPSHOT_ACTIVE] = "active"
-};
-
-DEFINE_STRING_TABLE_LOOKUP(snapshot_state, SnapshotState);
-
 const UnitVTable snapshot_vtable = {
         .object_size = sizeof(Snapshot),
 
