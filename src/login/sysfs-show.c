@@ -114,7 +114,7 @@ static int show_sysfs_one(
                              "%s%s:%s%s%s%s",
                              is_master ? "[MASTER] " : "",
                              subsystem, sysname,
-                             name ? " \"" : "", name ? name : "", name ? "\"" : "") < 0)
+                             name ? " \"" : "", strempty(name), name ? "\"" : "") < 0)
                         return -ENOMEM;
 
                 free(k);
