@@ -20,8 +20,25 @@
 ***/
 
 #include "fstab-util.h"
+#include "path-util.h"
 #include "strv.h"
 #include "util.h"
+
+bool fstab_is_mount_point(const char *mount) {
+        _cleanup_free_ char *device = NULL;
+        _cleanup_endmntent_ FILE *f = NULL;
+        struct mntent *m;
+
+        f = setmntent("/etc/fstab", "r");
+        if (!f)
+                return false;
+
+        while ((m = getmntent(f)))
+                if (path_equal(m->mnt_dir, mount))
+                        return true;
+
+        return false;
+}
 
 int fstab_filter_options(const char *opts, const char *names,
                          const char **namefound, char **value, char **filtered) {
