@@ -2597,10 +2597,11 @@ int parse_cpu_set(
 
         for (;;) {
                 _cleanup_free_ char *word = NULL;
-                unsigned cpu;
+                char *dash;
+                unsigned i, cpu, cpumax;
                 int r;
 
-                r = extract_first_word(&rvalue, &word, WHITESPACE, EXTRACT_QUOTES);
+                r = extract_first_word(&rvalue, &word, WHITESPACE ",", EXTRACT_QUOTES);
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, r,
                                    "Invalid value for %s: %s", lvalue, whole_rvalue);
@@ -2608,6 +2609,11 @@ int parse_cpu_set(
                 }
                 if (r == 0)
                         break;
+
+                /* Check for a dash, which indicates a CPU range. */
+                dash = strchr(word, '-');
+                if (dash)
+                        *dash++ = '\0';
 
                 r = safe_atou(word, &cpu);
 
@@ -2621,7 +2627,19 @@ int parse_cpu_set(
                         return -EBADMSG;
                 }
 
-                CPU_SET_S(cpu, CPU_ALLOC_SIZE(ncpus), c);
+                if (dash) {
+                        r = safe_atou(dash, &cpumax);
+
+                        if (r < 0 || cpumax >= ncpus) {
+                                log_syntax(unit, LOG_ERR, filename, line, -r,
+                                           "Failed to parse CPU affinity range '%s'", rvalue);
+                                return -EBADMSG;
+                        }
+                } else
+                        cpumax = cpu;
+
+                for (i = cpu; i <= cpumax; i++)
+                        CPU_SET_S(i, CPU_ALLOC_SIZE(ncpus), c);
         }
         if (!isempty(rvalue))
                 log_syntax(unit, LOG_ERR, filename, line, EINVAL,
