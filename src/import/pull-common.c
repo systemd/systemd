@@ -176,6 +176,9 @@ int pull_make_path(const char *url, const char *etag, const char *image_root, co
         if (!path)
                 return -ENOMEM;
 
+        if (strlen(path) >= NAME_MAX)
+                path[NAME_MAX] = '\0';
+
         *ret = path;
         return 0;
 }
