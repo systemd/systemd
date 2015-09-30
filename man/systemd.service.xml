@@ -287,7 +287,7 @@
         below (see section "Command Lines" below).
         </para>
 
-        <para>When <varname>Type</varname> is not
+        <para>When <varname>Type=</varname> is not
         <option>oneshot</option>, only one command may and must be
         given. When <varname>Type=oneshot</varname> is used, zero or
         more commands may be specified. This can be specified by
@@ -421,7 +421,7 @@
         <varname>ExecStop=</varname> defined, or where the service
         exited unexpectedly. This argument takes multiple command
         lines, following the same scheme as described for
-        <varname>ExecStart</varname>. Use of these settings is
+        <varname>ExecStart=</varname>. Use of these settings is
         optional. Specifier and environment variable substitution is
         supported.</para></listitem>
       </varlistentry>
@@ -486,7 +486,7 @@
         "keep-alive ping"). If the time between two such calls is
         larger than the configured time, then the service is placed in
         a failed state and it will be terminated with
-        <varname>SIGABRT</varname>. By setting
+        <constant>SIGABRT</constant>. By setting
         <varname>Restart=</varname> to <option>on-failure</option> or
         <option>always</option>, the service will be automatically
         restarted. The time configured here will be passed to the
@@ -905,12 +905,15 @@
 
       <varlistentry>
         <term><varname>USBFunctionDescriptors=</varname></term>
-        <listitem><para>Configure the location of file containing
-        FunctionFS descriptors. This is is used only when socket with
-        <varname>ListenUSBFunction</varname> line want to activate this service. Content of
-        this file is writen to ep0 file after it is opened. This is required
-        for socket activation using <varname>ListenUSBFunction</varname>
-        (i.e. for passing all ffs endpoints to service).</para></listitem>
+        <listitem><para>Configure the location of the file containing
+        <ulink url="https://www.kernel.org/doc/Documentation/usb/functionfs.txt">functionfs</ulink>
+        descriptors. This is is used only when a socket with
+        <varname>ListenUSBFunction=</varname> configured wants to
+        activate this service. Content of this file is writen to
+        <filename>ep0</filename> file after it is opened. This is
+        required for socket activation using
+        <varname>ListenUSBFunction=</varname> (i.e. for passing all
+        functionfs endpoints to the service).</para></listitem>
       </varlistentry>
 
       <varlistentry>

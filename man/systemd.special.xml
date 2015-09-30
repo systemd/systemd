@@ -215,20 +215,19 @@
         <term><filename>exit.target</filename></term>
         <listitem>
           <para>A special service unit for shutting down the system or
-          user service manager. It also works in containers and is
-          equivalent to <filename>poweroff.target</filename> on
-          non-container systems.</para>
+          user service manager. It is equivalent to
+          <filename>poweroff.target</filename> on non-container
+          systems, and also works in containers.</para>
 
-          <para>Applications wanting to terminate the user service
-          manager should start this unit. If systemd receives
+          <para>systemd will start this unit when it receives a
+          request to shut down over D-Bus or a
           <constant>SIGTERM</constant> or <constant>SIGINT</constant>
-          when running as user service daemon, it will start this
-          unit.</para>
+          signal when running as user service daemon.</para>
 
-          <para>Normally, this pulls in
+          <para>Normally, this (indirectly) pulls in
           <filename>shutdown.target</filename> which in turn should be
-          conflicted by all units that want to be shut down on user
-          service manager exit.</para>
+          conflicted by all units that want to be scheduled for
+          shutdown when the service manager starts to exit.</para>
         </listitem>
       </varlistentry>
       <varlistentry>

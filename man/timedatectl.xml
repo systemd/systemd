@@ -178,7 +178,7 @@
         protected by a different access policy.</para>
 
         <para>Note that even if time synchronization is turned off
-        with this command another, unrelated system service might
+        with this command, another unrelated system service might
         still synchronize the clock with the network. Also note that
         strictly speaking
         <filename>systemd-timesyncd.service</filename> does more than
