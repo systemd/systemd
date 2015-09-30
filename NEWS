@@ -20,11 +20,11 @@ CHANGES WITH 227:
           global option DefaultTasksAccounting=.
 
         * Support for the "net_cls" cgroup controller has been added.
-          It allows assigning a net class ID to each task in the cgroup,
-          which can then be used in firewall rules and traffic shaping
-          configurations. Note that the kernel netfilter code does not
-          currently work reliably for ingress packets on unestablished
-          sockets.
+          It allows assigning a net class ID to each task in the
+          cgroup, which can then be used in firewall rules and traffic
+          shaping configurations. Note that the kernel netfilter net
+          class code does not currently work reliably for ingress
+          packets on unestablished sockets.
 
           This adds a new config directive called NetClass= to CGroup
           enabled units. Allowed values are positive numbers for fixed
@@ -49,6 +49,9 @@ CHANGES WITH 227:
           directory is set to the home directory of the user configured
           in User=.
 
+        * "machinectl shell" will now open the shell in the home
+          directory of the selected user by default.
+
         * A new systemd.crash_reboot=1 kernel command line option has
           been added that triggers a reboot after crashing. This can
           also be set through CrashReboot= in systemd.conf.
@@ -60,9 +63,68 @@ CHANGES WITH 227:
           between 1 and 63, or a boolean value. The formerly supported
           '-1' value for disabling stays around for compat reasons.
 
-        * The PrivateTmp, PrivateDevices, PrivateNetwork,
-          NoNewPrivileges, TTYPath, WorkingDirectory and RootDirectory
-          properties can now be set for transient units.
+        * The PrivateTmp=, PrivateDevices=, PrivateNetwork=,
+          NoNewPrivileges=, TTYPath, WorkingDirectory= and
+          RootDirectory= properties can now be set for transient
+          units.
+
+        * The systemd-analyze tool gained a new "set-log-target" verb
+          to change the logging target the system manager logs to
+          dynamically during runtime. This is similar to how
+          "systemd-analyze set-log-level" already changes the log
+          level.
+
+        * In nspawn /sys is now mounted as tmpfs, with only a selected
+          set of subdirectories mounted in from the real sysfs. This
+          enhances security slightly, and is useful for ensuring user
+          namespaces work correctly.
+
+        * Support for USB FunctionFS activation has been added. This
+          allows implementation of USB gadget services that are
+          activated as soon as they are requested, so that they don't
+          have to run continously, similar to classic socket
+          activation.
+
+        * The "systemctl exit" command now optionally takes an
+          additional parameter that sets the exit code to return from
+          the systemd manager when exiting. This is only relevant when
+          running the systemd user instance, or when running the
+          system instance in a container.
+
+        * sd-bus gained the new API calls sd_bus_path_encode_many()
+          and sd_bus_path_decode_many() that allow easy encoding and
+          decoding of multiple identifier strings inside a D-Bus
+          object path. Another new call sd_bus_default_flush_close()
+          has been added to flush and close per-thread default
+          connections.
+
+        * systemd-cgtop gained support for a -M/--machine= switch to
+          show the control groups within a certain container only.
+
+        * "systemctl kill" gained support for an optional --fail
+          switch. If specified the requested operation will fail of no
+          processes have been killed, because the unit had no
+          processes attached, or similar.
+
+        * A new (still internal) libary API sd-ipv4acd has been added,
+          that implements address conflict detection for IPv4. It's
+          based on code from sd-ipv4ll, and will be useful for
+          detecting DHCP address conflicts.
+
+        * The RuntimeDirectory= setting now understands unit
+          specifiers like %i or %f.
+
+        * networkd gained support for setting the IPv6 Router
+          Advertisment settings via IPv6AcceptRouterAdvertisements= in
+          .network files.
+
+        * udev will now create /dev/disk/by-path links for ATA devices
+          on kernels where that is supported.
+
+        * When downloading tar or raw images using "machinectl
+          pull-tar" or "machinectl pull-raw", a matching ".nspawn"
+          file is now also downloaded, if it is available and stored
+          next to the image file.
 
         * Galician, Turkish and Korean translations were added.
 
