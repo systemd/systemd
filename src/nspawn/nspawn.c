@@ -83,12 +83,12 @@
 #include "udev-util.h"
 #include "util.h"
 
-#include "nspawn-settings.h"
+#include "nspawn-cgroup.h"
+#include "nspawn-expose-ports.h"
 #include "nspawn-mount.h"
 #include "nspawn-network.h"
-#include "nspawn-expose-ports.h"
-#include "nspawn-cgroup.h"
 #include "nspawn-register.h"
+#include "nspawn-settings.h"
 #include "nspawn-setuid.h"
 
 typedef enum ContainerStatus {
