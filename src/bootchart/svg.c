@@ -30,6 +30,7 @@
 #include <sys/utsname.h>
 #include <fcntl.h>
 
+#include "architecture.h"
 #include "util.h"
 #include "fileio.h"
 #include "macro.h"
@@ -147,7 +148,7 @@ static int svg_title(FILE *of, const char *build, int pscount, double log_start,
         _cleanup_free_ char *model = NULL;
         _cleanup_free_ char *buf = NULL;
         char date[256] = "Unknown";
-        char *cpu;
+        const char *cpu;
         char *c;
         time_t t;
         int r;
@@ -188,20 +189,11 @@ static int svg_title(FILE *of, const char *build, int pscount, double log_start,
         assert_se(r > 0);
 
         /* CPU type */
-        r = read_full_file("/proc/cpuinfo", &buf, NULL);
+        r = get_proc_field("/proc/cpuinfo", PROC_CPUINFO_MODEL, "\n", &buf);
         if (r < 0)
-                return log_error_errno(r, "Unable to read cpuinfo: %m");
-
-        cpu = strstr(buf, "model name");
-        if (!cpu) {
-                log_error("Unable to read module name from cpuinfo.\n");
-                return -ENOENT;
-        }
-
-        cpu += 13;
-        c = strchr(cpu, '\n');
-        if (c)
-                *c = '\0';
+                cpu = "Unknown";
+        else
+                cpu = buf;
 
         fprintf(of, "<text class=\"t1\" x=\"0\" y=\"30\">Bootchart for %s - %s</text>\n",
                 uts.nodename, date);
