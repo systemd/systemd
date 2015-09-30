@@ -775,15 +775,19 @@ int executable_is_script(const char *path, char **interpreter) {
 
 /**
  * Retrieve one field from a file like /proc/self/status.  pattern
- * should start with '\n' and end with a ':'. Whitespace and zeros
- * after the ':' will be skipped. field must be freed afterwards.
+ * should not include whitespace or the delimiter (':'). pattern matches only
+ * the beginning of a line. Whitespace before ':' is skipped. Whitespace and
+ * zeros after the ':' will be skipped. field must be freed afterwards.
+ * terminator specifies the terminating characters of the field value (not
+ * included in the value).
  */
-int get_status_field(const char *filename, const char *pattern, char **field) {
+int get_proc_field(const char *filename, const char *pattern, const char *terminator, char **field) {
         _cleanup_free_ char *status = NULL;
         char *t, *f;
         size_t len;
         int r;
 
+        assert(terminator);
         assert(filename);
         assert(pattern);
         assert(field);
@@ -792,11 +796,31 @@ int get_status_field(const char *filename, const char *pattern, char **field) {
         if (r < 0)
                 return r;
 
-        t = strstr(status, pattern);
-        if (!t)
-                return -ENOENT;
+        t = status;
 
-        t += strlen(pattern);
+        do {
+                bool pattern_ok;
+
+                do {
+                        t = strstr(t, pattern);
+                        if (!t)
+                                return -ENOENT;
+
+                        /* Check that pattern occurs in beginning of line. */
+                        pattern_ok = (t == status || t[-1] == '\n');
+
+                        t += strlen(pattern);
+
+                } while (!pattern_ok);
+
+                t += strspn(t, " \t");
+                if (!*t)
+                        return -ENOENT;
+
+        } while (*t != ':');
+
+        t++;
+
         if (*t) {
                 t += strspn(t, " \t");
 
@@ -812,7 +836,7 @@ int get_status_field(const char *filename, const char *pattern, char **field) {
                         t --;
         }
 
-        len = strcspn(t, WHITESPACE);
+        len = strcspn(t, terminator);
 
         f = strndup(t, len);
         if (!f)

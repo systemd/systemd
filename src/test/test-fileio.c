@@ -241,18 +241,18 @@ static void test_status_field(void) {
         unsigned long long total = 0, buffers = 0;
         int r;
 
-        assert_se(get_status_field("/proc/self/status", "\nThreads:", &t) == 0);
+        assert_se(get_proc_field("/proc/self/status", "Threads", WHITESPACE, &t) == 0);
         puts(t);
         assert_se(streq(t, "1"));
 
-        r = get_status_field("/proc/meminfo", "MemTotal:", &p);
+        r = get_proc_field("/proc/meminfo", "MemTotal", WHITESPACE, &p);
         if (r != -ENOENT) {
                 assert_se(r == 0);
                 puts(p);
                 assert_se(safe_atollu(p, &total) == 0);
         }
 
-        r = get_status_field("/proc/meminfo", "\nBuffers:", &s);
+        r = get_proc_field("/proc/meminfo", "Buffers", WHITESPACE, &s);
         if (r != -ENOENT) {
                 assert_se(r == 0);
                 puts(s);
@@ -263,7 +263,7 @@ static void test_status_field(void) {
                 assert_se(buffers < total);
 
         /* Seccomp should be a good test for field full of zeros. */
-        r = get_status_field("/proc/meminfo", "\nSeccomp:", &z);
+        r = get_proc_field("/proc/meminfo", "Seccomp", WHITESPACE, &z);
         if (r != -ENOENT) {
                 assert_se(r == 0);
                 puts(z);
