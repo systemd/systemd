@@ -38,6 +38,7 @@
 #include "gpt.h"
 #include "fileio.h"
 #include "efivars.h"
+#include "fstab-util.h"
 #include "blkid-util.h"
 #include "btrfs-util.h"
 
@@ -462,6 +463,12 @@ static int add_boot(const char *what) {
 
         if (detect_container() > 0) {
                 log_debug("In a container, ignoring /boot.");
+                return 0;
+        }
+
+        /* We create an .automount which is not overridden by the .mount from the fstab generator. */
+        if (fstab_is_mount_point("/boot")) {
+                log_debug("/boot specified in fstab, ignoring.");
                 return 0;
         }
 
