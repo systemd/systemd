@@ -1217,10 +1217,8 @@ static int dump(sd_bus *bus, char **args) {
                        &error,
                        &reply,
                        "");
-        if (r < 0) {
-                log_error("Failed issue method call: %s", bus_error_message(&error, -r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed issue method call: %s", bus_error_message(&error, r));
 
         r = sd_bus_message_read(reply, "s", &text);
         if (r < 0)
@@ -1251,10 +1249,35 @@ static int set_log_level(sd_bus *bus, char **args) {
                         &error,
                         "s",
                         args[0]);
-        if (r < 0) {
-                log_error("Failed to issue method call: %s", bus_error_message(&error, -r));
-                return -EIO;
+        if (r < 0)
+                return log_error_errno(r, "Failed to issue method call: %s", bus_error_message(&error, r));
+
+        return 0;
+}
+
+static int set_log_target(sd_bus *bus, char **args) {
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r;
+
+        assert(bus);
+        assert(args);
+
+        if (strv_length(args) != 1) {
+                log_error("This command expects one argument only.");
+                return -E2BIG;
         }
+
+        r = sd_bus_set_property(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "LogTarget",
+                        &error,
+                        "s",
+                        args[0]);
+        if (r < 0)
+                return log_error_errno(r, "Failed to issue method call: %s", bus_error_message(&error, r));
 
         return 0;
 }
@@ -1285,7 +1308,8 @@ static void help(void) {
                "  critical-chain          Print a tree of the time critical chain of units\n"
                "  plot                    Output SVG graphic showing service initialization\n"
                "  dot                     Output dependency graph in dot(1) format\n"
-               "  set-log-level LEVEL     Set logging threshold for systemd\n"
+               "  set-log-level LEVEL     Set logging threshold for manager\n"
+               "  set-log-target TARGET   Set logging target for manager\n"
                "  dump                    Output state serialization of service manager\n"
                "  verify FILE...          Check unit files for correctness\n"
                , program_invocation_short_name);
@@ -1452,6 +1476,8 @@ int main(int argc, char *argv[]) {
                         r = dump(bus, argv+optind+1);
                 else if (streq(argv[optind], "set-log-level"))
                         r = set_log_level(bus, argv+optind+1);
+                else if (streq(argv[optind], "set-log-target"))
+                        r = set_log_target(bus, argv+optind+1);
                 else
                         log_error("Unknown operation '%s'.", argv[optind]);
         }
