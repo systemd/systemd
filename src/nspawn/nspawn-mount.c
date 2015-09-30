@@ -217,7 +217,8 @@ static int tmpfs_patch_options(
 }
 
 int mount_all(const char *dest,
-              bool userns, uid_t uid_shift, uid_t uid_range,
+              bool use_userns, bool in_userns,
+              uid_t uid_shift, uid_t uid_range,
               const char *selinux_apifs_context) {
 
         typedef struct MountPoint {
@@ -252,7 +253,7 @@ int mount_all(const char *dest,
                 _cleanup_free_ char *where = NULL, *options = NULL;
                 const char *o;
 
-                if (userns != mount_table[k].userns)
+                if (in_userns != mount_table[k].userns)
                         continue;
 
                 where = prefix_root(dest, mount_table[k].where);
@@ -278,7 +279,7 @@ int mount_all(const char *dest,
 
                 o = mount_table[k].options;
                 if (streq_ptr(mount_table[k].type, "tmpfs")) {
-                        r = tmpfs_patch_options(o, userns, uid_shift, uid_range, selinux_apifs_context, &options);
+                        r = tmpfs_patch_options(o, use_userns, uid_shift, uid_range, selinux_apifs_context, &options);
                         if (r < 0)
                                 return log_oom();
                         if (r > 0)
