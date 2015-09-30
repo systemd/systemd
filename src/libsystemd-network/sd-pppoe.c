@@ -385,7 +385,7 @@ static int pppoe_send_initiation(sd_pppoe *ppp) {
                 return r;
 
         log_debug("PPPoE: sent DISCOVER (Service-Name: %s)",
-                  strempty(ppp->service_name));
+                  strna(ppp->service_name));
 
         pppoe_arm_timeout(ppp);
 
