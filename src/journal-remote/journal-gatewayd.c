@@ -1010,7 +1010,22 @@ int main(int argc, char *argv[]) {
                         { MHD_OPTION_END, 0, NULL },
                         { MHD_OPTION_END, 0, NULL }};
                 int opts_pos = 2;
-                int flags = MHD_USE_THREAD_PER_CONNECTION|MHD_USE_POLL|MHD_USE_DEBUG;
+
+                /* We force MHD_USE_PIPE_FOR_SHUTDOWN here, in order
+                 * to make sure libmicrohttpd doesn't use shutdown()
+                 * on our listening socket, which would break socket
+                 * re-activation. See
+                 *
+                 * https://lists.gnu.org/archive/html/libmicrohttpd/2015-09/msg00014.html
+                 * https://github.com/systemd/systemd/pull/1286
+                 */
+
+                int flags =
+                        MHD_USE_DEBUG |
+                        MHD_USE_DUAL_STACK |
+                        MHD_USE_PIPE_FOR_SHUTDOWN |
+                        MHD_USE_POLL |
+                        MHD_USE_THREAD_PER_CONNECTION;
 
                 if (n > 0)
                         opts[opts_pos++] = (struct MHD_OptionItem)
