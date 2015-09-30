@@ -259,7 +259,7 @@ int config_parse_unit_path_strv_printf(
                 }
 
                 if (!utf8_is_valid(k)) {
-                        log_invalid_utf8(unit, LOG_ERR, filename, line, EINVAL, rvalue);
+                        log_syntax_invalid_utf8(unit, LOG_ERR, filename, line, rvalue);
                         return 0;
                 }
 
@@ -1835,7 +1835,7 @@ int config_parse_working_directory(
                 path_kill_slashes(k);
 
                 if (!utf8_is_valid(k)) {
-                        log_invalid_utf8(unit, LOG_ERR, filename, line, 0, rvalue);
+                        log_syntax_invalid_utf8(unit, LOG_ERR, filename, line, rvalue);
                         return 0;
                 }
 
@@ -2193,7 +2193,7 @@ int config_parse_unit_requires_mounts_for(
                         return log_oom();
 
                 if (!utf8_is_valid(n)) {
-                        log_invalid_utf8(unit, LOG_ERR, filename, line, EINVAL, rvalue);
+                        log_syntax_invalid_utf8(unit, LOG_ERR, filename, line, rvalue);
                         continue;
                 }
 
@@ -3172,7 +3172,7 @@ int config_parse_namespace_path_strv(
                         return log_oom();
 
                 if (!utf8_is_valid(n)) {
-                        log_invalid_utf8(unit, LOG_ERR, filename, line, EINVAL, rvalue);
+                        log_syntax_invalid_utf8(unit, LOG_ERR, filename, line, rvalue);
                         continue;
                 }
 

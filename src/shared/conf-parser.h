@@ -123,13 +123,6 @@ int config_parse_log_level(const char *unit, const char *filename, unsigned line
 int config_parse_signal(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_personality(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 
-#define log_invalid_utf8(unit, level, config_file, config_line, error, rvalue) \
-        do {                                                            \
-                _cleanup_free_ char *_p = utf8_escape_invalid(rvalue);  \
-                log_syntax(unit, level, config_file, config_line, error, \
-                           "String is not UTF-8 clean, ignoring assignment: %s", strna(_p)); \
-        } while(false)
-
 #define DEFINE_CONFIG_PARSE_ENUM(function,name,type,msg)                \
         int function(const char *unit,                                  \
                      const char *filename,                              \

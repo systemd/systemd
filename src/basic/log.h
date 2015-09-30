@@ -227,3 +227,15 @@ int log_syntax_internal(
                         ? log_syntax_internal(unit, _level, config_file, config_line, _e, __FILE__, __LINE__, __func__, __VA_ARGS__) \
                         : -abs(_e);                                     \
         })
+
+#define log_syntax_invalid_utf8(unit, level, config_file, config_line, rvalue) \
+        ({                                                              \
+                int _level = (level);                                   \
+                if (log_get_max_level() >= LOG_PRI(_level)) {           \
+                        _cleanup_free_ char *_p = NULL;                 \
+                        _p = utf8_escape_invalid(rvalue);               \
+                        log_syntax_internal(unit, _level, config_file, config_line, 0, __FILE__, __LINE__, __func__, \
+                                            "String is not UTF-8 clean, ignoring assignment: %s", strna(_p)); \
+                }                                                       \
+                -EINVAL;                                                \
+        })

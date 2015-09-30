@@ -620,7 +620,7 @@ int config_parse_string(
         assert(data);
 
         if (!utf8_is_valid(rvalue)) {
-                log_invalid_utf8(unit, LOG_ERR, filename, line, EINVAL, rvalue);
+                log_syntax_invalid_utf8(unit, LOG_ERR, filename, line, rvalue);
                 return 0;
         }
 
@@ -658,7 +658,7 @@ int config_parse_path(
         assert(data);
 
         if (!utf8_is_valid(rvalue)) {
-                log_invalid_utf8(unit, LOG_ERR, filename, line, EINVAL, rvalue);
+                log_syntax_invalid_utf8(unit, LOG_ERR, filename, line, rvalue);
                 return 0;
         }
 
@@ -724,7 +724,7 @@ int config_parse_strv(const char *unit,
                         return log_oom();
 
                 if (!utf8_is_valid(n)) {
-                        log_invalid_utf8(unit, LOG_ERR, filename, line, EINVAL, rvalue);
+                        log_syntax_invalid_utf8(unit, LOG_ERR, filename, line, rvalue);
                         free(n);
                         continue;
                 }
