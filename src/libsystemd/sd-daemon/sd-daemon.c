@@ -310,10 +310,15 @@ _public_ int sd_is_socket_unix(int fd, int type, int listening, const char *path
 _public_ int sd_is_mq(int fd, const char *path) {
         struct mq_attr attr;
 
-        assert_return(fd >= 0, -EBADF);
+        /* Check that the fd is valid */
+        assert_return(fcntl(fd, F_GETFD) >= 0, -errno);
 
-        if (mq_getattr(fd, &attr) < 0)
+        if (mq_getattr(fd, &attr) < 0) {
+                if (errno == EBADF)
+                        /* A non-mq fd (or an invalid one, but we ruled that out above) */
+                        return 0;
                 return -errno;
+        }
 
         if (path) {
                 char fpath[PATH_MAX];

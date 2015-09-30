@@ -3110,7 +3110,7 @@ static int start_special(int argc, char *argv[], void *userdata) {
                         return r;
 
         } else if (a == ACTION_EXIT && argc > 1) {
-                uint8_t code = 0;
+                uint8_t code;
 
                 /* If the exit code is not given on the command line,
                  * don't reset it to zero: just keep it as it might
