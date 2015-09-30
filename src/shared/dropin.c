@@ -78,7 +78,7 @@ int write_drop_in(const char *dir, const char *unit, unsigned level,
         if (r < 0)
                 return r;
 
-        mkdir_p(p, 0755);
+        (void) mkdir_p(p, 0755);
         return write_string_file_atomic_label(q, data);
 }
 
@@ -132,8 +132,7 @@ static int iterate_dir(
                 if (errno == ENOENT)
                         return 0;
 
-                log_error_errno(errno, "Failed to open directory %s: %m", path);
-                return -errno;
+                return log_error_errno(errno, "Failed to open directory %s: %m", path);
         }
 
         for (;;) {

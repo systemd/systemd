@@ -5907,7 +5907,7 @@ static int is_system_running(int argc, char *argv[], void *userdata) {
 }
 
 static int create_edit_temp_file(const char *new_path, const char *original_path, char **ret_tmp_fn) {
-        char *t;
+        _cleanup_free_ char *t = NULL;
         int r;
 
         assert(new_path);
@@ -5919,32 +5919,30 @@ static int create_edit_temp_file(const char *new_path, const char *original_path
                 return log_error_errno(r, "Failed to determine temporary filename for \"%s\": %m", new_path);
 
         r = mkdir_parents(new_path, 0755);
-        if (r < 0) {
-                free(t);
+        if (r < 0)
                 return log_error_errno(r, "Failed to create directories for \"%s\": %m", new_path);
-        }
 
         r = copy_file(original_path, t, 0, 0644, 0);
         if (r == -ENOENT) {
+
                 r = touch(t);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to create temporary file \"%s\": %m", t);
-                        free(t);
-                        return r;
-                }
-        } else if (r < 0) {
-                log_error_errno(r, "Failed to copy \"%s\" to \"%s\": %m", original_path, t);
-                free(t);
-                return r;
-        }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create temporary file \"%s\": %m", t);
+
+        } else if (r < 0)
+                return log_error_errno(r, "Failed to copy \"%s\" to \"%s\": %m", original_path, t);
 
         *ret_tmp_fn = t;
+        t = NULL;
 
         return 0;
 }
 
 static int get_file_to_edit(const char *name, const char *user_home, const char *user_runtime, char **ret_path) {
         _cleanup_free_ char *path = NULL, *path2 = NULL, *run = NULL;
+
+        assert(name);
+        assert(ret_path);
 
         switch (arg_scope) {
                 case UNIT_FILE_SYSTEM:
@@ -5997,8 +5995,7 @@ static int get_file_to_edit(const char *name, const char *user_home, const char 
 }
 
 static int unit_file_create_dropin(const char *unit_name, const char *user_home, const char *user_runtime, char **ret_new_path, char **ret_tmp_path) {
-        char *tmp_new_path, *ending;
-        char *tmp_tmp_path;
+        char *tmp_new_path, *tmp_tmp_path, *ending;
         int r;
 
         assert(unit_name);
@@ -6030,8 +6027,7 @@ static int unit_file_create_copy(
                 char **ret_new_path,
                 char **ret_tmp_path) {
 
-        char *tmp_new_path;
-        char *tmp_tmp_path;
+        char *tmp_new_path, *tmp_tmp_path;
         int r;
 
         assert(fragment_path);
@@ -6150,7 +6146,7 @@ static int run_editor(char **paths) {
         if (r < 0)
                 return log_error_errno(r, "Failed to wait for child: %m");
 
-        return r;
+        return 0;
 }
 
 static int find_paths_to_edit(sd_bus *bus, char **names, char ***paths) {
@@ -6234,13 +6230,14 @@ static int edit(int argc, char *argv[], void *userdata) {
                 goto end;
 
         STRV_FOREACH_PAIR(original, tmp, paths) {
-                /* If the temporary file is empty we ignore it.
-                 * It's useful if the user wants to cancel its modification
+                /* If the temporary file is empty we ignore it.  It's
+                 * useful if the user wants to cancel its modification
                  */
                 if (null_or_empty_path(*tmp)) {
-                        log_warning("Editing \"%s\" canceled: temporary file is empty", *original);
+                        log_warning("Editing \"%s\" canceled: temporary file is empty.", *original);
                         continue;
                 }
+
                 r = rename(*tmp, *original);
                 if (r < 0) {
                         r = log_error_errno(errno, "Failed to rename \"%s\" to \"%s\": %m", *tmp, *original);
@@ -6248,12 +6245,14 @@ static int edit(int argc, char *argv[], void *userdata) {
                 }
         }
 
-        if (!arg_no_reload && bus && !install_client_side())
+        r = 0;
+
+        if (!arg_no_reload && !install_client_side())
                 r = daemon_reload(argc, argv, userdata);
 
 end:
         STRV_FOREACH_PAIR(original, tmp, paths)
-                unlink_noerrno(*tmp);
+                (void) unlink(*tmp);
 
         return r;
 }
@@ -7004,7 +7003,7 @@ static int shutdown_parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "HPrhkKt:afFc", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "HPrhkKtafFc", options, NULL)) >= 0)
                 switch (c) {
 
                 case ARG_HELP:
@@ -7487,6 +7486,10 @@ static int logind_schedule_shutdown(void) {
         case ACTION_KEXEC:
                 action = "kexec";
                 break;
+        case ACTION_EXIT:
+                action = "exit";
+                break;
+        case ACTION_REBOOT:
         default:
                 action = "reboot";
                 break;

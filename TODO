@@ -26,12 +26,7 @@ External:
 
 Features:
 
-* add "requires=" deps on slices from services, not just "wants="
-
 * add a concept of RemainAfterExit= to scope units
-
-* add sd_booted() check into "systemctl is-system-running", and return
-  a new state "foreign" or so if we are not running on systemd.
 
 * add journal vacuum by max number of files
 

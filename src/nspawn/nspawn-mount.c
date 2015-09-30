@@ -216,8 +216,55 @@ static int tmpfs_patch_options(
         return !!buf;
 }
 
+int mount_sysfs(const char *dest) {
+        const char *full, *top, *x;
+
+        top = prefix_roota(dest, "/sys");
+        full = prefix_roota(top, "/full");
+
+        (void) mkdir(full, 0755);
+
+        if (mount("sysfs", full, "sysfs", MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV, NULL) < 0)
+                return log_error_errno(errno, "Failed to mount sysfs to %s: %m", full);
+
+        FOREACH_STRING(x, "block", "bus", "class", "dev", "devices", "kernel") {
+                _cleanup_free_ char *from = NULL, *to = NULL;
+
+                from = prefix_root(full, x);
+                if (!from)
+                        return log_oom();
+
+                to = prefix_root(top, x);
+                if (!to)
+                        return log_oom();
+
+                (void) mkdir(to, 0755);
+
+                if (mount(from, to, NULL, MS_BIND, NULL) < 0)
+                        return log_error_errno(errno, "Failed to mount /sys/%s into place: %m", x);
+
+                if (mount(NULL, to, NULL, MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT, NULL) < 0)
+                        return log_error_errno(errno, "Failed to mount /sys/%s read-only: %m", x);
+        }
+
+        if (umount(full) < 0)
+                return log_error_errno(errno, "Failed to unmount %s: %m", full);
+
+        if (rmdir(full) < 0)
+                return log_error_errno(errno, "Failed to remove %s: %m", full);
+
+        x = prefix_roota(top, "/fs/kdbus");
+        (void) mkdir(x, 0755);
+
+        if (mount(NULL, top, NULL, MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT, NULL) < 0)
+                return log_error_errno(errno, "Failed to make %s read-only: %m", top);
+
+        return 0;
+}
+
 int mount_all(const char *dest,
-              bool userns, uid_t uid_shift, uid_t uid_range,
+              bool use_userns, bool in_userns,
+              uid_t uid_shift, uid_t uid_range,
               const char *selinux_apifs_context) {
 
         typedef struct MountPoint {
@@ -234,7 +281,7 @@ int mount_all(const char *dest,
                 { "proc",      "/proc",          "proc",   NULL,        MS_NOSUID|MS_NOEXEC|MS_NODEV,                              true,  true  },
                 { "/proc/sys", "/proc/sys",      NULL,     NULL,        MS_BIND,                                                   true,  true  },   /* Bind mount first */
                 { NULL,        "/proc/sys",      NULL,     NULL,        MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT, true,  true  },   /* Then, make it r/o */
-                { "sysfs",     "/sys",           "sysfs",  NULL,        MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV,                    true,  false },
+                { "tmpfs",     "/sys",           "tmpfs",  "mode=755",  MS_NOSUID|MS_NOEXEC|MS_NODEV,                              true,  false },
                 { "tmpfs",     "/dev",           "tmpfs",  "mode=755",  MS_NOSUID|MS_STRICTATIME,                                  true,  false },
                 { "tmpfs",     "/dev/shm",       "tmpfs",  "mode=1777", MS_NOSUID|MS_NODEV|MS_STRICTATIME,                         true,  false },
                 { "tmpfs",     "/run",           "tmpfs",  "mode=755",  MS_NOSUID|MS_NODEV|MS_STRICTATIME,                         true,  false },
@@ -252,7 +299,7 @@ int mount_all(const char *dest,
                 _cleanup_free_ char *where = NULL, *options = NULL;
                 const char *o;
 
-                if (userns != mount_table[k].userns)
+                if (in_userns != mount_table[k].userns)
                         continue;
 
                 where = prefix_root(dest, mount_table[k].where);
@@ -278,7 +325,7 @@ int mount_all(const char *dest,
 
                 o = mount_table[k].options;
                 if (streq_ptr(mount_table[k].type, "tmpfs")) {
-                        r = tmpfs_patch_options(o, userns, uid_shift, uid_range, selinux_apifs_context, &options);
+                        r = tmpfs_patch_options(o, use_userns, uid_shift, uid_range, selinux_apifs_context, &options);
                         if (r < 0)
                                 return log_oom();
                         if (r > 0)
@@ -534,7 +581,7 @@ static int mount_legacy_cgroup_hierarchy(const char *dest, const char *controlle
         char *to;
         int r;
 
-        to = strjoina(dest, "/sys/fs/cgroup/", hierarchy);
+        to = strjoina(strempty(dest), "/sys/fs/cgroup/", hierarchy);
 
         r = path_is_mount_point(to, 0);
         if (r < 0 && r != -ENOENT)
@@ -568,6 +615,8 @@ static int mount_legacy_cgroups(
         int r;
 
         cgroup_root = prefix_roota(dest, "/sys/fs/cgroup");
+
+        (void) mkdir_p(cgroup_root, 0755);
 
         /* Mount a tmpfs to /sys/fs/cgroup if it's not mounted there yet. */
         r = path_is_mount_point(cgroup_root, AT_SYMLINK_FOLLOW);

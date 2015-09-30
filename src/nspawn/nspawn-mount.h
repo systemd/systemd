@@ -57,7 +57,8 @@ int tmpfs_mount_parse(CustomMount **l, unsigned *n, const char *s);
 
 int custom_mount_compare(const void *a, const void *b);
 
-int mount_all(const char *dest, bool userns, uid_t uid_shift, uid_t uid_range, const char *selinux_apifs_context);
+int mount_all(const char *dest, bool use_userns, bool in_userns, uid_t uid_shift, uid_t uid_range, const char *selinux_apifs_context);
+int mount_sysfs(const char *dest);
 
 int mount_cgroups(const char *dest, bool unified_requested, bool userns, uid_t uid_shift, uid_t uid_range, const char *selinux_apifs_context);
 int mount_systemd_cgroup_writable(const char *dest, bool unified_requested);
