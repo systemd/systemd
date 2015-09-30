@@ -415,16 +415,17 @@ int config_parse_many(const char *conf_file,
 }
 
 #define DEFINE_PARSER(type, vartype, conv_func)                         \
-        int config_parse_##type(const char *unit,                       \
-                                const char *filename,                   \
-                                unsigned line,                          \
-                                const char *section,                    \
-                                unsigned section_line,                  \
-                                const char *lvalue,                     \
-                                int ltype,                              \
-                                const char *rvalue,                     \
-                                void *data,                             \
-                                void *userdata) {                       \
+        int config_parse_##type(                                        \
+                        const char *unit,                               \
+                        const char *filename,                           \
+                        unsigned line,                                  \
+                        const char *section,                            \
+                        unsigned section_line,                          \
+                        const char *lvalue,                             \
+                        int ltype,                                      \
+                        const char *rvalue,                             \
+                        void *data,                                     \
+                        void *userdata) {                               \
                                                                         \
                 vartype *i = data;                                      \
                 int r;                                                  \
@@ -441,16 +442,18 @@ int config_parse_many(const char *conf_file,
                                    #type, rvalue);                      \
                                                                         \
                 return 0;                                               \
-        }
+        }                                                               \
+        struct __useless_struct_to_allow_trailing_semicolon__
 
-DEFINE_PARSER(int, int, safe_atoi)
-DEFINE_PARSER(long, long, safe_atoli)
-DEFINE_PARSER(uint32, uint32_t, safe_atou32)
-DEFINE_PARSER(uint64, uint64_t, safe_atou64)
-DEFINE_PARSER(unsigned, unsigned, safe_atou)
-DEFINE_PARSER(double, double, safe_atod)
-DEFINE_PARSER(nsec, nsec_t, parse_nsec)
-DEFINE_PARSER(sec, usec_t, parse_sec)
+DEFINE_PARSER(int, int, safe_atoi);
+DEFINE_PARSER(long, long, safe_atoli);
+DEFINE_PARSER(uint32, uint32_t, safe_atou32);
+DEFINE_PARSER(uint64, uint64_t, safe_atou64);
+DEFINE_PARSER(unsigned, unsigned, safe_atou);
+DEFINE_PARSER(double, double, safe_atod);
+DEFINE_PARSER(nsec, nsec_t, parse_nsec);
+DEFINE_PARSER(sec, usec_t, parse_sec);
+DEFINE_PARSER(mode, mode_t, parse_mode);
 
 int config_parse_iec_size(const char* unit,
                             const char *filename,
@@ -735,35 +738,6 @@ int config_parse_strv(const char *unit,
         }
         if (!isempty(state))
                 log_syntax(unit, LOG_ERR, filename, line, 0, "Trailing garbage, ignoring.");
-
-        return 0;
-}
-
-int config_parse_mode(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                      unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        mode_t *m = data;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        r = parse_mode(rvalue, m);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse mode value, ignoring: %s", rvalue);
-                return 0;
-        }
 
         return 0;
 }
