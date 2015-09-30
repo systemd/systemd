@@ -215,7 +215,7 @@ int get_process_capeff(pid_t pid, char **capeff) {
 
         p = procfs_file_alloca(pid, "status");
 
-        r = get_status_field(p, "\nCapEff:", capeff);
+        r = get_proc_field(p, "CapEff", WHITESPACE, capeff);
         if (r == -ENOENT)
                 return -ESRCH;
 

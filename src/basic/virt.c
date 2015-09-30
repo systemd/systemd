@@ -240,7 +240,7 @@ static int detect_vm_zvm(void) {
         _cleanup_free_ char *t = NULL;
         int r;
 
-        r = get_status_field("/proc/sysinfo", "VM00 Control Program:", &t);
+        r = get_proc_field("/proc/sysinfo", "VM00 Control Program", WHITESPACE, &t);
         if (r == -ENOENT)
                 return VIRTUALIZATION_NONE;
         if (r < 0)
