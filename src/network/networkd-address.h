@@ -52,7 +52,8 @@ struct Address {
         union in_addr_union in_addr;
         union in_addr_union in_addr_peer;
 
-        bool ip_masquerade_done;
+        bool added:1;
+        bool ip_masquerade_done:1;
 
         LIST_FIELDS(Address, addresses);
 };
@@ -60,7 +61,7 @@ struct Address {
 int address_new_static(Network *network, unsigned section, Address **ret);
 int address_new(Address **ret);
 void address_free(Address *address);
-int address_add(Link *link, int family, const union in_addr_union *in_addr, unsigned char prefixlen, Address **ret);
+int address_add_foreign(Link *link, int family, const union in_addr_union *in_addr, unsigned char prefixlen, Address **ret);
 int address_get(Link *link, int family, const union in_addr_union *in_addr, unsigned char prefixlen, Address **ret);
 int address_update(Address *address, unsigned char flags, unsigned char scope, struct ifa_cacheinfo *cinfo);
 int address_drop(Address *address);

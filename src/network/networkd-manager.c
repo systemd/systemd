@@ -400,7 +400,8 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
                 if (address)
                         log_link_debug(link, "Updating address: %s/%u (valid for %s)", buf, prefixlen, valid_str);
                 else {
-                        r = address_add(link, family, &in_addr, prefixlen, &address);
+                        /* An address appeared that we did not request */
+                        r = address_add_foreign(link, family, &in_addr, prefixlen, &address);
                         if (r < 0) {
                                 log_link_warning_errno(link, r, "Failed to add address %s/%u: %m", buf, prefixlen);
                                 return 0;

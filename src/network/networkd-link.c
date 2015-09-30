@@ -297,6 +297,11 @@ static void link_free(Link *link) {
 
         set_free(link->addresses);
 
+        while (!set_isempty(link->addresses_foreign))
+                address_free(set_first(link->addresses_foreign));
+
+        set_free(link->addresses_foreign);
+
         while ((address = link->pool_addresses)) {
                 LIST_REMOVE(addresses, link->pool_addresses, address);
                 address_free(address);
@@ -508,7 +513,9 @@ void link_check_ready(Link *link) {
         Iterator i;
 
         assert(link);
-        assert(link->network);
+
+        if (!link->network)
+                return;
 
         if (!link->static_configured)
                 return;
@@ -2317,6 +2324,15 @@ static void link_update_operstate(Link *link) {
 
                 /* if we have carrier, check what addresses we have */
                 SET_FOREACH(address, link->addresses, i) {
+                        if (!address_is_ready(address))
+                                continue;
+
+                        if (address->scope < scope)
+                                scope = address->scope;
+                }
+
+                /* for operstate we also take foreign addresses into account */
+                SET_FOREACH(address, link->addresses_foreign, i) {
                         if (!address_is_ready(address))
                                 continue;
 

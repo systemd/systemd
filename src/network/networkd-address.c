@@ -95,8 +95,10 @@ void address_free(Address *address) {
                                        UINT_TO_PTR(address->section));
         }
 
-        if (address->link)
+        if (address->link) {
                 set_remove(address->link->addresses, address);
+                set_remove(address->link->addresses_foreign, address);
+        }
 
         free(address);
 }
@@ -225,13 +227,17 @@ static int address_establish(Address *address, Link *link) {
         return 0;
 }
 
-int address_add(Link *link, int family, const union in_addr_union *in_addr, unsigned char prefixlen, Address **ret) {
+static int address_add_internal(Link *link, Set **addresses,
+                                int family,
+                                const union in_addr_union *in_addr,
+                                unsigned char prefixlen,
+                                Address **ret) {
         _cleanup_address_free_ Address *address = NULL;
         int r;
 
         assert(link);
+        assert(addresses);
         assert(in_addr);
-        assert(ret);
 
         r = address_new(&address);
         if (r < 0)
@@ -241,20 +247,30 @@ int address_add(Link *link, int family, const union in_addr_union *in_addr, unsi
         address->in_addr = *in_addr;
         address->prefixlen = prefixlen;
 
-        r = set_ensure_allocated(&link->addresses, &address_hash_ops);
+        r = set_ensure_allocated(addresses, &address_hash_ops);
         if (r < 0)
                 return r;
 
-        r = set_put(link->addresses, address);
+        r = set_put(*addresses, address);
         if (r < 0)
                 return r;
 
         address->link = link;
 
-        *ret = address;
+        if (ret)
+                *ret = address;
+
         address = NULL;
 
         return 0;
+}
+
+int address_add_foreign(Link *link, int family, const union in_addr_union *in_addr, unsigned char prefixlen, Address **ret) {
+        return address_add_internal(link, &link->addresses_foreign, family, in_addr, prefixlen, ret);
+}
+
+static int address_add(Link *link, int family, const union in_addr_union *in_addr, unsigned char prefixlen, Address **ret) {
+        return address_add_internal(link, &link->addresses, family, in_addr, prefixlen, ret);
 }
 
 static int address_release(Address *address) {
@@ -286,6 +302,7 @@ int address_update(Address *address, unsigned char flags, unsigned char scope, s
 
         ready = address_is_ready(address);
 
+        address->added = true;
         address->flags = flags;
         address->scope = scope;
         address->cinfo = *cinfo;
@@ -326,8 +343,11 @@ int address_get(Link *link, int family, const union in_addr_union *in_addr, unsi
         address.prefixlen = prefixlen;
 
         existing = set_get(link->addresses, &address);
-        if (!existing)
-                return -ENOENT;
+        if (!existing) {
+                existing = set_get(link->addresses_foreign, &address);
+                if (!existing)
+                        return -ENOENT;
+        }
 
         *ret = existing;
 
@@ -519,6 +539,12 @@ int address_configure(Address *address, Link *link, sd_netlink_message_handler_t
 
         link_ref(link);
 
+        r = address_add(link, address->family, &address->in_addr, address->prefixlen, NULL);
+        if (r < 0) {
+                address_release(address);
+                return log_error_errno(r, "Could not add address: %m");
+        }
+
         return 0;
 }
 
@@ -702,5 +728,5 @@ int config_parse_label(const char *unit,
 bool address_is_ready(const Address *a) {
         assert(a);
 
-        return !(a->flags & (IFA_F_TENTATIVE | IFA_F_DEPRECATED));
+        return a->added && !(a->flags & (IFA_F_TENTATIVE | IFA_F_DEPRECATED));
 }

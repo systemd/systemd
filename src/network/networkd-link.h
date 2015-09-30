@@ -84,6 +84,7 @@ struct Link {
         unsigned enslaving;
 
         Set *addresses;
+        Set *addresses_foreign;
 
         sd_dhcp_client *dhcp_client;
         sd_dhcp_lease *dhcp_lease;
