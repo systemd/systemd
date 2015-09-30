@@ -130,6 +130,57 @@ static IPv6PrivacyExtensions link_ipv6_privacy_extensions(Link *link) {
         return link->network->ipv6_privacy_extensions;
 }
 
+void link_update_operstate(Link *link) {
+        LinkOperationalState operstate;
+        assert(link);
+
+        if (link->kernel_operstate == IF_OPER_DORMANT)
+                operstate = LINK_OPERSTATE_DORMANT;
+        else if (link_has_carrier(link)) {
+                Address *address;
+                uint8_t scope = RT_SCOPE_NOWHERE;
+                Iterator i;
+
+                /* if we have carrier, check what addresses we have */
+                SET_FOREACH(address, link->addresses, i) {
+                        if (!address_is_ready(address))
+                                continue;
+
+                        if (address->scope < scope)
+                                scope = address->scope;
+                }
+
+                /* for operstate we also take foreign addresses into account */
+                SET_FOREACH(address, link->addresses_foreign, i) {
+                        if (!address_is_ready(address))
+                                continue;
+
+                        if (address->scope < scope)
+                                scope = address->scope;
+                }
+
+                if (scope < RT_SCOPE_SITE)
+                        /* universally accessible addresses found */
+                        operstate = LINK_OPERSTATE_ROUTABLE;
+                else if (scope < RT_SCOPE_HOST)
+                        /* only link or site local addresses found */
+                        operstate = LINK_OPERSTATE_DEGRADED;
+                else
+                        /* no useful addresses found */
+                        operstate = LINK_OPERSTATE_CARRIER;
+        } else if (link->flags & IFF_UP)
+                operstate = LINK_OPERSTATE_NO_CARRIER;
+        else
+                operstate = LINK_OPERSTATE_OFF;
+
+        if (link->operstate != operstate) {
+                link->operstate = operstate;
+                link_send_changed(link, "OperationalState", NULL);
+                link_dirty(link);
+                manager_dirty(link->manager);
+        }
+}
+
 #define FLAG_STRING(string, flag, old, new) \
         (((old ^ new) & flag) \
                 ? ((old & flag) ? (" -" string) : (" +" string)) \
@@ -202,7 +253,7 @@ static int link_update_flags(Link *link, sd_netlink_message *m) {
         link->flags = flags;
         link->kernel_operstate = operstate;
 
-        link_save(link);
+        link_update_operstate(link);
 
         return 0;
 }
@@ -326,6 +377,7 @@ static void link_free(Link *link) {
 
         free(link->ifname);
 
+        (void)unlink(link->state_file);
         free(link->state_file);
 
         udev_device_unref(link->udev_device);
@@ -404,7 +456,7 @@ static void link_enter_unmanaged(Link *link) {
 
         link_set_state(link, LINK_STATE_UNMANAGED);
 
-        link_save(link);
+        link_dirty(link);
 }
 
 static int link_stop_clients(Link *link) {
@@ -462,7 +514,7 @@ void link_enter_failed(Link *link) {
 
         link_stop_clients(link);
 
-        link_save(link);
+        link_dirty(link);
 }
 
 static Address* link_find_dhcp_server_address(Link *link) {
@@ -503,7 +555,7 @@ static int link_enter_configured(Link *link) {
 
         link_set_state(link, LINK_STATE_CONFIGURED);
 
-        link_save(link);
+        link_dirty(link);
 
         return 0;
 }
@@ -1460,14 +1512,14 @@ static int link_new_bound_by_list(Link *link) {
         }
 
         if (list_updated)
-                link_save(link);
+                link_dirty(link);
 
         HASHMAP_FOREACH (carrier, link->bound_by_links, i) {
                 r = link_put_carrier(carrier, link, &carrier->bound_to_links);
                 if (r < 0)
                         return r;
 
-                link_save(carrier);
+                link_dirty(carrier);
         }
 
         return 0;
@@ -1502,14 +1554,14 @@ static int link_new_bound_to_list(Link *link) {
         }
 
         if (list_updated)
-                link_save(link);
+                link_dirty(link);
 
         HASHMAP_FOREACH (carrier, link->bound_to_links, i) {
                 r = link_put_carrier(carrier, link, &carrier->bound_by_links);
                 if (r < 0)
                         return r;
 
-                link_save(carrier);
+                link_dirty(carrier);
         }
 
         return 0;
@@ -1545,7 +1597,7 @@ static void link_free_bound_to_list(Link *link) {
                 hashmap_remove(link->bound_to_links, INT_TO_PTR(bound_to->ifindex));
 
                 if (hashmap_remove(bound_to->bound_by_links, INT_TO_PTR(link->ifindex)))
-                        link_save(bound_to);
+                        link_dirty(bound_to);
         }
 
         return;
@@ -1559,7 +1611,7 @@ static void link_free_bound_by_list(Link *link) {
                 hashmap_remove(link->bound_by_links, INT_TO_PTR(bound_by->ifindex));
 
                 if (hashmap_remove(bound_by->bound_to_links, INT_TO_PTR(link->ifindex))) {
-                        link_save(bound_by);
+                        link_dirty(bound_by);
                         link_handle_bound_to_list(bound_by);
                 }
         }
@@ -1583,7 +1635,7 @@ static void link_free_carrier_maps(Link *link) {
         }
 
         if (list_updated)
-                link_save(link);
+                link_dirty(link);
 
         return;
 }
@@ -1598,6 +1650,7 @@ void link_drop(Link *link) {
 
         log_link_debug(link, "Link removed");
 
+        (void)unlink(link->state_file);
         link_unref(link);
 
         return;
@@ -1667,7 +1720,7 @@ static int link_enter_join_netdev(Link *link) {
 
         link_set_state(link, LINK_STATE_ENSLAVING);
 
-        link_save(link);
+        link_dirty(link);
 
         if (!link->network->bridge &&
             !link->network->bond &&
@@ -2311,55 +2364,6 @@ int link_update(Link *link, sd_netlink_message *m) {
         return 0;
 }
 
-static void link_update_operstate(Link *link) {
-        LinkOperationalState operstate;
-        assert(link);
-
-        if (link->kernel_operstate == IF_OPER_DORMANT)
-                operstate = LINK_OPERSTATE_DORMANT;
-        else if (link_has_carrier(link)) {
-                Address *address;
-                uint8_t scope = RT_SCOPE_NOWHERE;
-                Iterator i;
-
-                /* if we have carrier, check what addresses we have */
-                SET_FOREACH(address, link->addresses, i) {
-                        if (!address_is_ready(address))
-                                continue;
-
-                        if (address->scope < scope)
-                                scope = address->scope;
-                }
-
-                /* for operstate we also take foreign addresses into account */
-                SET_FOREACH(address, link->addresses_foreign, i) {
-                        if (!address_is_ready(address))
-                                continue;
-
-                        if (address->scope < scope)
-                                scope = address->scope;
-                }
-
-                if (scope < RT_SCOPE_SITE)
-                        /* universally accessible addresses found */
-                        operstate = LINK_OPERSTATE_ROUTABLE;
-                else if (scope < RT_SCOPE_HOST)
-                        /* only link or site local addresses found */
-                        operstate = LINK_OPERSTATE_DEGRADED;
-                else
-                        /* no useful addresses found */
-                        operstate = LINK_OPERSTATE_CARRIER;
-        } else if (link->flags & IFF_UP)
-                operstate = LINK_OPERSTATE_NO_CARRIER;
-        else
-                operstate = LINK_OPERSTATE_OFF;
-
-        if (link->operstate != operstate) {
-                link->operstate = operstate;
-                link_send_changed(link, "OperationalState", NULL);
-        }
-}
-
 int link_save(Link *link) {
         _cleanup_free_ char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
@@ -2372,12 +2376,6 @@ int link_save(Link *link) {
         assert(link->state_file);
         assert(link->lease_file);
         assert(link->manager);
-
-        link_update_operstate(link);
-
-        r = manager_save(link->manager);
-        if (r < 0)
-                return r;
 
         if (link->state == LINK_STATE_LINGER) {
                 unlink(link->state_file);
@@ -2553,8 +2551,6 @@ int link_save(Link *link) {
                         if (r < 0)
                                 goto fail;
 
-                        if (space)
-                                fputc(' ', f);
                         fprintf(f, "%s%s/%u", space ? " " : "", address_str, a->prefixlen);
                         space = true;
                 }
@@ -2643,6 +2639,34 @@ fail:
                 (void) unlink(temp_path);
 
         return log_link_error_errno(link, r, "Failed to save link data to %s: %m", link->state_file);
+}
+
+/* The serialized state in /run is no longer up-to-date. */
+void link_dirty(Link *link) {
+        int r;
+
+        assert(link);
+
+        r = set_ensure_allocated(&link->manager->dirty_links, NULL);
+        if (r < 0)
+                /* allocation errors are ignored */
+                return;
+
+        r = set_put(link->manager->dirty_links, link);
+        if (r < 0)
+                /* allocation errors are ignored */
+                return;
+
+        link_ref(link);
+}
+
+/* The serialized state in /run is up-to-date */
+void link_clean(Link *link) {
+        assert(link);
+        assert(link->manager);
+
+        set_remove(link->manager->dirty_links, link);
+        link_unref(link);
 }
 
 static const char* const link_state_table[_LINK_STATE_MAX] = {

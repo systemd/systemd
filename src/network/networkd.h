@@ -48,7 +48,10 @@ struct Manager {
         struct udev_monitor *udev_monitor;
         sd_event_source *udev_event_source;
 
-        bool enumerating;
+        bool enumerating:1;
+        bool dirty:1;
+
+        Set *dirty_links;
 
         char *state_file;
         LinkOperationalState operational_state;
@@ -83,7 +86,7 @@ int manager_rtnl_enumerate_addresses(Manager *m);
 int manager_rtnl_process_address(sd_netlink *nl, sd_netlink_message *message, void *userdata);
 
 int manager_send_changed(Manager *m, const char *property, ...) _sentinel_;
-int manager_save(Manager *m);
+void manager_dirty(Manager *m);
 
 int manager_address_pool_acquire(Manager *m, int family, unsigned prefixlen, union in_addr_union *found);
 

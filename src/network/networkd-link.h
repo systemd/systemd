@@ -129,8 +129,11 @@ int link_initialized(Link *link, struct udev_device *device);
 
 void link_check_ready(Link *link);
 
+void link_update_operstate(Link *link);
 int link_update(Link *link, sd_netlink_message *message);
 
+void link_dirty(Link *link);
+void link_clean(Link *link);
 int link_save(Link *link);
 
 int link_carrier_reset(Link *link);

@@ -98,7 +98,6 @@ void address_free(Address *address) {
         if (address->link) {
                 set_remove(address->link->addresses, address);
                 set_remove(address->link->addresses_foreign, address);
-                link_save(address->link);
         }
 
         free(address);
@@ -277,7 +276,8 @@ static int address_add(Link *link, int family, const union in_addr_union *in_add
         if (r < 0)
                 return r;
 
-        link_save(link);
+        link_update_operstate(link);
+        link_dirty(link);
 
         return 0;
 }
@@ -333,6 +333,8 @@ int address_drop(Address *address) {
 
         address_release(address);
         address_free(address);
+
+        link_update_operstate(link);
 
         if (link && !ready)
                 link_check_ready(link);
