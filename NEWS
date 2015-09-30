@@ -55,8 +55,8 @@ CHANGES WITH 227:
 
         * The CrashChVT= configuration file setting is renamed to
           CrashChangeVT=, following our usual logic of not abbreviating
-          unnecessarily. The old directive is still suppored for compat
-          reasons. Also, this directive now takes an interger value
+          unnecessarily. The old directive is still supported for compat
+          reasons. Also, this directive now takes an integer value
           between 1 and 63, or a boolean value. The formerly supported
           '-1' value for disabling stays around for compat reasons.
 
