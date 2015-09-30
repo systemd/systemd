@@ -51,7 +51,7 @@ CHANGES WITH 227:
 
         * A new systemd.crash_reboot=1 kernel command line option has
           been added that triggers a reboot after crashing. This can
-          also be set through CrashReboot=no in systemd.conf.
+          also be set through CrashReboot= in systemd.conf.
 
         * The CrashChVT= configuration file setting is renamed to
           CrashChangeVT=, following our usual logic of not abbreviating
