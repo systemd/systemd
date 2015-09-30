@@ -1940,7 +1940,8 @@ int udev_rules_apply_to_event(struct udev_rules *rules,
                                         break;
                                 }
                         }
-                        if (!match && (cur->key.op != OP_NOMATCH))
+                        if ((!match && (cur->key.op != OP_NOMATCH)) ||
+                            (match && (cur->key.op == OP_NOMATCH)))
                                 goto nomatch;
                         break;
                 }
