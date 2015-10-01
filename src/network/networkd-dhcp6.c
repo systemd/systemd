@@ -87,7 +87,7 @@ static int dhcp6_address_change(Link *link, struct in6_addr *ip6_addr,
                       SD_ICMP6_ND_ADDRESS_FORMAT_VAL(addr->in_addr.in6),
                       addr->prefixlen, lifetime_preferred, lifetime_valid);
 
-        r = address_change(addr, link, dhcp6_address_handler);
+        r = address_configure(addr, link, dhcp6_address_handler, true);
         if (r < 0)
                 log_link_warning_errno(link, r, "Could not assign DHCPv6 address: %m");
 

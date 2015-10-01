@@ -299,9 +299,9 @@ static int dhcp4_update_address(Link *link,
         addr->prefixlen = prefixlen;
         addr->broadcast.s_addr = address->s_addr | ~netmask->s_addr;
 
-        /* use change rather than configure so that we will update the
-         * lifetime of an existing address if it has already been configured */
-        r = address_change(addr, link, &dhcp4_address_handler);
+        /* allow reusing an existing address and simply update its lifetime
+         * in case it already exists */
+        r = address_configure(addr, link, &dhcp4_address_handler, true);
         if (r < 0)
                 return r;
 

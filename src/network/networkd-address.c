@@ -377,74 +377,6 @@ int address_remove(Address *address, Link *link,
         return 0;
 }
 
-int address_change(Address *address, Link *link,
-                   sd_netlink_message_handler_t callback) {
-        _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL;
-        int r;
-
-        assert(address);
-        assert(address->family == AF_INET || address->family == AF_INET6);
-        assert(link->ifindex > 0);
-        assert(link->manager);
-        assert(link->manager->rtnl);
-
-        r = sd_rtnl_message_new_addr_update(link->manager->rtnl, &req,
-                                     link->ifindex, address->family);
-        if (r < 0)
-                return log_error_errno(r, "Could not allocate RTM_NEWADDR message: %m");
-
-        r = sd_rtnl_message_addr_set_prefixlen(req, address->prefixlen);
-        if (r < 0)
-                return log_error_errno(r, "Could not set prefixlen: %m");
-
-        address->flags |= IFA_F_PERMANENT;
-
-        r = sd_rtnl_message_addr_set_flags(req, address->flags & 0xff);
-        if (r < 0)
-                return log_error_errno(r, "Could not set flags: %m");
-
-        if (address->flags & ~0xff && link->rtnl_extended_attrs) {
-                r = sd_netlink_message_append_u32(req, IFA_FLAGS, address->flags);
-                if (r < 0)
-                        return log_error_errno(r, "Could not set extended flags: %m");
-        }
-
-        r = sd_rtnl_message_addr_set_scope(req, address->scope);
-        if (r < 0)
-                return log_error_errno(r, "Could not set scope: %m");
-
-        if (address->family == AF_INET)
-                r = sd_netlink_message_append_in_addr(req, IFA_LOCAL, &address->in_addr.in);
-        else if (address->family == AF_INET6)
-                r = sd_netlink_message_append_in6_addr(req, IFA_LOCAL, &address->in_addr.in6);
-        if (r < 0)
-                return log_error_errno(r, "Could not append IFA_LOCAL attribute: %m");
-
-        if (address->family == AF_INET) {
-                r = sd_netlink_message_append_in_addr(req, IFA_BROADCAST, &address->broadcast);
-                if (r < 0)
-                        return log_error_errno(r, "Could not append IFA_BROADCAST attribute: %m");
-        }
-
-        if (address->label) {
-                r = sd_netlink_message_append_string(req, IFA_LABEL, address->label);
-                if (r < 0)
-                        return log_error_errno(r, "Could not append IFA_LABEL attribute: %m");
-        }
-
-        r = sd_netlink_message_append_cache_info(req, IFA_CACHEINFO, &address->cinfo);
-        if (r < 0)
-                return log_error_errno(r, "Could not append IFA_CACHEINFO attribute: %m");
-
-        r = sd_netlink_call_async(link->manager->rtnl, req, callback, link, 0, NULL);
-        if (r < 0)
-                return log_error_errno(r, "Could not send rtnetlink message: %m");
-
-        link_ref(link);
-
-        return 0;
-}
-
 static int address_acquire(Link *link, Address *original, Address **ret) {
         union in_addr_union in_addr = {};
         struct in_addr broadcast = {};
@@ -504,8 +436,7 @@ static int address_acquire(Link *link, Address *original, Address **ret) {
         return 0;
 }
 
-int address_configure(Address *address, Link *link,
-                      sd_netlink_message_handler_t callback) {
+int address_configure(Address *address, Link *link, sd_netlink_message_handler_t callback, bool update) {
         _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL;
         int r;
 
@@ -520,8 +451,12 @@ int address_configure(Address *address, Link *link,
         if (r < 0)
                 return r;
 
-        r = sd_rtnl_message_new_addr(link->manager->rtnl, &req, RTM_NEWADDR,
-                                     link->ifindex, address->family);
+        if (update)
+                r = sd_rtnl_message_new_addr_update(link->manager->rtnl, &req,
+                                                    link->ifindex, address->family);
+        else
+                r = sd_rtnl_message_new_addr(link->manager->rtnl, &req, RTM_NEWADDR,
+                                             link->ifindex, address->family);
         if (r < 0)
                 return log_error_errno(r, "Could not allocate RTM_NEWADDR message: %m");
 

@@ -143,7 +143,7 @@ static int ipv4ll_address_claimed(sd_ipv4ll *ll, Link *link) {
         ll_addr->broadcast.s_addr = ll_addr->in_addr.in.s_addr | htonl(0xfffffffflu >> ll_addr->prefixlen);
         ll_addr->scope = RT_SCOPE_LINK;
 
-        r = address_configure(ll_addr, link, ipv4ll_address_handler);
+        r = address_configure(ll_addr, link, ipv4ll_address_handler, false);
         if (r < 0)
                 return r;
 
