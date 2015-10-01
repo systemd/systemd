@@ -271,7 +271,7 @@ int address_add_foreign(Link *link, int family, const union in_addr_union *in_ad
         return address_add_internal(link, &link->addresses_foreign, family, in_addr, prefixlen, ret);
 }
 
-static int address_add(Link *link, int family, const union in_addr_union *in_addr, unsigned char prefixlen, Address **ret) {
+int address_add(Link *link, int family, const union in_addr_union *in_addr, unsigned char prefixlen, Address **ret) {
         Address *address;
         int r;
 
