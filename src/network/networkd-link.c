@@ -2133,7 +2133,11 @@ int link_initialized(Link *link, struct udev_device *device) {
 }
 
 static int link_load(Link *link) {
-        _cleanup_free_ char *network_file = NULL, *addresses = NULL;
+        _cleanup_free_ char *network_file = NULL,
+                            *addresses = NULL,
+                            *dhcp4_address = NULL,
+                            *ipv4ll_address = NULL;
+        union in_addr_union address;
         int r;
 
         assert(link);
@@ -2141,6 +2145,8 @@ static int link_load(Link *link) {
         r = parse_env_file(link->state_file, NEWLINE,
                            "NETWORK_FILE", &network_file,
                            "ADDRESSES", &addresses,
+                           "DHCP4_ADDRESS", &dhcp4_address,
+                           "IPV4LL_ADDRESS", &ipv4ll_address,
                            NULL);
         if (r < 0 && r != -ENOENT)
                 return log_link_error_errno(link, r, "Failed to read %s: %m", link->state_file);
@@ -2176,7 +2182,6 @@ static int link_load(Link *link) {
                         char *prefixlen_str;
                         int family;
                         unsigned char prefixlen;
-                        union in_addr_union address;
 
                         prefixlen_str = strchr(*address_str, '/');
                         if (!prefixlen_str)
@@ -2196,6 +2201,34 @@ static int link_load(Link *link) {
                         if (r < 0)
                                 return log_link_error_errno(link, r, "Failed to add address: %m");
                 }
+        }
+
+        if (dhcp4_address) {
+                r = in_addr_from_string(AF_INET, dhcp4_address, &address);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Falied to parse DHCPv4 address %s: %m", dhcp4_address);
+
+                r = sd_dhcp_client_new(&link->dhcp_client);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Falied to create DHCPv4 client: %m");
+
+                r = sd_dhcp_client_set_request_address(link->dhcp_client, &address.in);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Falied to set inital DHCPv4 address %s: %m", dhcp4_address);
+        }
+
+        if (ipv4ll_address) {
+                r = in_addr_from_string(AF_INET, ipv4ll_address, &address);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Falied to parse IPv4LL address %s: %m", ipv4ll_address);
+
+                r = sd_ipv4ll_new(&link->ipv4ll);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Falied to create IPv4LL client: %m");
+
+                r = sd_ipv4ll_set_address(link->ipv4ll, &address.in);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Falied to set inital IPv4LL address %s: %m", ipv4ll_address);
         }
 
         return 0;
@@ -2684,15 +2717,21 @@ int link_save(Link *link) {
         }
 
         if (link->dhcp_lease) {
+                struct in_addr address;
                 const char *tz = NULL;
+
+                assert(link->network);
 
                 r = sd_dhcp_lease_get_timezone(link->dhcp_lease, &tz);
                 if (r >= 0)
                         fprintf(f, "TIMEZONE=%s\n", tz);
-        }
 
-        if (link->dhcp_lease) {
-                assert(link->network);
+                r = sd_dhcp_lease_get_address(link->dhcp_lease, &address);
+                if (r >= 0) {
+                        fputs("DHCP4_ADDRESS=", f);
+                        serialize_in_addrs(f, &address, 1);
+                        fputc('\n', f);
+                }
 
                 r = dhcp_lease_save(link->dhcp_lease, link->lease_file);
                 if (r < 0)
@@ -2703,6 +2742,17 @@ int link_save(Link *link) {
                         link->lease_file);
         } else
                 unlink(link->lease_file);
+
+        if (link->ipv4ll) {
+                struct in_addr address;
+
+                r = sd_ipv4ll_get_address(link->ipv4ll, &address);
+                if (r >= 0) {
+                        fputs("IPV4LL_ADDRESS=", f);
+                        serialize_in_addrs(f, &address, 1);
+                        fputc('\n', f);
+                }
+        }
 
         if (link->lldp) {
                 assert(link->network);
