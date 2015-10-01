@@ -607,27 +607,6 @@ int vt_disallocate(const char *name) {
         return 0;
 }
 
-void warn_melody(void) {
-        _cleanup_close_ int fd = -1;
-
-        fd = open("/dev/console", O_WRONLY|O_CLOEXEC|O_NOCTTY);
-        if (fd < 0)
-                return;
-
-        /* Yeah, this is synchronous. Kinda sucks. But well... */
-
-        (void) ioctl(fd, KIOCSOUND, (int)(1193180/440));
-        usleep(125*USEC_PER_MSEC);
-
-        (void) ioctl(fd, KIOCSOUND, (int)(1193180/220));
-        usleep(125*USEC_PER_MSEC);
-
-        (void) ioctl(fd, KIOCSOUND, (int)(1193180/220));
-        usleep(125*USEC_PER_MSEC);
-
-        (void) ioctl(fd, KIOCSOUND, 0);
-}
-
 int make_console_stdio(void) {
         int fd, r;
 

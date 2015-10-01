@@ -147,7 +147,6 @@ int manager_handle_action(
                           offending->uid, strna(u),
                           offending->pid, strna(comm));
 
-                warn_melody();
                 return -EPERM;
         }
 
