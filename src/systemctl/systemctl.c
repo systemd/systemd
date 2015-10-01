@@ -6648,7 +6648,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                                 }
 
                                 if (unit_type_from_string(type) >= 0) {
-                                        if (strv_push(&arg_types, type))
+                                        if (strv_push(&arg_types, type) < 0)
                                                 return log_oom();
                                         type = NULL;
                                         continue;
@@ -6658,7 +6658,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                                  * load states, but let's support this
                                  * in --types= too for compatibility
                                  * with old versions */
-                                if (unit_load_state_from_string(optarg) >= 0) {
+                                if (unit_load_state_from_string(type) >= 0) {
                                         if (strv_push(&arg_states, type) < 0)
                                                 return log_oom();
                                         type = NULL;
@@ -6871,8 +6871,10 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                                         return 0;
                                 }
 
-                                if (strv_consume(&arg_states, s) < 0)
+                                if (strv_push(&arg_states, s) < 0)
                                         return log_oom();
+
+                                s = NULL;
                         }
                         break;
                 }
