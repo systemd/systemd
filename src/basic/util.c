@@ -2551,90 +2551,6 @@ int fchmod_and_fchown(int fd, mode_t mode, uid_t uid, gid_t gid) {
         return 0;
 }
 
-cpu_set_t* cpu_set_malloc(unsigned *ncpus) {
-        cpu_set_t *r;
-        unsigned n = 1024;
-
-        /* Allocates the cpuset in the right size */
-
-        for (;;) {
-                if (!(r = CPU_ALLOC(n)))
-                        return NULL;
-
-                if (sched_getaffinity(0, CPU_ALLOC_SIZE(n), r) >= 0) {
-                        CPU_ZERO_S(CPU_ALLOC_SIZE(n), r);
-
-                        if (ncpus)
-                                *ncpus = n;
-
-                        return r;
-                }
-
-                CPU_FREE(r);
-
-                if (errno != EINVAL)
-                        return NULL;
-
-                n *= 2;
-        }
-}
-
-int parse_cpu_set(
-                const char *rvalue,
-                cpu_set_t **cpu_set,
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *lvalue) {
-
-        const char *whole_rvalue = rvalue;
-        _cleanup_cpu_free_ cpu_set_t *c = NULL;
-        unsigned ncpus = 0;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-
-        for (;;) {
-                _cleanup_free_ char *word = NULL;
-                unsigned cpu;
-                int r;
-
-                r = extract_first_word(&rvalue, &word, WHITESPACE, EXTRACT_QUOTES);
-                if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r,
-                                   "Invalid value for %s: %s", lvalue, whole_rvalue);
-                        return r;
-                }
-                if (r == 0)
-                        break;
-
-                r = safe_atou(word, &cpu);
-
-                if (!c)
-                        if (!(c = cpu_set_malloc(&ncpus)))
-                                return log_oom();
-
-                if (r < 0 || cpu >= ncpus) {
-                        log_syntax(unit, LOG_ERR, filename, line, -r,
-                                   "Failed to parse CPU affinity '%s'", rvalue);
-                        return -EBADMSG;
-                }
-
-                CPU_SET_S(cpu, CPU_ALLOC_SIZE(ncpus), c);
-        }
-        if (!isempty(rvalue))
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Trailing garbage, ignoring.");
-
-        /* On success, sets *cpu_set and returns ncpus for the system. */
-        if (c) {
-                *cpu_set = c;
-                c = NULL;
-        }
-        return (int) ncpus;
-}
-
 int files_same(const char *filea, const char *fileb) {
         struct stat a, b;
 
@@ -5428,15 +5344,13 @@ int update_reboot_param_file(const char *param) {
         int r = 0;
 
         if (param) {
-
                 r = write_string_file(REBOOT_PARAM_FILE, param, WRITE_STRING_FILE_CREATE);
                 if (r < 0)
-                        log_error("Failed to write reboot param to "
-                                  REBOOT_PARAM_FILE": %s", strerror(-r));
+                        return log_error_errno(r, "Failed to write reboot param to "REBOOT_PARAM_FILE": %m");
         } else
-                unlink(REBOOT_PARAM_FILE);
+                (void) unlink(REBOOT_PARAM_FILE);
 
-        return r;
+        return 0;
 }
 
 int umount_recursive(const char *prefix, int flags) {
@@ -6070,6 +5984,7 @@ int extract_first_word_and_warn(
                 const char *filename,
                 unsigned line,
                 const char *rvalue) {
+
         /* Try to unquote it, if it fails, warn about it and try again but this
          * time using EXTRACT_CUNESCAPE_RELAX to keep the backslashes verbatim
          * in invalid escape sequences. */
@@ -6078,17 +5993,17 @@ int extract_first_word_and_warn(
 
         save = *p;
         r = extract_first_word(p, ret, separators, flags);
-        if (r < 0 && !(flags&EXTRACT_CUNESCAPE_RELAX)) {
+        if (r < 0 && !(flags & EXTRACT_CUNESCAPE_RELAX)) {
+
                 /* Retry it with EXTRACT_CUNESCAPE_RELAX. */
                 *p = save;
                 r = extract_first_word(p, ret, separators, flags|EXTRACT_CUNESCAPE_RELAX);
                 if (r < 0)
-                        log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                                   "Unbalanced quoting in command line, ignoring: \"%s\"", rvalue);
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Unbalanced quoting in command line, ignoring: \"%s\"", rvalue);
                 else
-                        log_syntax(unit, LOG_WARNING, filename, line, EINVAL,
-                                   "Invalid escape sequences in command line: \"%s\"", rvalue);
+                        log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid escape sequences in command line: \"%s\"", rvalue);
         }
+
         return r;
 }
 

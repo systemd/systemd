@@ -28,7 +28,6 @@
 #include <limits.h>
 #include <locale.h>
 #include <mntent.h>
-#include <sched.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -370,12 +369,6 @@ bool is_temporary_fs(const struct statfs *s) _pure_;
 int fd_is_temporary_fs(int fd);
 
 int pipe_eof(int fd);
-
-DEFINE_TRIVIAL_CLEANUP_FUNC(cpu_set_t*, CPU_FREE);
-#define _cleanup_cpu_free_ _cleanup_(CPU_FREEp)
-
-cpu_set_t* cpu_set_malloc(unsigned *ncpus);
-int parse_cpu_set(const char *rvalue, cpu_set_t **cpu_set, const char *unit, const char *filename, unsigned line, const char *lvalue);
 
 #define xsprintf(buf, fmt, ...) \
         assert_message_se((size_t) snprintf(buf, ELEMENTSOF(buf), fmt, __VA_ARGS__) < ELEMENTSOF(buf), \

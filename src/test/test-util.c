@@ -20,25 +20,26 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <string.h>
-#include <unistd.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <locale.h>
-#include <errno.h>
-#include <signal.h>
 #include <math.h>
+#include <signal.h>
+#include <string.h>
 #include <sys/wait.h>
+#include <unistd.h>
 
-#include "util.h"
-#include "mkdir.h"
-#include "rm-rf.h"
-#include "strv.h"
+#include "conf-parser.h"
+#include "cpu-set-util.h"
 #include "def.h"
 #include "fileio.h"
-#include "conf-parser.h"
-#include "virt.h"
+#include "mkdir.h"
 #include "process-util.h"
+#include "rm-rf.h"
 #include "signal-util.h"
+#include "strv.h"
+#include "util.h"
+#include "virt.h"
 
 static void test_streq_ptr(void) {
         assert_se(streq_ptr(NULL, NULL));
@@ -966,7 +967,7 @@ static void test_parse_cpu_set(void) {
         int cpu;
 
         /* Simple range (from CPUAffinity example) */
-        ncpus = parse_cpu_set("1 2", &c, NULL, "fake", 1, "CPUAffinity");
+        ncpus = parse_cpu_set_and_warn("1 2", &c, NULL, "fake", 1, "CPUAffinity");
         assert_se(ncpus >= 1024);
         assert_se(CPU_ISSET_S(1, CPU_ALLOC_SIZE(ncpus), c));
         assert_se(CPU_ISSET_S(2, CPU_ALLOC_SIZE(ncpus), c));
@@ -974,7 +975,7 @@ static void test_parse_cpu_set(void) {
         c = mfree(c);
 
         /* A more interesting range */
-        ncpus = parse_cpu_set("0 1 2 3 8 9 10 11", &c, NULL, "fake", 1, "CPUAffinity");
+        ncpus = parse_cpu_set_and_warn("0 1 2 3 8 9 10 11", &c, NULL, "fake", 1, "CPUAffinity");
         assert_se(ncpus >= 1024);
         assert_se(CPU_COUNT_S(CPU_ALLOC_SIZE(ncpus), c) == 8);
         for (cpu = 0; cpu < 4; cpu++)
@@ -984,7 +985,7 @@ static void test_parse_cpu_set(void) {
         c = mfree(c);
 
         /* Quoted strings */
-        ncpus = parse_cpu_set("8 '9' 10 \"11\"", &c, NULL, "fake", 1, "CPUAffinity");
+        ncpus = parse_cpu_set_and_warn("8 '9' 10 \"11\"", &c, NULL, "fake", 1, "CPUAffinity");
         assert_se(ncpus >= 1024);
         assert_se(CPU_COUNT_S(CPU_ALLOC_SIZE(ncpus), c) == 4);
         for (cpu = 8; cpu < 12; cpu++)
@@ -992,28 +993,28 @@ static void test_parse_cpu_set(void) {
         c = mfree(c);
 
         /* Use commas as separators */
-        ncpus = parse_cpu_set("0,1,2,3 8,9,10,11", &c, NULL, "fake", 1, "CPUAffinity");
+        ncpus = parse_cpu_set_and_warn("0,1,2,3 8,9,10,11", &c, NULL, "fake", 1, "CPUAffinity");
         assert_se(ncpus < 0);
         assert_se(!c);
 
         /* Ranges */
-        ncpus = parse_cpu_set("0-3,8-11", &c, NULL, "fake", 1, "CPUAffinity");
+        ncpus = parse_cpu_set_and_warn("0-3,8-11", &c, NULL, "fake", 1, "CPUAffinity");
         assert_se(ncpus < 0);
         assert_se(!c);
 
         /* Garbage */
-        ncpus = parse_cpu_set("0 1 2 3 garbage", &c, NULL, "fake", 1, "CPUAffinity");
+        ncpus = parse_cpu_set_and_warn("0 1 2 3 garbage", &c, NULL, "fake", 1, "CPUAffinity");
         assert_se(ncpus < 0);
         assert_se(!c);
 
         /* Empty string */
         c = NULL;
-        ncpus = parse_cpu_set("", &c, NULL, "fake", 1, "CPUAffinity");
+        ncpus = parse_cpu_set_and_warn("", &c, NULL, "fake", 1, "CPUAffinity");
         assert_se(ncpus == 0);  /* empty string returns 0 */
         assert_se(!c);
 
         /* Runnaway quoted string */
-        ncpus = parse_cpu_set("0 1 2 3 \"4 5 6 7 ", &c, NULL, "fake", 1, "CPUAffinity");
+        ncpus = parse_cpu_set_and_warn("0 1 2 3 \"4 5 6 7 ", &c, NULL, "fake", 1, "CPUAffinity");
         assert_se(ncpus < 0);
         assert_se(!c);
 }

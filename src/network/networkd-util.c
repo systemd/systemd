@@ -82,7 +82,7 @@ int config_parse_address_family_boolean_with_kernel(
                 if (streq(rvalue, "kernel"))
                         s = _ADDRESS_FAMILY_BOOLEAN_INVALID;
                 else {
-                        log_syntax(unit, LOG_ERR, filename, line, s, "Failed to parse IPForwarding= option, ignoring: %s", rvalue);
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse IPForwarding= option, ignoring: %s", rvalue);
                         return 0;
                 }
         }
@@ -133,7 +133,7 @@ int config_parse_resolve(
 
                 s = resolve_support_from_string(rvalue);
                 if (s < 0){
-                        log_syntax(unit, LOG_ERR, filename, line, -s, "Failed to parse %s= option, ignoring: %s", lvalue, rvalue);
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse %s= option, ignoring: %s", lvalue, rvalue);
                         return 0;
                 }
 

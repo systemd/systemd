@@ -81,10 +81,21 @@ static int property_get_virtualization(
                 void *userdata,
                 sd_bus_error *error) {
 
+        int v;
+
         assert(bus);
         assert(reply);
 
-        return sd_bus_message_append(reply, "s", virtualization_to_string(detect_virtualization()));
+        v = detect_virtualization();
+
+        /* Make sure to return the empty string when we detect no virtualization, as that is the API.
+         *
+         * https://github.com/systemd/systemd/issues/1423
+         */
+
+        return sd_bus_message_append(
+                        reply, "s",
+                        v == VIRTUALIZATION_NONE ? "" : virtualization_to_string(v));
 }
 
 static int property_get_architecture(

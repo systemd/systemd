@@ -47,6 +47,7 @@
 #include "capability.h"
 #include "clock-util.h"
 #include "conf-parser.h"
+#include "cpu-set-util.h"
 #include "dbus-manager.h"
 #include "def.h"
 #include "env-util.h"
@@ -464,8 +465,7 @@ static int config_parse_cpu_affinity2(
         _cleanup_cpu_free_ cpu_set_t *c = NULL;
         int ncpus;
 
-        ncpus = parse_cpu_set(rvalue, &c, unit, filename, line, lvalue);
-
+        ncpus = parse_cpu_set_and_warn(rvalue, &c, unit, filename, line, lvalue);
         if (ncpus < 0)
                 return ncpus;
 
@@ -497,8 +497,7 @@ static int config_parse_show_status(
 
         k = parse_show_status(rvalue, b);
         if (k < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, -k,
-                           "Failed to parse show status setting, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, k, "Failed to parse show status setting, ignoring: %s", rvalue);
                 return 0;
         }
 
@@ -629,8 +628,7 @@ static int config_parse_join_controllers(const char *unit,
                 }
         }
         if (!isempty(rvalue))
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Trailing garbage, ignoring.");
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Trailing garbage, ignoring.");
 
         return 0;
 }

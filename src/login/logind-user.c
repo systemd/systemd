@@ -868,12 +868,12 @@ int config_parse_tmpfs_size(
                 errno = 0;
                 ul = strtoul(rvalue, &f, 10);
                 if (errno != 0 || f != e) {
-                        log_syntax(unit, LOG_ERR, filename, line, errno ? errno : EINVAL, "Failed to parse percentage value, ignoring: %s", rvalue);
+                        log_syntax(unit, LOG_ERR, filename, line, errno, "Failed to parse percentage value, ignoring: %s", rvalue);
                         return 0;
                 }
 
                 if (ul <= 0 || ul >= 100) {
-                        log_syntax(unit, LOG_ERR, filename, line, errno ? errno : EINVAL, "Percentage value out of range, ignoring: %s", rvalue);
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "Percentage value out of range, ignoring: %s", rvalue);
                         return 0;
                 }
 
@@ -883,7 +883,7 @@ int config_parse_tmpfs_size(
 
                 r = parse_size(rvalue, 1024, &k);
                 if (r < 0 || (uint64_t) (size_t) k != k) {
-                        log_syntax(unit, LOG_ERR, filename, line, r < 0 ? r : ERANGE, "Failed to parse size value, ignoring: %s", rvalue);
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse size value, ignoring: %s", rvalue);
                         return 0;
                 }
 

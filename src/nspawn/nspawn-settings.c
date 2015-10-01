@@ -152,7 +152,7 @@ int config_parse_capability(
 
                 cap = capability_from_name(word);
                 if (cap < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, cap, "Failed to parse capability, ignoring: %s", word);
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse capability, ignoring: %s", word);
                         continue;
                 }
 

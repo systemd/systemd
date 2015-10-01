@@ -146,11 +146,8 @@ int make_socket_fd(int log_level, const char* address, int flags) {
         int fd, r;
 
         r = socket_address_parse(&a, address);
-        if (r < 0) {
-                log_error("Failed to parse socket address \"%s\": %s",
-                          address, strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse socket address \"%s\": %m", address);
 
         fd = socket_address_listen(&a, flags, SOMAXCONN, SOCKET_ADDRESS_DEFAULT,
                                    NULL, false, false, false, 0755, 0644, NULL);

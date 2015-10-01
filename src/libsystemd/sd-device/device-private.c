@@ -200,10 +200,8 @@ static int device_read_db(sd_device *device) {
         if (r < 0) {
                 if (r == -ENOENT)
                         return 0;
-                else {
-                        log_debug("sd-device: failed to read db '%s': %s", path, strerror(-r));
-                        return r;
-                }
+                else
+                        return log_debug_errno(r, "sd-device: failed to read db '%s': %m", path);
         }
 
         /* devices with a database entry are initialized */
@@ -247,7 +245,7 @@ static int device_read_db(sd_device *device) {
                                 db[i] = '\0';
                                 r = handle_db_line(device, key, value);
                                 if (r < 0)
-                                        log_debug("sd-device: failed to handle db entry '%c:%s': %s", key, value, strerror(-r));
+                                        log_debug_errno(r, "sd-device: failed to handle db entry '%c:%s': %m", key, value);
 
                                 state = PRE_KEY;
                         }

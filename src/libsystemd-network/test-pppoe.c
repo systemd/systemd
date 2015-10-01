@@ -19,19 +19,20 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdlib.h>
 #include <errno.h>
-#include <unistd.h>
-
 #include <linux/veth.h>
 #include <net/if.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sched.h>
 
-#include "util.h"
 #include "sd-event.h"
-#include "event-util.h"
 #include "sd-netlink.h"
 #include "sd-pppoe.h"
+
+#include "event-util.h"
 #include "process-util.h"
+#include "util.h"
 
 static void pppoe_handler(sd_pppoe *ppp, int event, void *userdata) {
         static int pppoe_state = -1;

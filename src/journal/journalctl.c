@@ -1585,7 +1585,7 @@ static int verify(sd_journal *j) {
                         /* If the key was invalid give up right-away. */
                         return k;
                 } else if (k < 0) {
-                        log_warning("FAIL: %s (%s)", f->path, strerror(-k));
+                        log_warning_errno(k, "FAIL: %s (%m)", f->path);
                         r = k;
                 } else {
                         char a[FORMAT_TIMESTAMP_MAX], b[FORMAT_TIMESTAMP_MAX], c[FORMAT_TIMESPAN_MAX];

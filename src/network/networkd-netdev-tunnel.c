@@ -395,12 +395,12 @@ int config_parse_tunnel_address(const char *unit,
 
         r = in_addr_from_string_auto(rvalue, &f, &buffer);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL, "Tunnel address is invalid, ignoring assignment: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, r, "Tunnel address is invalid, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
         if (t->family != AF_UNSPEC && t->family != f) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL, "Tunnel addresses incompatible, ignoring assignment: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Tunnel addresses incompatible, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
@@ -435,13 +435,14 @@ int config_parse_ipv6_flowlabel(const char* unit,
                 t->flags |= IP6_TNL_F_USE_ORIG_FLOWLABEL;
         } else {
                 r = config_parse_int(unit, filename, line, section, section_line, lvalue, ltype, rvalue, &k, userdata);
-                if (r >= 0) {
-                        if (k > 0xFFFFF)
-                                log_syntax(unit, LOG_ERR, filename, line, k, "Failed to parse IPv6 flowlabel option, ignoring: %s", rvalue);
-                        else {
-                                *ipv6_flowlabel = htonl(k) & IP6_FLOWINFO_FLOWLABEL;
-                                t->flags &= ~IP6_TNL_F_USE_ORIG_FLOWLABEL;
-                        }
+                if (r < 0)
+                        return r;
+
+                if (k > 0xFFFFF)
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse IPv6 flowlabel option, ignoring: %s", rvalue);
+                else {
+                        *ipv6_flowlabel = htonl(k) & IP6_FLOWINFO_FLOWLABEL;
+                        t->flags &= ~IP6_TNL_F_USE_ORIG_FLOWLABEL;
                 }
         }
 
@@ -471,13 +472,12 @@ int config_parse_encap_limit(const char* unit,
         else {
                 r = safe_atoi(rvalue, &k);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r,
-                                   "Failed to parse Tunnel Encapsulation Limit option, ignoring: %s", rvalue);
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse Tunnel Encapsulation Limit option, ignoring: %s", rvalue);
                         return 0;
                 }
 
                 if (k > 255 || k < 0)
-                        log_syntax(unit, LOG_ERR, filename, line, k, "Invalid Tunnel Encapsulation value, ignoring: %d", k);
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid Tunnel Encapsulation value, ignoring: %d", k);
                 else {
                         t->encap_limit = k;
                         t->flags &= ~IP6_TNL_F_IGN_ENCAP_LIMIT;

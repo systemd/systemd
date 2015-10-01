@@ -2514,7 +2514,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules,
                                   rules_str(rules, rule->rule.filename_off), rule->rule.filename_line);
                         r = sysctl_write(filename, value);
                         if (r < 0)
-                                log_error("error writing SYSCTL{%s}='%s': %s", filename, value, strerror(-r));
+                                log_error_errno(r, "error writing SYSCTL{%s}='%s': %s", filename, value);
                         break;
                 }
                 case TK_A_RUN_BUILTIN:

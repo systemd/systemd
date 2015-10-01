@@ -294,8 +294,7 @@ int config_parse_gateway(const char *unit,
 
         r = in_addr_from_string_auto(rvalue, &f, &buffer);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Route is invalid, ignoring assignment: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, r, "Route is invalid, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
@@ -345,14 +344,12 @@ int config_parse_destination(const char *unit,
 
         r = in_addr_from_string_auto(address, &f, &buffer);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Destination is invalid, ignoring assignment: %s", address);
+                log_syntax(unit, LOG_ERR, filename, line, r, "Destination is invalid, ignoring assignment: %s", address);
                 return 0;
         }
 
         if (f != AF_INET && f != AF_INET6) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Unknown address family, ignoring assignment: %s", address);
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Unknown address family, ignoring assignment: %s", address);
                 return 0;
         }
 
@@ -360,8 +357,7 @@ int config_parse_destination(const char *unit,
         if (e) {
                 r = safe_atou8(e + 1, &prefixlen);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                                   "Route destination prefix length is invalid, ignoring assignment: %s", e + 1);
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Route destination prefix length is invalid, ignoring assignment: %s", e + 1);
                         return 0;
                 }
         } else {
@@ -456,8 +452,7 @@ int config_parse_route_scope(const char *unit,
         else if (streq(rvalue, "global"))
                 n->scope = RT_SCOPE_UNIVERSE;
         else {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Unknown route scope: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Unknown route scope: %s", rvalue);
                 return 0;
         }
 

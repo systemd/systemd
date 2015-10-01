@@ -215,16 +215,14 @@ int mac_smack_setup(bool *loaded_policy) {
                 log_info("Successfully loaded Smack policies.");
                 break;
         default:
-                log_warning("Failed to load Smack access rules: %s, ignoring.",
-                            strerror(abs(r)));
+                log_warning_errno(r, "Failed to load Smack access rules, ignoring: %m");
                 return 0;
         }
 
 #ifdef SMACK_RUN_LABEL
         r = write_string_file("/proc/self/attr/current", SMACK_RUN_LABEL, 0);
         if (r)
-                log_warning("Failed to set SMACK label \"%s\" on self: %s",
-                            SMACK_RUN_LABEL, strerror(-r));
+                log_warning_errno("Failed to set SMACK label \"%s\" on self: %m", SMACK_RUN_LABEL);
 #endif
 
         r = write_cipso2_rules("/etc/smack/cipso.d/");
@@ -239,8 +237,7 @@ int mac_smack_setup(bool *loaded_policy) {
                 log_info("Successfully loaded Smack/CIPSO policies.");
                 break;
         default:
-                log_warning("Failed to load Smack/CIPSO access rules: %s, ignoring.",
-                            strerror(abs(r)));
+                log_warning_errno(r, "Failed to load Smack/CIPSO access rules, ignoring: %m");
                 return 0;
         }
 

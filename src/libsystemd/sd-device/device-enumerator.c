@@ -812,10 +812,8 @@ static int enumerator_scan_devices_all(sd_device_enumerator *enumerator) {
         if (access("/sys/subsystem", F_OK) >= 0) {
                 /* we have /subsystem/, forget all the old stuff */
                 r = enumerator_scan_dir(enumerator, "subsystem", "devices", NULL);
-                if (r < 0) {
-                        log_debug("device-enumerator: failed to scan /sys/subsystem: %s", strerror(-r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_debug_errno(r, "device-enumerator: failed to scan /sys/subsystem: %m");
         } else {
                 int k;
 

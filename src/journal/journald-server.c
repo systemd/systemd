@@ -1434,8 +1434,7 @@ static int server_open_hostname(Server *s) {
                 /* kernels prior to 3.2 don't support polling this file. Ignore
                  * the failure. */
                 if (r == -EPERM) {
-                        log_warning("Failed to register hostname fd in event loop: %s. Ignoring.",
-                                        strerror(-r));
+                        log_warning_errno(r, "Failed to register hostname fd in event loop, ignoring: %m");
                         s->hostname_fd = safe_close(s->hostname_fd);
                         return 0;
                 }
