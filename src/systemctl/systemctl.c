@@ -6860,7 +6860,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         size_t size;
 
                         FOREACH_WORD_SEPARATOR(word, size, optarg, ",", state) {
-                                char *s;
+                                _cleanup_free_ char *s = NULL;
 
                                 s = strndup(word, size);
                                 if (!s)
