@@ -64,7 +64,7 @@ CHANGES WITH 227:
           '-1' value for disabling stays around for compat reasons.
 
         * The PrivateTmp=, PrivateDevices=, PrivateNetwork=,
-          NoNewPrivileges=, TTYPath, WorkingDirectory= and
+          NoNewPrivileges=, TTYPath=, WorkingDirectory= and
           RootDirectory= properties can now be set for transient
           units.
 
