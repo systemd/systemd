@@ -19,10 +19,10 @@
   You should have received a copy of the GNU Lesser General Public License
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
-<refentry id="systemd-rfkill@.service" conditional='ENABLE_RFKILL'>
+<refentry id="systemd-rfkill.service" conditional='ENABLE_RFKILL'>
 
   <refentryinfo>
-    <title>systemd-rfkill@.service</title>
+    <title>systemd-rfkill.service</title>
     <productname>systemd</productname>
 
     <authorgroup>
@@ -36,27 +36,29 @@
   </refentryinfo>
 
   <refmeta>
-    <refentrytitle>systemd-rfkill@.service</refentrytitle>
+    <refentrytitle>systemd-rfkill.service</refentrytitle>
     <manvolnum>8</manvolnum>
   </refmeta>
 
   <refnamediv>
-    <refname>systemd-rfkill@.service</refname>
+    <refname>systemd-rfkill.service</refname>
+    <refname>systemd-rfkill.socket</refname>
     <refname>systemd-rfkill</refname>
-    <refpurpose>Load and save the RF kill switch state at boot and shutdown</refpurpose>
+    <refpurpose>Load and save the RF kill switch state at boot and change</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
-    <para><filename>systemd-rfkill@.service</filename></para>
+    <para><filename>systemd-rfkill.service</filename></para>
+    <para><filename>systemd-rfkill.socket</filename></para>
     <para><filename>/usr/lib/systemd/systemd-rfkill</filename></para>
   </refsynopsisdiv>
 
   <refsect1>
     <title>Description</title>
 
-    <para><filename>systemd-rfkill@.service</filename> is a service
+    <para><filename>systemd-rfkill.service</filename> is a service
     that restores the RF kill switch state at early boot and saves it
-    at shutdown. On disk, the RF kill switch state is stored in
+    on each change. On disk, the RF kill switch state is stored in
     <filename>/var/lib/systemd/rfkill/</filename>.</para>
   </refsect1>
 

@@ -1807,11 +1807,16 @@ endif
 
 if ENABLE_RFKILL
 MANPAGES += \
-	man/systemd-rfkill@.service.8
+	man/systemd-rfkill.service.8
 MANPAGES_ALIAS += \
-	man/systemd-rfkill.8
-man/systemd-rfkill.8: man/systemd-rfkill@.service.8
-man/systemd-rfkill.html: man/systemd-rfkill@.service.html
+	man/systemd-rfkill.8 \
+	man/systemd-rfkill.socket.8
+man/systemd-rfkill.8: man/systemd-rfkill.service.8
+man/systemd-rfkill.socket.8: man/systemd-rfkill.service.8
+man/systemd-rfkill.html: man/systemd-rfkill.service.html
+	$(html-alias)
+
+man/systemd-rfkill.socket.html: man/systemd-rfkill.service.html
 	$(html-alias)
 
 endif
@@ -2362,7 +2367,7 @@ EXTRA_DIST += \
 	man/systemd-random-seed.service.xml \
 	man/systemd-remount-fs.service.xml \
 	man/systemd-resolved.service.xml \
-	man/systemd-rfkill@.service.xml \
+	man/systemd-rfkill.service.xml \
 	man/systemd-run.xml \
 	man/systemd-sleep.conf.xml \
 	man/systemd-socket-proxyd.xml \

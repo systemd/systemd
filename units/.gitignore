@@ -59,7 +59,7 @@
 /systemd-resolved.service
 /systemd-resolved.service.m4
 /systemd-hibernate-resume@.service
-/systemd-rfkill@.service
+/systemd-rfkill.service
 /systemd-suspend.service
 /systemd-sysctl.service
 /systemd-sysusers.service
