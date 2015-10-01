@@ -533,9 +533,11 @@ int dhcp4_configure(Link *link) {
         assert(link->network);
         assert(link->network->dhcp & ADDRESS_FAMILY_IPV4);
 
-        r = sd_dhcp_client_new(&link->dhcp_client);
-        if (r < 0)
-                return r;
+        if (!link->dhcp_client) {
+                r = sd_dhcp_client_new(&link->dhcp_client);
+                if (r < 0)
+                        return r;
+        }
 
         r = sd_dhcp_client_attach_event(link->dhcp_client, NULL, 0);
         if (r < 0)
