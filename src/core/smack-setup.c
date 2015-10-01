@@ -222,7 +222,7 @@ int mac_smack_setup(bool *loaded_policy) {
 #ifdef SMACK_RUN_LABEL
         r = write_string_file("/proc/self/attr/current", SMACK_RUN_LABEL, 0);
         if (r)
-                log_warning_errno("Failed to set SMACK label \"%s\" on self: %m", SMACK_RUN_LABEL);
+                log_warning_errno(r, "Failed to set SMACK label \"%s\" on self: %m", SMACK_RUN_LABEL);
 #endif
 
         r = write_cipso2_rules("/etc/smack/cipso.d/");

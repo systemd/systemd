@@ -172,7 +172,7 @@ int device_set_syspath(sd_device *device, const char *_syspath, bool verify) {
                                 return log_debug_errno(errno, "sd-device: could not canonicalize '%s': %m", _syspath);
                         }
                 } else if (r < 0) {
-                        log_debug_errno("sd-device: could not get target of '%s': %m", _syspath);
+                        log_debug_errno(r, "sd-device: could not get target of '%s': %m", _syspath);
                         return r;
                 }
 
@@ -554,7 +554,7 @@ int device_read_uevent_file(sd_device *device) {
 
                                 r = handle_uevent_line(device, key, value, &major, &minor);
                                 if (r < 0)
-                                        log_debug_errno(r, "sd-device: failed to handle uevent entry '%s=%s': %s", key, value);
+                                        log_debug_errno(r, "sd-device: failed to handle uevent entry '%s=%s': %m", key, value);
 
                                 state = PRE_KEY;
                         }
@@ -568,7 +568,7 @@ int device_read_uevent_file(sd_device *device) {
         if (major) {
                 r = device_set_devnum(device, major, minor);
                 if (r < 0)
-                        log_debug_errno("sd-device: could not set 'MAJOR=%s' or 'MINOR=%s' from '%s': %m", major, minor, path);
+                        log_debug_errno(r, "sd-device: could not set 'MAJOR=%s' or 'MINOR=%s' from '%s': %m", major, minor, path);
         }
 
         return 0;
@@ -1315,7 +1315,7 @@ int device_read_db_aux(sd_device *device, bool force) {
                                 db[i] = '\0';
                                 r = handle_db_line(device, key, value);
                                 if (r < 0)
-                                        log_debug_errno(r, "sd-device: failed to handle db entry '%c:%s': %s", key, value);
+                                        log_debug_errno(r, "sd-device: failed to handle db entry '%c:%s': %m", key, value);
 
                                 state = PRE_KEY;
                         }
