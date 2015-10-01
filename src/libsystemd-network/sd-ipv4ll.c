@@ -25,6 +25,7 @@
 #include <arpa/inet.h>
 
 #include "event-util.h"
+#include "in-addr-util.h"
 #include "list.h"
 #include "random-util.h"
 #include "refcnt.h"
@@ -232,6 +233,39 @@ bool sd_ipv4ll_is_running(sd_ipv4ll *ll) {
         return sd_ipv4acd_is_running(ll->acd);
 }
 
+static bool ipv4ll_address_is_valid(const struct in_addr *address) {
+        uint32_t addr;
+
+        assert(address);
+
+        if (!in_addr_is_link_local(AF_INET, (const union in_addr_union *) address))
+                return false;
+
+        addr = be32toh(address->s_addr);
+
+        if ((addr & 0x0000FF00) == 0x0000 ||
+            (addr & 0x0000FF00) == 0xFF00)
+                return false;
+
+        return true;
+}
+
+int sd_ipv4ll_set_address(sd_ipv4ll *ll, const struct in_addr *address) {
+        int r;
+
+        assert_return(ll, -EINVAL);
+        assert_return(address, -EINVAL);
+        assert_return(ipv4ll_address_is_valid(address), -EINVAL);
+
+        r = sd_ipv4acd_set_address(ll->acd, address);
+        if (r < 0)
+                return r;
+
+        ll->address = address->s_addr;
+
+        return 0;
+}
+
 static int ipv4ll_pick_address(sd_ipv4ll *ll) {
         struct in_addr in_addr;
         be32_t addr;
@@ -247,17 +281,14 @@ static int ipv4ll_pick_address(sd_ipv4ll *ll) {
                         return r;
                 addr = htonl((random & 0x0000FFFF) | IPV4LL_NETWORK);
         } while (addr == ll->address ||
-                (ntohl(addr) & IPV4LL_NETMASK) != IPV4LL_NETWORK ||
                 (ntohl(addr) & 0x0000FF00) == 0x0000 ||
                 (ntohl(addr) & 0x0000FF00) == 0xFF00);
 
         in_addr.s_addr = addr;
 
-        r = sd_ipv4acd_set_address(ll->acd, &in_addr);
+        r = sd_ipv4ll_set_address(ll, &in_addr);
         if (r < 0)
                 return r;
-
-        ll->address = addr;
 
         return 0;
 }
