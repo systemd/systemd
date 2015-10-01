@@ -321,3 +321,20 @@
   parse values the same way on all architectures and cannot expose
   off_t values over D-Bus. To avoid any confusion regarding conversion
   and ABIs, always use simply uint64_t directly.
+
+- Commit message subject lines should be prefixed with an appropriate
+  component name of some kind. For example "journal: ", "nspawn: " and
+  so on.
+
+- Do not use "Signed-Off-By:" in your commit messages. That's a kernel
+  thing we don't do in the systemd project.
+
+- Avoid leaving long-running child processes around, i.e. fork()s that
+  are not followed quickly by an execv() in the child. Resource
+  management is unclear in this case, and memory CoW will result in
+  penalties in the parent much much later on.
+
+- Don't block execution for arbitrary amounts of time using usleep()
+  or a similar call, unless you really know what you do. Just "giving
+  something some time", or so is a lazy excuse. Always wait for the
+  proper event, instead of doing time-based poll loops.
