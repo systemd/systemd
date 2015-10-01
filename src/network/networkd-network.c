@@ -352,6 +352,10 @@ int network_get(Manager *manager, struct udev_device *device,
 int network_apply(Manager *manager, Network *network, Link *link) {
         int r;
 
+        assert(manager);
+        assert(network);
+        assert(link);
+
         link->network = network;
 
         if (network->ipv4ll_route) {

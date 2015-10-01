@@ -2057,28 +2057,30 @@ static int link_initialized_and_synced(sd_netlink *rtnl, sd_netlink_message *m,
         if (r < 0)
                 return r;
 
-        r = network_get(link->manager, link->udev_device, link->ifname,
-                        &link->mac, &network);
-        if (r == -ENOENT) {
-                link_enter_unmanaged(link);
-                return 1;
-        } else if (r < 0)
-                return r;
+        if (!link->network) {
+                r = network_get(link->manager, link->udev_device, link->ifname,
+                                &link->mac, &network);
+                if (r == -ENOENT) {
+                        link_enter_unmanaged(link);
+                        return 1;
+                } else if (r < 0)
+                        return r;
 
-        if (link->flags & IFF_LOOPBACK) {
-                if (network->link_local != ADDRESS_FAMILY_NO)
-                        log_link_debug(link, "Ignoring link-local autoconfiguration for loopback link");
+                if (link->flags & IFF_LOOPBACK) {
+                        if (network->link_local != ADDRESS_FAMILY_NO)
+                                log_link_debug(link, "Ignoring link-local autoconfiguration for loopback link");
 
-                if (network->dhcp != ADDRESS_FAMILY_NO)
-                        log_link_debug(link, "Ignoring DHCP clients for loopback link");
+                        if (network->dhcp != ADDRESS_FAMILY_NO)
+                                log_link_debug(link, "Ignoring DHCP clients for loopback link");
 
-                if (network->dhcp_server)
-                        log_link_debug(link, "Ignoring DHCP server for loopback link");
+                        if (network->dhcp_server)
+                                log_link_debug(link, "Ignoring DHCP server for loopback link");
+                }
+
+                r = network_apply(link->manager, network, link);
+                if (r < 0)
+                        return r;
         }
-
-        r = network_apply(link->manager, network, link);
-        if (r < 0)
-                return r;
 
         r = link_new_bound_to_list(link);
         if (r < 0)
@@ -2130,6 +2132,87 @@ int link_initialized(Link *link, struct udev_device *device) {
         return 0;
 }
 
+static int link_load(Link *link) {
+        _cleanup_free_ char *network_file = NULL, *addresses = NULL;
+        int r;
+
+        assert(link);
+
+        r = parse_env_file(link->state_file, NEWLINE,
+                           "NETWORK_FILE", &network_file,
+                           "ADDRESSES", &addresses,
+                           NULL);
+        if (r < 0 && r != -ENOENT)
+                return log_link_error_errno(link, r, "Failed to read %s: %m", link->state_file);
+
+        if (network_file) {
+                Network *network;
+                char *suffix;
+
+                /* drop suffix */
+                suffix = strrchr(network_file, '.');
+                if (!suffix) {
+                        log_link_debug(link, "Failed to get network name from %s", network_file);
+                        goto network_file_fail;
+                }
+                *suffix = '\0';
+
+                r = network_get_by_name(link->manager, basename(network_file), &network);
+                if (r < 0) {
+                        log_link_debug_errno(link, r, "Failed to get network %s: %m", basename(network_file));
+                        goto network_file_fail;
+                }
+
+                r = network_apply(link->manager, network, link);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Failed to apply network %s: %m", basename(network_file));
+        }
+
+network_file_fail:
+
+        if (addresses) {
+                _cleanup_strv_free_ char **addresses_strv = NULL;
+                char **address_str;
+
+                addresses_strv = strv_split(addresses, " ");
+                if (!addresses_strv)
+                        return log_oom();
+
+                STRV_FOREACH(address_str, addresses_strv) {
+                        char *prefixlen_str;
+                        int family;
+                        unsigned char prefixlen;
+                        union in_addr_union address;
+
+                        prefixlen_str = strchr(*address_str, '/');
+                        if (!prefixlen_str) {
+                                log_link_debug(link, "Failed to parse address and prefix length %s", *address_str);
+                                continue;
+                        }
+
+                        *prefixlen_str ++ = '\0';
+
+                        r = sscanf(prefixlen_str, "%hhu", &prefixlen);
+                        if (r != 1) {
+                                log_link_error(link, "Failed to parse prefixlen %s", prefixlen_str);
+                                continue;
+                        }
+
+                        r = in_addr_from_string_auto(*address_str, &family, &address);
+                        if (r < 0) {
+                                log_link_debug_errno(link, r, "Failed to parse address %s: %m", *address_str);
+                                continue;
+                        }
+
+                        r = address_add(link, family, &address, prefixlen, NULL);
+                        if (r < 0)
+                                return log_link_error_errno(link, r, "Failed to add address: %m");
+                }
+        }
+
+        return 0;
+}
+
 int link_add(Manager *m, sd_netlink_message *message, Link **ret) {
         Link *link;
         _cleanup_udev_device_unref_ struct udev_device *device = NULL;
@@ -2148,6 +2231,10 @@ int link_add(Manager *m, sd_netlink_message *message, Link **ret) {
         link = *ret;
 
         log_link_debug(link, "Link %d added", link->ifindex);
+
+        r = link_load(link);
+        if (r < 0)
+                return r;
 
         if (detect_container() <= 0) {
                 /* not in a container, udev will be around */
