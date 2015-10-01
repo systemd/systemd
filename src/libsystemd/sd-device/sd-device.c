@@ -554,7 +554,7 @@ int device_read_uevent_file(sd_device *device) {
 
                                 r = handle_uevent_line(device, key, value, &major, &minor);
                                 if (r < 0)
-                                        log_debug_errno(r, "sd-device: failed to handle uevent entry '%s=%s': %s", key, value);
+                                        log_debug_errno(r, "sd-device: failed to handle uevent entry '%s=%s': %m", key, value);
 
                                 state = PRE_KEY;
                         }
@@ -1315,7 +1315,7 @@ int device_read_db_aux(sd_device *device, bool force) {
                                 db[i] = '\0';
                                 r = handle_db_line(device, key, value);
                                 if (r < 0)
-                                        log_debug_errno(r, "sd-device: failed to handle db entry '%c:%s': %s", key, value);
+                                        log_debug_errno(r, "sd-device: failed to handle db entry '%c:%s': %m", key, value);
 
                                 state = PRE_KEY;
                         }
