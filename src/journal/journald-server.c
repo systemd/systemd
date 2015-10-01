@@ -825,13 +825,16 @@ static void dispatch_message_real(
 void server_driver_message(Server *s, sd_id128_t message_id, const char *format, ...) {
         char mid[11 + 32 + 1];
         char buffer[16 + LINE_MAX + 1];
-        struct iovec iovec[N_IOVEC_META_FIELDS + 4];
+        struct iovec iovec[N_IOVEC_META_FIELDS + 6];
         int n = 0;
         va_list ap;
         struct ucred ucred = {};
 
         assert(s);
         assert(format);
+
+        IOVEC_SET_STRING(iovec[n++], "SYSLOG_FACILITY=3");
+        IOVEC_SET_STRING(iovec[n++], "SYSLOG_IDENTIFIER=systemd-journald");
 
         IOVEC_SET_STRING(iovec[n++], "PRIORITY=6");
         IOVEC_SET_STRING(iovec[n++], "_TRANSPORT=driver");
