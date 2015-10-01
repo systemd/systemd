@@ -115,10 +115,9 @@
         <listitem>
           <para>This parameter is understood by several system tools
           to control whether or not they should restore system state
-          from the previous boot. For details, see
-          <citerefentry><refentrytitle>systemd-backlight@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-          and
-          <citerefentry><refentrytitle>systemd-rfkill@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+          from the previous boot, like systemd-rfkill and
+          systemd-backlight. For more information, see
+          <citerefentry><refentrytitle>systemd-backlight@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
           </para>
         </listitem>
       </varlistentry>

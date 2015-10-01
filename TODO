@@ -444,7 +444,7 @@ Features:
 
 * unify dispatch table in systemctl_main() and friends
 
-* rfkill,backlight: we probably should run the load tools inside of the udev rules so that the state is properly initialized by the time other software sees it
+* backlight: we probably should run the load tools inside of the udev rules so that the state is properly initialized by the time other software sees it
 
 * After coming back from hibernation reset hibernation swap partition using the /dev/snapshot ioctl APIs
 

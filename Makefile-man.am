@@ -1805,17 +1805,6 @@ man/systemd-resolved.html: man/systemd-resolved.service.html
 
 endif
 
-if ENABLE_RFKILL
-MANPAGES += \
-	man/systemd-rfkill@.service.8
-MANPAGES_ALIAS += \
-	man/systemd-rfkill.8
-man/systemd-rfkill.8: man/systemd-rfkill@.service.8
-man/systemd-rfkill.html: man/systemd-rfkill@.service.html
-	$(html-alias)
-
-endif
-
 if ENABLE_SYSUSERS
 MANPAGES += \
 	man/sysusers.d.5
@@ -2362,7 +2351,6 @@ EXTRA_DIST += \
 	man/systemd-random-seed.service.xml \
 	man/systemd-remount-fs.service.xml \
 	man/systemd-resolved.service.xml \
-	man/systemd-rfkill@.service.xml \
 	man/systemd-run.xml \
 	man/systemd-sleep.conf.xml \
 	man/systemd-socket-proxyd.xml \
