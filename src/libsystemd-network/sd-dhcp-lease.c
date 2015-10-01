@@ -314,10 +314,14 @@ static int lease_parse_string(const uint8_t *option, size_t len, char **ret) {
         else {
                 char *string;
 
-                if (memchr(option, 0, len))
+                /*
+                 * One trailing NUL byte is OK, we don't mind. See:
+                 * https://github.com/systemd/systemd/issues/1337
+                 */
+                if (memchr(option, 0, len - 1))
                         return -EINVAL;
 
-                string = strndup((const char *)option, len);
+                string = strndup((const char *) option, len);
                 if (!string)
                         return -ENOMEM;
 

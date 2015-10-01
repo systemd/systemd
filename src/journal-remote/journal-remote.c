@@ -647,9 +647,10 @@ static int setup_microhttpd_server(RemoteServer *s,
         int opts_pos = 3;
         int flags =
                 MHD_USE_DEBUG |
-                MHD_USE_PEDANTIC_CHECKS |
+                MHD_USE_DUAL_STACK |
                 MHD_USE_EPOLL_LINUX_ONLY |
-                MHD_USE_DUAL_STACK;
+                MHD_USE_PEDANTIC_CHECKS |
+                MHD_USE_PIPE_FOR_SHUTDOWN;
 
         const union MHD_DaemonInfo *info;
         int r, epoll_fd;
