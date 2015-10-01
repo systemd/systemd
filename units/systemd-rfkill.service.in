@@ -6,18 +6,16 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Load/Save RF Kill Switch Status of %I
-Documentation=man:systemd-rfkill@.service(8)
+Description=Load/Save RF Kill Switch Status
+Documentation=man:systemd-rfkill.service(8)
 DefaultDependencies=no
-BindsTo=sys-subsystem-rfkill-devices-%i.device
 RequiresMountsFor=/var/lib/systemd/rfkill
+BindsTo=sys-devices-virtual-misc-rfkill.device
 Conflicts=shutdown.target
-After=systemd-remount-fs.service
-Before=sysinit.target shutdown.target
+After=sys-devices-virtual-misc-rfkill.device systemd-remount-fs.service
+Before=shutdown.target
 
 [Service]
-Type=oneshot
-RemainAfterExit=yes
-ExecStart=@rootlibexecdir@/systemd-rfkill load %I
-ExecStop=@rootlibexecdir@/systemd-rfkill save %I
+Type=notify
+ExecStart=@rootlibexecdir@/systemd-rfkill
 TimeoutSec=30s

@@ -57,7 +57,8 @@ SUBSYSTEM=="leds", KERNEL=="*kbd_backlight", TAG+="systemd", IMPORT{builtin}="pa
 
 # Pull in rfkill save/restore for all rfkill devices
 
-SUBSYSTEM=="rfkill", TAG+="systemd", IMPORT{builtin}="path_id", ENV{SYSTEMD_ALIAS}+="/sys/subsystem/rfkill/devices/%k", ENV{SYSTEMD_WANTS}+="systemd-rfkill@$name.service"
+SUBSYSTEM=="rfkill", IMPORT{builtin}="path_id"
+SUBSYSTEM=="misc", KERNEL=="rfkill", TAG+="systemd", ENV{SYSTEMD_WANTS}+="systemd-rfkill.socket"
 
 # Asynchronously mount file systems implemented by these modules as soon as they are loaded.
 SUBSYSTEM=="module", KERNEL=="fuse", TAG+="systemd", ENV{SYSTEMD_WANTS}+="sys-fs-fuse-connections.mount"

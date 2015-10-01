@@ -905,21 +905,23 @@
 
       <varlistentry>
         <term><varname>USBFunctionDescriptors=</varname></term>
-        <listitem><para>Configure the location of the file containing
-        <ulink url="https://www.kernel.org/doc/Documentation/usb/functionfs.txt">functionfs</ulink>
-        descriptors. This is is used only when a socket with
-        <varname>ListenUSBFunction=</varname> configured wants to
-        activate this service. Content of this file is writen to
-        <filename>ep0</filename> file after it is opened. This is
-        required for socket activation using
-        <varname>ListenUSBFunction=</varname> (i.e. for passing all
-        functionfs endpoints to the service).</para></listitem>
+        <listitem><para>Configure the location of a file containing
+        <ulink
+        url="https://www.kernel.org/doc/Documentation/usb/functionfs.txt">USB
+        FunctionFS</ulink> descriptors, for implementation of USB
+        gadget functions. This is is used only in conjunction with a
+        socket unit with <varname>ListenUSBFunction=</varname>
+        configured. The contents of this file is written to the
+        <filename>ep0</filename> file after it is
+        opened.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>USBFunctionStrings=</varname></term>
-        <listitem><para>Configure the location of file containing FunctionFS strings.
-        Behavior is similar to <varname>USBFunctionDescriptors</varname>.</para></listitem>
+        <listitem><para>Configure the location of a file containing
+        USB FunctionFS strings.  Behavior is similar to
+        <varname>USBFunctionDescriptors=</varname>
+        above.</para></listitem>
       </varlistentry>
 
     </variablelist>

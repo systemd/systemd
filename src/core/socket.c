@@ -507,6 +507,7 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sPassSecurity: %s\n"
                 "%sTCPCongestion: %s\n"
                 "%sRemoveOnStop: %s\n"
+                "%sWritable: %s\n"
                 "%sSELinuxContextFromNet: %s\n",
                 prefix, socket_state_to_string(s->state),
                 prefix, socket_result_to_string(s->result),
@@ -523,6 +524,7 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, yes_no(s->pass_sec),
                 prefix, strna(s->tcp_congestion),
                 prefix, yes_no(s->remove_on_stop),
+                prefix, yes_no(s->writable),
                 prefix, yes_no(s->selinux_context_from_net));
 
         if (s->control_pid > 0)
@@ -1031,14 +1033,14 @@ fail:
         return r;
 }
 
-static int special_address_create(const char *path) {
+static int special_address_create(const char *path, bool writable) {
         _cleanup_close_ int fd = -1;
         struct stat st;
         int r;
 
         assert(path);
 
-        fd = open(path, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NONBLOCK|O_NOFOLLOW);
+        fd = open(path, (writable ? O_RDWR : O_RDONLY)|O_CLOEXEC|O_NOCTTY|O_NONBLOCK|O_NOFOLLOW);
         if (fd < 0)
                 return -errno;
 
@@ -1280,7 +1282,7 @@ static int socket_open_fds(Socket *s) {
 
                 case SOCKET_SPECIAL:
 
-                        p->fd = special_address_create(p->path);
+                        p->fd = special_address_create(p->path, s->writable);
                         if (p->fd < 0) {
                                 r = p->fd;
                                 goto rollback;

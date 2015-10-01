@@ -126,6 +126,18 @@ CHANGES WITH 227:
           file is now also downloaded, if it is available and stored
           next to the image file.
 
+        * Units of type ".socket" gained a new boolean setting
+          Writable= which is only useful in conjunction with
+          ListenSpecial=. If true, enables opening the specified
+          special file in O_RDWR mode rather than O_RDONLY mode.
+
+        * systemd-rfkill has been reworked to become a singleton
+          service that is activated through /dev/rfkill on each rfkill
+          state change and saves the settings to disk. This way,
+          systemd-rfkill is now compatible with devices that exist
+          only intermittendly, and even restores state if the previous
+          system shutdown was abrupt rather than clean.
+
         * Galician, Turkish and Korean translations were added.
 
         Contributions from:

@@ -118,6 +118,7 @@ struct Socket {
 
         bool accept;
         bool remove_on_stop;
+        bool writable;
 
         /* Socket options */
         bool keep_alive;

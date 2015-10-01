@@ -261,6 +261,7 @@ Socket.SocketGroup,              config_parse_unit_string_printf,    0,         
 Socket.SocketMode,               config_parse_mode,                  0,                             offsetof(Socket, socket_mode)
 Socket.DirectoryMode,            config_parse_mode,                  0,                             offsetof(Socket, directory_mode)
 Socket.Accept,                   config_parse_bool,                  0,                             offsetof(Socket, accept)
+Socket.Writable,                 config_parse_bool,                  0,                             offsetof(Socket, writable)
 Socket.MaxConnections,           config_parse_unsigned,              0,                             offsetof(Socket, max_connections)
 Socket.KeepAlive,                config_parse_bool,                  0,                             offsetof(Socket, keep_alive)
 Socket.KeepAliveTimeSec,         config_parse_sec,                   0,                             offsetof(Socket, keep_alive_time)

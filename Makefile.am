@@ -4463,7 +4463,10 @@ rootlibexec_PROGRAMS += \
 	systemd-rfkill
 
 nodist_systemunit_DATA += \
-	units/systemd-rfkill@.service
+	units/systemd-rfkill.service
+
+dist_systemunit_DATA += \
+	units/systemd-rfkill.socket
 
 systemd_rfkill_SOURCES = \
 	src/rfkill/rfkill.c
@@ -4473,7 +4476,7 @@ systemd_rfkill_LDADD = \
 endif
 
 EXTRA_DIST += \
-	units/systemd-rfkill@.service.in
+	units/systemd-rfkill.service.in
 
 # ------------------------------------------------------------------------------
 if HAVE_LIBCRYPTSETUP
