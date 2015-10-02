@@ -202,7 +202,7 @@ void server_fix_perms(Server *s, JournalFile *f, uid_t uid) {
 
         r = fchmod(f->fd, 0640);
         if (r < 0)
-                log_warning_errno(r, "Failed to fix access mode on %s, ignoring: %m", f->path);
+                log_warning_errno(errno, "Failed to fix access mode on %s, ignoring: %m", f->path);
 
 #ifdef HAVE_ACL
         if (uid <= SYSTEM_UID_MAX)
@@ -350,13 +350,13 @@ void server_sync(Server *s) {
         if (s->system_journal) {
                 r = journal_file_set_offline(s->system_journal);
                 if (r < 0)
-                        log_error_errno(r, "Failed to sync system journal: %m");
+                        log_warning_errno(r, "Failed to sync system journal, ignoring: %m");
         }
 
         ORDERED_HASHMAP_FOREACH_KEY(f, k, s->user_journals, i) {
                 r = journal_file_set_offline(f);
                 if (r < 0)
-                        log_error_errno(r, "Failed to sync user journal: %m");
+                        log_warning_errno(r, "Failed to sync user journal, ignoring: %m");
         }
 
         if (s->sync_event_source) {

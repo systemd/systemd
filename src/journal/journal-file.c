@@ -2859,8 +2859,7 @@ int journal_file_open_reliably(
                      random_u64()) < 0)
                 return -ENOMEM;
 
-        r = rename(fname, p);
-        if (r < 0)
+        if (rename(fname, p) < 0)
                 return -errno;
 
         /* btrfs doesn't cope well with our write pattern and
@@ -2869,7 +2868,7 @@ int journal_file_open_reliably(
         (void) chattr_path(p, false, FS_NOCOW_FL);
         (void) btrfs_defrag(p);
 
-        log_warning("File %s corrupted or uncleanly shut down, renaming and replacing.", fname);
+        log_warning_errno(r, "File %s corrupted or uncleanly shut down, renaming and replacing.", fname);
 
         return journal_file_open(fname, flags, mode, compress, seal, metrics, mmap_cache, template, ret);
 }
