@@ -136,7 +136,7 @@ int journal_file_open(
                 JournalFile **ret);
 
 int journal_file_set_offline(JournalFile *f);
-void journal_file_close(JournalFile *j);
+JournalFile* journal_file_close(JournalFile *j);
 
 int journal_file_open_reliably(
                 const char *fname,

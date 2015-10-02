@@ -1091,11 +1091,12 @@ int server_flush_to_var(Server *s) {
                 }
         }
 
+        r = 0;
+
 finish:
         journal_file_post_change(s->system_journal);
 
-        journal_file_close(s->runtime_journal);
-        s->runtime_journal = NULL;
+        s->runtime_journal = journal_file_close(s->runtime_journal);
 
         if (r >= 0)
                 (void) rm_rf("/run/log/journal", REMOVE_ROOT);
@@ -1340,8 +1341,8 @@ static int server_parse_proc_cmdline(Server *s) {
                 } else if (startswith(word, "systemd.journald"))
                         log_warning("Invalid systemd.journald parameter. Ignoring.");
         }
-        /* do not warn about state here, since probably systemd already did */
 
+        /* do not warn about state here, since probably systemd already did */
         return 0;
 }
 
@@ -1616,11 +1617,7 @@ int server_init(Server *s) {
         server_cache_boot_id(s);
         server_cache_machine_id(s);
 
-        r = system_journal_open(s, false);
-        if (r < 0)
-                return r;
-
-        return 0;
+        return system_journal_open(s, false);
 }
 
 void server_maybe_append_tags(Server *s) {

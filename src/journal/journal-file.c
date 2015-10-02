@@ -128,7 +128,7 @@ int journal_file_set_offline(JournalFile *f) {
         return 0;
 }
 
-void journal_file_close(JournalFile *f) {
+JournalFile* journal_file_close(JournalFile *f) {
         assert(f);
 
 #ifdef HAVE_GCRYPT
@@ -179,6 +179,7 @@ void journal_file_close(JournalFile *f) {
 #endif
 
         free(f);
+        return NULL;
 }
 
 static int journal_file_init_header(JournalFile *f, JournalFile *template) {
