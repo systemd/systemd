@@ -34,9 +34,9 @@ struct vacuum_info {
         char *filename;
 
         uint64_t realtime;
+
         sd_id128_t seqnum_id;
         uint64_t seqnum;
-
         bool have_seqnum;
 };
 
@@ -67,19 +67,18 @@ static int vacuum_compare(const void *_a, const void *_b) {
 }
 
 static void patch_realtime(
-                const char *dir,
+                int fd,
                 const char *fn,
                 const struct stat *st,
                 unsigned long long *realtime) {
 
-        _cleanup_free_ char *path = NULL;
         usec_t x, crtime = 0;
 
         /* The timestamp was determined by the file name, but let's
          * see if the file might actually be older than the file name
          * suggested... */
 
-        assert(dir);
+        assert(fd >= 0);
         assert(fn);
         assert(st);
         assert(realtime);
@@ -101,14 +100,7 @@ static void patch_realtime(
          * unfortunately there's currently no sane API to query
          * it. Hence let's implement this manually... */
 
-        /* Unfortunately there is is not fgetxattrat(), so we need to
-         * go via path here. :-( */
-
-        path = strjoin(dir, "/", fn, NULL);
-        if (!path)
-                return;
-
-        if (path_getcrtime(path, &crtime) >= 0) {
+        if (fd_getcrtime_at(fd, fn, &crtime, 0) >= 0) {
                 if (crtime < *realtime)
                         *realtime = crtime;
         }
