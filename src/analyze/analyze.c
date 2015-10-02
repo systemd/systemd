@@ -662,13 +662,13 @@ static int analyze_plot(sd_bus *bus) {
         svg("<text x=\"20\" y=\"50\">%s</text>", pretty_times);
         if (host != NULL) {
                 svg("<text x=\"20\" y=\"30\">%s %s (%s %s %s) %s %s</text>",
-                    isempty(host->os_pretty_name) ? "Linux" : host->os_pretty_name,
-                    isempty(host->hostname) ? "" : host->hostname,
-                    isempty(host->kernel_name) ? "" : host->kernel_name,
-                    isempty(host->kernel_release) ? "" : host->kernel_release,
-                    isempty(host->kernel_version) ? "" : host->kernel_version,
-                    isempty(host->architecture) ? "" : host->architecture,
-                    isempty(host->virtualization) ? "" : host->virtualization);
+                    strempty(host->os_pretty_name),
+                    strempty(host->hostname),
+                    strempty(host->kernel_name),
+                    strempty(host->kernel_release),
+                    strempty(host->kernel_version),
+                    strempty(host->architecture),
+                    strempty(host->virtualization));
         }
 
         svg("<g transform=\"translate(%.3f,100)\">\n", 20.0 + (SCALE_X * boot->firmware_time));
