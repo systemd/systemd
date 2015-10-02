@@ -926,7 +926,7 @@ finish:
 
 static int system_journal_open(Server *s, bool flush_requested) {
         int r;
-        char *fn;
+        const char *fn;
         sd_id128_t machine;
         char ids[33];
 
@@ -969,9 +969,7 @@ static int system_journal_open(Server *s, bool flush_requested) {
         if (!s->runtime_journal &&
             (s->storage != STORAGE_NONE)) {
 
-                fn = strjoin("/run/log/journal/", ids, "/system.journal", NULL);
-                if (!fn)
-                        return -ENOMEM;
+                fn = strjoina("/run/log/journal/", ids, "/system.journal", NULL);
 
                 if (s->system_journal) {
 
@@ -980,8 +978,6 @@ static int system_journal_open(Server *s, bool flush_requested) {
                          * it into the system journal */
 
                         r = journal_file_open(fn, O_RDWR, 0640, s->compress, false, &s->runtime_metrics, s->mmap, NULL, &s->runtime_journal);
-                        free(fn);
-
                         if (r < 0) {
                                 if (r != -ENOENT)
                                         log_warning_errno(r, "Failed to open runtime journal: %m");
@@ -999,8 +995,6 @@ static int system_journal_open(Server *s, bool flush_requested) {
                         (void) mkdir_parents(fn, 0750);
 
                         r = journal_file_open_reliably(fn, O_RDWR|O_CREAT, 0640, s->compress, false, &s->runtime_metrics, s->mmap, NULL, &s->runtime_journal);
-                        free(fn);
-
                         if (r < 0)
                                 return log_error_errno(r, "Failed to open runtime journal: %m");
                 }
