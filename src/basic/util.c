@@ -5598,7 +5598,7 @@ int fflush_and_check(FILE *f) {
 
 int tempfn_xxxxxx(const char *p, const char *extra, char **ret) {
         const char *fn;
-        char *t;
+        char *t, *path;
 
         assert(p);
         assert(ret);
@@ -5624,13 +5624,17 @@ int tempfn_xxxxxx(const char *p, const char *extra, char **ret) {
 
         strcpy(stpcpy(stpcpy(stpcpy(mempcpy(t, p, fn - p), ".#"), extra), fn), "XXXXXX");
 
-        *ret = path_kill_slashes(t);
+        path = path_kill_slashes(t);
+        if (strlen(path) >= NAME_MAX)
+                path[NAME_MAX] = '\0';
+
+        *ret = path;
         return 0;
 }
 
 int tempfn_random(const char *p, const char *extra, char **ret) {
         const char *fn;
-        char *t, *x;
+        char *t, *x, *path;
         uint64_t u;
         unsigned i;
 
@@ -5666,12 +5670,16 @@ int tempfn_random(const char *p, const char *extra, char **ret) {
 
         *x = 0;
 
-        *ret = path_kill_slashes(t);
+        path = path_kill_slashes(t);
+        if (strlen(path) >= NAME_MAX)
+                path[NAME_MAX] = '\0';
+
+        *ret = path;
         return 0;
 }
 
 int tempfn_random_child(const char *p, const char *extra, char **ret) {
-        char *t, *x;
+        char *t, *x, *path;
         uint64_t u;
         unsigned i;
 
@@ -5701,7 +5709,11 @@ int tempfn_random_child(const char *p, const char *extra, char **ret) {
 
         *x = 0;
 
-        *ret = path_kill_slashes(t);
+        path = path_kill_slashes(t);
+        if (strlen(path) >= NAME_MAX)
+                path[NAME_MAX] = '\0';
+
+        *ret = path;
         return 0;
 }
 
