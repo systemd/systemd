@@ -649,6 +649,7 @@
       <varlistentry>
         <term><option>--vacuum-size=</option></term>
         <term><option>--vacuum-time=</option></term>
+        <term><option>--vacuum-files=</option></term>
 
         <listitem><para>Removes archived journal files until the disk
         space they use falls below the specified size (specified with
@@ -658,15 +659,24 @@
         timespan (specified with the usual <literal>s</literal>,
         <literal>min</literal>, <literal>h</literal>,
         <literal>days</literal>, <literal>months</literal>,
-        <literal>weeks</literal>, <literal>years</literal>
-        suffixes). Note that running <option>--vacuum-size=</option>
-        has only indirect effect on the output shown by
+        <literal>weeks</literal>, <literal>years</literal> suffixes),
+        or no more than the specified number of separate journal files
+        remain. Note that running <option>--vacuum-size=</option> has
+        only indirect effect on the output shown by
         <option>--disk-usage</option> as the latter includes active
-        journal files, while the former only operates on archived
-        journal files. <option>--vacuum-size=</option> and
-        <option>--vacuum-time=</option> may be combined in a single
-        invocation to enforce both a size and time limit on the
-        archived journal files.</para></listitem>
+        journal files, while the the vacuuming operation only operates
+        on archived journal files. Similar,
+        <option>--vacuum-files=</option> might not actually reduce the
+        number of journal files to below the specified number, as it
+        will not remove active journal
+        files. <option>--vacuum-size=</option>,
+        <option>--vacuum-time=</option> and
+        <option>--vacuum-files=</option> may be combined in a single
+        invocation to enforce any combination of a size, a time and a
+        number of files limit on the archived journal
+        files. Specifying any of these three parameters as zero is
+        equivalent to not enforcing the specific limit, and is thus
+        redundant.</para></listitem>
       </varlistentry>
 
       <varlistentry>

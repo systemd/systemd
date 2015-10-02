@@ -100,8 +100,9 @@ typedef struct Server {
         unsigned n_forward_syslog_missed;
         usec_t last_warn_forward_syslog_missed;
 
-        uint64_t cached_available_space;
-        usec_t cached_available_space_timestamp;
+        uint64_t cached_space_available;
+        uint64_t cached_space_limit;
+        usec_t cached_space_timestamp;
 
         uint64_t var_available_timestamp;
 
@@ -141,6 +142,8 @@ typedef struct Server {
         char *cgroup_root;
 } Server;
 
+#define SERVER_MACHINE_ID(s) ((s)->machine_id_field + strlen("_MACHINE_ID="))
+
 #define N_IOVEC_META_FIELDS 20
 #define N_IOVEC_KERNEL_FIELDS 64
 #define N_IOVEC_UDEV_FIELDS 32
@@ -166,7 +169,7 @@ void server_fix_perms(Server *s, JournalFile *f, uid_t uid);
 int server_init(Server *s);
 void server_done(Server *s);
 void server_sync(Server *s);
-void server_vacuum(Server *s);
+int server_vacuum(Server *s, bool verbose, bool patch_min_use);
 void server_rotate(Server *s);
 int server_schedule_sync(Server *s, int priority);
 int server_flush_to_var(Server *s);

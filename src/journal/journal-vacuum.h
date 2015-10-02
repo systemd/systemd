@@ -21,5 +21,9 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <inttypes.h>
+#include <stdbool.h>
 
-int journal_directory_vacuum(const char *directory, uint64_t max_use, usec_t max_retention_usec, usec_t *oldest_usec, bool vacuum);
+#include "time-util.h"
+
+int journal_directory_vacuum(const char *directory, uint64_t max_use, uint64_t n_max_files, usec_t max_retention_usec, usec_t *oldest_usec, bool verbose);

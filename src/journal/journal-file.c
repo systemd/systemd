@@ -49,6 +49,9 @@
 #define DEFAULT_MAX_USE_LOWER (1ULL*1024ULL*1024ULL)           /* 1 MiB */
 #define DEFAULT_MAX_USE_UPPER (4ULL*1024ULL*1024ULL*1024ULL)   /* 4 GiB */
 
+/* This is the default minimal use limit, how much we'll use even if keep_free suggests otherwise. */
+#define DEFAULT_MIN_USE (1ULL*1024ULL*1024ULL)                 /* 1 MiB */
+
 /* This is the upper bound if we deduce max_size from max_use */
 #define DEFAULT_MAX_SIZE_UPPER (128ULL*1024ULL*1024ULL)        /* 128 MiB */
 
@@ -59,6 +62,9 @@
 /* This is the keep_free value when we can't determine the system
  * size */
 #define DEFAULT_KEEP_FREE (1024ULL*1024ULL)                    /* 1 MB */
+
+/* This is the default maximum number of journal files to keep around. */
+#define DEFAULT_N_MAX_FILES (100)
 
 /* n_data was the first entry we added after the initial file format design */
 #define HEADER_SIZE_MIN ALIGN64(offsetof(Header, n_data))
@@ -2957,16 +2963,35 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
         return r;
 }
 
+void journal_reset_metrics(JournalMetrics *m) {
+        assert(m);
+
+        /* Set everything to "pick automatic values". */
+
+        *m = (JournalMetrics) {
+                .min_use = (uint64_t) -1,
+                .max_use = (uint64_t) -1,
+                .min_size = (uint64_t) -1,
+                .max_size = (uint64_t) -1,
+                .keep_free = (uint64_t) -1,
+                .n_max_files = (uint64_t) -1,
+        };
+}
+
 void journal_default_metrics(JournalMetrics *m, int fd) {
-        uint64_t fs_size = 0;
+        char a[FORMAT_BYTES_MAX], b[FORMAT_BYTES_MAX], c[FORMAT_BYTES_MAX], d[FORMAT_BYTES_MAX], e[FORMAT_BYTES_MAX];
         struct statvfs ss;
-        char a[FORMAT_BYTES_MAX], b[FORMAT_BYTES_MAX], c[FORMAT_BYTES_MAX], d[FORMAT_BYTES_MAX];
+        uint64_t fs_size;
 
         assert(m);
         assert(fd >= 0);
 
         if (fstatvfs(fd, &ss) >= 0)
                 fs_size = ss.f_frsize * ss.f_blocks;
+        else {
+                log_debug_errno(errno, "Failed to detremine disk size: %m");
+                fs_size = 0;
+        }
 
         if (m->max_use == (uint64_t) -1) {
 
@@ -2983,9 +3008,15 @@ void journal_default_metrics(JournalMetrics *m, int fd) {
         } else {
                 m->max_use = PAGE_ALIGN(m->max_use);
 
-                if (m->max_use < JOURNAL_FILE_SIZE_MIN*2)
+                if (m->max_use != 0 && m->max_use < JOURNAL_FILE_SIZE_MIN*2)
                         m->max_use = JOURNAL_FILE_SIZE_MIN*2;
         }
+
+        if (m->min_use == (uint64_t) -1)
+                m->min_use = DEFAULT_MIN_USE;
+
+        if (m->min_use > m->max_use)
+                m->min_use = m->max_use;
 
         if (m->max_size == (uint64_t) -1) {
                 m->max_size = PAGE_ALIGN(m->max_use / 8); /* 8 chunks */
@@ -2995,11 +3026,13 @@ void journal_default_metrics(JournalMetrics *m, int fd) {
         } else
                 m->max_size = PAGE_ALIGN(m->max_size);
 
-        if (m->max_size < JOURNAL_FILE_SIZE_MIN)
-                m->max_size = JOURNAL_FILE_SIZE_MIN;
+        if (m->max_size != 0) {
+                if (m->max_size < JOURNAL_FILE_SIZE_MIN)
+                        m->max_size = JOURNAL_FILE_SIZE_MIN;
 
-        if (m->max_size*2 > m->max_use)
-                m->max_use = m->max_size*2;
+                if (m->max_use != 0 && m->max_size*2 > m->max_use)
+                        m->max_use = m->max_size*2;
+        }
 
         if (m->min_size == (uint64_t) -1)
                 m->min_size = JOURNAL_FILE_SIZE_MIN;
@@ -3009,7 +3042,7 @@ void journal_default_metrics(JournalMetrics *m, int fd) {
                 if (m->min_size < JOURNAL_FILE_SIZE_MIN)
                         m->min_size = JOURNAL_FILE_SIZE_MIN;
 
-                if (m->min_size > m->max_size)
+                if (m->max_size != 0 && m->min_size > m->max_size)
                         m->max_size = m->min_size;
         }
 
@@ -3025,11 +3058,16 @@ void journal_default_metrics(JournalMetrics *m, int fd) {
                         m->keep_free = DEFAULT_KEEP_FREE;
         }
 
-        log_debug("Fixed max_use=%s max_size=%s min_size=%s keep_free=%s",
-                  format_bytes(a, sizeof(a), m->max_use),
-                  format_bytes(b, sizeof(b), m->max_size),
-                  format_bytes(c, sizeof(c), m->min_size),
-                  format_bytes(d, sizeof(d), m->keep_free));
+        if (m->n_max_files == (uint64_t) -1)
+                m->n_max_files = DEFAULT_N_MAX_FILES;
+
+        log_debug("Fixed min_use=%s max_use=%s max_size=%s min_size=%s keep_free=%s n_max_files=%" PRIu64,
+                  format_bytes(a, sizeof(a), m->min_use),
+                  format_bytes(b, sizeof(b), m->max_use),
+                  format_bytes(c, sizeof(c), m->max_size),
+                  format_bytes(d, sizeof(d), m->min_size),
+                  format_bytes(e, sizeof(e), m->keep_free),
+                  m->n_max_files);
 }
 
 int journal_file_get_cutoff_realtime_usec(JournalFile *f, usec_t *from, usec_t *to) {
