@@ -112,9 +112,13 @@ static int journal_file_empty(int dir_fd, const char *name) {
         le64_t n_entries;
         ssize_t n;
 
-        fd = openat(dir_fd, name, O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NONBLOCK);
-        if (fd < 0)
-                return -errno;
+        fd = openat(dir_fd, name, O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NONBLOCK|O_NOATIME);
+        if (fd < 0) {
+                /* Maybe failed due to O_NOATIME and lack of privileges? */
+                fd = openat(dir_fd, name, O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NONBLOCK);
+                if (fd < 0)
+                        return -errno;
+        }
 
         if (fstat(fd, &st) < 0)
                 return -errno;
