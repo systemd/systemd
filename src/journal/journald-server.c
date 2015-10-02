@@ -193,7 +193,7 @@ static uint64_t available_space(Server *s, bool verbose) {
 void server_fix_perms(Server *s, JournalFile *f, uid_t uid) {
         int r;
 #ifdef HAVE_ACL
-        acl_t acl;
+        _cleanup_(acl_freep) acl_t acl = NULL;
         acl_entry_t entry;
         acl_permset_t permset;
 #endif
@@ -221,7 +221,7 @@ void server_fix_perms(Server *s, JournalFile *f, uid_t uid) {
                     acl_set_tag_type(entry, ACL_USER) < 0 ||
                     acl_set_qualifier(entry, &uid) < 0) {
                         log_warning_errno(errno, "Failed to patch ACL on %s, ignoring: %m", f->path);
-                        goto finish;
+                        return;
                 }
         }
 
@@ -231,14 +231,12 @@ void server_fix_perms(Server *s, JournalFile *f, uid_t uid) {
             acl_add_perm(permset, ACL_READ) < 0 ||
             calc_acl_mask_if_needed(&acl) < 0) {
                 log_warning_errno(errno, "Failed to patch ACL on %s, ignoring: %m", f->path);
-                goto finish;
+                return;
         }
 
         if (acl_set_fd(f->fd, acl) < 0)
                 log_warning_errno(errno, "Failed to set ACL on %s, ignoring: %m", f->path);
 
-finish:
-        acl_free(acl);
 #endif
 }
 
