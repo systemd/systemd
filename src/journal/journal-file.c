@@ -399,12 +399,7 @@ static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size)
                 if (fstatvfs(f->fd, &svfs) >= 0) {
                         uint64_t available;
 
-                        available = svfs.f_bfree * svfs.f_bsize;
-
-                        if (available >= f->metrics.keep_free)
-                                available -= f->metrics.keep_free;
-                        else
-                                available = 0;
+                        available = LESS_BY((uint64_t) svfs.f_bfree * (uint64_t) svfs.f_bsize, f->metrics.keep_free);
 
                         if (new_size - old_size > available)
                                 return -E2BIG;
@@ -605,10 +600,10 @@ static int journal_file_setup_data_hash_table(JournalFile *f) {
 
         assert(f);
 
-        /* We estimate that we need 1 hash table entry per 768 of
-           journal file and we want to make sure we never get beyond
-           75% fill level. Calculate the hash table size for the
-           maximum file size based on these metrics. */
+        /* We estimate that we need 1 hash table entry per 768 bytes
+           of journal file and we want to make sure we never get
+           beyond 75% fill level. Calculate the hash table size for
+           the maximum file size based on these metrics. */
 
         s = (f->metrics.max_size * 4 / 768 / 3) * sizeof(HashItem);
         if (s < DEFAULT_DATA_HASH_TABLE_SIZE)
@@ -2834,8 +2829,7 @@ int journal_file_open_reliably(
         size_t l;
         _cleanup_free_ char *p = NULL;
 
-        r = journal_file_open(fname, flags, mode, compress, seal,
-                              metrics, mmap_cache, template, ret);
+        r = journal_file_open(fname, flags, mode, compress, seal, metrics, mmap_cache, template, ret);
         if (!IN_SET(r,
                     -EBADMSG,           /* corrupted */
                     -ENODATA,           /* truncated */
@@ -2877,8 +2871,7 @@ int journal_file_open_reliably(
 
         log_warning("File %s corrupted or uncleanly shut down, renaming and replacing.", fname);
 
-        return journal_file_open(fname, flags, mode, compress, seal,
-                                 metrics, mmap_cache, template, ret);
+        return journal_file_open(fname, flags, mode, compress, seal, metrics, mmap_cache, template, ret);
 }
 
 int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint64_t p, uint64_t *seqnum, Object **ret, uint64_t *offset) {
