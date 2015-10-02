@@ -31,6 +31,7 @@
 #include "pull-common.h"
 #include "process-util.h"
 #include "signal-util.h"
+#include "siphash24.h"
 
 #define FILENAME_ESCAPE "/.#\"\'"
 
@@ -149,8 +150,16 @@ int pull_make_local_copy(const char *final, const char *image_root, const char *
         return 0;
 }
 
+static int hash_url(const char *url, char **ret) {
+        uint64_t h;
+        const uint8_t k[16] = {'s', 'e', 'c', 'r', 'e', 't'};
+
+        siphash24((uint8_t *) &h, url, strlen(url), k);
+        return asprintf(ret, "%lx", h);
+}
+
 int pull_make_path(const char *url, const char *etag, const char *image_root, const char *prefix, const char *suffix, char **ret) {
-        _cleanup_free_ char *escaped_url = NULL;
+        _cleanup_free_ char *escaped_url = NULL, *escaped_etag = NULL;
         char *path;
 
         assert(url);
@@ -164,17 +173,34 @@ int pull_make_path(const char *url, const char *etag, const char *image_root, co
                 return -ENOMEM;
 
         if (etag) {
-                _cleanup_free_ char *escaped_etag = NULL;
-
                 escaped_etag = xescape(etag, FILENAME_ESCAPE);
                 if (!escaped_etag)
                         return -ENOMEM;
+        }
 
-                path = strjoin(image_root, "/", strempty(prefix), escaped_url, ".", escaped_etag, strempty(suffix), NULL);
-        } else
-                path = strjoin(image_root, "/", strempty(prefix), escaped_url, strempty(suffix), NULL);
+        path = strjoin(image_root, "/", strempty(prefix), escaped_url, escaped_etag ? "." : "",
+                       strempty(escaped_etag), strempty(suffix), NULL);
         if (!path)
                 return -ENOMEM;
+
+        /* URLs might make the path longer than the maximum allowed length for a file name.
+         * When that happens, a URL hash is used instead. Paths returned by this function
+         * can be later used with tempfn_random() which adds 16 bytes to the resulting name. */
+        if (strlen(path) >= _POSIX_PATH_MAX-16) {
+                _cleanup_free_ char *hash = NULL;
+                int r;
+
+                free(path);
+
+                r = hash_url(url, &hash);
+                if (r < 0)
+                        return r;
+
+                path = strjoin(image_root, "/", strempty(prefix), hash, escaped_etag ? "." : "",
+                               strempty(escaped_etag), strempty(suffix), NULL);
+                if (!path)
+                        return -ENOMEM;
+        }
 
         *ret = path;
         return 0;
