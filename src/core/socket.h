@@ -157,7 +157,7 @@ struct Socket {
 };
 
 /* Called from the service code when collecting fds */
-int socket_collect_fds(Socket *s, int **fds, unsigned *n_fds);
+int socket_collect_fds(Socket *s, int **fds);
 
 /* Called from the service code when a per-connection service ended */
 void socket_connection_unref(Socket *s);

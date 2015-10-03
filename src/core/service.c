@@ -957,57 +957,51 @@ static int service_coldplug(Unit *u) {
         return 0;
 }
 
-static int service_collect_fds(Service *s, int **fds, unsigned *n_fds) {
+static int service_collect_fds(Service *s, int **fds) {
         _cleanup_free_ int *rfds = NULL;
-        unsigned rn_fds = 0;
+        int rn_fds = 0;
         Iterator i;
-        int r;
         Unit *u;
 
         assert(s);
         assert(fds);
-        assert(n_fds);
 
         if (s->socket_fd >= 0)
-                return 0;
+                return -EINVAL;
 
         SET_FOREACH(u, UNIT(s)->dependencies[UNIT_TRIGGERED_BY], i) {
-                int *cfds;
-                unsigned cn_fds;
+                _cleanup_free_ int *cfds = NULL;
                 Socket *sock;
+                int cn_fds;
 
                 if (u->type != UNIT_SOCKET)
                         continue;
 
                 sock = SOCKET(u);
 
-                r = socket_collect_fds(sock, &cfds, &cn_fds);
-                if (r < 0)
-                        return r;
+                cn_fds = socket_collect_fds(sock, &cfds);
+                if (cn_fds < 0)
+                        return cn_fds;
 
-                if (cn_fds <= 0) {
-                        free(cfds);
+                if (cn_fds <= 0)
                         continue;
-                }
 
                 if (!rfds) {
                         rfds = cfds;
                         rn_fds = cn_fds;
+
+                        cfds = NULL;
                 } else {
                         int *t;
 
                         t = realloc(rfds, (rn_fds + cn_fds) * sizeof(int));
-                        if (!t) {
-                                free(cfds);
+                        if (!t)
                                 return -ENOMEM;
-                        }
 
                         memcpy(t + rn_fds, cfds, cn_fds * sizeof(int));
+
                         rfds = t;
                         rn_fds += cn_fds;
-
-                        free(cfds);
-
                 }
         }
 
@@ -1025,10 +1019,9 @@ static int service_collect_fds(Service *s, int **fds, unsigned *n_fds) {
         }
 
         *fds = rfds;
-        *n_fds = rn_fds;
-
         rfds = NULL;
-        return 0;
+
+        return rn_fds;
 }
 
 static int service_spawn(
@@ -1082,11 +1075,12 @@ static int service_spawn(
                         fds = &s->socket_fd;
                         n_fds = 1;
                 } else {
-                        r = service_collect_fds(s, &fdsbuf, &n_fds);
+                        r = service_collect_fds(s, &fdsbuf);
                         if (r < 0)
                                 goto fail;
 
                         fds = fdsbuf;
+                        n_fds = r;
                 }
         }
 

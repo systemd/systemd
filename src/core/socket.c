@@ -2628,49 +2628,43 @@ static int socket_dispatch_timer(sd_event_source *source, usec_t usec, void *use
         return 0;
 }
 
-int socket_collect_fds(Socket *s, int **fds, unsigned *n_fds) {
-        int *rfds;
-        unsigned rn_fds, k;
-        int i;
+int socket_collect_fds(Socket *s, int **fds) {
+        int *rfds, k = 0, n = 0;
         SocketPort *p;
 
         assert(s);
         assert(fds);
-        assert(n_fds);
 
         /* Called from the service code for requesting our fds */
 
-        rn_fds = 0;
         LIST_FOREACH(port, p, s->ports) {
                 if (p->fd >= 0)
-                        rn_fds++;
-                rn_fds += p->n_auxiliary_fds;
+                        n++;
+                n += p->n_auxiliary_fds;
         }
 
-        if (rn_fds <= 0) {
+        if (n <= 0) {
                 *fds = NULL;
-                *n_fds = 0;
                 return 0;
         }
 
-        rfds = new(int, rn_fds);
+        rfds = new(int, n);
         if (!rfds)
                 return -ENOMEM;
 
-        k = 0;
         LIST_FOREACH(port, p, s->ports) {
+                int i;
+
                 if (p->fd >= 0)
                         rfds[k++] = p->fd;
                 for (i = 0; i < p->n_auxiliary_fds; ++i)
                         rfds[k++] = p->auxiliary_fds[i];
         }
 
-        assert(k == rn_fds);
+        assert(k == n);
 
         *fds = rfds;
-        *n_fds = rn_fds;
-
-        return 0;
+        return n;
 }
 
 static void socket_reset_failed(Unit *u) {
