@@ -35,5 +35,10 @@ DeviceAllow=/dev/net/tun rwm
 DeviceAllow=/dev/pts/ptmx rw
 DeviceAllow=char-pts rw
 
+# nspawn itself needs access to /dev/loop-control and /dev/loop, to
+# implement the --image= option. Add these here, too.
+DeviceAllow=/dev/loop-control rw
+DeviceAllow=block-loop rw
+
 [Install]
 WantedBy=machines.target
