@@ -1028,8 +1028,6 @@ static int fifo_address_create(
 
 fail:
         mac_selinux_create_file_clear();
-        safe_close(fd);
-
         return r;
 }
 
