@@ -871,7 +871,6 @@ static int get_block_device_harder(const char *path, dev_t *dev) {
                         goto fallback;
 
                 found = de;
-                break;
         }
 
         if (!found)
