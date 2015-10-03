@@ -72,43 +72,29 @@ static void siphash_init(struct siphash *state, const uint8_t k[16]) {
   state->v3 = 0x7465646279746573ULL ^ k1;
 }
 
-static u64 siphash24_finalize(struct siphash *state) {
-  state->v2 ^= 0xff;
-  SIPROUND(state);
-  SIPROUND(state);
-  SIPROUND(state);
-  SIPROUND(state);
-
-  return state->v0 ^ state->v1 ^ state->v2  ^ state->v3;
-}
-
-/* SipHash-2-4 */
-void siphash24(uint8_t out[8], const void *_in, size_t inlen, const uint8_t k[16])
-{
-  struct siphash state;
+static void siphash24_compress(const void *_in, size_t inlen, struct siphash *state) {
   u64 b;
   u64 m;
   const u8 *in = _in;
   const u8 *end = in + inlen - ( inlen % sizeof( u64 ) );
   const int left = inlen & 7;
-  b = ( ( u64 )inlen ) << 56;
 
-  siphash_init(&state, k);
+  b = ( ( u64 )inlen ) << 56;
 
   for ( ; in != end; in += 8 )
   {
     m = U8TO64_LE( in );
 #ifdef DEBUG
-    printf( "(%3d) v0 %08x %08x\n", ( int )inlen, ( u32 )( state.v0 >> 32 ), ( u32 )state.v0 );
-    printf( "(%3d) v1 %08x %08x\n", ( int )inlen, ( u32 )( state.v1 >> 32 ), ( u32 )state.v1 );
-    printf( "(%3d) v2 %08x %08x\n", ( int )inlen, ( u32 )( state.v2 >> 32 ), ( u32 )state.v2 );
-    printf( "(%3d) v3 %08x %08x\n", ( int )inlen, ( u32 )( state.v3 >> 32 ), ( u32 )state.v3 );
+    printf( "(%3d) v0 %08x %08x\n", ( int )inlen, ( u32 )( state->v0 >> 32 ), ( u32 )state->v0 );
+    printf( "(%3d) v1 %08x %08x\n", ( int )inlen, ( u32 )( state->v1 >> 32 ), ( u32 )state->v1 );
+    printf( "(%3d) v2 %08x %08x\n", ( int )inlen, ( u32 )( state->v2 >> 32 ), ( u32 )state->v2 );
+    printf( "(%3d) v3 %08x %08x\n", ( int )inlen, ( u32 )( state->v3 >> 32 ), ( u32 )state->v3 );
     printf( "(%3d) compress %08x %08x\n", ( int )inlen, ( u32 )( m >> 32 ), ( u32 )m );
 #endif
-    state.v3 ^= m;
-    SIPROUND(&state);
-    SIPROUND(&state);
-    state.v0 ^= m;
+    state->v3 ^= m;
+    SIPROUND(state);
+    SIPROUND(state);
+    state->v0 ^= m;
   }
 
   switch( left )
@@ -131,22 +117,43 @@ void siphash24(uint8_t out[8], const void *_in, size_t inlen, const uint8_t k[16
   }
 
 #ifdef DEBUG
-  printf( "(%3d) v0 %08x %08x\n", ( int )inlen, ( u32 )( state.v0 >> 32 ), ( u32 )state.v0 );
-  printf( "(%3d) v1 %08x %08x\n", ( int )inlen, ( u32 )( state.v1 >> 32 ), ( u32 )state.v1 );
-  printf( "(%3d) v2 %08x %08x\n", ( int )inlen, ( u32 )( state.v2 >> 32 ), ( u32 )state.v2 );
-  printf( "(%3d) v3 %08x %08x\n", ( int )inlen, ( u32 )( state.v3 >> 32 ), ( u32 )state.v3 );
+  printf( "(%3d) v0 %08x %08x\n", ( int )inlen, ( u32 )( state->v0 >> 32 ), ( u32 )state->v0 );
+  printf( "(%3d) v1 %08x %08x\n", ( int )inlen, ( u32 )( state->v1 >> 32 ), ( u32 )state->v1 );
+  printf( "(%3d) v2 %08x %08x\n", ( int )inlen, ( u32 )( state->v2 >> 32 ), ( u32 )state->v2 );
+  printf( "(%3d) v3 %08x %08x\n", ( int )inlen, ( u32 )( state->v3 >> 32 ), ( u32 )state->v3 );
   printf( "(%3d) padding   %08x %08x\n", ( int )inlen, ( u32 )( b >> 32 ), ( u32 )b );
 #endif
-  state.v3 ^= b;
-  SIPROUND(&state);
-  SIPROUND(&state);
-  state.v0 ^= b;
+  state->v3 ^= b;
+  SIPROUND(state);
+  SIPROUND(state);
+  state->v0 ^= b;
 #ifdef DEBUG
-  printf( "(%3d) v0 %08x %08x\n", ( int )inlen, ( u32 )( state.v0 >> 32 ), ( u32 )state.v0 );
-  printf( "(%3d) v1 %08x %08x\n", ( int )inlen, ( u32 )( state.v1 >> 32 ), ( u32 )state.v1 );
-  printf( "(%3d) v2 %08x %08x\n", ( int )inlen, ( u32 )( state.v2 >> 32 ), ( u32 )state.v2 );
-  printf( "(%3d) v3 %08x %08x\n", ( int )inlen, ( u32 )( state.v3 >> 32 ), ( u32 )state.v3 );
+  printf( "(%3d) v0 %08x %08x\n", ( int )inlen, ( u32 )( state->v0 >> 32 ), ( u32 )state->v0 );
+  printf( "(%3d) v1 %08x %08x\n", ( int )inlen, ( u32 )( state->v1 >> 32 ), ( u32 )state->v1 );
+  printf( "(%3d) v2 %08x %08x\n", ( int )inlen, ( u32 )( state->v2 >> 32 ), ( u32 )state->v2 );
+  printf( "(%3d) v3 %08x %08x\n", ( int )inlen, ( u32 )( state->v3 >> 32 ), ( u32 )state->v3 );
 #endif
+}
+
+static u64 siphash24_finalize(struct siphash *state) {
+  state->v2 ^= 0xff;
+  SIPROUND(state);
+  SIPROUND(state);
+  SIPROUND(state);
+  SIPROUND(state);
+
+  return state->v0 ^ state->v1 ^ state->v2  ^ state->v3;
+}
+
+/* SipHash-2-4 */
+void siphash24(uint8_t out[8], const void *_in, size_t inlen, const uint8_t k[16])
+{
+  struct siphash state;
+  u64 b;
+
+  siphash_init(&state, k);
+
+  siphash24_compress(_in, inlen, &state);
 
   b = siphash24_finalize(&state);
 
