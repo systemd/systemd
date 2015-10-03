@@ -630,11 +630,16 @@ typedef struct Member {
 
 static void member_hash_func(const void *p, struct siphash *state) {
         const Member *m = p;
+        uint64_t arity = 1;
 
         assert(m);
         assert(m->type);
 
         string_hash_func(m->type, state);
+
+        arity += !!m->name + !!m->interface;
+
+        uint64_hash_func(&arity, state);
 
         if (m->name)
                 string_hash_func(m->name, state);

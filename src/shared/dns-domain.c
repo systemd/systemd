@@ -399,11 +399,17 @@ void dns_name_hash_func(const void *s, struct siphash *state) {
                 if (k > 0)
                         r = k;
 
+                if (r == 0)
+                        break;
+
                 label[r] = 0;
                 ascii_strlower(label);
 
                 string_hash_func(label, state);
         }
+
+        /* enforce that all names are terminated by the empty label */
+        string_hash_func("", state);
 }
 
 int dns_name_compare_func(const void *a, const void *b) {

@@ -277,7 +277,7 @@ static const struct hashmap_type_info hashmap_type_info[_HASHMAP_TYPE_MAX] = {
 };
 
 void string_hash_func(const void *p, struct siphash *state) {
-        siphash24_compress(p, strlen(p), state);
+        siphash24_compress(p, strlen(p) + 1, state);
 }
 
 int string_compare_func(const void *a, const void *b) {

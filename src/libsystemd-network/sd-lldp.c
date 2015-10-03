@@ -74,6 +74,7 @@ static void chassis_id_hash_func(const void *p, struct siphash *state) {
         assert(id);
         assert(id->data);
 
+        siphash24_compress(&id->length, sizeof(id->length), state);
         siphash24_compress(id->data, id->length, state);
 }
 
