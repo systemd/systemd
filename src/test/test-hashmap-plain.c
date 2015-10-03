@@ -693,7 +693,7 @@ static void test_hashmap_get2(void) {
 }
 
 static unsigned long crippled_hashmap_func(const void *p, const uint8_t hash_key[HASH_KEY_SIZE]) {
-        return trivial_hash_func(p, hash_key) & 0xff;
+        return trivial_hash_func(INT_TO_PTR(PTR_TO_INT(p) & 0xff), hash_key);
 }
 
 static const struct hash_ops crippled_hashmap_ops = {
