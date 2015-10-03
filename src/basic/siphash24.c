@@ -52,16 +52,7 @@ typedef uint8_t u8;
     (state)->v2 += (state)->v1; (state)->v1=ROTL((state)->v1,17); (state)->v1 ^= (state)->v2; (state)->v2=ROTL((state)->v2,32); \
   } while(0)
 
-struct siphash {
-  u64 v0;
-  u64 v1;
-  u64 v2;
-  u64 v3;
-  u64 padding;
-  size_t inlen;
-};
-
-static void siphash_init(struct siphash *state, const uint8_t k[16]) {
+void siphash_init(struct siphash *state, const uint8_t k[16]) {
   u64 k0, k1;
 
   k0 = U8TO64_LE( k );
@@ -76,7 +67,7 @@ static void siphash_init(struct siphash *state, const uint8_t k[16]) {
   state->inlen = 0;
 }
 
-static void siphash24_compress(const void *_in, size_t inlen, struct siphash *state) {
+void siphash24_compress(const void *_in, size_t inlen, struct siphash *state) {
   u64 m;
   const u8 *in = _in;
   const u8 *end = in + inlen;
@@ -149,7 +140,7 @@ static void siphash24_compress(const void *_in, size_t inlen, struct siphash *st
   }
 }
 
-static u64 siphash24_finalize(struct siphash *state) {
+uint64_t siphash24_finalize(struct siphash *state) {
   u64 b;
 
   b = state->padding | (( ( u64 )state->inlen ) << 56);
