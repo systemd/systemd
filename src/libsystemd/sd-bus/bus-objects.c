@@ -1578,25 +1578,14 @@ _public_ int sd_bus_add_fallback(
         return bus_add_object(bus, slot, true, prefix, callback, userdata);
 }
 
-static unsigned long vtable_member_hash_func(const void *a, const uint8_t hash_key[HASH_KEY_SIZE]) {
+static void vtable_member_hash_func(const void *a, struct siphash *state) {
         const struct vtable_member *m = a;
-        uint8_t hash_key2[HASH_KEY_SIZE];
-        unsigned long ret;
 
         assert(m);
 
-        ret = string_hash_func(m->path, hash_key);
-
-        /* Use a slightly different hash key for the interface */
-        memcpy(hash_key2, hash_key, HASH_KEY_SIZE);
-        hash_key2[0]++;
-        ret ^= string_hash_func(m->interface, hash_key2);
-
-        /* And an even different one for the  member */
-        hash_key2[0]++;
-        ret ^= string_hash_func(m->member, hash_key2);
-
-        return ret;
+        string_hash_func(m->path, state);
+        string_hash_func(m->interface, state);
+        string_hash_func(m->member, state);
 }
 
 static int vtable_member_compare_func(const void *a, const void *b) {

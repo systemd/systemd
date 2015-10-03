@@ -89,13 +89,10 @@ static int test_compare(const void *a, const void *b) {
         return 0;
 }
 
-static unsigned long test_hash(const void *a, const uint8_t hash_key[HASH_KEY_SIZE]) {
+static void test_hash(const void *a, struct siphash *state) {
         const struct test *x = a;
-        uint64_t u;
 
-        siphash24((uint8_t*) &u, &x->value, sizeof(x->value), hash_key);
-
-        return (unsigned long) u;
+        siphash24_compress(&x->value, sizeof(x->value), state);
 }
 
 static const struct hash_ops test_hash_ops = {

@@ -62,21 +62,11 @@ typedef struct CatalogItem {
         le64_t offset;
 } CatalogItem;
 
-static unsigned long catalog_hash_func(const void *p, const uint8_t hash_key[HASH_KEY_SIZE]) {
+static void catalog_hash_func(const void *p, struct siphash *state) {
         const CatalogItem *i = p;
-        uint64_t u;
-        size_t l, sz;
-        void *v;
 
-        l = strlen(i->language);
-        sz = sizeof(i->id) + l;
-        v = alloca(sz);
-
-        memcpy(mempcpy(v, &i->id, sizeof(i->id)), i->language, l);
-
-        siphash24((uint8_t*) &u, v, sz, hash_key);
-
-        return (unsigned long) u;
+        siphash24_compress(&i->id, sizeof(i->id), state);
+        siphash24_compress(i->language, strlen(i->language), state);
 }
 
 static int catalog_compare_func(const void *a, const void *b) {
