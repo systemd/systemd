@@ -36,6 +36,9 @@ struct Route {
         unsigned char scope;
         uint32_t metrics;
         unsigned char protocol;  /* RTPROT_* */
+        unsigned char tos;
+        unsigned char priority;
+        unsigned char table;
 
         union in_addr_union in_addr;
         union in_addr_union dst_addr;
