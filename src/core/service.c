@@ -884,7 +884,6 @@ static void service_set_state(Service *s, ServiceState state) {
                 log_unit_debug(UNIT(s), "Changed %s -> %s", service_state_to_string(old_state), service_state_to_string(state));
 
         unit_notify(UNIT(s), table[old_state], table[state], s->reload_result == SERVICE_SUCCESS);
-        s->reload_result = SERVICE_SUCCESS;
 }
 
 static int service_coldplug(Unit *u) {
@@ -1778,6 +1777,7 @@ static void service_enter_reload(Service *s) {
         assert(s);
 
         service_unwatch_control_pid(s);
+        s->reload_result = SERVICE_SUCCESS;
 
         s->control_command = s->exec_command[SERVICE_EXEC_RELOAD];
         if (s->control_command) {
