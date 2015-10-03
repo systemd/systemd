@@ -79,12 +79,39 @@ static void siphash_init(struct siphash *state, const uint8_t k[16]) {
 static void siphash24_compress(const void *_in, size_t inlen, struct siphash *state) {
   u64 m;
   const u8 *in = _in;
-  const u8 *end = in + inlen - ( inlen % sizeof( u64 ) );
-  const int left = inlen & 7;
+  const u8 *end = in + inlen;
+  int left = state->inlen & 7;
 
-  state->inlen = inlen;
+  /* update total length */
+  state->inlen += inlen;
 
-  for ( ; in != end; in += 8 )
+  /* if padding exists, fill it out */
+  if (left > 0) {
+    for ( ; in < end && left < 8; in ++, left ++ )
+      state->padding |= ( ( u64 )*in ) << (left * 8);
+
+    if (in == end && left < 8)
+      /* we did not have enough input to fill out the padding completely */
+      return;
+
+#ifdef DEBUG
+    printf( "(%3d) v0 %08x %08x\n", ( int )state->inlen, ( u32 )( state->v0 >> 32 ), ( u32 )state->v0 );
+    printf( "(%3d) v1 %08x %08x\n", ( int )state->inlen, ( u32 )( state->v1 >> 32 ), ( u32 )state->v1 );
+    printf( "(%3d) v2 %08x %08x\n", ( int )state->inlen, ( u32 )( state->v2 >> 32 ), ( u32 )state->v2 );
+    printf( "(%3d) v3 %08x %08x\n", ( int )state->inlen, ( u32 )( state->v3 >> 32 ), ( u32 )state->v3 );
+    printf( "(%3d) compress padding %08x %08x\n", ( int )state->inlen, ( u32 )( state->padding >> 32 ), ( u32 )state->padding );
+#endif
+    state->v3 ^= state->padding;
+    SIPROUND(state);
+    SIPROUND(state);
+    state->v0 ^= state->padding;
+
+    state->padding = 0;
+  }
+
+  end -= ( state->inlen % sizeof (u64) );
+
+  for ( ; in < end; in += 8 )
   {
     m = U8TO64_LE( in );
 #ifdef DEBUG
@@ -99,6 +126,8 @@ static void siphash24_compress(const void *_in, size_t inlen, struct siphash *st
     SIPROUND(state);
     state->v0 ^= m;
   }
+
+  left = state->inlen & 7;
 
   switch( left )
   {
