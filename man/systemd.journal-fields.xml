@@ -258,6 +258,16 @@
           <variablelist>
             <varlistentry>
               <term>
+                <option>audit</option>
+              </term>
+              <listitem>
+                <para>for those read from the kernel audit subsystem
+                </para>
+              </listitem>
+            </varlistentry>
+
+            <varlistentry>
+              <term>
                 <option>driver</option>
               </term>
               <listitem>
