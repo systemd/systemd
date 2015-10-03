@@ -44,49 +44,61 @@ typedef uint8_t u8;
    ((u64)((p)[6]) << 48) | \
    ((u64)((p)[7]) << 56))
 
-#define SIPROUND            \
+#define SIPROUND(state)         \
   do {              \
-    v0 += v1; v1=ROTL(v1,13); v1 ^= v0; v0=ROTL(v0,32); \
-    v2 += v3; v3=ROTL(v3,16); v3 ^= v2;     \
-    v0 += v3; v3=ROTL(v3,21); v3 ^= v0;     \
-    v2 += v1; v1=ROTL(v1,17); v1 ^= v2; v2=ROTL(v2,32); \
+    (state)->v0 += (state)->v1; (state)->v1=ROTL((state)->v1,13); (state)->v1 ^= (state)->v0; (state)->v0=ROTL((state)->v0,32); \
+    (state)->v2 += (state)->v3; (state)->v3=ROTL((state)->v3,16); (state)->v3 ^= (state)->v2;     \
+    (state)->v0 += (state)->v3; (state)->v3=ROTL((state)->v3,21); (state)->v3 ^= (state)->v0;     \
+    (state)->v2 += (state)->v1; (state)->v1=ROTL((state)->v1,17); (state)->v1 ^= (state)->v2; (state)->v2=ROTL((state)->v2,32); \
   } while(0)
+
+struct siphash {
+  u64 v0;
+  u64 v1;
+  u64 v2;
+  u64 v3;
+};
+
+static void siphash_init(struct siphash *state, const uint8_t k[16]) {
+  u64 k0, k1;
+
+  k0 = U8TO64_LE( k );
+  k1 = U8TO64_LE( k + 8 );
+
+  /* "somepseudorandomlygeneratedbytes" */
+  state->v0 = 0x736f6d6570736575ULL ^ k0;
+  state->v1 = 0x646f72616e646f6dULL ^ k1;
+  state->v2 = 0x6c7967656e657261ULL ^ k0;
+  state->v3 = 0x7465646279746573ULL ^ k1;
+}
 
 /* SipHash-2-4 */
 void siphash24(uint8_t out[8], const void *_in, size_t inlen, const uint8_t k[16])
 {
-  /* "somepseudorandomlygeneratedbytes" */
-  u64 v0 = 0x736f6d6570736575ULL;
-  u64 v1 = 0x646f72616e646f6dULL;
-  u64 v2 = 0x6c7967656e657261ULL;
-  u64 v3 = 0x7465646279746573ULL;
+  struct siphash state;
   u64 b;
-  u64 k0 = U8TO64_LE( k );
-  u64 k1 = U8TO64_LE( k + 8 );
   u64 m;
   const u8 *in = _in;
   const u8 *end = in + inlen - ( inlen % sizeof( u64 ) );
   const int left = inlen & 7;
   b = ( ( u64 )inlen ) << 56;
-  v3 ^= k1;
-  v2 ^= k0;
-  v1 ^= k1;
-  v0 ^= k0;
+
+  siphash_init(&state, k);
 
   for ( ; in != end; in += 8 )
   {
     m = U8TO64_LE( in );
 #ifdef DEBUG
-    printf( "(%3d) v0 %08x %08x\n", ( int )inlen, ( u32 )( v0 >> 32 ), ( u32 )v0 );
-    printf( "(%3d) v1 %08x %08x\n", ( int )inlen, ( u32 )( v1 >> 32 ), ( u32 )v1 );
-    printf( "(%3d) v2 %08x %08x\n", ( int )inlen, ( u32 )( v2 >> 32 ), ( u32 )v2 );
-    printf( "(%3d) v3 %08x %08x\n", ( int )inlen, ( u32 )( v3 >> 32 ), ( u32 )v3 );
+    printf( "(%3d) v0 %08x %08x\n", ( int )inlen, ( u32 )( state.v0 >> 32 ), ( u32 )state.v0 );
+    printf( "(%3d) v1 %08x %08x\n", ( int )inlen, ( u32 )( state.v1 >> 32 ), ( u32 )state.v1 );
+    printf( "(%3d) v2 %08x %08x\n", ( int )inlen, ( u32 )( state.v2 >> 32 ), ( u32 )state.v2 );
+    printf( "(%3d) v3 %08x %08x\n", ( int )inlen, ( u32 )( state.v3 >> 32 ), ( u32 )state.v3 );
     printf( "(%3d) compress %08x %08x\n", ( int )inlen, ( u32 )( m >> 32 ), ( u32 )m );
 #endif
-    v3 ^= m;
-    SIPROUND;
-    SIPROUND;
-    v0 ^= m;
+    state.v3 ^= m;
+    SIPROUND(&state);
+    SIPROUND(&state);
+    state.v0 ^= m;
   }
 
   switch( left )
@@ -109,27 +121,27 @@ void siphash24(uint8_t out[8], const void *_in, size_t inlen, const uint8_t k[16
   }
 
 #ifdef DEBUG
-  printf( "(%3d) v0 %08x %08x\n", ( int )inlen, ( u32 )( v0 >> 32 ), ( u32 )v0 );
-  printf( "(%3d) v1 %08x %08x\n", ( int )inlen, ( u32 )( v1 >> 32 ), ( u32 )v1 );
-  printf( "(%3d) v2 %08x %08x\n", ( int )inlen, ( u32 )( v2 >> 32 ), ( u32 )v2 );
-  printf( "(%3d) v3 %08x %08x\n", ( int )inlen, ( u32 )( v3 >> 32 ), ( u32 )v3 );
+  printf( "(%3d) v0 %08x %08x\n", ( int )inlen, ( u32 )( state.v0 >> 32 ), ( u32 )state.v0 );
+  printf( "(%3d) v1 %08x %08x\n", ( int )inlen, ( u32 )( state.v1 >> 32 ), ( u32 )state.v1 );
+  printf( "(%3d) v2 %08x %08x\n", ( int )inlen, ( u32 )( state.v2 >> 32 ), ( u32 )state.v2 );
+  printf( "(%3d) v3 %08x %08x\n", ( int )inlen, ( u32 )( state.v3 >> 32 ), ( u32 )state.v3 );
   printf( "(%3d) padding   %08x %08x\n", ( int )inlen, ( u32 )( b >> 32 ), ( u32 )b );
 #endif
-  v3 ^= b;
-  SIPROUND;
-  SIPROUND;
-  v0 ^= b;
+  state.v3 ^= b;
+  SIPROUND(&state);
+  SIPROUND(&state);
+  state.v0 ^= b;
 #ifdef DEBUG
-  printf( "(%3d) v0 %08x %08x\n", ( int )inlen, ( u32 )( v0 >> 32 ), ( u32 )v0 );
-  printf( "(%3d) v1 %08x %08x\n", ( int )inlen, ( u32 )( v1 >> 32 ), ( u32 )v1 );
-  printf( "(%3d) v2 %08x %08x\n", ( int )inlen, ( u32 )( v2 >> 32 ), ( u32 )v2 );
-  printf( "(%3d) v3 %08x %08x\n", ( int )inlen, ( u32 )( v3 >> 32 ), ( u32 )v3 );
+  printf( "(%3d) v0 %08x %08x\n", ( int )inlen, ( u32 )( state.v0 >> 32 ), ( u32 )state.v0 );
+  printf( "(%3d) v1 %08x %08x\n", ( int )inlen, ( u32 )( state.v1 >> 32 ), ( u32 )state.v1 );
+  printf( "(%3d) v2 %08x %08x\n", ( int )inlen, ( u32 )( state.v2 >> 32 ), ( u32 )state.v2 );
+  printf( "(%3d) v3 %08x %08x\n", ( int )inlen, ( u32 )( state.v3 >> 32 ), ( u32 )state.v3 );
 #endif
-  v2 ^= 0xff;
-  SIPROUND;
-  SIPROUND;
-  SIPROUND;
-  SIPROUND;
-  b = v0 ^ v1 ^ v2  ^ v3;
+  state.v2 ^= 0xff;
+  SIPROUND(&state);
+  SIPROUND(&state);
+  SIPROUND(&state);
+  SIPROUND(&state);
+  b = state.v0 ^ state.v1 ^ state.v2  ^ state.v3;
   U64TO8_LE( out, b );
 }
