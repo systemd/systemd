@@ -72,6 +72,16 @@ static void siphash_init(struct siphash *state, const uint8_t k[16]) {
   state->v3 = 0x7465646279746573ULL ^ k1;
 }
 
+static u64 siphash24_finalize(struct siphash *state) {
+  state->v2 ^= 0xff;
+  SIPROUND(state);
+  SIPROUND(state);
+  SIPROUND(state);
+  SIPROUND(state);
+
+  return state->v0 ^ state->v1 ^ state->v2  ^ state->v3;
+}
+
 /* SipHash-2-4 */
 void siphash24(uint8_t out[8], const void *_in, size_t inlen, const uint8_t k[16])
 {
@@ -137,11 +147,8 @@ void siphash24(uint8_t out[8], const void *_in, size_t inlen, const uint8_t k[16
   printf( "(%3d) v2 %08x %08x\n", ( int )inlen, ( u32 )( state.v2 >> 32 ), ( u32 )state.v2 );
   printf( "(%3d) v3 %08x %08x\n", ( int )inlen, ( u32 )( state.v3 >> 32 ), ( u32 )state.v3 );
 #endif
-  state.v2 ^= 0xff;
-  SIPROUND(&state);
-  SIPROUND(&state);
-  SIPROUND(&state);
-  SIPROUND(&state);
-  b = state.v0 ^ state.v1 ^ state.v2  ^ state.v3;
+
+  b = siphash24_finalize(&state);
+
   U64TO8_LE( out, b );
 }
