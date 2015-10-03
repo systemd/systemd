@@ -884,7 +884,9 @@ static void service_set_state(Service *s, ServiceState state) {
                 log_unit_debug(UNIT(s), "Changed %s -> %s", service_state_to_string(old_state), service_state_to_string(state));
 
         unit_notify(UNIT(s), table[old_state], table[state], s->reload_result == SERVICE_SUCCESS);
-        s->reload_result = SERVICE_SUCCESS;
+
+        if (old_state != SERVICE_RELOAD)
+                s->reload_result = SERVICE_SUCCESS;
 }
 
 static int service_coldplug(Unit *u) {
