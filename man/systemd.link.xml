@@ -383,7 +383,7 @@
   <refsect1>
     <title>Example</title>
     <example>
-      <title>/etc/systemd/network/wireless.link</title>
+      <title>/etc/systemd/network/25-wireless.link</title>
 
       <programlisting>[Match]
 MACAddress=12:34:56:78:9a:bc
