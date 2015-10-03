@@ -1396,6 +1396,7 @@ tests += \
 	test-path \
 	test-path-util \
 	test-strxcpyx \
+	test-siphash24 \
 	test-unit-name \
 	test-unit-file \
 	test-utf8 \
@@ -2009,6 +2010,12 @@ test_execute_CFLAGS = \
 
 test_execute_LDADD = \
 	libcore.la
+
+test_siphash24_SOURCES = \
+	src/test/test-siphash24.c
+
+test_siphash24_LDADD = \
+	libshared.la
 
 test_strxcpyx_SOURCES = \
 	src/test/test-strxcpyx.c
