@@ -26,7 +26,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#include "systemd/sd-daemon.h"
+#include "sd-daemon.h"
 
 #include "log.h"
 #include "macro.h"
@@ -38,6 +38,7 @@ static char** arg_listen = NULL;
 static bool arg_accept = false;
 static char** arg_args = NULL;
 static char** arg_setenv = NULL;
+static const char *arg_fdname = NULL;
 
 static int add_epoll(int epoll_fd, int fd) {
         struct epoll_event ev = {
@@ -136,8 +137,8 @@ static int launch(char* name, char **argv, char **env, int fds) {
 
         length = strv_length(arg_setenv);
 
-        /* PATH, TERM, HOME, USER, LISTEN_FDS, LISTEN_PID, NULL */
-        envp = new0(char *, length + 7);
+        /* PATH, TERM, HOME, USER, LISTEN_FDS, LISTEN_PID, LISTEN_FDNAMES, NULL */
+        envp = new0(char *, length + 8);
         if (!envp)
                 return log_oom();
 
@@ -145,7 +146,9 @@ static int launch(char* name, char **argv, char **env, int fds) {
                 if (strchr(*s, '='))
                         envp[n_env++] = *s;
                 else {
-                        _cleanup_free_ char *p = strappend(*s, "=");
+                        _cleanup_free_ char *p;
+
+                        p = strappend(*s, "=");
                         if (!p)
                                 return log_oom();
                         envp[n_env] = strv_find_prefix(env, p);
@@ -164,15 +167,37 @@ static int launch(char* name, char **argv, char **env, int fds) {
             (asprintf((char**)(envp + n_env++), "LISTEN_PID=%d", getpid()) < 0))
                 return log_oom();
 
+        if (arg_fdname) {
+                char *e;
+
+                e = strappend("LISTEN_FDNAMES=", arg_fdname);
+                if (!e)
+                        return log_oom();
+
+                for (i = 1; i < (unsigned) fds; i++) {
+                        char *c;
+
+                        c = strjoin(e, ":", arg_fdname, NULL);
+                        if (!c) {
+                                free(e);
+                                return log_oom();
+                        }
+
+                        free(e);
+                        e = c;
+                }
+
+                envp[n_env++] = e;
+        }
+
         tmp = strv_join(argv, " ");
         if (!tmp)
                 return log_oom();
 
         log_info("Execing %s (%s)", name, tmp);
         execvpe(name, argv, envp);
-        log_error_errno(errno, "Failed to execp %s (%s): %m", name, tmp);
 
-        return -errno;
+        return log_error_errno(errno, "Failed to execp %s (%s): %m", name, tmp);
 }
 
 static int launch1(const char* child, char** argv, char **env, int fd) {
@@ -289,6 +314,7 @@ static void help(void) {
 static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
+                ARG_FDNAME,
         };
 
         static const struct option options[] = {
@@ -297,11 +323,12 @@ static int parse_argv(int argc, char *argv[]) {
                 { "listen",      required_argument, NULL, 'l'           },
                 { "accept",      no_argument,       NULL, 'a'           },
                 { "setenv",      required_argument, NULL, 'E'           },
-                { "environment", required_argument, NULL, 'E'           }, /* alias */
+                { "environment", required_argument, NULL, 'E'           }, /* legacy alias */
+                { "fdname",      required_argument, NULL, ARG_FDNAME    },
                 {}
         };
 
-        int c;
+        int c, r;
 
         assert(argc >= 0);
         assert(argv);
@@ -315,25 +342,27 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_VERSION:
                         return version();
 
-                case 'l': {
-                        int r = strv_extend(&arg_listen, optarg);
+                case 'l':
+                        r = strv_extend(&arg_listen, optarg);
                         if (r < 0)
-                                return r;
+                                return log_oom();
 
                         break;
-                }
 
                 case 'a':
                         arg_accept = true;
                         break;
 
-                case 'E': {
-                        int r = strv_extend(&arg_setenv, optarg);
+                case 'E':
+                        r = strv_extend(&arg_setenv, optarg);
                         if (r < 0)
-                                return r;
+                                return log_oom();
 
                         break;
-                }
+
+                case ARG_FDNAME:
+                        arg_fdname = optarg;
+                        break;
 
                 case '?':
                         return -EINVAL;

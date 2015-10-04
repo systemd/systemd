@@ -355,6 +355,7 @@ MANPAGES_ALIAS += \
 	man/sd_journal_set_data_threshold.3 \
 	man/sd_journal_test_cursor.3 \
 	man/sd_journal_wait.3 \
+	man/sd_listen_fds_with_names.3 \
 	man/sd_machine_get_ifindices.3 \
 	man/sd_notifyf.3 \
 	man/sd_pid_notify.3 \
@@ -643,6 +644,7 @@ man/sd_journal_sendv.3: man/sd_journal_print.3
 man/sd_journal_set_data_threshold.3: man/sd_journal_get_data.3
 man/sd_journal_test_cursor.3: man/sd_journal_get_cursor.3
 man/sd_journal_wait.3: man/sd_journal_get_fd.3
+man/sd_listen_fds_with_names.3: man/sd_listen_fds.3
 man/sd_machine_get_ifindices.3: man/sd_machine_get_class.3
 man/sd_notifyf.3: man/sd_notify.3
 man/sd_pid_notify.3: man/sd_notify.3
@@ -1317,6 +1319,9 @@ man/sd_journal_test_cursor.html: man/sd_journal_get_cursor.html
 	$(html-alias)
 
 man/sd_journal_wait.html: man/sd_journal_get_fd.html
+	$(html-alias)
+
+man/sd_listen_fds_with_names.html: man/sd_listen_fds.html
 	$(html-alias)
 
 man/sd_machine_get_ifindices.html: man/sd_machine_get_class.html

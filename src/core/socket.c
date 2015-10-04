@@ -508,6 +508,7 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sTCPCongestion: %s\n"
                 "%sRemoveOnStop: %s\n"
                 "%sWritable: %s\n"
+                "%sFDName: %s\n"
                 "%sSELinuxContextFromNet: %s\n",
                 prefix, socket_state_to_string(s->state),
                 prefix, socket_result_to_string(s->result),
@@ -525,6 +526,7 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, strna(s->tcp_congestion),
                 prefix, yes_no(s->remove_on_stop),
                 prefix, yes_no(s->writable),
+                prefix, socket_fdname(s),
                 prefix, yes_no(s->selinux_context_from_net));
 
         if (s->control_pid > 0)
@@ -2758,6 +2760,19 @@ static int socket_get_timeout(Unit *u, uint64_t *timeout) {
                 return r;
 
         return 1;
+}
+
+char *socket_fdname(Socket *s) {
+        assert(s);
+
+        /* Returns the name to use for $LISTEN_NAMES. If the user
+         * didn't specify anything specifically, use the socket unit's
+         * name as fallback. */
+
+        if (s->fdname)
+                return s->fdname;
+
+        return UNIT(s)->id;
 }
 
 static const char* const socket_exec_command_table[_SOCKET_EXEC_COMMAND_MAX] = {

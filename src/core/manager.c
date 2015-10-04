@@ -495,6 +495,7 @@ static void manager_clean_environment(Manager *m) {
                         "MANAGERPID",
                         "LISTEN_PID",
                         "LISTEN_FDS",
+                        "LISTEN_FDNAMES",
                         "WATCHDOG_PID",
                         "WATCHDOG_USEC",
                         NULL);

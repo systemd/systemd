@@ -287,6 +287,7 @@ Socket.MessageQueueMaxMessages,  config_parse_long,                  0,         
 Socket.MessageQueueMessageSize,  config_parse_long,                  0,                             offsetof(Socket, mq_msgsize)
 Socket.RemoveOnStop,             config_parse_bool,                  0,                             offsetof(Socket, remove_on_stop)
 Socket.Symlinks,                 config_parse_unit_path_strv_printf, 0,                             offsetof(Socket, symlinks)
+Socket.FileDescriptorName,       config_parse_fdname,                0,                             0
 Socket.Service,                  config_parse_socket_service,        0,                             0
 m4_ifdef(`HAVE_SMACK',
 `Socket.SmackLabel,              config_parse_string,                0,                             offsetof(Socket, smack)

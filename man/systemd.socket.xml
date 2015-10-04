@@ -1,4 +1,4 @@
-<?xml version='1.0'?> <!--*-nxml-*-->
+<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
@@ -748,6 +748,22 @@
         list.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>FileDescriptorName=</varname></term>
+        <listitem><para>Assigns a name to all file descriptors this
+        socket unit encapsulates. This is useful to help activated
+        services to identify specific file descriptors, if multiple
+        are passed. Services may use the
+        <citerefentry><refentrytitle>sd_listen_fds_with_names</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+        call to acquire the names configured for the received file
+        descriptors. Names may contain any ASCII character, but must
+        exclude control characters or <literal>:</literal>, and must
+        be at most 255 characters in length. If this setting is not
+        used the file descriptor name defaults to the name of the
+        socket unit, including its <filename>.socket</filename>
+        suffix.</para></listitem>
+      </varlistentry>
+
     </variablelist>
 
     <para>Check
@@ -768,9 +784,10 @@
         <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        <citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>sd_listen_fds_with_names</refentrytitle><manvolnum>3</manvolnum></citerefentry>
       </para>
-
       <para>
         For more extensive descriptions see the "systemd for Developers" series:
         <ulink url="http://0pointer.de/blog/projects/socket-activation.html">Socket Activation</ulink>,

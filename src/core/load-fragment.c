@@ -1475,10 +1475,10 @@ int config_parse_socket_service(
                 void *userdata) {
 
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        Socket *s = data;
-        int r;
-        Unit *x;
         _cleanup_free_ char *p = NULL;
+        Socket *s = data;
+        Unit *x;
+        int r;
 
         assert(filename);
         assert(lvalue);
@@ -1503,6 +1503,50 @@ int config_parse_socket_service(
         }
 
         unit_ref_set(&s->service, x);
+
+        return 0;
+}
+
+int config_parse_fdname(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_free_ char *p = NULL;
+        Socket *s = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                s->fdname = mfree(s->fdname);
+                return 0;
+        }
+
+        r = unit_name_printf(UNIT(s), rvalue, &p);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to resolve specifiers, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        if (!fdname_is_valid(p)) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid file descriptor name, ignoring: %s", p);
+                return 0;
+        }
+
+        free(s->fdname);
+        s->fdname = p;
+        p = NULL;
 
         return 0;
 }
