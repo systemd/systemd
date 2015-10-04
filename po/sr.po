@@ -1,0 +1,606 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: https://github.com/systemd/systemd/issues\n"
+"POT-Creation-Date: 2015-10-03 18:14+0200\n"
+"PO-Revision-Date: 2015-10-03 21:01+0200\n"
+"Language-Team: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Poedit 1.8.4\n"
+"Last-Translator: Марко М. Костић (Marko M. Kostić) <marko.m.kostic@gmail."
+"com>\n"
+"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n"
+"%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
+"Language: sr\n"
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:1
+msgid "Send passphrase back to system"
+msgstr "Пошаљите фразу ка систему"
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:2
+msgid ""
+"Authentication is required to send the entered passphrase back to the system."
+msgstr ""
+"Потребно је да се идентификујете да бисте послали фразу назад у систем."
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:3
+msgid "Manage system services or other units"
+msgstr "Управљајте системским услугама и другим јединицама"
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:4
+msgid "Authentication is required to manage system services or other units."
+msgstr ""
+"Потребно је да се идентификујете да бисте управљали системским услугама или "
+"другим јединицама."
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:5
+msgid "Manage system service or unit files"
+msgstr "Управљајте системском услугом или јединичним датотекама"
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:6
+msgid "Authentication is required to manage system service or unit files."
+msgstr ""
+"Потребно је да се идентификујете да бисте управљали системском услугом или "
+"јединичним датотекама."
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:7
+msgid "Set or unset system and service manager environment variables"
+msgstr "Мењајте променљиве окружења на систему и унутар управника услуга"
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:8
+msgid ""
+"Authentication is required to set or unset system and service manager "
+"environment variables."
+msgstr ""
+"Потребно је да се идентификујете да бисте мењали променљиве окружења на "
+"систему и унутар управника услуга."
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:9
+msgid "Reload the systemd state"
+msgstr "Поново учитајте стање систем-деа"
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:10
+msgid "Authentication is required to reload the systemd state."
+msgstr ""
+"Потребно је да се идентификујете да бисте поново учитали стање систем-деа."
+
+#: ../src/hostname/org.freedesktop.hostname1.policy.in.h:1
+msgid "Set host name"
+msgstr "Поставите назив машине"
+
+#: ../src/hostname/org.freedesktop.hostname1.policy.in.h:2
+msgid "Authentication is required to set the local host name."
+msgstr "Потребно је да се идентификујете да бисте поставили назив машине."
+
+#: ../src/hostname/org.freedesktop.hostname1.policy.in.h:3
+msgid "Set static host name"
+msgstr "Поставите статички назив машине"
+
+#: ../src/hostname/org.freedesktop.hostname1.policy.in.h:4
+msgid ""
+"Authentication is required to set the statically configured local host name, "
+"as well as the pretty host name."
+msgstr ""
+"Потребно је да се идентификујете да бисте поставили статички назив машине и "
+"да бисте поставили леп назив машине."
+
+#: ../src/hostname/org.freedesktop.hostname1.policy.in.h:5
+msgid "Set machine information"
+msgstr "Поставите податке о машини"
+
+#: ../src/hostname/org.freedesktop.hostname1.policy.in.h:6
+msgid "Authentication is required to set local machine information."
+msgstr ""
+"Потребно је да се идентификујете да бисте поставили податке о локалној "
+"машини."
+
+#: ../src/import/org.freedesktop.import1.policy.in.h:1
+msgid "Import a VM or container image"
+msgstr "Увезите ВМ или слику контејнера"
+
+#: ../src/import/org.freedesktop.import1.policy.in.h:2
+msgid "Authentication is required to import a VM or container image"
+msgstr ""
+"Потребно је да се идентификујете да бисте увезли виртуелну машину или слику "
+"контејнера"
+
+#: ../src/import/org.freedesktop.import1.policy.in.h:3
+msgid "Export a VM or container image"
+msgstr "Извезите ВМ или слику контејнера"
+
+#: ../src/import/org.freedesktop.import1.policy.in.h:4
+msgid "Authentication is required to export a VM or container image"
+msgstr ""
+"Потребно је да се идентификујете да бисте извезли виртуелну машину или слику "
+"контејнера"
+
+#: ../src/import/org.freedesktop.import1.policy.in.h:5
+msgid "Download a VM or container image"
+msgstr "Преузмите ВМ или слику контејнера"
+
+#: ../src/import/org.freedesktop.import1.policy.in.h:6
+msgid "Authentication is required to download a VM or container image"
+msgstr ""
+"Потребно је да се идентификујете да бисте преузели виртуелну машину или "
+"слику контејнера"
+
+#: ../src/locale/org.freedesktop.locale1.policy.in.h:1
+msgid "Set system locale"
+msgstr "Поставите основни језик система"
+
+#: ../src/locale/org.freedesktop.locale1.policy.in.h:2
+msgid "Authentication is required to set the system locale."
+msgstr ""
+"Потребно је да се идентификујете да бисте поставили основни језик система."
+
+#: ../src/locale/org.freedesktop.locale1.policy.in.h:3
+msgid "Set system keyboard settings"
+msgstr "Поставите подешавање системске тастатуре"
+
+#: ../src/locale/org.freedesktop.locale1.policy.in.h:4
+msgid "Authentication is required to set the system keyboard settings."
+msgstr ""
+"Потребно је да се идентификујете да бисте поставили подешавања системске "
+"тастатуре."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:1
+msgid "Allow applications to inhibit system shutdown"
+msgstr "Дозволите програмима да спрече гашење система"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:2
+msgid ""
+"Authentication is required for an application to inhibit system shutdown."
+msgstr ""
+"Потребно је да се идентификујете да бисте дозволили програму да спречи "
+"гашење система."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:3
+msgid "Allow applications to delay system shutdown"
+msgstr "Дозволите програмима да одложе гашење система"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:4
+msgid "Authentication is required for an application to delay system shutdown."
+msgstr ""
+"Потребно је да се идентификујете да бисте дозволили програму да одложи "
+"гашење система."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:5
+msgid "Allow applications to inhibit system sleep"
+msgstr "Дозволите програмима да спрече спавање система"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:6
+msgid "Authentication is required for an application to inhibit system sleep."
+msgstr ""
+"Потребно је да се идентификујете да бисте дозволили програму да спречи "
+"спавање система."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:7
+msgid "Allow applications to delay system sleep"
+msgstr "Дозволите програмима да одложе спавање система"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:8
+msgid "Authentication is required for an application to delay system sleep."
+msgstr ""
+"Потребно је да се идентификујете да бисте дозволили програму да одложи "
+"спавање система."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:9
+msgid "Allow applications to inhibit automatic system suspend"
+msgstr "Дозволите програмима да спрече самосталну обуставу система"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:10
+msgid ""
+"Authentication is required for an application to inhibit automatic system "
+"suspend."
+msgstr ""
+"Потребно је да се идентификујете да бисте дозволили програму да спречи "
+"самосталну обуставу система."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:11
+msgid "Allow applications to inhibit system handling of the power key"
+msgstr "Дозволите програмима да спрече систему управљање дугметом за напајање"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:12
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the power key."
+msgstr ""
+"Потребно је да се идентификујете да бисте дозволили програму да спречи "
+"систему управљање дугметом за напајање."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:13
+msgid "Allow applications to inhibit system handling of the suspend key"
+msgstr "Дозволите програмима да спрече систему управљање дугметом за обуставу"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:14
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the suspend key."
+msgstr ""
+"Потребно је да се идентификујете да бисте дозволили програму да спречи "
+"систему управљање дугметом за обуставу."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:15
+msgid "Allow applications to inhibit system handling of the hibernate key"
+msgstr "Дозволите програмима да спрече систему управљање дугметом за спавање"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:16
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the hibernate key."
+msgstr ""
+"Потребно је да се идентификујете да бисте дозволили програму да спречи "
+"систему управљање дугметом за спавање."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:17
+msgid "Allow applications to inhibit system handling of the lid switch"
+msgstr ""
+"Дозволите програмима да спрече систему да уради било шта приликом заклапања "
+"екрана"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:18
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the lid switch."
+msgstr ""
+"Потребно је да се идентификујете да бисте дозволили програму да спречи "
+"систему да уради било шта приликом заклапања екрана."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:19
+msgid "Allow non-logged-in users to run programs"
+msgstr "Дозволите непријављеним корисницима да покрећу програме"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:20
+msgid "Authentication is required to run programs as a non-logged-in user."
+msgstr ""
+"Потребно је да се идентификујете да бисте покретали програме као непријављен "
+"корисник."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:21
+msgid "Allow attaching devices to seats"
+msgstr "Дозволите качење уређаја на седишта"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:22
+msgid "Authentication is required for attaching a device to a seat."
+msgstr "Потребно је да се идентификујете да бисте  закачили уређај на седиште."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:23
+msgid "Flush device to seat attachments"
+msgstr "Испери уређај да би уседиштио закачено"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:24
+msgid ""
+"Authentication is required for resetting how devices are attached to seats."
+msgstr ""
+"Потребно је да се идентификујете да бисте поново подесили како се уређаји "
+"каче на седишта."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:25
+msgid "Power off the system"
+msgstr "Искључите систем"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:26
+msgid "Authentication is required for powering off the system."
+msgstr "Потребно је да се идентификујете да бисте искључили систем."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:27
+msgid "Power off the system while other users are logged in"
+msgstr "Искључите систем док су други корисници пријављени"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:28
+msgid ""
+"Authentication is required for powering off the system while other users are "
+"logged in."
+msgstr ""
+"Потребно је да се идентификујете да бисте искључили систем док су други "
+"корисници пријављени."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:29
+msgid "Power off the system while an application asked to inhibit it"
+msgstr "Искључите систем иако је програм затражио да се спречи гашење"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:30
+msgid ""
+"Authentication is required for powering off the system while an application "
+"asked to inhibit it."
+msgstr ""
+"Потребно је да се идентификујете да бисте искључили систем иако је програм "
+"затражио да се спречи гашење система."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:31
+msgid "Reboot the system"
+msgstr "Поново покрените систем"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:32
+msgid "Authentication is required for rebooting the system."
+msgstr "Потребно је да се идентификујете да бисте поново покренули систем."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:33
+msgid "Reboot the system while other users are logged in"
+msgstr "Поново покрените систем док су други корисници пријављени"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:34
+msgid ""
+"Authentication is required for rebooting the system while other users are "
+"logged in."
+msgstr ""
+"Потребно је да се идентификујете да бисте поново покренули систем док су "
+"други корисници пријављени."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:35
+msgid "Reboot the system while an application asked to inhibit it"
+msgstr "Поново покрените систем иако је програм затражио да се спречи гашење"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:36
+msgid ""
+"Authentication is required for rebooting the system while an application "
+"asked to inhibit it."
+msgstr ""
+"Потребно је да се идентификујете да бисте поново покренули систем иако је "
+"програм затражио да се спречи гашење система."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:37
+msgid "Suspend the system"
+msgstr "Обуставите систем"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:38
+msgid "Authentication is required for suspending the system."
+msgstr "Потребно је да се идентификујете да бисте обуставили систем."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:39
+msgid "Suspend the system while other users are logged in"
+msgstr "Обуставите систем док су други корисници пријављени"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:40
+msgid ""
+"Authentication is required for suspending the system while other users are "
+"logged in."
+msgstr ""
+"Потребно је да се идентификујете да бисте обуставили систем док су други "
+"корисници пријављени."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:41
+msgid "Suspend the system while an application asked to inhibit it"
+msgstr "Обуставите систем иако је програм затражио да се спречи обустава"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:42
+msgid ""
+"Authentication is required for suspending the system while an application "
+"asked to inhibit it."
+msgstr ""
+"Потребно је да се идентификујете да бисте обуставили систем иако је програм "
+"затражио да се спречи обустава система."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:43
+msgid "Hibernate the system"
+msgstr "Успавајте систем"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:44
+msgid "Authentication is required for hibernating the system."
+msgstr "Потребно је да се идентификујете да бисте успавали систем."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:45
+msgid "Hibernate the system while other users are logged in"
+msgstr "Успавајте систем док су други корисници пријављени"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:46
+msgid ""
+"Authentication is required for hibernating the system while other users are "
+"logged in."
+msgstr ""
+"Потребно је да се идентификујете да бисте успавали систем док су други "
+"корисници пријављени."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:47
+msgid "Hibernate the system while an application asked to inhibit it"
+msgstr "Успавајте систем иако је програм затражио да се спречи спавање"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:48
+msgid ""
+"Authentication is required for hibernating the system while an application "
+"asked to inhibit it."
+msgstr ""
+"Потребно је да се идентификујете да бисте успавали систем иако је програм "
+"затражио да се спречи успављивање система."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:49
+msgid "Manage active sessions, users and seats"
+msgstr "Управљајте покренутим сесијама, корисницима и седиштима"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:50
+msgid ""
+"Authentication is required for managing active sessions, users and seats."
+msgstr ""
+"Потребно је да се идентификујете да бисте управљали покренутим сесијама, "
+"корисницима и седиштима."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:51
+msgid "Lock or unlock active sessions"
+msgstr "Закључајте или откључајте покренуте сесије"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:52
+msgid "Authentication is required to lock or unlock active sessions."
+msgstr ""
+"Потребно је да се идентификујете да бисте закључавали или откључавали "
+"покренуте сесије."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:53
+msgid "Allow indication to the firmware to boot to setup interface"
+msgstr "Напомените фирмверу да се подигне у режим подешавања интерфејса"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:54
+msgid ""
+"Authentication is required to indicate to the firmware to boot to setup "
+"interface."
+msgstr ""
+"Потребно је да се идентификујете да бисте напоменули фирмверу да се подигне "
+"у режиму подешавања интерфејса."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:55
+msgid "Set a wall message"
+msgstr "Поставите зидну поруку"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:56
+msgid "Authentication is required to set a wall message"
+msgstr "Потребно је да се идентификујете да бисте поставили зидну поруку"
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:1
+msgid "Log into a local container"
+msgstr "Пријавите се у локални контејнер"
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:2
+msgid "Authentication is required to log into a local container."
+msgstr ""
+"Потребно је да се идентификујете да бисте се пријавили у локални контејнер."
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:3
+msgid "Log into the local host"
+msgstr "Пријавите се у локалног домаћина"
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:4
+msgid "Authentication is required to log into the local host."
+msgstr ""
+"Потребно је да се идентификујете да бисте се пријавили у локалног домаћина."
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:5
+msgid "Acquire a shell in a local container"
+msgstr "Добијте приступ шкољци унутар локалног контејнера"
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:6
+msgid "Authentication is required to acquire a shell in a local container."
+msgstr ""
+"Потребно је да се идентификујете да бисте добили приступ шкољци унутар "
+"локалног контејнера."
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:7
+msgid "Acquire a shell on the local host"
+msgstr "Добијте приступ шкољци на локалном домаћину"
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:8
+msgid "Authentication is required to acquire a shell on the local host."
+msgstr ""
+"Потребно је да се идентификујете да бисте добили приступ шкољци на локалном "
+"домаћину."
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:9
+msgid "Acquire a pseudo TTY in a local container"
+msgstr "Добијте приступ псеудо писаћој машини унутар локалног контејнера"
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:10
+msgid ""
+"Authentication is required to acquire a pseudo TTY in a local container."
+msgstr ""
+"Потребно је да се идентификујете да бисте добили приступ псеудо писаћој "
+"машини унутар локалног контејнера."
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:11
+msgid "Acquire a pseudo TTY on the local host"
+msgstr "Добијте приступ псеудо писаћој машини на локалном домаћину"
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:12
+msgid "Authentication is required to acquire a pseudo TTY on the local host."
+msgstr ""
+"Потребно је да се идентификујете да бисте добили приступ псеудо писаћој "
+"машини на локалном домаћину."
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:13
+msgid "Manage local virtual machines and containers"
+msgstr "Управљајте локалним виртуелним машинама и контејнерима"
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:14
+msgid ""
+"Authentication is required to manage local virtual machines and containers."
+msgstr ""
+"Потребно је да се идентификујете да бисте управљали локалним виртуелним "
+"машинама и контејнерима."
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:15
+msgid "Manage local virtual machine and container images"
+msgstr "Управљајте локалним виртуелним машинама и сликама контејнера"
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:16
+msgid ""
+"Authentication is required to manage local virtual machine and container "
+"images."
+msgstr ""
+"Потребно је да се идентификујете да бисте управљали локалним виртуелним "
+"машинама и сликама контејнера."
+
+#: ../src/timedate/org.freedesktop.timedate1.policy.in.h:1
+msgid "Set system time"
+msgstr "Поставите системско време"
+
+#: ../src/timedate/org.freedesktop.timedate1.policy.in.h:2
+msgid "Authentication is required to set the system time."
+msgstr "Потребно је да се идентификујете да бисте поставили системско време."
+
+#: ../src/timedate/org.freedesktop.timedate1.policy.in.h:3
+msgid "Set system timezone"
+msgstr "Поставите системску временску зону"
+
+#: ../src/timedate/org.freedesktop.timedate1.policy.in.h:4
+msgid "Authentication is required to set the system timezone."
+msgstr ""
+"Потребно је да се идентификујете да бисте поставили системску временску зону."
+
+#: ../src/timedate/org.freedesktop.timedate1.policy.in.h:5
+msgid "Set RTC to local timezone or UTC"
+msgstr "Поставите RTC на локалну временску зону или UTC зону"
+
+#: ../src/timedate/org.freedesktop.timedate1.policy.in.h:6
+msgid ""
+"Authentication is required to control whether the RTC stores the local or "
+"UTC time."
+msgstr ""
+"Потребно је да се идентификујете да бисте подесили да ли RTC чува локално "
+"или UTC време."
+
+#: ../src/timedate/org.freedesktop.timedate1.policy.in.h:7
+msgid "Turn network time synchronization on or off"
+msgstr "Укључите или искључите усклађивање времена са мреже"
+
+#: ../src/timedate/org.freedesktop.timedate1.policy.in.h:8
+msgid ""
+"Authentication is required to control whether network time synchronization "
+"shall be enabled."
+msgstr ""
+"Потребно је да се идентификујете да бисте подесили да ли се време усклађује "
+"са мреже."
+
+#: ../src/core/dbus-unit.c:428
+msgid "Authentication is required to start '$(unit)'."
+msgstr "Потребно је да се идентификујете да бисте покренули „$(unit)“."
+
+#: ../src/core/dbus-unit.c:429
+msgid "Authentication is required to stop '$(unit)'."
+msgstr "Потребно је да се идентификујете да бисте зауставили „$(unit)“."
+
+#: ../src/core/dbus-unit.c:430
+msgid "Authentication is required to reload '$(unit)'."
+msgstr "Потребно је да се идентификујете да бисте поново учитали „$(unit)“."
+
+#: ../src/core/dbus-unit.c:431 ../src/core/dbus-unit.c:432
+msgid "Authentication is required to restart '$(unit)'."
+msgstr "Потребно је да се идентификујете да бисте поново покренули „$(unit)“."
+
+#: ../src/core/dbus-unit.c:535
+msgid "Authentication is required to kill '$(unit)'."
+msgstr "Потребно је да се идентификујете да бисте убили „$(unit)“."
+
+#: ../src/core/dbus-unit.c:565
+msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
+msgstr ""
+"Потребно је да се идентификујете да бисте поново поставили „неуспешно“ стање "
+"за „$(unit)“."
+
+#: ../src/core/dbus-unit.c:597
+msgid "Authentication is required to set properties on '$(unit)'."
+msgstr ""
+"Потребно је да се идентификујете да бисте поставили својства за „$(unit)“."

@@ -1,0 +1,262 @@
+#  This file is part of systemd.
+#
+#  Copyright 2012 Lennart Poettering
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+#
+#  systemd is distributed in the hope that it will be useful, but
+#  WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+#  Lesser General Public License for more details.
+#
+#  You should have received a copy of the GNU Lesser General Public License
+#  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+
+# Message catalog for systemd's own messages
+# Serbian translation
+
+# Формат каталога је документован на
+# http://www.freedesktop.org/wiki/Software/systemd/catalog
+
+# Да бисте видели зашто ово радимо, погледајте https://xkcd.com/1024/
+
+-- f77379a8490b408bbe5f6940505a777b
+Subject: Журнал је покренут
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Системски журналски процес се покренуо, отворио журналске
+датотеке за упис и спреман је за обраду захтева.
+
+-- d93fb3c9c24d451a97cea615ce59c00b
+Subject: Журнал је заустављен
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Системски журналски процес се зауставио и затворио све тренутно
+отворене журналске датотеке.
+
+-- a596d6fe7bfa4994828e72309e95d61e
+Subject: Поруке од услуге су утишане
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: man:journald.conf(5)
+
+Услуга је уписала сувише порука за једно време. Поруке
+од услуге су одбачене.
+
+Знајте да су само поруке од ове услуге одбачене, друге
+услуге нису захваћене овим.
+
+Ограничења која подешавају начин на који се поруке одбацују се могу подесити
+помоћу „RateLimitInterval=“ и „RateLimitBurst=“ параметара унутар датотеке
+/etc/systemd/journald.conf. Погледајте journald.conf(5) за појединости.
+
+-- e9bf28e6e834481bb6f48f548ad13606
+Subject: Журналске поруке су изгубљене
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Поруке кернела су изгубљене јер журналски систем није могао да их
+обради довољно брзо.
+
+-- fc2e22bc6ee647b6b90729ab34a250b1
+Subject: Процес @COREDUMP_PID@ (@COREDUMP_COMM@) је избацио своје језгро
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: man:core(5)
+
+Процес @COREDUMP_PID@ (@COREDUMP_COMM@) је пао и избацио своје језгро.
+
+Ово обично значи да постоји грешка у програму који је пао и ова
+грешка треба да се пријави продавцу.
+
+-- 8d45620c1a4348dbb17410da57c60c66
+Subject: Нова сесија @SESSION_ID@ је направљена за корисника @USER_ID@
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+
+Нова сесија са ИБ-ом @SESSION_ID@ је направљена за корисника @USER_ID@.
+
+Водећи процес сесије је @LEADER@.
+
+-- 3354939424b4456d9802ca8333ed424a
+Subject: Сесија @SESSION_ID@ је окончана
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+
+Сесија са ИБ-ом @SESSION_ID@ је окончана.
+
+-- fcbefc5da23d428093f97c82a9290f7b
+Subject: Ново седиште @SEAT_ID@ је сада доступно
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+
+Ново седиште @SEAT_ID@ је исподешавано и сада је доступно.
+
+-- e7852bfe46784ed0accde04bc864c2d5
+Subject: Седиште @SEAT_ID@ је сада уклоњено
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+
+Седиште @SEAT_ID@ је сада уклоњено и више није доступно.
+
+-- c7a787079b354eaaa9e77b371893cd27
+Subject: Време је промењено
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Системски сат је сада подешен на @REALTIME@ микросекунде након 1. јануара 1970. године.
+
+-- 45f82f4aef7a4bbf942ce861d1f20990
+Subject: Временска зона је промењена на @TIMEZONE@
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Временска зона је промењена на @TIMEZONE@.
+
+-- b07a249cd024414a82dd00cd181378ff
+Subject: Подизање система је сада готово
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Све системске услуге које су заказане за подизање су успешно покренуте.
+Знајте да ово не значи да је машина сада беспослена јер услуге могу
+и даље бити заузете завршавањем покретања система.
+
+Подизање кернела је трајало @KERNEL_USEC@ микросекунде.
+
+Подизање почетног РАМ диска је трајало @INITRD_USEC@ микросекунде.
+
+Подизање корисничких програма је трајало @USERSPACE_USEC@ микросекунде.
+
+-- 6bbd95ee977941e497c48be27c254128
+Subject: Системско стање спавања @SLEEP@ започето
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Систем је сада ушао у @SLEEP@ стање спавања.
+
+-- 8811e6df2a8e40f58a94cea26f8ebf14
+Subject: Системско стање спавања @SLEEP@ напуштено
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Систем је изашао из @SLEEP@ стања спавања.
+
+-- 98268866d1d54a499c4e98921d93bc40
+Subject: Гашење система започето
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Систем-де гашење је започето. Гашење је сада почело и све
+системске услуге су окончане и сви системи датотека откачени.
+
+-- 7d4958e842da4a758f6c1cdc7b36dcc5
+Subject: Јединица @UNIT@ је почела са покретањем
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Јединица @UNIT@ је почела са покретањем.
+
+-- 39f53479d3a045ac8e11786248231fbf
+Subject: Јединица @UNIT@ је завршила са покретањем
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Јединица @UNIT@ је завршила са покретањем.
+
+Исход покретања је @RESULT@.
+
+-- de5b426a63be47a7b6ac3eaac82e2f6f
+Subject: Јединица @UNIT@ је почела са гашењем
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Јединица @UNIT@ је почела са гашењем.
+
+-- 9d1aaa27d60140bd96365438aad20286
+Subject: Јединица @UNIT@ је завршила са гашењем
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Јединица @UNIT@ је завршила са гашењем.
+
+-- be02cf6855d2428ba40df7e9d022f03d
+Subject: Јединица @UNIT@ је пукла
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Јединица @UNIT@ је пукла.
+
+Исход је @RESULT@.
+
+-- d34d037fff1847e6ae669a370e694725
+Subject: Јединица @UNIT@ је почела са поновним учитавањем свог подешавања
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Јединица @UNIT@ је почела са поновним учитавањем свог подешавања
+
+-- 7b05ebc668384222baa8881179cfda54
+Subject: Јединица @UNIT@ је завршила са поновним учитавањем свог подешавања
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Јединица @UNIT@ је завршила са поновним учитавањем свог подешавања
+
+Исход је @RESULT@.
+
+-- 641257651c1b4ec9a8624d7a40a9e1e7
+Subject: Процес @EXECUTABLE@ није могао бити извршен
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Процес @EXECUTABLE@ није могао бити извршен и пукао је.
+
+Овај процес је вратио број грешке @ERRNO@.
+
+-- 0027229ca0644181a76c4e92458afa2e
+Subject: Једна или више порука није могло бити прослеђено системском записнику
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Једна или више порука није могло бити прослеђено „syslog“ услузи
+која ради упоредно са журнал-деом. Ово обично значи да спроведена
+„syslog“ услуга није могла да издржи брзину свих надолазећих
+порука у реду.
+
+-- 1dee0369c7fc4736b7099b38ecb46ee7
+Subject: Тачка качења није празна
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Директоријум @WHERE@ је наведен као тачка качења (друго поље у
+/etc/fstab датотеци или у „Where=“ пољу систем-де јединичне датотеке)
+и он није празан. Ово не утиче на качење али ће већ постојеће датотеке у
+овом директоријуму постати недоступне. Да бисте видели ове недоступне
+датотеке, ручно прикачите основни систем датотека у другу
+путању.
+
+-- 24d8d4452573402496068381a6312df2
+Subject: Виртуелна машина или контејнер је покренут(а)
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Виртуелна машина @NAME@ са водећим ПИБ-ом @LEADER@ је
+покренута и сада је спремна за коришћење.
+
+-- 58432bd3bace477cb514b56381b8a758
+Subject: Виртуелна машина или контејнер је окончан(а)
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Виртуелна машина @NAME@ са водећим ПИБ-ом @LEADER@ је
+угашена.
