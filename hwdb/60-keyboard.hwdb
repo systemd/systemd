@@ -648,6 +648,10 @@ evdev:atkbd:dmi:bvn*:bvr*:svnLENOVO*:pn*IdeaPad*Z370*:pvr*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*Lenovo*V480*:pvr*
  KEYBOARD_KEY_f1=f21
 
+# Thinkpad Yoga 12 (2015)
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*:pvrThinkPadS1Yoga12*
+ KEYBOARD_KEY_d9=direction
+
 # enhanced USB keyboard
 evdev:input:b0003v04B3p301B*
  KEYBOARD_KEY_90001=prog1 # ThinkVantage
