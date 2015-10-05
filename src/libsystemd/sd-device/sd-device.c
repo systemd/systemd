@@ -295,15 +295,27 @@ _public_ int sd_device_new_from_subsystem_sysname(sd_device **ret, const char *s
                 } else
                         return -EINVAL;
         } else {
-                syspath = strjoina("/sys/subsystem/", subsystem, "/devices/", sysname);
+                char *name;
+                size_t len = 0;
+
+                /* translate sysname back to sysfs filename */
+                name = strdupa(sysname);
+                while (name[len] != '\0') {
+                        if (name[len] == '/')
+                                name[len] = '!';
+
+                        len ++;
+                }
+
+                syspath = strjoina("/sys/subsystem/", subsystem, "/devices/", name);
                 if (access(syspath, F_OK) >= 0)
                         return sd_device_new_from_syspath(ret, syspath);
 
-                syspath = strjoina("/sys/bus/", subsystem, "/devices/", sysname);
+                syspath = strjoina("/sys/bus/", subsystem, "/devices/", name);
                 if (access(syspath, F_OK) >= 0)
                         return sd_device_new_from_syspath(ret, syspath);
 
-                syspath = strjoina("/sys/class/", subsystem, "/", sysname);
+                syspath = strjoina("/sys/class/", subsystem, "/", name);
                 if (access(syspath, F_OK) >= 0)
                         return sd_device_new_from_syspath(ret, syspath);
         }
