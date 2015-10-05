@@ -86,3 +86,6 @@ Bond.UpDelaySec,             config_parse_sec,                   0,             
 Bond.DownDelaySec,           config_parse_sec,                   0,                             offsetof(Bond, downdelay)
 Bond.ARPIntervalSec,         config_parse_sec,                   0,                             offsetof(Bond, arp_interval)
 Bond.LearnPacketIntervalSec, config_parse_sec,                   0,                             offsetof(Bond, lp_interval)
+Bridge.HelloTimeSec,         config_parse_sec,                   0,                             offsetof(Bridge, hello_time)
+Bridge.MaxAgeSec,            config_parse_sec,                   0,                             offsetof(Bridge, max_age)
+Bridge.ForwardDelaySec,      config_parse_sec,                   0,                             offsetof(Bridge, forward_delay)

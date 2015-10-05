@@ -245,6 +245,9 @@ static int netdev_enter_ready(NetDev *netdev) {
                 free(callback);
         }
 
+        if (NETDEV_VTABLE(netdev)->post_create)
+                NETDEV_VTABLE(netdev)->post_create(netdev, NULL, NULL);
+
         return 0;
 }
 
