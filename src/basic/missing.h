@@ -842,6 +842,19 @@ static inline int setns(int fd, int nstype) {
 #define IFLA_BRIDGE_MAX (__IFLA_BRIDGE_MAX - 1)
 #endif
 
+#if !HAVE_DECL_IFLA_BR_PRIORITY
+#define IFLA_BR_UNSPEC 0
+#define IFLA_BR_FORWARD_DELAY 1
+#define IFLA_BR_HELLO_TIME 2
+#define IFLA_BR_MAX_AGE 3
+#define IFLA_BR_AGEING_TIME 4
+#define IFLA_BR_STP_STATE 5
+#define IFLA_BR_PRIORITY 6
+#define __IFLA_BR_MAX 7
+
+#define IFLA_BR_MAX (__IFLA_BR_MAX - 1)
+#endif
+
 #if !HAVE_DECL_IFLA_BRPORT_LEARNING_SYNC
 #define IFLA_BRPORT_UNSPEC 0
 #define IFLA_BRPORT_STATE 1
