@@ -321,6 +321,7 @@ AC_CHECK_DECLS([IFLA_INET6_ADDR_GEN_MODE,
                 IFLA_GRE_ENCAP_DPORT,
                 IFLA_BRIDGE_VLAN_INFO,
                 IFLA_BRPORT_LEARNING_SYNC,
+                IFLA_BR_PRIORITY,
                 NDA_IFINDEX,
                 IFA_FLAGS],
 [], [], [[

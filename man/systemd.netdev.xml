@@ -277,6 +277,43 @@
       </variablelist>
   </refsect1>
 
+    <refsect1>
+    <title>[Bridge] Section Options</title>
+
+      <para>The <literal>Bridge]</literal> section only applies for
+      netdevs of kind <literal>bridge</literal>, and accepts the
+      following key:</para>
+
+      <variablelist class='network-directives'>
+        <varlistentry>
+          <term><varname>HelloTimeSec=</varname></term>
+          <listitem>
+            <para>HelloTimeSec specifies the number of seconds a hello packet is
+            sent out by the root bridge and the designated bridges. Hello packets are
+            used to communicate information about the topology throughout the entire
+            bridged local area network.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>MaxAgeSec=</varname></term>
+          <listitem>
+            <para>MaxAgeSec specifies the number of seconds of maximum message age.
+            If the last seen (received) hello packet is more than this number of
+            seconds old, the bridge in question will start the takeover procedure
+            in attempt to become the Root Bridge itself.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>ForwardDelaySec=</varname></term>
+          <listitem>
+            <para>ForwardDelaySec specifies the number of seconds spent in each
+            of the Listening and Learning states before the Forwarding state is entered.</para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+
+  </refsect1>
+
   <refsect1>
     <title>[VLAN] Section Options</title>
 
