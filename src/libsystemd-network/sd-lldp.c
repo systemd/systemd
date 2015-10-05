@@ -199,7 +199,7 @@ int lldp_handle_packet(tlv_packet *tlv, uint16_t length) {
                         goto out;
                 }
 
-                /* skip type and lengh encoding */
+                /* skip type and length encoding */
                 p += 2;
                 q = p;
 
@@ -338,7 +338,7 @@ int lldp_handle_packet(tlv_packet *tlv, uint16_t length) {
                 lldp->statistics.stats_frames_in_errors_total ++;
         }
 
-        tlv_packet_free(tlv);
+        sd_lldp_packet_unref(tlv);
 
         return 0;
 }
@@ -455,7 +455,7 @@ int sd_lldp_save(sd_lldp *lldp, const char *lldp_file) {
                         _cleanup_free_ char *s = NULL;
                         char *k, *t;
 
-                        r = lldp_read_chassis_id(p->packet, &type, &length, &mac);
+                        r = sd_lldp_packet_read_chassis_id(p->packet, &type, &mac, &length);
                         if (r < 0)
                                 continue;
 
@@ -468,7 +468,7 @@ int sd_lldp_save(sd_lldp *lldp, const char *lldp_file) {
                                 goto fail;
                         }
 
-                        r = lldp_read_port_id(p->packet, &type, &length, &port_id);
+                        r = sd_lldp_packet_read_port_id(p->packet, &type, &port_id, &length);
                         if (r < 0)
                                 continue;
 
@@ -513,7 +513,7 @@ int sd_lldp_save(sd_lldp *lldp, const char *lldp_file) {
                         free(s);
                         s = k;
 
-                        r = lldp_read_system_name(p->packet, &length, &k);
+                        r = sd_lldp_packet_read_system_name(p->packet, &k, &length);
                         if (r < 0)
                                 k = strappend(s, "'_NAME=N/A' ");
                         else {
@@ -535,7 +535,7 @@ int sd_lldp_save(sd_lldp *lldp, const char *lldp_file) {
                         free(s);
                         s = k;
 
-                        (void) lldp_read_system_capability(p->packet, &data);
+                        (void) sd_lldp_packet_read_system_capability(p->packet, &data);
 
                         sprintf(buf, "'_CAP=%x'", data);
 
@@ -701,4 +701,36 @@ int sd_lldp_new(int ifindex,
         lldp = NULL;
 
         return 0;
+}
+
+int sd_lldp_get_packets(sd_lldp *lldp, sd_lldp_packet ***tlvs) {
+        lldp_neighbour_port *p;
+        lldp_chassis *c;
+        Iterator iter;
+        unsigned count = 0, i;
+
+        assert_return(lldp, -EINVAL);
+        assert_return(tlvs, -EINVAL);
+
+        HASHMAP_FOREACH(c, lldp->neighbour_mib, iter) {
+                LIST_FOREACH(port, p, c->ports)
+                        count++;
+        }
+
+        if (!count) {
+                *tlvs = NULL;
+                return 0;
+        }
+
+        *tlvs = new(sd_lldp_packet *, count);
+        if (!*tlvs)
+                return -ENOMEM;
+
+        i = 0;
+        HASHMAP_FOREACH(c, lldp->neighbour_mib, iter) {
+                LIST_FOREACH(port, p, c->ports)
+                        (*tlvs)[i++] = sd_lldp_packet_ref(p->packet);
+        }
+
+        return count;
 }

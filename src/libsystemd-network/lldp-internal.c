@@ -21,213 +21,13 @@
 ***/
 
 #include "lldp-internal.h"
+#include "sd-lldp.h"
 
 /* We store maximum 1K chassis entries */
 #define LLDP_MIB_MAX_CHASSIS 1024
 
 /* Maximum Ports can be attached to any chassis */
 #define LLDP_MIB_MAX_PORT_PER_CHASSIS 32
-
-int lldp_read_chassis_id(tlv_packet *tlv,
-                         uint8_t *type,
-                         uint16_t *length,
-                         uint8_t **data) {
-        uint8_t subtype;
-        int r;
-
-        assert_return(tlv, -EINVAL);
-
-        r = lldp_tlv_packet_enter_container(tlv, LLDP_TYPE_CHASSIS_ID);
-        if (r < 0)
-                goto out2;
-
-        r = tlv_packet_read_u8(tlv, &subtype);
-        if (r < 0)
-                goto out1;
-
-        switch (subtype) {
-        case LLDP_CHASSIS_SUBTYPE_MAC_ADDRESS:
-
-                r = tlv_packet_read_bytes(tlv, data, length);
-                if (r < 0)
-                        goto out1;
-
-                break;
-        default:
-                r = -EOPNOTSUPP;
-                break;
-        }
-
-        *type = subtype;
-
- out1:
-        (void) lldp_tlv_packet_exit_container(tlv);
-
- out2:
-        return r;
-}
-
-int lldp_read_port_id(tlv_packet *tlv,
-                      uint8_t *type,
-                      uint16_t *length,
-                      uint8_t **data) {
-        uint8_t subtype;
-        char *s;
-        int r;
-
-        assert_return(tlv, -EINVAL);
-
-        r = lldp_tlv_packet_enter_container(tlv, LLDP_TYPE_PORT_ID);
-        if (r < 0)
-                goto out2;
-
-        r = tlv_packet_read_u8(tlv, &subtype);
-        if (r < 0)
-                goto out1;
-
-        switch (subtype) {
-        case LLDP_PORT_SUBTYPE_PORT_COMPONENT:
-        case LLDP_PORT_SUBTYPE_INTERFACE_ALIAS:
-        case LLDP_PORT_SUBTYPE_INTERFACE_NAME:
-        case LLDP_PORT_SUBTYPE_LOCALLY_ASSIGNED:
-
-                r = tlv_packet_read_string(tlv, &s, length);
-                if (r < 0)
-                        goto out1;
-
-                *data = (uint8_t *) s;
-
-                break;
-        case LLDP_PORT_SUBTYPE_MAC_ADDRESS:
-
-                r = tlv_packet_read_bytes(tlv, data, length);
-                if (r < 0)
-                        goto out1;
-
-                break;
-        default:
-                r = -EOPNOTSUPP;
-                break;
-        }
-
-        *type = subtype;
-
- out1:
-        (void) lldp_tlv_packet_exit_container(tlv);
-
- out2:
-        return r;
-}
-
-int lldp_read_ttl(tlv_packet *tlv, uint16_t *ttl) {
-        int r;
-
-        assert_return(tlv, -EINVAL);
-
-        r = lldp_tlv_packet_enter_container(tlv, LLDP_TYPE_TTL);
-        if (r < 0)
-                goto out;
-
-        r = tlv_packet_read_u16(tlv, ttl);
-
-        (void) lldp_tlv_packet_exit_container(tlv);
-
- out:
-        return r;
-}
-
-int lldp_read_system_name(tlv_packet *tlv,
-                          uint16_t *length,
-                          char **data) {
-        char *s;
-        int r;
-
-        assert_return(tlv, -EINVAL);
-
-        r = lldp_tlv_packet_enter_container(tlv, LLDP_TYPE_SYSTEM_NAME);
-        if (r < 0)
-                return r;
-
-        r = tlv_packet_read_string(tlv, &s, length);
-        if (r < 0)
-                goto out;
-
-        *data = (char *) s;
-
- out:
-        (void) lldp_tlv_packet_exit_container(tlv);
-
-        return r;
-}
-
-int lldp_read_system_description(tlv_packet *tlv,
-                                 uint16_t *length,
-                                 char **data) {
-        char *s;
-        int r;
-
-        assert_return(tlv, -EINVAL);
-
-        r = lldp_tlv_packet_enter_container(tlv, LLDP_TYPE_SYSTEM_DESCRIPTION);
-        if (r < 0)
-                return r;
-
-        r = tlv_packet_read_string(tlv, &s, length);
-        if (r < 0)
-                goto out;
-
-        *data = (char *) s;
-
- out:
-        (void) lldp_tlv_packet_exit_container(tlv);
-
-        return r;
-}
-
-int lldp_read_port_description(tlv_packet *tlv,
-                               uint16_t *length,
-                               char **data) {
-        char *s;
-        int r;
-
-        assert_return(tlv, -EINVAL);
-
-        r = lldp_tlv_packet_enter_container(tlv, LLDP_TYPE_PORT_DESCRIPTION);
-        if (r < 0)
-                return r;
-
-        r = tlv_packet_read_string(tlv, &s, length);
-        if (r < 0)
-                goto out;
-
-        *data = (char *) s;
-
- out:
-        (void) lldp_tlv_packet_exit_container(tlv);
-
-        return r;
-}
-
-int lldp_read_system_capability(tlv_packet *tlv, uint16_t *data) {
-        int r;
-
-        assert_return(tlv, -EINVAL);
-
-        r = lldp_tlv_packet_enter_container(tlv, LLDP_TYPE_SYSTEM_CAPABILITIES);
-        if (r < 0)
-                return r;
-
-        r = tlv_packet_read_u16(tlv, data);
-        if (r < 0)
-                goto out;
-
-        return 0;
- out:
-
-        (void) lldp_tlv_packet_exit_container(tlv);
-
-        return r;
-}
 
 /* 10.5.5.2.2 mibUpdateObjects ()
  * The mibUpdateObjects () procedure updates the MIB objects corresponding to
@@ -244,7 +44,7 @@ int lldp_mib_update_objects(lldp_chassis *c, tlv_packet *tlv) {
         assert_return(c, -EINVAL);
         assert_return(tlv, -EINVAL);
 
-        r = lldp_read_port_id(tlv, &type, &length, &data);
+        r = sd_lldp_packet_read_port_id(tlv, &type, &data, &length);
         if (r < 0)
                 return r;
 
@@ -253,13 +53,13 @@ int lldp_mib_update_objects(lldp_chassis *c, tlv_packet *tlv) {
 
                 if ((p->type == type && p->length == length && !memcmp(p->data, data, p->length))) {
 
-                        r = lldp_read_ttl(tlv, &ttl);
+                        r = sd_lldp_packet_read_ttl(tlv, &ttl);
                         if (r < 0)
                                 return r;
 
                         p->until = ttl * USEC_PER_SEC + now(clock_boottime_or_monotonic());
 
-                        tlv_packet_free(p->packet);
+                        sd_lldp_packet_unref(p->packet);
                         p->packet = tlv;
 
                         prioq_reshuffle(p->c->by_expiry, p, &p->prioq_idx);
@@ -281,7 +81,7 @@ int lldp_mib_remove_objects(lldp_chassis *c, tlv_packet *tlv) {
         assert_return(c, -EINVAL);
         assert_return(tlv, -EINVAL);
 
-        r = lldp_read_port_id(tlv, &type, &length, &data);
+        r = sd_lldp_packet_read_port_id(tlv, &type, &data, &length);
         if (r < 0)
                 return r;
 
@@ -312,11 +112,11 @@ int lldp_mib_add_objects(Prioq *by_expiry,
         assert_return(neighbour_mib, -EINVAL);
         assert_return(tlv, -EINVAL);
 
-        r = lldp_read_chassis_id(tlv, &subtype, &length, &data);
+        r = sd_lldp_packet_read_chassis_id(tlv, &subtype, &data, &length);
         if (r < 0)
                 goto drop;
 
-        r = lldp_read_ttl(tlv, &ttl);
+        r = sd_lldp_packet_read_ttl(tlv, &ttl);
         if (r < 0)
                 goto drop;
 
@@ -401,7 +201,7 @@ int lldp_mib_add_objects(Prioq *by_expiry,
         return 0;
 
  drop:
-        tlv_packet_free(tlv);
+        sd_lldp_packet_unref(tlv);
 
         if (new_chassis)
                 hashmap_remove(neighbour_mib, &c->chassis_id);
@@ -435,7 +235,7 @@ void lldp_neighbour_port_free(lldp_neighbour_port *p) {
         if(!p)
                 return;
 
-        tlv_packet_free(p->packet);
+        sd_lldp_packet_unref(p->packet);
 
         free(p->data);
         free(p);
@@ -452,11 +252,11 @@ int lldp_neighbour_port_new(lldp_chassis *c,
 
         assert(tlv);
 
-        r = lldp_read_port_id(tlv, &type, &length, &data);
+        r = sd_lldp_packet_read_port_id(tlv, &type, &data, &length);
         if (r < 0)
                 return r;
 
-        r = lldp_read_ttl(tlv, &ttl);
+        r = sd_lldp_packet_read_ttl(tlv, &ttl);
         if (r < 0)
                 return r;
 
@@ -505,7 +305,7 @@ int lldp_chassis_new(tlv_packet *tlv,
 
         assert(tlv);
 
-        r = lldp_read_chassis_id(tlv, &type, &length, &data);
+        r = sd_lldp_packet_read_chassis_id(tlv, &type, &data, &length);
         if (r < 0)
                 return r;
 
@@ -530,4 +330,31 @@ int lldp_chassis_new(tlv_packet *tlv,
         c = NULL;
 
         return 0;
+}
+
+int lldp_receive_packet(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        _cleanup_lldp_packet_unref_ tlv_packet *packet = NULL;
+        tlv_packet *p;
+        uint16_t length;
+        int r;
+
+        assert(fd);
+        assert(userdata);
+
+        r = tlv_packet_new(&packet);
+        if (r < 0)
+                return r;
+
+        length = read(fd, &packet->pdu, sizeof(packet->pdu));
+
+        /* Silently drop the packet */
+        if ((size_t) length > ETHER_MAX_LEN)
+                return 0;
+
+        packet->userdata = userdata;
+
+        p = packet;
+        packet = NULL;
+
+        return lldp_handle_packet(p, (uint16_t) length);
 }

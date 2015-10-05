@@ -82,30 +82,3 @@ int lldp_network_bind_raw_socket(int ifindex) {
 
         return r;
 }
-
-int lldp_receive_packet(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        _cleanup_tlv_packet_free_ tlv_packet *packet = NULL;
-        tlv_packet *p;
-        uint16_t length;
-        int r;
-
-        assert(fd);
-        assert(userdata);
-
-        r = tlv_packet_new(&packet);
-        if (r < 0)
-                return r;
-
-        length = read(fd, &packet->pdu, sizeof(packet->pdu));
-
-        /* Silently drop the packet */
-        if ((size_t) length > ETHER_MAX_LEN)
-                return 0;
-
-        packet->userdata = userdata;
-
-        p = packet;
-        packet = NULL;
-
-        return lldp_handle_packet(p, (uint16_t) length);
-}

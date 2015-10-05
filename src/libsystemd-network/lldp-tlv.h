@@ -28,12 +28,18 @@
 #include "lldp.h"
 #include "list.h"
 
+#include "sd-lldp.h"
+
 typedef struct tlv_packet tlv_packet;
 typedef struct tlv_section tlv_section;
+
+#define LLDP_OUI_LEN 3
 
 struct tlv_section {
         uint16_t type;
         uint16_t length;
+        uint8_t *oui;
+        uint8_t subtype;
 
         uint8_t *read_pos;
         uint8_t *data;
@@ -41,10 +47,16 @@ struct tlv_section {
         LIST_FIELDS(tlv_section, section);
 };
 
+#define LLDP_MAC_NEAREST_BRIDGE          (uint8_t[]) { 0x01, 0x80, 0xc2, 0x00, 0x00, 0x0e }
+#define LLDP_MAC_NEAREST_NON_TPMR_BRIDGE (uint8_t[]) { 0x01, 0x80, 0xc2, 0x00, 0x00, 0x03 }
+#define LLDP_MAC_NEAREST_CUSTOMER_BRIDGE (uint8_t[]) { 0x01, 0x80, 0xc2, 0x00, 0x00, 0x00 }
+
 int tlv_section_new(tlv_section **ret);
 void tlv_section_free(tlv_section *ret);
 
 struct tlv_packet {
+        unsigned n_ref;
+
         uint16_t type;
         uint16_t length;
         usec_t ts;
@@ -61,10 +73,9 @@ struct tlv_packet {
 };
 
 int tlv_packet_new(tlv_packet **ret);
-void tlv_packet_free(tlv_packet *m);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(tlv_packet*, tlv_packet_free);
-#define _cleanup_tlv_packet_free_ _cleanup_(tlv_packet_freep)
+DEFINE_TRIVIAL_CLEANUP_FUNC(sd_lldp_packet*, sd_lldp_packet_unref);
+#define _cleanup_lldp_packet_unref_ _cleanup_(sd_lldp_packet_unrefp)
 
 int lldp_tlv_packet_open_container(tlv_packet *m, uint16_t type);
 int lldp_tlv_packet_close_container(tlv_packet *m);
@@ -76,6 +87,7 @@ int tlv_packet_append_u32(tlv_packet *m, uint32_t data);
 int tlv_packet_append_string(tlv_packet *m, char *data, uint16_t size);
 
 int lldp_tlv_packet_enter_container(tlv_packet *m, uint16_t type);
+int lldp_tlv_packet_enter_container_oui(tlv_packet *m, const uint8_t *oui, uint8_t subtype);
 int lldp_tlv_packet_exit_container(tlv_packet *m);
 
 int tlv_packet_read_bytes(tlv_packet *m, uint8_t **data, uint16_t *data_length);

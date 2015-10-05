@@ -23,6 +23,7 @@
 #include "async.h"
 #include "lldp-port.h"
 #include "lldp-network.h"
+#include "lldp-internal.h"
 
 int lldp_port_start(lldp_port *p) {
         int r;
