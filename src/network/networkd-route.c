@@ -305,6 +305,46 @@ int config_parse_gateway(const char *unit,
         return 0;
 }
 
+int config_parse_preferred_src(const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *network = userdata;
+        _cleanup_route_free_ Route *n = NULL;
+        union in_addr_union buffer;
+        int r, f;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = route_new_static(network, section_line, &n);
+        if (r < 0)
+                return r;
+
+        r = in_addr_from_string_auto(rvalue, &f, &buffer);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                           "Preferred source is invalid, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        n->family = f;
+        n->prefsrc_addr = buffer;
+        n = NULL;
+
+        return 0;
+}
+
 int config_parse_destination(const char *unit,
                 const char *filename,
                 unsigned line,
