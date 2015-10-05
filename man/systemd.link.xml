@@ -233,6 +233,12 @@
                 <literal>locally administered</literal> bits set.</para>
               </listitem>
             </varlistentry>
+            <varlistentry>
+              <term><literal>none</literal></term>
+              <listitem>
+                <para>Keeps the MAC address assigned by the kernel.</para>
+              </listitem>
+            </varlistentry>
           </variablelist>
         </listitem>
       </varlistentry>
