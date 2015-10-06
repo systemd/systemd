@@ -13,8 +13,8 @@ CHANGES WITH 227:
           stopped having this file around as anything else than a
           symlink to /proc/self/mounts.
 
-        * Support for the "pids" cgroup controller has been added.
-          It allows accounting the number of tasks in a cgroup and
+        * Support for the "pids" cgroup controller has been added.  It
+          allows accounting the number of tasks in a cgroup and
           enforcing limits on it. This adds two new setting
           TasksAccounting= and TasksMax= to each unit, as well as a
           global option DefaultTasksAccounting=.
@@ -44,10 +44,10 @@ CHANGES WITH 227:
           'machine-id-setup --commit'. The separate binary has been
           removed.
 
-        * The WorkingDirectory= directive in unit files may now be
-          set to the special value '~'. In this case, the working
-          directory is set to the home directory of the user configured
-          in User=.
+        * The WorkingDirectory= directive in unit files may now be set
+          to the special value '~'. In this case, the working
+          directory is set to the home directory of the user
+          configured in User=.
 
         * "machinectl shell" will now open the shell in the home
           directory of the selected user by default.
@@ -57,11 +57,12 @@ CHANGES WITH 227:
           also be set through CrashReboot= in systemd.conf.
 
         * The CrashChVT= configuration file setting is renamed to
-          CrashChangeVT=, following our usual logic of not abbreviating
-          unnecessarily. The old directive is still supported for compat
-          reasons. Also, this directive now takes an integer value
-          between 1 and 63, or a boolean value. The formerly supported
-          '-1' value for disabling stays around for compat reasons.
+          CrashChangeVT=, following our usual logic of not
+          abbreviating unnecessarily. The old directive is still
+          supported for compat reasons. Also, this directive now takes
+          an integer value between 1 and 63, or a boolean value. The
+          formerly supported '-1' value for disabling stays around for
+          compat reasons.
 
         * The PrivateTmp=, PrivateDevices=, PrivateNetwork=,
           NoNewPrivileges=, TTYPath=, WorkingDirectory= and
@@ -114,12 +115,15 @@ CHANGES WITH 227:
         * The RuntimeDirectory= setting now understands unit
           specifiers like %i or %f.
 
-        * networkd gained support for:
-            - setting the IPv6 Router Advertisment settings via
+        * systemd-networkd gained support for:
+
+            - Setting the IPv6 Router Advertisment settings via
               IPv6AcceptRouterAdvertisements= in .network files.
-            - configuring the HelloTimeSec, MaxAgeSec and
-              ForwardDelaySec bridge parameters in .netdev files.
-            - configuring PreferredSource for static routes in
+
+            - Configuring the HelloTimeSec=, MaxAgeSec= and
+              ForwardDelaySec= bridge parameters in .netdev files.
+
+            - Configuring PreferredSource= for static routes in
               .network files.
 
         * udev will now create /dev/disk/by-path links for ATA devices
@@ -142,11 +146,24 @@ CHANGES WITH 227:
           only intermittendly, and even restores state if the previous
           system shutdown was abrupt rather than clean.
 
-        * Sockets passed using socket activation are now named. A new
-          API sd_listen_fds_with_names() is added to access the names.
-          The default names can be overwritten either in the .socket
-          file using the FileDescriptorName= parameter, or by passing
-          FDNAME= when storing the filedescriptor using sd_notify().
+        * File descriptors passed during socket activation may now be
+          named. A new API sd_listen_fds_with_names() is added to
+          access the names.  The default names may be overriden,
+          either in the .socket file using the FileDescriptorName=
+          parameter, or by passing FDNAME= when storing the file
+          descriptors using sd_notify().
+
+        * The journal daemon gained support for vacuuming old journal
+          files controlled by the number of files that shall remain,
+          in addition to the already existing control by size and by
+          date. This is useful as journal interleaving performance
+          degrades with too many seperate journal files, and allows
+          putting an effective limit on them. The new setting defaults
+          to 100, but this may be changed by setting SystemMaxFiles=
+          and RuntimeMaxFiles= in journald.conf. Also, the
+          "journalctl" tool gained the new --vacuum-files= switch to
+          manually vacuum journal files to leave only the specified
+          number of files in place.
 
         * Galician, Serbian, Turkish and Korean translations were added.
 

@@ -784,5 +784,5 @@ rollback:
                 free(nl[j]);
 
         nl[k] = NULL;
-        return NULL;
+        return -ENOMEM;
 }

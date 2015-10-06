@@ -361,6 +361,11 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_FDNAME:
+                        if (!fdname_is_valid(optarg)) {
+                                log_error("File descriptor name %s is not valid, refusing.", optarg);
+                                return -EINVAL;
+                        }
+
                         arg_fdname = optarg;
                         break;
 
