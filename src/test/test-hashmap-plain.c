@@ -710,7 +710,7 @@ static void test_hashmap_many(void) {
                 unsigned n_entries;
         } tests[] = {
                 { .ops = NULL,                  .n_entries = 1 << 20 },
-                { .ops = &crippled_hashmap_ops, .n_entries = 1 << 11 },
+                { .ops = &crippled_hashmap_ops, .n_entries = 1 << 14 },
         };
 
 
