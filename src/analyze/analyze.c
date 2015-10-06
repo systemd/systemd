@@ -318,6 +318,8 @@ finish:
 }
 
 static void free_host_info(struct host_info *hi) {
+        if (hi == NULL)
+                return;
         free(hi->hostname);
         free(hi->kernel_name);
         free(hi->kernel_release);
@@ -327,6 +329,8 @@ static void free_host_info(struct host_info *hi) {
         free(hi->architecture);
         free(hi);
 }
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct host_info*, free_host_info);
+#define _cleanup_host_info_ _cleanup_(free_host_infop)
 
 static int acquire_time_data(sd_bus *bus, struct unit_times **out) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
@@ -432,6 +436,7 @@ fail:
 static int acquire_host_info(sd_bus *bus, struct host_info **hi) {
         int r;
         struct host_info *host;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
 
         static const struct bus_properties_map hostname_map[] = {
                 { "Hostname", "s", NULL, offsetof(struct host_info, hostname) },
@@ -458,21 +463,22 @@ static int acquire_host_info(sd_bus *bus, struct host_info **hi) {
                                    hostname_map,
                                    host);
         if (r < 0)
-                goto fail;
+                log_debug_errno(r, "Failed to get host information from systemd-hostnamed: %s",
+                                bus_error_message(&error, r));
 
         r = bus_map_all_properties(bus,
                                    "org.freedesktop.systemd1",
                                    "/org/freedesktop/systemd1",
                                    manager_map,
                                    host);
-        if (r < 0)
-                goto fail;
+        if (r < 0) {
+                free_host_info(host);
+                return log_error_errno(r, "Failed to get host information from systemd: %s",
+                                       bus_error_message(&error, r));
+        }
 
         *hi = host;
         return 0;
-fail:
-        free_host_info(host);
-        return r;
 }
 
 static int pretty_boot_time(sd_bus *bus, char **_buf) {
@@ -537,7 +543,7 @@ static void svg_graph_box(double height, double begin, double end) {
 static int analyze_plot(sd_bus *bus) {
         struct unit_times *times;
         struct boot_times *boot;
-        struct host_info *host = NULL;
+        _cleanup_host_info_ struct host_info *host = NULL;
         int n, m = 1, y=0;
         double width;
         _cleanup_free_ char *pretty_times = NULL;
@@ -557,7 +563,7 @@ static int analyze_plot(sd_bus *bus) {
 
         n = acquire_time_data(bus, &times);
         if (n <= 0)
-                goto out;
+                return n;
 
         qsort(times, n, sizeof(struct unit_times), compare_unit_start);
 
@@ -652,13 +658,13 @@ static int analyze_plot(sd_bus *bus) {
         svg("<rect class=\"background\" width=\"100%%\" height=\"100%%\" />\n");
         svg("<text x=\"20\" y=\"50\">%s</text>", pretty_times);
         svg("<text x=\"20\" y=\"30\">%s %s (%s %s %s) %s %s</text>",
-            isempty(host->os_pretty_name) ? "Linux" : host->os_pretty_name,
-            isempty(host->hostname) ? "" : host->hostname,
-            isempty(host->kernel_name) ? "" : host->kernel_name,
-            isempty(host->kernel_release) ? "" : host->kernel_release,
-            isempty(host->kernel_version) ? "" : host->kernel_version,
-            isempty(host->architecture) ? "" : host->architecture,
-            isempty(host->virtualization) ? "" : host->virtualization);
+            strempty(host->os_pretty_name),
+            strempty(host->hostname),
+            strempty(host->kernel_name),
+            strempty(host->kernel_release),
+            strempty(host->kernel_version),
+            strempty(host->architecture),
+            strempty(host->virtualization));
 
         svg("<g transform=\"translate(%.3f,100)\">\n", 20.0 + (SCALE_X * boot->firmware_time));
         svg_graph_box(m, -(double) boot->firmware_time, boot->finish_time);
@@ -742,8 +748,6 @@ static int analyze_plot(sd_bus *bus) {
         free_unit_times(times, (unsigned) n);
 
         n = 0;
-out:
-        free_host_info(host);
         return n;
 }
 
