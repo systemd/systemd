@@ -6849,12 +6849,14 @@ int version(void) {
 bool fdname_is_valid(const char *s) {
         const char *p;
 
-        /* Validates a name for $LISTEN_NAMES. We basically allow
+        /* Validates a name for $LISTEN_FDNAMES. We basically allow
          * everything ASCII that's not a control character. Also, as
          * special exception the ":" character is not allowed, as we
-         * use that as field separator in $LISTEN_NAMES.
+         * use that as field separator in $LISTEN_FDNAMES.
          *
-         * Note that the empty string is explicitly allowed here.*/
+         * Note that the empty string is explicitly allowed
+         * here. However, we limit the length of the names to 255
+         * characters. */
 
         if (!s)
                 return false;
