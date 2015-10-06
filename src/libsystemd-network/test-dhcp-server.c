@@ -198,6 +198,14 @@ static void test_message_handler(void) {
         assert_se(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test)) == 0);
 }
 
+static uint64_t client_id_hash_helper(DHCPClientId *id, uint8_t key[HASH_KEY_SIZE]) {
+        struct siphash state;
+
+        siphash_init(&state, key);
+        client_id_hash_func(id, &state);
+        return siphash24_finalize(&state);
+}
+
 static void test_client_id_hash(void) {
         DHCPClientId a = {
                 .length = 4,
@@ -213,18 +221,18 @@ static void test_client_id_hash(void) {
         b.data = (uint8_t*)strdup("abcd");
 
         assert_se(client_id_compare_func(&a, &b) == 0);
-        assert_se(client_id_hash_func(&a, hash_key) == client_id_hash_func(&b, hash_key));
+        assert_se(client_id_hash_helper(&a, hash_key) == client_id_hash_helper(&b, hash_key));
         a.length = 3;
         assert_se(client_id_compare_func(&a, &b) != 0);
         a.length = 4;
         assert_se(client_id_compare_func(&a, &b) == 0);
-        assert_se(client_id_hash_func(&a, hash_key) == client_id_hash_func(&b, hash_key));
+        assert_se(client_id_hash_helper(&a, hash_key) == client_id_hash_helper(&b, hash_key));
 
         b.length = 3;
         assert_se(client_id_compare_func(&a, &b) != 0);
         b.length = 4;
         assert_se(client_id_compare_func(&a, &b) == 0);
-        assert_se(client_id_hash_func(&a, hash_key) == client_id_hash_func(&b, hash_key));
+        assert_se(client_id_hash_helper(&a, hash_key) == client_id_hash_helper(&b, hash_key));
 
         free(b.data);
         b.data = (uint8_t*)strdup("abce");

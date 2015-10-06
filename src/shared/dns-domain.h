@@ -54,7 +54,7 @@ static inline int dns_name_is_valid(const char *s) {
         return 1;
 }
 
-unsigned long dns_name_hash_func(const void *s, const uint8_t hash_key[HASH_KEY_SIZE]);
+void dns_name_hash_func(const void *s, struct siphash *state);
 int dns_name_compare_func(const void *a, const void *b);
 extern const struct hash_ops dns_name_hash_ops;
 

@@ -137,14 +137,13 @@ void dns_server_packet_lost(DnsServer *s, usec_t usec) {
                 s->resend_timeout = MIN(s->resend_timeout * 2, DNS_TIMEOUT_MAX_USEC);
 }
 
-static unsigned long dns_server_hash_func(const void *p, const uint8_t hash_key[HASH_KEY_SIZE]) {
+static void dns_server_hash_func(const void *p, struct siphash *state) {
         const DnsServer *s = p;
-        uint64_t u;
 
-        siphash24((uint8_t*) &u, &s->address, FAMILY_ADDRESS_SIZE(s->family), hash_key);
-        u = u * hash_key[0] + u + s->family;
+        assert(s);
 
-        return u;
+        siphash24_compress(&s->family, sizeof(s->family), state);
+        siphash24_compress(&s->address, FAMILY_ADDRESS_SIZE(s->family), state);
 }
 
 static int dns_server_compare_func(const void *a, const void *b) {

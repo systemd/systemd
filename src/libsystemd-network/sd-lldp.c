@@ -68,16 +68,14 @@ struct sd_lldp {
         lldp_agent_statistics statistics;
 };
 
-static unsigned long chassis_id_hash_func(const void *p,
-                                          const uint8_t hash_key[HASH_KEY_SIZE]) {
-        uint64_t u;
+static void chassis_id_hash_func(const void *p, struct siphash *state) {
         const lldp_chassis_id *id = p;
 
         assert(id);
+        assert(id->data);
 
-        siphash24((uint8_t *) &u, id->data, id->length, hash_key);
-
-        return (unsigned long) u;
+        siphash24_compress(&id->length, sizeof(id->length), state);
+        siphash24_compress(id->data, id->length, state);
 }
 
 static int chassis_id_compare_func(const void *_a, const void *_b) {

@@ -276,10 +276,8 @@ static const struct hashmap_type_info hashmap_type_info[_HASHMAP_TYPE_MAX] = {
         },
 };
 
-unsigned long string_hash_func(const void *p, const uint8_t hash_key[HASH_KEY_SIZE]) {
-        uint64_t u;
-        siphash24((uint8_t*) &u, p, strlen(p), hash_key);
-        return (unsigned long) u;
+void string_hash_func(const void *p, struct siphash *state) {
+        siphash24_compress(p, strlen(p) + 1, state);
 }
 
 int string_compare_func(const void *a, const void *b) {
@@ -291,10 +289,8 @@ const struct hash_ops string_hash_ops = {
         .compare = string_compare_func
 };
 
-unsigned long trivial_hash_func(const void *p, const uint8_t hash_key[HASH_KEY_SIZE]) {
-        uint64_t u;
-        siphash24((uint8_t*) &u, &p, sizeof(p), hash_key);
-        return (unsigned long) u;
+void trivial_hash_func(const void *p, struct siphash *state) {
+        siphash24_compress(&p, sizeof(p), state);
 }
 
 int trivial_compare_func(const void *a, const void *b) {
@@ -306,10 +302,8 @@ const struct hash_ops trivial_hash_ops = {
         .compare = trivial_compare_func
 };
 
-unsigned long uint64_hash_func(const void *p, const uint8_t hash_key[HASH_KEY_SIZE]) {
-        uint64_t u;
-        siphash24((uint8_t*) &u, p, sizeof(uint64_t), hash_key);
-        return (unsigned long) u;
+void uint64_hash_func(const void *p, struct siphash *state) {
+        siphash24_compress(p, sizeof(uint64_t), state);
 }
 
 int uint64_compare_func(const void *_a, const void *_b) {
@@ -325,10 +319,8 @@ const struct hash_ops uint64_hash_ops = {
 };
 
 #if SIZEOF_DEV_T != 8
-unsigned long devt_hash_func(const void *p, const uint8_t hash_key[HASH_KEY_SIZE]) {
-        uint64_t u;
-        siphash24((uint8_t*) &u, p, sizeof(dev_t), hash_key);
-        return (unsigned long) u;
+void devt_hash_func(const void *p, struct siphash *state) {
+        siphash24_compress(p, sizeof(dev_t), state);
 }
 
 int devt_compare_func(const void *_a, const void *_b) {
@@ -379,7 +371,13 @@ static uint8_t *hash_key(HashmapBase *h) {
 }
 
 static unsigned base_bucket_hash(HashmapBase *h, const void *p) {
-        return (unsigned) (h->hash_ops->hash(p, hash_key(h)) % n_buckets(h));
+        struct siphash state;
+
+        siphash_init(&state, hash_key(h));
+
+        h->hash_ops->hash(p, &state);
+
+        return (unsigned) (siphash24_finalize(&state) % n_buckets(h));
 }
 #define bucket_hash(h, p) base_bucket_hash(HASHMAP_BASE(h), p)
 

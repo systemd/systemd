@@ -628,22 +628,24 @@ typedef struct Member {
         uint64_t flags;
 } Member;
 
-static unsigned long member_hash_func(const void *p, const uint8_t hash_key[]) {
+static void member_hash_func(const void *p, struct siphash *state) {
         const Member *m = p;
-        unsigned long ul;
+        uint64_t arity = 1;
 
         assert(m);
         assert(m->type);
 
-        ul = string_hash_func(m->type, hash_key);
+        string_hash_func(m->type, state);
+
+        arity += !!m->name + !!m->interface;
+
+        uint64_hash_func(&arity, state);
 
         if (m->name)
-                ul ^= string_hash_func(m->name, hash_key);
+                string_hash_func(m->name, state);
 
         if (m->interface)
-                ul ^= string_hash_func(m->interface, hash_key);
-
-        return ul;
+                string_hash_func(m->interface, state);
 }
 
 static int member_compare_func(const void *a, const void *b) {

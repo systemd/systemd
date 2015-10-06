@@ -249,6 +249,7 @@
 /test-sched-prio
 /test-set
 /test-sigbus
+/test-siphash24
 /test-sleep
 /test-socket-util
 /test-ssd

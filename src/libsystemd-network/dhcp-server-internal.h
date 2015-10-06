@@ -96,5 +96,5 @@ int dhcp_server_send_packet(sd_dhcp_server *server,
                             DHCPRequest *req, DHCPPacket *packet,
                             int type, size_t optoffset);
 
-unsigned long client_id_hash_func(const void *p, const uint8_t hash_key[HASH_KEY_SIZE]);
+void client_id_hash_func(const void *p, struct siphash *state);
 int client_id_compare_func(const void *_a, const void *_b);
