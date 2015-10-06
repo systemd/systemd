@@ -318,6 +318,8 @@ finish:
 }
 
 static void free_host_info(struct host_info *hi) {
+        if (hi == NULL)
+                return;
         free(hi->hostname);
         free(hi->kernel_name);
         free(hi->kernel_release);
@@ -327,6 +329,8 @@ static void free_host_info(struct host_info *hi) {
         free(hi->architecture);
         free(hi);
 }
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct host_info*, free_host_info);
+#define _cleanup_host_info_ _cleanup_(free_host_infop)
 
 static int acquire_time_data(sd_bus *bus, struct unit_times **out) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
@@ -537,7 +541,7 @@ static void svg_graph_box(double height, double begin, double end) {
 static int analyze_plot(sd_bus *bus) {
         struct unit_times *times;
         struct boot_times *boot;
-        struct host_info *host = NULL;
+        _cleanup_host_info_ struct host_info *host = NULL;
         int n, m = 1, y=0;
         double width;
         _cleanup_free_ char *pretty_times = NULL;
@@ -557,7 +561,7 @@ static int analyze_plot(sd_bus *bus) {
 
         n = acquire_time_data(bus, &times);
         if (n <= 0)
-                goto out;
+                return n;
 
         qsort(times, n, sizeof(struct unit_times), compare_unit_start);
 
@@ -742,8 +746,6 @@ static int analyze_plot(sd_bus *bus) {
         free_unit_times(times, (unsigned) n);
 
         n = 0;
-out:
-        free_host_info(host);
         return n;
 }
 
