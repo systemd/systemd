@@ -142,6 +142,12 @@ CHANGES WITH 227:
           only intermittendly, and even restores state if the previous
           system shutdown was abrupt rather than clean.
 
+        * Sockets passed using socket activation are now named. A new
+          API sd_listen_fds_with_names() is added to access the names.
+          The default names can be overwritten either in the .socket
+          file using the FileDescriptorName= parameter, or by passing
+          FDNAME= when storing the filedescriptor using sd_notify().
+
         * Galician, Serbian, Turkish and Korean translations were added.
 
         Contributions from:
