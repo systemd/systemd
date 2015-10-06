@@ -52,7 +52,7 @@ typedef uint8_t u8;
     (state)->v2 += (state)->v1; (state)->v1=ROTL((state)->v1,17); (state)->v1 ^= (state)->v2; (state)->v2=ROTL((state)->v2,32); \
   } while(0)
 
-void siphash_init(struct siphash *state, const uint8_t k[16]) {
+void siphash24_init(struct siphash *state, const uint8_t k[16]) {
   u64 k0, k1;
 
   k0 = U8TO64_LE( k );
@@ -140,7 +140,7 @@ void siphash24_compress(const void *_in, size_t inlen, struct siphash *state) {
   }
 }
 
-uint64_t siphash24_finalize(struct siphash *state) {
+void siphash24_finalize(uint8_t out[8], struct siphash *state) {
   u64 b;
 
   b = state->padding | (( ( u64 )state->inlen ) << 56);
@@ -168,20 +168,19 @@ uint64_t siphash24_finalize(struct siphash *state) {
   SIPROUND(state);
   SIPROUND(state);
 
-  return state->v0 ^ state->v1 ^ state->v2  ^ state->v3;
+  b = state->v0 ^ state->v1 ^ state->v2  ^ state->v3;
+
+  U64TO8_LE( out, b );
 }
 
 /* SipHash-2-4 */
 void siphash24(uint8_t out[8], const void *_in, size_t inlen, const uint8_t k[16])
 {
   struct siphash state;
-  u64 b;
 
-  siphash_init(&state, k);
+  siphash24_init(&state, k);
 
   siphash24_compress(_in, inlen, &state);
 
-  b = siphash24_finalize(&state);
-
-  U64TO8_LE( out, b );
+  siphash24_finalize(out, &state);
 }

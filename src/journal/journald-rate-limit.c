@@ -57,7 +57,7 @@ struct JournalRateLimitGroup {
 
         char *id;
         JournalRateLimitPool pools[POOLS_MAX];
-        unsigned long hash;
+        uint64_t hash;
 
         LIST_FIELDS(JournalRateLimitGroup, bucket);
         LIST_FIELDS(JournalRateLimitGroup, lru);
@@ -158,9 +158,9 @@ static JournalRateLimitGroup* journal_rate_limit_group_new(JournalRateLimit *r, 
         if (!g->id)
                 goto fail;
 
-        siphash_init(&state, r->hash_key);
+        siphash24_init(&state, r->hash_key);
         string_hash_func(g->id, &state);
-        g->hash = siphash24_finalize(&state);
+        siphash24_finalize((uint8_t*)&g->hash, &state);
 
         journal_rate_limit_vacuum(r, ts);
 
@@ -207,7 +207,7 @@ static unsigned burst_modulate(unsigned burst, uint64_t available) {
 }
 
 int journal_rate_limit_test(JournalRateLimit *r, const char *id, int priority, uint64_t available) {
-        unsigned long h;
+        uint64_t h;
         JournalRateLimitGroup *g;
         JournalRateLimitPool *p;
         struct siphash state;
@@ -226,9 +226,9 @@ int journal_rate_limit_test(JournalRateLimit *r, const char *id, int priority, u
 
         ts = now(CLOCK_MONOTONIC);
 
-        siphash_init(&state, r->hash_key);
+        siphash24_init(&state, r->hash_key);
         string_hash_func(id, &state);
-        h = siphash24_finalize(&state);
+        siphash24_finalize((uint8_t*)&h, &state);
         g = r->buckets[h % BUCKETS_MAX];
 
         LIST_FOREACH(bucket, g, g)

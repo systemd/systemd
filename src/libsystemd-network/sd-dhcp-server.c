@@ -741,15 +741,17 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
                         address = existing_lease->address;
                 else {
                         struct siphash state;
+                        uint64_t hash;
                         uint32_t next_offer;
 
                         /* even with no persistence of leases, we try to offer the same client
                            the same IP address. we do this by using the hash of the client id
                            as the offset into the pool of leases when finding the next free one */
 
-                        siphash_init(&state, HASH_KEY.bytes);
+                        siphash24_init(&state, HASH_KEY.bytes);
                         client_id_hash_func(&req->client_id, &state);
-                        next_offer = siphash24_finalize(&state) % server->pool_size;
+                        siphash24_finalize((uint8_t*)&hash, &state);
+                        next_offer = hash % server->pool_size;
 
                         for (i = 0; i < server->pool_size; i++) {
                                 if (!server->bound_leases[next_offer]) {
