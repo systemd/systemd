@@ -32,6 +32,7 @@ typedef struct link_config link_config;
 typedef enum MACPolicy {
         MACPOLICY_PERSISTENT,
         MACPOLICY_RANDOM,
+        MACPOLICY_NONE,
         _MACPOLICY_MAX,
         _MACPOLICY_INVALID = -1
 } MACPolicy;

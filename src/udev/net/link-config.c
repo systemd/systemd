@@ -460,6 +460,7 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
                                 mac = &generated_mac;
                         }
                         break;
+                case MACPOLICY_NONE:
                 default:
                         mac = config->mac;
         }
@@ -492,7 +493,8 @@ int link_get_driver(link_config_ctx *ctx, struct udev_device *device, char **ret
 
 static const char* const mac_policy_table[_MACPOLICY_MAX] = {
         [MACPOLICY_PERSISTENT] = "persistent",
-        [MACPOLICY_RANDOM] = "random"
+        [MACPOLICY_RANDOM] = "random",
+        [MACPOLICY_NONE] = "none"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(mac_policy, MACPolicy);
