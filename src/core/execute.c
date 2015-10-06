@@ -21,18 +21,18 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <unistd.h>
-#include <string.h>
-#include <signal.h>
-#include <sys/socket.h>
-#include <sys/un.h>
-#include <sys/prctl.h>
-#include <sys/stat.h>
+#include <glob.h>
 #include <grp.h>
 #include <poll.h>
-#include <glob.h>
-#include <utmpx.h>
+#include <signal.h>
+#include <string.h>
 #include <sys/personality.h>
+#include <sys/prctl.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
+#include <sys/un.h>
+#include <unistd.h>
+#include <utmpx.h>
 
 #ifdef HAVE_PAM
 #include <security/pam_appl.h>
@@ -50,37 +50,38 @@
 #include <sys/apparmor.h>
 #endif
 
-#include "barrier.h"
 #include "sd-messages.h"
-#include "rm-rf.h"
-#include "strv.h"
-#include "macro.h"
-#include "capability.h"
-#include "util.h"
-#include "log.h"
-#include "ioprio.h"
-#include "securebits.h"
-#include "namespace.h"
-#include "exit-status.h"
-#include "missing.h"
-#include "utmp-wtmp.h"
-#include "def.h"
-#include "path-util.h"
-#include "env-util.h"
-#include "fileio.h"
-#include "unit.h"
-#include "async.h"
-#include "selinux-util.h"
-#include "errno-list.h"
+
 #include "af-list.h"
-#include "mkdir.h"
-#include "smack-util.h"
+#include "async.h"
+#include "barrier.h"
 #include "bus-endpoint.h"
 #include "cap-list.h"
+#include "capability.h"
+#include "def.h"
+#include "env-util.h"
+#include "errno-list.h"
+#include "exit-status.h"
+#include "fileio.h"
 #include "formats-util.h"
+#include "ioprio.h"
+#include "log.h"
+#include "macro.h"
+#include "missing.h"
+#include "mkdir.h"
+#include "namespace.h"
+#include "path-util.h"
 #include "process-util.h"
-#include "terminal-util.h"
+#include "rm-rf.h"
+#include "securebits.h"
+#include "selinux-util.h"
 #include "signal-util.h"
+#include "smack-util.h"
+#include "strv.h"
+#include "terminal-util.h"
+#include "unit.h"
+#include "util.h"
+#include "utmp-wtmp.h"
 
 #ifdef HAVE_APPARMOR
 #include "apparmor-util.h"
@@ -1198,6 +1199,7 @@ static void do_idle_pipe_dance(int idle_pipe[4]) {
 static int build_environment(
                 const ExecContext *c,
                 unsigned n_fds,
+                char ** fd_names,
                 usec_t watchdog_usec,
                 const char *home,
                 const char *username,
@@ -1211,16 +1213,27 @@ static int build_environment(
         assert(c);
         assert(ret);
 
-        our_env = new0(char*, 10);
+        our_env = new0(char*, 11);
         if (!our_env)
                 return -ENOMEM;
 
         if (n_fds > 0) {
+                _cleanup_free_ char *joined = NULL;
+
                 if (asprintf(&x, "LISTEN_PID="PID_FMT, getpid()) < 0)
                         return -ENOMEM;
                 our_env[n_env++] = x;
 
                 if (asprintf(&x, "LISTEN_FDS=%u", n_fds) < 0)
+                        return -ENOMEM;
+                our_env[n_env++] = x;
+
+                joined = strv_join(fd_names, ":");
+                if (!joined)
+                        return -ENOMEM;
+
+                x = strjoin("LISTEN_FDNAMES=", joined, NULL);
+                if (!x)
                         return -ENOMEM;
                 our_env[n_env++] = x;
         }
@@ -1273,7 +1286,7 @@ static int build_environment(
         }
 
         our_env[n_env++] = NULL;
-        assert(n_env <= 10);
+        assert(n_env <= 11);
 
         *ret = our_env;
         our_env = NULL;
@@ -1850,7 +1863,7 @@ static int exec_child(
 #endif
         }
 
-        r = build_environment(context, n_fds, params->watchdog_usec, home, username, shell, &our_env);
+        r = build_environment(context, n_fds, params->fd_names, params->watchdog_usec, home, username, shell, &our_env);
         if (r < 0) {
                 *exit_status = EXIT_MEMORY;
                 return r;

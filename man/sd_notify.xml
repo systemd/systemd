@@ -1,4 +1,4 @@
-<?xml version='1.0'?> <!--*-nxml-*-->
+<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
@@ -229,6 +229,27 @@
         below.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term>FDNAME=...</term>
+
+        <listitem><para>When used in combination with
+        <varname>FDSTORE=1</varname> specifies a name for the
+        submitted file descriptors. This name is passed to the service
+        during activation, and may be queried using
+        <citerefentry><refentrytitle>sd_listen_fds_with_names</refentrytitle><manvolnum>3</manvolnum></citerefentry>. File
+        descriptors submitted without this field set, will implicitly
+        get the name <literal>stored</literal> assigned. Note that if
+        multiple file descriptors are submitted at once the specified
+        name will be assigned to all of them. In order to assign
+        different names to submitted file descriptors, submit them in
+        seperate invocations of
+        <function>sd_pid_notify_with_fds()</function>. The name may
+        consist of any ASCII characters, but must not contain control
+        characters or <literal>:</literal>. It may not be longer than
+        255 characters. If a submitted name does not follow these
+        restrictions it is ignored.</para></listitem>
+      </varlistentry>
+
     </variablelist>
 
     <para>It is recommended to prefix variable names that are not
@@ -358,7 +379,7 @@
       in order to continue operation after a service restart without
       losing state use <literal>FDSTORE=1</literal>:</para>
 
-      <programlisting>sd_pid_notify_with_fds(0, 0, "FDSTORE=1", &amp;fd, 1);</programlisting>
+      <programlisting>sd_pid_notify_with_fds(0, 0, "FDSTORE=1\nFDNAME=foobar", &amp;fd, 1);</programlisting>
     </example>
   </refsect1>
 
@@ -367,9 +388,11 @@
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_listen_fds_with_names</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_watchdog_enabled</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>daemon</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>sd_watchdog_enabled</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     </para>
   </refsect1>
 

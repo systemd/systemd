@@ -941,3 +941,5 @@ int receive_one_fd(int transport_fd, int flags);
 void nop_signal_handler(int sig);
 
 int version(void);
+
+bool fdname_is_valid(const char *s);

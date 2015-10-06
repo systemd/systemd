@@ -154,15 +154,21 @@ struct Socket {
         char *user, *group;
 
         bool reset_cpu_usage:1;
+
+        char *fdname;
 };
 
 /* Called from the service code when collecting fds */
-int socket_collect_fds(Socket *s, int **fds, unsigned *n_fds);
+int socket_collect_fds(Socket *s, int **fds);
 
 /* Called from the service code when a per-connection service ended */
 void socket_connection_unref(Socket *s);
 
 void socket_free_ports(Socket *s);
+
+int socket_instantiate_service(Socket *s);
+
+char *socket_fdname(Socket *s);
 
 extern const UnitVTable socket_vtable;
 
@@ -173,5 +179,3 @@ const char* socket_result_to_string(SocketResult i) _const_;
 SocketResult socket_result_from_string(const char *s) _pure_;
 
 const char* socket_port_type_to_string(SocketPort *p) _pure_;
-
-int socket_instantiate_service(Socket *s);

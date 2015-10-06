@@ -21,9 +21,22 @@
 
 #include <unistd.h>
 
-#include "systemd/sd-daemon.h"
+#include "sd-daemon.h"
+
+#include "strv.h"
 
 int main(int argc, char*argv[]) {
+        _cleanup_strv_free_ char **l = NULL;
+        int n, i;
+
+        n = sd_listen_fds_with_names(false, &l);
+        if (n < 0) {
+                log_error_errno(n, "Failed to get listening fds: %m");
+                return EXIT_FAILURE;
+        }
+
+        for (i = 0; i < n; i++)
+                log_info("fd=%i name=%s\n", SD_LISTEN_FDS_START + i, l[i]);
 
         sd_notify(0,
                   "STATUS=Starting up");
@@ -49,5 +62,5 @@ int main(int argc, char*argv[]) {
                   "STOPPING=1");
         sleep(5);
 
-        return 0;
+        return EXIT_SUCCESS;
 }

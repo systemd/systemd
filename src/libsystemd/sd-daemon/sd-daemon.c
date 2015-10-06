@@ -19,24 +19,36 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/stat.h>
-#include <sys/socket.h>
-#include <sys/un.h>
-#include <netinet/in.h>
-#include <stdlib.h>
 #include <errno.h>
-#include <unistd.h>
-#include <string.h>
-#include <stdarg.h>
-#include <stdio.h>
-#include <stddef.h>
 #include <limits.h>
 #include <mqueue.h>
+#include <netinet/in.h>
+#include <stdarg.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
+#include <sys/un.h>
+#include <unistd.h>
 
-#include "util.h"
 #include "path-util.h"
 #include "socket-util.h"
+#include "strv.h"
+#include "util.h"
+
 #include "sd-daemon.h"
+
+static void unsetenv_all(bool unset_environment) {
+
+        if (!unset_environment)
+                return;
+
+        unsetenv("LISTEN_PID");
+        unsetenv("LISTEN_FDS");
+        unsetenv("LISTEN_FDNAMES");
+}
 
 _public_ int sd_listen_fds(int unset_environment) {
         const char *e;
@@ -79,12 +91,49 @@ _public_ int sd_listen_fds(int unset_environment) {
         r = (int) n;
 
 finish:
-        if (unset_environment) {
-                unsetenv("LISTEN_PID");
-                unsetenv("LISTEN_FDS");
+        unsetenv_all(unset_environment);
+        return r;
+}
+
+_public_ int sd_listen_fds_with_names(int unset_environment, char ***names) {
+        _cleanup_strv_free_ char **l = NULL;
+        bool have_names;
+        int n_names = 0, n_fds;
+        const char *e;
+        int r;
+
+        if (!names)
+                return sd_listen_fds(unset_environment);
+
+        e = getenv("LISTEN_FDNAMES");
+        if (e) {
+                n_names = strv_split_extract(&l, e, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
+                if (n_names < 0) {
+                        unsetenv_all(unset_environment);
+                        return n_names;
+                }
+
+                have_names = true;
+        } else
+                have_names = false;
+
+        n_fds = sd_listen_fds(unset_environment);
+        if (n_fds <= 0)
+                return n_fds;
+
+        if (have_names) {
+                if (n_names != n_fds)
+                        return -EINVAL;
+        } else {
+                r = strv_extend_n(&l, "unknown", n_fds);
+                if (r < 0)
+                        return r;
         }
 
-        return r;
+        *names = l;
+        l = NULL;
+
+        return n_fds;
 }
 
 _public_ int sd_is_fifo(int fd, const char *path) {

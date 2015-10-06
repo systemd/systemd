@@ -508,6 +508,7 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sTCPCongestion: %s\n"
                 "%sRemoveOnStop: %s\n"
                 "%sWritable: %s\n"
+                "%sFDName: %s\n"
                 "%sSELinuxContextFromNet: %s\n",
                 prefix, socket_state_to_string(s->state),
                 prefix, socket_result_to_string(s->result),
@@ -525,6 +526,7 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, strna(s->tcp_congestion),
                 prefix, yes_no(s->remove_on_stop),
                 prefix, yes_no(s->writable),
+                prefix, socket_fdname(s),
                 prefix, yes_no(s->selinux_context_from_net));
 
         if (s->control_pid > 0)
@@ -1028,8 +1030,6 @@ static int fifo_address_create(
 
 fail:
         mac_selinux_create_file_clear();
-        safe_close(fd);
-
         return r;
 }
 
@@ -2630,49 +2630,43 @@ static int socket_dispatch_timer(sd_event_source *source, usec_t usec, void *use
         return 0;
 }
 
-int socket_collect_fds(Socket *s, int **fds, unsigned *n_fds) {
-        int *rfds;
-        unsigned rn_fds, k;
-        int i;
+int socket_collect_fds(Socket *s, int **fds) {
+        int *rfds, k = 0, n = 0;
         SocketPort *p;
 
         assert(s);
         assert(fds);
-        assert(n_fds);
 
         /* Called from the service code for requesting our fds */
 
-        rn_fds = 0;
         LIST_FOREACH(port, p, s->ports) {
                 if (p->fd >= 0)
-                        rn_fds++;
-                rn_fds += p->n_auxiliary_fds;
+                        n++;
+                n += p->n_auxiliary_fds;
         }
 
-        if (rn_fds <= 0) {
+        if (n <= 0) {
                 *fds = NULL;
-                *n_fds = 0;
                 return 0;
         }
 
-        rfds = new(int, rn_fds);
+        rfds = new(int, n);
         if (!rfds)
                 return -ENOMEM;
 
-        k = 0;
         LIST_FOREACH(port, p, s->ports) {
+                int i;
+
                 if (p->fd >= 0)
                         rfds[k++] = p->fd;
                 for (i = 0; i < p->n_auxiliary_fds; ++i)
                         rfds[k++] = p->auxiliary_fds[i];
         }
 
-        assert(k == rn_fds);
+        assert(k == n);
 
         *fds = rfds;
-        *n_fds = rn_fds;
-
-        return 0;
+        return n;
 }
 
 static void socket_reset_failed(Unit *u) {
@@ -2766,6 +2760,19 @@ static int socket_get_timeout(Unit *u, uint64_t *timeout) {
                 return r;
 
         return 1;
+}
+
+char *socket_fdname(Socket *s) {
+        assert(s);
+
+        /* Returns the name to use for $LISTEN_NAMES. If the user
+         * didn't specify anything specifically, use the socket unit's
+         * name as fallback. */
+
+        if (s->fdname)
+                return s->fdname;
+
+        return UNIT(s)->id;
 }
 
 static const char* const socket_exec_command_table[_SOCKET_EXEC_COMMAND_MAX] = {

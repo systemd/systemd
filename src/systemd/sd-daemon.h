@@ -76,6 +76,8 @@ _SD_BEGIN_DECLARATIONS;
 */
 int sd_listen_fds(int unset_environment);
 
+int sd_listen_fds_with_names(int unset_environment, char ***names);
+
 /*
   Helper call for identifying a passed file descriptor. Returns 1 if
   the file descriptor is a FIFO in the file system stored under the

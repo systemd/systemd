@@ -835,6 +835,7 @@
       <varlistentry>
         <term><varname>$LISTEN_PID</varname></term>
         <term><varname>$LISTEN_FDS</varname></term>
+        <term><varname>$LISTEN_FDNAMES</varname></term>
 
         <listitem><para>Set by systemd for supervised processes during
         socket-based activation. See
