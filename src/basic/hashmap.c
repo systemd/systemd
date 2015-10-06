@@ -372,12 +372,15 @@ static uint8_t *hash_key(HashmapBase *h) {
 
 static unsigned base_bucket_hash(HashmapBase *h, const void *p) {
         struct siphash state;
+        uint64_t hash;
 
-        siphash_init(&state, hash_key(h));
+        siphash24_init(&state, hash_key(h));
 
         h->hash_ops->hash(p, &state);
 
-        return (unsigned) (siphash24_finalize(&state) % n_buckets(h));
+        siphash24_finalize((uint8_t*)&hash, &state);
+
+        return (unsigned) (hash % n_buckets(h));
 }
 #define bucket_hash(h, p) base_bucket_hash(HASHMAP_BASE(h), p)
 
