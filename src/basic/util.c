@@ -6168,16 +6168,19 @@ int openpt_in_namespace(pid_t pid, int flags) {
 }
 
 ssize_t fgetxattrat_fake(int dirfd, const char *filename, const char *attribute, void *value, size_t size, int flags) {
+        char fn[strlen("/proc/self/fd/") + DECIMAL_STR_MAX(int) + 1];
         _cleanup_close_ int fd = -1;
         ssize_t l;
 
         /* The kernel doesn't have a fgetxattrat() command, hence let's emulate one */
 
-        fd = openat(dirfd, filename, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOATIME|(flags & AT_SYMLINK_NOFOLLOW ? O_NOFOLLOW : 0));
+        fd = openat(dirfd, filename, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_PATH|(flags & AT_SYMLINK_NOFOLLOW ? O_NOFOLLOW : 0));
         if (fd < 0)
                 return -errno;
 
-        l = fgetxattr(fd, attribute, value, size);
+        xsprintf(fn, "/proc/self/fd/%i", fd);
+
+        l = getxattr(fn, attribute, value, size);
         if (l < 0)
                 return -errno;
 

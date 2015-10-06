@@ -21,8 +21,8 @@
 
 #include <unistd.h>
 
-#include "systemd/sd-messages.h"
-#include "systemd/sd-daemon.h"
+#include "sd-messages.h"
+#include "sd-daemon.h"
 
 #include "journal-authenticate.h"
 #include "journald-server.h"
@@ -54,7 +54,7 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 goto finish;
 
-        server_vacuum(&server);
+        server_vacuum(&server, false, false);
         server_flush_to_var(&server);
         server_flush_dev_kmsg(&server);
 
@@ -82,7 +82,7 @@ int main(int argc, char *argv[]) {
                         if (server.oldest_file_usec + server.max_retention_usec < n) {
                                 log_info("Retention time reached.");
                                 server_rotate(&server);
-                                server_vacuum(&server);
+                                server_vacuum(&server, false, false);
                                 continue;
                         }
 

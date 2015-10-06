@@ -36,11 +36,13 @@
 #include "hashmap.h"
 
 typedef struct JournalMetrics {
-        uint64_t max_use;
-        uint64_t use;
-        uint64_t max_size;
-        uint64_t min_size;
-        uint64_t keep_free;
+        /* For all these: -1 means "pick automatically", and 0 means "no limit enforced" */
+        uint64_t max_size;     /* how large journal files grow at max */
+        uint64_t min_size;     /* how large journal files grow at least */
+        uint64_t max_use;      /* how much disk space to use in total at max, keep_free permitting */
+        uint64_t min_use;      /* how much disk space to use in total at least, even if keep_free says not to */
+        uint64_t keep_free;    /* how much to keep free on disk */
+        uint64_t n_max_files;  /* how many files to keep around at max */
 } JournalMetrics;
 
 typedef enum direction {
@@ -136,7 +138,7 @@ int journal_file_open(
                 JournalFile **ret);
 
 int journal_file_set_offline(JournalFile *f);
-void journal_file_close(JournalFile *j);
+JournalFile* journal_file_close(JournalFile *j);
 
 int journal_file_open_reliably(
                 const char *fname,
@@ -223,6 +225,7 @@ int journal_file_rotate(JournalFile **f, bool compress, bool seal);
 
 void journal_file_post_change(JournalFile *f);
 
+void journal_reset_metrics(JournalMetrics *m);
 void journal_default_metrics(JournalMetrics *m, int fd);
 
 int journal_file_get_cutoff_realtime_usec(JournalFile *f, usec_t *from, usec_t *to);

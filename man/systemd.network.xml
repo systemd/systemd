@@ -901,7 +901,7 @@ DHCP=yes</programlisting>
     </example>
 
     <example>
-      <title>/etc/systemd/network/bridge-static.network</title>
+      <title>/etc/systemd/network/25-bridge-static.network</title>
 
       <programlisting>[Match]
 Name=bridge0
@@ -913,7 +913,7 @@ DNS=192.168.0.1</programlisting>
     </example>
 
     <example>
-      <title>/etc/systemd/network/bridge-slave-interface.network</title>
+      <title>/etc/systemd/network/25-bridge-slave-interface.network</title>
 
       <programlisting>[Match]
 Name=enp2s0
@@ -922,7 +922,7 @@ Name=enp2s0
 Bridge=bridge0</programlisting>
     </example>
     <example>
-      <title>/etc/systemd/network/ipip.network</title>
+      <title>/etc/systemd/network/25-ipip.network</title>
 
       <programlisting>[Match]
 Name=em1
@@ -932,7 +932,7 @@ Tunnel=ipip-tun</programlisting>
     </example>
 
     <example>
-      <title>/etc/systemd/network/sit.network</title>
+      <title>/etc/systemd/network/25-sit.network</title>
 
       <programlisting>[Match]
 Name=em1
@@ -942,7 +942,7 @@ Tunnel=sit-tun</programlisting>
     </example>
 
     <example>
-      <title>/etc/systemd/network/gre.network</title>
+      <title>/etc/systemd/network/25-gre.network</title>
 
       <programlisting>[Match]
 Name=em1
@@ -952,7 +952,7 @@ Tunnel=gre-tun</programlisting>
     </example>
 
     <example>
-      <title>/etc/systemd/network/vti.network</title>
+      <title>/etc/systemd/network/25-vti.network</title>
 
       <programlisting>[Match]
 Name=em1
@@ -962,7 +962,7 @@ Tunnel=vti-tun</programlisting>
     </example>
 
     <example>
-      <title>/etc/systemd/network/bond.network</title>
+      <title>/etc/systemd/network/25-bond.network</title>
 
       <programlisting>[Match]
 Name=bond1

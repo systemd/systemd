@@ -173,9 +173,11 @@
         <term><varname>SystemMaxUse=</varname></term>
         <term><varname>SystemKeepFree=</varname></term>
         <term><varname>SystemMaxFileSize=</varname></term>
+        <term><varname>SystemMaxFiles=</varname></term>
         <term><varname>RuntimeMaxUse=</varname></term>
         <term><varname>RuntimeKeepFree=</varname></term>
         <term><varname>RuntimeMaxFileSize=</varname></term>
+        <term><varname>RuntimeMaxFiles=</varname></term>
 
         <listitem><para>Enforce size limits on the journal files
         stored. The options prefixed with <literal>System</literal>
@@ -197,8 +199,7 @@
         names not ending with <literal>.journal</literal> or
         <literal>.journal~</literal>, so only such files, located in
         the appropriate directories, are taken into account when
-        calculating current disk usage.
-        </para>
+        calculating current disk usage.</para>
 
         <para><varname>SystemMaxUse=</varname> and
         <varname>RuntimeMaxUse=</varname> control how much disk space
@@ -210,15 +211,17 @@
         and use the smaller of the two values.</para>
 
         <para>The first pair defaults to 10% and the second to 15% of
-        the size of the respective file system. If the file system is
-        nearly full and either <varname>SystemKeepFree=</varname> or
-        <varname>RuntimeKeepFree=</varname> is violated when
-        systemd-journald is started, the value will be raised to
+        the size of the respective file system, but each value is
+        capped to 4G. If the file system is nearly full and either
+        <varname>SystemKeepFree=</varname> or
+        <varname>RuntimeKeepFree=</varname> are violated when
+        systemd-journald is started, the limit will be raised to the
         percentage that is actually free. This means that if there was
         enough free space before and journal files were created, and
         subsequently something else causes the file system to fill up,
         journald will stop using more space, but it will not be
-        removing existing files to go reduce footprint either.</para>
+        removing existing files to reduce footprint again
+        either.</para>
 
         <para><varname>SystemMaxFileSize=</varname> and
         <varname>RuntimeMaxFileSize=</varname> control how large
@@ -228,13 +231,22 @@
         eighth of the values configured with
         <varname>SystemMaxUse=</varname> and
         <varname>RuntimeMaxUse=</varname>, so that usually seven
-        rotated journal files are kept as history.</para></listitem>
+        rotated journal files are kept as history.</para>
 
         <para>Specify values in bytes or use K, M, G, T, P, E as
         units for the specified sizes (equal to 1024, 1024²,... bytes).
         Note that size limits are enforced synchronously when journal
         files are extended, and no explicit rotation step triggered by
         time is needed.</para>
+
+        <para><varname>SystemMaxFiles=</varname> and
+        <varname>RuntimeMaxFiles=</varname> control how many
+        individual journal files to keep at maximum. Note that only
+        archived files are deleted to reduce the number of files until
+        this limit is reached; active files will stay around. This
+        means that in effect there might still be more journal files
+        around in total than this limit after a vacuuming operation is
+        complete. This setting defaults to 100.</para></listitem>
       </varlistentry>
 
       <varlistentry>

@@ -197,7 +197,7 @@ static void test_skip(void (*setup)(void)) {
         if (arg_keep)
                 log_info("Not removing %s", t);
         else {
-                journal_directory_vacuum(".", 3000000, 0, NULL, true);
+                journal_directory_vacuum(".", 3000000, 0, 0, NULL, true);
 
                 assert_se(rm_rf(t, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
         }
@@ -282,7 +282,7 @@ static void test_sequence_numbers(void) {
         if (arg_keep)
                 log_info("Not removing %s", t);
         else {
-                journal_directory_vacuum(".", 3000000, 0, NULL, true);
+                journal_directory_vacuum(".", 3000000, 0, 0, NULL, true);
 
                 assert_se(rm_rf(t, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
         }

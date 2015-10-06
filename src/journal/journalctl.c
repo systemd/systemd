@@ -106,8 +106,9 @@ static bool arg_reverse = false;
 static int arg_journal_type = 0;
 static const char *arg_root = NULL;
 static const char *arg_machine = NULL;
-static uint64_t arg_vacuum_size = (uint64_t) -1;
-static usec_t arg_vacuum_time = USEC_INFINITY;
+static uint64_t arg_vacuum_size = 0;
+static uint64_t arg_vacuum_n_files = 0;
+static usec_t arg_vacuum_time = 0;
 
 static enum {
         ACTION_SHOW,
@@ -235,7 +236,8 @@ static void help(void) {
                "     --new-id128           Generate a new 128-bit ID\n"
                "     --disk-usage          Show total disk usage of all journal files\n"
                "     --vacuum-size=BYTES   Reduce disk usage below specified size\n"
-               "     --vacuum-time=TIME    Remove journal files older than specified date\n"
+               "     --vacuum-files=INT    Leave only the specified number of journal files\n"
+               "     --vacuum-time=TIME    Remove journal files older than specified time\n"
                "     --flush               Flush all journal data from /run into /var\n"
                "     --rotate              Request immediate rotation of the journal files\n"
                "     --header              Show journal header information\n"
@@ -281,6 +283,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_FLUSH,
                 ARG_ROTATE,
                 ARG_VACUUM_SIZE,
+                ARG_VACUUM_FILES,
                 ARG_VACUUM_TIME,
         };
 
@@ -335,6 +338,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "flush",          no_argument,       NULL, ARG_FLUSH          },
                 { "rotate",         no_argument,       NULL, ARG_ROTATE         },
                 { "vacuum-size",    required_argument, NULL, ARG_VACUUM_SIZE    },
+                { "vacuum-files",   required_argument, NULL, ARG_VACUUM_FILES   },
                 { "vacuum-time",    required_argument, NULL, ARG_VACUUM_TIME    },
                 {}
         };
@@ -534,6 +538,16 @@ static int parse_argv(int argc, char *argv[]) {
                         r = parse_size(optarg, 1024, &arg_vacuum_size);
                         if (r < 0) {
                                 log_error("Failed to parse vacuum size: %s", optarg);
+                                return r;
+                        }
+
+                        arg_action = ACTION_VACUUM;
+                        break;
+
+                case ARG_VACUUM_FILES:
+                        r = safe_atou64(optarg, &arg_vacuum_n_files);
+                        if (r < 0) {
+                                log_error("Failed to parse vacuum files: %s", optarg);
                                 return r;
                         }
 
@@ -1929,9 +1943,9 @@ int main(int argc, char *argv[]) {
                         if (d->is_root)
                                 continue;
 
-                        q = journal_directory_vacuum(d->path, arg_vacuum_size, arg_vacuum_time, NULL, true);
+                        q = journal_directory_vacuum(d->path, arg_vacuum_size, arg_vacuum_n_files, arg_vacuum_time, NULL, true);
                         if (q < 0) {
-                                log_error_errno(q, "Failed to vacuum: %m");
+                                log_error_errno(q, "Failed to vacuum %s: %m", d->path);
                                 r = q;
                         }
                 }
