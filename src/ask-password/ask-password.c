@@ -20,15 +20,15 @@
 ***/
 
 #include <errno.h>
-#include <unistd.h>
 #include <getopt.h>
 #include <stddef.h>
+#include <unistd.h>
 
+#include "ask-password-api.h"
+#include "def.h"
 #include "log.h"
 #include "macro.h"
 #include "strv.h"
-#include "ask-password-api.h"
-#include "def.h"
 
 static const char *arg_icon = NULL;
 static const char *arg_id = NULL;
@@ -154,35 +154,33 @@ int main(int argc, char *argv[]) {
                 timeout = 0;
 
         if (arg_use_tty && isatty(STDIN_FILENO)) {
-                char *password = NULL;
+                _cleanup_free_ char *password = NULL;
 
-                r = ask_password_tty(arg_message, timeout, arg_echo, NULL,
-                                     &password);
-                if (r >= 0) {
-                        puts(password);
-                        free(password);
+                r = ask_password_tty(arg_message, timeout, arg_echo, NULL, &password);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to ask for password on terminal: %m");
+                        goto finish;
                 }
 
+                puts(password);
         } else {
-                char **l;
+                _cleanup_free_ char **l = NULL;
+                char **p;
 
-                r = ask_password_agent(arg_message, arg_icon, arg_id, timeout,
-                                       arg_echo, arg_accept_cached, &l);
-                if (r >= 0) {
-                        char **p;
+                r = ask_password_agent(arg_message, arg_icon, arg_id, timeout, arg_echo, arg_accept_cached, &l);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to ask for password via agent: %m");
+                        goto finish;
+                }
 
-                        STRV_FOREACH(p, l) {
-                                puts(*p);
+                STRV_FOREACH(p, l) {
+                        puts(*p);
 
-                                if (!arg_multiple)
-                                        break;
-                        }
-
-                        strv_free(l);
+                        if (!arg_multiple)
+                                break;
                 }
         }
 
 finish:
-
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

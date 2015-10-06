@@ -477,9 +477,8 @@ static int prompt_root_password(void) {
 
                 r = ask_password_tty(msg2, 0, false, NULL, &b);
                 if (r < 0) {
-                        log_error_errno(r, "Failed to query root password: %m");
                         clear_string(a);
-                        return r;
+                        return log_error_errno(r, "Failed to query root password: %m");
                 }
 
                 if (!streq(a, b)) {

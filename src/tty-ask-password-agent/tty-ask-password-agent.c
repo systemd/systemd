@@ -93,17 +93,16 @@ static int ask_password_plymouth(
 
         r = connect(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + 1 + strlen(sa.un.sun_path+1));
         if (r < 0)
-                return log_error_errno(errno, "Failed to connect to Plymouth: %m");
+                return -errno;
 
         if (accept_cached) {
                 packet = strdup("c");
                 n = 1;
-        } else if (asprintf(&packet, "*\002%c%s%n", (int) (strlen(message) + 1),
-                            message, &n) < 0)
+        } else if (asprintf(&packet, "*\002%c%s%n", (int) (strlen(message) + 1), message, &n) < 0)
                 packet = NULL;
 
         if (!packet)
-                return log_oom();
+                return -ENOMEM;
 
         r = loop_write(fd, packet, n + 1, true);
         if (r < 0)
@@ -305,19 +304,19 @@ static int parse_password(const char *filename, char **wall) {
                         }
 
                 } else {
-                        int tty_fd = -1;
                         _cleanup_free_ char *password = NULL;
+                        int tty_fd = -1;
 
                         if (arg_console) {
                                 tty_fd = acquire_terminal("/dev/console", false, false, false, USEC_INFINITY);
                                 if (tty_fd < 0)
-                                        return tty_fd;
+                                        return log_error_errno(tty_fd, "Failed to acquire /dev/console: %m");
                         }
 
                         r = ask_password_tty(message, not_after, echo, filename, &password);
 
                         if (arg_console) {
-                                safe_close(tty_fd);
+                                tty_fd = safe_close(tty_fd);
                                 release_terminal();
                         }
 
@@ -347,12 +346,9 @@ static int parse_password(const char *filename, char **wall) {
                 sa.un.sun_family = AF_UNIX;
                 strncpy(sa.un.sun_path, socket_name, sizeof(sa.un.sun_path));
 
-                r = sendto(socket_fd, packet, packet_length, MSG_NOSIGNAL, &sa.sa,
-                           offsetof(struct sockaddr_un, sun_path) + strlen(socket_name));
-                if (r < 0) {
-                        log_error_errno(errno, "Failed to send: %m");
-                        return r;
-                }
+                r = sendto(socket_fd, packet, packet_length, MSG_NOSIGNAL, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(socket_name));
+                if (r < 0)
+                        return log_error_errno(errno, "Failed to send: %m");
         }
 
         return 0;
@@ -360,40 +356,43 @@ static int parse_password(const char *filename, char **wall) {
 
 static int wall_tty_block(void) {
         _cleanup_free_ char *p = NULL;
-        int fd, r;
         dev_t devnr;
+        int fd, r;
 
         r = get_ctty_devnr(0, &devnr);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to get controlling TTY: %m");
 
         if (asprintf(&p, "/run/systemd/ask-password-block/%u:%u", major(devnr), minor(devnr)) < 0)
-                return -ENOMEM;
+                return log_oom();
 
         mkdir_parents_label(p, 0700);
         mkfifo(p, 0600);
 
         fd = open(p, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (fd < 0)
-                return -errno;
+                return log_error_errno(errno, "Failed to open %s: %m", p);
 
         return fd;
 }
 
 static bool wall_tty_match(const char *path, void *userdata) {
-        int fd, r;
-        struct stat st;
         _cleanup_free_ char *p = NULL;
+        _cleanup_close_ int fd = -1;
+        struct stat st;
 
         if (!path_is_absolute(path))
                 path = strjoina("/dev/", path);
 
-        r = lstat(path, &st);
-        if (r < 0)
+        if (lstat(path, &st) < 0) {
+                log_debug_errno(errno, "Failed to stat %s: %m", path);
                 return true;
+        }
 
-        if (!S_ISCHR(st.st_mode))
+        if (!S_ISCHR(st.st_mode)) {
+                log_debug("%s is not a character device.", path);
                 return true;
+        }
 
         /* We use named pipes to ensure that wall messages suggesting
          * password entry are not printed over password prompts
@@ -403,16 +402,19 @@ static bool wall_tty_match(const char *path, void *userdata) {
          * advantage that the block will automatically go away if the
          * process dies. */
 
-        if (asprintf(&p, "/run/systemd/ask-password-block/%u:%u", major(st.st_rdev), minor(st.st_rdev)) < 0)
+        if (asprintf(&p, "/run/systemd/ask-password-block/%u:%u", major(st.st_rdev), minor(st.st_rdev)) < 0) {
+                log_oom();
                 return true;
+        }
 
         fd = open(p, O_WRONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
-        if (fd < 0)
-                return true;
+        if (fd < 0) {
+                log_debug_errno(errno, "Failed top open the wall pipe: %m");
+                return 1;
+        }
 
         /* What, we managed to open the pipe? Then this tty is filtered. */
-        safe_close(fd);
-        return false;
+        return 0;
 }
 
 static int show_passwords(void) {
@@ -425,11 +427,10 @@ static int show_passwords(void) {
                 if (errno == ENOENT)
                         return 0;
 
-                log_error_errno(errno, "opendir(/run/systemd/ask-password): %m");
-                return -errno;
+                return log_error_errno(errno, "Failed top open /run/systemd/ask-password: %m");
         }
 
-        while ((de = readdir(d))) {
+        FOREACH_DIRENT_ALL(de, d, return log_error_errno(errno, "Failed to read directory: %m")) {
                 _cleanup_free_ char *p = NULL, *wall = NULL;
                 int q;
 
@@ -454,7 +455,7 @@ static int show_passwords(void) {
                         r = q;
 
                 if (wall)
-                        utmp_wall(wall, NULL, NULL, wall_tty_match, NULL);
+                        (void) utmp_wall(wall, NULL, NULL, wall_tty_match, NULL);
         }
 
         return r;
@@ -474,14 +475,14 @@ static int watch_passwords(void) {
 
         tty_block_fd = wall_tty_block();
 
-        mkdir_p_label("/run/systemd/ask-password", 0755);
+        (void) mkdir_p_label("/run/systemd/ask-password", 0755);
 
         notify = inotify_init1(IN_CLOEXEC);
         if (notify < 0)
-                return -errno;
+                return log_error_errno(errno, "Failed to allocate directory watch: %m");
 
         if (inotify_add_watch(notify, "/run/systemd/ask-password", IN_CLOSE_WRITE|IN_MOVED_TO) < 0)
-                return -errno;
+                return log_error_errno(errno, "Failed to add /run/systemd/ask-password to directory watch: %m");
 
         assert_se(sigemptyset(&mask) >= 0);
         assert_se(sigset_add_many(&mask, SIGINT, SIGTERM, -1) >= 0);
@@ -489,7 +490,7 @@ static int watch_passwords(void) {
 
         signal_fd = signalfd(-1, &mask, SFD_NONBLOCK|SFD_CLOEXEC);
         if (signal_fd < 0)
-                return -errno;
+                return log_error_errno(errno, "Failed to allocate signal file descriptor: %m");
 
         pollfd[FD_INOTIFY].fd = notify;
         pollfd[FD_INOTIFY].events = POLLIN;
@@ -509,7 +510,7 @@ static int watch_passwords(void) {
                 }
 
                 if (pollfd[FD_INOTIFY].revents != 0)
-                        flush_fd(notify);
+                        (void) flush_fd(notify);
 
                 if (pollfd[FD_SIGNAL].revents != 0)
                         break;
@@ -633,8 +634,6 @@ int main(int argc, char *argv[]) {
                 r = watch_passwords();
         else
                 r = show_passwords();
-        if (r < 0)
-                log_error_errno(r, "Error: %m");
 
 finish:
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;

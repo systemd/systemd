@@ -18,26 +18,28 @@
   You should have received a copy of the GNU Lesser General Public License
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
-#include <stdbool.h>
-#include <termios.h>
-#include <unistd.h>
-#include <poll.h>
-#include <sys/inotify.h>
+
 #include <errno.h>
 #include <fcntl.h>
-#include <sys/socket.h>
-#include <string.h>
-#include <sys/un.h>
+#include <poll.h>
+#include <stdbool.h>
 #include <stddef.h>
+#include <string.h>
+#include <sys/inotify.h>
 #include <sys/signalfd.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <termios.h>
+#include <unistd.h>
 
-#include "util.h"
 #include "formats-util.h"
 #include "mkdir.h"
-#include "strv.h"
 #include "random-util.h"
-#include "terminal-util.h"
 #include "signal-util.h"
+#include "socket-util.h"
+#include "strv.h"
+#include "terminal-util.h"
+#include "util.h"
 #include "ask-password-api.h"
 
 static void backspace_chars(int ttyfd, size_t p) {
@@ -97,10 +99,10 @@ int ask_password_tty(
                         goto finish;
                 }
 
-                loop_write(ttyfd, ANSI_HIGHLIGHT, sizeof(ANSI_HIGHLIGHT)-1, false);
+                loop_write(ttyfd, ANSI_HIGHLIGHT, strlen(ANSI_HIGHLIGHT), false);
                 loop_write(ttyfd, message, strlen(message), false);
                 loop_write(ttyfd, " ", 1, false);
-                loop_write(ttyfd, ANSI_NORMAL, sizeof(ANSI_NORMAL)-1, false);
+                loop_write(ttyfd, ANSI_NORMAL, strlen(ANSI_NORMAL), false);
 
                 new_termios = old_termios;
                 new_termios.c_lflag &= ~(ICANON|ECHO);
@@ -247,52 +249,38 @@ finish:
 }
 
 static int create_socket(char **name) {
-        int fd;
-        union {
-                struct sockaddr sa;
-                struct sockaddr_un un;
-        } sa = {
+        union sockaddr_union sa = {
                 .un.sun_family = AF_UNIX,
         };
-        int one = 1;
-        int r = 0;
+        _cleanup_close_ int fd = -1;
+        static const int one = 1;
         char *c;
+        int r;
 
         assert(name);
 
         fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
         if (fd < 0)
-                return log_error_errno(errno, "socket() failed: %m");
+                return -errno;
 
         snprintf(sa.un.sun_path, sizeof(sa.un.sun_path)-1, "/run/systemd/ask-password/sck.%" PRIx64, random_u64());
 
         RUN_WITH_UMASK(0177) {
-                r = bind(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(sa.un.sun_path));
+                if (bind(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(sa.un.sun_path)) < 0)
+                        return -errno;
         }
 
-        if (r < 0) {
-                r = -errno;
-                log_error_errno(errno, "bind(%s) failed: %m", sa.un.sun_path);
-                goto fail;
-        }
-
-        if (setsockopt(fd, SOL_SOCKET, SO_PASSCRED, &one, sizeof(one)) < 0) {
-                r = -errno;
-                log_error_errno(errno, "SO_PASSCRED failed: %m");
-                goto fail;
-        }
+        if (setsockopt(fd, SOL_SOCKET, SO_PASSCRED, &one, sizeof(one)) < 0)
+                return -errno;
 
         c = strdup(sa.un.sun_path);
-        if (!c) {
-                r = log_oom();
-                goto fail;
-        }
+        if (!c)
+                return -ENOMEM;
 
         *name = c;
-        return fd;
 
-fail:
-        safe_close(fd);
+        r = fd;
+        fd = -1;
 
         return r;
 }
@@ -323,24 +311,24 @@ int ask_password_agent(
 
         assert(_passphrases);
 
+
         assert_se(sigemptyset(&mask) >= 0);
         assert_se(sigset_add_many(&mask, SIGINT, SIGTERM, -1) >= 0);
         assert_se(sigprocmask(SIG_BLOCK, &mask, &oldmask) >= 0);
 
-        mkdir_p_label("/run/systemd/ask-password", 0755);
+        (void) mkdir_p_label("/run/systemd/ask-password", 0755);
 
         fd = mkostemp_safe(temp, O_WRONLY|O_CLOEXEC);
         if (fd < 0) {
-                r = log_error_errno(errno,
-                                    "Failed to create password file: %m");
+                r = -errno;
                 goto finish;
         }
 
-        fchmod(fd, 0644);
+        (void) fchmod(fd, 0644);
 
         f = fdopen(fd, "w");
         if (!f) {
-                r = log_error_errno(errno, "Failed to allocate FILE: %m");
+                r = -errno;
                 goto finish;
         }
 
@@ -348,7 +336,7 @@ int ask_password_agent(
 
         signal_fd = signalfd(-1, &mask, SFD_NONBLOCK|SFD_CLOEXEC);
         if (signal_fd < 0) {
-                r = log_error_errno(errno, "signalfd(): %m");
+                r = -errno;
                 goto finish;
         }
 
@@ -381,10 +369,8 @@ int ask_password_agent(
                 fprintf(f, "Id=%s\n", id);
 
         r = fflush_and_check(f);
-        if (r < 0) {
-                log_error_errno(r, "Failed to write query file: %m");
+        if (r < 0)
                 goto finish;
-        }
 
         memcpy(final, temp, sizeof(temp));
 
@@ -393,7 +379,7 @@ int ask_password_agent(
         final[sizeof(final)-9] = 'k';
 
         if (rename(temp, final) < 0) {
-                r = log_error_errno(errno, "Failed to rename query file: %m");
+                r = -errno;
                 goto finish;
         }
 
@@ -419,7 +405,6 @@ int ask_password_agent(
                 t = now(CLOCK_MONOTONIC);
 
                 if (until > 0 && until <= t) {
-                        log_notice("Timed out");
                         r = -ETIME;
                         goto finish;
                 }
@@ -429,12 +414,11 @@ int ask_password_agent(
                         if (errno == EINTR)
                                 continue;
 
-                        r = log_error_errno(errno, "poll() failed: %m");
+                        r = -errno;
                         goto finish;
                 }
 
                 if (k <= 0) {
-                        log_notice("Timed out");
                         r = -ETIME;
                         goto finish;
                 }
@@ -445,7 +429,6 @@ int ask_password_agent(
                 }
 
                 if (pollfd[FD_SOCKET].revents != POLLIN) {
-                        log_error("Unexpected poll() event.");
                         r = -EIO;
                         goto finish;
                 }
@@ -467,14 +450,14 @@ int ask_password_agent(
                             errno == EINTR)
                                 continue;
 
-                        r = log_error_errno(errno, "recvmsg() failed: %m");
+                        r = -errno;
                         goto finish;
                 }
 
                 cmsg_close_all(&msghdr);
 
                 if (n <= 0) {
-                        log_error("Message too short");
+                        log_debug("Message too short");
                         continue;
                 }
 
@@ -482,13 +465,13 @@ int ask_password_agent(
                     control.cmsghdr.cmsg_level != SOL_SOCKET ||
                     control.cmsghdr.cmsg_type != SCM_CREDENTIALS ||
                     control.cmsghdr.cmsg_len != CMSG_LEN(sizeof(struct ucred))) {
-                        log_warning("Received message without credentials. Ignoring.");
+                        log_debug("Received message without credentials. Ignoring.");
                         continue;
                 }
 
                 ucred = (struct ucred*) CMSG_DATA(&control.cmsghdr);
                 if (ucred->uid != 0) {
-                        log_warning("Got request from unprivileged user. Ignoring.");
+                        log_debug("Got request from unprivileged user. Ignoring.");
                         continue;
                 }
 
@@ -508,7 +491,7 @@ int ask_password_agent(
 
                         if (strv_length(l) <= 0) {
                                 strv_free(l);
-                                log_error("Invalid packet");
+                                log_debug("Invalid packet");
                                 continue;
                         }
 
@@ -518,7 +501,7 @@ int ask_password_agent(
                         r = -ECANCELED;
                         goto finish;
                 } else {
-                        log_error("Invalid packet");
+                        log_debug("Invalid packet");
                         continue;
                 }
 
@@ -529,25 +512,32 @@ int ask_password_agent(
 
 finish:
         if (socket_name)
-                unlink(socket_name);
+                (void) unlink(socket_name);
 
-        unlink(temp);
+        (void) unlink(temp);
 
         if (final[0])
-                unlink(final);
+                (void) unlink(final);
 
         assert_se(sigprocmask(SIG_SETMASK, &oldmask, NULL) == 0);
 
         return r;
 }
 
-int ask_password_auto(const char *message, const char *icon, const char *id,
-                      usec_t until, bool accept_cached, char ***_passphrases) {
+int ask_password_auto(
+                const char *message,
+                const char *icon,
+                const char *id,
+                usec_t until,
+                bool accept_cached,
+                char ***_passphrases) {
+
+        int r;
+
         assert(message);
         assert(_passphrases);
 
         if (isatty(STDIN_FILENO)) {
-                int r;
                 char *s = NULL, **l = NULL;
 
                 r = ask_password_tty(message, until, false, NULL, &s);
@@ -556,10 +546,11 @@ int ask_password_auto(const char *message, const char *icon, const char *id,
 
                 r = strv_consume(&l, s);
                 if (r < 0)
-                        return r;
+                        return -ENOMEM;
 
                 *_passphrases = l;
-                return r;
-        } else
-                return ask_password_agent(message, icon, id, until, false, accept_cached, _passphrases);
+                return 0;
+        }
+
+        return ask_password_agent(message, icon, id, until, false, accept_cached, _passphrases);
 }
