@@ -114,9 +114,13 @@ CHANGES WITH 227:
         * The RuntimeDirectory= setting now understands unit
           specifiers like %i or %f.
 
-        * networkd gained support for setting the IPv6 Router
-          Advertisment settings via IPv6AcceptRouterAdvertisements= in
-          .network files.
+        * networkd gained support for:
+            - setting the IPv6 Router Advertisment settings via
+              IPv6AcceptRouterAdvertisements= in .network files.
+            - configuring the HelloTimeSec, MaxAgeSec and
+              ForwardDelaySec bridge parameters in .netdev files.
+            - configuring PreferredSource for static routes in
+              .network files.
 
         * udev will now create /dev/disk/by-path links for ATA devices
           on kernels where that is supported.
