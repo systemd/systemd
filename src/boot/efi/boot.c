@@ -67,6 +67,7 @@ typedef struct {
         CHAR16 *entry_default_pattern;
         CHAR16 *entry_oneshot;
         CHAR16 *options_edit;
+        CHAR16 *entries_auto;
         BOOLEAN no_editor;
 } Config;
 
@@ -409,6 +410,10 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
                 Print(L"LoaderConfigTimeout:    %d\n", i);
         if (config->entry_oneshot)
                 Print(L"LoaderEntryOneShot:     %s\n", config->entry_oneshot);
+        if (efivar_get(L"LoaderDeviceIdentifier", &s) == EFI_SUCCESS) {
+                Print(L"LoaderDeviceIdentifier: %s\n", s);
+                FreePool(s);
+        }
         if (efivar_get(L"LoaderDevicePartUUID", &s) == EFI_SUCCESS) {
                 Print(L"LoaderDevicePartUUID:   %s\n", s);
                 FreePool(s);
@@ -1124,6 +1129,46 @@ static VOID config_entry_add_from_file(Config *config, EFI_HANDLE *device, CHAR1
         }
         FreePool(initrd);
 
+        if (entry->machine_id) {
+                CHAR16 *var;
+
+                /* append additional options from EFI variables for this machine-id */
+                var = PoolPrint(L"LoaderEntryOptions-%s", entry->machine_id);
+                if (var) {
+                        CHAR16 *s;
+
+                        if (efivar_get(var, &s) == EFI_SUCCESS) {
+                                if (entry->options) {
+                                        CHAR16 *s2;
+
+                                        s2 = PoolPrint(L"%s %s", entry->options, s);
+                                        FreePool(entry->options);
+                                        entry->options = s2;
+                                } else
+                                        entry->options = s;
+                        }
+                        FreePool(var);
+                }
+
+                var = PoolPrint(L"LoaderEntryOptionsOneShot-%s", entry->machine_id);
+                if (var) {
+                        CHAR16 *s;
+
+                        if (efivar_get(var, &s) == EFI_SUCCESS) {
+                                if (entry->options) {
+                                        CHAR16 *s2;
+
+                                        s2 = PoolPrint(L"%s %s", entry->options, s);
+                                        FreePool(entry->options);
+                                        entry->options = s2;
+                                } else
+                                        entry->options = s;
+                                efivar_set(var, NULL, TRUE);
+                        }
+                        FreePool(var);
+                }
+        }
+
         entry->device = device;
         entry->file = StrDuplicate(file);
         len = StrLen(entry->file);
@@ -1464,6 +1509,16 @@ static BOOLEAN config_entry_add_loader_auto(Config *config, EFI_HANDLE *device, 
         /* do not boot right away into auto-detected entries */
         entry->no_autoselect = TRUE;
 
+        /* export identifiers of automatically added entries */
+        if (config->entries_auto) {
+                CHAR16 *s;
+
+                s = PoolPrint(L"%s %s", config->entries_auto, file);
+                FreePool(config->entries_auto);
+                config->entries_auto = s;
+        } else
+                config->entries_auto = StrDuplicate(file);
+
         return TRUE;
 }
 
@@ -1689,6 +1744,7 @@ static VOID config_free(Config *config) {
         FreePool(config->entry_default_pattern);
         FreePool(config->options_edit);
         FreePool(config->entry_oneshot);
+        FreePool(config->entries_auto);
 }
 
 EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
@@ -1724,8 +1780,34 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         }
 
         /* export the device path this image is started from */
-        if (disk_get_part_uuid(loaded_image->DeviceHandle, uuid) == EFI_SUCCESS)
-                efivar_set(L"LoaderDevicePartUUID", uuid, FALSE);
+        device_path = DevicePathFromHandle(loaded_image->DeviceHandle);
+        if (device_path) {
+                CHAR16 *str;
+                EFI_DEVICE_PATH *path, *paths;
+
+                str = DevicePathToStr(device_path);
+                efivar_set(L"LoaderDeviceIdentifier", str, FALSE);
+                FreePool(str);
+
+                paths = UnpackDevicePath(device_path);
+                for (path = paths; !IsDevicePathEnd(path); path = NextDevicePathNode(path)) {
+                        HARDDRIVE_DEVICE_PATH *drive;
+                        CHAR16 uuid[37];
+
+                        if (DevicePathType(path) != MEDIA_DEVICE_PATH)
+                                continue;
+                        if (DevicePathSubType(path) != MEDIA_HARDDRIVE_DP)
+                                continue;
+                        drive = (HARDDRIVE_DEVICE_PATH *)path;
+                        if (drive->SignatureType != SIGNATURE_TYPE_GUID)
+                                continue;
+
+                        GuidToString(uuid, (EFI_GUID *)&drive->Signature);
+                        efivar_set(L"LoaderDevicePartUUID", uuid, FALSE);
+                        break;
+                }
+                FreePool(paths);
+        }
 
         root_dir = LibOpenRoot(loaded_image->DeviceHandle);
         if (!root_dir) {
@@ -1759,6 +1841,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         config_entry_add_loader_auto(&config, loaded_image->DeviceHandle, root_dir, loaded_image_path,
                                      L"auto-efi-default", '\0', L"EFI Default Loader", L"\\EFI\\Boot\\boot" EFI_MACHINE_TYPE_NAME ".efi");
         config_entry_add_osx(&config);
+        efivar_set(L"LoaderEntriesAuto", config.entries_auto, FALSE);
 
         if (efivar_get_raw(&global_guid, L"OsIndicationsSupported", &b, &size) == EFI_SUCCESS) {
                 UINT64 osind = (UINT64)*b;
