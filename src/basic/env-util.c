@@ -541,7 +541,7 @@ char **replace_env_argv(char **argv, char **env) {
         STRV_FOREACH(i, argv) {
 
                 /* If $FOO appears as single word, replace it by the split up variable */
-                if ((*i)[0] == '$' && (*i)[1] != '{') {
+                if ((*i)[0] == '$' && (*i)[1] != '{' && (*i)[1] != '$') {
                         char *e;
                         char **w, **m = NULL;
                         unsigned q;

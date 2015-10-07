@@ -118,6 +118,8 @@ static void test_replace_env_arg(void) {
                 "$FOO$FOO",
                 "${FOO}${BAR}",
                 "${FOO",
+                "FOO$$${FOO}",
+                "$$FOO${FOO}",
                 NULL
         };
         _cleanup_strv_free_ char **r = NULL;
@@ -133,7 +135,9 @@ static void test_replace_env_arg(void) {
         assert_se(streq(r[6], "BAR"));
         assert_se(streq(r[7], "BAR BARwaldo"));
         assert_se(streq(r[8], "${FOO"));
-        assert_se(strv_length(r) == 9);
+        assert_se(streq(r[9], "FOO$BAR BAR"));
+        assert_se(streq(r[10], "$FOOBAR BAR"));
+        assert_se(strv_length(r) == 11);
 }
 
 static void test_env_clean(void) {
