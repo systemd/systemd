@@ -50,7 +50,7 @@ static int add_modules(const char *p) {
         if (!k)
                 return log_oom();
 
-        if (strv_extend_strv(&arg_proc_cmdline_modules, k) < 0)
+        if (strv_extend_strv(&arg_proc_cmdline_modules, k, true) < 0)
                 return log_oom();
 
         return 0;

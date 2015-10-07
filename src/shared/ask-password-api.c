@@ -33,6 +33,7 @@
 #include <unistd.h>
 
 #include "formats-util.h"
+#include "missing.h"
 #include "mkdir.h"
 #include "random-util.h"
 #include "signal-util.h"
@@ -41,6 +42,133 @@
 #include "terminal-util.h"
 #include "util.h"
 #include "ask-password-api.h"
+
+#define KEYRING_TIMEOUT_USEC ((5 * USEC_PER_MINUTE) / 2)
+
+static int lookup_key(const char *keyname, key_serial_t *ret) {
+        key_serial_t serial;
+
+        assert(keyname);
+        assert(ret);
+
+        serial = request_key("user", keyname, NULL, 0);
+        if (serial == -1)
+                return -errno;
+
+        *ret = serial;
+        return 0;
+}
+
+static int retrieve_key(key_serial_t serial, char ***ret) {
+        _cleanup_free_ char *p = NULL;
+        long m = 100, n;
+        char **l;
+
+        assert(ret);
+
+        for (;;) {
+                p = new(char, m);
+                if (!p)
+                        return -ENOMEM;
+
+                n = keyctl(KEYCTL_READ, (unsigned long) serial, (unsigned long) p, (unsigned long) m, 0);
+                if (n < 0)
+                        return -errno;
+
+                if (n < m)
+                        break;
+
+                free(p);
+                m *= 2;
+        }
+
+        l = strv_parse_nulstr(p, n);
+        if (!l)
+                return -ENOMEM;
+
+        *ret = l;
+        return 0;
+}
+
+static int add_to_keyring(const char *keyname, AskPasswordFlags flags, char **passwords) {
+        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free_ char *p = NULL;
+        key_serial_t serial;
+        size_t n;
+        int r;
+
+        assert(keyname);
+        assert(passwords);
+
+        if (!(flags & ASK_PASSWORD_PUSH_CACHE))
+                return 0;
+
+        r = lookup_key(keyname, &serial);
+        if (r >= 0) {
+                r = retrieve_key(serial, &l);
+                if (r < 0)
+                        return r;
+        } else if (r != -ENOKEY)
+                return r;
+
+        r = strv_extend_strv(&l, passwords, true);
+        if (r <= 0)
+                return r;
+
+        r = strv_make_nulstr(l, &p, &n);
+        if (r < 0)
+                return r;
+
+        /* Truncate trailing NUL */
+        assert(n > 0);
+        assert(p[n-1] == 0);
+
+        serial = add_key("user", keyname, p, n-1, KEY_SPEC_USER_KEYRING);
+        if (serial == -1)
+                return -errno;
+
+        if (keyctl(KEYCTL_SET_TIMEOUT,
+                   (unsigned long) serial,
+                   (unsigned long) DIV_ROUND_UP(KEYRING_TIMEOUT_USEC, USEC_PER_SEC), 0, 0) < 0)
+                log_debug_errno(errno, "Failed to adjust timeout: %m");
+
+        log_debug("Added key to keyring as %" PRIi32 ".", serial);
+
+        return 1;
+}
+
+static int add_to_keyring_and_log(const char *keyname, AskPasswordFlags flags, char **passwords) {
+        int r;
+
+        assert(keyname);
+        assert(passwords);
+
+        r = add_to_keyring(keyname, flags, passwords);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to add password to keyring: %m");
+
+        return 0;
+}
+
+int ask_password_keyring(const char *keyname, AskPasswordFlags flags, char ***ret) {
+
+        key_serial_t serial;
+        int r;
+
+        assert(keyname);
+        assert(ret);
+
+        if (!(flags & ASK_PASSWORD_ACCEPT_CACHED))
+                return -EUNATCH;
+
+        r = lookup_key(keyname, &serial);
+        if (r == -ENOSYS) /* when retrieving the distinction doesn't matter */
+                return -ENOKEY;
+        if (r < 0)
+                return r;
+
+        return retrieve_key(serial, ret);
+}
 
 static void backspace_chars(int ttyfd, size_t p) {
 
@@ -56,10 +184,11 @@ static void backspace_chars(int ttyfd, size_t p) {
 
 int ask_password_tty(
                 const char *message,
+                const char *keyname,
                 usec_t until,
-                bool echo,
+                AskPasswordFlags flags,
                 const char *flag_file,
-                char **_passphrase) {
+                char **ret) {
 
         struct termios old_termios, new_termios;
         char passphrase[LINE_MAX], *x;
@@ -68,15 +197,19 @@ int ask_password_tty(
         _cleanup_close_ int ttyfd = -1, notify = -1;
         struct pollfd pollfd[2];
         bool reset_tty = false;
-        bool silent_mode = false;
         bool dirty = false;
         enum {
                 POLL_TTY,
                 POLL_INOTIFY
         };
 
-        assert(message);
-        assert(_passphrase);
+        assert(ret);
+
+        if (flags & ASK_PASSWORD_NO_TTY)
+                return -EUNATCH;
+
+        if (!message)
+                message = "Password:";
 
         if (flag_file) {
                 notify = inotify_init1(IN_CLOEXEC|IN_NONBLOCK);
@@ -147,7 +280,7 @@ int ask_password_tty(
                                 goto finish;
                         }
 
-                k = poll(pollfd, notify > 0 ? 2 : 1, sleep_for);
+                k = poll(pollfd, notify >= 0 ? 2 : 1, sleep_for);
                 if (k < 0) {
                         if (errno == EINTR)
                                 continue;
@@ -159,7 +292,7 @@ int ask_password_tty(
                         goto finish;
                 }
 
-                if (notify > 0 && pollfd[POLL_INOTIFY].revents != 0)
+                if (notify >= 0 && pollfd[POLL_INOTIFY].revents != 0)
                         flush_fd(notify);
 
                 if (pollfd[POLL_TTY].revents == 0)
@@ -180,7 +313,7 @@ int ask_password_tty(
                         break;
                 else if (c == 21) { /* C-u */
 
-                        if (!silent_mode)
+                        if (!(flags & ASK_PASSWORD_SILENT))
                                 backspace_chars(ttyfd, p);
                         p = 0;
 
@@ -188,28 +321,28 @@ int ask_password_tty(
 
                         if (p > 0) {
 
-                                if (!silent_mode)
+                                if (!(flags & ASK_PASSWORD_SILENT))
                                         backspace_chars(ttyfd, 1);
 
                                 p--;
-                        } else if (!dirty && !silent_mode) {
+                        } else if (!dirty && !(flags & ASK_PASSWORD_SILENT)) {
 
-                                silent_mode = true;
+                                flags |= ASK_PASSWORD_SILENT;
 
                                 /* There are two ways to enter silent
                                  * mode. Either by pressing backspace
-                                 * as first key (and only as first key),
-                                 * or ... */
+                                 * as first key (and only as first
+                                 * key), or ... */
                                 if (ttyfd >= 0)
                                         loop_write(ttyfd, "(no echo) ", 10, false);
 
                         } else if (ttyfd >= 0)
                                 loop_write(ttyfd, "\a", 1, false);
 
-                } else if (c == '\t' && !silent_mode) {
+                } else if (c == '\t' && !(flags & ASK_PASSWORD_SILENT)) {
 
                         backspace_chars(ttyfd, p);
-                        silent_mode = true;
+                        flags |= ASK_PASSWORD_SILENT;
 
                         /* ... or by pressing TAB at any time. */
 
@@ -223,8 +356,8 @@ int ask_password_tty(
 
                         passphrase[p++] = c;
 
-                        if (!silent_mode && ttyfd >= 0)
-                                loop_write(ttyfd, echo ? &c : "*", 1, false);
+                        if (!(flags & ASK_PASSWORD_SILENT) && ttyfd >= 0)
+                                loop_write(ttyfd, (flags & ASK_PASSWORD_ECHO) ? &c : "*", 1, false);
 
                         dirty = true;
                 }
@@ -236,7 +369,10 @@ int ask_password_tty(
                 goto finish;
         }
 
-        *_passphrase = x;
+        if (keyname)
+                (void) add_to_keyring_and_log(keyname, flags, STRV_MAKE(x));
+
+        *ret = x;
         r = 0;
 
 finish:
@@ -289,10 +425,10 @@ int ask_password_agent(
                 const char *message,
                 const char *icon,
                 const char *id,
+                const char *keyname,
                 usec_t until,
-                bool echo,
-                bool accept_cached,
-                char ***_passphrases) {
+                AskPasswordFlags flags,
+                char ***ret) {
 
         enum {
                 FD_SOCKET,
@@ -300,17 +436,20 @@ int ask_password_agent(
                 _FD_MAX
         };
 
+        _cleanup_close_ int socket_fd = -1, signal_fd = -1, fd = -1;
         char temp[] = "/run/systemd/ask-password/tmp.XXXXXX";
         char final[sizeof(temp)] = "";
-        _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *socket_name = NULL;
-        _cleanup_close_ int socket_fd = -1, signal_fd = -1, fd = -1;
-        sigset_t mask, oldmask;
+        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
         struct pollfd pollfd[_FD_MAX];
+        sigset_t mask, oldmask;
         int r;
 
-        assert(_passphrases);
+        assert(ret);
 
+        if (flags & ASK_PASSWORD_NO_AGENT)
+                return -EUNATCH;
 
         assert_se(sigemptyset(&mask) >= 0);
         assert_se(sigset_add_many(&mask, SIGINT, SIGTERM, -1) >= 0);
@@ -355,8 +494,8 @@ int ask_password_agent(
                 "NotAfter="USEC_FMT"\n",
                 getpid(),
                 socket_name,
-                accept_cached ? 1 : 0,
-                echo ? 1 : 0,
+                (flags & ASK_PASSWORD_ACCEPT_CACHED) ? 1 : 0,
+                (flags & ASK_PASSWORD_ECHO) ? 1 : 0,
                 until);
 
         if (message)
@@ -476,38 +615,38 @@ int ask_password_agent(
                 }
 
                 if (passphrase[0] == '+') {
-                        char **l;
-
+                        /* An empty message refers to the empty password */
                         if (n == 1)
                                 l = strv_new("", NULL);
                         else
                                 l = strv_parse_nulstr(passphrase+1, n-1);
-                                /* An empty message refers to the empty password */
-
                         if (!l) {
                                 r = -ENOMEM;
                                 goto finish;
                         }
 
                         if (strv_length(l) <= 0) {
-                                strv_free(l);
+                                l = strv_free(l);
                                 log_debug("Invalid packet");
                                 continue;
                         }
 
-                        *_passphrases = l;
-
-                } else if (passphrase[0] == '-') {
-                        r = -ECANCELED;
-                        goto finish;
-                } else {
-                        log_debug("Invalid packet");
-                        continue;
+                        break;
                 }
 
-                break;
+                if (passphrase[0] == '-') {
+                        r = -ECANCELED;
+                        goto finish;
+                }
+
+                log_debug("Invalid packet");
         }
 
+        if (keyname)
+                (void) add_to_keyring_and_log(keyname, flags, l);
+
+        *ret = l;
+        l = NULL;
         r = 0;
 
 finish:
@@ -520,7 +659,6 @@ finish:
                 (void) unlink(final);
 
         assert_se(sigprocmask(SIG_SETMASK, &oldmask, NULL) == 0);
-
         return r;
 }
 
@@ -528,19 +666,25 @@ int ask_password_auto(
                 const char *message,
                 const char *icon,
                 const char *id,
+                const char *keyname,
                 usec_t until,
-                bool accept_cached,
-                char ***_passphrases) {
+                AskPasswordFlags flags,
+                char ***ret) {
 
         int r;
 
-        assert(message);
-        assert(_passphrases);
+        assert(ret);
 
-        if (isatty(STDIN_FILENO)) {
+        if ((flags & ASK_PASSWORD_ACCEPT_CACHED) && keyname) {
+                r = ask_password_keyring(keyname, flags, ret);
+                if (r != -ENOKEY)
+                        return r;
+        }
+
+        if (!(flags & ASK_PASSWORD_NO_TTY) && isatty(STDIN_FILENO)) {
                 char *s = NULL, **l = NULL;
 
-                r = ask_password_tty(message, until, false, NULL, &s);
+                r = ask_password_tty(message, keyname, until, flags, NULL, &s);
                 if (r < 0)
                         return r;
 
@@ -548,9 +692,12 @@ int ask_password_auto(
                 if (r < 0)
                         return -ENOMEM;
 
-                *_passphrases = l;
+                *ret = l;
                 return 0;
         }
 
-        return ask_password_agent(message, icon, id, until, false, accept_cached, _passphrases);
+        if (!(flags & ASK_PASSWORD_NO_AGENT))
+                return ask_password_agent(message, icon, id, keyname, until, flags, ret);
+
+        return -EUNATCH;
 }

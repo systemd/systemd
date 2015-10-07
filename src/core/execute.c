@@ -2725,7 +2725,7 @@ int exec_command_append(ExecCommand *c, const char *path, ...) {
         if (!l)
                 return -ENOMEM;
 
-        r = strv_extend_strv(&c->argv, l);
+        r = strv_extend_strv(&c->argv, l, false);
         if (r < 0)
                 return r;
 

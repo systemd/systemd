@@ -1063,3 +1063,48 @@ static inline int kcmp(pid_t pid1, pid_t pid2, int type, unsigned long idx1, uns
 #ifndef INPUT_PROP_ACCELEROMETER
 #define INPUT_PROP_ACCELEROMETER  0x06
 #endif
+
+#if !HAVE_DECL_KEY_SERIAL_T
+typedef int32_t key_serial_t;
+#endif
+
+#if !HAVE_DECL_KEYCTL
+static inline long keyctl(int cmd, unsigned long arg2, unsigned long arg3, unsigned long arg4,unsigned long arg5) {
+#if defined(__NR_keyctl)
+        return syscall(__NR_keyctl, cmd, arg2, arg3, arg4, arg5);
+#else
+        errno = ENOSYS;
+        return -1;
+#endif
+}
+
+static inline key_serial_t add_key(const char *type, const char *description, const void *payload, size_t plen, key_serial_t ringid) {
+#if defined (__NR_add_key)
+        return syscall(__NR_add_key, type, description, payload, plen, ringid);
+#else
+        errno = ENOSYS;
+        return -1;
+#endif
+}
+
+static inline key_serial_t request_key(const char *type, const char *description, const char * callout_info, key_serial_t destringid) {
+#if defined (__NR_request_key)
+        return syscall(__NR_request_key, type, description, callout_info, destringid);
+#else
+        errno = ENOSYS;
+        return -1;
+#endif
+}
+#endif
+
+#ifndef KEYCTL_READ
+#define KEYCTL_READ 11
+#endif
+
+#ifndef KEYCTL_SET_TIMEOUT
+#define KEYCTL_SET_TIMEOUT 15
+#endif
+
+#ifndef KEY_SPEC_USER_KEYRING
+#define KEY_SPEC_USER_KEYRING -4
+#endif
