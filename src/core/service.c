@@ -363,8 +363,10 @@ static int service_add_fd_store(Service *s, int fd, const char *name) {
         fs->fd = fd;
         fs->service = s;
         fs->fdname = strdup(name ?: "stored");
-        if (!fs->fdname)
+        if (!fs->fdname) {
+                free(fs);
                 return -ENOMEM;
+        }
 
         r = sd_event_add_io(UNIT(s)->manager->event, &fs->event_source, fd, 0, on_fd_store_io, fs);
         if (r < 0) {
