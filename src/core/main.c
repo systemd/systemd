@@ -521,7 +521,6 @@ static int config_parse_crash_chvt(
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         r = parse_crash_chvt(rvalue);
         if (r < 0) {
