@@ -318,8 +318,10 @@ finish:
 }
 
 static void free_host_info(struct host_info *hi) {
-        if (hi == NULL)
+
+        if (!hi)
                 return;
+
         free(hi->hostname);
         free(hi->kernel_name);
         free(hi->kernel_release);
@@ -329,8 +331,8 @@ static void free_host_info(struct host_info *hi) {
         free(hi->architecture);
         free(hi);
 }
+
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct host_info*, free_host_info);
-#define _cleanup_host_info_ _cleanup_(free_host_infop)
 
 static int acquire_time_data(sd_bus *bus, struct unit_times **out) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
@@ -434,24 +436,24 @@ fail:
 }
 
 static int acquire_host_info(sd_bus *bus, struct host_info **hi) {
-        int r;
-        _cleanup_host_info_ struct host_info *host;
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-
         static const struct bus_properties_map hostname_map[] = {
-                { "Hostname", "s", NULL, offsetof(struct host_info, hostname) },
-                { "KernelName", "s", NULL, offsetof(struct host_info, kernel_name) },
-                { "KernelRelease", "s", NULL, offsetof(struct host_info, kernel_release) },
-                { "KernelVersion", "s", NULL, offsetof(struct host_info, kernel_version) },
+                { "Hostname",                  "s", NULL, offsetof(struct host_info, hostname)       },
+                { "KernelName",                "s", NULL, offsetof(struct host_info, kernel_name)    },
+                { "KernelRelease",             "s", NULL, offsetof(struct host_info, kernel_release) },
+                { "KernelVersion",             "s", NULL, offsetof(struct host_info, kernel_version) },
                 { "OperatingSystemPrettyName", "s", NULL, offsetof(struct host_info, os_pretty_name) },
                 {}
         };
 
         static const struct bus_properties_map manager_map[] = {
-                { "Virtualization", "s", NULL, offsetof(struct host_info, virtualization) },
-                { "Architecture",   "s", NULL, offsetof(struct host_info, architecture) },
+                { "Virtualization",            "s", NULL, offsetof(struct host_info, virtualization) },
+                { "Architecture",              "s", NULL, offsetof(struct host_info, architecture)   },
                 {}
         };
+
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(free_host_infop) struct host_info *host;
+        int r;
 
         host = new0(struct host_info, 1);
         if (!host)
@@ -463,8 +465,7 @@ static int acquire_host_info(sd_bus *bus, struct host_info **hi) {
                                    hostname_map,
                                    host);
         if (r < 0)
-                log_debug_errno(r, "Failed to get host information from systemd-hostnamed: %s",
-                                bus_error_message(&error, r));
+                log_debug_errno(r, "Failed to get host information from systemd-hostnamed: %s", bus_error_message(&error, r));
 
         r = bus_map_all_properties(bus,
                                    "org.freedesktop.systemd1",
@@ -472,11 +473,11 @@ static int acquire_host_info(sd_bus *bus, struct host_info **hi) {
                                    manager_map,
                                    host);
         if (r < 0)
-                return log_error_errno(r, "Failed to get host information from systemd: %s",
-                                       bus_error_message(&error, r));
+                return log_error_errno(r, "Failed to get host information from systemd: %s", bus_error_message(&error, r));
 
         *hi = host;
         host = NULL;
+
         return 0;
 }
 
@@ -540,9 +541,9 @@ static void svg_graph_box(double height, double begin, double end) {
 }
 
 static int analyze_plot(sd_bus *bus) {
+        _cleanup_(free_host_infop) struct host_info *host = NULL;
         struct unit_times *times;
         struct boot_times *boot;
-        _cleanup_host_info_ struct host_info *host = NULL;
         int n, m = 1, y=0;
         double width;
         _cleanup_free_ char *pretty_times = NULL;
