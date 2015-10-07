@@ -993,7 +993,7 @@
     <literal>$FOO</literal> as a separate word on the command line, in
     which case it will be replaced by the value of the environment
     variable split at whitespace resulting in zero or more arguments.
-    For this type of expansion, quotes and respected when splitting
+    For this type of expansion, quotes are respected when splitting
     into words, and afterwards removed.</para>
 
     <para>Example:</para>
