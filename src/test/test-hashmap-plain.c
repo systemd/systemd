@@ -517,16 +517,26 @@ static void test_hashmap_foreach(void) {
         hashmap_put(m, "Key 3", val3);
         hashmap_put(m, "Key 4", val4);
 
+        count = 0;
         HASHMAP_FOREACH(s, m, i) {
-                if (!value_found[0] && streq(s, val1))
+                if (streq(s, val1)) {
+                        assert_se(!value_found[0]);
                         value_found[0] = true;
-                else if (!value_found[1] && streq(s, val2))
+                } else if (streq(s, val2)) {
+                        assert_se(!value_found[1]);
                         value_found[1] = true;
-                else if (!value_found[2] && streq(s, val3))
+                } else if (streq(s, val3)) {
+                        assert_se(!value_found[2]);
                         value_found[2] = true;
-                else if (!value_found[3] && streq(s, val4))
+                } else if (streq(s, val4)) {
+                        assert_se(!value_found[3]);
                         value_found[3] = true;
+                } else
+                        assert_not_reached(s);
+
+                count ++;
         }
+        assert_se(count == 4);
 
         assert_se(m);
         assert_se(value_found[0] && value_found[1] && value_found[2] && value_found[3]);
