@@ -435,7 +435,7 @@ fail:
 
 static int acquire_host_info(sd_bus *bus, struct host_info **hi) {
         int r;
-        struct host_info *host;
+        _cleanup_host_info_ struct host_info *host;
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
 
         static const struct bus_properties_map hostname_map[] = {
@@ -471,13 +471,12 @@ static int acquire_host_info(sd_bus *bus, struct host_info **hi) {
                                    "/org/freedesktop/systemd1",
                                    manager_map,
                                    host);
-        if (r < 0) {
-                free_host_info(host);
+        if (r < 0)
                 return log_error_errno(r, "Failed to get host information from systemd: %s",
                                        bus_error_message(&error, r));
-        }
 
         *hi = host;
+        host = NULL;
         return 0;
 }
 
@@ -658,7 +657,7 @@ static int analyze_plot(sd_bus *bus) {
         svg("<rect class=\"background\" width=\"100%%\" height=\"100%%\" />\n");
         svg("<text x=\"20\" y=\"50\">%s</text>", pretty_times);
         svg("<text x=\"20\" y=\"30\">%s %s (%s %s %s) %s %s</text>",
-            strempty(host->os_pretty_name),
+            isempty(host->os_pretty_name) ? "Linux" : host->os_pretty_name,
             strempty(host->hostname),
             strempty(host->kernel_name),
             strempty(host->kernel_release),
