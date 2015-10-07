@@ -19,6 +19,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "async.h"
 #include "strv.h"
 #include "path-util.h"
 #include "unit.h"
@@ -116,6 +117,37 @@ static int bus_service_set_transient_property(
                 if (mode != UNIT_CHECK) {
                         s->type = k;
                         unit_write_drop_in_private_format(UNIT(s), mode, name, "Type=%s\n", service_type_to_string(s->type));
+                }
+
+                return 1;
+
+        } else if (STR_IN_SET(name,
+                              "StandardInputFileDescriptor",
+                              "StandardOutputFileDescriptor",
+                              "StandardErrorFileDescriptor")) {
+                int fd;
+
+                r = sd_bus_message_read(message, "h", &fd);
+                if (r < 0)
+                        return r;
+
+                if (mode != UNIT_CHECK) {
+                        int copy;
+
+                        copy = fcntl(fd, F_DUPFD_CLOEXEC, 3);
+                        if (copy < 0)
+                                return -errno;
+
+                        if (streq(name, "StandardInputFileDescriptor")) {
+                                asynchronous_close(s->stdin_fd);
+                                s->stdin_fd = copy;
+                        } else if (streq(name, "StandardOutputFileDescriptor")) {
+                                asynchronous_close(s->stdout_fd);
+                                s->stdout_fd = copy;
+                        } else {
+                                asynchronous_close(s->stderr_fd);
+                                s->stderr_fd = copy;
+                        }
                 }
 
                 return 1;

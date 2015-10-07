@@ -2624,6 +2624,62 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
         return 0;
 }
 
+int unit_serialize_item(Unit *u, FILE *f, const char *key, const char *value) {
+        assert(u);
+        assert(f);
+        assert(key);
+
+        if (!value)
+                return 0;
+
+        fputs(key, f);
+        fputc('=', f);
+        fputs(value, f);
+        fputc('\n', f);
+
+        return 1;
+}
+
+int unit_serialize_item_escaped(Unit *u, FILE *f, const char *key, const char *value) {
+        _cleanup_free_ char *c = NULL;
+
+        assert(u);
+        assert(f);
+        assert(key);
+
+        if (!value)
+                return 0;
+
+        c = cescape(value);
+        if (!c)
+                return -ENOMEM;
+
+        fputs(key, f);
+        fputc('=', f);
+        fputs(c, f);
+        fputc('\n', f);
+
+        return 1;
+}
+
+int unit_serialize_item_fd(Unit *u, FILE *f, FDSet *fds, const char *key, int fd) {
+        int copy;
+
+        assert(u);
+        assert(f);
+        assert(key);
+
+        if (fd < 0)
+                return 0;
+
+        copy = fdset_put_dup(fds, fd);
+        if (copy < 0)
+                return copy;
+
+        fprintf(f, "%s=%i\n", key, copy);
+        return 1;
+}
+
 void unit_serialize_item_format(Unit *u, FILE *f, const char *key, const char *format, ...) {
         va_list ap;
 
@@ -2640,15 +2696,6 @@ void unit_serialize_item_format(Unit *u, FILE *f, const char *key, const char *f
         va_end(ap);
 
         fputc('\n', f);
-}
-
-void unit_serialize_item(Unit *u, FILE *f, const char *key, const char *value) {
-        assert(u);
-        assert(f);
-        assert(key);
-        assert(value);
-
-        fprintf(f, "%s=%s\n", key, value);
 }
 
 int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {

@@ -774,8 +774,9 @@ static int automount_stop(Unit *u) {
 
 static int automount_serialize(Unit *u, FILE *f, FDSet *fds) {
         Automount *a = AUTOMOUNT(u);
-        void *p;
         Iterator i;
+        void *p;
+        int r;
 
         assert(a);
         assert(f);
@@ -790,15 +791,9 @@ static int automount_serialize(Unit *u, FILE *f, FDSet *fds) {
         SET_FOREACH(p, a->expire_tokens, i)
                 unit_serialize_item_format(u, f, "expire-token", "%u", PTR_TO_UINT(p));
 
-        if (a->pipe_fd >= 0) {
-                int copy;
-
-                copy = fdset_put_dup(fds, a->pipe_fd);
-                if (copy < 0)
-                        return copy;
-
-                unit_serialize_item_format(u, f, "pipe-fd", "%i", copy);
-        }
+        r = unit_serialize_item_fd(u, f, fds, "pipe-fd", a->pipe_fd);
+        if (r < 0)
+                return r;
 
         return 0;
 }

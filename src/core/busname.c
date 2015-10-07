@@ -656,6 +656,7 @@ static int busname_stop(Unit *u) {
 
 static int busname_serialize(Unit *u, FILE *f, FDSet *fds) {
         BusName *n = BUSNAME(u);
+        int r;
 
         assert(n);
         assert(f);
@@ -667,15 +668,9 @@ static int busname_serialize(Unit *u, FILE *f, FDSet *fds) {
         if (n->control_pid > 0)
                 unit_serialize_item_format(u, f, "control-pid", PID_FMT, n->control_pid);
 
-        if (n->starter_fd >= 0) {
-                int copy;
-
-                copy = fdset_put_dup(fds, n->starter_fd);
-                if (copy < 0)
-                        return copy;
-
-                unit_serialize_item_format(u, f, "starter-fd", "%i", copy);
-        }
+        r = unit_serialize_item_fd(u, f, fds, "starter-fd", n->starter_fd);
+        if (r < 0)
+                return r;
 
         return 0;
 }

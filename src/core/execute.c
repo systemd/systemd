@@ -359,12 +359,28 @@ static int fixup_output(ExecOutput std_output, int socket_fd) {
         return std_output;
 }
 
-static int setup_input(const ExecContext *context, int socket_fd, bool apply_tty_stdin) {
+static int setup_input(
+                const ExecContext *context,
+                const ExecParameters *params,
+                int socket_fd) {
+
         ExecInput i;
 
         assert(context);
+        assert(params);
 
-        i = fixup_input(context->std_input, socket_fd, apply_tty_stdin);
+        if (params->stdin_fd >= 0) {
+                if (dup2(params->stdin_fd, STDIN_FILENO) < 0)
+                        return -errno;
+
+                /* Try to make this the controlling tty, if it is a tty, and reset it */
+                (void) ioctl(STDIN_FILENO, TIOCSCTTY, context->std_input == EXEC_INPUT_TTY_FORCE);
+                (void) reset_terminal_fd(STDIN_FILENO, true);
+
+                return STDIN_FILENO;
+        }
+
+        i = fixup_input(context->std_input, socket_fd, params->apply_tty_stdin);
 
         switch (i) {
 
@@ -401,16 +417,40 @@ static int setup_input(const ExecContext *context, int socket_fd, bool apply_tty
         }
 }
 
-static int setup_output(Unit *unit, const ExecContext *context, int fileno, int socket_fd, const char *ident, bool apply_tty_stdin, uid_t uid, gid_t gid) {
+static int setup_output(
+                Unit *unit,
+                const ExecContext *context,
+                const ExecParameters *params,
+                int fileno,
+                int socket_fd,
+                const char *ident,
+                uid_t uid, gid_t gid) {
+
         ExecOutput o;
         ExecInput i;
         int r;
 
         assert(unit);
         assert(context);
+        assert(params);
         assert(ident);
 
-        i = fixup_input(context->std_input, socket_fd, apply_tty_stdin);
+        if (fileno == STDOUT_FILENO && params->stdout_fd >= 0) {
+
+                if (dup2(params->stdout_fd, STDOUT_FILENO) < 0)
+                        return -errno;
+
+                return STDOUT_FILENO;
+        }
+
+        if (fileno == STDERR_FILENO && params->stderr_fd >= 0) {
+                if (dup2(params->stderr_fd, STDERR_FILENO) < 0)
+                        return -errno;
+
+                return STDERR_FILENO;
+        }
+
+        i = fixup_input(context->std_input, socket_fd, params->apply_tty_stdin);
         o = fixup_output(context->std_output, socket_fd);
 
         if (fileno == STDERR_FILENO) {
@@ -1324,6 +1364,44 @@ static bool exec_needs_mount_namespace(
         return false;
 }
 
+static int close_remaining_fds(
+                const ExecParameters *params,
+                ExecRuntime *runtime,
+                int socket_fd,
+                int *fds, unsigned n_fds) {
+
+        unsigned n_dont_close = 0;
+        int dont_close[n_fds + 7];
+
+        assert(params);
+
+        if (params->stdin_fd >= 0)
+                dont_close[n_dont_close++] = params->stdin_fd;
+        if (params->stdout_fd >= 0)
+                dont_close[n_dont_close++] = params->stdout_fd;
+        if (params->stderr_fd >= 0)
+                dont_close[n_dont_close++] = params->stderr_fd;
+
+        if (socket_fd >= 0)
+                dont_close[n_dont_close++] = socket_fd;
+        if (n_fds > 0) {
+                memcpy(dont_close + n_dont_close, fds, sizeof(int) * n_fds);
+                n_dont_close += n_fds;
+        }
+
+        if (params->bus_endpoint_fd >= 0)
+                dont_close[n_dont_close++] = params->bus_endpoint_fd;
+
+        if (runtime) {
+                if (runtime->netns_storage_socket[0] >= 0)
+                        dont_close[n_dont_close++] = runtime->netns_storage_socket[0];
+                if (runtime->netns_storage_socket[1] >= 0)
+                        dont_close[n_dont_close++] = runtime->netns_storage_socket[1];
+        }
+
+        return close_all_fds(dont_close, n_dont_close);
+}
+
 static int exec_child(
                 Unit *unit,
                 ExecCommand *command,
@@ -1339,8 +1417,6 @@ static int exec_child(
         _cleanup_strv_free_ char **our_env = NULL, **pam_env = NULL, **final_env = NULL, **final_argv = NULL;
         _cleanup_free_ char *mac_selinux_context_net = NULL;
         const char *username = NULL, *home = NULL, *shell = NULL, *wd;
-        unsigned n_dont_close = 0;
-        int dont_close[n_fds + 4];
         uid_t uid = UID_INVALID;
         gid_t gid = GID_INVALID;
         int i, r;
@@ -1380,22 +1456,7 @@ static int exec_child(
 
         log_forget_fds();
 
-        if (socket_fd >= 0)
-                dont_close[n_dont_close++] = socket_fd;
-        if (n_fds > 0) {
-                memcpy(dont_close + n_dont_close, fds, sizeof(int) * n_fds);
-                n_dont_close += n_fds;
-        }
-        if (params->bus_endpoint_fd >= 0)
-                dont_close[n_dont_close++] = params->bus_endpoint_fd;
-        if (runtime) {
-                if (runtime->netns_storage_socket[0] >= 0)
-                        dont_close[n_dont_close++] = runtime->netns_storage_socket[0];
-                if (runtime->netns_storage_socket[1] >= 0)
-                        dont_close[n_dont_close++] = runtime->netns_storage_socket[1];
-        }
-
-        r = close_all_fds(dont_close, n_dont_close);
+        r = close_remaining_fds(params, runtime, socket_fd, fds, n_fds);
         if (r < 0) {
                 *exit_status = EXIT_FDS;
                 return r;
@@ -1451,21 +1512,21 @@ static int exec_child(
         /* If a socket is connected to STDIN/STDOUT/STDERR, we
          * must sure to drop O_NONBLOCK */
         if (socket_fd >= 0)
-                fd_nonblock(socket_fd, false);
+                (void) fd_nonblock(socket_fd, false);
 
-        r = setup_input(context, socket_fd, params->apply_tty_stdin);
+        r = setup_input(context, params, socket_fd);
         if (r < 0) {
                 *exit_status = EXIT_STDIN;
                 return r;
         }
 
-        r = setup_output(unit, context, STDOUT_FILENO, socket_fd, basename(command->path), params->apply_tty_stdin, uid, gid);
+        r = setup_output(unit, context, params, STDOUT_FILENO, socket_fd, basename(command->path), uid, gid);
         if (r < 0) {
                 *exit_status = EXIT_STDOUT;
                 return r;
         }
 
-        r = setup_output(unit, context, STDERR_FILENO, socket_fd, basename(command->path), params->apply_tty_stdin, uid, gid);
+        r = setup_output(unit, context, params, STDERR_FILENO, socket_fd, basename(command->path), uid, gid);
         if (r < 0) {
                 *exit_status = EXIT_STDERR;
                 return r;
