@@ -1390,7 +1390,7 @@ static int shell_machine(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        return process_forward(event, &forward, master, PTY_FORWARD_IGNORE_INITIAL_VHANGUP, machine);
+        return process_forward(event, &forward, master, 0, machine);
 }
 
 static int remove_image(int argc, char *argv[], void *userdata) {

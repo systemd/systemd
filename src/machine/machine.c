@@ -572,6 +572,25 @@ int machine_openpt(Machine *m, int flags) {
         }
 }
 
+int machine_open_terminal(Machine *m, const char *path, int mode) {
+        assert(m);
+
+        switch (m->class) {
+
+        case MACHINE_HOST:
+                return open_terminal(path, mode);
+
+        case MACHINE_CONTAINER:
+                if (m->leader <= 0)
+                        return -EINVAL;
+
+                return open_terminal_in_namespace(m->leader, path, mode);
+
+        default:
+                return -EOPNOTSUPP;
+        }
+}
+
 MachineOperation *machine_operation_unref(MachineOperation *o) {
         if (!o)
                 return NULL;

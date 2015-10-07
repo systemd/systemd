@@ -639,7 +639,7 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
         _cleanup_free_ char *pty_name = NULL;
         _cleanup_bus_flush_close_unref_ sd_bus *allocated_bus = NULL;
         sd_bus *container_bus = NULL;
-        _cleanup_close_ int master = -1;
+        _cleanup_close_ int master = -1, slave = -1;
         _cleanup_strv_free_ char **env = NULL, **args = NULL;
         Machine *m = userdata;
         const char *p, *unit, *user, *path, *description, *utmp_id;
@@ -700,8 +700,11 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
                 return r;
 
         p = path_startswith(pty_name, "/dev/pts/");
-        if (!p)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "PTS name %s is invalid", pty_name);
+        assert(p);
+
+        slave = machine_open_terminal(m, pty_name, O_RDWR|O_NOCTTY|O_CLOEXEC);
+        if (slave < 0)
+                return slave;
 
         utmp_id = path_startswith(pty_name, "/dev/");
         assert(utmp_id);
@@ -735,16 +738,14 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
 
         description = strjoina("Shell for User ", isempty(user) ? "root" : user);
         r = sd_bus_message_append(tm,
-                                  "(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)",
+                                  "(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)",
                                   "Description", "s", description,
-                                  "StandardInput", "s", "tty",
-                                  "StandardOutput", "s", "tty",
-                                  "StandardError", "s", "tty",
-                                  "TTYPath", "s", pty_name,
+                                  "StandardInputFileDescriptor", "h", slave,
+                                  "StandardOutputFileDescriptor", "h", slave,
+                                  "StandardErrorFileDescriptor", "h", slave,
                                   "SendSIGHUP", "b", true,
                                   "IgnoreSIGPIPE", "b", false,
                                   "KillMode", "s", "mixed",
-                                  "TTYVHangup", "b", true,
                                   "TTYReset", "b", true,
                                   "UtmpIdentifier", "s", utmp_id,
                                   "UtmpMode", "s", "user",
@@ -844,6 +845,8 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
         r = sd_bus_call(container_bus, tm, 0, error, NULL);
         if (r < 0)
                 return r;
+
+        slave = safe_close(slave);
 
         r = sd_bus_message_new_method_return(message, &reply);
         if (r < 0)
