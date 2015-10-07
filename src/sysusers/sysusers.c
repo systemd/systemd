@@ -38,6 +38,7 @@
 #include "uid-range.h"
 #include "utf8.h"
 #include "util.h"
+#include "smack-util.h"
 
 typedef enum ItemType {
         ADD_USER = 'u',
@@ -350,6 +351,19 @@ static int sync_rights(FILE *from, FILE *to) {
                 return -errno;
 
         return 0;
+}
+
+static int rename_and_apply_smack(const char *temp_path, const char *dest_path) {
+        int r = 0;
+        if (rename(temp_path, dest_path) < 0)
+                return -errno;
+
+#ifdef SMACK_RUN_LABEL
+        r = mac_smack_apply(dest_path, SMACK_ATTR_ACCESS, SMACK_FLOOR_LABEL);
+        if (r < 0)
+                return r;
+#endif
+        return r;
 }
 
 static int write_files(void) {
@@ -698,36 +712,32 @@ static int write_files(void) {
         /* And make the new files count */
         if (group_changed) {
                 if (group) {
-                        if (rename(group_tmp, group_path) < 0) {
-                                r = -errno;
+                        r = rename_and_apply_smack(group_tmp, group_path);
+                        if (r < 0)
                                 goto finish;
-                        }
 
                         group_tmp = mfree(group_tmp);
                 }
                 if (gshadow) {
-                        if (rename(gshadow_tmp, gshadow_path) < 0) {
-                                r = -errno;
+                        r = rename_and_apply_smack(gshadow_tmp, gshadow_path);
+                        if (r < 0)
                                 goto finish;
-                        }
 
                         gshadow_tmp = mfree(gshadow_tmp);
                 }
         }
 
         if (passwd) {
-                if (rename(passwd_tmp, passwd_path) < 0) {
-                        r = -errno;
+                r = rename_and_apply_smack(passwd_tmp, passwd_path);
+                if (r < 0)
                         goto finish;
-                }
 
                 passwd_tmp = mfree(passwd_tmp);
         }
         if (shadow) {
-                if (rename(shadow_tmp, shadow_path) < 0) {
-                        r = -errno;
+                r = rename_and_apply_smack(shadow_tmp, shadow_path);
+                if (r < 0)
                         goto finish;
-                }
 
                 shadow_tmp = mfree(shadow_tmp);
         }
