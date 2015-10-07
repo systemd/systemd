@@ -780,7 +780,7 @@ int strv_extend_n(char ***l, const char *value, size_t n) {
         return 0;
 
 rollback:
-        for (j = k; j < i; i++)
+        for (j = k; j < i; j++)
                 free(nl[j]);
 
         nl[k] = NULL;
