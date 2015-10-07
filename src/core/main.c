@@ -142,6 +142,8 @@ noreturn static void freeze_or_reboot(void) {
 }
 
 noreturn static void crash(int sig) {
+        struct sigaction sa;
+        pid_t pid;
 
         if (getpid() != 1)
                 /* Pass this on immediately, if this is not PID 1 */
@@ -149,11 +151,10 @@ noreturn static void crash(int sig) {
         else if (!arg_dump_core)
                 log_emergency("Caught <%s>, not dumping core.", signal_to_string(sig));
         else {
-                struct sigaction sa = {
+                sa = (struct sigaction) {
                         .sa_handler = nop_signal_handler,
                         .sa_flags = SA_NOCLDSTOP|SA_RESTART,
                 };
-                pid_t pid;
 
                 /* We want to wait for the core process, hence let's enable SIGCHLD */
                 (void) sigaction(SIGCHLD, &sa, NULL);
@@ -209,18 +210,17 @@ noreturn static void crash(int sig) {
         if (arg_crash_chvt >= 0)
                 (void) chvt(arg_crash_chvt);
 
-        if (arg_crash_shell) {
-                struct sigaction sa = {
-                        .sa_handler = SIG_IGN,
-                        .sa_flags = SA_NOCLDSTOP|SA_NOCLDWAIT|SA_RESTART,
-                };
-                pid_t pid;
+        sa = (struct sigaction) {
+                .sa_handler = SIG_IGN,
+                .sa_flags = SA_NOCLDSTOP|SA_NOCLDWAIT|SA_RESTART,
+        };
 
+        /* Let the kernel reap children for us */
+        (void) sigaction(SIGCHLD, &sa, NULL);
+
+        if (arg_crash_shell) {
                 log_notice("Executing crash shell in 10s...");
                 (void) sleep(10);
-
-                /* Let the kernel reap children for us */
-                (void) sigaction(SIGCHLD, &sa, NULL);
 
                 pid = raw_clone(SIGCHLD, NULL);
                 if (pid < 0)
@@ -231,11 +231,10 @@ noreturn static void crash(int sig) {
                         (void) execle("/bin/sh", "/bin/sh", NULL, environ);
 
                         log_emergency_errno(errno, "execle() failed: %m");
-                        freeze_or_reboot();
                         _exit(EXIT_FAILURE);
                 } else {
                         log_info("Spawned crash shell as PID "PID_FMT".", pid);
-                        freeze();
+                        (void) wait_for_terminate(pid, NULL);
                 }
         }
 
@@ -521,7 +520,6 @@ static int config_parse_crash_chvt(
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         r = parse_crash_chvt(rvalue);
         if (r < 0) {
@@ -1129,7 +1127,7 @@ static void test_mtab(void) {
 
         log_error("/etc/mtab is not a symlink or not pointing to /proc/self/mounts. "
                   "This is not supported anymore. "
-                  "Please make sure to replace this file by a symlink to avoid incorrect or misleading mount(8) output.");
+                  "Please replace /etc/mtab with a symlink to /proc/self/mounts.");
         freeze_or_reboot();
 }
 

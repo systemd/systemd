@@ -922,9 +922,8 @@
         the machine automatically when it crashes, after a 10s delay.
         Otherwise, the system will hang indefinitely. Defaults to
         <option>no</option>, in order to avoid a reboot loop. If
-        combined with <varname>systemd.crash_shell=</varname>, it is
-        first attempted to invoke a shell, and if this is not
-        successful the system is rebooted.</para></listitem>
+        combined with <varname>systemd.crash_shell=</varname>, the
+        system is rebooted after the shell exits.</para></listitem>
       </varlistentry>
 
       <varlistentry>
