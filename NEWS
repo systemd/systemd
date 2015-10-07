@@ -165,6 +165,22 @@ CHANGES WITH 227:
           manually vacuum journal files to leave only the specified
           number of files in place.
 
+        * The "ask-password" framework used to query for LUKS harddisk
+          passwords or SSL passwords during boot gained support for
+          caching passwords in the kernel keyring, if it is
+          available. This makes sure that the user only has to type in
+          his passphrase once if there are multiple objects to unlock
+          with the same one. Previously, such password caching was
+          available only when Plymouth was used; this moves the
+          caching logic into the systemd codebase itself. The
+          "systemd-ask-password" utility gained a new --keyname=
+          switch to control which kernel keyring key to use for
+          caching a password in. This functionality is also useful for
+          enabling display managers such as gdm to automatically
+          unlock the user's GNOME keyring if its passphrase, the
+          user's password and the harddisk password are the same, if
+          gdm-autologin is used.
+
         * Galician, Serbian, Turkish and Korean translations were added.
 
         Contributions from:
