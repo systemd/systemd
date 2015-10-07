@@ -32,6 +32,8 @@ struct PTYForward {
 
         int master;
 
+        PTYForwardFlags flags;
+
         sd_event_source *stdin_event_source;
         sd_event_source *stdout_event_source;
         sd_event_source *master_event_source;
@@ -40,8 +42,6 @@ struct PTYForward {
 
         struct termios saved_stdin_attr;
         struct termios saved_stdout_attr;
-
-        bool read_only:1;
 
         bool saved_stdin:1;
         bool saved_stdout:1;
@@ -54,8 +54,7 @@ struct PTYForward {
         bool master_writable:1;
         bool master_hangup:1;
 
-        /* Continue reading after hangup? */
-        bool ignore_vhangup:1;
+        bool read_from_master:1;
 
         bool last_char_set:1;
         char last_char;
@@ -96,6 +95,18 @@ static bool look_for_escape(PTYForward *f, const char *buffer, size_t n) {
                         f->escape_counter = 0;
                 }
         }
+
+        return false;
+}
+
+static bool ignore_vhangup(PTYForward *f) {
+        assert(f);
+
+        if (f->flags & PTY_FORWARD_IGNORE_VHANGUP)
+                return true;
+
+        if ((f->flags & PTY_FORWARD_IGNORE_INITIAL_VHANGUP) && !f->read_from_master)
+                return true;
 
         return false;
 }
@@ -179,7 +190,7 @@ static int shovel(PTYForward *f) {
                                  * EAGAIN here and try again, unless
                                  * ignore_vhangup is off. */
 
-                                if (errno == EAGAIN || (errno == EIO && f->ignore_vhangup))
+                                if (errno == EAGAIN || (errno == EIO && ignore_vhangup(f)))
                                         f->master_readable = false;
                                 else if (errno == EPIPE || errno == ECONNRESET || errno == EIO) {
                                         f->master_readable = f->master_writable = false;
@@ -190,8 +201,10 @@ static int shovel(PTYForward *f) {
                                         log_error_errno(errno, "read(): %m");
                                         return sd_event_exit(f->event, EXIT_FAILURE);
                                 }
-                        }  else
+                        }  else {
+                                f->read_from_master = true;
                                 f->out_buffer_full += (size_t) k;
+                        }
                 }
 
                 if (f->stdout_writable && f->out_buffer_full > 0) {
@@ -302,8 +315,7 @@ static int on_sigwinch_event(sd_event_source *e, const struct signalfd_siginfo *
 int pty_forward_new(
                 sd_event *event,
                 int master,
-                bool ignore_vhangup,
-                bool read_only,
+                PTYForwardFlags flags,
                 PTYForward **ret) {
 
         _cleanup_(pty_forward_freep) PTYForward *f = NULL;
@@ -314,8 +326,7 @@ int pty_forward_new(
         if (!f)
                 return -ENOMEM;
 
-        f->read_only = read_only;
-        f->ignore_vhangup = ignore_vhangup;
+        f->flags = flags;
 
         if (event)
                 f->event = sd_event_ref(event);
@@ -325,7 +336,7 @@ int pty_forward_new(
                         return r;
         }
 
-        if (!read_only) {
+        if (!(flags & PTY_FORWARD_READ_ONLY)) {
                 r = fd_nonblock(STDIN_FILENO, true);
                 if (r < 0)
                         return r;
@@ -344,7 +355,7 @@ int pty_forward_new(
         if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) >= 0)
                 (void) ioctl(master, TIOCSWINSZ, &ws);
 
-        if (!read_only) {
+        if (!(flags & PTY_FORWARD_READ_ONLY)) {
                 if (tcgetattr(STDIN_FILENO, &f->saved_stdin_attr) >= 0) {
                         struct termios raw_stdin_attr;
 
@@ -429,16 +440,20 @@ int pty_forward_get_last_char(PTYForward *f, char *ch) {
         return 0;
 }
 
-int pty_forward_set_ignore_vhangup(PTYForward *f, bool ignore_vhangup) {
+int pty_forward_set_ignore_vhangup(PTYForward *f, bool b) {
         int r;
 
         assert(f);
 
-        if (f->ignore_vhangup == ignore_vhangup)
+        if (!!(f->flags & PTY_FORWARD_IGNORE_VHANGUP) == b)
                 return 0;
 
-        f->ignore_vhangup = ignore_vhangup;
-        if (!f->ignore_vhangup) {
+        if (b)
+                f->flags |= PTY_FORWARD_IGNORE_VHANGUP;
+        else
+                f->flags &= ~PTY_FORWARD_IGNORE_VHANGUP;
+
+        if (!ignore_vhangup(f)) {
 
                 /* We shall now react to vhangup()s? Let's check
                  * immediately if we might be in one */
@@ -455,5 +470,5 @@ int pty_forward_set_ignore_vhangup(PTYForward *f, bool ignore_vhangup) {
 int pty_forward_get_ignore_vhangup(PTYForward *f) {
         assert(f);
 
-        return f->ignore_vhangup;
+        return !!(f->flags & PTY_FORWARD_IGNORE_VHANGUP);
 }

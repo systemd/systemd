@@ -6143,7 +6143,7 @@ int openpt_in_namespace(pid_t pid, int flags) {
                 if (r < 0)
                         _exit(EXIT_FAILURE);
 
-                master = posix_openpt(flags);
+                master = posix_openpt(flags|O_NOCTTY|O_CLOEXEC);
                 if (master < 0)
                         _exit(EXIT_FAILURE);
 

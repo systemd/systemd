@@ -26,9 +26,9 @@ External:
 
 Features:
 
-* add a concept of RemainAfterExit= to scope units
+* when creating transient services, support passing in a tty fd to use for stdin/stdout
 
-* add journal vacuum by max number of files
+* add a concept of RemainAfterExit= to scope units
 
 * add a new command "systemctl revert" or so, that removes all dropin
   snippets in /run and /etc, and all unit files with counterparts in
@@ -159,14 +159,8 @@ Features:
   that are not supported...
   http://lists.freedesktop.org/archives/systemd-devel/2015-February/028076.html
 
-* Introduce $LISTEN_NAMES to complement $LISTEN_FDS, containing a
-  colon separated list of identifiers for the fds passed.
-
 * maybe introduce WantsMountsFor=? Usecase:
   http://lists.freedesktop.org/archives/systemd-devel/2015-January/027729.html
-
-* rework kexec logic to use new kexec_file_load() syscall, so that we
-  don't have to call kexec tool anymore.
 
 * The udev blkid built-in should expose a property that reflects
   whether media was sensed in USB CF/SD card readers. This should then
