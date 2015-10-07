@@ -1173,7 +1173,7 @@ static int on_machine_removed(sd_bus_message *m, void *userdata, sd_bus_error *r
         return 0;
 }
 
-static int process_forward(sd_event *event, PTYForward **forward, int master, bool ignore_vhangup, const char *name) {
+static int process_forward(sd_event *event, PTYForward **forward, int master, PTYForwardFlags flags, const char *name) {
         char last_char = 0;
         bool machine_died;
         int ret = 0, r;
@@ -1192,7 +1192,7 @@ static int process_forward(sd_event *event, PTYForward **forward, int master, bo
         sd_event_add_signal(event, NULL, SIGINT, NULL, NULL);
         sd_event_add_signal(event, NULL, SIGTERM, NULL, NULL);
 
-        r = pty_forward_new(event, master, ignore_vhangup, false, forward);
+        r = pty_forward_new(event, master, flags, forward);
         if (r < 0)
                 return log_error_errno(r, "Failed to create PTY forwarder: %m");
 
@@ -1203,7 +1203,7 @@ static int process_forward(sd_event *event, PTYForward **forward, int master, bo
         pty_forward_get_last_char(*forward, &last_char);
 
         machine_died =
-                ignore_vhangup &&
+                (flags & PTY_FORWARD_IGNORE_VHANGUP) &&
                 pty_forward_get_ignore_vhangup(*forward) == 0;
 
         *forward = pty_forward_free(*forward);
@@ -1286,7 +1286,7 @@ static int login_machine(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        return process_forward(event, &forward, master, true, machine);
+        return process_forward(event, &forward, master, PTY_FORWARD_IGNORE_VHANGUP, machine);
 }
 
 static int shell_machine(int argc, char *argv[], void *userdata) {
@@ -1390,7 +1390,7 @@ static int shell_machine(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        return process_forward(event, &forward, master, false, machine);
+        return process_forward(event, &forward, master, PTY_FORWARD_IGNORE_INITIAL_VHANGUP, machine);
 }
 
 static int remove_image(int argc, char *argv[], void *userdata) {

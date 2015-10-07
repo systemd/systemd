@@ -27,7 +27,17 @@
 
 typedef struct PTYForward PTYForward;
 
-int pty_forward_new(sd_event *event, int master, bool ignore_vhangup, bool read_only, PTYForward **f);
+typedef enum PTYForwardFlags {
+        PTY_FORWARD_READ_ONLY = 1,
+
+        /* Continue reading after hangup? */
+        PTY_FORWARD_IGNORE_VHANGUP = 2,
+
+        /* Continue reading after hangup but only if we never read anything else? */
+        PTY_FORWARD_IGNORE_INITIAL_VHANGUP = 4,
+} PTYForwardFlags;
+
+int pty_forward_new(sd_event *event, int master, PTYForwardFlags flags, PTYForward **f);
 PTYForward *pty_forward_free(PTYForward *f);
 
 int pty_forward_get_last_char(PTYForward *f, char *ch);

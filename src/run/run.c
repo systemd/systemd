@@ -828,7 +828,7 @@ static int start_transient_service(
                 if (!arg_quiet)
                         log_info("Running as unit %s.\nPress ^] three times within 1s to disconnect TTY.", service);
 
-                r = pty_forward_new(event, master, false, false, &forward);
+                r = pty_forward_new(event, master, PTY_FORWARD_IGNORE_INITIAL_VHANGUP, &forward);
                 if (r < 0)
                         return log_error_errno(r, "Failed to create PTY forwarder: %m");
 

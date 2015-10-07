@@ -3512,7 +3512,7 @@ int main(int argc, char *argv[]) {
 
                 rtnl_socket_pair[0] = safe_close(rtnl_socket_pair[0]);
 
-                r = pty_forward_new(event, master, true, !interactive, &forward);
+                r = pty_forward_new(event, master, PTY_FORWARD_IGNORE_VHANGUP | (interactive ? 0 : PTY_FORWARD_READ_ONLY), &forward);
                 if (r < 0) {
                         log_error_errno(r, "Failed to create PTY forwarder: %m");
                         goto finish;
