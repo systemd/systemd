@@ -36,6 +36,7 @@
 #include "signal-util.h"
 #include "spawn-polkit-agent.h"
 #include "strv.h"
+#include "terminal-util.h"
 #include "unit-name.h"
 
 static bool arg_ask_password = true;
