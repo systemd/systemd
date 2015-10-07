@@ -27,6 +27,9 @@
 
 #include "macro.h"
 
+#define SMACK_FLOOR_LABEL "_"
+#define SMACK_STAR_LABEL  "*"
+
 typedef enum SmackAttr {
         SMACK_ATTR_ACCESS = 0,
         SMACK_ATTR_EXEC = 1,

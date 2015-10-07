@@ -29,9 +29,6 @@
 #include "fileio.h"
 #include "smack-util.h"
 
-#define SMACK_FLOOR_LABEL "_"
-#define SMACK_STAR_LABEL  "*"
-
 #ifdef HAVE_SMACK
 bool mac_smack_use(void) {
         static int cached_use = -1;
