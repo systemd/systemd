@@ -20,36 +20,36 @@
 ***/
 
 #include <errno.h>
-#include <unistd.h>
 #include <getopt.h>
 #include <stddef.h>
+#include <unistd.h>
 
+#include "ask-password-api.h"
+#include "def.h"
 #include "log.h"
 #include "macro.h"
 #include "strv.h"
-#include "ask-password-api.h"
-#include "def.h"
 
 static const char *arg_icon = NULL;
 static const char *arg_id = NULL;
-static const char *arg_message = NULL;
-static bool arg_echo = false;
-static bool arg_use_tty = true;
+static const char *arg_keyname = NULL;
+static char *arg_message = NULL;
 static usec_t arg_timeout = DEFAULT_TIMEOUT_USEC;
-static bool arg_accept_cached = false;
 static bool arg_multiple = false;
+static AskPasswordFlags arg_flags = ASK_PASSWORD_PUSH_CACHE;
 
 static void help(void) {
         printf("%s [OPTIONS...] MESSAGE\n\n"
                "Query the user for a system passphrase, via the TTY or an UI agent.\n\n"
-               "  -h --help          Show this help\n"
-               "     --icon=NAME     Icon name\n"
-               "     --timeout=SEC   Timeout in sec\n"
-               "     --echo          Do not mask input (useful for usernames)\n"
-               "     --no-tty        Ask question via agent even on TTY\n"
-               "     --accept-cached Accept cached passwords\n"
-               "     --multiple      List multiple passwords if available\n"
-               "     --id=ID         Query identifier (e.g. cryptsetup:/dev/sda5)\n"
+               "  -h --help           Show this help\n"
+               "     --icon=NAME      Icon name\n"
+               "     --id=ID          Query identifier (e.g. \"cryptsetup:/dev/sda5\")\n"
+               "     --keyname=NAME   Kernel key name for caching passwords (e.g. \"cryptsetup\")\n"
+               "     --timeout=SEC    Timeout in seconds\n"
+               "     --echo           Do not mask input (useful for usernames)\n"
+               "     --no-tty         Ask question via agent even on TTY\n"
+               "     --accept-cached  Accept cached passwords\n"
+               "     --multiple       List multiple passwords if available\n"
                , program_invocation_short_name);
 }
 
@@ -62,7 +62,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_TTY,
                 ARG_ACCEPT_CACHED,
                 ARG_MULTIPLE,
-                ARG_ID
+                ARG_ID,
+                ARG_KEYNAME,
         };
 
         static const struct option options[] = {
@@ -74,6 +75,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "accept-cached", no_argument,       NULL, ARG_ACCEPT_CACHED },
                 { "multiple",      no_argument,       NULL, ARG_MULTIPLE      },
                 { "id",            required_argument, NULL, ARG_ID            },
+                { "keyname",       required_argument, NULL, ARG_KEYNAME       },
                 {}
         };
 
@@ -102,15 +104,15 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_ECHO:
-                        arg_echo = true;
+                        arg_flags |= ASK_PASSWORD_ECHO;
                         break;
 
                 case ARG_NO_TTY:
-                        arg_use_tty = false;
+                        arg_flags |= ASK_PASSWORD_NO_TTY;
                         break;
 
                 case ARG_ACCEPT_CACHED:
-                        arg_accept_cached = true;
+                        arg_flags |= ASK_PASSWORD_ACCEPT_CACHED;
                         break;
 
                 case ARG_MULTIPLE:
@@ -121,6 +123,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_id = optarg;
                         break;
 
+                case ARG_KEYNAME:
+                        arg_keyname = optarg;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -128,18 +134,20 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached("Unhandled option");
                 }
 
-        if (optind != argc - 1) {
-                log_error("%s: required argument missing.", program_invocation_short_name);
-                return -EINVAL;
+        if (argc > optind) {
+                arg_message = strv_join(argv + optind, " ");
+                if (!arg_message)
+                        return log_oom();
         }
 
-        arg_message = argv[optind];
         return 1;
 }
 
 int main(int argc, char *argv[]) {
-        int r;
+        _cleanup_strv_free_ char **l = NULL;
         usec_t timeout;
+        char **p;
+        int r;
 
         log_parse_environment();
         log_open();
@@ -153,36 +161,21 @@ int main(int argc, char *argv[]) {
         else
                 timeout = 0;
 
-        if (arg_use_tty && isatty(STDIN_FILENO)) {
-                char *password = NULL;
+        r = ask_password_auto(arg_message, arg_icon, arg_id, arg_keyname, timeout, arg_flags, &l);
+        if (r < 0) {
+                log_error_errno(r, "Failed to query password: %m");
+                goto finish;
+        }
 
-                r = ask_password_tty(arg_message, timeout, arg_echo, NULL,
-                                     &password);
-                if (r >= 0) {
-                        puts(password);
-                        free(password);
-                }
+        STRV_FOREACH(p, l) {
+                puts(*p);
 
-        } else {
-                char **l;
-
-                r = ask_password_agent(arg_message, arg_icon, arg_id, timeout,
-                                       arg_echo, arg_accept_cached, &l);
-                if (r >= 0) {
-                        char **p;
-
-                        STRV_FOREACH(p, l) {
-                                puts(*p);
-
-                                if (!arg_multiple)
-                                        break;
-                        }
-
-                        strv_free(l);
-                }
+                if (!arg_multiple)
+                        break;
         }
 
 finish:
+        free(arg_message);
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

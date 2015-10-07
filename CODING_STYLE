@@ -332,9 +332,13 @@
 - Avoid leaving long-running child processes around, i.e. fork()s that
   are not followed quickly by an execv() in the child. Resource
   management is unclear in this case, and memory CoW will result in
-  penalties in the parent much much later on.
+  unexpected penalties in the parent much much later on.
 
 - Don't block execution for arbitrary amounts of time using usleep()
   or a similar call, unless you really know what you do. Just "giving
   something some time", or so is a lazy excuse. Always wait for the
   proper event, instead of doing time-based poll loops.
+
+- To determine the length of a constant string "foo", don't bother
+  with sizeof("foo")-1, please use strlen("foo") directly. gcc knows
+  strlen() anyway and turns it into a constant expression if possible.

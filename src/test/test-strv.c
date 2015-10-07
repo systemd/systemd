@@ -341,11 +341,11 @@ static void test_strv_extend_strv(void) {
         _cleanup_strv_free_ char **a = NULL, **b = NULL;
 
         a = strv_new("abc", "def", "ghi", NULL);
-        b = strv_new("jkl", "mno", "pqr", NULL);
+        b = strv_new("jkl", "mno", "abc", "pqr", NULL);
         assert_se(a);
         assert_se(b);
 
-        assert_se(strv_extend_strv(&a, b) >= 0);
+        assert_se(strv_extend_strv(&a, b, true) == 3);
 
         assert_se(streq(a[0], "abc"));
         assert_se(streq(a[1], "def"));
@@ -618,6 +618,28 @@ static void test_strv_extend_n(void) {
         assert_se(v[1] == NULL);
 }
 
+static void test_strv_make_nulstr_one(char **l) {
+        _cleanup_free_ char *b = NULL, *c = NULL;
+        _cleanup_strv_free_ char **q = NULL;
+        size_t n, m;
+
+        assert_se(strv_make_nulstr(l, &b, &n) >= 0);
+        assert_se(q = strv_parse_nulstr(b, n));
+        assert_se(strv_equal(l, q));
+
+        assert_se(strv_make_nulstr(q, &c, &m) >= 0);
+        assert_se(m == n);
+        assert_se(memcmp(b, c, m) == 0);
+}
+
+static void test_strv_make_nulstr(void) {
+        test_strv_make_nulstr_one(NULL);
+        test_strv_make_nulstr_one(STRV_MAKE(NULL));
+        test_strv_make_nulstr_one(STRV_MAKE("foo"));
+        test_strv_make_nulstr_one(STRV_MAKE("foo", "bar"));
+        test_strv_make_nulstr_one(STRV_MAKE("foo", "bar", "quuux"));
+}
+
 int main(int argc, char *argv[]) {
         test_specifier_printf();
         test_strv_foreach();
@@ -678,6 +700,7 @@ int main(int argc, char *argv[]) {
         test_strv_shell_escape();
         test_strv_skip();
         test_strv_extend_n();
+        test_strv_make_nulstr();
 
         return 0;
 }

@@ -181,7 +181,7 @@ static char** user_dirs(
                 if (strv_extend_strv_concat(&res, config_dirs, "/systemd/user") < 0)
                         return NULL;
 
-        if (strv_extend_strv(&res, (char**) config_unit_paths) < 0)
+        if (strv_extend_strv(&res, (char**) config_unit_paths, false) < 0)
                 return NULL;
 
         if (runtime_dir)
@@ -203,7 +203,7 @@ static char** user_dirs(
                 if (strv_extend_strv_concat(&res, data_dirs, "/systemd/user") < 0)
                         return NULL;
 
-        if (strv_extend_strv(&res, (char**) data_unit_paths) < 0)
+        if (strv_extend_strv(&res, (char**) data_unit_paths, false) < 0)
                 return NULL;
 
         if (generator_late)
@@ -318,7 +318,7 @@ int lookup_paths_init(
                 if (!unit_path)
                         return -ENOMEM;
 
-                r = strv_extend_strv(&p->unit_path, unit_path);
+                r = strv_extend_strv(&p->unit_path, unit_path, false);
                 if (r < 0)
                         return r;
         }

@@ -25,10 +25,16 @@
 
 #include "time-util.h"
 
-int ask_password_tty(const char *message, usec_t until, bool echo, const char *flag_file, char **_passphrase);
+typedef enum AskPasswordFlags {
+        ASK_PASSWORD_ACCEPT_CACHED = 1,
+        ASK_PASSWORD_PUSH_CACHE = 2,
+        ASK_PASSWORD_ECHO = 4,                /* show the password literally while reading, instead of "*" */
+        ASK_PASSWORD_SILENT = 8,              /* do no show any password at all while reading */
+        ASK_PASSWORD_NO_TTY = 16,
+        ASK_PASSWORD_NO_AGENT = 32,
+} AskPasswordFlags;
 
-int ask_password_agent(const char *message, const char *icon, const char *id,
-                       usec_t until, bool echo, bool accept_cached, char ***_passphrases);
-
-int ask_password_auto(const char *message, const char *icon, const char *id,
-                      usec_t until, bool accept_cached, char ***_passphrases);
+int ask_password_tty(const char *message, const char *keyname, usec_t until, AskPasswordFlags flags, const char *flag_file, char **ret);
+int ask_password_agent(const char *message, const char *icon, const char *id, const char *keyname, usec_t until, AskPasswordFlags flag, char ***ret);
+int ask_password_keyring(const char *keyname, AskPasswordFlags flags, char ***ret);
+int ask_password_auto(const char *message, const char *icon, const char *id, const char *keyname, usec_t until, AskPasswordFlags flag, char ***ret);
