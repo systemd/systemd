@@ -416,9 +416,6 @@ int dns_name_compare_func(const void *a, const void *b) {
         const char *x, *y;
         int r, q, k, w;
 
-        assert(a);
-        assert(b);
-
         x = (const char *) a + strlen(a);
         y = (const char *) b + strlen(b);
 
@@ -544,6 +541,10 @@ int dns_name_endswith(const char *name, const char *suffix) {
 
 int dns_name_between(const char *a, const char *b, const char *c) {
         int n;
+
+        assert(a);
+        assert(b);
+        assert(c);
 
         /* Determine if b is strictly greater than a and strictly smaller than c.
            We consider the order of names to be circular, so that if a is
