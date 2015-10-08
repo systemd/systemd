@@ -480,10 +480,6 @@ int acquire_terminal(
 
         safe_close(notify);
 
-        r = reset_terminal_fd(fd, true);
-        if (r < 0)
-                log_warning_errno(r, "Failed to reset terminal: %m");
-
         return fd;
 
 fail:
@@ -615,6 +611,10 @@ int make_console_stdio(void) {
         fd = acquire_terminal("/dev/console", false, true, true, USEC_INFINITY);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to acquire terminal: %m");
+
+        r = reset_terminal_fd(fd, true);
+        if (r < 0)
+                log_warning_errno(r, "Failed to reset terminal, ignoring: %m");
 
         r = make_stdio(fd);
         if (r < 0)

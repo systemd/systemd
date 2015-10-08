@@ -543,9 +543,9 @@ static int chown_terminal(int fd, uid_t uid) {
         return 0;
 }
 
-static int setup_confirm_stdio(int *_saved_stdin,
-                               int *_saved_stdout) {
-        int fd = -1, saved_stdin, saved_stdout = -1, r;
+static int setup_confirm_stdio(int *_saved_stdin, int *_saved_stdout) {
+        _cleanup_close_ int fd = -1, saved_stdin = -1, saved_stdout = -1;
+        int r;
 
         assert(_saved_stdin);
         assert(_saved_stdout);
@@ -555,10 +555,8 @@ static int setup_confirm_stdio(int *_saved_stdin,
                 return -errno;
 
         saved_stdout = fcntl(STDOUT_FILENO, F_DUPFD, 3);
-        if (saved_stdout < 0) {
-                r = errno;
-                goto fail;
-        }
+        if (saved_stdout < 0)
+                return -errno;
 
         fd = acquire_terminal(
                         "/dev/console",
@@ -566,39 +564,33 @@ static int setup_confirm_stdio(int *_saved_stdin,
                         false,
                         false,
                         DEFAULT_CONFIRM_USEC);
-        if (fd < 0) {
-                r = fd;
-                goto fail;
-        }
+        if (fd < 0)
+                return fd;
 
         r = chown_terminal(fd, getuid());
         if (r < 0)
-                goto fail;
+                return r;
 
-        if (dup2(fd, STDIN_FILENO) < 0) {
-                r = -errno;
-                goto fail;
-        }
+        r = reset_terminal_fd(fd, true);
+        if (r < 0)
+                return r;
 
-        if (dup2(fd, STDOUT_FILENO) < 0) {
-                r = -errno;
-                goto fail;
-        }
+        if (dup2(fd, STDIN_FILENO) < 0)
+                return -errno;
+
+        if (dup2(fd, STDOUT_FILENO) < 0)
+                return -errno;
 
         if (fd >= 2)
                 safe_close(fd);
+        fd = -1;
 
         *_saved_stdin = saved_stdin;
         *_saved_stdout = saved_stdout;
 
+        saved_stdin = saved_stdout = -1;
+
         return 0;
-
-fail:
-        safe_close(saved_stdout);
-        safe_close(saved_stdin);
-        safe_close(fd);
-
-        return r;
 }
 
 _printf_(1, 2) static int write_confirm_message(const char *format, ...) {
@@ -618,9 +610,7 @@ _printf_(1, 2) static int write_confirm_message(const char *format, ...) {
         return 0;
 }
 
-static int restore_confirm_stdio(int *saved_stdin,
-                                 int *saved_stdout) {
-
+static int restore_confirm_stdio(int *saved_stdin, int *saved_stdout) {
         int r = 0;
 
         assert(saved_stdin);
@@ -636,8 +626,8 @@ static int restore_confirm_stdio(int *saved_stdin,
                 if (dup2(*saved_stdout, STDOUT_FILENO) < 0)
                         r = -errno;
 
-        safe_close(*saved_stdin);
-        safe_close(*saved_stdout);
+        *saved_stdin = safe_close(*saved_stdin);
+        *saved_stdout = safe_close(*saved_stdout);
 
         return r;
 }
