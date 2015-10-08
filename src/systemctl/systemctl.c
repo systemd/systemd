@@ -5437,10 +5437,10 @@ static int enable_unit(int argc, char *argv[], void *userdata) {
                 else
                         assert_not_reached("Unknown verb");
 
-                if (r < 0) {
-                        log_error_errno(r, "Operation failed: %m");
-                        goto finish;
-                }
+                if (r == -ESHUTDOWN)
+                        return log_error_errno(r, "Unit file is masked.");
+                if (r < 0)
+                        return log_error_errno(r, "Operation failed: %m");
 
                 if (!arg_quiet)
                         dump_unit_file_changes(changes, n_changes);
@@ -5557,7 +5557,7 @@ static int enable_unit(int argc, char *argv[], void *userdata) {
 
                 r = acquire_bus(BUS_MANAGER, &bus);
                 if (r < 0)
-                        return r;
+                        goto finish;
 
                 new_args[0] = (char*) (streq(argv[0], "enable") ? "start" : "stop");
                 for (i = 0; i < n_changes; i++)
@@ -5603,7 +5603,8 @@ static int add_dependency(int argc, char *argv[], void *userdata) {
                 unsigned n_changes = 0;
 
                 r = unit_file_add_dependency(arg_scope, arg_runtime, arg_root, names, target, dep, arg_force, &changes, &n_changes);
-
+                if (r == -ESHUTDOWN)
+                        return log_error_errno(r, "Unit file is masked.");
                 if (r < 0)
                         return log_error_errno(r, "Can't add dependency: %m");
 

@@ -1501,12 +1501,9 @@ int unit_file_add_dependency(
 
                 state = unit_file_get_state(scope, root_dir, *i);
                 if (state < 0)
-                        return log_error_errno(state, "Failed to get unit file state for %s: %m", *i);
-
-                if (state == UNIT_FILE_MASKED || state == UNIT_FILE_MASKED_RUNTIME) {
-                        log_error("Failed to enable unit: Unit %s is masked", *i);
-                        return -EOPNOTSUPP;
-                }
+                        return state;
+                if (IN_SET(state, UNIT_FILE_MASKED, UNIT_FILE_MASKED_RUNTIME))
+                        return -ESHUTDOWN;
 
                 r = install_info_add_auto(&c, *i);
                 if (r < 0)
@@ -1577,14 +1574,11 @@ int unit_file_enable(
         STRV_FOREACH(i, files) {
                 UnitFileState state;
 
-                /* We only want to know if this unit is masked, so we ignore
-                 * errors from unit_file_get_state, deferring other checks.
-                 * This allows templated units to be enabled on the fly. */
                 state = unit_file_get_state(scope, root_dir, *i);
-                if (state == UNIT_FILE_MASKED || state == UNIT_FILE_MASKED_RUNTIME) {
-                        log_error("Failed to enable unit: Unit %s is masked", *i);
-                        return -EOPNOTSUPP;
-                }
+                if (state < 0)
+                        return state;
+                if (IN_SET(state, UNIT_FILE_MASKED, UNIT_FILE_MASKED_RUNTIME))
+                        return -ESHUTDOWN;
 
                 r = install_info_add_auto(&c, *i);
                 if (r < 0)
