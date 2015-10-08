@@ -535,8 +535,9 @@ int terminal_vhangup(const char *name) {
 }
 
 int vt_disallocate(const char *name) {
-        int fd, r;
+        _cleanup_close_ int fd = -1;
         unsigned u;
+        int r;
 
         /* Deallocate the VT if possible. If not possible
          * (i.e. because it is the active one), at least clear it
@@ -558,8 +559,6 @@ int vt_disallocate(const char *name) {
                            "\033[H"    /* move home */
                            "\033[2J",  /* clear screen */
                            10, false);
-                safe_close(fd);
-
                 return 0;
         }
 
@@ -579,7 +578,7 @@ int vt_disallocate(const char *name) {
                 return fd;
 
         r = ioctl(fd, VT_DISALLOCATE, u);
-        safe_close(fd);
+        fd = safe_close(fd);
 
         if (r >= 0)
                 return 0;
@@ -598,8 +597,6 @@ int vt_disallocate(const char *name) {
                    "\033[H"   /* move home */
                    "\033[3J", /* clear screen including scrollback, requires Linux 2.6.40 */
                    10, false);
-        safe_close(fd);
-
         return 0;
 }
 
