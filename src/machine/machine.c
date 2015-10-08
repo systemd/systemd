@@ -19,23 +19,24 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <errno.h>
 #include <string.h>
 #include <unistd.h>
-#include <errno.h>
 
 #include "sd-messages.h"
 
-#include "util.h"
-#include "mkdir.h"
-#include "hashmap.h"
-#include "fileio.h"
-#include "special.h"
-#include "unit-name.h"
-#include "bus-util.h"
 #include "bus-error.h"
-#include "machine.h"
-#include "machine-dbus.h"
+#include "bus-util.h"
+#include "fileio.h"
 #include "formats-util.h"
+#include "hashmap.h"
+#include "mkdir.h"
+#include "special.h"
+#include "terminal-util.h"
+#include "unit-name.h"
+#include "util.h"
+#include "machine-dbus.h"
+#include "machine.h"
 
 Machine* machine_new(Manager *manager, MachineClass class, const char *name) {
         Machine *m;
@@ -565,6 +566,25 @@ int machine_openpt(Machine *m, int flags) {
                         return -EINVAL;
 
                 return openpt_in_namespace(m->leader, flags);
+
+        default:
+                return -EOPNOTSUPP;
+        }
+}
+
+int machine_open_terminal(Machine *m, const char *path, int mode) {
+        assert(m);
+
+        switch (m->class) {
+
+        case MACHINE_HOST:
+                return open_terminal(path, mode);
+
+        case MACHINE_CONTAINER:
+                if (m->leader <= 0)
+                        return -EINVAL;
+
+                return open_terminal_in_namespace(m->leader, path, mode);
 
         default:
                 return -EOPNOTSUPP;

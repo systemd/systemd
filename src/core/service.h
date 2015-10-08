@@ -195,6 +195,10 @@ struct Service {
 
         char *usb_function_descriptors;
         char *usb_function_strings;
+
+        int stdin_fd;
+        int stdout_fd;
+        int stderr_fd;
 };
 
 extern const UnitVTable service_vtable;

@@ -315,6 +315,10 @@ static int parse_password(const char *filename, char **wall) {
                                 tty_fd = acquire_terminal("/dev/console", false, false, false, USEC_INFINITY);
                                 if (tty_fd < 0)
                                         return log_error_errno(tty_fd, "Failed to acquire /dev/console: %m");
+
+                                r = reset_terminal_fd(tty_fd, true);
+                                if (r < 0)
+                                        log_warning_errno(r, "Failed to reset terminal, ignoring: %m");
                         }
 
                         r = ask_password_tty(message, NULL, not_after, echo ? ASK_PASSWORD_ECHO : 0, filename, &password);

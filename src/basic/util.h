@@ -891,10 +891,6 @@ union inotify_event_buffer {
 
 #define laccess(path, mode) faccessat(AT_FDCWD, (path), (mode), AT_SYMLINK_NOFOLLOW)
 
-int ptsname_malloc(int fd, char **ret);
-
-int openpt_in_namespace(pid_t pid, int flags);
-
 ssize_t fgetxattrat_fake(int dirfd, const char *filename, const char *attribute, void *value, size_t size, int flags);
 
 int fd_setcrtime(int fd, usec_t usec);

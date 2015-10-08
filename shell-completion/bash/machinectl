@@ -26,7 +26,7 @@ __contains_word() {
 
 __get_machines() {
         local a b
-        (machinectl list-images --no-legend --no-pager; machinectl list --no-legend --no-pager) | \
+        (machinectl list-images --no-legend --no-pager; machinectl list --no-legend --no-pager; echo ".host") | \
 		{ while read a b; do echo " $a"; done; } | sort -u;
 }
 
@@ -41,7 +41,7 @@ _machinectl() {
 
         local -A VERBS=(
                [STANDALONE]='list list-images pull-tar pull-raw pull-dkr import-tar import-raw export-tar export-raw list-transfers cancel-transfer'
-                 [MACHINES]='status show start login enable disable poweroff reboot terminate kill copy-to copy-from image-status show-image clone rename read-only remove set-limit'
+                 [MACHINES]='status show start login shell enable disable poweroff reboot terminate kill copy-to copy-from image-status show-image clone rename read-only remove set-limit'
         )
 
         _init_completion || return

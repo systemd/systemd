@@ -480,10 +480,6 @@ int acquire_terminal(
 
         safe_close(notify);
 
-        r = reset_terminal_fd(fd, true);
-        if (r < 0)
-                log_warning_errno(r, "Failed to reset terminal: %m");
-
         return fd;
 
 fail:
@@ -539,8 +535,9 @@ int terminal_vhangup(const char *name) {
 }
 
 int vt_disallocate(const char *name) {
-        int fd, r;
+        _cleanup_close_ int fd = -1;
         unsigned u;
+        int r;
 
         /* Deallocate the VT if possible. If not possible
          * (i.e. because it is the active one), at least clear it
@@ -562,8 +559,6 @@ int vt_disallocate(const char *name) {
                            "\033[H"    /* move home */
                            "\033[2J",  /* clear screen */
                            10, false);
-                safe_close(fd);
-
                 return 0;
         }
 
@@ -583,7 +578,7 @@ int vt_disallocate(const char *name) {
                 return fd;
 
         r = ioctl(fd, VT_DISALLOCATE, u);
-        safe_close(fd);
+        fd = safe_close(fd);
 
         if (r >= 0)
                 return 0;
@@ -602,8 +597,6 @@ int vt_disallocate(const char *name) {
                    "\033[H"   /* move home */
                    "\033[3J", /* clear screen including scrollback, requires Linux 2.6.40 */
                    10, false);
-        safe_close(fd);
-
         return 0;
 }
 
@@ -615,6 +608,10 @@ int make_console_stdio(void) {
         fd = acquire_terminal("/dev/console", false, true, true, USEC_INFINITY);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to acquire terminal: %m");
+
+        r = reset_terminal_fd(fd, true);
+        if (r < 0)
+                log_warning_errno(r, "Failed to reset terminal, ignoring: %m");
 
         r = make_stdio(fd);
         if (r < 0)
@@ -1054,6 +1051,33 @@ int get_ctty(pid_t pid, dev_t *_devnr, char **r) {
         return 0;
 }
 
+int ptsname_malloc(int fd, char **ret) {
+        size_t l = 100;
+
+        assert(fd >= 0);
+        assert(ret);
+
+        for (;;) {
+                char *c;
+
+                c = new(char, l);
+                if (!c)
+                        return -ENOMEM;
+
+                if (ptsname_r(fd, c, l) == 0) {
+                        *ret = c;
+                        return 0;
+                }
+                if (errno != ERANGE) {
+                        free(c);
+                        return -errno;
+                }
+
+                free(c);
+                l *= 2;
+        }
+}
+
 int ptsname_namespace(int pty, char **ret) {
         int no = -1, r;
 
@@ -1071,4 +1095,105 @@ int ptsname_namespace(int pty, char **ret) {
                 return -ENOMEM;
 
         return 0;
+}
+
+int openpt_in_namespace(pid_t pid, int flags) {
+        _cleanup_close_ int pidnsfd = -1, mntnsfd = -1, usernsfd = -1, rootfd = -1;
+        _cleanup_close_pair_ int pair[2] = { -1, -1 };
+        siginfo_t si;
+        pid_t child;
+        int r;
+
+        assert(pid > 0);
+
+        r = namespace_open(pid, &pidnsfd, &mntnsfd, NULL, &usernsfd, &rootfd);
+        if (r < 0)
+                return r;
+
+        if (socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) < 0)
+                return -errno;
+
+        child = fork();
+        if (child < 0)
+                return -errno;
+
+        if (child == 0) {
+                int master;
+
+                pair[0] = safe_close(pair[0]);
+
+                r = namespace_enter(pidnsfd, mntnsfd, -1, usernsfd, rootfd);
+                if (r < 0)
+                        _exit(EXIT_FAILURE);
+
+                master = posix_openpt(flags|O_NOCTTY|O_CLOEXEC);
+                if (master < 0)
+                        _exit(EXIT_FAILURE);
+
+                if (unlockpt(master) < 0)
+                        _exit(EXIT_FAILURE);
+
+                if (send_one_fd(pair[1], master, 0) < 0)
+                        _exit(EXIT_FAILURE);
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        pair[1] = safe_close(pair[1]);
+
+        r = wait_for_terminate(child, &si);
+        if (r < 0)
+                return r;
+        if (si.si_code != CLD_EXITED || si.si_status != EXIT_SUCCESS)
+                return -EIO;
+
+        return receive_one_fd(pair[0], 0);
+}
+
+int open_terminal_in_namespace(pid_t pid, const char *name, int mode) {
+        _cleanup_close_ int pidnsfd = -1, mntnsfd = -1, usernsfd = -1, rootfd = -1;
+        _cleanup_close_pair_ int pair[2] = { -1, -1 };
+        siginfo_t si;
+        pid_t child;
+        int r;
+
+        r = namespace_open(pid, &pidnsfd, &mntnsfd, NULL, &usernsfd, &rootfd);
+        if (r < 0)
+                return r;
+
+        if (socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) < 0)
+                return -errno;
+
+        child = fork();
+        if (child < 0)
+                return -errno;
+
+        if (child == 0) {
+                int master;
+
+                pair[0] = safe_close(pair[0]);
+
+                r = namespace_enter(pidnsfd, mntnsfd, -1, usernsfd, rootfd);
+                if (r < 0)
+                        _exit(EXIT_FAILURE);
+
+                master = open_terminal(name, mode|O_NOCTTY|O_CLOEXEC);
+                if (master < 0)
+                        _exit(EXIT_FAILURE);
+
+                if (send_one_fd(pair[1], master, 0) < 0)
+                        _exit(EXIT_FAILURE);
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        pair[1] = safe_close(pair[1]);
+
+        r = wait_for_terminate(child, &si);
+        if (r < 0)
+                return r;
+        if (si.si_code != CLD_EXITED || si.si_status != EXIT_SUCCESS)
+                return -EIO;
+
+        return receive_one_fd(pair[0], 0);
 }

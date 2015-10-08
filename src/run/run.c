@@ -36,6 +36,7 @@
 #include "signal-util.h"
 #include "spawn-polkit-agent.h"
 #include "strv.h"
+#include "terminal-util.h"
 #include "unit-name.h"
 
 static bool arg_ask_password = true;
@@ -62,7 +63,7 @@ static usec_t arg_on_boot = 0;
 static usec_t arg_on_startup = 0;
 static usec_t arg_on_unit_active = 0;
 static usec_t arg_on_unit_inactive = 0;
-static char *arg_on_calendar = NULL;
+static const char *arg_on_calendar = NULL;
 static char **arg_timer_property = NULL;
 static bool arg_quiet = false;
 
@@ -181,7 +182,6 @@ static int parse_argv(int argc, char *argv[]) {
         };
 
         int r, c;
-        CalendarSpec *spec = NULL;
 
         assert(argc >= 0);
         assert(argv);
@@ -335,16 +335,19 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
-                case ARG_ON_CALENDAR:
+                case ARG_ON_CALENDAR: {
+                        CalendarSpec *spec = NULL;
 
                         r = calendar_spec_from_string(optarg, &spec);
                         if (r < 0) {
                                 log_error("Invalid calendar spec: %s", optarg);
                                 return r;
                         }
-                        free(spec);
+
+                        calendar_spec_free(spec);
                         arg_on_calendar = optarg;
                         break;
+                }
 
                 case ARG_TIMER_PROPERTY:
 
@@ -386,6 +389,11 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (arg_pty && (with_timer() || arg_scope)) {
                 log_error("--pty is not compatible in timer or --scope mode.");
+                return -EINVAL;
+        }
+
+        if (arg_pty && arg_transport == BUS_TRANSPORT_REMOTE) {
+                log_error("--pty is only supported when connecting to the local system or containers.");
                 return -EINVAL;
         }
 
@@ -707,9 +715,9 @@ static int start_transient_service(
                         _cleanup_bus_unref_ sd_bus *system_bus = NULL;
                         const char *s;
 
-                        r = sd_bus_open_system(&system_bus);
+                        r = sd_bus_default_system(&system_bus);
                         if (r < 0)
-                                log_error_errno(r, "Failed to connect to system bus: %m");
+                                return log_error_errno(r, "Failed to connect to system bus: %m");
 
                         r = sd_bus_call_method(system_bus,
                                                "org.freedesktop.machine1",
@@ -794,10 +802,8 @@ static int start_transient_service(
         polkit_agent_open_if_enabled();
 
         r = sd_bus_call(bus, m, 0, &error, &reply);
-        if (r < 0) {
-                log_error("Failed to start transient service unit: %s", bus_error_message(&error, -r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to start transient service unit: %s", bus_error_message(&error, r));
 
         if (w) {
                 const char *object;

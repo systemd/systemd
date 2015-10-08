@@ -108,6 +108,7 @@ static void service_init(Unit *u) {
         s->type = _SERVICE_TYPE_INVALID;
         s->socket_fd = -1;
         s->bus_endpoint_fd = -1;
+        s->stdin_fd = s->stdout_fd = s->stderr_fd = -1;
         s->guess_main_pid = true;
 
         RATELIMIT_INIT(s->start_limit, u->manager->default_start_limit_interval, u->manager->default_start_limit_burst);
@@ -271,10 +272,14 @@ static void service_release_resources(Unit *u) {
 
         assert(s);
 
-        if (!s->fd_store)
+        if (!s->fd_store && s->stdin_fd < 0 && s->stdout_fd < 0 && s->stderr_fd < 0)
                 return;
 
         log_unit_debug(u, "Releasing all resources.");
+
+        s->stdin_fd = safe_close(s->stdin_fd);
+        s->stdout_fd = safe_close(s->stdout_fd);
+        s->stderr_fd = safe_close(s->stderr_fd);
 
         while (s->fd_store)
                 service_fd_store_unlink(s->fd_store);
@@ -1090,11 +1095,13 @@ static int service_spawn(
         pid_t pid;
 
         ExecParameters exec_params = {
-                .apply_permissions   = apply_permissions,
-                .apply_chroot        = apply_chroot,
-                .apply_tty_stdin     = apply_tty_stdin,
-                .bus_endpoint_fd     = -1,
-                .selinux_context_net = s->socket_fd_selinux_context_net
+                .apply_permissions = apply_permissions,
+                .apply_chroot      = apply_chroot,
+                .apply_tty_stdin   = apply_tty_stdin,
+                .bus_endpoint_fd   = -1,
+                .stdin_fd          = -1,
+                .stdout_fd         = -1,
+                .stderr_fd         = -1,
         };
 
         int r;
@@ -1236,8 +1243,12 @@ static int service_spawn(
         exec_params.runtime_prefix = manager_get_runtime_prefix(UNIT(s)->manager);
         exec_params.watchdog_usec = s->watchdog_usec;
         exec_params.bus_endpoint_path = bus_endpoint_path;
+        exec_params.selinux_context_net = s->socket_fd_selinux_context_net;
         if (s->type == SERVICE_IDLE)
                 exec_params.idle_pipe = UNIT(s)->manager->idle_pipe;
+        exec_params.stdin_fd = s->stdin_fd;
+        exec_params.stdout_fd = s->stdout_fd;
+        exec_params.stderr_fd = s->stderr_fd;
 
         r = exec_spawn(UNIT(s),
                        c,
@@ -2038,6 +2049,7 @@ _pure_ static bool service_can_reload(Unit *u) {
 static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
         Service *s = SERVICE(u);
         ServiceFDStore *fs;
+        int r;
 
         assert(u);
         assert(f);
@@ -2056,12 +2068,9 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
         unit_serialize_item(u, f, "main-pid-known", yes_no(s->main_pid_known));
         unit_serialize_item(u, f, "bus-name-good", yes_no(s->bus_name_good));
 
-        if (s->status_text) {
-                _cleanup_free_ char *c = NULL;
-
-                c = cescape(s->status_text);
-                unit_serialize_item(u, f, "status-text", strempty(c));
-        }
+        r = unit_serialize_item_escaped(u, f, "status-text", s->status_text);
+        if (r < 0)
+                return r;
 
         /* FIXME: There's a minor uncleanliness here: if there are
          * multiple commands attached here, we will start from the
@@ -2069,25 +2078,22 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
         if (s->control_command_id >= 0)
                 unit_serialize_item(u, f, "control-command", service_exec_command_to_string(s->control_command_id));
 
-        if (s->socket_fd >= 0) {
-                int copy;
+        r = unit_serialize_item_fd(u, f, fds, "stdin-fd", s->stdin_fd);
+        if (r < 0)
+                return r;
+        r = unit_serialize_item_fd(u, f, fds, "stdout-fd", s->stdout_fd);
+        if (r < 0)
+                return r;
+        r = unit_serialize_item_fd(u, f, fds, "stderr-fd", s->stderr_fd);
+        if (r < 0)
+                return r;
 
-                copy = fdset_put_dup(fds, s->socket_fd);
-                if (copy < 0)
-                        return copy;
-
-                unit_serialize_item_format(u, f, "socket-fd", "%i", copy);
-        }
-
-        if (s->bus_endpoint_fd >= 0) {
-                int copy;
-
-                copy = fdset_put_dup(fds, s->bus_endpoint_fd);
-                if (copy < 0)
-                        return copy;
-
-                unit_serialize_item_format(u, f, "endpoint-fd", "%i", copy);
-        }
+        r = unit_serialize_item_fd(u, f, fds, "socket-fd", s->socket_fd);
+        if (r < 0)
+                return r;
+        r = unit_serialize_item_fd(u, f, fds, "endpoint-fd", s->bus_endpoint_fd);
+        if (r < 0)
+                return r;
 
         LIST_FOREACH(fd_store, fs, s->fd_store) {
                 _cleanup_free_ char *c = NULL;
@@ -2116,8 +2122,7 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
         if (dual_timestamp_is_set(&s->watchdog_timestamp))
                 dual_timestamp_serialize(f, "watchdog-timestamp", &s->watchdog_timestamp);
 
-        if (s->forbid_restart)
-                unit_serialize_item(u, f, "forbid-restart", yes_no(s->forbid_restart));
+        unit_serialize_item(u, f, "forbid-restart", yes_no(s->forbid_restart));
 
         return 0;
 }
@@ -2288,6 +2293,33 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                         log_unit_debug(u, "Failed to parse forbid-restart value: %s", value);
                 else
                         s->forbid_restart = b;
+        } else if (streq(key, "stdin-fd")) {
+                int fd;
+
+                if (safe_atoi(value, &fd) < 0 || fd < 0 || !fdset_contains(fds, fd))
+                        log_unit_debug(u, "Failed to parse stdin-fd value: %s", value);
+                else {
+                        asynchronous_close(s->stdin_fd);
+                        s->stdin_fd = fdset_remove(fds, fd);
+                }
+        } else if (streq(key, "stdout-fd")) {
+                int fd;
+
+                if (safe_atoi(value, &fd) < 0 || fd < 0 || !fdset_contains(fds, fd))
+                        log_unit_debug(u, "Failed to parse stdout-fd value: %s", value);
+                else {
+                        asynchronous_close(s->stdout_fd);
+                        s->stdout_fd = fdset_remove(fds, fd);
+                }
+        } else if (streq(key, "stderr-fd")) {
+                int fd;
+
+                if (safe_atoi(value, &fd) < 0 || fd < 0 || !fdset_contains(fds, fd))
+                        log_unit_debug(u, "Failed to parse stderr-fd value: %s", value);
+                else {
+                        asynchronous_close(s->stderr_fd);
+                        s->stderr_fd = fdset_remove(fds, fd);
+                }
         } else
                 log_unit_debug(u, "Unknown serialization key: %s", key);
 
