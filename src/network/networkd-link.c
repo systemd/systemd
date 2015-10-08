@@ -2539,7 +2539,6 @@ int link_save(Link *link) {
                                 if (space)
                                         fputc(' ', f);
                                 serialize_in6_addrs(f, in6_addrs, r);
-                                space = true;
                         }
                 }
 
