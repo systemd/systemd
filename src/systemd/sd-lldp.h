@@ -35,7 +35,7 @@ enum {
 };
 
 typedef struct sd_lldp sd_lldp;
-typedef struct tlv_packet sd_lldp_packet;
+typedef struct sd_lldp_packet sd_lldp_packet;
 
 typedef void (*sd_lldp_cb_t)(sd_lldp *lldp, int event, void *userdata);
 
