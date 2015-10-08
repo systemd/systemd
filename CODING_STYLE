@@ -342,3 +342,7 @@
 - To determine the length of a constant string "foo", don't bother
   with sizeof("foo")-1, please use strlen("foo") directly. gcc knows
   strlen() anyway and turns it into a constant expression if possible.
+
+- If you want to concatenate two or more strings, consider using
+  strjoin() rather than asprintf(), as the latter is a lot
+  slower. This matters particularly in inner loops.
