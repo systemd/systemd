@@ -1113,6 +1113,41 @@ int bus_exec_context_set_transient_property(
 
                 return 1;
 
+        } else if (streq(name, "EnvironmentFiles")) {
+
+                r = sd_bus_message_enter_container(message, 'a', "(sb)");
+                if (r < 0)
+                        return r;
+
+                while ((r = sd_bus_message_enter_container(message, 'r', "sb")) > 0) {
+                        const char *path;
+                        int b;
+
+                        r = sd_bus_message_read(message, "sb", &path, &b);
+                        if (r < 0)
+                                return r;
+
+                        if (!path_is_absolute(path))
+                                return sd_bus_error_set_errnof(error, EINVAL, "Path %s is not absolute.", path);
+                        if (mode != UNIT_CHECK) {
+                                _cleanup_free_ char *buf = NULL;
+
+                                buf = malloc(strlen(path) + 2);
+                                asprintf(&buf, "%s%s", b ? "-" : "", path);
+
+                                r = strv_push(&c->environment_files, buf);
+                                if (r < 0)
+                                        return r;
+                                unit_write_drop_in_private_format(u, mode, name, "EnvironmentFile=%s\n", buf);
+                        }
+                }
+
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
+
+                return 1;
+
         } else if (rlimit_from_string(name) >= 0) {
                 uint64_t rl;
                 rlim_t x;
