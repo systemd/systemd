@@ -47,3 +47,5 @@ char **strv_env_unset_many(char **l, ...) _sentinel_;
 
 char *strv_env_get_n(char **l, const char *name, size_t k) _pure_;
 char *strv_env_get(char **x, const char *n) _pure_;
+
+int getenv_bool(const char *p);

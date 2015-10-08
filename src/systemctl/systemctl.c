@@ -296,6 +296,10 @@ static bool install_client_side(void) {
         if (arg_scope == UNIT_FILE_GLOBAL)
                 return true;
 
+        /* Unsupported environment variable, mostly for debugging purposes */
+        if (getenv_bool("SYSTEMCTL_INSTALL_CLIENT_SIDE") > 0)
+                return true;
+
         return false;
 }
 
@@ -5315,6 +5319,9 @@ static int enable_sysv_units(const char *verb, char **args) {
         _cleanup_lookup_paths_free_ LookupPaths paths = {};
 
         if (arg_scope != UNIT_FILE_SYSTEM)
+                return 0;
+
+        if (getenv_bool("SYSTEMCTL_SKIP_SYSV") > 0)
                 return 0;
 
         if (!STR_IN_SET(verb,
