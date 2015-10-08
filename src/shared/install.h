@@ -107,15 +107,8 @@ int unit_file_set_default(UnitFileScope scope, const char *root_dir, const char 
 int unit_file_get_default(UnitFileScope scope, const char *root_dir, char **name);
 int unit_file_add_dependency(UnitFileScope scope, bool runtime, const char *root_dir, char **files, char *target, UnitDependency dep, bool force, UnitFileChange **changes, unsigned *n_changes);
 
-UnitFileState unit_file_lookup_state(
-                UnitFileScope scope,
-                const char *root_dir,
-                const LookupPaths *paths,
-                const char *name);
-UnitFileState unit_file_get_state(
-                UnitFileScope scope,
-                const char *root_dir,
-                const char *filename);
+UnitFileState unit_file_lookup_state(UnitFileScope scope, const char *root_dir,const LookupPaths *paths, const char *name);
+UnitFileState unit_file_get_state(UnitFileScope scope, const char *root_dir, const char *filename);
 
 int unit_file_get_list(UnitFileScope scope, const char *root_dir, Hashmap *h);
 
