@@ -742,6 +742,7 @@ static int fix_order(SysvStub *s, Hashmap *all_services) {
 
 static int enumerate_sysv(const LookupPaths *lp, Hashmap *all_services) {
         char **path;
+        int r;
 
         assert(lp);
         assert(all_services);
@@ -761,7 +762,6 @@ static int enumerate_sysv(const LookupPaths *lp, Hashmap *all_services) {
                         _cleanup_free_ char *fpath = NULL, *name = NULL;
                         _cleanup_(free_sysvstubp) SysvStub *service = NULL;
                         struct stat st;
-                        int r;
 
                         if (fstatat(dirfd(d), de->d_name, &st, 0) < 0) {
                                 log_warning_errno(errno, "stat() failed on %s/%s, ignoring: %m", *path, de->d_name);
@@ -781,8 +781,12 @@ static int enumerate_sysv(const LookupPaths *lp, Hashmap *all_services) {
                         if (hashmap_contains(all_services, name))
                                 continue;
 
-                        if (unit_file_lookup_state(UNIT_FILE_SYSTEM, NULL, lp, name) >= 0) {
-                                log_debug("Native unit for %s already exists, skipping", name);
+                        r = unit_file_lookup_state(UNIT_FILE_SYSTEM, NULL, lp, name, NULL);
+                        if (r < 0 && r != -ENOENT) {
+                                log_debug_errno(r, "Failed to detect whether %s exists, skipping: %m", name);
+                                continue;
+                        } else if (r >= 0) {
+                                log_debug("Native unit for %s already exists, skipping.", name);
                                 continue;
                         }
 

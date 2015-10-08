@@ -961,10 +961,11 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           <term><command>list-unit-files <optional><replaceable>PATTERN...</replaceable></optional></command></term>
 
           <listitem>
-            <para>List installed unit files. If one or more
-            <replaceable>PATTERN</replaceable>s are specified, only
-            units whose filename (just the last component of the path)
-            matches one of them are shown.</para>
+            <para>List installed unit files and their enablement state
+            (as reported by <command>is-enabled</command>). If one or
+            more <replaceable>PATTERN</replaceable>s are specified,
+            only units whose filename (just the last component of the
+            path) matches one of them are shown.</para>
           </listitem>
         </varlistentry>
 
@@ -1169,6 +1170,11 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
                   <row>
                     <entry><literal>disabled</literal></entry>
                     <entry>The unit file is not enabled.</entry>
+                    <entry>&gt; 0</entry>
+                  </row>
+                  <row>
+                    <entry><literal>bad</literal></entry>
+                    <entry>Unit file is invalid or another error occured. Note that <command>is-enabled</command> will not actually return this state, but print an error message instead. However the unit file listing printed by <command>list-unit-files</command> might show it.</entry>
                     <entry>&gt; 0</entry>
                   </row>
                 </tbody>
