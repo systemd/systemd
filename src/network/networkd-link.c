@@ -2207,8 +2207,10 @@ int link_add(Manager *m, sd_netlink_message *message, Link **ret) {
                 /* not in a container, udev will be around */
                 sprintf(ifindex_str, "n%d", link->ifindex);
                 device = udev_device_new_from_device_id(m->udev, ifindex_str);
-                if (!device)
-                        return log_link_warning_errno(link, errno, "Could not find udev device: %m");
+                if (!device) {
+                        r = log_link_warning_errno(link, errno, "Could not find udev device: %m");
+                        goto failed;
+                }
 
                 if (udev_device_get_is_initialized(device) <= 0) {
                         /* not yet ready */
@@ -2218,17 +2220,20 @@ int link_add(Manager *m, sd_netlink_message *message, Link **ret) {
 
                 r = link_initialized(link, device);
                 if (r < 0)
-                        return r;
+                        goto failed;
         } else {
                 /* we are calling a callback directly, so must take a ref */
                 link_ref(link);
 
                 r = link_initialized_and_synced(m->rtnl, NULL, link);
                 if (r < 0)
-                        return r;
+                        goto failed;
         }
 
         return 0;
+failed:
+        link_enter_failed(link);
+        return r;
 }
 
 static int link_carrier_gained(Link *link) {
