@@ -28,7 +28,12 @@ if [ -f .git/hooks/pre-commit.sample ] && [ ! -f .git/hooks/pre-commit ]; then
         echo "Activated pre-commit hook." || :
 fi
 
-intltoolize --force --automake
+autopoint --force
+cat << EOF > po/Makevars
+DOMAIN = \$(PACKAGE)
+subdir = po
+top_builddir = ..
+EOF
 autoreconf --force --install --symlink
 
 libdir() {
