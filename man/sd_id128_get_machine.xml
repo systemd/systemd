@@ -44,6 +44,7 @@
 
   <refnamediv>
     <refname>sd_id128_get_machine</refname>
+    <refname>sd_id128_get_machine_secret</refname>
     <refname>sd_id128_get_boot</refname>
     <refpurpose>Retrieve 128-bit IDs</refpurpose>
   </refnamediv>
@@ -54,6 +55,11 @@
 
       <funcprototype>
         <funcdef>int <function>sd_id128_get_machine</function></funcdef>
+        <paramdef>sd_id128_t *<parameter>ret</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_id128_get_machine_secret</function></funcdef>
         <paramdef>sd_id128_t *<parameter>ret</parameter></paramdef>
       </funcprototype>
 
@@ -73,6 +79,12 @@
     <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     file. This function caches the machine ID internally to make
     retrieving the machine ID a cheap operation.</para>
+
+    <para><function>sd_id128_get_machine_secret()</function> returns the
+    machine secret of the executing host. This reads and parses the
+    <citerefentry><refentrytitle>machine-secret</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    file. Note that only privileged processes may read the secret as it's
+    owned by the <literal>root</literal> and only readable by the owner.</para>
 
     <para><function>sd_id128_get_boot()</function> returns the boot ID
     of the executing kernel. This reads and parses the
@@ -99,7 +111,7 @@
   <refsect1>
     <title>Return Value</title>
 
-    <para>The two calls return 0 on success (in which case
+    <para>The three calls return 0 on success (in which case
     <parameter>ret</parameter> is filled in), or a negative
     errno-style error code.</para>
   </refsect1>
@@ -107,7 +119,8 @@
   <refsect1>
     <title>Notes</title>
 
-    <para>The <function>sd_id128_get_machine()</function> and
+    <para>The <function>sd_id128_get_machine()</function>,
+    <function>sd_id128_get_machine_secret()</function> and
     <function>sd_id128_get_boot()</function> interfaces are available
     as a shared library, which can be compiled and linked to with the
     <literal>libsystemd</literal> <citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>

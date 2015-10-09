@@ -51,7 +51,7 @@
 
   <refnamediv>
     <refname>systemd-machine-id-setup</refname>
-    <refpurpose>Initialize the machine ID in /etc/machine-id</refpurpose>
+    <refpurpose>Initialize the machine ID and the machine secret</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -66,14 +66,18 @@
     <para><command>systemd-machine-id-setup</command> may be used by
     system installer tools to initialize the machine ID stored in
     <filename>/etc/machine-id</filename> at install time, with a
-    provisioned or randomly generated ID. See
+    provisioned or randomly generated ID and to initialize
+    <filename>/etc/machine-secret</filename> with a random key. See
     <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    for more information about this file.</para>
+    and <citerefentry><refentrytitle>machine-secret</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    for more information about these files.</para>
 
     <para>If the tool is invoked without the <option>--commit</option>
-    switch <filename>/etc/machine-id</filename> is initialized with a
-    valid, new machined ID if it is missing or empty. The new machine
-    ID will be acquired in the following fashion:</para>
+    switch <filename>/etc/machine-id</filename> and
+    <filename>/etc/machine-secret</filename> are initialized unless
+    they already exist and are valid. The new secret key is
+    generated using a pseudo-random number generator and the new new
+    machine ID will be acquired in the following fashion:</para>
 
     <orderedlist>
       <listitem><para>If a valid D-Bus machine ID is already
@@ -105,8 +109,8 @@
 
     <para>Use
     <citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    to initialize the machine ID on mounted (but not booted) system
-    images.</para>
+    to initialize the machine ID and the machine secret on mounted
+    (but not booted) system images.</para>
 
   </refsect1>
 
@@ -169,6 +173,7 @@
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>machine-secret</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-machine-id-commit.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry project='dbus'><refentrytitle>dbus-uuidgen</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
