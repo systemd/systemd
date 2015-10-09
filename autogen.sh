@@ -28,7 +28,6 @@ if [ -f .git/hooks/pre-commit.sample ] && [ ! -f .git/hooks/pre-commit ]; then
         echo "Activated pre-commit hook." || :
 fi
 
-intltoolize --force --automake
 autoreconf --force --install --symlink
 
 libdir() {

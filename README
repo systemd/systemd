@@ -157,7 +157,7 @@ REQUIREMENTS:
         automake
         autoconf
         libtool
-        intltool
+        itstool
         gperf
         python (optional)
         python-lxml (optional, but required to build the indices)

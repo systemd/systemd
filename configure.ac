@@ -59,27 +59,33 @@ SET_ARCH(IA32, i*86*)
 SET_ARCH(MIPS, mips*)
 SET_ARCH(AARCH64, aarch64*)
 
-# i18n stuff for the PolicyKit policy files, heck whether intltool can be found, disable NLS otherwise
-AC_CHECK_PROG(intltool_found, [intltool-merge], [yes], [no])
-AS_IF([test x"$intltool_found" != xyes],
+# i18n stuff for the PolicyKit policy files, check whether itstool can be found, disable NLS otherwise
+AC_CHECK_PROG(itstool_found, [itstool], [yes], [no])
+AS_IF([test x"$itstool_found" != xyes],
       [AS_IF([test x"$enable_nls" = xyes],
-             [AC_MSG_ERROR([--enable-nls requested but intltool not found])],
+             [AC_MSG_ERROR([--enable-nls requested but itstool not found])],
              [AS_IF([test x"$enable_nls" != xno],
-                    [AC_MSG_WARN([*** Disabling NLS support because intltool was not found])
+                    [AC_MSG_WARN([*** Disabling NLS support because itstool was not found])
                      enable_nls=no])
              ])
       ])
 
 AM_NLS
 AS_IF([test x"$enable_nls" != xno -o "x$enable_polkit" != xno], [
-    # intltoolize greps for '^(AC|IT)_PROG_INTLTOOL', so it needs to be on its own line
-IT_PROG_INTLTOOL([0.40.0])
+    ITSTOOL_POLICY_RULE='
+_po_files = $(wildcard $(top_srcdir)/po/*.po)
+_mo_files = $(patsubst %.po,%.mo,$(_po_files))
+_mos: $(_mo_files)
+%.mo: %.po ; @echo "  MSGFMT  " $@ && msgfmt $< -o $@
+%.policy: %.policy.in _mos; @echo "  ITSTL   " $@ && itstool -j $< $(_mo_files) -o $@
+'
+    AM_SUBST_NOTMAKE(ITSTOOL_POLICY_RULE)
 ])
 
-AS_IF([test -z "$INTLTOOL_POLICY_RULE"], [
-    # If intltool is not available, provide a dummy rule to fail generation of %.policy files with a meaningful error message
-    INTLTOOL_POLICY_RULE='%.policy: %.policy.in ; @echo "  ITMRG   " $@ && echo "*** intltool support required to build target $@" && false'
-    AC_SUBST(INTLTOOL_POLICY_RULE)
+AS_IF([test x"$itstool_found" != xyes],
+    # If itstool is not available, provide a dummy rule to fail generation of %.policy files with a meaningful error message
+    ITSTOOL_POLICY_RULE='%.policy: %.policy.in ; @echo "  ITSTL   " $@ && echo "*** itstool support required to build target $@" && false'
+    AC_SUBST(ITSTOOL_POLICY_RULE)
 ])
 
 GETTEXT_PACKAGE=systemd
@@ -1430,11 +1436,6 @@ AS_IF([test "x${enable_split_usr}" = "xyes"], [
 ])
 AM_CONDITIONAL(ENABLE_SPLIT_USR, [test "x${enable_split_usr}" = "xyes"])
 
-# work around intltool-update issues during 'make distcheck'
-AS_IF([test "x$0" != "x./configure"], [
-        AC_SUBST([INTLTOOL_UPDATE], [/bin/true])
-])
-
 # QEMU and OVMF UEFI firmware
 AS_IF([test x"$cross_compiling" = "xyes"], [], [
         AC_PATH_PROG([QEMU], [qemu-system-x86_64])
@@ -1490,7 +1491,6 @@ AC_SUBST([rootlibdir], [$with_rootlibdir])
 
 AC_CONFIG_FILES([
         Makefile
-        po/Makefile.in
 ])
 
 AC_OUTPUT

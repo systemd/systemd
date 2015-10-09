@@ -17,8 +17,8 @@
         <vendor_url>http://www.freedesktop.org/wiki/Software/systemd</vendor_url>
 
         <action id="org.freedesktop.timedate1.set-time">
-                <_description>Set system time</_description>
-                <_message>Authentication is required to set the system time.</_message>
+                <description>Set system time</description>
+                <message>Authentication is required to set the system time.</message>
                 <defaults>
                         <allow_any>auth_admin_keep</allow_any>
                         <allow_inactive>auth_admin_keep</allow_inactive>
@@ -28,8 +28,8 @@
         </action>
 
         <action id="org.freedesktop.timedate1.set-timezone">
-                <_description>Set system timezone</_description>
-                <_message>Authentication is required to set the system timezone.</_message>
+                <description>Set system timezone</description>
+                <message>Authentication is required to set the system timezone.</message>
                 <defaults>
                         <allow_any>auth_admin_keep</allow_any>
                         <allow_inactive>auth_admin_keep</allow_inactive>
@@ -38,9 +38,9 @@
         </action>
 
         <action id="org.freedesktop.timedate1.set-local-rtc">
-                <_description>Set RTC to local timezone or UTC</_description>
-                <_message>Authentication is required to control whether
-                the RTC stores the local or UTC time.</_message>
+                <description>Set RTC to local timezone or UTC</description>
+                <message>Authentication is required to control whether
+                the RTC stores the local or UTC time.</message>
                 <defaults>
                         <allow_any>auth_admin_keep</allow_any>
                         <allow_inactive>auth_admin_keep</allow_inactive>
@@ -49,9 +49,9 @@
         </action>
 
         <action id="org.freedesktop.timedate1.set-ntp">
-                <_description>Turn network time synchronization on or off</_description>
-                <_message>Authentication is required to control whether
-                network time synchronization shall be enabled.</_message>
+                <description>Turn network time synchronization on or off</description>
+                <message>Authentication is required to control whether
+                network time synchronization shall be enabled.</message>
                 <defaults>
                         <allow_any>auth_admin_keep</allow_any>
                         <allow_inactive>auth_admin_keep</allow_inactive>

@@ -27,7 +27,7 @@ AUTOMAKE_OPTIONS = color-tests parallel-tests
 GCC_COLORS ?= 'ooh, shiny!'
 export GCC_COLORS
 
-SUBDIRS = . po
+SUBDIRS = .
 
 # remove targets if the command fails
 .DELETE_ON_ERROR:
@@ -664,7 +664,7 @@ EXTRA_DIST += \
 	.travis.yml \
 	.mailmap
 
-@INTLTOOL_POLICY_RULE@
+@ITSTOOL_POLICY_RULE@
 
 # ------------------------------------------------------------------------------
 

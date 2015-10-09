@@ -17,8 +17,8 @@
         <vendor_url>http://www.freedesktop.org/wiki/Software/systemd</vendor_url>
 
         <action id="org.freedesktop.login1.inhibit-block-shutdown">
-                <_description>Allow applications to inhibit system shutdown</_description>
-                <_message>Authentication is required for an application to inhibit system shutdown.</_message>
+                <description>Allow applications to inhibit system shutdown</description>
+                <message>Authentication is required for an application to inhibit system shutdown.</message>
                 <defaults>
                         <allow_any>no</allow_any>
                         <allow_inactive>yes</allow_inactive>
@@ -28,8 +28,8 @@
         </action>
 
         <action id="org.freedesktop.login1.inhibit-delay-shutdown">
-                <_description>Allow applications to delay system shutdown</_description>
-                <_message>Authentication is required for an application to delay system shutdown.</_message>
+                <description>Allow applications to delay system shutdown</description>
+                <message>Authentication is required for an application to delay system shutdown.</message>
                 <defaults>
                         <allow_any>yes</allow_any>
                         <allow_inactive>yes</allow_inactive>
@@ -39,8 +39,8 @@
         </action>
 
         <action id="org.freedesktop.login1.inhibit-block-sleep">
-                <_description>Allow applications to inhibit system sleep</_description>
-                <_message>Authentication is required for an application to inhibit system sleep.</_message>
+                <description>Allow applications to inhibit system sleep</description>
+                <message>Authentication is required for an application to inhibit system sleep.</message>
                 <defaults>
                         <allow_any>no</allow_any>
                         <allow_inactive>yes</allow_inactive>
@@ -50,8 +50,8 @@
         </action>
 
         <action id="org.freedesktop.login1.inhibit-delay-sleep">
-                <_description>Allow applications to delay system sleep</_description>
-                <_message>Authentication is required for an application to delay system sleep.</_message>
+                <description>Allow applications to delay system sleep</description>
+                <message>Authentication is required for an application to delay system sleep.</message>
                 <defaults>
                         <allow_any>yes</allow_any>
                         <allow_inactive>yes</allow_inactive>
@@ -60,8 +60,8 @@
         </action>
 
         <action id="org.freedesktop.login1.inhibit-block-idle">
-                <_description>Allow applications to inhibit automatic system suspend</_description>
-                <_message>Authentication is required for an application to inhibit automatic system suspend.</_message>
+                <description>Allow applications to inhibit automatic system suspend</description>
+                <message>Authentication is required for an application to inhibit automatic system suspend.</message>
                 <defaults>
                         <allow_any>yes</allow_any>
                         <allow_inactive>yes</allow_inactive>
@@ -70,8 +70,8 @@
         </action>
 
         <action id="org.freedesktop.login1.inhibit-handle-power-key">
-                <_description>Allow applications to inhibit system handling of the power key</_description>
-                <_message>Authentication is required for an application to inhibit system handling of the power key.</_message>
+                <description>Allow applications to inhibit system handling of the power key</description>
+                <message>Authentication is required for an application to inhibit system handling of the power key.</message>
                 <defaults>
                         <allow_any>no</allow_any>
                         <allow_inactive>yes</allow_inactive>
@@ -81,8 +81,8 @@
         </action>
 
         <action id="org.freedesktop.login1.inhibit-handle-suspend-key">
-                <_description>Allow applications to inhibit system handling of the suspend key</_description>
-                <_message>Authentication is required for an application to inhibit system handling of the suspend key.</_message>
+                <description>Allow applications to inhibit system handling of the suspend key</description>
+                <message>Authentication is required for an application to inhibit system handling of the suspend key.</message>
                 <defaults>
                         <allow_any>no</allow_any>
                         <allow_inactive>yes</allow_inactive>
@@ -92,8 +92,8 @@
         </action>
 
         <action id="org.freedesktop.login1.inhibit-handle-hibernate-key">
-                <_description>Allow applications to inhibit system handling of the hibernate key</_description>
-                <_message>Authentication is required for an application to inhibit system handling of the hibernate key.</_message>
+                <description>Allow applications to inhibit system handling of the hibernate key</description>
+                <message>Authentication is required for an application to inhibit system handling of the hibernate key.</message>
                 <defaults>
                         <allow_any>no</allow_any>
                         <allow_inactive>yes</allow_inactive>
@@ -102,8 +102,8 @@
         </action>
 
         <action id="org.freedesktop.login1.inhibit-handle-lid-switch">
-                <_description>Allow applications to inhibit system handling of the lid switch</_description>
-                <_message>Authentication is required for an application to inhibit system handling of the lid switch.</_message>
+                <description>Allow applications to inhibit system handling of the lid switch</description>
+                <message>Authentication is required for an application to inhibit system handling of the lid switch.</message>
                 <defaults>
                         <allow_any>no</allow_any>
                         <allow_inactive>yes</allow_inactive>
@@ -112,8 +112,8 @@
         </action>
 
         <action id="org.freedesktop.login1.set-user-linger">
-                <_description>Allow non-logged-in users to run programs</_description>
-                <_message>Authentication is required to run programs as a non-logged-in user.</_message>
+                <description>Allow non-logged-in users to run programs</description>
+                <message>Authentication is required to run programs as a non-logged-in user.</message>
                 <defaults>
                         <allow_any>auth_admin_keep</allow_any>
                         <allow_inactive>auth_admin_keep</allow_inactive>
@@ -122,8 +122,8 @@
         </action>
 
         <action id="org.freedesktop.login1.attach-device">
-                <_description>Allow attaching devices to seats</_description>
-                <_message>Authentication is required for attaching a device to a seat.</_message>
+                <description>Allow attaching devices to seats</description>
+                <message>Authentication is required for attaching a device to a seat.</message>
                 <defaults>
                         <allow_any>auth_admin_keep</allow_any>
                         <allow_inactive>auth_admin_keep</allow_inactive>
@@ -133,8 +133,8 @@
         </action>
 
         <action id="org.freedesktop.login1.flush-devices">
-                <_description>Flush device to seat attachments</_description>
-                <_message>Authentication is required for resetting how devices are attached to seats.</_message>
+                <description>Flush device to seat attachments</description>
+                <message>Authentication is required for resetting how devices are attached to seats.</message>
                 <defaults>
                         <allow_any>auth_admin_keep</allow_any>
                         <allow_inactive>auth_admin_keep</allow_inactive>
@@ -143,8 +143,8 @@
         </action>
 
         <action id="org.freedesktop.login1.power-off">
-                <_description>Power off the system</_description>
-                <_message>Authentication is required for powering off the system.</_message>
+                <description>Power off the system</description>
+                <message>Authentication is required for powering off the system.</message>
                 <defaults>
                         <allow_any>auth_admin_keep</allow_any>
                         <allow_inactive>auth_admin_keep</allow_inactive>
@@ -154,8 +154,8 @@
         </action>
 
         <action id="org.freedesktop.login1.power-off-multiple-sessions">
-                <_description>Power off the system while other users are logged in</_description>
-                <_message>Authentication is required for powering off the system while other users are logged in.</_message>
+                <description>Power off the system while other users are logged in</description>
+                <message>Authentication is required for powering off the system while other users are logged in.</message>
                 <defaults>
                         <allow_any>auth_admin_keep</allow_any>
                         <allow_inactive>auth_admin_keep</allow_inactive>
@@ -165,8 +165,8 @@
         </action>
 
         <action id="org.freedesktop.login1.power-off-ignore-inhibit">
-                <_description>Power off the system while an application asked to inhibit it</_description>
-                <_message>Authentication is required for powering off the system while an application asked to inhibit it.</_message>
+                <description>Power off the system while an application asked to inhibit it</description>
+                <message>Authentication is required for powering off the system while an application asked to inhibit it.</message>
                 <defaults>
                         <allow_any>auth_admin_keep</allow_any>
                         <allow_inactive>auth_admin_keep</allow_inactive>
@@ -176,8 +176,8 @@
         </action>
 
         <action id="org.freedesktop.login1.reboot">
-                <_description>Reboot the system</_description>
-                <_message>Authentication is required for rebooting the system.</_message>
+                <description>Reboot the system</description>
+                <message>Authentication is required for rebooting the system.</message>
                 <defaults>
                         <allow_any>auth_admin_keep</allow_any>
                         <allow_inactive>auth_admin_keep</allow_inactive>
@@ -187,8 +187,8 @@
         </action>
 
         <action id="org.freedesktop.login1.reboot-multiple-sessions">
-                <_description>Reboot the system while other users are logged in</_description>
-                <_message>Authentication is required for rebooting the system while other users are logged in.</_message>
+                <description>Reboot the system while other users are logged in</description>
+                <message>Authentication is required for rebooting the system while other users are logged in.</message>
                 <defaults>
                         <allow_any>auth_admin_keep</allow_any>
                         <allow_inactive>auth_admin_keep</allow_inactive>
@@ -198,8 +198,8 @@
         </action>
 
         <action id="org.freedesktop.login1.reboot-ignore-inhibit">
-                <_description>Reboot the system while an application asked to inhibit it</_description>
-                <_message>Authentication is required for rebooting the system while an application asked to inhibit it.</_message>
+                <description>Reboot the system while an application asked to inhibit it</description>
+                <message>Authentication is required for rebooting the system while an application asked to inhibit it.</message>
                 <defaults>
                         <allow_any>auth_admin_keep</allow_any>
                         <allow_inactive>auth_admin_keep</allow_inactive>
@@ -209,8 +209,8 @@
         </action>
 
         <action id="org.freedesktop.login1.suspend">
-                <_description>Suspend the system</_description>
-                <_message>Authentication is required for suspending the system.</_message>
+                <description>Suspend the system</description>
+                <message>Authentication is required for suspending the system.</message>
                 <defaults>
                         <allow_any>auth_admin_keep</allow_any>
                         <allow_inactive>auth_admin_keep</allow_inactive>
@@ -219,8 +219,8 @@
         </action>
 
         <action id="org.freedesktop.login1.suspend-multiple-sessions">
-                <_description>Suspend the system while other users are logged in</_description>
-                <_message>Authentication is required for suspending the system while other users are logged in.</_message>
+                <description>Suspend the system while other users are logged in</description>
+                <message>Authentication is required for suspending the system while other users are logged in.</message>
                 <defaults>
                         <allow_any>auth_admin_keep</allow_any>
                         <allow_inactive>auth_admin_keep</allow_inactive>
@@ -230,8 +230,8 @@
         </action>
 
         <action id="org.freedesktop.login1.suspend-ignore-inhibit">
-                <_description>Suspend the system while an application asked to inhibit it</_description>
-                <_message>Authentication is required for suspending the system while an application asked to inhibit it.</_message>
+                <description>Suspend the system while an application asked to inhibit it</description>
+                <message>Authentication is required for suspending the system while an application asked to inhibit it.</message>
                 <defaults>
                         <allow_any>auth_admin_keep</allow_any>
                         <allow_inactive>auth_admin_keep</allow_inactive>
@@ -241,8 +241,8 @@
         </action>
 
         <action id="org.freedesktop.login1.hibernate">
-                <_description>Hibernate the system</_description>
-                <_message>Authentication is required for hibernating the system.</_message>
+                <description>Hibernate the system</description>
+                <message>Authentication is required for hibernating the system.</message>
                 <defaults>
                         <allow_any>auth_admin_keep</allow_any>
                         <allow_inactive>auth_admin_keep</allow_inactive>
@@ -251,8 +251,8 @@
         </action>
 
         <action id="org.freedesktop.login1.hibernate-multiple-sessions">
-                <_description>Hibernate the system while other users are logged in</_description>
-                <_message>Authentication is required for hibernating the system while other users are logged in.</_message>
+                <description>Hibernate the system while other users are logged in</description>
+                <message>Authentication is required for hibernating the system while other users are logged in.</message>
                 <defaults>
                         <allow_any>auth_admin_keep</allow_any>
                         <allow_inactive>auth_admin_keep</allow_inactive>
@@ -262,8 +262,8 @@
         </action>
 
         <action id="org.freedesktop.login1.hibernate-ignore-inhibit">
-                <_description>Hibernate the system while an application asked to inhibit it</_description>
-                <_message>Authentication is required for hibernating the system while an application asked to inhibit it.</_message>
+                <description>Hibernate the system while an application asked to inhibit it</description>
+                <message>Authentication is required for hibernating the system while an application asked to inhibit it.</message>
                 <defaults>
                         <allow_any>auth_admin_keep</allow_any>
                         <allow_inactive>auth_admin_keep</allow_inactive>
@@ -273,8 +273,8 @@
         </action>
 
         <action id="org.freedesktop.login1.manage">
-                <_description>Manage active sessions, users and seats</_description>
-                <_message>Authentication is required for managing active sessions, users and seats.</_message>
+                <description>Manage active sessions, users and seats</description>
+                <message>Authentication is required for managing active sessions, users and seats.</message>
                 <defaults>
                         <allow_any>auth_admin_keep</allow_any>
                         <allow_inactive>auth_admin_keep</allow_inactive>
@@ -283,8 +283,8 @@
         </action>
 
         <action id="org.freedesktop.login1.lock-sessions">
-                <_description>Lock or unlock active sessions</_description>
-                <_message>Authentication is required to lock or unlock active sessions.</_message>
+                <description>Lock or unlock active sessions</description>
+                <message>Authentication is required to lock or unlock active sessions.</message>
                 <defaults>
                         <allow_any>auth_admin_keep</allow_any>
                         <allow_inactive>auth_admin_keep</allow_inactive>
@@ -293,8 +293,8 @@
         </action>
 
         <action id="org.freedesktop.login1.set-reboot-to-firmware-setup">
-                <_description>Allow indication to the firmware to boot to setup interface</_description>
-                <_message>Authentication is required to indicate to the firmware to boot to setup interface.</_message>
+                <description>Allow indication to the firmware to boot to setup interface</description>
+                <message>Authentication is required to indicate to the firmware to boot to setup interface.</message>
                 <defaults>
                         <allow_any>auth_admin_keep</allow_any>
                         <allow_inactive>auth_admin_keep</allow_inactive>
@@ -303,8 +303,8 @@
         </action>
 
         <action id="org.freedesktop.login1.set-wall-message">
-                <_description>Set a wall message</_description>
-                <_message>Authentication is required to set a wall message</_message>
+                <description>Set a wall message</description>
+                <message>Authentication is required to set a wall message</message>
                 <defaults>
                         <allow_any>auth_admin_keep</allow_any>
                         <allow_inactive>auth_admin_keep</allow_inactive>
