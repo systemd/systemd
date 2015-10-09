@@ -1140,6 +1140,61 @@ int bus_exec_context_set_transient_property(
 
                 return 1;
 
+        } else if (streq(name, "EnvironmentFiles")) {
+
+                bool empty_array = true;
+
+                r = sd_bus_message_enter_container(message, 'a', "(sb)");
+                if (r < 0)
+                        return r;
+
+                while ((r = sd_bus_message_enter_container(message, 'r', "sb")) > 0) {
+                        const char *path;
+                        int b;
+
+                        empty_array = false;
+
+                        r = sd_bus_message_read(message, "sb", &path, &b);
+                        if (r < 0)
+                                return r;
+
+                        r = sd_bus_message_exit_container(message);
+                        if (r < 0)
+                                return r;
+
+                        if (!isempty(path) && !path_is_absolute(path))
+                                return sd_bus_error_set_errnof(error, EINVAL, "Path %s is not absolute.", path);
+
+                        if (mode != UNIT_CHECK) {
+                                _cleanup_free_ char *buf = NULL;
+
+                                if (isempty(path)) {
+                                        strv_clear(c->environment_files);
+                                } else {
+                                        buf = strjoin(b ? "-" : "", path, NULL);
+                                        if (buf == NULL)
+                                                return -ENOMEM;
+
+                                        r = strv_push(&c->environment_files, buf);
+                                        if (r < 0)
+                                                return r;
+                                }
+
+                                unit_write_drop_in_private_format(u, mode, name, "EnvironmentFile=%s\n", buf);
+                        }
+                }
+                if (r < 0)
+                        return r;
+
+                if (empty_array)
+                        strv_clear(c->environment_files);
+
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
+
+                return 1;
+
         } else if (rlimit_from_string(name) >= 0) {
                 uint64_t rl;
                 rlim_t x;
