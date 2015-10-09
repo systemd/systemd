@@ -274,6 +274,9 @@ static int slice_enumerate(Manager *m) {
 
         u->default_dependencies = false;
         u->no_gc = true;
+        u->ignore_on_isolate = true;
+        u->refuse_manual_start = true;
+        u->refuse_manual_stop = true;
         SLICE(u)->deserialized_state = SLICE_ACTIVE;
 
         if (!u->description)
