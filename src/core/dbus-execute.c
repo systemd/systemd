@@ -856,7 +856,32 @@ int bus_exec_context_set_transient_property(
                 }
 
                 return 1;
+        } else if (streq(name, "SyslogIdentifier")) {
+                const char *id;
 
+                r = sd_bus_message_read(message, "s", &id);
+                if (r < 0)
+                        return r;
+
+                if (mode != UNIT_CHECK) {
+
+                        if (isempty(id)) {
+                                c->syslog_identifier = mfree(c->syslog_identifier);
+                        } else {
+                                char *t;
+
+                                t = strdup(id);
+                                if (!t)
+                                        return -ENOMEM;
+
+                                free(c->syslog_identifier);
+                                c->syslog_identifier = t;
+                        }
+
+                        unit_write_drop_in_private_format(u, mode, name, "SyslogIdentifier=%s\n", id);
+                }
+
+                return 1;
         } else if (streq(name, "Nice")) {
                 int n;
 
@@ -998,7 +1023,7 @@ int bus_exec_context_set_transient_property(
         } else if (STR_IN_SET(name,
                               "IgnoreSIGPIPE", "TTYVHangup", "TTYReset",
                               "PrivateTmp", "PrivateDevices", "PrivateNetwork",
-                              "NoNewPrivileges")) {
+                              "NoNewPrivileges", "SyslogLevelPrefix")) {
                 int b;
 
                 r = sd_bus_message_read(message, "b", &b);
@@ -1020,6 +1045,8 @@ int bus_exec_context_set_transient_property(
                                 c->private_network = b;
                         else if (streq(name, "NoNewPrivileges"))
                                 c->no_new_privileges = b;
+                        else if (streq(name, "SyslogLevelPrefix"))
+                                c->syslog_level_prefix = b;
 
                         unit_write_drop_in_private_format(u, mode, name, "%s=%s\n", name, yes_no(b));
                 }
