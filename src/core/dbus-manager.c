@@ -122,8 +122,7 @@ static int property_get_tainted(
                 void *userdata,
                 sd_bus_error *error) {
 
-        char buf[sizeof("split-usr:mtab-not-symlink:cgroups-missing:local-hwclock:")] = "", *e = buf;
-        _cleanup_free_ char *p = NULL;
+        char buf[sizeof("split-usr:cgroups-missing:local-hwclock:")] = "", *e = buf;
         Manager *m = userdata;
 
         assert(bus);
@@ -132,9 +131,6 @@ static int property_get_tainted(
 
         if (m->taint_usr)
                 e = stpcpy(e, "split-usr:");
-
-        if (readlink_malloc("/etc/mtab", &p) < 0)
-                e = stpcpy(e, "mtab-not-symlink:");
 
         if (access("/proc/cgroups", F_OK) < 0)
                 e = stpcpy(e, "cgroups-missing:");
