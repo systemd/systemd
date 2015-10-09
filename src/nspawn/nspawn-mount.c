@@ -710,13 +710,15 @@ static int mount_unified_cgroups(const char *dest) {
 
         assert(dest);
 
-        p = strjoina(dest, "/sys/fs/cgroup");
+        p = prefix_roota(dest, "/sys/fs/cgroup");
+
+        (void) mkdir_p(p, 0755);
 
         r = path_is_mount_point(p, AT_SYMLINK_FOLLOW);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine if %s is mounted already: %m", p);
         if (r > 0) {
-                p = strjoina(dest, "/sys/fs/cgroup/cgroup.procs");
+                p = prefix_roota(dest, "/sys/fs/cgroup/cgroup.procs");
                 if (access(p, F_OK) >= 0)
                         return 0;
                 if (errno != ENOENT)
