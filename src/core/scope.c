@@ -534,6 +534,9 @@ static int scope_enumerate(Manager *m) {
         u->transient = true;
         u->default_dependencies = false;
         u->no_gc = true;
+        u->ignore_on_isolate = true;
+        u->refuse_manual_start = true;
+        u->refuse_manual_stop = true;
         SCOPE(u)->deserialized_state = SCOPE_RUNNING;
         SCOPE(u)->kill_context.kill_signal = SIGRTMIN+14;
 

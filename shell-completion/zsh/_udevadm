@@ -89,7 +89,7 @@ _udevadm_test-builtin(){
 _udevadm_mounts(){
   local dev_tmp dpath_tmp mp_tmp mline
 
-    tmp=( "${(@f)$(< /etc/mtab)}" )
+    tmp=( "${(@f)$(< /proc/self/mounts)}" )
     dev_tmp=( "${(@)${(@)tmp%% *}:#none}" )
     mp_tmp=( "${(@)${(@)tmp#* }%% *}" )
 
