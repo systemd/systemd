@@ -26,7 +26,7 @@
 #include "networkd.h"
 #include "networkd-route.h"
 
-int route_new(Route **ret, unsigned char rtm_protocol) {
+int route_new(Route **ret) {
         _cleanup_route_free_ Route *route = NULL;
 
         route = new0(Route, 1);
@@ -35,7 +35,7 @@ int route_new(Route **ret, unsigned char rtm_protocol) {
 
         route->family = AF_UNSPEC;
         route->scope = RT_SCOPE_UNIVERSE;
-        route->protocol = rtm_protocol;
+        route->protocol = RTPROT_UNSPEC;
 
         *ret = route;
         route = NULL;
@@ -58,10 +58,11 @@ int route_new_static(Network *network, unsigned section, Route **ret) {
                 }
         }
 
-        r = route_new(&route, RTPROT_STATIC);
+        r = route_new(&route);
         if (r < 0)
                 return r;
 
+        route->protocol = RTPROT_STATIC;
         route->network = network;
 
         LIST_PREPEND(routes, network->static_routes, route);

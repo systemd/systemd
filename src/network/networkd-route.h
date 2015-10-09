@@ -46,7 +46,7 @@ struct Route {
 };
 
 int route_new_static(Network *network, unsigned section, Route **ret);
-int route_new(Route **ret, unsigned char rtm_protocol);
+int route_new(Route **ret);
 void route_free(Route *route);
 int route_configure(Route *route, Link *link, sd_netlink_message_handler_t callback);
 int route_remove(Route *route, Link *link, sd_netlink_message_handler_t callback);

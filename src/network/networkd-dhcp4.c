@@ -72,11 +72,13 @@ static int link_set_dhcp_routes(Link *link) {
                 if (r < 0)
                         return log_link_warning_errno(link, r, "DHCP error: could not get address: %m");
 
-                r = route_new(&route, RTPROT_DHCP);
+                r = route_new(&route);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not allocate route: %m");
 
-                r = route_new(&route_gw, RTPROT_DHCP);
+                route->protocol = RTPROT_DHCP;
+
+                r = route_new(&route_gw);
                 if (r < 0)
                         return log_link_error_errno(link, r,  "Could not allocate route: %m");
 
@@ -88,6 +90,7 @@ static int link_set_dhcp_routes(Link *link) {
                 route_gw->dst_prefixlen = 32;
                 route_gw->prefsrc_addr.in = address;
                 route_gw->scope = RT_SCOPE_LINK;
+                route_gw->protocol = RTPROT_DHCP;
                 route_gw->metrics = link->network->dhcp_route_metric;
 
                 r = route_configure(route_gw, link, &dhcp4_route_handler);
@@ -120,11 +123,12 @@ static int link_set_dhcp_routes(Link *link) {
         for (i = 0; i < n; i++) {
                 _cleanup_route_free_ Route *route = NULL;
 
-                r = route_new(&route, RTPROT_DHCP);
+                r = route_new(&route);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not allocate route: %m");
 
                 route->family = AF_INET;
+                route->protocol = RTPROT_DHCP;
                 route->in_addr.in = static_routes[i].gw_addr;
                 route->dst_addr.in = static_routes[i].dst_addr;
                 route->dst_prefixlen = static_routes[i].dst_prefixlen;
@@ -162,7 +166,7 @@ static int dhcp_lease_lost(Link *link) {
                         for (i = 0; i < n; i++) {
                                 _cleanup_route_free_ Route *route = NULL;
 
-                                r = route_new(&route, RTPROT_UNSPEC);
+                                r = route_new(&route);
                                 if (r >= 0) {
                                         route->family = AF_INET;
                                         route->in_addr.in = routes[i].gw_addr;
@@ -183,7 +187,7 @@ static int dhcp_lease_lost(Link *link) {
                         _cleanup_route_free_ Route *route_gw = NULL;
                         _cleanup_route_free_ Route *route = NULL;
 
-                        r = route_new(&route_gw, RTPROT_UNSPEC);
+                        r = route_new(&route_gw);
                         if (r >= 0) {
                                 route_gw->family = AF_INET;
                                 route_gw->dst_addr.in = gateway;
@@ -194,7 +198,7 @@ static int dhcp_lease_lost(Link *link) {
                                            &link_route_remove_handler);
                         }
 
-                        r = route_new(&route, RTPROT_UNSPEC);
+                        r = route_new(&route);
                         if (r >= 0) {
                                 route->family = AF_INET;
                                 route->in_addr.in = gateway;
