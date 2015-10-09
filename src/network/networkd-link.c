@@ -336,15 +336,28 @@ static void link_free(Link *link) {
 }
 
 Link *link_unref(Link *link) {
-        if (link && (-- link->n_ref <= 0))
-                link_free(link);
+        if (!link)
+                return NULL;
+
+        assert(link->n_ref > 0);
+
+        link->n_ref --;
+
+        if (link->n_ref > 0)
+                return NULL;
+
+        link_free(link);
 
         return NULL;
 }
 
 Link *link_ref(Link *link) {
-        if (link)
-                assert_se(++ link->n_ref >= 2);
+        if (!link)
+                return NULL;
+
+        assert(link->n_ref > 0);
+
+        link->n_ref ++;
 
         return link;
 }
