@@ -99,6 +99,66 @@ int sd_rtnl_message_route_get_family(sd_netlink_message *m, int *family) {
         return 0;
 }
 
+int sd_rtnl_message_route_get_protocol(sd_netlink_message *m, unsigned char *protocol) {
+        struct rtmsg *rtm;
+
+        assert_return(m, -EINVAL);
+        assert_return(m->hdr, -EINVAL);
+        assert_return(rtnl_message_type_is_route(m->hdr->nlmsg_type), -EINVAL);
+        assert_return(protocol, -EINVAL);
+
+        rtm = NLMSG_DATA(m->hdr);
+
+        *protocol = rtm->rtm_protocol;
+
+        return 0;
+}
+
+int sd_rtnl_message_route_get_scope(sd_netlink_message *m, unsigned char *scope) {
+        struct rtmsg *rtm;
+
+        assert_return(m, -EINVAL);
+        assert_return(m->hdr, -EINVAL);
+        assert_return(rtnl_message_type_is_route(m->hdr->nlmsg_type), -EINVAL);
+        assert_return(scope, -EINVAL);
+
+        rtm = NLMSG_DATA(m->hdr);
+
+        *scope = rtm->rtm_scope;
+
+        return 0;
+}
+
+int sd_rtnl_message_route_get_tos(sd_netlink_message *m, unsigned char *tos) {
+        struct rtmsg *rtm;
+
+        assert_return(m, -EINVAL);
+        assert_return(m->hdr, -EINVAL);
+        assert_return(rtnl_message_type_is_route(m->hdr->nlmsg_type), -EINVAL);
+        assert_return(tos, -EINVAL);
+
+        rtm = NLMSG_DATA(m->hdr);
+
+        *tos = rtm->rtm_tos;
+
+        return 0;
+}
+
+int sd_rtnl_message_route_get_table(sd_netlink_message *m, unsigned char *table) {
+        struct rtmsg *rtm;
+
+        assert_return(m, -EINVAL);
+        assert_return(m->hdr, -EINVAL);
+        assert_return(rtnl_message_type_is_route(m->hdr->nlmsg_type), -EINVAL);
+        assert_return(table, -EINVAL);
+
+        rtm = NLMSG_DATA(m->hdr);
+
+        *table = rtm->rtm_table;
+
+        return 0;
+}
+
 int sd_rtnl_message_route_get_dst_prefixlen(sd_netlink_message *m, unsigned char *dst_len) {
         struct rtmsg *rtm;
 
