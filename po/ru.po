@@ -1,4 +1,4 @@
-# translation of ru.po to Rissian
+# translation of ru.po to Russian
 # Julia Dronova <juliette.tux@gmail.com>, 2013.
 # Sergey Ptashnick <0comffdiz@inbox.ru>, 2013-2015.
 #
