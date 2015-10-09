@@ -856,8 +856,6 @@ int sd_netlink_add_match(sd_netlink *rtnl,
 
         switch (type) {
                 case RTM_NEWLINK:
-                case RTM_SETLINK:
-                case RTM_GETLINK:
                 case RTM_DELLINK:
                         r = socket_join_broadcast_group(rtnl, RTNLGRP_LINK);
                         if (r < 0)
@@ -865,7 +863,6 @@ int sd_netlink_add_match(sd_netlink *rtnl,
 
                         break;
                 case RTM_NEWADDR:
-                case RTM_GETADDR:
                 case RTM_DELADDR:
                         r = socket_join_broadcast_group(rtnl, RTNLGRP_IPV4_IFADDR);
                         if (r < 0)
@@ -875,6 +872,16 @@ int sd_netlink_add_match(sd_netlink *rtnl,
                         if (r < 0)
                                 return r;
 
+                        break;
+                case RTM_NEWROUTE:
+                case RTM_DELROUTE:
+                        r = socket_join_broadcast_group(rtnl, RTNLGRP_IPV4_ROUTE);
+                        if (r < 0)
+                                return r;
+
+                        r = socket_join_broadcast_group(rtnl, RTNLGRP_IPV6_ROUTE);
+                        if (r < 0)
+                                return r;
                         break;
                 default:
                         return -EOPNOTSUPP;
