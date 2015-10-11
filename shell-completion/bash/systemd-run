@@ -83,7 +83,8 @@ _systemd_run() {
                          LimitMEMLOCK= LimitLOCKS= LimitSIGPENDING= LimitMSGQUEUE=
                          LimitNICE= LimitRTPRIO= LimitRTTIME= PrivateTmp= PrivateDevices=
                          PrivateNetwork= NoNewPrivileges= WorkingDirectory= RootDirectory=
-                         TTYPath= SyslogIdentifier= SyslogLevelPrefix= SyslogLevel='
+                         TTYPath= SyslogIdentifier= SyslogLevelPrefix= SyslogLevel=
+                         SyslogFacility='
 
             COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
             return 0
