@@ -25,7 +25,6 @@
 #include "util.h"
 
 bool fstab_is_mount_point(const char *mount) {
-        _cleanup_free_ char *device = NULL;
         _cleanup_endmntent_ FILE *f = NULL;
         struct mntent *m;
 
