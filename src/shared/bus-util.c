@@ -1508,6 +1508,17 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
 
                 r = sd_bus_message_append(m, "v", "i", level);
 
+        } else if (streq(field, "SyslogFacility")) {
+                int facility;
+
+                facility = log_facility_unshifted_from_string(eq);
+                if (facility < 0) {
+                        log_error("Failed to parse %s value %s.", field, eq);
+                        return -EINVAL;
+                }
+
+                r = sd_bus_message_append(m, "v", "i", facility);
+
         } else if (streq(field, "DeviceAllow")) {
 
                 if (isempty(eq))
