@@ -1497,7 +1497,18 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                               "RootDirectory", "SyslogIdentifier"))
                 r = sd_bus_message_append(m, "v", "s", eq);
 
-        else if (streq(field, "DeviceAllow")) {
+        else if (streq(field, "SyslogLevel")) {
+                int level;
+
+                level = log_level_from_string(eq);
+                if (level < 0) {
+                        log_error("Failed to parse %s value %s.", field, eq);
+                        return -EINVAL;
+                }
+
+                r = sd_bus_message_append(m, "v", "i", level);
+
+        } else if (streq(field, "DeviceAllow")) {
 
                 if (isempty(eq))
                         r = sd_bus_message_append(m, "v", "a(ss)", 0);
