@@ -1573,18 +1573,23 @@ int server_init(Server *s) {
         no_sockets = s->native_fd < 0 && s->stdout_fd < 0 && s->syslog_fd < 0 && s->audit_fd < 0;
 
         /* always open stdout, syslog, native, and kmsg sockets */
+
+        /* systemd-journald.socket: /run/systemd/journal/stdout */
         r = server_open_stdout_socket(s);
         if (r < 0)
                 return r;
 
+        /* systemd-journald-dev-log.socket: /run/systemd/journal/dev-log */
         r = server_open_syslog_socket(s);
         if (r < 0)
                 return r;
 
+        /* systemd-journald.socket: /run/systemd/journal/socket */
         r = server_open_native_socket(s);
         if (r < 0)
                 return r;
 
+        /* /dev/ksmg */
         r = server_open_dev_kmsg(s);
         if (r < 0)
                 return r;
