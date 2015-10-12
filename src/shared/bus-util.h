@@ -200,3 +200,5 @@ int bus_path_decode_unique(const char *path, const char *prefix, char **ret_send
 
 bool is_kdbus_wanted(void);
 bool is_kdbus_available(void);
+
+int bus_property_get_rlimit(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error);
