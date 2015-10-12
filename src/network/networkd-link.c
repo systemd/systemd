@@ -2372,6 +2372,7 @@ int link_save(Link *link) {
         _cleanup_fclose_ FILE *f = NULL;
         const char *admin_state, *oper_state;
         Address *a;
+        Route *route;
         Iterator i;
         int r;
 
@@ -2555,6 +2556,22 @@ int link_save(Link *link) {
                                 goto fail;
 
                         fprintf(f, "%s%s/%u", space ? " " : "", address_str, a->prefixlen);
+                        space = true;
+                }
+
+                fputs("\n", f);
+
+                fprintf(f, "ROUTES=");
+                space = false;
+                SET_FOREACH(route, link->routes, i) {
+                        _cleanup_free_ char *route_str = NULL;
+
+                        r = in_addr_to_string(route->family, &route->dst, &route_str);
+                        if (r < 0)
+                                goto fail;
+
+                        fprintf(f, "%s%s/%hhu/%hhu/%"PRIu32"/%hhu", space ? " " : "", route_str,
+                                route->dst_prefixlen, route->tos, route->priority, route->table);
                         space = true;
                 }
 
