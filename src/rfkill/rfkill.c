@@ -40,8 +40,8 @@ static const char* const rfkill_type_table[NUM_RFKILL_TYPES] = {
         [RFKILL_TYPE_WIMAX] = "wimax",
         [RFKILL_TYPE_WWAN] = "wwan",
         [RFKILL_TYPE_GPS] = "gps",
-        [RFKILL_TYPE_FM] "fm",
-        [RFKILL_TYPE_NFC] "nfc",
+        [RFKILL_TYPE_FM] = "fm",
+        [RFKILL_TYPE_NFC] = "nfc",
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(rfkill_type, int);
