@@ -454,7 +454,7 @@ _public_ int sd_pid_notify_with_fds(pid_t pid, int unset_environment, const char
                         (n_fds > 0 ? CMSG_SPACE(sizeof(int) * n_fds) : 0) +
                         (have_pid ? CMSG_SPACE(sizeof(struct ucred)) : 0);
 
-                msghdr.msg_control = alloca(msghdr.msg_controllen);
+                msghdr.msg_control = alloca0(msghdr.msg_controllen);
 
                 cmsg = CMSG_FIRSTHDR(&msghdr);
                 if (n_fds > 0) {
