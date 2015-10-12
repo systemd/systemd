@@ -3013,30 +3013,6 @@ void manager_status_printf(Manager *m, StatusType type, const char *status, cons
         va_end(ap);
 }
 
-int manager_get_unit_by_path(Manager *m, const char *path, const char *suffix, Unit **_found) {
-        _cleanup_free_ char *p = NULL;
-        Unit *found;
-        int r;
-
-        assert(m);
-        assert(path);
-        assert(suffix);
-        assert(_found);
-
-        r = unit_name_from_path(path, suffix, &p);
-        if (r < 0)
-                return r;
-
-        found = manager_get_unit(m, p);
-        if (!found) {
-                *_found = NULL;
-                return 0;
-        }
-
-        *_found = found;
-        return 1;
-}
-
 Set *manager_get_units_requiring_mounts_for(Manager *m, const char *path) {
         char p[strlen(path)+1];
 
