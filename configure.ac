@@ -790,14 +790,6 @@ if test "x${have_elfutils}" != xno ; then
 
         AC_CHECK_LIB(
                 [dw],
-                [dwfl_begin],
-                [],
-                [if test "x$have_elfutils" = xyes ; then
-                        AC_MSG_ERROR([*** ELFUTILS libs not found.])
-                fi])
-
-        AC_CHECK_LIB(
-                [dw],
                 [dwfl_core_file_attach],
                 [have_elfutils=yes],
                 [if test "x$have_elfutils" = xyes ; then
