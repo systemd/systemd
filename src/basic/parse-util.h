@@ -33,6 +33,7 @@ int parse_pid(const char *s, pid_t* ret_pid);
 int parse_mode(const char *s, mode_t *ret);
 
 int parse_size(const char *t, uint64_t base, uint64_t *size);
+int parse_range(const char *t, unsigned *lower, unsigned *upper);
 
 #define FORMAT_BYTES_MAX 8
 char *format_bytes(char *buf, size_t l, uint64_t t);
