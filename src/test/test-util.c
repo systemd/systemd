@@ -963,6 +963,179 @@ static void test_parse_size(void) {
         assert_se(parse_size("-10B 20K", 1024, &bytes) == -ERANGE);
 }
 
+static void test_parse_range(void) {
+        unsigned lower, upper;
+
+        /* Successful cases */
+        assert_se(parse_range("111", &lower, &upper) == 0);
+        assert_se(lower == 111);
+        assert_se(upper == 111);
+
+        assert_se(parse_range("111-123", &lower, &upper) == 0);
+        assert_se(lower == 111);
+        assert_se(upper == 123);
+
+        assert_se(parse_range("123-111", &lower, &upper) == 0);
+        assert_se(lower == 123);
+        assert_se(upper == 111);
+
+        assert_se(parse_range("123-123", &lower, &upper) == 0);
+        assert_se(lower == 123);
+        assert_se(upper == 123);
+
+        assert_se(parse_range("0", &lower, &upper) == 0);
+        assert_se(lower == 0);
+        assert_se(upper == 0);
+
+        assert_se(parse_range("0-15", &lower, &upper) == 0);
+        assert_se(lower == 0);
+        assert_se(upper == 15);
+
+        assert_se(parse_range("15-0", &lower, &upper) == 0);
+        assert_se(lower == 15);
+        assert_se(upper == 0);
+
+        assert_se(parse_range("128-65535", &lower, &upper) == 0);
+        assert_se(lower == 128);
+        assert_se(upper == 65535);
+
+        assert_se(parse_range("1024-4294967295", &lower, &upper) == 0);
+        assert_se(lower == 1024);
+        assert_se(upper == 4294967295);
+
+        /* Leading whitespace is acceptable */
+        assert_se(parse_range(" 111", &lower, &upper) == 0);
+        assert_se(lower == 111);
+        assert_se(upper == 111);
+
+        assert_se(parse_range(" 111-123", &lower, &upper) == 0);
+        assert_se(lower == 111);
+        assert_se(upper == 123);
+
+        assert_se(parse_range("111- 123", &lower, &upper) == 0);
+        assert_se(lower == 111);
+        assert_se(upper == 123);
+
+        assert_se(parse_range("\t111-\t123", &lower, &upper) == 0);
+        assert_se(lower == 111);
+        assert_se(upper == 123);
+
+        assert_se(parse_range(" \t 111- \t 123", &lower, &upper) == 0);
+        assert_se(lower == 111);
+        assert_se(upper == 123);
+
+        /* Error cases, make sure they fail as expected */
+        lower = upper = 9999;
+        assert_se(parse_range("111garbage", &lower, &upper) == -EINVAL);
+        assert_se(lower == 9999);
+        assert_se(upper == 9999);
+
+        assert_se(parse_range("garbage111", &lower, &upper) == -EINVAL);
+        assert_se(lower == 9999);
+        assert_se(upper == 9999);
+
+        assert_se(parse_range("garbage", &lower, &upper) == -EINVAL);
+        assert_se(lower == 9999);
+        assert_se(upper == 9999);
+
+        assert_se(parse_range("111-123garbage", &lower, &upper) == -EINVAL);
+        assert_se(lower == 9999);
+        assert_se(upper == 9999);
+
+        assert_se(parse_range("111garbage-123", &lower, &upper) == -EINVAL);
+        assert_se(lower == 9999);
+        assert_se(upper == 9999);
+
+        /* 111--123 will pass -123 to safe_atou which returns -ERANGE for negative */
+        assert_se(parse_range("111--123", &lower, &upper) == -ERANGE);
+        assert_se(lower == 9999);
+        assert_se(upper == 9999);
+
+        assert_se(parse_range("-111-123", &lower, &upper) == -EINVAL);
+        assert_se(lower == 9999);
+        assert_se(upper == 9999);
+
+        assert_se(parse_range("111-123-", &lower, &upper) == -EINVAL);
+        assert_se(lower == 9999);
+        assert_se(upper == 9999);
+
+        assert_se(parse_range("111.4-123", &lower, &upper) == -EINVAL);
+        assert_se(lower == 9999);
+        assert_se(upper == 9999);
+
+        assert_se(parse_range("111-123.4", &lower, &upper) == -EINVAL);
+        assert_se(lower == 9999);
+        assert_se(upper == 9999);
+
+        assert_se(parse_range("111,4-123", &lower, &upper) == -EINVAL);
+        assert_se(lower == 9999);
+        assert_se(upper == 9999);
+
+        assert_se(parse_range("111-123,4", &lower, &upper) == -EINVAL);
+        assert_se(lower == 9999);
+        assert_se(upper == 9999);
+
+        /* Error on trailing dash */
+        assert_se(parse_range("111-", &lower, &upper) == -EINVAL);
+        assert_se(lower == 9999);
+        assert_se(upper == 9999);
+
+        assert_se(parse_range("111-123-", &lower, &upper) == -EINVAL);
+        assert_se(lower == 9999);
+        assert_se(upper == 9999);
+
+        assert_se(parse_range("111--", &lower, &upper) == -EINVAL);
+        assert_se(lower == 9999);
+        assert_se(upper == 9999);
+
+        assert_se(parse_range("111- ", &lower, &upper) == -EINVAL);
+        assert_se(lower == 9999);
+        assert_se(upper == 9999);
+
+        /* Whitespace is not a separator */
+        assert_se(parse_range("111 123", &lower, &upper) == -EINVAL);
+        assert_se(lower == 9999);
+        assert_se(upper == 9999);
+
+        assert_se(parse_range("111\t123", &lower, &upper) == -EINVAL);
+        assert_se(lower == 9999);
+        assert_se(upper == 9999);
+
+        assert_se(parse_range("111 \t 123", &lower, &upper) == -EINVAL);
+        assert_se(lower == 9999);
+        assert_se(upper == 9999);
+
+        /* Trailing whitespace is invalid (from safe_atou) */
+        assert_se(parse_range("111 ", &lower, &upper) == -EINVAL);
+        assert_se(lower == 9999);
+        assert_se(upper == 9999);
+
+        assert_se(parse_range("111-123 ", &lower, &upper) == -EINVAL);
+        assert_se(lower == 9999);
+        assert_se(upper == 9999);
+
+        assert_se(parse_range("111 -123", &lower, &upper) == -EINVAL);
+        assert_se(lower == 9999);
+        assert_se(upper == 9999);
+
+        assert_se(parse_range("111 -123 ", &lower, &upper) == -EINVAL);
+        assert_se(lower == 9999);
+        assert_se(upper == 9999);
+
+        assert_se(parse_range("111\t-123\t", &lower, &upper) == -EINVAL);
+        assert_se(lower == 9999);
+        assert_se(upper == 9999);
+
+        assert_se(parse_range("111 \t -123 \t ", &lower, &upper) == -EINVAL);
+        assert_se(lower == 9999);
+        assert_se(upper == 9999);
+
+        /* Out of the "unsigned" range, this is 1<<64 */
+        assert_se(parse_range("0-18446744073709551616", &lower, &upper) == -ERANGE);
+        assert_se(lower == 9999);
+        assert_se(upper == 9999);
+}
+
 static void test_parse_cpu_set(void) {
         cpu_set_t *c = NULL;
         int ncpus;
@@ -2362,6 +2535,7 @@ int main(int argc, char *argv[]) {
         test_u64log2();
         test_protect_errno();
         test_parse_size();
+        test_parse_range();
         test_parse_cpu_set();
         test_config_parse_iec_uint64();
         test_strextend();
