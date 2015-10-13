@@ -534,7 +534,9 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>-S</option></term>
         <term><option>--since=</option></term>
+        <term><option>-U</option></term>
         <term><option>--until=</option></term>
 
         <listitem><para>Start showing entries on or newer than the
