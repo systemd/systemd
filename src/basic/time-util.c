@@ -661,6 +661,7 @@ maybe_usec:
                 if (*k<'0' || *k>'9')
                         return -EINVAL;
 
+                errno = 0;
                 val = strtoull(k, &end, 10);
                 if (*end || errno)
                         return -EINVAL;
