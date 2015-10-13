@@ -26,6 +26,7 @@
 #include <locale.h>
 #include <net/if.h>
 #include <netinet/in.h>
+#include <pwd.h>
 #include <string.h>
 #include <sys/mount.h>
 #include <sys/socket.h>
@@ -1297,7 +1298,7 @@ static int shell_machine(int argc, char *argv[], void *userdata) {
         _cleanup_event_unref_ sd_event *event = NULL;
         int master = -1, r;
         sd_bus *bus = userdata;
-        const char *pty, *match, *machine, *path, *uid = NULL;
+        const char *pty, *match, *machine, *path = NULL, *uid = NULL;
 
         assert(bus);
 
@@ -1366,7 +1367,14 @@ static int shell_machine(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        path = argc < 3 || isempty(argv[2]) ? NULL : argv[2];
+        if (!isempty(argv[2]))
+                path = argv[2];
+        else {
+                struct passwd *pw;
+
+                pw = getpwnam(uid ?: "root");
+                path = pw ? pw->pw_shell : NULL;
+        }
 
         r = sd_bus_message_append(m, "sss", machine, uid, path);
         if (r < 0)
