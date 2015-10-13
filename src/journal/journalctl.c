@@ -1879,6 +1879,7 @@ int main(int argc, char *argv[]) {
                 } else {
                         bool oneline = arg_action == ACTION_LIST_CATALOG;
 
+                        pager_open_if_enabled();
                         if (optind < argc)
                                 r = catalog_list_items(stdout, database,
                                                        oneline, argv + optind);
