@@ -19,7 +19,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <time.h>
 #include <string.h>
 #include <sys/timex.h>
 #include <sys/timerfd.h>
@@ -205,11 +204,8 @@ static char *format_timestamp_internal(char *buf, size_t l, usec_t t, bool utc) 
                 return NULL;
 
         sec = (time_t) (t / USEC_PER_SEC);
+        localtime_or_gmtime_r(&sec, &tm, utc);
 
-        if (utc)
-                gmtime_r(&sec, &tm);
-        else
-                localtime_r(&sec, &tm);
         if (strftime(buf, l, "%a %Y-%m-%d %H:%M:%S %Z", &tm) <= 0)
                 return NULL;
 
@@ -235,10 +231,7 @@ static char *format_timestamp_internal_us(char *buf, size_t l, usec_t t, bool ut
                 return NULL;
 
         sec = (time_t) (t / USEC_PER_SEC);
-        if (utc)
-                gmtime_r(&sec, &tm);
-        else
-                localtime_r(&sec, &tm);
+        localtime_or_gmtime_r(&sec, &tm, utc);
 
         if (strftime(buf, l, "%a %Y-%m-%d %H:%M:%S", &tm) <= 0)
                 return NULL;
@@ -1071,4 +1064,12 @@ int get_timezone(char **tz) {
 
         *tz = z;
         return 0;
+}
+
+time_t mktime_or_timegm(struct tm *tm, bool utc) {
+        return utc ? timegm(tm) : mktime(tm);
+}
+
+struct tm *localtime_or_gmtime_r(const time_t *t, struct tm *tm, bool utc) {
+        return utc ? gmtime_r(t, tm) : localtime_r(t, tm);
 }

@@ -21,8 +21,9 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdio.h>
 #include <inttypes.h>
+#include <stdio.h>
+#include <time.h>
 
 typedef uint64_t usec_t;
 typedef uint64_t nsec_t;
@@ -117,3 +118,6 @@ clockid_t clock_boottime_or_monotonic(void);
                           "xstrftime: " #buf "[] must be big enough")
 
 int get_timezone(char **timezone);
+
+time_t mktime_or_timegm(struct tm *tm, bool utc);
+struct tm *localtime_or_gmtime_r(const time_t *t, struct tm *tm, bool utc);
