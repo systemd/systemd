@@ -2138,3 +2138,42 @@ bool is_kdbus_available(void) {
 
         return ioctl(fd, KDBUS_CMD_BUS_MAKE, &cmd) >= 0;
 }
+
+int bus_property_get_rlimit(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        struct rlimit *rl;
+        uint64_t u;
+        rlim_t x;
+
+        assert(bus);
+        assert(reply);
+        assert(userdata);
+
+        rl = *(struct rlimit**) userdata;
+        if (rl)
+                x = rl->rlim_max;
+        else {
+                struct rlimit buf = {};
+                int z;
+
+                z = rlimit_from_string(startswith(property, "Default") ? property + 7 : property);
+                assert(z >= 0);
+
+                getrlimit(z, &buf);
+                x = buf.rlim_max;
+        }
+
+        /* rlim_t might have different sizes, let's map
+         * RLIMIT_INFINITY to (uint64_t) -1, so that it is the same on
+         * all archs */
+        u = x == RLIM_INFINITY ? (uint64_t) -1 : (uint64_t) x;
+
+        return sd_bus_message_append(reply, "t", u);
+}
