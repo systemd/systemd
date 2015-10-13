@@ -1812,16 +1812,16 @@ static int link_set_ipv6_accept_ra(Link *link) {
          * disabled if local forwarding is enabled).
          * If set, ignore or enforce RA independent of local forwarding state.
          */
-        if (link->network->ipv6_accept_ra < 0) {
+        if (link->network->ipv6_accept_ra < 0)
                 /* default to accept RA if ip_forward is disabled and ignore RA if ip_forward is enabled */
                 v = "1";
-        } else if (link->network->ipv6_accept_ra > 0) {
+        else if (link->network->ipv6_accept_ra > 0)
                 /* "2" means accept RA even if ip_forward is enabled */
                 v = "2";
-        } else {
+        else
                 /* "0" means ignore RA */
                 v = "0";
-        }
+
         p = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/accept_ra");
 
         r = write_string_file(p, v, 0);
