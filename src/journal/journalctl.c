@@ -746,7 +746,7 @@ static int parse_argv(int argc, char *argv[]) {
                 return -EINVAL;
         }
 
-        if (arg_action != ACTION_SHOW && optind < argc) {
+        if (!IN_SET(arg_action, ACTION_SHOW, ACTION_DUMP_CATALOG, ACTION_LIST_CATALOG) && optind < argc) {
                 log_error("Extraneous arguments starting with '%s'", argv[optind]);
                 return -EINVAL;
         }
@@ -1877,6 +1877,7 @@ int main(int argc, char *argv[]) {
                 } else {
                         bool oneline = arg_action == ACTION_LIST_CATALOG;
 
+                        pager_open_if_enabled();
                         if (optind < argc)
                                 r = catalog_list_items(stdout, database,
                                                        oneline, argv + optind);
