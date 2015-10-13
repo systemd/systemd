@@ -66,7 +66,7 @@ static int shorten_uuid(char destination[34], const char source[36]) {
         return 0;
 }
 
-static int read_machine_id(int fd, char id[34]) {
+static int read_id128(int fd, char id[34]) {
         char id_to_validate[34];
         int r;
 
@@ -94,7 +94,7 @@ static int read_machine_id(int fd, char id[34]) {
         return 0;
 }
 
-static int write_machine_id(int fd, char id[34]) {
+static int write_id128(int fd, const char id[34]) {
         assert(fd >= 0);
         assert(id);
 
@@ -104,11 +104,30 @@ static int write_machine_id(int fd, char id[34]) {
         return loop_write(fd, id, 33, false);
 }
 
+static int generate_id128(char id[34]) {
+        sd_id128_t buf;
+        unsigned char *p;
+        char  *q;
+        int r;
+
+        /* If that didn't work, generate a random machine id */
+        r = sd_id128_randomize(&buf);
+        if (r < 0)
+                return log_error_errno(r, "Failed to open /dev/urandom: %m");
+
+        for (p = buf.bytes, q = id; p < buf.bytes + sizeof(buf); p++, q += 2) {
+                q[0] = hexchar(*p >> 4);
+                q[1] = hexchar(*p & 15);
+        }
+
+        id[32] = '\n';
+        id[33] = 0;
+
+        return 0;
+}
+
 static int generate_machine_id(char id[34], const char *root) {
         int fd, r;
-        unsigned char *p;
-        sd_id128_t buf;
-        char  *q;
         const char *dbus_machine_id;
 
         assert(id);
@@ -121,7 +140,7 @@ static int generate_machine_id(char id[34], const char *root) {
         /* First, try reading the D-Bus machine id, unless it is a symlink */
         fd = open(dbus_machine_id, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
         if (fd >= 0) {
-                r = read_machine_id(fd, id);
+                r = read_id128(fd, id);
                 safe_close(fd);
 
                 if (r >= 0) {
@@ -172,65 +191,73 @@ static int generate_machine_id(char id[34], const char *root) {
         }
 
         /* If that didn't work, generate a random machine id */
-        r = sd_id128_randomize(&buf);
+        r = generate_id128(id);
         if (r < 0)
-                return log_error_errno(r, "Failed to open /dev/urandom: %m");
-
-        for (p = buf.bytes, q = id; p < buf.bytes + sizeof(buf); p++, q += 2) {
-                q[0] = hexchar(*p >> 4);
-                q[1] = hexchar(*p & 15);
-        }
-
-        id[32] = '\n';
-        id[33] = 0;
+                return r;
 
         log_info("Initializing machine ID from random generator.");
 
         return 0;
 }
 
-int machine_id_setup(const char *root) {
-        const char *etc_machine_id, *run_machine_id;
+static int id128_file_valid(const char *root, const char *file)
+{
         _cleanup_close_ int fd = -1;
-        bool writable = true;
-        char id[34]; /* 32 + \n + \0 */
-        int r;
+        const char *etc_file;
+        char id[34];
 
         if (isempty(root))  {
-                etc_machine_id = "/etc/machine-id";
-                run_machine_id = "/run/machine-id";
+                etc_file = strjoina("/etc/", file);
         } else {
                 char *x;
 
-                x = strjoina(root, "/etc/machine-id");
-                etc_machine_id = path_kill_slashes(x);
-
-                x = strjoina(root, "/run/machine-id");
-                run_machine_id = path_kill_slashes(x);
+                x = strjoina(root, "/etc/", file);
+                etc_file = path_kill_slashes(x);
         }
 
-        RUN_WITH_UMASK(0000) {
-                /* We create this 0444, to indicate that this isn't really
-                 * something you should ever modify. Of course, since the file
-                 * will be owned by root it doesn't matter much, but maybe
-                 * people look. */
+        fd = open(etc_file, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+        if (fd < 0)
+                return -EINVAL;
 
-                mkdir_parents(etc_machine_id, 0755);
-                fd = open(etc_machine_id, O_RDWR|O_CREAT|O_CLOEXEC|O_NOCTTY, 0444);
+        return read_id128(fd, id);
+}
+
+static int id128_file_setup(const char *root, const char *file, const char id[34], mode_t file_umask) {
+        const char *etc_file, *run_file;
+        _cleanup_close_ int fd = -1;
+        bool writable = true;
+        int r;
+
+        if (isempty(root))  {
+                etc_file = strjoina("/etc/", file);
+                run_file = strjoina("/run/", file);
+        } else {
+                char *x;
+
+                x = strjoina(root, "/etc/", file);
+                etc_file = path_kill_slashes(x);
+
+                x = strjoina(root, "/run/", file);
+                run_file = path_kill_slashes(x);
+        }
+
+        RUN_WITH_UMASK(file_umask) {
+                mkdir_parents(etc_file, 0755);
+                fd = open(etc_file, O_RDWR|O_CREAT|O_CLOEXEC|O_NOCTTY, 0444);
                 if (fd < 0) {
                         int old_errno = errno;
 
-                        fd = open(etc_machine_id, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                        fd = open(etc_file, O_RDONLY|O_CLOEXEC|O_NOCTTY);
                         if (fd < 0) {
                                 if (old_errno == EROFS && errno == ENOENT)
                                         log_error_errno(errno,
-                                                  "System cannot boot: Missing /etc/machine-id and /etc is mounted read-only.\n"
+                                                  "System cannot boot: Missing %s and /etc is mounted read-only.\n"
                                                   "Booting up is supported only when:\n"
-                                                  "1) /etc/machine-id exists and is populated.\n"
-                                                  "2) /etc/machine-id exists and is empty.\n"
-                                                  "3) /etc/machine-id is missing and /etc is writable.\n");
+                                                  "1) the file exists and is populated.\n"
+                                                  "2) the file exists and is empty.\n"
+                                                  "3) the file is missing and /etc is writable.\n", etc_file);
                                 else
-                                        log_error_errno(errno, "Cannot open %s: %m", etc_machine_id);
+                                        log_error_errno(errno, "Cannot open %s: %m", etc_file);
 
                                 return -errno;
                         }
@@ -239,46 +266,65 @@ int machine_id_setup(const char *root) {
                 }
         }
 
-        if (read_machine_id(fd, id) >= 0)
-                return 0;
-
-        /* Hmm, so, the id currently stored is not useful, then let's
-         * generate one */
-
-        r = generate_machine_id(id, root);
-        if (r < 0)
-                return r;
-
         if (writable)
-                if (write_machine_id(fd, id) >= 0)
+                if (write_id128(fd, id) >= 0)
                         return 0;
 
         fd = safe_close(fd);
 
-        /* Hmm, we couldn't write it? So let's write it to
-         * /run/machine-id as a replacement */
+        /* Hmm, we couldn't write it? So let's write it to /run/ as a replacement */
 
-        RUN_WITH_UMASK(0022) {
-                r = write_string_file(run_machine_id, id, WRITE_STRING_FILE_CREATE);
+        RUN_WITH_UMASK(file_umask) {
+                r = write_string_file(run_file, id, WRITE_STRING_FILE_CREATE);
         }
         if (r < 0) {
-                (void) unlink(run_machine_id);
-                return log_error_errno(r, "Cannot write %s: %m", run_machine_id);
+                (void) unlink(run_file);
+                return log_error_errno(r, "Cannot write %s: %m", run_file);
         }
 
         /* And now, let's mount it over */
-        if (mount(run_machine_id, etc_machine_id, NULL, MS_BIND, NULL) < 0) {
-                (void) unlink_noerrno(run_machine_id);
-                return log_error_errno(errno, "Failed to mount %s: %m", etc_machine_id);
+        if (mount(run_file, etc_file, NULL, MS_BIND, NULL) < 0) {
+                (void) unlink_noerrno(run_file);
+                return log_error_errno(errno, "Failed to mount %s: %m", etc_file);
         }
 
-        log_info("Installed transient %s file.", etc_machine_id);
+        log_info("Installed transient %s file.", etc_file);
 
         /* Mark the mount read-only */
-        if (mount(NULL, etc_machine_id, NULL, MS_BIND|MS_RDONLY|MS_REMOUNT, NULL) < 0)
-                log_warning_errno(errno, "Failed to make transient %s read-only: %m", etc_machine_id);
+        if (mount(NULL, etc_file, NULL, MS_BIND|MS_RDONLY|MS_REMOUNT, NULL) < 0)
+                log_warning_errno(errno, "Failed to make transient %s read-only: %m", etc_file);
 
         return 0;
+}
+
+int machine_id_setup(const char *root) {
+        char id128[34];
+       int r;
+
+        if (id128_file_valid(root, "machine-id") == 0)
+                return 0;
+
+        r = generate_machine_id(id128, root);
+        if (r < 0)
+                return r;
+
+        return id128_file_setup(root, "machine-id", id128, 0222);
+}
+
+int machine_secret_setup(const char *root) {
+        char id128[34];
+       int r;
+
+        if (id128_file_valid(root, "machine-secret") == 0)
+                return 0;
+
+        r = generate_id128(id128);
+        if (r < 0)
+                return r;
+
+        log_info("Initializing machine secret from random generator.");
+
+        return id128_file_setup(root, "machine-secret", id128, 0244);
 }
 
 int machine_id_commit(const char *root) {
@@ -309,7 +355,7 @@ int machine_id_commit(const char *root) {
         if (fd < 0)
                 return log_error_errno(errno, "Cannot open %s: %m", etc_machine_id);
 
-        r = read_machine_id(fd, id);
+        r = read_id128(fd, id);
         if (r < 0)
                 return log_error_errno(r, "We didn't find a valid machine ID in %s.", etc_machine_id);
 
@@ -343,7 +389,7 @@ int machine_id_commit(const char *root) {
         if (fd < 0)
                 return log_error_errno(errno, "Cannot open for writing %s. This is mandatory to get a persistent machine-id: %m", etc_machine_id);
 
-        r = write_machine_id(fd, id);
+        r = write_id128(fd, id);
         if (r < 0)
                 return log_error_errno(r, "Cannot write %s: %m", etc_machine_id);
 

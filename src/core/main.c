@@ -1603,6 +1603,7 @@ int main(int argc, char *argv[]) {
 
                 hostname_setup();
                 machine_id_setup(NULL);
+                machine_secret_setup(NULL);
                 loopback_setup();
 
                 test_mtab();

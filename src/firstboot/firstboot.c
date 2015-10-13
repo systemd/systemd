@@ -49,6 +49,7 @@ static bool arg_prompt_hostname = false;
 static bool arg_prompt_root_password = false;
 static bool arg_copy_locale = false;
 static bool arg_copy_timezone = false;
+static bool arg_setup_machine_secret = false;
 static bool arg_copy_root_password = false;
 
 static void clear_string(char *x) {
@@ -422,25 +423,45 @@ static int process_hostname(void) {
         return 0;
 }
 
-static int process_machine_id(void) {
-        const char *etc_machine_id;
+static int id128_file_write(const char *file, sd_id128_t id128, mode_t file_umask) {
+        const char *etc_file;
         char id[SD_ID128_STRING_MAX];
         int r;
 
-        etc_machine_id = prefix_roota(arg_root, "/etc/machine-id");
-        if (faccessat(AT_FDCWD, etc_machine_id, F_OK, AT_SYMLINK_NOFOLLOW) >= 0)
+        etc_file = prefix_roota(arg_root, file);
+        if (faccessat(AT_FDCWD, etc_file, F_OK, AT_SYMLINK_NOFOLLOW) >= 0)
                 return 0;
 
+        mkdir_parents(etc_file, 0755);
+        RUN_WITH_UMASK(file_umask) {
+                r = write_string_file(etc_file, sd_id128_to_string(id128, id), WRITE_STRING_FILE_CREATE);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to write %s: %m", etc_file);
+        }
+
+        log_info("%s written.", etc_file);
+        return 0;
+}
+
+static int process_machine_id(void) {
         if (sd_id128_equal(arg_machine_id, SD_ID128_NULL))
                 return 0;
 
-        mkdir_parents(etc_machine_id, 0755);
-        r = write_string_file(etc_machine_id, sd_id128_to_string(arg_machine_id, id), WRITE_STRING_FILE_CREATE);
-        if (r < 0)
-                return log_error_errno(r, "Failed to write machine id: %m");
+        return id128_file_write("/etc/machine-id", arg_machine_id, 0222);
+}
 
-        log_info("%s written.", etc_machine_id);
-        return 0;
+static int process_machine_secret(void) {
+        static sd_id128_t machine_secret;
+        int r;
+
+        if (!arg_setup_machine_secret)
+                return 0;
+
+        r = sd_id128_randomize(&machine_secret);
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate randomized machine secret: %m");
+
+        return id128_file_write("/etc/machine-secret", machine_secret, 0277);
 }
 
 static int prompt_root_password(void) {
@@ -636,6 +657,7 @@ static void help(void) {
                "     --copy-root-password      Copy root password from host\n"
                "     --copy                    Copy locale, timezone, root password\n"
                "     --setup-machine-id        Generate a new random machine ID\n"
+               "     --setup-machine-secret    Generate a new random machine secret\n"
                , program_invocation_short_name);
 }
 
@@ -661,6 +683,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_COPY_TIMEZONE,
                 ARG_COPY_ROOT_PASSWORD,
                 ARG_SETUP_MACHINE_ID,
+                ARG_SETUP_MACHINE_SECRET,
         };
 
         static const struct option options[] = {
@@ -684,6 +707,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "copy-timezone",        no_argument,       NULL, ARG_COPY_TIMEZONE        },
                 { "copy-root-password",   no_argument,       NULL, ARG_COPY_ROOT_PASSWORD   },
                 { "setup-machine-id",     no_argument,       NULL, ARG_SETUP_MACHINE_ID     },
+                { "setup-machine-secret", no_argument,       NULL, ARG_SETUP_MACHINE_SECRET },
                 {}
         };
 
@@ -832,6 +856,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case ARG_SETUP_MACHINE_SECRET:
+                        arg_setup_machine_secret = true;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -868,6 +896,10 @@ int main(int argc, char *argv[]) {
                 goto finish;
 
         r = process_machine_id();
+        if (r < 0)
+                goto finish;
+
+        r = process_machine_secret();
         if (r < 0)
                 goto finish;
 

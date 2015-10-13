@@ -222,6 +222,7 @@ MANPAGES_ALIAS += \
 	man/SD_WARNING.3 \
 	man/init.1 \
 	man/journald.conf.d.5 \
+	man/machine-secret.5 \
 	man/poweroff.8 \
 	man/reboot.8 \
 	man/sd_bus_creds_get_audit_login_uid.3 \
@@ -315,6 +316,7 @@ MANPAGES_ALIAS += \
 	man/sd_id128_equal.3 \
 	man/sd_id128_from_string.3 \
 	man/sd_id128_get_boot.3 \
+	man/sd_id128_get_machine_secret.3 \
 	man/sd_id128_t.3 \
 	man/sd_is_mq.3 \
 	man/sd_is_socket.3 \
@@ -511,6 +513,7 @@ man/SD_NOTICE.3: man/sd-daemon.3
 man/SD_WARNING.3: man/sd-daemon.3
 man/init.1: man/systemd.1
 man/journald.conf.d.5: man/journald.conf.5
+man/machine-secret.5: man/machine-id.5
 man/poweroff.8: man/halt.8
 man/reboot.8: man/halt.8
 man/sd_bus_creds_get_audit_login_uid.3: man/sd_bus_creds_get_pid.3
@@ -604,6 +607,7 @@ man/sd_event_unref.3: man/sd_event_new.3
 man/sd_id128_equal.3: man/sd-id128.3
 man/sd_id128_from_string.3: man/sd_id128_to_string.3
 man/sd_id128_get_boot.3: man/sd_id128_get_machine.3
+man/sd_id128_get_machine_secret.3: man/sd_id128_get_machine.3
 man/sd_id128_t.3: man/sd-id128.3
 man/sd_is_mq.3: man/sd_is_fifo.3
 man/sd_is_socket.3: man/sd_is_fifo.3
@@ -922,6 +926,9 @@ man/init.html: man/systemd.html
 man/journald.conf.d.html: man/journald.conf.html
 	$(html-alias)
 
+man/machine-secret.html: man/machine-id.html
+	$(html-alias)
+
 man/poweroff.html: man/halt.html
 	$(html-alias)
 
@@ -1199,6 +1206,9 @@ man/sd_id128_from_string.html: man/sd_id128_to_string.html
 	$(html-alias)
 
 man/sd_id128_get_boot.html: man/sd_id128_get_machine.html
+	$(html-alias)
+
+man/sd_id128_get_machine_secret.html: man/sd_id128_get_machine.html
 	$(html-alias)
 
 man/sd_id128_t.html: man/sd-id128.html

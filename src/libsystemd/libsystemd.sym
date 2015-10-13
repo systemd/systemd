@@ -481,3 +481,9 @@ global:
         sd_bus_path_encode_many;
         sd_listen_fds_with_names;
 } LIBSYSTEMD_226;
+
+LIBSYSTEMD_228 {
+global:
+        /* sd-id128 */
+        sd_id128_get_machine_secret;
+} LIBSYSTEMD_227;

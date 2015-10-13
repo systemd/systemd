@@ -104,23 +104,14 @@ static sd_id128_t make_v4_uuid(sd_id128_t id) {
         return id;
 }
 
-_public_ int sd_id128_get_machine(sd_id128_t *ret) {
-        static thread_local sd_id128_t saved_machine_id;
-        static thread_local bool saved_machine_id_valid = false;
+static int get_sd128(sd_id128_t *ret, const char *path) {
         _cleanup_close_ int fd = -1;
         char buf[33];
         unsigned j;
         sd_id128_t t;
         int r;
 
-        assert_return(ret, -EINVAL);
-
-        if (saved_machine_id_valid) {
-                *ret = saved_machine_id;
-                return 0;
-        }
-
-        fd = open("/etc/machine-id", O_RDONLY|O_CLOEXEC|O_NOCTTY);
+        fd = open(path, O_RDONLY|O_CLOEXEC|O_NOCTTY);
         if (fd < 0)
                 return -errno;
 
@@ -142,11 +133,37 @@ _public_ int sd_id128_get_machine(sd_id128_t *ret) {
                 t.bytes[j] = a << 4 | b;
         }
 
-        saved_machine_id = t;
-        saved_machine_id_valid = true;
-
         *ret = t;
         return 0;
+}
+
+_public_ int sd_id128_get_machine(sd_id128_t *ret) {
+        static thread_local sd_id128_t saved_machine_id;
+        static thread_local bool saved_machine_id_valid = false;
+        int r;
+
+        assert_return(ret, -EINVAL);
+
+        if (saved_machine_id_valid) {
+                *ret = saved_machine_id;
+                return 0;
+        }
+
+        r = get_sd128(&saved_machine_id, "/etc/machine-id");
+        if (r < 0)
+                return r;
+
+        saved_machine_id_valid = true;
+
+        *ret = saved_machine_id;
+        return 0;
+}
+
+_public_ int sd_id128_get_machine_secret(sd_id128_t *ret) {
+
+        assert_return(ret, -EINVAL);
+
+        return get_sd128(ret, "/etc/machine-secret");
 }
 
 _public_ int sd_id128_get_boot(sd_id128_t *ret) {
