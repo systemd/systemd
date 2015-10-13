@@ -748,7 +748,7 @@ static int parse_argv(int argc, char *argv[]) {
                 return -EINVAL;
         }
 
-        if (arg_action != ACTION_SHOW && optind < argc) {
+        if (!IN_SET(arg_action, ACTION_SHOW, ACTION_DUMP_CATALOG, ACTION_LIST_CATALOG) && optind < argc) {
                 log_error("Extraneous arguments starting with '%s'", argv[optind]);
                 return -EINVAL;
         }
