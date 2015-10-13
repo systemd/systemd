@@ -477,9 +477,11 @@ int parse_timestamp(const char *t, usec_t *usec) {
         };
 
         const char *k;
+        _cleanup_free_ char *copy_utc = NULL;
+        bool utc;
         struct tm tm, copy;
         time_t x;
-        usec_t plus = 0, minus = 0, ret;
+        usec_t x_usec, plus = 0, minus = 0, ret;
         int r, weekday = -1;
         unsigned i;
 
@@ -504,28 +506,15 @@ int parse_timestamp(const char *t, usec_t *usec) {
         assert(t);
         assert(usec);
 
-        x = time(NULL);
-        assert_se(localtime_r(&x, &tm));
-        tm.tm_isdst = -1;
+        if (t[0] == '@')
+                return parse_sec(t + 1, usec);
+
+        ret = now(CLOCK_REALTIME);
 
         if (streq(t, "now"))
                 goto finish;
 
-        else if (streq(t, "today")) {
-                tm.tm_sec = tm.tm_min = tm.tm_hour = 0;
-                goto finish;
-
-        } else if (streq(t, "yesterday")) {
-                tm.tm_mday --;
-                tm.tm_sec = tm.tm_min = tm.tm_hour = 0;
-                goto finish;
-
-        } else if (streq(t, "tomorrow")) {
-                tm.tm_mday ++;
-                tm.tm_sec = tm.tm_min = tm.tm_hour = 0;
-                goto finish;
-
-        } else if (t[0] == '+') {
+        else if (t[0] == '+') {
                 r = parse_sec(t+1, &plus);
                 if (r < 0)
                         return r;
@@ -539,13 +528,10 @@ int parse_timestamp(const char *t, usec_t *usec) {
 
                 goto finish;
 
-        } else if (t[0] == '@')
-                return parse_sec(t + 1, usec);
+        } else if (endswith(t, " ago")) {
+                _cleanup_free_ char *z = NULL;
 
-        else if (endswith(t, " ago")) {
-                _cleanup_free_ char *z;
-
-                z = strndup(t, strlen(t) - 4);
+                z = strndup(t, strlen(t) - strlen(" ago"));
                 if (!z)
                         return -ENOMEM;
 
@@ -554,10 +540,11 @@ int parse_timestamp(const char *t, usec_t *usec) {
                         return r;
 
                 goto finish;
-        } else if (endswith(t, " left")) {
-                _cleanup_free_ char *z;
 
-                z = strndup(t, strlen(t) - 4);
+        } else if (endswith(t, " left")) {
+                _cleanup_free_ char *z = NULL;
+
+                z = strndup(t, strlen(t) - strlen(" left"));
                 if (!z)
                         return -ENOMEM;
 
@@ -567,6 +554,35 @@ int parse_timestamp(const char *t, usec_t *usec) {
 
                 goto finish;
         }
+
+        if ((utc = endswith_no_case(t, " UTC"))) {
+                copy_utc = strndup(t, strlen(t) - strlen(" UTC"));
+                if (!copy_utc)
+                        return -ENOMEM;
+                t = copy_utc;
+        }
+
+        x = ret / USEC_PER_SEC;
+        x_usec = 0;
+
+        assert_se(localtime_or_gmtime_r(&x, &tm, utc));
+        tm.tm_isdst = -1;
+
+        if (streq(t, "today")) {
+                tm.tm_sec = tm.tm_min = tm.tm_hour = 0;
+                goto from_tm;
+
+        } else if (streq(t, "yesterday")) {
+                tm.tm_mday --;
+                tm.tm_sec = tm.tm_min = tm.tm_hour = 0;
+                goto from_tm;
+
+        } else if (streq(t, "tomorrow")) {
+                tm.tm_mday ++;
+                tm.tm_sec = tm.tm_min = tm.tm_hour = 0;
+                goto from_tm;
+        }
+
 
         for (i = 0; i < ELEMENTSOF(day_nr); i++) {
                 size_t skip;
@@ -585,66 +601,91 @@ int parse_timestamp(const char *t, usec_t *usec) {
 
         copy = tm;
         k = strptime(t, "%y-%m-%d %H:%M:%S", &tm);
-        if (k && *k == 0)
-                goto finish;
+        if (k && IN_SET(*k, 0, '.'))
+                goto maybe_usec;
 
         tm = copy;
         k = strptime(t, "%Y-%m-%d %H:%M:%S", &tm);
-        if (k && *k == 0)
-                goto finish;
+        if (k && IN_SET(*k, 0, '.'))
+                goto maybe_usec;
 
         tm = copy;
         k = strptime(t, "%y-%m-%d %H:%M", &tm);
         if (k && *k == 0) {
                 tm.tm_sec = 0;
-                goto finish;
+                goto from_tm;
         }
 
         tm = copy;
         k = strptime(t, "%Y-%m-%d %H:%M", &tm);
         if (k && *k == 0) {
                 tm.tm_sec = 0;
-                goto finish;
+                goto from_tm;
         }
 
         tm = copy;
         k = strptime(t, "%y-%m-%d", &tm);
         if (k && *k == 0) {
                 tm.tm_sec = tm.tm_min = tm.tm_hour = 0;
-                goto finish;
+                goto from_tm;
         }
 
         tm = copy;
         k = strptime(t, "%Y-%m-%d", &tm);
         if (k && *k == 0) {
                 tm.tm_sec = tm.tm_min = tm.tm_hour = 0;
-                goto finish;
+                goto from_tm;
         }
 
         tm = copy;
         k = strptime(t, "%H:%M:%S", &tm);
-        if (k && *k == 0)
-                goto finish;
+        if (k && IN_SET(*k, 0, '.'))
+                goto maybe_usec;
 
         tm = copy;
         k = strptime(t, "%H:%M", &tm);
         if (k && *k == 0) {
                 tm.tm_sec = 0;
-                goto finish;
+                goto from_tm;
         }
 
         return -EINVAL;
 
-finish:
-        x = mktime(&tm);
+maybe_usec:
+        if (*k == '.') {
+                char *end;
+                unsigned long long val;
+                size_t l;
+
+                k++;
+                if (*k<'0' || *k>'9')
+                        return -EINVAL;
+
+                val = strtoull(k, &end, 10);
+                if (*end || errno)
+                        return -EINVAL;
+
+                l = end-k;
+
+                for (;l<6;l++)
+                        val*=10;
+                for (;l>6;l--)
+                        val/=10;
+
+                x_usec = val;
+        }
+
+from_tm:
+        x = mktime_or_timegm(&tm, utc);
         if (x == (time_t) -1)
                 return -EINVAL;
 
         if (weekday >= 0 && tm.tm_wday != weekday)
                 return -EINVAL;
 
-        ret = (usec_t) x * USEC_PER_SEC;
+        ret = (usec_t) x * USEC_PER_SEC + x_usec;
 
+finish:
         ret += plus;
         if (ret > minus)
                 ret -= minus;
