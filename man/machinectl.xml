@@ -413,8 +413,10 @@
         specified, the connection is made to the local host
         instead. This works similar to <command>login</command> but
         immediately invokes a user process. This command runs the
-        specified executable with the specified arguments, or
-        <filename>/bin/sh</filename> if none is specified. By default
+        specified executable with the specified arguments, or the
+        default shell of the specified user. If the path is not given
+        or the user doesn't have a default shell,
+        <filename>/bin/sh</filename> is used. By default
         opens a <literal>root</literal> shell, but by using
         <option>--uid=</option>, or by prefixing the machine name with
         a username and an <literal>@</literal> character, a different
