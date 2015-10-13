@@ -194,8 +194,8 @@ static void help(void) {
                "     --system              Show the system journal\n"
                "     --user                Show the user journal for the current user\n"
                "  -M --machine=CONTAINER   Operate on local container\n"
-               "     --since=DATE          Show entries not older than the specified date\n"
-               "     --until=DATE          Show entries not newer than the specified date\n"
+               "  -S --since=DATE          Show entries not older than the specified date\n"
+               "  -U --until=DATE          Show entries not newer than the specified date\n"
                "  -c --cursor=CURSOR       Show entries starting at the specified cursor\n"
                "     --after-cursor=CURSOR Show entries after the specified cursor\n"
                "     --show-cursor         Print the cursor after all the entries\n"
@@ -270,8 +270,6 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VERIFY,
                 ARG_VERIFY_KEY,
                 ARG_DISK_USAGE,
-                ARG_SINCE,
-                ARG_UNTIL,
                 ARG_AFTER_CURSOR,
                 ARG_SHOW_CURSOR,
                 ARG_USER_UNIT,
@@ -323,8 +321,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "cursor",         required_argument, NULL, 'c'                },
                 { "after-cursor",   required_argument, NULL, ARG_AFTER_CURSOR   },
                 { "show-cursor",    no_argument,       NULL, ARG_SHOW_CURSOR    },
-                { "since",          required_argument, NULL, ARG_SINCE          },
-                { "until",          required_argument, NULL, ARG_UNTIL          },
+                { "since",          required_argument, NULL, 'S'                },
+                { "until",          required_argument, NULL, 'U'                },
                 { "unit",           required_argument, NULL, 'u'                },
                 { "user-unit",      required_argument, NULL, ARG_USER_UNIT      },
                 { "field",          required_argument, NULL, 'F'                },
@@ -348,7 +346,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hefo:aln::qmb::kD:p:c:t:u:F:xrM:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hefo:aln::qmb::kD:p:c:S:U:t:u:F:xrM:", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -646,7 +644,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
-                case ARG_SINCE:
+                case 'S':
                         r = parse_timestamp(optarg, &arg_since);
                         if (r < 0) {
                                 log_error("Failed to parse timestamp: %s", optarg);
@@ -655,7 +653,7 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_since_set = true;
                         break;
 
-                case ARG_UNTIL:
+                case 'U':
                         r = parse_timestamp(optarg, &arg_until);
                         if (r < 0) {
                                 log_error("Failed to parse timestamp: %s", optarg);
