@@ -919,7 +919,6 @@ libbasic_la_CFLAGS = \
 libbasic_la_LIBADD = \
 	$(SELINUX_LIBS) \
 	$(CAP_LIBS) \
-	-ldl \
 	-lrt \
 	-lm
 
@@ -5148,7 +5147,8 @@ libnss_resolve_la_LDFLAGS = \
 	-Wl,--version-script=$(top_srcdir)/src/nss-resolve/nss-resolve.sym
 
 libnss_resolve_la_LIBADD = \
-	libshared.la
+	libshared.la \
+        -ldl
 
 lib_LTLIBRARIES += \
 	libnss_resolve.la

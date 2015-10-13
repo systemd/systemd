@@ -281,7 +281,6 @@ AM_CONDITIONAL([HAVE_PYTHON], [test "x$have_python" = "xyes"])
 
 # ------------------------------------------------------------------------------
 
-AC_SEARCH_LIBS([dlsym], [dl], [], [AC_MSG_ERROR([*** Dynamic linking loader library not found])])
 AC_CHECK_HEADERS([sys/capability.h], [], [AC_MSG_ERROR([*** POSIX caps headers not found])])
 AC_CHECK_HEADERS([linux/btrfs.h], [], [])
 AC_CHECK_HEADERS([linux/memfd.h], [], [])
@@ -1099,10 +1098,12 @@ AM_CONDITIONAL(ENABLE_POLKIT, [test "x$have_polkit" = "xyes"])
 # ------------------------------------------------------------------------------
 have_resolved=no
 AC_ARG_ENABLE(resolved, AS_HELP_STRING([--disable-resolved], [disable resolve daemon]))
-if test "x$enable_resolved" != "xno"; then
+AS_IF([test "x$enable_resolved" != "xno"], [
+        AC_CHECK_LIB([dl], [dlsym], [true], [AC_MSG_ERROR([*** Dynamic linking loader library not found])])
+
         have_resolved=yes
         M4_DEFINES="$M4_DEFINES -DENABLE_RESOLVED"
-fi
+])
 AM_CONDITIONAL(ENABLE_RESOLVED, [test "$have_resolved" = "yes"])
 
 AC_ARG_WITH(dns-servers,
