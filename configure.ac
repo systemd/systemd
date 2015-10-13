@@ -293,6 +293,7 @@ save_LIBS="$LIBS"
 LIBS=
 AC_SEARCH_LIBS([cap_init], [cap], [], [AC_MSG_ERROR([*** POSIX caps library not found])])
 CAP_LIBS="$LIBS"
+LIBS="$save_LIBS"
 AC_SUBST(CAP_LIBS)
 
 AC_CHECK_FUNCS([memfd_create])
