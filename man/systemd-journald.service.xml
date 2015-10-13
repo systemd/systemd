@@ -46,6 +46,7 @@
     <refname>systemd-journald.service</refname>
     <refname>systemd-journald.socket</refname>
     <refname>systemd-journald-dev-log.socket</refname>
+    <refname>systemd-journald-audit.socket</refname>
     <refname>systemd-journald</refname>
     <refpurpose>Journal service</refpurpose>
   </refnamediv>
@@ -54,6 +55,7 @@
     <para><filename>systemd-journald.service</filename></para>
     <para><filename>systemd-journald.socket</filename></para>
     <para><filename>systemd-journald-dev-log.socket</filename></para>
+    <para><filename>systemd-journald-audit.socket</filename></para>
     <para><filename>/usr/lib/systemd/systemd-journald</filename></para>
   </refsynopsisdiv>
 
@@ -230,7 +232,20 @@ systemd-tmpfiles --create --prefix /var/log/journal</programlisting>
         <filename>/var/log/journal</filename> is not available, or
         when <option>Storage=volatile</option> is set in the
         <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        configuration file. </para></listitem>
+        configuration file.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><filename>/dev/kmsg</filename></term>
+        <term><filename>/dev/log</filename></term>
+        <term><filename>/run/systemd/journal/dev-log</filename></term>
+        <term><filename>/run/systemd/journal/socket</filename></term>
+        <term><filename>/run/systemd/journal/stdout</filename></term>
+
+        <listitem><para>Sockets that
+        <command>systemd-journald</command> will listen on that are
+        visible in the file system. In addition to those, journald can
+        listen for audit events using netlink.</para></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

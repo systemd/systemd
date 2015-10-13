@@ -1446,6 +1446,7 @@ static int server_open_hostname(Server *s) {
 int server_init(Server *s) {
         _cleanup_fdset_free_ FDSet *fds = NULL;
         int n, r, fd;
+        bool no_sockets;
 
         assert(s);
 
@@ -1555,30 +1556,44 @@ int server_init(Server *s) {
                 }
         }
 
-        r = server_open_stdout_socket(s, fds);
-        if (r < 0)
-                return r;
+        /* Try to restore streams, but don't bother if this fails */
+        (void) server_restore_streams(s, fds);
 
         if (fdset_size(fds) > 0) {
                 log_warning("%u unknown file descriptors passed, closing.", fdset_size(fds));
                 fds = fdset_free(fds);
         }
 
+        no_sockets = s->native_fd < 0 && s->stdout_fd < 0 && s->syslog_fd < 0 && s->audit_fd < 0;
+
+        /* always open stdout, syslog, native, and kmsg sockets */
+
+        /* systemd-journald.socket: /run/systemd/journal/stdout */
+        r = server_open_stdout_socket(s);
+        if (r < 0)
+                return r;
+
+        /* systemd-journald-dev-log.socket: /run/systemd/journal/dev-log */
         r = server_open_syslog_socket(s);
         if (r < 0)
                 return r;
 
+        /* systemd-journald.socket: /run/systemd/journal/socket */
         r = server_open_native_socket(s);
         if (r < 0)
                 return r;
 
+        /* /dev/ksmg */
         r = server_open_dev_kmsg(s);
         if (r < 0)
                 return r;
 
-        r = server_open_audit(s);
-        if (r < 0)
-                return r;
+        /* Unless we got *some* sockets and not audit, open audit socket */
+        if (s->audit_fd >= 0 || no_sockets) {
+                r = server_open_audit(s);
+                if (r < 0)
+                        return r;
+        }
 
         r = server_open_kernel_seqnum(s);
         if (r < 0)
