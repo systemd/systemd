@@ -2163,7 +2163,7 @@ int bus_property_get_rlimit(
                 struct rlimit buf = {};
                 int z;
 
-                z = rlimit_from_string(startswith(property, "Default") ? property + 7 : property);
+                z = rlimit_from_string(strstr(property, "Limit"));
                 assert(z >= 0);
 
                 getrlimit(z, &buf);
