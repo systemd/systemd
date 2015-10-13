@@ -93,7 +93,6 @@ AC_PROG_GREP
 AC_PROG_AWK
 
 AC_PATH_PROG([M4], [m4])
-AC_PATH_PROG([XSLTPROC], [xsltproc])
 
 AC_PATH_PROG([QUOTAON], [quotaon], [/usr/sbin/quotaon], [$PATH:/usr/sbin:/sbin])
 AC_PATH_PROG([QUOTACHECK], [quotacheck], [/usr/sbin/quotacheck], [$PATH:/usr/sbin:/sbin])
@@ -1286,7 +1285,12 @@ AM_CONDITIONAL(ENABLE_HWDB, [test x$enable_hwdb = xyes])
 # ------------------------------------------------------------------------------
 have_manpages=no
 AC_ARG_ENABLE(manpages, AS_HELP_STRING([--disable-manpages], [disable manpages]))
-AS_IF([test "x$enable_manpages" != xno], [have_manpages=yes])
+AS_IF([test "x$enable_manpages" != xno], [
+       have_manpages=yes
+       AC_PATH_PROG([XSLTPROC], [xsltproc])
+       AS_IF([test -z "$XSLTPROC"],
+             AC_MSG_ERROR([*** xsltproc is required for man pages]))
+])
 AM_CONDITIONAL(ENABLE_MANPAGES, [test "x$have_manpages" = "xyes"])
 
 # ------------------------------------------------------------------------------
