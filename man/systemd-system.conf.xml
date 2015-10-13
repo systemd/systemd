@@ -109,8 +109,10 @@
         <term><varname>CPUAffinity=</varname></term>
 
         <listitem><para>Configures the initial CPU affinity for the
-        init process. Takes a space-separated list of CPU
-        indices.</para></listitem>
+        init process. Takes a list of CPU indices or ranges separated
+        by either whitespace or commas. CPU ranges are specified by
+        the lower and upper CPU indices separated by a
+        dash.</para></listitem>
       </varlistentry>
 
       <varlistentry>
