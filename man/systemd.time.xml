@@ -232,7 +232,7 @@
     second component is not specified, <literal>:00</literal> is
     assumed.</para>
 
-    <para>Timezone names may not be specified.</para>
+    <para>Timezone names other than UTC may not be specified.</para>
 
     <para>The special expressions
     <literal>minutely</literal>,
@@ -273,10 +273,12 @@ Wed-Sat,Tue 12-10-15 1:2:3 → Tue-Sat 2012-10-15 01:02:03
     Sat,Sun 12-05 08:05:40 → Sat,Sun *-12-05 08:05:40
     Sat,Sun 08:05:40 → Sat,Sun *-*-* 08:05:40
     2003-03-05 05:40 → 2003-03-05 05:40:00
+2003-03-05 05:40 UTC → 2003-03-05 05:40:00 UTC
     2003-03-05 → 2003-03-05 00:00:00
          03-05 → *-03-05 00:00:00
         hourly → *-*-* *:00:00
          daily → *-*-* 00:00:00
+     daily UTC → *-*-* 00:00:00 UTC
        monthly → *-*-01 00:00:00
         weekly → Mon *-*-* 00:00:00
         yearly → *-01-01 00:00:00
