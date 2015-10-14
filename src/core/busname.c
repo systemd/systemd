@@ -585,6 +585,12 @@ static void busname_enter_running(BusName *n) {
                 }
 
         if (!pending) {
+                if (!UNIT_ISSET(n->service)) {
+                        log_unit_error(UNIT(n), "Service to activate vanished, refusing activation.");
+                        r = -ENOENT;
+                        goto fail;
+                }
+
                 r = manager_add_job(UNIT(n)->manager, JOB_START, UNIT_DEREF(n->service), JOB_REPLACE, true, &error, NULL);
                 if (r < 0)
                         goto fail;
