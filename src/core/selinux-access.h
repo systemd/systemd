@@ -27,18 +27,21 @@
 
 void mac_selinux_access_free(void);
 
-int mac_selinux_generic_access_check(sd_bus_message *message, const char *path, const char *permission, sd_bus_error *error);
+int mac_selinux_generic_access_check(sd_bus_message *message, bool system, const char *path, const char *permission, sd_bus_error *error);
 
 #ifdef HAVE_SELINUX
 
 #define mac_selinux_access_check(message, permission, error) \
-        mac_selinux_generic_access_check((message), NULL, (permission), (error))
+        mac_selinux_generic_access_check((message), true, NULL, (permission), (error))
 
 #define mac_selinux_unit_access_check(unit, message, permission, error) \
         ({                                                              \
                 Unit *_unit = (unit);                                   \
-                mac_selinux_generic_access_check((message), _unit->source_path ?: _unit->fragment_path, (permission), (error)); \
+                mac_selinux_generic_access_check((message), false, _unit->source_path ?: _unit->fragment_path, (permission), (error)); \
         })
+
+#define mac_selinux_runtime_unit_access_check(message, permission, error) \
+        mac_selinux_generic_access_check((message), false, NULL, (permission), (error))
 
 #else
 
