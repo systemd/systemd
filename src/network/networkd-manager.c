@@ -277,6 +277,166 @@ static int manager_connect_udev(Manager *m) {
         return 0;
 }
 
+int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, void *userdata) {
+        Manager *m = userdata;
+        Link *link = NULL;
+        uint16_t type;
+        unsigned char flags;
+        int family;
+        unsigned char prefixlen;
+        unsigned char scope;
+        union in_addr_union in_addr;
+        struct ifa_cacheinfo cinfo;
+        Address *address = NULL;
+        char buf[INET6_ADDRSTRLEN], valid_buf[FORMAT_TIMESPAN_MAX];
+        const char *valid_str = NULL;
+        int r, ifindex;
+
+        assert(rtnl);
+        assert(message);
+        assert(m);
+
+        if (sd_netlink_message_is_error(message)) {
+                r = sd_netlink_message_get_errno(message);
+                if (r < 0)
+                        log_warning_errno(r, "rtnl: failed to receive address: %m");
+
+                return 0;
+        }
+
+        r = sd_netlink_message_get_type(message, &type);
+        if (r < 0) {
+                log_warning_errno(r, "rtnl: could not get message type: %m");
+                return 0;
+        } else if (type != RTM_NEWADDR && type != RTM_DELADDR) {
+                log_warning("rtnl: received unexpected message type when processing address");
+                return 0;
+        }
+
+        r = sd_rtnl_message_addr_get_ifindex(message, &ifindex);
+        if (r < 0) {
+                log_warning_errno(r, "rtnl: could not get ifindex from address: %m");
+                return 0;
+        } else if (ifindex <= 0) {
+                log_warning("rtnl: received address message with invalid ifindex: %d", ifindex);
+                return 0;
+        } else {
+                r = link_get(m, ifindex, &link);
+                if (r < 0 || !link) {
+                        /* when enumerating we might be out of sync, but we will
+                         * get the address again, so just ignore it */
+                        if (!m->enumerating)
+                                log_warning("rtnl: received address for nonexistent link (%d), ignoring", ifindex);
+                        return 0;
+                }
+        }
+
+        r = sd_rtnl_message_addr_get_family(message, &family);
+        if (r < 0 || !IN_SET(family, AF_INET, AF_INET6)) {
+                log_link_warning(link, "rtnl: received address with invalid family, ignoring.");
+                return 0;
+        }
+
+        r = sd_rtnl_message_addr_get_prefixlen(message, &prefixlen);
+        if (r < 0) {
+                log_link_warning_errno(link, r, "rtnl: received address with invalid prefixlen, ignoring: %m");
+                return 0;
+        }
+
+        r = sd_rtnl_message_addr_get_scope(message, &scope);
+        if (r < 0) {
+                log_link_warning_errno(link, r, "rtnl: received address with invalid scope, ignoring: %m");
+                return 0;
+        }
+
+        r = sd_rtnl_message_addr_get_flags(message, &flags);
+        if (r < 0) {
+                log_link_warning_errno(link, r, "rtnl: received address with invalid flags, ignoring: %m");
+                return 0;
+        }
+
+        switch (family) {
+        case AF_INET:
+                r = sd_netlink_message_read_in_addr(message, IFA_LOCAL, &in_addr.in);
+                if (r < 0) {
+                        log_link_warning_errno(link, r, "rtnl: received address without valid address, ignoring: %m");
+                        return 0;
+                }
+
+                break;
+
+        case AF_INET6:
+                r = sd_netlink_message_read_in6_addr(message, IFA_ADDRESS, &in_addr.in6);
+                if (r < 0) {
+                        log_link_warning_errno(link, r, "rtnl: received address without valid address, ignoring: %m");
+                        return 0;
+                }
+
+                break;
+
+        default:
+                assert_not_reached("invalid address family");
+        }
+
+        if (!inet_ntop(family, &in_addr, buf, INET6_ADDRSTRLEN)) {
+                log_link_warning(link, "Could not print address");
+                return 0;
+        }
+
+        r = sd_netlink_message_read_cache_info(message, IFA_CACHEINFO, &cinfo);
+        if (r >= 0) {
+                if (cinfo.ifa_valid == CACHE_INFO_INFINITY_LIFE_TIME)
+                        valid_str = "ever";
+                else
+                        valid_str = format_timespan(valid_buf, FORMAT_TIMESPAN_MAX,
+                                                    cinfo.ifa_valid * USEC_PER_SEC,
+                                                    USEC_PER_SEC);
+        }
+
+        address_get(link, family, &in_addr, prefixlen, &address);
+
+        switch (type) {
+        case RTM_NEWADDR:
+                if (address) {
+                        log_link_debug(link, "Updating address: %s/%u (valid for %s)", buf, prefixlen, valid_str);
+
+                        address->scope = scope;
+                        address->flags = flags;
+                        address->cinfo = cinfo;
+
+                } else {
+                        r = address_add(link, family, &in_addr, prefixlen, &address);
+                        if (r < 0) {
+                                log_link_warning_errno(link, r, "Failed to add address %s/%u: %m", buf, prefixlen);
+                                return 0;
+                        } else
+                                log_link_debug(link, "Adding address: %s/%u (valid for %s)", buf, prefixlen, valid_str);
+
+                        address->scope = scope;
+                        address->flags = flags;
+                        address->cinfo = cinfo;
+
+                        link_save(link);
+                }
+
+                break;
+
+        case RTM_DELADDR:
+
+                if (address) {
+                        log_link_debug(link, "Removing address: %s/%u (valid for %s)", buf, prefixlen, valid_str);
+                        address_drop(address);
+                } else
+                        log_link_warning(link, "Removing non-existent address: %s/%u (valid for %s)", buf, prefixlen, valid_str);
+
+                break;
+        default:
+                assert_not_reached("Received invalid RTNL message type");
+        }
+
+        return 1;
+}
+
 static int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *message, void *userdata) {
         Manager *m = userdata;
         Link *link = NULL;
@@ -410,11 +570,11 @@ static int manager_connect_rtnl(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = sd_netlink_add_match(m->rtnl, RTM_NEWADDR, &link_rtnl_process_address, m);
+        r = sd_netlink_add_match(m->rtnl, RTM_NEWADDR, &manager_rtnl_process_address, m);
         if (r < 0)
                 return r;
 
-        r = sd_netlink_add_match(m->rtnl, RTM_DELADDR, &link_rtnl_process_address, m);
+        r = sd_netlink_add_match(m->rtnl, RTM_DELADDR, &manager_rtnl_process_address, m);
         if (r < 0)
                 return r;
 
@@ -477,14 +637,6 @@ void manager_free(Manager *m) {
 
         free(m->state_file);
 
-        sd_event_source_unref(m->udev_event_source);
-        udev_monitor_unref(m->udev_monitor);
-        udev_unref(m->udev);
-
-        sd_bus_unref(m->bus);
-        sd_bus_slot_unref(m->prepare_for_sleep_slot);
-        sd_event_source_unref(m->bus_retry_event_source);
-
         while ((link = hashmap_first(m->links)))
                 link_unref(link);
         hashmap_free(m->links);
@@ -503,6 +655,14 @@ void manager_free(Manager *m) {
 
         sd_netlink_unref(m->rtnl);
         sd_event_unref(m->event);
+
+        sd_event_source_unref(m->udev_event_source);
+        udev_monitor_unref(m->udev_monitor);
+        udev_unref(m->udev);
+
+        sd_bus_unref(m->bus);
+        sd_bus_slot_unref(m->prepare_for_sleep_slot);
+        sd_event_source_unref(m->bus_retry_event_source);
 
         free(m);
 }
@@ -633,7 +793,7 @@ int manager_rtnl_enumerate_addresses(Manager *m) {
 
                 m->enumerating = true;
 
-                k = link_rtnl_process_address(m->rtnl, addr, m);
+                k = manager_rtnl_process_address(m->rtnl, addr, m);
                 if (k < 0)
                         r = k;
 

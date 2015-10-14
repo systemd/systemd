@@ -1265,8 +1265,7 @@ static int client_set_lease_timeouts(sd_dhcp_client *client) {
                 return r;
 
         log_dhcp_client(client, "lease expires in %s",
-                        format_timespan(time_string, FORMAT_TIMESPAN_MAX,
-                        lifetime_timeout - time_now, 0));
+                        format_timespan(time_string, FORMAT_TIMESPAN_MAX, lifetime_timeout - time_now, USEC_PER_SEC));
 
         /* don't arm earlier timeouts if this has already expired */
         if (lifetime_timeout <= time_now)
@@ -1292,8 +1291,7 @@ static int client_set_lease_timeouts(sd_dhcp_client *client) {
                 return r;
 
         log_dhcp_client(client, "T2 expires in %s",
-                        format_timespan(time_string, FORMAT_TIMESPAN_MAX,
-                        t2_timeout - time_now, 0));
+                        format_timespan(time_string, FORMAT_TIMESPAN_MAX, t2_timeout - time_now, USEC_PER_SEC));
 
         /* don't arm earlier timeout if this has already expired */
         if (t2_timeout <= time_now)
@@ -1318,8 +1316,7 @@ static int client_set_lease_timeouts(sd_dhcp_client *client) {
                 return r;
 
         log_dhcp_client(client, "T1 expires in %s",
-                        format_timespan(time_string, FORMAT_TIMESPAN_MAX,
-                        t1_timeout - time_now, 0));
+                        format_timespan(time_string, FORMAT_TIMESPAN_MAX, t1_timeout - time_now, USEC_PER_SEC));
 
         return 0;
 }

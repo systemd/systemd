@@ -23,15 +23,16 @@
 #include <linux/if.h>
 #include <unistd.h>
 
+#include "bus-util.h"
+#include "dhcp-lease-internal.h"
+#include "fileio.h"
+#include "netlink-util.h"
+#include "network-internal.h"
+#include "set.h"
+#include "socket-util.h"
+#include "udev-util.h"
 #include "util.h"
 #include "virt.h"
-#include "fileio.h"
-#include "socket-util.h"
-#include "bus-util.h"
-#include "udev-util.h"
-#include "netlink-util.h"
-#include "dhcp-lease-internal.h"
-#include "network-internal.h"
 
 #include "networkd-link.h"
 #include "networkd-netdev.h"
@@ -291,10 +292,10 @@ static void link_free(Link *link) {
         if (!link)
                 return;
 
-        while ((address = link->addresses)) {
-                LIST_REMOVE(addresses, link->addresses, address);
-                address_free(address);
-        }
+        while (!set_isempty(link->addresses))
+                address_free(set_first(link->addresses));
+
+        set_free(link->addresses);
 
         while ((address = link->pool_addresses)) {
                 LIST_REMOVE(addresses, link->pool_addresses, address);
@@ -336,15 +337,28 @@ static void link_free(Link *link) {
 }
 
 Link *link_unref(Link *link) {
-        if (link && (-- link->n_ref <= 0))
-                link_free(link);
+        if (!link)
+                return NULL;
+
+        assert(link->n_ref > 0);
+
+        link->n_ref --;
+
+        if (link->n_ref > 0)
+                return NULL;
+
+        link_free(link);
 
         return NULL;
 }
 
 Link *link_ref(Link *link) {
-        if (link)
-                assert_se(++ link->n_ref >= 2);
+        if (!link)
+                return NULL;
+
+        assert(link->n_ref > 0);
+
+        link->n_ref ++;
 
         return link;
 }
@@ -531,7 +545,7 @@ static int route_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST)
-                log_link_warning_errno(link, r, "%-*s: could not set route: %m", IFNAMSIZ, link->ifname);
+                log_link_warning_errno(link, r, "Could not set route: %m");
 
         if (link->link_messages == 0) {
                 log_link_debug(link, "Routes set");
@@ -572,7 +586,7 @@ static int link_enter_set_routes(Link *link) {
         return 0;
 }
 
-int link_route_drop_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
+int link_route_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
         _cleanup_link_unref_ Link *link = userdata;
         int r;
 
@@ -585,7 +599,7 @@ int link_route_drop_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userd
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -ESRCH)
-                log_link_warning_errno(link, r, "%-*s: could not drop route: %m", IFNAMSIZ, link->ifname);
+                log_link_warning_errno(link, r, "Could not drop route: %m");
 
         return 1;
 }
@@ -609,9 +623,9 @@ static int address_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userda
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST)
-                log_link_warning_errno(link, r, "%-*s: could not set address: %m", IFNAMSIZ, link->ifname);
+                log_link_warning_errno(link, r, "could not set address: %m");
         else if (r >= 0)
-                link_rtnl_process_address(rtnl, m, link->manager);
+                manager_rtnl_process_address(rtnl, m, link->manager);
 
         if (link->link_messages == 0) {
                 log_link_debug(link, "Addresses set");
@@ -854,7 +868,7 @@ static int link_enter_set_addresses(Link *link) {
         return 0;
 }
 
-int link_address_drop_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
+int link_address_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
         _cleanup_link_unref_ Link *link = userdata;
         int r;
 
@@ -867,7 +881,7 @@ int link_address_drop_handler(sd_netlink *rtnl, sd_netlink_message *m, void *use
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EADDRNOTAVAIL)
-                log_link_warning_errno(link, r, "%-*s: could not drop address: %m", IFNAMSIZ, link->ifname);
+                log_link_warning_errno(link, r, "Could not drop address: %m");
 
         return 1;
 }
@@ -1019,7 +1033,7 @@ static int set_mtu_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userda
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0)
-                log_link_warning_errno(link, r, "%-*s: could not set MTU: %m", IFNAMSIZ, link->ifname);
+                log_link_warning_errno(link, r, "Could not set MTU: %m");
 
         return 1;
 }
@@ -1207,7 +1221,7 @@ static int link_up_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userda
         if (r < 0)
                 /* we warn but don't fail the link, as it may be
                    brought up later */
-                log_link_warning_errno(link, r, "%-*s: could not bring up interface: %m", IFNAMSIZ, link->ifname);
+                log_link_warning_errno(link, r, "Could not bring up interface: %m");
 
         return 1;
 }
@@ -1294,7 +1308,7 @@ static int link_down_handler(sd_netlink *rtnl, sd_netlink_message *m, void *user
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0)
-                log_link_warning_errno(link, r, "%-*s: could not bring down interface: %m", IFNAMSIZ, link->ifname);
+                log_link_warning_errno(link, r, "Could not bring down interface: %m");
 
         return 1;
 }
@@ -1616,7 +1630,7 @@ static int netdev_join_handler(sd_netlink *rtnl, sd_netlink_message *m, void *us
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
-                log_link_error_errno(link, r, "%-*s: could not join netdev: %m", IFNAMSIZ, link->ifname);
+                log_link_error_errno(link, r, "Could not join netdev: %m");
                 link_enter_failed(link);
                 return 1;
         } else
@@ -2011,179 +2025,6 @@ int link_initialized(Link *link, struct udev_device *device) {
         return 0;
 }
 
-static Address* link_get_equal_address(Link *link, Address *needle) {
-        Address *i;
-
-        assert(link);
-        assert(needle);
-
-        LIST_FOREACH(addresses, i, link->addresses)
-                if (address_equal(i, needle))
-                        return i;
-
-        return NULL;
-}
-
-int link_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, void *userdata) {
-        Manager *m = userdata;
-        Link *link = NULL;
-        uint16_t type;
-        _cleanup_address_free_ Address *address = NULL;
-        unsigned char flags;
-        Address *existing;
-        char buf[INET6_ADDRSTRLEN], valid_buf[FORMAT_TIMESPAN_MAX];
-        const char *valid_str = NULL;
-        int r, ifindex;
-
-        assert(rtnl);
-        assert(message);
-        assert(m);
-
-        if (sd_netlink_message_is_error(message)) {
-                r = sd_netlink_message_get_errno(message);
-                if (r < 0)
-                        log_warning_errno(r, "rtnl: failed to receive address: %m");
-
-                return 0;
-        }
-
-        r = sd_netlink_message_get_type(message, &type);
-        if (r < 0) {
-                log_warning_errno(r, "rtnl: could not get message type: %m");
-                return 0;
-        } else if (type != RTM_NEWADDR && type != RTM_DELADDR) {
-                log_warning("rtnl: received unexpected message type when processing address");
-                return 0;
-        }
-
-        r = sd_rtnl_message_addr_get_ifindex(message, &ifindex);
-        if (r < 0) {
-                log_warning_errno(r, "rtnl: could not get ifindex from address: %m");
-                return 0;
-        } else if (ifindex <= 0) {
-                log_warning("rtnl: received address message with invalid ifindex: %d", ifindex);
-                return 0;
-        } else {
-                r = link_get(m, ifindex, &link);
-                if (r < 0 || !link) {
-                        /* when enumerating we might be out of sync, but we will
-                         * get the address again, so just ignore it */
-                        if (!m->enumerating)
-                                log_warning("rtnl: received address for nonexistent link (%d), ignoring", ifindex);
-                        return 0;
-                }
-        }
-
-        r = address_new_dynamic(&address);
-        if (r < 0)
-                return r;
-
-        r = sd_rtnl_message_addr_get_family(message, &address->family);
-        if (r < 0 || !IN_SET(address->family, AF_INET, AF_INET6)) {
-                log_link_warning(link, "rtnl: received address with invalid family, ignoring.");
-                return 0;
-        }
-
-        r = sd_rtnl_message_addr_get_prefixlen(message, &address->prefixlen);
-        if (r < 0) {
-                log_link_warning_errno(link, r, "rtnl: received address with invalid prefixlen, ignoring: %m");
-                return 0;
-        }
-
-        r = sd_rtnl_message_addr_get_scope(message, &address->scope);
-        if (r < 0) {
-                log_link_warning_errno(link, r, "rtnl: received address with invalid scope, ignoring: %m");
-                return 0;
-        }
-
-        r = sd_rtnl_message_addr_get_flags(message, &flags);
-        if (r < 0) {
-                log_link_warning_errno(link, r, "rtnl: received address with invalid flags, ignoring: %m");
-                return 0;
-        }
-        address->flags = flags;
-
-        switch (address->family) {
-        case AF_INET:
-                r = sd_netlink_message_read_in_addr(message, IFA_LOCAL, &address->in_addr.in);
-                if (r < 0) {
-                        log_link_warning_errno(link, r, "rtnl: received address without valid address, ignoring: %m");
-                        return 0;
-                }
-
-                break;
-
-        case AF_INET6:
-                r = sd_netlink_message_read_in6_addr(message, IFA_ADDRESS, &address->in_addr.in6);
-                if (r < 0) {
-                        log_link_warning_errno(link, r, "rtnl: received address without valid address, ignoring: %m");
-                        return 0;
-                }
-
-                break;
-
-        default:
-                assert_not_reached("invalid address family");
-        }
-
-        if (!inet_ntop(address->family, &address->in_addr, buf, INET6_ADDRSTRLEN)) {
-                log_link_warning(link, "Could not print address");
-                return 0;
-        }
-
-        r = sd_netlink_message_read_cache_info(message, IFA_CACHEINFO, &address->cinfo);
-        if (r >= 0) {
-                if (address->cinfo.ifa_valid == CACHE_INFO_INFINITY_LIFE_TIME)
-                        valid_str = "ever";
-                else
-                        valid_str = format_timespan(valid_buf, FORMAT_TIMESPAN_MAX,
-                                                    address->cinfo.ifa_valid * USEC_PER_SEC,
-                                                    USEC_PER_SEC);
-        }
-
-        existing = link_get_equal_address(link, address);
-
-        switch (type) {
-        case RTM_NEWADDR:
-                if (existing) {
-                        log_link_debug(link, "Updating address: %s/%u (valid for %s)", buf, address->prefixlen, valid_str);
-
-
-                        existing->scope = address->scope;
-                        existing->flags = address->flags;
-                        existing->cinfo = address->cinfo;
-
-                } else {
-                        log_link_debug(link, "Adding address: %s/%u (valid for %s)", buf, address->prefixlen, valid_str);
-
-                        LIST_PREPEND(addresses, link->addresses, address);
-                        address_establish(address, link);
-
-                        address = NULL;
-
-                        link_save(link);
-                }
-
-                break;
-
-        case RTM_DELADDR:
-
-                if (existing) {
-                        log_link_debug(link, "Removing address: %s/%u (valid for %s)", buf, address->prefixlen, valid_str);
-                        address_release(existing, link);
-                        LIST_REMOVE(addresses, link->addresses, existing);
-                        address_free(existing);
-                } else
-                        log_link_warning(link, "Removing non-existent address: %s/%u (valid for %s)", buf, address->prefixlen, valid_str);
-
-                break;
-        default:
-                assert_not_reached("Received invalid RTNL message type");
-        }
-
-        return 1;
-}
-
 int link_add(Manager *m, sd_netlink_message *message, Link **ret) {
         Link *link;
         _cleanup_udev_device_unref_ struct udev_device *device = NULL;
@@ -2207,8 +2048,10 @@ int link_add(Manager *m, sd_netlink_message *message, Link **ret) {
                 /* not in a container, udev will be around */
                 sprintf(ifindex_str, "n%d", link->ifindex);
                 device = udev_device_new_from_device_id(m->udev, ifindex_str);
-                if (!device)
-                        return log_link_warning_errno(link, errno, "Could not find udev device: %m");
+                if (!device) {
+                        r = log_link_warning_errno(link, errno, "Could not find udev device: %m");
+                        goto failed;
+                }
 
                 if (udev_device_get_is_initialized(device) <= 0) {
                         /* not yet ready */
@@ -2218,17 +2061,20 @@ int link_add(Manager *m, sd_netlink_message *message, Link **ret) {
 
                 r = link_initialized(link, device);
                 if (r < 0)
-                        return r;
+                        goto failed;
         } else {
                 /* we are calling a callback directly, so must take a ref */
                 link_ref(link);
 
                 r = link_initialized_and_synced(m->rtnl, NULL, link);
                 if (r < 0)
-                        return r;
+                        goto failed;
         }
 
         return 0;
+failed:
+        link_enter_failed(link);
+        return r;
 }
 
 static int link_carrier_gained(Link *link) {
@@ -2425,10 +2271,11 @@ static void link_update_operstate(Link *link) {
         else if (link_has_carrier(link)) {
                 Address *address;
                 uint8_t scope = RT_SCOPE_NOWHERE;
+                Iterator i;
 
                 /* if we have carrier, check what addresses we have */
-                LIST_FOREACH(addresses, address, link->addresses) {
-                        if (address->flags & (IFA_F_TENTATIVE | IFA_F_DEPRECATED))
+                SET_FOREACH(address, link->addresses, i) {
+                        if (!address_is_ready(address))
                                 continue;
 
                         if (address->scope < scope)

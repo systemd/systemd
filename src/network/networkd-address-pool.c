@@ -21,6 +21,7 @@
 
 #include "networkd.h"
 #include "networkd-address-pool.h"
+#include "set.h"
 
 int address_pool_new(
                 Manager *m,
@@ -96,9 +97,10 @@ static bool address_pool_prefix_is_taken(
 
         HASHMAP_FOREACH(l, p->manager->links, i) {
                 Address *a;
+                Iterator j;
 
                 /* Don't clash with assigned addresses */
-                LIST_FOREACH(addresses, a, l->addresses) {
+                SET_FOREACH(a, l->addresses, j) {
                         if (a->family != p->family)
                                 continue;
 

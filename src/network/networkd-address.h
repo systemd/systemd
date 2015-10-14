@@ -38,6 +38,8 @@ struct Address {
         Network *network;
         unsigned section;
 
+        Link *link;
+
         int family;
         unsigned char prefixlen;
         unsigned char scope;
@@ -56,14 +58,16 @@ struct Address {
 };
 
 int address_new_static(Network *network, unsigned section, Address **ret);
-int address_new_dynamic(Address **ret);
+int address_new(Address **ret);
 void address_free(Address *address);
+int address_add(Link *link, int family, const union in_addr_union *in_addr, unsigned char prefixlen, Address **ret);
+int address_get(Link *link, int family, const union in_addr_union *in_addr, unsigned char prefixlen, Address **ret);
+int address_drop(Address *address);
 int address_configure(Address *address, Link *link, sd_netlink_message_handler_t callback);
 int address_update(Address *address, Link *link, sd_netlink_message_handler_t callback);
-int address_drop(Address *address, Link *link, sd_netlink_message_handler_t callback);
-int address_establish(Address *address, Link *link);
-int address_release(Address *address, Link *link);
+int address_remove(Address *address, Link *link, sd_netlink_message_handler_t callback);
 bool address_equal(Address *a1, Address *a2);
+bool address_is_ready(const Address *a);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Address*, address_free);
 #define _cleanup_address_free_ _cleanup_(address_freep)

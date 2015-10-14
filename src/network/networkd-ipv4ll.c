@@ -42,7 +42,7 @@ static int ipv4ll_address_lost(Link *link) {
 
         log_link_debug(link, "IPv4 link-local release %u.%u.%u.%u", ADDRESS_FMT_VAL(addr));
 
-        r = address_new_dynamic(&address);
+        r = address_new(&address);
         if (r < 0) {
                 log_link_error_errno(link, r, "Could not allocate address: %m");
                 return r;
@@ -53,9 +53,9 @@ static int ipv4ll_address_lost(Link *link) {
         address->prefixlen = 16;
         address->scope = RT_SCOPE_LINK;
 
-        address_drop(address, link, &link_address_drop_handler);
+        address_remove(address, link, &link_address_remove_handler);
 
-        r = route_new_dynamic(&route, RTPROT_UNSPEC);
+        r = route_new(&route, RTPROT_UNSPEC);
         if (r < 0) {
                 log_link_error_errno(link, r, "Could not allocate route: %m");
                 return r;
@@ -65,7 +65,7 @@ static int ipv4ll_address_lost(Link *link) {
         route->scope = RT_SCOPE_LINK;
         route->metrics = IPV4LL_ROUTE_METRIC;
 
-        route_drop(route, link, &link_route_drop_handler);
+        route_remove(route, link, &link_route_remove_handler);
 
         link_client_handler(link);
 
@@ -105,7 +105,7 @@ static int ipv4ll_address_handler(sd_netlink *rtnl, sd_netlink_message *m, void 
                 log_link_error_errno(link, r, "could not set ipv4ll address: %m");
                 link_enter_failed(link);
         } else if (r >= 0)
-                link_rtnl_process_address(rtnl, m, link->manager);
+                manager_rtnl_process_address(rtnl, m, link->manager);
 
         link->ipv4ll_address = true;
 
@@ -133,7 +133,7 @@ static int ipv4ll_address_claimed(sd_ipv4ll *ll, Link *link) {
         log_link_debug(link, "IPv4 link-local claim %u.%u.%u.%u",
                        ADDRESS_FMT_VAL(address));
 
-        r = address_new_dynamic(&ll_addr);
+        r = address_new(&ll_addr);
         if (r < 0)
                 return r;
 
@@ -149,7 +149,7 @@ static int ipv4ll_address_claimed(sd_ipv4ll *ll, Link *link) {
 
         link->ipv4ll_address = false;
 
-        r = route_new_dynamic(&route, RTPROT_STATIC);
+        r = route_new(&route, RTPROT_STATIC);
         if (r < 0)
                 return r;
 

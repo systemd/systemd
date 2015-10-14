@@ -26,8 +26,26 @@
 #include "networkd.h"
 #include "networkd-route.h"
 
+int route_new(Route **ret, unsigned char rtm_protocol) {
+        _cleanup_route_free_ Route *route = NULL;
+
+        route = new0(Route, 1);
+        if (!route)
+                return -ENOMEM;
+
+        route->family = AF_UNSPEC;
+        route->scope = RT_SCOPE_UNIVERSE;
+        route->protocol = rtm_protocol;
+
+        *ret = route;
+        route = NULL;
+
+        return 0;
+}
+
 int route_new_static(Network *network, unsigned section, Route **ret) {
         _cleanup_route_free_ Route *route = NULL;
+        int r;
 
         if (section) {
                 route = hashmap_get(network->routes_by_section,
@@ -40,13 +58,9 @@ int route_new_static(Network *network, unsigned section, Route **ret) {
                 }
         }
 
-        route = new0(Route, 1);
-        if (!route)
-                return -ENOMEM;
-
-        route->family = AF_UNSPEC;
-        route->scope = RT_SCOPE_UNIVERSE;
-        route->protocol = RTPROT_STATIC;
+        r = route_new(&route, RTPROT_STATIC);
+        if (r < 0)
+                return r;
 
         route->network = network;
 
@@ -57,23 +71,6 @@ int route_new_static(Network *network, unsigned section, Route **ret) {
                 hashmap_put(network->routes_by_section,
                             UINT_TO_PTR(route->section), route);
         }
-
-        *ret = route;
-        route = NULL;
-
-        return 0;
-}
-
-int route_new_dynamic(Route **ret, unsigned char rtm_protocol) {
-        _cleanup_route_free_ Route *route = NULL;
-
-        route = new0(Route, 1);
-        if (!route)
-                return -ENOMEM;
-
-        route->family = AF_UNSPEC;
-        route->scope = RT_SCOPE_UNIVERSE;
-        route->protocol = rtm_protocol;
 
         *ret = route;
         route = NULL;
@@ -96,7 +93,7 @@ void route_free(Route *route) {
         free(route);
 }
 
-int route_drop(Route *route, Link *link,
+int route_remove(Route *route, Link *link,
                sd_netlink_message_handler_t callback) {
         _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL;
         int r;

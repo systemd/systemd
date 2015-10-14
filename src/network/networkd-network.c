@@ -326,12 +326,12 @@ int network_get(Manager *manager, struct udev_device *device,
                                         (void) safe_atou8(attr, &name_assign_type);
 
                                 if (name_assign_type == NET_NAME_ENUM)
-                                        log_warning("%-*s: found matching network '%s', based on potentially unpredictable ifname",
-                                                    IFNAMSIZ, ifname, network->filename);
+                                        log_warning("%s: found matching network '%s', based on potentially unpredictable ifname",
+                                                    ifname, network->filename);
                                 else
-                                        log_debug("%-*s: found matching network '%s'", IFNAMSIZ, ifname, network->filename);
+                                        log_debug("%s: found matching network '%s'", ifname, network->filename);
                         } else
-                                log_debug("%-*s: found matching network '%s'", IFNAMSIZ, ifname, network->filename);
+                                log_debug("%s: found matching network '%s'", ifname, network->filename);
 
                         *ret = network;
                         return 0;

@@ -21,26 +21,37 @@
 
 #include <net/if.h>
 
-#include "utf8.h"
-#include "util.h"
 #include "conf-parser.h"
 #include "firewall-util.h"
 #include "netlink-util.h"
+#include "set.h"
+#include "utf8.h"
+#include "util.h"
 
 #include "networkd.h"
 #include "networkd-address.h"
 
-static void address_init(Address *address) {
-        assert(address);
+int address_new(Address **ret) {
+        _cleanup_address_free_ Address *address = NULL;
+
+        address = new0(Address, 1);
+        if (!address)
+                return -ENOMEM;
 
         address->family = AF_UNSPEC;
         address->scope = RT_SCOPE_UNIVERSE;
         address->cinfo.ifa_prefered = CACHE_INFO_INFINITY_LIFE_TIME;
         address->cinfo.ifa_valid = CACHE_INFO_INFINITY_LIFE_TIME;
+
+        *ret = address;
+        address = NULL;
+
+        return 0;
 }
 
 int address_new_static(Network *network, unsigned section, Address **ret) {
         _cleanup_address_free_ Address *address = NULL;
+        int r;
 
         if (section) {
                 address = hashmap_get(network->addresses_by_section, UINT_TO_PTR(section));
@@ -52,11 +63,9 @@ int address_new_static(Network *network, unsigned section, Address **ret) {
                 }
         }
 
-        address = new0(Address, 1);
-        if (!address)
-                return -ENOMEM;
-
-        address_init(address);
+        r = address_new(&address);
+        if (r < 0)
+                return r;
 
         address->network = network;
 
@@ -67,21 +76,6 @@ int address_new_static(Network *network, unsigned section, Address **ret) {
                 hashmap_put(network->addresses_by_section,
                             UINT_TO_PTR(address->section), address);
         }
-
-        *ret = address;
-        address = NULL;
-
-        return 0;
-}
-
-int address_new_dynamic(Address **ret) {
-        _cleanup_address_free_ Address *address = NULL;
-
-        address = new0(Address, 1);
-        if (!address)
-                return -ENOMEM;
-
-        address_init(address);
 
         *ret = address;
         address = NULL;
@@ -101,10 +95,110 @@ void address_free(Address *address) {
                                        UINT_TO_PTR(address->section));
         }
 
+        if (address->link)
+                set_remove(address->link->addresses, address);
+
         free(address);
 }
 
-int address_establish(Address *address, Link *link) {
+static void address_hash_func(const void *b, struct siphash *state) {
+        const Address *a = b;
+
+        assert(a);
+
+        siphash24_compress(&a->family, sizeof(a->family), state);
+
+        switch (a->family) {
+        case AF_INET:
+                siphash24_compress(&a->prefixlen, sizeof(a->prefixlen), state);
+
+                /* peer prefix */
+                if (a->prefixlen != 0) {
+                        uint32_t prefix;
+
+                        if (a->in_addr_peer.in.s_addr != 0)
+                                prefix = be32toh(a->in_addr_peer.in.s_addr) >> (32 - a->prefixlen);
+                        else
+                                prefix = be32toh(a->in_addr.in.s_addr) >> (32 - a->prefixlen);
+
+                        siphash24_compress(&prefix, sizeof(prefix), state);
+                }
+
+                /* fallthrough */
+        case AF_INET6:
+                /* local address */
+                siphash24_compress(&a->in_addr, FAMILY_ADDRESS_SIZE(a->family), state);
+
+                break;
+        default:
+                /* treat any other address family as AF_UNSPEC */
+                break;
+        }
+}
+
+static int address_compare_func(const void *c1, const void *c2) {
+        const Address *a1 = c1, *a2 = c2;
+
+        if (a1->family < a2->family)
+                return -1;
+        if (a1->family > a2->family)
+                return 1;
+
+        switch (a1->family) {
+        /* use the same notion of equality as the kernel does */
+        case AF_INET:
+                if (a1->prefixlen < a2->prefixlen)
+                        return -1;
+                if (a1->prefixlen > a2->prefixlen)
+                        return 1;
+
+                /* compare the peer prefixes */
+                if (a1->prefixlen != 0) {
+                        /* make sure we don't try to shift by 32.
+                         * See ISO/IEC 9899:TC3 § 6.5.7.3. */
+                        uint32_t b1, b2;
+
+                        if (a1->in_addr_peer.in.s_addr != 0)
+                                b1 = be32toh(a1->in_addr_peer.in.s_addr) >> (32 - a1->prefixlen);
+                        else
+                                b1 = be32toh(a1->in_addr.in.s_addr) >> (32 - a1->prefixlen);
+
+                        if (a2->in_addr_peer.in.s_addr != 0)
+                                b2 = be32toh(a2->in_addr_peer.in.s_addr) >> (32 - a1->prefixlen);
+                        else
+                                b2 = be32toh(a2->in_addr.in.s_addr) >> (32 - a1->prefixlen);
+
+                        if (b1 < b2)
+                                return -1;
+                        if (b1 > b2)
+                                return 1;
+                }
+
+                /* fall-through */
+        case AF_INET6:
+                return memcmp(&a1->in_addr, &a2->in_addr, FAMILY_ADDRESS_SIZE(a1->family));
+        default:
+                /* treat any other address family as AF_UNSPEC */
+                return 0;
+        }
+}
+
+static const struct hash_ops address_hash_ops = {
+        .hash = address_hash_func,
+        .compare = address_compare_func
+};
+
+bool address_equal(Address *a1, Address *a2) {
+        if (a1 == a2)
+                return true;
+
+        if (!a1 || !a2)
+                return false;
+
+        return address_compare_func(a1, a2) == 0;
+}
+
+static int address_establish(Address *address, Link *link) {
         bool masq;
         int r;
 
@@ -131,7 +225,43 @@ int address_establish(Address *address, Link *link) {
         return 0;
 }
 
-int address_release(Address *address, Link *link) {
+int address_add(Link *link, int family, const union in_addr_union *in_addr, unsigned char prefixlen, Address **ret) {
+        _cleanup_address_free_ Address *address = NULL;
+        int r;
+
+        assert(link);
+        assert(in_addr);
+        assert(ret);
+
+        r = address_new(&address);
+        if (r < 0)
+                return r;
+
+        address->family = family;
+        address->in_addr = *in_addr;
+        address->prefixlen = prefixlen;
+
+        r = set_ensure_allocated(&link->addresses, &address_hash_ops);
+        if (r < 0)
+                return r;
+
+        r = set_put(link->addresses, address);
+        if (r < 0)
+                return r;
+
+        address->link = link;
+
+        r = address_establish(address, link);
+        if (r < 0)
+                return r;
+
+        *ret = address;
+        address = NULL;
+
+        return 0;
+}
+
+static int address_release(Address *address, Link *link) {
         int r;
 
         assert(address);
@@ -152,7 +282,36 @@ int address_release(Address *address, Link *link) {
         return 0;
 }
 
-int address_drop(Address *address, Link *link,
+int address_drop(Address *address) {
+        assert(address);
+
+        address_release(address, address->link);
+        address_free(address);
+
+        return 0;
+}
+
+int address_get(Link *link, int family, const union in_addr_union *in_addr, unsigned char prefixlen, Address **ret) {
+        Address address = {}, *existing;
+
+        assert(link);
+        assert(in_addr);
+        assert(ret);
+
+        address.family = family;
+        address.in_addr = *in_addr;
+        address.prefixlen = prefixlen;
+
+        existing = set_get(link->addresses, &address);
+        if (!existing)
+                return -ENOENT;
+
+        *ret = existing;
+
+        return 0;
+}
+
+int address_remove(Address *address, Link *link,
                  sd_netlink_message_handler_t callback) {
         _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL;
         int r;
@@ -292,7 +451,7 @@ static int address_acquire(Link *link, Address *original, Address **ret) {
         } else if (original->family == AF_INET6)
                 in_addr.in6.s6_addr[15] |= 1;
 
-        r = address_new_dynamic(&na);
+        r = address_new(&na);
         if (r < 0)
                 return r;
 
@@ -580,49 +739,8 @@ int config_parse_label(const char *unit,
         return 0;
 }
 
-bool address_equal(Address *a1, Address *a2) {
-        /* same object */
-        if (a1 == a2)
-                return true;
+bool address_is_ready(const Address *a) {
+        assert(a);
 
-        /* one, but not both, is NULL */
-        if (!a1 || !a2)
-                return false;
-
-        if (a1->family != a2->family)
-                return false;
-
-        switch (a1->family) {
-        /* use the same notion of equality as the kernel does */
-        case AF_UNSPEC:
-                return true;
-
-        case AF_INET:
-                if (a1->prefixlen != a2->prefixlen)
-                        return false;
-                else if (a1->prefixlen == 0)
-                        /* make sure we don't try to shift by 32.
-                         * See ISO/IEC 9899:TC3 § 6.5.7.3. */
-                        return true;
-                else {
-                        uint32_t b1, b2;
-
-                        b1 = be32toh(a1->in_addr.in.s_addr);
-                        b2 = be32toh(a2->in_addr.in.s_addr);
-
-                        return (b1 >> (32 - a1->prefixlen)) == (b2 >> (32 - a1->prefixlen));
-                }
-
-        case AF_INET6: {
-                uint64_t *b1, *b2;
-
-                b1 = (uint64_t*)&a1->in_addr.in6;
-                b2 = (uint64_t*)&a2->in_addr.in6;
-
-                return (((b1[0] ^ b2[0]) | (b1[1] ^ b2[1])) == 0UL);
-        }
-
-        default:
-                assert_not_reached("Invalid address family");
-        }
+        return !(a->flags & (IFA_F_TENTATIVE | IFA_F_DEPRECATED));
 }

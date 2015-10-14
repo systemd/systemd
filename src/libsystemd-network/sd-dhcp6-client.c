@@ -595,8 +595,7 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec,
         }
 
         log_dhcp6_client(client, "Next retransmission in %s",
-                         format_timespan(time_string, FORMAT_TIMESPAN_MAX,
-                                         client->retransmit_time, 0));
+                         format_timespan(time_string, FORMAT_TIMESPAN_MAX, client->retransmit_time, USEC_PER_SEC));
 
         r = sd_event_add_time(client->event, &client->timeout_resend,
                               clock_boottime_or_monotonic(),
@@ -1048,9 +1047,7 @@ static int client_start(sd_dhcp6_client *client, enum DHCP6State state) {
                 timeout = client_timeout_compute_random(be32toh(client->lease->ia.lifetime_t1) * USEC_PER_SEC);
 
                 log_dhcp6_client(client, "T1 expires in %s",
-                                 format_timespan(time_string,
-                                                 FORMAT_TIMESPAN_MAX,
-                                                 timeout, 0));
+                                 format_timespan(time_string, FORMAT_TIMESPAN_MAX, timeout, USEC_PER_SEC));
 
                 r = sd_event_add_time(client->event,
                                       &client->lease->ia.timeout_t1,
@@ -1072,9 +1069,7 @@ static int client_start(sd_dhcp6_client *client, enum DHCP6State state) {
                 timeout = client_timeout_compute_random(be32toh(client->lease->ia.lifetime_t2) * USEC_PER_SEC);
 
                 log_dhcp6_client(client, "T2 expires in %s",
-                                 format_timespan(time_string,
-                                                 FORMAT_TIMESPAN_MAX,
-                                                 timeout, 0));
+                                 format_timespan(time_string, FORMAT_TIMESPAN_MAX, timeout, USEC_PER_SEC));
 
                 r = sd_event_add_time(client->event,
                                       &client->lease->ia.timeout_t2,
