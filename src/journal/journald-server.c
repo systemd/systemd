@@ -1231,7 +1231,7 @@ static int dispatch_sigusr1(sd_event_source *es, const struct signalfd_siginfo *
         server_sync(s);
         server_vacuum(s, false, false);
 
-        touch("/run/systemd/journal/flushed");
+        (void) touch("/run/systemd/journal/flushed");
 
         return 0;
 }

@@ -2952,9 +2952,9 @@ void manager_set_show_status(Manager *m, ShowStatus mode) {
         m->show_status = mode;
 
         if (mode > 0)
-                touch("/run/systemd/show-status");
+                (void) touch("/run/systemd/show-status");
         else
-                unlink("/run/systemd/show-status");
+                (void) unlink("/run/systemd/show-status");
 }
 
 static bool manager_get_show_status(Manager *m, StatusType type) {
