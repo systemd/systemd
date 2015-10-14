@@ -281,7 +281,6 @@ AM_CONDITIONAL([HAVE_PYTHON], [test "x$have_python" = "xyes"])
 
 # ------------------------------------------------------------------------------
 
-AC_SEARCH_LIBS([dlsym], [dl], [], [AC_MSG_ERROR([*** Dynamic linking loader library not found])])
 AC_CHECK_HEADERS([sys/capability.h], [], [AC_MSG_ERROR([*** POSIX caps headers not found])])
 AC_CHECK_HEADERS([linux/btrfs.h], [], [])
 AC_CHECK_HEADERS([linux/memfd.h], [], [])
@@ -293,6 +292,7 @@ save_LIBS="$LIBS"
 LIBS=
 AC_SEARCH_LIBS([cap_init], [cap], [], [AC_MSG_ERROR([*** POSIX caps library not found])])
 CAP_LIBS="$LIBS"
+LIBS="$save_LIBS"
 AC_SUBST(CAP_LIBS)
 
 AC_CHECK_FUNCS([memfd_create])
@@ -790,14 +790,6 @@ if test "x${have_elfutils}" != xno ; then
 
         AC_CHECK_LIB(
                 [dw],
-                [dwfl_begin],
-                [],
-                [if test "x$have_elfutils" = xyes ; then
-                        AC_MSG_ERROR([*** ELFUTILS libs not found.])
-                fi])
-
-        AC_CHECK_LIB(
-                [dw],
                 [dwfl_core_file_attach],
                 [have_elfutils=yes],
                 [if test "x$have_elfutils" = xyes ; then
@@ -1106,10 +1098,12 @@ AM_CONDITIONAL(ENABLE_POLKIT, [test "x$have_polkit" = "xyes"])
 # ------------------------------------------------------------------------------
 have_resolved=no
 AC_ARG_ENABLE(resolved, AS_HELP_STRING([--disable-resolved], [disable resolve daemon]))
-if test "x$enable_resolved" != "xno"; then
+AS_IF([test "x$enable_resolved" != "xno"], [
+        AC_CHECK_LIB([dl], [dlsym], [true], [AC_MSG_ERROR([*** Dynamic linking loader library not found])])
+
         have_resolved=yes
         M4_DEFINES="$M4_DEFINES -DENABLE_RESOLVED"
-fi
+])
 AM_CONDITIONAL(ENABLE_RESOLVED, [test "$have_resolved" = "yes"])
 
 AC_ARG_WITH(dns-servers,
