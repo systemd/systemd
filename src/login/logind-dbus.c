@@ -2588,7 +2588,7 @@ int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *err
         }
 
         if (m->action_job && streq(m->action_job, path)) {
-                log_info("Operation finished.");
+                log_info("Operation '%s' finished.", inhibit_what_to_string(m->action_what));
 
                 /* Tell people that they now may take a lock again */
                 send_prepare_for(m, m->action_what, false);
