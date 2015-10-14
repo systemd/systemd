@@ -322,8 +322,6 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds);
 Job *manager_get_job(Manager *m, uint32_t id);
 Unit *manager_get_unit(Manager *m, const char *name);
 
-int manager_get_unit_by_path(Manager *m, const char *path, const char *suffix, Unit **_found);
-
 int manager_get_job_from_dbus_path(Manager *m, const char *s, Job **_j);
 
 int manager_load_unit_prepare(Manager *m, const char *name, const char *path, sd_bus_error *e, Unit **_ret);
