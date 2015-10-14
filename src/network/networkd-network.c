@@ -121,6 +121,7 @@ static int network_load_one(Manager *manager, const char *filename) {
 
         network->ipv6_privacy_extensions = IPV6_PRIVACY_EXTENSIONS_NO;
         network->ipv6_accept_ra = -1;
+        network->ipv6_mtu = 0;
 
         r = config_parse(NULL, filename, file,
                          "Match\0"
@@ -897,4 +898,37 @@ int config_parse_dhcp_server_ntp(
                 m[n->n_dhcp_server_ntp++] = a;
                 n->dhcp_server_ntp = m;
         }
+}
+
+int config_parse_ipv6_mtu(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        int *mtu = data;
+        int k, r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        r = config_parse_int(unit, filename, line, section, section_line, lvalue, ltype, rvalue, &k, userdata);
+        if (r < 0)
+                return r;
+
+        if (k < IPV6_MIN_MTU) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse IPv6 MTU for interface. Allowed minimum MTU is 1280 bytes ignoring: %s", rvalue);
+                return 0;
+        }
+
+        *mtu = k;
+
+        return 0;
 }
