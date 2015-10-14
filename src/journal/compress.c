@@ -460,7 +460,7 @@ int compress_stream_lz4(int fdf, int fdt, uint64_t max_bytes) {
                 return -EINVAL;
 
         src = mmap(NULL, st.st_size, PROT_READ, MAP_PRIVATE, fdf, 0);
-        if (!src)
+        if (src == MAP_FAILED)
                 return -errno;
 
         log_debug("Buffer size is %zu bytes, header size %zu bytes.", size, n);
@@ -688,7 +688,7 @@ static int decompress_stream_lz4_v2(int in, int out, uint64_t max_bytes) {
                 return -ENOMEM;
 
         src = mmap(NULL, st.st_size, PROT_READ, MAP_PRIVATE, in, 0);
-        if (!src)
+        if (src == MAP_FAILED)
                 return -errno;
 
         while (total_in < (size_t) st.st_size) {
