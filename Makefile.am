@@ -1229,7 +1229,7 @@ BUILT_SOURCES += \
 	$(gperf_gperf_m4_sources:-gperf.gperf.m4=-gperf-nulstr.c) \
 	$(gperf_gperf_sources:-gperf.gperf=-gperf.c) \
 	$(gperf_txt_sources:-list.txt=-from-name.h) \
-	$(gperf_txt_sources:-list.txt=-to-name.h)
+	$(filter-out %keyboard-keys-to-name.h,$(gperf_txt_sources:-list.txt=-to-name.h))
 
 CLEANFILES += \
 	$(gperf_txt_sources:-list.txt=-from-name.gperf)
@@ -3491,9 +3491,6 @@ src/udev/keyboard-keys-from-name.gperf: src/udev/keyboard-keys-list.txt
 src/udev/keyboard-keys-from-name.h: src/udev/keyboard-keys-from-name.gperf
 	$(AM_V_GPERF)$(GPERF) -L ANSI-C -t -N keyboard_lookup_key -H hash_key_name -p -C < $< > $@
 
-src/udev/keyboard-keys-to-name.h: src/udev/keyboard-keys-list.txt
-	$(AM_V_GEN)$(AWK) 'BEGIN{ print "const char* const key_names[KEY_CNT] = { "} { print "[" $$1 "] = \"" $$1 "\"," } END{print "};"}' < $< > $@
-
 gperf_txt_sources += \
 	src/udev/keyboard-keys-list.txt
 
@@ -3520,7 +3517,6 @@ libudev_core_la_SOURCES = \
 
 nodist_libudev_core_la_SOURCES = \
 	src/udev/keyboard-keys-from-name.h \
-	src/udev/keyboard-keys-to-name.h \
 	src/udev/net/link-config-gperf.c
 
 gperf_gperf_sources += \
