@@ -456,9 +456,11 @@ int sigchld_code_from_string(const char *s) _pure_;
 
 int log_facility_unshifted_to_string_alloc(int i, char **s);
 int log_facility_unshifted_from_string(const char *s);
+bool log_facility_unshifted_is_valid(int faciliy);
 
 int log_level_to_string_alloc(int i, char **s);
 int log_level_from_string(const char *s);
+bool log_level_is_valid(int level);
 
 int sched_policy_to_string_alloc(int i, char **s);
 int sched_policy_from_string(const char *s);

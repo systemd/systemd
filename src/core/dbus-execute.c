@@ -881,6 +881,38 @@ int bus_exec_context_set_transient_property(
                 }
 
                 return 1;
+        } else if (streq(name, "SyslogLevel")) {
+                int level;
+
+                r = sd_bus_message_read(message, "i", &level);
+                if (r < 0)
+                        return r;
+
+                if (!log_level_is_valid(level))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Log level value out of range");
+
+                if (mode != UNIT_CHECK) {
+                        c->syslog_priority = (c->syslog_priority & LOG_FACMASK) | level;
+                        unit_write_drop_in_private_format(u, mode, name, "SyslogLevel=%i\n", level);
+                }
+
+                return 1;
+        } else if (streq(name, "SyslogFacility")) {
+                int facility;
+
+                r = sd_bus_message_read(message, "i", &facility);
+                if (r < 0)
+                        return r;
+
+                if (!log_facility_unshifted_is_valid(facility))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Log facility value out of range");
+
+                if (mode != UNIT_CHECK) {
+                        c->syslog_priority = (facility << 3) | LOG_PRI(c->syslog_priority);
+                        unit_write_drop_in_private_format(u, mode, name, "SyslogFacility=%i\n", facility);
+                }
+
+                return 1;
         } else if (streq(name, "Nice")) {
                 int n;
 
