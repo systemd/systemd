@@ -381,7 +381,7 @@ static int wall_tty_block(void) {
 
         fd = open(p, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (fd < 0)
-                return log_error_errno(errno, "Failed to open %s: %m", p);
+                return log_debug_errno(errno, "Failed to open %s: %m", p);
 
         return fd;
 }
