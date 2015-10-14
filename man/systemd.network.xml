@@ -426,6 +426,12 @@
         </listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>IPv6MTUBytes=</varname></term>
+          <listitem><para>Configures IPv6 maximum transmission unit (MTU).
+          An integer greater than or equal to 1280 bytes. Defaults to unset.
+        </para></listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>Bridge=</varname></term>
           <listitem>
             <para>The name of the bridge to add the link to.</para>
