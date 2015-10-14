@@ -679,7 +679,7 @@ const sd_bus_vtable bus_unit_vtable[] = {
         SD_BUS_PROPERTY("Asserts", "a(sbbsi)", property_get_conditions, offsetof(Unit, asserts), 0),
         SD_BUS_PROPERTY("LoadError", "(ss)", property_get_load_error, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Transient", "b", bus_property_get_bool, offsetof(Unit, transient), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("NetClass", "u", bus_property_get_unsigned, offsetof(Unit, cgroup_netclass_id), 0),
+        SD_BUS_PROPERTY("NetClass", "u", NULL, offsetof(Unit, cgroup_netclass_id), 0),
 
         SD_BUS_METHOD("Start", "s", "o", method_start, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("Stop", "s", "o", method_stop, SD_BUS_VTABLE_UNPRIVILEGED),
