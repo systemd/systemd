@@ -174,6 +174,8 @@ int main(int argc, char *argv[]) {
                         break;
         }
 
+        strv_erase(l);
+
 finish:
         free(arg_message);
 

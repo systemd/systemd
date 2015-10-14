@@ -51,15 +51,6 @@ static bool arg_copy_locale = false;
 static bool arg_copy_timezone = false;
 static bool arg_copy_root_password = false;
 
-static void clear_string(char *x) {
-
-        if (!x)
-                return;
-
-        /* A delicious drop of snake-oil! */
-        memset(x, 'x', strlen(x));
-}
-
 static bool press_any_key(void) {
         char k = 0;
         bool need_nl = true;
@@ -477,18 +468,18 @@ static int prompt_root_password(void) {
 
                 r = ask_password_tty(msg2, NULL, 0, 0, NULL, &b);
                 if (r < 0) {
-                        clear_string(a);
+                        string_erase(a);
                         return log_error_errno(r, "Failed to query root password: %m");
                 }
 
                 if (!streq(a, b)) {
                         log_error("Entered passwords did not match, please try again.");
-                        clear_string(a);
-                        clear_string(b);
+                        string_erase(a);
+                        string_erase(b);
                         continue;
                 }
 
-                clear_string(b);
+                string_erase(b);
                 arg_root_password = a;
                 a = NULL;
                 break;
@@ -881,7 +872,7 @@ finish:
         free(arg_locale_messages);
         free(arg_timezone);
         free(arg_hostname);
-        clear_string(arg_root_password);
+        string_erase(arg_root_password);
         free(arg_root_password);
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;

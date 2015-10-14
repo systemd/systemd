@@ -6805,3 +6805,21 @@ bool fdname_is_valid(const char *s) {
 bool oom_score_adjust_is_valid(int oa) {
         return oa >= OOM_SCORE_ADJ_MIN && oa <= OOM_SCORE_ADJ_MAX;
 }
+
+void string_erase(char *x) {
+
+        if (!x)
+                return;
+
+        /* A delicious drop of snake-oil! To be called on memory where
+         * we stored passphrases or so, after we used them. */
+
+        memory_erase(x, strlen(x));
+}
+
+void strv_erase(char **l) {
+        char **i;
+
+        STRV_FOREACH(i, l)
+                string_erase(*i);
+}

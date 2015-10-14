@@ -943,3 +943,7 @@ int version(void);
 bool fdname_is_valid(const char *s);
 
 bool oom_score_adjust_is_valid(int oa);
+
+#define memory_erase(p, l) memset((p), 'x', (l))
+void string_erase(char *x);
+void strv_erase(char **l);
