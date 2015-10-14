@@ -930,7 +930,7 @@ finish:
 
 static int system_journal_open(Server *s, bool flush_requested) {
         const char *fn;
-        int r;
+        int r = 0;
 
         if (!s->system_journal &&
             (s->storage == STORAGE_PERSISTENT || s->storage == STORAGE_AUTO) &&
