@@ -447,7 +447,7 @@ int compress_stream_lz4(int fdf, int fdt, uint64_t max_bytes) {
                 return -ENOMEM;
 
         if (fstat(fdf, &st) < 0)
-                return log_error_errno(errno, "fstat() failed: %m");
+                return log_debug_errno(errno, "fstat() failed: %m");
 
         frame_size = LZ4F_compressBound(LZ4_BUFSIZE, &preferences);
         size =  frame_size + 64*1024; /* add some space for header and trailer */
@@ -486,8 +486,6 @@ int compress_stream_lz4(int fdf, int fdt, uint64_t max_bytes) {
                 }
 
                 if (size - offset < frame_size + 4) {
-                        log_debug("Writing %zu bytes", offset);
-
                         k = loop_write(fdt, buf, offset, false);
                         if (k < 0) {
                                 r = k;
@@ -505,7 +503,6 @@ int compress_stream_lz4(int fdf, int fdt, uint64_t max_bytes) {
 
         offset += n;
         total_out += n;
-        log_debug("Writing %zu bytes", offset);
         r = loop_write(fdt, buf, offset, false);
         if (r < 0)
                 goto cleanup;
@@ -535,7 +532,7 @@ int decompress_stream_xz(int fdf, int fdt, uint64_t max_bytes) {
 
         ret = lzma_stream_decoder(&s, UINT64_MAX, 0);
         if (ret != LZMA_OK) {
-                log_error("Failed to initialize XZ decoder: code %u", ret);
+                log_debug("Failed to initialize XZ decoder: code %u", ret);
                 return -ENOMEM;
         }
 
@@ -561,7 +558,7 @@ int decompress_stream_xz(int fdf, int fdt, uint64_t max_bytes) {
 
                 ret = lzma_code(&s, action);
                 if (ret != LZMA_OK && ret != LZMA_STREAM_END) {
-                        log_error("Decompression failed: code %u", ret);
+                        log_debug("Decompression failed: code %u", ret);
                         return -EBADMSG;
                 }
 
@@ -591,7 +588,7 @@ int decompress_stream_xz(int fdf, int fdt, uint64_t max_bytes) {
                 }
         }
 #else
-        log_error("Cannot decompress file. Compiled without XZ support.");
+        log_debug("Cannot decompress file. Compiled without XZ support.");
         return -EPROTONOSUPPORT;
 #endif
 }
@@ -610,7 +607,7 @@ static int decompress_stream_lz4_v1(int fdf, int fdt, uint64_t max_bytes) {
 
         out = malloc(4*LZ4_BUFSIZE);
         if (!out)
-                return log_oom();
+                return -ENOMEM;
 
         for (;;) {
                 ssize_t m;
@@ -631,22 +628,24 @@ static int decompress_stream_lz4_v1(int fdf, int fdt, uint64_t max_bytes) {
                  * not accept buffers compressed by newer binaries then.
                  */
                 if (m > LZ4_COMPRESSBOUND(LZ4_BUFSIZE * 4)) {
-                        log_error("Compressed stream block too big: %zd bytes", m);
-                        return -EBADMSG;
+                        log_debug("Compressed stream block too big: %zd bytes", m);
+                        return -ENOBUFS;
                 }
 
                 total_in += sizeof(header) + m;
 
                 if (!GREEDY_REALLOC(buf, buf_size, m))
-                        return log_oom();
+                        return -ENOMEM;
 
                 r = loop_read_exact(fdf, buf, m, false);
                 if (r < 0)
                         return r;
 
                 r = LZ4_decompress_safe_continue(&lz4_data, buf, out, m, 4*LZ4_BUFSIZE);
-                if (r <= 0)
-                        log_error("LZ4 decompression failed (legacy format).");
+                if (r <= 0) {
+                        log_debug("LZ4 decompression failed (legacy format).");
+                        return -EBADMSG;
+                }
 
                 total_out += r;
 
@@ -681,7 +680,7 @@ static int decompress_stream_lz4_v2(int in, int out, uint64_t max_bytes) {
                 return -ENOMEM;
 
         if (fstat(in, &st) < 0)
-                return log_error_errno(errno, "fstat() failed: %m");
+                return log_debug_errno(errno, "fstat() failed: %m");
 
         buf = malloc(LZ4_BUFSIZE);
         if (!buf)
@@ -705,7 +704,8 @@ static int decompress_stream_lz4_v2(int in, int out, uint64_t max_bytes) {
                 total_out += produced;
 
                 if (max_bytes != (uint64_t) -1 && total_out > (size_t) max_bytes) {
-                        r = log_debug_errno(EFBIG, "Decompressed stream longer than %zd bytes", max_bytes);
+                        log_debug("Decompressed stream longer than %zd bytes", max_bytes);
+                        r = -EFBIG;
                         goto cleanup;
                 }
 
@@ -732,7 +732,7 @@ int decompress_stream_lz4(int fdf, int fdt, uint64_t max_bytes) {
                 r = decompress_stream_lz4_v1(fdf, fdt, max_bytes);
         return r;
 #else
-        log_error("Cannot decompress file. Compiled without LZ4 support.");
+        log_debug("Cannot decompress file. Compiled without LZ4 support.");
         return -EPROTONOSUPPORT;
 #endif
 }
