@@ -3699,6 +3699,10 @@ static const char *const log_facility_unshifted_table[LOG_NFACILITIES] = {
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(log_facility_unshifted, int, LOG_FAC(~0));
 
+bool log_facility_unshifted_is_valid(int facility) {
+        return facility >= 0 && facility <= LOG_FAC(~0);
+}
+
 static const char *const log_level_table[] = {
         [LOG_EMERG] = "emerg",
         [LOG_ALERT] = "alert",
@@ -3711,6 +3715,10 @@ static const char *const log_level_table[] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(log_level, int, LOG_DEBUG);
+
+bool log_level_is_valid(int level) {
+        return level >= 0 && level <= LOG_DEBUG;
+}
 
 static const char* const sched_policy_table[] = {
         [SCHED_OTHER] = "other",
