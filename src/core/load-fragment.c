@@ -2742,6 +2742,7 @@ int config_parse_tasks_max(
                 return 0;
         }
 
+        c->tasks_max = u;
         return 0;
 }
 
