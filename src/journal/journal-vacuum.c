@@ -217,13 +217,11 @@ int journal_directory_vacuum(
 
                         de->d_name[q-8-16-1-16-1] = 0;
                         if (sd_id128_from_string(de->d_name + q-8-16-1-16-1-32, &seqnum_id) < 0) {
-                                free(p);
                                 n_active_files++;
                                 continue;
                         }
 
                         if (sscanf(de->d_name + q-8-16-1-16, "%16llx-%16llx.journal", &seqnum, &realtime) != 2) {
-                                free(p);
                                 n_active_files++;
                                 continue;
                         }
@@ -253,7 +251,6 @@ int journal_directory_vacuum(
                         }
 
                         if (sscanf(de->d_name + q-1-8-16-1-16, "%16llx-%16llx.journal~", &realtime, &tmp) != 2) {
-                                free(p);
                                 n_active_files ++;
                                 continue;
                         }
