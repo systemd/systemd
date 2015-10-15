@@ -50,6 +50,44 @@ static void test_one(const char *input, const char *output) {
         assert_se(streq(q, p));
 }
 
+static void test_next(const char *input, const char *new_tz, usec_t after, usec_t expect) {
+        CalendarSpec *c;
+        usec_t u;
+        char *old_tz;
+        char buf[FORMAT_TIMESTAMP_MAX];
+        int r;
+
+        old_tz = getenv("TZ");
+        if (old_tz)
+                old_tz = strdupa(old_tz);
+
+        if (new_tz)
+                assert_se(setenv("TZ", new_tz, 1) >= 0);
+        else
+                assert_se(unsetenv("TZ") >= 0);
+        tzset();
+
+        assert_se(calendar_spec_from_string(input, &c) >= 0);
+
+        printf("\"%s\"\n", input);
+
+        u = after;
+        r = calendar_spec_next_usec(c, after, &u);
+        printf("At: %s\n", r < 0 ? strerror(-r) : format_timestamp(buf, sizeof(buf), u));
+        if (expect != (usec_t)-1)
+                assert_se(r >= 0 && u == expect);
+        else
+                assert(r == -ENOENT);
+
+        calendar_spec_free(c);
+
+        if (old_tz)
+                assert_se(setenv("TZ", old_tz, 1) >= 0);
+        else
+                assert_se(unsetenv("TZ") >= 0);
+        tzset();
+}
+
 int main(int argc, char* argv[]) {
         CalendarSpec *c;
 
@@ -82,6 +120,15 @@ int main(int argc, char* argv[]) {
         test_one("semi-annually", "*-01,07-01 00:00:00");
         test_one("annually", "*-01-01 00:00:00");
         test_one("*:2/3", "*-*-* *:02/3:00");
+        test_one("2015-10-25 01:00:00 uTc", "2015-10-25 01:00:00 UTC");
+
+        test_next("2016-03-27 03:17:00", "", 12345, 1459048620000000);
+        test_next("2016-03-27 03:17:00", "CET", 12345, 1459041420000000);
+        test_next("2016-03-27 03:17:00", "EET", 12345, -1);
+        test_next("2016-03-27 03:17:00 UTC", NULL, 12345, 1459048620000000);
+        test_next("2016-03-27 03:17:00 UTC", "", 12345, 1459048620000000);
+        test_next("2016-03-27 03:17:00 UTC", "CET", 12345, 1459048620000000);
+        test_next("2016-03-27 03:17:00 UTC", "EET", 12345, 1459048620000000);
 
         assert_se(calendar_spec_from_string("test", &c) < 0);
         assert_se(calendar_spec_from_string("", &c) < 0);
