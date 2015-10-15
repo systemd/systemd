@@ -83,8 +83,6 @@ int lldp_tlv_packet_close_container(tlv_packet *m);
 int tlv_packet_append_bytes(tlv_packet *m, const void *data, size_t data_length);
 int tlv_packet_append_u8(tlv_packet *m, uint8_t data);
 int tlv_packet_append_u16(tlv_packet *m, uint16_t data);
-int tlv_packet_append_u32(tlv_packet *m, uint32_t data);
-int tlv_packet_append_string(tlv_packet *m, char *data, uint16_t size);
 
 int lldp_tlv_packet_enter_container(tlv_packet *m, uint16_t type);
 int lldp_tlv_packet_enter_container_oui(tlv_packet *m, const uint8_t *oui, uint8_t subtype);

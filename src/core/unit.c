@@ -2320,44 +2320,6 @@ int unit_add_two_dependencies_by_name(Unit *u, UnitDependency d, UnitDependency 
         return unit_add_two_dependencies(u, d, e, other, add_reference);
 }
 
-int unit_add_dependency_by_name_inverse(Unit *u, UnitDependency d, const char *name, const char *path, bool add_reference) {
-        _cleanup_free_ char *buf = NULL;
-        Unit *other;
-        int r;
-
-        assert(u);
-        assert(name || path);
-
-        r = resolve_template(u, name, path, &buf, &name);
-        if (r < 0)
-                return r;
-
-        r = manager_load_unit(u->manager, name, path, NULL, &other);
-        if (r < 0)
-                return r;
-
-        return unit_add_dependency(other, d, u, add_reference);
-}
-
-int unit_add_two_dependencies_by_name_inverse(Unit *u, UnitDependency d, UnitDependency e, const char *name, const char *path, bool add_reference) {
-        _cleanup_free_ char *buf = NULL;
-        Unit *other;
-        int r;
-
-        assert(u);
-        assert(name || path);
-
-        r  = resolve_template(u, name, path, &buf, &name);
-        if (r < 0)
-                return r;
-
-        r = manager_load_unit(u->manager, name, path, NULL, &other);
-        if (r < 0)
-                return r;
-
-        return unit_add_two_dependencies(other, d, e, u, add_reference);
-}
-
 int set_unit_path(const char *p) {
         /* This is mostly for debug purposes */
         if (setenv("SYSTEMD_UNIT_PATH", p, 0) < 0)
@@ -3368,19 +3330,6 @@ static int unit_drop_in_dir(Unit *u, UnitSetPropertiesMode mode, bool transient,
         return 0;
 }
 
-static int unit_drop_in_file(Unit *u, UnitSetPropertiesMode mode, const char *name, char **p, char **q) {
-        _cleanup_free_ char *dir = NULL;
-        int r;
-
-        assert(u);
-
-        r = unit_drop_in_dir(u, mode, u->transient, &dir);
-        if (r < 0)
-                return r;
-
-        return drop_in_file(dir, u->id, 50, name, p, q);
-}
-
 int unit_write_drop_in(Unit *u, UnitSetPropertiesMode mode, const char *name, const char *data) {
 
         _cleanup_free_ char *dir = NULL, *p = NULL, *q = NULL;
@@ -3477,28 +3426,6 @@ int unit_write_drop_in_private_format(Unit *u, UnitSetPropertiesMode mode, const
                 return -ENOMEM;
 
         return unit_write_drop_in_private(u, mode, name, p);
-}
-
-int unit_remove_drop_in(Unit *u, UnitSetPropertiesMode mode, const char *name) {
-        _cleanup_free_ char *p = NULL, *q = NULL;
-        int r;
-
-        assert(u);
-
-        if (!IN_SET(mode, UNIT_PERSISTENT, UNIT_RUNTIME))
-                return 0;
-
-        r = unit_drop_in_file(u, mode, name, &p, &q);
-        if (r < 0)
-                return r;
-
-        if (unlink(q) < 0)
-                r = errno == ENOENT ? 0 : -errno;
-        else
-                r = 1;
-
-        rmdir(p);
-        return r;
 }
 
 int unit_make_transient(Unit *u) {

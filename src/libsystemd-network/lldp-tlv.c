@@ -125,23 +125,6 @@ int tlv_packet_append_u16(tlv_packet *m, uint16_t data) {
         return tlv_packet_append_bytes(m, &type, sizeof(uint16_t));
 }
 
-int tlv_packet_append_u32(tlv_packet *m, uint32_t data) {
-        uint32_t type;
-
-        assert_return(m, -EINVAL);
-
-        type = htonl(data);
-
-        return tlv_packet_append_bytes(m, &type, sizeof(uint32_t));
-}
-
-int tlv_packet_append_string(tlv_packet *m, char *data, uint16_t size) {
-
-        assert_return(m, -EINVAL);
-
-        return tlv_packet_append_bytes(m, data, size);
-}
-
 int lldp_tlv_packet_open_container(tlv_packet *m, uint16_t type) {
 
         assert_return(m, -EINVAL);

@@ -1166,23 +1166,6 @@ int manager_send(Manager *m, int fd, int ifindex, int family, const union in_add
         return -EAFNOSUPPORT;
 }
 
-DnsServer* manager_find_dns_server(Manager *m, int family, const union in_addr_union *in_addr) {
-        DnsServer *s;
-
-        assert(m);
-        assert(in_addr);
-
-        LIST_FOREACH(servers, s, m->dns_servers)
-                if (s->family == family && in_addr_equal(family, &s->address, in_addr) > 0)
-                        return s;
-
-        LIST_FOREACH(servers, s, m->fallback_dns_servers)
-                if (s->family == family && in_addr_equal(family, &s->address, in_addr) > 0)
-                        return s;
-
-        return NULL;
-}
-
 DnsServer *manager_set_dns_server(Manager *m, DnsServer *s) {
         assert(m);
 

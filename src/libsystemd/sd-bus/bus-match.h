@@ -97,6 +97,5 @@ enum bus_match_node_type bus_match_node_type_from_string(const char *k, size_t n
 
 int bus_match_parse(const char *match, struct bus_match_component **_components, unsigned *_n_components);
 void bus_match_parse_free(struct bus_match_component *components, unsigned n_components);
-char *bus_match_to_string(struct bus_match_component *components, unsigned n_components);
 
 enum bus_match_scope bus_match_get_scope(const struct bus_match_component *components, unsigned n_components);
