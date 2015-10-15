@@ -218,8 +218,24 @@ static int tmpfs_patch_options(
 
 int mount_sysfs(const char *dest) {
         const char *full, *top, *x;
+        _cleanup_close_ int sys = -1;
+        int r;
 
         top = prefix_roota(dest, "/sys");
+        sys = open(top, O_RDONLY);
+        if (sys < 0)
+                return log_error_errno(errno, "Failed to open %s: %m", top);
+
+        r = fd_is_sysfs(sys);
+        if (r < 0)
+                log_error_errno(errno, "Failed to determine filesystem type of %s: %m", top);
+        /* /sys might already be mounted as sysfs by the outer child in the
+         * !netns case. In this case, it's all good. Don't touch it because we
+         * don't have the right to do so, see https://github.com/systemd/systemd/issues/1555.
+         */
+        if (r > 0)
+                return 0;
+
         full = prefix_roota(top, "/full");
 
         (void) mkdir(full, 0755);
@@ -264,6 +280,7 @@ int mount_sysfs(const char *dest) {
 
 int mount_all(const char *dest,
               bool use_userns, bool in_userns,
+              bool use_netns,
               uid_t uid_shift, uid_t uid_range,
               const char *selinux_apifs_context) {
 
@@ -330,6 +347,14 @@ int mount_all(const char *dest,
                                 return log_oom();
                         if (r > 0)
                                 o = options;
+                }
+
+                if (!use_netns && streq_ptr(mount_table[k].where, "/sys")) {
+                        if (mount("sysfs", where, "sysfs", MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV, NULL) < 0) {
+                                return log_error_errno(errno, "mount(%s) failed: %m", where);
+                        }
+
+                        continue;
                 }
 
                 if (mount(mount_table[k].what,

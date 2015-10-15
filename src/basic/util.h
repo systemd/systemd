@@ -368,6 +368,9 @@ int fchmod_and_fchown(int fd, mode_t mode, uid_t uid, gid_t gid);
 bool is_temporary_fs(const struct statfs *s) _pure_;
 int fd_is_temporary_fs(int fd);
 
+bool is_sysfs(const struct statfs *s) _pure_;
+int fd_is_sysfs(int fd);
+
 int pipe_eof(int fd);
 
 #define xsprintf(buf, fmt, ...) \
