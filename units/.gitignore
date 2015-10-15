@@ -78,4 +78,5 @@
 /systemd-update-utmp.service
 /systemd-user-sessions.service
 /systemd-vconsole-setup.service
+/tmp.mount
 /user@.service
