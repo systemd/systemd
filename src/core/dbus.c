@@ -784,7 +784,7 @@ static int bus_setup_api(Manager *m, sd_bus *bus) {
         HASHMAP_FOREACH_KEY(u, name, m->watch_bus, i) {
                 r = unit_install_bus_match(u, bus, name);
                 if (r < 0)
-                        log_error_errno(r, "Failed to subscribe to NameOwnerChanged signal: %m");
+                        log_error_errno(r, "Failed to subscribe to NameOwnerChanged signal for '%s': %m", name);
         }
 
         r = sd_bus_add_match(
