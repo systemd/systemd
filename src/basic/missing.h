@@ -248,6 +248,10 @@ static inline int getrandom(void *buffer, size_t count, unsigned flags) {
 #define BTRFS_SEARCH_ARGS_BUFSIZE (4096 - sizeof(struct btrfs_ioctl_search_key))
 #endif
 
+#ifndef BTRFS_QGROUP_LEVEL_SHIFT
+#define BTRFS_QGROUP_LEVEL_SHIFT 48
+#endif
+
 #ifndef HAVE_LINUX_BTRFS_H
 struct btrfs_ioctl_vol_args {
         int64_t fd;

@@ -86,3 +86,6 @@ int btrfs_resize_loopback(const char *path, uint64_t size, bool grow_only);
 
 int btrfs_subvol_remove(const char *path, bool recursive);
 int btrfs_subvol_remove_fd(int fd, const char *subvolume, bool recursive);
+
+int btrfs_qgroup_create(int fd, uint64_t level, uint64_t id);
+int btrfs_qgroup_destroy(int fd, uint64_t level, uint64_t id);
