@@ -126,6 +126,10 @@
 #define SOL_NETLINK 270
 #endif
 
+#ifndef NETLINK_LIST_MEMBERSHIPS
+#define NETLINK_LIST_MEMBERSHIPS 9
+#endif
+
 #if !HAVE_DECL_PIVOT_ROOT
 static inline int pivot_root(const char *new_root, const char *put_old) {
         return syscall(SYS_pivot_root, new_root, put_old);
