@@ -2499,20 +2499,48 @@ char *getusername_malloc(void) {
         return lookup_uid(getuid());
 }
 
-bool is_temporary_fs(const struct statfs *s) {
+bool is_fs_type(const struct statfs *s, int magic_value) {
         assert(s);
 
-        return F_TYPE_EQUAL(s->f_type, TMPFS_MAGIC) ||
-               F_TYPE_EQUAL(s->f_type, RAMFS_MAGIC);
+        return F_TYPE_EQUAL(s->f_type, magic_value);
 }
 
-int fd_is_temporary_fs(int fd) {
+int fd_check_fstype(int fd, int magic_value) {
         struct statfs s;
 
         if (fstatfs(fd, &s) < 0)
                 return -errno;
 
-        return is_temporary_fs(&s);
+        return is_fs_type(&s, magic_value);
+}
+
+int path_check_fstype(const char *path, int magic_value) {
+        _cleanup_close_ int fd = -1;
+
+        fd = open(path, O_RDONLY);
+        if (fd < 0)
+                return -errno;
+
+        return fd_check_fstype(fd, magic_value);
+}
+
+bool is_temporary_fs(const struct statfs *s) {
+    return is_fs_type(s, TMPFS_MAGIC) ||
+           is_fs_type(s, RAMFS_MAGIC);
+}
+
+int fd_is_temporary_fs(int fd) {
+        int tmpfs, ramfs;
+
+        tmpfs = fd_check_fstype(fd, TMPFS_MAGIC);
+        if (tmpfs < 0)
+                return tmpfs;
+
+        ramfs = fd_check_fstype(fd, RAMFS_MAGIC);
+        if (ramfs < 0)
+                return ramfs;
+
+        return tmpfs || ramfs;
 }
 
 int chmod_and_chown(const char *path, mode_t mode, uid_t uid, gid_t gid) {

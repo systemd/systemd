@@ -365,6 +365,10 @@ char* getusername_malloc(void);
 int chmod_and_chown(const char *path, mode_t mode, uid_t uid, gid_t gid);
 int fchmod_and_fchown(int fd, mode_t mode, uid_t uid, gid_t gid);
 
+bool is_fs_type(const struct statfs *s, int magic_value) _pure_;
+int fd_check_fstype(int fd, int magic_value);
+int path_check_fstype(const char *path, int magic_value);
+
 bool is_temporary_fs(const struct statfs *s) _pure_;
 int fd_is_temporary_fs(int fd);
 
