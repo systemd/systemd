@@ -26,7 +26,7 @@
 #include "sd-dhcp-client.h"
 #include "sd-dhcp-server.h"
 #include "sd-ipv4ll.h"
-#include "sd-icmp6-nd.h"
+#include "sd-ndisc.h"
 #include "sd-dhcp6-client.h"
 #include "sd-lldp.h"
 

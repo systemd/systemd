@@ -25,7 +25,7 @@
 #include "networkd-link.h"
 #include "network-internal.h"
 
-#include "sd-icmp6-nd.h"
+#include "sd-ndisc.h"
 #include "sd-dhcp6-client.h"
 
 static int dhcp6_lease_address_acquired(sd_dhcp6_client *client, Link *link);

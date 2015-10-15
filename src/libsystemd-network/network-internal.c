@@ -32,7 +32,7 @@
 #include "conf-parser.h"
 #include "condition.h"
 #include "network-internal.h"
-#include "sd-icmp6-nd.h"
+#include "sd-ndisc.h"
 
 const char *net_get_name(struct udev_device *device) {
         const char *name, *field;

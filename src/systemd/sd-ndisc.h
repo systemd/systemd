@@ -1,7 +1,7 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foosdicmp6ndfoo
-#define foosdicmp6ndfoo
+#ifndef foosdndiscfoo
+#define foosdndiscfoo
 
 /***
   This file is part of systemd.

@@ -28,7 +28,7 @@
 #include "async.h"
 
 #include "dhcp6-internal.h"
-#include "sd-icmp6-nd.h"
+#include "sd-ndisc.h"
 
 #define ICMP6_ROUTER_SOLICITATION_INTERVAL      4 * USEC_PER_SEC
 #define ICMP6_MAX_ROUTER_SOLICITATIONS          3

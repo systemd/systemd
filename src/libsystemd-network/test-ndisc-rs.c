@@ -24,7 +24,7 @@
 #include "socket-util.h"
 
 #include "dhcp6-internal.h"
-#include "sd-icmp6-nd.h"
+#include "sd-ndisc.h"
 
 static struct ether_addr mac_addr = {
         .ether_addr_octet = {'A', 'B', 'C', '1', '2', '3'}
