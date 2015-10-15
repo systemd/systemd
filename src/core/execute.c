@@ -2314,7 +2314,7 @@ static void strv_fprintf(FILE *f, char **l) {
 }
 
 void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
-        char **e;
+        char **e, **d;
         unsigned i;
 
         assert(c);
@@ -2349,6 +2349,11 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
 
         STRV_FOREACH(e, c->environment_files)
                 fprintf(f, "%sEnvironmentFile: %s\n", prefix, *e);
+
+        fprintf(f, "%sRuntimeDirectoryMode: %04o\n", prefix, c->runtime_directory_mode);
+
+        STRV_FOREACH(d, c->runtime_directory)
+                fprintf(f, "%sRuntimeDirectory: %s\n", prefix, *d);
 
         if (c->nice_set)
                 fprintf(f,
