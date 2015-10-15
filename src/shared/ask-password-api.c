@@ -94,7 +94,7 @@ static int retrieve_key(key_serial_t serial, char ***ret) {
 }
 
 static int add_to_keyring(const char *keyname, AskPasswordFlags flags, char **passwords) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_strv_free_erase_ char **l = NULL;
         _cleanup_free_ char *p = NULL;
         key_serial_t serial;
         size_t n;
@@ -119,7 +119,6 @@ static int add_to_keyring(const char *keyname, AskPasswordFlags flags, char **pa
                 return r;
 
         r = strv_make_nulstr(l, &p, &n);
-        strv_erase(l);
         if (r < 0)
                 return r;
 

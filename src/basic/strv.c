@@ -86,6 +86,15 @@ char **strv_free(char **l) {
         return NULL;
 }
 
+char **strv_free_erase(char **l) {
+        char **i;
+
+        STRV_FOREACH(i, l)
+                string_erase(*i);
+
+        return strv_free(l);
+}
+
 char **strv_copy(char * const *l) {
         char **r, **k;
 

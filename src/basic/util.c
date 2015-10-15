@@ -6817,9 +6817,10 @@ void string_erase(char *x) {
         memory_erase(x, strlen(x));
 }
 
-void strv_erase(char **l) {
-        char **i;
+char *string_free_erase(char *s) {
+        if (!s)
+                return NULL;
 
-        STRV_FOREACH(i, l)
-                string_erase(*i);
+        string_erase(s);
+        return mfree(s);
 }

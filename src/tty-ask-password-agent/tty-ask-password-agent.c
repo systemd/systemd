@@ -307,7 +307,7 @@ static int parse_password(const char *filename, char **wall) {
                 }
 
                 if (arg_plymouth) {
-                        _cleanup_strv_free_ char **passwords = NULL;
+                        _cleanup_strv_free_erase_ char **passwords = NULL;
 
                         r = ask_password_plymouth(message, not_after, accept_cached ? ASK_PASSWORD_ACCEPT_CACHED : 0, filename, &passwords);
                         if (r >= 0) {
@@ -330,10 +330,8 @@ static int parse_password(const char *filename, char **wall) {
                                 }
                         }
 
-                        strv_erase(passwords);
-
                 } else {
-                        _cleanup_free_ char *password = NULL;
+                        _cleanup_string_free_erase_ char *password = NULL;
                         int tty_fd = -1;
 
                         if (arg_console) {
@@ -363,8 +361,6 @@ static int parse_password(const char *filename, char **wall) {
                                         strcpy(packet + 1, password);
                                 }
                         }
-
-                        string_erase(password);
                 }
 
                 if (IN_SET(r, -ETIME, -ENOENT)) {

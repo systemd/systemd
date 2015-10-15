@@ -314,7 +314,7 @@ static char *disk_mount_point(const char *label) {
 
 static int get_password(const char *vol, const char *src, usec_t until, bool accept_cached, char ***ret) {
         _cleanup_free_ char *description = NULL, *name_buffer = NULL, *mount_point = NULL, *maj_min = NULL, *text = NULL, *escaped_name = NULL;
-        _cleanup_strv_free_ char **passwords = NULL, **passwords2 = NULL;
+        _cleanup_strv_free_erase_ char **passwords = NULL;
         const char *name = NULL;
         char **p, *id;
         int r = 0;
@@ -361,32 +361,31 @@ static int get_password(const char *vol, const char *src, usec_t until, bool acc
 
         id = strjoina("cryptsetup:", escaped_name);
 
-        r = ask_password_auto(text, "drive-harddisk", id, "cryptsetup", until, ASK_PASSWORD_PUSH_CACHE|(accept_cached ? ASK_PASSWORD_ACCEPT_CACHED : 0), &passwords);
+        r = ask_password_auto(text, "drive-harddisk", id, "cryptsetup", until,
+                              ASK_PASSWORD_PUSH_CACHE | (accept_cached*ASK_PASSWORD_ACCEPT_CACHED),
+                              &passwords);
         if (r < 0)
                 return log_error_errno(r, "Failed to query password: %m");
 
         if (arg_verify) {
+                _cleanup_strv_free_erase_ char **passwords2 = NULL;
+
                 assert(strv_length(passwords) == 1);
 
-                if (asprintf(&text, "Please enter passphrase for disk %s! (verification)", name) < 0) {
-                        r = log_oom();
-                        goto finish;
-                }
+                if (asprintf(&text, "Please enter passphrase for disk %s! (verification)", name) < 0)
+                        return log_oom();
 
                 id = strjoina("cryptsetup-verification:", escaped_name);
 
                 r = ask_password_auto(text, "drive-harddisk", id, "cryptsetup", until, ASK_PASSWORD_PUSH_CACHE, &passwords2);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to query verification password: %m");
-                        goto finish;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to query verification password: %m");
 
                 assert(strv_length(passwords2) == 1);
 
                 if (!streq(passwords[0], passwords2[0])) {
                         log_warning("Passwords did not match, retrying.");
-                        r = -EAGAIN;
-                        goto finish;
+                        return -EAGAIN;
                 }
         }
 
@@ -400,10 +399,8 @@ static int get_password(const char *vol, const char *src, usec_t until, bool acc
 
                 /* Pad password if necessary */
                 c = new(char, arg_key_size);
-                if (!c) {
-                        r = -ENOMEM;
-                        goto finish;
-                }
+                if (!c)
+                        return log_oom();
 
                 strncpy(c, *p, arg_key_size);
                 free(*p);
@@ -413,13 +410,7 @@ static int get_password(const char *vol, const char *src, usec_t until, bool acc
         *ret = passwords;
         passwords = NULL;
 
-        r = 0;
-
-finish:
-        strv_erase(passwords);
-        strv_erase(passwords2);
-
-        return r;
+        return 0;
 }
 
 static int attach_tcrypt(
@@ -683,7 +674,7 @@ int main(int argc, char *argv[]) {
                 }
 
                 for (tries = 0; arg_tries == 0 || tries < arg_tries; tries++) {
-                        _cleanup_strv_free_ char **passwords = NULL;
+                        _cleanup_strv_free_erase_ char **passwords = NULL;
 
                         if (!key_file) {
                                 k = get_password(argv[2], argv[3], until, tries == 0 && !arg_verify, &passwords);
@@ -702,7 +693,6 @@ int main(int argc, char *argv[]) {
                                                          arg_header ? argv[3] : NULL,
                                                          passwords,
                                                          flags);
-                        strv_erase(passwords);
                         if (k >= 0)
                                 break;
                         else if (k == -EAGAIN) {

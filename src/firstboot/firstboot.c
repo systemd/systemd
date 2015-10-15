@@ -455,7 +455,7 @@ static int prompt_root_password(void) {
         msg2 = strjoina(draw_special_char(DRAW_TRIANGULAR_BULLET), " Please enter new root password again: ");
 
         for (;;) {
-                _cleanup_free_ char *a = NULL, *b = NULL;
+                _cleanup_string_free_erase_ char *a = NULL, *b = NULL;
 
                 r = ask_password_tty(msg1, NULL, 0, 0, NULL, &a);
                 if (r < 0)
@@ -467,19 +467,14 @@ static int prompt_root_password(void) {
                 }
 
                 r = ask_password_tty(msg2, NULL, 0, 0, NULL, &b);
-                if (r < 0) {
-                        string_erase(a);
+                if (r < 0)
                         return log_error_errno(r, "Failed to query root password: %m");
-                }
 
                 if (!streq(a, b)) {
                         log_error("Entered passwords did not match, please try again.");
-                        string_erase(a);
-                        string_erase(b);
                         continue;
                 }
 
-                string_erase(b);
                 arg_root_password = a;
                 a = NULL;
                 break;
