@@ -2515,6 +2515,21 @@ int fd_is_temporary_fs(int fd) {
         return is_temporary_fs(&s);
 }
 
+bool is_sysfs(const struct statfs *s) {
+        assert(s);
+
+        return s->f_type == SYSFS_MAGIC;
+}
+
+int fd_is_sysfs(int fd) {
+        struct statfs s;
+
+        if (fstatfs(fd, &s) < 0)
+                return -errno;
+
+        return is_sysfs(&s);
+}
+
 int chmod_and_chown(const char *path, mode_t mode, uid_t uid, gid_t gid) {
         assert(path);
 

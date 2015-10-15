@@ -2450,7 +2450,7 @@ static int inner_child(
                 }
         }
 
-        r = mount_all(NULL, arg_userns, true, arg_uid_shift, arg_uid_range, arg_selinux_apifs_context);
+        r = mount_all(NULL, arg_userns, true, arg_uid_shift, arg_private_network, arg_uid_range, arg_selinux_apifs_context);
         if (r < 0)
                 return r;
 
@@ -2705,7 +2705,7 @@ static int outer_child(
                         return log_error_errno(r, "Failed to make tree read-only: %m");
         }
 
-        r = mount_all(directory, arg_userns, false, arg_uid_shift, arg_uid_range, arg_selinux_apifs_context);
+        r = mount_all(directory, arg_userns, false, arg_private_network, arg_uid_shift, arg_uid_range, arg_selinux_apifs_context);
         if (r < 0)
                 return r;
 
