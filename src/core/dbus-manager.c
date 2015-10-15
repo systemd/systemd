@@ -20,6 +20,7 @@
 ***/
 
 #include <errno.h>
+#include <sys/prctl.h>
 #include <unistd.h>
 
 #include "log.h"
@@ -344,6 +345,21 @@ static int property_set_runtime_watchdog(
                 return r;
 
         return watchdog_set_timeout(t);
+}
+
+static int property_get_timer_slack_nsec(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        assert(bus);
+        assert(reply);
+
+        return sd_bus_message_append(reply, "t", (uint64_t) prctl(PR_GET_TIMERSLACK));
 }
 
 static int method_get_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -1993,6 +2009,7 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_PROPERTY("DefaultLimitNICE", "t", bus_property_get_rlimit, offsetof(Manager, rlimit[RLIMIT_NICE]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultLimitRTPRIO", "t", bus_property_get_rlimit, offsetof(Manager, rlimit[RLIMIT_RTPRIO]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultLimitRTTIME", "t", bus_property_get_rlimit, offsetof(Manager, rlimit[RLIMIT_RTTIME]), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("TimerSlackNSec", "t", property_get_timer_slack_nsec, 0, SD_BUS_VTABLE_PROPERTY_CONST),
 
         SD_BUS_METHOD("GetUnit", "s", "o", method_get_unit, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("GetUnitByPID", "u", "o", method_get_unit_by_pid, SD_BUS_VTABLE_UNPRIVILEGED),
