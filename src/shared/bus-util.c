@@ -1655,7 +1655,16 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                 }
 
                 r = sd_bus_message_append(m, "v", "t", u);
+        } else if (streq(field, "TimerSlackNSec")) {
+                nsec_t n;
 
+                r = parse_nsec(eq, &n);
+                if (r < 0) {
+                        log_error("Failed to parse %s value %s", field, eq);
+                        return -EINVAL;
+                }
+
+                r = sd_bus_message_append(m, "v", "t", n);
         } else {
                 log_error("Unknown assignment %s.", assignment);
                 return -EINVAL;
