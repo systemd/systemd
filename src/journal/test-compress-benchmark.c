@@ -20,6 +20,7 @@
 #include "compress.h"
 #include "util.h"
 #include "macro.h"
+#include "random-util.h"
 
 typedef int (compress_t)(const void *src, uint64_t src_size, void *dst, size_t *dst_size);
 typedef int (decompress_t)(const void *src, uint64_t src_size,
@@ -27,20 +28,31 @@ typedef int (decompress_t)(const void *src, uint64_t src_size,
 
 #define MAX_SIZE (1024*1024LU)
 
-static char* make_buf(size_t count) {
+static char* make_buf(size_t count, const char *type) {
         char *buf;
         size_t i;
 
         buf = malloc(count);
         assert_se(buf);
 
-        for (i = 0; i < count; i++)
-                buf[i] = 'a' + i % ('z' - 'a' + 1);
+        if (streq(type, "zeros"))
+                memzero(buf, count);
+        else if (streq(type, "simple"))
+                for (i = 0; i < count; i++)
+                        buf[i] = 'a' + i % ('z' - 'a' + 1);
+        else if (streq(type, "random")) {
+                random_bytes(buf, count/10);
+                random_bytes(buf + 2*count/10, count/10);
+                random_bytes(buf + 4*count/10, count/20);
+                random_bytes(buf + 6*count/10, count/20);
+                random_bytes(buf + 8*count/10, count/20);
+        } else
+                assert_not_reached("here");
 
         return buf;
 }
 
-static void test_compress_decompress(const char* label,
+static void test_compress_decompress(const char* label, const char* type,
                                      compress_t compress, decompress_t decompress) {
         usec_t n, n2 = 0;
         float dt;
@@ -50,7 +62,7 @@ static void test_compress_decompress(const char* label,
         size_t buf2_allocated = 0;
         size_t skipped = 0, compressed = 0, total = 0;
 
-        text = make_buf(MAX_SIZE);
+        text = make_buf(MAX_SIZE, type);
         buf = calloc(MAX_SIZE + 1, 1);
         assert_se(text && buf);
 
@@ -62,7 +74,8 @@ static void test_compress_decompress(const char* label,
 
                 r = compress(text, i, buf, &j);
                 /* assume compression must be successful except for small inputs */
-                assert_se(r == 0 || (i < 2048 && r == -ENOBUFS));
+                assert_se(r == 0 || (i < 2048 && r == -ENOBUFS) || streq(type, "random"));
+
                 /* check for overwrites */
                 assert_se(buf[i] == 0);
                 if (r != 0) {
@@ -91,23 +104,26 @@ static void test_compress_decompress(const char* label,
 
         dt = (n2-n) / 1e6;
 
-        log_info("%s: compressed & decompressed %zu bytes in %.2fs (%.2fMiB/s), "
+        log_info("%s/%s: compressed & decompressed %zu bytes in %.2fs (%.2fMiB/s), "
                  "mean compresion %.2f%%, skipped %zu bytes",
-                 label, total, dt,
+                 label, type, total, dt,
                  total / 1024. / 1024 / dt,
                  100 - compressed * 100. / total,
                  skipped);
 }
 
 int main(int argc, char *argv[]) {
+        const char *i;
 
         log_set_max_level(LOG_DEBUG);
 
+        NULSTR_FOREACH(i, "zeros\0simple\0random\0") {
 #ifdef HAVE_XZ
-        test_compress_decompress("XZ", compress_blob_xz, decompress_blob_xz);
+                test_compress_decompress("XZ", i, compress_blob_xz, decompress_blob_xz);
 #endif
 #ifdef HAVE_LZ4
-        test_compress_decompress("LZ4", compress_blob_lz4, decompress_blob_lz4);
+                test_compress_decompress("LZ4", i, compress_blob_lz4, decompress_blob_lz4);
 #endif
+        }
         return 0;
 }
