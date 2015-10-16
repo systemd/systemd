@@ -27,46 +27,46 @@
 #include "sd-event.h"
 
 enum {
-        SD_ICMP6_ND_EVENT_ROUTER_ADVERTISMENT_NONE              = 0,
-        SD_ICMP6_ND_EVENT_ROUTER_ADVERTISMENT_TIMEOUT           = 1,
-        SD_ICMP6_ND_EVENT_ROUTER_ADVERTISMENT_OTHER             = 2,
-        SD_ICMP6_ND_EVENT_ROUTER_ADVERTISMENT_MANAGED           = 3,
-        SD_ICMP6_ND_EVENT_ROUTER_ADVERTISMENT_PREFIX_EXPIRED    = 4,
+        SD_NDISC_EVENT_ROUTER_ADVERTISMENT_NONE              = 0,
+        SD_NDISC_EVENT_ROUTER_ADVERTISMENT_TIMEOUT           = 1,
+        SD_NDISC_EVENT_ROUTER_ADVERTISMENT_OTHER             = 2,
+        SD_NDISC_EVENT_ROUTER_ADVERTISMENT_MANAGED           = 3,
+        SD_NDISC_EVENT_ROUTER_ADVERTISMENT_PREFIX_EXPIRED    = 4,
 };
 
-typedef struct sd_icmp6_nd sd_icmp6_nd;
+typedef struct sd_ndisc sd_ndisc;
 
-typedef void(*sd_icmp6_nd_callback_t)(sd_icmp6_nd *nd, int event,
+typedef void(*sd_ndisc_callback_t)(sd_ndisc *nd, int event,
                                       void *userdata);
 
-int sd_icmp6_nd_set_callback(sd_icmp6_nd *nd, sd_icmp6_nd_callback_t cb,
+int sd_ndisc_set_callback(sd_ndisc *nd, sd_ndisc_callback_t cb,
                              void *userdata);
-int sd_icmp6_nd_set_index(sd_icmp6_nd *nd, int interface_index);
-int sd_icmp6_nd_set_mac(sd_icmp6_nd *nd, const struct ether_addr *mac_addr);
+int sd_ndisc_set_index(sd_ndisc *nd, int interface_index);
+int sd_ndisc_set_mac(sd_ndisc *nd, const struct ether_addr *mac_addr);
 
-int sd_icmp6_nd_attach_event(sd_icmp6_nd *nd, sd_event *event, int priority);
-int sd_icmp6_nd_detach_event(sd_icmp6_nd *nd);
-sd_event *sd_icmp6_nd_get_event(sd_icmp6_nd *nd);
+int sd_ndisc_attach_event(sd_ndisc *nd, sd_event *event, int priority);
+int sd_ndisc_detach_event(sd_ndisc *nd);
+sd_event *sd_ndisc_get_event(sd_ndisc *nd);
 
-sd_icmp6_nd *sd_icmp6_nd_ref(sd_icmp6_nd *nd);
-sd_icmp6_nd *sd_icmp6_nd_unref(sd_icmp6_nd *nd);
-int sd_icmp6_nd_new(sd_icmp6_nd **ret);
+sd_ndisc *sd_ndisc_ref(sd_ndisc *nd);
+sd_ndisc *sd_ndisc_unref(sd_ndisc *nd);
+int sd_ndisc_new(sd_ndisc **ret);
 
-int sd_icmp6_prefix_match(struct in6_addr *prefix, uint8_t prefixlen,
+int sd_ndisc_prefix_match(struct in6_addr *prefix, uint8_t prefixlen,
                         struct in6_addr *addr);
 
-int sd_icmp6_ra_get_mtu(sd_icmp6_nd *nd, uint32_t *mtu);
-int sd_icmp6_ra_get_prefixlen(sd_icmp6_nd *nd, const struct in6_addr *addr,
+int sd_ndisc_get_mtu(sd_ndisc *nd, uint32_t *mtu);
+int sd_ndisc_get_prefixlen(sd_ndisc *nd, const struct in6_addr *addr,
                         uint8_t *prefixlen);
-int sd_icmp6_ra_get_expired_prefix(sd_icmp6_nd *nd, struct in6_addr **addr,
+int sd_ndisc_get_expired_prefix(sd_ndisc *nd, struct in6_addr **addr,
                                 uint8_t *prefixlen);
 
-int sd_icmp6_nd_stop(sd_icmp6_nd *nd);
-int sd_icmp6_router_solicitation_start(sd_icmp6_nd *nd);
+int sd_ndisc_stop(sd_ndisc *nd);
+int sd_ndisc_router_discovery_start(sd_ndisc *nd);
 
-#define SD_ICMP6_ND_ADDRESS_FORMAT_STR "%04x:%04x:%04x:%04x:%04x:%04x:%04x:%04x"
+#define SD_NDISC_ADDRESS_FORMAT_STR "%04x:%04x:%04x:%04x:%04x:%04x:%04x:%04x"
 
-#define SD_ICMP6_ND_ADDRESS_FORMAT_VAL(address) \
+#define SD_NDISC_ADDRESS_FORMAT_VAL(address) \
         be16toh((address).s6_addr16[0]),        \
         be16toh((address).s6_addr16[1]),        \
         be16toh((address).s6_addr16[2]),        \

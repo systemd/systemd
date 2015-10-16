@@ -390,8 +390,8 @@ void serialize_in6_addrs(FILE *f, const struct in6_addr *addresses,
         assert(size);
 
         for (i = 0; i < size; i++)
-                fprintf(f, SD_ICMP6_ND_ADDRESS_FORMAT_STR"%s",
-                        SD_ICMP6_ND_ADDRESS_FORMAT_VAL(addresses[i]),
+                fprintf(f, SD_NDISC_ADDRESS_FORMAT_STR"%s",
+                        SD_NDISC_ADDRESS_FORMAT_VAL(addresses[i]),
                         (i < (size - 1)) ? " ": "");
 }
 

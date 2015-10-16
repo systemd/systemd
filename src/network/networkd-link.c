@@ -370,7 +370,7 @@ static void link_free(Link *link) {
 
         sd_ipv4ll_unref(link->ipv4ll);
         sd_dhcp6_client_unref(link->dhcp6_client);
-        sd_icmp6_nd_unref(link->icmp6_router_discovery);
+        sd_ndisc_unref(link->icmp6_router_discovery);
 
         if (link->manager)
                 hashmap_remove(link->manager->links, INT_TO_PTR(link->ifindex));
@@ -488,7 +488,7 @@ static int link_stop_clients(Link *link) {
                                 r = log_link_warning_errno(link, r, "Could not stop DHCPv6 client: %m");
                 }
 
-                k = sd_icmp6_nd_stop(link->icmp6_router_discovery);
+                k = sd_ndisc_stop(link->icmp6_router_discovery);
                 if (k < 0)
                         r = log_link_warning_errno(link, r, "Could not stop ICMPv6 router discovery: %m");
         }
@@ -1242,7 +1242,7 @@ static int link_acquire_conf(Link *link) {
 
                 log_link_debug(link, "Discovering IPv6 routers");
 
-                r = sd_icmp6_router_solicitation_start(link->icmp6_router_discovery);
+                r = sd_ndisc_router_discovery_start(link->icmp6_router_discovery);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Could not start IPv6 router discovery: %m");
         }

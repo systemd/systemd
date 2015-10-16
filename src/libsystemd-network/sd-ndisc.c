@@ -55,7 +55,7 @@ struct ICMP6Prefix {
         struct in6_addr addr;
 };
 
-struct sd_icmp6_nd {
+struct sd_ndisc {
         unsigned n_ref;
 
         enum icmp6_nd_state state;
@@ -70,7 +70,7 @@ struct sd_icmp6_nd {
         sd_event_source *recv;
         sd_event_source *timeout;
         int nd_sent;
-        sd_icmp6_nd_callback_t callback;
+        sd_ndisc_callback_t callback;
         void *userdata;
 };
 
@@ -110,12 +110,12 @@ static int icmp6_prefix_new(ICMP6Prefix **ret) {
         return 0;
 }
 
-static void icmp6_nd_notify(sd_icmp6_nd *nd, int event) {
+static void icmp6_nd_notify(sd_ndisc *nd, int event) {
         if (nd->callback)
                 nd->callback(nd, event, nd->userdata);
 }
 
-int sd_icmp6_nd_set_callback(sd_icmp6_nd *nd, sd_icmp6_nd_callback_t callback,
+int sd_ndisc_set_callback(sd_ndisc *nd, sd_ndisc_callback_t callback,
                              void *userdata) {
         assert(nd);
 
@@ -125,7 +125,7 @@ int sd_icmp6_nd_set_callback(sd_icmp6_nd *nd, sd_icmp6_nd_callback_t callback,
         return 0;
 }
 
-int sd_icmp6_nd_set_index(sd_icmp6_nd *nd, int interface_index) {
+int sd_ndisc_set_index(sd_ndisc *nd, int interface_index) {
         assert(nd);
         assert(interface_index >= -1);
 
@@ -134,7 +134,7 @@ int sd_icmp6_nd_set_index(sd_icmp6_nd *nd, int interface_index) {
         return 0;
 }
 
-int sd_icmp6_nd_set_mac(sd_icmp6_nd *nd, const struct ether_addr *mac_addr) {
+int sd_ndisc_set_mac(sd_ndisc *nd, const struct ether_addr *mac_addr) {
         assert(nd);
 
         if (mac_addr)
@@ -146,7 +146,7 @@ int sd_icmp6_nd_set_mac(sd_icmp6_nd *nd, const struct ether_addr *mac_addr) {
 
 }
 
-int sd_icmp6_nd_attach_event(sd_icmp6_nd *nd, sd_event *event, int priority) {
+int sd_ndisc_attach_event(sd_ndisc *nd, sd_event *event, int priority) {
         int r;
 
         assert_return(nd, -EINVAL);
@@ -165,7 +165,7 @@ int sd_icmp6_nd_attach_event(sd_icmp6_nd *nd, sd_event *event, int priority) {
         return 0;
 }
 
-int sd_icmp6_nd_detach_event(sd_icmp6_nd *nd) {
+int sd_ndisc_detach_event(sd_ndisc *nd) {
         assert_return(nd, -EINVAL);
 
         nd->event = sd_event_unref(nd->event);
@@ -173,13 +173,13 @@ int sd_icmp6_nd_detach_event(sd_icmp6_nd *nd) {
         return 0;
 }
 
-sd_event *sd_icmp6_nd_get_event(sd_icmp6_nd *nd) {
+sd_event *sd_ndisc_get_event(sd_ndisc *nd) {
         assert(nd);
 
         return nd->event;
 }
 
-sd_icmp6_nd *sd_icmp6_nd_ref(sd_icmp6_nd *nd) {
+sd_ndisc *sd_ndisc_ref(sd_ndisc *nd) {
 
         if (!nd)
                 return NULL;
@@ -190,7 +190,7 @@ sd_icmp6_nd *sd_icmp6_nd_ref(sd_icmp6_nd *nd) {
         return nd;
 }
 
-static int icmp6_nd_init(sd_icmp6_nd *nd) {
+static int icmp6_nd_init(sd_ndisc *nd) {
         assert(nd);
 
         nd->recv = sd_event_source_unref(nd->recv);
@@ -200,7 +200,7 @@ static int icmp6_nd_init(sd_icmp6_nd *nd) {
         return 0;
 }
 
-sd_icmp6_nd *sd_icmp6_nd_unref(sd_icmp6_nd *nd) {
+sd_ndisc *sd_ndisc_unref(sd_ndisc *nd) {
         ICMP6Prefix *prefix, *p;
 
         if (!nd)
@@ -213,7 +213,7 @@ sd_icmp6_nd *sd_icmp6_nd_unref(sd_icmp6_nd *nd) {
                 return NULL;
 
         icmp6_nd_init(nd);
-        sd_icmp6_nd_detach_event(nd);
+        sd_ndisc_detach_event(nd);
 
         LIST_FOREACH_SAFE(prefixes, prefix, p, nd->prefixes) {
                 LIST_REMOVE(prefixes, nd->prefixes, prefix);
@@ -226,15 +226,15 @@ sd_icmp6_nd *sd_icmp6_nd_unref(sd_icmp6_nd *nd) {
         return NULL;
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(sd_icmp6_nd*, sd_icmp6_nd_unref);
-#define _cleanup_sd_icmp6_nd_free_ _cleanup_(sd_icmp6_nd_unrefp)
+DEFINE_TRIVIAL_CLEANUP_FUNC(sd_ndisc*, sd_ndisc_unref);
+#define _cleanup_sd_ndisc_free_ _cleanup_(sd_ndisc_unrefp)
 
-int sd_icmp6_nd_new(sd_icmp6_nd **ret) {
-        _cleanup_sd_icmp6_nd_free_ sd_icmp6_nd *nd = NULL;
+int sd_ndisc_new(sd_ndisc **ret) {
+        _cleanup_sd_ndisc_free_ sd_ndisc *nd = NULL;
 
         assert(ret);
 
-        nd = new0(sd_icmp6_nd, 1);
+        nd = new0(sd_ndisc, 1);
         if (!nd)
                 return -ENOMEM;
 
@@ -251,7 +251,7 @@ int sd_icmp6_nd_new(sd_icmp6_nd **ret) {
         return 0;
 }
 
-int sd_icmp6_ra_get_mtu(sd_icmp6_nd *nd, uint32_t *mtu) {
+int sd_ndisc_get_mtu(sd_ndisc *nd, uint32_t *mtu) {
         assert_return(nd, -EINVAL);
         assert_return(mtu, -EINVAL);
 
@@ -265,7 +265,7 @@ int sd_icmp6_ra_get_mtu(sd_icmp6_nd *nd, uint32_t *mtu) {
 
 static int icmp6_ra_prefix_timeout(sd_event_source *s, uint64_t usec,
                                    void *userdata) {
-        sd_icmp6_nd *nd = userdata;
+        sd_ndisc *nd = userdata;
         ICMP6Prefix *prefix, *p;
 
         assert(nd);
@@ -274,15 +274,15 @@ static int icmp6_ra_prefix_timeout(sd_event_source *s, uint64_t usec,
                 if (prefix->timeout_valid != s)
                         continue;
 
-                log_icmp6_nd(nd, "Prefix expired "SD_ICMP6_ND_ADDRESS_FORMAT_STR"/%d",
-                             SD_ICMP6_ND_ADDRESS_FORMAT_VAL(prefix->addr),
+                log_icmp6_nd(nd, "Prefix expired "SD_NDISC_ADDRESS_FORMAT_STR"/%d",
+                             SD_NDISC_ADDRESS_FORMAT_VAL(prefix->addr),
                              prefix->len);
 
                 LIST_REMOVE(prefixes, nd->prefixes, prefix);
 
                 nd->expired_prefix = prefix;
                 icmp6_nd_notify(nd,
-                                SD_ICMP6_ND_EVENT_ROUTER_ADVERTISMENT_PREFIX_EXPIRED);
+                                SD_NDISC_EVENT_ROUTER_ADVERTISMENT_PREFIX_EXPIRED);
                 nd->expired_prefix = NULL;
 
                 prefix = icmp6_prefix_unref(prefix);
@@ -293,7 +293,7 @@ static int icmp6_ra_prefix_timeout(sd_event_source *s, uint64_t usec,
         return 0;
 }
 
-static int icmp6_ra_prefix_set_timeout(sd_icmp6_nd *nd,
+static int icmp6_ra_prefix_set_timeout(sd_ndisc *nd,
                                        ICMP6Prefix *prefix,
                                        usec_t valid) {
         usec_t time_now;
@@ -364,13 +364,13 @@ static int icmp6_ra_prefix_match(ICMP6Prefix *head, const struct in6_addr *addr,
         return -EADDRNOTAVAIL;
 }
 
-int sd_icmp6_prefix_match(struct in6_addr *prefix, uint8_t prefixlen,
+int sd_ndisc_prefix_match(struct in6_addr *prefix, uint8_t prefixlen,
                           struct in6_addr *addr) {
         return icmp6_prefix_match(prefix, prefixlen, addr,
                                   sizeof(addr->s6_addr) * 8);
 }
 
-int sd_icmp6_ra_get_prefixlen(sd_icmp6_nd *nd, const struct in6_addr *addr,
+int sd_ndisc_get_prefixlen(sd_ndisc *nd, const struct in6_addr *addr,
                               uint8_t *prefixlen) {
         int r;
         ICMP6Prefix *prefix;
@@ -389,7 +389,7 @@ int sd_icmp6_ra_get_prefixlen(sd_icmp6_nd *nd, const struct in6_addr *addr,
         return 0;
 }
 
-int sd_icmp6_ra_get_expired_prefix(sd_icmp6_nd *nd, struct in6_addr **addr, uint8_t *prefixlen) {
+int sd_ndisc_get_expired_prefix(sd_ndisc *nd, struct in6_addr **addr, uint8_t *prefixlen) {
         assert_return(nd, -EINVAL);
         assert_return(addr, -EINVAL);
         assert_return(prefixlen, -EINVAL);
@@ -403,7 +403,7 @@ int sd_icmp6_ra_get_expired_prefix(sd_icmp6_nd *nd, struct in6_addr **addr, uint
         return 0;
 }
 
-static int icmp6_ra_prefix_update(sd_icmp6_nd *nd, ssize_t len,
+static int icmp6_ra_prefix_update(sd_ndisc *nd, ssize_t len,
                                   const struct nd_opt_prefix_info *prefix_opt) {
         int r;
         ICMP6Prefix *prefix;
@@ -441,8 +441,8 @@ static int icmp6_ra_prefix_update(sd_icmp6_nd *nd, ssize_t len,
                 memcpy(&prefix->addr, &prefix_opt->nd_opt_pi_prefix,
                         sizeof(prefix->addr));
 
-                log_icmp6_nd(nd, "New prefix "SD_ICMP6_ND_ADDRESS_FORMAT_STR"/%d lifetime %d expires in %s",
-                             SD_ICMP6_ND_ADDRESS_FORMAT_VAL(prefix->addr),
+                log_icmp6_nd(nd, "New prefix "SD_NDISC_ADDRESS_FORMAT_STR"/%d lifetime %d expires in %s",
+                             SD_NDISC_ADDRESS_FORMAT_VAL(prefix->addr),
                              prefix->len, lifetime,
                              format_timespan(time_string, FORMAT_TIMESPAN_MAX, lifetime * USEC_PER_SEC, USEC_PER_SEC));
 
@@ -462,8 +462,8 @@ static int icmp6_ra_prefix_update(sd_icmp6_nd *nd, ssize_t len,
                         prefix->len = prefixlen;
                 }
 
-                log_icmp6_nd(nd, "Update prefix "SD_ICMP6_ND_ADDRESS_FORMAT_STR"/%d lifetime %d expires in %s",
-                             SD_ICMP6_ND_ADDRESS_FORMAT_VAL(prefix->addr),
+                log_icmp6_nd(nd, "Update prefix "SD_NDISC_ADDRESS_FORMAT_STR"/%d lifetime %d expires in %s",
+                             SD_NDISC_ADDRESS_FORMAT_VAL(prefix->addr),
                              prefix->len, lifetime,
                              format_timespan(time_string, FORMAT_TIMESPAN_MAX, lifetime * USEC_PER_SEC, USEC_PER_SEC));
         }
@@ -473,7 +473,7 @@ static int icmp6_ra_prefix_update(sd_icmp6_nd *nd, ssize_t len,
         return r;
 }
 
-static int icmp6_ra_parse(sd_icmp6_nd *nd, struct nd_router_advert *ra,
+static int icmp6_ra_parse(sd_ndisc *nd, struct nd_router_advert *ra,
                           ssize_t len) {
         void *opt;
         struct nd_opt_hdr *opt_hdr;
@@ -535,11 +535,11 @@ static int icmp6_ra_parse(sd_icmp6_nd *nd, struct nd_router_advert *ra,
 }
 
 static int icmp6_router_advertisment_recv(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        sd_icmp6_nd *nd = userdata;
+        sd_ndisc *nd = userdata;
         int r, buflen = 0;
         ssize_t len;
         _cleanup_free_ struct nd_router_advert *ra = NULL;
-        int event = SD_ICMP6_ND_EVENT_ROUTER_ADVERTISMENT_NONE;
+        int event = SD_NDISC_EVENT_ROUTER_ADVERTISMENT_NONE;
 
         assert(s);
         assert(nd);
@@ -570,16 +570,16 @@ static int icmp6_router_advertisment_recv(sd_event_source *s, int fd, uint32_t r
         nd->state = ICMP6_ROUTER_ADVERTISMENT_LISTEN;
 
         if (ra->nd_ra_flags_reserved & ND_RA_FLAG_OTHER )
-                event = SD_ICMP6_ND_EVENT_ROUTER_ADVERTISMENT_OTHER;
+                event = SD_NDISC_EVENT_ROUTER_ADVERTISMENT_OTHER;
 
         if (ra->nd_ra_flags_reserved & ND_RA_FLAG_MANAGED)
-                event = SD_ICMP6_ND_EVENT_ROUTER_ADVERTISMENT_MANAGED;
+                event = SD_NDISC_EVENT_ROUTER_ADVERTISMENT_MANAGED;
 
         log_icmp6_nd(nd, "Received Router Advertisement flags %s/%s",
                      ra->nd_ra_flags_reserved & ND_RA_FLAG_MANAGED? "MANAGED": "none",
                      ra->nd_ra_flags_reserved & ND_RA_FLAG_OTHER? "OTHER": "none");
 
-        if (event != SD_ICMP6_ND_EVENT_ROUTER_ADVERTISMENT_NONE) {
+        if (event != SD_NDISC_EVENT_ROUTER_ADVERTISMENT_NONE) {
                 r = icmp6_ra_parse(nd, ra, len);
                 if (r < 0) {
                         log_icmp6_nd(nd, "Could not parse Router Advertisement: %s",
@@ -594,7 +594,7 @@ static int icmp6_router_advertisment_recv(sd_event_source *s, int fd, uint32_t r
 }
 
 static int icmp6_router_solicitation_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
-        sd_icmp6_nd *nd = userdata;
+        sd_ndisc *nd = userdata;
         uint64_t time_now, next_timeout;
         struct ether_addr unset = { };
         struct ether_addr *addr = NULL;
@@ -607,7 +607,7 @@ static int icmp6_router_solicitation_timeout(sd_event_source *s, uint64_t usec, 
         nd->timeout = sd_event_source_unref(nd->timeout);
 
         if (nd->nd_sent >= ICMP6_MAX_ROUTER_SOLICITATIONS) {
-                icmp6_nd_notify(nd, SD_ICMP6_ND_EVENT_ROUTER_ADVERTISMENT_TIMEOUT);
+                icmp6_nd_notify(nd, SD_NDISC_EVENT_ROUTER_ADVERTISMENT_TIMEOUT);
                 nd->state = ICMP6_ROUTER_ADVERTISMENT_LISTEN;
         } else {
                 if (memcmp(&nd->mac_addr, &unset, sizeof(struct ether_addr)))
@@ -656,7 +656,7 @@ static int icmp6_router_solicitation_timeout(sd_event_source *s, uint64_t usec, 
         return 0;
 }
 
-int sd_icmp6_nd_stop(sd_icmp6_nd *nd) {
+int sd_ndisc_stop(sd_ndisc *nd) {
         assert_return(nd, -EINVAL);
         assert_return(nd->event, -EINVAL);
 
@@ -669,7 +669,7 @@ int sd_icmp6_nd_stop(sd_icmp6_nd *nd) {
         return 0;
 }
 
-int sd_icmp6_router_solicitation_start(sd_icmp6_nd *nd) {
+int sd_ndisc_router_discovery_start(sd_ndisc *nd) {
         int r;
 
         assert(nd);

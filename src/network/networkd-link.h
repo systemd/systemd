@@ -104,7 +104,7 @@ struct Link {
 
         sd_dhcp_server *dhcp_server;
 
-        sd_icmp6_nd *icmp6_router_discovery;
+        sd_ndisc *icmp6_router_discovery;
         sd_dhcp6_client *dhcp6_client;
         bool rtnl_extended_attrs;
 

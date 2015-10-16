@@ -70,7 +70,7 @@ static int send_ra_short_prefix(uint8_t flags) {
         return 0;
 }
 
-static void test_short_prefix_cb(sd_icmp6_nd *nd, int event, void *userdata) {
+static void test_short_prefix_cb(sd_ndisc *nd, int event, void *userdata) {
         sd_event *e = userdata;
         struct {
                 struct in6_addr addr;
@@ -105,12 +105,12 @@ static void test_short_prefix_cb(sd_icmp6_nd *nd, int event, void *userdata) {
                         addrs[i].addr.s6_addr[6], addrs[i].addr.s6_addr[7]);
 
                 if (addrs[i].success) {
-                        assert_se(sd_icmp6_ra_get_prefixlen(nd, &addrs[i].addr,
+                        assert_se(sd_ndisc_get_prefixlen(nd, &addrs[i].addr,
                                                                 &prefixlen) >= 0);
                         assert_se(addrs[i].prefixlen == prefixlen);
                         printf("/%d onlink\n", prefixlen);
                 } else {
-                        assert_se(sd_icmp6_ra_get_prefixlen(nd, &addrs[i].addr,
+                        assert_se(sd_ndisc_get_prefixlen(nd, &addrs[i].addr,
                                                                 &prefixlen) == -EADDRNOTAVAIL);
                         printf("/128 offlink\n");
                 }
@@ -154,7 +154,7 @@ static int send_ra_prefixes(uint8_t flags) {
         return 0;
 }
 
-static void test_prefixes_cb(sd_icmp6_nd *nd, int event, void *userdata) {
+static void test_prefixes_cb(sd_ndisc *nd, int event, void *userdata) {
         sd_event *e = userdata;
         struct {
                 struct in6_addr addr;
@@ -189,26 +189,26 @@ static void test_prefixes_cb(sd_icmp6_nd *nd, int event, void *userdata) {
                         addrs[i].addr.s6_addr[6], addrs[i].addr.s6_addr[7]);
 
                 if (addrs[i].success) {
-                        assert_se(sd_icmp6_ra_get_prefixlen(nd, &addrs[i].addr,
+                        assert_se(sd_ndisc_get_prefixlen(nd, &addrs[i].addr,
                                                                 &prefixlen) >= 0);
                         assert_se(addrs[i].prefixlen == prefixlen);
                         printf("/%d onlink\n", prefixlen);
                 } else {
-                        assert_se(sd_icmp6_ra_get_prefixlen(nd, &addrs[i].addr,
+                        assert_se(sd_ndisc_get_prefixlen(nd, &addrs[i].addr,
                                                                 &prefixlen) == -EADDRNOTAVAIL);
                         printf("/128 offlink\n");
                 }
         }
 
         send_ra_function = send_ra_short_prefix;
-        assert_se(sd_icmp6_nd_set_callback(nd, test_short_prefix_cb, e) >= 0);
-        assert_se(sd_icmp6_nd_stop(nd) >= 0);
-        assert_se(sd_icmp6_router_solicitation_start(nd) >= 0);
+        assert_se(sd_ndisc_set_callback(nd, test_short_prefix_cb, e) >= 0);
+        assert_se(sd_ndisc_stop(nd) >= 0);
+        assert_se(sd_ndisc_router_discovery_start(nd) >= 0);
 }
 
 static void test_prefixes(void) {
         sd_event *e;
-        sd_icmp6_nd *nd;
+        sd_ndisc *nd;
 
         if (verbose)
                 printf("* %s\n", __FUNCTION__);
@@ -217,20 +217,20 @@ static void test_prefixes(void) {
 
         assert_se(sd_event_new(&e) >= 0);
 
-        assert_se(sd_icmp6_nd_new(&nd) >= 0);
+        assert_se(sd_ndisc_new(&nd) >= 0);
         assert_se(nd);
 
-        assert_se(sd_icmp6_nd_attach_event(nd, e, 0) >= 0);
+        assert_se(sd_ndisc_attach_event(nd, e, 0) >= 0);
 
-        assert_se(sd_icmp6_nd_set_index(nd, 42) >= 0);
-        assert_se(sd_icmp6_nd_set_mac(nd, &mac_addr) >= 0);
-        assert_se(sd_icmp6_nd_set_callback(nd, test_prefixes_cb, e) >= 0);
+        assert_se(sd_ndisc_set_index(nd, 42) >= 0);
+        assert_se(sd_ndisc_set_mac(nd, &mac_addr) >= 0);
+        assert_se(sd_ndisc_set_callback(nd, test_prefixes_cb, e) >= 0);
 
-        assert_se(sd_icmp6_router_solicitation_start(nd) >= 0);
+        assert_se(sd_ndisc_router_discovery_start(nd) >= 0);
 
         sd_event_loop(e);
 
-        nd = sd_icmp6_nd_unref(nd);
+        nd = sd_ndisc_unref(nd);
         assert_se(!nd);
 
         close(test_fd[1]);
@@ -270,16 +270,16 @@ int dhcp_network_icmp6_send_router_solicitation(int s, const struct ether_addr *
         return send_ra_function(0);
 }
 
-static void test_rs_done(sd_icmp6_nd *nd, int event, void *userdata) {
+static void test_rs_done(sd_ndisc *nd, int event, void *userdata) {
         sd_event *e = userdata;
         static int idx = 0;
         struct {
                 uint8_t flag;
                 int event;
         } flag_event[] = {
-                { 0, SD_ICMP6_ND_EVENT_ROUTER_ADVERTISMENT_NONE },
-                { ND_RA_FLAG_OTHER, SD_ICMP6_ND_EVENT_ROUTER_ADVERTISMENT_OTHER },
-                { ND_RA_FLAG_MANAGED, SD_ICMP6_ND_EVENT_ROUTER_ADVERTISMENT_MANAGED }
+                { 0, SD_NDISC_EVENT_ROUTER_ADVERTISMENT_NONE },
+                { ND_RA_FLAG_OTHER, SD_NDISC_EVENT_ROUTER_ADVERTISMENT_OTHER },
+                { ND_RA_FLAG_MANAGED, SD_NDISC_EVENT_ROUTER_ADVERTISMENT_MANAGED }
         };
         uint32_t mtu;
 
@@ -296,14 +296,14 @@ static void test_rs_done(sd_icmp6_nd *nd, int event, void *userdata) {
                 return;
         }
 
-        assert_se(sd_icmp6_ra_get_mtu(nd, &mtu) == -ENOMSG);
+        assert_se(sd_ndisc_get_mtu(nd, &mtu) == -ENOMSG);
 
         sd_event_exit(e, 0);
 }
 
 static void test_rs(void) {
         sd_event *e;
-        sd_icmp6_nd *nd;
+        sd_ndisc *nd;
         usec_t time_now = now(clock_boottime_or_monotonic());
 
         if (verbose)
@@ -313,30 +313,30 @@ static void test_rs(void) {
 
         assert_se(sd_event_new(&e) >= 0);
 
-        assert_se(sd_icmp6_nd_new(&nd) >= 0);
+        assert_se(sd_ndisc_new(&nd) >= 0);
         assert_se(nd);
 
-        assert_se(sd_icmp6_nd_attach_event(nd, e, 0) >= 0);
+        assert_se(sd_ndisc_attach_event(nd, e, 0) >= 0);
 
-        assert_se(sd_icmp6_nd_set_index(nd, 42) >= 0);
-        assert_se(sd_icmp6_nd_set_mac(nd, &mac_addr) >= 0);
-        assert_se(sd_icmp6_nd_set_callback(nd, test_rs_done, e) >= 0);
+        assert_se(sd_ndisc_set_index(nd, 42) >= 0);
+        assert_se(sd_ndisc_set_mac(nd, &mac_addr) >= 0);
+        assert_se(sd_ndisc_set_callback(nd, test_rs_done, e) >= 0);
 
         assert_se(sd_event_add_time(e, &test_hangcheck, clock_boottime_or_monotonic(),
                                  time_now + 2 *USEC_PER_SEC, 0,
                                  test_rs_hangcheck, NULL) >= 0);
 
-        assert_se(sd_icmp6_nd_stop(nd) >= 0);
-        assert_se(sd_icmp6_router_solicitation_start(nd) >= 0);
-        assert_se(sd_icmp6_nd_stop(nd) >= 0);
+        assert_se(sd_ndisc_stop(nd) >= 0);
+        assert_se(sd_ndisc_router_discovery_start(nd) >= 0);
+        assert_se(sd_ndisc_stop(nd) >= 0);
 
-        assert_se(sd_icmp6_router_solicitation_start(nd) >= 0);
+        assert_se(sd_ndisc_router_discovery_start(nd) >= 0);
 
         sd_event_loop(e);
 
         test_hangcheck = sd_event_source_unref(test_hangcheck);
 
-        nd = sd_icmp6_nd_unref(nd);
+        nd = sd_ndisc_unref(nd);
         assert_se(!nd);
 
         close(test_fd[1]);
