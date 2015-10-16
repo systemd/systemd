@@ -263,6 +263,11 @@ mouse:usb:v046dp101b:name:Logitech M705:
 mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:101b:
  MOUSE_DPI=800@166
 
+# Logitech M560 Wireless Mouse
+mouse:usb:v046dp402d:name:Logitech M560:
+mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:402d:
+ MOUSE_DPI=1000@125
+
 # Logitech MX Revolution
 mouse:usb:v046dpc51a:name:Logitech USB Receiver:
  MOUSE_DPI=800@200
