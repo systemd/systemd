@@ -179,34 +179,29 @@ static void dhcp6_handler(sd_dhcp6_client *client, int event, void *userdata) {
         link_check_ready(link);
 }
 
-static int dhcp6_configure(Link *link, int event) {
+int dhcp6_configure(Link *link, bool inf_req) {
         int r;
         bool information_request;
 
         assert_return(link, -EINVAL);
-        assert_return(IN_SET(event, SD_NDISC_EVENT_ROUTER_ADVERTISMENT_TIMEOUT,
-                             SD_NDISC_EVENT_ROUTER_ADVERTISMENT_OTHER,
-                             SD_NDISC_EVENT_ROUTER_ADVERTISMENT_MANAGED), -EINVAL);
 
         link->dhcp6_configured = false;
 
         if (link->dhcp6_client) {
-                r = sd_dhcp6_client_get_information_request(link->dhcp6_client,
-                                                        &information_request);
+                r = sd_dhcp6_client_get_information_request(link->dhcp6_client, &information_request);
                 if (r < 0) {
                         log_link_warning_errno(link, r, "Could not get DHCPv6 Information request setting: %m");
                         goto error;
                 }
 
-                if (information_request && event != SD_NDISC_EVENT_ROUTER_ADVERTISMENT_OTHER) {
+                if (information_request && !inf_req) {
                         r = sd_dhcp6_client_stop(link->dhcp6_client);
                         if (r < 0) {
                                 log_link_warning_errno(link, r, "Could not stop DHCPv6 while setting Managed mode: %m");
                                 goto error;
                         }
 
-                        r = sd_dhcp6_client_set_information_request(link->dhcp6_client,
-                                                                    false);
+                        r = sd_dhcp6_client_set_information_request(link->dhcp6_client, false);
                         if (r < 0) {
                                 log_link_warning_errno(link, r, "Could not unset DHCPv6 Information request: %m");
                                 goto error;
@@ -249,9 +244,8 @@ static int dhcp6_configure(Link *link, int event) {
         if (r < 0)
                 goto error;
 
-        if (event == SD_NDISC_EVENT_ROUTER_ADVERTISMENT_OTHER) {
-                r = sd_dhcp6_client_set_information_request(link->dhcp6_client,
-                                                        true);
+        if (inf_req) {
+                r = sd_dhcp6_client_set_information_request(link->dhcp6_client, true);
                 if (r < 0)
                         goto error;
         }
@@ -267,7 +261,7 @@ static int dhcp6_configure(Link *link, int event) {
         return r;
 }
 
-static int dhcp6_prefix_expired(Link *link) {
+int dhcp6_prefix_expired(Link *link) {
         int r;
         sd_dhcp6_lease *lease;
         struct in6_addr *expired_prefix, ip6_addr;
@@ -304,69 +298,4 @@ static int dhcp6_prefix_expired(Link *link) {
         }
 
         return 0;
-}
-
-static void ndisc_router_handler(sd_ndisc *nd, int event, void *userdata) {
-        Link *link = userdata;
-
-        assert(link);
-        assert(link->network);
-        assert(link->manager);
-
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return;
-
-        switch(event) {
-        case SD_NDISC_EVENT_ROUTER_ADVERTISMENT_NONE:
-                return;
-
-        case SD_NDISC_EVENT_ROUTER_ADVERTISMENT_TIMEOUT:
-        case SD_NDISC_EVENT_ROUTER_ADVERTISMENT_OTHER:
-        case SD_NDISC_EVENT_ROUTER_ADVERTISMENT_MANAGED:
-                dhcp6_configure(link, event);
-
-                break;
-
-        case SD_NDISC_EVENT_ROUTER_ADVERTISMENT_PREFIX_EXPIRED:
-                if (!link->rtnl_extended_attrs)
-                        dhcp6_prefix_expired(link);
-
-                break;
-
-        default:
-                if (event < 0)
-                        log_link_warning_errno(link, event, "IPv6 Neighborhood Discover error: %m");
-                else
-                        log_link_warning(link, "IPv6 Neighborhood Discovery unknown event: %d", event);
-
-                break;
-        }
-
-}
-
-int ndisc_configure(Link *link) {
-        int r;
-
-        assert_return(link, -EINVAL);
-
-        r = sd_ndisc_new(&link->ndisc_router_discovery);
-        if (r < 0)
-                return r;
-
-        r = sd_ndisc_attach_event(link->ndisc_router_discovery, NULL, 0);
-        if (r < 0)
-                return r;
-
-        r = sd_ndisc_set_mac(link->ndisc_router_discovery, &link->mac);
-        if (r < 0)
-                return r;
-
-        r = sd_ndisc_set_index(link->ndisc_router_discovery, link->ifindex);
-        if (r < 0)
-                return r;
-
-        r = sd_ndisc_set_callback(link->ndisc_router_discovery,
-                                  ndisc_router_handler, link);
-
-        return r;
 }
