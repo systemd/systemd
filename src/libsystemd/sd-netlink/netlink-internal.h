@@ -64,6 +64,9 @@ struct sd_netlink {
                 struct sockaddr_nl nl;
         } sockaddr;
 
+        Hashmap *broadcast_group_refs;
+        bool broadcast_group_dont_leave:1; /* until we can rely on 4.2 */
+
         sd_netlink_message **rqueue;
         unsigned rqueue_size;
         size_t rqueue_allocated;
@@ -124,7 +127,8 @@ int message_new_empty(sd_netlink *rtnl, sd_netlink_message **ret);
 
 int socket_open(int family);
 int socket_bind(sd_netlink *nl);
-int socket_join_broadcast_group(sd_netlink *nl, unsigned group);
+int socket_broadcast_group_ref(sd_netlink *nl, unsigned group);
+int socket_broadcast_group_unref(sd_netlink *nl, unsigned group);
 int socket_write_message(sd_netlink *nl, sd_netlink_message *m);
 int socket_read_message(sd_netlink *nl);
 
