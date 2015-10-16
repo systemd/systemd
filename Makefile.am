@@ -3237,6 +3237,8 @@ libsystemd_network_la_SOURCES = \
 	src/libsystemd-network/network-internal.c \
 	src/libsystemd-network/network-internal.h \
 	src/libsystemd-network/sd-ndisc.c \
+	src/libsystemd-network/icmp6-util.h \
+	src/libsystemd-network/icmp6-util.c \
 	src/libsystemd-network/sd-dhcp6-client.c \
 	src/libsystemd-network/dhcp6-internal.h \
 	src/libsystemd-network/dhcp6-protocol.h \
@@ -3323,7 +3325,7 @@ test_pppoe_LDADD = \
 test_ndisc_rs_SOURCES = \
 	src/systemd/sd-dhcp6-client.h \
 	src/systemd/sd-ndisc.h \
-	src/libsystemd-network/dhcp6-internal.h \
+	src/libsystemd-network/icmp6-util.h \
 	src/libsystemd-network/test-ndisc-rs.c \
 	src/libsystemd-network/dhcp-identifier.h \
 	src/libsystemd-network/dhcp-identifier.c

@@ -24,10 +24,11 @@
 #include <netinet/in.h>
 #include <sys/ioctl.h>
 
-#include "socket-util.h"
 #include "async.h"
+#include "list.h"
+#include "socket-util.h"
 
-#include "dhcp6-internal.h"
+#include "icmp6-util.h"
 #include "sd-ndisc.h"
 
 #define ICMP6_ROUTER_SOLICITATION_INTERVAL      4 * USEC_PER_SEC
@@ -613,7 +614,7 @@ static int icmp6_router_solicitation_timeout(sd_event_source *s, uint64_t usec, 
                 if (memcmp(&nd->mac_addr, &unset, sizeof(struct ether_addr)))
                         addr = &nd->mac_addr;
 
-                r = dhcp_network_icmp6_send_router_solicitation(nd->fd, addr);
+                r = icmp6_send_router_solicitation(nd->fd, addr);
                 if (r < 0)
                         log_icmp6_nd(nd, "Error sending Router Solicitation");
                 else {
@@ -681,7 +682,7 @@ int sd_ndisc_router_discovery_start(sd_ndisc *nd) {
         if (nd->index < 1)
                 return -EINVAL;
 
-        r = dhcp_network_icmp6_bind_router_solicitation(nd->index);
+        r = icmp6_bind_router_solicitation(nd->index);
         if (r < 0)
                 return r;
 

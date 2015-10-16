@@ -23,7 +23,7 @@
 
 #include "socket-util.h"
 
-#include "dhcp6-internal.h"
+#include "icmp6-util.h"
 #include "sd-ndisc.h"
 
 static struct ether_addr mac_addr = {
@@ -44,7 +44,7 @@ static int test_rs_hangcheck(sd_event_source *s, uint64_t usec,
         return 0;
 }
 
-int dhcp_network_icmp6_bind_router_solicitation(int index) {
+int icmp6_bind_router_solicitation(int index) {
         assert_se(index == 42);
 
         if (socketpair(AF_UNIX, SOCK_DGRAM, 0, test_fd) < 0)
@@ -266,7 +266,7 @@ static int send_ra(uint8_t flags) {
         return 0;
 }
 
-int dhcp_network_icmp6_send_router_solicitation(int s, const struct ether_addr *ether_addr) {
+int icmp6_send_router_solicitation(int s, const struct ether_addr *ether_addr) {
         return send_ra_function(0);
 }
 
