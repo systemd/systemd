@@ -335,9 +335,9 @@ static void ndisc_router_handler(sd_ndisc *nd, int event, void *userdata) {
 
         default:
                 if (event < 0)
-                        log_link_warning_errno(link, event, "ICMPv6 error: %m");
+                        log_link_warning_errno(link, event, "IPv6 Neighborhood Discover error: %m");
                 else
-                        log_link_warning(link, "ICMPv6 unknown event: %d", event);
+                        log_link_warning(link, "IPv6 Neighborhood Discovery unknown event: %d", event);
 
                 break;
         }

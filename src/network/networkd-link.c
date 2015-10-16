@@ -490,7 +490,7 @@ static int link_stop_clients(Link *link) {
 
                 k = sd_ndisc_stop(link->ndisc_router_discovery);
                 if (k < 0)
-                        r = log_link_warning_errno(link, r, "Could not stop ICMPv6 router discovery: %m");
+                        r = log_link_warning_errno(link, r, "Could not stop IPv6 Router Discovery: %m");
         }
 
         if (link->lldp) {
@@ -1244,7 +1244,7 @@ static int link_acquire_conf(Link *link) {
 
                 r = sd_ndisc_router_discovery_start(link->ndisc_router_discovery);
                 if (r < 0)
-                        return log_link_warning_errno(link, r, "Could not start IPv6 router discovery: %m");
+                        return log_link_warning_errno(link, r, "Could not start IPv6 Router Discovery: %m");
         }
 
         if (link_lldp_enabled(link)) {
