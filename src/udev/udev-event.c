@@ -447,7 +447,7 @@ static void spawn_read(struct udev_event *event,
                        usec_t timeout_usec,
                        const char *cmd,
                        int fd_stdout, int fd_stderr,
-                       char *result, size_t ressize) {
+                       char **result) {
         _cleanup_close_ int fd_ep = -1;
         struct epoll_event ep_outpipe = {
                 .events = EPOLLIN,
@@ -457,7 +457,8 @@ static void spawn_read(struct udev_event *event,
                 .events = EPOLLIN,
                 .data.ptr = &fd_stderr,
         };
-        size_t respos = 0;
+        _cleanup_free_ char *stdout_buf = NULL;
+        size_t respos = 0, stdout_buf_size = 0;
         int r;
 
         /* read from child if requested */
@@ -484,6 +485,15 @@ static void spawn_read(struct udev_event *event,
                         log_error_errno(errno, "fail to add stderr fd to epoll: %m");
                         return;
                 }
+        }
+
+        if (result) {
+                stdout_buf = new0(char, UTIL_LINE_SIZE);
+                if (!stdout_buf) {
+                        log_error_errno(errno, "fail to allocate memory: %m");
+                        return;
+                }
+                stdout_buf_size = UTIL_LINE_SIZE;
         }
 
         /* read child output */
@@ -533,13 +543,22 @@ static void spawn_read(struct udev_event *event,
                                 buf[count] = '\0';
 
                                 /* store stdout result */
-                                if (result != NULL && *fd == fd_stdout) {
-                                        if (respos + count < ressize) {
-                                                memcpy(&result[respos], buf, count);
-                                                respos += count;
-                                        } else {
-                                                log_error("'%s' ressize %zu too short", cmd, ressize);
+                                if (result && *fd == fd_stdout) {
+                                        if (respos + count >= stdout_buf_size) {
+                                                /* if buffer size is already 1MB, then we don't allocate more memory and fail */
+                                                if (stdout_buf_size >= 1u << 20) {
+                                                        log_error("'%s' output too long, more than 1MB in size", cmd);
+                                                        return;
+                                                }
+
+                                                if (!GREEDY_REALLOC0(stdout_buf, stdout_buf_size, MIN(1u << 20, stdout_buf_size * 2))) {
+                                                        log_error("'%s' failed to allocate memory and ressize %zu too short", cmd, stdout_buf_size);
+                                                        return;
+                                                }
                                         }
+
+                                        memcpy(&stdout_buf[respos], buf, count);
+                                        respos += count;
                                 }
 
                                 /* log debug output only if we watch stderr */
@@ -565,8 +584,10 @@ static void spawn_read(struct udev_event *event,
         }
 
         /* return the child's stdout string */
-        if (result != NULL)
-                result[respos] = '\0';
+        if (result) {
+                *result = stdout_buf;
+                stdout_buf = NULL;
+        }
 }
 
 static int on_spawn_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
@@ -722,7 +743,7 @@ int udev_event_spawn(struct udev_event *event,
                      usec_t timeout_warn_usec,
                      bool accept_failure,
                      const char *cmd,
-                     char *result, size_t ressize) {
+                     char **result) {
         int outpipe[2] = {-1, -1};
         int errpipe[2] = {-1, -1};
         pid_t pid;
@@ -783,7 +804,7 @@ int udev_event_spawn(struct udev_event *event,
                            timeout_usec,
                            cmd,
                            outpipe[READ_END], errpipe[READ_END],
-                           result, ressize);
+                           result);
 
                 err = spawn_wait(event, timeout_usec, timeout_warn_usec, cmd, pid, accept_failure);
         }
@@ -937,7 +958,7 @@ void udev_event_execute_run(struct udev_event *event, usec_t timeout_usec, usec_
                                 sleep(event->exec_delay);
                         }
 
-                        udev_event_spawn(event, timeout_usec, timeout_warn_usec, false, command, NULL, 0);
+                        udev_event_spawn(event, timeout_usec, timeout_warn_usec, false, command, NULL);
                 }
         }
 }

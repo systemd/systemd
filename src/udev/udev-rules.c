@@ -634,11 +634,11 @@ static int import_program_into_properties(struct udev_event *event,
                                           usec_t timeout_usec,
                                           usec_t timeout_warn_usec,
                                           const char *program) {
-        char result[UTIL_LINE_SIZE];
+        _cleanup_free_ char *result = NULL;
         char *line;
         int err;
 
-        err = udev_event_spawn(event, timeout_usec, timeout_warn_usec, true, program, result, sizeof(result));
+        err = udev_event_spawn(event, timeout_usec, timeout_warn_usec, true, program, &result);
         if (err < 0)
                 return err;
 
@@ -2060,7 +2060,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules,
                 }
                 case TK_M_PROGRAM: {
                         char program[UTIL_PATH_SIZE];
-                        char result[UTIL_LINE_SIZE];
+                        _cleanup_free_ char *result = NULL;
 
                         event->program_result = mfree(event->program_result);
                         udev_event_apply_format(event, rules_str(rules, cur->key.value_off), program, sizeof(program));
@@ -2069,7 +2069,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules,
                                   rules_str(rules, rule->rule.filename_off),
                                   rule->rule.filename_line);
 
-                        if (udev_event_spawn(event, timeout_usec, timeout_warn_usec, true, program, result, sizeof(result)) < 0) {
+                        if (udev_event_spawn(event, timeout_usec, timeout_warn_usec, true, program, &result) < 0) {
                                 if (cur->key.op != OP_NOMATCH)
                                         goto nomatch;
                         } else {
