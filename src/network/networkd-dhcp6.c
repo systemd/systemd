@@ -111,7 +111,7 @@ static int dhcp6_lease_address_acquired(sd_dhcp6_client *client, Link *link) {
                                                 &lifetime_preferred,
                                                 &lifetime_valid) >= 0) {
 
-                r = sd_ndisc_get_prefixlen(link->icmp6_router_discovery,
+                r = sd_ndisc_get_prefixlen(link->ndisc_router_discovery,
                                         &ip6_addr, &prefixlen);
                 if (r < 0 && r != -EADDRNOTAVAIL) {
                         log_link_warning_errno(link, r, "Could not get prefix information: %m");
@@ -274,7 +274,7 @@ static int dhcp6_prefix_expired(Link *link) {
         uint8_t expired_prefixlen;
         uint32_t lifetime_preferred, lifetime_valid;
 
-        r = sd_ndisc_get_expired_prefix(link->icmp6_router_discovery,
+        r = sd_ndisc_get_expired_prefix(link->ndisc_router_discovery,
                                         &expired_prefix, &expired_prefixlen);
         if (r < 0)
                 return r;
@@ -306,7 +306,7 @@ static int dhcp6_prefix_expired(Link *link) {
         return 0;
 }
 
-static void icmp6_router_handler(sd_ndisc *nd, int event, void *userdata) {
+static void ndisc_router_handler(sd_ndisc *nd, int event, void *userdata) {
         Link *link = userdata;
 
         assert(link);
@@ -344,29 +344,29 @@ static void icmp6_router_handler(sd_ndisc *nd, int event, void *userdata) {
 
 }
 
-int icmp6_configure(Link *link) {
+int ndisc_configure(Link *link) {
         int r;
 
         assert_return(link, -EINVAL);
 
-        r = sd_ndisc_new(&link->icmp6_router_discovery);
+        r = sd_ndisc_new(&link->ndisc_router_discovery);
         if (r < 0)
                 return r;
 
-        r = sd_ndisc_attach_event(link->icmp6_router_discovery, NULL, 0);
+        r = sd_ndisc_attach_event(link->ndisc_router_discovery, NULL, 0);
         if (r < 0)
                 return r;
 
-        r = sd_ndisc_set_mac(link->icmp6_router_discovery, &link->mac);
+        r = sd_ndisc_set_mac(link->ndisc_router_discovery, &link->mac);
         if (r < 0)
                 return r;
 
-        r = sd_ndisc_set_index(link->icmp6_router_discovery, link->ifindex);
+        r = sd_ndisc_set_index(link->ndisc_router_discovery, link->ifindex);
         if (r < 0)
                 return r;
 
-        r = sd_ndisc_set_callback(link->icmp6_router_discovery,
-                                icmp6_router_handler, link);
+        r = sd_ndisc_set_callback(link->ndisc_router_discovery,
+                                  ndisc_router_handler, link);
 
         return r;
 }

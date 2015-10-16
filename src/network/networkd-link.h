@@ -104,7 +104,7 @@ struct Link {
 
         sd_dhcp_server *dhcp_server;
 
-        sd_ndisc *icmp6_router_discovery;
+        sd_ndisc *ndisc_router_discovery;
         sd_dhcp6_client *dhcp6_client;
         bool rtnl_extended_attrs;
 
@@ -145,7 +145,7 @@ int link_set_timezone(Link *link, const char *timezone);
 
 int ipv4ll_configure(Link *link);
 int dhcp4_configure(Link *link);
-int icmp6_configure(Link *link);
+int ndisc_configure(Link *link);
 
 bool link_lldp_enabled(Link *link);
 bool link_ipv4ll_enabled(Link *link);
