@@ -29,6 +29,7 @@
 #include <libintl.h>
 #include <limits.h>
 #include <linux/magic.h>
+#include <linux/oom.h>
 #include <linux/sched.h>
 #include <locale.h>
 #include <netinet/ip.h>
@@ -6799,4 +6800,8 @@ bool fdname_is_valid(const char *s) {
         }
 
         return p - s < 256;
+}
+
+bool oom_score_adjust_is_valid(int oa) {
+        return oa >= OOM_SCORE_ADJ_MIN && oa <= OOM_SCORE_ADJ_MAX;
 }

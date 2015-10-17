@@ -941,3 +941,5 @@ void nop_signal_handler(int sig);
 int version(void);
 
 bool fdname_is_valid(const char *s);
+
+bool oom_score_adjust_is_valid(int oa);
