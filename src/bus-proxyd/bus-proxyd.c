@@ -85,10 +85,10 @@ static void *run_client(void *userdata) {
         int r;
 
         r = proxy_new(&p, c->fd, c->fd, arg_address);
+        c->fd = -1;
+
         if (r < 0)
                 goto exit;
-
-        c->fd = -1;
 
         /* set comm to "p$PIDu$UID" and suffix with '*' if truncated */
         r = snprintf(comm, sizeof(comm), "p" PID_FMT "u" UID_FMT, p->local_creds.pid, p->local_creds.uid);
