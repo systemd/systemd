@@ -1186,6 +1186,24 @@ int bus_exec_context_set_transient_property(
 
                 return 1;
 
+        } else if (streq(name, "OOMScoreAdjust")) {
+                int oa;
+
+                r = sd_bus_message_read(message, "i", &oa);
+                if (r < 0)
+                        return r;
+
+                if (!oom_score_adjust_is_valid(oa))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "OOM score adjust value out of range");
+
+                if (mode != UNIT_CHECK) {
+                        c->oom_score_adjust = oa;
+                        c->oom_score_adjust_set = true;
+                        unit_write_drop_in_private_format(u, mode, name, "OOMScoreAdjust=%i\n", oa);
+                }
+
+                return 1;
+
         } else if (rlimit_from_string(name) >= 0) {
                 uint64_t rl;
                 rlim_t x;

@@ -1665,6 +1665,21 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                 }
 
                 r = sd_bus_message_append(m, "v", "t", n);
+        } else if (streq(field, "OOMScoreAdjust")) {
+                int oa;
+
+                r = safe_atoi(eq, &oa);
+                if (r < 0) {
+                        log_error("Failed to parse %s value %s", field, eq);
+                        return -EINVAL;
+                }
+
+                if (!oom_score_adjust_is_valid(oa)) {
+                        log_error("OOM score adjust value out of range");
+                        return -EINVAL;
+                }
+
+                r = sd_bus_message_append(m, "v", "i", oa);
         } else {
                 log_error("Unknown assignment %s.", assignment);
                 return -EINVAL;
