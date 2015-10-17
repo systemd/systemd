@@ -137,7 +137,6 @@ static int disk_identify_command(int          fd,
                 [9] = 0xEC,     /* Command: ATA IDENTIFY DEVICE */
         };
         uint8_t sense[32] = {};
-        uint8_t *desc = sense + 8;
         struct sg_io_v4 io_v4 = {
                 .guard = 'Q',
                 .protocol = BSG_PROTOCOL_SCSI,
@@ -175,7 +174,12 @@ static int disk_identify_command(int          fd,
                         return ret;
         }
 
-        if (!(sense[0] == 0x72 && desc[0] == 0x9 && desc[1] == 0x0c)) {
+        /* Check that there is no deferred error, sense key is RECOVERED ERROR, additional sense
+           code is ATA PASS-THROUGH INFORMATION AVAILABLE. Allow fixed format sense data. Check
+           that VALID bit is one and SDAT_OVFL bit is zero. */
+
+        if (!(sense[0] == 0x72 && (sense[1] & 0x0f) == 1 && sense[2] == 0x00 && sense[3] == 0x1d) &&
+            !(sense[0] == 0xf0 && (sense[2] & 0x1f) == 1 && sense[12] == 0x00 && sense[13] == 0x1d)) {
                 errno = EIO;
                 return -1;
         }
@@ -213,7 +217,6 @@ static int disk_identify_packet_device_command(int          fd,
                 [15] = 0,     /* CONTROL */
         };
         uint8_t sense[32] = {};
-        uint8_t *desc = sense + 8;
         struct sg_io_v4 io_v4 = {
                 .guard = 'Q',
                 .protocol = BSG_PROTOCOL_SCSI,
@@ -251,7 +254,12 @@ static int disk_identify_packet_device_command(int          fd,
                         return ret;
         }
 
-        if (!(sense[0] == 0x72 && desc[0] == 0x9 && desc[1] == 0x0c)) {
+        /* Check that there is no deferred error, sense key is RECOVERED ERROR, additional sense
+           code is ATA PASS-THROUGH INFORMATION AVAILABLE. Allow fixed format sense data. Check
+           that VALID bit is one and SDAT_OVFL bit is zero. */
+
+        if (!(sense[0] == 0x72 && (sense[1] & 0x0f) == 1 && sense[2] == 0x00 && sense[3] == 0x1d) &&
+            !(sense[0] == 0xf0 && (sense[2] & 0x1f) == 1 && sense[12] == 0x00 && sense[13] == 0x1d)) {
                 errno = EIO;
                 return -1;
         }
