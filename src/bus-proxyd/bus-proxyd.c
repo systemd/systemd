@@ -116,13 +116,12 @@ static int loop_clients(int accept_fd, uid_t bus_uid) {
         int r;
 
         r = pthread_attr_init(&attr);
-        if (r < 0) {
-                return log_error_errno(errno, "Cannot initialize pthread attributes: %m");
-        }
+        if (r != 0)
+                return log_error_errno(r, "Cannot initialize pthread attributes: %m");
 
         r = pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-        if (r < 0) {
-                r = log_error_errno(errno, "Cannot mark pthread attributes as detached: %m");
+        if (r != 0) {
+                r = log_error_errno(r, "Cannot mark pthread attributes as detached: %m");
                 goto finish;
         }
 
@@ -156,8 +155,8 @@ static int loop_clients(int accept_fd, uid_t bus_uid) {
                 c->bus_uid = bus_uid;
 
                 r = pthread_create(&tid, &attr, run_client, c);
-                if (r < 0) {
-                        log_error("Cannot spawn thread: %m");
+                if (r != 0) {
+                        log_warning_errno(r, "Cannot spawn thread, ignoring: %m");
                         client_context_free(c);
                         continue;
                 }

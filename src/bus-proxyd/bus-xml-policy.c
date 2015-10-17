@@ -1186,14 +1186,14 @@ int shared_policy_new(SharedPolicy **out) {
                 return log_oom();
 
         r = pthread_mutex_init(&sp->lock, NULL);
-        if (r < 0) {
-                log_error_errno(r, "Cannot initialize shared policy mutex: %m");
+        if (r != 0) {
+                r = log_error_errno(r, "Cannot initialize shared policy mutex: %m");
                 goto exit_free;
         }
 
         r = pthread_rwlock_init(&sp->rwlock, NULL);
-        if (r < 0) {
-                log_error_errno(r, "Cannot initialize shared policy rwlock: %m");
+        if (r != 0) {
+                r = log_error_errno(r, "Cannot initialize shared policy rwlock: %m");
                 goto exit_mutex;
         }
 
