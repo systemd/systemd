@@ -479,15 +479,11 @@ int main(int argc, char *argv[])
                 disk_identify_fixup_string(identify.byte,  10, 20); /* serial */
                 disk_identify_fixup_string(identify.byte,  23,  8); /* fwrev */
                 disk_identify_fixup_string(identify.byte,  27, 40); /* model */
-                disk_identify_fixup_uint16(identify.byte,  0);      /* configuration */
-                disk_identify_fixup_uint16(identify.byte,  75);     /* queue depth */
                 disk_identify_fixup_uint16(identify.byte,  76);     /* SATA capabilities */
                 disk_identify_fixup_uint16(identify.byte,  82);     /* command set supported */
                 disk_identify_fixup_uint16(identify.byte,  83);     /* command set supported */
-                disk_identify_fixup_uint16(identify.byte,  84);     /* command set supported */
-                disk_identify_fixup_uint16(identify.byte,  85);     /* command set supported */
-                disk_identify_fixup_uint16(identify.byte,  86);     /* command set supported */
-                disk_identify_fixup_uint16(identify.byte,  87);     /* command set supported */
+                disk_identify_fixup_uint16(identify.byte,  85);     /* command set/feature enabled/supported */
+                disk_identify_fixup_uint16(identify.byte,  86);     /* command set/feature enabled/supported */
                 disk_identify_fixup_uint16(identify.byte,  89);     /* time required for SECURITY ERASE UNIT */
                 disk_identify_fixup_uint16(identify.byte,  90);     /* time required for enhanced SECURITY ERASE UNIT */
                 disk_identify_fixup_uint16(identify.byte,  91);     /* current APM values */
@@ -558,18 +554,9 @@ int main(int argc, char *argv[])
                         printf("ID_ATA_WRITE_CACHE=1\n");
                         printf("ID_ATA_WRITE_CACHE_ENABLED=%d\n", (id.cfs_enable_1 & (1<<5)) ? 1 : 0);
                 }
-                if (id.command_set_1 & (1<<10)) {
-                        printf("ID_ATA_FEATURE_SET_HPA=1\n");
-                        printf("ID_ATA_FEATURE_SET_HPA_ENABLED=%d\n", (id.cfs_enable_1 & (1<<10)) ? 1 : 0);
-
-                        /*
-                         * TODO: use the READ NATIVE MAX ADDRESS command to get the native max address
-                         * so it is easy to check whether the protected area is in use.
-                         */
-                }
-                if (id.command_set_1 & (1<<3)) {
-                        printf("ID_ATA_FEATURE_SET_PM=1\n");
-                        printf("ID_ATA_FEATURE_SET_PM_ENABLED=%d\n", (id.cfs_enable_1 & (1<<3)) ? 1 : 0);
+                if (id.command_set_1 & (1<<6)) {
+                        printf("ID_ATA_READ_LOOKAHEAD=1\n");
+                        printf("ID_ATA_READ_LOOKAHEAD_ENABLED=%d\n", (id.cfs_enable_1 & (1<<6)) ? 1 : 0);
                 }
                 if (id.command_set_1 & (1<<1)) {
                         printf("ID_ATA_FEATURE_SET_SECURITY=1\n");
@@ -600,18 +587,12 @@ int main(int argc, char *argv[])
                         printf("ID_ATA_FEATURE_SET_AAM_VENDOR_RECOMMENDED_VALUE=%d\n", id.acoustic >> 8);
                         printf("ID_ATA_FEATURE_SET_AAM_CURRENT_VALUE=%d\n", id.acoustic & 0xff);
                 }
-                if (id.command_set_2 & (1<<5)) {
-                        printf("ID_ATA_FEATURE_SET_PUIS=1\n");
-                        printf("ID_ATA_FEATURE_SET_PUIS_ENABLED=%d\n", (id.cfs_enable_2 & (1<<5)) ? 1 : 0);
-                }
                 if (id.command_set_2 & (1<<3)) {
                         printf("ID_ATA_FEATURE_SET_APM=1\n");
                         printf("ID_ATA_FEATURE_SET_APM_ENABLED=%d\n", (id.cfs_enable_2 & (1<<3)) ? 1 : 0);
                         if ((id.cfs_enable_2 & (1<<3)))
                                 printf("ID_ATA_FEATURE_SET_APM_CURRENT_VALUE=%d\n", id.CurAPMvalues & 0xff);
                 }
-                if (id.command_set_2 & (1<<0))
-                        printf("ID_ATA_DOWNLOAD_MICROCODE=1\n");
 
                 /*
                  * Word 76 indicates the capabilities of a SATA device. A PATA device shall set
@@ -624,12 +605,17 @@ int main(int argc, char *argv[])
                 if (word != 0x0000 && word != 0xffff) {
                         printf("ID_ATA_SATA=1\n");
                         /*
+                         * If bit 3 of word 76 is set to one, then the device supports the Gen3
+                         * signaling rate of 6.0 Gb/s (see SATA 3.0).
+                        /*
                          * If bit 2 of word 76 is set to one, then the device supports the Gen2
-                         * signaling rate of 3.0 Gb/s (see SATA 2.6).
+                         * signaling rate of 3.0 Gb/s (see SATA 3.0).
                          *
                          * If bit 1 of word 76 is set to one, then the device supports the Gen1
-                         * signaling rate of 1.5 Gb/s (see SATA 2.6).
+                         * signaling rate of 1.5 Gb/s (see SATA 3.0).
                          */
+                        if (word & (1<<3))
+                                printf("ID_ATA_SATA_SIGNAL_RATE_GEN3=1\n");
                         if (word & (1<<2))
                                 printf("ID_ATA_SATA_SIGNAL_RATE_GEN2=1\n");
                         if (word & (1<<1))
@@ -663,12 +649,6 @@ int main(int argc, char *argv[])
                                "ID_WWN_WITH_EXTENSION=0x%1$" PRIx64 "\n",
                                wwwn);
                 }
-
-                /* from Linux's include/linux/ata.h */
-                if (identify.wyde[0] == 0x848a ||
-                    identify.wyde[0] == 0x844a ||
-                    (identify.wyde[83] & 0xc004) == 0x4004)
-                        printf("ID_ATA_CFA=1\n");
         } else {
                 if (serial[0] != '\0')
                         printf("%s_%s\n", model, serial);
