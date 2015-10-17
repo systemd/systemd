@@ -176,14 +176,12 @@ Features:
 * networkd/udev: implement SR_IOV configuration in .link files:
   http://lists.freedesktop.org/archives/systemd-devel/2015-January/027451.html
 
-* When RLIMIT_NPROC is set from a unit file it currently always is set
-  for root, not for the user set in User=, which makes it
-  useless. After fixing this, set RLIMIT_NPROC for
-  systemd-journal-xyz, and all other of our services that run under
-  their own user ids, and use User= (but only in a world where userns
-  is ubiquitous since otherwise we cannot invoke those daemons on the
-  host AND in a container anymore). Also, if LimitNPROC= is used
-  without User= we should warn and refuse operation.
+* Set RLIMIT_NPROC for systemd-journal-xyz, and all other of our
+  services that run under their own user ids, and use User= (but only
+  in a world where userns is ubiquitous since otherwise we cannot
+  invoke those daemons on the host AND in a container anymore). Also,
+  if LimitNPROC= is used without User= we should warn and refuse
+  operation.
 
 * logind: maybe allow configuration of the StopTimeout for session scopes
 
