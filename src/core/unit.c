@@ -2508,26 +2508,23 @@ static int signal_name_owner_changed(sd_bus_message *message, void *userdata, sd
         return 0;
 }
 
-int unit_install_bus_match(sd_bus *bus, Unit *u, const char *name) {
-        _cleanup_free_ char *match = NULL;
-        Manager *m = u->manager;
+int unit_install_bus_match(Unit *u, sd_bus *bus, const char *name) {
+        const char *match;
 
-        assert(m);
+        assert(u);
+        assert(bus);
+        assert(name);
 
         if (u->match_bus_slot)
                 return -EBUSY;
 
-        match = strjoin("type='signal',"
+        match = strjoina("type='signal',"
                         "sender='org.freedesktop.DBus',"
                         "path='/org/freedesktop/DBus',"
                         "interface='org.freedesktop.DBus',"
                         "member='NameOwnerChanged',"
-                        "arg0='",
-                        name,
-                        "'",
+                        "arg0='", name, "'",
                         NULL);
-        if (!match)
-                return -ENOMEM;
 
         return sd_bus_add_match(bus, &u->match_bus_slot, match, signal_name_owner_changed, u);
 }
@@ -2544,7 +2541,7 @@ int unit_watch_bus_name(Unit *u, const char *name) {
         if (u->manager->api_bus) {
                 /* If the bus is already available, install the match directly.
                  * Otherwise, just put the name in the list. bus_setup_api() will take care later. */
-                r = unit_install_bus_match(u->manager->api_bus, u, name);
+                r = unit_install_bus_match(u, u->manager->api_bus, name);
                 if (r < 0)
                         return log_warning_errno(r, "Failed to subscribe to NameOwnerChanged signal: %m");
         }
