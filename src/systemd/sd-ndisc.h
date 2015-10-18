@@ -31,7 +31,6 @@ enum {
         SD_NDISC_EVENT_ROUTER_ADVERTISMENT_TIMEOUT           = 1,
         SD_NDISC_EVENT_ROUTER_ADVERTISMENT_OTHER             = 2,
         SD_NDISC_EVENT_ROUTER_ADVERTISMENT_MANAGED           = 3,
-        SD_NDISC_EVENT_ROUTER_ADVERTISMENT_PREFIX_EXPIRED    = 4,
 };
 
 typedef struct sd_ndisc sd_ndisc;
@@ -58,8 +57,6 @@ int sd_ndisc_prefix_match(struct in6_addr *prefix, uint8_t prefixlen,
 int sd_ndisc_get_mtu(sd_ndisc *nd, uint32_t *mtu);
 int sd_ndisc_get_prefixlen(sd_ndisc *nd, const struct in6_addr *addr,
                         uint8_t *prefixlen);
-int sd_ndisc_get_expired_prefix(sd_ndisc *nd, struct in6_addr **addr,
-                                uint8_t *prefixlen);
 
 int sd_ndisc_stop(sd_ndisc *nd);
 int sd_ndisc_router_discovery_start(sd_ndisc *nd);

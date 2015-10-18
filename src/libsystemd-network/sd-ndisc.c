@@ -67,7 +67,6 @@ struct sd_ndisc {
         int index;
         struct ether_addr mac_addr;
         uint32_t mtu;
-        NDiscPrefix *expired_prefix;
         LIST_HEAD(NDiscPrefix, prefixes);
         int fd;
         sd_event_source *recv;
@@ -283,11 +282,6 @@ static int ndisc_prefix_timeout(sd_event_source *s, uint64_t usec,
 
                 LIST_REMOVE(prefixes, nd->prefixes, prefix);
 
-                nd->expired_prefix = prefix;
-                ndisc_notify(nd,
-                                SD_NDISC_EVENT_ROUTER_ADVERTISMENT_PREFIX_EXPIRED);
-                nd->expired_prefix = NULL;
-
                 prefix = ndisc_prefix_unref(prefix);
 
                 break;
@@ -386,20 +380,6 @@ int sd_ndisc_get_prefixlen(sd_ndisc *nd, const struct in6_addr *addr,
                 return r;
 
         *prefixlen = prefix->len;
-
-        return 0;
-}
-
-int sd_ndisc_get_expired_prefix(sd_ndisc *nd, struct in6_addr **addr, uint8_t *prefixlen) {
-        assert_return(nd, -EINVAL);
-        assert_return(addr, -EINVAL);
-        assert_return(prefixlen, -EINVAL);
-
-        if (!nd->expired_prefix)
-                return -EADDRNOTAVAIL;
-
-        *addr = &nd->expired_prefix->addr;
-        *prefixlen = nd->expired_prefix->len;
 
         return 0;
 }

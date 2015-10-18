@@ -38,7 +38,6 @@ static void ndisc_router_handler(sd_ndisc *nd, int event, void *userdata) {
 
         switch(event) {
         case SD_NDISC_EVENT_ROUTER_ADVERTISMENT_NONE:
-        case SD_NDISC_EVENT_ROUTER_ADVERTISMENT_PREFIX_EXPIRED:
                 return;
 
         case SD_NDISC_EVENT_ROUTER_ADVERTISMENT_OTHER:
