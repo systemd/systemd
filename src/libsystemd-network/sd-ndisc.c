@@ -56,7 +56,7 @@ struct NDiscPrefix {
         LIST_FIELDS(NDiscPrefix, prefixes);
 
         uint8_t len;
-        sd_event_source *timeout_valid;
+        usec_t valid_until;
         struct in6_addr addr;
 };
 
@@ -90,8 +90,6 @@ static NDiscPrefix *ndisc_prefix_unref(NDiscPrefix *prefix) {
 
         if (prefix->n_ref > 0)
                 return NULL;
-
-        prefix->timeout_valid = sd_event_source_unref(prefix->timeout_valid);
 
         if (prefix->nd)
                 LIST_REMOVE(prefixes, prefix->nd->prefixes, prefix);
@@ -270,55 +268,6 @@ int sd_ndisc_get_mtu(sd_ndisc *nd, uint32_t *mtu) {
         return 0;
 }
 
-static int ndisc_prefix_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
-        NDiscPrefix *prefix = userdata;
-
-        assert(prefix);
-
-        log_ndisc(nd, "Prefix expired "SD_NDISC_ADDRESS_FORMAT_STR"/%d",
-                  SD_NDISC_ADDRESS_FORMAT_VAL(prefix->addr), prefix->len);
-
-        ndisc_prefix_unref(prefix);
-
-        return 0;
-}
-
-static int ndisc_prefix_set_timeout(sd_ndisc *nd,
-                                       NDiscPrefix *prefix,
-                                       usec_t valid) {
-        usec_t time_now;
-        int r;
-
-        assert_return(prefix, -EINVAL);
-
-        r = sd_event_now(nd->event, clock_boottime_or_monotonic(), &time_now);
-        if (r < 0)
-                return r;
-
-        prefix->timeout_valid = sd_event_source_unref(prefix->timeout_valid);
-
-        r = sd_event_add_time(nd->event, &prefix->timeout_valid,
-                        clock_boottime_or_monotonic(), time_now + valid,
-                        USEC_PER_SEC, ndisc_prefix_timeout, prefix);
-        if (r < 0)
-                goto error;
-
-        r = sd_event_source_set_priority(prefix->timeout_valid,
-                                        nd->event_priority);
-        if (r < 0)
-                goto error;
-
-        r = sd_event_source_set_description(prefix->timeout_valid,
-                                        "ndisc-prefix-timeout");
-
-error:
-        if (r < 0)
-                prefix->timeout_valid =
-                        sd_event_source_unref(prefix->timeout_valid);
-
-        return r;
-}
-
 static int prefix_match(const struct in6_addr *prefix, uint8_t prefixlen,
                         const struct in6_addr *addr,
                         uint8_t addr_prefixlen) {
@@ -339,11 +288,25 @@ static int prefix_match(const struct in6_addr *prefix, uint8_t prefixlen,
         return 0;
 }
 
-static int ndisc_prefix_match(NDiscPrefix *head, const struct in6_addr *addr,
-                                 uint8_t addr_len, NDiscPrefix **result) {
-        NDiscPrefix *prefix;
+static int ndisc_prefix_match(sd_ndisc *nd, const struct in6_addr *addr,
+                              uint8_t addr_len, NDiscPrefix **result) {
+        NDiscPrefix *prefix, *p;
+        usec_t time_now;
+        int r;
 
-        LIST_FOREACH(prefixes, prefix, head) {
+        assert(nd);
+
+        r = sd_event_now(nd->event, clock_boottime_or_monotonic(), &time_now);
+        if (r < 0)
+                return r;
+
+        LIST_FOREACH_SAFE(prefixes, prefix, p, nd->prefixes) {
+                if (prefix->valid_until < time_now) {
+                        prefix = ndisc_prefix_unref(prefix);
+
+                        continue;
+                }
+
                 if (prefix_match(&prefix->addr, prefix->len, addr, addr_len) >= 0) {
                         *result = prefix;
                         return 0;
@@ -367,8 +330,7 @@ int sd_ndisc_get_prefixlen(sd_ndisc *nd, const struct in6_addr *addr,
         assert_return(addr, -EINVAL);
         assert_return(prefixlen, -EINVAL);
 
-        r = ndisc_prefix_match(nd->prefixes, addr,
-                                  sizeof(addr->s6_addr) * 8, &prefix);
+        r = ndisc_prefix_match(nd, addr, sizeof(addr->s6_addr) * 8, &prefix);
         if (r < 0)
                 return r;
 
@@ -378,14 +340,15 @@ int sd_ndisc_get_prefixlen(sd_ndisc *nd, const struct in6_addr *addr,
 }
 
 static int ndisc_prefix_update(sd_ndisc *nd, ssize_t len,
-                                  const struct nd_opt_prefix_info *prefix_opt) {
-        int r;
+                               const struct nd_opt_prefix_info *prefix_opt) {
         NDiscPrefix *prefix;
         uint32_t lifetime;
+        usec_t time_now;
         char time_string[FORMAT_TIMESPAN_MAX];
+        int r;
 
-        assert_return(nd, -EINVAL);
-        assert_return(prefix_opt, -EINVAL);
+        assert(nd);
+        assert(prefix_opt);
 
         if (len < prefix_opt->nd_opt_pi_len)
                 return -ENOMSG;
@@ -395,9 +358,8 @@ static int ndisc_prefix_update(sd_ndisc *nd, ssize_t len,
 
         lifetime = be32toh(prefix_opt->nd_opt_pi_valid_time);
 
-        r = ndisc_prefix_match(nd->prefixes,
-                                  &prefix_opt->nd_opt_pi_prefix,
-                                  prefix_opt->nd_opt_pi_prefix_len, &prefix);
+        r = ndisc_prefix_match(nd, &prefix_opt->nd_opt_pi_prefix,
+                               prefix_opt->nd_opt_pi_prefix_len, &prefix);
 
         if (r < 0 && r != -EADDRNOTAVAIL)
                 return r;
@@ -442,7 +404,11 @@ static int ndisc_prefix_update(sd_ndisc *nd, ssize_t len,
                              format_timespan(time_string, FORMAT_TIMESPAN_MAX, lifetime * USEC_PER_SEC, USEC_PER_SEC));
         }
 
-        r = ndisc_prefix_set_timeout(nd, prefix, lifetime * USEC_PER_SEC);
+        r = sd_event_now(nd->event, clock_boottime_or_monotonic(), &time_now);
+        if (r < 0)
+                return r;
+
+        prefix->valid_until = time_now + lifetime * USEC_PER_SEC;
 
         return r;
 }
