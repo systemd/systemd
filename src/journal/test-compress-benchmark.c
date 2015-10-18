@@ -62,11 +62,18 @@ static char* make_buf(size_t count, const char *type) {
                 for (i = 0; i < count; i++)
                         buf[i] = 'a' + i % ('z' - 'a' + 1);
         else if (streq(type, "random")) {
-                random_bytes(buf, count/10);
-                random_bytes(buf + 2*count/10, count/10);
-                random_bytes(buf + 4*count/10, count/20);
-                random_bytes(buf + 6*count/10, count/20);
-                random_bytes(buf + 8*count/10, count/20);
+                size_t step = count / 10;
+
+                random_bytes(buf, step);
+                memzero(buf + 1*step, step);
+                random_bytes(buf + 2*step, step);
+                memzero(buf + 3*step, step);
+                random_bytes(buf + 4*step, step);
+                memzero(buf + 5*step, step);
+                random_bytes(buf + 6*step, step);
+                memzero(buf + 7*step, step);
+                random_bytes(buf + 8*step, step);
+                memzero(buf + 9*step, step);
         } else
                 assert_not_reached("here");
 
