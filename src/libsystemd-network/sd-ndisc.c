@@ -51,6 +51,8 @@ typedef struct NDiscPrefix NDiscPrefix;
 struct NDiscPrefix {
         unsigned n_ref;
 
+        sd_ndisc *nd;
+
         LIST_FIELDS(NDiscPrefix, prefixes);
 
         uint8_t len;
@@ -90,11 +92,16 @@ static NDiscPrefix *ndisc_prefix_unref(NDiscPrefix *prefix) {
                 return NULL;
 
         prefix->timeout_valid = sd_event_source_unref(prefix->timeout_valid);
+
+        if (prefix->nd)
+                LIST_REMOVE(prefixes, prefix->nd->prefixes, prefix);
+
         free(prefix);
+
         return NULL;
 }
 
-static int ndisc_prefix_new(NDiscPrefix **ret) {
+static int ndisc_prefix_new(sd_ndisc *nd, NDiscPrefix **ret) {
         _cleanup_free_ NDiscPrefix *prefix = NULL;
 
         assert(ret);
@@ -105,6 +112,7 @@ static int ndisc_prefix_new(NDiscPrefix **ret) {
 
         prefix->n_ref = 1;
         LIST_INIT(prefixes, prefix);
+        prefix->nd = nd;
 
         *ret = prefix;
         prefix = NULL;
@@ -217,11 +225,8 @@ sd_ndisc *sd_ndisc_unref(sd_ndisc *nd) {
         ndisc_init(nd);
         sd_ndisc_detach_event(nd);
 
-        LIST_FOREACH_SAFE(prefixes, prefix, p, nd->prefixes) {
-                LIST_REMOVE(prefixes, nd->prefixes, prefix);
-
+        LIST_FOREACH_SAFE(prefixes, prefix, p, nd->prefixes)
                 prefix = ndisc_prefix_unref(prefix);
-        }
 
         free(nd);
 
@@ -265,27 +270,15 @@ int sd_ndisc_get_mtu(sd_ndisc *nd, uint32_t *mtu) {
         return 0;
 }
 
-static int ndisc_prefix_timeout(sd_event_source *s, uint64_t usec,
-                                   void *userdata) {
-        sd_ndisc *nd = userdata;
-        NDiscPrefix *prefix, *p;
+static int ndisc_prefix_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
+        NDiscPrefix *prefix = userdata;
 
-        assert(nd);
+        assert(prefix);
 
-        LIST_FOREACH_SAFE(prefixes, prefix, p, nd->prefixes) {
-                if (prefix->timeout_valid != s)
-                        continue;
+        log_ndisc(nd, "Prefix expired "SD_NDISC_ADDRESS_FORMAT_STR"/%d",
+                  SD_NDISC_ADDRESS_FORMAT_VAL(prefix->addr), prefix->len);
 
-                log_ndisc(nd, "Prefix expired "SD_NDISC_ADDRESS_FORMAT_STR"/%d",
-                             SD_NDISC_ADDRESS_FORMAT_VAL(prefix->addr),
-                             prefix->len);
-
-                LIST_REMOVE(prefixes, nd->prefixes, prefix);
-
-                prefix = ndisc_prefix_unref(prefix);
-
-                break;
-        }
+        ndisc_prefix_unref(prefix);
 
         return 0;
 }
@@ -306,7 +299,7 @@ static int ndisc_prefix_set_timeout(sd_ndisc *nd,
 
         r = sd_event_add_time(nd->event, &prefix->timeout_valid,
                         clock_boottime_or_monotonic(), time_now + valid,
-                        USEC_PER_SEC, ndisc_prefix_timeout, nd);
+                        USEC_PER_SEC, ndisc_prefix_timeout, prefix);
         if (r < 0)
                 goto error;
 
@@ -413,7 +406,7 @@ static int ndisc_prefix_update(sd_ndisc *nd, ssize_t len,
            callback will be called immediately to clean up the prefix */
 
         if (r == -EADDRNOTAVAIL) {
-                r = ndisc_prefix_new(&prefix);
+                r = ndisc_prefix_new(nd, &prefix);
                 if (r < 0)
                         return r;
 
