@@ -24,8 +24,8 @@ KERNEL=="sd*[!0-9]|sr*", ENV{ID_SERIAL}!="?*", SUBSYSTEMS=="scsi", ATTRS{vendor}
 # ATAPI devices (SPC-3 or later)
 KERNEL=="sd*[!0-9]|sr*", ENV{ID_SERIAL}!="?*", SUBSYSTEMS=="scsi", ATTRS{type}=="5", ATTRS{scsi_level}=="[6-9]*", IMPORT{program}="ata_id --export $devnode"
 
-# Run ata_id on non-removable USB Mass Storage (SATA/PATA disks in enclosures)
-KERNEL=="sd*[!0-9]|sr*", ENV{ID_SERIAL}!="?*", ATTR{removable}=="0", SUBSYSTEMS=="usb", IMPORT{program}="ata_id --export $devnode"
+# Run ata_id on USB Mass Storage (SATA/PATA disks in enclosures)
+KERNEL=="sd*[!0-9]|sr*", ENV{ID_SERIAL}!="?*", SUBSYSTEMS=="usb", IMPORT{program}="ata_id --export $devnode"
 
 # Report drive as "non-rotational" as per export from ata_id
 ENV{DEVTYPE}=="disk", ENV{ID_ATA_ROTATION_RATE_RPM}=="0", ATTR{queue/rotational}="0"
