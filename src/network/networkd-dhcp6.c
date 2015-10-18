@@ -25,7 +25,6 @@
 #include "networkd-link.h"
 #include "network-internal.h"
 
-#include "sd-ndisc.h"
 #include "sd-dhcp6-client.h"
 
 static int dhcp6_lease_address_acquired(sd_dhcp6_client *client, Link *link);
@@ -246,43 +245,4 @@ int dhcp6_configure(Link *link, bool inf_req) {
  error:
         link->dhcp6_client = sd_dhcp6_client_unref(link->dhcp6_client);
         return r;
-}
-
-int dhcp6_prefix_expired(Link *link) {
-        int r;
-        sd_dhcp6_lease *lease;
-        struct in6_addr *expired_prefix, ip6_addr;
-        uint8_t expired_prefixlen;
-        uint32_t lifetime_preferred, lifetime_valid;
-
-        r = sd_ndisc_get_expired_prefix(link->ndisc_router_discovery,
-                                        &expired_prefix, &expired_prefixlen);
-        if (r < 0)
-                return r;
-
-        r = sd_dhcp6_client_get_lease(link->dhcp6_client, &lease);
-        if (r < 0)
-                return r;
-
-        log_link_info(link, "IPv6 prefix "SD_NDISC_ADDRESS_FORMAT_STR"/%d expired",
-                      SD_NDISC_ADDRESS_FORMAT_VAL(*expired_prefix),
-                      expired_prefixlen);
-
-        sd_dhcp6_lease_reset_address_iter(lease);
-
-        while (sd_dhcp6_lease_get_address(lease, &ip6_addr,
-                                                &lifetime_preferred,
-                                                &lifetime_valid) >= 0) {
-
-                r = sd_ndisc_prefix_match(expired_prefix, expired_prefixlen,
-                                        &ip6_addr);
-                if (r < 0)
-                        continue;
-
-                log_link_info(link, "IPv6 prefix length updated "SD_NDISC_ADDRESS_FORMAT_STR"/%d", SD_NDISC_ADDRESS_FORMAT_VAL(ip6_addr), 128);
-
-                dhcp6_address_change(link, &ip6_addr, lifetime_preferred, lifetime_valid);
-        }
-
-        return 0;
 }

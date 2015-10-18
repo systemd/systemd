@@ -38,6 +38,7 @@ static void ndisc_router_handler(sd_ndisc *nd, int event, void *userdata) {
 
         switch(event) {
         case SD_NDISC_EVENT_ROUTER_ADVERTISMENT_NONE:
+        case SD_NDISC_EVENT_ROUTER_ADVERTISMENT_PREFIX_EXPIRED:
                 return;
 
         case SD_NDISC_EVENT_ROUTER_ADVERTISMENT_OTHER:
@@ -47,12 +48,6 @@ static void ndisc_router_handler(sd_ndisc *nd, int event, void *userdata) {
         case SD_NDISC_EVENT_ROUTER_ADVERTISMENT_TIMEOUT:
         case SD_NDISC_EVENT_ROUTER_ADVERTISMENT_MANAGED:
                 dhcp6_configure(link, false);
-
-                break;
-
-        case SD_NDISC_EVENT_ROUTER_ADVERTISMENT_PREFIX_EXPIRED:
-                if (!link->rtnl_extended_attrs)
-                        dhcp6_prefix_expired(link);
 
                 break;
 
