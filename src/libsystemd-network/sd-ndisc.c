@@ -35,9 +35,11 @@
 #define NDISC_MAX_ROUTER_SOLICITATIONS          3
 
 enum NDiscState {
-        NDISC_STATE_IDLE                       = 0,
-        NDISC_STATE_SOLICITATION_SENT          = 10,
-        NDISC_STATE_ADVERTISMENT_LISTEN        = 11,
+        NDISC_STATE_IDLE,
+        NDISC_STATE_SOLICITATION_SENT,
+        NDISC_STATE_ADVERTISMENT_LISTEN,
+        _NDISC_STATE_MAX,
+        _NDISC_STATE_INVALID = -1,
 };
 
 #define IP6_MIN_MTU (unsigned)1280
