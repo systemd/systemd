@@ -100,18 +100,24 @@ static int proxy_create_destination(Proxy *p, const char *destination, const cha
         return 0;
 }
 
-static int proxy_create_local(Proxy *p, int in_fd, int out_fd, bool negotiate_fds) {
-        _cleanup_bus_flush_close_unref_ sd_bus *b = NULL;
+static int proxy_create_local(Proxy *p, bool negotiate_fds) {
         sd_id128_t server_id;
+        sd_bus *b;
         int r;
 
         r = sd_bus_new(&b);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate bus: %m");
 
-        r = sd_bus_set_fd(b, in_fd, out_fd);
-        if (r < 0)
+        r = sd_bus_set_fd(b, p->local_in, p->local_out);
+        if (r < 0) {
+                sd_bus_unref(b);
                 return log_error_errno(r, "Failed to set fds: %m");
+        }
+
+        /* The fds are now owned by the bus, and we indicate that by
+         * storing the bus object in the proxy object. */
+        p->local_bus = b;
 
         r = sd_bus_get_bus_id(p->destination_bus, &server_id);
         if (r < 0)
@@ -139,8 +145,6 @@ static int proxy_create_local(Proxy *p, int in_fd, int out_fd, bool negotiate_fd
         if (r < 0)
                 return log_error_errno(r, "Failed to start bus client: %m");
 
-        p->local_bus = b;
-        b = NULL;
         return 0;
 }
 
@@ -224,9 +228,17 @@ int proxy_new(Proxy **out, int in_fd, int out_fd, const char *destination) {
         bool is_unix;
         int r;
 
+        /* This takes possession/destroys the file descriptors passed
+         * in even on failure. The caller should hence forget about
+         * the fds in all cases after calling this function and not
+         * close them. */
+
         p = new0(Proxy, 1);
-        if (!p)
+        if (!p) {
+                safe_close(in_fd);
+                safe_close(out_fd);
                 return log_oom();
+        }
 
         p->local_in = in_fd;
         p->local_out = out_fd;
@@ -247,7 +259,7 @@ int proxy_new(Proxy **out, int in_fd, int out_fd, const char *destination) {
         if (r < 0)
                 return r;
 
-        r = proxy_create_local(p, in_fd, out_fd, is_unix);
+        r = proxy_create_local(p, is_unix);
         if (r < 0)
                 return r;
 
@@ -257,6 +269,7 @@ int proxy_new(Proxy **out, int in_fd, int out_fd, const char *destination) {
 
         *out = p;
         p = NULL;
+
         return 0;
 }
 
@@ -273,7 +286,14 @@ Proxy *proxy_free(Proxy *p) {
                 free(activation);
         }
 
-        sd_bus_flush_close_unref(p->local_bus);
+        if (p->local_bus)
+                sd_bus_flush_close_unref(p->local_bus);
+        else {
+                safe_close(p->local_in);
+                if (p->local_out != p->local_in)
+                        safe_close(p->local_out);
+        }
+
         sd_bus_flush_close_unref(p->destination_bus);
         set_free_free(p->owned_names);
         free(p);

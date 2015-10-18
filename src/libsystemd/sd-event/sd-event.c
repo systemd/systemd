@@ -1123,8 +1123,8 @@ _public_ int sd_event_add_signal(
                 callback = signal_exit_callback;
 
         r = pthread_sigmask(SIG_SETMASK, NULL, &ss);
-        if (r < 0)
-                return -errno;
+        if (r != 0)
+                return -r;
 
         if (!sigismember(&ss, sig))
                 return -EBUSY;

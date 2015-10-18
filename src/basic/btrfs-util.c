@@ -799,6 +799,45 @@ int btrfs_resize_loopback(const char *p, uint64_t new_size, bool grow_only) {
         return btrfs_resize_loopback_fd(fd, new_size, grow_only);
 }
 
+static int make_qgroup_id(uint64_t level, uint64_t id, uint64_t *ret) {
+        assert(ret);
+
+        if (level >= (UINT64_C(1) << (64 - BTRFS_QGROUP_LEVEL_SHIFT)))
+                return -EINVAL;
+
+        if (id >= (UINT64_C(1) << BTRFS_QGROUP_LEVEL_SHIFT))
+                return -EINVAL;
+
+        *ret = (level << BTRFS_QGROUP_LEVEL_SHIFT) | id;
+        return 0;
+}
+
+static int qgroup_create_or_destroy(int fd, bool b, uint64_t level, uint64_t id) {
+
+        struct btrfs_ioctl_qgroup_create_args args = {
+                .create = b,
+        };
+
+        int r;
+
+        r = make_qgroup_id(level, id, (uint64_t*) &args.qgroupid);
+        if (r < 0)
+                return r;
+
+        if (ioctl(fd, BTRFS_IOC_QGROUP_CREATE, &args) < 0)
+                return -errno;
+
+        return 0;
+}
+
+int btrfs_qgroup_create(int fd, uint64_t level, uint64_t id) {
+        return qgroup_create_or_destroy(fd, true, level, id);
+}
+
+int btrfs_qgroup_destroy(int fd, uint64_t level, uint64_t id) {
+        return qgroup_create_or_destroy(fd, false, level, id);
+}
+
 static int subvol_remove_children(int fd, const char *subvolume, uint64_t subvol_id, bool recursive) {
         struct btrfs_ioctl_search_args args = {
                 .key.tree_id = BTRFS_ROOT_TREE_OBJECTID,
@@ -828,16 +867,6 @@ static int subvol_remove_children(int fd, const char *subvolume, uint64_t subvol
         if (!S_ISDIR(st.st_mode))
                 return -EINVAL;
 
-        /* First, try to remove the subvolume. If it happens to be
-         * already empty, this will just work. */
-        strncpy(vol_args.name, subvolume, sizeof(vol_args.name)-1);
-        if (ioctl(fd, BTRFS_IOC_SNAP_DESTROY, &vol_args) >= 0)
-                return 0;
-        if (!recursive || errno != ENOTEMPTY)
-                return -errno;
-
-        /* OK, the subvolume is not empty, let's look for child
-         * subvolumes, and remove them, first */
         subvol_fd = openat(fd, subvolume, O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY);
         if (subvol_fd < 0)
                 return -errno;
@@ -847,6 +876,19 @@ static int subvol_remove_children(int fd, const char *subvolume, uint64_t subvol
                 if (r < 0)
                         return r;
         }
+
+        /* First, try to remove the subvolume. If it happens to be
+         * already empty, this will just work. */
+        strncpy(vol_args.name, subvolume, sizeof(vol_args.name)-1);
+        if (ioctl(fd, BTRFS_IOC_SNAP_DESTROY, &vol_args) >= 0) {
+                (void) btrfs_qgroup_destroy(fd, 0, subvol_id);
+                return 0;
+        }
+        if (!recursive || errno != ENOTEMPTY)
+                return -errno;
+
+        /* OK, the subvolume is not empty, let's look for child
+         * subvolumes, and remove them, first */
 
         args.key.min_offset = args.key.max_offset = subvol_id;
 
@@ -925,6 +967,7 @@ static int subvol_remove_children(int fd, const char *subvolume, uint64_t subvol
         if (ioctl(fd, BTRFS_IOC_SNAP_DESTROY, &vol_args) < 0)
                 return -errno;
 
+        (void) btrfs_qgroup_destroy(fd, 0, subvol_id);
         return 0;
 }
 

@@ -1433,12 +1433,12 @@ int bus_kernel_pop_memfd(sd_bus *bus, void **address, size_t *mapped, size_t *al
         if (!bus || !bus->is_kernel)
                 return -EOPNOTSUPP;
 
-        assert_se(pthread_mutex_lock(&bus->memfd_cache_mutex) >= 0);
+        assert_se(pthread_mutex_lock(&bus->memfd_cache_mutex) == 0);
 
         if (bus->n_memfd_cache <= 0) {
                 int r;
 
-                assert_se(pthread_mutex_unlock(&bus->memfd_cache_mutex) >= 0);
+                assert_se(pthread_mutex_unlock(&bus->memfd_cache_mutex) == 0);
 
                 r = memfd_new(bus->description);
                 if (r < 0)
@@ -1460,7 +1460,7 @@ int bus_kernel_pop_memfd(sd_bus *bus, void **address, size_t *mapped, size_t *al
         *allocated = c->allocated;
         fd = c->fd;
 
-        assert_se(pthread_mutex_unlock(&bus->memfd_cache_mutex) >= 0);
+        assert_se(pthread_mutex_unlock(&bus->memfd_cache_mutex) == 0);
 
         return fd;
 }
@@ -1484,10 +1484,10 @@ void bus_kernel_push_memfd(sd_bus *bus, int fd, void *address, size_t mapped, si
                 return;
         }
 
-        assert_se(pthread_mutex_lock(&bus->memfd_cache_mutex) >= 0);
+        assert_se(pthread_mutex_lock(&bus->memfd_cache_mutex) == 0);
 
         if (bus->n_memfd_cache >= ELEMENTSOF(bus->memfd_cache)) {
-                assert_se(pthread_mutex_unlock(&bus->memfd_cache_mutex) >= 0);
+                assert_se(pthread_mutex_unlock(&bus->memfd_cache_mutex) == 0);
 
                 close_and_munmap(fd, address, mapped);
                 return;
@@ -1507,7 +1507,7 @@ void bus_kernel_push_memfd(sd_bus *bus, int fd, void *address, size_t mapped, si
                 c->allocated = allocated;
         }
 
-        assert_se(pthread_mutex_unlock(&bus->memfd_cache_mutex) >= 0);
+        assert_se(pthread_mutex_unlock(&bus->memfd_cache_mutex) == 0);
 }
 
 void bus_kernel_flush_memfd(sd_bus *b) {
