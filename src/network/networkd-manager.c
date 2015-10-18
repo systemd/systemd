@@ -1091,7 +1091,8 @@ static bool manager_check_idle(void *userdata) {
                     link_ipv4ll_enabled(link) ||
                     link_dhcp4_server_enabled(link) ||
                     link_dhcp4_enabled(link) ||
-                    link_dhcp6_enabled(link))
+                    link_dhcp6_enabled(link) ||
+                    link_ipv6_accept_ra_enabled(link))
                         return false;
         }
 

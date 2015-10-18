@@ -124,6 +124,28 @@ static bool link_ipv6_forward_enabled(Link *link) {
         return link->network->ip_forward & ADDRESS_FAMILY_IPV6;
 }
 
+bool link_ipv6_accept_ra_enabled(Link *link) {
+        if (link->flags & IFF_LOOPBACK)
+                return false;
+
+        if (!link->network)
+                return false;
+
+        /* If unset use system default (enabled if local forwarding is disabled.
+         * disabled if local forwarding is enabled).
+         * If set, ignore or enforce RA independent of local forwarding state.
+         */
+        if (link->network->ipv6_accept_ra < 0)
+                /* default to accept RA if ip_forward is disabled and ignore RA if ip_forward is enabled */
+                return !link_ipv6_forward_enabled(link);
+        else if (link->network->ipv6_accept_ra > 0)
+                /* accept RA even if ip_forward is enabled */
+                return true;
+        else
+                /* ignore RA */
+                return false;
+}
+
 static IPv6PrivacyExtensions link_ipv6_privacy_extensions(Link *link) {
         if (link->flags & IFF_LOOPBACK)
                 return _IPV6_PRIVACY_EXTENSIONS_INVALID;
@@ -485,13 +507,13 @@ static int link_stop_clients(Link *link) {
                         r = log_link_warning_errno(link, r, "Could not stop IPv4 link-local: %m");
         }
 
-        if(link->ndisc_router_discovery) {
-                if (link->dhcp6_client) {
-                        k = sd_dhcp6_client_stop(link->dhcp6_client);
-                        if (k < 0)
-                                r = log_link_warning_errno(link, r, "Could not stop DHCPv6 client: %m");
-                }
+        if (link->dhcp6_client) {
+                k = sd_dhcp6_client_stop(link->dhcp6_client);
+                if (k < 0)
+                        r = log_link_warning_errno(link, r, "Could not stop DHCPv6 client: %m");
+        }
 
+        if (link->ndisc_router_discovery) {
                 k = sd_ndisc_stop(link->ndisc_router_discovery);
                 if (k < 0)
                         r = log_link_warning_errno(link, r, "Could not stop IPv6 Router Discovery: %m");
@@ -1242,6 +1264,16 @@ static int link_acquire_conf(Link *link) {
         }
 
         if (link_dhcp6_enabled(link)) {
+                assert(link->dhcp6_client);
+
+                log_link_debug(link, "Acquiring DHCPv6 lease");
+
+                r = sd_dhcp6_client_start(link->dhcp6_client);
+                if (r < 0)
+                        return log_link_warning_errno(link, r,  "Could not acquire DHCPv6 lease: %m");
+        }
+
+        if (link_ipv6_accept_ra_enabled(link)) {
                 assert(link->ndisc_router_discovery);
 
                 log_link_debug(link, "Discovering IPv6 routers");
@@ -2041,6 +2073,12 @@ static int link_configure(Link *link) {
         }
 
         if (link_dhcp6_enabled(link)) {
+                r = dhcp6_configure(link);
+                if (r < 0)
+                        return r;
+        }
+
+        if (link_ipv6_accept_ra_enabled(link)) {
                 r = ndisc_configure(link);
                 if (r < 0)
                         return r;

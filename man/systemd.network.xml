@@ -227,7 +227,14 @@
             <literal>yes</literal>, <literal>no</literal>,
             <literal>ipv4</literal>, or <literal>ipv6</literal>.</para>
 
-            <para>Please note that, by default, the domain name
+            <para>Note that DHCPv6 will by default be triggered by Router
+            Advertisment, if that is enabled, regardless of this parameter.
+            By enabling DHCPv6 support explicitly, the DHCPv6 client will
+            be started regardless of the presence of routers on the link,
+            or what flags the routers pass. See
+            <literal>IPv6AcceptRouterAdvertisements=</literal>.</para>
+
+            <para>Furthermore, note that by default the domain name
             specified through DHCP is not used for name resolution.
             See option <option>UseDomains=</option> below.</para>
           </listitem>
@@ -414,6 +421,9 @@
           When unset, the kernel default is used, and router
           advertisements are accepted only when local forwarding
           is disabled for that interface.
+          When router advertisements are accepted, they will
+          trigger the start of the DHCPv6 client if the relevant
+          flags are passed, or if no routers are found on the link.
           Takes a boolean. If true, router advertisements are
           accepted, when false, router advertisements are ignored,
           independently of the local forwarding state.</para>
