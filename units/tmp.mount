@@ -18,6 +18,4 @@ Before=local-fs.target umount.target
 What=tmpfs
 Where=/tmp
 Type=tmpfs
-m4_ifdef(`HAVE_SMACK',
-`Options=mode=1777,strictatime,smackfsroot=*',
-`Options=mode=1777,strictatime')
+Options=mode=1777,strictatime
