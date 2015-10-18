@@ -64,8 +64,7 @@ static int dhcp6_address_handler(sd_netlink *rtnl, sd_netlink_message *m,
 }
 
 static int dhcp6_address_change(Link *link, struct in6_addr *ip6_addr,
-                                uint8_t prefixlen, uint32_t lifetime_preferred,
-                                uint32_t lifetime_valid) {
+                                uint32_t lifetime_preferred, uint32_t lifetime_valid) {
         int r;
         _cleanup_address_free_ Address *addr = NULL;
 
@@ -77,7 +76,7 @@ static int dhcp6_address_change(Link *link, struct in6_addr *ip6_addr,
         memcpy(&addr->in_addr.in6, ip6_addr, sizeof(*ip6_addr));
 
         addr->flags = IFA_F_NOPREFIXROUTE;
-        addr->prefixlen = prefixlen;
+        addr->prefixlen = 128;
 
         addr->cinfo.ifa_prefered = lifetime_preferred;
         addr->cinfo.ifa_valid = lifetime_valid;
@@ -99,7 +98,6 @@ static int dhcp6_lease_address_acquired(sd_dhcp6_client *client, Link *link) {
         sd_dhcp6_lease *lease;
         struct in6_addr ip6_addr;
         uint32_t lifetime_preferred, lifetime_valid;
-        uint8_t prefixlen;
 
         r = sd_dhcp6_client_get_lease(client, &lease);
         if (r < 0)
@@ -111,18 +109,7 @@ static int dhcp6_lease_address_acquired(sd_dhcp6_client *client, Link *link) {
                                                 &lifetime_preferred,
                                                 &lifetime_valid) >= 0) {
 
-                r = sd_ndisc_get_prefixlen(link->ndisc_router_discovery,
-                                        &ip6_addr, &prefixlen);
-                if (r < 0 && r != -EADDRNOTAVAIL) {
-                        log_link_warning_errno(link, r, "Could not get prefix information: %m");
-                        return r;
-                }
-
-                if (r == -EADDRNOTAVAIL)
-                        prefixlen = 128;
-
-                r = dhcp6_address_change(link, &ip6_addr, prefixlen,
-                                        lifetime_preferred, lifetime_valid);
+                r = dhcp6_address_change(link, &ip6_addr, lifetime_preferred, lifetime_valid);
                 if (r < 0)
                         return r;
         }
@@ -294,7 +281,7 @@ int dhcp6_prefix_expired(Link *link) {
 
                 log_link_info(link, "IPv6 prefix length updated "SD_NDISC_ADDRESS_FORMAT_STR"/%d", SD_NDISC_ADDRESS_FORMAT_VAL(ip6_addr), 128);
 
-                dhcp6_address_change(link, &ip6_addr, 128, lifetime_preferred, lifetime_valid);
+                dhcp6_address_change(link, &ip6_addr, lifetime_preferred, lifetime_valid);
         }
 
         return 0;
