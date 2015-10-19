@@ -178,17 +178,6 @@ static int mac_selinux_access_init(sd_bus_error *error) {
 }
 #endif
 
-void mac_selinux_access_free(void) {
-
-#ifdef HAVE_SELINUX
-        if (!initialized)
-                return;
-
-        avc_destroy();
-        initialized = false;
-#endif
-}
-
 /*
    This function communicates with the kernel to check whether or not it should
    allow the access.
