@@ -3826,6 +3826,7 @@ endif
 if HAVE_GNUTLS
 systemd_journal_remote_LDADD += \
 	$(GNUTLS_LIBS)
+endif
 
 # systemd-journal-remote make sense mostly with full crypto stack
 dist_systemunit_DATA += \
@@ -3840,7 +3841,6 @@ journal-remote-install-hook: journal-install-hook
 	-chmod 755 $(DESTDIR)/var/log/journal/remote
 
 INSTALL_EXEC_HOOKS += journal-remote-install-hook
-endif
 
 nodist_pkgsysconf_DATA += \
 	src/journal-remote/journal-remote.conf
