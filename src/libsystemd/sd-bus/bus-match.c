@@ -931,47 +931,6 @@ fail:
         return r;
 }
 
-char *bus_match_to_string(struct bus_match_component *components, unsigned n_components) {
-        _cleanup_fclose_ FILE *f = NULL;
-        char *buffer = NULL;
-        size_t size = 0;
-        unsigned i;
-        int r;
-
-        if (n_components <= 0)
-                return strdup("");
-
-        assert(components);
-
-        f = open_memstream(&buffer, &size);
-        if (!f)
-                return NULL;
-
-        for (i = 0; i < n_components; i++) {
-                char buf[32];
-
-                if (i != 0)
-                        fputc(',', f);
-
-                fputs(bus_match_node_type_to_string(components[i].type, buf, sizeof(buf)), f);
-                fputc('=', f);
-                fputc('\'', f);
-
-                if (components[i].type == BUS_MATCH_MESSAGE_TYPE)
-                        fputs(bus_message_type_to_string(components[i].value_u8), f);
-                else
-                        fputs(components[i].value_str, f);
-
-                fputc('\'', f);
-        }
-
-        r = fflush_and_check(f);
-        if (r < 0)
-                return NULL;
-
-        return buffer;
-}
-
 int bus_match_add(
                 struct bus_match_node *root,
                 struct bus_match_component *components,
