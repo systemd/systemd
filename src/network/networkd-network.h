@@ -121,6 +121,9 @@ struct Network {
         bool ip_masquerade;
 
         int ipv6_accept_ra;
+        usec_t router_solicitation_delay;
+        usec_t router_solicitation_interval;
+        int router_solicitations;
 
         union in_addr_union ipv6_token;
         IPv6PrivacyExtensions ipv6_privacy_extensions;
