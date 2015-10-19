@@ -1850,6 +1850,37 @@ static int link_set_ipv6_accept_ra(Link *link) {
         return 0;
 }
 
+static int link_set_ipv6_hop_limit(Link *link) {
+        char buf[DECIMAL_STR_MAX(unsigned) + 1];
+        const char *p = NULL;
+        int r;
+
+        /* Make this a NOP if IPv6 is not available */
+        if (!socket_ipv6_is_supported())
+                return 0;
+
+        if (link->flags & IFF_LOOPBACK)
+                return 0;
+
+        if (link->network->ipv6_hop_limit < 0)
+                return 0;
+
+        p = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/hop_limit");
+
+        xsprintf(buf, "%u", link->network->ipv6_hop_limit);
+
+        r = write_string_file(p, buf, 0);
+        if (r < 0) {
+                /* If the right value is set anyway, don't complain */
+                if (verify_one_line_file(p, buf) > 0)
+                        return 0;
+
+                log_link_warning_errno(link, r, "Cannot set IPv6 hop limit for interface: %m");
+        }
+
+        return 0;
+}
+
 static int link_configure(Link *link) {
         int r;
 
@@ -1874,6 +1905,10 @@ static int link_configure(Link *link) {
                 return r;
 
         r = link_set_ipv6_accept_ra(link);
+        if (r < 0)
+                return r;
+
+        r = link_set_ipv6_hop_limit(link);
         if (r < 0)
                 return r;
 
