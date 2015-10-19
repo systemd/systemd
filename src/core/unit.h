@@ -464,9 +464,6 @@ int unit_add_two_dependencies(Unit *u, UnitDependency d, UnitDependency e, Unit 
 int unit_add_dependency_by_name(Unit *u, UnitDependency d, const char *name, const char *filename, bool add_reference);
 int unit_add_two_dependencies_by_name(Unit *u, UnitDependency d, UnitDependency e, const char *name, const char *path, bool add_reference);
 
-int unit_add_dependency_by_name_inverse(Unit *u, UnitDependency d, const char *name, const char *filename, bool add_reference);
-int unit_add_two_dependencies_by_name_inverse(Unit *u, UnitDependency d, UnitDependency e, const char *name, const char *path, bool add_reference);
-
 int unit_add_exec_dependencies(Unit *u, ExecContext *c);
 
 int unit_choose_id(Unit *u, const char *name);
@@ -591,8 +588,6 @@ int unit_write_drop_in_format(Unit *u, UnitSetPropertiesMode mode, const char *n
 
 int unit_write_drop_in_private(Unit *u, UnitSetPropertiesMode mode, const char *name, const char *data);
 int unit_write_drop_in_private_format(Unit *u, UnitSetPropertiesMode mode, const char *name, const char *format, ...) _printf_(4,5);
-
-int unit_remove_drop_in(Unit *u, UnitSetPropertiesMode mode, const char *name);
 
 int unit_kill_context(Unit *u, KillContext *c, KillOperation k, pid_t main_pid, pid_t control_pid, bool main_pid_alien);
 

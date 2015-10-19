@@ -25,8 +25,6 @@
 #include "bus-util.h"
 #include "manager.h"
 
-void mac_selinux_access_free(void);
-
 int mac_selinux_generic_access_check(sd_bus_message *message, const char *path, const char *permission, sd_bus_error *error);
 
 #ifdef HAVE_SELINUX
