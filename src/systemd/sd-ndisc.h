@@ -31,20 +31,25 @@
 _SD_BEGIN_DECLARATIONS;
 
 enum {
-        SD_NDISC_EVENT_ROUTER_ADVERTISMENT_NONE         = 0,
-        SD_NDISC_EVENT_ROUTER_ADVERTISMENT_TIMEOUT      = 1,
-        SD_NDISC_EVENT_ROUTER_ADVERTISMENT_OTHER        = 2,
-        SD_NDISC_EVENT_ROUTER_ADVERTISMENT_MANAGED      = 3,
-        SD_NDISC_EVENT_STOP                             = 4,
+        SD_NDISC_EVENT_STOP     = 0,
+        SD_NDISC_EVENT_TIMEOUT  = 1,
 };
 
 typedef struct sd_ndisc sd_ndisc;
 
-typedef void(*sd_ndisc_callback_t)(sd_ndisc *nd, int event,
-                                      void *userdata);
+typedef void(*sd_ndisc_router_callback_t)(sd_ndisc *nd, uint8_t flags, const struct in6_addr *gateway, unsigned lifetime, int pref, void *userdata);
+typedef void(*sd_ndisc_prefix_onlink_callback_t)(sd_ndisc *nd, const struct in6_addr *prefix, unsigned prefixlen,
+                                                 unsigned lifetime, void *userdata);
+typedef void(*sd_ndisc_prefix_autonomous_callback_t)(sd_ndisc *nd, const struct in6_addr *prefix, unsigned prefixlen,
+                                                     unsigned lifetime_prefered, unsigned lifetime_valid, void *userdata);
+typedef void(*sd_ndisc_callback_t)(sd_ndisc *nd, int event, void *userdata);
 
-int sd_ndisc_set_callback(sd_ndisc *nd, sd_ndisc_callback_t cb,
-                             void *userdata);
+int sd_ndisc_set_callback(sd_ndisc *nd,
+                          sd_ndisc_router_callback_t rcb,
+                          sd_ndisc_prefix_onlink_callback_t plcb,
+                          sd_ndisc_prefix_autonomous_callback_t pacb,
+                          sd_ndisc_callback_t cb,
+                          void *userdata);
 int sd_ndisc_set_index(sd_ndisc *nd, int interface_index);
 int sd_ndisc_set_mac(sd_ndisc *nd, const struct ether_addr *mac_addr);
 

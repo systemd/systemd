@@ -20,41 +20,44 @@
 ***/
 
 #include <netinet/ether.h>
+#include <netinet/icmp6.h>
 #include <linux/if.h>
 
 #include "sd-ndisc.h"
 
 #include "networkd-link.h"
 
-static void ndisc_router_handler(sd_ndisc *nd, int event, void *userdata) {
+static void ndisc_router_handler(sd_ndisc *nd, uint8_t flags, const struct in6_addr *gateway, unsigned lifetime, int pref, void *userdata) {
         Link *link = userdata;
 
         assert(link);
         assert(link->network);
-        assert(link->manager);
 
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return;
 
-        switch(event) {
-        case SD_NDISC_EVENT_STOP:
-        case SD_NDISC_EVENT_ROUTER_ADVERTISMENT_NONE:
+        if (flags & ND_RA_FLAG_MANAGED)
+                dhcp6_configure(link, false);
+        else if (flags & ND_RA_FLAG_OTHER)
+                dhcp6_configure(link, true);
+}
+
+static void ndisc_handler(sd_ndisc *nd, int event, void *userdata) {
+        Link *link = userdata;
+
+        assert(link);
+
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return;
 
-        case SD_NDISC_EVENT_ROUTER_ADVERTISMENT_OTHER:
-                dhcp6_configure(link, true);
-
-                break;
-        case SD_NDISC_EVENT_ROUTER_ADVERTISMENT_TIMEOUT:
-        case SD_NDISC_EVENT_ROUTER_ADVERTISMENT_MANAGED:
+        switch (event) {
+        case SD_NDISC_EVENT_TIMEOUT:
                 dhcp6_configure(link, false);
-
                 break;
-
+        case SD_NDISC_EVENT_STOP:
+                break;
         default:
                 log_link_warning(link, "IPv6 Neighbor Discovery unknown event: %d", event);
-
-                break;
         }
 }
 
@@ -80,7 +83,11 @@ int ndisc_configure(Link *link) {
                 return r;
 
         r = sd_ndisc_set_callback(link->ndisc_router_discovery,
-                                  ndisc_router_handler, link);
+                                  ndisc_router_handler,
+                                  NULL,
+                                  NULL,
+                                  ndisc_handler,
+                                  link);
 
         return r;
 }
