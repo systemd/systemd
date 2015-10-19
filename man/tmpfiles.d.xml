@@ -506,8 +506,9 @@
 
       <para>The age field only applies to lines
       starting with <varname>d</varname>,
-      <varname>D</varname>, and
-      <varname>x</varname>. If omitted or set to
+      <varname>D</varname>, <varname>v</varname>,
+      <varname>C</varname>, <varname>x</varname> and
+      <varname>X</varname>. If omitted or set to
       <literal>-</literal>, no automatic clean-up is
       done.</para>
 
