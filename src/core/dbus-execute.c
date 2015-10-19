@@ -1204,6 +1204,77 @@ int bus_exec_context_set_transient_property(
 
                 return 1;
 
+        } else if (streq(name, "EnvironmentFiles")) {
+
+                _cleanup_free_ char *joined = NULL;
+                _cleanup_fclose_ FILE *f = NULL;
+                size_t size = 0;
+                bool empty_array = true;
+
+                r = sd_bus_message_enter_container(message, 'a', "(sb)");
+                if (r < 0)
+                        return r;
+
+                f = open_memstream(&joined, &size);
+                if (!f)
+                        return -ENOMEM;
+
+                if (mode != UNIT_CHECK) {
+                        char **buf;
+                        STRV_FOREACH(buf, c->environment_files)
+                                fprintf(f, "EnvironmentFile=%s\n", *buf);
+                }
+
+                while ((r = sd_bus_message_enter_container(message, 'r', "sb")) > 0) {
+                        const char *path;
+                        int b;
+
+                        empty_array = false;
+
+                        r = sd_bus_message_read(message, "sb", &path, &b);
+                        if (r < 0)
+                                return r;
+
+                        r = sd_bus_message_exit_container(message);
+                        if (r < 0)
+                                return r;
+
+                        if (!isempty(path) && !path_is_absolute(path))
+                                return sd_bus_error_set_errnof(error, EINVAL, "Path %s is not absolute.", path);
+
+                        if (mode != UNIT_CHECK) {
+                                _cleanup_free_ char *drop_in = NULL;
+                                char *buf = NULL;
+
+                                buf = strjoin(b ? "-" : "", path, NULL);
+                                if (buf == NULL)
+                                        return -ENOMEM;
+
+                                fprintf(f, "EnvironmentFile=%s\n", buf);
+
+                                r = strv_consume(&c->environment_files, buf);
+                                if (r < 0)
+                                        return r;
+                        }
+                }
+                if (r < 0)
+                        return r;
+
+                fflush(f);
+
+                if (mode != UNIT_CHECK)
+                        if (empty_array) {
+                                strv_clear(c->environment_files);
+                                unit_write_drop_in_private(u, mode, name, "EnvironmentFile=\n");
+                        } else
+                                unit_write_drop_in_private(u, mode, name, joined);
+
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
+
+                return 1;
+
         } else if (rlimit_from_string(name) >= 0) {
                 uint64_t rl;
                 rlim_t x;
