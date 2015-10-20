@@ -144,7 +144,7 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_strv_free_erase_ char **l = NULL;
         usec_t timeout;
         char **p;
         int r;

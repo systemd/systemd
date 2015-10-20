@@ -930,7 +930,7 @@ finish:
 
 static int system_journal_open(Server *s, bool flush_requested) {
         const char *fn;
-        int r;
+        int r = 0;
 
         if (!s->system_journal &&
             (s->storage == STORAGE_PERSISTENT || s->storage == STORAGE_AUTO) &&
@@ -1231,7 +1231,7 @@ static int dispatch_sigusr1(sd_event_source *es, const struct signalfd_siginfo *
         server_sync(s);
         server_vacuum(s, false, false);
 
-        touch("/run/systemd/journal/flushed");
+        (void) touch("/run/systemd/journal/flushed");
 
         return 0;
 }

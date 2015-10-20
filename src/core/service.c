@@ -1215,7 +1215,7 @@ static int service_spawn(
 
         if (is_control && UNIT(s)->cgroup_path) {
                 path = strjoina(UNIT(s)->cgroup_path, "/control");
-                cg_create(SYSTEMD_CGROUP_CONTROLLER, path);
+                (void) cg_create(SYSTEMD_CGROUP_CONTROLLER, path);
         } else
                 path = UNIT(s)->cgroup_path;
 

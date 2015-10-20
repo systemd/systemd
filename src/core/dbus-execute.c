@@ -1208,8 +1208,9 @@ int bus_exec_context_set_transient_property(
 
                 _cleanup_free_ char *joined = NULL;
                 _cleanup_fclose_ FILE *f = NULL;
+                _cleanup_free_ char **l = NULL;
                 size_t size = 0;
-                bool empty_array = true;
+                char **i;
 
                 r = sd_bus_message_enter_container(message, 'a', "(sb)");
                 if (r < 0)
@@ -1219,17 +1220,12 @@ int bus_exec_context_set_transient_property(
                 if (!f)
                         return -ENOMEM;
 
-                if (mode != UNIT_CHECK) {
-                        char **buf;
-                        STRV_FOREACH(buf, c->environment_files)
-                                fprintf(f, "EnvironmentFile=%s\n", *buf);
-                }
+                STRV_FOREACH(i, c->environment_files)
+                        fprintf(f, "EnvironmentFile=%s\n", *i);
 
                 while ((r = sd_bus_message_enter_container(message, 'r', "sb")) > 0) {
                         const char *path;
                         int b;
-
-                        empty_array = false;
 
                         r = sd_bus_message_read(message, "sb", &path, &b);
                         if (r < 0)
@@ -1247,12 +1243,12 @@ int bus_exec_context_set_transient_property(
                                 char *buf = NULL;
 
                                 buf = strjoin(b ? "-" : "", path, NULL);
-                                if (buf == NULL)
+                                if (!buf)
                                         return -ENOMEM;
 
                                 fprintf(f, "EnvironmentFile=%s\n", buf);
 
-                                r = strv_consume(&c->environment_files, buf);
+                                r = strv_consume(&l, buf);
                                 if (r < 0)
                                         return r;
                         }
@@ -1260,14 +1256,22 @@ int bus_exec_context_set_transient_property(
                 if (r < 0)
                         return r;
 
-                fflush(f);
+                r = fflush_and_check(f);
+                if (r < 0)
+                        return r;
 
-                if (mode != UNIT_CHECK)
-                        if (empty_array) {
-                                strv_clear(c->environment_files);
+                if (mode != UNIT_CHECK) {
+                        if (strv_isempty(l)) {
+                                c->environment_files = strv_free(c->environment_files);
                                 unit_write_drop_in_private(u, mode, name, "EnvironmentFile=\n");
-                        } else
+                        } else {
+                                r = strv_extend_strv(&c->environment_files, l, true);
+                                if (r < 0)
+                                        return r;
+
                                 unit_write_drop_in_private(u, mode, name, joined);
+                        }
+                }
 
                 r = sd_bus_message_exit_container(message);
                 if (r < 0)

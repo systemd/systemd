@@ -78,6 +78,7 @@ static int retrieve_key(key_serial_t serial, char ***ret) {
                 if (n < m)
                         break;
 
+                memory_erase(p, n);
                 free(p);
                 m *= 2;
         }
@@ -86,12 +87,14 @@ static int retrieve_key(key_serial_t serial, char ***ret) {
         if (!l)
                 return -ENOMEM;
 
+        memory_erase(p, n);
+
         *ret = l;
         return 0;
 }
 
 static int add_to_keyring(const char *keyname, AskPasswordFlags flags, char **passwords) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_strv_free_erase_ char **l = NULL;
         _cleanup_free_ char *p = NULL;
         key_serial_t serial;
         size_t n;
@@ -124,6 +127,7 @@ static int add_to_keyring(const char *keyname, AskPasswordFlags flags, char **pa
         assert(p[n-1] == 0);
 
         serial = add_key("user", keyname, p, n-1, KEY_SPEC_USER_KEYRING);
+        memory_erase(p, n);
         if (serial == -1)
                 return -errno;
 
@@ -361,9 +365,12 @@ int ask_password_tty(
 
                         dirty = true;
                 }
+
+                c = 'x';
         }
 
         x = strndup(passphrase, p);
+        memory_erase(passphrase, p);
         if (!x) {
                 r = -ENOMEM;
                 goto finish;
@@ -620,6 +627,7 @@ int ask_password_agent(
                                 l = strv_new("", NULL);
                         else
                                 l = strv_parse_nulstr(passphrase+1, n-1);
+                        memory_erase(passphrase, n);
                         if (!l) {
                                 r = -ENOMEM;
                                 goto finish;
@@ -688,9 +696,12 @@ int ask_password_auto(
                 if (r < 0)
                         return r;
 
-                r = strv_consume(&l, s);
-                if (r < 0)
+                r = strv_push(&l, s);
+                if (r < 0) {
+                        string_erase(s);
+                        free(s);
                         return -ENOMEM;
+                }
 
                 *ret = l;
                 return 0;
