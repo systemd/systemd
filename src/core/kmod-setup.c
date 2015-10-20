@@ -69,9 +69,9 @@ int kmod_setup(void) {
                 /* IPC is needed before we bring up any other services */
                 { "kdbus",     "/sys/fs/kdbus",             false,  false,   is_kdbus_wanted },
 
-#ifdef HAVE_LIBIPTC
+#ifdef HAVE_LIBNFTNL
                 /* netfilter is needed by networkd, nspawn among others, and cannot be autoloaded */
-                { "ip_tables", "/proc/net/ip_tables_names", false,  false,   NULL      },
+                { "nft_chain_nat_ipv4", "/sys/module/nft_chain_nat_ipv4", false, false, NULL },
 #endif
         };
         struct kmod_ctx *ctx = NULL;

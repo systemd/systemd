@@ -23,22 +23,23 @@
 
 #include "in-addr-util.h"
 
-#ifdef HAVE_LIBIPTC
+#ifdef HAVE_LIBNFTNL
 
 int fw_add_masquerade(
-                bool add,
                 int af,
-                int protocol,
+                uint8_t protocol,
                 const union in_addr_union *source,
                 unsigned source_prefixlen,
                 const char *out_interface,
                 const union in_addr_union *destination,
-                unsigned destination_prefixlen);
+                unsigned destination_prefixlen,
+                uint64_t *handle);
+
+int fw_remove_masquerade(uint64_t handle);
 
 int fw_add_local_dnat(
-                bool add,
                 int af,
-                int protocol,
+                uint8_t protocol,
                 const char *in_interface,
                 const union in_addr_union *source,
                 unsigned source_prefixlen,
@@ -47,26 +48,36 @@ int fw_add_local_dnat(
                 uint16_t local_port,
                 const union in_addr_union *remote,
                 uint16_t remote_port,
-                const union in_addr_union *previous_remote);
+                uint64_t *handle);
+
+int fw_remove_local_dnat(uint64_t handle);
+
+int fw_add_cgroup_match(uint32_t net_cls, bool input, const char *target, uint64_t *handle);
+int fw_remove_cgroup_match(uint64_t handle, bool input);
+
+int fw_get_counter_bytes(uint64_t handle, bool input, uint64_t *value);
 
 #else
 
 static inline int fw_add_masquerade(
-                bool add,
                 int af,
-                int protocol,
+                uint8_t protocol,
                 const union in_addr_union *source,
                 unsigned source_prefixlen,
                 const char *out_interface,
                 const union in_addr_union *destination,
-                unsigned destination_prefixlen) {
+                unsigned destination_prefixlen,
+                uint64_t *handle) {
+        return -EOPNOTSUPP;
+}
+
+static inline int fw_remove_masquerade(uint64_t handle) {
         return -EOPNOTSUPP;
 }
 
 static inline int fw_add_local_dnat(
-                bool add,
                 int af,
-                int protocol,
+                uint8_t protocol,
                 const char *in_interface,
                 const union in_addr_union *source,
                 unsigned source_prefixlen,
@@ -75,7 +86,23 @@ static inline int fw_add_local_dnat(
                 uint16_t local_port,
                 const union in_addr_union *remote,
                 uint16_t remote_port,
-                const union in_addr_union *previous_remote) {
+                uint64_t *handle) {
+        return -EOPNOTSUPP;
+}
+
+static inline int fw_remove_local_dnat(uint64_t handle) {
+        return -EOPNOTSUPP;
+}
+
+static inline int fw_add_cgroup_match(uint32_t net_cls, bool input, const char *target, uint64_t *handle) {
+        return -EOPNOTSUPP;
+}
+
+static inline int fw_remove_cgroup_match(uint64_t handle, bool input) {
+        return -EOPNOTSUPP;
+}
+
+static inline int fw_get_counter_bytes(uint64_t handle, bool input, uint64_t *value) {
         return -EOPNOTSUPP;
 }
 
