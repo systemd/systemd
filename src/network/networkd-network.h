@@ -121,6 +121,7 @@ struct Network {
         bool ip_masquerade;
 
         int ipv6_accept_ra;
+        int ipv6_dad_transmits;
 
         union in_addr_union ipv6_token;
         IPv6PrivacyExtensions ipv6_privacy_extensions;

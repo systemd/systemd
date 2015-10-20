@@ -426,6 +426,12 @@
         </listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>IPv6DuplicateAddressDetection=</varname></term>
+          <listitem><para>Configures amount of IPv6 Duplicate
+          Address Detection probes to se(DAD). Defaults to unset.
+        </para></listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>Bridge=</varname></term>
           <listitem>
             <para>The name of the bridge to add the link to.</para>
