@@ -2500,11 +2500,35 @@ char *getusername_malloc(void) {
         return lookup_uid(getuid());
 }
 
-bool is_temporary_fs(const struct statfs *s) {
+bool is_fs_type(const struct statfs *s, statfs_f_type_t magic_value) {
         assert(s);
+        assert_cc(sizeof(statfs_f_type_t) >= sizeof(s->f_type));
 
-        return F_TYPE_EQUAL(s->f_type, TMPFS_MAGIC) ||
-               F_TYPE_EQUAL(s->f_type, RAMFS_MAGIC);
+        return F_TYPE_EQUAL(s->f_type, magic_value);
+}
+
+int fd_check_fstype(int fd, statfs_f_type_t magic_value) {
+        struct statfs s;
+
+        if (fstatfs(fd, &s) < 0)
+                return -errno;
+
+        return is_fs_type(&s, magic_value);
+}
+
+int path_check_fstype(const char *path, statfs_f_type_t magic_value) {
+        _cleanup_close_ int fd = -1;
+
+        fd = open(path, O_RDONLY);
+        if (fd < 0)
+                return -errno;
+
+        return fd_check_fstype(fd, magic_value);
+}
+
+bool is_temporary_fs(const struct statfs *s) {
+    return is_fs_type(s, TMPFS_MAGIC) ||
+           is_fs_type(s, RAMFS_MAGIC);
 }
 
 int fd_is_temporary_fs(int fd) {
