@@ -105,11 +105,11 @@ static void lldp_mib_delete_objects(sd_lldp *lldp);
 static void lldp_set_state(sd_lldp *lldp, LLDPAgentRXState state);
 static void lldp_run_state_machine(sd_lldp *ll);
 
-static int lldp_receive_frame(sd_lldp *lldp, tlv_packet *tlv) {
+static int lldp_receive_frame(sd_lldp *lldp, sd_lldp_packet *m) {
         int r;
 
         assert(lldp);
-        assert(tlv);
+        assert(m);
 
         /* Remove expired packets */
         if (prioq_size(lldp->by_expiry) > 0) {
@@ -119,7 +119,7 @@ static int lldp_receive_frame(sd_lldp *lldp, tlv_packet *tlv) {
                 lldp_mib_delete_objects(lldp);
         }
 
-        r = lldp_mib_add_objects(lldp->by_expiry, lldp->neighbour_mib, tlv);
+        r = lldp_mib_add_objects(lldp->by_expiry, lldp->neighbour_mib, m);
         if (r < 0)
                 goto out;
 
@@ -141,7 +141,7 @@ static int lldp_receive_frame(sd_lldp *lldp, tlv_packet *tlv) {
 }
 
 /* 10.3.2 LLDPDU validation: rxProcessFrame() */
-int lldp_handle_packet(tlv_packet *tlv, uint16_t length) {
+int lldp_handle_packet(sd_lldp_packet *m, uint16_t length) {
         uint16_t type, len, i, l, t;
         bool chassis_id = false;
         bool malformed = false;
@@ -153,10 +153,10 @@ int lldp_handle_packet(tlv_packet *tlv, uint16_t length) {
         sd_lldp *lldp;
         int r;
 
-        assert(tlv);
+        assert(m);
         assert(length > 0);
 
-        port = (lldp_port *) tlv->userdata;
+        port = (lldp_port *) m->userdata;
         lldp = (sd_lldp *) port->userdata;
 
         if (lldp->port->status == LLDP_PORT_STATUS_DISABLED) {
@@ -167,7 +167,7 @@ int lldp_handle_packet(tlv_packet *tlv, uint16_t length) {
 
         lldp_set_state(lldp, LLDP_AGENT_RX_RX_FRAME);
 
-        p = tlv->pdu;
+        p = m->pdu;
         p += sizeof(struct ether_header);
 
         for (i = 1, l = 0; l <= length; i++) {
@@ -318,7 +318,7 @@ int lldp_handle_packet(tlv_packet *tlv, uint16_t length) {
 
         }
 
-        r = tlv_packet_parse_pdu(tlv, length);
+        r = sd_lldp_packet_parse_pdu(m, length);
         if (r < 0) {
                 log_lldp( "Failed to parse the TLV. Dropping ...");
 
@@ -326,7 +326,7 @@ int lldp_handle_packet(tlv_packet *tlv, uint16_t length) {
                 goto out;
         }
 
-        return lldp_receive_frame(lldp, tlv);
+        return lldp_receive_frame(lldp, m);
 
  out:
         lldp_set_state(lldp, LLDP_AGENT_RX_WAIT_FOR_FRAME);
@@ -336,7 +336,7 @@ int lldp_handle_packet(tlv_packet *tlv, uint16_t length) {
                 lldp->statistics.stats_frames_in_errors_total ++;
         }
 
-        sd_lldp_packet_unref(tlv);
+        sd_lldp_packet_unref(m);
 
         return 0;
 }
