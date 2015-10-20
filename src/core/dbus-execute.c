@@ -1155,18 +1155,24 @@ int bus_exec_context_set_transient_property(
                         _cleanup_free_ char *joined = NULL;
                         char **e;
 
-                        e = strv_env_merge(2, c->environment, l);
-                        if (!e)
-                                return -ENOMEM;
+                        if (strv_length(l) == 0) {
+                                c->environment = strv_free(c->environment);
+                                unit_write_drop_in_private_format(u, mode, name, "Environment=\n");
+                        } else {
+                                e = strv_env_merge(2, c->environment, l);
+                                if (!e)
+                                        return -ENOMEM;
 
-                        strv_free(c->environment);
-                        c->environment = e;
+                                strv_free(c->environment);
+                                c->environment = e;
 
-                        joined = strv_join_quoted(c->environment);
-                        if (!joined)
-                                return -ENOMEM;
+                                joined = strv_join_quoted(c->environment);
+                                if (!joined)
+                                        return -ENOMEM;
 
-                        unit_write_drop_in_private_format(u, mode, name, "Environment=%s\n", joined);
+                                unit_write_drop_in_private_format(u, mode, name, "Environment=%s\n", joined);
+                        }
+
                 }
 
                 return 1;

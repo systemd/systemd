@@ -31,6 +31,7 @@
 #include "bus-message.h"
 #include "cgroup-util.h"
 #include "def.h"
+#include "env-util.h"
 #include "macro.h"
 #include "missing.h"
 #include "path-util.h"
@@ -1642,8 +1643,44 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                 r = sd_bus_message_append(m, "v", "i", i);
 
         } else if (streq(field, "Environment")) {
+                const char *p;
 
-                r = sd_bus_message_append(m, "v", "as", 1, eq);
+                r = sd_bus_message_open_container(m, 'v', "as");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_open_container(m, 'a', "s");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                p = eq;
+
+                for (;;) {
+                        _cleanup_free_ char *word = NULL;
+
+                        r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES|EXTRACT_CUNESCAPE);
+                        if (r < 0) {
+                                log_error("Failed to parse Environment value %s", eq);
+                                return -EINVAL;
+                        }
+                        if (r == 0)
+                                break;
+
+                        if (!env_assignment_is_valid(word)) {
+                                log_error("Invalid environment assignment: %s", eq);
+                                return -EINVAL;
+                        }
+
+                        r = sd_bus_message_append_basic(m, 's', word);
+                        if (r < 0)
+                                return bus_log_create_error(r);
+                }
+
+                r = sd_bus_message_close_container(m);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_close_container(m);
 
         } else if (streq(field, "KillSignal")) {
                 int sig;
