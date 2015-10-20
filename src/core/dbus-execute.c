@@ -1245,7 +1245,6 @@ int bus_exec_context_set_transient_property(
                                 return sd_bus_error_set_errnof(error, EINVAL, "Path %s is not absolute.", path);
 
                         if (mode != UNIT_CHECK) {
-                                _cleanup_free_ char *drop_in = NULL;
                                 char *buf = NULL;
 
                                 buf = strjoin(b ? "-" : "", path, NULL);
