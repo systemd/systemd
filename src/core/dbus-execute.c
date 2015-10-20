@@ -36,6 +36,7 @@
 #include "af-list.h"
 #include "namespace.h"
 #include "path-util.h"
+#include "utf8.h"
 #include "dbus-execute.h"
 
 #ifdef HAVE_SECCOMP
@@ -1282,6 +1283,56 @@ int bus_exec_context_set_transient_property(
                 r = sd_bus_message_exit_container(message);
                 if (r < 0)
                         return r;
+
+                return 1;
+
+        } else if (STR_IN_SET(name, "ReadWriteDirectories", "ReadOnlyDirectories", "InaccessibleDirectories")) {
+
+                _cleanup_strv_free_ char **l = NULL;
+                char ***dirs;
+                char **p;
+
+                r = sd_bus_message_read_strv(message, &l);
+                if (r < 0)
+                        return r;
+
+                STRV_FOREACH(p, l) {
+                        int offset;
+                        if (!utf8_is_valid(*p))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid %s", name);
+
+                        offset = **p == '-';
+                        if (!path_is_absolute(*p + offset))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid %s", name);
+                }
+
+                if (mode != UNIT_CHECK) {
+                        _cleanup_free_ char *joined = NULL;
+
+                        if (streq(name, "ReadWriteDirectories"))
+                                dirs = &c->read_write_dirs;
+                        else if (streq(name, "ReadOnlyDirectories"))
+                                dirs = &c->read_only_dirs;
+                        else if (streq(name, "InaccessibleDirectories"))
+                                dirs = &c->inaccessible_dirs;
+
+                        if (strv_length(l) == 0) {
+                                *dirs = strv_free(*dirs);
+                                unit_write_drop_in_private_format(u, mode, name, "%s=\n", name);
+                        } else {
+                                r = strv_extend_strv(dirs, l, true);
+
+                                if (r < 0)
+                                        return -ENOMEM;
+
+                                joined = strv_join_quoted(*dirs);
+                                if (!joined)
+                                        return -ENOMEM;
+
+                                unit_write_drop_in_private_format(u, mode, name, "%s=%s\n", name, joined);
+                        }
+
+                }
 
                 return 1;
 
