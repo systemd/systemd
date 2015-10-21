@@ -75,6 +75,9 @@ typedef struct Settings {
 int settings_load(FILE *f, const char *path, Settings **ret);
 Settings* settings_free(Settings *s);
 
+bool settings_network_veth(Settings *s);
+bool settings_private_network(Settings *s);
+
 DEFINE_TRIVIAL_CLEANUP_FUNC(Settings*, settings_free);
 
 const struct ConfigPerfItem* nspawn_gperf_lookup(const char *key, unsigned length);
