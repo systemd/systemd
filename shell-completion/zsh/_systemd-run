@@ -38,7 +38,7 @@ _arguments \
                 PrivateNetwork= NoNewPrivileges= WorkingDirectory= RootDirectory= \
                 TTYPath= SyslogIdentifier= SyslogLevelPrefix= SyslogLevel= \
                 SyslogFacility= TimerSlackNSec= OOMScoreAdjust= ReadWriteDirectories= \
-                ReadOnlyDirectories= InaccessibleDirectories= \
+                ReadOnlyDirectories= InaccessibleDirectories= EnvironmentFile= \
                 ))' \
         '--description=[Description for unit]:description' \
         '--slice=[Run in the specified slice]:slices:__slices' \
