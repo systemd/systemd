@@ -47,6 +47,7 @@
 #include "journal-remote.h"
 
 #define REMOTE_JOURNAL_PATH "/var/log/journal/remote"
+#define SD_MHD_MLIMIT (64UL*1024UL)
 
 #define PRIV_KEY_FILE CERTIFICATE_ROOT "/private/journal-remote.pem"
 #define CERT_FILE     CERTIFICATE_ROOT "/certs/journal-remote.pem"
@@ -70,6 +71,7 @@ static char *arg_key = NULL;
 static char *arg_cert = NULL;
 static char *arg_trust = NULL;
 static bool arg_trust_all = false;
+static size_t arg_mhd_conn_memory_limit = SD_MHD_MLIMIT;
 
 /**********************************************************************
  **********************************************************************
@@ -640,11 +642,12 @@ static int setup_microhttpd_server(RemoteServer *s,
                 { MHD_OPTION_NOTIFY_COMPLETED, (intptr_t) request_meta_free},
                 { MHD_OPTION_EXTERNAL_LOGGER, (intptr_t) microhttpd_logger},
                 { MHD_OPTION_LISTEN_SOCKET, fd},
+                { MHD_OPTION_CONNECTION_MEMORY_LIMIT, (size_t) arg_mhd_conn_memory_limit},
                 { MHD_OPTION_END},
                 { MHD_OPTION_END},
                 { MHD_OPTION_END},
                 { MHD_OPTION_END}};
-        int opts_pos = 3;
+        int opts_pos = 4;
         int flags =
                 MHD_USE_DEBUG |
                 MHD_USE_DUAL_STACK |
@@ -1175,6 +1178,7 @@ static int parse_config(void) {
                 { "Remote",  "ServerKeyFile",          config_parse_path,             0, &arg_key        },
                 { "Remote",  "ServerCertificateFile",  config_parse_path,             0, &arg_cert       },
                 { "Remote",  "TrustedCertificateFile", config_parse_path,             0, &arg_trust      },
+                { "Remote",  "MhdConnMemoryLimit",     config_parse_iec_size,         0, &arg_mhd_conn_memory_limit },
                 {}};
 
         return config_parse_many(PKGSYSCONFDIR "/journal-remote.conf",
@@ -1205,6 +1209,8 @@ static void help(void) {
                "     --gnutls-log=CATEGORY...\n"
                "                            Specify a list of gnutls logging categories\n"
                "     --split-mode=none|host How many output files to create\n"
+               "     --mhd-conn-memory-limit=BYTES\n"
+               "                            Memory limit in bytes per HTTP/HTTPS connection\n"
                "\n"
                "Note: file descriptors from sd_listen_fds() will be consumed, too.\n"
                , program_invocation_short_name);
@@ -1225,24 +1231,26 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_CERT,
                 ARG_TRUST,
                 ARG_GNUTLS_LOG,
+                ARG_MHD_CONN_MEMORY_LIMIT,
         };
 
         static const struct option options[] = {
-                { "help",         no_argument,       NULL, 'h'              },
-                { "version",      no_argument,       NULL, ARG_VERSION      },
-                { "url",          required_argument, NULL, ARG_URL          },
-                { "getter",       required_argument, NULL, ARG_GETTER       },
-                { "listen-raw",   required_argument, NULL, ARG_LISTEN_RAW   },
-                { "listen-http",  required_argument, NULL, ARG_LISTEN_HTTP  },
-                { "listen-https", required_argument, NULL, ARG_LISTEN_HTTPS },
-                { "output",       required_argument, NULL, 'o'              },
-                { "split-mode",   required_argument, NULL, ARG_SPLIT_MODE   },
-                { "compress",     optional_argument, NULL, ARG_COMPRESS     },
-                { "seal",         optional_argument, NULL, ARG_SEAL         },
-                { "key",          required_argument, NULL, ARG_KEY          },
-                { "cert",         required_argument, NULL, ARG_CERT         },
-                { "trust",        required_argument, NULL, ARG_TRUST        },
-                { "gnutls-log",   required_argument, NULL, ARG_GNUTLS_LOG   },
+                { "help",                  no_argument,       NULL, 'h'                       },
+                { "version",               no_argument,       NULL, ARG_VERSION               },
+                { "url",                   required_argument, NULL, ARG_URL                   },
+                { "getter",                required_argument, NULL, ARG_GETTER                },
+                { "listen-raw",            required_argument, NULL, ARG_LISTEN_RAW            },
+                { "listen-http",           required_argument, NULL, ARG_LISTEN_HTTP           },
+                { "listen-https",          required_argument, NULL, ARG_LISTEN_HTTPS          },
+                { "output",                required_argument, NULL, 'o'                       },
+                { "split-mode",            required_argument, NULL, ARG_SPLIT_MODE            },
+                { "compress",              optional_argument, NULL, ARG_COMPRESS              },
+                { "seal",                  optional_argument, NULL, ARG_SEAL                  },
+                { "key",                   required_argument, NULL, ARG_KEY                   },
+                { "cert",                  required_argument, NULL, ARG_CERT                  },
+                { "trust",                 required_argument, NULL, ARG_TRUST                 },
+                { "gnutls-log",            required_argument, NULL, ARG_GNUTLS_LOG            },
+                { "mhd-conn-memory-limit", required_argument, NULL, ARG_MHD_CONN_MEMORY_LIMIT },
                 {}
         };
 
@@ -1426,6 +1434,18 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 #endif
                 }
+
+                case ARG_MHD_CONN_MEMORY_LIMIT:
+                        r = safe_atolu(optarg, (unsigned long *)&arg_mhd_conn_memory_limit);
+                        if (r < 0) {
+                                log_warning("Failed to parse memory limit value: %s", optarg);
+                                break;
+                        }
+                        if (arg_mhd_conn_memory_limit == 0 || arg_mhd_conn_memory_limit > DATA_SIZE_MAX) {
+                                log_info("Setting memory limit per connection to %u bytes", DATA_SIZE_MAX);
+                                arg_mhd_conn_memory_limit = DATA_SIZE_MAX;
+                        }
+                        break;
 
                 case '?':
                         return -EINVAL;

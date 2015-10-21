@@ -12,7 +12,8 @@ Requires=systemd-journal-remote.socket
 [Service]
 ExecStart=@rootlibexecdir@/systemd-journal-remote \
           --listen-https=-3 \
-          --output=/var/log/journal/remote/
+          --output=/var/log/journal/remote/ \
+          --mhd-conn-memory-limit=65536
 User=systemd-journal-remote
 Group=systemd-journal-remote
 PrivateTmp=yes
