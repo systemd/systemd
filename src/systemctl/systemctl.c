@@ -7399,12 +7399,12 @@ static int talk_initctl(void) {
 static int systemctl_main(int argc, char *argv[]) {
 
         static const Verb verbs[] = {
-                { "list-units",            VERB_ANY, 1,        VERB_DEFAULT, list_units        },
-                { "list-unit-files",       VERB_ANY, 1,        0,            list_unit_files   },
-                { "list-sockets",          VERB_ANY, 1,        0,            list_sockets      },
-                { "list-timers",           VERB_ANY, 1,        0,            list_timers       },
-                { "list-jobs",             VERB_ANY, 1,        0,            list_jobs         },
-                { "list-machines",         VERB_ANY, 1,        0,            list_machines     },
+                { "list-units",            VERB_ANY, VERB_ANY, VERB_DEFAULT, list_units        },
+                { "list-unit-files",       VERB_ANY, VERB_ANY, 0,            list_unit_files   },
+                { "list-sockets",          VERB_ANY, VERB_ANY, 0,            list_sockets      },
+                { "list-timers",           VERB_ANY, VERB_ANY, 0,            list_timers       },
+                { "list-jobs",             VERB_ANY, VERB_ANY, 0,            list_jobs         },
+                { "list-machines",         VERB_ANY, VERB_ANY, 0,            list_machines     },
                 { "clear-jobs",            VERB_ANY, 1,        0,            daemon_reload     },
                 { "cancel",                2,        VERB_ANY, 0,            cancel_job        },
                 { "start",                 2,        VERB_ANY, 0,            start_unit        },
