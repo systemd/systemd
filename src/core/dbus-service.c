@@ -243,7 +243,9 @@ static int bus_service_set_transient_property(
                                         a);
                         }
 
-                        fflush(f);
+                        r = fflush_and_check(f);
+                        if (r < 0)
+                                return r;
                         unit_write_drop_in_private(UNIT(s), mode, name, buf);
                 }
 
