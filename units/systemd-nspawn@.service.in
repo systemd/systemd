@@ -39,6 +39,7 @@ DeviceAllow=char-pts rw
 # implement the --image= option. Add these here, too.
 DeviceAllow=/dev/loop-control rw
 DeviceAllow=block-loop rw
+DeviceAllow=block-blkext rw
 
 [Install]
 WantedBy=machines.target
