@@ -79,7 +79,7 @@ static int property_get_pool_usage(
         if (fd >= 0) {
                 BtrfsQuotaInfo q;
 
-                if (btrfs_subvol_get_quota_fd(fd, &q) >= 0)
+                if (btrfs_subvol_get_subtree_quota_fd(fd, 0, &q) >= 0)
                         usage = q.referenced;
         }
 
@@ -115,7 +115,7 @@ static int property_get_pool_limit(
         if (fd >= 0) {
                 BtrfsQuotaInfo q;
 
-                if (btrfs_subvol_get_quota_fd(fd, &q) >= 0)
+                if (btrfs_subvol_get_subtree_quota_fd(fd, 0, &q) >= 0)
                         size = q.referenced_max;
         }
 
@@ -831,7 +831,9 @@ static int method_set_pool_limit(sd_bus_message *message, void *userdata, sd_bus
         if (r < 0 && r != -ENODEV) /* ignore ENODEV, as that's what is returned if the file system is not on loopback */
                 return sd_bus_error_set_errnof(error, r, "Failed to adjust loopback limit: %m");
 
-        r = btrfs_quota_limit("/var/lib/machines", limit);
+        (void) btrfs_qgroup_set_limit("/var/lib/machines", 0, limit);
+
+        r = btrfs_subvol_set_subtree_quota_limit("/var/lib/machines", 0, limit);
         if (r == -ENOTTY)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Quota is only supported on btrfs.");
         if (r < 0)

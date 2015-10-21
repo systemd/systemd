@@ -170,7 +170,7 @@ int setup_machine_directory(uint64_t size, sd_bus_error *error) {
         };
         _cleanup_close_ int fd = -1, control = -1, loop = -1;
         _cleanup_free_ char* loopdev = NULL;
-        char tmpdir[] = "/tmp/import-mount.XXXXXX", *mntdir = NULL;
+        char tmpdir[] = "/tmp/machine-pool.XXXXXX", *mntdir = NULL;
         bool tmpdir_made = false, mntdir_made = false, mntdir_mounted = false;
         char buf[FORMAT_BYTES_MAX];
         int r, nr = -1;
@@ -194,14 +194,35 @@ int setup_machine_directory(uint64_t size, sd_bus_error *error) {
 
                 r = btrfs_quota_enable("/var/lib/machines", true);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to enable quota, ignoring: %m");
+                        log_warning_errno(r, "Failed to enable quota for /var/lib/machines, ignoring: %m");
 
+                r = btrfs_subvol_auto_qgroup("/var/lib/machines", 0, true);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to set up default quota hierarchy for /var/lib/machines, ignoring: %m");
+
+                return 1;
+        }
+
+        if (path_is_mount_point("/var/lib/machines", AT_SYMLINK_FOLLOW) > 0) {
+                log_debug("/var/lib/machines is already a mount point, not creating loopback file for it.");
                 return 0;
         }
 
-        if (path_is_mount_point("/var/lib/machines", AT_SYMLINK_FOLLOW) > 0 ||
-            dir_is_empty("/var/lib/machines") == 0)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "/var/lib/machines is not a btrfs file system. Operation is not supported on legacy file systems.");
+        r = dir_is_populated("/var/lib/machines");
+        if (r < 0 && r != -ENOENT)
+                return r;
+        if (r > 0) {
+                log_debug("/var/log/machines is already populated, not creating loopback file for it.");
+                return 0;
+        }
+
+        r = mkfs_exists("btrfs");
+        if (r == -ENOENT) {
+                log_debug("mkfs.btrfs is missing, cannot create loopback file for /var/lib/machines.");
+                return 0;
+        }
+        if (r < 0)
+                return r;
 
         fd = setup_machine_raw(size, error);
         if (fd < 0)
@@ -266,6 +287,10 @@ int setup_machine_directory(uint64_t size, sd_bus_error *error) {
         if (r < 0)
                 log_warning_errno(r, "Failed to enable quota, ignoring: %m");
 
+        r = btrfs_subvol_auto_qgroup(mntdir, 0, true);
+        if (r < 0)
+                log_warning_errno(r, "Failed to set up default quota hierarchy, ignoring: %m");
+
         if (chmod(mntdir, 0700) < 0) {
                 r = sd_bus_error_set_errnof(error, errno, "Failed to fix owner: %m");
                 goto fail;
@@ -286,7 +311,7 @@ int setup_machine_directory(uint64_t size, sd_bus_error *error) {
         (void) rmdir(mntdir);
         (void) rmdir(tmpdir);
 
-        return 0;
+        return 1;
 
 fail:
         if (mntdir_mounted)
@@ -370,9 +395,11 @@ int grow_machine_directory(void) {
         if (r <= 0)
                 return r;
 
-        r = btrfs_quota_limit("/var/lib/machines", new_size);
-        if (r < 0)
-                return r;
+        /* Also bump the quota, of both the subvolume leaf qgroup, as
+         * well as of any subtree quota group by the same id but a
+         * higher level, if it exists. */
+        (void) btrfs_qgroup_set_limit("/var/lib/machines", 0, new_size);
+        (void) btrfs_subvol_set_subtree_quota_limit("/var/lib/machines", 0, new_size);
 
         log_info("Grew /var/lib/machines btrfs loopback file system to %s.", format_bytes(buf, sizeof(buf), new_size));
         return 1;

@@ -494,6 +494,10 @@ struct btrfs_ioctl_quota_ctl_args {
 #define BTRFS_QGROUP_LIMIT_KEY 244
 #endif
 
+#ifndef BTRFS_QGROUP_RELATION_KEY
+#define BTRFS_QGROUP_RELATION_KEY 246
+#endif
+
 #ifndef BTRFS_ROOT_BACKREF_KEY
 #define BTRFS_ROOT_BACKREF_KEY 144
 #endif
