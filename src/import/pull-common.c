@@ -366,9 +366,10 @@ int pull_verify(PullJob *main_job,
 
         log_info("SHA256 checksum of %s is valid.", main_job->url);
 
-        assert(!settings_job || settings_job->state == PULL_JOB_DONE);
+        assert(!settings_job || IN_SET(settings_job->state, PULL_JOB_DONE, PULL_JOB_FAILED));
 
         if (settings_job &&
+            settings_job->state == PULL_JOB_DONE &&
             settings_job->error == 0 &&
             !settings_job->etag_exists) {
 
