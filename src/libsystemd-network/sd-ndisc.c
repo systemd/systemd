@@ -316,24 +316,6 @@ static int ndisc_prefix_match(sd_ndisc *nd, const struct in6_addr *addr,
         return -EADDRNOTAVAIL;
 }
 
-int sd_ndisc_get_prefixlen(sd_ndisc *nd, const struct in6_addr *addr,
-                           uint8_t *prefixlen) {
-        int r;
-        NDiscPrefix *prefix;
-
-        assert_return(nd, -EINVAL);
-        assert_return(addr, -EINVAL);
-        assert_return(prefixlen, -EINVAL);
-
-        r = ndisc_prefix_match(nd, addr, sizeof(addr->s6_addr) * 8, &prefix);
-        if (r < 0)
-                return r;
-
-        *prefixlen = prefix->len;
-
-        return 0;
-}
-
 static int ndisc_prefix_update(sd_ndisc *nd, ssize_t len,
                                const struct nd_opt_prefix_info *prefix_opt) {
         NDiscPrefix *prefix;

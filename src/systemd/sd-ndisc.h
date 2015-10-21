@@ -52,8 +52,6 @@ sd_ndisc *sd_ndisc_unref(sd_ndisc *nd);
 int sd_ndisc_new(sd_ndisc **ret);
 
 int sd_ndisc_get_mtu(sd_ndisc *nd, uint32_t *mtu);
-int sd_ndisc_get_prefixlen(sd_ndisc *nd, const struct in6_addr *addr,
-                           uint8_t *prefixlen);
 
 int sd_ndisc_stop(sd_ndisc *nd);
 int sd_ndisc_router_discovery_start(sd_ndisc *nd);
