@@ -3148,10 +3148,9 @@ int main(int argc, char *argv[]) {
                 } else {
                         const char *p;
 
-                        p = strjoina(arg_directory,
-                                       argc > optind && path_is_absolute(argv[optind]) ? argv[optind] : "/usr/bin/");
-                        if (access(p, F_OK) < 0) {
-                                log_error("Directory %s lacks the binary to execute or doesn't look like a binary tree. Refusing.", arg_directory);
+                        p = strjoina(arg_directory, "/usr/");
+                        if (laccess(p, F_OK) < 0) {
+                                log_error("Directory %s doesn't look like it has an OS tree. Refusing.", arg_directory);
                                 r = -EINVAL;
                                 goto finish;
                         }
