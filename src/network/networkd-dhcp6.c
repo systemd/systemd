@@ -63,7 +63,7 @@ static int dhcp6_address_handler(sd_netlink *rtnl, sd_netlink_message *m,
         return 1;
 }
 
-static int dhcp6_address_update(Link *link, struct in6_addr *ip6_addr,
+static int dhcp6_address_change(Link *link, struct in6_addr *ip6_addr,
                                 uint8_t prefixlen, uint32_t lifetime_preferred,
                                 uint32_t lifetime_valid) {
         int r;
@@ -87,7 +87,7 @@ static int dhcp6_address_update(Link *link, struct in6_addr *ip6_addr,
                       SD_ICMP6_ND_ADDRESS_FORMAT_VAL(addr->in_addr.in6),
                       addr->prefixlen, lifetime_preferred, lifetime_valid);
 
-        r = address_update(addr, link, dhcp6_address_handler);
+        r = address_configure(addr, link, dhcp6_address_handler, true);
         if (r < 0)
                 log_link_warning_errno(link, r, "Could not assign DHCPv6 address: %m");
 
@@ -121,7 +121,7 @@ static int dhcp6_lease_address_acquired(sd_dhcp6_client *client, Link *link) {
                 if (r == -EADDRNOTAVAIL)
                         prefixlen = 128;
 
-                r = dhcp6_address_update(link, &ip6_addr, prefixlen,
+                r = dhcp6_address_change(link, &ip6_addr, prefixlen,
                                         lifetime_preferred, lifetime_valid);
                 if (r < 0)
                         return r;
@@ -176,7 +176,7 @@ static void dhcp6_handler(sd_dhcp6_client *client, int event, void *userdata) {
                 return;
         }
 
-        link_client_handler(link);
+        link_check_ready(link);
 }
 
 static int dhcp6_configure(Link *link, int event) {
@@ -300,7 +300,7 @@ static int dhcp6_prefix_expired(Link *link) {
 
                 log_link_info(link, "IPv6 prefix length updated "SD_ICMP6_ND_ADDRESS_FORMAT_STR"/%d", SD_ICMP6_ND_ADDRESS_FORMAT_VAL(ip6_addr), 128);
 
-                dhcp6_address_update(link, &ip6_addr, 128, lifetime_preferred, lifetime_valid);
+                dhcp6_address_change(link, &ip6_addr, 128, lifetime_preferred, lifetime_valid);
         }
 
         return 0;

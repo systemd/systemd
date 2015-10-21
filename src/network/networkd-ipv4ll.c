@@ -55,7 +55,7 @@ static int ipv4ll_address_lost(Link *link) {
 
         address_remove(address, link, &link_address_remove_handler);
 
-        r = route_new(&route, RTPROT_UNSPEC);
+        r = route_new(&route);
         if (r < 0) {
                 log_link_error_errno(link, r, "Could not allocate route: %m");
                 return r;
@@ -67,7 +67,7 @@ static int ipv4ll_address_lost(Link *link) {
 
         route_remove(route, link, &link_route_remove_handler);
 
-        link_client_handler(link);
+        link_check_ready(link);
 
         return 0;
 }
@@ -88,7 +88,7 @@ static int ipv4ll_route_handler(sd_netlink *rtnl, sd_netlink_message *m, void *u
         link->ipv4ll_route = true;
 
         if (link->ipv4ll_address == true)
-                link_client_handler(link);
+                link_check_ready(link);
 
         return 1;
 }
@@ -110,7 +110,7 @@ static int ipv4ll_address_handler(sd_netlink *rtnl, sd_netlink_message *m, void 
         link->ipv4ll_address = true;
 
         if (link->ipv4ll_route == true)
-                link_client_handler(link);
+                link_check_ready(link);
 
         return 1;
 }
@@ -143,18 +143,19 @@ static int ipv4ll_address_claimed(sd_ipv4ll *ll, Link *link) {
         ll_addr->broadcast.s_addr = ll_addr->in_addr.in.s_addr | htonl(0xfffffffflu >> ll_addr->prefixlen);
         ll_addr->scope = RT_SCOPE_LINK;
 
-        r = address_configure(ll_addr, link, ipv4ll_address_handler);
+        r = address_configure(ll_addr, link, ipv4ll_address_handler, false);
         if (r < 0)
                 return r;
 
         link->ipv4ll_address = false;
 
-        r = route_new(&route, RTPROT_STATIC);
+        r = route_new(&route);
         if (r < 0)
                 return r;
 
         route->family = AF_INET;
         route->scope = RT_SCOPE_LINK;
+        route->protocol = RTPROT_STATIC;
         route->metrics = IPV4LL_ROUTE_METRIC;
 
         r = route_configure(route, link, ipv4ll_route_handler);

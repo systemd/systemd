@@ -397,27 +397,19 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
 
         switch (type) {
         case RTM_NEWADDR:
-                if (address) {
+                if (address)
                         log_link_debug(link, "Updating address: %s/%u (valid for %s)", buf, prefixlen, valid_str);
-
-                        address->scope = scope;
-                        address->flags = flags;
-                        address->cinfo = cinfo;
-
-                } else {
-                        r = address_add(link, family, &in_addr, prefixlen, &address);
+                else {
+                        /* An address appeared that we did not request */
+                        r = address_add_foreign(link, family, &in_addr, prefixlen, &address);
                         if (r < 0) {
                                 log_link_warning_errno(link, r, "Failed to add address %s/%u: %m", buf, prefixlen);
                                 return 0;
                         } else
                                 log_link_debug(link, "Adding address: %s/%u (valid for %s)", buf, prefixlen, valid_str);
-
-                        address->scope = scope;
-                        address->flags = flags;
-                        address->cinfo = cinfo;
-
-                        link_save(link);
                 }
+
+                address_update(address, scope, flags, &cinfo);
 
                 break;
 
@@ -581,228 +573,6 @@ static int manager_connect_rtnl(Manager *m) {
         return 0;
 }
 
-int manager_new(Manager **ret) {
-        _cleanup_manager_free_ Manager *m = NULL;
-        int r;
-
-        m = new0(Manager, 1);
-        if (!m)
-                return -ENOMEM;
-
-        m->state_file = strdup("/run/systemd/netif/state");
-        if (!m->state_file)
-                return -ENOMEM;
-
-        r = sd_event_default(&m->event);
-        if (r < 0)
-                return r;
-
-        sd_event_set_watchdog(m->event, true);
-
-        sd_event_add_signal(m->event, NULL, SIGTERM, NULL, NULL);
-        sd_event_add_signal(m->event, NULL, SIGINT, NULL, NULL);
-
-        r = manager_connect_rtnl(m);
-        if (r < 0)
-                return r;
-
-        r = manager_connect_udev(m);
-        if (r < 0)
-                return r;
-
-        m->netdevs = hashmap_new(&string_hash_ops);
-        if (!m->netdevs)
-                return -ENOMEM;
-
-        LIST_HEAD_INIT(m->networks);
-
-        r = setup_default_address_pool(m);
-        if (r < 0)
-                return r;
-
-        *ret = m;
-        m = NULL;
-
-        return 0;
-}
-
-void manager_free(Manager *m) {
-        Network *network;
-        NetDev *netdev;
-        Link *link;
-        AddressPool *pool;
-
-        if (!m)
-                return;
-
-        free(m->state_file);
-
-        while ((link = hashmap_first(m->links)))
-                link_unref(link);
-        hashmap_free(m->links);
-
-        while ((network = m->networks))
-                network_free(network);
-
-        hashmap_free(m->networks_by_name);
-
-        while ((netdev = hashmap_first(m->netdevs)))
-                netdev_unref(netdev);
-        hashmap_free(m->netdevs);
-
-        while ((pool = m->address_pools))
-                address_pool_free(pool);
-
-        sd_netlink_unref(m->rtnl);
-        sd_event_unref(m->event);
-
-        sd_event_source_unref(m->udev_event_source);
-        udev_monitor_unref(m->udev_monitor);
-        udev_unref(m->udev);
-
-        sd_bus_unref(m->bus);
-        sd_bus_slot_unref(m->prepare_for_sleep_slot);
-        sd_event_source_unref(m->bus_retry_event_source);
-
-        free(m);
-}
-
-static bool manager_check_idle(void *userdata) {
-        Manager *m = userdata;
-        Link *link;
-        Iterator i;
-
-        assert(m);
-
-        HASHMAP_FOREACH(link, m->links, i) {
-                /* we are not woken on udev activity, so let's just wait for the
-                 * pending udev event */
-                if (link->state == LINK_STATE_PENDING)
-                        return false;
-
-                if (!link->network)
-                        continue;
-
-                /* we are not woken on netork activity, so let's stay around */
-                if (link_lldp_enabled(link) ||
-                    link_ipv4ll_enabled(link) ||
-                    link_dhcp4_server_enabled(link) ||
-                    link_dhcp4_enabled(link) ||
-                    link_dhcp6_enabled(link))
-                        return false;
-        }
-
-        return true;
-}
-
-int manager_run(Manager *m) {
-        assert(m);
-
-        if (m->bus)
-                return bus_event_loop_with_idle(
-                                m->event,
-                                m->bus,
-                                "org.freedesktop.network1",
-                                DEFAULT_EXIT_USEC,
-                                manager_check_idle,
-                                m);
-        else
-                /* failed to connect to the bus, so we lose exit-on-idle logic,
-                   this should not happen except if dbus is not around at all */
-                return sd_event_loop(m->event);
-}
-
-int manager_load_config(Manager *m) {
-        int r;
-
-        /* update timestamp */
-        paths_check_timestamp(network_dirs, &m->network_dirs_ts_usec, true);
-
-        r = netdev_load(m);
-        if (r < 0)
-                return r;
-
-        r = network_load(m);
-        if (r < 0)
-                return r;
-
-        return 0;
-}
-
-bool manager_should_reload(Manager *m) {
-        return paths_check_timestamp(network_dirs, &m->network_dirs_ts_usec, false);
-}
-
-int manager_rtnl_enumerate_links(Manager *m) {
-        _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL, *reply = NULL;
-        sd_netlink_message *link;
-        int r;
-
-        assert(m);
-        assert(m->rtnl);
-
-        r = sd_rtnl_message_new_link(m->rtnl, &req, RTM_GETLINK, 0);
-        if (r < 0)
-                return r;
-
-        r = sd_netlink_message_request_dump(req, true);
-        if (r < 0)
-                return r;
-
-        r = sd_netlink_call(m->rtnl, req, 0, &reply);
-        if (r < 0)
-                return r;
-
-        for (link = reply; link; link = sd_netlink_message_next(link)) {
-                int k;
-
-                m->enumerating = true;
-
-                k = manager_rtnl_process_link(m->rtnl, link, m);
-                if (k < 0)
-                        r = k;
-
-                m->enumerating = false;
-        }
-
-        return r;
-}
-
-int manager_rtnl_enumerate_addresses(Manager *m) {
-        _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL, *reply = NULL;
-        sd_netlink_message *addr;
-        int r;
-
-        assert(m);
-        assert(m->rtnl);
-
-        r = sd_rtnl_message_new_addr(m->rtnl, &req, RTM_GETADDR, 0, 0);
-        if (r < 0)
-                return r;
-
-        r = sd_netlink_message_request_dump(req, true);
-        if (r < 0)
-                return r;
-
-        r = sd_netlink_call(m->rtnl, req, 0, &reply);
-        if (r < 0)
-                return r;
-
-        for (addr = reply; addr; addr = sd_netlink_message_next(addr)) {
-                int k;
-
-                m->enumerating = true;
-
-                k = manager_rtnl_process_address(m->rtnl, addr, m);
-                if (k < 0)
-                        r = k;
-
-                m->enumerating = false;
-        }
-
-        return r;
-}
-
 static int set_put_in_addr(Set *s, const struct in_addr *address) {
         char *p;
         int r;
@@ -856,7 +626,7 @@ static void print_string_set(FILE *f, const char *field, Set *s) {
         fputc('\n', f);
 }
 
-int manager_save(Manager *m) {
+static int manager_save(Manager *m) {
         _cleanup_set_free_free_ Set *dns = NULL, *ntp = NULL, *domains = NULL;
         Link *link;
         Iterator i;
@@ -979,6 +749,8 @@ int manager_save(Manager *m) {
                         log_error_errno(r, "Could not emit changed OperationalState: %m");
         }
 
+        m->dirty = false;
+
         return 0;
 
 fail:
@@ -986,6 +758,263 @@ fail:
         (void) unlink(temp_path);
 
         return log_error_errno(r, "Failed to save network state to %s: %m", m->state_file);
+}
+
+static int manager_dirty_handler(sd_event_source *s, void *userdata) {
+        Manager *m = userdata;
+        Link *link;
+        Iterator i;
+        int r;
+
+        assert(m);
+
+        if (m->dirty)
+                manager_save(m);
+
+        SET_FOREACH(link, m->dirty_links, i) {
+                r = link_save(link);
+                if (r >= 0)
+                        link_clean(link);
+        }
+
+        return 1;
+}
+
+int manager_new(Manager **ret) {
+        _cleanup_manager_free_ Manager *m = NULL;
+        int r;
+
+        m = new0(Manager, 1);
+        if (!m)
+                return -ENOMEM;
+
+        m->state_file = strdup("/run/systemd/netif/state");
+        if (!m->state_file)
+                return -ENOMEM;
+
+        r = sd_event_default(&m->event);
+        if (r < 0)
+                return r;
+
+        sd_event_set_watchdog(m->event, true);
+
+        sd_event_add_signal(m->event, NULL, SIGTERM, NULL, NULL);
+        sd_event_add_signal(m->event, NULL, SIGINT, NULL, NULL);
+
+        r = sd_event_add_post(m->event, NULL, manager_dirty_handler, m);
+        if (r < 0)
+                return r;
+
+        r = manager_connect_rtnl(m);
+        if (r < 0)
+                return r;
+
+        r = manager_connect_udev(m);
+        if (r < 0)
+                return r;
+
+        m->netdevs = hashmap_new(&string_hash_ops);
+        if (!m->netdevs)
+                return -ENOMEM;
+
+        LIST_HEAD_INIT(m->networks);
+
+        r = setup_default_address_pool(m);
+        if (r < 0)
+                return r;
+
+        *ret = m;
+        m = NULL;
+
+        return 0;
+}
+
+void manager_free(Manager *m) {
+        Network *network;
+        NetDev *netdev;
+        Link *link;
+        AddressPool *pool;
+
+        if (!m)
+                return;
+
+        free(m->state_file);
+
+        while ((link = hashmap_first(m->links)))
+                link_unref(link);
+        hashmap_free(m->links);
+
+        while ((network = m->networks))
+                network_free(network);
+
+        hashmap_free(m->networks_by_name);
+
+        while ((netdev = hashmap_first(m->netdevs)))
+                netdev_unref(netdev);
+        hashmap_free(m->netdevs);
+
+        while ((pool = m->address_pools))
+                address_pool_free(pool);
+
+        sd_netlink_unref(m->rtnl);
+        sd_event_unref(m->event);
+
+        sd_event_source_unref(m->udev_event_source);
+        udev_monitor_unref(m->udev_monitor);
+        udev_unref(m->udev);
+
+        sd_bus_unref(m->bus);
+        sd_bus_slot_unref(m->prepare_for_sleep_slot);
+        sd_event_source_unref(m->bus_retry_event_source);
+
+        free(m);
+}
+
+static bool manager_check_idle(void *userdata) {
+        Manager *m = userdata;
+        Link *link;
+        Iterator i;
+
+        assert(m);
+
+        HASHMAP_FOREACH(link, m->links, i) {
+                /* we are not woken on udev activity, so let's just wait for the
+                 * pending udev event */
+                if (link->state == LINK_STATE_PENDING)
+                        return false;
+
+                if (!link->network)
+                        continue;
+
+                /* we are not woken on netork activity, so let's stay around */
+                if (link_lldp_enabled(link) ||
+                    link_ipv4ll_enabled(link) ||
+                    link_dhcp4_server_enabled(link) ||
+                    link_dhcp4_enabled(link) ||
+                    link_dhcp6_enabled(link))
+                        return false;
+        }
+
+        return true;
+}
+
+int manager_run(Manager *m) {
+        Link *link;
+        Iterator i;
+
+        assert(m);
+
+        /* The dirty handler will deal with future serialization, but the first one
+           must be done explicitly. */
+
+        manager_save(m);
+
+        HASHMAP_FOREACH(link, m->links, i)
+                link_save(link);
+
+        if (m->bus)
+                return bus_event_loop_with_idle(
+                                m->event,
+                                m->bus,
+                                "org.freedesktop.network1",
+                                DEFAULT_EXIT_USEC,
+                                manager_check_idle,
+                                m);
+        else
+                /* failed to connect to the bus, so we lose exit-on-idle logic,
+                   this should not happen except if dbus is not around at all */
+                return sd_event_loop(m->event);
+}
+
+int manager_load_config(Manager *m) {
+        int r;
+
+        /* update timestamp */
+        paths_check_timestamp(network_dirs, &m->network_dirs_ts_usec, true);
+
+        r = netdev_load(m);
+        if (r < 0)
+                return r;
+
+        r = network_load(m);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+bool manager_should_reload(Manager *m) {
+        return paths_check_timestamp(network_dirs, &m->network_dirs_ts_usec, false);
+}
+
+int manager_rtnl_enumerate_links(Manager *m) {
+        _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL, *reply = NULL;
+        sd_netlink_message *link;
+        int r;
+
+        assert(m);
+        assert(m->rtnl);
+
+        r = sd_rtnl_message_new_link(m->rtnl, &req, RTM_GETLINK, 0);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_request_dump(req, true);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_call(m->rtnl, req, 0, &reply);
+        if (r < 0)
+                return r;
+
+        for (link = reply; link; link = sd_netlink_message_next(link)) {
+                int k;
+
+                m->enumerating = true;
+
+                k = manager_rtnl_process_link(m->rtnl, link, m);
+                if (k < 0)
+                        r = k;
+
+                m->enumerating = false;
+        }
+
+        return r;
+}
+
+int manager_rtnl_enumerate_addresses(Manager *m) {
+        _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL, *reply = NULL;
+        sd_netlink_message *addr;
+        int r;
+
+        assert(m);
+        assert(m->rtnl);
+
+        r = sd_rtnl_message_new_addr(m->rtnl, &req, RTM_GETADDR, 0, 0);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_request_dump(req, true);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_call(m->rtnl, req, 0, &reply);
+        if (r < 0)
+                return r;
+
+        for (addr = reply; addr; addr = sd_netlink_message_next(addr)) {
+                int k;
+
+                m->enumerating = true;
+
+                k = manager_rtnl_process_address(m->rtnl, addr, m);
+                if (k < 0)
+                        r = k;
+
+                m->enumerating = false;
+        }
+
+        return r;
 }
 
 int manager_address_pool_acquire(Manager *m, int family, unsigned prefixlen, union in_addr_union *found) {
@@ -1043,4 +1072,11 @@ Link* manager_find_uplink(Manager *m, Link *exclude) {
         }
 
         return NULL;
+}
+
+void manager_dirty(Manager *manager) {
+        assert(manager);
+
+        /* the serialized state in /run is no longer up-to-date */
+        manager->dirty = true;
 }

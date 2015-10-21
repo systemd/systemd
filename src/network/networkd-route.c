@@ -19,14 +19,15 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "util.h"
 #include "conf-parser.h"
+#include "in-addr-util.h"
 #include "netlink-util.h"
+#include "util.h"
 
 #include "networkd.h"
 #include "networkd-route.h"
 
-int route_new(Route **ret, unsigned char rtm_protocol) {
+int route_new(Route **ret) {
         _cleanup_route_free_ Route *route = NULL;
 
         route = new0(Route, 1);
@@ -35,7 +36,8 @@ int route_new(Route **ret, unsigned char rtm_protocol) {
 
         route->family = AF_UNSPEC;
         route->scope = RT_SCOPE_UNIVERSE;
-        route->protocol = rtm_protocol;
+        route->protocol = RTPROT_UNSPEC;
+        route->table = RT_TABLE_DEFAULT;
 
         *ret = route;
         route = NULL;
@@ -58,10 +60,11 @@ int route_new_static(Network *network, unsigned section, Route **ret) {
                 }
         }
 
-        r = route_new(&route, RTPROT_STATIC);
+        r = route_new(&route);
         if (r < 0)
                 return r;
 
+        route->protocol = RTPROT_STATIC;
         route->network = network;
 
         LIST_PREPEND(routes, network->static_routes, route);
@@ -92,6 +95,75 @@ void route_free(Route *route) {
 
         free(route);
 }
+
+static void route_hash_func(const void *b, struct siphash *state) {
+        const Route *route = b;
+
+        assert(route);
+
+        siphash24_compress(&route->family, sizeof(route->family), state);
+
+        switch (route->family) {
+        case AF_INET:
+        case AF_INET6:
+                /* Equality of routes are given by the 4-touple
+                   (dst_prefix,dst_prefixlen,tos,priority,table) */
+                siphash24_compress(&route->dst_addr, FAMILY_ADDRESS_SIZE(route->family), state);
+                siphash24_compress(&route->dst_prefixlen, sizeof(route->dst_prefixlen), state);
+                siphash24_compress(&route->tos, sizeof(route->tos), state);
+                siphash24_compress(&route->priority, sizeof(route->priority), state);
+                siphash24_compress(&route->table, sizeof(route->table), state);
+
+                break;
+        default:
+                /* treat any other address family as AF_UNSPEC */
+                break;
+        }
+}
+
+static int route_compare_func(const void *_a, const void *_b) {
+        const Route *a = _a, *b = _b;
+
+        if (a->family < b->family)
+                return -1;
+        if (a->family > b->family)
+                return 1;
+
+        switch (a->family) {
+        case AF_INET:
+        case AF_INET6:
+                //TODO: check IPv6 routes
+                if (a->dst_prefixlen < b->dst_prefixlen)
+                        return -1;
+                if (a->dst_prefixlen > b->dst_prefixlen)
+                        return 1;
+
+                if (a->tos < b->tos)
+                        return -1;
+                if (a->tos > b->tos)
+                        return 1;
+
+                if (a->priority < b->priority)
+                        return -1;
+                if (a->priority > b->priority)
+                        return 1;
+
+                if (a->table < b->table)
+                        return -1;
+                if (a->table > b->table)
+                        return 1;
+
+                return memcmp(&a->dst_addr, &b->dst_addr, FAMILY_ADDRESS_SIZE(a->family));
+        default:
+                /* treat any other address family as AF_UNSPEC */
+                return 0;
+        }
+}
+
+static const struct hash_ops route_hash_ops = {
+        .hash = route_hash_func,
+        .compare = route_compare_func
+};
 
 int route_remove(Route *route, Link *link,
                sd_netlink_message_handler_t callback) {

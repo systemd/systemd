@@ -369,10 +369,9 @@ int network_apply(Manager *manager, Network *network, Link *link) {
                 route->protocol = RTPROT_STATIC;
         }
 
-        if (network->dns || network->ntp) {
-                r = link_save(link);
-                if (r < 0)
-                        return r;
+        if (network->dns || network->ntp || network->domains) {
+                manager_dirty(manager);
+                link_dirty(link);
         }
 
         return 0;
