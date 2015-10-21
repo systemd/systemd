@@ -39,6 +39,7 @@
 #include "signal-util.h"
 #include "strv.h"
 #include "unit-name.h"
+#include "utf8.h"
 #include "util.h"
 
 #include "bus-util.h"
@@ -1728,6 +1729,55 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                 }
 
                 r = sd_bus_message_append(m, "v", "i", oa);
+        } else if (STR_IN_SET(field, "ReadWriteDirectories", "ReadOnlyDirectories", "InaccessibleDirectories")) {
+                const char *p;
+
+                r = sd_bus_message_open_container(m, 'v', "as");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_open_container(m, 'a', "s");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                p = eq;
+
+                for (;;) {
+                        _cleanup_free_ char *word = NULL;
+                        int offset;
+
+                        r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES);
+                        if (r < 0) {
+                                log_error("Failed to parse %s value %s", field, eq);
+                                return -EINVAL;
+                        }
+                        if (r == 0)
+                                break;
+
+                        if (!utf8_is_valid(word)) {
+                                log_error("Failed to parse %s value %s", field, eq);
+                                return -EINVAL;
+                        }
+
+                        offset = word[0] == '-';
+                        if (!path_is_absolute(word + offset)) {
+                                log_error("Failed to parse %s value %s", field, eq);
+                                return -EINVAL;
+                        }
+
+                        path_kill_slashes(word + offset);
+
+                        r = sd_bus_message_append_basic(m, 's', word);
+                        if (r < 0)
+                                return bus_log_create_error(r);
+                }
+
+                r = sd_bus_message_close_container(m);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_close_container(m);
+
         } else {
                 log_error("Unknown assignment %s.", assignment);
                 return -EINVAL;
