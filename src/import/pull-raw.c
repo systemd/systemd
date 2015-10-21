@@ -349,9 +349,9 @@ static int raw_pull_make_local_copy(RawPull *i) {
                 if (r == -EEXIST)
                         log_warning_errno(r, "Settings file %s already exists, not replacing.", local_settings);
                 else if (r < 0 && r != -ENOENT)
-                        log_warning_errno(r, "Failed to copy settings files %s: %m", local_settings);
-
-                log_info("Create new settings file '%s.nspawn'", i->local);
+                        log_warning_errno(r, "Failed to copy settings files %s, ignoring: %m", local_settings);
+                else
+                        log_info("Created new settings file '%s.nspawn'", i->local);
         }
 
         return 0;
