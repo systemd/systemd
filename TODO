@@ -26,6 +26,8 @@ External:
 
 Features:
 
+* do something about "/control" subcgroups in the unified cgroup hierarchy
+
 * when we detect that there are waiting jobs but no running jobs, do something
 
 * push CPUAffinity also into the "cpuset" cgroup controller
@@ -135,9 +137,6 @@ Features:
   http://lists.freedesktop.org/archives/systemd-devel/2015-April/030112.html
 
 * .timer units should optionally support CLOCK_BOOTTIME in addition to CLOCK_MONOTONIC
-
-* create a btrfs qgroup for /var/lib/machines, and add all container
-  subvolumes we create to it.
 
 * When logging about multiple units (stopping BoundTo units, conflicts, etc.),
   log both units as UNIT=, so that journalctl -u triggers on both.
