@@ -3227,7 +3227,7 @@ int config_parse_namespace_path_strv(
                         continue;
                 }
 
-                path_kill_slashes(n);
+                path_kill_slashes(n + offset);
 
                 r = strv_push(sv, n);
                 if (r < 0)
