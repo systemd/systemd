@@ -648,11 +648,12 @@ static int setup_microhttpd_server(RemoteServer *s,
                 { MHD_OPTION_NOTIFY_COMPLETED, (intptr_t) request_meta_free},
                 { MHD_OPTION_EXTERNAL_LOGGER, (intptr_t) microhttpd_logger},
                 { MHD_OPTION_LISTEN_SOCKET, fd},
+                { MHD_OPTION_CONNECTION_MEMORY_LIMIT, DATA_SIZE_MAX},
                 { MHD_OPTION_END},
                 { MHD_OPTION_END},
                 { MHD_OPTION_END},
                 { MHD_OPTION_END}};
-        int opts_pos = 3;
+        int opts_pos = 4;
         int flags =
                 MHD_USE_DEBUG |
                 MHD_USE_DUAL_STACK |
