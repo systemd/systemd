@@ -39,6 +39,7 @@
 #include "exit-status.h"
 #include "fstab-util.h"
 #include "formats-util.h"
+#include "smack-util.h"
 
 #define RETRY_UMOUNT_MAX 32
 
@@ -852,6 +853,27 @@ fail:
         mount_enter_mounted(m, MOUNT_FAILURE_RESOURCES);
 }
 
+static int mount_get_opts(Mount *m, char **opts) {
+        int r;
+        _cleanup_free_ char *o = NULL;
+        _cleanup_free_ char *sopt = NULL;
+
+        r = fstab_filter_options(m->parameters_fragment.options,
+                                 "nofail\0" "noauto\0" "auto\0", NULL, NULL, &o);
+        if (r < 0)
+                return r;
+
+        if (mac_smack_use() && m->smack_fs_root)
+                if (asprintf(&sopt, "%s,smackfsroot=%s", o, m->smack_fs_root) < 0)
+                        return log_oom();
+
+        *opts = strdup(sopt ?: o);
+        if (!*opts)
+                return -ENOMEM;
+
+        return 0;
+}
+
 static void mount_enter_mounting(Mount *m) {
         int r;
         MountParameters *p;
@@ -877,8 +899,7 @@ static void mount_enter_mounting(Mount *m) {
         if (m->from_fragment) {
                 _cleanup_free_ char *opts = NULL;
 
-                r = fstab_filter_options(m->parameters_fragment.options,
-                                         "nofail\0" "noauto\0" "auto\0", NULL, NULL, &opts);
+                r = mount_get_opts(m, &opts);
                 if (r < 0)
                         goto fail;
 
