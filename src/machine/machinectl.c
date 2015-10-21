@@ -2382,7 +2382,7 @@ static int set_limit(int argc, char *argv[], void *userdata) {
         uint64_t limit;
         int r;
 
-        if (streq(argv[argc-1], "-"))
+        if (STR_IN_SET(argv[argc-1], "-", "none", "infinity"))
                 limit = (uint64_t) -1;
         else {
                 r = parse_size(argv[argc-1], 1024, &limit);
