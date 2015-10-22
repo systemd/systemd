@@ -540,11 +540,7 @@ static int ndisc_router_solicitation_timeout(sd_event_source *s, uint64_t usec, 
 
                 nd->nd_sent++;
 
-                r = sd_event_now(nd->event, clock_boottime_or_monotonic(), &time_now);
-                if (r < 0) {
-                        ndisc_notify(nd, r);
-                        return 0;
-                }
+                assert_se(sd_event_now(nd->event, clock_boottime_or_monotonic(), &time_now) >= 0);
 
                 next_timeout = time_now + NDISC_ROUTER_SOLICITATION_INTERVAL;
 
@@ -556,18 +552,13 @@ static int ndisc_router_solicitation_timeout(sd_event_source *s, uint64_t usec, 
                         return 0;
                 }
 
-                r = sd_event_source_set_priority(nd->timeout,
-                                                 nd->event_priority);
-                if (r < 0) {
-                        ndisc_notify(nd, r);
+                r = sd_event_source_set_priority(nd->timeout, nd->event_priority);
+                if (r < 0)
                         return 0;
-                }
 
                 r = sd_event_source_set_description(nd->timeout, "ndisc-timeout");
-                if (r < 0) {
-                        ndisc_notify(nd, r);
+                if (r < 0)
                         return 0;
-                }
         }
 
         return 0;
