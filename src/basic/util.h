@@ -270,6 +270,7 @@ typedef enum UnescapeFlags {
 int cunescape(const char *s, UnescapeFlags flags, char **ret);
 int cunescape_length(const char *s, size_t length, UnescapeFlags flags, char **ret);
 int cunescape_length_with_prefix(const char *s, size_t length, const char *prefix, UnescapeFlags flags, char **ret);
+int cunescape_one(const char *p, size_t length, char *ret, uint32_t *ret_unicode);
 
 char *xescape(const char *s, const char *bad);
 
@@ -878,18 +879,6 @@ int take_password_lock(const char *root);
 int is_symlink(const char *path);
 int is_dir(const char *path, bool follow);
 int is_device_node(const char *path);
-
-typedef enum ExtractFlags {
-        EXTRACT_RELAX           = 1,
-        EXTRACT_CUNESCAPE       = 2,
-        EXTRACT_CUNESCAPE_RELAX = 4,
-        EXTRACT_QUOTES          = 8,
-        EXTRACT_DONT_COALESCE_SEPARATORS = 16,
-} ExtractFlags;
-
-int extract_first_word(const char **p, char **ret, const char *separators, ExtractFlags flags);
-int extract_first_word_and_warn(const char **p, char **ret, const char *separators, ExtractFlags flags, const char *unit, const char *filename, unsigned line, const char *rvalue);
-int extract_many_words(const char **p, const char *separators, ExtractFlags flags, ...) _sentinel_;
 
 int free_and_strdup(char **p, const char *s);
 

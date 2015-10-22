@@ -781,6 +781,8 @@ libbasic_la_SOURCES = \
 	src/basic/refcnt.h \
 	src/basic/util.c \
 	src/basic/util.h \
+	src/basic/extract-word.c \
+	src/basic/extract-word.h \
 	src/basic/cpu-set-util.c \
 	src/basic/cpu-set-util.h \
 	src/basic/lockfile-util.c \

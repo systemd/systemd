@@ -19,24 +19,26 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdlib.h>
 #include <errno.h>
+#include <fnmatch.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <fnmatch.h>
 
 #include "sd-id128.h"
-#include "util.h"
-#include "virt.h"
-#include "path-util.h"
-#include "architecture.h"
-#include "smack-util.h"
+
 #include "apparmor-util.h"
-#include "ima-util.h"
-#include "selinux-util.h"
+#include "architecture.h"
 #include "audit.h"
 #include "cap-list.h"
+#include "extract-word.h"
 #include "hostname-util.h"
+#include "ima-util.h"
+#include "path-util.h"
+#include "selinux-util.h"
+#include "smack-util.h"
+#include "util.h"
+#include "virt.h"
 #include "condition.h"
 
 Condition* condition_new(ConditionType type, const char *parameter, bool trigger, bool negate) {
