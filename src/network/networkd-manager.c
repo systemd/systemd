@@ -409,7 +409,7 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
                                 log_link_debug(link, "Adding address: %s/%u (valid for %s)", buf, prefixlen, valid_str);
                 }
 
-                address_update(address, scope, flags, &cinfo);
+                address_update(address, flags, scope, &cinfo);
 
                 break;
 
