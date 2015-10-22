@@ -368,7 +368,9 @@
         <term><option>-q</option></term>
         <term><option>--quiet</option></term>
 
-        <listitem><para>Suppresses any warning messages regarding
+        <listitem><para>Suppresses all info messages
+        (i.e. "-- Logs begin at ...", "-- Reboot --"),
+        any warning messages regarding
         inaccessible system journals when run as a normal
         user.</para></listitem>
       </varlistentry>
