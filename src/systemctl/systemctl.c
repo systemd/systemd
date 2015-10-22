@@ -107,7 +107,7 @@ static UnitFilePresetMode arg_preset_mode = UNIT_FILE_PRESET_FULL;
 static char **arg_wall = NULL;
 static const char *arg_kill_who = NULL;
 static int arg_signal = SIGTERM;
-static const char *arg_root = NULL;
+static char *arg_root = NULL;
 static usec_t arg_when = 0;
 static enum action {
         _ACTION_INVALID,
@@ -6612,7 +6612,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 {}
         };
 
-        int c;
+        int c, r;
 
         assert(argc >= 0);
         assert(argv);
@@ -6769,7 +6769,9 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_ROOT:
-                        arg_root = optarg;
+                        r = parse_path_argument_and_warn(optarg, true, &arg_root);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case 'l':
@@ -7778,6 +7780,7 @@ finish:
         strv_free(arg_properties);
 
         strv_free(arg_wall);
+        free(arg_root);
 
         release_busses();
 

@@ -276,28 +276,6 @@ static int custom_mounts_prepare(void) {
         return 0;
 }
 
-static int set_sanitized_path(char **b, const char *path) {
-        char *p;
-        int r;
-
-        assert(b);
-        assert(path);
-
-        p = canonicalize_file_name(path);
-        if (!p) {
-                if (errno != ENOENT)
-                        return -errno;
-
-                r = path_make_absolute_cwd(path, &p);
-                if (r < 0)
-                        return r;
-        }
-
-        free(*b);
-        *b = path_kill_slashes(p);
-        return 0;
-}
-
 static int detect_unified_cgroup_hierarchy(void) {
         const char *e;
         int r;
@@ -417,24 +395,21 @@ static int parse_argv(int argc, char *argv[]) {
                         return version();
 
                 case 'D':
-                        r = set_sanitized_path(&arg_directory, optarg);
+                        r = parse_path_argument_and_warn(optarg, false, &arg_directory);
                         if (r < 0)
-                                return log_error_errno(r, "Invalid root directory: %m");
-
+                                return r;
                         break;
 
                 case ARG_TEMPLATE:
-                        r = set_sanitized_path(&arg_template, optarg);
+                        r = parse_path_argument_and_warn(optarg, false, &arg_template);
                         if (r < 0)
-                                return log_error_errno(r, "Invalid template directory: %m");
-
+                                return r;
                         break;
 
                 case 'i':
-                        r = set_sanitized_path(&arg_image, optarg);
+                        r = parse_path_argument_and_warn(optarg, false, &arg_image);
                         if (r < 0)
-                                return log_error_errno(r, "Invalid image path: %m");
-
+                                return r;
                         break;
 
                 case 'x':
@@ -2323,9 +2298,9 @@ static int determine_names(void) {
                         }
 
                         if (i->type == IMAGE_RAW)
-                                r = set_sanitized_path(&arg_image, i->path);
+                                r = free_and_strdup(&arg_image, i->path);
                         else
-                                r = set_sanitized_path(&arg_directory, i->path);
+                                r = free_and_strdup(&arg_directory, i->path);
                         if (r < 0)
                                 return log_error_errno(r, "Invalid image directory: %m");
 

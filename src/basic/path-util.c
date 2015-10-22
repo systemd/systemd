@@ -902,3 +902,35 @@ char *prefix_root(const char *root, const char *path) {
         strcpy(p, path);
         return n;
 }
+
+int parse_path_argument_and_warn(const char *path, bool suppress_root, char **arg) {
+        char *p;
+        int r;
+
+        /*
+         * This function is intended to be used in command line
+         * parsers, to handle paths that are passed in. It makes the
+         * path absolute, and reduces it to NULL if omitted or
+         * root (the latter optionally).
+         *
+         * NOTE THAT THIS WILL FREE THE PREVIOUS ARGUMENT POINTER ON
+         * SUCCESS! Hence, do not pass in uninitialized pointers.
+         */
+
+        if (isempty(path)) {
+                *arg = mfree(*arg);
+                return 0;
+        }
+
+        r = path_make_absolute_cwd(path, &p);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse path \"%s\" and make it absolute: %m", path);
+
+        path_kill_slashes(p);
+        if (suppress_root && path_equal(p, "/"))
+                p = mfree(p);
+
+        free(*arg);
+        *arg = p;
+        return 0;
+}

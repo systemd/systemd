@@ -101,3 +101,5 @@ char *prefix_root(const char *root, const char *path);
                 }                                                       \
                 _ret;                                                   \
         })
+
+int parse_path_argument_and_warn(const char *path, bool suppress_root, char **arg);
