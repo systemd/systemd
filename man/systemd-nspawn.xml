@@ -850,7 +850,7 @@
     <example>
       <title>Build and boot a minimal Fedora distribution in a container</title>
 
-      <programlisting># dnf -y --releasever=23 --installroot=/srv/mycontainer --disablerepo=* --enablerepo=fedora install systemd passwd dnf fedora-release vim-minimal
+      <programlisting># dnf -y --releasever=23 --installroot=/srv/mycontainer --disablerepo=* --enablerepo=fedora --enablerepo=updates install systemd passwd dnf fedora-release vim-minimal
 # systemd-nspawn -bD /srv/mycontainer</programlisting>
 
       <para>This installs a minimal Fedora distribution into the
