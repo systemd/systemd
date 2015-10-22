@@ -1639,6 +1639,12 @@ static void test_extract_first_word(void) {
         free(t);
         assert_se(isempty(p));
 
+        p = original = "\"fooo";
+        assert_se(extract_first_word(&p, &t, NULL, EXTRACT_QUOTES|EXTRACT_RELAX) > 0);
+        assert_se(streq(t, "fooo"));
+        free(t);
+        assert_se(isempty(p));
+
         p = original = "yay\'foo\'bar";
         assert_se(extract_first_word(&p, &t, NULL, 0) > 0);
         assert_se(streq(t, "yay\'foo\'bar"));
