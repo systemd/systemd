@@ -87,11 +87,13 @@ int icmp6_send_router_solicitation(int s, const struct ether_addr *ether_addr) {
 
 static void test_rs_done(sd_ndisc *nd, int event, void *userdata) {
         sd_event *e = userdata;
-        static int idx = 0;
+        static unsigned idx = 0;
         struct {
                 uint8_t flag;
                 int event;
         } flag_event[] = {
+                { 0, SD_NDISC_EVENT_STOP },
+                { 0, SD_NDISC_EVENT_STOP },
                 { 0, SD_NDISC_EVENT_ROUTER_ADVERTISMENT_NONE },
                 { ND_RA_FLAG_OTHER, SD_NDISC_EVENT_ROUTER_ADVERTISMENT_OTHER },
                 { ND_RA_FLAG_MANAGED, SD_NDISC_EVENT_ROUTER_ADVERTISMENT_MANAGED }
@@ -106,7 +108,7 @@ static void test_rs_done(sd_ndisc *nd, int event, void *userdata) {
         if (verbose)
                 printf("  got event %d\n", event);
 
-        if (idx < 3) {
+        if (idx < ELEMENTSOF(flag_event)) {
                 send_ra(flag_event[idx].flag);
                 return;
         }

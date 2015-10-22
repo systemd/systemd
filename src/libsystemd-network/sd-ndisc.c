@@ -494,8 +494,8 @@ static int ndisc_router_advertisment_recv(sd_event_source *s, int fd, uint32_t r
                 event = SD_NDISC_EVENT_ROUTER_ADVERTISMENT_MANAGED;
 
         log_ndisc(nd, "Received Router Advertisement flags %s/%s",
-                     ra->nd_ra_flags_reserved & ND_RA_FLAG_MANAGED? "MANAGED": "none",
-                     ra->nd_ra_flags_reserved & ND_RA_FLAG_OTHER? "OTHER": "none");
+                     ra->nd_ra_flags_reserved & ND_RA_FLAG_MANAGED ? "MANAGED" : "none",
+                     ra->nd_ra_flags_reserved & ND_RA_FLAG_OTHER ? "OTHER" : "none");
 
         if (event != SD_NDISC_EVENT_ROUTER_ADVERTISMENT_NONE) {
                 r = ndisc_ra_parse(nd, ra, len);
@@ -549,7 +549,8 @@ static int ndisc_router_solicitation_timeout(sd_event_source *s, uint64_t usec, 
                                       next_timeout, 0,
                                       ndisc_router_solicitation_timeout, nd);
                 if (r < 0) {
-                        ndisc_notify(nd, r);
+                        /* we cannot continue if we are unable to rearm the timer */
+                        sd_ndisc_stop(nd);
                         return 0;
                 }
 
@@ -574,6 +575,8 @@ int sd_ndisc_stop(sd_ndisc *nd) {
         ndisc_init(nd);
 
         nd->state = NDISC_STATE_IDLE;
+
+        ndisc_notify(nd, SD_NDISC_EVENT_STOP);
 
         return 0;
 }

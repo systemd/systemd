@@ -37,6 +37,7 @@ static void ndisc_router_handler(sd_ndisc *nd, int event, void *userdata) {
                 return;
 
         switch(event) {
+        case SD_NDISC_EVENT_STOP:
         case SD_NDISC_EVENT_ROUTER_ADVERTISMENT_NONE:
                 return;
 
@@ -51,10 +52,7 @@ static void ndisc_router_handler(sd_ndisc *nd, int event, void *userdata) {
                 break;
 
         default:
-                if (event < 0)
-                        log_link_warning_errno(link, event, "IPv6 Neighbor Discover error: %m");
-                else
-                        log_link_warning(link, "IPv6 Neighbor Discovery unknown event: %d", event);
+                log_link_warning(link, "IPv6 Neighbor Discovery unknown event: %d", event);
 
                 break;
         }
