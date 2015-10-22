@@ -1173,7 +1173,6 @@ int bus_exec_context_set_transient_property(
 
                                 unit_write_drop_in_private_format(u, mode, name, "Environment=%s\n", joined);
                         }
-
                 }
 
                 return 1;
@@ -1262,6 +1261,10 @@ int bus_exec_context_set_transient_property(
                 if (r < 0)
                         return r;
 
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
+
                 r = fflush_and_check(f);
                 if (r < 0)
                         return r;
@@ -1278,10 +1281,6 @@ int bus_exec_context_set_transient_property(
                                 unit_write_drop_in_private(u, mode, name, joined);
                         }
                 }
-
-                r = sd_bus_message_exit_container(message);
-                if (r < 0)
-                        return r;
 
                 return 1;
 
