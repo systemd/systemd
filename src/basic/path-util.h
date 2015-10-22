@@ -58,7 +58,7 @@ int path_is_mount_point(const char *path, int flags);
 int path_is_read_only_fs(const char *path);
 int path_is_os_tree(const char *path);
 
-int find_binary(const char *name, bool local, char **filename);
+int find_binary(const char *name, char **filename);
 
 bool paths_check_timestamp(const char* const* paths, usec_t *paths_ts_usec, bool update);
 

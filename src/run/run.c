@@ -1153,14 +1153,20 @@ int main(int argc, char* argv[]) {
         if (r <= 0)
                 goto finish;
 
-        if (argc > optind) {
-                r = find_binary(argv[optind], arg_transport == BUS_TRANSPORT_LOCAL, &command);
+        if (argc > optind && arg_transport == BUS_TRANSPORT_LOCAL) {
+                /* Patch in an absolute path */
+
+                r = find_binary(argv[optind], &command);
                 if (r < 0) {
-                        log_error_errno(r, "Failed to find executable %s%s: %m",
-                                        argv[optind],
-                                        arg_transport == BUS_TRANSPORT_LOCAL ? "" : " on local system");
+                        log_error_errno(r, "Failed to find executable %s: %m", argv[optind]);
                         goto finish;
                 }
+                if (r == 0) {
+                        log_error("Couldn't find executable %s.", argv[optind]);
+                        r = -ENOENT;
+                        goto finish;
+                }
+
                 argv[optind] = command;
         }
 

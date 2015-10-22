@@ -698,7 +698,6 @@ int path_is_os_tree(const char *path) {
         /* We use /usr/lib/os-release as flag file if something is an OS */
         p = strjoina(path, "/usr/lib/os-release");
         r = access(p, F_OK);
-
         if (r >= 0)
                 return 1;
 
@@ -709,56 +708,67 @@ int path_is_os_tree(const char *path) {
         return r >= 0;
 }
 
-int find_binary(const char *name, bool local, char **filename) {
+int find_binary(const char *name, char **ret) {
+        int last_error, r;
+        const char *p;
+
         assert(name);
 
         if (is_path(name)) {
-                if (local && access(name, X_OK) < 0)
+                if (access(name, X_OK) < 0)
                         return -errno;
 
-                if (filename) {
-                        char *p;
+                if (ret) {
+                        char *rs;
 
-                        p = path_make_absolute_cwd(name);
-                        if (!p)
+                        rs = path_make_absolute_cwd(name);
+                        if (!rs)
                                 return -ENOMEM;
 
-                        *filename = p;
+                        *ret = rs;
                 }
 
                 return 0;
-        } else {
-                const char *path;
-                const char *word, *state;
-                size_t l;
+        }
 
-                /**
-                 * Plain getenv, not secure_getenv, because we want
-                 * to actually allow the user to pick the binary.
-                 */
-                path = getenv("PATH");
-                if (!path)
-                        path = DEFAULT_PATH;
+        /**
+         * Plain getenv, not secure_getenv, because we want
+         * to actually allow the user to pick the binary.
+         */
+        p = getenv("PATH");
+        if (!p)
+                p = DEFAULT_PATH;
 
-                FOREACH_WORD_SEPARATOR(word, l, path, ":", state) {
-                        _cleanup_free_ char *p = NULL;
+        last_error = -ENOENT;
 
-                        if (asprintf(&p, "%.*s/%s", (int) l, word, name) < 0)
-                                return -ENOMEM;
+        for (;;) {
+                _cleanup_free_ char *j = NULL, *element = NULL;
 
-                        if (access(p, X_OK) < 0)
-                                continue;
+                r = extract_first_word(&p, &element, ":", EXTRACT_RELAX|EXTRACT_DONT_COALESCE_SEPARATORS);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
 
-                        if (filename) {
-                                *filename = path_kill_slashes(p);
-                                p = NULL;
+                j = strjoin(element, "/", name, NULL);
+                if (!j)
+                        return -ENOMEM;
+
+                if (access(j, X_OK) >= 0) {
+                        /* Found it! */
+
+                        if (ret) {
+                                *ret = path_kill_slashes(j);
+                                j = NULL;
                         }
 
                         return 0;
                 }
 
-                return -ENOENT;
+                last_error = -errno;
         }
+
+        return last_error;
 }
 
 bool paths_check_timestamp(const char* const* paths, usec_t *timestamp, bool update) {
@@ -800,7 +810,9 @@ static int binary_is_good(const char *binary) {
         _cleanup_free_ char *p = NULL, *d = NULL;
         int r;
 
-        r = find_binary(binary, true, &p);
+        r = find_binary(binary, &p);
+        if (r == -ENOENT)
+                return 0;
         if (r < 0)
                 return r;
 
@@ -808,28 +820,38 @@ static int binary_is_good(const char *binary) {
          * fsck */
 
         r = readlink_malloc(p, &d);
-        if (r >= 0 &&
-            (path_equal(d, "/bin/true") ||
-             path_equal(d, "/usr/bin/true") ||
-             path_equal(d, "/dev/null")))
-                return -ENOENT;
+        if (r == -EINVAL) /* not a symlink */
+                return 1;
+        if (r < 0)
+                return r;
 
-        return 0;
+        return !path_equal(d, "true") &&
+               !path_equal(d, "/bin/true") &&
+               !path_equal(d, "/usr/bin/true") &&
+               !path_equal(d, "/dev/null");
 }
 
 int fsck_exists(const char *fstype) {
         const char *checker;
 
-        checker = strjoina("fsck.", fstype);
+        assert(fstype);
 
+        if (streq(fstype, "auto"))
+                return -EINVAL;
+
+        checker = strjoina("fsck.", fstype);
         return binary_is_good(checker);
 }
 
 int mkfs_exists(const char *fstype) {
         const char *mkfs;
 
-        mkfs = strjoina("mkfs.", fstype);
+        assert(fstype);
 
+        if (streq(fstype, "auto"))
+                return -EINVAL;
+
+        mkfs = strjoina("mkfs.", fstype);
         return binary_is_good(mkfs);
 }
 

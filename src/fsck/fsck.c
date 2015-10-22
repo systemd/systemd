@@ -366,12 +366,12 @@ int main(int argc, char *argv[]) {
         r = sd_device_get_property_value(dev, "ID_FS_TYPE", &type);
         if (r >= 0) {
                 r = fsck_exists(type);
-                if (r == -ENOENT) {
-                        log_info("fsck.%s doesn't exist, not checking file system on %s", type, device);
-                        r = 0;
+                if (r < 0)
+                        log_warning_errno(r, "Couldn't detect if fsck.%s may be used for %s, proceeding: %m", type, device);
+                else if (r == 0) {
+                        log_info("fsck.%s doesn't exist, not checking file system on %s.", type, device);
                         goto finish;
-                } else if (r < 0)
-                        log_warning_errno(r, "Couldn't detect if fsck.%s may be used for %s: %m", type, device);
+                }
         }
 
         if (arg_show_progress) {
