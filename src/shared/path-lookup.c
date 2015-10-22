@@ -210,7 +210,7 @@ static char** user_dirs(
                 if (strv_extend(&res, generator_late) < 0)
                         return NULL;
 
-        if (!path_strv_make_absolute_cwd(res))
+        if (path_strv_make_absolute_cwd(res) < 0)
                 return NULL;
 
         tmp = res;
@@ -244,6 +244,7 @@ int lookup_paths_init(
 
         const char *e;
         bool append = false; /* Add items from SYSTEMD_UNIT_PATH before normal directories */
+        int r;
 
         assert(p);
 
@@ -259,9 +260,9 @@ int lookup_paths_init(
                 /* FIXME: empty components in other places should be
                  * rejected. */
 
-                p->unit_path = path_split_and_make_absolute(e);
-                if (!p->unit_path)
-                        return -ENOMEM;
+                r = path_split_and_make_absolute(e, &p->unit_path);
+                if (r < 0)
+                        return r;
         } else
                 p->unit_path = NULL;
 
@@ -269,7 +270,6 @@ int lookup_paths_init(
                 /* Let's figure something out. */
 
                 _cleanup_strv_free_ char **unit_path;
-                int r;
 
                 /* For the user units we include share/ in the search
                  * path in order to comply with the XDG basedir spec.
@@ -342,9 +342,9 @@ int lookup_paths_init(
 
                 e = getenv("SYSTEMD_SYSVINIT_PATH");
                 if (e) {
-                        p->sysvinit_path = path_split_and_make_absolute(e);
-                        if (!p->sysvinit_path)
-                                return -ENOMEM;
+                        r = path_split_and_make_absolute(e, &p->sysvinit_path);
+                        if (r < 0)
+                                return r;
                 } else
                         p->sysvinit_path = NULL;
 
@@ -360,9 +360,9 @@ int lookup_paths_init(
 
                 e = getenv("SYSTEMD_SYSVRCND_PATH");
                 if (e) {
-                        p->sysvrcnd_path = path_split_and_make_absolute(e);
-                        if (!p->sysvrcnd_path)
-                                return -ENOMEM;
+                        r = path_split_and_make_absolute(e, &p->sysvrcnd_path);
+                        if (r < 0)
+                                return r;
                 } else
                         p->sysvrcnd_path = NULL;
 
@@ -417,9 +417,8 @@ void lookup_paths_free(LookupPaths *p) {
         p->unit_path = strv_free(p->unit_path);
 
 #ifdef HAVE_SYSV_COMPAT
-        strv_free(p->sysvinit_path);
-        strv_free(p->sysvrcnd_path);
-        p->sysvinit_path = p->sysvrcnd_path = NULL;
+        p->sysvinit_path = strv_free(p->sysvinit_path);
+        p->sysvrcnd_path = strv_free(p->sysvrcnd_path);
 #endif
 }
 

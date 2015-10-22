@@ -84,20 +84,25 @@ int path_get_parent(const char *path, char **_r) {
         return 0;
 }
 
-char **path_split_and_make_absolute(const char *p) {
+int path_split_and_make_absolute(const char *p, char ***ret) {
         char **l;
+        int r;
+
         assert(p);
+        assert(ret);
 
         l = strv_split(p, ":");
         if (!l)
                 return NULL;
 
-        if (!path_strv_make_absolute_cwd(l)) {
+        r = path_strv_make_absolute_cwd(l);
+        if (r < 0) {
                 strv_free(l);
-                return NULL;
+                return r;
         }
 
-        return l;
+        *ret = l;
+        return r;
 }
 
 char *path_make_absolute(const char *p, const char *prefix) {
@@ -112,22 +117,31 @@ char *path_make_absolute(const char *p, const char *prefix) {
         return strjoin(prefix, "/", p, NULL);
 }
 
-char *path_make_absolute_cwd(const char *p) {
-        _cleanup_free_ char *cwd = NULL;
+int path_make_absolute_cwd(const char *p, char **ret) {
+        char *c;
 
         assert(p);
+        assert(ret);
 
         /* Similar to path_make_absolute(), but prefixes with the
          * current working directory. */
 
         if (path_is_absolute(p))
-                return strdup(p);
+                c = strdup(p);
+        else {
+                _cleanup_free_ char *cwd = NULL;
 
-        cwd = get_current_dir_name();
-        if (!cwd)
-                return NULL;
+                cwd = get_current_dir_name();
+                if (!cwd)
+                        return -errno;
 
-        return strjoin(cwd, "/", p, NULL);
+                c = strjoin(cwd, "/", p, NULL);
+        }
+        if (!c)
+                return -ENOMEM;
+
+        *ret = c;
+        return 0;
 }
 
 int path_make_relative(const char *from_dir, const char *to_path, char **_r) {
@@ -215,8 +229,9 @@ int path_make_relative(const char *from_dir, const char *to_path, char **_r) {
         return 0;
 }
 
-char **path_strv_make_absolute_cwd(char **l) {
+int path_strv_make_absolute_cwd(char **l) {
         char **s;
+        int r;
 
         /* Goes through every item in the string list and makes it
          * absolute. This works in place and won't rollback any
@@ -225,15 +240,15 @@ char **path_strv_make_absolute_cwd(char **l) {
         STRV_FOREACH(s, l) {
                 char *t;
 
-                t = path_make_absolute_cwd(*s);
-                if (!t)
-                        return NULL;
+                r = path_make_absolute_cwd(*s, &t);
+                if (r < 0)
+                        return r;
 
                 free(*s);
                 *s = t;
         }
 
-        return l;
+        return 0;
 }
 
 char **path_strv_resolve(char **l, const char *prefix) {
@@ -719,13 +734,9 @@ int find_binary(const char *name, char **ret) {
                         return -errno;
 
                 if (ret) {
-                        char *rs;
-
-                        rs = path_make_absolute_cwd(name);
-                        if (!rs)
-                                return -ENOMEM;
-
-                        *ret = rs;
+                        r = path_make_absolute_cwd(name, ret);
+                        if (r < 0)
+                                return r;
                 }
 
                 return 0;
@@ -749,6 +760,9 @@ int find_binary(const char *name, char **ret) {
                         return r;
                 if (r == 0)
                         break;
+
+                if (!path_is_absolute(element))
+                        continue;
 
                 j = strjoin(element, "/", name, NULL);
                 if (!j)

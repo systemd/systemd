@@ -278,6 +278,7 @@ static int custom_mounts_prepare(void) {
 
 static int set_sanitized_path(char **b, const char *path) {
         char *p;
+        int r;
 
         assert(b);
         assert(path);
@@ -287,9 +288,9 @@ static int set_sanitized_path(char **b, const char *path) {
                 if (errno != ENOENT)
                         return -errno;
 
-                p = path_make_absolute_cwd(path);
-                if (!p)
-                        return -ENOMEM;
+                r = path_make_absolute_cwd(path, &p);
+                if (r < 0)
+                        return r;
         }
 
         free(*b);
