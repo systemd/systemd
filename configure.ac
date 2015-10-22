@@ -35,6 +35,8 @@ AC_SYS_LARGEFILE
 AC_PREFIX_DEFAULT([/usr])
 AM_MAINTAINER_MODE([enable])
 AM_INIT_AUTOMAKE([foreign 1.11 -Wall -Wno-portability silent-rules tar-pax no-dist-gzip dist-xz subdir-objects parallel-tests])
+AM_GNU_GETTEXT_VERSION([0.19])
+AM_GNU_GETTEXT([external])
 AM_SILENT_RULES([yes])
 AC_CANONICAL_HOST
 AC_DEFINE_UNQUOTED([CANONICAL_HOST], "$host", [Canonical host string.])
@@ -58,29 +60,6 @@ SET_ARCH(X86_64, x86_64*)
 SET_ARCH(IA32, i*86*)
 SET_ARCH(MIPS, mips*)
 SET_ARCH(AARCH64, aarch64*)
-
-# i18n stuff for the PolicyKit policy files, heck whether intltool can be found, disable NLS otherwise
-AC_CHECK_PROG(intltool_found, [intltool-merge], [yes], [no])
-AS_IF([test x"$intltool_found" != xyes],
-      [AS_IF([test x"$enable_nls" = xyes],
-             [AC_MSG_ERROR([--enable-nls requested but intltool not found])],
-             [AS_IF([test x"$enable_nls" != xno],
-                    [AC_MSG_WARN([*** Disabling NLS support because intltool was not found])
-                     enable_nls=no])
-             ])
-      ])
-
-AM_NLS
-AS_IF([test x"$enable_nls" != xno -o "x$enable_polkit" != xno], [
-    # intltoolize greps for '^(AC|IT)_PROG_INTLTOOL', so it needs to be on its own line
-IT_PROG_INTLTOOL([0.40.0])
-])
-
-AS_IF([test -z "$INTLTOOL_POLICY_RULE"], [
-    # If intltool is not available, provide a dummy rule to fail generation of %.policy files with a meaningful error message
-    INTLTOOL_POLICY_RULE='%.policy: %.policy.in ; @echo "  ITMRG   " $@ && echo "*** intltool support required to build target $@" && false'
-    AC_SUBST(INTLTOOL_POLICY_RULE)
-])
 
 GETTEXT_PACKAGE=systemd
 AC_SUBST(GETTEXT_PACKAGE)
@@ -1306,6 +1285,21 @@ AC_ARG_ENABLE(ldconfig,
 AM_CONDITIONAL(ENABLE_LDCONFIG, [test x$enable_ldconfig = xyes])
 
 # ------------------------------------------------------------------------------
+# i18n stuff for the PolicyKit policy files
+AM_NLS
+AS_IF([test "x$enable_nls" != xno],
+      [AC_CHECK_PROG(itstool_found, [itstool], [yes], [no])
+       AS_IF([test "x$itstool_found" = xyes],
+             [USE_NLS=yes],
+             [AS_IF([test "x$enable_nls" = xyes],
+                    [AC_MSG_ERROR([*** NLS support requested but itstool binary not found])]
+             )]
+       )])
+
+AM_CONDITIONAL([HAVE_ITSTOOL],
+               [test "x$itstool_found" = xyes -a "x$have_polkit" = xyes -a "x$USE_NLS" = xyes])
+
+# ------------------------------------------------------------------------------
 # Location of the init scripts as mandated by LSB
 SYSTEM_SYSVINIT_PATH=/etc/init.d
 SYSTEM_SYSVRCND_PATH=/etc/rc.d
@@ -1434,11 +1428,6 @@ AS_IF([test "x${enable_split_usr}" = "xyes"], [
 ])
 AM_CONDITIONAL(ENABLE_SPLIT_USR, [test "x${enable_split_usr}" = "xyes"])
 
-# work around intltool-update issues during 'make distcheck'
-AS_IF([test "x$0" != "x./configure"], [
-        AC_SUBST([INTLTOOL_UPDATE], [/bin/true])
-])
-
 # QEMU and OVMF UEFI firmware
 AS_IF([test x"$cross_compiling" = "xyes"], [], [
         AC_PATH_PROG([QEMU], [qemu-system-x86_64])
@@ -1501,6 +1490,7 @@ AC_OUTPUT
 AC_MSG_RESULT([
         $PACKAGE_NAME $VERSION
 
+        NLS:                     ${USE_NLS}
         libcryptsetup:           ${have_libcryptsetup}
         PAM:                     ${have_pam}
         AUDIT:                   ${have_audit}

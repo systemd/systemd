@@ -362,6 +362,10 @@ AM_V_RM = $(AM_V_RM_$(V))
 AM_V_RM_ = $(AM_V_RM_$(AM_DEFAULT_VERBOSITY))
 AM_V_RM_0 = @echo "  RM      " $@;
 
+AM_V_ITSTOOL = $(AM_V_ITSTOOL_$(V))
+AM_V_ITSTOOL_ = $(AM_V_ITSTOOL_$(AM_DEFAULT_VERBOSITY))
+AM_V_ITSTOOL_0 = @echo "  ITSTL   " $@;
+
 # ------------------------------------------------------------------------------
 rootbin_PROGRAMS = \
 	systemctl \
@@ -664,7 +668,13 @@ EXTRA_DIST += \
 	.travis.yml \
 	.mailmap
 
-@INTLTOOL_POLICY_RULE@
+if HAVE_ITSTOOL
+%.policy: %.policy.in
+	$(AM_V_ITSTOOL)itstool -j $< $(wildcard $(top_srcdir)/po/*.gmo) -o $@
+else
+%.policy: %.policy.in
+	$(AM_V_ITSTOOL)cp -f $< $@
+endif
 
 # ------------------------------------------------------------------------------
 
