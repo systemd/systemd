@@ -5913,9 +5913,11 @@ int extract_first_word(const char **p, char **ret, const char *separators, Extra
                         break;
 
                 case DOUBLE_QUOTE:
-                        if (c == 0)
+                        if (c == 0) {
+                                if (flags & EXTRACT_RELAX)
+                                        goto finish_force_terminate;
                                 return -EINVAL;
-                        else if (c == '\"')
+                        } else if (c == '\"')
                                 state = VALUE;
                         else if (c == '\\')
                                 state = DOUBLE_QUOTE_ESCAPE;
