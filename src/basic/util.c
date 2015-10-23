@@ -5806,16 +5806,10 @@ int extract_first_word(const char **p, char **ret, const char *separators, Extra
         size_t allocated = 0, sz = 0;
         int r;
 
-        enum {
-                START,
-                VALUE,
-                VALUE_ESCAPE,
-                SINGLE_QUOTE,
-                SINGLE_QUOTE_ESCAPE,
-                DOUBLE_QUOTE,
-                DOUBLE_QUOTE_ESCAPE,
-                SEPARATOR,
-        } state = START;
+        char quote = 0;                 /* 0 or ' or " */
+        bool backslash = false;         /* whether we've just seen a backslash */
+        bool separator = false;         /* whether we've just seen a separator */
+        bool start = true;              /* false means we're looking at a value */
 
         assert(p);
         assert(ret);
@@ -5835,9 +5829,7 @@ int extract_first_word(const char **p, char **ret, const char *separators, Extra
         for (;;) {
                 char c = **p;
 
-                switch (state) {
-
-                case START:
+                if (start) {
                         if (flags & EXTRACT_DONT_COALESCE_SEPARATORS)
                                 if (!GREEDY_REALLOC(s, allocated, sz+1))
                                         return -ENOMEM;
@@ -5845,11 +5837,10 @@ int extract_first_word(const char **p, char **ret, const char *separators, Extra
                         if (c == 0)
                                 goto finish_force_terminate;
                         else if (strchr(separators, c)) {
-                                if (flags & EXTRACT_DONT_COALESCE_SEPARATORS) {
-                                        (*p) ++;
+                                (*p) ++;
+                                if (flags & EXTRACT_DONT_COALESCE_SEPARATORS)
                                         goto finish_force_next;
-                                }
-                                break;
+                                continue;
                         }
 
                         /* We found a non-blank character, so we will always
@@ -5858,78 +5849,16 @@ int extract_first_word(const char **p, char **ret, const char *separators, Extra
                         if (!GREEDY_REALLOC(s, allocated, sz+1))
                                 return -ENOMEM;
 
-                        state = VALUE;
-                        /* fallthrough */
+                        start = false;
+                }
 
-                case VALUE:
-                        if (c == 0)
-                                goto finish_force_terminate;
-                        else if (c == '\'' && (flags & EXTRACT_QUOTES))
-                                state = SINGLE_QUOTE;
-                        else if (c == '\\')
-                                state = VALUE_ESCAPE;
-                        else if (c == '\"' && (flags & EXTRACT_QUOTES))
-                                state = DOUBLE_QUOTE;
-                        else if (strchr(separators, c)) {
-                                if (flags & EXTRACT_DONT_COALESCE_SEPARATORS) {
-                                        (*p) ++;
-                                        goto finish_force_next;
-                                }
-                                state = SEPARATOR;
-                        } else {
-                                if (!GREEDY_REALLOC(s, allocated, sz+2))
-                                        return -ENOMEM;
-
-                                s[sz++] = c;
-                        }
-
-                        break;
-
-                case SINGLE_QUOTE:
-                        if (c == 0) {
-                                if (flags & EXTRACT_RELAX)
-                                        goto finish_force_terminate;
-                                return -EINVAL;
-                        } else if (c == '\'')
-                                state = VALUE;
-                        else if (c == '\\')
-                                state = SINGLE_QUOTE_ESCAPE;
-                        else {
-                                if (!GREEDY_REALLOC(s, allocated, sz+2))
-                                        return -ENOMEM;
-
-                                s[sz++] = c;
-                        }
-
-                        break;
-
-                case DOUBLE_QUOTE:
-                        if (c == 0) {
-                                if (flags & EXTRACT_RELAX)
-                                        goto finish_force_terminate;
-                                return -EINVAL;
-                        } else if (c == '\"')
-                                state = VALUE;
-                        else if (c == '\\')
-                                state = DOUBLE_QUOTE_ESCAPE;
-                        else {
-                                if (!GREEDY_REALLOC(s, allocated, sz+2))
-                                        return -ENOMEM;
-
-                                s[sz++] = c;
-                        }
-
-                        break;
-
-                case SINGLE_QUOTE_ESCAPE:
-                case DOUBLE_QUOTE_ESCAPE:
-                case VALUE_ESCAPE:
+                if (backslash) {
                         if (!GREEDY_REALLOC(s, allocated, sz+7))
                                 return -ENOMEM;
 
                         if (c == 0) {
                                 if ((flags & EXTRACT_CUNESCAPE_RELAX) &&
-                                    (state == VALUE_ESCAPE || flags & EXTRACT_RELAX)) {
+                                    (!quote || flags & EXTRACT_RELAX)) {
                                         /* If we find an unquoted trailing backslash and we're in
                                          * EXTRACT_CUNESCAPE_RELAX mode, keep it verbatim in the
                                          * output.
@@ -5968,17 +5897,49 @@ int extract_first_word(const char **p, char **ret, const char *separators, Extra
                                 s[sz++] = c;
 
 end_escape:
-                        state = (state == SINGLE_QUOTE_ESCAPE) ? SINGLE_QUOTE :
-                                (state == DOUBLE_QUOTE_ESCAPE) ? DOUBLE_QUOTE :
-                                VALUE;
-                        break;
+                        backslash = false;
 
-                case SEPARATOR:
+                } else if (quote) {     /* inside either single or double quotes */
+                        if (c == 0) {
+                                if (flags & EXTRACT_RELAX)
+                                        goto finish_force_terminate;
+                                return -EINVAL;
+                        } else if (c == quote)          /* found the end quote */
+                                quote = 0;
+                        else if (c == '\\')
+                                backslash = true;
+                        else {
+                                if (!GREEDY_REALLOC(s, allocated, sz+2))
+                                        return -ENOMEM;
+
+                                s[sz++] = c;
+                        }
+
+                } else if (separator) {
                         if (c == 0)
                                 goto finish_force_terminate;
                         if (!strchr(separators, c))
                                 goto finish;
-                        break;
+
+                } else {
+                        if (c == 0)
+                                goto finish_force_terminate;
+                        else if ((c == '\'' || c == '"') && (flags & EXTRACT_QUOTES))
+                                quote = c;
+                        else if (c == '\\')
+                                backslash = true;
+                        else if (strchr(separators, c)) {
+                                if (flags & EXTRACT_DONT_COALESCE_SEPARATORS) {
+                                        (*p) ++;
+                                        goto finish_force_next;
+                                }
+                                separator = true;
+                        } else {
+                                if (!GREEDY_REALLOC(s, allocated, sz+2))
+                                        return -ENOMEM;
+
+                                s[sz++] = c;
+                        }
                 }
 
                 (*p) ++;
