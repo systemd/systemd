@@ -195,26 +195,36 @@ int extract_first_word_and_warn(
                 unsigned line,
                 const char *rvalue) {
 
-        /* Try to unquote it, if it fails, warn about it and try again but this
-         * time using EXTRACT_CUNESCAPE_RELAX to keep the backslashes verbatim
-         * in invalid escape sequences. */
+        /* Try to unquote it, if it fails, warn about it and try again
+         * but this time using EXTRACT_CUNESCAPE_RELAX to keep the
+         * backslashes verbatim in invalid escape sequences. */
+
         const char *save;
         int r;
 
         save = *p;
         r = extract_first_word(p, ret, separators, flags);
-        if (r < 0 && !(flags & EXTRACT_CUNESCAPE_RELAX)) {
+        if (r >= 0)
+                return r;
+
+        if (r == -EINVAL && !(flags & EXTRACT_CUNESCAPE_RELAX)) {
 
                 /* Retry it with EXTRACT_CUNESCAPE_RELAX. */
                 *p = save;
                 r = extract_first_word(p, ret, separators, flags|EXTRACT_CUNESCAPE_RELAX);
-                if (r < 0)
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Unbalanced quoting in command line, ignoring: \"%s\"", rvalue);
-                else
-                        log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid escape sequences in command line: \"%s\"", rvalue);
+                if (r >= 0) {
+                        /* It worked this time, hence it must have been an invalid escape sequence we could correct. */
+                        log_syntax(unit, LOG_WARNING, filename, line, EINVAL, "Invalid escape sequences in line, correcting: \"%s\"", rvalue);
+                        return r;
+                }
+
+                /* If it's still EINVAL; then it must be unbalanced quoting, report this. */
+                if (r == -EINVAL)
+                        return log_syntax(unit, LOG_ERR, filename, line, r, "Unbalanced quoting, ignoring: \"%s\"", rvalue);
         }
 
-        return r;
+        /* Can be any error, report it */
+        return log_syntax(unit, LOG_ERR, filename, line, r, "Unable to decode word \"%s\", ignoring: %m", rvalue);
 }
 
 int extract_many_words(const char **p, const char *separators, ExtractFlags flags, ...) {

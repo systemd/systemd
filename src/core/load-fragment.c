@@ -522,9 +522,7 @@ int config_parse_exec(
         assert(e);
 
         e += ltype;
-
         rvalue += strspn(rvalue, WHITESPACE);
-        p = rvalue;
 
         if (isempty(rvalue)) {
                 /* An empty assignment resets the list */
@@ -532,14 +530,15 @@ int config_parse_exec(
                 return 0;
         }
 
+        p = rvalue;
         do {
-                int i;
+                _cleanup_free_ char *path = NULL, *firstword = NULL;
+                bool separate_argv0 = false, ignore = false;
+                _cleanup_free_ ExecCommand *nce = NULL;
                 _cleanup_strv_free_ char **n = NULL;
                 size_t nlen = 0, nbufsize = 0;
-                _cleanup_free_ ExecCommand *nce = NULL;
-                _cleanup_free_ char *path = NULL, *firstword = NULL;
                 char *f;
-                bool separate_argv0 = false, ignore = false;
+                int i;
 
                 semicolon = false;
 
