@@ -340,8 +340,6 @@ int config_parse_arp_ip_target_address(const char *unit,
                                        void *data,
                                        void *userdata) {
         Bond *b = userdata;
-        const char *word, *state;
-        size_t l;
         int r;
 
         assert(filename);
@@ -349,14 +347,19 @@ int config_parse_arp_ip_target_address(const char *unit,
         assert(rvalue);
         assert(data);
 
-        FOREACH_WORD_QUOTED(word, l, rvalue, state) {
+        for (;;) {
                 _cleanup_free_ ArpIpTarget *buffer = NULL;
                 _cleanup_free_ char *n = NULL;
                 int f;
 
-                n = strndup(word, l);
-                if (!n)
-                        return -ENOMEM;
+                r = extract_first_word(&rvalue, &n, NULL, 0);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse Bond ARP ip target address, ignoring assignment: %s", rvalue);
+                        return 0;
+                }
+
+                if (r == 0)
+                        break;
 
                 buffer = new0(ArpIpTarget, 1);
                 if (!buffer)
@@ -380,7 +383,9 @@ int config_parse_arp_ip_target_address(const char *unit,
         }
 
         if (b->n_arp_ip_targets > NETDEV_BOND_ARP_TARGETS_MAX)
-                log_syntax(unit, LOG_WARNING, filename, line, 0, "More than the maximum number of kernel-supported ARP ip targets specified: %d > %d", b->n_arp_ip_targets, NETDEV_BOND_ARP_TARGETS_MAX);
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "More than the maximum number of kernel-supported ARP ip targets specified: %d > %d",
+                           b->n_arp_ip_targets, NETDEV_BOND_ARP_TARGETS_MAX);
 
         return 0;
 }
