@@ -20,22 +20,23 @@
 ***/
 
 #include <errno.h>
-#include <unistd.h>
+#include <libudev.h>
 #include <sys/epoll.h>
 #include <sys/stat.h>
-#include <libudev.h>
+#include <unistd.h>
 
-#include "unit.h"
-#include "swap.h"
-#include "unit-name.h"
 #include "dbus-swap.h"
-#include "special.h"
+#include "escape.h"
 #include "exit-status.h"
-#include "path-util.h"
-#include "virt.h"
-#include "udev-util.h"
-#include "fstab-util.h"
 #include "formats-util.h"
+#include "fstab-util.h"
+#include "path-util.h"
+#include "special.h"
+#include "udev-util.h"
+#include "unit-name.h"
+#include "unit.h"
+#include "virt.h"
+#include "swap.h"
 
 static const UnitActiveState state_translation_table[_SWAP_STATE_MAX] = {
         [SWAP_DEAD] = UNIT_INACTIVE,

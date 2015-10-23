@@ -20,10 +20,10 @@
 ***/
 
 #include <errno.h>
-#include <unistd.h>
 #include <stdio.h>
 #include <sys/prctl.h>
 #include <sys/xattr.h>
+#include <unistd.h>
 
 #ifdef HAVE_ELFUTILS
 #  include <dwarf.h>
@@ -32,23 +32,25 @@
 
 #include "sd-journal.h"
 #include "sd-login.h"
-#include "log.h"
-#include "util.h"
-#include "fileio.h"
-#include "strv.h"
-#include "macro.h"
-#include "mkdir.h"
-#include "special.h"
-#include "cgroup-util.h"
-#include "conf-parser.h"
-#include "copy.h"
-#include "stacktrace.h"
-#include "compress.h"
+
 #include "acl-util.h"
 #include "capability.h"
-#include "journald-native.h"
+#include "cgroup-util.h"
+#include "compress.h"
+#include "conf-parser.h"
+#include "copy.h"
 #include "coredump-vacuum.h"
+#include "escape.h"
+#include "fileio.h"
+#include "journald-native.h"
+#include "log.h"
+#include "macro.h"
+#include "mkdir.h"
 #include "process-util.h"
+#include "special.h"
+#include "stacktrace.h"
+#include "strv.h"
+#include "util.h"
 
 /* The maximum size up to which we process coredumps */
 #define PROCESS_SIZE_MAX ((uint64_t) (2LLU*1024LLU*1024LLU*1024LLU))

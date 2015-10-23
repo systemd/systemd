@@ -43,6 +43,7 @@
 #include "capability.h"
 #include "conf-files.h"
 #include "copy.h"
+#include "escape.h"
 #include "formats-util.h"
 #include "label.h"
 #include "log.h"

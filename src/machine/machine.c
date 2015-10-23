@@ -27,15 +27,16 @@
 
 #include "bus-error.h"
 #include "bus-util.h"
+#include "escape.h"
 #include "fileio.h"
 #include "formats-util.h"
 #include "hashmap.h"
+#include "machine-dbus.h"
 #include "mkdir.h"
 #include "special.h"
 #include "terminal-util.h"
 #include "unit-name.h"
 #include "util.h"
-#include "machine-dbus.h"
 #include "machine.h"
 
 Machine* machine_new(Manager *manager, MachineClass class, const char *name) {

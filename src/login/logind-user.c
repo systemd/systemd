@@ -19,26 +19,27 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/mount.h>
-#include <string.h>
-#include <unistd.h>
 #include <errno.h>
+#include <string.h>
+#include <sys/mount.h>
+#include <unistd.h>
 
-#include "util.h"
-#include "mkdir.h"
-#include "rm-rf.h"
-#include "hashmap.h"
+#include "bus-error.h"
+#include "bus-util.h"
+#include "clean-ipc.h"
+#include "conf-parser.h"
+#include "escape.h"
 #include "fileio.h"
+#include "formats-util.h"
+#include "hashmap.h"
+#include "label.h"
+#include "mkdir.h"
 #include "path-util.h"
+#include "rm-rf.h"
+#include "smack-util.h"
 #include "special.h"
 #include "unit-name.h"
-#include "bus-util.h"
-#include "bus-error.h"
-#include "conf-parser.h"
-#include "clean-ipc.h"
-#include "smack-util.h"
-#include "formats-util.h"
-#include "label.h"
+#include "util.h"
 #include "logind-user.h"
 
 User* user_new(Manager *m, uid_t uid, gid_t gid, const char *name) {

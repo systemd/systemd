@@ -53,12 +53,6 @@
 #define COMMENTS   "#;"
 #define GLOB_CHARS "*?["
 
-/* What characters are special in the shell? */
-/* must be escaped outside and inside double-quotes */
-#define SHELL_NEED_ESCAPE "\"\\`$"
-/* can be escaped or double-quoted */
-#define SHELL_NEED_QUOTES SHELL_NEED_ESCAPE GLOB_CHARS "'()<>|&;"
-
 #define FORMAT_BYTES_MAX 8
 
 size_t page_size(void) _pure_;
@@ -259,20 +253,6 @@ char base32hexchar(int x) _const_;
 int unbase32hexchar(char c) _const_;
 char base64char(int x) _const_;
 int unbase64char(char c) _const_;
-
-char *cescape(const char *s);
-size_t cescape_char(char c, char *buf);
-
-typedef enum UnescapeFlags {
-        UNESCAPE_RELAX = 1,
-} UnescapeFlags;
-
-int cunescape(const char *s, UnescapeFlags flags, char **ret);
-int cunescape_length(const char *s, size_t length, UnescapeFlags flags, char **ret);
-int cunescape_length_with_prefix(const char *s, size_t length, const char *prefix, UnescapeFlags flags, char **ret);
-int cunescape_one(const char *p, size_t length, char *ret, uint32_t *ret_unicode);
-
-char *xescape(const char *s, const char *bad);
 
 char *ascii_strlower(char *path);
 
@@ -923,9 +903,6 @@ int syslog_parse_priority(const char **p, int *priority, bool with_facility);
 void cmsg_close_all(struct msghdr *mh);
 
 int rename_noreplace(int olddirfd, const char *oldpath, int newdirfd, const char *newpath);
-
-char *shell_escape(const char *s, const char *bad);
-char *shell_maybe_quote(const char *s);
 
 int parse_mode(const char *s, mode_t *ret);
 

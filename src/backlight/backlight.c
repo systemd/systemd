@@ -19,12 +19,13 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "util.h"
-#include "mkdir.h"
+#include "def.h"
+#include "escape.h"
 #include "fileio.h"
 #include "libudev.h"
+#include "mkdir.h"
 #include "udev-util.h"
-#include "def.h"
+#include "util.h"
 
 static struct udev_device *find_pci_or_platform_parent(struct udev_device *device) {
         struct udev_device *parent;

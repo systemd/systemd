@@ -21,17 +21,18 @@
 
 #include <sys/prctl.h>
 
-#include "util.h"
-#include "strv.h"
-#include "copy.h"
-#include "rm-rf.h"
 #include "btrfs-util.h"
 #include "capability.h"
-#include "pull-job.h"
-#include "pull-common.h"
+#include "copy.h"
+#include "escape.h"
 #include "process-util.h"
+#include "pull-job.h"
+#include "rm-rf.h"
 #include "signal-util.h"
 #include "siphash24.h"
+#include "strv.h"
+#include "util.h"
+#include "pull-common.h"
 
 #define FILENAME_ESCAPE "/.#\"\'"
 #define HASH_URL_THRESHOLD_LENGTH (_POSIX_PATH_MAX - 16)

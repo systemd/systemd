@@ -42,6 +42,7 @@
 #include "cpu-set-util.h"
 #include "env-util.h"
 #include "errno-list.h"
+#include "escape.h"
 #include "ioprio.h"
 #include "log.h"
 #include "missing.h"

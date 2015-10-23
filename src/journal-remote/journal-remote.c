@@ -36,14 +36,15 @@
 #include "sd-daemon.h"
 
 #include "conf-parser.h"
+#include "escape.h"
 #include "fileio.h"
 #include "journal-file.h"
+#include "journal-remote-write.h"
 #include "journald-native.h"
 #include "macro.h"
 #include "signal-util.h"
 #include "socket-util.h"
 #include "strv.h"
-#include "journal-remote-write.h"
 #include "journal-remote.h"
 
 #define REMOTE_JOURNAL_PATH "/var/log/journal/remote"

@@ -24,11 +24,12 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "util.h"
-#include "mkdir.h"
-#include "logind-inhibit.h"
+#include "escape.h"
 #include "fileio.h"
 #include "formats-util.h"
+#include "mkdir.h"
+#include "util.h"
+#include "logind-inhibit.h"
 
 Inhibitor* inhibitor_new(Manager *m, const char* id) {
         Inhibitor *i;

@@ -26,18 +26,20 @@
 #include <selinux/selinux.h>
 #endif
 
-#include "sd-event.h"
 #include "sd-daemon.h"
-#include "socket-util.h"
-#include "selinux-util.h"
-#include "mkdir.h"
+#include "sd-event.h"
+
+#include "escape.h"
 #include "fileio.h"
-#include "journald-server.h"
-#include "journald-stream.h"
-#include "journald-syslog.h"
-#include "journald-kmsg.h"
 #include "journald-console.h"
+#include "journald-kmsg.h"
+#include "journald-server.h"
+#include "journald-syslog.h"
 #include "journald-wall.h"
+#include "mkdir.h"
+#include "selinux-util.h"
+#include "socket-util.h"
+#include "journald-stream.h"
 
 #define STDOUT_STREAMS_MAX 4096
 

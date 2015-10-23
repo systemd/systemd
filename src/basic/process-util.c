@@ -17,21 +17,22 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdbool.h>
-#include <sys/types.h>
-#include <string.h>
-#include <stdio.h>
 #include <assert.h>
-#include <errno.h>
-#include <unistd.h>
-#include <sys/wait.h>
-#include <signal.h>
 #include <ctype.h>
+#include <errno.h>
+#include <signal.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
+#include "escape.h"
 #include "fileio.h"
-#include "util.h"
 #include "log.h"
 #include "signal-util.h"
+#include "util.h"
 #include "process-util.h"
 
 int get_process_state(pid_t pid) {

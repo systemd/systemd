@@ -34,6 +34,7 @@
 #include "conf-parser.h"
 #include "cpu-set-util.h"
 #include "def.h"
+#include "escape.h"
 #include "fileio.h"
 #include "mkdir.h"
 #include "process-util.h"

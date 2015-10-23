@@ -51,6 +51,7 @@
 #include "dbus-unit.h"
 #include "dbus.h"
 #include "env-util.h"
+#include "escape.h"
 #include "exit-status.h"
 #include "hashmap.h"
 #include "locale-setup.h"

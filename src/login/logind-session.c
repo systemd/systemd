@@ -21,24 +21,26 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <linux/vt.h>
 #include <linux/kd.h>
+#include <linux/vt.h>
 #include <signal.h>
 #include <string.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
 
 #include "sd-messages.h"
-#include "util.h"
+
+#include "audit.h"
+#include "bus-error.h"
+#include "bus-util.h"
+#include "escape.h"
+#include "fileio.h"
+#include "formats-util.h"
 #include "mkdir.h"
 #include "path-util.h"
-#include "fileio.h"
-#include "audit.h"
-#include "bus-util.h"
-#include "bus-error.h"
-#include "logind-session.h"
-#include "formats-util.h"
 #include "terminal-util.h"
+#include "util.h"
+#include "logind-session.h"
 
 #define RELEASE_USEC (20*USEC_PER_SEC)
 

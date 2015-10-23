@@ -24,6 +24,7 @@
 #include <string.h>
 #include <errno.h>
 
+#include "escape.h"
 #include "util.h"
 #include "strv.h"
 

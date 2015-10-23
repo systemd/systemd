@@ -25,6 +25,7 @@
 #include "libudev.h"
 #include "sd-daemon.h"
 
+#include "escape.h"
 #include "fileio.h"
 #include "mkdir.h"
 #include "udev-util.h"

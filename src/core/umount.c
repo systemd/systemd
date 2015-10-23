@@ -21,20 +21,21 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <linux/dm-ioctl.h>
+#include <linux/loop.h>
 #include <string.h>
 #include <sys/mount.h>
 #include <sys/swap.h>
-#include <linux/loop.h>
-#include <linux/dm-ioctl.h>
 
+#include "escape.h"
+#include "libudev.h"
 #include "list.h"
 #include "mount-setup.h"
-#include "umount.h"
 #include "path-util.h"
+#include "udev-util.h"
 #include "util.h"
 #include "virt.h"
-#include "libudev.h"
-#include "udev-util.h"
+#include "umount.h"
 
 typedef struct MountPoint {
         char *path;

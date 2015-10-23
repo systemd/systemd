@@ -29,6 +29,7 @@
 #include "bus-type.h"
 #include "bus-util.h"
 #include "busctl-introspect.h"
+#include "escape.h"
 #include "log.h"
 #include "pager.h"
 #include "path-util.h"
