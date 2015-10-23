@@ -85,6 +85,26 @@ Settings* settings_free(Settings *s) {
         return NULL;
 }
 
+bool settings_private_network(Settings *s) {
+        assert(s);
+
+        return
+                s->private_network > 0 ||
+                s->network_veth > 0 ||
+                s->network_bridge ||
+                s->network_interfaces ||
+                s->network_macvlan ||
+                s->network_ipvlan;
+}
+
+bool settings_network_veth(Settings *s) {
+        assert(s);
+
+        return
+                s->network_veth > 0 ||
+                s->network_bridge;
+}
+
 DEFINE_CONFIG_PARSE_ENUM(config_parse_volatile_mode, volatile_mode, VolatileMode, "Failed to parse volatile mode");
 
 int config_parse_expose_port(

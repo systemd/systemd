@@ -63,6 +63,7 @@ int find_binary(const char *name, bool local, char **filename);
 bool paths_check_timestamp(const char* const* paths, usec_t *paths_ts_usec, bool update);
 
 int fsck_exists(const char *fstype);
+int mkfs_exists(const char *fstype);
 
 /* Iterates through the path prefixes of the specified path, going up
  * the tree, to root. Also returns "" (and not "/"!) for the root

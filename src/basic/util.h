@@ -358,6 +358,14 @@ bool is_device_path(const char *path);
 int dir_is_empty(const char *path);
 char* dirname_malloc(const char *path);
 
+static inline int dir_is_populated(const char *path) {
+        int r;
+        r = dir_is_empty(path);
+        if (r < 0)
+                return r;
+        return !r;
+}
+
 char* lookup_uid(uid_t uid);
 char* getlogname_malloc(void);
 char* getusername_malloc(void);

@@ -247,9 +247,9 @@ static int tar_pull_make_local_copy(TarPull *i) {
                 if (r == -EEXIST)
                         log_warning_errno(r, "Settings file %s already exists, not replacing.", local_settings);
                 else if (r < 0 && r != -ENOENT)
-                        log_warning_errno(r, "Failed to copy settings files %s: %m", local_settings);
-
-                log_info("Create new settings file '%s.nspawn'", i->local);
+                        log_warning_errno(r, "Failed to copy settings files %s, ignoring: %m", local_settings);
+                else
+                        log_info("Created new settings file '%s.nspawn'", i->local);
         }
 
         return 0;
@@ -410,6 +410,8 @@ static int tar_pull_job_on_open_disk_tar(PullJob *j) {
                         return log_error_errno(errno, "Failed to create directory %s: %m", i->temp_path);
         } else if (r < 0)
                 return log_error_errno(errno, "Failed to create subvolume %s: %m", i->temp_path);
+        else
+                (void) import_assign_pool_quota_and_warn(i->temp_path);
 
         j->disk_fd = import_fork_tar_x(i->temp_path, &i->tar_pid);
         if (j->disk_fd < 0)

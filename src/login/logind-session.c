@@ -1049,9 +1049,13 @@ error:
 }
 
 void session_restore_vt(Session *s) {
+
+        static const struct vt_mode mode = {
+                .mode = VT_AUTO,
+        };
+
         _cleanup_free_ char *utf8 = NULL;
-        int vt, kb = K_XLATE;
-        struct vt_mode mode = { 0 };
+        int vt, kb, old_fd;
 
         /* We need to get a fresh handle to the virtual terminal,
          * since the old file-descriptor is potentially in a hung-up
@@ -1059,7 +1063,7 @@ void session_restore_vt(Session *s) {
          * little dance to avoid having the terminal be available
          * for reuse before we've cleaned it up.
          */
-        int old_fd = s->vtfd;
+        old_fd = s->vtfd;
         s->vtfd = -1;
 
         vt = session_open_vt(s);
@@ -1072,13 +1076,13 @@ void session_restore_vt(Session *s) {
 
         if (read_one_line_file("/sys/module/vt/parameters/default_utf8", &utf8) >= 0 && *utf8 == '1')
                 kb = K_UNICODE;
+        else
+                kb = K_XLATE;
 
         (void) ioctl(vt, KDSKBMODE, kb);
 
-        mode.mode = VT_AUTO;
         (void) ioctl(vt, VT_SETMODE, &mode);
-
-        fchown(vt, 0, -1);
+        (void) fchown(vt, 0, (gid_t) -1);
 
         s->vtfd = safe_close(s->vtfd);
 }

@@ -120,7 +120,7 @@ int rm_rf_children(int fd, RemoveFlags flags, struct stat *root_dev) {
 
                                 /* This could be a subvolume, try to remove it */
 
-                                r = btrfs_subvol_remove_fd(fd, de->d_name, true);
+                                r = btrfs_subvol_remove_fd(fd, de->d_name, BTRFS_REMOVE_RECURSIVE|BTRFS_REMOVE_QUOTA);
                                 if (r < 0) {
                                         if (r != -ENOTTY && r != -EINVAL) {
                                                 if (ret == 0)
@@ -178,7 +178,7 @@ int rm_rf(const char *path, RemoveFlags flags) {
 
         if ((flags & (REMOVE_SUBVOLUME|REMOVE_ROOT|REMOVE_PHYSICAL)) == (REMOVE_SUBVOLUME|REMOVE_ROOT|REMOVE_PHYSICAL)) {
                 /* Try to remove as subvolume first */
-                r = btrfs_subvol_remove(path, true);
+                r = btrfs_subvol_remove(path, BTRFS_REMOVE_RECURSIVE|BTRFS_REMOVE_QUOTA);
                 if (r >= 0)
                         return r;
 

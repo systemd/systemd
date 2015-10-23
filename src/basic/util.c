@@ -2381,25 +2381,16 @@ bool is_device_path(const char *path) {
 
 int dir_is_empty(const char *path) {
         _cleanup_closedir_ DIR *d;
+        struct dirent *de;
 
         d = opendir(path);
         if (!d)
                 return -errno;
 
-        for (;;) {
-                struct dirent *de;
+        FOREACH_DIRENT(de, d, return -errno)
+                return 0;
 
-                errno = 0;
-                de = readdir(d);
-                if (!de && errno != 0)
-                        return -errno;
-
-                if (!de)
-                        return 1;
-
-                if (!hidden_file(de->d_name))
-                        return 0;
-        }
+        return 1;
 }
 
 char* dirname_malloc(const char *path) {

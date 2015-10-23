@@ -796,14 +796,11 @@ bool paths_check_timestamp(const char* const* paths, usec_t *timestamp, bool upd
         return changed;
 }
 
-int fsck_exists(const char *fstype) {
+static int binary_is_good(const char *binary) {
         _cleanup_free_ char *p = NULL, *d = NULL;
-        const char *checker;
         int r;
 
-        checker = strjoina("fsck.", fstype);
-
-        r = find_binary(checker, true, &p);
+        r = find_binary(binary, true, &p);
         if (r < 0)
                 return r;
 
@@ -818,6 +815,22 @@ int fsck_exists(const char *fstype) {
                 return -ENOENT;
 
         return 0;
+}
+
+int fsck_exists(const char *fstype) {
+        const char *checker;
+
+        checker = strjoina("fsck.", fstype);
+
+        return binary_is_good(checker);
+}
+
+int mkfs_exists(const char *fstype) {
+        const char *mkfs;
+
+        mkfs = strjoina("mkfs.", fstype);
+
+        return binary_is_good(mkfs);
 }
 
 char *prefix_root(const char *root, const char *path) {

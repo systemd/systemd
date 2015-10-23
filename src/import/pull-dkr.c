@@ -490,10 +490,16 @@ static int dkr_pull_make_local_copy(DkrPull *i, DkrPullVersion version) {
                 return r;
 
         if (version == DKR_PULL_V2) {
-                char **k = NULL;
+                char **k;
+
                 STRV_FOREACH(k, i->ancestry) {
-                        _cleanup_free_ char *d = strjoin(i->image_root, "/.dkr-", *k, NULL);
-                        r = btrfs_subvol_remove(d, false);
+                        _cleanup_free_ char *d;
+
+                        d = strjoin(i->image_root, "/.dkr-", *k, NULL);
+                        if (!d)
+                                return -ENOMEM;
+
+                        r = btrfs_subvol_remove(d, BTRFS_REMOVE_QUOTA);
                         if (r < 0)
                                return r;
                 }
@@ -531,11 +537,13 @@ static int dkr_pull_job_on_open_disk(PullJob *j) {
                 const char *base_path;
 
                 base_path = strjoina(i->image_root, "/.dkr-", base);
-                r = btrfs_subvol_snapshot(base_path, i->temp_path, BTRFS_SNAPSHOT_FALLBACK_COPY);
+                r = btrfs_subvol_snapshot(base_path, i->temp_path, BTRFS_SNAPSHOT_FALLBACK_COPY|BTRFS_SNAPSHOT_QUOTA);
         } else
                 r = btrfs_subvol_make(i->temp_path);
         if (r < 0)
                 return log_error_errno(r, "Failed to make btrfs subvolume %s: %m", i->temp_path);
+
+        (void) import_assign_pool_quota_and_warn(i->temp_path);
 
         j->disk_fd = import_fork_tar_x(i->temp_path, &i->tar_pid);
         if (j->disk_fd < 0)

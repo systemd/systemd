@@ -2912,11 +2912,17 @@ static int load_settings(void) {
         }
 
         if ((arg_settings_mask & SETTING_CAPABILITY) == 0) {
+                uint64_t plus;
 
-                if (!arg_settings_trusted && settings->capability != 0)
-                        log_warning("Ignoring Capability= setting, file %s is not trusted.", p);
-                else
-                        arg_retain |= settings->capability;
+                plus = settings->capability;
+                if (settings_private_network(settings))
+                        plus |= (1ULL << CAP_NET_ADMIN);
+
+                if (!arg_settings_trusted && plus != 0) {
+                        if (settings->capability != 0)
+                                log_warning("Ignoring Capability= setting, file %s is not trusted.", p);
+                } else
+                        arg_retain |= plus;
 
                 arg_retain &= ~settings->drop_capability;
         }
@@ -2972,6 +2978,9 @@ static int load_settings(void) {
                 if (!arg_settings_trusted)
                         log_warning("Ignoring network settings, file %s is not trusted.", p);
                 else {
+                        arg_network_veth = settings_private_network(settings);
+                        arg_private_network = settings_private_network(settings);
+
                         strv_free(arg_network_interfaces);
                         arg_network_interfaces = settings->network_interfaces;
                         settings->network_interfaces = NULL;
@@ -2987,10 +2996,6 @@ static int load_settings(void) {
                         free(arg_network_bridge);
                         arg_network_bridge = settings->network_bridge;
                         settings->network_bridge = NULL;
-
-                        arg_network_veth = settings->network_veth > 0 || settings->network_bridge;
-
-                        arg_private_network = true; /* all these settings imply private networking */
                 }
         }
 
@@ -3096,7 +3101,7 @@ int main(int argc, char *argv[]) {
                                 goto finish;
                         }
 
-                        r = btrfs_subvol_snapshot(arg_directory, np, (arg_read_only ? BTRFS_SNAPSHOT_READ_ONLY : 0) | BTRFS_SNAPSHOT_FALLBACK_COPY | BTRFS_SNAPSHOT_RECURSIVE);
+                        r = btrfs_subvol_snapshot(arg_directory, np, (arg_read_only ? BTRFS_SNAPSHOT_READ_ONLY : 0) | BTRFS_SNAPSHOT_FALLBACK_COPY | BTRFS_SNAPSHOT_RECURSIVE | BTRFS_SNAPSHOT_QUOTA);
                         if (r < 0) {
                                 log_error_errno(r, "Failed to create snapshot %s from %s: %m", np, arg_directory);
                                 goto finish;
@@ -3120,7 +3125,7 @@ int main(int argc, char *argv[]) {
                         }
 
                         if (arg_template) {
-                                r = btrfs_subvol_snapshot(arg_template, arg_directory, (arg_read_only ? BTRFS_SNAPSHOT_READ_ONLY : 0) | BTRFS_SNAPSHOT_FALLBACK_COPY | BTRFS_SNAPSHOT_RECURSIVE);
+                                r = btrfs_subvol_snapshot(arg_template, arg_directory, (arg_read_only ? BTRFS_SNAPSHOT_READ_ONLY : 0) | BTRFS_SNAPSHOT_FALLBACK_COPY | BTRFS_SNAPSHOT_RECURSIVE | BTRFS_SNAPSHOT_QUOTA);
                                 if (r == -EEXIST) {
                                         if (!arg_quiet)
                                                 log_info("Directory %s already exists, not populating from template %s.", arg_directory, arg_template);
@@ -3143,10 +3148,9 @@ int main(int argc, char *argv[]) {
                 } else {
                         const char *p;
 
-                        p = strjoina(arg_directory,
-                                       argc > optind && path_is_absolute(argv[optind]) ? argv[optind] : "/usr/bin/");
-                        if (access(p, F_OK) < 0) {
-                                log_error("Directory %s lacks the binary to execute or doesn't look like a binary tree. Refusing.", arg_directory);
+                        p = strjoina(arg_directory, "/usr/");
+                        if (laccess(p, F_OK) < 0) {
+                                log_error("Directory %s doesn't look like it has an OS tree. Refusing.", arg_directory);
                                 r = -EINVAL;
                                 goto finish;
                         }
@@ -3591,7 +3595,7 @@ finish:
         if (remove_subvol && arg_directory) {
                 int k;
 
-                k = btrfs_subvol_remove(arg_directory, true);
+                k = btrfs_subvol_remove(arg_directory, BTRFS_REMOVE_RECURSIVE|BTRFS_REMOVE_QUOTA);
                 if (k < 0)
                         log_warning_errno(k, "Cannot remove subvolume '%s', ignoring: %m", arg_directory);
         }
