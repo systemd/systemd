@@ -3193,8 +3193,8 @@ int config_parse_namespace_path_strv(
                 void *userdata) {
 
         char*** sv = data;
-        const char *word, *state;
-        size_t l;
+        const char *prev;
+        const char *cur;
         int r;
 
         assert(filename);
@@ -3208,35 +3208,41 @@ int config_parse_namespace_path_strv(
                 return 0;
         }
 
-        FOREACH_WORD_QUOTED(word, l, rvalue, state) {
-                _cleanup_free_ char *n;
+        prev = cur = rvalue;
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
                 int offset;
 
-                n = strndup(word, l);
-                if (!n)
-                        return log_oom();
+                r = extract_first_word(&cur, &word, NULL, EXTRACT_QUOTES);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "Trailing garbage, ignoring: %s", prev);
+                        return 0;
+                }
+                if (r == 0)
+                        break;
 
-                if (!utf8_is_valid(n)) {
-                        log_syntax_invalid_utf8(unit, LOG_ERR, filename, line, rvalue);
+                if (!utf8_is_valid(word)) {
+                        log_syntax_invalid_utf8(unit, LOG_ERR, filename, line, word);
+                        prev = cur;
                         continue;
                 }
 
-                offset = n[0] == '-';
-                if (!path_is_absolute(n + offset)) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Not an absolute path, ignoring: %s", rvalue);
+                offset = word[0] == '-';
+                if (!path_is_absolute(word + offset)) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "Not an absolute path, ignoring: %s", word);
+                        prev = cur;
                         continue;
                 }
 
-                path_kill_slashes(n + offset);
+                path_kill_slashes(word + offset);
 
-                r = strv_push(sv, n);
+                r = strv_push(sv, word);
                 if (r < 0)
                         return log_oom();
 
-                n = NULL;
+                prev = cur;
+                word = NULL;
         }
-        if (!isempty(state))
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Trailing garbage, ignoring.");
 
         return 0;
 }
