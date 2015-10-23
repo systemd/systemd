@@ -1585,8 +1585,7 @@ static int clean_item_instance(Item *i, const char* instance) {
         if (fstatat(dirfd(d), "..", &ps, AT_SYMLINK_NOFOLLOW) != 0)
                 return log_error_errno(errno, "stat(%s/..) failed: %m", i->path);
 
-        mountpoint = s.st_dev != ps.st_dev ||
-                     (s.st_dev == ps.st_dev && s.st_ino == ps.st_ino);
+        mountpoint = s.st_dev != ps.st_dev || s.st_ino == ps.st_ino;
 
         log_debug("Cleanup threshold for %s \"%s\" is %s",
                   mountpoint ? "mount point" : "directory",
