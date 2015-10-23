@@ -218,7 +218,7 @@ static void help(void) {
                "  -x --catalog             Add message explanations where available\n"
                "     --no-full             Ellipsize fields\n"
                "  -a --all                 Show all fields, including long and unprintable\n"
-               "  -q --quiet               Do not show privilege warning\n"
+               "  -q --quiet               Do not show info messages and privilege warning\n"
                "     --no-pager            Do not pipe output into a pager\n"
                "  -m --merge               Show entries from all available journals\n"
                "  -D --directory=PATH      Show journal files from directory\n"
