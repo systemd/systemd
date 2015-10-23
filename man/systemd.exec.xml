@@ -217,8 +217,10 @@
         <term><varname>CPUAffinity=</varname></term>
 
         <listitem><para>Controls the CPU affinity of the executed
-        processes. Takes a space-separated list of CPU indices. This
-        option may be specified more than once in which case the
+        processes. Takes a list of CPU indices or ranges separated by
+        either whitespace or commas. CPU ranges are specified by the
+        lower and upper CPU indices separated by a dash.
+        This option may be specified more than once in which case the
         specified CPU affinity masks are merged. If the empty string
         is assigned, the mask is reset, all assignments prior to this
         will have no effect. See

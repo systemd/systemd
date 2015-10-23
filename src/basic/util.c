@@ -2369,6 +2369,36 @@ int parse_size(const char *t, uint64_t base, uint64_t *size) {
         return 0;
 }
 
+int parse_range(const char *t, unsigned *lower, unsigned *upper) {
+        _cleanup_free_ char *word = NULL;
+        unsigned l, u;
+        int r;
+
+        assert(lower);
+        assert(upper);
+
+        /* Extract the lower bound */
+        r = extract_first_word(&t, &word, "-", EXTRACT_DONT_COALESCE_SEPARATORS);
+        if (r < 0)
+                return r;
+        r = safe_atou(word, &l);
+        if (r < 0)
+                return r;
+
+        /* Check for the upper bound and extract it if needed */
+        if (isempty(t))
+                u = l;
+        else {
+                r = safe_atou(t, &u);
+                if (r < 0)
+                        return r;
+        }
+
+        *lower = l;
+        *upper = u;
+        return 0;
+}
+
 bool is_device_path(const char *path) {
 
         /* Returns true on paths that refer to a device, either in
