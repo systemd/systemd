@@ -34,7 +34,7 @@
  * the TLVs contained in the received LLDPDU for the LLDP remote system
  * indicated by the LLDP remote systems update process defined in 10.3.5 */
 
-int lldp_mib_update_objects(lldp_chassis *c, tlv_packet *tlv) {
+int lldp_mib_update_objects(lldp_chassis *c, sd_lldp_packet *m) {
         lldp_neighbour_port *p;
         uint16_t length, ttl;
         uint8_t *data;
@@ -42,9 +42,9 @@ int lldp_mib_update_objects(lldp_chassis *c, tlv_packet *tlv) {
         int r;
 
         assert_return(c, -EINVAL);
-        assert_return(tlv, -EINVAL);
+        assert_return(m, -EINVAL);
 
-        r = sd_lldp_packet_read_port_id(tlv, &type, &data, &length);
+        r = sd_lldp_packet_read_port_id(m, &type, &data, &length);
         if (r < 0)
                 return r;
 
@@ -53,14 +53,14 @@ int lldp_mib_update_objects(lldp_chassis *c, tlv_packet *tlv) {
 
                 if ((p->type == type && p->length == length && !memcmp(p->data, data, p->length))) {
 
-                        r = sd_lldp_packet_read_ttl(tlv, &ttl);
+                        r = sd_lldp_packet_read_ttl(m, &ttl);
                         if (r < 0)
                                 return r;
 
                         p->until = ttl * USEC_PER_SEC + now(clock_boottime_or_monotonic());
 
                         sd_lldp_packet_unref(p->packet);
-                        p->packet = tlv;
+                        p->packet = m;
 
                         prioq_reshuffle(p->c->by_expiry, p, &p->prioq_idx);
 
@@ -71,7 +71,7 @@ int lldp_mib_update_objects(lldp_chassis *c, tlv_packet *tlv) {
         return -1;
 }
 
-int lldp_mib_remove_objects(lldp_chassis *c, tlv_packet *tlv) {
+int lldp_mib_remove_objects(lldp_chassis *c, sd_lldp_packet *m) {
         lldp_neighbour_port *p, *q;
         uint8_t *data;
         uint16_t length;
@@ -79,9 +79,9 @@ int lldp_mib_remove_objects(lldp_chassis *c, tlv_packet *tlv) {
         int r;
 
         assert_return(c, -EINVAL);
-        assert_return(tlv, -EINVAL);
+        assert_return(m, -EINVAL);
 
-        r = sd_lldp_packet_read_port_id(tlv, &type, &data, &length);
+        r = sd_lldp_packet_read_port_id(m, &type, &data, &length);
         if (r < 0)
                 return r;
 
@@ -99,7 +99,7 @@ int lldp_mib_remove_objects(lldp_chassis *c, tlv_packet *tlv) {
 
 int lldp_mib_add_objects(Prioq *by_expiry,
                          Hashmap *neighbour_mib,
-                         tlv_packet *tlv) {
+                         sd_lldp_packet *m) {
         _cleanup_lldp_neighbour_port_free_ lldp_neighbour_port *p = NULL;
         _cleanup_lldp_chassis_free_ lldp_chassis *c = NULL;
         lldp_chassis_id chassis_id;
@@ -110,13 +110,13 @@ int lldp_mib_add_objects(Prioq *by_expiry,
 
         assert_return(by_expiry, -EINVAL);
         assert_return(neighbour_mib, -EINVAL);
-        assert_return(tlv, -EINVAL);
+        assert_return(m, -EINVAL);
 
-        r = sd_lldp_packet_read_chassis_id(tlv, &subtype, &data, &length);
+        r = sd_lldp_packet_read_chassis_id(m, &subtype, &data, &length);
         if (r < 0)
                 goto drop;
 
-        r = sd_lldp_packet_read_ttl(tlv, &ttl);
+        r = sd_lldp_packet_read_ttl(m, &ttl);
         if (r < 0)
                 goto drop;
 
@@ -143,7 +143,7 @@ int lldp_mib_add_objects(Prioq *by_expiry,
                         goto drop;
                 }
 
-                r = lldp_chassis_new(tlv, by_expiry, neighbour_mib, &c);
+                r = lldp_chassis_new(m, by_expiry, neighbour_mib, &c);
                 if (r < 0)
                         goto drop;
 
@@ -160,14 +160,14 @@ int lldp_mib_add_objects(Prioq *by_expiry,
                 if (ttl == 0) {
                         log_lldp("TTL value 0 received . Deleting associated Port ...");
 
-                        lldp_mib_remove_objects(c, tlv);
+                        lldp_mib_remove_objects(c, m);
 
                         c = NULL;
                         goto drop;
                 }
 
                 /* if we already have this port just update it */
-                r = lldp_mib_update_objects(c, tlv);
+                r = lldp_mib_update_objects(c, m);
                 if (r >= 0) {
                         c = NULL;
                         return r;
@@ -183,7 +183,7 @@ int lldp_mib_add_objects(Prioq *by_expiry,
         }
 
         /* This is a new port */
-        r = lldp_neighbour_port_new(c, tlv, &p);
+        r = lldp_neighbour_port_new(c, m, &p);
         if (r < 0)
                 goto drop;
 
@@ -201,7 +201,7 @@ int lldp_mib_add_objects(Prioq *by_expiry,
         return 0;
 
  drop:
-        sd_lldp_packet_unref(tlv);
+        sd_lldp_packet_unref(m);
 
         if (new_chassis)
                 hashmap_remove(neighbour_mib, &c->chassis_id);
@@ -242,7 +242,7 @@ void lldp_neighbour_port_free(lldp_neighbour_port *p) {
 }
 
 int lldp_neighbour_port_new(lldp_chassis *c,
-                            tlv_packet *tlv,
+                            sd_lldp_packet *m,
                             lldp_neighbour_port **ret) {
         _cleanup_lldp_neighbour_port_free_ lldp_neighbour_port *p = NULL;
         uint16_t length, ttl;
@@ -250,13 +250,13 @@ int lldp_neighbour_port_new(lldp_chassis *c,
         uint8_t type;
         int r;
 
-        assert(tlv);
+        assert(m);
 
-        r = sd_lldp_packet_read_port_id(tlv, &type, &data, &length);
+        r = sd_lldp_packet_read_port_id(m, &type, &data, &length);
         if (r < 0)
                 return r;
 
-        r = sd_lldp_packet_read_ttl(tlv, &ttl);
+        r = sd_lldp_packet_read_ttl(m, &ttl);
         if (r < 0)
                 return r;
 
@@ -267,7 +267,7 @@ int lldp_neighbour_port_new(lldp_chassis *c,
         p->c = c;
         p->type = type;
         p->length = length;
-        p->packet = tlv;
+        p->packet = m;
         p->prioq_idx = PRIOQ_IDX_NULL;
         p->until = ttl * USEC_PER_SEC + now(clock_boottime_or_monotonic());
 
@@ -293,7 +293,7 @@ void lldp_chassis_free(lldp_chassis *c) {
         free(c);
 }
 
-int lldp_chassis_new(tlv_packet *tlv,
+int lldp_chassis_new(sd_lldp_packet *m,
                      Prioq *by_expiry,
                      Hashmap *neighbour_mib,
                      lldp_chassis **ret) {
@@ -303,9 +303,9 @@ int lldp_chassis_new(tlv_packet *tlv,
         uint8_t type;
         int r;
 
-        assert(tlv);
+        assert(m);
 
-        r = sd_lldp_packet_read_chassis_id(tlv, &type, &data, &length);
+        r = sd_lldp_packet_read_chassis_id(m, &type, &data, &length);
         if (r < 0)
                 return r;
 
@@ -333,15 +333,15 @@ int lldp_chassis_new(tlv_packet *tlv,
 }
 
 int lldp_receive_packet(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        _cleanup_lldp_packet_unref_ tlv_packet *packet = NULL;
-        tlv_packet *p;
+        _cleanup_lldp_packet_unref_ sd_lldp_packet *packet = NULL;
+        sd_lldp_packet *p;
         uint16_t length;
         int r;
 
         assert(fd);
         assert(userdata);
 
-        r = tlv_packet_new(&packet);
+        r = sd_lldp_packet_new(&packet);
         if (r < 0)
                 return r;
 

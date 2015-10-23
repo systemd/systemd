@@ -43,12 +43,12 @@ struct lldp_neighbour_port {
         unsigned prioq_idx;
 
         lldp_chassis *c;
-        tlv_packet *packet;
+        sd_lldp_packet *packet;
 
         LIST_FIELDS(lldp_neighbour_port, port);
 };
 
-int lldp_neighbour_port_new(lldp_chassis *c, tlv_packet *tlv, lldp_neighbour_port **ret);
+int lldp_neighbour_port_new(lldp_chassis *c, sd_lldp_packet *tlv, lldp_neighbour_port **ret);
 void lldp_neighbour_port_free(lldp_neighbour_port *p);
 void lldp_neighbour_port_remove_and_free(lldp_neighbour_port *p);
 
@@ -73,7 +73,7 @@ struct lldp_chassis {
         LIST_HEAD(lldp_neighbour_port, ports);
 };
 
-int lldp_chassis_new(tlv_packet *tlv,
+int lldp_chassis_new(sd_lldp_packet *tlv,
                      Prioq *by_expiry,
                      Hashmap *neighbour_mib,
                      lldp_chassis **ret);
@@ -83,10 +83,10 @@ void lldp_chassis_free(lldp_chassis *c);
 DEFINE_TRIVIAL_CLEANUP_FUNC(lldp_chassis *, lldp_chassis_free);
 #define _cleanup_lldp_chassis_free_ _cleanup_(lldp_chassis_freep)
 
-int lldp_mib_update_objects(lldp_chassis *c, tlv_packet *tlv);
-int lldp_mib_add_objects(Prioq *by_expiry, Hashmap *neighbour_mib, tlv_packet *tlv);
-int lldp_mib_remove_objects(lldp_chassis *c, tlv_packet *tlv);
+int lldp_mib_update_objects(lldp_chassis *c, sd_lldp_packet *tlv);
+int lldp_mib_add_objects(Prioq *by_expiry, Hashmap *neighbour_mib, sd_lldp_packet *tlv);
+int lldp_mib_remove_objects(lldp_chassis *c, sd_lldp_packet *tlv);
 
-int lldp_handle_packet(tlv_packet *m, uint16_t length);
+int lldp_handle_packet(sd_lldp_packet *m, uint16_t length);
 int lldp_receive_packet(sd_event_source *s, int fd, uint32_t revents, void *userdata);
 #define log_lldp(fmt, ...) log_internal(LOG_DEBUG, 0, __FILE__, __LINE__, __func__, "LLDP: " fmt, ##__VA_ARGS__)
