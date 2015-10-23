@@ -899,7 +899,7 @@ int journal_file_verify(
 
                 r = journal_file_object_verify(f, p, o);
                 if (r < 0) {
-                        error(p, "Envalid object contents: %s", strerror(-r));
+                        error(p, "Invalid object contents: %s", strerror(-r));
                         goto fail;
                 }
 
