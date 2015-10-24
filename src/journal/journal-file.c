@@ -1076,23 +1076,24 @@ static int journal_file_append_data(
         o->data.hash = htole64(hash);
 
 #if defined(HAVE_XZ) || defined(HAVE_LZ4)
-        if (f->compress_xz &&
-            size >= COMPRESSION_SIZE_THRESHOLD) {
+        if (JOURNAL_FILE_COMPRESS(f) && size >= COMPRESSION_SIZE_THRESHOLD) {
                 size_t rsize = 0;
 
                 compression = compress_blob(data, size, o->data.payload, &rsize);
 
-                if (compression) {
+                if (compression >= 0) {
                         o->object.size = htole64(offsetof(Object, data.payload) + rsize);
                         o->object.flags |= compression;
 
                         log_debug("Compressed data object %"PRIu64" -> %zu using %s",
                                   size, rsize, object_compressed_to_string(compression));
-                }
+                } else
+                        /* Compression didn't work, we don't really care why, let's continue without compression */
+                        compression = 0;
         }
 #endif
 
-        if (!compression && size > 0)
+        if (compression == 0 && size > 0)
                 memcpy(o->data.payload, data, size);
 
         r = journal_file_link_data(f, o, p, hash);
