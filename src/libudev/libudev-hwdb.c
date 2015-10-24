@@ -17,9 +17,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "libudev-private.h"
 #include "sd-hwdb.h"
+
 #include "hwdb-util.h"
+#include "libudev-private.h"
 
 /**
  * SECTION:libudev-hwdb

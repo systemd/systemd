@@ -18,20 +18,20 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdlib.h>
 #include <assert.h>
 #include <errno.h>
 #include <stdio.h>
-#include <sys/types.h>
+#include <stdlib.h>
 #include <sys/socket.h>
+#include <sys/types.h>
 #include <unistd.h>
 
-#include "util.h"
-#include "socket-util.h"
-#include "event-util.h"
-
 #include "sd-ipv4ll.h"
+
 #include "arp-util.h"
+#include "event-util.h"
+#include "socket-util.h"
+#include "util.h"
 
 static bool verbose = false;
 static bool extended = false;

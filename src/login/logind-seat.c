@@ -20,17 +20,19 @@
 ***/
 
 #include <errno.h>
-#include <unistd.h>
 #include <fcntl.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "sd-messages.h"
-#include "logind-seat.h"
-#include "logind-acl.h"
-#include "util.h"
-#include "mkdir.h"
+
 #include "formats-util.h"
+#include "logind-acl.h"
+#include "mkdir.h"
+#include "string-util.h"
 #include "terminal-util.h"
+#include "util.h"
+#include "logind-seat.h"
 
 Seat *seat_new(Manager *m, const char *id) {
         Seat *s;

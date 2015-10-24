@@ -21,16 +21,17 @@
 
 #include <sys/mman.h>
 
-#include "special.h"
-#include "formats-util.h"
-#include "signal-util.h"
-#include "bus-kernel.h"
 #include "bus-internal.h"
-#include "bus-util.h"
-#include "kdbus.h"
+#include "bus-kernel.h"
 #include "bus-policy.h"
-#include "service.h"
+#include "bus-util.h"
 #include "dbus-busname.h"
+#include "formats-util.h"
+#include "kdbus.h"
+#include "service.h"
+#include "signal-util.h"
+#include "special.h"
+#include "string-util.h"
 #include "busname.h"
 
 static const UnitActiveState state_translation_table[_BUSNAME_STATE_MAX] = {

@@ -32,6 +32,7 @@
 #include "macro.h"
 #include "set.h"
 #include "special.h"
+#include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "unit.h"

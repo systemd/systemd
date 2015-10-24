@@ -25,11 +25,13 @@
 #include <errno.h>
 #include <fcntl.h>
 
+#include "sd-messages.h"
+
 #include "util.h"
 #include "log.h"
 #include "macro.h"
-#include "sd-messages.h"
 #include "catalog.h"
+#include "string-util.h"
 
 static const char *catalog_dirs[] = {
         CATALOG_DIR,

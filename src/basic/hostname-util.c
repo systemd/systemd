@@ -19,9 +19,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/utsname.h>
 #include <ctype.h>
+#include <sys/utsname.h>
 
+#include "string-util.h"
 #include "util.h"
 #include "hostname-util.h"
 

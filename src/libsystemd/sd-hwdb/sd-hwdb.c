@@ -19,21 +19,21 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdio.h>
 #include <errno.h>
-#include <string.h>
-#include <inttypes.h>
-#include <stdlib.h>
 #include <fnmatch.h>
+#include <inttypes.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/mman.h>
 
 #include "sd-hwdb.h"
 
 #include "hashmap.h"
-#include "refcnt.h"
-
-#include "hwdb-util.h"
 #include "hwdb-internal.h"
+#include "hwdb-util.h"
+#include "refcnt.h"
+#include "string-util.h"
 
 struct sd_hwdb {
         RefCount n_ref;

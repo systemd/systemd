@@ -35,6 +35,7 @@
 #include "mkdir.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "string-util.h"
 #include "util.h"
 #include "virt.h"
 #include "machine-id-setup.h"

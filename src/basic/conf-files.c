@@ -19,19 +19,20 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <string.h>
-#include <errno.h>
-#include <stdlib.h>
-#include <stdio.h>
 #include <dirent.h>
+#include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
-#include "macro.h"
-#include "util.h"
-#include "missing.h"
-#include "log.h"
-#include "strv.h"
-#include "path-util.h"
 #include "hashmap.h"
+#include "log.h"
+#include "macro.h"
+#include "missing.h"
+#include "path-util.h"
+#include "string-util.h"
+#include "strv.h"
+#include "util.h"
 #include "conf-files.h"
 
 static int files_add(Hashmap *h, const char *root, const char *path, const char *suffix) {

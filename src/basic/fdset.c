@@ -23,11 +23,12 @@
 #include <dirent.h>
 #include <fcntl.h>
 
+#include "sd-daemon.h"
+
 #include "set.h"
 #include "util.h"
 #include "macro.h"
 #include "fdset.h"
-#include "sd-daemon.h"
 
 #define MAKE_SET(s) ((Set*) s)
 #define MAKE_FDSET(s) ((FDSet*) s)

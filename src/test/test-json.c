@@ -21,8 +21,9 @@
 
 #include <math.h>
 
-#include "util.h"
 #include "json.h"
+#include "string-util.h"
+#include "util.h"
 
 static void test_one(const char *data, ...) {
         void *state = NULL;

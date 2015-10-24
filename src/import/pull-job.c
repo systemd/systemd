@@ -21,8 +21,9 @@
 
 #include <sys/xattr.h>
 
-#include "strv.h"
 #include "machine-pool.h"
+#include "string-util.h"
+#include "strv.h"
 #include "pull-job.h"
 
 PullJob* pull_job_unref(PullJob *j) {

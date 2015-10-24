@@ -40,6 +40,7 @@
 #include "process-util.h"
 #include "rm-rf.h"
 #include "signal-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "util.h"
 #include "virt.h"

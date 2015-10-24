@@ -19,15 +19,16 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdio.h>
 #include <errno.h>
+#include <stdio.h>
 #include <stdlib.h>
 
-#include "macro.h"
-#include "util.h"
-#include "log.h"
 #include "fileio.h"
 #include "hostname-util.h"
+#include "log.h"
+#include "macro.h"
+#include "string-util.h"
+#include "util.h"
 #include "hostname-setup.h"
 
 int hostname_setup(void) {

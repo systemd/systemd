@@ -22,11 +22,12 @@
 #include <limits.h>
 #include <unistd.h>
 
+#include "def.h"
+#include "string-util.h"
 #include "strv.h"
 #include "utf8.h"
 #include "util.h"
 #include "env-util.h"
-#include "def.h"
 
 #define VALID_CHARS_ENV_NAME                    \
         DIGITS LETTERS                          \

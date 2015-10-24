@@ -23,6 +23,10 @@
 
 #include <stdbool.h>
 
+#include "sd-event.h"
+
+#include "list.h"
+
 typedef struct Job Job;
 typedef struct JobDependency JobDependency;
 typedef enum JobType JobType;
@@ -105,9 +109,7 @@ enum JobResult {
         _JOB_RESULT_INVALID = -1
 };
 
-#include "sd-event.h"
 #include "unit.h"
-#include "list.h"
 
 struct JobDependency {
         /* Encodes that the 'subject' job needs the 'object' job in

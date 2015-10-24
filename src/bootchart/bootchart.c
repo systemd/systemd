@@ -33,30 +33,32 @@
 
  ***/
 
-#include <sys/resource.h>
-#include <stdio.h>
-#include <signal.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <time.h>
-#include <getopt.h>
-#include <limits.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <getopt.h>
+#include <limits.h>
+#include <signal.h>
 #include <stdbool.h>
-#include "systemd/sd-journal.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/resource.h>
+#include <time.h>
+#include <unistd.h>
 
-#include "util.h"
-#include "fileio.h"
-#include "macro.h"
+#include "sd-journal.h"
+
+#include "bootchart.h"
 #include "conf-parser.h"
-#include "strxcpyx.h"
+#include "fileio.h"
+#include "list.h"
+#include "macro.h"
 #include "path-util.h"
 #include "store.h"
+#include "string-util.h"
+#include "strxcpyx.h"
 #include "svg.h"
-#include "bootchart.h"
-#include "list.h"
+#include "util.h"
 
 static int exiting = 0;
 

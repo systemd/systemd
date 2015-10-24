@@ -23,6 +23,7 @@
 #include "strv.h"
 #include "unit-name.h"
 #include "mkdir.h"
+#include "string-util.h"
 
 static const char *arg_dest = "/tmp";
 static char **arg_mask = NULL;

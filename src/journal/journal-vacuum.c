@@ -23,11 +23,14 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "sd-id128.h"
+
 #include "journal-def.h"
 #include "journal-file.h"
-#include "journal-vacuum.h"
-#include "sd-id128.h"
+#include "string-util.h"
 #include "util.h"
+
+#include "journal-vacuum.h"
 
 struct vacuum_info {
         uint64_t usage;

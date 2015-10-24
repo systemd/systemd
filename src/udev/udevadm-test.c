@@ -16,17 +16,18 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <stddef.h>
-#include <unistd.h>
 #include <errno.h>
-#include <signal.h>
 #include <getopt.h>
+#include <signal.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <sys/signalfd.h>
+#include <unistd.h>
 
-#include "udev.h"
+#include "string-util.h"
 #include "udev-util.h"
+#include "udev.h"
 
 static void help(void) {
 

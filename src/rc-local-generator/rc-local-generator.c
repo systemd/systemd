@@ -25,8 +25,9 @@
 #include <unistd.h>
 
 #include "log.h"
-#include "util.h"
 #include "mkdir.h"
+#include "string-util.h"
+#include "util.h"
 
 #ifndef RC_LOCAL_SCRIPT_PATH_START
 #define RC_LOCAL_SCRIPT_PATH_START "/etc/rc.d/rc.local"

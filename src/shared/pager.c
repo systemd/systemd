@@ -21,17 +21,18 @@
 
 #include <fcntl.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
 #include <sys/prctl.h>
+#include <unistd.h>
 
-#include "pager.h"
-#include "util.h"
-#include "process-util.h"
-#include "macro.h"
-#include "terminal-util.h"
-#include "signal-util.h"
 #include "copy.h"
+#include "macro.h"
+#include "process-util.h"
+#include "signal-util.h"
+#include "string-util.h"
+#include "terminal-util.h"
+#include "util.h"
+#include "pager.h"
 
 static pid_t pager_pid = 0;
 

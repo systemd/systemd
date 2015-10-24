@@ -40,6 +40,7 @@
 #include "blkid-util.h"
 #include "efivars.h"
 #include "rm-rf.h"
+#include "string-util.h"
 #include "util.h"
 
 static int verify_esp(const char *p, uint32_t *part, uint64_t *pstart, uint64_t *psize, sd_id128_t *uuid) {

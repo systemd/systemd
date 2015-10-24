@@ -20,14 +20,15 @@
 ***/
 
 #include <arpa/inet.h>
-#include <net/if.h>
-#include <linux/ip.h>
-#include <linux/if_tunnel.h>
 #include <libkmod.h>
+#include <linux/ip.h>
+#include <net/if.h>
+#include <linux/if_tunnel.h>
 
-#include "util.h"
-#include "macro.h"
 #include "sd-netlink.h"
+
+#include "macro.h"
+#include "util.h"
 
 static int load_module(const char *mod_name) {
         struct kmod_ctx *ctx;

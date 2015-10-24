@@ -19,26 +19,26 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
  ***/
 
+#include <netinet/in.h>
+#include <poll.h>
 #include <resolv.h>
 #include <sys/ioctl.h>
-#include <poll.h>
-#include <netinet/in.h>
 
+#include "af-list.h"
+#include "dns-domain.h"
+#include "fileio-label.h"
+#include "hostname-util.h"
 #include "netlink-util.h"
 #include "network-internal.h"
-#include "socket-util.h"
-#include "af-list.h"
-#include "utf8.h"
-#include "fileio-label.h"
 #include "ordered-set.h"
 #include "random-util.h"
-#include "hostname-util.h"
-
-#include "dns-domain.h"
-#include "resolved-conf.h"
 #include "resolved-bus.h"
-#include "resolved-manager.h"
+#include "resolved-conf.h"
 #include "resolved-llmnr.h"
+#include "resolved-manager.h"
+#include "socket-util.h"
+#include "string-util.h"
+#include "utf8.h"
 
 #define SEND_TIMEOUT_USEC (200 * USEC_PER_MSEC)
 

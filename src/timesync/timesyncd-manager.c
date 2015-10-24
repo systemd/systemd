@@ -19,31 +19,33 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdlib.h>
 #include <errno.h>
-#include <time.h>
 #include <math.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
+#include <resolv.h>
+#include <stdlib.h>
+#include <sys/socket.h>
 #include <sys/timerfd.h>
 #include <sys/timex.h>
-#include <sys/socket.h>
-#include <resolv.h>
 #include <sys/types.h>
+#include <time.h>
 
-#include "missing.h"
-#include "util.h"
-#include "sparse-endian.h"
-#include "log.h"
-#include "socket-util.h"
-#include "list.h"
-#include "ratelimit.h"
-#include "strv.h"
 #include "sd-daemon.h"
+
+#include "list.h"
+#include "log.h"
+#include "missing.h"
 #include "network-util.h"
-#include "timesyncd-conf.h"
-#include "timesyncd-manager.h"
+#include "ratelimit.h"
+#include "socket-util.h"
+#include "sparse-endian.h"
+#include "string-util.h"
+#include "strv.h"
 #include "time-util.h"
+#include "timesyncd-conf.h"
+#include "util.h"
+#include "timesyncd-manager.h"
 
 #ifndef ADJ_SETOFFSET
 #define ADJ_SETOFFSET                   0x0100  /* add 'time' to current time */

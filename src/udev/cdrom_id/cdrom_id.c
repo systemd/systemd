@@ -17,24 +17,25 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <stdio.h>
-#include <stddef.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <string.h>
-#include <limits.h>
-#include <fcntl.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <getopt.h>
-#include <time.h>
+#include <limits.h>
+#include <linux/cdrom.h>
 #include <scsi/sg.h>
-#include <sys/types.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <sys/time.h>
-#include <sys/ioctl.h>
-#include <linux/cdrom.h>
+#include <sys/types.h>
+#include <time.h>
+#include <unistd.h>
 
 #include "libudev.h"
+
 #include "libudev-private.h"
 #include "random-util.h"
 

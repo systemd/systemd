@@ -48,10 +48,10 @@
 #include "process-util.h"
 #include "set.h"
 #include "special.h"
+#include "string-util.h"
 #include "strv.h"
 #include "unit-name.h"
 #include "virt.h"
-
 #include "unit.h"
 
 const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX] = {

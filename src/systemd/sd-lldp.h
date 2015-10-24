@@ -22,6 +22,8 @@
 
 #pragma once
 
+#include <net/ethernet.h>
+
 #include "sd-event.h"
 
 enum {

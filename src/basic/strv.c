@@ -19,12 +19,13 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdlib.h>
-#include <stdarg.h>
-#include <string.h>
 #include <errno.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "escape.h"
+#include "string-util.h"
 #include "util.h"
 #include "strv.h"
 

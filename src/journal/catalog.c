@@ -19,25 +19,27 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <fcntl.h>
-#include <stdio.h>
-#include <unistd.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <locale.h>
+#include <stdio.h>
 #include <string.h>
 #include <sys/mman.h>
-#include <locale.h>
+#include <unistd.h>
 
-#include "util.h"
-#include "log.h"
-#include "sparse-endian.h"
 #include "sd-id128.h"
-#include "hashmap.h"
-#include "strv.h"
-#include "strbuf.h"
-#include "conf-files.h"
-#include "mkdir.h"
+
 #include "catalog.h"
+#include "conf-files.h"
+#include "hashmap.h"
+#include "log.h"
+#include "mkdir.h"
 #include "siphash24.h"
+#include "sparse-endian.h"
+#include "strbuf.h"
+#include "string-util.h"
+#include "strv.h"
+#include "util.h"
 
 const char * const catalog_file_dirs[] = {
         "/usr/local/lib/systemd/catalog/",

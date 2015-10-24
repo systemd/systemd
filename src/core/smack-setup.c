@@ -21,18 +21,19 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdio.h>
-#include <errno.h>
-#include <string.h>
-#include <stdlib.h>
-#include <fcntl.h>
 #include <dirent.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
-#include "macro.h"
-#include "smack-setup.h"
-#include "util.h"
 #include "fileio.h"
 #include "log.h"
+#include "macro.h"
+#include "string-util.h"
+#include "util.h"
+#include "smack-setup.h"
 
 #ifdef HAVE_SMACK
 

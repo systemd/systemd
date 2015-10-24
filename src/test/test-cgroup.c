@@ -19,11 +19,12 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <unistd.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "cgroup-util.h"
 #include "path-util.h"
+#include "string-util.h"
 #include "util.h"
 
 int main(int argc, char*argv[]) {

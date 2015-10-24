@@ -21,13 +21,14 @@
 
 #include <errno.h>
 
-#include "unit.h"
-#include "unit-name.h"
-#include "timer.h"
+#include "bus-error.h"
+#include "bus-util.h"
 #include "dbus-timer.h"
 #include "special.h"
-#include "bus-util.h"
-#include "bus-error.h"
+#include "string-util.h"
+#include "unit-name.h"
+#include "unit.h"
+#include "timer.h"
 
 static const UnitActiveState state_translation_table[_TIMER_STATE_MAX] = {
         [TIMER_DEAD] = UNIT_INACTIVE,

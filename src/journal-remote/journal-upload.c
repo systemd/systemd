@@ -19,11 +19,11 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <curl/curl.h>
 #include <fcntl.h>
 #include <getopt.h>
 #include <stdio.h>
 #include <sys/stat.h>
-#include <curl/curl.h>
 
 #include "sd-daemon.h"
 
@@ -34,6 +34,7 @@
 #include "mkdir.h"
 #include "sigbus.h"
 #include "signal-util.h"
+#include "string-util.h"
 #include "util.h"
 #include "journal-upload.h"
 

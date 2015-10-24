@@ -20,14 +20,15 @@
 ***/
 
 #include <stdio.h>
-#include <unistd.h>
 #include <sys/mount.h>
+#include <unistd.h>
 
-#include "path-util.h"
-#include "util.h"
 #include "macro.h"
-#include "strv.h"
+#include "path-util.h"
 #include "rm-rf.h"
+#include "string-util.h"
+#include "strv.h"
+#include "util.h"
 
 #define test_path_compare(a, b, result) {                 \
                 assert_se(path_compare(a, b) == result);  \

@@ -55,6 +55,7 @@
 #include "selinux-util.h"
 #include "set.h"
 #include "specifier.h"
+#include "string-util.h"
 #include "strv.h"
 #include "util.h"
 

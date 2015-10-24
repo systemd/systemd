@@ -19,20 +19,21 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/inotify.h>
-#include <sys/epoll.h>
 #include <errno.h>
+#include <sys/epoll.h>
+#include <sys/inotify.h>
 #include <unistd.h>
 
-#include "unit.h"
-#include "unit-name.h"
-#include "path.h"
-#include "mkdir.h"
-#include "dbus-path.h"
-#include "special.h"
-#include "macro.h"
-#include "bus-util.h"
 #include "bus-error.h"
+#include "bus-util.h"
+#include "dbus-path.h"
+#include "macro.h"
+#include "mkdir.h"
+#include "special.h"
+#include "string-util.h"
+#include "unit-name.h"
+#include "unit.h"
+#include "path.h"
 
 static const UnitActiveState state_translation_table[_PATH_STATE_MAX] = {
         [PATH_DEAD] = UNIT_INACTIVE,

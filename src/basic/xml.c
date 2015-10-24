@@ -21,6 +21,7 @@
 
 #include <string.h>
 
+#include "string-util.h"
 #include "util.h"
 #include "xml.h"
 

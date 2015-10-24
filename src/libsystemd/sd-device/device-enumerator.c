@@ -18,15 +18,15 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "util.h"
-#include "prioq.h"
-#include "strv.h"
-#include "set.h"
-
 #include "sd-device.h"
 
-#include "device-util.h"
 #include "device-enumerator-private.h"
+#include "device-util.h"
+#include "prioq.h"
+#include "set.h"
+#include "string-util.h"
+#include "strv.h"
+#include "util.h"
 
 #define DEVICE_ENUMERATE_MAX_DEPTH 256
 

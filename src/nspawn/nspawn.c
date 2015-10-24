@@ -69,6 +69,13 @@
 #include "missing.h"
 #include "mkdir.h"
 #include "netlink-util.h"
+#include "nspawn-cgroup.h"
+#include "nspawn-expose-ports.h"
+#include "nspawn-mount.h"
+#include "nspawn-network.h"
+#include "nspawn-register.h"
+#include "nspawn-settings.h"
+#include "nspawn-setuid.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "ptyfwd.h"
@@ -78,18 +85,11 @@
 #include "seccomp-util.h"
 #endif
 #include "signal-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "udev-util.h"
 #include "util.h"
-
-#include "nspawn-cgroup.h"
-#include "nspawn-expose-ports.h"
-#include "nspawn-mount.h"
-#include "nspawn-network.h"
-#include "nspawn-register.h"
-#include "nspawn-settings.h"
-#include "nspawn-setuid.h"
 
 typedef enum ContainerStatus {
         CONTAINER_TERMINATED,

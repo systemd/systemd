@@ -22,11 +22,11 @@
 
 #include <errno.h>
 
-#include "sd-event.h"
-#include "event-util.h"
-
 #include "sd-dhcp-server.h"
+#include "sd-event.h"
+
 #include "dhcp-server-internal.h"
+#include "event-util.h"
 
 static void test_pool(struct in_addr *address, unsigned size, int ret) {
         _cleanup_dhcp_server_unref_ sd_dhcp_server *server = NULL;

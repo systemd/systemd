@@ -20,10 +20,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-
 #include "sd-network.h"
 
 #include "networkd-wait-online-link.h"
+#include "string-util.h"
 
 int link_new(Manager *m, Link **ret, int ifindex, const char *ifname) {
         _cleanup_(link_freep) Link *l = NULL;

@@ -19,18 +19,20 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <nss.h>
 #include <netdb.h>
+#include <nss.h>
 
 #include "sd-bus.h"
 #include "sd-login.h"
-#include "macro.h"
-#include "util.h"
-#include "nss-util.h"
-#include "bus-util.h"
+
 #include "bus-common-errors.h"
-#include "in-addr-util.h"
+#include "bus-util.h"
 #include "hostname-util.h"
+#include "in-addr-util.h"
+#include "macro.h"
+#include "nss-util.h"
+#include "string-util.h"
+#include "util.h"
 
 NSS_GETHOSTBYNAME_PROTOTYPES(mymachines);
 NSS_GETPW_PROTOTYPES(mymachines);

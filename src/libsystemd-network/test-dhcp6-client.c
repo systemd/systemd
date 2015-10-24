@@ -19,23 +19,23 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <net/ethernet.h>
 #include <stdbool.h>
 #include <stdio.h>
-#include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/types.h>
 #include <unistd.h>
-#include <net/ethernet.h>
-
-#include "socket-util.h"
-#include "macro.h"
-#include "sd-event.h"
-#include "event-util.h"
-#include "virt.h"
 
 #include "sd-dhcp6-client.h"
-#include "dhcp6-protocol.h"
+#include "sd-event.h"
+
 #include "dhcp6-internal.h"
 #include "dhcp6-lease-internal.h"
+#include "dhcp6-protocol.h"
+#include "event-util.h"
+#include "macro.h"
+#include "socket-util.h"
+#include "virt.h"
 
 static struct ether_addr mac_addr = {
         .ether_addr_octet = {'A', 'B', 'C', '1', '2', '3'}

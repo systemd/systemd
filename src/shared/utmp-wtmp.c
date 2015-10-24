@@ -19,18 +19,19 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <utmpx.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <poll.h>
 #include <string.h>
 #include <sys/utsname.h>
-#include <fcntl.h>
 #include <unistd.h>
-#include <poll.h>
+#include <utmpx.h>
 
+#include "hostname-util.h"
 #include "macro.h"
 #include "path-util.h"
+#include "string-util.h"
 #include "terminal-util.h"
-#include "hostname-util.h"
 #include "utmp-wtmp.h"
 
 int utmp_get_runlevel(int *runlevel, int *previous) {

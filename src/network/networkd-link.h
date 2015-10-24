@@ -25,10 +25,10 @@
 
 #include "sd-dhcp-client.h"
 #include "sd-dhcp-server.h"
-#include "sd-ipv4ll.h"
-#include "sd-ndisc.h"
 #include "sd-dhcp6-client.h"
+#include "sd-ipv4ll.h"
 #include "sd-lldp.h"
+#include "sd-ndisc.h"
 
 typedef struct Link Link;
 

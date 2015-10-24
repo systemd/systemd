@@ -18,21 +18,22 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdlib.h>
-#include <errno.h>
-#include <string.h>
-#include <stdio.h>
 #include <arpa/inet.h>
+#include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
-#include "fileio.h"
-#include "unaligned.h"
-#include "in-addr-util.h"
-#include "hostname-util.h"
-#include "dns-domain.h"
-#include "network-internal.h"
-#include "dhcp-protocol.h"
-#include "dhcp-lease-internal.h"
 #include "sd-dhcp-lease.h"
+
+#include "dhcp-lease-internal.h"
+#include "dhcp-protocol.h"
+#include "dns-domain.h"
+#include "fileio.h"
+#include "hostname-util.h"
+#include "in-addr-util.h"
+#include "network-internal.h"
+#include "unaligned.h"
 
 int sd_dhcp_lease_get_address(sd_dhcp_lease *lease, struct in_addr *addr) {
         assert_return(lease, -EINVAL);

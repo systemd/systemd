@@ -39,6 +39,7 @@
 #include "process-util.h"
 #include "set.h"
 #include "special.h"
+#include "string-util.h"
 #include "unit-name.h"
 #include "util.h"
 #include "cgroup-util.h"

@@ -15,26 +15,27 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <stddef.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <errno.h>
 #include <ctype.h>
-#include <string.h>
+#include <errno.h>
+#include <fcntl.h>
 #include <net/if.h>
-#include <sys/prctl.h>
 #include <poll.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/epoll.h>
-#include <sys/wait.h>
+#include <sys/prctl.h>
 #include <sys/signalfd.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
-#include "netlink-util.h"
 #include "event-util.h"
 #include "formats-util.h"
+#include "netlink-util.h"
 #include "process-util.h"
 #include "signal-util.h"
+#include "string-util.h"
 #include "udev.h"
 
 typedef struct Spawn {

@@ -44,6 +44,7 @@
 #include "macro.h"
 #include "signal-util.h"
 #include "socket-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "journal-remote.h"
 

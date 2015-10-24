@@ -20,6 +20,7 @@
 ***/
 
 #include "btrfs-util.h"
+#include "string-util.h"
 #include "util.h"
 #include "import-util.h"
 

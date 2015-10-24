@@ -23,6 +23,7 @@
 
 #include "ctype.h"
 #include "escape.h"
+#include "string-util.h"
 #include "strv.h"
 #include "utf8.h"
 #include "util.h"

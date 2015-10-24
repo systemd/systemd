@@ -18,10 +18,11 @@
 ***/
 
 #include "conf-parser.h"
-#include "macro.h"
-#include "util.h"
-#include "strv.h"
 #include "log.h"
+#include "macro.h"
+#include "string-util.h"
+#include "strv.h"
+#include "util.h"
 
 static void test_config_parse_path_one(const char *rvalue, const char *expected) {
         char *path = NULL;

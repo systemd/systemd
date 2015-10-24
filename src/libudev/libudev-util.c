@@ -17,18 +17,19 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdlib.h>
-#include <stddef.h>
-#include <unistd.h>
-#include <errno.h>
-#include <string.h>
 #include <ctype.h>
+#include <errno.h>
+#include <stddef.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 
-#include "device-nodes.h"
 #include "libudev.h"
+
+#include "MurmurHash2.h"
+#include "device-nodes.h"
 #include "libudev-private.h"
 #include "utf8.h"
-#include "MurmurHash2.h"
 
 /**
  * SECTION:libudev-util

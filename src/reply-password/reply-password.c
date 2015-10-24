@@ -19,14 +19,15 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/socket.h>
-#include <string.h>
 #include <errno.h>
-#include <sys/un.h>
 #include <stddef.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <sys/un.h>
 
 #include "log.h"
 #include "macro.h"
+#include "string-util.h"
 #include "util.h"
 
 static int send_on_socket(int fd, const char *socket_name, const void *packet, size_t size) {

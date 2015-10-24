@@ -24,16 +24,16 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "sd-ipv4acd.h"
+
+#include "arp-util.h"
 #include "event-util.h"
 #include "in-addr-util.h"
 #include "list.h"
-#include "refcnt.h"
 #include "random-util.h"
+#include "refcnt.h"
 #include "siphash24.h"
 #include "util.h"
-
-#include "arp-util.h"
-#include "sd-ipv4acd.h"
 
 /* Constants from the RFC */
 #define PROBE_WAIT 1

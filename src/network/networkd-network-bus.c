@@ -19,9 +19,9 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "strv.h"
-
 #include "networkd.h"
+#include "string-util.h"
+#include "strv.h"
 
 static int property_get_ether_addrs(
                 sd_bus *bus,

@@ -23,16 +23,16 @@
 #include <stdbool.h>
 #include <unistd.h>
 
-#include "util.h"
-#include "socket-util.h"
-#include "formats-util.h"
-#include "refcnt.h"
-#include "missing.h"
-
 #include "sd-netlink.h"
-#include "netlink-util.h"
+
+#include "formats-util.h"
+#include "missing.h"
 #include "netlink-internal.h"
 #include "netlink-types.h"
+#include "netlink-util.h"
+#include "refcnt.h"
+#include "socket-util.h"
+#include "util.h"
 
 int socket_open(int family) {
         int fd;

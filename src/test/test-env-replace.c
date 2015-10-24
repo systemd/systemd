@@ -21,9 +21,10 @@
 
 #include <string.h>
 
-#include "util.h"
-#include "strv.h"
 #include "env-util.h"
+#include "string-util.h"
+#include "strv.h"
+#include "util.h"
 
 static void test_strv_env_delete(void) {
         _cleanup_strv_free_ char **a = NULL, **b = NULL, **c = NULL, **d = NULL;

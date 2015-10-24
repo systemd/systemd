@@ -19,20 +19,22 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <nss.h>
-#include <netdb.h>
-#include <errno.h>
-#include <string.h>
-#include <stdlib.h>
 #include <dlfcn.h>
+#include <errno.h>
+#include <netdb.h>
+#include <nss.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "sd-bus.h"
-#include "bus-util.h"
+
 #include "bus-common-errors.h"
+#include "bus-util.h"
+#include "in-addr-util.h"
 #include "macro.h"
 #include "nss-util.h"
+#include "string-util.h"
 #include "util.h"
-#include "in-addr-util.h"
 
 NSS_GETHOSTBYNAME_PROTOTYPES(resolve);
 NSS_GETHOSTBYADDR_PROTOTYPES(resolve);

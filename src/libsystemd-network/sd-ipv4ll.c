@@ -18,11 +18,14 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdlib.h>
-#include <errno.h>
-#include <string.h>
-#include <stdio.h>
 #include <arpa/inet.h>
+#include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include "sd-ipv4acd.h"
+#include "sd-ipv4ll.h"
 
 #include "event-util.h"
 #include "in-addr-util.h"
@@ -32,9 +35,6 @@
 #include "siphash24.h"
 #include "sparse-endian.h"
 #include "util.h"
-
-#include "sd-ipv4acd.h"
-#include "sd-ipv4ll.h"
 
 #define IPV4LL_NETWORK 0xA9FE0000L
 #define IPV4LL_NETMASK 0xFFFF0000L

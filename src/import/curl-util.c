@@ -19,6 +19,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "string-util.h"
 #include "curl-util.h"
 
 static void curl_glue_check_finished(CurlGlue *g) {

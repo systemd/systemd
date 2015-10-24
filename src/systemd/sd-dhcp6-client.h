@@ -23,6 +23,7 @@
 ***/
 
 #include <net/ethernet.h>
+#include <stdbool.h>
 
 #include "sd-event.h"
 

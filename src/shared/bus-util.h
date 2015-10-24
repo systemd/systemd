@@ -21,10 +21,12 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "sd-event.h"
 #include "sd-bus.h"
+#include "sd-event.h"
+
 #include "hashmap.h"
 #include "install.h"
+#include "string-util.h"
 #include "time-util.h"
 
 typedef enum BusTransport {

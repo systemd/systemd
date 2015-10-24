@@ -22,9 +22,10 @@
 #include <string.h>
 #include <sys/utsname.h>
 
-#include "macro.h"
-#include "util.h"
 #include "hostname-util.h"
+#include "macro.h"
+#include "string-util.h"
+#include "util.h"
 #include "specifier.h"
 
 /*

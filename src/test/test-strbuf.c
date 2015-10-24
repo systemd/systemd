@@ -23,6 +23,7 @@
 #include <string.h>
 
 #include "strbuf.h"
+#include "string-util.h"
 #include "strv.h"
 #include "util.h"
 

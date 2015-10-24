@@ -19,8 +19,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <linux/magic.h>
 #include <sys/mount.h>
+#include <linux/magic.h>
 
 #include "cgroup-util.h"
 #include "escape.h"
@@ -29,9 +29,9 @@
 #include "path-util.h"
 #include "rm-rf.h"
 #include "set.h"
+#include "string-util.h"
 #include "strv.h"
 #include "util.h"
-
 #include "nspawn-mount.h"
 
 CustomMount* custom_mount_add(CustomMount **l, unsigned *n, CustomMountType t) {

@@ -28,6 +28,7 @@
 #include "mkdir.h"
 #include "path-util.h"
 #include "special.h"
+#include "string-util.h"
 #include "unit-name.h"
 #include "util.h"
 #include "generator.h"

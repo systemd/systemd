@@ -38,11 +38,11 @@
 #include "path-util.h"
 #include "set.h"
 #include "signal-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "unit-name.h"
 #include "utf8.h"
 #include "util.h"
-
 #include "bus-util.h"
 
 static int name_owner_change_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {

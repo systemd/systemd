@@ -26,6 +26,7 @@
 #include "escape.h"
 #include "formats-util.h"
 #include "set.h"
+#include "string-util.h"
 #include "udev-util.h"
 #include "util.h"
 #include "logind-acl.h"

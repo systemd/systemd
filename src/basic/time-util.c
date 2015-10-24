@@ -20,13 +20,14 @@
 ***/
 
 #include <string.h>
-#include <sys/timex.h>
 #include <sys/timerfd.h>
+#include <sys/timex.h>
 
+#include "path-util.h"
+#include "string-util.h"
+#include "strv.h"
 #include "util.h"
 #include "time-util.h"
-#include "path-util.h"
-#include "strv.h"
 
 usec_t now(clockid_t clock_id) {
         struct timespec ts;

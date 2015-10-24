@@ -38,6 +38,7 @@
 #include "set.h"
 #include "sigbus.h"
 #include "signal-util.h"
+#include "string-util.h"
 #include "terminal-util.h"
 #include "util.h"
 

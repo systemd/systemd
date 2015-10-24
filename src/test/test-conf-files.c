@@ -19,14 +19,15 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdio.h>
 #include <stdarg.h>
+#include <stdio.h>
 
 #include "conf-files.h"
 #include "macro.h"
+#include "rm-rf.h"
+#include "string-util.h"
 #include "strv.h"
 #include "util.h"
-#include "rm-rf.h"
 
 static void setup_test_dir(char *tmp_dir, const char *files, ...) {
         va_list ap;

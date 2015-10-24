@@ -21,8 +21,9 @@
 
 #include <stdio.h>
 
-#include "log.h"
 #include "sd-journal.h"
+
+#include "log.h"
 #include "macro.h"
 #include "journal-internal.h"
 

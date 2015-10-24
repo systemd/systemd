@@ -22,12 +22,13 @@
 #include <errno.h>
 #include <string.h>
 
-#include "path-util.h"
 #include "bus-label.h"
+#include "def.h"
+#include "path-util.h"
+#include "string-util.h"
+#include "strv.h"
 #include "util.h"
 #include "unit-name.h"
-#include "def.h"
-#include "strv.h"
 
 #define VALID_CHARS                             \
         DIGITS LETTERS                          \

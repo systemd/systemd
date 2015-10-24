@@ -23,6 +23,7 @@
 #include "escape.h"
 #include "fileio-label.h"
 #include "mkdir.h"
+#include "string-util.h"
 #include "strv.h"
 #include "util.h"
 #include "dropin.h"

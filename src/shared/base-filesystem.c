@@ -20,14 +20,15 @@
 ***/
 
 #include <errno.h>
-#include <sys/stat.h>
 #include <stdlib.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
-#include "base-filesystem.h"
 #include "log.h"
 #include "macro.h"
+#include "string-util.h"
 #include "util.h"
+#include "base-filesystem.h"
 
 typedef struct BaseFilesystem {
         const char *dir;

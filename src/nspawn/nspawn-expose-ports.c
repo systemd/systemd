@@ -21,12 +21,12 @@
 
 #include "sd-netlink.h"
 
-#include "util.h"
-#include "in-addr-util.h"
 #include "firewall-util.h"
+#include "in-addr-util.h"
 #include "local-addresses.h"
 #include "netlink-util.h"
-
+#include "string-util.h"
+#include "util.h"
 #include "nspawn-expose-ports.h"
 
 int expose_port_parse(ExposePort **l, const char *s) {

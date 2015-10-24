@@ -19,12 +19,12 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "util.h"
-#include "log.h"
-
 #include "sd-bus.h"
+
 #include "bus-kernel.h"
 #include "bus-util.h"
+#include "log.h"
+#include "util.h"
 
 static int test_match(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
         int *found = userdata;

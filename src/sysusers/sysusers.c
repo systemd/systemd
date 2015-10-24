@@ -33,12 +33,13 @@
 #include "hashmap.h"
 #include "path-util.h"
 #include "selinux-util.h"
+#include "smack-util.h"
 #include "specifier.h"
+#include "string-util.h"
 #include "strv.h"
 #include "uid-range.h"
 #include "utf8.h"
 #include "util.h"
-#include "smack-util.h"
 
 typedef enum ItemType {
         ADD_USER = 'u',

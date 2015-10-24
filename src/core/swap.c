@@ -20,10 +20,11 @@
 ***/
 
 #include <errno.h>
-#include <libudev.h>
 #include <sys/epoll.h>
 #include <sys/stat.h>
 #include <unistd.h>
+
+#include "libudev.h"
 
 #include "dbus-swap.h"
 #include "escape.h"
@@ -32,6 +33,7 @@
 #include "fstab-util.h"
 #include "path-util.h"
 #include "special.h"
+#include "string-util.h"
 #include "udev-util.h"
 #include "unit-name.h"
 #include "unit.h"

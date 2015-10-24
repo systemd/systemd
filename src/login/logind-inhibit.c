@@ -28,6 +28,7 @@
 #include "fileio.h"
 #include "formats-util.h"
 #include "mkdir.h"
+#include "string-util.h"
 #include "util.h"
 #include "logind-inhibit.h"
 

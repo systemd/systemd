@@ -28,6 +28,7 @@
 
 #include "sd-journal.h"
 
+#include "string-util.h"
 #include "util.h"
 
 static char *arg_identifier = NULL;

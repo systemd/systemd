@@ -19,10 +19,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "util.h"
 #include "conf-parser.h"
-
 #include "networkd-util.h"
+#include "string-util.h"
+#include "util.h"
 
 const char *address_family_boolean_to_string(AddressFamilyBoolean b) {
         if (b == ADDRESS_FAMILY_YES ||

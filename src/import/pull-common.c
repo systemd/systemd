@@ -30,6 +30,7 @@
 #include "rm-rf.h"
 #include "signal-util.h"
 #include "siphash24.h"
+#include "string-util.h"
 #include "strv.h"
 #include "util.h"
 #include "pull-common.h"

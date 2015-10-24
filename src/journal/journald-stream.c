@@ -19,8 +19,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <unistd.h>
 #include <stddef.h>
+#include <unistd.h>
 
 #ifdef HAVE_SELINUX
 #include <selinux/selinux.h>
@@ -39,6 +39,7 @@
 #include "mkdir.h"
 #include "selinux-util.h"
 #include "socket-util.h"
+#include "string-util.h"
 #include "journald-stream.h"
 
 #define STDOUT_STREAMS_MAX 4096

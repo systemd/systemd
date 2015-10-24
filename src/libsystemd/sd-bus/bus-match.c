@@ -21,9 +21,10 @@
 
 #include "bus-internal.h"
 #include "bus-message.h"
-#include "bus-match.h"
 #include "bus-util.h"
+#include "string-util.h"
 #include "strv.h"
+#include "bus-match.h"
 
 /* Example:
  *

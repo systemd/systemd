@@ -20,23 +20,24 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdio.h>
+#include <fcntl.h>
 #include <stddef.h>
+#include <stdio.h>
 #include <string.h>
 #include <unistd.h>
-#include <fcntl.h>
 
-#include "install.h"
-#include "install-printf.h"
-#include "specifier.h"
-#include "util.h"
-#include "macro.h"
-#include "hashmap.h"
-#include "load-fragment.h"
-#include "strv.h"
 #include "fileio.h"
-#include "test-helper.h"
+#include "hashmap.h"
 #include "hostname-util.h"
+#include "install-printf.h"
+#include "install.h"
+#include "load-fragment.h"
+#include "macro.h"
+#include "specifier.h"
+#include "string-util.h"
+#include "strv.h"
+#include "test-helper.h"
+#include "util.h"
 
 static int test_unit_file_get_set(void) {
         int r;

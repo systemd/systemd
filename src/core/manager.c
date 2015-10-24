@@ -66,6 +66,7 @@
 #include "rm-rf.h"
 #include "signal-util.h"
 #include "special.h"
+#include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "time-util.h"

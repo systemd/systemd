@@ -22,15 +22,15 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdint.h>
 #include <linux/if_packet.h>
-#include <net/if_arp.h>
 #include <net/ethernet.h>
-
-#include "socket-util.h"
+#include <net/if_arp.h>
+#include <stdint.h>
 
 #include "sd-dhcp-client.h"
+
 #include "dhcp-protocol.h"
+#include "socket-util.h"
 
 int dhcp_network_bind_raw_socket(int index, union sockaddr_union *link,
                                  uint32_t xid, const uint8_t *mac_addr,

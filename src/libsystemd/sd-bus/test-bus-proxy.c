@@ -23,13 +23,13 @@
 #include <fcntl.h>
 #include <stdlib.h>
 
-#include "util.h"
-#include "log.h"
-
 #include "sd-bus.h"
+
+#include "bus-dump.h"
 #include "bus-kernel.h"
 #include "bus-util.h"
-#include "bus-dump.h"
+#include "log.h"
+#include "util.h"
 
 typedef struct {
         const char *sender;

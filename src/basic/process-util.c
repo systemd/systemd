@@ -32,6 +32,7 @@
 #include "fileio.h"
 #include "log.h"
 #include "signal-util.h"
+#include "string-util.h"
 #include "util.h"
 #include "process-util.h"
 

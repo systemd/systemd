@@ -19,27 +19,29 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/xattr.h>
-#include <linux/fs.h>
 #include <curl/curl.h>
+#include <linux/fs.h>
+#include <sys/xattr.h>
 
 #include "sd-daemon.h"
-#include "utf8.h"
-#include "strv.h"
-#include "copy.h"
+
 #include "btrfs-util.h"
-#include "util.h"
+#include "copy.h"
+#include "curl-util.h"
+#include "hostname-util.h"
+#include "import-common.h"
+#include "import-util.h"
 #include "macro.h"
 #include "mkdir.h"
-#include "rm-rf.h"
 #include "path-util.h"
-#include "hostname-util.h"
-#include "import-util.h"
-#include "import-common.h"
-#include "curl-util.h"
-#include "qcow2-util.h"
-#include "pull-job.h"
 #include "pull-common.h"
+#include "pull-job.h"
+#include "qcow2-util.h"
+#include "rm-rf.h"
+#include "string-util.h"
+#include "strv.h"
+#include "utf8.h"
+#include "util.h"
 #include "pull-raw.h"
 
 typedef enum RawProgress {

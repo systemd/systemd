@@ -19,9 +19,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "util.h"
-#include "path-util.h"
 #include "btrfs-util.h"
+#include "path-util.h"
+#include "string-util.h"
+#include "util.h"
 #include "rm-rf.h"
 
 int rm_rf_children(int fd, RemoveFlags flags, struct stat *root_dev) {

@@ -15,20 +15,21 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <string.h>
-#include <stdio.h>
-#include <stddef.h>
-#include <stdbool.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <errno.h>
 #include <dirent.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <string.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
-#include "udev.h"
-#include "smack-util.h"
-#include "selinux-util.h"
 #include "formats-util.h"
+#include "selinux-util.h"
+#include "smack-util.h"
+#include "string-util.h"
+#include "udev.h"
 
 static int node_symlink(struct udev_device *dev, const char *node, const char *slink) {
         struct stat stats;

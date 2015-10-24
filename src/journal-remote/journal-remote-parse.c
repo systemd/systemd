@@ -19,8 +19,9 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "journal-remote-parse.h"
 #include "journald-native.h"
+#include "string-util.h"
+#include "journal-remote-parse.h"
 
 #define LINE_CHUNK 8*1024u
 

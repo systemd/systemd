@@ -21,10 +21,11 @@
 
 #include <sys/stat.h>
 
-#include "path-lookup.h"
 #include "log.h"
-#include "strv.h"
+#include "path-lookup.h"
 #include "rm-rf.h"
+#include "string-util.h"
+#include "strv.h"
 
 static void test_paths(ManagerRunningAs running_as, bool personal) {
         char template[] = "/tmp/test-path-lookup.XXXXXXX";

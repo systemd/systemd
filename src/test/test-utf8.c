@@ -21,6 +21,7 @@
 
 #include "utf8.h"
 #include "util.h"
+#include "string-util.h"
 
 static void test_utf8_is_printable(void) {
         assert_se(utf8_is_printable("ascii is valid\tunicode", 22));

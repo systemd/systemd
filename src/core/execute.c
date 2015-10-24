@@ -77,6 +77,7 @@
 #include "selinux-util.h"
 #include "signal-util.h"
 #include "smack-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "unit.h"

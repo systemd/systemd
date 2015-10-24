@@ -24,17 +24,15 @@
 #include <sys/ioctl.h>
 #include <linux/if_infiniband.h>
 
-#include "udev.h"
-#include "udev-util.h"
-#include "util.h"
-#include "random-util.h"
-
-#include "network-internal.h"
 #include "sd-dhcp6-client.h"
-#include "dhcp6-protocol.h"
+
+#include "dhcp-identifier.h"
 #include "dhcp6-internal.h"
 #include "dhcp6-lease-internal.h"
-#include "dhcp-identifier.h"
+#include "dhcp6-protocol.h"
+#include "network-internal.h"
+#include "random-util.h"
+#include "util.h"
 
 #define MAX_MAC_ADDR_LEN INFINIBAND_ALEN
 

@@ -19,16 +19,18 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <netinet/ether.h>
 #include <net/if.h>
+#include <netinet/ether.h>
 
-#include "util.h"
-#include "macro.h"
 #include "sd-netlink.h"
-#include "socket-util.h"
-#include "netlink-util.h"
+
 #include "event-util.h"
+#include "macro.h"
 #include "missing.h"
+#include "netlink-util.h"
+#include "socket-util.h"
+#include "string-util.h"
+#include "util.h"
 
 static void test_message_link_bridge(sd_netlink *rtnl) {
         _cleanup_netlink_message_unref_ sd_netlink_message *message = NULL;

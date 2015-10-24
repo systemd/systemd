@@ -31,6 +31,7 @@
 #include "pull-raw.h"
 #include "pull-tar.h"
 #include "signal-util.h"
+#include "string-util.h"
 #include "verbs.h"
 
 static bool arg_force = false;

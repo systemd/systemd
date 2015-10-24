@@ -22,11 +22,12 @@
 #include <stdio.h>
 
 #include "conf-parser.h"
-#include "sleep-config.h"
 #include "fileio.h"
 #include "log.h"
+#include "string-util.h"
 #include "strv.h"
 #include "util.h"
+#include "sleep-config.h"
 
 #define USE(x, y) do{ (x) = (y); (y) = NULL; } while(0)
 

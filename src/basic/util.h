@@ -58,14 +58,6 @@
 size_t page_size(void) _pure_;
 #define PAGE_ALIGN(l) ALIGN_TO((l), page_size())
 
-#define streq(a,b) (strcmp((a),(b)) == 0)
-#define strneq(a, b, n) (strncmp((a), (b), (n)) == 0)
-#define strcaseeq(a,b) (strcasecmp((a),(b)) == 0)
-#define strncaseeq(a, b, n) (strncasecmp((a), (b), (n)) == 0)
-
-bool streq_ptr(const char *a, const char *b) _pure_;
-int strcmp_ptr(const char *a, const char *b) _pure_;
-
 #define new(t, n) ((t*) malloc_multiply(sizeof(t), (n)))
 
 #define new0(t, n) ((t*) calloc((n), sizeof(t)))
@@ -94,47 +86,6 @@ static inline const char* true_false(bool b) {
 static inline const char* one_zero(bool b) {
         return b ? "1" : "0";
 }
-
-static inline const char* strempty(const char *s) {
-        return s ? s : "";
-}
-
-static inline const char* strnull(const char *s) {
-        return s ? s : "(null)";
-}
-
-static inline const char *strna(const char *s) {
-        return s ? s : "n/a";
-}
-
-static inline bool isempty(const char *p) {
-        return !p || !p[0];
-}
-
-static inline char *startswith(const char *s, const char *prefix) {
-        size_t l;
-
-        l = strlen(prefix);
-        if (strncmp(s, prefix, l) == 0)
-                return (char*) s + l;
-
-        return NULL;
-}
-
-static inline char *startswith_no_case(const char *s, const char *prefix) {
-        size_t l;
-
-        l = strlen(prefix);
-        if (strncasecmp(s, prefix, l) == 0)
-                return (char*) s + l;
-
-        return NULL;
-}
-
-char *endswith(const char *s, const char *postfix) _pure_;
-char *endswith_no_case(const char *s, const char *postfix) _pure_;
-
-char *first_word(const char *s, const char *word) _pure_;
 
 int close_nointr(int fd);
 int safe_close(int fd);
@@ -212,32 +163,11 @@ static inline int safe_atoi64(const char *s, int64_t *ret_i) {
 int safe_atou16(const char *s, uint16_t *ret);
 int safe_atoi16(const char *s, int16_t *ret);
 
-const char* split(const char **state, size_t *l, const char *separator, bool quoted);
-
-#define FOREACH_WORD(word, length, s, state)                            \
-        _FOREACH_WORD(word, length, s, WHITESPACE, false, state)
-
-#define FOREACH_WORD_SEPARATOR(word, length, s, separator, state)       \
-        _FOREACH_WORD(word, length, s, separator, false, state)
-
-#define FOREACH_WORD_QUOTED(word, length, s, state)                     \
-        _FOREACH_WORD(word, length, s, WHITESPACE, true, state)
-
-#define _FOREACH_WORD(word, length, s, separator, quoted, state)        \
-        for ((state) = (s), (word) = split(&(state), &(length), (separator), (quoted)); (word); (word) = split(&(state), &(length), (separator), (quoted)))
-
-char *strappend(const char *s, const char *suffix);
-char *strnappend(const char *s, const char *suffix, size_t length);
-
 int readlinkat_malloc(int fd, const char *p, char **ret);
 int readlink_malloc(const char *p, char **r);
 int readlink_value(const char *p, char **ret);
 int readlink_and_make_absolute(const char *p, char **r);
 int readlink_and_canonicalize(const char *p, char **r);
-
-char *strstrip(char *s);
-char *delete_chars(char *s, const char *bad);
-char *truncate_nl(char *s);
 
 char *file_in_same_dir(const char *path, const char *filename);
 
@@ -254,14 +184,10 @@ int unbase32hexchar(char c) _const_;
 char base64char(int x) _const_;
 int unbase64char(char c) _const_;
 
-char *ascii_strlower(char *path);
-
 bool dirent_is_file(const struct dirent *de) _pure_;
 bool dirent_is_file_with_suffix(const struct dirent *de, const char *suffix) _pure_;
 
 bool hidden_file(const char *filename) _pure_;
-
-bool chars_intersect(const char *a, const char *b) _pure_;
 
 /* For basic lookup tables with strictly enumerated entries */
 #define _DEFINE_STRING_TABLE_LOOKUP_TO_STRING(name,type,scope)          \
@@ -373,10 +299,6 @@ int files_same(const char *filea, const char *fileb);
 
 int running_in_chroot(void);
 
-char *ellipsize(const char *s, size_t length, unsigned percent);
-                                   /* bytes                 columns */
-char *ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigned percent);
-
 int touch_file(const char *path, bool parents, usec_t stamp, uid_t uid, gid_t gid, mode_t mode);
 int touch(const char *path);
 
@@ -392,11 +314,7 @@ char *fstab_node_to_udev_node(const char *p);
 
 void execute_directories(const char* const* directories, usec_t timeout, char *argv[]);
 
-bool nulstr_contains(const char*nulstr, const char *needle);
-
 bool plymouth_running(void);
-
-char* strshorten(char *s, size_t l);
 
 int symlink_idempotent(const char *from, const char *to);
 
@@ -425,15 +343,7 @@ int dirent_ensure_type(DIR *d, struct dirent *de);
 
 int get_files_in_directory(const char *path, char ***list);
 
-char *strjoin(const char *x, ...) _sentinel_;
-
 bool is_main_thread(void);
-
-static inline bool _pure_ in_charset(const char *s, const char* charset) {
-        assert(s);
-        assert(charset);
-        return s[strspn(s, charset)] == '\0';
-}
 
 int block_get_whole_disk(dev_t d, dev_t *ret);
 
@@ -554,7 +464,6 @@ _alloc_(2, 3) static inline void *memdup_multiply(const void *p, size_t a, size_
 bool filename_is_valid(const char *p) _pure_;
 bool path_is_safe(const char *p) _pure_;
 bool string_is_safe(const char *p) _pure_;
-bool string_has_cc(const char *p, const char *ok) _pure_;
 
 /**
  * Check if a string contains any glob patterns.
@@ -585,10 +494,6 @@ typedef enum DrawSpecialChar {
 } DrawSpecialChar;
 
 const char *draw_special_char(DrawSpecialChar ch);
-
-char *strreplace(const char *text, const char *old_string, const char *new_string);
-
-char *strip_tab_ansi(char **p, size_t *l);
 
 int on_ac_power(void);
 
@@ -637,9 +542,6 @@ int unbase32hexmem(const char *p, size_t l, bool padding, void **mem, size_t *le
 
 char *base64mem(const void *p, size_t l);
 int unbase64mem(const char *p, size_t l, void **mem, size_t *len);
-
-char *strextend(char **x, ...) _sentinel_;
-char *strrep(const char *s, unsigned n);
 
 void* greedy_realloc(void **p, size_t *allocated, size_t need, size_t size);
 void* greedy_realloc0(void **p, size_t *allocated, size_t need, size_t size);
@@ -755,24 +657,7 @@ int unlink_noerrno(const char *path);
                 (void*)memset(_new_, 0, _size_);                        \
         })
 
-#define strjoina(a, ...)                                                \
-        ({                                                              \
-                const char *_appendees_[] = { a, __VA_ARGS__ };         \
-                char *_d_, *_p_;                                        \
-                int _len_ = 0;                                          \
-                unsigned _i_;                                           \
-                for (_i_ = 0; _i_ < ELEMENTSOF(_appendees_) && _appendees_[_i_]; _i_++) \
-                        _len_ += strlen(_appendees_[_i_]);              \
-                _p_ = _d_ = alloca(_len_ + 1);                          \
-                for (_i_ = 0; _i_ < ELEMENTSOF(_appendees_) && _appendees_[_i_]; _i_++) \
-                        _p_ = stpcpy(_p_, _appendees_[_i_]);            \
-                *_p_ = 0;                                               \
-                _d_;                                                    \
-        })
-
 bool id128_is_valid(const char *s) _pure_;
-
-int split_pair(const char *s, const char *sep, char **l, char **r);
 
 int shall_restore_state(void);
 
@@ -786,21 +671,6 @@ static inline void qsort_safe(void *base, size_t nmemb, size_t size, comparison_
 
         assert(base);
         qsort(base, nmemb, size, compar);
-}
-
-/* Normal memmem() requires haystack to be nonnull, which is annoying for zero-length buffers */
-static inline void *memmem_safe(const void *haystack, size_t haystacklen, const void *needle, size_t needlelen) {
-
-        if (needlelen <= 0)
-                return (void*) haystack;
-
-        if (haystacklen < needlelen)
-                return NULL;
-
-        assert(haystack);
-        assert(needle);
-
-        return memmem(haystack, haystacklen, needle, needlelen);
 }
 
 int proc_cmdline(char **ret);
@@ -859,8 +729,6 @@ int take_password_lock(const char *root);
 int is_symlink(const char *path);
 int is_dir(const char *path, bool follow);
 int is_device_node(const char *path);
-
-int free_and_strdup(char **p, const char *s);
 
 #define INOTIFY_EVENT_MAX (sizeof(struct inotify_event) + NAME_MAX + 1)
 
@@ -923,10 +791,3 @@ int version(void);
 bool fdname_is_valid(const char *s);
 
 bool oom_score_adjust_is_valid(int oa);
-
-#define memory_erase(p, l) memset((p), 'x', (l))
-void string_erase(char *x);
-
-char *string_free_erase(char *s);
-DEFINE_TRIVIAL_CLEANUP_FUNC(char *, string_free_erase);
-#define _cleanup_string_free_erase_ _cleanup_(string_free_erasep)

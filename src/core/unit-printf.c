@@ -19,14 +19,15 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "unit.h"
-#include "specifier.h"
-#include "strv.h"
-#include "unit-name.h"
-#include "unit-printf.h"
-#include "macro.h"
 #include "cgroup-util.h"
 #include "formats-util.h"
+#include "macro.h"
+#include "specifier.h"
+#include "string-util.h"
+#include "strv.h"
+#include "unit-name.h"
+#include "unit.h"
+#include "unit-printf.h"
 
 static int specifier_prefix_and_instance(char specifier, void *data, void *userdata, char **ret) {
         Unit *u = userdata;

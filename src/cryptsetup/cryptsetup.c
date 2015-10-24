@@ -19,11 +19,11 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <string.h>
 #include <errno.h>
-#include <sys/mman.h>
-#include <mntent.h>
 #include <libcryptsetup.h>
+#include <mntent.h>
+#include <string.h>
+#include <sys/mman.h>
 
 #include "sd-device.h"
 
@@ -33,6 +33,7 @@
 #include "fileio.h"
 #include "log.h"
 #include "path-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "util.h"
 

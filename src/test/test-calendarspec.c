@@ -22,6 +22,7 @@
 #include <string.h>
 
 #include "calendarspec.h"
+#include "string-util.h"
 #include "util.h"
 
 static void test_one(const char *input, const char *output) {

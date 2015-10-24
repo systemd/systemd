@@ -22,8 +22,9 @@
 #include <sys/socket.h>
 
 #include "namespace.h"
-#include "util.h"
 #include "process-util.h"
+#include "string-util.h"
+#include "util.h"
 
 static void test_tmpdir(const char *id, const char *A, const char *B) {
         _cleanup_free_ char *a, *b;

@@ -19,7 +19,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-
+#include "string-util.h"
 #include "timesyncd-manager.h"
 #include "timesyncd-server.h"
 #include "timesyncd-conf.h"

@@ -17,12 +17,13 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "socket-util.h"
-#include "in-addr-util.h"
-#include "util.h"
-#include "macro.h"
-#include "log.h"
 #include "async.h"
+#include "in-addr-util.h"
+#include "log.h"
+#include "macro.h"
+#include "socket-util.h"
+#include "string-util.h"
+#include "util.h"
 
 static void test_socket_address_parse(void) {
         SocketAddress a;

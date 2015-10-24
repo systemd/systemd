@@ -20,16 +20,17 @@
 ***/
 
 #include <errno.h>
-#include <stdlib.h>
 #include <stdarg.h>
 #include <stdbool.h>
-#include <string.h>
 #include <stdio.h>
-
-#include "util.h"
-#include "errno-list.h"
+#include <stdlib.h>
+#include <string.h>
 
 #include "sd-bus.h"
+
+#include "errno-list.h"
+#include "string-util.h"
+#include "util.h"
 #include "bus-error.h"
 
 BUS_ERROR_MAP_ELF_REGISTER const sd_bus_error_map bus_standard_errors[] = {

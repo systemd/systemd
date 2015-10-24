@@ -19,7 +19,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-
+#include "string-util.h"
 #include "log.h"
 #include "bus-signature.h"
 #include "bus-internal.h"

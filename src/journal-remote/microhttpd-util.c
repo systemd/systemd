@@ -24,16 +24,17 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "microhttpd-util.h"
-#include "log.h"
-#include "macro.h"
-#include "util.h"
-#include "strv.h"
-
 #ifdef HAVE_GNUTLS
 #include <gnutls/gnutls.h>
 #include <gnutls/x509.h>
 #endif
+
+#include "log.h"
+#include "macro.h"
+#include "string-util.h"
+#include "strv.h"
+#include "util.h"
+#include "microhttpd-util.h"
 
 void microhttpd_logger(void *arg, const char *fmt, va_list ap) {
         char *f;

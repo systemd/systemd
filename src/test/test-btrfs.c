@@ -25,6 +25,7 @@
 #include "fileio.h"
 #include "util.h"
 #include "btrfs-util.h"
+#include "string-util.h"
 
 int main(int argc, char *argv[]) {
         BtrfsQuotaInfo quota;

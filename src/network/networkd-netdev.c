@@ -24,11 +24,11 @@
 #include "conf-files.h"
 #include "conf-parser.h"
 #include "list.h"
-#include "siphash24.h"
 #include "netlink-util.h"
 #include "network-internal.h"
-
 #include "networkd.h"
+#include "siphash24.h"
+#include "string-util.h"
 #include "networkd-netdev.h"
 
 const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX] = {

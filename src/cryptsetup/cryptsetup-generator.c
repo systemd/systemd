@@ -22,12 +22,13 @@
 #include <errno.h>
 
 #include "dropin.h"
+#include "fstab-util.h"
 #include "generator.h"
 #include "hashmap.h"
 #include "log.h"
 #include "mkdir.h"
 #include "path-util.h"
-#include "fstab-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "unit-name.h"
 #include "util.h"

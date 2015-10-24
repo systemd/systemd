@@ -19,7 +19,9 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "string-util.h"
 #include "util.h"
+
 #include "signal-util.h"
 
 int reset_all_signal_handlers(void) {

@@ -27,11 +27,13 @@
 #include <sys/mount.h>
 #include <sys/swap.h>
 
-#include "escape.h"
 #include "libudev.h"
+
+#include "escape.h"
 #include "list.h"
 #include "mount-setup.h"
 #include "path-util.h"
+#include "string-util.h"
 #include "udev-util.h"
 #include "util.h"
 #include "virt.h"

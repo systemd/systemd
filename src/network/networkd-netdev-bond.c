@@ -23,10 +23,12 @@
 #include <netinet/ether.h>
 #include <linux/if_bonding.h>
 
-#include "conf-parser.h"
 #include "sd-netlink.h"
-#include "networkd-netdev-bond.h"
+
+#include "conf-parser.h"
 #include "missing.h"
+#include "string-util.h"
+#include "networkd-netdev-bond.h"
 
 /*
  * Number of seconds between instances where the bonding

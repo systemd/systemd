@@ -30,6 +30,7 @@
 #include "env-util.h"
 #include "def.h"
 #include "ctype.h"
+#include "string-util.h"
 
 static void test_parse_env_file(void) {
         char    t[] = "/tmp/test-fileio-in-XXXXXX",

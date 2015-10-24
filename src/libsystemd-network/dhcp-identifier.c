@@ -19,18 +19,16 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-
-#include "sd-id128.h"
 #include "libudev.h"
-#include "udev-util.h"
+#include "sd-id128.h"
 
-#include "virt.h"
-#include "sparse-endian.h"
-#include "siphash24.h"
-
-#include "dhcp6-protocol.h"
 #include "dhcp-identifier.h"
+#include "dhcp6-protocol.h"
 #include "network-internal.h"
+#include "siphash24.h"
+#include "sparse-endian.h"
+#include "udev-util.h"
+#include "virt.h"
 
 #define SYSTEMD_PEN 43793
 #define HASH_KEY SD_ID128_MAKE(80,11,8c,c2,fe,4a,03,ee,3e,d6,0c,6f,36,39,14,09)
@@ -57,7 +55,6 @@ int dhcp_identifier_set_duid_en(struct duid *duid, size_t *len) {
 
         return 0;
 }
-
 
 int dhcp_identifier_set_iaid(int ifindex, uint8_t *mac, size_t mac_len, void *_id) {
         /* name is a pointer to memory in the udev_device struct, so must

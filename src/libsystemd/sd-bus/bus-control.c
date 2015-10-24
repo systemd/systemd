@@ -26,14 +26,16 @@
 #include <stddef.h>
 #include <errno.h>
 
-#include "strv.h"
 #include "sd-bus.h"
+
+#include "bus-bloom.h"
 #include "bus-internal.h"
 #include "bus-message.h"
-#include "bus-control.h"
-#include "bus-bloom.h"
 #include "bus-util.h"
 #include "capability.h"
+#include "string-util.h"
+#include "strv.h"
+#include "bus-control.h"
 
 _public_ int sd_bus_get_unique_name(sd_bus *bus, const char **unique) {
         int r;

@@ -21,15 +21,16 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdbool.h>
 #include <byteswap.h>
+#include <stdbool.h>
 #include <sys/socket.h>
 
-#include "macro.h"
 #include "sd-bus.h"
-#include "time-util.h"
+
 #include "bus-creds.h"
 #include "bus-protocol.h"
+#include "macro.h"
+#include "time-util.h"
 
 struct bus_container {
         char enclosing;

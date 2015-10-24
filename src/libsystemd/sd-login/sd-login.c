@@ -25,6 +25,8 @@
 #include <sys/inotify.h>
 #include <unistd.h>
 
+#include "sd-login.h"
+
 #include "cgroup-util.h"
 #include "escape.h"
 #include "fileio.h"
@@ -32,9 +34,9 @@
 #include "hostname-util.h"
 #include "login-util.h"
 #include "macro.h"
+#include "string-util.h"
 #include "strv.h"
 #include "util.h"
-#include "sd-login.h"
 
 /* Error codes:
  *

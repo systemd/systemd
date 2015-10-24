@@ -20,13 +20,14 @@
 ***/
 
 #include <errno.h>
-#include <stdio.h>
 #include <fcntl.h>
+#include <linux/rtc.h>
+#include <stdio.h>
 #include <sys/ioctl.h>
 #include <sys/time.h>
-#include <linux/rtc.h>
 
 #include "macro.h"
+#include "string-util.h"
 #include "util.h"
 #include "clock-util.h"
 

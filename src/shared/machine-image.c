@@ -28,9 +28,9 @@
 #include "mkdir.h"
 #include "path-util.h"
 #include "rm-rf.h"
+#include "string-util.h"
 #include "strv.h"
 #include "utf8.h"
-
 #include "machine-image.h"
 
 static const char image_search_path[] =

@@ -24,8 +24,9 @@
 #include <sys/types.h>
 #include <curl/curl.h>
 
-#include "hashmap.h"
 #include "sd-event.h"
+
+#include "hashmap.h"
 
 typedef struct CurlGlue CurlGlue;
 

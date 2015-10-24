@@ -23,14 +23,15 @@
 #include <glib.h>
 #endif
 
-#include "util.h"
-#include "macro.h"
 #include "sd-bus.h"
+
+#include "bus-dump.h"
 #include "bus-gvariant.h"
-#include "bus-util.h"
 #include "bus-internal.h"
 #include "bus-message.h"
-#include "bus-dump.h"
+#include "bus-util.h"
+#include "macro.h"
+#include "util.h"
 
 static void test_bus_gvariant_is_fixed_size(void) {
         assert_se(bus_gvariant_is_fixed_size("") > 0);

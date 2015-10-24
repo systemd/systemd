@@ -87,19 +87,20 @@
  *   ID_NET_NAME_PATH=enp0s29u1u2
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdarg.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <string.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <net/if.h>
 #include <net/if_arp.h>
+#include <stdarg.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 #include <linux/pci_regs.h>
 
-#include "udev.h"
 #include "fileio.h"
+#include "string-util.h"
+#include "udev.h"
 
 enum netname_type{
         NET_UNDEF,

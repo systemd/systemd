@@ -20,11 +20,12 @@
 ***/
 
 #include <fcntl.h>
-#include <libudev.h>
 #include <linux/input.h>
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
+
+#include "libudev.h"
 
 #include "util.h"
 #include "missing.h"

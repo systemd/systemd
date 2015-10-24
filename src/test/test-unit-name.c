@@ -21,21 +21,22 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <pwd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <pwd.h>
 
+#include "hostname-util.h"
+#include "macro.h"
 #include "manager.h"
-#include "unit.h"
+#include "path-util.h"
+#include "specifier.h"
+#include "string-util.h"
+#include "test-helper.h"
 #include "unit-name.h"
 #include "unit-printf.h"
-#include "specifier.h"
+#include "unit.h"
 #include "util.h"
-#include "macro.h"
-#include "path-util.h"
-#include "test-helper.h"
-#include "hostname-util.h"
 
 static void test_unit_name_is_valid(void) {
         assert_se(unit_name_is_valid("foo.service", UNIT_NAME_ANY));
