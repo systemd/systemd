@@ -22,7 +22,9 @@
 #include <stdlib.h>
 #include <errno.h>
 
-#include "systemd/sd-login.h"
+#include "sd-login.h"
+
+#include "login-util.h"
 #include "logind-acl.h"
 #include "udev.h"
 #include "util.h"

@@ -617,10 +617,6 @@ static inline unsigned log2u_round_up(unsigned x) {
         return log2u(x - 1) + 1;
 }
 
-static inline bool logind_running(void) {
-        return access("/run/systemd/seats/", F_OK) >= 0;
-}
-
 #define DECIMAL_STR_WIDTH(x)                            \
         ({                                              \
                 typeof(x) _x_ = (x);                    \
