@@ -21,6 +21,7 @@
 
 #include <unistd.h>
 #include <stddef.h>
+#include <string.h>
 
 #ifdef HAVE_SELINUX
 #include <selinux/selinux.h>
@@ -38,6 +39,7 @@
 #include "journald-kmsg.h"
 #include "journald-console.h"
 #include "journald-wall.h"
+#include "util.h"
 
 #define STDOUT_STREAMS_MAX 4096
 
@@ -208,7 +210,7 @@ fail:
         return log_error_errno(r, "Failed to save stream data %s: %m", s->state_file);
 }
 
-static int stdout_stream_log(StdoutStream *s, const char *p) {
+static int stdout_stream_log(StdoutStream *s, const char *p, char *end) {
         struct iovec iovec[N_IOVEC_META_FIELDS + 5];
         int priority;
         char syslog_priority[] = "PRIORITY=\0";
@@ -216,17 +218,27 @@ static int stdout_stream_log(StdoutStream *s, const char *p) {
         _cleanup_free_ char *message = NULL, *syslog_identifier = NULL;
         unsigned n = 0;
         size_t label_len;
+        char message_prefix[] = "MESSAGE=";
+        size_t message_prefix_len = sizeof(message_prefix) - 1;
+        size_t message_value_len;
+        size_t message_len;
 
         assert(s);
         assert(p);
-
-        if (isempty(p))
-                return 0;
 
         priority = s->priority;
 
         if (s->level_prefix)
                 syslog_parse_priority(&p, &priority, false);
+
+        while (end > p) {
+                if (!end[-1] || !strchr(WHITESPACE, end[-1]))
+                        break;
+                end--;
+        }
+        if (end - p == 0)
+                return 0;
+        *end = 0;
 
         if (s->forward_to_syslog || s->server->forward_to_syslog)
                 server_forward_syslog(s->server, syslog_fixup_facility(priority), s->identifier, p, &s->ucred, NULL);
@@ -256,22 +268,27 @@ static int stdout_stream_log(StdoutStream *s, const char *p) {
                         IOVEC_SET_STRING(iovec[n++], syslog_identifier);
         }
 
-        message = strappend("MESSAGE=", p);
-        if (message)
-                IOVEC_SET_STRING(iovec[n++], message);
+        message_value_len = end - p;
+        message_len = message_prefix_len + message_value_len;
+        message = new(char, message_len);
+        if (message) {
+                memcpy(message, message_prefix, message_prefix_len);
+                memcpy(message+message_prefix_len, p, message_value_len);
+                iovec[n].iov_base = message;
+                iovec[n].iov_len = message_len;
+                n++;
+        }
 
         label_len = s->label ? strlen(s->label) : 0;
         server_dispatch_message(s->server, iovec, n, ELEMENTSOF(iovec), &s->ucred, NULL, s->label, label_len, s->unit_id, priority, 0);
         return 0;
 }
 
-static int stdout_stream_line(StdoutStream *s, char *p) {
+static int stdout_stream_line(StdoutStream *s, const char *p, char *end) {
         int r;
 
         assert(s);
         assert(p);
-
-        p = strstrip(p);
 
         switch (s->state) {
 
@@ -359,7 +376,7 @@ static int stdout_stream_line(StdoutStream *s, char *p) {
                 return 0;
 
         case STDOUT_STREAM_RUNNING:
-                return stdout_stream_log(s, p);
+                return stdout_stream_log(s, p, end);
         }
 
         assert_not_reached("Unknown stream state");
@@ -388,8 +405,7 @@ static int stdout_stream_scan(StdoutStream *s, bool force_flush) {
                         break;
 
                 *end = 0;
-
-                r = stdout_stream_line(s, p);
+                r = stdout_stream_line(s, p, end);
                 if (r < 0)
                         return r;
 
@@ -399,7 +415,7 @@ static int stdout_stream_scan(StdoutStream *s, bool force_flush) {
 
         if (force_flush && remaining > 0) {
                 p[remaining] = 0;
-                r = stdout_stream_line(s, p);
+                r = stdout_stream_line(s, p, p + remaining);
                 if (r < 0)
                         return r;
 
