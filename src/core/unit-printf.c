@@ -63,10 +63,7 @@ static int specifier_instance_unescaped(char specifier, void *data, void *userda
 
         assert(u);
 
-        if (!u->instance)
-                return -EINVAL;
-
-        return unit_name_unescape(u->instance, ret);
+        return unit_name_unescape(strempty(u->instance), ret);
 }
 
 static int specifier_filename(char specifier, void *data, void *userdata, char **ret) {
@@ -128,6 +125,8 @@ static int specifier_cgroup_slice(char specifier, void *data, void *userdata, ch
                         n = unit_default_cgroup_path(slice);
         } else
                 n = strdup(u->manager->cgroup_root);
+        if (!n)
+                return -ENOMEM;
 
         *ret = n;
         return 0;
@@ -166,7 +165,7 @@ static int specifier_user_name(char specifier, void *data, void *userdata, char 
 
         c = unit_get_exec_context(u);
         if (!c)
-                return -EINVAL;
+                return -EOPNOTSUPP;
 
         if (u->manager->running_as == MANAGER_SYSTEM) {
 
