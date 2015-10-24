@@ -34,6 +34,7 @@
 #include "event-util.h"
 #include "random-util.h"
 #include "socket-util.h"
+#include "sparse-endian.h"
 #include "string-util.h"
 #include "utf8.h"
 #include "util.h"

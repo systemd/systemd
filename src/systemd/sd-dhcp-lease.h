@@ -23,8 +23,14 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <netinet/in.h>
+#include <inttypes.h>
 #include <net/ethernet.h>
+#include <netinet/in.h>
+#include <sys/types.h>
+
+#include "_sd-common.h"
+
+_SD_BEGIN_DECLARATIONS;
 
 typedef struct sd_dhcp_lease sd_dhcp_lease;
 struct sd_dhcp_route;
@@ -51,5 +57,7 @@ int sd_dhcp_lease_get_routes(sd_dhcp_lease *lease, struct sd_dhcp_route **routes
 int sd_dhcp_lease_get_vendor_specific(sd_dhcp_lease *lease, const void **data, size_t *data_len);
 int sd_dhcp_lease_get_client_id(sd_dhcp_lease *lease, const void **client_id, size_t *client_id_len);
 int sd_dhcp_lease_get_timezone(sd_dhcp_lease *lease, const char **timezone);
+
+_SD_END_DECLARATIONS;
 
 #endif

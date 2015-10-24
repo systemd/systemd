@@ -468,7 +468,7 @@ int sd_ipv4acd_set_address(sd_ipv4acd *ll, const struct in_addr *address){
         return 0;
 }
 
-bool sd_ipv4acd_is_running(sd_ipv4acd *ll) {
+int sd_ipv4acd_is_running(sd_ipv4acd *ll) {
         assert_return(ll, false);
 
         return ll->state != IPV4ACD_STATE_INIT;

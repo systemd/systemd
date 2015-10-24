@@ -22,11 +22,17 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <netinet/in.h>
+#include <inttypes.h>
 #include <net/ethernet.h>
+#include <netinet/in.h>
+#include <sys/types.h>
 
 #include "sd-event.h"
 #include "sd-dhcp-lease.h"
+
+#include "_sd-common.h"
+
+_SD_BEGIN_DECLARATIONS;
 
 enum {
         SD_DHCP_CLIENT_EVENT_STOP               = 0,
@@ -71,5 +77,7 @@ int sd_dhcp_client_new(sd_dhcp_client **ret);
 int sd_dhcp_client_attach_event(sd_dhcp_client *client, sd_event *event, int priority);
 int sd_dhcp_client_detach_event(sd_dhcp_client *client);
 sd_event *sd_dhcp_client_get_event(sd_dhcp_client *client);
+
+_SD_END_DECLARATIONS;
 
 #endif

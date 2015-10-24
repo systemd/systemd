@@ -206,9 +206,8 @@ int sd_dhcp6_client_set_duid(
         return 0;
 }
 
-int sd_dhcp6_client_set_information_request(sd_dhcp6_client *client, bool enabled) {
+int sd_dhcp6_client_set_information_request(sd_dhcp6_client *client, int enabled) {
         assert_return(client, -EINVAL);
-
         assert_return(IN_SET(client->state, DHCP6_STATE_STOPPED), -EBUSY);
 
         client->information_request = enabled;
@@ -216,7 +215,7 @@ int sd_dhcp6_client_set_information_request(sd_dhcp6_client *client, bool enable
         return 0;
 }
 
-int sd_dhcp6_client_get_information_request(sd_dhcp6_client *client, bool *enabled) {
+int sd_dhcp6_client_get_information_request(sd_dhcp6_client *client, int *enabled) {
         assert_return(client, -EINVAL);
         assert_return(enabled, -EINVAL);
 

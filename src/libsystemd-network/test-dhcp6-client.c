@@ -700,7 +700,7 @@ int dhcp6_network_bind_udp_socket(int index, struct in6_addr *local_address) {
 static int test_client_solicit(sd_event *e) {
         sd_dhcp6_client *client;
         usec_t time_now = now(clock_boottime_or_monotonic());
-        bool val = true;
+        int val = true;
 
         if (verbose)
                 printf("* %s\n", __FUNCTION__);

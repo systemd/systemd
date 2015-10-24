@@ -22,12 +22,13 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/types.h>
-#include <sys/socket.h>
+#include <inttypes.h>
 #include <netdb.h>
+#include <sys/socket.h>
+#include <sys/types.h>
 
-#include "_sd-common.h"
 #include "sd-event.h"
+#include "_sd-common.h"
 
 _SD_BEGIN_DECLARATIONS;
 

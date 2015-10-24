@@ -22,12 +22,16 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <inttypes.h>
 #include <net/ethernet.h>
-#include <stdbool.h>
+#include <sys/types.h>
 
 #include "sd-event.h"
-
 #include "sd-dhcp6-lease.h"
+
+#include "_sd-common.h"
+
+_SD_BEGIN_DECLARATIONS;
 
 enum {
         SD_DHCP6_CLIENT_EVENT_STOP                      = 0,
@@ -49,10 +53,8 @@ int sd_dhcp6_client_set_mac(sd_dhcp6_client *client, const uint8_t *addr,
                             size_t addr_len, uint16_t arp_type);
 int sd_dhcp6_client_set_duid(sd_dhcp6_client *client, uint16_t type, uint8_t *duid,
                              size_t duid_len);
-int sd_dhcp6_client_set_information_request(sd_dhcp6_client *client,
-                                            bool enabled);
-int sd_dhcp6_client_get_information_request(sd_dhcp6_client *client,
-                                            bool *enabled);
+int sd_dhcp6_client_set_information_request(sd_dhcp6_client *client, int enabled);
+int sd_dhcp6_client_get_information_request(sd_dhcp6_client *client, int *enabled);
 int sd_dhcp6_client_set_request_option(sd_dhcp6_client *client,
                                        uint16_t option);
 
@@ -67,5 +69,7 @@ sd_event *sd_dhcp6_client_get_event(sd_dhcp6_client *client);
 sd_dhcp6_client *sd_dhcp6_client_ref(sd_dhcp6_client *client);
 sd_dhcp6_client *sd_dhcp6_client_unref(sd_dhcp6_client *client);
 int sd_dhcp6_client_new(sd_dhcp6_client **ret);
+
+_SD_END_DECLARATIONS;
 
 #endif

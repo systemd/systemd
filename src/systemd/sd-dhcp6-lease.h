@@ -23,7 +23,12 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <inttypes.h>
 #include <netinet/in.h>
+
+#include "_sd-common.h"
+
+_SD_BEGIN_DECLARATIONS;
 
 typedef struct sd_dhcp6_lease sd_dhcp6_lease;
 
@@ -41,5 +46,7 @@ int sd_dhcp6_lease_get_ntp_fqdn(sd_dhcp6_lease *lease, char ***ntp_fqdn);
 
 sd_dhcp6_lease *sd_dhcp6_lease_ref(sd_dhcp6_lease *lease);
 sd_dhcp6_lease *sd_dhcp6_lease_unref(sd_dhcp6_lease *lease);
+
+_SD_END_DECLARATIONS;
 
 #endif

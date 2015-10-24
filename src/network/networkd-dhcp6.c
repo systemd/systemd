@@ -166,8 +166,7 @@ static void dhcp6_handler(sd_dhcp6_client *client, int event, void *userdata) {
 }
 
 int dhcp6_configure(Link *link, bool inf_req) {
-        int r;
-        bool information_request;
+        int r, information_request;
 
         assert_return(link, -EINVAL);
 
