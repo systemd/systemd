@@ -39,6 +39,7 @@
 #include "exit-status.h"
 #include "fstab-util.h"
 #include "formats-util.h"
+#include "smack-util.h"
 
 #define RETRY_UMOUNT_MAX 32
 
@@ -202,6 +203,7 @@ static void mount_done(Unit *u) {
         assert(m);
 
         m->where = mfree(m->where);
+        m->smack_fs_root = mfree(m->smack_fs_root);
 
         mount_parameters_done(&m->parameters_proc_self_mountinfo);
         mount_parameters_done(&m->parameters_fragment);
@@ -666,7 +668,8 @@ static void mount_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sOptions: %s\n"
                 "%sFrom /proc/self/mountinfo: %s\n"
                 "%sFrom fragment: %s\n"
-                "%sDirectoryMode: %04o\n",
+                "%sDirectoryMode: %04o\n"
+                "%sSmackFileSystemRoot: %s\n",
                 prefix, mount_state_to_string(m->state),
                 prefix, mount_result_to_string(m->result),
                 prefix, m->where,
@@ -675,7 +678,8 @@ static void mount_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, p ? strna(p->options) : "n/a",
                 prefix, yes_no(m->from_proc_self_mountinfo),
                 prefix, yes_no(m->from_fragment),
-                prefix, m->directory_mode);
+                prefix, m->directory_mode,
+                prefix, strna(m->smack_fs_root));
 
         if (m->control_pid > 0)
                 fprintf(f,
@@ -852,6 +856,26 @@ fail:
         mount_enter_mounted(m, MOUNT_FAILURE_RESOURCES);
 }
 
+static int mount_get_opts(Mount *m, char **_opts) {
+        int r;
+        char *o = NULL, *opts = NULL;
+
+        r = fstab_filter_options(m->parameters_fragment.options,
+                                 "nofail\0" "noauto\0" "auto\0", NULL, NULL, &o);
+        if (r < 0)
+                return r;
+
+        if (mac_smack_use() && m->smack_fs_root) {
+                opts = strjoin(!isempty(o) ? strjoin(o, ",", NULL) : "",
+                               "smackfsroot=", m->smack_fs_root, NULL);
+                free(o);
+        } else
+                opts = o;
+
+        *_opts = opts;
+        return 0;
+}
+
 static void mount_enter_mounting(Mount *m) {
         int r;
         MountParameters *p;
@@ -877,8 +901,7 @@ static void mount_enter_mounting(Mount *m) {
         if (m->from_fragment) {
                 _cleanup_free_ char *opts = NULL;
 
-                r = fstab_filter_options(m->parameters_fragment.options,
-                                         "nofail\0" "noauto\0" "auto\0", NULL, NULL, &opts);
+                r = mount_get_opts(m, &opts);
                 if (r < 0)
                         goto fail;
 
