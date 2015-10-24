@@ -1057,7 +1057,7 @@ static int journal_file_append_data(
         r = journal_file_find_data_object_with_hash(f, data, size, hash, &o, &p);
         if (r < 0)
                 return r;
-        else if (r > 0) {
+        if (r > 0) {
 
                 if (ret)
                         *ret = o;

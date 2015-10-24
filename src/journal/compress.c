@@ -57,10 +57,11 @@ int compress_blob_xz(const void *src, uint64_t src_size, void *dst, size_t *dst_
 #ifdef HAVE_XZ
         static const lzma_options_lzma opt = {
                 1u << 20u, NULL, 0, LZMA_LC_DEFAULT, LZMA_LP_DEFAULT,
-                LZMA_PB_DEFAULT, LZMA_MODE_FAST, 128, LZMA_MF_HC3, 4};
-        static const lzma_filter filters[2] = {
-                {LZMA_FILTER_LZMA2, (lzma_options_lzma*) &opt},
-                {LZMA_VLI_UNKNOWN, NULL}
+                LZMA_PB_DEFAULT, LZMA_MODE_FAST, 128, LZMA_MF_HC3, 4
+        };
+        static const lzma_filter filters[] = {
+                { LZMA_FILTER_LZMA2, (lzma_options_lzma*) &opt },
+                { LZMA_VLI_UNKNOWN, NULL }
         };
         lzma_ret ret;
         size_t out_pos = 0;
