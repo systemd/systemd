@@ -1046,7 +1046,7 @@ static int journal_file_append_data(
         uint64_t hash, p;
         uint64_t osize;
         Object *o;
-        int r, compression = 0;
+        int r, compression = -1;
         const void *eq;
 
         assert(f);
@@ -1082,7 +1082,9 @@ static int journal_file_append_data(
 
                 compression = compress_blob(data, size, o->data.payload, &rsize);
 
-                if (compression) {
+                if (compression >= 0) {
+                        assert(rsize != 0);
+
                         o->object.size = htole64(offsetof(Object, data.payload) + rsize);
                         o->object.flags |= compression;
 
@@ -1092,7 +1094,7 @@ static int journal_file_append_data(
         }
 #endif
 
-        if (!compression && size > 0)
+        if (compression < 0 && size > 0)
                 memcpy(o->data.payload, data, size);
 
         r = journal_file_link_data(f, o, p, hash);
