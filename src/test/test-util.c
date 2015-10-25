@@ -35,7 +35,9 @@
 #include "cpu-set-util.h"
 #include "def.h"
 #include "escape.h"
+#include "fd-util.h"
 #include "fileio.h"
+#include "io-util.h"
 #include "mkdir.h"
 #include "process-util.h"
 #include "rm-rf.h"
@@ -44,7 +46,6 @@
 #include "strv.h"
 #include "util.h"
 #include "virt.h"
-#include "fd-util.h"
 
 static void test_streq_ptr(void) {
         assert_se(streq_ptr(NULL, NULL));

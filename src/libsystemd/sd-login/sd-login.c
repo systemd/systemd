@@ -33,6 +33,7 @@
 #include "fileio.h"
 #include "formats-util.h"
 #include "hostname-util.h"
+#include "io-util.h"
 #include "login-util.h"
 #include "macro.h"
 #include "string-util.h"

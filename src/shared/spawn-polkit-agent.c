@@ -25,11 +25,12 @@
 #include <errno.h>
 #include <poll.h>
 
+#include "fd-util.h"
+#include "io-util.h"
 #include "log.h"
-#include "util.h"
 #include "process-util.h"
 #include "spawn-polkit-agent.h"
-#include "fd-util.h"
+#include "util.h"
 
 #ifdef ENABLE_POLKIT
 static pid_t agent_pid = 0;

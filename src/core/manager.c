@@ -55,6 +55,7 @@
 #include "exit-status.h"
 #include "fd-util.h"
 #include "hashmap.h"
+#include "io-util.h"
 #include "locale-setup.h"
 #include "log.h"
 #include "macro.h"

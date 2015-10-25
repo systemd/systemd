@@ -54,6 +54,7 @@
 #include "hostname-util.h"
 #include "initreq.h"
 #include "install.h"
+#include "io-util.h"
 #include "list.h"
 #include "log.h"
 #include "logs-show.h"

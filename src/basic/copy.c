@@ -25,6 +25,7 @@
 #include "btrfs-util.h"
 #include "copy.h"
 #include "fd-util.h"
+#include "io-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "util.h"

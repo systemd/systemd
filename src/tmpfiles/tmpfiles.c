@@ -46,6 +46,7 @@
 #include "escape.h"
 #include "fd-util.h"
 #include "formats-util.h"
+#include "io-util.h"
 #include "label.h"
 #include "log.h"
 #include "macro.h"

@@ -46,6 +46,7 @@
 #include "fileio.h"
 #include "fsprg.h"
 #include "hostname-util.h"
+#include "io-util.h"
 #include "journal-def.h"
 #include "journal-internal.h"
 #include "journal-qrcode.h"

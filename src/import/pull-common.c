@@ -26,6 +26,7 @@
 #include "copy.h"
 #include "escape.h"
 #include "fd-util.h"
+#include "io-util.h"
 #include "process-util.h"
 #include "pull-common.h"
 #include "pull-job.h"

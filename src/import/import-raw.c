@@ -31,6 +31,7 @@
 #include "import-common.h"
 #include "import-compress.h"
 #include "import-raw.h"
+#include "io-util.h"
 #include "machine-pool.h"
 #include "mkdir.h"
 #include "path-util.h"

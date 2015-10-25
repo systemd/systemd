@@ -33,6 +33,7 @@
 
 #include "fd-util.h"
 #include "fileio.h"
+#include "io-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "string-util.h"

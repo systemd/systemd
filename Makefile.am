@@ -781,6 +781,8 @@ libbasic_la_SOURCES = \
 	src/basic/refcnt.h \
 	src/basic/util.c \
 	src/basic/util.h \
+	src/basic/io-util.c \
+	src/basic/io-util.h \
 	src/basic/string-util.c \
 	src/basic/string-util.h \
 	src/basic/fd-util.c \

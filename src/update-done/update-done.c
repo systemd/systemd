@@ -20,6 +20,7 @@
 ***/
 
 #include "fd-util.h"
+#include "io-util.h"
 #include "selinux-util.h"
 #include "util.h"
 

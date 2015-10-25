@@ -36,6 +36,7 @@
 #include "conf-parser.h"
 #include "def.h"
 #include "fd-util.h"
+#include "io-util.h"
 #include "mkdir.h"
 #include "path-util.h"
 #include "process-util.h"

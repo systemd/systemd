@@ -34,6 +34,7 @@
 #include "sd-resolve.h"
 
 #include "fd-util.h"
+#include "io-util.h"
 #include "list.h"
 #include "missing.h"
 #include "resolve-util.h"

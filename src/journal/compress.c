@@ -35,6 +35,7 @@
 
 #include "compress.h"
 #include "fd-util.h"
+#include "io-util.h"
 #include "journal-def.h"
 #include "macro.h"
 #include "sparse-endian.h"

@@ -29,6 +29,7 @@
 #include <unistd.h>
 
 #include "sd-journal.h"
+
 #include "catalog.h"
 #include "compress.h"
 #include "fd-util.h"
@@ -36,6 +37,7 @@
 #include "formats-util.h"
 #include "hashmap.h"
 #include "hostname-util.h"
+#include "io-util.h"
 #include "journal-def.h"
 #include "journal-file.h"
 #include "journal-internal.h"

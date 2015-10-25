@@ -237,13 +237,7 @@ ssize_t string_table_lookup(const char * const *table, size_t len, const char *k
 
 bool fstype_is_network(const char *fstype);
 
-int flush_fd(int fd);
-
 int fopen_temporary(const char *path, FILE **_f, char **_temp_path);
-
-ssize_t loop_read(int fd, void *buf, size_t nbytes, bool do_poll);
-int loop_read_exact(int fd, void *buf, size_t nbytes, bool do_poll);
-int loop_write(int fd, const void *buf, size_t nbytes, bool do_poll);
 
 bool is_device_path(const char *path);
 
@@ -273,8 +267,6 @@ int path_check_fstype(const char *path, statfs_f_type_t magic_value);
 
 bool is_temporary_fs(const struct statfs *s) _pure_;
 int fd_is_temporary_fs(int fd);
-
-int pipe_eof(int fd);
 
 #define xsprintf(buf, fmt, ...) \
         assert_message_se((size_t) snprintf(buf, ELEMENTSOF(buf), fmt, __VA_ARGS__) < ELEMENTSOF(buf), \
@@ -369,8 +361,6 @@ bool kexec_loaded(void);
 int prot_from_flags(int flags) _const_;
 
 char *format_bytes(char *buf, size_t l, uint64_t t);
-
-int fd_wait_for_event(int fd, int event, usec_t timeout);
 
 void* memdup(const void *p, size_t l) _alloc_(2);
 
@@ -647,8 +637,6 @@ int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int
 int getpeercred(int fd, struct ucred *ucred);
 int getpeersec(int fd, char **ret);
 
-int writev_safe(int fd, const struct iovec *w, int j);
-
 int mkostemp_safe(char *pattern, int flags);
 int open_tmpfile(const char *path, int flags);
 
@@ -720,8 +708,6 @@ int read_attr_fd(int fd, unsigned *ret);
 int read_attr_path(const char *p, unsigned *ret);
 
 #define RLIMIT_MAKE_CONST(lim) ((struct rlimit) { lim, lim })
-
-ssize_t sparse_write(int fd, const void *p, size_t sz, size_t run_length);
 
 void sigkill_wait(pid_t *pid);
 #define _cleanup_sigkill_wait_ _cleanup_(sigkill_wait)
