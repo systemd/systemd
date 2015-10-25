@@ -324,7 +324,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>SmackFileSystemRoot=</varname></term>
+        <term><varname>SmackFileSystemRootLabel=</varname></term>
         <listitem><para>Takes a string for the smack label.
         This option specifies the label to assign the root of the
         file system if it lacks the Smack extended attribute.
