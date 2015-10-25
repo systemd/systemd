@@ -39,6 +39,7 @@ _arguments \
                 TTYPath= SyslogIdentifier= SyslogLevelPrefix= SyslogLevel= \
                 SyslogFacility= TimerSlackNSec= OOMScoreAdjust= ReadWriteDirectories= \
                 ReadOnlyDirectories= InaccessibleDirectories= EnvironmentFile= \
+                ProtectSystem= \
                 ))' \
         '--description=[Description for unit]:description' \
         '--slice=[Run in the specified slice]:slices:__slices' \

@@ -85,7 +85,8 @@ _systemd_run() {
                          PrivateNetwork= NoNewPrivileges= WorkingDirectory= RootDirectory=
                          TTYPath= SyslogIdentifier= SyslogLevelPrefix= SyslogLevel=
                          SyslogFacility= TimerSlackNSec= OOMScoreAdjust= ReadWriteDirectories=
-                         ReadOnlyDirectories= InaccessibleDirectories= EnvironmentFile='
+                         ReadOnlyDirectories= InaccessibleDirectories= EnvironmentFile=
+                         ProtectSystem='
 
             COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
             return 0

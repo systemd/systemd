@@ -1507,7 +1507,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                               "UtmpIdentifier", "UtmpMode", "PAMName", "TTYPath",
                               "StandardInput", "StandardOutput", "StandardError",
                               "Description", "Slice", "Type", "WorkingDirectory",
-                              "RootDirectory", "SyslogIdentifier"))
+                              "RootDirectory", "SyslogIdentifier", "ProtectSystem"))
                 r = sd_bus_message_append(m, "v", "s", eq);
 
         else if (streq(field, "SyslogLevel")) {
