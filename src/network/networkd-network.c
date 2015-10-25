@@ -361,7 +361,7 @@ int network_apply(Manager *manager, Network *network, Link *link) {
                 if (r < 0)
                         return r;
 
-                r = inet_pton(AF_INET, "169.254.0.0", &route->dst_addr.in);
+                r = inet_pton(AF_INET, "169.254.0.0", &route->dst.in);
                 if (r == 0)
                         return -EINVAL;
                 if (r < 0)

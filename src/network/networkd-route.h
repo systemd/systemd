@@ -40,10 +40,10 @@ struct Route {
         unsigned char priority;
         unsigned char table;
 
-        union in_addr_union in_addr;
-        union in_addr_union dst_addr;
-        union in_addr_union src_addr;
-        union in_addr_union prefsrc_addr;
+        union in_addr_union gw;
+        union in_addr_union dst;
+        union in_addr_union src;
+        union in_addr_union prefsrc;
 
         LIST_FIELDS(Route, routes);
 };
