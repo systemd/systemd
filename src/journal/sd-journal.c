@@ -1380,8 +1380,9 @@ static int add_directory(sd_journal *j, const char *prefix, const char *dirname)
                     dirent_is_file_with_suffix(de, ".journal~")) {
                         r = add_file(j, m->path, de->d_name);
                         if (r < 0) {
-                                log_debug_errno(r, "Failed to add file %s/%s: %m",
-                                                m->path, de->d_name);
+                                log_full_errno(r == -EACCES ? LOG_DEBUG : LOG_WARNING,
+                                               r, "Failed to add file %s/%s: %m",
+                                               m->path, de->d_name);
                                 r = set_put_error(j, r);
                                 if (r < 0)
                                         return r;
@@ -1470,8 +1471,9 @@ static int add_root_directory(sd_journal *j, const char *p) {
                     dirent_is_file_with_suffix(de, ".journal~")) {
                         r = add_file(j, m->path, de->d_name);
                         if (r < 0) {
-                                log_debug_errno(r, "Failed to add file %s/%s: %m",
-                                                m->path, de->d_name);
+                                log_full_errno(r == -EACCES ? LOG_DEBUG : LOG_WARNING,
+                                               r, "Failed to add file %s/%s: %m",
+                                               m->path, de->d_name);
                                 r = set_put_error(j, r);
                                 if (r < 0)
                                         return r;
@@ -2130,8 +2132,9 @@ static void process_inotify_event(sd_journal *j, struct inotify_event *e) {
                         if (e->mask & (IN_CREATE|IN_MOVED_TO|IN_MODIFY|IN_ATTRIB)) {
                                 r = add_file(j, d->path, e->name);
                                 if (r < 0) {
-                                        log_debug_errno(r, "Failed to add file %s/%s: %m",
-                                                        d->path, e->name);
+                                        log_full_errno(r == -EACCES ? LOG_DEBUG : LOG_WARNING,
+                                                       r, "Failed to add file %s/%s: %m",
+                                                       d->path, e->name);
                                         set_put_error(j, r);
                                 }
 

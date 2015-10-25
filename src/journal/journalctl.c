@@ -1692,10 +1692,15 @@ static int access_check_var_log_journal(sd_journal *j) {
         return 1;
 }
 
+/* Check for errors when opening files and possibly emit some hints.
+ * Only if *no* files were opened, but there were errors, fail.
+ * If it looks like ACLs might be missing, emit a hint.
+ * When failing, if there were errors different then EACCES, warn
+ * about one of those, and about the EACCES error otherwise.
+ */
 static int access_check(sd_journal *j) {
         Iterator it;
         void *code;
-        int r = 0;
 
         assert(j);
 
@@ -1706,12 +1711,11 @@ static int access_check(sd_journal *j) {
                 return 0;
         }
 
-        if (set_contains(j->errors, INT_TO_PTR(-EACCES))) {
+        if (set_contains(j->errors, INT_TO_PTR(-EACCES)))
                 (void) access_check_var_log_journal(j);
 
-                if (ordered_hashmap_isempty(j->files))
-                        r = log_error_errno(EACCES, "No journal files were opened due to insufficient permissions.");
-        }
+        if (!ordered_hashmap_isempty(j->files))
+                return 0;
 
         SET_FOREACH(code, j->errors, it) {
                 int err;
@@ -1722,12 +1726,11 @@ static int access_check(sd_journal *j) {
                 if (err == EACCES)
                         continue;
 
-                log_warning_errno(err, "Error was encountered while opening journal files: %m");
-                if (r == 0)
-                        r = -err;
+                return log_error_errno(err, "Error was encountered while opening journal files: %m");
         }
 
-        return r;
+
+        return log_error_errno(EACCES, "No journal files were opened due to insufficient permissions.");
 }
 
 static int flush_to_var(void) {
