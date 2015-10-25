@@ -26,6 +26,7 @@
 #include "networkd-route.h"
 #include "networkd.h"
 #include "parse-util.h"
+#include "set.h"
 #include "string-util.h"
 #include "util.h"
 
@@ -93,6 +94,11 @@ void route_free(Route *route) {
                 if (route->section)
                         hashmap_remove(route->network->routes_by_section,
                                        UINT_TO_PTR(route->section));
+        }
+
+        if (route->link) {
+                set_remove(route->link->routes, route);
+                set_remove(route->link->routes_foreign, route);
         }
 
         free(route);
@@ -165,6 +171,162 @@ static const struct hash_ops route_hash_ops = {
         .hash = route_hash_func,
         .compare = route_compare_func
 };
+
+int route_get(Link *link,
+              int family,
+              union in_addr_union *dst,
+              unsigned char dst_prefixlen,
+              unsigned char tos,
+              uint32_t priority,
+              unsigned char table,
+              Route **ret) {
+        Route route = {
+                .family = family,
+                .dst_prefixlen = dst_prefixlen,
+                .tos = tos,
+                .priority = priority,
+                .table = table,
+        }, *existing;
+
+        assert(link);
+        assert(dst);
+        assert(ret);
+
+        route.dst = *dst;
+
+        existing = set_get(link->routes, &route);
+        if (existing) {
+                *ret = existing;
+                return 1;
+        } else {
+                existing = set_get(link->routes_foreign, &route);
+                if (!existing)
+                        return -ENOENT;
+        }
+
+        *ret = existing;
+
+        return 0;
+}
+
+static int route_add_internal(Link *link, Set **routes,
+                              int family,
+                              union in_addr_union *dst,
+                              unsigned char dst_prefixlen,
+                              unsigned char tos,
+                              uint32_t priority,
+                              unsigned char table, Route **ret) {
+        _cleanup_route_free_ Route *route = NULL;
+        int r;
+
+        assert(link);
+        assert(routes);
+        assert(dst);
+
+        r = route_new(&route);
+        if (r < 0)
+                return r;
+
+        route->family = family;
+        route->dst = *dst;
+        route->dst_prefixlen = dst_prefixlen;
+        route->tos = tos;
+        route->priority = priority;
+        route->table = table;
+
+        r = set_ensure_allocated(routes, &route_hash_ops);
+        if (r < 0)
+                return r;
+
+        r = set_put(*routes, route);
+        if (r < 0)
+                return r;
+
+        route->link = link;
+
+        if (ret)
+                *ret = route;
+
+        route = NULL;
+
+        return 0;
+}
+
+int route_add_foreign(Link *link,
+                      int family,
+                      union in_addr_union *dst,
+                      unsigned char dst_prefixlen,
+                      unsigned char tos,
+                      uint32_t priority,
+                      unsigned char table, Route **ret) {
+        return route_add_internal(link, &link->routes_foreign, family, dst, dst_prefixlen, tos, priority, table, ret);
+}
+
+int route_add(Link *link,
+              int family,
+              union in_addr_union *dst,
+              unsigned char dst_prefixlen,
+              unsigned char tos,
+              uint32_t priority,
+              unsigned char table, Route **ret) {
+        Route *route;
+        int r;
+
+        r = route_get(link, family, dst, dst_prefixlen, tos, priority, table, &route);
+        if (r == -ENOENT) {
+                /* Route does not exist, create a new one */
+                r = route_add_internal(link, &link->routes, family, dst, dst_prefixlen, tos, priority, table, &route);
+                if (r < 0)
+                        return r;
+        } else if (r == 0) {
+                /* Take over a foreign route */
+                r = set_ensure_allocated(&link->routes, &route_hash_ops);
+                if (r < 0)
+                        return r;
+
+                r = set_put(link->routes, route);
+                if (r < 0)
+                        return r;
+
+                set_remove(link->routes_foreign, route);
+        } else if (r == 1) {
+                /* Route exists, do nothing */
+                ;
+        } else
+                return r;
+
+        *ret = route;
+
+        return 0;
+}
+
+int route_update(Route *route,
+                 union in_addr_union *src,
+                 unsigned char src_prefixlen,
+                 union in_addr_union *gw,
+                 union in_addr_union *prefsrc,
+                 unsigned char scope,
+                 unsigned char protocol) {
+        assert(route);
+        assert(src);
+        assert(gw);
+        assert(prefsrc);
+
+        route->src = *src;
+        route->src_prefixlen = src_prefixlen;
+        route->gw = *gw;
+        route->prefsrc = *prefsrc;
+        route->scope = scope;
+        route->protocol = protocol;
+
+        return 0;
+}
+
+void route_drop(Route *route) {
+        assert(route);
+
+        route_free(route);
+}
 
 int route_remove(Route *route, Link *link,
                sd_netlink_message_handler_t callback) {
@@ -326,6 +488,10 @@ int route_configure(Route *route, Link *link,
                 return log_error_errno(r, "Could not send rtnetlink message: %m");
 
         link_ref(link);
+
+        r = route_add(link, route->family, &route->dst, route->dst_prefixlen, route->tos, route->priority, route->table, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Could not add route: %m");
 
         return 0;
 }
