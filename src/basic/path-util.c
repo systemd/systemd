@@ -428,7 +428,7 @@ int path_compare(const char *a, const char *b) {
          * Which one is sorted before the other does not really matter.
          * Here a relative path is ordered before an absolute path. */
         d = (a[0] == '/') - (b[0] == '/');
-        if (d)
+        if (d != 0)
                 return d;
 
         for (;;) {
@@ -451,12 +451,12 @@ int path_compare(const char *a, const char *b) {
 
                 /* Alphabetical sort: "/foo/aaa" before "/foo/b" */
                 d = memcmp(a, b, MIN(j, k));
-                if (d)
+                if (d != 0)
                         return (d > 0) - (d < 0); /* sign of d */
 
                 /* Sort "/foo/a" before "/foo/aaa" */
                 d = (j > k) - (j < k);  /* sign of (j - k) */
-                if (d)
+                if (d != 0)
                         return d;
 
                 a += j;
