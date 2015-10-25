@@ -2135,9 +2135,11 @@ int link_initialized(Link *link, struct udev_device *device) {
 static int link_load(Link *link) {
         _cleanup_free_ char *network_file = NULL,
                             *addresses = NULL,
+                            *routes = NULL,
                             *dhcp4_address = NULL,
                             *ipv4ll_address = NULL;
         union in_addr_union address;
+        union in_addr_union route_dst;
         int r;
 
         assert(link);
@@ -2145,6 +2147,7 @@ static int link_load(Link *link) {
         r = parse_env_file(link->state_file, NEWLINE,
                            "NETWORK_FILE", &network_file,
                            "ADDRESSES", &addresses,
+                           "ROUTES", &routes,
                            "DHCP4_ADDRESS", &dhcp4_address,
                            "IPV4LL_ADDRESS", &ipv4ll_address,
                            NULL);
@@ -2212,6 +2215,46 @@ network_file_fail:
                         r = address_add(link, family, &address, prefixlen, NULL);
                         if (r < 0)
                                 return log_link_error_errno(link, r, "Failed to add address: %m");
+                }
+        }
+
+        if (routes) {
+                _cleanup_strv_free_ char **routes_strv = NULL;
+                char **route_str;
+
+                routes_strv = strv_split(routes, " ");
+                if (!routes_strv)
+                        return log_oom();
+
+                STRV_FOREACH(route_str, routes_strv) {
+                        char *prefixlen_str;
+                        int family;
+                        unsigned char prefixlen, tos, table;
+                        uint32_t priority;
+
+                        prefixlen_str = strchr(*route_str, '/');
+                        if (!prefixlen_str) {
+                                log_link_debug(link, "Failed to parse route %s", *route_str);
+                                continue;
+                        }
+
+                        *prefixlen_str ++ = '\0';
+
+                        r = sscanf(prefixlen_str, "%hhu/%hhu/%"SCNu32"/%hhu", &prefixlen, &tos, &priority, &table);
+                        if (r != 4) {
+                                log_link_debug(link, "Failed to parse destination prefix length, tos, priority or table %s", prefixlen_str);
+                                continue;
+                        }
+
+                        r = in_addr_from_string_auto(*route_str, &family, &route_dst);
+                        if (r < 0) {
+                                log_link_debug_errno(link, r, "Failed to parse route destination %s: %m", *route_str);
+                                continue;
+                        }
+
+                        r = route_add(link, family, &route_dst, prefixlen, tos, priority, table, NULL);
+                        if (r < 0)
+                                return log_link_error_errno(link, r, "Failed to add route: %m");
                 }
         }
 
