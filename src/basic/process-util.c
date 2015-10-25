@@ -35,6 +35,7 @@
 #include "process-util.h"
 #include "signal-util.h"
 #include "string-util.h"
+#include "user-util.h"
 #include "util.h"
 
 int get_process_state(pid_t pid) {

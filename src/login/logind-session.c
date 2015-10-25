@@ -43,6 +43,7 @@
 #include "mkdir.h"
 #include "path-util.h"
 #include "terminal-util.h"
+#include "user-util.h"
 #include "util.h"
 
 #define RELEASE_USEC (20*USEC_PER_SEC)

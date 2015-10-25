@@ -90,6 +90,7 @@
 #include "strv.h"
 #include "terminal-util.h"
 #include "unit.h"
+#include "user-util.h"
 #include "util.h"
 #include "utmp-wtmp.h"
 

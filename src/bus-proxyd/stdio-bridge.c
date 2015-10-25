@@ -37,6 +37,7 @@
 #include "log.h"
 #include "proxy.h"
 #include "strv.h"
+#include "user-util.h"
 #include "util.h"
 
 static char *arg_address = NULL;

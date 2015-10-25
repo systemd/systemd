@@ -43,6 +43,7 @@
 #include "proxy.h"
 #include "string-util.h"
 #include "strv.h"
+#include "user-util.h"
 #include "util.h"
 
 static char *arg_address = NULL;

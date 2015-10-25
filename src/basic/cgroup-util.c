@@ -43,6 +43,7 @@
 #include "special.h"
 #include "string-util.h"
 #include "unit-name.h"
+#include "user-util.h"
 #include "util.h"
 
 int cg_enumerate_processes(const char *controller, const char *path, FILE **_f) {

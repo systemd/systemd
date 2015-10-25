@@ -91,14 +91,7 @@ int parse_size(const char *t, uint64_t base, uint64_t *size);
 
 int parse_boolean(const char *v) _pure_;
 int parse_pid(const char *s, pid_t* ret_pid);
-int parse_uid(const char *s, uid_t* ret_uid);
-#define parse_gid(s, ret_gid) parse_uid(s, ret_gid)
 
-bool uid_is_valid(uid_t uid);
-
-static inline bool gid_is_valid(gid_t gid) {
-        return uid_is_valid((uid_t) gid);
-}
 
 int safe_atou(const char *s, unsigned *ret_u);
 int safe_atoi(const char *s, int *ret_i);
@@ -252,10 +245,6 @@ static inline int dir_is_populated(const char *path) {
         return !r;
 }
 
-char* lookup_uid(uid_t uid);
-char* getlogname_malloc(void);
-char* getusername_malloc(void);
-
 int chmod_and_chown(const char *path, mode_t mode, uid_t uid, gid_t gid);
 int fchmod_and_fchown(int fd, mode_t mode, uid_t uid, gid_t gid);
 
@@ -303,15 +292,6 @@ int fchmod_umask(int fd, mode_t mode);
 
 bool display_is_local(const char *display) _pure_;
 int socket_from_display(const char *display, char **path);
-
-int get_user_creds(const char **username, uid_t *uid, gid_t *gid, const char **home, const char **shell);
-int get_group_creds(const char **groupname, gid_t *gid);
-
-int in_gid(gid_t gid);
-int in_group(const char *name);
-
-char* uid_to_name(uid_t uid);
-char* gid_to_name(gid_t gid);
 
 int glob_exists(const char *path);
 int glob_extend(char ***strv, const char *path);
@@ -377,9 +357,6 @@ bool documentation_url_is_valid(const char *url) _pure_;
 bool http_etag_is_valid(const char *etag);
 
 bool in_initrd(void);
-
-int get_home_dir(char **ret);
-int get_shell(char **_ret);
 
 static inline void freep(void *p) {
         free(*(void**) p);
@@ -719,8 +696,6 @@ int rename_noreplace(int olddirfd, const char *oldpath, int newdirfd, const char
 int parse_mode(const char *s, mode_t *ret);
 
 int mount_move_root(const char *path);
-
-int reset_uid_gid(void);
 
 int getxattr_malloc(const char *path, const char *name, char **value, bool allow_symlink);
 int fgetxattr_malloc(int fd, const char *name, char **value);

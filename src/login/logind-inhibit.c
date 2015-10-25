@@ -31,6 +31,7 @@
 #include "logind-inhibit.h"
 #include "mkdir.h"
 #include "string-util.h"
+#include "user-util.h"
 #include "util.h"
 
 Inhibitor* inhibitor_new(Manager *m, const char* id) {

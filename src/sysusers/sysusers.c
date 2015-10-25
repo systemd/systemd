@@ -41,6 +41,7 @@
 #include "utf8.h"
 #include "util.h"
 #include "fd-util.h"
+#include "user-util.h"
 
 typedef enum ItemType {
         ADD_USER = 'u',

@@ -33,6 +33,7 @@
 #include "strv.h"
 #include "terminal-util.h"
 #include "udev-util.h"
+#include "user-util.h"
 
 int manager_add_device(Manager *m, const char *sysfs, bool master, Device **_device) {
         Device *d;

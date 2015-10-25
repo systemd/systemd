@@ -42,6 +42,7 @@
 #include "string-util.h"
 #include "terminal-util.h"
 #include "util.h"
+#include "user-util.h"
 
 static enum {
         ACTION_NONE,

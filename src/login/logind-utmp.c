@@ -25,15 +25,17 @@
 #include <pwd.h>
 
 #include "sd-messages.h"
-#include "strv.h"
-#include "special.h"
-#include "unit-name.h"
+
 #include "audit.h"
-#include "bus-util.h"
-#include "bus-error.h"
 #include "bus-common-errors.h"
-#include "logind.h"
+#include "bus-error.h"
+#include "bus-util.h"
 #include "formats-util.h"
+#include "logind.h"
+#include "special.h"
+#include "strv.h"
+#include "unit-name.h"
+#include "user-util.h"
 #include "utmp-wtmp.h"
 
 _const_ static usec_t when_wall(usec_t n, usec_t elapse) {

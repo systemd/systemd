@@ -59,6 +59,7 @@
 #include "specifier.h"
 #include "string-util.h"
 #include "strv.h"
+#include "user-util.h"
 #include "util.h"
 
 /* This reads all files listed in /etc/tmpfiles.d/?*.conf and creates

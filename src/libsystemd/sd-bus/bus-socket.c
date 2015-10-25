@@ -36,6 +36,7 @@
 #include "missing.h"
 #include "signal-util.h"
 #include "string-util.h"
+#include "user-util.h"
 #include "utf8.h"
 #include "util.h"
 

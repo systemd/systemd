@@ -90,6 +90,7 @@
 #include "strv.h"
 #include "terminal-util.h"
 #include "udev-util.h"
+#include "user-util.h"
 #include "util.h"
 
 typedef enum ContainerStatus {

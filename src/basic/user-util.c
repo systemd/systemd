@@ -1,0 +1,403 @@
+/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
+
+/***
+  This file is part of systemd.
+
+  Copyright 2010 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+***/
+
+#include <pwd.h>
+#include <grp.h>
+
+#include "user-util.h"
+#include "macro.h"
+#include "util.h"
+#include "string-util.h"
+#include "path-util.h"
+
+bool uid_is_valid(uid_t uid) {
+
+        /* Some libc APIs use UID_INVALID as special placeholder */
+        if (uid == (uid_t) 0xFFFFFFFF)
+                return false;
+
+        /* A long time ago UIDs where 16bit, hence explicitly avoid the 16bit -1 too */
+        if (uid == (uid_t) 0xFFFF)
+                return false;
+
+        return true;
+}
+
+int parse_uid(const char *s, uid_t* ret_uid) {
+        unsigned long ul = 0;
+        uid_t uid;
+        int r;
+
+        assert(s);
+
+        r = safe_atolu(s, &ul);
+        if (r < 0)
+                return r;
+
+        uid = (uid_t) ul;
+
+        if ((unsigned long) uid != ul)
+                return -ERANGE;
+
+        if (!uid_is_valid(uid))
+                return -ENXIO; /* we return ENXIO instead of EINVAL
+                                * here, to make it easy to distuingish
+                                * invalid numeric uids invalid
+                                * strings. */
+
+        if (ret_uid)
+                *ret_uid = uid;
+
+        return 0;
+}
+
+char *lookup_uid(uid_t uid) {
+        long bufsize;
+        char *name;
+        _cleanup_free_ char *buf = NULL;
+        struct passwd pwbuf, *pw = NULL;
+
+        /* Shortcut things to avoid NSS lookups */
+        if (uid == 0)
+                return strdup("root");
+
+        bufsize = sysconf(_SC_GETPW_R_SIZE_MAX);
+        if (bufsize <= 0)
+                bufsize = 4096;
+
+        buf = malloc(bufsize);
+        if (!buf)
+                return NULL;
+
+        if (getpwuid_r(uid, &pwbuf, buf, bufsize, &pw) == 0 && pw)
+                return strdup(pw->pw_name);
+
+        if (asprintf(&name, UID_FMT, uid) < 0)
+                return NULL;
+
+        return name;
+}
+
+char* getlogname_malloc(void) {
+        uid_t uid;
+        struct stat st;
+
+        if (isatty(STDIN_FILENO) && fstat(STDIN_FILENO, &st) >= 0)
+                uid = st.st_uid;
+        else
+                uid = getuid();
+
+        return lookup_uid(uid);
+}
+
+char *getusername_malloc(void) {
+        const char *e;
+
+        e = getenv("USER");
+        if (e)
+                return strdup(e);
+
+        return lookup_uid(getuid());
+}
+
+int get_user_creds(
+                const char **username,
+                uid_t *uid, gid_t *gid,
+                const char **home,
+                const char **shell) {
+
+        struct passwd *p;
+        uid_t u;
+
+        assert(username);
+        assert(*username);
+
+        /* We enforce some special rules for uid=0: in order to avoid
+         * NSS lookups for root we hardcode its data. */
+
+        if (streq(*username, "root") || streq(*username, "0")) {
+                *username = "root";
+
+                if (uid)
+                        *uid = 0;
+
+                if (gid)
+                        *gid = 0;
+
+                if (home)
+                        *home = "/root";
+
+                if (shell)
+                        *shell = "/bin/sh";
+
+                return 0;
+        }
+
+        if (parse_uid(*username, &u) >= 0) {
+                errno = 0;
+                p = getpwuid(u);
+
+                /* If there are multiple users with the same id, make
+                 * sure to leave $USER to the configured value instead
+                 * of the first occurrence in the database. However if
+                 * the uid was configured by a numeric uid, then let's
+                 * pick the real username from /etc/passwd. */
+                if (p)
+                        *username = p->pw_name;
+        } else {
+                errno = 0;
+                p = getpwnam(*username);
+        }
+
+        if (!p)
+                return errno > 0 ? -errno : -ESRCH;
+
+        if (uid)
+                *uid = p->pw_uid;
+
+        if (gid)
+                *gid = p->pw_gid;
+
+        if (home)
+                *home = p->pw_dir;
+
+        if (shell)
+                *shell = p->pw_shell;
+
+        return 0;
+}
+
+int get_group_creds(const char **groupname, gid_t *gid) {
+        struct group *g;
+        gid_t id;
+
+        assert(groupname);
+
+        /* We enforce some special rules for gid=0: in order to avoid
+         * NSS lookups for root we hardcode its data. */
+
+        if (streq(*groupname, "root") || streq(*groupname, "0")) {
+                *groupname = "root";
+
+                if (gid)
+                        *gid = 0;
+
+                return 0;
+        }
+
+        if (parse_gid(*groupname, &id) >= 0) {
+                errno = 0;
+                g = getgrgid(id);
+
+                if (g)
+                        *groupname = g->gr_name;
+        } else {
+                errno = 0;
+                g = getgrnam(*groupname);
+        }
+
+        if (!g)
+                return errno > 0 ? -errno : -ESRCH;
+
+        if (gid)
+                *gid = g->gr_gid;
+
+        return 0;
+}
+
+char* uid_to_name(uid_t uid) {
+        struct passwd *p;
+        char *r;
+
+        if (uid == 0)
+                return strdup("root");
+
+        p = getpwuid(uid);
+        if (p)
+                return strdup(p->pw_name);
+
+        if (asprintf(&r, UID_FMT, uid) < 0)
+                return NULL;
+
+        return r;
+}
+
+char* gid_to_name(gid_t gid) {
+        struct group *p;
+        char *r;
+
+        if (gid == 0)
+                return strdup("root");
+
+        p = getgrgid(gid);
+        if (p)
+                return strdup(p->gr_name);
+
+        if (asprintf(&r, GID_FMT, gid) < 0)
+                return NULL;
+
+        return r;
+}
+
+int in_gid(gid_t gid) {
+        gid_t *gids;
+        int ngroups_max, r, i;
+
+        if (getgid() == gid)
+                return 1;
+
+        if (getegid() == gid)
+                return 1;
+
+        ngroups_max = sysconf(_SC_NGROUPS_MAX);
+        assert(ngroups_max > 0);
+
+        gids = alloca(sizeof(gid_t) * ngroups_max);
+
+        r = getgroups(ngroups_max, gids);
+        if (r < 0)
+                return -errno;
+
+        for (i = 0; i < r; i++)
+                if (gids[i] == gid)
+                        return 1;
+
+        return 0;
+}
+
+int in_group(const char *name) {
+        int r;
+        gid_t gid;
+
+        r = get_group_creds(&name, &gid);
+        if (r < 0)
+                return r;
+
+        return in_gid(gid);
+}
+
+int get_home_dir(char **_h) {
+        struct passwd *p;
+        const char *e;
+        char *h;
+        uid_t u;
+
+        assert(_h);
+
+        /* Take the user specified one */
+        e = secure_getenv("HOME");
+        if (e && path_is_absolute(e)) {
+                h = strdup(e);
+                if (!h)
+                        return -ENOMEM;
+
+                *_h = h;
+                return 0;
+        }
+
+        /* Hardcode home directory for root to avoid NSS */
+        u = getuid();
+        if (u == 0) {
+                h = strdup("/root");
+                if (!h)
+                        return -ENOMEM;
+
+                *_h = h;
+                return 0;
+        }
+
+        /* Check the database... */
+        errno = 0;
+        p = getpwuid(u);
+        if (!p)
+                return errno > 0 ? -errno : -ESRCH;
+
+        if (!path_is_absolute(p->pw_dir))
+                return -EINVAL;
+
+        h = strdup(p->pw_dir);
+        if (!h)
+                return -ENOMEM;
+
+        *_h = h;
+        return 0;
+}
+
+int get_shell(char **_s) {
+        struct passwd *p;
+        const char *e;
+        char *s;
+        uid_t u;
+
+        assert(_s);
+
+        /* Take the user specified one */
+        e = getenv("SHELL");
+        if (e) {
+                s = strdup(e);
+                if (!s)
+                        return -ENOMEM;
+
+                *_s = s;
+                return 0;
+        }
+
+        /* Hardcode home directory for root to avoid NSS */
+        u = getuid();
+        if (u == 0) {
+                s = strdup("/bin/sh");
+                if (!s)
+                        return -ENOMEM;
+
+                *_s = s;
+                return 0;
+        }
+
+        /* Check the database... */
+        errno = 0;
+        p = getpwuid(u);
+        if (!p)
+                return errno > 0 ? -errno : -ESRCH;
+
+        if (!path_is_absolute(p->pw_shell))
+                return -EINVAL;
+
+        s = strdup(p->pw_shell);
+        if (!s)
+                return -ENOMEM;
+
+        *_s = s;
+        return 0;
+}
+
+int reset_uid_gid(void) {
+
+        if (setgroups(0, NULL) < 0)
+                return -errno;
+
+        if (setresgid(0, 0, 0) < 0)
+                return -errno;
+
+        if (setresuid(0, 0, 0) < 0)
+                return -errno;
+
+        return 0;
+}

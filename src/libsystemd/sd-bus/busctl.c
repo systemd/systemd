@@ -37,6 +37,7 @@
 #include "set.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "user-util.h"
 #include "util.h"
 
 static bool arg_no_pager = false;

@@ -22,14 +22,15 @@
 #include "sd-login.h"
 
 #include "bus-internal.h"
+#include "bus-xml-policy.h"
 #include "conf-files.h"
 #include "fileio.h"
 #include "formats-util.h"
 #include "set.h"
 #include "string-util.h"
 #include "strv.h"
+#include "user-util.h"
 #include "xml.h"
-#include "bus-xml-policy.h"
 
 static void policy_item_free(PolicyItem *i) {
         assert(i);

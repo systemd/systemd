@@ -25,6 +25,7 @@
 #include "path-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "user-util.h"
 #include "util.h"
 
 static int from_environment(const char *envname, const char *fallback, const char **ret) {

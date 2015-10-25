@@ -20,9 +20,11 @@
 ***/
 
 #include "sd-daemon.h"
+
 #include "capability.h"
-#include "signal-util.h"
 #include "networkd.h"
+#include "signal-util.h"
+#include "user-util.h"
 
 int main(int argc, char *argv[]) {
         _cleanup_manager_free_ Manager *m = NULL;

@@ -76,6 +76,7 @@
 #include "strv.h"
 #include "switch-root.h"
 #include "terminal-util.h"
+#include "user-util.h"
 #include "virt.h"
 #include "watchdog.h"
 

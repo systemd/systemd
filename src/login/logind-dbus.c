@@ -46,6 +46,7 @@
 #include "terminal-util.h"
 #include "udev-util.h"
 #include "unit-name.h"
+#include "user-util.h"
 #include "utmp-wtmp.h"
 
 int manager_get_session_from_creds(Manager *m, sd_bus_message *message, const char *name, sd_bus_error *error, Session **ret) {

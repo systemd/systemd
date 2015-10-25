@@ -19,15 +19,16 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "sd-event.h"
 #include "sd-daemon.h"
-#include "mkdir.h"
+#include "sd-event.h"
+
 #include "capability.h"
+#include "mkdir.h"
+#include "resolved-conf.h"
+#include "resolved-manager.h"
 #include "selinux-util.h"
 #include "signal-util.h"
-
-#include "resolved-manager.h"
-#include "resolved-conf.h"
+#include "user-util.h"
 
 int main(int argc, char *argv[]) {
         _cleanup_(manager_freep) Manager *m = NULL;
