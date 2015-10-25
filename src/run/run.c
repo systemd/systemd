@@ -1162,11 +1162,6 @@ int main(int argc, char* argv[]) {
                         log_error_errno(r, "Failed to find executable %s: %m", argv[optind]);
                         goto finish;
                 }
-                if (r == 0) {
-                        log_error("Couldn't find executable %s.", argv[optind]);
-                        r = -ENOENT;
-                        goto finish;
-                }
 
                 argv[optind] = command;
         }
