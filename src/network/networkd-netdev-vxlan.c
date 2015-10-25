@@ -28,14 +28,16 @@
 #include "missing.h"
 
 static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
-        VxLan *v = VXLAN(netdev);
+        VxLan *v;
         int r;
 
         assert(netdev);
-        assert(v);
         assert(link);
         assert(m);
 
+        v = VXLAN(netdev);
+
+        assert(v);
 
         if (v->id <= VXLAN_VID_MAX) {
                 r = sd_netlink_message_append_u32(m, IFLA_VXLAN_ID, v->id);
@@ -162,9 +164,12 @@ static int netdev_vxlan_verify(NetDev *netdev, const char *filename) {
 }
 
 static void vxlan_init(NetDev *netdev) {
-        VxLan *v = VXLAN(netdev);
+        VxLan *v;
 
         assert(netdev);
+
+        v = VXLAN(netdev);
+
         assert(v);
 
         v->id = VXLAN_VID_MAX + 1;

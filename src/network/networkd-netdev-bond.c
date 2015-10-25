@@ -180,14 +180,17 @@ static uint8_t bond_xmit_hash_policy_to_kernel(BondXmitHashPolicy policy) {
 }
 
 static int netdev_bond_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
-        Bond *b = BOND(netdev);
+        Bond *b;
         ArpIpTarget *target = NULL;
         int r, i = 0;
 
         assert(netdev);
         assert(!link);
-        assert(b);
         assert(m);
+
+        b = BOND(netdev);
+
+        assert(b);
 
         if (b->mode != _NETDEV_BOND_MODE_INVALID) {
                 r = sd_netlink_message_append_u8(m, IFLA_BOND_MODE,
@@ -382,9 +385,12 @@ int config_parse_arp_ip_target_address(const char *unit,
 
 static void bond_done(NetDev *netdev) {
         ArpIpTarget *t = NULL, *n = NULL;
-        Bond *b = BOND(netdev);
+        Bond *b;
 
         assert(netdev);
+
+        b = BOND(netdev);
+
         assert(b);
 
         LIST_FOREACH_SAFE(arp_ip_target, t, n, b->arp_ip_targets)
@@ -394,9 +400,12 @@ static void bond_done(NetDev *netdev) {
 }
 
 static void bond_init(NetDev *netdev) {
-        Bond *b = BOND(netdev);
+        Bond *b;
 
         assert(netdev);
+
+        b = BOND(netdev);
+
         assert(b);
 
         b->mode = _NETDEV_BOND_MODE_INVALID;

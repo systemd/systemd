@@ -33,13 +33,16 @@ DEFINE_STRING_TABLE_LOOKUP(ipvlan_mode, IPVlanMode);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_ipvlan_mode, ipvlan_mode, IPVlanMode, "Failed to parse ipvlan mode");
 
 static int netdev_ipvlan_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *req) {
-        IPVlan *m = IPVLAN(netdev);
+        IPVlan *m;
         int r;
 
         assert(netdev);
-        assert(m);
         assert(link);
         assert(netdev->ifname);
+
+        m = IPVLAN(netdev);
+
+        assert(m);
 
         if (m->mode != _NETDEV_IPVLAN_MODE_INVALID) {
                 r = sd_netlink_message_append_u16(req, IFLA_IPVLAN_MODE, m->mode);
@@ -51,9 +54,12 @@ static int netdev_ipvlan_fill_message_create(NetDev *netdev, Link *link, sd_netl
 }
 
 static void ipvlan_init(NetDev *n) {
-        IPVlan *m = IPVLAN(n);
+        IPVlan *m;
 
         assert(n);
+
+        m = IPVLAN(n);
+
         assert(m);
 
         m->mode = _NETDEV_IPVLAN_MODE_INVALID;
