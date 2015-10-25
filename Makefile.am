@@ -850,6 +850,7 @@ libbasic_la_SOURCES = \
 	src/basic/in-addr-util.c \
 	src/basic/in-addr-util.h \
 	src/basic/ether-addr-util.h \
+	src/basic/ether-addr-util.c \
 	src/basic/replace-var.c \
 	src/basic/replace-var.h \
 	src/basic/clock-util.c \

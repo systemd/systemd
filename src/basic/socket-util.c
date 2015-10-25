@@ -749,22 +749,3 @@ bool sockaddr_equal(const union sockaddr_union *a, const union sockaddr_union *b
 
         return false;
 }
-
-char* ether_addr_to_string(const struct ether_addr *addr, char buffer[ETHER_ADDR_TO_STRING_MAX]) {
-        assert(addr);
-        assert(buffer);
-
-        /* Like ether_ntoa() but uses %02x instead of %x to print
-         * ethernet addresses, which makes them look less funny. Also,
-         * doesn't use a static buffer. */
-
-        sprintf(buffer, "%02x:%02x:%02x:%02x:%02x:%02x",
-                addr->ether_addr_octet[0],
-                addr->ether_addr_octet[1],
-                addr->ether_addr_octet[2],
-                addr->ether_addr_octet[3],
-                addr->ether_addr_octet[4],
-                addr->ether_addr_octet[5]);
-
-        return buffer;
-}

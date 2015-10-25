@@ -115,7 +115,3 @@ int netlink_family_to_string_alloc(int b, char **s);
 int netlink_family_from_string(const char *s) _pure_;
 
 bool sockaddr_equal(const union sockaddr_union *a, const union sockaddr_union *b);
-
-#define ETHER_ADDR_TO_STRING_MAX (3*6)
-
-char* ether_addr_to_string(const struct ether_addr *addr, char buffer[ETHER_ADDR_TO_STRING_MAX]);
