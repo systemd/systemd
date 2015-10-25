@@ -279,6 +279,196 @@ static int manager_connect_udev(Manager *m) {
         return 0;
 }
 
+int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, void *userdata) {
+        Manager *m = userdata;
+        Link *link = NULL;
+        uint16_t type;
+        uint32_t ifindex, priority = 0;
+        unsigned char protocol, scope, tos, table;
+        int family;
+        unsigned char dst_prefixlen, src_prefixlen;
+        union in_addr_union dst = {}, gw = {}, src = {}, prefsrc = {};
+        Route *route = NULL;
+        int r;
+
+        assert(rtnl);
+        assert(message);
+        assert(m);
+
+        if (sd_netlink_message_is_error(message)) {
+                r = sd_netlink_message_get_errno(message);
+                if (r < 0)
+                        log_warning_errno(r, "rtnl: failed to receive route: %m");
+
+                return 0;
+        }
+
+        r = sd_netlink_message_get_type(message, &type);
+        if (r < 0) {
+                log_warning_errno(r, "rtnl: could not get message type: %m");
+                return 0;
+        } else if (type != RTM_NEWROUTE && type != RTM_DELROUTE) {
+                log_warning("rtnl: received unexpected message type when processing route");
+                return 0;
+        }
+
+        r = sd_netlink_message_read_u32(message, RTA_OIF, &ifindex);
+        if (r == -ENODATA) {
+                log_debug("rtnl: received route without ifindex, ignoring");
+                return 0;
+        } else if (r < 0) {
+                log_warning_errno(r, "rtnl: could not get ifindex from route, ignoring: %m");
+                return 0;
+        } else if (ifindex <= 0) {
+                log_warning("rtnl: received route message with invalid ifindex, ignoring: %d", ifindex);
+                return 0;
+        } else {
+                r = link_get(m, ifindex, &link);
+                if (r < 0 || !link) {
+                        /* when enumerating we might be out of sync, but we will
+                         * get the route again, so just ignore it */
+                        if (!m->enumerating)
+                                log_warning("rtnl: received route for nonexistent link (%d), ignoring", ifindex);
+                        return 0;
+                }
+        }
+
+        r = sd_rtnl_message_route_get_family(message, &family);
+        if (r < 0 || !IN_SET(family, AF_INET, AF_INET6)) {
+                log_link_warning(link, "rtnl: received address with invalid family, ignoring.");
+                return 0;
+        }
+
+        r = sd_rtnl_message_route_get_protocol(message, &protocol);
+        if (r < 0) {
+                log_warning_errno(r, "rtnl: could not get route protocol: %m");
+                return 0;
+        }
+
+        switch (family) {
+        case AF_INET:
+                r = sd_netlink_message_read_in_addr(message, RTA_DST, &dst.in);
+                if (r < 0 && r != -ENODATA) {
+                        log_link_warning_errno(link, r, "rtnl: received route without valid destination, ignoring: %m");
+                        return 0;
+                }
+
+                r = sd_netlink_message_read_in_addr(message, RTA_GATEWAY, &gw.in);
+                if (r < 0 && r != -ENODATA) {
+                        log_link_warning_errno(link, r, "rtnl: received route with invalid gateway, ignoring: %m");
+                        return 0;
+                }
+
+                r = sd_netlink_message_read_in_addr(message, RTA_SRC, &src.in);
+                if (r < 0 && r != -ENODATA) {
+                        log_link_warning_errno(link, r, "rtnl: received route with invalid source, ignoring: %m");
+                        return 0;
+                }
+
+                r = sd_netlink_message_read_in_addr(message, RTA_PREFSRC, &prefsrc.in);
+                if (r < 0 && r != -ENODATA) {
+                        log_link_warning_errno(link, r, "rtnl: received route with invalid preferred source, ignoring: %m");
+                        return 0;
+                }
+
+                break;
+
+        case AF_INET6:
+                r = sd_netlink_message_read_in6_addr(message, RTA_DST, &dst.in6);
+                if (r < 0 && r != -ENODATA) {
+                        log_link_warning_errno(link, r, "rtnl: received route without valid destination, ignoring: %m");
+                        return 0;
+                }
+
+                r = sd_netlink_message_read_in6_addr(message, RTA_GATEWAY, &gw.in6);
+                if (r < 0 && r != -ENODATA) {
+                        log_link_warning_errno(link, r, "rtnl: received route with invalid gateway, ignoring: %m");
+                        return 0;
+                }
+
+                r = sd_netlink_message_read_in6_addr(message, RTA_SRC, &src.in6);
+                if (r < 0 && r != -ENODATA) {
+                        log_link_warning_errno(link, r, "rtnl: received route with invalid source, ignoring: %m");
+                        return 0;
+                }
+
+                r = sd_netlink_message_read_in6_addr(message, RTA_PREFSRC, &prefsrc.in6);
+                if (r < 0 && r != -ENODATA) {
+                        log_link_warning_errno(link, r, "rtnl: received route with invalid preferred source, ignoring: %m");
+                        return 0;
+                }
+
+                break;
+
+        default:
+                log_link_debug(link, "rtnl: ignoring unsupported address family: %d", family);
+                return 0;
+        }
+
+        r = sd_rtnl_message_route_get_dst_prefixlen(message, &dst_prefixlen);
+        if (r < 0) {
+                log_link_warning_errno(link, r, "rtnl: received route with invalid destination prefixlen, ignoring: %m");
+                return 0;
+        }
+
+        r = sd_rtnl_message_route_get_src_prefixlen(message, &src_prefixlen);
+        if (r < 0) {
+                log_link_warning_errno(link, r, "rtnl: received route with invalid source prefixlen, ignoring: %m");
+                return 0;
+        }
+
+        r = sd_rtnl_message_route_get_scope(message, &scope);
+        if (r < 0) {
+                log_link_warning_errno(link, r, "rtnl: received route with invalid scope, ignoring: %m");
+                return 0;
+        }
+
+        r = sd_rtnl_message_route_get_tos(message, &tos);
+        if (r < 0) {
+                log_link_warning_errno(link, r, "rtnl: received route with invalid tos, ignoring: %m");
+                return 0;
+        }
+
+        r = sd_rtnl_message_route_get_table(message, &table);
+        if (r < 0) {
+                log_link_warning_errno(link, r, "rtnl: received route with invalid table, ignoring: %m");
+                return 0;
+        }
+
+        r = sd_netlink_message_read_u32(message, RTA_PRIORITY, &priority);
+        if (r < 0 && r != -ENODATA) {
+                log_link_warning_errno(link, r, "rtnl: received route with invalid priority, ignoring: %m");
+                return 0;
+        }
+
+        route_get(link, family, &dst, dst_prefixlen, tos, priority, table, &route);
+
+        switch (type) {
+        case RTM_NEWROUTE:
+                if (!route) {
+                        /* A route appeared that we did not request */
+                        r = route_add_foreign(link, family, &dst, dst_prefixlen, tos, priority, table, &route);
+                        if (r < 0)
+                                return 0;
+                }
+
+                route_update(route, &src, src_prefixlen, &gw, &prefsrc, scope, protocol);
+
+                break;
+
+        case RTM_DELROUTE:
+
+                if (route)
+                        route_drop(route);
+
+                break;
+        default:
+                assert_not_reached("Received invalid RTNL message type");
+        }
+
+        return 1;
+}
+
 int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, void *userdata) {
         Manager *m = userdata;
         Link *link = NULL;
@@ -377,7 +567,7 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
                 break;
 
         default:
-                assert_not_reached("invalid address family");
+                log_link_debug(link, "rtnl: ignoring unsupported address family: %d", family);
         }
 
         if (!inet_ntop(family, &in_addr, buf, INET6_ADDRSTRLEN)) {
@@ -569,6 +759,14 @@ static int manager_connect_rtnl(Manager *m) {
                 return r;
 
         r = sd_netlink_add_match(m->rtnl, RTM_DELADDR, &manager_rtnl_process_address, m);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_add_match(m->rtnl, RTM_NEWROUTE, &manager_rtnl_process_route, m);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_add_match(m->rtnl, RTM_DELROUTE, &manager_rtnl_process_route, m);
         if (r < 0)
                 return r;
 
@@ -1010,6 +1208,41 @@ int manager_rtnl_enumerate_addresses(Manager *m) {
                 m->enumerating = true;
 
                 k = manager_rtnl_process_address(m->rtnl, addr, m);
+                if (k < 0)
+                        r = k;
+
+                m->enumerating = false;
+        }
+
+        return r;
+}
+
+int manager_rtnl_enumerate_routes(Manager *m) {
+        _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL, *reply = NULL;
+        sd_netlink_message *route;
+        int r;
+
+        assert(m);
+        assert(m->rtnl);
+
+        r = sd_rtnl_message_new_route(m->rtnl, &req, RTM_GETROUTE, 0, 0);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_request_dump(req, true);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_call(m->rtnl, req, 0, &reply);
+        if (r < 0)
+                return r;
+
+        for (route = reply; route; route = sd_netlink_message_next(route)) {
+                int k;
+
+                m->enumerating = true;
+
+                k = manager_rtnl_process_route(m->rtnl, route, m);
                 if (k < 0)
                         r = k;
 

@@ -85,6 +85,8 @@ struct Link {
 
         Set *addresses;
         Set *addresses_foreign;
+        Set *routes;
+        Set *routes_foreign;
 
         sd_dhcp_client *dhcp_client;
         sd_dhcp_lease *dhcp_lease;

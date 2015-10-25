@@ -30,6 +30,8 @@ struct Route {
         Network *network;
         unsigned section;
 
+        Link *link;
+
         int family;
         unsigned char dst_prefixlen;
         unsigned char src_prefixlen;
@@ -52,6 +54,12 @@ int route_new(Route **ret);
 void route_free(Route *route);
 int route_configure(Route *route, Link *link, sd_netlink_message_handler_t callback);
 int route_remove(Route *route, Link *link, sd_netlink_message_handler_t callback);
+
+int route_get(Link *link, int family, union in_addr_union *dst, unsigned char dst_prefixlen, unsigned char tos, uint32_t priority, unsigned char table, Route **ret);
+int route_add(Link *link, int family, union in_addr_union *dst, unsigned char dst_prefixlen, unsigned char tos, uint32_t priority, unsigned char table, Route **ret);
+int route_add_foreign(Link *link, int family, union in_addr_union *dst, unsigned char dst_prefixlen, unsigned char tos, uint32_t priority, unsigned char table, Route **ret);
+int route_update(Route *route, union in_addr_union *src, unsigned char src_prefixlen, union in_addr_union *gw, union in_addr_union *prefsrc, unsigned char scope, unsigned char protocol);
+void route_drop(Route *route);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Route*, route_free);
 #define _cleanup_route_free_ _cleanup_(route_freep)
