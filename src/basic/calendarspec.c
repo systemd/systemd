@@ -650,6 +650,7 @@ fail:
 int calendar_spec_from_string(const char *p, CalendarSpec **spec) {
         CalendarSpec *c;
         int r;
+        const char *utc;
 
         assert(p);
         assert(spec);
@@ -661,9 +662,11 @@ int calendar_spec_from_string(const char *p, CalendarSpec **spec) {
         if (!c)
                 return -ENOMEM;
 
-        c->utc = endswith_no_case(p, "UTC");
-        if (c->utc)
-                p = strndupa(p, strlen(p) - strlen(" UTC"));
+        utc = endswith_no_case(p, " UTC");
+        if (utc) {
+                c->utc = true;
+                p = strndupa(p, utc - p);
+        }
 
         if (strcaseeq(p, "minutely")) {
                 r = const_chain(0, &c->second);
