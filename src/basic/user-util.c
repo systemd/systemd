@@ -138,11 +138,19 @@ int get_user_creds(
         if (!p)
                 return errno > 0 ? -errno : -ESRCH;
 
-        if (uid)
-                *uid = p->pw_uid;
+        if (uid) {
+                if (!uid_is_valid(p->pw_uid))
+                        return -EBADMSG;
 
-        if (gid)
+                *uid = p->pw_uid;
+        }
+
+        if (gid) {
+                if (!gid_is_valid(p->pw_gid))
+                        return -EBADMSG;
+
                 *gid = p->pw_gid;
+        }
 
         if (home)
                 *home = p->pw_dir;
@@ -185,8 +193,12 @@ int get_group_creds(const char **groupname, gid_t *gid) {
         if (!g)
                 return errno > 0 ? -errno : -ESRCH;
 
-        if (gid)
+        if (gid) {
+                if (!gid_is_valid(g->gr_gid))
+                        return -EBADMSG;
+
                 *gid = g->gr_gid;
+        }
 
         return 0;
 }
@@ -277,6 +289,9 @@ int in_gid(gid_t gid) {
 
         if (getegid() == gid)
                 return 1;
+
+        if (!gid_is_valid(gid))
+                return -EINVAL;
 
         ngroups_max = sysconf(_SC_NGROUPS_MAX);
         assert(ngroups_max > 0);
