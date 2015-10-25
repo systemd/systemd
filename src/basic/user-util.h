@@ -36,7 +36,6 @@ static inline int parse_gid(const char *s, gid_t *ret_gid) {
         return parse_uid(s, (uid_t*) ret_gid);
 }
 
-char* lookup_uid(uid_t uid);
 char* getlogname_malloc(void);
 char* getusername_malloc(void);
 

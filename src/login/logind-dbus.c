@@ -2028,7 +2028,7 @@ static int method_cancel_scheduled_shutdown(sd_bus_message *message, void *userd
                 }
 
                 utmp_wall("The system shutdown has been cancelled",
-                          lookup_uid(uid), tty, logind_wall_tty_filter, m);
+                          uid_to_name(uid), tty, logind_wall_tty_filter, m);
         }
 
         return sd_bus_reply_method_return(message, "b", cancelled);

@@ -64,33 +64,6 @@ int parse_uid(const char *s, uid_t *ret) {
         return 0;
 }
 
-char *lookup_uid(uid_t uid) {
-        long bufsize;
-        char *name;
-        _cleanup_free_ char *buf = NULL;
-        struct passwd pwbuf, *pw = NULL;
-
-        /* Shortcut things to avoid NSS lookups */
-        if (uid == 0)
-                return strdup("root");
-
-        bufsize = sysconf(_SC_GETPW_R_SIZE_MAX);
-        if (bufsize <= 0)
-                bufsize = 4096;
-
-        buf = malloc(bufsize);
-        if (!buf)
-                return NULL;
-
-        if (getpwuid_r(uid, &pwbuf, buf, bufsize, &pw) == 0 && pw)
-                return strdup(pw->pw_name);
-
-        if (asprintf(&name, UID_FMT, uid) < 0)
-                return NULL;
-
-        return name;
-}
-
 char* getlogname_malloc(void) {
         uid_t uid;
         struct stat st;
@@ -100,7 +73,7 @@ char* getlogname_malloc(void) {
         else
                 uid = getuid();
 
-        return lookup_uid(uid);
+        return uid_to_name(uid);
 }
 
 char *getusername_malloc(void) {
@@ -110,7 +83,7 @@ char *getusername_malloc(void) {
         if (e)
                 return strdup(e);
 
-        return lookup_uid(getuid());
+        return uid_to_name(getuid());
 }
 
 int get_user_creds(
@@ -219,37 +192,80 @@ int get_group_creds(const char **groupname, gid_t *gid) {
 }
 
 char* uid_to_name(uid_t uid) {
-        struct passwd *p;
-        char *r;
+        char *ret;
+        int r;
 
+        /* Shortcut things to avoid NSS lookups */
         if (uid == 0)
                 return strdup("root");
 
-        p = getpwuid(uid);
-        if (p)
-                return strdup(p->pw_name);
+        if (uid_is_valid(uid)) {
+                long bufsize;
 
-        if (asprintf(&r, UID_FMT, uid) < 0)
+                bufsize = sysconf(_SC_GETPW_R_SIZE_MAX);
+                if (bufsize <= 0)
+                        bufsize = 4096;
+
+                for (;;) {
+                        struct passwd pwbuf, *pw = NULL;
+                        _cleanup_free_ char *buf = NULL;
+
+                        buf = malloc(bufsize);
+                        if (!buf)
+                                return NULL;
+
+                        r = getpwuid_r(uid, &pwbuf, buf, (size_t) bufsize, &pw);
+                        if (r == 0 && pw)
+                                return strdup(pw->pw_name);
+                        if (r != ERANGE)
+                                break;
+
+                        bufsize *= 2;
+                }
+        }
+
+        if (asprintf(&ret, UID_FMT, uid) < 0)
                 return NULL;
 
-        return r;
+        return ret;
 }
 
 char* gid_to_name(gid_t gid) {
-        struct group *p;
-        char *r;
+        char *ret;
+        int r;
 
         if (gid == 0)
                 return strdup("root");
 
-        p = getgrgid(gid);
-        if (p)
-                return strdup(p->gr_name);
+        if (gid_is_valid(gid)) {
+                long bufsize;
 
-        if (asprintf(&r, GID_FMT, gid) < 0)
+                bufsize = sysconf(_SC_GETGR_R_SIZE_MAX);
+                if (bufsize <= 0)
+                        bufsize = 4096;
+
+                for (;;) {
+                        struct group grbuf, *gr = NULL;
+                        _cleanup_free_ char *buf = NULL;
+
+                        buf = malloc(bufsize);
+                        if (!buf)
+                                return NULL;
+
+                        r = getgrgid_r(gid, &grbuf, buf, (size_t) bufsize, &gr);
+                        if (r == 0 && gr)
+                                return strdup(gr->gr_name);
+                        if (r != ERANGE)
+                                break;
+
+                        bufsize *= 2;
+                }
+        }
+
+        if (asprintf(&ret, GID_FMT, gid) < 0)
                 return NULL;
 
-        return r;
+        return ret;
 }
 
 int in_gid(gid_t gid) {

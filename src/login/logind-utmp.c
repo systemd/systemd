@@ -96,7 +96,7 @@ static int warn_wall(Manager *m, usec_t n) {
                 return 0;
         }
 
-        utmp_wall(l, lookup_uid(m->scheduled_shutdown_uid),
+        utmp_wall(l, uid_to_name(m->scheduled_shutdown_uid),
                   m->scheduled_shutdown_tty, logind_wall_tty_filter, m);
 
         return 1;
