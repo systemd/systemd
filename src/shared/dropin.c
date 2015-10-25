@@ -20,13 +20,14 @@
 ***/
 
 #include "conf-files.h"
+#include "dropin.h"
 #include "escape.h"
+#include "fd-util.h"
 #include "fileio-label.h"
 #include "mkdir.h"
 #include "string-util.h"
 #include "strv.h"
 #include "util.h"
-#include "dropin.h"
 
 int drop_in_file(const char *dir, const char *unit, unsigned level,
                  const char *name, char **_p, char **_q) {

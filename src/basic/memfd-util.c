@@ -27,11 +27,12 @@
 #include <sys/mman.h>
 #include <sys/prctl.h>
 
+#include "fd-util.h"
+#include "memfd-util.h"
 #include "missing.h"
 #include "string-util.h"
 #include "utf8.h"
 #include "util.h"
-#include "memfd-util.h"
 
 int memfd_new(const char *name) {
         _cleanup_free_ char *g = NULL;

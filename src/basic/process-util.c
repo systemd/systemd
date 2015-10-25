@@ -29,12 +29,13 @@
 #include <unistd.h>
 
 #include "escape.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "log.h"
+#include "process-util.h"
 #include "signal-util.h"
 #include "string-util.h"
 #include "util.h"
-#include "process-util.h"
 
 int get_process_state(pid_t pid) {
         const char *p;

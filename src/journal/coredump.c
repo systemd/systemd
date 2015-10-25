@@ -41,6 +41,7 @@
 #include "copy.h"
 #include "coredump-vacuum.h"
 #include "escape.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "journald-native.h"
 #include "log.h"

@@ -20,11 +20,12 @@
 ***/
 
 #include "bus-internal.h"
+#include "bus-introspect.h"
 #include "bus-protocol.h"
 #include "bus-signature.h"
+#include "fd-util.h"
 #include "string-util.h"
 #include "util.h"
-#include "bus-introspect.h"
 
 int introspect_begin(struct introspect *i, bool trusted) {
         assert(i);

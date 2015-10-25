@@ -26,6 +26,7 @@
 #include <sys/prctl.h>
 #include <unistd.h>
 
+#include "fd-util.h"
 #include "hashmap.h"
 #include "log.h"
 #include "pager.h"

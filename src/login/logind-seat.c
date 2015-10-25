@@ -26,13 +26,14 @@
 
 #include "sd-messages.h"
 
+#include "fd-util.h"
 #include "formats-util.h"
 #include "logind-acl.h"
+#include "logind-seat.h"
 #include "mkdir.h"
 #include "string-util.h"
 #include "terminal-util.h"
 #include "util.h"
-#include "logind-seat.h"
 
 Seat *seat_new(Manager *m, const char *id) {
         Seat *s;

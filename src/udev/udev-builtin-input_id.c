@@ -30,6 +30,7 @@
 #include <linux/limits.h>
 #include <linux/input.h>
 
+#include "fd-util.h"
 #include "string-util.h"
 #include "udev.h"
 #include "util.h"

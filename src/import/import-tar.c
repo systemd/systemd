@@ -26,9 +26,11 @@
 
 #include "btrfs-util.h"
 #include "copy.h"
+#include "fd-util.h"
 #include "hostname-util.h"
 #include "import-common.h"
 #include "import-compress.h"
+#include "import-tar.h"
 #include "machine-pool.h"
 #include "mkdir.h"
 #include "path-util.h"
@@ -38,7 +40,6 @@
 #include "rm-rf.h"
 #include "string-util.h"
 #include "util.h"
-#include "import-tar.h"
 
 struct TarImport {
         sd_event *event;

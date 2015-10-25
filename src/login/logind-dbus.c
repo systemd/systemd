@@ -32,6 +32,7 @@
 #include "bus-util.h"
 #include "efivars.h"
 #include "escape.h"
+#include "fd-util.h"
 #include "fileio-label.h"
 #include "formats-util.h"
 #include "logind.h"

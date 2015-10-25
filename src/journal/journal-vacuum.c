@@ -25,12 +25,12 @@
 
 #include "sd-id128.h"
 
+#include "fd-util.h"
 #include "journal-def.h"
 #include "journal-file.h"
+#include "journal-vacuum.h"
 #include "string-util.h"
 #include "util.h"
-
-#include "journal-vacuum.h"
 
 struct vacuum_info {
         uint64_t usage;

@@ -22,9 +22,10 @@
 #include <ctype.h>
 #include <sys/utsname.h>
 
+#include "fd-util.h"
+#include "hostname-util.h"
 #include "string-util.h"
 #include "util.h"
-#include "hostname-util.h"
 
 bool hostname_is_set(void) {
         struct utsname u;

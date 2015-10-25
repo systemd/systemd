@@ -25,6 +25,7 @@
 #include "macro.h"
 #include "util.h"
 #include "log.h"
+#include "fd-util.h"
 
 static void test_default_term_for_tty(void) {
         puts(default_term_for_tty("/dev/tty23"));

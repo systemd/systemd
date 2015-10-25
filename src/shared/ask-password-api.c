@@ -32,6 +32,8 @@
 #include <termios.h>
 #include <unistd.h>
 
+#include "ask-password-api.h"
+#include "fd-util.h"
 #include "formats-util.h"
 #include "missing.h"
 #include "mkdir.h"
@@ -42,7 +44,6 @@
 #include "strv.h"
 #include "terminal-util.h"
 #include "util.h"
-#include "ask-password-api.h"
 
 #define KEYRING_TIMEOUT_USEC ((5 * USEC_PER_MINUTE) / 2)
 

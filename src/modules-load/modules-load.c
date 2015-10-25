@@ -27,6 +27,7 @@
 #include <sys/stat.h>
 
 #include "conf-files.h"
+#include "fd-util.h"
 #include "log.h"
 #include "string-util.h"
 #include "strv.h"

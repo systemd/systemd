@@ -30,6 +30,7 @@
 #include "dhcp6-internal.h"
 #include "dhcp6-lease-internal.h"
 #include "dhcp6-protocol.h"
+#include "fd-util.h"
 #include "network-internal.h"
 #include "random-util.h"
 #include "util.h"

@@ -31,6 +31,7 @@
 
 #include "catalog.h"
 #include "conf-files.h"
+#include "fd-util.h"
 #include "hashmap.h"
 #include "log.h"
 #include "mkdir.h"

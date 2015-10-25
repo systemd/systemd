@@ -31,13 +31,14 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "fd-util.h"
 #include "fileio.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "string-util.h"
+#include "terminal-util.h"
 #include "time-util.h"
 #include "util.h"
-#include "terminal-util.h"
 
 static volatile unsigned cached_columns = 0;
 static volatile unsigned cached_lines = 0;

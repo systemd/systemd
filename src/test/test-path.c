@@ -28,6 +28,7 @@
 #include "strv.h"
 #include "unit.h"
 #include "util.h"
+#include "fd-util.h"
 
 typedef void (*test_function_t)(Manager *m);
 

@@ -43,7 +43,9 @@
 #include "env-util.h"
 #include "errno-list.h"
 #include "escape.h"
+#include "fd-util.h"
 #include "ioprio.h"
+#include "load-fragment.h"
 #include "log.h"
 #include "missing.h"
 #include "path-util.h"
@@ -58,7 +60,6 @@
 #include "unit-printf.h"
 #include "unit.h"
 #include "utf8.h"
-#include "load-fragment.h"
 
 int config_parse_warn_compat(
                 const char *unit,

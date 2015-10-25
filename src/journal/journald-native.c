@@ -24,8 +24,10 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
+#include "fd-util.h"
 #include "journald-console.h"
 #include "journald-kmsg.h"
+#include "journald-native.h"
 #include "journald-server.h"
 #include "journald-syslog.h"
 #include "journald-wall.h"
@@ -34,7 +36,6 @@
 #include "selinux-util.h"
 #include "socket-util.h"
 #include "string-util.h"
-#include "journald-native.h"
 
 bool valid_user_field(const char *p, size_t l, bool allow_protected) {
         const char *a;

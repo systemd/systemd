@@ -28,6 +28,7 @@
 #include "macro.h"
 #include "random-util.h"
 #include "util.h"
+#include "fd-util.h"
 
 _public_ char *sd_id128_to_string(sd_id128_t id, char s[SD_ID128_STRING_MAX]) {
         unsigned n;

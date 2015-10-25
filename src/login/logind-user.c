@@ -29,10 +29,12 @@
 #include "clean-ipc.h"
 #include "conf-parser.h"
 #include "escape.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "formats-util.h"
 #include "hashmap.h"
 #include "label.h"
+#include "logind-user.h"
 #include "mkdir.h"
 #include "path-util.h"
 #include "rm-rf.h"
@@ -40,7 +42,6 @@
 #include "special.h"
 #include "unit-name.h"
 #include "util.h"
-#include "logind-user.h"
 
 User* user_new(Manager *m, uid_t uid, gid_t gid, const char *name) {
         User *u;

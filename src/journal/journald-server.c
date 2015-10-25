@@ -36,6 +36,7 @@
 #include "acl-util.h"
 #include "cgroup-util.h"
 #include "conf-parser.h"
+#include "fd-util.h"
 #include "formats-util.h"
 #include "hashmap.h"
 #include "hostname-util.h"
@@ -47,6 +48,7 @@
 #include "journald-kmsg.h"
 #include "journald-native.h"
 #include "journald-rate-limit.h"
+#include "journald-server.h"
 #include "journald-stream.h"
 #include "journald-syslog.h"
 #include "missing.h"
@@ -57,7 +59,6 @@
 #include "signal-util.h"
 #include "socket-util.h"
 #include "string-util.h"
-#include "journald-server.h"
 
 #define USER_JOURNALS_MAX 1024
 

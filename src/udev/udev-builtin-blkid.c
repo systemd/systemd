@@ -30,6 +30,7 @@
 #include "sd-id128.h"
 
 #include "efivars.h"
+#include "fd-util.h"
 #include "gpt.h"
 #include "string-util.h"
 #include "udev.h"

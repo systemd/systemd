@@ -37,6 +37,7 @@
 #include "bus-xml-policy.h"
 #include "capability.h"
 #include "def.h"
+#include "fd-util.h"
 #include "formats-util.h"
 #include "log.h"
 #include "proxy.h"

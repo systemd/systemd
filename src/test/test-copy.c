@@ -20,6 +20,7 @@
 #include <unistd.h>
 
 #include "copy.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "macro.h"
 #include "mkdir.h"

@@ -27,6 +27,7 @@
 #include <unistd.h>
 #include <utmpx.h>
 
+#include "fd-util.h"
 #include "hostname-util.h"
 #include "macro.h"
 #include "path-util.h"

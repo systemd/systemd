@@ -25,13 +25,14 @@
 #include <pwd.h>
 #include <linux/vt.h>
 
-#include "strv.h"
-#include "cgroup-util.h"
-#include "bus-util.h"
 #include "bus-error.h"
-#include "udev-util.h"
+#include "bus-util.h"
+#include "cgroup-util.h"
+#include "fd-util.h"
 #include "logind.h"
+#include "strv.h"
 #include "terminal-util.h"
+#include "udev-util.h"
 
 int manager_add_device(Manager *m, const char *sysfs, bool master, Device **_device) {
         Device *d;

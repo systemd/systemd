@@ -30,6 +30,7 @@
 #include "memfd-util.h"
 #include "string-util.h"
 #include "util.h"
+#include "fd-util.h"
 
 #define FIRST_ARRAY 17
 #define SECOND_ARRAY 33

@@ -36,6 +36,7 @@
 #include "bus-label.h"
 #include "bus-message.h"
 #include "bus-util.h"
+#include "fd-util.h"
 #include "log.h"
 #include "util.h"
 

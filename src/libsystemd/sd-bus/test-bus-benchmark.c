@@ -27,6 +27,7 @@
 #include "bus-kernel.h"
 #include "bus-util.h"
 #include "def.h"
+#include "fd-util.h"
 #include "time-util.h"
 #include "util.h"
 

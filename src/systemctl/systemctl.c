@@ -48,6 +48,7 @@
 #include "efivars.h"
 #include "env-util.h"
 #include "exit-status.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "formats-util.h"
 #include "hostname-util.h"

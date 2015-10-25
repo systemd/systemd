@@ -21,10 +21,11 @@
 
 #include "af-list.h"
 
-#include "resolved-llmnr.h"
-#include "resolved-dns-transaction.h"
-#include "random-util.h"
 #include "dns-domain.h"
+#include "fd-util.h"
+#include "random-util.h"
+#include "resolved-dns-transaction.h"
+#include "resolved-llmnr.h"
 
 DnsTransaction* dns_transaction_free(DnsTransaction *t) {
         DnsQuery *q;

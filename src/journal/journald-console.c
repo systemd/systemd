@@ -29,6 +29,7 @@
 #include "formats-util.h"
 #include "process-util.h"
 #include "terminal-util.h"
+#include "fd-util.h"
 
 static bool prefix_timestamp(void) {
 

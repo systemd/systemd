@@ -20,9 +20,10 @@
 ***/
 
 #include "audit-type.h"
+#include "fd-util.h"
+#include "journald-audit.h"
 #include "missing.h"
 #include "string-util.h"
-#include "journald-audit.h"
 
 typedef struct MapField {
         const char *audit_field;

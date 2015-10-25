@@ -31,6 +31,7 @@
 #include <unistd.h>
 
 #include "event-util.h"
+#include "fd-util.h"
 #include "formats-util.h"
 #include "netlink-util.h"
 #include "process-util.h"

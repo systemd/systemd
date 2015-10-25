@@ -30,6 +30,7 @@
 
 #include "log.h"
 #include "util.h"
+#include "fd-util.h"
 
 static bool initialized = false;
 static int audit_fd;

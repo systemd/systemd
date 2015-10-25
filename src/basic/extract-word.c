@@ -22,7 +22,6 @@
 #include "escape.h"
 #include "utf8.h"
 #include "util.h"
-
 #include "extract-word.h"
 
 int extract_first_word(const char **p, char **ret, const char *separators, ExtractFlags flags) {

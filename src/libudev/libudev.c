@@ -26,6 +26,7 @@
 
 #include "libudev.h"
 
+#include "fd-util.h"
 #include "libudev-private.h"
 #include "missing.h"
 #include "string-util.h"

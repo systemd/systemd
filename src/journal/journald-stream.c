@@ -30,17 +30,18 @@
 #include "sd-event.h"
 
 #include "escape.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "journald-console.h"
 #include "journald-kmsg.h"
 #include "journald-server.h"
+#include "journald-stream.h"
 #include "journald-syslog.h"
 #include "journald-wall.h"
 #include "mkdir.h"
 #include "selinux-util.h"
 #include "socket-util.h"
 #include "string-util.h"
-#include "journald-stream.h"
 
 #define STDOUT_STREAMS_MAX 4096
 

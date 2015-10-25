@@ -25,20 +25,21 @@
 #include <unistd.h>
 
 #ifdef HAVE_XZ
-#  include <lzma.h>
+#include <lzma.h>
 #endif
 
 #ifdef HAVE_LZ4
-#  include <lz4.h>
-#  include <lz4frame.h>
+#include <lz4.h>
+#include <lz4frame.h>
 #endif
 
+#include "compress.h"
+#include "fd-util.h"
 #include "journal-def.h"
 #include "macro.h"
 #include "sparse-endian.h"
 #include "string-util.h"
 #include "util.h"
-#include "compress.h"
 
 #ifdef HAVE_LZ4
 DEFINE_TRIVIAL_CLEANUP_FUNC(LZ4F_compressionContext_t, LZ4F_freeCompressionContext);

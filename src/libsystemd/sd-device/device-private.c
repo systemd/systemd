@@ -27,6 +27,7 @@
 #include "device-internal.h"
 #include "device-private.h"
 #include "device-util.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "hashmap.h"
 #include "macro.h"

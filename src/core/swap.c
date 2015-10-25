@@ -29,16 +29,17 @@
 #include "dbus-swap.h"
 #include "escape.h"
 #include "exit-status.h"
+#include "fd-util.h"
 #include "formats-util.h"
 #include "fstab-util.h"
 #include "path-util.h"
 #include "special.h"
 #include "string-util.h"
+#include "swap.h"
 #include "udev-util.h"
 #include "unit-name.h"
 #include "unit.h"
 #include "virt.h"
-#include "swap.h"
 
 static const UnitActiveState state_translation_table[_SWAP_STATE_MAX] = {
         [SWAP_DEAD] = UNIT_INACTIVE,

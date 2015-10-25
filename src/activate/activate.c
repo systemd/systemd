@@ -34,6 +34,7 @@
 #include "socket-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "fd-util.h"
 
 static char** arg_listen = NULL;
 static bool arg_accept = false;

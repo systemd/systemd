@@ -24,6 +24,7 @@
 
 #include "sd-netlink.h"
 
+#include "fd-util.h"
 #include "hashmap.h"
 #include "macro.h"
 #include "missing.h"

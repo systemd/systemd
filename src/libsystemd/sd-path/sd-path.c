@@ -20,6 +20,7 @@
 #include "sd-path.h"
 
 #include "architecture.h"
+#include "fd-util.h"
 #include "missing.h"
 #include "path-util.h"
 #include "string-util.h"

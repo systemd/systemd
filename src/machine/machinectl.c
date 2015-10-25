@@ -40,6 +40,7 @@
 #include "copy.h"
 #include "env-util.h"
 #include "event-util.h"
+#include "fd-util.h"
 #include "hostname-util.h"
 #include "import-util.h"
 #include "log.h"

@@ -26,6 +26,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "fd-util.h"
 #include "fileio.h"
 #include "hashmap.h"
 #include "hostname-util.h"

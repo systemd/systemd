@@ -31,6 +31,7 @@
 
 #include "libudev.h"
 
+#include "fd-util.h"
 #include "libudev-private.h"
 #include "scsi_id.h"
 #include "string-util.h"

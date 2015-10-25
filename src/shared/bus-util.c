@@ -29,10 +29,12 @@
 #include "bus-internal.h"
 #include "bus-label.h"
 #include "bus-message.h"
+#include "bus-util.h"
 #include "cgroup-util.h"
 #include "def.h"
 #include "env-util.h"
 #include "escape.h"
+#include "fd-util.h"
 #include "macro.h"
 #include "missing.h"
 #include "path-util.h"
@@ -43,7 +45,6 @@
 #include "unit-name.h"
 #include "utf8.h"
 #include "util.h"
-#include "bus-util.h"
 
 static int name_owner_change_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
         sd_event *e = userdata;

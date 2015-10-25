@@ -31,7 +31,9 @@
 
 #include "sd-messages.h"
 
+#include "fd-util.h"
 #include "formats-util.h"
+#include "log.h"
 #include "macro.h"
 #include "missing.h"
 #include "process-util.h"
@@ -40,7 +42,6 @@
 #include "string-util.h"
 #include "terminal-util.h"
 #include "util.h"
-#include "log.h"
 
 #define SNDBUF_SIZE (8*1024*1024)
 

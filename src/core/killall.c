@@ -24,13 +24,14 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include "fd-util.h"
 #include "formats-util.h"
+#include "killall.h"
 #include "process-util.h"
 #include "set.h"
 #include "string-util.h"
 #include "terminal-util.h"
 #include "util.h"
-#include "killall.h"
 
 #define TIMEOUT_USEC (10 * USEC_PER_SEC)
 

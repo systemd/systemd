@@ -40,6 +40,7 @@
 #include "uid-range.h"
 #include "utf8.h"
 #include "util.h"
+#include "fd-util.h"
 
 typedef enum ItemType {
         ADD_USER = 'u',

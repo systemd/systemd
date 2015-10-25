@@ -35,6 +35,7 @@
 #include "bus-error.h"
 #include "bus-util.h"
 #include "def.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "formats-util.h"
 #include "hostname-util.h"

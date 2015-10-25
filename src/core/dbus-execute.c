@@ -25,19 +25,20 @@
 #include <seccomp.h>
 #endif
 
-#include "bus-util.h"
-#include "missing.h"
-#include "ioprio.h"
-#include "strv.h"
-#include "fileio.h"
-#include "execute.h"
-#include "capability.h"
-#include "env-util.h"
 #include "af-list.h"
+#include "bus-util.h"
+#include "capability.h"
+#include "dbus-execute.h"
+#include "env-util.h"
+#include "execute.h"
+#include "fd-util.h"
+#include "fileio.h"
+#include "ioprio.h"
+#include "missing.h"
 #include "namespace.h"
 #include "path-util.h"
+#include "strv.h"
 #include "utf8.h"
-#include "dbus-execute.h"
 
 #ifdef HAVE_SECCOMP
 #include "seccomp-util.h"

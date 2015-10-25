@@ -25,13 +25,14 @@
 
 #include "btrfs-util.h"
 #include "copy.h"
+#include "fd-util.h"
+#include "machine-image.h"
 #include "mkdir.h"
 #include "path-util.h"
 #include "rm-rf.h"
 #include "string-util.h"
 #include "strv.h"
 #include "utf8.h"
-#include "machine-image.h"
 
 static const char image_search_path[] =
         "/var/lib/machines\0"

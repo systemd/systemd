@@ -20,10 +20,11 @@
 ***/
 
 #include "btrfs-util.h"
+#include "fd-util.h"
 #include "path-util.h"
+#include "rm-rf.h"
 #include "string-util.h"
 #include "util.h"
-#include "rm-rf.h"
 
 int rm_rf_children(int fd, RemoveFlags flags, struct stat *root_dev) {
         _cleanup_closedir_ DIR *d = NULL;

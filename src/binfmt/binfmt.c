@@ -28,6 +28,7 @@
 #include <string.h>
 
 #include "conf-files.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "log.h"
 #include "string-util.h"

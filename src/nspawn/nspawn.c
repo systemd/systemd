@@ -57,6 +57,7 @@
 #include "dev-setup.h"
 #include "env-util.h"
 #include "event-util.h"
+#include "fd-util.h"
 #include "fdset.h"
 #include "fileio.h"
 #include "formats-util.h"

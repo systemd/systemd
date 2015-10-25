@@ -19,15 +19,16 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "sd-event.h"
 #include "sd-daemon.h"
+#include "sd-event.h"
+
 #include "capability.h"
 #include "clock-util.h"
+#include "fd-util.h"
 #include "network-util.h"
 #include "signal-util.h"
-
-#include "timesyncd-manager.h"
 #include "timesyncd-conf.h"
+#include "timesyncd-manager.h"
 
 static int load_clock_timestamp(uid_t uid, gid_t gid) {
         _cleanup_close_ int fd = -1;

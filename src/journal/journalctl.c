@@ -42,6 +42,7 @@
 #include "bus-error.h"
 #include "bus-util.h"
 #include "catalog.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "fsprg.h"
 #include "hostname-util.h"

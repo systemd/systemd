@@ -23,15 +23,16 @@
 
 #include "dropin.h"
 #include "escape.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "fstab-util.h"
+#include "generator.h"
 #include "mkdir.h"
 #include "path-util.h"
 #include "special.h"
 #include "string-util.h"
 #include "unit-name.h"
 #include "util.h"
-#include "generator.h"
 
 static int write_fsck_sysroot_service(const char *dir, const char *what) {
         _cleanup_free_ char *device = NULL, *escaped = NULL;

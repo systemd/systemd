@@ -29,7 +29,9 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "cgroup-util.h"
 #include "extract-word.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "formats-util.h"
 #include "login-util.h"
@@ -42,7 +44,6 @@
 #include "string-util.h"
 #include "unit-name.h"
 #include "util.h"
-#include "cgroup-util.h"
 
 int cg_enumerate_processes(const char *controller, const char *path, FILE **_f) {
         _cleanup_free_ char *fs = NULL;

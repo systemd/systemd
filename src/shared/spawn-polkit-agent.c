@@ -29,6 +29,7 @@
 #include "util.h"
 #include "process-util.h"
 #include "spawn-polkit-agent.h"
+#include "fd-util.h"
 
 #ifdef ENABLE_POLKIT
 static pid_t agent_pid = 0;

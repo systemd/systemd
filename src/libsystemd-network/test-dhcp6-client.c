@@ -33,6 +33,7 @@
 #include "dhcp6-lease-internal.h"
 #include "dhcp6-protocol.h"
 #include "event-util.h"
+#include "fd-util.h"
 #include "macro.h"
 #include "socket-util.h"
 #include "virt.h"

@@ -25,6 +25,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
+#include "fd-util.h"
 #include "log.h"
 #include "macro.h"
 #include "string-util.h"

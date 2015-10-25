@@ -25,6 +25,7 @@
 #include <linux/btrfs.h>
 #endif
 
+#include "fd-util.h"
 #include "missing.h"
 #include "string-util.h"
 #include "udev.h"

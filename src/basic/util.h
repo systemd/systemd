@@ -87,16 +87,6 @@ static inline const char* one_zero(bool b) {
         return b ? "1" : "0";
 }
 
-int close_nointr(int fd);
-int safe_close(int fd);
-void safe_close_pair(int p[]);
-
-void close_many(const int fds[], unsigned n_fd);
-
-int fclose_nointr(FILE *f);
-FILE* safe_fclose(FILE *f);
-DIR* safe_closedir(DIR *f);
-
 int parse_size(const char *t, uint64_t base, uint64_t *size);
 
 int parse_boolean(const char *v) _pure_;
@@ -244,11 +234,6 @@ ssize_t string_table_lookup(const char * const *table, size_t len, const char *k
                 return (type) -1;                                       \
         }                                                               \
         struct __useless_struct_to_allow_trailing_semicolon__
-
-int fd_nonblock(int fd, bool nonblock);
-int fd_cloexec(int fd, bool cloexec);
-
-int close_all_fds(const int except[], unsigned n_except);
 
 bool fstype_is_network(const char *fstype);
 
@@ -410,35 +395,16 @@ static inline void freep(void *p) {
         free(*(void**) p);
 }
 
-static inline void closep(int *fd) {
-        safe_close(*fd);
-}
-
 static inline void umaskp(mode_t *u) {
         umask(*u);
 }
 
-static inline void close_pairp(int (*p)[2]) {
-        safe_close_pair(*p);
-}
-
-static inline void fclosep(FILE **f) {
-        safe_fclose(*f);
-}
-
-DEFINE_TRIVIAL_CLEANUP_FUNC(FILE*, pclose);
-DEFINE_TRIVIAL_CLEANUP_FUNC(DIR*, closedir);
 DEFINE_TRIVIAL_CLEANUP_FUNC(FILE*, endmntent);
 
 #define _cleanup_free_ _cleanup_(freep)
-#define _cleanup_close_ _cleanup_(closep)
 #define _cleanup_umask_ _cleanup_(umaskp)
 #define _cleanup_globfree_ _cleanup_(globfree)
-#define _cleanup_fclose_ _cleanup_(fclosep)
-#define _cleanup_pclose_ _cleanup_(pclosep)
-#define _cleanup_closedir_ _cleanup_(closedirp)
 #define _cleanup_endmntent_ _cleanup_(endmntentp)
-#define _cleanup_close_pair_ _cleanup_(close_pairp)
 
 _malloc_  _alloc_(1, 2) static inline void *malloc_multiply(size_t a, size_t b) {
         if (_unlikely_(b != 0 && a > ((size_t) -1) / b))
@@ -747,8 +713,6 @@ int fd_getcrtime(int fd, usec_t *usec);
 int path_getcrtime(const char *p, usec_t *usec);
 int fd_getcrtime_at(int dirfd, const char *name, usec_t *usec, int flags);
 
-int same_fd(int a, int b);
-
 int chattr_fd(int fd, unsigned value, unsigned mask);
 int chattr_path(const char *p, unsigned value, unsigned mask);
 
@@ -763,8 +727,6 @@ void sigkill_wait(pid_t *pid);
 #define _cleanup_sigkill_wait_ _cleanup_(sigkill_wait)
 
 int syslog_parse_priority(const char **p, int *priority, bool with_facility);
-
-void cmsg_close_all(struct msghdr *mh);
 
 int rename_noreplace(int olddirfd, const char *oldpath, int newdirfd, const char *newpath);
 

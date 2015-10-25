@@ -30,6 +30,7 @@
 
 #include "arp-util.h"
 #include "event-util.h"
+#include "fd-util.h"
 #include "socket-util.h"
 #include "util.h"
 

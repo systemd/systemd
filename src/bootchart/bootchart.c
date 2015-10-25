@@ -50,6 +50,7 @@
 
 #include "bootchart.h"
 #include "conf-parser.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "list.h"
 #include "macro.h"

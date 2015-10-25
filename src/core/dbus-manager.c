@@ -29,10 +29,12 @@
 #include "clock-util.h"
 #include "dbus-execute.h"
 #include "dbus-job.h"
+#include "dbus-manager.h"
 #include "dbus-snapshot.h"
 #include "dbus-unit.h"
 #include "dbus.h"
 #include "env-util.h"
+#include "fd-util.h"
 #include "formats-util.h"
 #include "install.h"
 #include "log.h"
@@ -42,7 +44,6 @@
 #include "strv.h"
 #include "virt.h"
 #include "watchdog.h"
-#include "dbus-manager.h"
 
 static int property_get_version(
                 sd_bus *bus,

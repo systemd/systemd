@@ -35,6 +35,8 @@
 #include "dbus-kill.h"
 #include "dbus-manager.h"
 #include "dbus-unit.h"
+#include "dbus.h"
+#include "fd-util.h"
 #include "log.h"
 #include "missing.h"
 #include "mkdir.h"
@@ -43,7 +45,6 @@
 #include "string-util.h"
 #include "strv.h"
 #include "strxcpyx.h"
-#include "dbus.h"
 
 #define CONNECTIONS_MAX 4096
 

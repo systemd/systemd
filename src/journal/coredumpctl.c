@@ -29,6 +29,7 @@
 #include "sd-journal.h"
 
 #include "compress.h"
+#include "fd-util.h"
 #include "journal-internal.h"
 #include "log.h"
 #include "macro.h"

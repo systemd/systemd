@@ -18,6 +18,7 @@
 ***/
 
 #include "async.h"
+#include "fd-util.h"
 #include "in-addr-util.h"
 #include "log.h"
 #include "macro.h"

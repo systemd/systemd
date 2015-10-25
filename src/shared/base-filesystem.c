@@ -29,6 +29,7 @@
 #include "string-util.h"
 #include "util.h"
 #include "base-filesystem.h"
+#include "fd-util.h"
 
 typedef struct BaseFilesystem {
         const char *dir;

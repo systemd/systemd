@@ -24,6 +24,7 @@
 #include "sd-event.h"
 
 #include "event-util.h"
+#include "fd-util.h"
 #include "hostname-util.h"
 #include "import-raw.h"
 #include "import-tar.h"

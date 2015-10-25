@@ -27,11 +27,12 @@
 
 #include "sd-messages.h"
 
-#include "util.h"
+#include "catalog.h"
+#include "fd-util.h"
 #include "log.h"
 #include "macro.h"
-#include "catalog.h"
 #include "string-util.h"
+#include "util.h"
 
 static const char *catalog_dirs[] = {
         CATALOG_DIR,

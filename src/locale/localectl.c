@@ -32,6 +32,7 @@
 #include "bus-error.h"
 #include "bus-util.h"
 #include "def.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "locale-util.h"
 #include "pager.h"

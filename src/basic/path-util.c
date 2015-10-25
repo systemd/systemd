@@ -27,14 +27,15 @@
 #include <sys/statvfs.h>
 #include <unistd.h>
 
+#include "fd-util.h"
 #include "fileio.h"
 #include "log.h"
 #include "macro.h"
 #include "missing.h"
+#include "path-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "util.h"
-#include "path-util.h"
 
 bool path_is_absolute(const char *p) {
         return p[0] == '/';

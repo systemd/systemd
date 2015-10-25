@@ -23,11 +23,12 @@
 
 #include "ctype.h"
 #include "escape.h"
+#include "fd-util.h"
+#include "fileio.h"
 #include "string-util.h"
 #include "strv.h"
 #include "utf8.h"
 #include "util.h"
-#include "fileio.h"
 
 int write_string_stream(FILE *f, const char *line, bool enforce_newline) {
 

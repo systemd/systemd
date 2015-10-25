@@ -33,6 +33,7 @@
 #include "bus-error.h"
 #include "bus-util.h"
 #include "cgroup-util.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "hashmap.h"
 #include "path-util.h"

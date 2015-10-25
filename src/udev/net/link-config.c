@@ -27,6 +27,7 @@
 #include "conf-files.h"
 #include "conf-parser.h"
 #include "ethtool-util.h"
+#include "fd-util.h"
 #include "libudev-private.h"
 #include "link-config.h"
 #include "log.h"

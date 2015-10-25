@@ -36,6 +36,7 @@
 #include "terminal-util.h"
 #include "time-util.h"
 #include "string-util.h"
+#include "fd-util.h"
 
 static char *arg_root = NULL;
 static char *arg_locale = NULL;  /* $LANG */

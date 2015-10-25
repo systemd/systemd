@@ -51,6 +51,7 @@
 #include "dbus-manager.h"
 #include "def.h"
 #include "env-util.h"
+#include "fd-util.h"
 #include "fdset.h"
 #include "fileio.h"
 #include "formats-util.h"

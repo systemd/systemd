@@ -25,7 +25,9 @@
 #include "capability.h"
 #include "copy.h"
 #include "escape.h"
+#include "fd-util.h"
 #include "process-util.h"
+#include "pull-common.h"
 #include "pull-job.h"
 #include "rm-rf.h"
 #include "signal-util.h"
@@ -33,7 +35,6 @@
 #include "string-util.h"
 #include "strv.h"
 #include "util.h"
-#include "pull-common.h"
 
 #define FILENAME_ESCAPE "/.#\"\'"
 #define HASH_URL_THRESHOLD_LENGTH (_POSIX_PATH_MAX - 16)

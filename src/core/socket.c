@@ -37,6 +37,7 @@
 #include "dbus-socket.h"
 #include "def.h"
 #include "exit-status.h"
+#include "fd-util.h"
 #include "formats-util.h"
 #include "label.h"
 #include "log.h"
@@ -108,11 +109,9 @@ static void socket_unwatch_control_pid(Socket *s) {
 }
 
 static void socket_cleanup_fd_list(SocketPort *p) {
-        int k = p->n_auxiliary_fds;
+        assert(p);
 
-        while (k--)
-                safe_close(p->auxiliary_fds[k]);
-
+        close_many(p->auxiliary_fds, p->n_auxiliary_fds);
         p->auxiliary_fds = mfree(p->auxiliary_fds);
         p->n_auxiliary_fds = 0;
 }

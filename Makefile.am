@@ -783,6 +783,8 @@ libbasic_la_SOURCES = \
 	src/basic/util.h \
 	src/basic/string-util.c \
 	src/basic/string-util.h \
+	src/basic/fd-util.c \
+	src/basic/fd-util.h \
 	src/basic/extract-word.c \
 	src/basic/extract-word.h \
 	src/basic/escape.c \

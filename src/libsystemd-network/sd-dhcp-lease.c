@@ -29,6 +29,7 @@
 #include "dhcp-lease-internal.h"
 #include "dhcp-protocol.h"
 #include "dns-domain.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "hostname-util.h"
 #include "in-addr-util.h"

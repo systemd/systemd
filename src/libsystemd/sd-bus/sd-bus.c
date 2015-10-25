@@ -44,6 +44,7 @@
 #include "bus-util.h"
 #include "cgroup-util.h"
 #include "def.h"
+#include "fd-util.h"
 #include "hostname-util.h"
 #include "macro.h"
 #include "missing.h"

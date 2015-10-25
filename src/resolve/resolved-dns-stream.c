@@ -21,6 +21,7 @@
 
 #include <netinet/tcp.h>
 
+#include "fd-util.h"
 #include "missing.h"
 #include "resolved-dns-stream.h"
 

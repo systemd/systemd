@@ -27,7 +27,9 @@
 #endif
 
 #include "btrfs-ctree.h"
+#include "btrfs-util.h"
 #include "copy.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "macro.h"
 #include "missing.h"
@@ -36,7 +38,6 @@
 #include "smack-util.h"
 #include "string-util.h"
 #include "util.h"
-#include "btrfs-util.h"
 
 /* WARNING: Be careful with file system ioctls! When we get an fd, we
  * need to make sure it either refers to only a regular file or

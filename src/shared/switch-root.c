@@ -28,13 +28,14 @@
 #include <unistd.h>
 
 #include "base-filesystem.h"
+#include "fd-util.h"
 #include "missing.h"
 #include "mkdir.h"
 #include "path-util.h"
 #include "rm-rf.h"
 #include "string-util.h"
-#include "util.h"
 #include "switch-root.h"
+#include "util.h"
 
 int switch_root(const char *new_root, const char *oldroot, bool detach_oldroot,  unsigned long mountflags) {
 

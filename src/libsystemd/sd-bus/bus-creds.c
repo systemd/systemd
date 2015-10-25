@@ -29,6 +29,7 @@
 #include "bus-util.h"
 #include "capability.h"
 #include "cgroup-util.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "formats-util.h"
 #include "process-util.h"

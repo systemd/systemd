@@ -28,6 +28,7 @@
 
 #include "arp-util.h"
 #include "event-util.h"
+#include "fd-util.h"
 #include "in-addr-util.h"
 #include "list.h"
 #include "random-util.h"

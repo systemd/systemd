@@ -32,6 +32,7 @@
 #include "dhcp-protocol.h"
 #include "event-util.h"
 #include "util.h"
+#include "fd-util.h"
 
 static uint8_t mac_addr[] = {'A', 'B', 'C', '1', '2', '3'};
 

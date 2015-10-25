@@ -28,6 +28,7 @@
 #include "btrfs-util.h"
 #include "copy.h"
 #include "export-raw.h"
+#include "fd-util.h"
 #include "import-common.h"
 #include "ratelimit.h"
 #include "string-util.h"

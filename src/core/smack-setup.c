@@ -28,12 +28,13 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "fd-util.h"
 #include "fileio.h"
 #include "log.h"
 #include "macro.h"
+#include "smack-setup.h"
 #include "string-util.h"
 #include "util.h"
-#include "smack-setup.h"
 
 #ifdef HAVE_SMACK
 

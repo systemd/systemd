@@ -29,6 +29,7 @@
 #include "sd-lldp.h"
 
 #include "event-util.h"
+#include "fd-util.h"
 #include "lldp-network.h"
 #include "lldp-tlv.h"
 #include "lldp.h"

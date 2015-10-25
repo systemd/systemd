@@ -26,6 +26,7 @@
 
 #include "af-list.h"
 #include "dns-domain.h"
+#include "fd-util.h"
 #include "fileio-label.h"
 #include "hostname-util.h"
 #include "netlink-util.h"

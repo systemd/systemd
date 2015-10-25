@@ -26,6 +26,7 @@
 
 #include "dhcp-internal.h"
 #include "dhcp-server-internal.h"
+#include "fd-util.h"
 #include "in-addr-util.h"
 #include "siphash24.h"
 #include "string-util.h"

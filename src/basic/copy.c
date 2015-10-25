@@ -23,10 +23,11 @@
 #include <sys/xattr.h>
 
 #include "btrfs-util.h"
+#include "copy.h"
+#include "fd-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "util.h"
-#include "copy.h"
 
 #define COPY_BUFFER_SIZE (16*1024)
 

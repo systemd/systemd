@@ -23,6 +23,7 @@
 #include <sys/ioctl.h>
 #include <linux/input.h>
 
+#include "fd-util.h"
 #include "string-util.h"
 #include "udev.h"
 

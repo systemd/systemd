@@ -29,9 +29,9 @@
 #include <unistd.h>
 
 #include "sd-journal.h"
-
 #include "catalog.h"
 #include "compress.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "formats-util.h"
 #include "hashmap.h"

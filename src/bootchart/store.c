@@ -33,12 +33,13 @@
 
 #include "bootchart.h"
 #include "cgroup-util.h"
+#include "fd-util.h"
 #include "fileio.h"
+#include "store.h"
 #include "string-util.h"
 #include "strxcpyx.h"
 #include "time-util.h"
 #include "util.h"
-#include "store.h"
 
 /*
  * Alloc a static 4k buffer for stdio - primarily used to increase

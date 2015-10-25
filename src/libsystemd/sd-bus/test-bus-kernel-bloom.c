@@ -23,6 +23,7 @@
 
 #include "bus-kernel.h"
 #include "bus-util.h"
+#include "fd-util.h"
 #include "log.h"
 #include "util.h"
 

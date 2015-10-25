@@ -30,9 +30,11 @@
 #include <unistd.h>
 
 #include "async.h"
+#include "automount.h"
 #include "bus-error.h"
 #include "bus-util.h"
 #include "dbus-automount.h"
+#include "fd-util.h"
 #include "formats-util.h"
 #include "label.h"
 #include "mkdir.h"
@@ -43,7 +45,6 @@
 #include "string-util.h"
 #include "unit-name.h"
 #include "unit.h"
-#include "automount.h"
 
 static const UnitActiveState state_translation_table[_AUTOMOUNT_STATE_MAX] = {
         [AUTOMOUNT_DEAD] = UNIT_INACTIVE,

@@ -22,6 +22,7 @@
 #include <errno.h>
 
 #include "dropin.h"
+#include "fd-util.h"
 #include "fstab-util.h"
 #include "generator.h"
 #include "hashmap.h"

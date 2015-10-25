@@ -98,6 +98,7 @@
 #include <unistd.h>
 #include <linux/pci_regs.h>
 
+#include "fd-util.h"
 #include "fileio.h"
 #include "string-util.h"
 #include "udev.h"

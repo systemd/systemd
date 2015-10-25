@@ -28,9 +28,10 @@
 
 #include "sd-messages.h"
 
+#include "fd-util.h"
+#include "logind-button.h"
 #include "string-util.h"
 #include "util.h"
-#include "logind-button.h"
 
 Button* button_new(Manager *m, const char *name) {
         Button *b;

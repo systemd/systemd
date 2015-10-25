@@ -18,19 +18,19 @@
 ***/
 
 #include <errno.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <string.h>
-#include <linux/if_packet.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <netinet/ip6.h>
 #include <netinet/icmp6.h>
 #include <netinet/in.h>
+#include <netinet/ip6.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include <linux/if_packet.h>
 
-#include "socket-util.h"
-
+#include "fd-util.h"
 #include "icmp6-util.h"
+#include "socket-util.h"
 
 #define IN6ADDR_ALL_ROUTERS_MULTICAST_INIT \
         { { { 0xff, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \

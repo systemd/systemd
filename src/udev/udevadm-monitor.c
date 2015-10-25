@@ -25,9 +25,10 @@
 #include <sys/time.h>
 #include <sys/epoll.h>
 
-#include "udev.h"
-#include "udev-util.h"
+#include "fd-util.h"
 #include "formats-util.h"
+#include "udev-util.h"
+#include "udev.h"
 
 static bool udev_exit;
 

@@ -33,6 +33,7 @@
 
 #include "sd-daemon.h"
 
+#include "fd-util.h"
 #include "list.h"
 #include "log.h"
 #include "missing.h"
@@ -44,8 +45,8 @@
 #include "strv.h"
 #include "time-util.h"
 #include "timesyncd-conf.h"
-#include "util.h"
 #include "timesyncd-manager.h"
+#include "util.h"
 
 #ifndef ADJ_SETOFFSET
 #define ADJ_SETOFFSET                   0x0100  /* add 'time' to current time */

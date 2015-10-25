@@ -25,6 +25,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "conf-files.h"
+#include "fd-util.h"
 #include "hashmap.h"
 #include "log.h"
 #include "macro.h"
@@ -33,7 +35,6 @@
 #include "string-util.h"
 #include "strv.h"
 #include "util.h"
-#include "conf-files.h"
 
 static int files_add(Hashmap *h, const char *root, const char *path, const char *suffix) {
         _cleanup_closedir_ DIR *dir = NULL;

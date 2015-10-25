@@ -25,13 +25,14 @@
 #include <netinet/in.h>
 #include <sys/ioctl.h>
 #include <linux/if_pppox.h>
-#include <linux/ppp-ioctl.h>
 #include <linux/ppp_defs.h>
+#include <linux/ppp-ioctl.h>
 
 #include "sd-pppoe.h"
 
 #include "async.h"
 #include "event-util.h"
+#include "fd-util.h"
 #include "random-util.h"
 #include "socket-util.h"
 #include "sparse-endian.h"

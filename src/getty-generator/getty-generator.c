@@ -24,6 +24,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "fd-util.h"
 #include "fileio.h"
 #include "log.h"
 #include "mkdir.h"

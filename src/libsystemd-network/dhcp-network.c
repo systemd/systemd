@@ -18,18 +18,18 @@
 ***/
 
 #include <errno.h>
-#include <sys/socket.h>
-#include <string.h>
-#include <linux/if_packet.h>
-#include <linux/if_infiniband.h>
 #include <net/ethernet.h>
 #include <net/if_arp.h>
 #include <stdio.h>
+#include <string.h>
+#include <sys/socket.h>
 #include <linux/filter.h>
-
-#include "socket-util.h"
+#include <linux/if_infiniband.h>
+#include <linux/if_packet.h>
 
 #include "dhcp-internal.h"
+#include "fd-util.h"
+#include "socket-util.h"
 
 static int _bind_raw_socket(int ifindex, union sockaddr_union *link,
                             uint32_t xid, const uint8_t *mac_addr,

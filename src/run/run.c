@@ -30,6 +30,7 @@
 #include "calendarspec.h"
 #include "env-util.h"
 #include "event-util.h"
+#include "fd-util.h"
 #include "formats-util.h"
 #include "path-util.h"
 #include "ptyfwd.h"

@@ -53,6 +53,9 @@
 #include "sd-messages.h"
 
 #include "af-list.h"
+#ifdef HAVE_APPARMOR
+#include "apparmor-util.h"
+#endif
 #include "async.h"
 #include "barrier.h"
 #include "bus-endpoint.h"
@@ -61,7 +64,9 @@
 #include "def.h"
 #include "env-util.h"
 #include "errno-list.h"
+#include "execute.h"
 #include "exit-status.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "formats-util.h"
 #include "ioprio.h"
@@ -73,6 +78,9 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "rm-rf.h"
+#ifdef HAVE_SECCOMP
+#include "seccomp-util.h"
+#endif
 #include "securebits.h"
 #include "selinux-util.h"
 #include "signal-util.h"
@@ -83,16 +91,6 @@
 #include "unit.h"
 #include "util.h"
 #include "utmp-wtmp.h"
-
-#ifdef HAVE_APPARMOR
-#include "apparmor-util.h"
-#endif
-
-#ifdef HAVE_SECCOMP
-#include "seccomp-util.h"
-#endif
-
-#include "execute.h"
 
 #define IDLE_TIMEOUT_USEC (5*USEC_PER_SEC)
 #define IDLE_TIMEOUT2_USEC (1*USEC_PER_SEC)

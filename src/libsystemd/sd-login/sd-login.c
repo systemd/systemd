@@ -29,6 +29,7 @@
 
 #include "cgroup-util.h"
 #include "escape.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "formats-util.h"
 #include "hostname-util.h"

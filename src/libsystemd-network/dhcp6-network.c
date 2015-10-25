@@ -18,19 +18,19 @@
 ***/
 
 #include <errno.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <string.h>
-#include <linux/if_packet.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <netinet/ip6.h>
 #include <netinet/in.h>
-
-#include "socket-util.h"
+#include <netinet/ip6.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include <linux/if_packet.h>
 
 #include "dhcp6-internal.h"
 #include "dhcp6-protocol.h"
+#include "fd-util.h"
+#include "socket-util.h"
 
 int dhcp6_network_bind_udp_socket(int index, struct in6_addr *local_address) {
         struct in6_pktinfo pktinfo = {

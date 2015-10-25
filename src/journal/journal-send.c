@@ -31,6 +31,7 @@
 
 #include "sd-journal.h"
 
+#include "fd-util.h"
 #include "memfd-util.h"
 #include "socket-util.h"
 #include "string-util.h"

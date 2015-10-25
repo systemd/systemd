@@ -23,6 +23,7 @@
 #include <sys/mount.h>
 #include <unistd.h>
 
+#include "fd-util.h"
 #include "macro.h"
 #include "path-util.h"
 #include "rm-rf.h"

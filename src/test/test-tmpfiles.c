@@ -24,6 +24,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#include "fd-util.h"
 #include "formats-util.h"
 #include "string-util.h"
 #include "util.h"

@@ -30,6 +30,7 @@
 #include "blkid-util.h"
 #include "btrfs-util.h"
 #include "efivars.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "fstab-util.h"
 #include "generator.h"

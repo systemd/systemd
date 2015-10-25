@@ -25,6 +25,7 @@
 #include <stdio.h>
 #include <unistd.h>
 
+#include "fd-util.h"
 #include "hashmap.h"
 #include "install.h"
 #include "log.h"

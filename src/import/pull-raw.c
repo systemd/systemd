@@ -28,6 +28,7 @@
 #include "btrfs-util.h"
 #include "copy.h"
 #include "curl-util.h"
+#include "fd-util.h"
 #include "hostname-util.h"
 #include "import-common.h"
 #include "import-util.h"
@@ -36,13 +37,13 @@
 #include "path-util.h"
 #include "pull-common.h"
 #include "pull-job.h"
+#include "pull-raw.h"
 #include "qcow2-util.h"
 #include "rm-rf.h"
 #include "string-util.h"
 #include "strv.h"
 #include "utf8.h"
 #include "util.h"
-#include "pull-raw.h"
 
 typedef enum RawProgress {
         RAW_DOWNLOADING,

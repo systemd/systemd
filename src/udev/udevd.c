@@ -47,6 +47,7 @@
 #include "cpu-set-util.h"
 #include "dev-setup.h"
 #include "event-util.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "formats-util.h"
 #include "hashmap.h"

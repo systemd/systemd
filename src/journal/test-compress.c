@@ -18,9 +18,10 @@
 ***/
 
 #include "compress.h"
-#include "util.h"
+#include "fd-util.h"
 #include "macro.h"
 #include "random-util.h"
+#include "util.h"
 
 #ifdef HAVE_XZ
 # define XZ_OK 0

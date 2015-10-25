@@ -24,6 +24,7 @@
 
 #include "sd-lldp.h"
 
+#include "fd-util.h"
 #include "hashmap.h"
 #include "lldp-internal.h"
 #include "lldp-port.h"

@@ -25,6 +25,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "fd-util.h"
 #include "log.h"
 #include "mkdir.h"
 #include "string-util.h"

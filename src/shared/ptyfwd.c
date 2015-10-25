@@ -24,8 +24,9 @@
 #include <limits.h>
 #include <termios.h>
 
-#include "util.h"
+#include "fd-util.h"
 #include "ptyfwd.h"
+#include "util.h"
 
 struct PTYForward {
         sd_event *event;

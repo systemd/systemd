@@ -24,21 +24,23 @@
 #include <unistd.h>
 
 #include "sd-id128.h"
-#include "strv.h"
-#include "path-util.h"
-#include "unit-name.h"
-#include "bus-util.h"
-#include "bus-common-errors.h"
-#include "cgroup-util.h"
+
 #include "btrfs-util.h"
+#include "bus-common-errors.h"
+#include "bus-util.h"
+#include "cgroup-util.h"
+#include "fd-util.h"
 #include "formats-util.h"
-#include "process-util.h"
 #include "hostname-util.h"
+#include "image-dbus.h"
+#include "machine-dbus.h"
 #include "machine-image.h"
 #include "machine-pool.h"
-#include "image-dbus.h"
 #include "machined.h"
-#include "machine-dbus.h"
+#include "path-util.h"
+#include "process-util.h"
+#include "strv.h"
+#include "unit-name.h"
 
 static int property_get_pool_path(
                 sd_bus *bus,

@@ -29,6 +29,8 @@
 
 #include "bus-internal.h"
 #include "bus-message.h"
+#include "bus-socket.h"
+#include "fd-util.h"
 #include "formats-util.h"
 #include "macro.h"
 #include "missing.h"
@@ -36,7 +38,6 @@
 #include "string-util.h"
 #include "utf8.h"
 #include "util.h"
-#include "bus-socket.h"
 
 #define SNDBUF_SIZE (8*1024*1024)
 

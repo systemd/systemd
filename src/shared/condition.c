@@ -31,7 +31,9 @@
 #include "architecture.h"
 #include "audit.h"
 #include "cap-list.h"
+#include "condition.h"
 #include "extract-word.h"
+#include "fd-util.h"
 #include "hostname-util.h"
 #include "ima-util.h"
 #include "path-util.h"
@@ -40,7 +42,6 @@
 #include "string-util.h"
 #include "util.h"
 #include "virt.h"
-#include "condition.h"
 
 Condition* condition_new(ConditionType type, const char *parameter, bool trigger, bool negate) {
         Condition *c;

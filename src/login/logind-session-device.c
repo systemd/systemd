@@ -27,10 +27,11 @@
 
 #include "libudev.h"
 
-#include "util.h"
-#include "missing.h"
 #include "bus-util.h"
+#include "fd-util.h"
 #include "logind-session-device.h"
+#include "missing.h"
+#include "util.h"
 
 enum SessionDeviceNotifications {
         SESSION_DEVICE_RESUME,

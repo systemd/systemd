@@ -39,6 +39,7 @@
 #include "unit-name.h"
 #include "util.h"
 #include "install.h"
+#include "fd-util.h"
 
 typedef struct {
         OrderedHashmap *will_install;

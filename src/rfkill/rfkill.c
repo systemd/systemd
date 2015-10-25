@@ -26,6 +26,7 @@
 #include "sd-daemon.h"
 
 #include "escape.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "mkdir.h"
 #include "string-util.h"

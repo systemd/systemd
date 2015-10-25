@@ -25,10 +25,11 @@
 
 #include "sd-daemon.h"
 
+#include "fd-util.h"
+#include "fdset.h"
+#include "macro.h"
 #include "set.h"
 #include "util.h"
-#include "macro.h"
-#include "fdset.h"
 
 #define MAKE_SET(s) ((Set*) s)
 #define MAKE_FDSET(s) ((FDSet*) s)

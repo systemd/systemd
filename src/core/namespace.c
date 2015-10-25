@@ -29,15 +29,16 @@
 #include <linux/fs.h>
 
 #include "dev-setup.h"
+#include "fd-util.h"
 #include "loopback-setup.h"
 #include "missing.h"
 #include "mkdir.h"
+#include "namespace.h"
 #include "path-util.h"
 #include "selinux-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "util.h"
-#include "namespace.h"
 
 typedef enum MountMode {
         /* This is ordered by priority! */

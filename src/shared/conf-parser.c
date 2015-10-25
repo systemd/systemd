@@ -36,6 +36,7 @@
 #include "utf8.h"
 #include "util.h"
 #include "conf-parser.h"
+#include "fd-util.h"
 
 int config_item_table_lookup(
                 const void *table,

@@ -22,6 +22,7 @@
 
 #include "device-enumerator-private.h"
 #include "device-util.h"
+#include "fd-util.h"
 #include "prioq.h"
 #include "set.h"
 #include "string-util.h"

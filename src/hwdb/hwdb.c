@@ -31,6 +31,7 @@
 #include "strv.h"
 #include "util.h"
 #include "verbs.h"
+#include "fd-util.h"
 
 /*
  * Generic udev properties, key/value database based on modalias strings.

@@ -26,9 +26,10 @@
 
 #include "btrfs-util.h"
 #include "capability.h"
+#include "fd-util.h"
+#include "import-common.h"
 #include "signal-util.h"
 #include "util.h"
-#include "import-common.h"
 
 int import_make_read_only_fd(int fd) {
         int r;

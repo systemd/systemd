@@ -28,6 +28,7 @@
 
 #include "sd-journal.h"
 
+#include "fd-util.h"
 #include "string-util.h"
 #include "util.h"
 

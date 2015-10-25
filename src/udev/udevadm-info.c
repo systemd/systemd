@@ -26,6 +26,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "fd-util.h"
 #include "string-util.h"
 #include "udev-util.h"
 #include "udev.h"
