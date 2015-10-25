@@ -43,6 +43,12 @@ static void test_should_pass(const char *p) {
         assert_se(parse_timestamp(buf, &q) >= 0);
 }
 
+static void test_should_parse(const char *p) {
+        usec_t t;
+
+        assert_se(parse_timestamp(p, &t) >= 0);
+}
+
 static void test_should_fail(const char *p) {
         usec_t t;
 
@@ -86,7 +92,8 @@ int main(int argc, char *argv[]) {
         test_one_noutc("+2y 4d");
         test_one_noutc("5months ago");
         test_one_noutc("@1395716396");
-        test_one_noutc("today UTC");
+        test_should_parse("today UTC");
+        test_should_fail("today UTC UTC");
 
         return 0;
 }
