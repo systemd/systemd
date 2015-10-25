@@ -24,6 +24,7 @@
 #include "util.h"
 #include "fileio.h"
 #include "hostname-util.h"
+#include "string-util.h"
 
 static void test_hostname_is_valid(void) {
         assert_se(hostname_is_valid("foobar", false));

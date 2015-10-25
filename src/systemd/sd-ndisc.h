@@ -22,9 +22,13 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <inttypes.h>
 #include <net/ethernet.h>
 
 #include "sd-event.h"
+#include "_sd-common.h"
+
+_SD_BEGIN_DECLARATIONS;
 
 enum {
         SD_NDISC_EVENT_ROUTER_ADVERTISMENT_NONE              = 0,
@@ -67,5 +71,7 @@ int sd_ndisc_router_discovery_start(sd_ndisc *nd);
         be16toh((address).s6_addr16[5]),        \
         be16toh((address).s6_addr16[6]),        \
         be16toh((address).s6_addr16[7])
+
+_SD_END_DECLARATIONS;
 
 #endif

@@ -24,17 +24,16 @@
 #include <sys/ioctl.h>
 #include <linux/if_infiniband.h>
 
-#include "udev.h"
-#include "udev-util.h"
-#include "util.h"
-#include "random-util.h"
-
-#include "network-internal.h"
 #include "sd-dhcp6-client.h"
-#include "dhcp6-protocol.h"
+
+#include "dhcp-identifier.h"
 #include "dhcp6-internal.h"
 #include "dhcp6-lease-internal.h"
-#include "dhcp-identifier.h"
+#include "dhcp6-protocol.h"
+#include "fd-util.h"
+#include "network-internal.h"
+#include "random-util.h"
+#include "util.h"
 
 #define MAX_MAC_ADDR_LEN INFINIBAND_ALEN
 
@@ -208,9 +207,8 @@ int sd_dhcp6_client_set_duid(
         return 0;
 }
 
-int sd_dhcp6_client_set_information_request(sd_dhcp6_client *client, bool enabled) {
+int sd_dhcp6_client_set_information_request(sd_dhcp6_client *client, int enabled) {
         assert_return(client, -EINVAL);
-
         assert_return(IN_SET(client->state, DHCP6_STATE_STOPPED), -EBUSY);
 
         client->information_request = enabled;
@@ -218,7 +216,7 @@ int sd_dhcp6_client_set_information_request(sd_dhcp6_client *client, bool enable
         return 0;
 }
 
-int sd_dhcp6_client_get_information_request(sd_dhcp6_client *client, bool *enabled) {
+int sd_dhcp6_client_get_information_request(sd_dhcp6_client *client, int *enabled) {
         assert_return(client, -EINVAL);
         assert_return(enabled, -EINVAL);
 

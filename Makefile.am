@@ -781,6 +781,14 @@ libbasic_la_SOURCES = \
 	src/basic/refcnt.h \
 	src/basic/util.c \
 	src/basic/util.h \
+	src/basic/string-util.c \
+	src/basic/string-util.h \
+	src/basic/fd-util.c \
+	src/basic/fd-util.h \
+	src/basic/extract-word.c \
+	src/basic/extract-word.h \
+	src/basic/escape.c \
+	src/basic/escape.h \
 	src/basic/cpu-set-util.c \
 	src/basic/cpu-set-util.h \
 	src/basic/lockfile-util.c \
@@ -899,7 +907,8 @@ libbasic_la_SOURCES = \
 	src/basic/rm-rf.c \
 	src/basic/rm-rf.h \
 	src/basic/copy.c \
-	src/basic/copy.h
+	src/basic/copy.h \
+	src/basic/formats-util.h
 
 nodist_libbasic_la_SOURCES = \
 	src/basic/errno-from-name.h \
@@ -939,7 +948,6 @@ libshared_la_SOURCES = \
 	src/shared/architecture.h \
 	src/shared/efivars.c \
 	src/shared/efivars.h \
-	src/shared/formats-util.h \
 	src/shared/fstab-util.c \
 	src/shared/fstab-util.h \
 	src/shared/sleep-config.c \

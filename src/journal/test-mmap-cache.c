@@ -24,9 +24,10 @@
 #include <unistd.h>
 #include <fcntl.h>
 
+#include "fd-util.h"
 #include "macro.h"
-#include "util.h"
 #include "mmap-cache.h"
+#include "util.h"
 
 int main(int argc, char *argv[]) {
         int x, y, z, r;

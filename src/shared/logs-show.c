@@ -19,25 +19,26 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <time.h>
 #include <errno.h>
-#include <sys/socket.h>
-#include <string.h>
 #include <fcntl.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <time.h>
 
-#include "logs-show.h"
-#include "log.h"
-#include "util.h"
-#include "utf8.h"
-#include "hashmap.h"
-#include "journal-internal.h"
+#include "fd-util.h"
 #include "formats-util.h"
-#include "process-util.h"
-#include "terminal-util.h"
+#include "hashmap.h"
 #include "hostname-util.h"
+#include "journal-internal.h"
+#include "log.h"
+#include "logs-show.h"
+#include "process-util.h"
+#include "string-util.h"
+#include "terminal-util.h"
+#include "utf8.h"
+#include "util.h"
 
-/* up to three lines (each up to 100 characters),
-   or 300 characters, whichever is less */
+/* up to three lines (each up to 100 characters) or 300 characters, whichever is less */
 #define PRINT_LINE_THRESHOLD 3
 #define PRINT_CHAR_THRESHOLD 300
 

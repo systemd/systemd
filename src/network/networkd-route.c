@@ -22,9 +22,9 @@
 #include "conf-parser.h"
 #include "in-addr-util.h"
 #include "netlink-util.h"
-#include "util.h"
-
 #include "networkd.h"
+#include "string-util.h"
+#include "util.h"
 #include "networkd-route.h"
 
 int route_new(Route **ret) {

@@ -19,8 +19,9 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "show-status.h"
+#include "string-util.h"
 #include "util.h"
+#include "show-status.h"
 
 int parse_show_status(const char *v, ShowStatus *ret) {
         int r;

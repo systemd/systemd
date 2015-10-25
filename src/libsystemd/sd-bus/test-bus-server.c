@@ -19,16 +19,16 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdlib.h>
 #include <pthread.h>
-
-#include "log.h"
-#include "util.h"
-#include "macro.h"
+#include <stdlib.h>
 
 #include "sd-bus.h"
+
 #include "bus-internal.h"
 #include "bus-util.h"
+#include "log.h"
+#include "macro.h"
+#include "util.h"
 
 struct context {
         int fds[2];

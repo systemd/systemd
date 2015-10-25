@@ -20,8 +20,10 @@
 ***/
 
 #include "sd-bus.h"
+
 #include "bus-control.h"
 #include "bus-objects.h"
+#include "string-util.h"
 #include "bus-slot.h"
 
 sd_bus_slot *bus_slot_allocate(

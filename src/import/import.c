@@ -24,12 +24,14 @@
 #include "sd-event.h"
 
 #include "event-util.h"
+#include "fd-util.h"
 #include "hostname-util.h"
 #include "import-raw.h"
 #include "import-tar.h"
 #include "import-util.h"
 #include "machine-image.h"
 #include "signal-util.h"
+#include "string-util.h"
 #include "verbs.h"
 
 static bool arg_force = false;

@@ -23,10 +23,11 @@
 #include <linux/filter.h>
 #include <linux/if_ether.h>
 
-#include "socket-util.h"
-#include "lldp-tlv.h"
-#include "lldp-network.h"
+#include "fd-util.h"
 #include "lldp-internal.h"
+#include "lldp-network.h"
+#include "lldp-tlv.h"
+#include "socket-util.h"
 
 int lldp_network_bind_raw_socket(int ifindex) {
         typedef struct LLDPFrame {

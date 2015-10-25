@@ -23,10 +23,11 @@
 #include <string.h>
 #include <fcntl.h>
 
-#include "util.h"
-#include "utf8.h"
-#include "virt.h"
 #include "efivars.h"
+#include "fd-util.h"
+#include "utf8.h"
+#include "util.h"
+#include "virt.h"
 
 #ifdef ENABLE_EFI
 

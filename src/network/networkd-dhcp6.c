@@ -22,10 +22,10 @@
 #include <netinet/ether.h>
 #include <linux/if.h>
 
-#include "networkd-link.h"
-#include "network-internal.h"
-
 #include "sd-dhcp6-client.h"
+
+#include "network-internal.h"
+#include "networkd-link.h"
 
 static int dhcp6_lease_address_acquired(sd_dhcp6_client *client, Link *link);
 
@@ -166,8 +166,7 @@ static void dhcp6_handler(sd_dhcp6_client *client, int event, void *userdata) {
 }
 
 int dhcp6_configure(Link *link, bool inf_req) {
-        int r;
-        bool information_request;
+        int r, information_request;
 
         assert_return(link, -EINVAL);
 

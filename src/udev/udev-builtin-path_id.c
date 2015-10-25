@@ -19,17 +19,18 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <ctype.h>
+#include <dirent.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <getopt.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdarg.h>
-#include <unistd.h>
 #include <string.h>
-#include <ctype.h>
-#include <fcntl.h>
-#include <errno.h>
-#include <dirent.h>
-#include <getopt.h>
+#include <unistd.h>
 
+#include "string-util.h"
 #include "udev.h"
 
 _printf_(2,3)

@@ -23,11 +23,13 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdbool.h>
 #include <netinet/in.h>
 #include <net/ethernet.h>
 
 #include "sd-event.h"
+#include "_sd-common.h"
+
+_SD_BEGIN_DECLARATIONS;
 
 enum {
         SD_IPV4ACD_EVENT_STOP           = 0,
@@ -45,11 +47,13 @@ int sd_ipv4acd_set_callback(sd_ipv4acd *ll, sd_ipv4acd_cb_t cb, void *userdata);
 int sd_ipv4acd_set_mac(sd_ipv4acd *ll, const struct ether_addr *addr);
 int sd_ipv4acd_set_index(sd_ipv4acd *ll, int interface_index);
 int sd_ipv4acd_set_address(sd_ipv4acd *ll, const struct in_addr *address);
-bool sd_ipv4acd_is_running(sd_ipv4acd *ll);
+int sd_ipv4acd_is_running(sd_ipv4acd *ll);
 int sd_ipv4acd_start(sd_ipv4acd *ll);
 int sd_ipv4acd_stop(sd_ipv4acd *ll);
 sd_ipv4acd *sd_ipv4acd_ref(sd_ipv4acd *ll);
 sd_ipv4acd *sd_ipv4acd_unref(sd_ipv4acd *ll);
 int sd_ipv4acd_new (sd_ipv4acd **ret);
+
+_SD_END_DECLARATIONS;
 
 #endif

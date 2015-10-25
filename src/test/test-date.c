@@ -22,6 +22,7 @@
 #include <string.h>
 
 #include "util.h"
+#include "string-util.h"
 
 static void test_should_pass(const char *p) {
         usec_t t, q;

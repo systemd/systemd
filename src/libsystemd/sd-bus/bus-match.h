@@ -21,9 +21,9 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "hashmap.h"
-
 #include "sd-bus.h"
+
+#include "hashmap.h"
 
 enum bus_match_node_type {
         BUS_MATCH_ROOT,

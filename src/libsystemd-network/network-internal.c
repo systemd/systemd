@@ -19,20 +19,22 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <netinet/ether.h>
-#include <linux/if.h>
 #include <arpa/inet.h>
+#include <linux/if.h>
+#include <netinet/ether.h>
 
-#include "strv.h"
-#include "siphash24.h"
+#include "sd-ndisc.h"
+
+#include "condition.h"
+#include "conf-parser.h"
 #include "dhcp-lease-internal.h"
 #include "log.h"
+#include "siphash24.h"
+#include "string-util.h"
+#include "strv.h"
 #include "utf8.h"
 #include "util.h"
-#include "conf-parser.h"
-#include "condition.h"
 #include "network-internal.h"
-#include "sd-ndisc.h"
 
 const char *net_get_name(struct udev_device *device) {
         const char *name, *field;

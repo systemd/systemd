@@ -21,11 +21,14 @@
 
 #include <unistd.h>
 
-#include "util.h"
+#include "ctype.h"
+#include "escape.h"
+#include "fd-util.h"
+#include "fileio.h"
+#include "string-util.h"
 #include "strv.h"
 #include "utf8.h"
-#include "ctype.h"
-#include "fileio.h"
+#include "util.h"
 
 int write_string_stream(FILE *f, const char *line, bool enforce_newline) {
 

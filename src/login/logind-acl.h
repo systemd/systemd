@@ -23,7 +23,8 @@
 
 #include <sys/types.h>
 #include <stdbool.h>
-#include <libudev.h>
+
+#include "libudev.h"
 
 #ifdef HAVE_ACL
 

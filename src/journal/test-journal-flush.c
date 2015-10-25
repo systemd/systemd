@@ -22,9 +22,11 @@
 #include <fcntl.h>
 
 #include "sd-journal.h"
-#include "macro.h"
+
 #include "journal-file.h"
 #include "journal-internal.h"
+#include "macro.h"
+#include "string-util.h"
 
 int main(int argc, char *argv[]) {
         _cleanup_free_ char *fn = NULL;

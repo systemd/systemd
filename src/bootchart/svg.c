@@ -39,6 +39,7 @@
 #include "bootchart.h"
 #include "list.h"
 #include "utf8.h"
+#include "fd-util.h"
 
 #define time_to_graph(t) ((t) * arg_scale_x)
 #define ps_to_graph(n) ((n) * arg_scale_y)

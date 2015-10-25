@@ -24,7 +24,7 @@
 ***/
 
 #include <sys/types.h>
-#include <stdint.h>
+#include <inttypes.h>
 
 #include "_sd-common.h"
 

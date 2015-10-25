@@ -22,20 +22,21 @@
 ***/
 
 #include <stdbool.h>
-#include <libudev.h>
 
-#include "sd-event.h"
+#include "libudev.h"
 #include "sd-bus.h"
-#include "list.h"
+#include "sd-event.h"
+
 #include "hashmap.h"
+#include "list.h"
 #include "set.h"
 
 typedef struct Manager Manager;
 
+#include "logind-action.h"
+#include "logind-button.h"
 #include "logind-device.h"
 #include "logind-inhibit.h"
-#include "logind-button.h"
-#include "logind-action.h"
 
 struct Manager {
         sd_event *event;

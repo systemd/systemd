@@ -21,13 +21,14 @@
 
 #include <fcntl.h>
 
-#include "util.h"
-#include "log.h"
-
 #include "sd-bus.h"
+
+#include "bus-dump.h"
 #include "bus-kernel.h"
 #include "bus-util.h"
-#include "bus-dump.h"
+#include "fd-util.h"
+#include "log.h"
+#include "util.h"
 
 int main(int argc, char *argv[]) {
         _cleanup_close_ int bus_ref = -1;

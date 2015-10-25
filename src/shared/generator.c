@@ -21,21 +21,23 @@
 
 #include <unistd.h>
 
-#include "util.h"
-#include "special.h"
-#include "mkdir.h"
-#include "unit-name.h"
-#include "generator.h"
-#include "path-util.h"
-#include "fstab-util.h"
-#include "fileio.h"
 #include "dropin.h"
+#include "escape.h"
+#include "fd-util.h"
+#include "fileio.h"
+#include "fstab-util.h"
+#include "generator.h"
+#include "mkdir.h"
+#include "path-util.h"
+#include "special.h"
+#include "string-util.h"
+#include "unit-name.h"
+#include "util.h"
 
 static int write_fsck_sysroot_service(const char *dir, const char *what) {
-        const char *unit;
-        _cleanup_free_ char *device = NULL;
-        _cleanup_free_ char *escaped;
+        _cleanup_free_ char *device = NULL, *escaped = NULL;
         _cleanup_fclose_ FILE *f = NULL;
+        const char *unit;
         int r;
 
         escaped = cescape(what);
@@ -101,16 +103,17 @@ int generator_write_fsck_deps(
 
         if (!isempty(fstype) && !streq(fstype, "auto")) {
                 r = fsck_exists(fstype);
-                if (r == -ENOENT) {
+                if (r < 0)
+                        log_warning_errno(r, "Checking was requested for %s, but couldn't detect if fsck.%s may be used, proceeding: %m", what, fstype);
+                else if (r == 0) {
                         /* treat missing check as essentially OK */
-                        log_debug_errno(r, "Checking was requested for %s, but fsck.%s does not exist: %m", what, fstype);
+                        log_debug("Checking was requested for %s, but fsck.%s does not exist.", what, fstype);
                         return 0;
-                } else if (r < 0)
-                        return log_warning_errno(r, "Checking was requested for %s, but fsck.%s cannot be used: %m", what, fstype);
+                }
         }
 
         if (path_equal(where, "/")) {
-                char *lnk;
+                const char *lnk;
 
                 lnk = strjoina(dir, "/" SPECIAL_LOCAL_FS_TARGET ".wants/systemd-fsck-root.service");
 

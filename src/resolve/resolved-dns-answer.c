@@ -19,8 +19,9 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "resolved-dns-answer.h"
 #include "dns-domain.h"
+#include "resolved-dns-answer.h"
+#include "string-util.h"
 
 DnsAnswer *dns_answer_new(unsigned n) {
         DnsAnswer *a;

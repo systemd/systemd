@@ -22,22 +22,23 @@
 #include <netinet/ether.h>
 #include <linux/netdevice.h>
 
-
-#include "missing.h"
-#include "link-config.h"
-#include "ethtool-util.h"
-
-#include "libudev-private.h"
 #include "sd-netlink.h"
-#include "util.h"
-#include "log.h"
-#include "strv.h"
-#include "path-util.h"
-#include "conf-parser.h"
+
 #include "conf-files.h"
+#include "conf-parser.h"
+#include "ethtool-util.h"
+#include "fd-util.h"
+#include "libudev-private.h"
+#include "link-config.h"
+#include "log.h"
+#include "missing.h"
 #include "netlink-util.h"
 #include "network-internal.h"
+#include "path-util.h"
 #include "random-util.h"
+#include "string-util.h"
+#include "strv.h"
+#include "util.h"
 
 struct link_config_ctx {
         LIST_HEAD(link_config, links);

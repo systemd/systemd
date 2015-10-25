@@ -22,16 +22,16 @@
 #include <linux/veth.h>
 #include <net/if.h>
 
+#include "libudev.h"
 #include "sd-id128.h"
 #include "sd-netlink.h"
-#include "libudev.h"
 
-#include "util.h"
 #include "ether-addr-util.h"
-#include "siphash24.h"
 #include "netlink-util.h"
+#include "siphash24.h"
+#include "string-util.h"
 #include "udev-util.h"
-
+#include "util.h"
 #include "nspawn-network.h"
 
 #define HOST_HASH_KEY SD_ID128_MAKE(1a,37,6f,c7,46,ec,45,0b,ad,a3,d5,31,06,60,5d,b1)

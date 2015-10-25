@@ -22,8 +22,9 @@
 #include "bus-internal.h"
 #include "bus-message.h"
 #include "bus-signature.h"
-#include "bus-util.h"
 #include "bus-type.h"
+#include "bus-util.h"
+#include "string-util.h"
 
 _public_ int sd_bus_emit_signal(
                 sd_bus *bus,

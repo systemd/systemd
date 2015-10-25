@@ -26,11 +26,13 @@
 #include <linux/ip6_tunnel.h>
 
 #include "sd-netlink.h"
-#include "networkd-netdev-tunnel.h"
-#include "networkd-link.h"
-#include "util.h"
-#include "missing.h"
+
 #include "conf-parser.h"
+#include "missing.h"
+#include "networkd-link.h"
+#include "string-util.h"
+#include "util.h"
+#include "networkd-netdev-tunnel.h"
 
 #define DEFAULT_TNL_HOP_LIMIT   64
 #define IP6_FLOWINFO_FLOWLABEL  htonl(0x000FFFFF)

@@ -27,9 +27,10 @@
 #include <limits.h>
 #include <sys/file.h>
 
-#include "util.h"
-#include "lockfile-util.h"
+#include "fd-util.h"
 #include "fileio.h"
+#include "lockfile-util.h"
+#include "util.h"
 
 int make_lock_file(const char *p, int operation, LockFile *ret) {
         _cleanup_close_ int fd = -1;

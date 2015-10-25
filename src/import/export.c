@@ -26,10 +26,12 @@
 #include "event-util.h"
 #include "export-raw.h"
 #include "export-tar.h"
+#include "fd-util.h"
 #include "hostname-util.h"
 #include "import-util.h"
 #include "machine-image.h"
 #include "signal-util.h"
+#include "string-util.h"
 #include "verbs.h"
 
 static ImportCompressType arg_compress = IMPORT_COMPRESS_UNKNOWN;

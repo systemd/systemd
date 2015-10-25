@@ -21,22 +21,24 @@
 
 /* See RFC 2516 */
 
-#include <sys/ioctl.h>
-#include <linux/ppp_defs.h>
-#include <linux/ppp-ioctl.h>
 #include <net/if.h>
 #include <netinet/in.h>
+#include <sys/ioctl.h>
 #include <linux/if_pppox.h>
+#include <linux/ppp_defs.h>
+#include <linux/ppp-ioctl.h>
 
 #include "sd-pppoe.h"
 
+#include "async.h"
 #include "event-util.h"
-
-#include "util.h"
+#include "fd-util.h"
 #include "random-util.h"
 #include "socket-util.h"
-#include "async.h"
+#include "sparse-endian.h"
+#include "string-util.h"
 #include "utf8.h"
+#include "util.h"
 
 #define PPPOE_MAX_PACKET_SIZE 1484
 #define PPPOE_MAX_PADR_RESEND 16

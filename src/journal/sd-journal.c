@@ -21,29 +21,31 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <stddef.h>
-#include <unistd.h>
-#include <sys/inotify.h>
-#include <poll.h>
-#include <sys/vfs.h>
 #include <linux/magic.h>
+#include <poll.h>
+#include <stddef.h>
+#include <sys/inotify.h>
+#include <sys/vfs.h>
+#include <unistd.h>
 
 #include "sd-journal.h"
-#include "journal-def.h"
-#include "journal-file.h"
-#include "hashmap.h"
-#include "list.h"
-#include "strv.h"
-#include "path-util.h"
-#include "lookup3.h"
-#include "compress.h"
-#include "journal-internal.h"
-#include "missing.h"
 #include "catalog.h"
-#include "replace-var.h"
+#include "compress.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "formats-util.h"
+#include "hashmap.h"
 #include "hostname-util.h"
+#include "journal-def.h"
+#include "journal-file.h"
+#include "journal-internal.h"
+#include "list.h"
+#include "lookup3.h"
+#include "missing.h"
+#include "path-util.h"
+#include "replace-var.h"
+#include "string-util.h"
+#include "strv.h"
 
 #define JOURNAL_FILES_MAX 7168
 

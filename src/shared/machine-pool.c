@@ -19,19 +19,21 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/prctl.h>
-#include <sys/vfs.h>
-#include <sys/statvfs.h>
 #include <sys/mount.h>
+#include <sys/prctl.h>
+#include <sys/statvfs.h>
+#include <sys/vfs.h>
 
-#include "util.h"
-#include "process-util.h"
-#include "lockfile-util.h"
-#include "mkdir.h"
 #include "btrfs-util.h"
-#include "path-util.h"
-#include "signal-util.h"
+#include "fd-util.h"
+#include "lockfile-util.h"
 #include "machine-pool.h"
+#include "mkdir.h"
+#include "path-util.h"
+#include "process-util.h"
+#include "signal-util.h"
+#include "string-util.h"
+#include "util.h"
 
 #define VAR_LIB_MACHINES_SIZE_START (1024UL*1024UL*500UL)
 #define VAR_LIB_MACHINES_FREE_MIN (1024UL*1024UL*750UL)

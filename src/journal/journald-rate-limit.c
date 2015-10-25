@@ -19,14 +19,15 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <string.h>
 #include <errno.h>
+#include <string.h>
 
-#include "journald-rate-limit.h"
-#include "list.h"
-#include "util.h"
 #include "hashmap.h"
+#include "list.h"
 #include "random-util.h"
+#include "string-util.h"
+#include "util.h"
+#include "journald-rate-limit.h"
 
 #define POOLS_MAX 5
 #define BUCKETS_MAX 127

@@ -17,16 +17,18 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdio.h>
 #include <stdbool.h>
+#include <stdio.h>
 
-#include "unit.h"
-#include "manager.h"
-#include "util.h"
 #include "macro.h"
-#include "strv.h"
+#include "manager.h"
 #include "mkdir.h"
 #include "rm-rf.h"
+#include "string-util.h"
+#include "strv.h"
+#include "unit.h"
+#include "util.h"
+#include "fd-util.h"
 
 typedef void (*test_function_t)(Manager *m);
 

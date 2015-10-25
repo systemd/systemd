@@ -21,11 +21,11 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "sd-id128.h"
 
 #include "macro.h"
 #include "sparse-endian.h"
 #include "unaligned.h"
-#include "sd-id128.h"
 
 /* RFC 3315 section 9.1:
  *      A DUID can be no more than 128 octets long (not including the type code).

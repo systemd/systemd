@@ -19,9 +19,11 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "missing.h"
-#include "journald-audit.h"
 #include "audit-type.h"
+#include "fd-util.h"
+#include "journald-audit.h"
+#include "missing.h"
+#include "string-util.h"
 
 typedef struct MapField {
         const char *audit_field;

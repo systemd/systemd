@@ -21,21 +21,22 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <string.h>
 #include <errno.h>
 #include <stddef.h>
+#include <string.h>
 
-#include "util.h"
 #include "sd-bus.h"
+
 #include "bus-internal.h"
 #include "bus-message.h"
 #include "bus-util.h"
-#include "strv.h"
-#include "set.h"
 #include "driver.h"
-#include "proxy.h"
-#include "synthesize.h"
 #include "env-util.h"
+#include "proxy.h"
+#include "set.h"
+#include "strv.h"
+#include "synthesize.h"
+#include "util.h"
 
 static int get_creds_by_name(sd_bus *bus, const char *name, uint64_t mask, sd_bus_creds **_creds, sd_bus_error *error) {
         _cleanup_bus_creds_unref_ sd_bus_creds *c = NULL;

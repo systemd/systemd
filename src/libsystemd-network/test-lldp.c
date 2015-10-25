@@ -20,18 +20,21 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <arpa/inet.h>
+#include <net/ethernet.h>
 #include <stdio.h>
 #include <string.h>
-#include <net/ethernet.h>
-#include <arpa/inet.h>
 
-#include "sd-lldp.h"
 #include "sd-event.h"
+#include "sd-lldp.h"
+
 #include "event-util.h"
-#include "macro.h"
-#include "lldp.h"
-#include "lldp-tlv.h"
+#include "fd-util.h"
 #include "lldp-network.h"
+#include "lldp-tlv.h"
+#include "lldp.h"
+#include "macro.h"
+#include "string-util.h"
 
 #define TEST_LLDP_PORT "em1"
 #define TEST_LLDP_TYPE_SYSTEM_NAME "systemd-lldp"

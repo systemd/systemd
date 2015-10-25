@@ -18,12 +18,13 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdarg.h>
 #include <errno.h>
 #include <libkmod.h>
+#include <stdarg.h>
+#include <stdio.h>
+#include <stdlib.h>
 
+#include "string-util.h"
 #include "udev.h"
 
 static struct kmod_ctx *ctx = NULL;

@@ -21,10 +21,12 @@
 
 #include <unistd.h>
 
+#include "sd-bus.h"
+
+#include "bus-util.h"
+#include "fd-util.h"
 #include "macro.h"
 #include "util.h"
-#include "sd-bus.h"
-#include "bus-util.h"
 
 static int inhibit(sd_bus *bus, const char *what) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;

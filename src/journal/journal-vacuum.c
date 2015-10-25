@@ -23,10 +23,13 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "sd-id128.h"
+
+#include "fd-util.h"
 #include "journal-def.h"
 #include "journal-file.h"
 #include "journal-vacuum.h"
-#include "sd-id128.h"
+#include "string-util.h"
 #include "util.h"
 
 struct vacuum_info {

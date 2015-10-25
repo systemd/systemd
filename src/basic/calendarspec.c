@@ -22,6 +22,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "string-util.h"
 #include "calendarspec.h"
 
 #define BITS_WEEKDAYS   127

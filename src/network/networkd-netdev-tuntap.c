@@ -24,6 +24,7 @@
 #include <linux/if_tun.h>
 
 #include "networkd-netdev-tuntap.h"
+#include "fd-util.h"
 
 #define TUN_DEV "/dev/net/tun"
 

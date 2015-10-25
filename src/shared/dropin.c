@@ -19,12 +19,15 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "dropin.h"
-#include "util.h"
-#include "strv.h"
-#include "mkdir.h"
-#include "fileio-label.h"
 #include "conf-files.h"
+#include "dropin.h"
+#include "escape.h"
+#include "fd-util.h"
+#include "fileio-label.h"
+#include "mkdir.h"
+#include "string-util.h"
+#include "strv.h"
+#include "util.h"
 
 int drop_in_file(const char *dir, const char *unit, unsigned level,
                  const char *name, char **_p, char **_q) {

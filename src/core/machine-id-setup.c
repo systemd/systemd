@@ -29,15 +29,17 @@
 
 #include "sd-id128.h"
 
+#include "fd-util.h"
 #include "fileio.h"
 #include "log.h"
+#include "machine-id-setup.h"
 #include "macro.h"
 #include "mkdir.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "string-util.h"
 #include "util.h"
 #include "virt.h"
-#include "machine-id-setup.h"
 
 static int shorten_uuid(char destination[34], const char source[36]) {
         unsigned i, j;

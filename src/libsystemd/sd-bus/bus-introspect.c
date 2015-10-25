@@ -19,11 +19,13 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "util.h"
-#include "bus-introspect.h"
-#include "bus-signature.h"
 #include "bus-internal.h"
+#include "bus-introspect.h"
 #include "bus-protocol.h"
+#include "bus-signature.h"
+#include "fd-util.h"
+#include "string-util.h"
+#include "util.h"
 
 int introspect_begin(struct introspect *i, bool trusted) {
         assert(i);

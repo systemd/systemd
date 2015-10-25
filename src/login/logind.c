@@ -20,20 +20,22 @@
 ***/
 
 #include <errno.h>
-#include <libudev.h>
 #include <fcntl.h>
 #include <string.h>
 #include <unistd.h>
 
+#include "libudev.h"
 #include "sd-daemon.h"
-#include "strv.h"
-#include "conf-parser.h"
-#include "bus-util.h"
+
 #include "bus-error.h"
-#include "udev-util.h"
+#include "bus-util.h"
+#include "conf-parser.h"
+#include "fd-util.h"
 #include "formats-util.h"
-#include "signal-util.h"
 #include "logind.h"
+#include "signal-util.h"
+#include "strv.h"
+#include "udev-util.h"
 
 static void manager_free(Manager *m);
 

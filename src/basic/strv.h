@@ -21,10 +21,11 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <fnmatch.h>
 #include <stdarg.h>
 #include <stdbool.h>
-#include <fnmatch.h>
 
+#include "extract-word.h"
 #include "util.h"
 
 char *strv_find(char **l, const char *name) _pure_;

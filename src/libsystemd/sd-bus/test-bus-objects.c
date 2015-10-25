@@ -22,16 +22,16 @@
 #include <stdlib.h>
 #include <pthread.h>
 
-#include "log.h"
-#include "util.h"
-#include "macro.h"
-#include "strv.h"
-
 #include "sd-bus.h"
+
+#include "bus-dump.h"
 #include "bus-internal.h"
 #include "bus-message.h"
 #include "bus-util.h"
-#include "bus-dump.h"
+#include "log.h"
+#include "macro.h"
+#include "strv.h"
+#include "util.h"
 
 struct context {
         int fds[2];

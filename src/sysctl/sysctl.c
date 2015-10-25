@@ -28,10 +28,12 @@
 #include <string.h>
 
 #include "conf-files.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "hashmap.h"
 #include "log.h"
 #include "path-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "sysctl-util.h"
 #include "util.h"

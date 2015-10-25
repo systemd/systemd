@@ -33,12 +33,14 @@
 #include "hashmap.h"
 #include "path-util.h"
 #include "selinux-util.h"
+#include "smack-util.h"
 #include "specifier.h"
+#include "string-util.h"
 #include "strv.h"
 #include "uid-range.h"
 #include "utf8.h"
 #include "util.h"
-#include "smack-util.h"
+#include "fd-util.h"
 
 typedef enum ItemType {
         ADD_USER = 'u',
@@ -1762,7 +1764,7 @@ static int parse_argv(int argc, char *argv[]) {
                 {}
         };
 
-        int c;
+        int c, r;
 
         assert(argc >= 0);
         assert(argv);
@@ -1779,12 +1781,9 @@ static int parse_argv(int argc, char *argv[]) {
                         return version();
 
                 case ARG_ROOT:
-                        free(arg_root);
-                        arg_root = path_make_absolute_cwd(optarg);
-                        if (!arg_root)
-                                return log_oom();
-
-                        path_kill_slashes(arg_root);
+                        r = parse_path_argument_and_warn(optarg, true, &arg_root);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case '?':

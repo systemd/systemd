@@ -20,6 +20,8 @@
 ***/
 
 #include "curl-util.h"
+#include "fd-util.h"
+#include "string-util.h"
 
 static void curl_glue_check_finished(CurlGlue *g) {
         CURLMsg *msg;

@@ -20,23 +20,25 @@
 ***/
 
 #include <errno.h>
-#include <sys/mount.h>
-#include <string.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <sys/stat.h>
 #include <sched.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/mount.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #include <linux/fs.h>
 
+#include "dev-setup.h"
+#include "fd-util.h"
+#include "loopback-setup.h"
+#include "missing.h"
+#include "mkdir.h"
+#include "namespace.h"
+#include "path-util.h"
+#include "selinux-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "util.h"
-#include "path-util.h"
-#include "missing.h"
-#include "loopback-setup.h"
-#include "dev-setup.h"
-#include "selinux-util.h"
-#include "namespace.h"
-#include "mkdir.h"
 
 typedef enum MountMode {
         /* This is ordered by priority! */

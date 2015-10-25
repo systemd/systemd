@@ -18,8 +18,9 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
-#include "socket-util.h"
+#include "fd-util.h"
 #include "formats-util.h"
+#include "socket-util.h"
 #include "udev.h"
 
 /* wire protocol magic must match */

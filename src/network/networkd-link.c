@@ -25,17 +25,17 @@
 
 #include "bus-util.h"
 #include "dhcp-lease-internal.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "netlink-util.h"
 #include "network-internal.h"
+#include "networkd-link.h"
+#include "networkd-netdev.h"
 #include "set.h"
 #include "socket-util.h"
 #include "udev-util.h"
 #include "util.h"
 #include "virt.h"
-
-#include "networkd-link.h"
-#include "networkd-netdev.h"
 
 bool link_dhcp6_enabled(Link *link) {
         if (link->flags & IFF_LOOPBACK)

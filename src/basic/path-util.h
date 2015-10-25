@@ -36,11 +36,11 @@
 #endif
 
 bool is_path(const char *p) _pure_;
-char** path_split_and_make_absolute(const char *p);
+int path_split_and_make_absolute(const char *p, char ***ret);
 int path_get_parent(const char *path, char **parent);
 bool path_is_absolute(const char *p) _pure_;
 char* path_make_absolute(const char *p, const char *prefix);
-char* path_make_absolute_cwd(const char *p);
+int path_make_absolute_cwd(const char *p, char **ret);
 int path_make_relative(const char *from_dir, const char *to_path, char **_r);
 char* path_kill_slashes(char *path);
 char* path_startswith(const char *path, const char *prefix) _pure_;
@@ -49,7 +49,7 @@ bool path_equal(const char *a, const char *b) _pure_;
 bool path_equal_or_files_same(const char *a, const char *b);
 char* path_join(const char *root, const char *path, const char *rest);
 
-char** path_strv_make_absolute_cwd(char **l);
+int path_strv_make_absolute_cwd(char **l);
 char** path_strv_resolve(char **l, const char *prefix);
 char** path_strv_resolve_uniq(char **l, const char *prefix);
 
@@ -58,7 +58,7 @@ int path_is_mount_point(const char *path, int flags);
 int path_is_read_only_fs(const char *path);
 int path_is_os_tree(const char *path);
 
-int find_binary(const char *name, bool local, char **filename);
+int find_binary(const char *name, char **filename);
 
 bool paths_check_timestamp(const char* const* paths, usec_t *paths_ts_usec, bool update);
 
@@ -101,3 +101,5 @@ char *prefix_root(const char *root, const char *path);
                 }                                                       \
                 _ret;                                                   \
         })
+
+int parse_path_argument_and_warn(const char *path, bool suppress_root, char **arg);

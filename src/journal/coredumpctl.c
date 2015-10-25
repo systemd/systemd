@@ -29,6 +29,7 @@
 #include "sd-journal.h"
 
 #include "compress.h"
+#include "fd-util.h"
 #include "journal-internal.h"
 #include "log.h"
 #include "macro.h"
@@ -38,6 +39,7 @@
 #include "set.h"
 #include "sigbus.h"
 #include "signal-util.h"
+#include "string-util.h"
 #include "terminal-util.h"
 #include "util.h"
 
@@ -84,37 +86,35 @@ static Set *new_matches(void) {
 }
 
 static int add_match(Set *set, const char *match) {
-        int r = -ENOMEM;
-        unsigned pid;
-        const char* prefix;
-        char *pattern = NULL;
         _cleanup_free_ char *p = NULL;
+        char *pattern = NULL;
+        const char* prefix;
+        pid_t pid;
+        int r;
 
         if (strchr(match, '='))
                 prefix = "";
         else if (strchr(match, '/')) {
-                p = path_make_absolute_cwd(match);
-                if (!p)
+                r = path_make_absolute_cwd(match, &p);
+                if (r < 0)
                         goto fail;
-
                 match = p;
                 prefix = "COREDUMP_EXE=";
-        }
-        else if (safe_atou(match, &pid) == 0)
+        } else if (parse_pid(match, &pid) >= 0)
                 prefix = "COREDUMP_PID=";
         else
                 prefix = "COREDUMP_COMM=";
 
         pattern = strjoin(prefix, match, NULL);
-        if (!pattern)
+        if (!pattern) {
+                r = -ENOMEM;
                 goto fail;
+        }
 
         log_debug("Adding pattern: %s", pattern);
         r = set_consume(set, pattern);
-        if (r < 0) {
-                log_error_errno(r, "Failed to add pattern: %m");
+        if (r < 0)
                 goto fail;
-        }
 
         return 0;
 fail:

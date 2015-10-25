@@ -21,10 +21,10 @@
 
 #include <netinet/icmp6.h>
 
-#include "socket-util.h"
+#include "sd-ndisc.h"
 
 #include "icmp6-util.h"
-#include "sd-ndisc.h"
+#include "socket-util.h"
 
 static struct ether_addr mac_addr = {
         .ether_addr_octet = {'A', 'B', 'C', '1', '2', '3'}

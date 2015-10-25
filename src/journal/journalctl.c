@@ -42,6 +42,7 @@
 #include "bus-error.h"
 #include "bus-util.h"
 #include "catalog.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "fsprg.h"
 #include "hostname-util.h"
@@ -104,7 +105,7 @@ static const char *arg_field = NULL;
 static bool arg_catalog = false;
 static bool arg_reverse = false;
 static int arg_journal_type = 0;
-static const char *arg_root = NULL;
+static char *arg_root = NULL;
 static const char *arg_machine = NULL;
 static uint64_t arg_vacuum_size = 0;
 static uint64_t arg_vacuum_n_files = 0;
@@ -505,7 +506,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_ROOT:
-                        arg_root = optarg;
+                        r = parse_path_argument_and_warn(optarg, true, &arg_root);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case 'c':
@@ -2246,6 +2249,8 @@ finish:
         strv_free(arg_syslog_identifier);
         strv_free(arg_system_units);
         strv_free(arg_user_units);
+
+        free(arg_root);
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

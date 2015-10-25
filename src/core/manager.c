@@ -51,11 +51,14 @@
 #include "dbus-unit.h"
 #include "dbus.h"
 #include "env-util.h"
+#include "escape.h"
 #include "exit-status.h"
+#include "fd-util.h"
 #include "hashmap.h"
 #include "locale-setup.h"
 #include "log.h"
 #include "macro.h"
+#include "manager.h"
 #include "missing.h"
 #include "mkdir.h"
 #include "path-lookup.h"
@@ -65,6 +68,7 @@
 #include "rm-rf.h"
 #include "signal-util.h"
 #include "special.h"
+#include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "time-util.h"
@@ -73,7 +77,6 @@
 #include "util.h"
 #include "virt.h"
 #include "watchdog.h"
-#include "manager.h"
 
 /* Initial delay and the interval for printing status messages about running jobs */
 #define JOBS_IN_PROGRESS_WAIT_USEC (5*USEC_PER_SEC)

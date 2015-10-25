@@ -21,13 +21,15 @@
 
 #include <errno.h>
 #include <getopt.h>
+#include <libkmod.h>
 #include <limits.h>
 #include <string.h>
 #include <sys/stat.h>
-#include <libkmod.h>
 
 #include "conf-files.h"
+#include "fd-util.h"
 #include "log.h"
+#include "string-util.h"
 #include "strv.h"
 #include "util.h"
 

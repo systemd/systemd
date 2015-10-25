@@ -24,11 +24,11 @@
 #include "conf-parser.h"
 #include "firewall-util.h"
 #include "netlink-util.h"
+#include "networkd.h"
 #include "set.h"
+#include "string-util.h"
 #include "utf8.h"
 #include "util.h"
-
-#include "networkd.h"
 #include "networkd-address.h"
 
 int address_new(Address **ret) {

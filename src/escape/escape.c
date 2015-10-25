@@ -24,6 +24,7 @@
 #include <stdlib.h>
 
 #include "log.h"
+#include "string-util.h"
 #include "strv.h"
 #include "unit-name.h"
 

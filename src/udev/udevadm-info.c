@@ -15,19 +15,21 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <string.h>
-#include <stdio.h>
-#include <stddef.h>
 #include <ctype.h>
-#include <unistd.h>
 #include <dirent.h>
 #include <errno.h>
-#include <getopt.h>
 #include <fcntl.h>
+#include <getopt.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <string.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
-#include "udev.h"
+#include "fd-util.h"
+#include "string-util.h"
 #include "udev-util.h"
+#include "udev.h"
 #include "udevadm-util.h"
 
 static bool skip_attribute(const char *name) {

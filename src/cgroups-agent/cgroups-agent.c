@@ -22,8 +22,9 @@
 #include <stdlib.h>
 
 #include "sd-bus.h"
-#include "log.h"
+
 #include "bus-util.h"
+#include "log.h"
 
 int main(int argc, char *argv[]) {
         _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;

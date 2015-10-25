@@ -18,18 +18,18 @@
 ***/
 
 #include <netinet/icmp6.h>
-#include <netinet/ip6.h>
-#include <string.h>
-#include <stdbool.h>
 #include <netinet/in.h>
+#include <netinet/ip6.h>
+#include <stdbool.h>
+#include <string.h>
 #include <sys/ioctl.h>
 
+#include "sd-ndisc.h"
+
 #include "async.h"
+#include "icmp6-util.h"
 #include "list.h"
 #include "socket-util.h"
-
-#include "icmp6-util.h"
-#include "sd-ndisc.h"
 
 #define NDISC_ROUTER_SOLICITATION_INTERVAL      4 * USEC_PER_SEC
 #define NDISC_MAX_ROUTER_SOLICITATIONS          3

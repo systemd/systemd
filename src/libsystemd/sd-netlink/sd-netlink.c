@@ -19,17 +19,18 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/socket.h>
 #include <poll.h>
-
-#include "missing.h"
-#include "macro.h"
-#include "util.h"
-#include "hashmap.h"
+#include <sys/socket.h>
 
 #include "sd-netlink.h"
+
+#include "fd-util.h"
+#include "hashmap.h"
+#include "macro.h"
+#include "missing.h"
 #include "netlink-internal.h"
 #include "netlink-util.h"
+#include "util.h"
 
 static int sd_netlink_new(sd_netlink **ret) {
         _cleanup_netlink_unref_ sd_netlink *rtnl = NULL;

@@ -24,13 +24,14 @@
 
 #include "conf-files.h"
 #include "conf-parser.h"
-#include "util.h"
-#include "hostname-util.h"
 #include "dns-domain.h"
+#include "fd-util.h"
+#include "hostname-util.h"
 #include "network-internal.h"
-
-#include "networkd.h"
 #include "networkd-network.h"
+#include "networkd.h"
+#include "string-util.h"
+#include "util.h"
 
 static int network_load_one(Manager *manager, const char *filename) {
         _cleanup_network_free_ Network *network = NULL;

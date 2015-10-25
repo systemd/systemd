@@ -27,9 +27,11 @@
 #include "hwdb-util.h"
 #include "mkdir.h"
 #include "strbuf.h"
+#include "string-util.h"
 #include "strv.h"
 #include "util.h"
 #include "verbs.h"
+#include "fd-util.h"
 
 /*
  * Generic udev properties, key/value database based on modalias strings.

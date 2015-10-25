@@ -21,11 +21,12 @@
 
 #include <stdio.h>
 
-#include "systemd/sd-journal.h"
+#include "sd-journal.h"
 
 #include "journal-internal.h"
-#include "util.h"
 #include "log.h"
+#include "string-util.h"
+#include "util.h"
 
 int main(int argc, char *argv[]) {
         _cleanup_journal_close_ sd_journal*j;

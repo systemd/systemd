@@ -19,23 +19,24 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <string.h>
-#include <unistd.h>
-#include <errno.h>
 #include <arpa/inet.h>
-#include <stdio.h>
+#include <errno.h>
 #include <net/if.h>
-#include <sys/types.h>
-#include <stddef.h>
 #include <netdb.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/types.h>
+#include <unistd.h>
 
-#include "macro.h"
-#include "path-util.h"
-#include "util.h"
-#include "socket-util.h"
-#include "missing.h"
 #include "fileio.h"
 #include "formats-util.h"
+#include "macro.h"
+#include "missing.h"
+#include "path-util.h"
+#include "string-util.h"
+#include "util.h"
+#include "socket-util.h"
 
 int socket_address_parse(SocketAddress *a, const char *s) {
         char *e, *n;

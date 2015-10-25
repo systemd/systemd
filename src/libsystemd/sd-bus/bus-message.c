@@ -23,19 +23,21 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 
-#include "util.h"
-#include "utf8.h"
+#include "sd-bus.h"
+
+#include "bus-gvariant.h"
+#include "bus-internal.h"
+#include "bus-message.h"
+#include "bus-signature.h"
+#include "bus-type.h"
+#include "bus-util.h"
+#include "fd-util.h"
+#include "memfd-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
-#include "memfd-util.h"
-
-#include "sd-bus.h"
-#include "bus-message.h"
-#include "bus-internal.h"
-#include "bus-type.h"
-#include "bus-signature.h"
-#include "bus-gvariant.h"
-#include "bus-util.h"
+#include "utf8.h"
+#include "util.h"
 
 static int message_append_basic(sd_bus_message *m, char type, const void *p, const void **stored);
 

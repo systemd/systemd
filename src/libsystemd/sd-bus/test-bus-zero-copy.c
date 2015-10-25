@@ -21,14 +21,16 @@
 
 #include <sys/mman.h>
 
-#include "util.h"
+#include "sd-bus.h"
+
+#include "bus-dump.h"
+#include "bus-kernel.h"
+#include "bus-message.h"
 #include "log.h"
 #include "memfd-util.h"
-
-#include "sd-bus.h"
-#include "bus-message.h"
-#include "bus-kernel.h"
-#include "bus-dump.h"
+#include "string-util.h"
+#include "util.h"
+#include "fd-util.h"
 
 #define FIRST_ARRAY 17
 #define SECOND_ARRAY 33

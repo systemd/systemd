@@ -23,16 +23,16 @@
 #include <stdbool.h>
 #include <unistd.h>
 
-#include "util.h"
-#include "socket-util.h"
-#include "formats-util.h"
-#include "refcnt.h"
-#include "missing.h"
-
 #include "sd-netlink.h"
-#include "netlink-util.h"
+
+#include "formats-util.h"
+#include "missing.h"
 #include "netlink-internal.h"
 #include "netlink-types.h"
+#include "netlink-util.h"
+#include "refcnt.h"
+#include "socket-util.h"
+#include "util.h"
 
 int sd_rtnl_message_route_set_dst_prefixlen(sd_netlink_message *m, unsigned char prefixlen) {
         struct rtmsg *rtm;

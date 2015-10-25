@@ -23,13 +23,14 @@
 
 #include <stddef.h>
 
-#include "util.h"
 #include "sd-bus.h"
+
 #include "bus-internal.h"
+#include "bus-match.h"
 #include "bus-message.h"
 #include "bus-util.h"
-#include "bus-match.h"
 #include "synthesize.h"
+#include "util.h"
 
 int synthetic_driver_send(sd_bus *b, sd_bus_message *m) {
         int r;

@@ -42,7 +42,10 @@
 #include "cpu-set-util.h"
 #include "env-util.h"
 #include "errno-list.h"
+#include "escape.h"
+#include "fd-util.h"
 #include "ioprio.h"
+#include "load-fragment.h"
 #include "log.h"
 #include "missing.h"
 #include "path-util.h"
@@ -51,12 +54,12 @@
 #endif
 #include "securebits.h"
 #include "signal-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "unit-name.h"
 #include "unit-printf.h"
 #include "unit.h"
 #include "utf8.h"
-#include "load-fragment.h"
 
 int config_parse_warn_compat(
                 const char *unit,
@@ -522,9 +525,7 @@ int config_parse_exec(
         assert(e);
 
         e += ltype;
-
         rvalue += strspn(rvalue, WHITESPACE);
-        p = rvalue;
 
         if (isempty(rvalue)) {
                 /* An empty assignment resets the list */
@@ -532,14 +533,15 @@ int config_parse_exec(
                 return 0;
         }
 
+        p = rvalue;
         do {
-                int i;
+                _cleanup_free_ char *path = NULL, *firstword = NULL;
+                bool separate_argv0 = false, ignore = false;
+                _cleanup_free_ ExecCommand *nce = NULL;
                 _cleanup_strv_free_ char **n = NULL;
                 size_t nlen = 0, nbufsize = 0;
-                _cleanup_free_ ExecCommand *nce = NULL;
-                _cleanup_free_ char *path = NULL, *firstword = NULL;
                 char *f;
-                bool separate_argv0 = false, ignore = false;
+                int i;
 
                 semicolon = false;
 

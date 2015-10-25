@@ -21,21 +21,21 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/socket.h>
 #include <pthread.h>
-
-#include "hashmap.h"
-#include "prioq.h"
-#include "list.h"
-#include "util.h"
-#include "refcnt.h"
-#include "socket-util.h"
+#include <sys/socket.h>
 
 #include "sd-bus.h"
+
 #include "bus-error.h"
-#include "bus-match.h"
 #include "bus-kernel.h"
+#include "bus-match.h"
+#include "hashmap.h"
 #include "kdbus.h"
+#include "list.h"
+#include "prioq.h"
+#include "refcnt.h"
+#include "socket-util.h"
+#include "util.h"
 
 struct reply_callback {
         sd_bus_message_handler_t callback;

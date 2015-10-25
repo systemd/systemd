@@ -24,6 +24,10 @@
 #include <string.h>
 #include <unistd.h>
 
+#ifdef HAVE_XKBCOMMON
+#include <xkbcommon/xkbcommon.h>
+#endif
+
 #include "sd-bus.h"
 
 #include "util.h"
@@ -39,10 +43,7 @@
 #include "event-util.h"
 #include "locale-util.h"
 #include "selinux-util.h"
-
-#ifdef HAVE_XKBCOMMON
-#include <xkbcommon/xkbcommon.h>
-#endif
+#include "fd-util.h"
 
 enum {
         /* We don't list LC_ALL here on purpose. People should be

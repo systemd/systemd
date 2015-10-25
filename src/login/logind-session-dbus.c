@@ -22,15 +22,15 @@
 #include <errno.h>
 #include <string.h>
 
-#include "util.h"
-#include "strv.h"
-#include "bus-util.h"
 #include "bus-common-errors.h"
 #include "bus-label.h"
-
-#include "logind.h"
-#include "logind-session.h"
+#include "bus-util.h"
+#include "fd-util.h"
 #include "logind-session-device.h"
+#include "logind-session.h"
+#include "logind.h"
+#include "strv.h"
+#include "util.h"
 
 static int property_get_user(
                 sd_bus *bus,

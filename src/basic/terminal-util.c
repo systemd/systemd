@@ -17,26 +17,28 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/ioctl.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <termios.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <signal.h>
-#include <time.h>
 #include <assert.h>
-#include <poll.h>
-#include <linux/vt.h>
-#include <linux/tiocl.h>
+#include <fcntl.h>
 #include <linux/kd.h>
+#include <linux/tiocl.h>
+#include <linux/vt.h>
+#include <poll.h>
+#include <signal.h>
+#include <sys/ioctl.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <termios.h>
+#include <time.h>
+#include <unistd.h>
 
-#include "terminal-util.h"
-#include "time-util.h"
-#include "process-util.h"
-#include "util.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "path-util.h"
+#include "process-util.h"
+#include "string-util.h"
+#include "terminal-util.h"
+#include "time-util.h"
+#include "util.h"
 
 static volatile unsigned cached_columns = 0;
 static volatile unsigned cached_lines = 0;

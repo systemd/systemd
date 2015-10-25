@@ -19,23 +19,24 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <net/ethernet.h>
 #include <stdbool.h>
 #include <stdio.h>
-#include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/types.h>
 #include <unistd.h>
-#include <net/ethernet.h>
-
-#include "socket-util.h"
-#include "macro.h"
-#include "sd-event.h"
-#include "event-util.h"
-#include "virt.h"
 
 #include "sd-dhcp6-client.h"
-#include "dhcp6-protocol.h"
+#include "sd-event.h"
+
 #include "dhcp6-internal.h"
 #include "dhcp6-lease-internal.h"
+#include "dhcp6-protocol.h"
+#include "event-util.h"
+#include "fd-util.h"
+#include "macro.h"
+#include "socket-util.h"
+#include "virt.h"
 
 static struct ether_addr mac_addr = {
         .ether_addr_octet = {'A', 'B', 'C', '1', '2', '3'}
@@ -700,7 +701,7 @@ int dhcp6_network_bind_udp_socket(int index, struct in6_addr *local_address) {
 static int test_client_solicit(sd_event *e) {
         sd_dhcp6_client *client;
         usec_t time_now = now(clock_boottime_or_monotonic());
-        bool val = true;
+        int val = true;
 
         if (verbose)
                 printf("* %s\n", __FUNCTION__);

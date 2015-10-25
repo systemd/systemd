@@ -22,9 +22,9 @@
 #include <netinet/ether.h>
 #include <linux/if.h>
 
-#include "networkd-link.h"
-
 #include "sd-ndisc.h"
+
+#include "networkd-link.h"
 
 static void ndisc_router_handler(sd_ndisc *nd, int event, void *userdata) {
         Link *link = userdata;

@@ -21,15 +21,16 @@
 
 #include <netinet/tcp.h>
 
-#include "missing.h"
-#include "strv.h"
-#include "socket-util.h"
 #include "af-list.h"
-#include "random-util.h"
-#include "hostname-util.h"
 #include "dns-domain.h"
-#include "resolved-llmnr.h"
+#include "fd-util.h"
+#include "hostname-util.h"
+#include "missing.h"
+#include "random-util.h"
 #include "resolved-dns-scope.h"
+#include "resolved-llmnr.h"
+#include "socket-util.h"
+#include "strv.h"
 
 #define MULTICAST_RATELIMIT_INTERVAL_USEC (1*USEC_PER_SEC)
 #define MULTICAST_RATELIMIT_BURST 1000

@@ -19,18 +19,18 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <unistd.h>
 #include <errno.h>
+#include <grp.h>
 #include <stdio.h>
 #include <sys/capability.h>
 #include <sys/prctl.h>
-#include "grp.h"
+#include <unistd.h>
 
+#include "capability.h"
+#include "fileio.h"
+#include "log.h"
 #include "macro.h"
 #include "util.h"
-#include "log.h"
-#include "fileio.h"
-#include "capability.h"
 
 int have_effective_cap(int value) {
         _cleanup_cap_free_ cap_t cap;

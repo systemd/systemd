@@ -19,7 +19,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <linux/sockios.h>
 #ifdef HAVE_SELINUX
 #include <selinux/selinux.h>
 #endif
@@ -27,6 +26,7 @@
 #include <sys/mman.h>
 #include <sys/signalfd.h>
 #include <sys/statvfs.h>
+#include <linux/sockios.h>
 
 #include "libudev.h"
 #include "sd-daemon.h"
@@ -36,16 +36,10 @@
 #include "acl-util.h"
 #include "cgroup-util.h"
 #include "conf-parser.h"
+#include "fd-util.h"
 #include "formats-util.h"
 #include "hashmap.h"
 #include "hostname-util.h"
-#include "missing.h"
-#include "mkdir.h"
-#include "process-util.h"
-#include "rm-rf.h"
-#include "selinux-util.h"
-#include "signal-util.h"
-#include "socket-util.h"
 #include "journal-authenticate.h"
 #include "journal-file.h"
 #include "journal-internal.h"
@@ -57,6 +51,14 @@
 #include "journald-server.h"
 #include "journald-stream.h"
 #include "journald-syslog.h"
+#include "missing.h"
+#include "mkdir.h"
+#include "process-util.h"
+#include "rm-rf.h"
+#include "selinux-util.h"
+#include "signal-util.h"
+#include "socket-util.h"
+#include "string-util.h"
 
 #define USER_JOURNALS_MAX 1024
 

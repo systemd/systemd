@@ -17,24 +17,25 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdlib.h>
 #include <errno.h>
-#include <string.h>
-#include <stdio.h>
 #include <net/ethernet.h>
 #include <net/if_arp.h>
-#include <linux/if_infiniband.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/ioctl.h>
+#include <linux/if_infiniband.h>
 
-#include "util.h"
-#include "random-util.h"
+#include "sd-dhcp-client.h"
+
 #include "async.h"
-
-#include "dhcp-protocol.h"
+#include "dhcp-identifier.h"
 #include "dhcp-internal.h"
 #include "dhcp-lease-internal.h"
-#include "dhcp-identifier.h"
-#include "sd-dhcp-client.h"
+#include "dhcp-protocol.h"
+#include "random-util.h"
+#include "string-util.h"
+#include "util.h"
 
 #define MAX_CLIENT_ID_LEN (sizeof(uint32_t) + MAX_DUID_LEN)  /* Arbitrary limit */
 #define MAX_MAC_ADDR_LEN CONST_MAX(INFINIBAND_ALEN, ETH_ALEN)

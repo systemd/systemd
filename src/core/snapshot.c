@@ -21,11 +21,12 @@
 
 #include <errno.h>
 
+#include "bus-common-errors.h"
+#include "dbus-snapshot.h"
+#include "string-util.h"
+#include "unit-name.h"
 #include "unit.h"
 #include "snapshot.h"
-#include "unit-name.h"
-#include "dbus-snapshot.h"
-#include "bus-common-errors.h"
 
 static const UnitActiveState state_translation_table[_SNAPSHOT_STATE_MAX] = {
         [SNAPSHOT_DEAD] = UNIT_INACTIVE,

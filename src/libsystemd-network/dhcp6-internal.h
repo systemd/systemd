@@ -24,10 +24,11 @@
 #include <net/ethernet.h>
 #include <netinet/in.h>
 
-#include "sparse-endian.h"
 #include "sd-event.h"
+
 #include "list.h"
 #include "macro.h"
+#include "sparse-endian.h"
 
 typedef struct DHCP6Address DHCP6Address;
 

@@ -21,6 +21,7 @@
 
 #include <seccomp.h>
 
+#include "string-util.h"
 #include "util.h"
 #include "seccomp-util.h"
 

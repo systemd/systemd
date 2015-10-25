@@ -21,14 +21,15 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdbool.h>
-#include <stdarg.h>
-#include <stdlib.h>
-#include <syslog.h>
-#include <sys/signalfd.h>
 #include <errno.h>
+#include <stdarg.h>
+#include <stdbool.h>
+#include <stdlib.h>
+#include <sys/signalfd.h>
+#include <syslog.h>
 
 #include "sd-id128.h"
+
 #include "macro.h"
 
 typedef enum LogTarget{

@@ -25,10 +25,11 @@
 #include <stdbool.h>
 
 #include "libudev.h"
+
 #include "macro.h"
-#include "util.h"
 #include "mkdir.h"
 #include "strxcpyx.h"
+#include "util.h"
 
 #define READ_END  0
 #define WRITE_END 1

@@ -20,23 +20,24 @@
 ***/
 
 #include <stdlib.h>
-#include <sys/vfs.h>
 #include <sys/stat.h>
-
+#include <sys/vfs.h>
 #ifdef HAVE_LINUX_BTRFS_H
 #include <linux/btrfs.h>
 #endif
 
-#include "missing.h"
-#include "util.h"
-#include "path-util.h"
-#include "macro.h"
-#include "copy.h"
-#include "selinux-util.h"
-#include "smack-util.h"
-#include "fileio.h"
 #include "btrfs-ctree.h"
 #include "btrfs-util.h"
+#include "copy.h"
+#include "fd-util.h"
+#include "fileio.h"
+#include "macro.h"
+#include "missing.h"
+#include "path-util.h"
+#include "selinux-util.h"
+#include "smack-util.h"
+#include "string-util.h"
+#include "util.h"
 
 /* WARNING: Be careful with file system ioctls! When we get an fd, we
  * need to make sure it either refers to only a regular file or

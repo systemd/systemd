@@ -18,17 +18,18 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
-#include "process-util.h"
 #include "log.h"
-#include "util.h"
 #include "macro.h"
-#include "virt.h"
+#include "process-util.h"
+#include "string-util.h"
 #include "terminal-util.h"
+#include "util.h"
+#include "virt.h"
 
 static void test_get_process_comm(void) {
         struct stat st;

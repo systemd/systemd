@@ -40,6 +40,7 @@
 #include "copy.h"
 #include "env-util.h"
 #include "event-util.h"
+#include "fd-util.h"
 #include "hostname-util.h"
 #include "import-util.h"
 #include "log.h"
@@ -1092,9 +1093,10 @@ static int copy_files(int argc, char *argv[], void *userdata) {
         container_path = copy_from ? argv[2] : dest;
 
         if (!path_is_absolute(host_path)) {
-                abs_host_path = path_make_absolute_cwd(host_path);
-                if (!abs_host_path)
-                        return log_oom();
+                r = path_make_absolute_cwd(host_path, &abs_host_path);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to make path absolute: %m");
+
                 host_path = abs_host_path;
         }
 
@@ -1110,10 +1112,8 @@ static int copy_files(int argc, char *argv[], void *userdata) {
                         argv[1],
                         copy_from ? container_path : host_path,
                         copy_from ? host_path : container_path);
-        if (r < 0) {
-                log_error("Failed to copy: %s", bus_error_message(&error, -r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to copy: %s", bus_error_message(&error, r));
 
         return 0;
 }

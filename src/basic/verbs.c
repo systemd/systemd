@@ -19,6 +19,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "string-util.h"
 #include "util.h"
 #include "verbs.h"
 

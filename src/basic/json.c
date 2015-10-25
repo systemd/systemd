@@ -19,9 +19,11 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/types.h>
 #include <math.h>
+#include <sys/types.h>
+
 #include "macro.h"
+#include "string-util.h"
 #include "utf8.h"
 #include "json.h"
 

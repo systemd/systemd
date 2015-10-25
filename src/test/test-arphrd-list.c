@@ -21,13 +21,14 @@
 #include <string.h>
 
 #include "macro.h"
+#include "string-util.h"
 #include "util.h"
 
 static const struct arphrd_name* lookup_arphrd(register const char *str, register unsigned int len);
 
+#include "arphrd-from-name.h"
 #include "arphrd-list.h"
 #include "arphrd-to-name.h"
-#include "arphrd-from-name.h"
 
 int main(int argc, const char *argv[]) {
 

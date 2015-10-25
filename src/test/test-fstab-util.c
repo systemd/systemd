@@ -20,8 +20,9 @@
 ***/
 
 #include "fstab-util.h"
-#include "util.h"
 #include "log.h"
+#include "string-util.h"
+#include "util.h"
 
 /*
 int fstab_filter_options(const char *opts, const char *names,

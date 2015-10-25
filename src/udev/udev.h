@@ -18,16 +18,17 @@
 
 #pragma once
 
-#include <sys/types.h>
 #include <sys/param.h>
+#include <sys/types.h>
 
-#include "macro.h"
-#include "sd-netlink.h"
 #include "libudev.h"
-#include "libudev-private.h"
-#include "util.h"
+#include "sd-netlink.h"
+
 #include "label.h"
+#include "libudev-private.h"
+#include "macro.h"
 #include "strv.h"
+#include "util.h"
 
 struct udev_event {
         struct udev *udev;

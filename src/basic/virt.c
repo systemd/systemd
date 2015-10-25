@@ -19,14 +19,15 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <string.h>
 #include <errno.h>
+#include <string.h>
 #include <unistd.h>
 
-#include "util.h"
-#include "process-util.h"
-#include "virt.h"
 #include "fileio.h"
+#include "process-util.h"
+#include "string-util.h"
+#include "util.h"
+#include "virt.h"
 
 static int detect_vm_cpuid(void) {
 

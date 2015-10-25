@@ -23,10 +23,11 @@
 
 #include <stdbool.h>
 
-#include "list.h"
-#include "hashmap.h"
-#include "sd-event.h"
 #include "sd-bus.h"
+#include "sd-event.h"
+
+#include "hashmap.h"
+#include "list.h"
 
 typedef struct Manager Manager;
 

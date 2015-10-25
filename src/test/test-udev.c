@@ -18,19 +18,20 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <errno.h>
+#include <sched.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <errno.h>
-#include <unistd.h>
-#include <sched.h>
 #include <sys/mount.h>
 #include <sys/signalfd.h>
+#include <unistd.h>
 
 #include "missing.h"
 #include "selinux-util.h"
 #include "signal-util.h"
-#include "udev.h"
+#include "string-util.h"
 #include "udev-util.h"
+#include "udev.h"
 
 static int fake_filesystems(void) {
         static const struct fakefs {

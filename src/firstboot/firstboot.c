@@ -35,6 +35,8 @@
 #include "strv.h"
 #include "terminal-util.h"
 #include "time-util.h"
+#include "string-util.h"
+#include "fd-util.h"
 
 static char *arg_root = NULL;
 static char *arg_locale = NULL;  /* $LANG */
@@ -690,16 +692,9 @@ static int parse_argv(int argc, char *argv[]) {
                         return version();
 
                 case ARG_ROOT:
-                        free(arg_root);
-                        arg_root = path_make_absolute_cwd(optarg);
-                        if (!arg_root)
-                                return log_oom();
-
-                        path_kill_slashes(arg_root);
-
-                        if (path_equal(arg_root, "/"))
-                                arg_root = mfree(arg_root);
-
+                        r = parse_path_argument_and_warn(optarg, true, &arg_root);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_LOCALE:

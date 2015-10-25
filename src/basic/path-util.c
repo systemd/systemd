@@ -19,21 +19,23 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <string.h>
-#include <unistd.h>
 #include <errno.h>
-#include <stdlib.h>
-#include <stdio.h>
 #include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/statvfs.h>
+#include <unistd.h>
 
-#include "macro.h"
-#include "util.h"
-#include "log.h"
-#include "strv.h"
-#include "path-util.h"
-#include "missing.h"
+#include "fd-util.h"
 #include "fileio.h"
+#include "log.h"
+#include "macro.h"
+#include "missing.h"
+#include "path-util.h"
+#include "string-util.h"
+#include "strv.h"
+#include "util.h"
 
 bool path_is_absolute(const char *p) {
         return p[0] == '/';
@@ -84,20 +86,25 @@ int path_get_parent(const char *path, char **_r) {
         return 0;
 }
 
-char **path_split_and_make_absolute(const char *p) {
+int path_split_and_make_absolute(const char *p, char ***ret) {
         char **l;
+        int r;
+
         assert(p);
+        assert(ret);
 
         l = strv_split(p, ":");
         if (!l)
                 return NULL;
 
-        if (!path_strv_make_absolute_cwd(l)) {
+        r = path_strv_make_absolute_cwd(l);
+        if (r < 0) {
                 strv_free(l);
-                return NULL;
+                return r;
         }
 
-        return l;
+        *ret = l;
+        return r;
 }
 
 char *path_make_absolute(const char *p, const char *prefix) {
@@ -112,22 +119,31 @@ char *path_make_absolute(const char *p, const char *prefix) {
         return strjoin(prefix, "/", p, NULL);
 }
 
-char *path_make_absolute_cwd(const char *p) {
-        _cleanup_free_ char *cwd = NULL;
+int path_make_absolute_cwd(const char *p, char **ret) {
+        char *c;
 
         assert(p);
+        assert(ret);
 
         /* Similar to path_make_absolute(), but prefixes with the
          * current working directory. */
 
         if (path_is_absolute(p))
-                return strdup(p);
+                c = strdup(p);
+        else {
+                _cleanup_free_ char *cwd = NULL;
 
-        cwd = get_current_dir_name();
-        if (!cwd)
-                return NULL;
+                cwd = get_current_dir_name();
+                if (!cwd)
+                        return -errno;
 
-        return strjoin(cwd, "/", p, NULL);
+                c = strjoin(cwd, "/", p, NULL);
+        }
+        if (!c)
+                return -ENOMEM;
+
+        *ret = c;
+        return 0;
 }
 
 int path_make_relative(const char *from_dir, const char *to_path, char **_r) {
@@ -215,8 +231,9 @@ int path_make_relative(const char *from_dir, const char *to_path, char **_r) {
         return 0;
 }
 
-char **path_strv_make_absolute_cwd(char **l) {
+int path_strv_make_absolute_cwd(char **l) {
         char **s;
+        int r;
 
         /* Goes through every item in the string list and makes it
          * absolute. This works in place and won't rollback any
@@ -225,15 +242,15 @@ char **path_strv_make_absolute_cwd(char **l) {
         STRV_FOREACH(s, l) {
                 char *t;
 
-                t = path_make_absolute_cwd(*s);
-                if (!t)
-                        return NULL;
+                r = path_make_absolute_cwd(*s, &t);
+                if (r < 0)
+                        return r;
 
                 free(*s);
                 *s = t;
         }
 
-        return l;
+        return 0;
 }
 
 char **path_strv_resolve(char **l, const char *prefix) {
@@ -698,7 +715,6 @@ int path_is_os_tree(const char *path) {
         /* We use /usr/lib/os-release as flag file if something is an OS */
         p = strjoina(path, "/usr/lib/os-release");
         r = access(p, F_OK);
-
         if (r >= 0)
                 return 1;
 
@@ -709,56 +725,66 @@ int path_is_os_tree(const char *path) {
         return r >= 0;
 }
 
-int find_binary(const char *name, bool local, char **filename) {
+int find_binary(const char *name, char **ret) {
+        int last_error, r;
+        const char *p;
+
         assert(name);
 
         if (is_path(name)) {
-                if (local && access(name, X_OK) < 0)
+                if (access(name, X_OK) < 0)
                         return -errno;
 
-                if (filename) {
-                        char *p;
-
-                        p = path_make_absolute_cwd(name);
-                        if (!p)
-                                return -ENOMEM;
-
-                        *filename = p;
+                if (ret) {
+                        r = path_make_absolute_cwd(name, ret);
+                        if (r < 0)
+                                return r;
                 }
 
                 return 0;
-        } else {
-                const char *path;
-                const char *word, *state;
-                size_t l;
+        }
 
-                /**
-                 * Plain getenv, not secure_getenv, because we want
-                 * to actually allow the user to pick the binary.
-                 */
-                path = getenv("PATH");
-                if (!path)
-                        path = DEFAULT_PATH;
+        /**
+         * Plain getenv, not secure_getenv, because we want
+         * to actually allow the user to pick the binary.
+         */
+        p = getenv("PATH");
+        if (!p)
+                p = DEFAULT_PATH;
 
-                FOREACH_WORD_SEPARATOR(word, l, path, ":", state) {
-                        _cleanup_free_ char *p = NULL;
+        last_error = -ENOENT;
 
-                        if (asprintf(&p, "%.*s/%s", (int) l, word, name) < 0)
-                                return -ENOMEM;
+        for (;;) {
+                _cleanup_free_ char *j = NULL, *element = NULL;
 
-                        if (access(p, X_OK) < 0)
-                                continue;
+                r = extract_first_word(&p, &element, ":", EXTRACT_RELAX|EXTRACT_DONT_COALESCE_SEPARATORS);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
 
-                        if (filename) {
-                                *filename = path_kill_slashes(p);
-                                p = NULL;
+                if (!path_is_absolute(element))
+                        continue;
+
+                j = strjoin(element, "/", name, NULL);
+                if (!j)
+                        return -ENOMEM;
+
+                if (access(j, X_OK) >= 0) {
+                        /* Found it! */
+
+                        if (ret) {
+                                *ret = path_kill_slashes(j);
+                                j = NULL;
                         }
 
                         return 0;
                 }
 
-                return -ENOENT;
+                last_error = -errno;
         }
+
+        return last_error;
 }
 
 bool paths_check_timestamp(const char* const* paths, usec_t *timestamp, bool update) {
@@ -800,7 +826,9 @@ static int binary_is_good(const char *binary) {
         _cleanup_free_ char *p = NULL, *d = NULL;
         int r;
 
-        r = find_binary(binary, true, &p);
+        r = find_binary(binary, &p);
+        if (r == -ENOENT)
+                return 0;
         if (r < 0)
                 return r;
 
@@ -808,28 +836,38 @@ static int binary_is_good(const char *binary) {
          * fsck */
 
         r = readlink_malloc(p, &d);
-        if (r >= 0 &&
-            (path_equal(d, "/bin/true") ||
-             path_equal(d, "/usr/bin/true") ||
-             path_equal(d, "/dev/null")))
-                return -ENOENT;
+        if (r == -EINVAL) /* not a symlink */
+                return 1;
+        if (r < 0)
+                return r;
 
-        return 0;
+        return !path_equal(d, "true") &&
+               !path_equal(d, "/bin/true") &&
+               !path_equal(d, "/usr/bin/true") &&
+               !path_equal(d, "/dev/null");
 }
 
 int fsck_exists(const char *fstype) {
         const char *checker;
 
-        checker = strjoina("fsck.", fstype);
+        assert(fstype);
 
+        if (streq(fstype, "auto"))
+                return -EINVAL;
+
+        checker = strjoina("fsck.", fstype);
         return binary_is_good(checker);
 }
 
 int mkfs_exists(const char *fstype) {
         const char *mkfs;
 
-        mkfs = strjoina("mkfs.", fstype);
+        assert(fstype);
 
+        if (streq(fstype, "auto"))
+                return -EINVAL;
+
+        mkfs = strjoina("mkfs.", fstype);
         return binary_is_good(mkfs);
 }
 
@@ -865,4 +903,36 @@ char *prefix_root(const char *root, const char *path) {
 
         strcpy(p, path);
         return n;
+}
+
+int parse_path_argument_and_warn(const char *path, bool suppress_root, char **arg) {
+        char *p;
+        int r;
+
+        /*
+         * This function is intended to be used in command line
+         * parsers, to handle paths that are passed in. It makes the
+         * path absolute, and reduces it to NULL if omitted or
+         * root (the latter optionally).
+         *
+         * NOTE THAT THIS WILL FREE THE PREVIOUS ARGUMENT POINTER ON
+         * SUCCESS! Hence, do not pass in uninitialized pointers.
+         */
+
+        if (isempty(path)) {
+                *arg = mfree(*arg);
+                return 0;
+        }
+
+        r = path_make_absolute_cwd(path, &p);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse path \"%s\" and make it absolute: %m", path);
+
+        path_kill_slashes(p);
+        if (suppress_root && path_equal(p, "/"))
+                p = mfree(p);
+
+        free(*arg);
+        *arg = p;
+        return 0;
 }

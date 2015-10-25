@@ -19,25 +19,26 @@
 ***/
 
 #include <ctype.h>
-#include <sys/types.h>
 #include <net/if.h>
-
-#include "util.h"
-#include "macro.h"
-#include "refcnt.h"
-#include "path-util.h"
-#include "strxcpyx.h"
-#include "fileio.h"
-#include "hashmap.h"
-#include "set.h"
-#include "strv.h"
-#include "mkdir.h"
+#include <sys/types.h>
 
 #include "sd-device.h"
 
-#include "device-util.h"
 #include "device-internal.h"
 #include "device-private.h"
+#include "device-util.h"
+#include "fd-util.h"
+#include "fileio.h"
+#include "hashmap.h"
+#include "macro.h"
+#include "mkdir.h"
+#include "path-util.h"
+#include "refcnt.h"
+#include "set.h"
+#include "string-util.h"
+#include "strv.h"
+#include "strxcpyx.h"
+#include "util.h"
 
 int device_add_property(sd_device *device, const char *key, const char *value) {
         int r;

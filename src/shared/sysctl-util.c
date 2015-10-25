@@ -29,6 +29,7 @@
 
 #include "fileio.h"
 #include "log.h"
+#include "string-util.h"
 #include "util.h"
 #include "sysctl-util.h"
 

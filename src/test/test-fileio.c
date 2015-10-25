@@ -23,13 +23,15 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-#include "util.h"
-#include "process-util.h"
-#include "fileio.h"
-#include "strv.h"
-#include "env-util.h"
-#include "def.h"
 #include "ctype.h"
+#include "def.h"
+#include "env-util.h"
+#include "fd-util.h"
+#include "fileio.h"
+#include "process-util.h"
+#include "string-util.h"
+#include "strv.h"
+#include "util.h"
 
 static void test_parse_env_file(void) {
         char    t[] = "/tmp/test-fileio-in-XXXXXX",
