@@ -479,7 +479,7 @@ int parse_timestamp(const char *t, usec_t *usec) {
         };
 
         const char *k;
-        bool utc;
+        const char *utc;
         struct tm tm, copy;
         time_t x;
         usec_t x_usec, plus = 0, minus = 0, ret;
@@ -529,8 +529,8 @@ int parse_timestamp(const char *t, usec_t *usec) {
 
                 goto finish;
 
-        } else if (endswith(t, " ago")) {
-                t = strndupa(t, strlen(t) - strlen(" ago"));
+        } else if ((k = endswith(t, " ago"))) {
+                t = strndupa(t, k - t);
 
                 r = parse_sec(t, &minus);
                 if (r < 0)
@@ -538,8 +538,8 @@ int parse_timestamp(const char *t, usec_t *usec) {
 
                 goto finish;
 
-        } else if (endswith(t, " left")) {
-                t = strndupa(t, strlen(t) - strlen(" left"));
+        } else if ((k = endswith(t, " left"))) {
+                t = strndupa(t, k - t);
 
                 r = parse_sec(t, &plus);
                 if (r < 0)
@@ -550,7 +550,7 @@ int parse_timestamp(const char *t, usec_t *usec) {
 
         utc = endswith_no_case(t, " UTC");
         if (utc)
-                t = strndupa(t, strlen(t) - strlen(" UTC"));
+                t = strndupa(t, utc - t);
 
         x = ret / USEC_PER_SEC;
         x_usec = 0;
