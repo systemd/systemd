@@ -2699,7 +2699,7 @@ int journal_file_open(
         }
 
         if (f->last_stat.st_size < (off_t) HEADER_SIZE_MIN) {
-                r = -EIO;
+                r = -ENODATA;
                 goto fail;
         }
 
