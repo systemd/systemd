@@ -24,13 +24,16 @@
 #include "networkd-netdev-vlan.h"
 
 static int netdev_vlan_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *req) {
-        VLan *v = VLAN(netdev);
+        VLan *v;
         int r;
 
         assert(netdev);
-        assert(v);
         assert(link);
         assert(req);
+
+        v = VLAN(netdev);
+
+        assert(v);
 
         if (v->id <= VLANID_MAX) {
                 r = sd_netlink_message_append_u16(req, IFLA_VLAN_ID, v->id);
@@ -42,11 +45,14 @@ static int netdev_vlan_fill_message_create(NetDev *netdev, Link *link, sd_netlin
 }
 
 static int netdev_vlan_verify(NetDev *netdev, const char *filename) {
-        VLan *v = VLAN(netdev);
+        VLan *v;
 
         assert(netdev);
-        assert(v);
         assert(filename);
+
+        v = VLAN(netdev);
+
+        assert(v);
 
         if (v->id > VLANID_MAX) {
                 log_warning("VLAN without valid Id (%"PRIu64") configured in %s. Ignoring", v->id, filename);
