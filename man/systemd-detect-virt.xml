@@ -139,7 +139,7 @@
           </row>
 
           <row>
-      <entry morerows="5">container</entry>
+      <entry morerows="5">Container</entry>
       <entry><varname>openvz</varname></entry>
       <entry>OpenVZ/Virtuozzo</entry>
           </row>
@@ -197,6 +197,18 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>-r</option></term>
+        <term><option>--chroot</option></term>
+
+        <listitem><para>Detect whether invoked in a
+        <citerefentry><refentrytitle>chroot</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+        environment. In this mode no output is written, but the return
+        value indicates whether the process was invoked in a
+        <function>chroot()</function>
+        environment or not.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>-q</option></term>
         <term><option>--quiet</option></term>
 
@@ -221,7 +233,8 @@
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>chroot</refentrytitle><manvolnum>2</manvolnum></citerefentry>
     </para>
   </refsect1>
 
