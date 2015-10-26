@@ -22,6 +22,7 @@
 #include <errno.h>
 #include <stdio.h>
 
+#include "fstab-util.h"
 #include "log.h"
 #include "mkdir.h"
 #include "special.h"

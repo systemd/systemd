@@ -571,26 +571,6 @@ int touch(const char *path) {
         return touch_file(path, false, USEC_INFINITY, UID_INVALID, GID_INVALID, 0);
 }
 
-static char *unquote(const char *s, const char* quotes) {
-        size_t l;
-        assert(s);
-
-        /* This is rather stupid, simply removes the heading and
-         * trailing quotes if there is one. Doesn't care about
-         * escaping or anything.
-         *
-         * DON'T USE THIS FOR NEW CODE ANYMORE!*/
-
-        l = strlen(s);
-        if (l < 2)
-                return strdup(s);
-
-        if (strchr(quotes, s[0]) && s[l-1] == s[0])
-                return strndup(s+1, l-2);
-
-        return strdup(s);
-}
-
 noreturn void freeze(void) {
 
         /* Make sure nobody waits for us on a socket anymore */
@@ -634,43 +614,6 @@ int null_or_empty_fd(int fd) {
                 return -errno;
 
         return null_or_empty(&st);
-}
-
-static char *tag_to_udev_node(const char *tagvalue, const char *by) {
-        _cleanup_free_ char *t = NULL, *u = NULL;
-        size_t enc_len;
-
-        u = unquote(tagvalue, QUOTES);
-        if (!u)
-                return NULL;
-
-        enc_len = strlen(u) * 4 + 1;
-        t = new(char, enc_len);
-        if (!t)
-                return NULL;
-
-        if (encode_devnode_name(u, t, enc_len) < 0)
-                return NULL;
-
-        return strjoin("/dev/disk/by-", by, "/", t, NULL);
-}
-
-char *fstab_node_to_udev_node(const char *p) {
-        assert(p);
-
-        if (startswith(p, "LABEL="))
-                return tag_to_udev_node(p+6, "label");
-
-        if (startswith(p, "UUID="))
-                return tag_to_udev_node(p+5, "uuid");
-
-        if (startswith(p, "PARTUUID="))
-                return tag_to_udev_node(p+9, "partuuid");
-
-        if (startswith(p, "PARTLABEL="))
-                return tag_to_udev_node(p+10, "partlabel");
-
-        return strdup(p);
 }
 
 bool dirent_is_file(const struct dirent *de) {

@@ -199,8 +199,6 @@ bool null_or_empty(struct stat *st) _pure_;
 int null_or_empty_path(const char *fn);
 int null_or_empty_fd(int fd);
 
-char *fstab_node_to_udev_node(const char *p);
-
 void execute_directories(const char* const* directories, usec_t timeout, char *argv[]);
 
 bool plymouth_running(void);
