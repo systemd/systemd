@@ -266,7 +266,7 @@
         be only wanted, not required, by
         <filename>local-fs.target</filename> or
         <filename>remote-fs.target</filename>. This means that the
-        boot will continue even if this mount point is not mounted
+        boot will continue even if this directory is not mounted
         successfully.</para>
         </listitem>
       </varlistentry>
