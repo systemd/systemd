@@ -1439,26 +1439,6 @@ bool in_initrd(void) {
         return saved;
 }
 
-bool filename_is_valid(const char *p) {
-
-        if (isempty(p))
-                return false;
-
-        if (strchr(p, '/'))
-                return false;
-
-        if (streq(p, "."))
-                return false;
-
-        if (streq(p, ".."))
-                return false;
-
-        if (strlen(p) > FILENAME_MAX)
-                return false;
-
-        return true;
-}
-
 bool string_is_safe(const char *p) {
         const char *t;
 
@@ -1472,27 +1452,6 @@ bool string_is_safe(const char *p) {
                 if (strchr("\\\"\'\x7f", *t))
                         return false;
         }
-
-        return true;
-}
-
-bool path_is_safe(const char *p) {
-
-        if (isempty(p))
-                return false;
-
-        if (streq(p, "..") || startswith(p, "../") || endswith(p, "/..") || strstr(p, "/../"))
-                return false;
-
-        if (strlen(p)+1 > PATH_MAX)
-                return false;
-
-        /* The following two checks are not really dangerous, but hey, they still are confusing */
-        if (streq(p, ".") || startswith(p, "./") || endswith(p, "/.") || strstr(p, "/./"))
-                return false;
-
-        if (strstr(p, "//"))
-                return false;
 
         return true;
 }

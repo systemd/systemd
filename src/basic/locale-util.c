@@ -23,6 +23,7 @@
 
 #include "fd-util.h"
 #include "locale-util.h"
+#include "path-util.h"
 #include "set.h"
 #include "string-util.h"
 #include "strv.h"

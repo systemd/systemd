@@ -723,3 +723,46 @@ char* dirname_malloc(const char *path) {
 
         return dir2;
 }
+
+bool filename_is_valid(const char *p) {
+        const char *e;
+
+        if (isempty(p))
+                return false;
+
+        if (streq(p, "."))
+                return false;
+
+        if (streq(p, ".."))
+                return false;
+
+        e = strchrnul(p, '/');
+        if (*e != 0)
+                return false;
+
+        if (e - p > FILENAME_MAX)
+                return false;
+
+        return true;
+}
+
+bool path_is_safe(const char *p) {
+
+        if (isempty(p))
+                return false;
+
+        if (streq(p, "..") || startswith(p, "../") || endswith(p, "/..") || strstr(p, "/../"))
+                return false;
+
+        if (strlen(p)+1 > PATH_MAX)
+                return false;
+
+        /* The following two checks are not really dangerous, but hey, they still are confusing */
+        if (streq(p, ".") || startswith(p, "./") || endswith(p, "/.") || strstr(p, "/./"))
+                return false;
+
+        if (strstr(p, "//"))
+                return false;
+
+        return true;
+}

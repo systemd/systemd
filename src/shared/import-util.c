@@ -20,9 +20,10 @@
 ***/
 
 #include "btrfs-util.h"
+#include "import-util.h"
+#include "path-util.h"
 #include "string-util.h"
 #include "util.h"
-#include "import-util.h"
 
 int import_url_last_component(const char *url, char **ret) {
         const char *e, *p;

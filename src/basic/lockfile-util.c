@@ -30,6 +30,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "lockfile-util.h"
+#include "path-util.h"
 #include "util.h"
 
 int make_lock_file(const char *p, int operation, LockFile *ret) {

@@ -25,6 +25,7 @@
 #include "fd-util.h"
 #include "fileio-label.h"
 #include "mkdir.h"
+#include "path-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "util.h"

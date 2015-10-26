@@ -37,6 +37,7 @@
 #include "login-util.h"
 #include "macro.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "socket-util.h"
 #include "string-util.h"
 #include "strv.h"

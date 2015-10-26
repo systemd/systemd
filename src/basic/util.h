@@ -303,8 +303,6 @@ _alloc_(2, 3) static inline void *memdup_multiply(const void *p, size_t a, size_
         return memdup(p, a * b);
 }
 
-bool filename_is_valid(const char *p) _pure_;
-bool path_is_safe(const char *p) _pure_;
 bool string_is_safe(const char *p) _pure_;
 
 /**
