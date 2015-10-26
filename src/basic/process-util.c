@@ -480,6 +480,16 @@ int wait_for_terminate_and_warn(const char *name, pid_t pid, bool check_exit_cod
         return -EPROTO;
 }
 
+void sigkill_wait(pid_t *pid) {
+        if (!pid)
+                return;
+        if (*pid <= 1)
+                return;
+
+        if (kill(*pid, SIGKILL) > 0)
+                (void) wait_for_terminate(*pid, NULL);
+}
+
 int kill_and_sigcont(pid_t pid, int sig) {
         int r;
 

@@ -55,6 +55,9 @@ int get_process_environ(pid_t pid, char **environ);
 int wait_for_terminate(pid_t pid, siginfo_t *status);
 int wait_for_terminate_and_warn(const char *name, pid_t pid, bool check_exit_code);
 
+void sigkill_wait(pid_t *pid);
+#define _cleanup_sigkill_wait_ _cleanup_(sigkill_wait)
+
 int kill_and_sigcont(pid_t pid, int sig);
 pid_t get_parent_of_pid(pid_t pid, pid_t *ppid);
 void rename_process(const char name[8]);

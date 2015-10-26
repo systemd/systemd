@@ -4016,16 +4016,6 @@ int read_attr_path(const char *p, unsigned *ret) {
         return read_attr_fd(fd, ret);
 }
 
-void sigkill_wait(pid_t *pid) {
-        if (!pid)
-                return;
-        if (*pid <= 1)
-                return;
-
-        if (kill(*pid, SIGKILL) > 0)
-                (void) wait_for_terminate(*pid, NULL);
-}
-
 int syslog_parse_priority(const char **p, int *priority, bool with_facility) {
         int a = 0, b = 0, c = 0;
         int k;

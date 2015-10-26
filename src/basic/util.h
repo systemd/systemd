@@ -92,7 +92,6 @@ int parse_size(const char *t, uint64_t base, uint64_t *size);
 int parse_boolean(const char *v) _pure_;
 int parse_pid(const char *s, pid_t* ret_pid);
 
-
 int safe_atou(const char *s, unsigned *ret_u);
 int safe_atoi(const char *s, int *ret_i);
 
@@ -676,9 +675,6 @@ int read_attr_fd(int fd, unsigned *ret);
 int read_attr_path(const char *p, unsigned *ret);
 
 #define RLIMIT_MAKE_CONST(lim) ((struct rlimit) { lim, lim })
-
-void sigkill_wait(pid_t *pid);
-#define _cleanup_sigkill_wait_ _cleanup_(sigkill_wait)
 
 int syslog_parse_priority(const char **p, int *priority, bool with_facility);
 
