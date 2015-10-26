@@ -58,6 +58,7 @@
 #include "missing.h"
 #include "mkdir.h"
 #include "parse-util.h"
+#include "proc-cmdline.h"
 #include "process-util.h"
 #include "rm-rf.h"
 #include "selinux-util.h"

@@ -799,6 +799,8 @@ libbasic_la_SOURCES = \
 	src/basic/xattr-util.h \
 	src/basic/chattr-util.c \
 	src/basic/chattr-util.h \
+	src/basic/proc-cmdline.c \
+	src/basic/proc-cmdline.h \
 	src/basic/fs-util.c \
 	src/basic/fs-util.h \
 	src/basic/stat-util.c \

@@ -44,6 +44,7 @@
 #include "mkdir.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "proc-cmdline.h"
 #include "process-util.h"
 #include "rm-rf.h"
 #include "signal-util.h"

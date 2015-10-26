@@ -288,8 +288,6 @@ static inline unsigned log2u_round_up(unsigned x) {
 
 bool id128_is_valid(const char *s) _pure_;
 
-int shall_restore_state(void);
-
 /**
  * Normal qsort requires base to be nonnull. Here were require
  * that only if nmemb > 0.
@@ -301,10 +299,6 @@ static inline void qsort_safe(void *base, size_t nmemb, size_t size, comparison_
         assert(base);
         qsort(base, nmemb, size, compar);
 }
-
-int proc_cmdline(char **ret);
-int parse_proc_cmdline(int (*parse_word)(const char *key, const char *value));
-int get_proc_cmdline_key(const char *parameter, char **value);
 
 int container_get_leader(const char *machine, pid_t *pid);
 

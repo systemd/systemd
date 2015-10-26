@@ -36,6 +36,8 @@
 #include "log.h"
 #include "macro.h"
 #include "missing.h"
+#include "parse-util.h"
+#include "proc-cmdline.h"
 #include "process-util.h"
 #include "signal-util.h"
 #include "socket-util.h"
@@ -43,7 +45,6 @@
 #include "string-util.h"
 #include "terminal-util.h"
 #include "util.h"
-#include "parse-util.h"
 
 #define SNDBUF_SIZE (8*1024*1024)
 

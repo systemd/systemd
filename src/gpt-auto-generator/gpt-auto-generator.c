@@ -41,6 +41,7 @@
 #include "mount-util.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "proc-cmdline.h"
 #include "special.h"
 #include "stat-util.h"
 #include "string-util.h"

@@ -69,6 +69,7 @@
 #include "mount-setup.h"
 #include "pager.h"
 #include "parse-util.h"
+#include "proc-cmdline.h"
 #include "process-util.h"
 #include "rlimit-util.h"
 #include "selinux-setup.h"

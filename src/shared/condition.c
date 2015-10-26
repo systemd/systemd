@@ -39,6 +39,7 @@
 #include "mount-util.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "proc-cmdline.h"
 #include "selinux-util.h"
 #include "smack-util.h"
 #include "stat-util.h"

@@ -40,6 +40,7 @@
 #include "fs-util.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "proc-cmdline.h"
 #include "process-util.h"
 #include "signal-util.h"
 #include "socket-util.h"

@@ -36,6 +36,7 @@
 #include "network-internal.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "proc-cmdline.h"
 #include "random-util.h"
 #include "stat-util.h"
 #include "string-table.h"
