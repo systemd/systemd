@@ -47,6 +47,7 @@
 #include "parse-util.h"
 #include "signal-util.h"
 #include "socket-util.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 

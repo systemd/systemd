@@ -33,6 +33,7 @@
 #include "path-util.h"
 #include "rm-rf.h"
 #include "set.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "util.h"

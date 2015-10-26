@@ -33,6 +33,7 @@
 #include "escape.h"
 #include "fd-util.h"
 #include "path-util.h"
+#include "stat-util.h"
 #include "strbuf.h"
 #include "string-util.h"
 #include "strv.h"

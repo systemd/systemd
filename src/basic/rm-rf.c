@@ -24,6 +24,7 @@
 #include "mount-util.h"
 #include "path-util.h"
 #include "rm-rf.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "util.h"
 

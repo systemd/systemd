@@ -36,6 +36,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "special.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "unit-name.h"

@@ -56,6 +56,7 @@
 #endif
 #include "securebits.h"
 #include "signal-util.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "unit-name.h"

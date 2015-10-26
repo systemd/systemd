@@ -801,6 +801,8 @@ libbasic_la_SOURCES = \
 	src/basic/chattr-util.h \
 	src/basic/fs-util.c \
 	src/basic/fs-util.h \
+	src/basic/stat-util.c \
+	src/basic/stat-util.h \
 	src/basic/mount-util.c \
 	src/basic/mount-util.h \
 	src/basic/hexdecoct.c \

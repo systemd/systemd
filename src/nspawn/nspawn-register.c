@@ -21,12 +21,12 @@
 
 #include "sd-bus.h"
 
-#include "util.h"
-#include "strv.h"
-#include "bus-util.h"
 #include "bus-error.h"
-
+#include "bus-util.h"
 #include "nspawn-register.h"
+#include "stat-util.h"
+#include "strv.h"
+#include "util.h"
 
 int register_machine(
                 const char *machine_name,

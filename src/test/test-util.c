@@ -47,6 +47,7 @@
 #include "process-util.h"
 #include "rm-rf.h"
 #include "signal-util.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "user-util.h"

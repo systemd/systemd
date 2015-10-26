@@ -42,6 +42,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "special.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "udev-util.h"
 #include "unit-name.h"

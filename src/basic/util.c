@@ -102,6 +102,7 @@
 #include "util.h"
 #include "virt.h"
 #include "dirent-util.h"
+#include "stat-util.h"
 
 /* Put this test here for a lack of better place */
 assert_cc(EAGAIN == EWOULDBLOCK);
@@ -146,20 +147,6 @@ bool fstype_is_network(const char *fstype) {
         return nulstr_contains(table, fstype);
 }
 
-int dir_is_empty(const char *path) {
-        _cleanup_closedir_ DIR *d;
-        struct dirent *de;
-
-        d = opendir(path);
-        if (!d)
-                return -errno;
-
-        FOREACH_DIRENT(de, d, return -errno)
-                return 0;
-
-        return 1;
-}
-
 void rename_process(const char name[8]) {
         assert(name);
 
@@ -191,59 +178,6 @@ void rename_process(const char name[8]) {
         }
 }
 
-bool is_fs_type(const struct statfs *s, statfs_f_type_t magic_value) {
-        assert(s);
-        assert_cc(sizeof(statfs_f_type_t) >= sizeof(s->f_type));
-
-        return F_TYPE_EQUAL(s->f_type, magic_value);
-}
-
-int fd_check_fstype(int fd, statfs_f_type_t magic_value) {
-        struct statfs s;
-
-        if (fstatfs(fd, &s) < 0)
-                return -errno;
-
-        return is_fs_type(&s, magic_value);
-}
-
-int path_check_fstype(const char *path, statfs_f_type_t magic_value) {
-        _cleanup_close_ int fd = -1;
-
-        fd = open(path, O_RDONLY);
-        if (fd < 0)
-                return -errno;
-
-        return fd_check_fstype(fd, magic_value);
-}
-
-bool is_temporary_fs(const struct statfs *s) {
-    return is_fs_type(s, TMPFS_MAGIC) ||
-           is_fs_type(s, RAMFS_MAGIC);
-}
-
-int fd_is_temporary_fs(int fd) {
-        struct statfs s;
-
-        if (fstatfs(fd, &s) < 0)
-                return -errno;
-
-        return is_temporary_fs(&s);
-}
-
-int files_same(const char *filea, const char *fileb) {
-        struct stat a, b;
-
-        if (stat(filea, &a) < 0)
-                return -errno;
-
-        if (stat(fileb, &b) < 0)
-                return -errno;
-
-        return a.st_dev == b.st_dev &&
-               a.st_ino == b.st_ino;
-}
-
 int running_in_chroot(void) {
         int ret;
 
@@ -263,40 +197,6 @@ noreturn void freeze(void) {
 
         for (;;)
                 pause();
-}
-
-bool null_or_empty(struct stat *st) {
-        assert(st);
-
-        if (S_ISREG(st->st_mode) && st->st_size <= 0)
-                return true;
-
-        if (S_ISCHR(st->st_mode) || S_ISBLK(st->st_mode))
-                return true;
-
-        return false;
-}
-
-int null_or_empty_path(const char *fn) {
-        struct stat st;
-
-        assert(fn);
-
-        if (stat(fn, &st) < 0)
-                return -errno;
-
-        return null_or_empty(&st);
-}
-
-int null_or_empty_fd(int fd) {
-        struct stat st;
-
-        assert(fd >= 0);
-
-        if (fstat(fd, &st) < 0)
-                return -errno;
-
-        return null_or_empty(&st);
 }
 
 static int do_execute(char **directories, usec_t timeout, char *argv[]) {
@@ -1506,38 +1406,6 @@ int update_reboot_param_file(const char *param) {
                 (void) unlink(REBOOT_PARAM_FILE);
 
         return 0;
-}
-
-int is_symlink(const char *path) {
-        struct stat info;
-
-        if (lstat(path, &info) < 0)
-                return -errno;
-
-        return !!S_ISLNK(info.st_mode);
-}
-
-int is_dir(const char* path, bool follow) {
-        struct stat st;
-        int r;
-
-        if (follow)
-                r = stat(path, &st);
-        else
-                r = lstat(path, &st);
-        if (r < 0)
-                return -errno;
-
-        return !!S_ISDIR(st.st_mode);
-}
-
-int is_device_node(const char *path) {
-        struct stat info;
-
-        if (lstat(path, &info) < 0)
-                return -errno;
-
-        return !!(S_ISBLK(info.st_mode) || S_ISCHR(info.st_mode));
 }
 
 int syslog_parse_priority(const char **p, int *priority, bool with_facility) {

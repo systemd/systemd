@@ -41,6 +41,7 @@
 #include "mount-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "util.h"
 #include "virt.h"

@@ -30,6 +30,7 @@
 #include "networkd-netdev.h"
 #include "networkd.h"
 #include "siphash24.h"
+#include "stat-util.h"
 #include "string-util.h"
 
 const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX] = {

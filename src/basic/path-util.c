@@ -41,6 +41,7 @@
 #include "missing.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "util.h"
@@ -453,43 +454,6 @@ char* path_join(const char *root, const char *path, const char *rest) {
                                rest ? (endswith(path, "/") ? "" : "/") : NULL,
                                rest && rest[0] == '/' ? rest+1 : rest,
                                NULL);
-}
-
-int path_is_read_only_fs(const char *path) {
-        struct statvfs st;
-
-        assert(path);
-
-        if (statvfs(path, &st) < 0)
-                return -errno;
-
-        if (st.f_flag & ST_RDONLY)
-                return true;
-
-        /* On NFS, statvfs() might not reflect whether we can actually
-         * write to the remote share. Let's try again with
-         * access(W_OK) which is more reliable, at least sometimes. */
-        if (access(path, W_OK) < 0 && errno == EROFS)
-                return true;
-
-        return false;
-}
-
-int path_is_os_tree(const char *path) {
-        char *p;
-        int r;
-
-        /* We use /usr/lib/os-release as flag file if something is an OS */
-        p = strjoina(path, "/usr/lib/os-release");
-        r = access(p, F_OK);
-        if (r >= 0)
-                return 1;
-
-        /* Also check for the old location in /etc, just in case. */
-        p = strjoina(path, "/etc/os-release");
-        r = access(p, F_OK);
-
-        return r >= 0;
 }
 
 int find_binary(const char *name, char **ret) {

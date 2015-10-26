@@ -41,6 +41,7 @@
 #include "log.h"
 #include "path-util.h"
 #include "selinux-access.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "virt.h"

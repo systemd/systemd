@@ -76,6 +76,7 @@
 #include "signal-util.h"
 #include "smack-setup.h"
 #include "special.h"
+#include "stat-util.h"
 #include "strv.h"
 #include "switch-root.h"
 #include "terminal-util.h"

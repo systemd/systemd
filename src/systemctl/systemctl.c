@@ -73,6 +73,7 @@
 #include "spawn-ask-password-agent.h"
 #include "spawn-polkit-agent.h"
 #include "special.h"
+#include "stat-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "unit-name.h"

@@ -29,6 +29,7 @@
 #include "log.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "swap.h"
 #include "udev-util.h"
