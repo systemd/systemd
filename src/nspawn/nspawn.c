@@ -86,6 +86,7 @@
 #include "seccomp-util.h"
 #endif
 #include "signal-util.h"
+#include "socket-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"

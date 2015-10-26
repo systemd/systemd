@@ -330,9 +330,6 @@ int sched_policy_from_string(const char *s);
 const char *rlimit_to_string(int i) _const_;
 int rlimit_from_string(const char *s) _pure_;
 
-int ip_tos_to_string_alloc(int i, char **s);
-int ip_tos_from_string(const char *s);
-
 extern int saved_argc;
 extern char **saved_argv;
 
@@ -343,9 +340,6 @@ int prot_from_flags(int flags) _const_;
 char *format_bytes(char *buf, size_t l, uint64_t t);
 
 void* memdup(const void *p, size_t l) _alloc_(2);
-
-int fd_inc_sndbuf(int fd, size_t n);
-int fd_inc_rcvbuf(int fd, size_t n);
 
 int fork_agent(pid_t *pid, const int except[], unsigned n_except, const char *path, ...);
 
@@ -611,9 +605,6 @@ int container_get_leader(const char *machine, pid_t *pid);
 int namespace_open(pid_t pid, int *pidns_fd, int *mntns_fd, int *netns_fd, int *userns_fd, int *root_fd);
 int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int root_fd);
 
-int getpeercred(int fd, struct ucred *ucred);
-int getpeersec(int fd, char **ret);
-
 int mkostemp_safe(char *pattern, int flags);
 int open_tmpfile(const char *path, int flags);
 
@@ -699,9 +690,6 @@ int mount_move_root(const char *path);
 
 int getxattr_malloc(const char *path, const char *name, char **value, bool allow_symlink);
 int fgetxattr_malloc(int fd, const char *name, char **value);
-
-int send_one_fd(int transport_fd, int fd, int flags);
-int receive_one_fd(int transport_fd, int flags);
 
 void nop_signal_handler(int sig);
 

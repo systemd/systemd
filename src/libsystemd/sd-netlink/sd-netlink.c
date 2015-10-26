@@ -30,6 +30,7 @@
 #include "missing.h"
 #include "netlink-internal.h"
 #include "netlink-util.h"
+#include "socket-util.h"
 #include "util.h"
 
 static int sd_netlink_new(sd_netlink **ret) {

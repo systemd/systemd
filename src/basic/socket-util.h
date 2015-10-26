@@ -115,3 +115,15 @@ int netlink_family_to_string_alloc(int b, char **s);
 int netlink_family_from_string(const char *s) _pure_;
 
 bool sockaddr_equal(const union sockaddr_union *a, const union sockaddr_union *b);
+
+int fd_inc_sndbuf(int fd, size_t n);
+int fd_inc_rcvbuf(int fd, size_t n);
+
+int ip_tos_to_string_alloc(int i, char **s);
+int ip_tos_from_string(const char *s);
+
+int getpeercred(int fd, struct ucred *ucred);
+int getpeersec(int fd, char **ret);
+
+int send_one_fd(int transport_fd, int fd, int flags);
+int receive_one_fd(int transport_fd, int flags);

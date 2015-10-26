@@ -36,6 +36,7 @@
 #include "io-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "socket-util.h"
 #include "string-util.h"
 #include "terminal-util.h"
 #include "time-util.h"
