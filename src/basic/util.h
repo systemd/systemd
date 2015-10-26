@@ -152,12 +152,7 @@ static inline void freep(void *p) {
         free(*(void**) p);
 }
 
-static inline void umaskp(mode_t *u) {
-        umask(*u);
-}
-
 #define _cleanup_free_ _cleanup_(freep)
-#define _cleanup_umask_ _cleanup_(umaskp)
 #define _cleanup_globfree_ _cleanup_(globfree)
 
 _malloc_  _alloc_(1, 2) static inline void *malloc_multiply(size_t a, size_t b) {
@@ -221,20 +216,6 @@ static inline int negative_errno(void) {
         assert_return(errno > 0, -EINVAL);
         return -errno;
 }
-
-struct _umask_struct_ {
-        mode_t mask;
-        bool quit;
-};
-
-static inline void _reset_umask_(struct _umask_struct_ *s) {
-        umask(s->mask);
-};
-
-#define RUN_WITH_UMASK(mask)                                            \
-        for (_cleanup_(_reset_umask_) struct _umask_struct_ _saved_umask_ = { umask(mask), false }; \
-             !_saved_umask_.quit ;                                      \
-             _saved_umask_.quit = true)
 
 static inline unsigned u64log2(uint64_t n) {
 #if __SIZEOF_LONG_LONG__ == 8

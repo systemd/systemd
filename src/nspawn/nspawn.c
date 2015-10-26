@@ -95,6 +95,7 @@
 #include "strv.h"
 #include "terminal-util.h"
 #include "udev-util.h"
+#include "umask-util.h"
 #include "user-util.h"
 #include "util.h"
 

@@ -32,6 +32,7 @@
 #include "io-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "umask-util.h"
 #include "util.h"
 #include "xattr-util.h"
 

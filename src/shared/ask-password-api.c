@@ -45,6 +45,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "umask-util.h"
 #include "util.h"
 
 #define KEYRING_TIMEOUT_USEC ((5 * USEC_PER_MINUTE) / 2)

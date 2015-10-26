@@ -43,6 +43,7 @@
 #include "process-util.h"
 #include "stat-util.h"
 #include "string-util.h"
+#include "umask-util.h"
 #include "util.h"
 #include "virt.h"
 

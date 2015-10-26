@@ -79,6 +79,7 @@
 #include "terminal-util.h"
 #include "time-util.h"
 #include "transaction.h"
+#include "umask-util.h"
 #include "unit-name.h"
 #include "util.h"
 #include "virt.h"

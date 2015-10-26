@@ -39,6 +39,7 @@
 #include "strv.h"
 #include "terminal-util.h"
 #include "time-util.h"
+#include "umask-util.h"
 #include "user-util.h"
 
 static char *arg_root = NULL;

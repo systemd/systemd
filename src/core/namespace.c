@@ -41,6 +41,7 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
+#include "umask-util.h"
 #include "util.h"
 
 typedef enum MountMode {

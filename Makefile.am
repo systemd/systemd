@@ -821,6 +821,7 @@ libbasic_la_SOURCES = \
 	src/basic/time-util.h \
 	src/basic/locale-util.c \
 	src/basic/locale-util.h \
+	src/basic/umask-util.h \
 	src/basic/signal-util.c \
 	src/basic/signal-util.h \
 	src/basic/string-table.c \
