@@ -21,6 +21,7 @@
 
 #include "alloc-util.h"
 #include "conf-parser.h"
+#include "event-util.h"
 #include "in-addr-util.h"
 #include "netlink-util.h"
 #include "networkd-route.h"
@@ -41,6 +42,7 @@ int route_new(Route **ret) {
         route->scope = RT_SCOPE_UNIVERSE;
         route->protocol = RTPROT_UNSPEC;
         route->table = RT_TABLE_DEFAULT;
+        route->lifetime = USEC_INFINITY;
 
         *ret = route;
         route = NULL;
@@ -100,6 +102,8 @@ void route_free(Route *route) {
                 set_remove(route->link->routes, route);
                 set_remove(route->link->routes_foreign, route);
         }
+
+        sd_event_source_unref(route->expire);
 
         free(route);
 }
@@ -410,9 +414,24 @@ int route_remove(Route *route, Link *link,
         return 0;
 }
 
+int route_expire_handler(sd_event_source *s, uint64_t usec, void *userdata) {
+        Route *route = userdata;
+        int r;
+
+        assert(route);
+
+        r = route_remove(route, route->link, NULL);
+        if (r < 0)
+                log_warning_errno(r, "Could not remove route: %m");
+
+        return 1;
+}
+
 int route_configure(Route *route, Link *link,
                     sd_netlink_message_handler_t callback) {
         _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL;
+        _cleanup_event_source_unref_ sd_event_source *expire = NULL;
+        usec_t lifetime;
         int r;
 
         assert(link);
@@ -489,9 +508,25 @@ int route_configure(Route *route, Link *link,
 
         link_ref(link);
 
-        r = route_add(link, route->family, &route->dst, route->dst_prefixlen, route->tos, route->priority, route->table, NULL);
+        lifetime = route->lifetime;
+
+        r = route_add(link, route->family, &route->dst, route->dst_prefixlen, route->tos, route->priority, route->table, &route);
         if (r < 0)
                 return log_error_errno(r, "Could not add route: %m");
+
+        /* TODO: drop expiration handling once it can be pushed into the kernel */
+        route->lifetime = lifetime;
+
+        if (route->lifetime != USEC_INFINITY) {
+                r = sd_event_add_time(link->manager->event, &expire, clock_boottime_or_monotonic(),
+                                      route->lifetime, 0, route_expire_handler, route);
+                if (r < 0)
+                        return log_error_errno(r, "Could not arm expiration timer: %m");
+        }
+
+        sd_event_source_unref(route->expire);
+        route->expire = expire;
+        expire = NULL;
 
         return 0;
 }

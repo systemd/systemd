@@ -26,6 +26,7 @@
 #include "alloc-util.h"
 #include "bus-util.h"
 #include "dhcp-lease-internal.h"
+#include "event-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "netlink-util.h"
@@ -2215,6 +2216,9 @@ static int link_load(Link *link) {
                         return log_oom();
 
                 STRV_FOREACH(route_str, routes_strv) {
+                        Route *route;
+                        _cleanup_event_source_unref_ sd_event_source *expire = NULL;
+                        usec_t lifetime;
                         char *prefixlen_str;
                         int family;
                         unsigned char prefixlen, tos, table;
@@ -2226,19 +2230,31 @@ static int link_load(Link *link) {
 
                         *prefixlen_str ++ = '\0';
 
-                        r = sscanf(prefixlen_str, "%hhu/%hhu/%"SCNu32"/%hhu", &prefixlen, &tos, &priority, &table);
-                        if (r != 4)
+                        r = sscanf(prefixlen_str, "%hhu/%hhu/%"SCNu32"/%hhu/"USEC_FMT, &prefixlen, &tos, &priority, &table, &lifetime);
+                        if (r != 5)
                                 return log_link_error(link,
-                                                      "Failed to parse destination prefix length, tos, priority or table %s: %m",
+                                                      "Failed to parse destination prefix length, tos, priority, table or expiration %s",
                                                       prefixlen_str);
 
                         r = in_addr_from_string_auto(*route_str, &family, &route_dst);
                         if (r < 0)
                                 return log_link_error_errno(link, r, "Failed to parse route destination %s: %m", *route_str);
 
-                        r = route_add(link, family, &route_dst, prefixlen, tos, priority, table, NULL);
+                        r = route_add(link, family, &route_dst, prefixlen, tos, priority, table, &route);
                         if (r < 0)
                                 return log_link_error_errno(link, r, "Failed to add route: %m");
+
+                        if (lifetime != USEC_INFINITY) {
+                                r = sd_event_add_time(link->manager->event, &expire, clock_boottime_or_monotonic(), lifetime,
+                                                      0, route_expire_handler, route);
+                                if (r < 0)
+                                        log_link_warning_errno(link, r, "Could not arm route expiration handler: %m");
+                        }
+
+                        route->lifetime = lifetime;
+                        sd_event_source_unref(route->expire);
+                        route->expire = expire;
+                        expire = NULL;
                 }
         }
 
@@ -2717,8 +2733,8 @@ int link_save(Link *link) {
                         if (r < 0)
                                 goto fail;
 
-                        fprintf(f, "%s%s/%hhu/%hhu/%"PRIu32"/%hhu", space ? " " : "", route_str,
-                                route->dst_prefixlen, route->tos, route->priority, route->table);
+                        fprintf(f, "%s%s/%hhu/%hhu/%"PRIu32"/%hhu/"USEC_FMT, space ? " " : "", route_str,
+                                route->dst_prefixlen, route->tos, route->priority, route->table, route->lifetime);
                         space = true;
                 }
 
