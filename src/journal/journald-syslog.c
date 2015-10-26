@@ -36,6 +36,7 @@
 #include "selinux-util.h"
 #include "socket-util.h"
 #include "string-util.h"
+#include "syslog-util.h"
 
 /* Warn once every 30s if we missed syslog message */
 #define WARN_FORWARD_SYSLOG_MISSED_USEC (30 * USEC_PER_SEC)

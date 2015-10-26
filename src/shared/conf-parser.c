@@ -39,6 +39,7 @@
 #include "strv.h"
 #include "utf8.h"
 #include "util.h"
+#include "syslog-util.h"
 
 int config_item_table_lookup(
                 const void *table,

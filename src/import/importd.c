@@ -39,6 +39,7 @@
 #include "socket-util.h"
 #include "string-table.h"
 #include "strv.h"
+#include "syslog-util.h"
 #include "util.h"
 
 typedef struct Transfer Transfer;

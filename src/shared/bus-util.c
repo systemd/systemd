@@ -44,6 +44,7 @@
 #include "signal-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "syslog-util.h"
 #include "unit-name.h"
 #include "utf8.h"
 #include "util.h"

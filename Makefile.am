@@ -803,6 +803,8 @@ libbasic_la_SOURCES = \
 	src/basic/proc-cmdline.h \
 	src/basic/fs-util.c \
 	src/basic/fs-util.h \
+	src/basic/syslog-util.c \
+	src/basic/syslog-util.h \
 	src/basic/stat-util.c \
 	src/basic/stat-util.h \
 	src/basic/mount-util.c \

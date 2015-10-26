@@ -44,6 +44,7 @@
 #include "selinux-util.h"
 #include "socket-util.h"
 #include "string-util.h"
+#include "syslog-util.h"
 
 #define STDOUT_STREAMS_MAX 4096
 

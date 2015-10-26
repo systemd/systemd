@@ -43,6 +43,7 @@
 #include "seccomp-util.h"
 #endif
 #include "strv.h"
+#include "syslog-util.h"
 #include "utf8.h"
 
 BUS_DEFINE_PROPERTY_GET_ENUM(bus_property_get_exec_output, exec_output, ExecOutput);

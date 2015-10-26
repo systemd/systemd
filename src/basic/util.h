@@ -115,14 +115,6 @@ int ioprio_class_from_string(const char *s);
 const char *sigchld_code_to_string(int i) _const_;
 int sigchld_code_from_string(const char *s) _pure_;
 
-int log_facility_unshifted_to_string_alloc(int i, char **s);
-int log_facility_unshifted_from_string(const char *s);
-bool log_facility_unshifted_is_valid(int faciliy);
-
-int log_level_to_string_alloc(int i, char **s);
-int log_level_from_string(const char *s);
-bool log_level_is_valid(int level);
-
 int sched_policy_to_string_alloc(int i, char **s);
 int sched_policy_from_string(const char *s);
 
@@ -334,8 +326,6 @@ union inotify_event_buffer {
         struct inotify_event ev;
         uint8_t raw[INOTIFY_EVENT_MAX];
 };
-
-int syslog_parse_priority(const char **p, int *priority, bool with_facility);
 
 int version(void);
 

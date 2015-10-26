@@ -31,6 +31,7 @@
 #include "fd-util.h"
 #include "parse-util.h"
 #include "string-util.h"
+#include "syslog-util.h"
 #include "util.h"
 
 static char *arg_identifier = NULL;

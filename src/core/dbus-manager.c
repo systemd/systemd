@@ -44,6 +44,7 @@
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "syslog-util.h"
 #include "virt.h"
 #include "watchdog.h"
 

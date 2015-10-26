@@ -43,6 +43,7 @@
 #include "socket-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "syslog-util.h"
 #include "terminal-util.h"
 #include "util.h"
 
