@@ -1361,6 +1361,32 @@ int bus_exec_context_set_transient_property(
 
                 return 1;
 
+        } else if (streq(name, "ProtectHome")) {
+                const char *s;
+                ProtectHome ph;
+
+                r = sd_bus_message_read(message, "s", &s);
+                if (r < 0)
+                        return r;
+
+                r = parse_boolean(s);
+                if (r > 0)
+                        ph = PROTECT_HOME_YES;
+                else if (r == 0)
+                        ph = PROTECT_HOME_NO;
+                else {
+                        ph = protect_home_from_string(s);
+                        if (ph < 0)
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Failed to parse protect home value");
+                }
+
+                if (mode != UNIT_CHECK) {
+                        c->protect_home = ph;
+                        unit_write_drop_in_private_format(u, mode, name, "%s=%s\n", name, s);
+                }
+
+                return 1;
+
         } else if (rlimit_from_string(name) >= 0) {
                 uint64_t rl;
                 rlim_t x;
