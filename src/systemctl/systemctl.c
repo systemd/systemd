@@ -3479,7 +3479,8 @@ static void print_status_info(
 
                                 dir = mfree(dir);
 
-                                if (path_get_parent(*dropin, &dir) < 0) {
+                                dir = dirname_malloc(*dropin);
+                                if (!dir) {
                                         log_oom();
                                         return;
                                 }

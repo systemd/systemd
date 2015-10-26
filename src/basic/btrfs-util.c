@@ -60,13 +60,13 @@ static int validate_subvolume_name(const char *name) {
 
 static int open_parent(const char *path, int flags) {
         _cleanup_free_ char *parent = NULL;
-        int r, fd;
+        int fd;
 
         assert(path);
 
-        r = path_get_parent(path, &parent);
-        if (r < 0)
-                return r;
+        parent = dirname_malloc(path);
+        if (!parent)
+                return -ENOMEM;
 
         fd = open(parent, flags);
         if (fd < 0)

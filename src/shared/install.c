@@ -48,13 +48,12 @@ typedef struct {
 
 static int in_search_path(const char *path, char **search) {
         _cleanup_free_ char *parent = NULL;
-        int r;
 
         assert(path);
 
-        r = path_get_parent(path, &parent);
-        if (r < 0)
-                return r;
+        parent = dirname_malloc(path);
+        if (!parent)
+                return -ENOMEM;
 
         return strv_contains(search, parent);
 }

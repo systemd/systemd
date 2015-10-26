@@ -77,20 +77,6 @@ static void test_path(void) {
         assert_se(streq(basename("/aa///file..."), "file..."));
         assert_se(streq(basename("file.../"), ""));
 
-#define test_parent(x, y) {                                \
-                _cleanup_free_ char *z = NULL;             \
-                int r = path_get_parent(x, &z);            \
-                printf("expected: %s\n", y ? y : "error"); \
-                printf("actual: %s\n", r<0 ? "error" : z); \
-                assert_se((y==NULL) ^ (r==0));             \
-                assert_se(y==NULL || path_equal(z, y));    \
-        }
-
-        test_parent("./aa/bb/../file.da.", "./aa/bb/..");
-        test_parent("/aa///.file", "/aa///");
-        test_parent("/aa///file...", "/aa///");
-        test_parent("file.../", NULL);
-
         fd = open("/", O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOCTTY);
         assert_se(fd >= 0);
         assert_se(fd_is_mount_point(fd, "/", 0) > 0);

@@ -252,9 +252,10 @@ static int mount_add_mount_links(Mount *m) {
         if (!path_equal(m->where, "/")) {
                 /* Adds in links to other mount points that might lie further
                  * up in the hierarchy */
-                r = path_get_parent(m->where, &parent);
-                if (r < 0)
-                        return r;
+
+                parent = dirname_malloc(m->where);
+                if (!parent)
+                        return -ENOMEM;
 
                 r = unit_require_mounts_for(UNIT(m), parent);
                 if (r < 0)

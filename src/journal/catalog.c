@@ -35,6 +35,7 @@
 #include "hashmap.h"
 #include "log.h"
 #include "mkdir.h"
+#include "path-util.h"
 #include "siphash24.h"
 #include "sparse-endian.h"
 #include "strbuf.h"

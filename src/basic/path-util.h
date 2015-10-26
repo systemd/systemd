@@ -37,7 +37,6 @@
 
 bool is_path(const char *p) _pure_;
 int path_split_and_make_absolute(const char *p, char ***ret);
-int path_get_parent(const char *path, char **parent);
 bool path_is_absolute(const char *p) _pure_;
 char* path_make_absolute(const char *p, const char *prefix);
 int path_make_absolute_cwd(const char *p, char **ret);
@@ -103,3 +102,5 @@ char *prefix_root(const char *root, const char *path);
         })
 
 int parse_path_argument_and_warn(const char *path, bool suppress_root, char **arg);
+
+char* dirname_malloc(const char *path);

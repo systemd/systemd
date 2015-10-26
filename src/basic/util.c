@@ -398,24 +398,6 @@ int dir_is_empty(const char *path) {
         return 1;
 }
 
-char* dirname_malloc(const char *path) {
-        char *d, *dir, *dir2;
-
-        d = strdup(path);
-        if (!d)
-                return NULL;
-        dir = dirname(d);
-        assert(dir);
-
-        if (dir != d) {
-                dir2 = strdup(dir);
-                free(d);
-                return dir2;
-        }
-
-        return dir;
-}
-
 void rename_process(const char name[8]) {
         assert(name);
 

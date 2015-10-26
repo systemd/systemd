@@ -27,6 +27,12 @@
 #include <sys/statvfs.h>
 #include <unistd.h>
 
+/* When we include libgen.h because we need dirname() we immediately
+ * undefine basename() since libgen.h defines it as a macro to the
+ * POSIX version which is really broken. We prefer GNU basename(). */
+#include <libgen.h>
+#undef basename
+
 #include "fd-util.h"
 #include "fileio.h"
 #include "log.h"
@@ -44,47 +50,6 @@ bool path_is_absolute(const char *p) {
 
 bool is_path(const char *p) {
         return !!strchr(p, '/');
-}
-
-int path_get_parent(const char *path, char **_r) {
-        const char *e, *a = NULL, *b = NULL, *p;
-        char *r;
-        bool slash = false;
-
-        assert(path);
-        assert(_r);
-
-        if (!*path)
-                return -EINVAL;
-
-        for (e = path; *e; e++) {
-
-                if (!slash && *e == '/') {
-                        a = b;
-                        b = e;
-                        slash = true;
-                } else if (slash && *e != '/')
-                        slash = false;
-        }
-
-        if (*(e-1) == '/')
-                p = a;
-        else
-                p = b;
-
-        if (!p)
-                return -EINVAL;
-
-        if (p == path)
-                r = strdup("/");
-        else
-                r = strndup(path, p-path);
-
-        if (!r)
-                return -ENOMEM;
-
-        *_r = r;
-        return 0;
 }
 
 int path_split_and_make_absolute(const char *p, char ***ret) {
@@ -659,7 +624,6 @@ fallback_fstat:
 int path_is_mount_point(const char *t, int flags) {
         _cleanup_close_ int fd = -1;
         _cleanup_free_ char *canonical = NULL, *parent = NULL;
-        int r;
 
         assert(t);
 
@@ -678,9 +642,9 @@ int path_is_mount_point(const char *t, int flags) {
                 t = canonical;
         }
 
-        r = path_get_parent(t, &parent);
-        if (r < 0)
-                return r;
+        parent = dirname_malloc(t);
+        if (!parent)
+                return -ENOMEM;
 
         fd = openat(AT_FDCWD, parent, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_PATH);
         if (fd < 0)
@@ -936,4 +900,25 @@ int parse_path_argument_and_warn(const char *path, bool suppress_root, char **ar
         free(*arg);
         *arg = p;
         return 0;
+}
+
+char* dirname_malloc(const char *path) {
+        char *d, *dir, *dir2;
+
+        assert(path);
+
+        d = strdup(path);
+        if (!d)
+                return NULL;
+
+        dir = dirname(d);
+        assert(dir);
+
+        if (dir == d)
+                return d;
+
+        dir2 = strdup(dir);
+        free(d);
+
+        return dir2;
 }

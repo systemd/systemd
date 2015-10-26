@@ -141,13 +141,12 @@ static void automount_done(Unit *u) {
 
 static int automount_add_mount_links(Automount *a) {
         _cleanup_free_ char *parent = NULL;
-        int r;
 
         assert(a);
 
-        r = path_get_parent(a->where, &parent);
-        if (r < 0)
-                return r;
+        parent = dirname_malloc(a->where);
+        if (!parent)
+                return -ENOMEM;
 
         return unit_require_mounts_for(UNIT(a), parent);
 }

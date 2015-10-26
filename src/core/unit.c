@@ -417,12 +417,11 @@ static void unit_remove_transient(Unit *u) {
 
         STRV_FOREACH(i, u->dropin_paths) {
                 _cleanup_free_ char *p = NULL;
-                int r;
 
                 (void) unlink(*i);
 
-                r = path_get_parent(*i, &p);
-                if (r >= 0)
+                p = dirname_malloc(*i);
+                if (p)
                         (void) rmdir(p);
         }
 }

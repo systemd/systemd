@@ -163,7 +163,6 @@ int fopen_temporary(const char *path, FILE **_f, char **_temp_path);
 bool is_device_path(const char *path);
 
 int dir_is_empty(const char *path);
-char* dirname_malloc(const char *path);
 
 static inline int dir_is_populated(const char *path) {
         int r;

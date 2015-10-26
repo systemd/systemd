@@ -1169,9 +1169,9 @@ static int usbffs_dispatch_eps(SocketPort *p) {
         _cleanup_free_ char *path = NULL;
         int r, i, n, k;
 
-        r = path_get_parent(p->path, &path);
-        if (r < 0)
-                return r;
+        path = dirname_malloc(p->path);
+        if (!path)
+                return -ENOMEM;
 
         r = scandir(path, &ent, usbffs_select_ep, alphasort);
         if (r < 0)

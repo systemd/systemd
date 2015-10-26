@@ -479,13 +479,13 @@ static int dkr_pull_make_local_copy(DkrPull *i, DkrPullVersion version) {
         if (!i->final_path) {
                 i->final_path = strjoin(i->image_root, "/.dkr-", i->id, NULL);
                 if (!i->final_path)
-                        return log_oom();
+                        return -ENOMEM;
         }
 
         if (version == DKR_PULL_V2) {
-                r = path_get_parent(i->image_root, &p);
-                if (r < 0)
-                        return r;
+                p = dirname_malloc(i->image_root);
+                if (!p)
+                        return -ENOMEM;
         }
 
         r = pull_make_local_copy(i->final_path, p ?: i->image_root, i->local, i->force_local);
