@@ -25,6 +25,7 @@
 #include "sd-event.h"
 
 #include "btrfs-util.h"
+#include "chattr-util.h"
 #include "copy.h"
 #include "fd-util.h"
 #include "fileio.h"

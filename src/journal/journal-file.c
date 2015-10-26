@@ -29,6 +29,7 @@
 #include <unistd.h>
 
 #include "btrfs-util.h"
+#include "chattr-util.h"
 #include "compress.h"
 #include "fd-util.h"
 #include "journal-authenticate.h"

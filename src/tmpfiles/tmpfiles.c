@@ -41,6 +41,7 @@
 #include "acl-util.h"
 #include "btrfs-util.h"
 #include "capability.h"
+#include "chattr-util.h"
 #include "conf-files.h"
 #include "copy.h"
 #include "escape.h"

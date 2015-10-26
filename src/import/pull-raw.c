@@ -26,6 +26,7 @@
 #include "sd-daemon.h"
 
 #include "btrfs-util.h"
+#include "chattr-util.h"
 #include "copy.h"
 #include "curl-util.h"
 #include "fd-util.h"

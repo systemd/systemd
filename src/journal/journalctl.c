@@ -42,6 +42,7 @@
 #include "bus-error.h"
 #include "bus-util.h"
 #include "catalog.h"
+#include "chattr-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fsprg.h"

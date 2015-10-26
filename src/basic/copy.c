@@ -23,6 +23,7 @@
 #include <sys/xattr.h>
 
 #include "btrfs-util.h"
+#include "chattr-util.h"
 #include "copy.h"
 #include "dirent-util.h"
 #include "fd-util.h"

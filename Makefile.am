@@ -797,6 +797,8 @@ libbasic_la_SOURCES = \
 	src/basic/dirent-util.h \
 	src/basic/xattr-util.c \
 	src/basic/xattr-util.h \
+	src/basic/chattr-util.c \
+	src/basic/chattr-util.h \
 	src/basic/mount-util.c \
 	src/basic/mount-util.h \
 	src/basic/hexdecoct.c \

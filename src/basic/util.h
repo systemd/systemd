@@ -500,12 +500,6 @@ union inotify_event_buffer {
 
 #define laccess(path, mode) faccessat(AT_FDCWD, (path), (mode), AT_SYMLINK_NOFOLLOW)
 
-int chattr_fd(int fd, unsigned value, unsigned mask);
-int chattr_path(const char *p, unsigned value, unsigned mask);
-
-int read_attr_fd(int fd, unsigned *ret);
-int read_attr_path(const char *p, unsigned *ret);
-
 int syslog_parse_priority(const char **p, int *priority, bool with_facility);
 
 int rename_noreplace(int olddirfd, const char *oldpath, int newdirfd, const char *newpath);
