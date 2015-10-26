@@ -26,9 +26,9 @@
 #include <sys/types.h>
 #include <stdbool.h>
 
-int setup_veth(const char *machine_name, pid_t pid, char iface_name[IFNAMSIZ], bool bridge);
+int setup_veth(const char *machine_name, pid_t pid, char **veth);
 
-int setup_bridge(const char *veth_name, const char *bridge_name);
+int setup_bridge(char **veth_name, const char *bridge_name);
 
 int setup_macvlan(const char *machine_name, pid_t pid, char **ifaces);
 int setup_ipvlan(const char *machine_name, pid_t pid, char **ifaces);

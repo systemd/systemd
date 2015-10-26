@@ -155,6 +155,7 @@ static bool arg_keep_unit = false;
 static char **arg_network_interfaces = NULL;
 static char **arg_network_macvlan = NULL;
 static char **arg_network_ipvlan = NULL;
+static char **arg_network_veth_interface = NULL;
 static bool arg_network_veth = false;
 static char *arg_network_bridge = NULL;
 static unsigned long arg_personality = PERSONALITY_INVALID;
@@ -200,8 +201,11 @@ static void help(void) {
                "     --network-ipvlan=INTERFACE\n"
                "                            Create a ipvlan network interface based on an\n"
                "                            existing network interface to the container\n"
-               "  -n --network-veth         Add a virtual ethernet connection between host\n"
+               "  -n                        Add a virtual ethernet connection between host\n"
+               "                            and container default\n"
+               "      --network-veth        Add a virtual ethernet connection between host\n"
                "                            and container\n"
+
                "     --network-bridge=INTERFACE\n"
                "                            Add a virtual ethernet connection between host\n"
                "                            and container and add it to an existing bridge on\n"
@@ -323,6 +327,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NETWORK_INTERFACE,
                 ARG_NETWORK_MACVLAN,
                 ARG_NETWORK_IPVLAN,
+                ARG_NETWORK_VETH,
                 ARG_NETWORK_BRIDGE,
                 ARG_PERSONALITY,
                 ARG_VOLATILE,
@@ -364,7 +369,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "network-interface",     required_argument, NULL, ARG_NETWORK_INTERFACE },
                 { "network-macvlan",       required_argument, NULL, ARG_NETWORK_MACVLAN   },
                 { "network-ipvlan",        required_argument, NULL, ARG_NETWORK_IPVLAN    },
-                { "network-veth",          no_argument,       NULL, 'n'                   },
+                { "n",                     no_argument,       NULL, 'n'                   },
+                { "network-veth",          required_argument, NULL, ARG_NETWORK_VETH      },
                 { "network-bridge",        required_argument, NULL, ARG_NETWORK_BRIDGE    },
                 { "personality",           required_argument, NULL, ARG_PERSONALITY       },
                 { "image",                 required_argument, NULL, 'i'                   },
@@ -430,9 +436,64 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_oom();
 
-                        /* fall through */
-
+                        arg_private_network = true;
+                        arg_settings_mask |= SETTING_NETWORK;
+                        break;
                 case 'n':
+                        arg_network_veth = true;
+                        arg_private_network = true;
+                        arg_settings_mask |= SETTING_NETWORK;
+                        break;
+
+                case ARG_NETWORK_VETH:
+                        {
+                                _cleanup_strv_free_ char **a = NULL;
+                                _cleanup_free_ char *p = NULL;
+                                int l;
+
+                                if (!optarg) {
+                                        log_error_errno(r, "Arguments missing : %s", optarg);
+                                        return r;
+                                }
+
+                                for (;;) {
+                                        r = extract_first_word((const char **)&optarg, &p, ":", 0);
+                                        if (r < 0) {
+                                                log_error_errno(r,"Invalid veth pair specification: %s", optarg);
+                                                return -EINVAL;
+                                        }
+
+                                        if (r == 0)
+                                                break;
+
+                                        r = strv_extend(&a, p);
+                                        if (r < 0)
+                                                return log_oom();
+                                }
+
+                                l = strv_length(a);
+                                if (l > 2) {
+                                        log_error_errno(r,"Invalid veth pair specification: %s", optarg);
+                                        return -EINVAL;
+                                } else if (l == 2) {
+                                        char **i;
+
+                                        STRV_FOREACH(i, a) {
+                                                r = strv_extend(&arg_network_veth_interface, *i);
+                                                if (r < 0)
+                                                        return log_oom();
+                                        }
+                                } else if (l == 1) {
+
+                                        for (l = 0; l < 2; l++) {
+                                                r = strv_extend(&arg_network_veth_interface, a[0]);
+                                                if (r < 0)
+                                                        return log_oom();
+                                        }
+                                }
+
+                        }
+
                         arg_network_veth = true;
                         arg_private_network = true;
                         arg_settings_mask |= SETTING_NETWORK;
@@ -2998,7 +3059,6 @@ int main(int argc, char *argv[]) {
         _cleanup_close_ int master = -1, image_fd = -1;
         _cleanup_fdset_free_ FDSet *fds = NULL;
         int r, n_fd_passed, loop_nr = -1;
-        char veth_name[IFNAMSIZ];
         bool secondary = false, remove_subvol = false;
         sigset_t mask_chld;
         pid_t pid = 0;
@@ -3381,14 +3441,31 @@ int main(int argc, char *argv[]) {
                                 goto finish;
 
                         if (arg_network_veth) {
-                                r = setup_veth(arg_machine, pid, veth_name, !!arg_network_bridge);
+                                /* Use two different interface name prefixes depending whether
+                                 * we are in bridge mode or not. */
+
+                                if (!arg_network_veth_interface) {
+                                        char iface_name[IFNAMSIZ];
+
+                                        snprintf(iface_name, IFNAMSIZ - 1, "%s-%s",  !!arg_network_bridge ? "vb" : "ve", arg_machine);
+
+                                        r = strv_extend(&arg_network_veth_interface, "host0");
+                                        if (r < 0)
+                                                return log_oom();
+
+                                        r = strv_extend(&arg_network_veth_interface, iface_name);
+                                        if (r < 0)
+                                                return log_oom();
+                                }
+
+                                r = setup_veth(arg_machine, pid, arg_network_veth_interface);
                                 if (r < 0)
                                         goto finish;
                                 else if (r > 0)
                                         ifi = r;
 
                                 if (arg_network_bridge) {
-                                        r = setup_bridge(veth_name, arg_network_bridge);
+                                        r = setup_bridge(arg_network_veth_interface, arg_network_bridge);
                                         if (r < 0)
                                                 goto finish;
                                         if (r > 0)
