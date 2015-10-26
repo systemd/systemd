@@ -27,6 +27,7 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "smack-util.h"
+#include "string-table.h"
 #include "util.h"
 #include "xattr-util.h"
 

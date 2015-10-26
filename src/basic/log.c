@@ -39,6 +39,7 @@
 #include "process-util.h"
 #include "signal-util.h"
 #include "socket-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "terminal-util.h"
 #include "util.h"

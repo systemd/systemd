@@ -62,6 +62,7 @@
 #include "set.h"
 #include "specifier.h"
 #include "stat-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "user-util.h"

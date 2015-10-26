@@ -38,6 +38,7 @@
 #include "path-util.h"
 #include "selinux-util.h"
 #include "socket-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "util.h"

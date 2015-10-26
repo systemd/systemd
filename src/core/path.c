@@ -33,6 +33,7 @@
 #include "path.h"
 #include "special.h"
 #include "stat-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "unit-name.h"
 #include "unit.h"

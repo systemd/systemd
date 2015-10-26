@@ -31,6 +31,7 @@
 #include "logind-inhibit.h"
 #include "mkdir.h"
 #include "parse-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "user-util.h"
 #include "util.h"

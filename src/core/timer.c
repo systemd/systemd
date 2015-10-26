@@ -27,6 +27,7 @@
 #include "fs-util.h"
 #include "parse-util.h"
 #include "special.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "timer.h"
 #include "unit-name.h"

@@ -26,6 +26,7 @@
 #include "locale-util.h"
 #include "path-util.h"
 #include "set.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "utf8.h"

@@ -35,6 +35,7 @@
 #include "logs-show.h"
 #include "parse-util.h"
 #include "process-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "terminal-util.h"
 #include "utf8.h"

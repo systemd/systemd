@@ -22,6 +22,7 @@
 #include "conf-parser.h"
 #include "networkd-util.h"
 #include "parse-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "util.h"
 

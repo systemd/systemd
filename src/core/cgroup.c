@@ -30,6 +30,7 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "special.h"
+#include "string-table.h"
 #include "string-util.h"
 
 #define CGROUP_CPU_QUOTA_PERIOD_USEC ((usec_t) 100 * USEC_PER_MSEC)

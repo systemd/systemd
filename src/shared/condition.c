@@ -42,6 +42,7 @@
 #include "selinux-util.h"
 #include "smack-util.h"
 #include "stat-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "util.h"
 #include "virt.h"

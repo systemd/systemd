@@ -34,6 +34,7 @@
 #include "parse-util.h"
 #include "set.h"
 #include "special.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"

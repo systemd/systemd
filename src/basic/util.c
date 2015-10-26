@@ -94,6 +94,7 @@
 #include "random-util.h"
 #include "signal-util.h"
 #include "sparse-endian.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
@@ -1448,19 +1449,6 @@ int syslog_parse_priority(const char **p, int *priority, bool with_facility) {
 
         *p += k;
         return 1;
-}
-
-ssize_t string_table_lookup(const char * const *table, size_t len, const char *key) {
-        size_t i;
-
-        if (!key)
-                return -1;
-
-        for (i = 0; i < len; ++i)
-                if (streq_ptr(table[i], key))
-                        return (ssize_t) i;
-
-        return -1;
 }
 
 int version(void) {

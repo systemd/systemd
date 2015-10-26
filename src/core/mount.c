@@ -41,6 +41,7 @@
 #include "smack-util.h"
 #include "special.h"
 #include "string-util.h"
+#include "string-table.h"
 #include "strv.h"
 #include "unit-name.h"
 #include "unit.h"

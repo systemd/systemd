@@ -21,14 +21,15 @@
 
 #include <unistd.h>
 
-#include "conf-parser.h"
-#include "special.h"
-#include "sleep-config.h"
-#include "bus-util.h"
 #include "bus-error.h"
-#include "logind-action.h"
+#include "bus-util.h"
+#include "conf-parser.h"
 #include "formats-util.h"
+#include "logind-action.h"
 #include "process-util.h"
+#include "sleep-config.h"
+#include "special.h"
+#include "string-table.h"
 #include "terminal-util.h"
 #include "user-util.h"
 

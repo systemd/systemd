@@ -21,6 +21,7 @@
 
 #include "parse-util.h"
 #include "signal-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "util.h"
 

@@ -38,6 +38,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "socket-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "util.h"
 

@@ -37,6 +37,7 @@
 #include "process-util.h"
 #include "signal-util.h"
 #include "socket-util.h"
+#include "string-table.h"
 #include "strv.h"
 #include "util.h"
 

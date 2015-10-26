@@ -26,6 +26,7 @@
 #include "load-dropin.h"
 #include "log.h"
 #include "special.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "unit-name.h"

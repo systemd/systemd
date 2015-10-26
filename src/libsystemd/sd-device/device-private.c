@@ -37,6 +37,7 @@
 #include "path-util.h"
 #include "refcnt.h"
 #include "set.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "strxcpyx.h"

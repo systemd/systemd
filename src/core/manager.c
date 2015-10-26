@@ -73,6 +73,7 @@
 #include "signal-util.h"
 #include "special.h"
 #include "stat-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"

@@ -33,6 +33,7 @@
 #include "fd-util.h"
 #include "network-internal.h"
 #include "random-util.h"
+#include "string-table.h"
 #include "util.h"
 
 #define MAX_MAC_ADDR_LEN INFINIBAND_ALEN

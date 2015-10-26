@@ -46,6 +46,7 @@
 #include "service.h"
 #include "signal-util.h"
 #include "special.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "unit-name.h"

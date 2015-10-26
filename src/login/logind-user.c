@@ -43,6 +43,7 @@
 #include "rm-rf.h"
 #include "smack-util.h"
 #include "special.h"
+#include "string-table.h"
 #include "unit-name.h"
 #include "util.h"
 

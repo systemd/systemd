@@ -40,6 +40,7 @@
 #include "resolved-llmnr.h"
 #include "resolved-manager.h"
 #include "socket-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "utf8.h"
 

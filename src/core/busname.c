@@ -34,6 +34,7 @@
 #include "service.h"
 #include "signal-util.h"
 #include "special.h"
+#include "string-table.h"
 #include "string-util.h"
 
 static const UnitActiveState state_translation_table[_BUSNAME_STATE_MAX] = {

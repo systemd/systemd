@@ -53,6 +53,7 @@
 #include "process-util.h"
 #include "special.h"
 #include "stacktrace.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "user-util.h"

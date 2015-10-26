@@ -39,6 +39,7 @@
 #include "journal-def.h"
 #include "macro.h"
 #include "sparse-endian.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "util.h"
 

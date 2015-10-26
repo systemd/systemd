@@ -26,6 +26,7 @@
 #include "random-util.h"
 #include "resolved-dns-transaction.h"
 #include "resolved-llmnr.h"
+#include "string-table.h"
 
 DnsTransaction* dns_transaction_free(DnsTransaction *t) {
         DnsQuery *q;

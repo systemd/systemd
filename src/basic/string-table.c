@@ -3,7 +3,7 @@
 /***
   This file is part of systemd.
 
-  Copyright 2014 Lennart Poettering
+  Copyright 2010 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -19,28 +19,17 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "fd-util.h"
-#include "parse-util.h"
-#include "show-status.h"
-#include "string-util.h"
-#include "terminal-util.h"
-#include "util.h"
+#include "string-table.h"
 
-int parse_show_status(const char *v, ShowStatus *ret) {
-        int r;
+ssize_t string_table_lookup(const char * const *table, size_t len, const char *key) {
+        size_t i;
 
-        assert(v);
-        assert(ret);
+        if (!key)
+                return -1;
 
-        if (streq(v, "auto")) {
-                *ret = SHOW_STATUS_AUTO;
-                return 0;
-        }
+        for (i = 0; i < len; ++i)
+                if (streq_ptr(table[i], key))
+                        return (ssize_t) i;
 
-        r = parse_boolean(v);
-        if (r < 0)
-                return r;
-
-        *ret = r ? SHOW_STATUS_YES : SHOW_STATUS_NO;
-        return 0;
+        return -1;
 }

@@ -32,6 +32,7 @@
 #include "networkd.h"
 #include "parse-util.h"
 #include "stat-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "util.h"
 

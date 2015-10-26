@@ -39,6 +39,7 @@
 #include "parse-util.h"
 #include "socket-util.h"
 #include "string-util.h"
+#include "string-table.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "util.h"

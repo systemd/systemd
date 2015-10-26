@@ -43,6 +43,7 @@
 #include "mkdir.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "string-table.h"
 #include "terminal-util.h"
 #include "user-util.h"
 #include "util.h"

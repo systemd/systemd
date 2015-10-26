@@ -27,6 +27,7 @@
 #include "fileio.h"
 #include "formats-util.h"
 #include "set.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "user-util.h"

@@ -62,6 +62,7 @@
 #include "selinux-util.h"
 #include "signal-util.h"
 #include "socket-util.h"
+#include "string-table.h"
 #include "string-util.h"
 
 #define USER_JOURNALS_MAX 1024

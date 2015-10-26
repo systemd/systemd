@@ -37,6 +37,7 @@
 #include "mkdir.h"
 #include "parse-util.h"
 #include "special.h"
+#include "string-table.h"
 #include "terminal-util.h"
 #include "unit-name.h"
 #include "util.h"

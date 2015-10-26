@@ -823,6 +823,8 @@ libbasic_la_SOURCES = \
 	src/basic/locale-util.h \
 	src/basic/signal-util.c \
 	src/basic/signal-util.h \
+	src/basic/string-table.c \
+	src/basic/string-table.h \
 	src/basic/mempool.c \
 	src/basic/mempool.h \
 	src/basic/hashmap.c \

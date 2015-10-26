@@ -33,6 +33,7 @@
 #include "mkdir.h"
 #include "path-util.h"
 #include "rm-rf.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "utf8.h"
