@@ -95,7 +95,7 @@ int path_split_and_make_absolute(const char *p, char ***ret) {
 
         l = strv_split(p, ":");
         if (!l)
-                return NULL;
+                return -ENOMEM;
 
         r = path_strv_make_absolute_cwd(l);
         if (r < 0) {
