@@ -21,11 +21,12 @@
 
 #include <stdlib.h>
 
+#include "formats-util.h"
+#include "install-printf.h"
 #include "specifier.h"
 #include "unit-name.h"
+#include "user-util.h"
 #include "util.h"
-#include "install-printf.h"
-#include "formats-util.h"
 
 static int specifier_prefix_and_instance(char specifier, void *data, void *userdata, char **ret) {
         UnitFileInstallInfo *i = userdata;

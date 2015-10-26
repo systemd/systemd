@@ -69,6 +69,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "formats-util.h"
+#include "io-util.h"
 #include "ioprio.h"
 #include "log.h"
 #include "macro.h"
@@ -89,6 +90,7 @@
 #include "strv.h"
 #include "terminal-util.h"
 #include "unit.h"
+#include "user-util.h"
 #include "util.h"
 #include "utmp-wtmp.h"
 

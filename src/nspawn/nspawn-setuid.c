@@ -29,6 +29,7 @@
 #include "process-util.h"
 #include "signal-util.h"
 #include "string-util.h"
+#include "user-util.h"
 #include "util.h"
 
 static int spawn_getent(const char *database, const char *key, pid_t *rpid) {

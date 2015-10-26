@@ -36,6 +36,7 @@
 #include "namespace.h"
 #include "path-util.h"
 #include "selinux-util.h"
+#include "socket-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "util.h"

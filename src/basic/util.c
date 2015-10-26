@@ -32,7 +32,6 @@
 #include <linux/oom.h>
 #include <linux/sched.h>
 #include <locale.h>
-#include <netinet/ip.h>
 #include <poll.h>
 #include <pwd.h>
 #include <sched.h>
@@ -98,6 +97,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "user-util.h"
 #include "utf8.h"
 #include "util.h"
 #include "virt.h"
@@ -165,47 +165,6 @@ int parse_pid(const char *s, pid_t* ret_pid) {
                 return -ERANGE;
 
         *ret_pid = pid;
-        return 0;
-}
-
-bool uid_is_valid(uid_t uid) {
-
-        /* Some libc APIs use UID_INVALID as special placeholder */
-        if (uid == (uid_t) 0xFFFFFFFF)
-                return false;
-
-        /* A long time ago UIDs where 16bit, hence explicitly avoid the 16bit -1 too */
-        if (uid == (uid_t) 0xFFFF)
-                return false;
-
-        return true;
-}
-
-int parse_uid(const char *s, uid_t* ret_uid) {
-        unsigned long ul = 0;
-        uid_t uid;
-        int r;
-
-        assert(s);
-
-        r = safe_atolu(s, &ul);
-        if (r < 0)
-                return r;
-
-        uid = (uid_t) ul;
-
-        if ((unsigned long) uid != ul)
-                return -ERANGE;
-
-        if (!uid_is_valid(uid))
-                return -ENXIO; /* we return ENXIO instead of EINVAL
-                                * here, to make it easy to distuingish
-                                * invalid numeric uids invalid
-                                * strings. */
-
-        if (ret_uid)
-                *ret_uid = uid;
-
         return 0;
 }
 
@@ -1236,142 +1195,6 @@ bool fstype_is_network(const char *fstype) {
         return nulstr_contains(table, fstype);
 }
 
-int flush_fd(int fd) {
-        struct pollfd pollfd = {
-                .fd = fd,
-                .events = POLLIN,
-        };
-
-        for (;;) {
-                char buf[LINE_MAX];
-                ssize_t l;
-                int r;
-
-                r = poll(&pollfd, 1, 0);
-                if (r < 0) {
-                        if (errno == EINTR)
-                                continue;
-
-                        return -errno;
-
-                } else if (r == 0)
-                        return 0;
-
-                l = read(fd, buf, sizeof(buf));
-                if (l < 0) {
-
-                        if (errno == EINTR)
-                                continue;
-
-                        if (errno == EAGAIN)
-                                return 0;
-
-                        return -errno;
-                } else if (l == 0)
-                        return 0;
-        }
-}
-
-ssize_t loop_read(int fd, void *buf, size_t nbytes, bool do_poll) {
-        uint8_t *p = buf;
-        ssize_t n = 0;
-
-        assert(fd >= 0);
-        assert(buf);
-
-        /* If called with nbytes == 0, let's call read() at least
-         * once, to validate the operation */
-
-        if (nbytes > (size_t) SSIZE_MAX)
-                return -EINVAL;
-
-        do {
-                ssize_t k;
-
-                k = read(fd, p, nbytes);
-                if (k < 0) {
-                        if (errno == EINTR)
-                                continue;
-
-                        if (errno == EAGAIN && do_poll) {
-
-                                /* We knowingly ignore any return value here,
-                                 * and expect that any error/EOF is reported
-                                 * via read() */
-
-                                (void) fd_wait_for_event(fd, POLLIN, USEC_INFINITY);
-                                continue;
-                        }
-
-                        return n > 0 ? n : -errno;
-                }
-
-                if (k == 0)
-                        return n;
-
-                assert((size_t) k <= nbytes);
-
-                p += k;
-                nbytes -= k;
-                n += k;
-        } while (nbytes > 0);
-
-        return n;
-}
-
-int loop_read_exact(int fd, void *buf, size_t nbytes, bool do_poll) {
-        ssize_t n;
-
-        n = loop_read(fd, buf, nbytes, do_poll);
-        if (n < 0)
-                return (int) n;
-        if ((size_t) n != nbytes)
-                return -EIO;
-
-        return 0;
-}
-
-int loop_write(int fd, const void *buf, size_t nbytes, bool do_poll) {
-        const uint8_t *p = buf;
-
-        assert(fd >= 0);
-        assert(buf);
-
-        if (nbytes > (size_t) SSIZE_MAX)
-                return -EINVAL;
-
-        do {
-                ssize_t k;
-
-                k = write(fd, p, nbytes);
-                if (k < 0) {
-                        if (errno == EINTR)
-                                continue;
-
-                        if (errno == EAGAIN && do_poll) {
-                                /* We knowingly ignore any return value here,
-                                 * and expect that any error/EOF is reported
-                                 * via write() */
-
-                                (void) fd_wait_for_event(fd, POLLOUT, USEC_INFINITY);
-                                continue;
-                        }
-
-                        return -errno;
-                }
-
-                if (_unlikely_(nbytes > 0 && k == 0)) /* Can't really happen */
-                        return -EIO;
-
-                assert((size_t) k <= nbytes);
-
-                p += k;
-                nbytes -= k;
-        } while (nbytes > 0);
-
-        return 0;
-}
-
 int parse_size(const char *t, uint64_t base, uint64_t *size) {
 
         /* Soo, sometimes we want to parse IEC binary suffixes, and
@@ -1571,55 +1394,6 @@ void rename_process(const char name[8]) {
                         memzero(saved_argv[i], strlen(saved_argv[i]));
                 }
         }
-}
-
-char *lookup_uid(uid_t uid) {
-        long bufsize;
-        char *name;
-        _cleanup_free_ char *buf = NULL;
-        struct passwd pwbuf, *pw = NULL;
-
-        /* Shortcut things to avoid NSS lookups */
-        if (uid == 0)
-                return strdup("root");
-
-        bufsize = sysconf(_SC_GETPW_R_SIZE_MAX);
-        if (bufsize <= 0)
-                bufsize = 4096;
-
-        buf = malloc(bufsize);
-        if (!buf)
-                return NULL;
-
-        if (getpwuid_r(uid, &pwbuf, buf, bufsize, &pw) == 0 && pw)
-                return strdup(pw->pw_name);
-
-        if (asprintf(&name, UID_FMT, uid) < 0)
-                return NULL;
-
-        return name;
-}
-
-char* getlogname_malloc(void) {
-        uid_t uid;
-        struct stat st;
-
-        if (isatty(STDIN_FILENO) && fstat(STDIN_FILENO, &st) >= 0)
-                uid = st.st_uid;
-        else
-                uid = getuid();
-
-        return lookup_uid(uid);
-}
-
-char *getusername_malloc(void) {
-        const char *e;
-
-        e = getenv("USER");
-        if (e)
-                return strdup(e);
-
-        return lookup_uid(getuid());
 }
 
 bool is_fs_type(const struct statfs *s, statfs_f_type_t magic_value) {
@@ -2057,44 +1831,6 @@ bool plymouth_running(void) {
         return access("/run/plymouth/pid", F_OK) >= 0;
 }
 
-int pipe_eof(int fd) {
-        struct pollfd pollfd = {
-                .fd = fd,
-                .events = POLLIN|POLLHUP,
-        };
-
-        int r;
-
-        r = poll(&pollfd, 1, 0);
-        if (r < 0)
-                return -errno;
-
-        if (r == 0)
-                return 0;
-
-        return pollfd.revents & POLLHUP;
-}
-
-int fd_wait_for_event(int fd, int event, usec_t t) {
-
-        struct pollfd pollfd = {
-                .fd = fd,
-                .events = event,
-        };
-
-        struct timespec ts;
-        int r;
-
-        r = ppoll(&pollfd, 1, t == USEC_INFINITY ? NULL : timespec_store(&ts, t), NULL);
-        if (r < 0)
-                return -errno;
-
-        if (r == 0)
-                return 0;
-
-        return pollfd.revents;
-}
-
 int fopen_temporary(const char *path, FILE **_f, char **_temp_path) {
         FILE *f;
         char *t;
@@ -2246,182 +1982,6 @@ int socket_from_display(const char *display, char **path) {
         *path = f;
 
         return 0;
-}
-
-int get_user_creds(
-                const char **username,
-                uid_t *uid, gid_t *gid,
-                const char **home,
-                const char **shell) {
-
-        struct passwd *p;
-        uid_t u;
-
-        assert(username);
-        assert(*username);
-
-        /* We enforce some special rules for uid=0: in order to avoid
-         * NSS lookups for root we hardcode its data. */
-
-        if (streq(*username, "root") || streq(*username, "0")) {
-                *username = "root";
-
-                if (uid)
-                        *uid = 0;
-
-                if (gid)
-                        *gid = 0;
-
-                if (home)
-                        *home = "/root";
-
-                if (shell)
-                        *shell = "/bin/sh";
-
-                return 0;
-        }
-
-        if (parse_uid(*username, &u) >= 0) {
-                errno = 0;
-                p = getpwuid(u);
-
-                /* If there are multiple users with the same id, make
-                 * sure to leave $USER to the configured value instead
-                 * of the first occurrence in the database. However if
-                 * the uid was configured by a numeric uid, then let's
-                 * pick the real username from /etc/passwd. */
-                if (p)
-                        *username = p->pw_name;
-        } else {
-                errno = 0;
-                p = getpwnam(*username);
-        }
-
-        if (!p)
-                return errno > 0 ? -errno : -ESRCH;
-
-        if (uid)
-                *uid = p->pw_uid;
-
-        if (gid)
-                *gid = p->pw_gid;
-
-        if (home)
-                *home = p->pw_dir;
-
-        if (shell)
-                *shell = p->pw_shell;
-
-        return 0;
-}
-
-char* uid_to_name(uid_t uid) {
-        struct passwd *p;
-        char *r;
-
-        if (uid == 0)
-                return strdup("root");
-
-        p = getpwuid(uid);
-        if (p)
-                return strdup(p->pw_name);
-
-        if (asprintf(&r, UID_FMT, uid) < 0)
-                return NULL;
-
-        return r;
-}
-
-char* gid_to_name(gid_t gid) {
-        struct group *p;
-        char *r;
-
-        if (gid == 0)
-                return strdup("root");
-
-        p = getgrgid(gid);
-        if (p)
-                return strdup(p->gr_name);
-
-        if (asprintf(&r, GID_FMT, gid) < 0)
-                return NULL;
-
-        return r;
-}
-
-int get_group_creds(const char **groupname, gid_t *gid) {
-        struct group *g;
-        gid_t id;
-
-        assert(groupname);
-
-        /* We enforce some special rules for gid=0: in order to avoid
-         * NSS lookups for root we hardcode its data. */
-
-        if (streq(*groupname, "root") || streq(*groupname, "0")) {
-                *groupname = "root";
-
-                if (gid)
-                        *gid = 0;
-
-                return 0;
-        }
-
-        if (parse_gid(*groupname, &id) >= 0) {
-                errno = 0;
-                g = getgrgid(id);
-
-                if (g)
-                        *groupname = g->gr_name;
-        } else {
-                errno = 0;
-                g = getgrnam(*groupname);
-        }
-
-        if (!g)
-                return errno > 0 ? -errno : -ESRCH;
-
-        if (gid)
-                *gid = g->gr_gid;
-
-        return 0;
-}
-
-int in_gid(gid_t gid) {
-        gid_t *gids;
-        int ngroups_max, r, i;
-
-        if (getgid() == gid)
-                return 1;
-
-        if (getegid() == gid)
-                return 1;
-
-        ngroups_max = sysconf(_SC_NGROUPS_MAX);
-        assert(ngroups_max > 0);
-
-        gids = alloca(sizeof(gid_t) * ngroups_max);
-
-        r = getgroups(ngroups_max, gids);
-        if (r < 0)
-                return -errno;
-
-        for (i = 0; i < r; i++)
-                if (gids[i] == gid)
-                        return 1;
-
-        return 0;
-}
-
-int in_group(const char *name) {
-        int r;
-        gid_t gid;
-
-        r = get_group_creds(&name, &gid);
-        if (r < 0)
-                return r;
-
-        return in_gid(gid);
 }
 
 int glob_exists(const char *path) {
@@ -2710,15 +2270,6 @@ static const char* const rlimit_table[_RLIMIT_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(rlimit, int);
 
-static const char* const ip_tos_table[] = {
-        [IPTOS_LOWDELAY] = "low-delay",
-        [IPTOS_THROUGHPUT] = "throughput",
-        [IPTOS_RELIABILITY] = "reliability",
-        [IPTOS_LOWCOST] = "low-cost",
-};
-
-DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(ip_tos, int, 0xff);
-
 bool kexec_loaded(void) {
        bool loaded = false;
        char *s;
@@ -2799,41 +2350,6 @@ void* memdup(const void *p, size_t l) {
 
         memcpy(r, p, l);
         return r;
-}
-
-int fd_inc_sndbuf(int fd, size_t n) {
-        int r, value;
-        socklen_t l = sizeof(value);
-
-        r = getsockopt(fd, SOL_SOCKET, SO_SNDBUF, &value, &l);
-        if (r >= 0 && l == sizeof(value) && (size_t) value >= n*2)
-                return 0;
-
-        /* If we have the privileges we will ignore the kernel limit. */
-
-        value = (int) n;
-        if (setsockopt(fd, SOL_SOCKET, SO_SNDBUFFORCE, &value, sizeof(value)) < 0)
-                if (setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &value, sizeof(value)) < 0)
-                        return -errno;
-
-        return 1;
-}
-
-int fd_inc_rcvbuf(int fd, size_t n) {
-        int r, value;
-        socklen_t l = sizeof(value);
-
-        r = getsockopt(fd, SOL_SOCKET, SO_RCVBUF, &value, &l);
-        if (r >= 0 && l == sizeof(value) && (size_t) value >= n*2)
-                return 0;
-
-        /* If we have the privileges we will ignore the kernel limit. */
-
-        value = (int) n;
-        if (setsockopt(fd, SOL_SOCKET, SO_RCVBUFFORCE, &value, sizeof(value)) < 0)
-                if (setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &value, sizeof(value)) < 0)
-                        return -errno;
-        return 1;
 }
 
 int fork_agent(pid_t *pid, const int except[], unsigned n_except, const char *path, ...) {
@@ -3036,100 +2552,6 @@ bool in_initrd(void) {
                 is_temporary_fs(&s);
 
         return saved;
-}
-
-int get_home_dir(char **_h) {
-        struct passwd *p;
-        const char *e;
-        char *h;
-        uid_t u;
-
-        assert(_h);
-
-        /* Take the user specified one */
-        e = secure_getenv("HOME");
-        if (e && path_is_absolute(e)) {
-                h = strdup(e);
-                if (!h)
-                        return -ENOMEM;
-
-                *_h = h;
-                return 0;
-        }
-
-        /* Hardcode home directory for root to avoid NSS */
-        u = getuid();
-        if (u == 0) {
-                h = strdup("/root");
-                if (!h)
-                        return -ENOMEM;
-
-                *_h = h;
-                return 0;
-        }
-
-        /* Check the database... */
-        errno = 0;
-        p = getpwuid(u);
-        if (!p)
-                return errno > 0 ? -errno : -ESRCH;
-
-        if (!path_is_absolute(p->pw_dir))
-                return -EINVAL;
-
-        h = strdup(p->pw_dir);
-        if (!h)
-                return -ENOMEM;
-
-        *_h = h;
-        return 0;
-}
-
-int get_shell(char **_s) {
-        struct passwd *p;
-        const char *e;
-        char *s;
-        uid_t u;
-
-        assert(_s);
-
-        /* Take the user specified one */
-        e = getenv("SHELL");
-        if (e) {
-                s = strdup(e);
-                if (!s)
-                        return -ENOMEM;
-
-                *_s = s;
-                return 0;
-        }
-
-        /* Hardcode home directory for root to avoid NSS */
-        u = getuid();
-        if (u == 0) {
-                s = strdup("/bin/sh");
-                if (!s)
-                        return -ENOMEM;
-
-                *_s = s;
-                return 0;
-        }
-
-        /* Check the database... */
-        errno = 0;
-        p = getpwuid(u);
-        if (!p)
-                return errno > 0 ? -errno : -ESRCH;
-
-        if (!path_is_absolute(p->pw_shell))
-                return -EINVAL;
-
-        s = strdup(p->pw_shell);
-        if (!s)
-                return -ENOMEM;
-
-        *_s = s;
-        return 0;
 }
 
 bool filename_is_valid(const char *p) {
@@ -3795,73 +3217,6 @@ int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int
         }
 
         return reset_uid_gid();
-}
-
-int getpeercred(int fd, struct ucred *ucred) {
-        socklen_t n = sizeof(struct ucred);
-        struct ucred u;
-        int r;
-
-        assert(fd >= 0);
-        assert(ucred);
-
-        r = getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &u, &n);
-        if (r < 0)
-                return -errno;
-
-        if (n != sizeof(struct ucred))
-                return -EIO;
-
-        /* Check if the data is actually useful and not suppressed due
-         * to namespacing issues */
-        if (u.pid <= 0)
-                return -ENODATA;
-        if (u.uid == UID_INVALID)
-                return -ENODATA;
-        if (u.gid == GID_INVALID)
-                return -ENODATA;
-
-        *ucred = u;
-        return 0;
-}
-
-int getpeersec(int fd, char **ret) {
-        socklen_t n = 64;
-        char *s;
-        int r;
-
-        assert(fd >= 0);
-        assert(ret);
-
-        s = new0(char, n);
-        if (!s)
-                return -ENOMEM;
-
-        r = getsockopt(fd, SOL_SOCKET, SO_PEERSEC, s, &n);
-        if (r < 0) {
-                free(s);
-
-                if (errno != ERANGE)
-                        return -errno;
-
-                s = new0(char, n);
-                if (!s)
-                        return -ENOMEM;
-
-                r = getsockopt(fd, SOL_SOCKET, SO_PEERSEC, s, &n);
-                if (r < 0) {
-                        free(s);
-                        return -errno;
-                }
-        }
-
-        if (isempty(s)) {
-                free(s);
-                return -EOPNOTSUPP;
-        }
-
-        *ret = s;
-        return 0;
 }
 
 /* This is much like like mkostemp() but is subject to umask(). */
@@ -4661,78 +4016,6 @@ int read_attr_path(const char *p, unsigned *ret) {
         return read_attr_fd(fd, ret);
 }
 
-static size_t nul_length(const uint8_t *p, size_t sz) {
-        size_t n = 0;
-
-        while (sz > 0) {
-                if (*p != 0)
-                        break;
-
-                n++;
-                p++;
-                sz--;
-        }
-
-        return n;
-}
-
-ssize_t sparse_write(int fd, const void *p, size_t sz, size_t run_length) {
-        const uint8_t *q, *w, *e;
-        ssize_t l;
-
-        q = w = p;
-        e = q + sz;
-        while (q < e) {
-                size_t n;
-
-                n = nul_length(q, e - q);
-
-                /* If there are more than the specified run length of
-                 * NUL bytes, or if this is the beginning or the end
-                 * of the buffer, then seek instead of write */
-                if ((n > run_length) ||
-                    (n > 0 && q == p) ||
-                    (n > 0 && q + n >= e)) {
-                        if (q > w) {
-                                l = write(fd, w, q - w);
-                                if (l < 0)
-                                        return -errno;
-                                if (l != q -w)
-                                        return -EIO;
-                        }
-
-                        if (lseek(fd, n, SEEK_CUR) == (off_t) -1)
-                                return -errno;
-
-                        q += n;
-                        w = q;
-                } else if (n > 0)
-                        q += n;
-                else
-                        q ++;
-        }
-
-        if (q > w) {
-                l = write(fd, w, q - w);
-                if (l < 0)
-                        return -errno;
-                if (l != q - w)
-                        return -EIO;
-        }
-
-        return q - (const uint8_t*) p;
-}
-
-void sigkill_wait(pid_t *pid) {
-        if (!pid)
-                return;
-        if (*pid <= 1)
-                return;
-
-        if (kill(*pid, SIGKILL) > 0)
-                (void) wait_for_terminate(*pid, NULL);
-}
-
 int syslog_parse_priority(const char **p, int *priority, bool with_facility) {
         int a = 0, b = 0, c = 0;
         int k;
@@ -4867,20 +4150,6 @@ int mount_move_root(const char *path) {
         return 0;
 }
 
-int reset_uid_gid(void) {
-
-        if (setgroups(0, NULL) < 0)
-                return -errno;
-
-        if (setresgid(0, 0, 0) < 0)
-                return -errno;
-
-        if (setresuid(0, 0, 0) < 0)
-                return -errno;
-
-        return 0;
-}
-
 int getxattr_malloc(const char *path, const char *name, char **value, bool allow_symlink) {
         char *v;
         size_t l;
@@ -4949,75 +4218,6 @@ int fgetxattr_malloc(int fd, const char *name, char **value) {
                 if (n < 0)
                         return -errno;
         }
-}
-
-int send_one_fd(int transport_fd, int fd, int flags) {
-        union {
-                struct cmsghdr cmsghdr;
-                uint8_t buf[CMSG_SPACE(sizeof(int))];
-        } control = {};
-        struct msghdr mh = {
-                .msg_control = &control,
-                .msg_controllen = sizeof(control),
-        };
-        struct cmsghdr *cmsg;
-
-        assert(transport_fd >= 0);
-        assert(fd >= 0);
-
-        cmsg = CMSG_FIRSTHDR(&mh);
-        cmsg->cmsg_level = SOL_SOCKET;
-        cmsg->cmsg_type = SCM_RIGHTS;
-        cmsg->cmsg_len = CMSG_LEN(sizeof(int));
-        memcpy(CMSG_DATA(cmsg), &fd, sizeof(int));
-
-        mh.msg_controllen = CMSG_SPACE(sizeof(int));
-        if (sendmsg(transport_fd, &mh, MSG_NOSIGNAL | flags) < 0)
-                return -errno;
-
-        return 0;
-}
-
-int receive_one_fd(int transport_fd, int flags) {
-        union {
-                struct cmsghdr cmsghdr;
-                uint8_t buf[CMSG_SPACE(sizeof(int))];
-        } control = {};
-        struct msghdr mh = {
-                .msg_control = &control,
-                .msg_controllen = sizeof(control),
-        };
-        struct cmsghdr *cmsg, *found = NULL;
-
-        assert(transport_fd >= 0);
-
-        /*
-         * Receive a single FD via @transport_fd. We don't care for
-         * the transport-type. We retrieve a single FD at most, so for
-         * packet-based transports, the caller must ensure to send
-         * only a single FD per packet.  This is best used in
-         * combination with send_one_fd().
-         */
-
-        if (recvmsg(transport_fd, &mh, MSG_NOSIGNAL | MSG_CMSG_CLOEXEC | flags) < 0)
-                return -errno;
-
-        CMSG_FOREACH(cmsg, &mh) {
-                if (cmsg->cmsg_level == SOL_SOCKET &&
-                    cmsg->cmsg_type == SCM_RIGHTS &&
-                    cmsg->cmsg_len == CMSG_LEN(sizeof(int))) {
-                        assert(!found);
-                        found = cmsg;
-                        break;
-                }
-        }
-
-        if (!found) {
-                cmsg_close_all(&mh);
-                return -EIO;
-        }
-
-        return *(int*) CMSG_DATA(found);
 }
 
 void nop_signal_handler(int sig) {

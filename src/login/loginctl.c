@@ -42,6 +42,7 @@
 #include "sysfs-show.h"
 #include "terminal-util.h"
 #include "unit-name.h"
+#include "user-util.h"
 #include "util.h"
 #include "verbs.h"
 

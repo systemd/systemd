@@ -38,6 +38,7 @@
 #include "strv.h"
 #include "sysctl-util.h"
 #include "udev.h"
+#include "user-util.h"
 #include "util.h"
 
 #define PREALLOC_TOKEN          2048

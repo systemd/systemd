@@ -29,6 +29,7 @@
 #include "formats-util.h"
 #include "hashmap.h"
 #include "hostname-util.h"
+#include "io-util.h"
 #include "journal-internal.h"
 #include "log.h"
 #include "logs-show.h"

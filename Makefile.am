@@ -781,10 +781,14 @@ libbasic_la_SOURCES = \
 	src/basic/refcnt.h \
 	src/basic/util.c \
 	src/basic/util.h \
+	src/basic/io-util.c \
+	src/basic/io-util.h \
 	src/basic/string-util.c \
 	src/basic/string-util.h \
 	src/basic/fd-util.c \
 	src/basic/fd-util.h \
+	src/basic/user-util.c \
+	src/basic/user-util.h \
 	src/basic/extract-word.c \
 	src/basic/extract-word.h \
 	src/basic/escape.c \
@@ -846,6 +850,7 @@ libbasic_la_SOURCES = \
 	src/basic/in-addr-util.c \
 	src/basic/in-addr-util.h \
 	src/basic/ether-addr-util.h \
+	src/basic/ether-addr-util.c \
 	src/basic/replace-var.c \
 	src/basic/replace-var.h \
 	src/basic/clock-util.c \
@@ -1410,6 +1415,7 @@ tests += \
 	test-utf8 \
 	test-ellipsize \
 	test-util \
+	test-user-util \
 	test-hostname-util \
 	test-process-util \
 	test-terminal-util \
@@ -1692,6 +1698,12 @@ test_util_SOURCES = \
 	src/test/test-util.c
 
 test_util_LDADD = \
+	libshared.la
+
+test_user_util_SOURCES = \
+	src/test/test-user-util.c
+
+test_user_util_LDADD = \
 	libshared.la
 
 test_hostname_util_SOURCES = \

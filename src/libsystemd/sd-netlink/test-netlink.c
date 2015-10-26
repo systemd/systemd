@@ -24,6 +24,7 @@
 
 #include "sd-netlink.h"
 
+#include "ether-addr-util.h"
 #include "event-util.h"
 #include "macro.h"
 #include "missing.h"

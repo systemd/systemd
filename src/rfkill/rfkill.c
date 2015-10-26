@@ -28,6 +28,7 @@
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "io-util.h"
 #include "mkdir.h"
 #include "string-util.h"
 #include "udev-util.h"

@@ -41,6 +41,7 @@
 #include "process-util.h"
 #include "strv.h"
 #include "unit-name.h"
+#include "user-util.h"
 
 static int property_get_pool_path(
                 sd_bus *bus,

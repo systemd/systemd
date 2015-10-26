@@ -26,9 +26,10 @@
 #include "dbus-timer.h"
 #include "special.h"
 #include "string-util.h"
+#include "timer.h"
 #include "unit-name.h"
 #include "unit.h"
-#include "timer.h"
+#include "user-util.h"
 
 static const UnitActiveState state_translation_table[_TIMER_STATE_MAX] = {
         [TIMER_DEAD] = UNIT_INACTIVE,

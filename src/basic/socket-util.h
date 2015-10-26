@@ -116,6 +116,14 @@ int netlink_family_from_string(const char *s) _pure_;
 
 bool sockaddr_equal(const union sockaddr_union *a, const union sockaddr_union *b);
 
-#define ETHER_ADDR_TO_STRING_MAX (3*6)
+int fd_inc_sndbuf(int fd, size_t n);
+int fd_inc_rcvbuf(int fd, size_t n);
 
-char* ether_addr_to_string(const struct ether_addr *addr, char buffer[ETHER_ADDR_TO_STRING_MAX]);
+int ip_tos_to_string_alloc(int i, char **s);
+int ip_tos_from_string(const char *s);
+
+int getpeercred(int fd, struct ucred *ucred);
+int getpeersec(int fd, char **ret);
+
+int send_one_fd(int transport_fd, int fd, int flags);
+int receive_one_fd(int transport_fd, int flags);

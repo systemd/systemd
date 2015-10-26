@@ -36,6 +36,7 @@
 #include "dbus-automount.h"
 #include "fd-util.h"
 #include "formats-util.h"
+#include "io-util.h"
 #include "label.h"
 #include "mkdir.h"
 #include "mount.h"

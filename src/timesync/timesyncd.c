@@ -29,6 +29,7 @@
 #include "signal-util.h"
 #include "timesyncd-conf.h"
 #include "timesyncd-manager.h"
+#include "user-util.h"
 
 static int load_clock_timestamp(uid_t uid, gid_t gid) {
         _cleanup_close_ int fd = -1;

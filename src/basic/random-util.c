@@ -29,6 +29,7 @@
 #include <time.h>
 
 #include "fd-util.h"
+#include "io-util.h"
 #include "missing.h"
 #include "random-util.h"
 #include "time-util.h"

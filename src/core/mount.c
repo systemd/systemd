@@ -206,7 +206,7 @@ static void mount_done(Unit *u) {
         assert(m);
 
         m->where = mfree(m->where);
-        m->smack_fs_root = mfree(m->smack_fs_root);
+        m->smack_fs_root_label = mfree(m->smack_fs_root_label);
 
         mount_parameters_done(&m->parameters_proc_self_mountinfo);
         mount_parameters_done(&m->parameters_fragment);
@@ -672,7 +672,7 @@ static void mount_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sFrom /proc/self/mountinfo: %s\n"
                 "%sFrom fragment: %s\n"
                 "%sDirectoryMode: %04o\n"
-                "%sSmackFileSystemRoot: %s\n",
+                "%sSmackFileSystemRootLabel: %s\n",
                 prefix, mount_state_to_string(m->state),
                 prefix, mount_result_to_string(m->result),
                 prefix, m->where,
@@ -682,7 +682,7 @@ static void mount_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, yes_no(m->from_proc_self_mountinfo),
                 prefix, yes_no(m->from_fragment),
                 prefix, m->directory_mode,
-                prefix, strna(m->smack_fs_root));
+                prefix, strna(m->smack_fs_root_label));
 
         if (m->control_pid > 0)
                 fprintf(f,
@@ -868,12 +868,12 @@ static int mount_get_opts(Mount *m, char **_opts) {
         if (r < 0)
                 return r;
 
-        if (mac_smack_use() && m->smack_fs_root) {
+        if (mac_smack_use() && m->smack_fs_root_label) {
                 if (!isempty(o)) {
-                        opts = strjoin(o, ",", "smackfsroot=", m->smack_fs_root, NULL);
+                        opts = strjoin(o, ",", "smackfsroot=", m->smack_fs_root_label, NULL);
                         free(o);
                 } else
-                        opts = strjoin("smackfsroot=", m->smack_fs_root, NULL);
+                        opts = strjoin("smackfsroot=", m->smack_fs_root_label, NULL);
 
                 if (!opts)
                         return -ENOMEM;

@@ -27,6 +27,7 @@
 #include "fileio.h"
 #include "macro.h"
 #include "process-util.h"
+#include "user-util.h"
 #include "util.h"
 
 int audit_session_from_pid(pid_t pid, uint32_t *id) {

@@ -27,6 +27,7 @@
 #include "macro.h"
 #include "string-util.h"
 #include "time-util.h"
+#include "user-util.h"
 #include "util.h"
 
 #define DEFAULT_MAX_USE_LOWER (uint64_t) (1ULL*1024ULL*1024ULL)           /* 1 MiB */

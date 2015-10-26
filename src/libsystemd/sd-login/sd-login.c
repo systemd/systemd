@@ -33,10 +33,13 @@
 #include "fileio.h"
 #include "formats-util.h"
 #include "hostname-util.h"
+#include "io-util.h"
 #include "login-util.h"
 #include "macro.h"
+#include "socket-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "user-util.h"
 #include "util.h"
 
 /* Error codes:

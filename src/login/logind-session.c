@@ -35,12 +35,15 @@
 #include "bus-util.h"
 #include "escape.h"
 #include "fd-util.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "formats-util.h"
+#include "io-util.h"
 #include "logind-session.h"
 #include "mkdir.h"
 #include "path-util.h"
 #include "terminal-util.h"
+#include "user-util.h"
 #include "util.h"
 
 #define RELEASE_USEC (20*USEC_PER_SEC)

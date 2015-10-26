@@ -35,6 +35,7 @@
 #include "ask-password-api.h"
 #include "fd-util.h"
 #include "formats-util.h"
+#include "io-util.h"
 #include "missing.h"
 #include "mkdir.h"
 #include "random-util.h"

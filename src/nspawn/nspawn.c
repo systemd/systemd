@@ -86,10 +86,12 @@
 #include "seccomp-util.h"
 #endif
 #include "signal-util.h"
+#include "socket-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "udev-util.h"
+#include "user-util.h"
 #include "util.h"
 
 typedef enum ContainerStatus {

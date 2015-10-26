@@ -46,6 +46,7 @@
 #include "terminal-util.h"
 #include "udev-util.h"
 #include "unit-name.h"
+#include "user-util.h"
 #include "utmp-wtmp.h"
 
 int manager_get_session_from_creds(Manager *m, sd_bus_message *message, const char *name, sd_bus_error *error, Session **ret) {
@@ -2027,7 +2028,7 @@ static int method_cancel_scheduled_shutdown(sd_bus_message *message, void *userd
                 }
 
                 utmp_wall("The system shutdown has been cancelled",
-                          lookup_uid(uid), tty, logind_wall_tty_filter, m);
+                          uid_to_name(uid), tty, logind_wall_tty_filter, m);
         }
 
         return sd_bus_reply_method_return(message, "b", cancelled);

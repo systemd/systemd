@@ -25,6 +25,7 @@
 
 #include "efivars.h"
 #include "fd-util.h"
+#include "io-util.h"
 #include "utf8.h"
 #include "util.h"
 #include "virt.h"

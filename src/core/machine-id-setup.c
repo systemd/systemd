@@ -31,6 +31,7 @@
 
 #include "fd-util.h"
 #include "fileio.h"
+#include "io-util.h"
 #include "log.h"
 #include "machine-id-setup.h"
 #include "macro.h"

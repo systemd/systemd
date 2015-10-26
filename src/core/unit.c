@@ -51,8 +51,9 @@
 #include "string-util.h"
 #include "strv.h"
 #include "unit-name.h"
-#include "virt.h"
 #include "unit.h"
+#include "user-util.h"
+#include "virt.h"
 
 const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX] = {
         [UNIT_SERVICE] = &service_vtable,

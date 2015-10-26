@@ -30,6 +30,7 @@
 #include "formats-util.h"
 #include "process-util.h"
 #include "terminal-util.h"
+#include "user-util.h"
 
 int manager_handle_action(
                 Manager *m,

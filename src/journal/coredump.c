@@ -52,6 +52,7 @@
 #include "stacktrace.h"
 #include "string-util.h"
 #include "strv.h"
+#include "user-util.h"
 #include "util.h"
 
 /* The maximum size up to which we process coredumps */

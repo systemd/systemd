@@ -35,6 +35,7 @@
 #include "process-util.h"
 #include "signal-util.h"
 #include "string-util.h"
+#include "user-util.h"
 #include "util.h"
 
 int get_process_state(pid_t pid) {
@@ -477,6 +478,16 @@ int wait_for_terminate_and_warn(const char *name, pid_t pid, bool check_exit_cod
 
         log_warning("%s failed due to unknown reason.", name);
         return -EPROTO;
+}
+
+void sigkill_wait(pid_t *pid) {
+        if (!pid)
+                return;
+        if (*pid <= 1)
+                return;
+
+        if (kill(*pid, SIGKILL) > 0)
+                (void) wait_for_terminate(*pid, NULL);
 }
 
 int kill_and_sigcont(pid_t pid, int sig) {

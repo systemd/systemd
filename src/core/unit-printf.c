@@ -26,8 +26,9 @@
 #include "string-util.h"
 #include "strv.h"
 #include "unit-name.h"
-#include "unit.h"
 #include "unit-printf.h"
+#include "unit.h"
+#include "user-util.h"
 
 static int specifier_prefix_and_instance(char specifier, void *data, void *userdata, char **ret) {
         Unit *u = userdata;

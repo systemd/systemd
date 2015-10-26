@@ -46,6 +46,7 @@
 #include "escape.h"
 #include "fd-util.h"
 #include "formats-util.h"
+#include "io-util.h"
 #include "label.h"
 #include "log.h"
 #include "macro.h"
@@ -58,6 +59,7 @@
 #include "specifier.h"
 #include "string-util.h"
 #include "strv.h"
+#include "user-util.h"
 #include "util.h"
 
 /* This reads all files listed in /etc/tmpfiles.d/?*.conf and creates

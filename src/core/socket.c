@@ -54,6 +54,7 @@
 #include "unit-name.h"
 #include "unit-printf.h"
 #include "unit.h"
+#include "user-util.h"
 
 static const UnitActiveState state_translation_table[_SOCKET_STATE_MAX] = {
         [SOCKET_DEAD] = UNIT_INACTIVE,

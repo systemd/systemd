@@ -91,14 +91,6 @@ int parse_size(const char *t, uint64_t base, uint64_t *size);
 
 int parse_boolean(const char *v) _pure_;
 int parse_pid(const char *s, pid_t* ret_pid);
-int parse_uid(const char *s, uid_t* ret_uid);
-#define parse_gid(s, ret_gid) parse_uid(s, ret_gid)
-
-bool uid_is_valid(uid_t uid);
-
-static inline bool gid_is_valid(gid_t gid) {
-        return uid_is_valid((uid_t) gid);
-}
 
 int safe_atou(const char *s, unsigned *ret_u);
 int safe_atoi(const char *s, int *ret_i);
@@ -237,13 +229,7 @@ ssize_t string_table_lookup(const char * const *table, size_t len, const char *k
 
 bool fstype_is_network(const char *fstype);
 
-int flush_fd(int fd);
-
 int fopen_temporary(const char *path, FILE **_f, char **_temp_path);
-
-ssize_t loop_read(int fd, void *buf, size_t nbytes, bool do_poll);
-int loop_read_exact(int fd, void *buf, size_t nbytes, bool do_poll);
-int loop_write(int fd, const void *buf, size_t nbytes, bool do_poll);
 
 bool is_device_path(const char *path);
 
@@ -258,10 +244,6 @@ static inline int dir_is_populated(const char *path) {
         return !r;
 }
 
-char* lookup_uid(uid_t uid);
-char* getlogname_malloc(void);
-char* getusername_malloc(void);
-
 int chmod_and_chown(const char *path, mode_t mode, uid_t uid, gid_t gid);
 int fchmod_and_fchown(int fd, mode_t mode, uid_t uid, gid_t gid);
 
@@ -273,8 +255,6 @@ int path_check_fstype(const char *path, statfs_f_type_t magic_value);
 
 bool is_temporary_fs(const struct statfs *s) _pure_;
 int fd_is_temporary_fs(int fd);
-
-int pipe_eof(int fd);
 
 #define xsprintf(buf, fmt, ...) \
         assert_message_se((size_t) snprintf(buf, ELEMENTSOF(buf), fmt, __VA_ARGS__) < ELEMENTSOF(buf), \
@@ -311,15 +291,6 @@ int fchmod_umask(int fd, mode_t mode);
 
 bool display_is_local(const char *display) _pure_;
 int socket_from_display(const char *display, char **path);
-
-int get_user_creds(const char **username, uid_t *uid, gid_t *gid, const char **home, const char **shell);
-int get_group_creds(const char **groupname, gid_t *gid);
-
-int in_gid(gid_t gid);
-int in_group(const char *name);
-
-char* uid_to_name(uid_t uid);
-char* gid_to_name(gid_t gid);
 
 int glob_exists(const char *path);
 int glob_extend(char ***strv, const char *path);
@@ -358,9 +329,6 @@ int sched_policy_from_string(const char *s);
 const char *rlimit_to_string(int i) _const_;
 int rlimit_from_string(const char *s) _pure_;
 
-int ip_tos_to_string_alloc(int i, char **s);
-int ip_tos_from_string(const char *s);
-
 extern int saved_argc;
 extern char **saved_argv;
 
@@ -370,12 +338,7 @@ int prot_from_flags(int flags) _const_;
 
 char *format_bytes(char *buf, size_t l, uint64_t t);
 
-int fd_wait_for_event(int fd, int event, usec_t timeout);
-
 void* memdup(const void *p, size_t l) _alloc_(2);
-
-int fd_inc_sndbuf(int fd, size_t n);
-int fd_inc_rcvbuf(int fd, size_t n);
 
 int fork_agent(pid_t *pid, const int except[], unsigned n_except, const char *path, ...);
 
@@ -387,9 +350,6 @@ bool documentation_url_is_valid(const char *url) _pure_;
 bool http_etag_is_valid(const char *etag);
 
 bool in_initrd(void);
-
-int get_home_dir(char **ret);
-int get_shell(char **_ret);
 
 static inline void freep(void *p) {
         free(*(void**) p);
@@ -644,11 +604,6 @@ int container_get_leader(const char *machine, pid_t *pid);
 int namespace_open(pid_t pid, int *pidns_fd, int *mntns_fd, int *netns_fd, int *userns_fd, int *root_fd);
 int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int root_fd);
 
-int getpeercred(int fd, struct ucred *ucred);
-int getpeersec(int fd, char **ret);
-
-int writev_safe(int fd, const struct iovec *w, int j);
-
 int mkostemp_safe(char *pattern, int flags);
 int open_tmpfile(const char *path, int flags);
 
@@ -721,11 +676,6 @@ int read_attr_path(const char *p, unsigned *ret);
 
 #define RLIMIT_MAKE_CONST(lim) ((struct rlimit) { lim, lim })
 
-ssize_t sparse_write(int fd, const void *p, size_t sz, size_t run_length);
-
-void sigkill_wait(pid_t *pid);
-#define _cleanup_sigkill_wait_ _cleanup_(sigkill_wait)
-
 int syslog_parse_priority(const char **p, int *priority, bool with_facility);
 
 int rename_noreplace(int olddirfd, const char *oldpath, int newdirfd, const char *newpath);
@@ -734,13 +684,8 @@ int parse_mode(const char *s, mode_t *ret);
 
 int mount_move_root(const char *path);
 
-int reset_uid_gid(void);
-
 int getxattr_malloc(const char *path, const char *name, char **value, bool allow_symlink);
 int fgetxattr_malloc(int fd, const char *name, char **value);
-
-int send_one_fd(int transport_fd, int fd, int flags);
-int receive_one_fd(int transport_fd, int flags);
 
 void nop_signal_handler(int sig);
 
