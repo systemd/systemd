@@ -27,6 +27,7 @@
 
 #include "copy.h"
 #include "fd-util.h"
+#include "locale-util.h"
 #include "macro.h"
 #include "pager.h"
 #include "process-util.h"

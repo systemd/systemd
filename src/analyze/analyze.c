@@ -31,6 +31,7 @@
 #include "bus-error.h"
 #include "bus-util.h"
 #include "hashmap.h"
+#include "locale-util.h"
 #include "log.h"
 #include "pager.h"
 #include "parse-util.h"

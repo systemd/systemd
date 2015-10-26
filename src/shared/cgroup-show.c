@@ -28,6 +28,7 @@
 #include "cgroup-util.h"
 #include "fd-util.h"
 #include "formats-util.h"
+#include "locale-util.h"
 #include "macro.h"
 #include "path-util.h"
 #include "process-util.h"

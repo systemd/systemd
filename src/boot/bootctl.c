@@ -41,6 +41,7 @@
 #include "efivars.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "locale-util.h"
 #include "rm-rf.h"
 #include "string-util.h"
 #include "util.h"

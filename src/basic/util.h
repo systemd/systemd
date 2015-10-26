@@ -192,25 +192,6 @@ void *xbsearch_r(const void *key, const void *base, size_t nmemb, size_t size,
                  int (*compar) (const void *, const void *, void *),
                  void *arg);
 
-#define _(String) gettext (String)
-#define N_(String) String
-void init_gettext(void);
-bool is_locale_utf8(void);
-
-typedef enum DrawSpecialChar {
-        DRAW_TREE_VERTICAL,
-        DRAW_TREE_BRANCH,
-        DRAW_TREE_RIGHT,
-        DRAW_TREE_SPACE,
-        DRAW_TRIANGULAR_BULLET,
-        DRAW_BLACK_CIRCLE,
-        DRAW_ARROW,
-        DRAW_DASH,
-        _DRAW_SPECIAL_CHAR_MAX
-} DrawSpecialChar;
-
-const char *draw_special_char(DrawSpecialChar ch);
-
 int on_ac_power(void);
 
 static inline void *mempset(void *s, int c, size_t n) {

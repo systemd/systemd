@@ -26,6 +26,7 @@
 #include "conf-files.h"
 #include "fileio.h"
 #include "formats-util.h"
+#include "locale-util.h"
 #include "set.h"
 #include "string-table.h"
 #include "string-util.h"

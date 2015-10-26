@@ -34,6 +34,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "io-util.h"
+#include "locale-util.h"
 #include "log.h"
 #include "process-util.h"
 #include "signal-util.h"

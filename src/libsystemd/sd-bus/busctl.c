@@ -31,6 +31,7 @@
 #include "busctl-introspect.h"
 #include "escape.h"
 #include "fd-util.h"
+#include "locale-util.h"
 #include "log.h"
 #include "pager.h"
 #include "parse-util.h"

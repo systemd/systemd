@@ -21,6 +21,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <libintl.h>
 #include <stdbool.h>
 
 #include "macro.h"
@@ -49,6 +50,26 @@ typedef enum LocaleVariable {
 
 int get_locales(char ***l);
 bool locale_is_valid(const char *name);
+
+#define _(String) gettext(String)
+#define N_(String) String
+void init_gettext(void);
+
+bool is_locale_utf8(void);
+
+typedef enum DrawSpecialChar {
+        DRAW_TREE_VERTICAL,
+        DRAW_TREE_BRANCH,
+        DRAW_TREE_RIGHT,
+        DRAW_TREE_SPACE,
+        DRAW_TRIANGULAR_BULLET,
+        DRAW_BLACK_CIRCLE,
+        DRAW_ARROW,
+        DRAW_DASH,
+        _DRAW_SPECIAL_CHAR_MAX
+} DrawSpecialChar;
+
+const char *draw_special_char(DrawSpecialChar ch);
 
 const char* locale_variable_to_string(LocaleVariable i) _const_;
 LocaleVariable locale_variable_from_string(const char *s) _pure_;

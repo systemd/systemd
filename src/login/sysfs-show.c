@@ -24,6 +24,7 @@
 
 #include "libudev.h"
 
+#include "locale-util.h"
 #include "path-util.h"
 #include "string-util.h"
 #include "sysfs-show.h"

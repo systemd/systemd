@@ -27,6 +27,7 @@
 #include "capability.h"
 #include "fileio.h"
 #include "formats-util.h"
+#include "locale-util.h"
 #include "macro.h"
 #include "string-util.h"
 #include "strv.h"

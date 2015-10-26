@@ -57,6 +57,7 @@
 #include "install.h"
 #include "io-util.h"
 #include "list.h"
+#include "locale-util.h"
 #include "log.h"
 #include "logs-show.h"
 #include "macro.h"

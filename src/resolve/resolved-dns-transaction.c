@@ -20,7 +20,6 @@
 ***/
 
 #include "af-list.h"
-
 #include "dns-domain.h"
 #include "fd-util.h"
 #include "random-util.h"

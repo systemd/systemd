@@ -54,6 +54,7 @@
 #include "journal-qrcode.h"
 #include "journal-vacuum.h"
 #include "journal-verify.h"
+#include "locale-util.h"
 #include "log.h"
 #include "logs-show.h"
 #include "mkdir.h"
