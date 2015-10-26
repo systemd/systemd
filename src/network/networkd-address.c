@@ -318,8 +318,12 @@ int address_update(Address *address, unsigned char flags, unsigned char scope, s
         address->scope = scope;
         address->cinfo = *cinfo;
 
-        if (!ready && address_is_ready(address) && address->link)
-                link_check_ready(address->link);
+        if (address->link) {
+                link_update_operstate(address->link);
+
+                if (!ready && address_is_ready(address))
+                        link_check_ready(address->link);
+        }
 
         return 0;
 }
