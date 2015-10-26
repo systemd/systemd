@@ -134,7 +134,6 @@ static int route_compare_func(const void *_a, const void *_b) {
         switch (a->family) {
         case AF_INET:
         case AF_INET6:
-                //TODO: check IPv6 routes
                 if (a->dst_prefixlen < b->dst_prefixlen)
                         return -1;
                 if (a->dst_prefixlen > b->dst_prefixlen)
@@ -232,7 +231,7 @@ int route_remove(Route *route, Link *link,
         if (r < 0)
                 return log_error_errno(r, "Could not set scope: %m");
 
-        r = sd_netlink_message_append_u32(req, RTA_PRIORITY, route->metrics);
+        r = sd_netlink_message_append_u32(req, RTA_PRIORITY, route->priority);
         if (r < 0)
                 return log_error_errno(r, "Could not append RTA_PRIORITY attribute: %m");
 
@@ -314,7 +313,7 @@ int route_configure(Route *route, Link *link,
         if (r < 0)
                 return log_error_errno(r, "Could not set scope: %m");
 
-        r = sd_netlink_message_append_u32(req, RTA_PRIORITY, route->metrics);
+        r = sd_netlink_message_append_u32(req, RTA_PRIORITY, route->priority);
         if (r < 0)
                 return log_error_errno(r, "Could not append RTA_PRIORITY attribute: %m");
 
@@ -521,9 +520,9 @@ int config_parse_route_priority(const char *unit,
         if (r < 0)
                 return r;
 
-        r = config_parse_unsigned(unit, filename, line, section,
-                                  section_line, lvalue, ltype,
-                                  rvalue, &n->metrics, userdata);
+        r = config_parse_uint32(unit, filename, line, section,
+                                section_line, lvalue, ltype,
+                                rvalue, &n->priority, userdata);
         if (r < 0)
                 return r;
 

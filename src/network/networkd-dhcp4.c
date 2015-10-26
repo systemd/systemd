@@ -92,7 +92,7 @@ static int link_set_dhcp_routes(Link *link) {
                 route_gw->prefsrc.in = address;
                 route_gw->scope = RT_SCOPE_LINK;
                 route_gw->protocol = RTPROT_DHCP;
-                route_gw->metrics = link->network->dhcp_route_metric;
+                route_gw->priority = link->network->dhcp_route_metric;
 
                 r = route_configure(route_gw, link, &dhcp4_route_handler);
                 if (r < 0)
@@ -103,7 +103,7 @@ static int link_set_dhcp_routes(Link *link) {
                 route->family = AF_INET;
                 route->gw.in = gateway;
                 route->prefsrc.in = address;
-                route->metrics = link->network->dhcp_route_metric;
+                route->priority = link->network->dhcp_route_metric;
 
                 r = route_configure(route, link, &dhcp4_route_handler);
                 if (r < 0) {
@@ -133,7 +133,7 @@ static int link_set_dhcp_routes(Link *link) {
                 route->gw.in = static_routes[i].gw_addr;
                 route->dst.in = static_routes[i].dst_addr;
                 route->dst_prefixlen = static_routes[i].dst_prefixlen;
-                route->metrics = link->network->dhcp_route_metric;
+                route->priority = link->network->dhcp_route_metric;
 
                 r = route_configure(route, link, &dhcp4_route_handler);
                 if (r < 0)
