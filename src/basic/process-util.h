@@ -68,3 +68,6 @@ bool pid_is_alive(pid_t pid);
 bool pid_is_unwaited(pid_t pid);
 
 bool is_main_thread(void);
+
+#define PTR_TO_PID(p) ((pid_t) ((uintptr_t) p))
+#define PID_TO_PTR(p) ((void*) ((uintptr_t) p))
