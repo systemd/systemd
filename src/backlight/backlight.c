@@ -28,6 +28,7 @@
 #include "string-util.h"
 #include "udev-util.h"
 #include "util.h"
+#include "parse-util.h"
 
 static struct udev_device *find_pci_or_platform_parent(struct udev_device *device) {
         struct udev_device *parent;

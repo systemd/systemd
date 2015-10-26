@@ -31,6 +31,7 @@
 #include "fileio.h"
 #include "hashmap.h"
 #include "macro.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "set.h"
 #include "string-util.h"

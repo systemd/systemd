@@ -39,6 +39,7 @@
 #include "load-fragment.h"
 #include "log.h"
 #include "manager.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "service.h"

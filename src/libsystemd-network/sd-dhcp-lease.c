@@ -34,6 +34,7 @@
 #include "hostname-util.h"
 #include "in-addr-util.h"
 #include "network-internal.h"
+#include "parse-util.h"
 #include "unaligned.h"
 
 int sd_dhcp_lease_get_address(sd_dhcp_lease *lease, struct in_addr *addr) {

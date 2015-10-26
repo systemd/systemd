@@ -47,6 +47,7 @@
 #include "log.h"
 #include "macro.h"
 #include "mkdir.h"
+#include "parse-util.h"
 #include "process-util.h"
 #include "special.h"
 #include "stacktrace.h"

@@ -23,6 +23,8 @@
 
 typedef struct Snapshot Snapshot;
 
+#include "unit.h"
+
 struct Snapshot {
         Unit meta;
 

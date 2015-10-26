@@ -25,6 +25,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "log.h"
+#include "parse-util.h"
 #include "string-util.h"
 #include "util.h"
 

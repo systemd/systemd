@@ -20,9 +20,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "extract-word.h"
-#include "util.h"
 #include "cpu-set-util.h"
+#include "extract-word.h"
+#include "parse-util.h"
+#include "util.h"
 
 cpu_set_t* cpu_set_malloc(unsigned *ncpus) {
         cpu_set_t *c;

@@ -37,6 +37,7 @@
 #include "gpt.h"
 #include "missing.h"
 #include "mkdir.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "special.h"
 #include "string-util.h"

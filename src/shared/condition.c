@@ -36,6 +36,7 @@
 #include "fd-util.h"
 #include "hostname-util.h"
 #include "ima-util.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "selinux-util.h"
 #include "smack-util.h"

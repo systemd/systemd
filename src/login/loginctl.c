@@ -35,6 +35,7 @@
 #include "logs-show.h"
 #include "macro.h"
 #include "pager.h"
+#include "parse-util.h"
 #include "process-util.h"
 #include "signal-util.h"
 #include "spawn-polkit-agent.h"

@@ -62,6 +62,7 @@
 #include "manager.h"
 #include "missing.h"
 #include "mkdir.h"
+#include "parse-util.h"
 #include "path-lookup.h"
 #include "path-util.h"
 #include "process-util.h"

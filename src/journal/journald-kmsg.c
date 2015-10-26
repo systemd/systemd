@@ -34,6 +34,7 @@
 #include "journald-kmsg.h"
 #include "journald-server.h"
 #include "journald-syslog.h"
+#include "parse-util.h"
 #include "process-util.h"
 #include "string-util.h"
 

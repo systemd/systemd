@@ -56,6 +56,7 @@
 #include "logs-show.h"
 #include "mkdir.h"
 #include "pager.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "set.h"
 #include "sigbus.h"

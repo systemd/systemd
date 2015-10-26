@@ -36,6 +36,7 @@
 #include "mkdir.h"
 #include "mount-setup.h"
 #include "mount.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "smack-util.h"
 #include "special.h"

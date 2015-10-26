@@ -33,6 +33,7 @@
 #include "journal-internal.h"
 #include "log.h"
 #include "logs-show.h"
+#include "parse-util.h"
 #include "process-util.h"
 #include "string-util.h"
 #include "terminal-util.h"

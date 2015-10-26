@@ -41,6 +41,7 @@
 #include "io-util.h"
 #include "logind-session.h"
 #include "mkdir.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "terminal-util.h"
 #include "user-util.h"

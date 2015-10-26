@@ -34,6 +34,7 @@
 #include "missing.h"
 #include "netlink-util.h"
 #include "network-internal.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "random-util.h"
 #include "string-util.h"

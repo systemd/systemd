@@ -36,6 +36,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "hashmap.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "terminal-util.h"

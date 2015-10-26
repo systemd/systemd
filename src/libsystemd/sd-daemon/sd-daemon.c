@@ -36,6 +36,7 @@
 #include "sd-daemon.h"
 
 #include "fd-util.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "socket-util.h"
 #include "strv.h"

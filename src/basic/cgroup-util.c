@@ -37,6 +37,7 @@
 #include "login-util.h"
 #include "macro.h"
 #include "mkdir.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "set.h"

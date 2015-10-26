@@ -24,6 +24,7 @@
 #include "sd-network.h"
 
 #include "missing.h"
+#include "parse-util.h"
 #include "resolved-link.h"
 #include "string-util.h"
 #include "strv.h"

@@ -30,6 +30,7 @@
 #include "hashmap.h"
 #include "log.h"
 #include "pager.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "signal-util.h"

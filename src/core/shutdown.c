@@ -37,6 +37,7 @@
 #include "killall.h"
 #include "log.h"
 #include "missing.h"
+#include "parse-util.h"
 #include "process-util.h"
 #include "string-util.h"
 #include "switch-root.h"

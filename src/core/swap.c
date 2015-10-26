@@ -32,6 +32,7 @@
 #include "fd-util.h"
 #include "formats-util.h"
 #include "fstab-util.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "special.h"
 #include "string-util.h"

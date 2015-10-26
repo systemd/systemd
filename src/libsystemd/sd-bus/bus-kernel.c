@@ -45,6 +45,7 @@
 #include "fileio.h"
 #include "formats-util.h"
 #include "memfd-util.h"
+#include "parse-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "util.h"

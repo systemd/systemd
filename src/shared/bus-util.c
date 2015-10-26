@@ -37,6 +37,7 @@
 #include "fd-util.h"
 #include "macro.h"
 #include "missing.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "set.h"
 #include "signal-util.h"

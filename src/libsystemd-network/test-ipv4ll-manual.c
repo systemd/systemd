@@ -32,6 +32,7 @@
 #include "event-util.h"
 #include "in-addr-util.h"
 #include "netlink-util.h"
+#include "parse-util.h"
 #include "string-util.h"
 #include "util.h"
 

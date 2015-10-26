@@ -26,6 +26,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "macro.h"
+#include "parse-util.h"
 #include "process-util.h"
 #include "user-util.h"
 #include "util.h"

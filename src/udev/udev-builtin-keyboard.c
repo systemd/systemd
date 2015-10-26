@@ -24,6 +24,7 @@
 #include <linux/input.h>
 
 #include "fd-util.h"
+#include "parse-util.h"
 #include "string-util.h"
 #include "udev.h"
 

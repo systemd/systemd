@@ -40,6 +40,7 @@
 #include "label.h"
 #include "mkdir.h"
 #include "mount.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "special.h"

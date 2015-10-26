@@ -28,6 +28,7 @@
 #include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "parse-util.h"
 #include "process-util.h"
 #include "string-util.h"
 #include "strv.h"

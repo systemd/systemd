@@ -30,6 +30,7 @@
 #include "fileio.h"
 #include "log.h"
 #include "macro.h"
+#include "parse-util.h"
 #include "util.h"
 
 int have_effective_cap(int value) {

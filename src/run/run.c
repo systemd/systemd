@@ -40,6 +40,7 @@
 #include "terminal-util.h"
 #include "unit-name.h"
 #include "user-util.h"
+#include "parse-util.h"
 
 static bool arg_ask_password = true;
 static bool arg_scope = false;

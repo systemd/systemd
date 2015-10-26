@@ -22,6 +22,7 @@
 #include "cgroup-util.h"
 #include "fd-util.h"
 #include "formats-util.h"
+#include "parse-util.h"
 #include "process-util.h"
 #include "string-util.h"
 #include "test-helper.h"

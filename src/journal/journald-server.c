@@ -54,6 +54,7 @@
 #include "journald-syslog.h"
 #include "missing.h"
 #include "mkdir.h"
+#include "parse-util.h"
 #include "process-util.h"
 #include "rm-rf.h"
 #include "selinux-util.h"

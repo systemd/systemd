@@ -22,8 +22,9 @@
 #include "bus-util.h"
 #include "strv.h"
 
-#include "networkd.h"
 #include "networkd-link.h"
+#include "networkd.h"
+#include "parse-util.h"
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_operational_state, link_operstate, LinkOperationalState);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_administrative_state, link_state, LinkState);

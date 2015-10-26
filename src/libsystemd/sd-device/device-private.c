@@ -32,6 +32,7 @@
 #include "hashmap.h"
 #include "macro.h"
 #include "mkdir.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "refcnt.h"
 #include "set.h"

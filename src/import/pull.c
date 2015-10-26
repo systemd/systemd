@@ -27,6 +27,7 @@
 #include "hostname-util.h"
 #include "import-util.h"
 #include "machine-image.h"
+#include "parse-util.h"
 #include "pull-dkr.h"
 #include "pull-raw.h"
 #include "pull-tar.h"

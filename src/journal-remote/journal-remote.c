@@ -44,6 +44,7 @@
 #include "journal-remote.h"
 #include "journald-native.h"
 #include "macro.h"
+#include "parse-util.h"
 #include "signal-util.h"
 #include "socket-util.h"
 #include "string-util.h"

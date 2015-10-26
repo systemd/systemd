@@ -32,6 +32,7 @@
 #include "log.h"
 #include "macro.h"
 #include "missing.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "string-util.h"
 #include "strv.h"

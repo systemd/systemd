@@ -22,6 +22,7 @@
 #include "fd-util.h"
 #include "journal-remote-parse.h"
 #include "journald-native.h"
+#include "parse-util.h"
 #include "string-util.h"
 
 #define LINE_CHUNK 8*1024u

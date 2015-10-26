@@ -42,6 +42,7 @@
 #include "string-util.h"
 #include "terminal-util.h"
 #include "util.h"
+#include "parse-util.h"
 
 #define SNDBUF_SIZE (8*1024*1024)
 

@@ -29,6 +29,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "util.h"
+#include "parse-util.h"
 
 #define USE(x, y) do{ (x) = (y); (y) = NULL; } while(0)
 

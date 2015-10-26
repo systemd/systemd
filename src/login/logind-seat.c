@@ -31,6 +31,7 @@
 #include "logind-acl.h"
 #include "logind-seat.h"
 #include "mkdir.h"
+#include "parse-util.h"
 #include "string-util.h"
 #include "terminal-util.h"
 #include "util.h"

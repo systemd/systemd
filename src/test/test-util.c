@@ -39,14 +39,15 @@
 #include "fileio.h"
 #include "io-util.h"
 #include "mkdir.h"
+#include "parse-util.h"
 #include "process-util.h"
 #include "rm-rf.h"
 #include "signal-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "user-util.h"
 #include "util.h"
 #include "virt.h"
-#include "user-util.h"
 
 static void test_streq_ptr(void) {
         assert_se(streq_ptr(NULL, NULL));

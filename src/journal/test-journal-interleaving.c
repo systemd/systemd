@@ -24,11 +24,13 @@
 #include <fcntl.h>
 
 #include "sd-journal.h"
+
 #include "journal-file.h"
 #include "journal-vacuum.h"
-#include "util.h"
 #include "log.h"
+#include "parse-util.h"
 #include "rm-rf.h"
+#include "util.h"
 
 /* This program tests skipping around in a multi-file journal.
  */

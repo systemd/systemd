@@ -28,6 +28,7 @@
 #include "bus-error.h"
 #include "bus-util.h"
 #include "in-addr-util.h"
+#include "parse-util.h"
 #include "resolved-def.h"
 #include "resolved-dns-packet.h"
 

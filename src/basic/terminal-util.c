@@ -34,6 +34,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "io-util.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "socket-util.h"

@@ -40,6 +40,7 @@
 #include "log.h"
 #include "logs-show.h"
 #include "microhttpd-util.h"
+#include "parse-util.h"
 #include "sigbus.h"
 #include "util.h"
 

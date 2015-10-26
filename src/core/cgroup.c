@@ -25,6 +25,7 @@
 #include "cgroup-util.h"
 #include "cgroup.h"
 #include "fd-util.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "special.h"

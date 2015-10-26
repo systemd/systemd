@@ -24,6 +24,7 @@
 #include "bus-error.h"
 #include "bus-util.h"
 #include "dbus-timer.h"
+#include "parse-util.h"
 #include "special.h"
 #include "string-util.h"
 #include "timer.h"

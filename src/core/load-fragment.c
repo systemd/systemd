@@ -48,6 +48,7 @@
 #include "load-fragment.h"
 #include "log.h"
 #include "missing.h"
+#include "parse-util.h"
 #include "path-util.h"
 #ifdef HAVE_SECCOMP
 #include "seccomp-util.h"

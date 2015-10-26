@@ -20,9 +20,10 @@
  ***/
 
 #include "conf-parser.h"
-#include "string-util.h"
+#include "parse-util.h"
 #include "resolved-conf.h"
 #include "extract-word.h"
+#include "string-util.h"
 
 int manager_parse_dns_server(Manager *m, DnsServerType type, const char *string) {
         DnsServer *first;

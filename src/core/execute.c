@@ -76,6 +76,7 @@
 #include "missing.h"
 #include "mkdir.h"
 #include "namespace.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "rm-rf.h"

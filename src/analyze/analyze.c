@@ -33,6 +33,7 @@
 #include "hashmap.h"
 #include "log.h"
 #include "pager.h"
+#include "parse-util.h"
 #include "special.h"
 #include "strv.h"
 #include "strxcpyx.h"

@@ -30,6 +30,7 @@
 #include "bus-error.h"
 #include "bus-util.h"
 #include "pager.h"
+#include "parse-util.h"
 #include "spawn-polkit-agent.h"
 #include "strv.h"
 #include "terminal-util.h"

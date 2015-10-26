@@ -48,6 +48,7 @@
 #include "macro.h"
 #include "mkdir.h"
 #include "pager.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "ptyfwd.h"

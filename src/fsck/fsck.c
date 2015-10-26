@@ -37,6 +37,7 @@
 #include "bus-util.h"
 #include "device-util.h"
 #include "fd-util.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "signal-util.h"

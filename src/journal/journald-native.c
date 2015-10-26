@@ -32,6 +32,7 @@
 #include "journald-syslog.h"
 #include "journald-wall.h"
 #include "memfd-util.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "selinux-util.h"
 #include "socket-util.h"

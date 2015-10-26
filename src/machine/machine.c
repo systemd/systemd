@@ -35,6 +35,7 @@
 #include "machine-dbus.h"
 #include "machine.h"
 #include "mkdir.h"
+#include "parse-util.h"
 #include "special.h"
 #include "terminal-util.h"
 #include "unit-name.h"

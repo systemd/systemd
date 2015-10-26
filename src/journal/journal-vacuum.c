@@ -29,6 +29,7 @@
 #include "journal-def.h"
 #include "journal-file.h"
 #include "journal-vacuum.h"
+#include "parse-util.h"
 #include "string-util.h"
 #include "util.h"
 

@@ -43,6 +43,7 @@
 #include "log.h"
 #include "missing.h"
 #include "mkdir.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "selinux-util.h"
 #include "signal-util.h"

@@ -30,6 +30,7 @@
 #include "network-internal.h"
 #include "networkd-network.h"
 #include "networkd.h"
+#include "parse-util.h"
 #include "string-util.h"
 #include "util.h"
 

@@ -55,6 +55,7 @@
 #include "io-util.h"
 #include "list.h"
 #include "macro.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "store.h"
 #include "string-util.h"

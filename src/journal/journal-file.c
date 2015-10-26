@@ -35,6 +35,7 @@
 #include "journal-def.h"
 #include "journal-file.h"
 #include "lookup3.h"
+#include "parse-util.h"
 #include "random-util.h"
 #include "string-util.h"
 

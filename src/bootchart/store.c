@@ -35,6 +35,7 @@
 #include "cgroup-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "parse-util.h"
 #include "store.h"
 #include "string-util.h"
 #include "strxcpyx.h"

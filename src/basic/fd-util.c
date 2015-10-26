@@ -20,6 +20,7 @@
 ***/
 
 #include "fd-util.h"
+#include "parse-util.h"
 #include "util.h"
 
 int close_nointr(int fd) {

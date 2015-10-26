@@ -35,6 +35,7 @@
 #include "formats-util.h"
 #include "macro.h"
 #include "missing.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "socket-util.h"
 #include "string-util.h"
