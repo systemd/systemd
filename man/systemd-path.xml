@@ -60,7 +60,7 @@
     <para><command>systemd-path</command> may be used to query system
     and user paths. The tool makes many of the paths described in
     <citerefentry><refentrytitle>file-hierarchy</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-    queriable.</para>
+    available for querying.</para>
 
     <para>When invoked without arguments, a list of known paths and
     their current values is shown. When at least one argument is

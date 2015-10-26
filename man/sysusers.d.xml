@@ -113,7 +113,7 @@ u root 0 "Superuser" /root</programlisting>
         <varlistentry>
           <term><varname>m</varname></term>
           <listitem><para>Add a user to a group. If the user or group
-          are not existing yet, they will be implicitly
+          do not exist yet, they will be implicitly
           created.</para></listitem>
         </varlistentry>
 
