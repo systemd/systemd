@@ -24,6 +24,16 @@ External:
 * When lz4 gets an API for lz4 command output, make use of it to
   compress coredumps in a way compatible with /usr/bin/lz4.
 
+Janitorial Clean-ups:
+
+* code cleanup: retire FOREACH_WORD_QUOTED, port to extract_first_word() loops instead
+
+* replace manual readdir() loops with FOREACH_DIRENT or FOREACH_DIRENT_ALL
+
+* Get rid of the last strerror() invocations in favour of %m and strerror_r()
+
+* Rearrange tests so that the various test-xyz.c match a specific src/basic/xyz.c again
+
 Features:
 
 * do something about "/control" subcgroups in the unified cgroup hierarchy
@@ -263,8 +273,6 @@ Features:
 * machined: add an API so that libvirt-lxc can inform us about network interfaces being removed or added to an existing machine
 
 * maybe add support for specifier expansion in user.conf, specifically DefaultEnvironment=
-
-* code cleanup: retire FOREACH_WORD_QUOTED, port to extract_first_word() loops instead
 
 * introduce systemd-timesync-wait.service or so to sync on an NTP fix?
 
