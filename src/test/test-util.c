@@ -39,6 +39,7 @@
 #include "fileio.h"
 #include "io-util.h"
 #include "mkdir.h"
+#include "hexdecoct.h"
 #include "parse-util.h"
 #include "process-util.h"
 #include "rm-rf.h"

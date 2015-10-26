@@ -23,10 +23,11 @@
 
 #include "dns-domain.h"
 #include "dns-type.h"
+#include "hexdecoct.h"
 #include "resolved-dns-packet.h"
+#include "resolved-dns-rr.h"
 #include "string-util.h"
 #include "strv.h"
-#include "resolved-dns-rr.h"
 
 DnsResourceKey* dns_resource_key_new(uint16_t class, uint16_t type, const char *name) {
         DnsResourceKey *k;

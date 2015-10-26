@@ -22,10 +22,11 @@
 #include <math.h>
 #include <sys/types.h>
 
+#include "json.h"
 #include "macro.h"
+#include "hexdecoct.h"
 #include "string-util.h"
 #include "utf8.h"
-#include "json.h"
 
 int json_variant_new(JsonVariant **ret, JsonVariantType type) {
         JsonVariant *v;

@@ -34,6 +34,7 @@
 #include "formats-util.h"
 #include "macro.h"
 #include "missing.h"
+#include "hexdecoct.h"
 #include "signal-util.h"
 #include "string-util.h"
 #include "user-util.h"

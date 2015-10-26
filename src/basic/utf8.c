@@ -49,6 +49,7 @@
 #include <string.h>
 #include <stdbool.h>
 
+#include "hexdecoct.h"
 #include "utf8.h"
 #include "util.h"
 

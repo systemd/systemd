@@ -109,7 +109,7 @@ static int property_get_oom_score_adjust(
 
                 n = 0;
                 if (read_one_line_file("/proc/self/oom_score_adj", &t) >= 0)
-                        safe_atoi(t, &n);
+                        safe_atoi32(t, &n);
         }
 
         return sd_bus_message_append(reply, "i", n);

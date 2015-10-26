@@ -34,6 +34,7 @@
 #include "hostname-util.h"
 #include "in-addr-util.h"
 #include "network-internal.h"
+#include "hexdecoct.h"
 #include "parse-util.h"
 #include "unaligned.h"
 

@@ -25,6 +25,7 @@
 #endif
 
 #include "dns-domain.h"
+#include "hexdecoct.h"
 #include "parse-util.h"
 #include "string-util.h"
 

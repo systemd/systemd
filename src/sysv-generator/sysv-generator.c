@@ -30,6 +30,7 @@
 #include "install.h"
 #include "log.h"
 #include "mkdir.h"
+#include "hexdecoct.h"
 #include "path-lookup.h"
 #include "path-util.h"
 #include "set.h"

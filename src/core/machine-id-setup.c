@@ -36,6 +36,7 @@
 #include "machine-id-setup.h"
 #include "macro.h"
 #include "mkdir.h"
+#include "hexdecoct.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "string-util.h"

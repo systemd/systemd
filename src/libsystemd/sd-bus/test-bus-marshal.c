@@ -38,6 +38,7 @@
 #include "bus-util.h"
 #include "fd-util.h"
 #include "log.h"
+#include "hexdecoct.h"
 #include "util.h"
 
 static void test_bus_path_encode_unique(void) {

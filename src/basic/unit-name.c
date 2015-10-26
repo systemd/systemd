@@ -29,6 +29,7 @@
 #include "strv.h"
 #include "util.h"
 #include "unit-name.h"
+#include "hexdecoct.h"
 
 #define VALID_CHARS                             \
         DIGITS LETTERS                          \

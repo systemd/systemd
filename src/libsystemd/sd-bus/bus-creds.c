@@ -32,6 +32,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "formats-util.h"
+#include "hexdecoct.h"
 #include "parse-util.h"
 #include "process-util.h"
 #include "string-util.h"

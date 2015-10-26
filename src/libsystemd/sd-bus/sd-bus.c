@@ -48,6 +48,7 @@
 #include "hostname-util.h"
 #include "macro.h"
 #include "missing.h"
+#include "hexdecoct.h"
 #include "parse-util.h"
 #include "string-util.h"
 #include "strv.h"

@@ -791,6 +791,8 @@ libbasic_la_SOURCES = \
 	src/basic/parse-util.h \
 	src/basic/user-util.c \
 	src/basic/user-util.h \
+	src/basic/hexdecoct.c \
+	src/basic/hexdecoct.h \
 	src/basic/extract-word.c \
 	src/basic/extract-word.h \
 	src/basic/escape.c \

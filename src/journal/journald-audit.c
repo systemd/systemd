@@ -23,6 +23,7 @@
 #include "fd-util.h"
 #include "journald-audit.h"
 #include "missing.h"
+#include "hexdecoct.h"
 #include "string-util.h"
 
 typedef struct MapField {

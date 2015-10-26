@@ -95,17 +95,6 @@ char *file_in_same_dir(const char *path, const char *filename);
 
 int rmdir_parents(const char *path, const char *stop);
 
-char hexchar(int x) _const_;
-int unhexchar(char c) _const_;
-char octchar(int x) _const_;
-int unoctchar(char c) _const_;
-char decchar(int x) _const_;
-int undecchar(char c) _const_;
-char base32hexchar(int x) _const_;
-int unbase32hexchar(char c) _const_;
-char base64char(int x) _const_;
-int unbase64char(char c) _const_;
-
 bool dirent_is_file(const struct dirent *de) _pure_;
 bool dirent_is_file_with_suffix(const struct dirent *de, const char *suffix) _pure_;
 
@@ -398,15 +387,6 @@ static inline void *mempset(void *s, int c, size_t n) {
         return (uint8_t*)s + n;
 }
 
-char *hexmem(const void *p, size_t l);
-int unhexmem(const char *p, size_t l, void **mem, size_t *len);
-
-char *base32hexmem(const void *p, size_t l, bool padding);
-int unbase32hexmem(const char *p, size_t l, bool padding, void **mem, size_t *len);
-
-char *base64mem(const void *p, size_t l);
-int unbase64mem(const char *p, size_t l, void **mem, size_t *len);
-
 void* greedy_realloc(void **p, size_t *allocated, size_t need, size_t size);
 void* greedy_realloc0(void **p, size_t *allocated, size_t need, size_t size);
 #define GREEDY_REALLOC(array, allocated, need)                          \
@@ -558,8 +538,6 @@ unsigned long personality_from_string(const char *p);
 const char *personality_to_string(unsigned long);
 
 uint64_t physical_memory(void);
-
-void hexdump(FILE *f, const void *p, size_t s);
 
 union file_handle_union {
         struct file_handle handle;

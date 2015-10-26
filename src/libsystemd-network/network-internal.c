@@ -30,6 +30,7 @@
 #include "dhcp-lease-internal.h"
 #include "log.h"
 #include "network-internal.h"
+#include "hexdecoct.h"
 #include "parse-util.h"
 #include "siphash24.h"
 #include "string-util.h"

@@ -28,6 +28,7 @@
 #include "fd-util.h"
 #include "io-util.h"
 #include "macro.h"
+#include "hexdecoct.h"
 #include "random-util.h"
 #include "util.h"
 
