@@ -31,6 +31,7 @@
 #include "libudev.h"
 
 #include "fd-util.h"
+#include "fileio.h"
 #include "formats-util.h"
 #include "libudev-private.h"
 #include "missing.h"

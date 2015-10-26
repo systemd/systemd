@@ -40,6 +40,7 @@
 #include "blkid-util.h"
 #include "efivars.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "rm-rf.h"
 #include "string-util.h"
 #include "util.h"

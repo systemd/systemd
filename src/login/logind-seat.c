@@ -27,6 +27,7 @@
 #include "sd-messages.h"
 
 #include "fd-util.h"
+#include "fileio.h"
 #include "formats-util.h"
 #include "logind-acl.h"
 #include "logind-seat.h"

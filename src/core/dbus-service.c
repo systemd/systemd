@@ -26,6 +26,7 @@
 #include "dbus-kill.h"
 #include "dbus-service.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "path-util.h"
 #include "service.h"
 #include "string-util.h"

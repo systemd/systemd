@@ -24,6 +24,7 @@
 #include "cgroup-util.h"
 #include "conf-parser.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "mkdir.h"
 #include "special.h"
 #include "unit-name.h"

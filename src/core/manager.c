@@ -54,6 +54,7 @@
 #include "escape.h"
 #include "exit-status.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "hashmap.h"
 #include "io-util.h"
 #include "locale-setup.h"

@@ -23,6 +23,7 @@
 
 #include "dropin.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "fstab-util.h"
 #include "generator.h"
 #include "hashmap.h"

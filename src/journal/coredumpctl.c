@@ -30,6 +30,7 @@
 
 #include "compress.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "journal-internal.h"
 #include "log.h"
 #include "macro.h"

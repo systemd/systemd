@@ -45,6 +45,7 @@
 #include "copy.h"
 #include "escape.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "formats-util.h"
 #include "io-util.h"
 #include "label.h"

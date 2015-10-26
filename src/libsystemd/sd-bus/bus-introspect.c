@@ -24,6 +24,7 @@
 #include "bus-protocol.h"
 #include "bus-signature.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "string-util.h"
 #include "util.h"
 

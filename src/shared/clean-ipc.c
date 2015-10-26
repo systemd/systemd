@@ -30,6 +30,7 @@
 
 #include "clean-ipc.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "formats-util.h"
 #include "string-util.h"
 #include "strv.h"

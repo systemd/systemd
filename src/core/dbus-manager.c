@@ -35,6 +35,7 @@
 #include "dbus.h"
 #include "env-util.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "formats-util.h"
 #include "install.h"
 #include "log.h"

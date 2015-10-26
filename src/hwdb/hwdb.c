@@ -23,6 +23,8 @@
 #include <string.h>
 
 #include "conf-files.h"
+#include "fd-util.h"
+#include "fileio.h"
 #include "hwdb-internal.h"
 #include "hwdb-util.h"
 #include "mkdir.h"
@@ -31,7 +33,6 @@
 #include "strv.h"
 #include "util.h"
 #include "verbs.h"
-#include "fd-util.h"
 
 /*
  * Generic udev properties, key/value database based on modalias strings.

@@ -26,6 +26,7 @@
 #include <unistd.h>
 
 #include "fd-util.h"
+#include "fileio.h"
 #include "fstab-util.h"
 #include "generator.h"
 #include "log.h"

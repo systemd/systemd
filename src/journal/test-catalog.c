@@ -29,6 +29,7 @@
 
 #include "catalog.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "log.h"
 #include "macro.h"
 #include "string-util.h"

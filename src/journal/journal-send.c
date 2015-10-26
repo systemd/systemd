@@ -32,6 +32,7 @@
 #include "sd-journal.h"
 
 #include "fd-util.h"
+#include "fileio.h"
 #include "io-util.h"
 #include "memfd-util.h"
 #include "socket-util.h"

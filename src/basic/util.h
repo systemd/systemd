@@ -158,8 +158,6 @@ ssize_t string_table_lookup(const char * const *table, size_t len, const char *k
 
 bool fstype_is_network(const char *fstype);
 
-int fopen_temporary(const char *path, FILE **_f, char **_temp_path);
-
 bool is_device_path(const char *path);
 
 int dir_is_empty(const char *path);
@@ -200,8 +198,6 @@ noreturn void freeze(void);
 bool null_or_empty(struct stat *st) _pure_;
 int null_or_empty_path(const char *fn);
 int null_or_empty_fd(int fd);
-
-DIR *xopendirat(int dirfd, const char *name, int flags);
 
 char *fstab_node_to_udev_node(const char *p);
 
@@ -348,18 +344,6 @@ typedef enum DrawSpecialChar {
 const char *draw_special_char(DrawSpecialChar ch);
 
 int on_ac_power(void);
-
-int search_and_fopen(const char *path, const char *mode, const char *root, const char **search, FILE **_f);
-int search_and_fopen_nulstr(const char *path, const char *mode, const char *root, const char *search, FILE **_f);
-
-#define FOREACH_LINE(line, f, on_error)                         \
-        for (;;)                                                \
-                if (!fgets(line, sizeof(line), f)) {            \
-                        if (ferror(f)) {                        \
-                                on_error;                       \
-                        }                                       \
-                        break;                                  \
-                } else
 
 #define FOREACH_DIRENT(de, d, on_error)                                 \
         for (errno = 0, de = readdir(d);; errno = 0, de = readdir(d))   \
@@ -521,9 +505,6 @@ int container_get_leader(const char *machine, pid_t *pid);
 int namespace_open(pid_t pid, int *pidns_fd, int *mntns_fd, int *netns_fd, int *userns_fd, int *root_fd);
 int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int root_fd);
 
-int mkostemp_safe(char *pattern, int flags);
-int open_tmpfile(const char *path, int flags);
-
 int fd_warn_permissions(const char *path, int fd);
 
 #ifndef PERSONALITY_INVALID
@@ -549,12 +530,6 @@ int update_reboot_param_file(const char *param);
 int umount_recursive(const char *target, int flags);
 
 int bind_remount_recursive(const char *prefix, bool ro);
-
-int fflush_and_check(FILE *f);
-
-int tempfn_xxxxxx(const char *p, const char *extra, char **ret);
-int tempfn_random(const char *p, const char *extra, char **ret);
-int tempfn_random_child(const char *p, const char *extra, char **ret);
 
 int take_password_lock(const char *root);
 

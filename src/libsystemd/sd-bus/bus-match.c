@@ -24,6 +24,7 @@
 #include "bus-message.h"
 #include "bus-util.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "hexdecoct.h"
 #include "string-util.h"
 #include "strv.h"

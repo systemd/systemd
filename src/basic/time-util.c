@@ -24,6 +24,7 @@
 #include <sys/timex.h>
 
 #include "fd-util.h"
+#include "fileio.h"
 #include "path-util.h"
 #include "string-util.h"
 #include "strv.h"

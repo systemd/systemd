@@ -22,6 +22,7 @@
 
 #include "fd-util.h"
 #include "fdset.h"
+#include "fileio.h"
 #include "macro.h"
 #include "util.h"
 

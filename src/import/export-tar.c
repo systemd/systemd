@@ -24,6 +24,7 @@
 #include "btrfs-util.h"
 #include "export-tar.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "import-common.h"
 #include "process-util.h"
 #include "ratelimit.h"

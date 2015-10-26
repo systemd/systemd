@@ -27,6 +27,7 @@
 #include "btrfs-util.h"
 #include "copy.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "hostname-util.h"
 #include "import-common.h"
 #include "import-compress.h"

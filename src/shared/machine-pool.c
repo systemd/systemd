@@ -26,6 +26,7 @@
 
 #include "btrfs-util.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "lockfile-util.h"
 #include "machine-pool.h"
 #include "mkdir.h"
