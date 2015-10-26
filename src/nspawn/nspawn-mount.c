@@ -26,6 +26,7 @@
 #include "escape.h"
 #include "label.h"
 #include "mkdir.h"
+#include "mount-util.h"
 #include "nspawn-mount.h"
 #include "parse-util.h"
 #include "path-util.h"

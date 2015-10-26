@@ -26,12 +26,13 @@
 #include <sys/wait.h>
 #include <mntent.h>
 
+#include "exit-status.h"
 #include "log.h"
-#include "util.h"
+#include "mount-setup.h"
+#include "mount-util.h"
 #include "path-util.h"
 #include "signal-util.h"
-#include "mount-setup.h"
-#include "exit-status.h"
+#include "util.h"
 
 /* Goes through /etc/fstab and remounts all API file systems, applying
  * options that are in /etc/fstab that systemd might not have

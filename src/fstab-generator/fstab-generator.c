@@ -32,6 +32,7 @@
 #include "log.h"
 #include "mkdir.h"
 #include "mount-setup.h"
+#include "mount-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "special.h"

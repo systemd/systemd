@@ -25,6 +25,7 @@
 
 #include "fd-util.h"
 #include "macro.h"
+#include "mount-util.h"
 #include "path-util.h"
 #include "rm-rf.h"
 #include "string-util.h"

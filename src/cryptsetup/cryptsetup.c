@@ -32,6 +32,7 @@
 #include "escape.h"
 #include "fileio.h"
 #include "log.h"
+#include "mount-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "string-util.h"

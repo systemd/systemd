@@ -36,6 +36,7 @@
 #include "label.h"
 #include "logind-user.h"
 #include "mkdir.h"
+#include "mount-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "rm-rf.h"

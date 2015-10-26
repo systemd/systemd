@@ -21,6 +21,7 @@
 
 #include "device-nodes.h"
 #include "fstab-util.h"
+#include "mount-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "string-util.h"

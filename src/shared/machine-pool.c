@@ -36,6 +36,7 @@
 #include "signal-util.h"
 #include "string-util.h"
 #include "util.h"
+#include "mount-util.h"
 
 #define VAR_LIB_MACHINES_SIZE_START (1024UL*1024UL*500UL)
 #define VAR_LIB_MACHINES_FREE_MIN (1024UL*1024UL*750UL)

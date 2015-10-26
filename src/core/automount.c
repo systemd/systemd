@@ -39,6 +39,7 @@
 #include "io-util.h"
 #include "label.h"
 #include "mkdir.h"
+#include "mount-util.h"
 #include "mount.h"
 #include "parse-util.h"
 #include "path-util.h"

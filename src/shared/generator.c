@@ -28,6 +28,7 @@
 #include "fstab-util.h"
 #include "generator.h"
 #include "mkdir.h"
+#include "mount-util.h"
 #include "path-util.h"
 #include "special.h"
 #include "string-util.h"

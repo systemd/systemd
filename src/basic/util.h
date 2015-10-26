@@ -27,7 +27,6 @@
 #include <inttypes.h>
 #include <limits.h>
 #include <locale.h>
-#include <mntent.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -279,12 +278,9 @@ static inline void umaskp(mode_t *u) {
         umask(*u);
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(FILE*, endmntent);
-
 #define _cleanup_free_ _cleanup_(freep)
 #define _cleanup_umask_ _cleanup_(umaskp)
 #define _cleanup_globfree_ _cleanup_(globfree)
-#define _cleanup_endmntent_ _cleanup_(endmntentp)
 
 _malloc_  _alloc_(1, 2) static inline void *malloc_multiply(size_t a, size_t b) {
         if (_unlikely_(b != 0 && a > ((size_t) -1) / b))
@@ -525,10 +521,6 @@ union file_handle_union {
 
 int update_reboot_param_file(const char *param);
 
-int umount_recursive(const char *target, int flags);
-
-int bind_remount_recursive(const char *prefix, bool ro);
-
 int take_password_lock(const char *root);
 
 int is_symlink(const char *path);
@@ -567,8 +559,6 @@ int read_attr_path(const char *p, unsigned *ret);
 int syslog_parse_priority(const char **p, int *priority, bool with_facility);
 
 int rename_noreplace(int olddirfd, const char *oldpath, int newdirfd, const char *newpath);
-
-int mount_move_root(const char *path);
 
 int getxattr_malloc(const char *path, const char *name, char **value, bool allow_symlink);
 int fgetxattr_malloc(int fd, const char *name, char **value);
