@@ -59,6 +59,7 @@
 #include "unit-name.h"
 #include "util.h"
 #include "verbs.h"
+#include "web-util.h"
 
 static char **arg_property = NULL;
 static bool arg_all = false;

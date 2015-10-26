@@ -41,6 +41,7 @@
 #include "strv.h"
 #include "syslog-util.h"
 #include "util.h"
+#include "web-util.h"
 
 typedef struct Transfer Transfer;
 typedef struct Manager Manager;

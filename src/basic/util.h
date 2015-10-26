@@ -129,11 +129,6 @@ void* memdup(const void *p, size_t l) _alloc_(2);
 
 int fork_agent(pid_t *pid, const int except[], unsigned n_except, const char *path, ...);
 
-bool http_url_is_valid(const char *url) _pure_;
-bool documentation_url_is_valid(const char *url) _pure_;
-
-bool http_etag_is_valid(const char *etag);
-
 bool in_initrd(void);
 
 static inline void freep(void *p) {

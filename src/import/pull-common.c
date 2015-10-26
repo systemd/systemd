@@ -38,6 +38,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "util.h"
+#include "web-util.h"
 
 #define FILENAME_ESCAPE "/.#\"\'"
 #define HASH_URL_THRESHOLD_LENGTH (_POSIX_PATH_MAX - 16)

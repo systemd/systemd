@@ -844,6 +844,8 @@ libbasic_la_SOURCES = \
 	src/basic/fdset.h \
 	src/basic/prioq.c \
 	src/basic/prioq.h \
+	src/basic/web-util.c \
+	src/basic/web-util.h \
 	src/basic/strv.c \
 	src/basic/strv.h \
 	src/basic/env-util.c \

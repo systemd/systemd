@@ -55,6 +55,7 @@
 #include "util.h"
 #include "virt.h"
 #include "xattr-util.h"
+#include "web-util.h"
 
 static void test_streq_ptr(void) {
         assert_se(streq_ptr(NULL, NULL));

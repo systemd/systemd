@@ -44,6 +44,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "utf8.h"
+#include "web-util.h"
 
 typedef enum DkrProgress {
         DKR_SEARCHING,

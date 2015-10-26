@@ -63,6 +63,7 @@
 #include "unit-printf.h"
 #include "unit.h"
 #include "utf8.h"
+#include "web-util.h"
 
 int config_parse_warn_compat(
                 const char *unit,

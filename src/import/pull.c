@@ -34,6 +34,7 @@
 #include "signal-util.h"
 #include "string-util.h"
 #include "verbs.h"
+#include "web-util.h"
 
 static bool arg_force = false;
 static const char *arg_image_root = "/var/lib/machines";
