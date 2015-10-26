@@ -24,6 +24,7 @@
 #include "btrfs-util.h"
 #include "capability.h"
 #include "copy.h"
+#include "dirent-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "io-util.h"

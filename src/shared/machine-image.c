@@ -25,6 +25,7 @@
 
 #include "btrfs-util.h"
 #include "copy.h"
+#include "dirent-util.h"
 #include "fd-util.h"
 #include "machine-image.h"
 #include "mkdir.h"

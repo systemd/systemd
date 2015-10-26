@@ -25,6 +25,7 @@
 
 #include "sd-id128.h"
 
+#include "dirent-util.h"
 #include "fd-util.h"
 #include "journal-def.h"
 #include "journal-file.h"

@@ -22,6 +22,7 @@
 #include "fd-util.h"
 #include "parse-util.h"
 #include "util.h"
+#include "dirent-util.h"
 
 int close_nointr(int fd) {
         assert(fd >= 0);

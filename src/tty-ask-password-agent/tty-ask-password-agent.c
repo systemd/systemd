@@ -35,6 +35,7 @@
 #include "ask-password-api.h"
 #include "conf-parser.h"
 #include "def.h"
+#include "dirent-util.h"
 #include "fd-util.h"
 #include "io-util.h"
 #include "mkdir.h"

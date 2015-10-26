@@ -30,6 +30,7 @@
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-util.h"
+#include "dirent-util.h"
 #include "efivars.h"
 #include "escape.h"
 #include "fd-util.h"

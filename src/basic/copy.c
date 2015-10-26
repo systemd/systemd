@@ -24,6 +24,7 @@
 
 #include "btrfs-util.h"
 #include "copy.h"
+#include "dirent-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "io-util.h"

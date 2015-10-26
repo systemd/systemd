@@ -26,6 +26,7 @@
 #include <string.h>
 
 #include "conf-files.h"
+#include "dirent-util.h"
 #include "fd-util.h"
 #include "hashmap.h"
 #include "log.h"

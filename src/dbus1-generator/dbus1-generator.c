@@ -23,6 +23,7 @@
 #include "bus-util.h"
 #include "cgroup-util.h"
 #include "conf-parser.h"
+#include "dirent-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "mkdir.h"

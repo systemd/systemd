@@ -30,6 +30,7 @@
 #include <unistd.h>
 
 #include "cgroup-util.h"
+#include "dirent-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"

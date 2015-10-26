@@ -23,6 +23,7 @@
 #include <string.h>
 #include <fcntl.h>
 
+#include "dirent-util.h"
 #include "efivars.h"
 #include "fd-util.h"
 #include "io-util.h"

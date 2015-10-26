@@ -40,6 +40,7 @@
 #include "conf-parser.h"
 #include "copy.h"
 #include "coredump-vacuum.h"
+#include "dirent-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"

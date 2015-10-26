@@ -20,6 +20,7 @@
 ***/
 
 #include "cgroup-util.h"
+#include "dirent-util.h"
 #include "fd-util.h"
 #include "formats-util.h"
 #include "parse-util.h"

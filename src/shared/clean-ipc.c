@@ -35,6 +35,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "util.h"
+#include "dirent-util.h"
 
 static int clean_sysvipc_shm(uid_t delete_uid) {
         _cleanup_fclose_ FILE *f = NULL;

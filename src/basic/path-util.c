@@ -766,3 +766,70 @@ bool path_is_safe(const char *p) {
 
         return true;
 }
+
+char *file_in_same_dir(const char *path, const char *filename) {
+        char *e, *ret;
+        size_t k;
+
+        assert(path);
+        assert(filename);
+
+        /* This removes the last component of path and appends
+         * filename, unless the latter is absolute anyway or the
+         * former isn't */
+
+        if (path_is_absolute(filename))
+                return strdup(filename);
+
+        e = strrchr(path, '/');
+        if (!e)
+                return strdup(filename);
+
+        k = strlen(filename);
+        ret = new(char, (e + 1 - path) + k + 1);
+        if (!ret)
+                return NULL;
+
+        memcpy(mempcpy(ret, path, e + 1 - path), filename, k + 1);
+        return ret;
+}
+
+bool hidden_file_allow_backup(const char *filename) {
+        assert(filename);
+
+        return
+                filename[0] == '.' ||
+                streq(filename, "lost+found") ||
+                streq(filename, "aquota.user") ||
+                streq(filename, "aquota.group") ||
+                endswith(filename, ".rpmnew") ||
+                endswith(filename, ".rpmsave") ||
+                endswith(filename, ".rpmorig") ||
+                endswith(filename, ".dpkg-old") ||
+                endswith(filename, ".dpkg-new") ||
+                endswith(filename, ".dpkg-tmp") ||
+                endswith(filename, ".dpkg-dist") ||
+                endswith(filename, ".dpkg-bak") ||
+                endswith(filename, ".dpkg-backup") ||
+                endswith(filename, ".dpkg-remove") ||
+                endswith(filename, ".swp");
+}
+
+bool hidden_file(const char *filename) {
+        assert(filename);
+
+        if (endswith(filename, "~"))
+                return true;
+
+        return hidden_file_allow_backup(filename);
+}
+
+bool is_device_path(const char *path) {
+
+        /* Returns true on paths that refer to a device, either in
+         * sysfs or in /dev */
+
+        return
+                path_startswith(path, "/dev/") ||
+                path_startswith(path, "/sys/");
+}

@@ -27,8 +27,11 @@
 
 #include "conf-files.h"
 #include "conf-parser.h"
+#include "dirent-util.h"
+#include "fd-util.h"
 #include "hashmap.h"
 #include "install-printf.h"
+#include "install.h"
 #include "mkdir.h"
 #include "path-lookup.h"
 #include "path-util.h"
@@ -38,8 +41,6 @@
 #include "strv.h"
 #include "unit-name.h"
 #include "util.h"
-#include "install.h"
-#include "fd-util.h"
 
 typedef struct {
         OrderedHashmap *will_install;

@@ -102,6 +102,7 @@
 #include "utf8.h"
 #include "util.h"
 #include "virt.h"
+#include "dirent-util.h"
 
 /* Put this test here for a lack of better place */
 assert_cc(EAGAIN == EWOULDBLOCK);
@@ -247,33 +248,6 @@ int readlink_and_canonicalize(const char *p, char **r) {
         return 0;
 }
 
-char *file_in_same_dir(const char *path, const char *filename) {
-        char *e, *ret;
-        size_t k;
-
-        assert(path);
-        assert(filename);
-
-        /* This removes the last component of path and appends
-         * filename, unless the latter is absolute anyway or the
-         * former isn't */
-
-        if (path_is_absolute(filename))
-                return strdup(filename);
-
-        e = strrchr(path, '/');
-        if (!e)
-                return strdup(filename);
-
-        k = strlen(filename);
-        ret = new(char, (e + 1 - path) + k + 1);
-        if (!ret)
-                return NULL;
-
-        memcpy(mempcpy(ret, path, e + 1 - path), filename, k + 1);
-        return ret;
-}
-
 int rmdir_parents(const char *path, const char *stop) {
         size_t l;
         int r = 0;
@@ -320,36 +294,6 @@ int rmdir_parents(const char *path, const char *stop) {
         return 0;
 }
 
-_pure_ static bool hidden_file_allow_backup(const char *filename) {
-        assert(filename);
-
-        return
-                filename[0] == '.' ||
-                streq(filename, "lost+found") ||
-                streq(filename, "aquota.user") ||
-                streq(filename, "aquota.group") ||
-                endswith(filename, ".rpmnew") ||
-                endswith(filename, ".rpmsave") ||
-                endswith(filename, ".rpmorig") ||
-                endswith(filename, ".dpkg-old") ||
-                endswith(filename, ".dpkg-new") ||
-                endswith(filename, ".dpkg-tmp") ||
-                endswith(filename, ".dpkg-dist") ||
-                endswith(filename, ".dpkg-bak") ||
-                endswith(filename, ".dpkg-backup") ||
-                endswith(filename, ".dpkg-remove") ||
-                endswith(filename, ".swp");
-}
-
-bool hidden_file(const char *filename) {
-        assert(filename);
-
-        if (endswith(filename, "~"))
-                return true;
-
-        return hidden_file_allow_backup(filename);
-}
-
 bool fstype_is_network(const char *fstype) {
         static const char table[] =
                 "afs\0"
@@ -371,16 +315,6 @@ bool fstype_is_network(const char *fstype) {
                 fstype = x;
 
         return nulstr_contains(table, fstype);
-}
-
-bool is_device_path(const char *path) {
-
-        /* Returns true on paths that refer to a device, either in
-         * sysfs or in /dev */
-
-        return
-                path_startswith(path, "/dev/") ||
-                path_startswith(path, "/sys/");
 }
 
 int dir_is_empty(const char *path) {
@@ -613,34 +547,6 @@ int null_or_empty_fd(int fd) {
                 return -errno;
 
         return null_or_empty(&st);
-}
-
-bool dirent_is_file(const struct dirent *de) {
-        assert(de);
-
-        if (hidden_file(de->d_name))
-                return false;
-
-        if (de->d_type != DT_REG &&
-            de->d_type != DT_LNK &&
-            de->d_type != DT_UNKNOWN)
-                return false;
-
-        return true;
-}
-
-bool dirent_is_file_with_suffix(const struct dirent *de, const char *suffix) {
-        assert(de);
-
-        if (de->d_type != DT_REG &&
-            de->d_type != DT_LNK &&
-            de->d_type != DT_UNKNOWN)
-                return false;
-
-        if (hidden_file_allow_backup(de->d_name))
-                return false;
-
-        return endswith(de->d_name, suffix);
 }
 
 static int do_execute(char **directories, usec_t timeout, char *argv[]) {
@@ -948,31 +854,6 @@ int glob_extend(char ***strv, const char *path) {
         }
 
         return k;
-}
-
-int dirent_ensure_type(DIR *d, struct dirent *de) {
-        struct stat st;
-
-        assert(d);
-        assert(de);
-
-        if (de->d_type != DT_UNKNOWN)
-                return 0;
-
-        if (fstatat(dirfd(d), de->d_name, &st, AT_SYMLINK_NOFOLLOW) < 0)
-                return -errno;
-
-        de->d_type =
-                S_ISREG(st.st_mode)  ? DT_REG  :
-                S_ISDIR(st.st_mode)  ? DT_DIR  :
-                S_ISLNK(st.st_mode)  ? DT_LNK  :
-                S_ISFIFO(st.st_mode) ? DT_FIFO :
-                S_ISSOCK(st.st_mode) ? DT_SOCK :
-                S_ISCHR(st.st_mode)  ? DT_CHR  :
-                S_ISBLK(st.st_mode)  ? DT_BLK  :
-                                       DT_UNKNOWN;
-
-        return 0;
 }
 
 int get_files_in_directory(const char *path, char ***list) {

@@ -33,6 +33,7 @@
 
 #include "bootchart.h"
 #include "cgroup-util.h"
+#include "dirent-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "parse-util.h"

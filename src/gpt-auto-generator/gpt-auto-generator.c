@@ -29,6 +29,7 @@
 
 #include "blkid-util.h"
 #include "btrfs-util.h"
+#include "dirent-util.h"
 #include "efivars.h"
 #include "fd-util.h"
 #include "fileio.h"

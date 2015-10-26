@@ -22,7 +22,6 @@
 ***/
 
 #include <alloca.h>
-#include <dirent.h>
 #include <fcntl.h>
 #include <inttypes.h>
 #include <limits.h>
@@ -90,14 +89,7 @@ int readlink_value(const char *p, char **ret);
 int readlink_and_make_absolute(const char *p, char **r);
 int readlink_and_canonicalize(const char *p, char **r);
 
-char *file_in_same_dir(const char *path, const char *filename);
-
 int rmdir_parents(const char *path, const char *stop);
-
-bool dirent_is_file(const struct dirent *de) _pure_;
-bool dirent_is_file_with_suffix(const struct dirent *de, const char *suffix) _pure_;
-
-bool hidden_file(const char *filename) _pure_;
 
 /* For basic lookup tables with strictly enumerated entries */
 #define _DEFINE_STRING_TABLE_LOOKUP_TO_STRING(name,type,scope)          \
@@ -157,8 +149,6 @@ ssize_t string_table_lookup(const char * const *table, size_t len, const char *k
 
 bool fstype_is_network(const char *fstype);
 
-bool is_device_path(const char *path);
-
 int dir_is_empty(const char *path);
 
 static inline int dir_is_populated(const char *path) {
@@ -215,8 +205,6 @@ int socket_from_display(const char *display, char **path);
 
 int glob_exists(const char *path);
 int glob_extend(char ***strv, const char *path);
-
-int dirent_ensure_type(DIR *d, struct dirent *de);
 
 int get_files_in_directory(const char *path, char ***list);
 
@@ -331,26 +319,6 @@ typedef enum DrawSpecialChar {
 const char *draw_special_char(DrawSpecialChar ch);
 
 int on_ac_power(void);
-
-#define FOREACH_DIRENT(de, d, on_error)                                 \
-        for (errno = 0, de = readdir(d);; errno = 0, de = readdir(d))   \
-                if (!de) {                                              \
-                        if (errno > 0) {                                \
-                                on_error;                               \
-                        }                                               \
-                        break;                                          \
-                } else if (hidden_file((de)->d_name))                   \
-                        continue;                                       \
-                else
-
-#define FOREACH_DIRENT_ALL(de, d, on_error)                             \
-        for (errno = 0, de = readdir(d);; errno = 0, de = readdir(d))   \
-                if (!de) {                                              \
-                        if (errno > 0) {                                \
-                                on_error;                               \
-                        }                                               \
-                        break;                                          \
-                } else
 
 static inline void *mempset(void *s, int c, size_t n) {
         memset(s, c, n);

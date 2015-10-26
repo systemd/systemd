@@ -43,6 +43,7 @@
 #include "strv.h"
 #include "user-util.h"
 #include "util.h"
+#include "dirent-util.h"
 
 /* Error codes:
  *

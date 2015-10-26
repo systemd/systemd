@@ -22,6 +22,7 @@
 #include <sys/statvfs.h>
 
 #include "coredump-vacuum.h"
+#include "dirent-util.h"
 #include "fd-util.h"
 #include "hashmap.h"
 #include "macro.h"
