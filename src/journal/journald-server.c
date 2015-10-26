@@ -1289,8 +1289,7 @@ static int setup_signals(Server *s) {
 
 static int server_parse_proc_cmdline(Server *s) {
         _cleanup_free_ char *line = NULL;
-        const char *w, *state;
-        size_t l;
+        const char *p;
         int r;
 
         r = proc_cmdline(&line);
@@ -1299,12 +1298,16 @@ static int server_parse_proc_cmdline(Server *s) {
                 return 0;
         }
 
-        FOREACH_WORD_QUOTED(w, l, line, state) {
+        p = line;
+        for(;;) {
                 _cleanup_free_ char *word;
 
-                word = strndup(w, l);
-                if (!word)
-                        return -ENOMEM;
+                r = extract_first_word(&p, &word, NULL, 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse journald syntax \"%s\": %m", line);
+
+                if (r == 0)
+                        break;
 
                 if (startswith(word, "systemd.journald.forward_to_syslog=")) {
                         r = parse_boolean(word + 35);
