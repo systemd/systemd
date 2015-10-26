@@ -32,7 +32,7 @@
 #include "bus-internal.h"
 #include "bus-message.h"
 #include "bus-util.h"
-#include "capability.h"
+#include "capability-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "bus-control.h"

@@ -22,7 +22,7 @@
 #include <sys/prctl.h>
 
 #include "btrfs-util.h"
-#include "capability.h"
+#include "capability-util.h"
 #include "copy.h"
 #include "dirent-util.h"
 #include "escape.h"

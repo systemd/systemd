@@ -24,7 +24,7 @@
 #include "bus-message.h"
 #include "bus-type.h"
 #include "cap-list.h"
-#include "capability.h"
+#include "capability-util.h"
 #include "fileio.h"
 #include "formats-util.h"
 #include "locale-util.h"

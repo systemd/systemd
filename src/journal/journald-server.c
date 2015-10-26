@@ -34,6 +34,7 @@
 #include "sd-messages.h"
 
 #include "acl-util.h"
+#include "audit-util.h"
 #include "cgroup-util.h"
 #include "conf-parser.h"
 #include "dirent-util.h"

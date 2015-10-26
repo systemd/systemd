@@ -22,7 +22,7 @@
 #include <sys/prctl.h>
 
 #include "cap-list.h"
-#include "capability.h"
+#include "capability-util.h"
 #include "fileio.h"
 #include "parse-util.h"
 #include "util.h"

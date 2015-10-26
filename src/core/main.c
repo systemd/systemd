@@ -44,7 +44,7 @@
 #include "build.h"
 #include "bus-error.h"
 #include "bus-util.h"
-#include "capability.h"
+#include "capability-util.h"
 #include "clock-util.h"
 #include "conf-parser.h"
 #include "cpu-set-util.h"

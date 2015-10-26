@@ -30,7 +30,7 @@
 #include <security/pam_modutil.h>
 #include <sys/file.h>
 
-#include "audit.h"
+#include "audit-util.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-util.h"

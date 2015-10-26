@@ -26,7 +26,7 @@
 #include <sys/prctl.h>
 #include <unistd.h>
 
-#include "capability.h"
+#include "capability-util.h"
 #include "fileio.h"
 #include "log.h"
 #include "macro.h"

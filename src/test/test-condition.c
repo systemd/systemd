@@ -21,7 +21,7 @@
 
 #include "apparmor-util.h"
 #include "architecture.h"
-#include "audit.h"
+#include "audit-util.h"
 #include "condition.h"
 #include "hostname-util.h"
 #include "ima-util.h"

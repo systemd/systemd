@@ -27,7 +27,7 @@
 
 #include "af-list.h"
 #include "bus-util.h"
-#include "capability.h"
+#include "capability-util.h"
 #include "dbus-execute.h"
 #include "env-util.h"
 #include "execute.h"

@@ -762,8 +762,8 @@ noinst_LTLIBRARIES += \
 
 libbasic_la_SOURCES = \
 	src/basic/missing.h \
-	src/basic/capability.c \
-	src/basic/capability.h \
+	src/basic/capability-util.c \
+	src/basic/capability-util.h \
 	src/basic/conf-files.c \
 	src/basic/conf-files.h \
 	src/basic/hostname-util.h \
@@ -898,8 +898,8 @@ libbasic_la_SOURCES = \
 	src/basic/login-util.c \
 	src/basic/cap-list.c \
 	src/basic/cap-list.h \
-	src/basic/audit.c \
-	src/basic/audit.h \
+	src/basic/audit-util.c \
+	src/basic/audit-util.h \
 	src/basic/xml.c \
 	src/basic/xml.h \
 	src/basic/json.c \

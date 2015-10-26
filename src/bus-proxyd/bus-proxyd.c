@@ -35,7 +35,7 @@
 
 #include "bus-internal.h"
 #include "bus-xml-policy.h"
-#include "capability.h"
+#include "capability-util.h"
 #include "def.h"
 #include "fd-util.h"
 #include "formats-util.h"

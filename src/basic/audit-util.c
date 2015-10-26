@@ -22,7 +22,7 @@
 #include <errno.h>
 #include <stdio.h>
 
-#include "audit.h"
+#include "audit-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "macro.h"

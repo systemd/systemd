@@ -22,7 +22,7 @@
 #include "sd-daemon.h"
 #include "sd-event.h"
 
-#include "capability.h"
+#include "capability-util.h"
 #include "clock-util.h"
 #include "fd-util.h"
 #include "fs-util.h"

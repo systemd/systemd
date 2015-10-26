@@ -27,7 +27,7 @@
 #endif
 
 #include "macro.h"
-#include "capability.h"
+#include "capability-util.h"
 #include "bus-util.h"
 #include "kmod-setup.h"
 

@@ -51,7 +51,7 @@
 #include "blkid-util.h"
 #include "btrfs-util.h"
 #include "cap-list.h"
-#include "capability.h"
+#include "capability-util.h"
 #include "cgroup-util.h"
 #include "copy.h"
 #include "dev-setup.h"

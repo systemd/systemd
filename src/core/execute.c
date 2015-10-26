@@ -60,7 +60,7 @@
 #include "barrier.h"
 #include "bus-endpoint.h"
 #include "cap-list.h"
-#include "capability.h"
+#include "capability-util.h"
 #include "def.h"
 #include "env-util.h"
 #include "errno-list.h"

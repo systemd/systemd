@@ -29,7 +29,7 @@
 
 #include "apparmor-util.h"
 #include "architecture.h"
-#include "audit.h"
+#include "audit-util.h"
 #include "cap-list.h"
 #include "condition.h"
 #include "extract-word.h"

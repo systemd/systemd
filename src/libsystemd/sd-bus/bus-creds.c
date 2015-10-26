@@ -22,12 +22,12 @@
 #include <linux/capability.h>
 #include <stdlib.h>
 
-#include "audit.h"
+#include "audit-util.h"
 #include "bus-creds.h"
 #include "bus-label.h"
 #include "bus-message.h"
 #include "bus-util.h"
-#include "capability.h"
+#include "capability-util.h"
 #include "cgroup-util.h"
 #include "fd-util.h"
 #include "fileio.h"
