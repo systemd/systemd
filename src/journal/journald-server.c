@@ -36,6 +36,7 @@
 #include "acl-util.h"
 #include "cgroup-util.h"
 #include "conf-parser.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "formats-util.h"
 #include "hashmap.h"
