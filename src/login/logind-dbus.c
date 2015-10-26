@@ -36,6 +36,7 @@
 #include "fd-util.h"
 #include "fileio-label.h"
 #include "formats-util.h"
+#include "fs-util.h"
 #include "logind.h"
 #include "mkdir.h"
 #include "path-util.h"

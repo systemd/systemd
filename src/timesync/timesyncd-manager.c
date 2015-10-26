@@ -34,6 +34,7 @@
 #include "sd-daemon.h"
 
 #include "fd-util.h"
+#include "fs-util.h"
 #include "list.h"
 #include "log.h"
 #include "missing.h"

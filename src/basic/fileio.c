@@ -25,6 +25,7 @@
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "hexdecoct.h"
 #include "path-util.h"
 #include "random-util.h"

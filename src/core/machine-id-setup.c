@@ -31,6 +31,7 @@
 
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "hexdecoct.h"
 #include "io-util.h"
 #include "log.h"

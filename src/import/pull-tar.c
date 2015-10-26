@@ -29,6 +29,7 @@
 #include "curl-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "hostname-util.h"
 #include "import-common.h"
 #include "import-util.h"

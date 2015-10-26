@@ -23,6 +23,7 @@
 #include <stdio.h>
 
 #include "conf-files.h"
+#include "fs-util.h"
 #include "macro.h"
 #include "rm-rf.h"
 #include "string-util.h"

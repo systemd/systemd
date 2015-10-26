@@ -32,6 +32,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "formats-util.h"
+#include "fs-util.h"
 #include "hashmap.h"
 #include "label.h"
 #include "logind-user.h"

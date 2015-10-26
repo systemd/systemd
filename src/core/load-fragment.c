@@ -44,6 +44,7 @@
 #include "errno-list.h"
 #include "escape.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "ioprio.h"
 #include "load-fragment.h"
 #include "log.h"

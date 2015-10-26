@@ -29,6 +29,7 @@
 #include "device-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "hashmap.h"
 #include "macro.h"
 #include "parse-util.h"

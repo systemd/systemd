@@ -25,6 +25,7 @@
 #include "capability.h"
 #include "clock-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "network-util.h"
 #include "signal-util.h"
 #include "timesyncd-conf.h"

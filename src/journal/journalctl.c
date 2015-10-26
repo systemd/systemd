@@ -45,6 +45,7 @@
 #include "chattr-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "fsprg.h"
 #include "hostname-util.h"
 #include "io-util.h"

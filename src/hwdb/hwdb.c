@@ -25,6 +25,7 @@
 #include "conf-files.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "hwdb-internal.h"
 #include "hwdb-util.h"
 #include "mkdir.h"

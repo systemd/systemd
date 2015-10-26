@@ -38,6 +38,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "formats-util.h"
+#include "fs-util.h"
 #include "in-addr-util.h"
 #include "local-addresses.h"
 #include "machine-dbus.h"

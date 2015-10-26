@@ -55,6 +55,7 @@
 #include "fdset.h"
 #include "fileio.h"
 #include "formats-util.h"
+#include "fs-util.h"
 #include "hostname-setup.h"
 #include "ima-setup.h"
 #include "killall.h"

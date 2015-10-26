@@ -25,6 +25,7 @@
 #include <unistd.h>
 
 #include "fd-util.h"
+#include "fs-util.h"
 #include "journald-console.h"
 #include "journald-kmsg.h"
 #include "journald-native.h"

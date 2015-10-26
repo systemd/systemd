@@ -28,6 +28,7 @@
 #include "copy.h"
 #include "dirent-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "machine-image.h"
 #include "mkdir.h"
 #include "path-util.h"

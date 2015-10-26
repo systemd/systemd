@@ -29,6 +29,7 @@
 #include "conf-parser.h"
 #include "dirent-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "hashmap.h"
 #include "install-printf.h"
 #include "install.h"

@@ -28,10 +28,12 @@
 #include "sd-login.h"
 
 #include "cgroup-util.h"
+#include "dirent-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "formats-util.h"
+#include "fs-util.h"
 #include "hostname-util.h"
 #include "io-util.h"
 #include "login-util.h"
@@ -43,7 +45,6 @@
 #include "strv.h"
 #include "user-util.h"
 #include "util.h"
-#include "dirent-util.h"
 
 /* Error codes:
  *

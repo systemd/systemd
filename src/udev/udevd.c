@@ -50,6 +50,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "formats-util.h"
+#include "fs-util.h"
 #include "hashmap.h"
 #include "io-util.h"
 #include "netlink-util.h"

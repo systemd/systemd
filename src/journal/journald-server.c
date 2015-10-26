@@ -40,6 +40,7 @@
 #include "extract-word.h"
 #include "fd-util.h"
 #include "formats-util.h"
+#include "fs-util.h"
 #include "hashmap.h"
 #include "hostname-util.h"
 #include "journal-authenticate.h"

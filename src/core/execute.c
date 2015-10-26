@@ -69,6 +69,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "formats-util.h"
+#include "fs-util.h"
 #include "io-util.h"
 #include "ioprio.h"
 #include "log.h"

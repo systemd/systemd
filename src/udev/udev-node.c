@@ -26,6 +26,7 @@
 #include <unistd.h>
 
 #include "formats-util.h"
+#include "fs-util.h"
 #include "selinux-util.h"
 #include "smack-util.h"
 #include "string-util.h"

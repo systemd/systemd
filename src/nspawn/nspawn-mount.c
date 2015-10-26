@@ -24,6 +24,7 @@
 
 #include "cgroup-util.h"
 #include "escape.h"
+#include "fs-util.h"
 #include "label.h"
 #include "mkdir.h"
 #include "mount-util.h"

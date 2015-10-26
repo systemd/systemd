@@ -26,6 +26,7 @@
 #include <sys/signalfd.h>
 #include <unistd.h>
 
+#include "fs-util.h"
 #include "missing.h"
 #include "selinux-util.h"
 #include "signal-util.h"

@@ -29,6 +29,7 @@
 
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "lockfile-util.h"
 #include "path-util.h"
 #include "util.h"

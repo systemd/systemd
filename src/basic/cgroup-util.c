@@ -35,6 +35,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "formats-util.h"
+#include "fs-util.h"
 #include "login-util.h"
 #include "macro.h"
 #include "mkdir.h"

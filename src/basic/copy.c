@@ -28,6 +28,7 @@
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "io-util.h"
 #include "string-util.h"
 #include "strv.h"

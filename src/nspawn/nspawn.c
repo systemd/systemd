@@ -61,6 +61,7 @@
 #include "fdset.h"
 #include "fileio.h"
 #include "formats-util.h"
+#include "fs-util.h"
 #include "gpt.h"
 #include "hostname-util.h"
 #include "log.h"

@@ -83,14 +83,6 @@ static inline const char* one_zero(bool b) {
         return b ? "1" : "0";
 }
 
-int readlinkat_malloc(int fd, const char *p, char **ret);
-int readlink_malloc(const char *p, char **r);
-int readlink_value(const char *p, char **ret);
-int readlink_and_make_absolute(const char *p, char **r);
-int readlink_and_canonicalize(const char *p, char **r);
-
-int rmdir_parents(const char *path, const char *stop);
-
 /* For basic lookup tables with strictly enumerated entries */
 #define _DEFINE_STRING_TABLE_LOOKUP_TO_STRING(name,type,scope)          \
         scope const char *name##_to_string(type i) {                    \
@@ -159,9 +151,6 @@ static inline int dir_is_populated(const char *path) {
         return !r;
 }
 
-int chmod_and_chown(const char *path, mode_t mode, uid_t uid, gid_t gid);
-int fchmod_and_fchown(int fd, mode_t mode, uid_t uid, gid_t gid);
-
 typedef long statfs_f_type_t;
 
 bool is_fs_type(const struct statfs *s, statfs_f_type_t magic_value) _pure_;
@@ -179,9 +168,6 @@ int files_same(const char *filea, const char *fileb);
 
 int running_in_chroot(void);
 
-int touch_file(const char *path, bool parents, usec_t stamp, uid_t uid, gid_t gid, mode_t mode);
-int touch(const char *path);
-
 noreturn void freeze(void);
 
 bool null_or_empty(struct stat *st) _pure_;
@@ -192,21 +178,11 @@ void execute_directories(const char* const* directories, usec_t timeout, char *a
 
 bool plymouth_running(void);
 
-int symlink_idempotent(const char *from, const char *to);
-
-int symlink_atomic(const char *from, const char *to);
-int mknod_atomic(const char *path, mode_t mode, dev_t dev);
-int mkfifo_atomic(const char *path, mode_t mode);
-
-int fchmod_umask(int fd, mode_t mode);
-
 bool display_is_local(const char *display) _pure_;
 int socket_from_display(const char *display, char **path);
 
 int glob_exists(const char *path);
 int glob_extend(char ***strv, const char *path);
-
-int get_files_in_directory(const char *path, char ***list);
 
 bool is_main_thread(void);
 
@@ -408,8 +384,6 @@ static inline unsigned log2u_round_up(unsigned x) {
                 ans;                                    \
         })
 
-int unlink_noerrno(const char *path);
-
 #define alloca0(n)                                      \
         ({                                              \
                 char *_new_;                            \
@@ -460,8 +434,6 @@ int container_get_leader(const char *machine, pid_t *pid);
 int namespace_open(pid_t pid, int *pidns_fd, int *mntns_fd, int *netns_fd, int *userns_fd, int *root_fd);
 int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int root_fd);
 
-int fd_warn_permissions(const char *path, int fd);
-
 #ifndef PERSONALITY_INVALID
 /* personality(7) documents that 0xffffffffUL is used for querying the
  * current personality, hence let's use that here as error
@@ -498,11 +470,7 @@ union inotify_event_buffer {
         uint8_t raw[INOTIFY_EVENT_MAX];
 };
 
-#define laccess(path, mode) faccessat(AT_FDCWD, (path), (mode), AT_SYMLINK_NOFOLLOW)
-
 int syslog_parse_priority(const char **p, int *priority, bool with_facility);
-
-int rename_noreplace(int olddirfd, const char *oldpath, int newdirfd, const char *newpath);
 
 int version(void);
 

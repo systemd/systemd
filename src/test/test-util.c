@@ -37,6 +37,7 @@
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "fstab-util.h"
 #include "hexdecoct.h"
 #include "io-util.h"
