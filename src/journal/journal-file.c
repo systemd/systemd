@@ -38,6 +38,7 @@
 #include "parse-util.h"
 #include "random-util.h"
 #include "string-util.h"
+#include "xattr-util.h"
 
 #define DEFAULT_DATA_HASH_TABLE_SIZE (2047ULL*sizeof(HashItem))
 #define DEFAULT_FIELD_HASH_TABLE_SIZE (333ULL*sizeof(HashItem))

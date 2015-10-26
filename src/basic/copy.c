@@ -31,6 +31,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "util.h"
+#include "xattr-util.h"
 
 #define COPY_BUFFER_SIZE (16*1024)
 

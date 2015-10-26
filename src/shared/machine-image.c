@@ -34,6 +34,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "utf8.h"
+#include "xattr-util.h"
 
 static const char image_search_path[] =
         "/var/lib/machines\0"

@@ -500,13 +500,6 @@ union inotify_event_buffer {
 
 #define laccess(path, mode) faccessat(AT_FDCWD, (path), (mode), AT_SYMLINK_NOFOLLOW)
 
-ssize_t fgetxattrat_fake(int dirfd, const char *filename, const char *attribute, void *value, size_t size, int flags);
-
-int fd_setcrtime(int fd, usec_t usec);
-int fd_getcrtime(int fd, usec_t *usec);
-int path_getcrtime(const char *p, usec_t *usec);
-int fd_getcrtime_at(int dirfd, const char *name, usec_t *usec, int flags);
-
 int chattr_fd(int fd, unsigned value, unsigned mask);
 int chattr_path(const char *p, unsigned value, unsigned mask);
 
@@ -516,9 +509,6 @@ int read_attr_path(const char *p, unsigned *ret);
 int syslog_parse_priority(const char **p, int *priority, bool with_facility);
 
 int rename_noreplace(int olddirfd, const char *oldpath, int newdirfd, const char *newpath);
-
-int getxattr_malloc(const char *path, const char *name, char **value, bool allow_symlink);
-int fgetxattr_malloc(int fd, const char *name, char **value);
 
 int version(void);
 

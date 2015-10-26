@@ -795,6 +795,8 @@ libbasic_la_SOURCES = \
 	src/basic/rlimit-util.h \
 	src/basic/dirent-util.c \
 	src/basic/dirent-util.h \
+	src/basic/xattr-util.c \
+	src/basic/xattr-util.h \
 	src/basic/mount-util.c \
 	src/basic/mount-util.h \
 	src/basic/hexdecoct.c \
