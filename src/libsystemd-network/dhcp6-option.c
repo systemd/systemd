@@ -344,7 +344,7 @@ int dhcp6_option_parse_domainname(const uint8_t *optval, uint16_t optlen, char *
         int r;
 
         assert_return(optlen > 1, -ENODATA);
-        assert_return(optval[optlen] == '\0', -EINVAL);
+        assert_return(optval[optlen - 1] == '\0', -EINVAL);
 
         while (pos < optlen) {
                 _cleanup_free_ char *ret = NULL;
