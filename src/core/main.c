@@ -69,6 +69,7 @@
 #include "pager.h"
 #include "parse-util.h"
 #include "process-util.h"
+#include "rlimit-util.h"
 #include "selinux-setup.h"
 #include "selinux-util.h"
 #include "signal-util.h"

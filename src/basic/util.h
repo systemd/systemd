@@ -247,9 +247,6 @@ bool log_level_is_valid(int level);
 int sched_policy_to_string_alloc(int i, char **s);
 int sched_policy_from_string(const char *s);
 
-const char *rlimit_to_string(int i) _const_;
-int rlimit_from_string(const char *s) _pure_;
-
 extern int saved_argc;
 extern char **saved_argv;
 
@@ -260,8 +257,6 @@ int prot_from_flags(int flags) _const_;
 void* memdup(const void *p, size_t l) _alloc_(2);
 
 int fork_agent(pid_t *pid, const int except[], unsigned n_except, const char *path, ...);
-
-int setrlimit_closest(int resource, const struct rlimit *rlim);
 
 bool http_url_is_valid(const char *url) _pure_;
 bool documentation_url_is_valid(const char *url) _pure_;
@@ -549,8 +544,6 @@ int chattr_path(const char *p, unsigned value, unsigned mask);
 
 int read_attr_fd(int fd, unsigned *ret);
 int read_attr_path(const char *p, unsigned *ret);
-
-#define RLIMIT_MAKE_CONST(lim) ((struct rlimit) { lim, lim })
 
 int syslog_parse_priority(const char **p, int *priority, bool with_facility);
 

@@ -79,6 +79,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "rlimit-util.h"
 #include "rm-rf.h"
 #ifdef HAVE_SECCOMP
 #include "seccomp-util.h"
