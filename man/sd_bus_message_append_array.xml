@@ -131,7 +131,7 @@
     <parameter>type</parameter>. However, as a special exception, if
     the offset is specified as zero and the size specified as
     UINT64_MAX the full memory file descriptor contents is used. The
-    memory file descriptor is sealed by this call if it hasn't been
+    memory file descriptor is sealed by this call if it has not been
     sealed yet, and cannot be modified after this call. See
     <citerefentry
     project='man-pages'><refentrytitle>memfd_create</refentrytitle><manvolnum>2</manvolnum></citerefentry>

@@ -108,7 +108,7 @@
   <refsect1>
     <title>Example</title>
 
-    <para>Here's an example <filename>/etc/nsswitch.conf</filename>
+    <para>Here is an example <filename>/etc/nsswitch.conf</filename>
     file that enables <command>myhostname</command> correctly:</para>
 
 <programlisting>passwd:         compat mymachines

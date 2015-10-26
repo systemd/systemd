@@ -269,7 +269,7 @@
           <para>
             Instead of heading off now and writing all kind of
             generators for legacy configuration file formats, please
-            think twice! It's often a better idea to just deprecate
+            think twice! It is often a better idea to just deprecate
             old stuff instead of keeping it artificially alive.
           </para>
         </listitem>

@@ -904,7 +904,7 @@
     refers to the image of the running host system. It hence
     conceptually maps to the special <literal>.host</literal> machine
     name described above. Note that <command>machinectl
-    list-images</command> won't show this special image either, unless
+    list-images</command> will not show this special image either, unless
     <option>--all</option> is specified.</para>
   </refsect1>
 

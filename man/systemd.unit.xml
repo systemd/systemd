@@ -779,7 +779,7 @@
         <term><varname>ConditionFileNotEmpty=</varname></term>
         <term><varname>ConditionFileIsExecutable=</varname></term>
 
-        <!-- We don't document ConditionNull=
+        <!-- We do not document ConditionNull=
              here, as it is not particularly
              useful and probably just
              confusing. -->

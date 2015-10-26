@@ -443,7 +443,7 @@
 
       <varlistentry>
         <term><varname>KeepAliveProbes=</varname></term>
-        <listitem><para>Takes an integer as argument. It's the number of
+        <listitem><para>Takes an integer as argument. It is the number of
         unacknowledged probes to send before considering the
         connection dead and notifying the application layer. This
         controls the TCP_KEEPCNT socket option (see

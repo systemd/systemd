@@ -1324,7 +1324,7 @@ ExecStart=/usr/sbin/simple-dbus-service
 [Install]
 WantedBy=multi-user.target</programlisting>
 
-      <para>For <emphasis>bus-activatable</emphasis> services, don't
+      <para>For <emphasis>bus-activatable</emphasis> services, do not
       include a <literal>[Install]</literal> section in the systemd
       service file, but use the <varname>SystemdService=</varname>
       option in the corresponding DBus service file, for example
@@ -1366,7 +1366,7 @@ ExecStart=/usr/sbin/simple-notifying-service
 WantedBy=multi-user.target</programlisting>
 
       <para>Note that the daemon has to support systemd's notification
-      protocol, else systemd will think the service hasn't started yet
+      protocol, else systemd will think the service has not started yet
       and kill it after a timeout. For an example of how to update
       daemons to support this protocol transparently, take a look at
       <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>.

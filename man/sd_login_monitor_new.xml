@@ -214,7 +214,7 @@ else {
         <term><constant>-EINVAL</constant></term>
 
         <listitem><para>An input parameter was invalid (out of range,
-        or NULL, where that's not accepted). The specified category to
+        or NULL, where that is not accepted). The specified category to
         watch is not known.</para></listitem>
       </varlistentry>
 

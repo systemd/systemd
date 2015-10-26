@@ -187,7 +187,7 @@ else {
     certain latency. This call will return a positive value if the
     journal changes are detected immediately and zero when they need
     to be polled for and hence might be noticed only with a certain
-    latency. Note that there's usually no need to invoke this function
+    latency. Note that there is usually no need to invoke this function
     directly as <function>sd_journal_get_timeout()</function> on these
     file systems will ask for timeouts explicitly anyway.</para>
   </refsect1>
