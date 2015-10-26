@@ -370,7 +370,7 @@ int network_apply(Manager *manager, Network *network, Link *link) {
                 route->family = AF_INET;
                 route->dst_prefixlen = 16;
                 route->scope = RT_SCOPE_LINK;
-                route->metrics = IPV4LL_ROUTE_METRIC;
+                route->priority = IPV4LL_ROUTE_METRIC;
                 route->protocol = RTPROT_STATIC;
         }
 

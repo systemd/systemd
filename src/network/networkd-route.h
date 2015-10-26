@@ -34,10 +34,9 @@ struct Route {
         unsigned char dst_prefixlen;
         unsigned char src_prefixlen;
         unsigned char scope;
-        uint32_t metrics;
         unsigned char protocol;  /* RTPROT_* */
         unsigned char tos;
-        unsigned char priority;
+        uint32_t priority; /* note that ip(8) calls this 'metric' */
         unsigned char table;
 
         union in_addr_union gw;
