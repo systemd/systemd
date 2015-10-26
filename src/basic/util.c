@@ -886,23 +886,6 @@ bool in_initrd(void) {
         return saved;
 }
 
-bool string_is_safe(const char *p) {
-        const char *t;
-
-        if (!p)
-                return false;
-
-        for (t = p; *t; t++) {
-                if (*t > 0 && *t < ' ')
-                        return false;
-
-                if (strchr("\\\"\'\x7f", *t))
-                        return false;
-        }
-
-        return true;
-}
-
 /* hey glibc, APIs with callbacks without a user pointer are so useless */
 void *xbsearch_r(const void *key, const void *base, size_t nmemb, size_t size,
                  int (*compar) (const void *, const void *, void *), void *arg) {

@@ -262,8 +262,6 @@ _alloc_(2, 3) static inline void *memdup_multiply(const void *p, size_t a, size_
         return memdup(p, a * b);
 }
 
-bool string_is_safe(const char *p) _pure_;
-
 /**
  * Check if a string contains any glob patterns.
  */
