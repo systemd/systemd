@@ -82,6 +82,7 @@
 #include "util.h"
 #include "utmp-wtmp.h"
 #include "verbs.h"
+#include "virt.h"
 
 static char **arg_types = NULL;
 static char **arg_states = NULL;

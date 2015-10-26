@@ -179,16 +179,6 @@ void rename_process(const char name[8]) {
         }
 }
 
-int running_in_chroot(void) {
-        int ret;
-
-        ret = files_same("/proc/1/root", "/");
-        if (ret < 0)
-                return ret;
-
-        return ret == 0;
-}
-
 noreturn void freeze(void) {
 
         /* Make sure nobody waits for us on a socket anymore */

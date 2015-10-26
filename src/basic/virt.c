@@ -24,6 +24,7 @@
 #include <unistd.h>
 
 #include "fileio.h"
+#include "stat-util.h"
 #include "process-util.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -410,6 +411,16 @@ int detect_virtualization(void) {
                 return r;
 
         return detect_vm();
+}
+
+int running_in_chroot(void) {
+        int ret;
+
+        ret = files_same("/proc/1/root", "/");
+        if (ret < 0)
+                return ret;
+
+        return ret == 0;
 }
 
 static const char *const virtualization_table[_VIRTUALIZATION_MAX] = {
