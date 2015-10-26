@@ -52,3 +52,5 @@ int get_home_dir(char **ret);
 int get_shell(char **_ret);
 
 int reset_uid_gid(void);
+
+int take_etc_passwd_lock(const char *root);

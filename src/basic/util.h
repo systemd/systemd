@@ -519,8 +519,6 @@ union file_handle_union {
 
 int update_reboot_param_file(const char *param);
 
-int take_password_lock(const char *root);
-
 int is_symlink(const char *path);
 int is_dir(const char *path, bool follow);
 int is_device_node(const char *path);
