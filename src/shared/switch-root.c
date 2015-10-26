@@ -35,6 +35,7 @@
 #include "rm-rf.h"
 #include "string-util.h"
 #include "switch-root.h"
+#include "user-util.h"
 #include "util.h"
 
 int switch_root(const char *new_root, const char *oldroot, bool detach_oldroot,  unsigned long mountflags) {

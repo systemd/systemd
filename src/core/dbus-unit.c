@@ -31,6 +31,7 @@
 #include "special.h"
 #include "string-util.h"
 #include "strv.h"
+#include "user-util.h"
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_load_state, unit_load_state, UnitLoadState);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_job_mode, job_mode, JobMode);

@@ -41,6 +41,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "strxcpyx.h"
+#include "user-util.h"
 #include "util.h"
 
 int device_add_property(sd_device *device, const char *key, const char *value) {

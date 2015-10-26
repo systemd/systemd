@@ -40,6 +40,7 @@
 #include "set.h"
 #include "smack-util.h"
 #include "strv.h"
+#include "user-util.h"
 #include "util.h"
 #include "virt.h"
 

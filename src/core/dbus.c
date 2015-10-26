@@ -45,6 +45,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "strxcpyx.h"
+#include "user-util.h"
 
 #define CONNECTIONS_MAX 4096
 

@@ -38,6 +38,7 @@
 #include "path-util.h"
 #include "selinux-util.h"
 #include "strv.h"
+#include "user-util.h"
 #include "util.h"
 
 #define NULL_ADJTIME_UTC "0.0 0 0\n0\nUTC\n"

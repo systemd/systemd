@@ -38,6 +38,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "user-util.h"
 #include "util.h"
 
 enum {

@@ -27,6 +27,7 @@
 #include "process-util.h"
 #include "string-util.h"
 #include "test-helper.h"
+#include "user-util.h"
 #include "util.h"
 
 static void check_p_d_u(const char *path, int code, const char *result) {

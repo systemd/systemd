@@ -40,6 +40,7 @@
 #include "string-table.h"
 #include "strv.h"
 #include "syslog-util.h"
+#include "user-util.h"
 #include "util.h"
 #include "web-util.h"
 

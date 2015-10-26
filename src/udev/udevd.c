@@ -63,6 +63,7 @@
 #include "terminal-util.h"
 #include "udev-util.h"
 #include "udev.h"
+#include "user-util.h"
 
 static bool arg_debug = false;
 static int arg_daemonize = false;

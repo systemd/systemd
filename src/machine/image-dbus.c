@@ -20,10 +20,11 @@
 ***/
 
 #include "bus-label.h"
-#include "strv.h"
 #include "bus-util.h"
-#include "machine-image.h"
 #include "image-dbus.h"
+#include "machine-image.h"
+#include "strv.h"
+#include "user-util.h"
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_type, image_type, ImageType);
 

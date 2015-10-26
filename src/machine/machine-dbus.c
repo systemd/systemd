@@ -48,6 +48,7 @@
 #include "process-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "user-util.h"
 
 static int property_get_id(
                 sd_bus *bus,

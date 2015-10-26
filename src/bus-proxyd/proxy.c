@@ -44,6 +44,7 @@
 #include "set.h"
 #include "strv.h"
 #include "synthesize.h"
+#include "user-util.h"
 #include "util.h"
 
 static int proxy_create_destination(Proxy *p, const char *destination, const char *local_sec, bool negotiate_fds) {

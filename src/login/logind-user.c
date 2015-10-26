@@ -45,6 +45,7 @@
 #include "special.h"
 #include "string-table.h"
 #include "unit-name.h"
+#include "user-util.h"
 #include "util.h"
 
 User* user_new(Manager *m, uid_t uid, gid_t gid, const char *name) {

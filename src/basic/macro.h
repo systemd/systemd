@@ -295,14 +295,6 @@ static inline unsigned long ALIGN_POWER2(unsigned long u) {
 #define PTR_TO_SIZE(p) ((size_t) ((uintptr_t) (p)))
 #define SIZE_TO_PTR(u) ((void *) ((uintptr_t) (u)))
 
-/* The following macros add 1 when converting things, since UID 0 is a
- * valid UID, while the pointer NULL is special */
-#define PTR_TO_UID(p) ((uid_t) (((uintptr_t) (p))-1))
-#define UID_TO_PTR(u) ((void*) (((uintptr_t) (u))+1))
-
-#define PTR_TO_GID(p) ((gid_t) (((uintptr_t) (p))-1))
-#define GID_TO_PTR(u) ((void*) (((uintptr_t) (u))+1))
-
 #define PTR_TO_PID(p) ((pid_t) ((uintptr_t) p))
 #define PID_TO_PTR(p) ((void*) ((uintptr_t) p))
 
@@ -466,8 +458,6 @@ do {                                                                    \
 #endif
 #endif
 
-#define UID_INVALID ((uid_t) -1)
-#define GID_INVALID ((gid_t) -1)
 #define MODE_INVALID ((mode_t) -1)
 
 #define DEFINE_TRIVIAL_CLEANUP_FUNC(type, func)                 \

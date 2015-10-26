@@ -30,6 +30,7 @@
 #include "macro.h"
 #include "string-util.h"
 #include "umask-util.h"
+#include "user-util.h"
 #include "util.h"
 
 typedef struct BaseFilesystem {
