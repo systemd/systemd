@@ -986,7 +986,8 @@ int bus_unit_queue_job(
 
         if ((type == JOB_START && u->refuse_manual_start) ||
             (type == JOB_STOP && u->refuse_manual_stop) ||
-            ((type == JOB_RESTART || type == JOB_TRY_RESTART) && (u->refuse_manual_start || u->refuse_manual_stop)))
+            ((type == JOB_RESTART || type == JOB_TRY_RESTART) && (u->refuse_manual_start || u->refuse_manual_stop)) ||
+            (type == JOB_RELOAD_OR_START && job_type_collapse(type, u) == JOB_START && u->refuse_manual_start))
                 return sd_bus_error_setf(error, BUS_ERROR_ONLY_BY_DEPENDENCY, "Operation refused, unit %s may be requested by dependency only.", u->id);
 
         r = manager_add_job(u->manager, type, u, mode, true, error, &j);
