@@ -421,15 +421,6 @@ int glob_extend(char ***strv, const char *path) {
         return k;
 }
 
-bool is_main_thread(void) {
-        static thread_local int cached = 0;
-
-        if (_unlikely_(cached == 0))
-                cached = getpid() == gettid() ? 1 : -1;
-
-        return cached > 0;
-}
-
 int block_get_whole_disk(dev_t d, dev_t *ret) {
         char *p, *s;
         int r;

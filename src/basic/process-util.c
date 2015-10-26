@@ -585,3 +585,12 @@ bool pid_is_alive(pid_t pid) {
 
         return true;
 }
+
+bool is_main_thread(void) {
+        static thread_local int cached = 0;
+
+        if (_unlikely_(cached == 0))
+                cached = getpid() == gettid() ? 1 : -1;
+
+        return cached > 0;
+}

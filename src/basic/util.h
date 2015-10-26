@@ -103,8 +103,6 @@ int socket_from_display(const char *display, char **path);
 int glob_exists(const char *path);
 int glob_extend(char ***strv, const char *path);
 
-bool is_main_thread(void);
-
 int block_get_whole_disk(dev_t d, dev_t *ret);
 
 #define NULSTR_FOREACH(i, l)                                    \
