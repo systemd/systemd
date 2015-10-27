@@ -59,6 +59,7 @@
 #include "process-util.h"
 #include "selinux-util.h"
 #include "signal-util.h"
+#include "socket-util.h"
 #include "string-util.h"
 #include "terminal-util.h"
 #include "udev-util.h"

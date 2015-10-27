@@ -19,10 +19,11 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "dirent-util.h"
 #include "fd-util.h"
 #include "parse-util.h"
+#include "socket-util.h"
 #include "util.h"
-#include "dirent-util.h"
 
 int close_nointr(int fd) {
         assert(fd >= 0);
