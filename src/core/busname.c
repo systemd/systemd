@@ -364,10 +364,9 @@ static int busname_coldplug(Unit *u) {
         if (n->deserialized_state == n->state)
                 return 0;
 
-        if (IN_SET(n->deserialized_state, BUSNAME_MAKING, BUSNAME_SIGTERM, BUSNAME_SIGKILL)) {
-
-                if (n->control_pid <= 0)
-                        return -EBADMSG;
+        if (n->control_pid > 0 &&
+            pid_is_unwaited(n->control_pid) &&
+            IN_SET(n->deserialized_state, BUSNAME_MAKING, BUSNAME_SIGTERM, BUSNAME_SIGKILL)) {
 
                 r = unit_watch_pid(UNIT(n), n->control_pid);
                 if (r < 0)

@@ -1455,7 +1455,9 @@ static int socket_coldplug(Unit *u) {
         if (s->deserialized_state == s->state)
                 return 0;
 
-        if (IN_SET(s->deserialized_state,
+        if (s->control_pid > 0 &&
+            pid_is_unwaited(s->control_pid) &&
+            IN_SET(s->deserialized_state,
                    SOCKET_START_PRE,
                    SOCKET_START_CHOWN,
                    SOCKET_START_POST,
@@ -1465,9 +1467,6 @@ static int socket_coldplug(Unit *u) {
                    SOCKET_STOP_POST,
                    SOCKET_FINAL_SIGTERM,
                    SOCKET_FINAL_SIGKILL)) {
-
-                if (s->control_pid <= 0)
-                        return -EBADMSG;
 
                 r = unit_watch_pid(UNIT(s), s->control_pid);
                 if (r < 0)
