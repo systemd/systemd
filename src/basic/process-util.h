@@ -60,8 +60,10 @@ void sigkill_wait(pid_t *pid);
 
 int kill_and_sigcont(pid_t pid, int sig);
 pid_t get_parent_of_pid(pid_t pid, pid_t *ppid);
+
 void rename_process(const char name[8]);
 int is_kernel_thread(pid_t pid);
+
 int getenv_for_pid(pid_t pid, const char *field, char **_value);
 
 bool pid_is_alive(pid_t pid);

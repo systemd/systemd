@@ -125,37 +125,6 @@ size_t page_size(void) {
         return pgsz;
 }
 
-void rename_process(const char name[8]) {
-        assert(name);
-
-        /* This is a like a poor man's setproctitle(). It changes the
-         * comm field, argv[0], and also the glibc's internally used
-         * name of the process. For the first one a limit of 16 chars
-         * applies, to the second one usually one of 10 (i.e. length
-         * of "/sbin/init"), to the third one one of 7 (i.e. length of
-         * "systemd"). If you pass a longer string it will be
-         * truncated */
-
-        prctl(PR_SET_NAME, name);
-
-        if (program_invocation_name)
-                strncpy(program_invocation_name, name, strlen(program_invocation_name));
-
-        if (saved_argc > 0) {
-                int i;
-
-                if (saved_argv[0])
-                        strncpy(saved_argv[0], name, strlen(saved_argv[0]));
-
-                for (i = 1; i < saved_argc; i++) {
-                        if (!saved_argv[i])
-                                break;
-
-                        memzero(saved_argv[i], strlen(saved_argv[i]));
-                }
-        }
-}
-
 noreturn void freeze(void) {
 
         /* Make sure nobody waits for us on a socket anymore */
