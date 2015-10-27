@@ -31,6 +31,7 @@
 #include "journald-server.h"
 #include "parse-util.h"
 #include "process-util.h"
+#include "stdio-util.h"
 #include "terminal-util.h"
 
 static bool prefix_timestamp(void) {

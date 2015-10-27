@@ -23,6 +23,7 @@
 
 #include "fd-util.h"
 #include "sparse-endian.h"
+#include "stdio-util.h"
 #include "util.h"
 #include "xattr-util.h"
 

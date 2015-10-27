@@ -45,6 +45,7 @@
 #include "signal-util.h"
 #include "socket-util.h"
 #include "special.h"
+#include "stdio-util.h"
 #include "util.h"
 
 /* exit codes as defined in fsck(8) */

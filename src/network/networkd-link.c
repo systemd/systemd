@@ -33,6 +33,7 @@
 #include "networkd-netdev.h"
 #include "set.h"
 #include "socket-util.h"
+#include "stdio-util.h"
 #include "string-table.h"
 #include "udev-util.h"
 #include "util.h"

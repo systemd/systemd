@@ -44,6 +44,7 @@
 #include "parse-util.h"
 #include "selinux-util.h"
 #include "socket-util.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "syslog-util.h"
 

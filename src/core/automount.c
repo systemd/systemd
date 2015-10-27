@@ -45,6 +45,7 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "special.h"
+#include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "unit-name.h"

@@ -766,6 +766,7 @@ libbasic_la_SOURCES = \
 	src/basic/capability-util.h \
 	src/basic/conf-files.c \
 	src/basic/conf-files.h \
+	src/basic/stdio-util.h \
 	src/basic/hostname-util.h \
 	src/basic/hostname-util.c \
 	src/basic/unit-name.c \

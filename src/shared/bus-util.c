@@ -43,6 +43,7 @@
 #include "rlimit-util.h"
 #include "set.h"
 #include "signal-util.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "syslog-util.h"

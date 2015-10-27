@@ -30,6 +30,7 @@
 #include "log.h"
 #include "process-util.h"
 #include "spawn-polkit-agent.h"
+#include "stdio-util.h"
 #include "util.h"
 
 #ifdef ENABLE_POLKIT
@@ -78,8 +79,9 @@ void polkit_agent_close(void) {
                 return;
 
         /* Inform agent that we are done */
-        kill(agent_pid, SIGTERM);
-        kill(agent_pid, SIGCONT);
+        (void) kill(agent_pid, SIGTERM);
+        (void) kill(agent_pid, SIGCONT);
+
         (void) wait_for_terminate(agent_pid, NULL);
         agent_pid = 0;
 }

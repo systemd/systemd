@@ -85,10 +85,6 @@ static inline const char* one_zero(bool b) {
 
 bool fstype_is_network(const char *fstype);
 
-#define xsprintf(buf, fmt, ...) \
-        assert_message_se((size_t) snprintf(buf, ELEMENTSOF(buf), fmt, __VA_ARGS__) < ELEMENTSOF(buf), \
-                          "xsprintf: " #buf "[] must be big enough")
-
 noreturn void freeze(void);
 
 void execute_directories(const char* const* directories, usec_t timeout, char *argv[]);

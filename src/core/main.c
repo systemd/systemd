@@ -78,6 +78,7 @@
 #include "smack-setup.h"
 #include "special.h"
 #include "stat-util.h"
+#include "stdio-util.h"
 #include "strv.h"
 #include "switch-root.h"
 #include "terminal-util.h"

@@ -37,6 +37,7 @@
 #include "journald-syslog.h"
 #include "parse-util.h"
 #include "process-util.h"
+#include "stdio-util.h"
 #include "string-util.h"
 
 void server_forward_kmsg(
