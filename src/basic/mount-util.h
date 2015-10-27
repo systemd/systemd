@@ -32,6 +32,8 @@
 int fd_is_mount_point(int fd, const char *filename, int flags);
 int path_is_mount_point(const char *path, int flags);
 
+int repeat_unmount(const char *path, int flags);
+
 int umount_recursive(const char *target, int flags);
 int bind_remount_recursive(const char *prefix, bool ro);
 

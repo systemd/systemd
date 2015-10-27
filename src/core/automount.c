@@ -89,26 +89,11 @@ static void automount_init(Unit *u) {
         UNIT(a)->ignore_on_isolate = true;
 }
 
-static void repeat_unmount(const char *path) {
-        assert(path);
-
-        for (;;) {
-                /* If there are multiple mounts on a mount point, this
-                 * removes them all */
-
-                if (umount2(path, MNT_DETACH) >= 0)
-                        continue;
-
-                if (errno != EINVAL)
-                        log_error_errno(errno, "Failed to unmount: %m");
-
-                break;
-        }
-}
-
 static int automount_send_ready(Automount *a, Set *tokens, int status);
 
 static void unmount_autofs(Automount *a) {
+        int r;
+
         assert(a);
 
         if (a->pipe_fd < 0)
@@ -124,8 +109,11 @@ static void unmount_autofs(Automount *a) {
          * around */
         if (a->where &&
             (UNIT(a)->manager->exit_code != MANAGER_RELOAD &&
-             UNIT(a)->manager->exit_code != MANAGER_REEXECUTE))
-                repeat_unmount(a->where);
+             UNIT(a)->manager->exit_code != MANAGER_REEXECUTE)) {
+                r = repeat_unmount(a->where, MNT_DETACH);
+                if (r < 0)
+                        log_error_errno(r, "Failed to unmount: %m");
+        }
 }
 
 static void automount_done(Unit *u) {
@@ -615,12 +603,16 @@ static void automount_enter_waiting(Automount *a) {
         return;
 
 fail:
+        log_unit_error_errno(UNIT(a), r, "Failed to initialize automounter: %m");
+
         safe_close_pair(p);
 
-        if (mounted)
-                repeat_unmount(a->where);
+        if (mounted) {
+                r = repeat_unmount(a->where, MNT_DETACH);
+                if (r < 0)
+                        log_error_errno(r, "Failed to unmount, ignoring: %m");
+        }
 
-        log_unit_error_errno(UNIT(a), r, "Failed to initialize automounter: %m");
         automount_enter_dead(a, AUTOMOUNT_FAILURE_RESOURCES);
 }
 

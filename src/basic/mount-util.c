@@ -506,3 +506,24 @@ bool fstype_is_network(const char *fstype) {
 
         return nulstr_contains(table, fstype);
 }
+
+int repeat_unmount(const char *path, int flags) {
+        bool done = false;
+
+        assert(path);
+
+        /* If there are multiple mounts on a mount point, this
+         * removes them all */
+
+        for (;;) {
+                if (umount2(path, flags) < 0) {
+
+                        if (errno == EINVAL)
+                                return done;
+
+                        return -errno;
+                }
+
+                done = true;
+        }
+}
