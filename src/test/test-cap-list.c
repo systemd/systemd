@@ -21,6 +21,7 @@
 
 #include <sys/prctl.h>
 
+#include "alloc-util.h"
 #include "cap-list.h"
 #include "capability-util.h"
 #include "fileio.h"

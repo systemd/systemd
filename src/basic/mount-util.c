@@ -23,6 +23,7 @@
 #include <sys/mount.h>
 #include <sys/statvfs.h>
 
+#include "alloc-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"

@@ -31,6 +31,7 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "bootchart.h"
 #include "cgroup-util.h"
 #include "dirent-util.h"

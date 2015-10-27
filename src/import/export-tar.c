@@ -21,6 +21,7 @@
 
 #include "sd-daemon.h"
 
+#include "alloc-util.h"
 #include "btrfs-util.h"
 #include "export-tar.h"
 #include "fd-util.h"

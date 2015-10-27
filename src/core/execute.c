@@ -53,6 +53,7 @@
 #include "sd-messages.h"
 
 #include "af-list.h"
+#include "alloc-util.h"
 #ifdef HAVE_APPARMOR
 #include "apparmor-util.h"
 #endif

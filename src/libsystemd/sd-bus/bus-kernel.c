@@ -34,6 +34,7 @@
 #include <libgen.h>
 #undef basename
 
+#include "alloc-util.h"
 #include "bus-bloom.h"
 #include "bus-internal.h"
 #include "bus-kernel.h"

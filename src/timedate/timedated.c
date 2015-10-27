@@ -27,6 +27,7 @@
 #include "sd-event.h"
 #include "sd-messages.h"
 
+#include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-util.h"

@@ -37,6 +37,7 @@
 #include "sd-daemon.h"
 #include "sd-login.h"
 
+#include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-message.h"

@@ -23,9 +23,10 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "fileio.h"
-#include "stat-util.h"
 #include "process-util.h"
+#include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "util.h"

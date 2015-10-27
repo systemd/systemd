@@ -27,6 +27,7 @@
 
 #include "sd-login.h"
 
+#include "alloc-util.h"
 #include "cgroup-util.h"
 #include "dirent-util.h"
 #include "escape.h"

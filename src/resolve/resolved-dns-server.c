@@ -19,9 +19,9 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "siphash24.h"
-
+#include "alloc-util.h"
 #include "resolved-dns-server.h"
+#include "siphash24.h"
 
 /* After how much time to repeat classic DNS requests */
 #define DNS_TIMEOUT_MIN_USEC (500 * USEC_PER_MSEC)

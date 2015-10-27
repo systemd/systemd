@@ -24,6 +24,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"

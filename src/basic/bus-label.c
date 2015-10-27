@@ -21,9 +21,10 @@
 
 #include <stdlib.h>
 
+#include "alloc-util.h"
 #include "bus-label.h"
-#include "macro.h"
 #include "hexdecoct.h"
+#include "macro.h"
 #include "util.h"
 
 char *bus_label_escape(const char *s) {

@@ -23,6 +23,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "ctype.h"
 #include "def.h"
 #include "env-util.h"

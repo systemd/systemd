@@ -24,6 +24,7 @@
 #include <pthread.h>
 #include <stdlib.h>
 
+#include "alloc-util.h"
 #include "hashmap.h"
 #include "macro.h"
 #include "mempool.h"

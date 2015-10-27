@@ -18,6 +18,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
+#include "alloc-util.h"
 #include "fd-util.h"
 #include "formats-util.h"
 #include "socket-util.h"

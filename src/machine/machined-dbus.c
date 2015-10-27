@@ -25,6 +25,7 @@
 
 #include "sd-id128.h"
 
+#include "alloc-util.h"
 #include "btrfs-util.h"
 #include "bus-common-errors.h"
 #include "bus-util.h"

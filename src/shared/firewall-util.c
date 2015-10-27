@@ -27,8 +27,9 @@
 #include <linux/netfilter/xt_addrtype.h>
 #include <libiptc/libiptc.h>
 
-#include "util.h"
+#include "alloc-util.h"
 #include "firewall-util.h"
+#include "util.h"
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct xtc_handle*, iptc_free);
 

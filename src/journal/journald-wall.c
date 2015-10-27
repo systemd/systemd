@@ -19,6 +19,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "alloc-util.h"
 #include "formats-util.h"
 #include "journald-server.h"
 #include "process-util.h"

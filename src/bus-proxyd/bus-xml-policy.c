@@ -21,6 +21,7 @@
 
 #include "sd-login.h"
 
+#include "alloc-util.h"
 #include "bus-internal.h"
 #include "bus-xml-policy.h"
 #include "conf-files.h"

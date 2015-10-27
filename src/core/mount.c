@@ -26,6 +26,7 @@
 
 #include "sd-messages.h"
 
+#include "alloc-util.h"
 #include "dbus-mount.h"
 #include "escape.h"
 #include "exit-status.h"
@@ -40,8 +41,8 @@
 #include "path-util.h"
 #include "smack-util.h"
 #include "special.h"
-#include "string-util.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
 #include "unit-name.h"
 #include "unit.h"

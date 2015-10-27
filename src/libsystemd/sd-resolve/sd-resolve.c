@@ -33,6 +33,7 @@
 
 #include "sd-resolve.h"
 
+#include "alloc-util.h"
 #include "fd-util.h"
 #include "io-util.h"
 #include "list.h"

@@ -22,6 +22,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "alloc-util.h"
 #include "conf-files.h"
 #include "fd-util.h"
 #include "fileio.h"

@@ -25,6 +25,7 @@
 #include "sd-daemon.h"
 #include "sd-event.h"
 
+#include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-internal.h"
 #include "bus-label.h"

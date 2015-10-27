@@ -19,6 +19,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "alloc-util.h"
 #include "fd-util.h"
 #include "journal-remote-parse.h"
 #include "journald-native.h"

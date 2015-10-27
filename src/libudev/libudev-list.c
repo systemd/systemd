@@ -17,11 +17,12 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdlib.h>
-#include <stddef.h>
 #include <errno.h>
+#include <stddef.h>
+#include <stdlib.h>
 #include <string.h>
 
+#include "alloc-util.h"
 #include "libudev-private.h"
 
 /**

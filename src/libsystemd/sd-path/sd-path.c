@@ -19,6 +19,7 @@
 
 #include "sd-path.h"
 
+#include "alloc-util.h"
 #include "architecture.h"
 #include "fd-util.h"
 #include "fileio.h"

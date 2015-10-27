@@ -22,6 +22,7 @@
 #include <netinet/tcp.h>
 
 #include "af-list.h"
+#include "alloc-util.h"
 #include "dns-domain.h"
 #include "fd-util.h"
 #include "hostname-util.h"

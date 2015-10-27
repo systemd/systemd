@@ -19,6 +19,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "alloc-util.h"
 #include "bus-label.h"
 #include "bus-util.h"
 #include "image-dbus.h"

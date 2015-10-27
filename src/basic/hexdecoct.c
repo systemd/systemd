@@ -22,6 +22,7 @@
 #include <ctype.h>
 #include <inttypes.h>
 
+#include "alloc-util.h"
 #include "hexdecoct.h"
 #include "util.h"
 

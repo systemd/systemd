@@ -25,6 +25,7 @@
 
 #include "sd-daemon.h"
 
+#include "alloc-util.h"
 #include "btrfs-util.h"
 #include "copy.h"
 #include "export-raw.h"

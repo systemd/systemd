@@ -29,6 +29,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "cgroup-util.h"
 #include "dirent-util.h"
 #include "extract-word.h"

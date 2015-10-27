@@ -22,6 +22,7 @@
 #include <sys/mount.h>
 #include <linux/magic.h>
 
+#include "alloc-util.h"
 #include "cgroup-util.h"
 #include "escape.h"
 #include "fs-util.h"

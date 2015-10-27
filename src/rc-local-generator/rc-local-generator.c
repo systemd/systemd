@@ -24,6 +24,7 @@
 #include <stdio.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "log.h"
 #include "mkdir.h"
 #include "string-util.h"

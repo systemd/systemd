@@ -25,6 +25,7 @@
 
 #include "sd-ndisc.h"
 
+#include "alloc-util.h"
 #include "condition.h"
 #include "conf-parser.h"
 #include "dhcp-lease-internal.h"

@@ -19,6 +19,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "alloc-util.h"
 #include "curl-util.h"
 #include "fd-util.h"
 #include "string-util.h"

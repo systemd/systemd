@@ -23,6 +23,7 @@
 #include <sys/mount.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "fd-util.h"
 #include "macro.h"
 #include "mount-util.h"

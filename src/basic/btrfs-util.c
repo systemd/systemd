@@ -26,6 +26,7 @@
 #include <linux/btrfs.h>
 #endif
 
+#include "alloc-util.h"
 #include "btrfs-ctree.h"
 #include "btrfs-util.h"
 #include "copy.h"

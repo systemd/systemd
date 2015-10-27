@@ -23,6 +23,7 @@
 
 #include <sys/xattr.h>
 
+#include "alloc-util.h"
 #include "fileio.h"
 #include "path-util.h"
 #include "process-util.h"

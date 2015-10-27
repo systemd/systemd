@@ -21,6 +21,7 @@
 
 #include <stdio.h>
 
+#include "alloc-util.h"
 #include "def.h"
 #include "string-util.h"
 #include "terminal-util.h"

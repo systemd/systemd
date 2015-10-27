@@ -25,6 +25,7 @@
 
 #include "sd-messages.h"
 
+#include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-util.h"
 #include "escape.h"

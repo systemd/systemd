@@ -24,6 +24,7 @@
 
 #include "libudev.h"
 
+#include "alloc-util.h"
 #include "dbus-device.h"
 #include "device.h"
 #include "log.h"

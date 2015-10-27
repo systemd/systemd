@@ -40,6 +40,7 @@
 #include "sd-daemon.h"
 #include "sd-bus.h"
 
+#include "alloc-util.h"
 #include "architecture.h"
 #include "build.h"
 #include "bus-error.h"

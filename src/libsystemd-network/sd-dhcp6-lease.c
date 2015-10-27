@@ -22,11 +22,11 @@
 
 #include <errno.h>
 
-#include "strv.h"
-#include "util.h"
-
+#include "alloc-util.h"
 #include "dhcp6-lease-internal.h"
 #include "dhcp6-protocol.h"
+#include "strv.h"
+#include "util.h"
 
 int dhcp6_lease_clear_timers(DHCP6IA *ia) {
         assert_return(ia, -EINVAL);

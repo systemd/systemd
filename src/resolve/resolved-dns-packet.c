@@ -19,6 +19,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
  ***/
 
+#include "alloc-util.h"
 #include "dns-domain.h"
 #include "resolved-dns-packet.h"
 #include "string-table.h"

@@ -40,6 +40,7 @@
 #include "sd-daemon.h"
 #include "sd-messages.h"
 
+#include "alloc-util.h"
 #include "audit-fd.h"
 #include "boot-timestamps.h"
 #include "bus-common-errors.h"

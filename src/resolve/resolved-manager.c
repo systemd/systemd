@@ -25,6 +25,7 @@
 #include <sys/ioctl.h>
 
 #include "af-list.h"
+#include "alloc-util.h"
 #include "dns-domain.h"
 #include "fd-util.h"
 #include "fileio-label.h"

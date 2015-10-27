@@ -33,6 +33,7 @@
 
 #include "sd-daemon.h"
 
+#include "alloc-util.h"
 #include "bus-internal.h"
 #include "bus-xml-policy.h"
 #include "capability-util.h"

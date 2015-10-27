@@ -23,6 +23,7 @@
 #include <sys/prctl.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "architecture.h"
 #include "build.h"
 #include "bus-common-errors.h"

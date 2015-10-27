@@ -27,6 +27,7 @@
 
 #include "sd-network.h"
 
+#include "alloc-util.h"
 #include "fileio.h"
 #include "macro.h"
 #include "string-util.h"

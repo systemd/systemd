@@ -23,9 +23,10 @@
 #include <errno.h>
 #include <sys/stat.h>
 
+#include "alloc-util.h"
+#include "fileio.h"
 #include "log.h"
 #include "util.h"
-#include "fileio.h"
 
 int main(int argc, char *argv[]) {
         struct stat st;

@@ -26,6 +26,7 @@
 #include <sys/prctl.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "capability-util.h"
 #include "fileio.h"
 #include "log.h"

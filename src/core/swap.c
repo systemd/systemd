@@ -26,6 +26,7 @@
 
 #include "libudev.h"
 
+#include "alloc-util.h"
 #include "dbus-swap.h"
 #include "escape.h"
 #include "exit-status.h"

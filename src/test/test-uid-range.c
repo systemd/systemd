@@ -21,6 +21,7 @@
 
 #include <stddef.h>
 
+#include "alloc-util.h"
 #include "uid-range.h"
 #include "user-util.h"
 #include "util.h"

@@ -25,6 +25,7 @@
 #include "sd-bus.h"
 #include "sd-login.h"
 
+#include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-util.h"
 #include "hostname-util.h"

@@ -33,6 +33,7 @@
 
 #include "sd-bus.h"
 
+#include "alloc-util.h"
 #include "audit-fd.h"
 #include "bus-util.h"
 #include "log.h"

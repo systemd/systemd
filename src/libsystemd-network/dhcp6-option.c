@@ -23,14 +23,14 @@
 #include <errno.h>
 #include <string.h>
 
-#include "sparse-endian.h"
-#include "unaligned.h"
-#include "util.h"
-#include "strv.h"
-
+#include "alloc-util.h"
 #include "dhcp6-internal.h"
 #include "dhcp6-protocol.h"
 #include "dns-domain.h"
+#include "sparse-endian.h"
+#include "strv.h"
+#include "unaligned.h"
+#include "util.h"
 
 #define DHCP6_OPTION_IA_NA_LEN                  12
 #define DHCP6_OPTION_IA_TA_LEN                  4

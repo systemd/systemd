@@ -27,6 +27,7 @@
 
 #include "sd-bus.h"
 
+#include "alloc-util.h"
 #include "analyze-verify.h"
 #include "bus-error.h"
 #include "bus-util.h"

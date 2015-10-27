@@ -30,6 +30,7 @@
 
 #include "sd-resolve.h"
 
+#include "alloc-util.h"
 #include "macro.h"
 #include "resolve-util.h"
 #include "socket-util.h"

@@ -32,6 +32,7 @@
 #include <sys/un.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "ask-password-api.h"
 #include "conf-parser.h"
 #include "def.h"

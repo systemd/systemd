@@ -39,6 +39,7 @@
 #include <unistd.h>
 
 #include "acl-util.h"
+#include "alloc-util.h"
 #include "btrfs-util.h"
 #include "capability-util.h"
 #include "chattr-util.h"

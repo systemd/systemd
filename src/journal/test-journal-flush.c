@@ -23,6 +23,7 @@
 
 #include "sd-journal.h"
 
+#include "alloc-util.h"
 #include "journal-file.h"
 #include "journal-internal.h"
 #include "macro.h"

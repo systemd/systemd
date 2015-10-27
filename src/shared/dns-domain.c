@@ -24,6 +24,7 @@
 #include <stringprep.h>
 #endif
 
+#include "alloc-util.h"
 #include "dns-domain.h"
 #include "hexdecoct.h"
 #include "parse-util.h"

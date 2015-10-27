@@ -37,6 +37,7 @@
 #include <sys/statfs.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "blkid-util.h"
 #include "efivars.h"
 #include "fd-util.h"

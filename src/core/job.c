@@ -24,6 +24,7 @@
 #include "sd-id128.h"
 #include "sd-messages.h"
 
+#include "alloc-util.h"
 #include "async.h"
 #include "dbus-job.h"
 #include "dbus.h"

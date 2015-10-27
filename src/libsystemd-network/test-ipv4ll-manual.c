@@ -29,6 +29,7 @@
 #include "sd-ipv4ll.h"
 #include "sd-netlink.h"
 
+#include "alloc-util.h"
 #include "event-util.h"
 #include "in-addr-util.h"
 #include "netlink-util.h"

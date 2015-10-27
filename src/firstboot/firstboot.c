@@ -24,6 +24,7 @@
 #include <shadow.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "ask-password-api.h"
 #include "copy.h"
 #include "fd-util.h"

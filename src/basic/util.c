@@ -69,6 +69,7 @@
  * otherwise conflicts with sys/mount.h. Yay, Linux is great! */
 #include <linux/fs.h>
 
+#include "alloc-util.h"
 #include "build.h"
 #include "def.h"
 #include "device-nodes.h"
@@ -487,19 +488,6 @@ int prot_from_flags(int flags) {
         }
 }
 
-void* memdup(const void *p, size_t l) {
-        void *r;
-
-        assert(p);
-
-        r = malloc(l);
-        if (!r)
-                return NULL;
-
-        memcpy(r, p, l);
-        return r;
-}
-
 int fork_agent(pid_t *pid, const int except[], unsigned n_except, const char *path, ...) {
         bool stdout_is_tty, stderr_is_tty;
         pid_t parent_pid, agent_pid;
@@ -723,51 +711,6 @@ int on_ac_power(void) {
         }
 
         return found_online || !found_offline;
-}
-
-void* greedy_realloc(void **p, size_t *allocated, size_t need, size_t size) {
-        size_t a, newalloc;
-        void *q;
-
-        assert(p);
-        assert(allocated);
-
-        if (*allocated >= need)
-                return *p;
-
-        newalloc = MAX(need * 2, 64u / size);
-        a = newalloc * size;
-
-        /* check for overflows */
-        if (a < size * need)
-                return NULL;
-
-        q = realloc(*p, a);
-        if (!q)
-                return NULL;
-
-        *p = q;
-        *allocated = newalloc;
-        return q;
-}
-
-void* greedy_realloc0(void **p, size_t *allocated, size_t need, size_t size) {
-        size_t prev;
-        uint8_t *q;
-
-        assert(p);
-        assert(allocated);
-
-        prev = *allocated;
-
-        q = greedy_realloc(p, allocated, need, size);
-        if (!q)
-                return NULL;
-
-        if (*allocated > prev)
-                memzero(q + prev * size, (*allocated - prev) * size);
-
-        return q;
 }
 
 bool id128_is_valid(const char *s) {

@@ -24,6 +24,7 @@
 #include <errno.h>
 #include <sys/inotify.h>
 
+#include "alloc-util.h"
 #include "fd-util.h"
 #include "io-util.h"
 #include "libudev-private.h"

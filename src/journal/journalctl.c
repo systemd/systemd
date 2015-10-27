@@ -39,6 +39,7 @@
 #include "sd-journal.h"
 
 #include "acl-util.h"
+#include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-util.h"
 #include "catalog.h"

@@ -27,6 +27,7 @@
 
 #include "sd-daemon.h"
 
+#include "alloc-util.h"
 #include "env-util.h"
 #include "formats-util.h"
 #include "log.h"

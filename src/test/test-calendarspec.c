@@ -21,6 +21,7 @@
 
 #include <string.h>
 
+#include "alloc-util.h"
 #include "calendarspec.h"
 #include "string-util.h"
 #include "util.h"

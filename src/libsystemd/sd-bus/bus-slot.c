@@ -21,6 +21,7 @@
 
 #include "sd-bus.h"
 
+#include "alloc-util.h"
 #include "bus-control.h"
 #include "bus-objects.h"
 #include "string-util.h"

@@ -23,6 +23,7 @@
 #include <signal.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "async.h"
 #include "bus-error.h"
 #include "bus-kernel.h"

@@ -22,6 +22,7 @@
 #include <math.h>
 #include <sys/types.h>
 
+#include "alloc-util.h"
 #include "json.h"
 #include "macro.h"
 #include "hexdecoct.h"

@@ -24,6 +24,7 @@
 #include <stddef.h>
 #include <stdio.h>
 
+#include "alloc-util.h"
 #include "libudev-private.h"
 #include "macro.h"
 #include "string-util.h"

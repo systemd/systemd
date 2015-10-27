@@ -23,6 +23,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "dev-setup.h"
 #include "label.h"
 #include "path-util.h"

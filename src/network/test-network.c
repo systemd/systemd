@@ -19,6 +19,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "alloc-util.h"
 #include "networkd.h"
 #include "network-internal.h"
 #include "dhcp-lease-internal.h"

@@ -22,6 +22,7 @@
 #include <linux/capability.h>
 #include <stdlib.h>
 
+#include "alloc-util.h"
 #include "audit-util.h"
 #include "bus-creds.h"
 #include "bus-label.h"

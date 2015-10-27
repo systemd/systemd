@@ -25,6 +25,7 @@
 
 #include "sd-journal.h"
 
+#include "alloc-util.h"
 #include "journal-file.h"
 #include "journal-vacuum.h"
 #include "log.h"

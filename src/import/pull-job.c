@@ -21,6 +21,7 @@
 
 #include <sys/xattr.h>
 
+#include "alloc-util.h"
 #include "fd-util.h"
 #include "hexdecoct.h"
 #include "io-util.h"

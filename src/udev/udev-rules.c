@@ -29,6 +29,7 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "conf-files.h"
 #include "escape.h"
 #include "fd-util.h"

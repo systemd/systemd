@@ -22,11 +22,12 @@
 #include <string.h>
 #include <sys/utsname.h>
 
+#include "alloc-util.h"
 #include "hostname-util.h"
 #include "macro.h"
+#include "specifier.h"
 #include "string-util.h"
 #include "util.h"
-#include "specifier.h"
 
 /*
  * Generic infrastructure for replacing %x style specifiers in

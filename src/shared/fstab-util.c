@@ -19,6 +19,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "alloc-util.h"
 #include "device-nodes.h"
 #include "fstab-util.h"
 #include "mount-util.h"

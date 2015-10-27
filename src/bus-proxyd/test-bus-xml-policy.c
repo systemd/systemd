@@ -25,6 +25,7 @@
 
 #include "sd-bus.h"
 
+#include "alloc-util.h"
 #include "bus-xml-policy.h"
 #include "log.h"
 #include "string-util.h"

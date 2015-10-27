@@ -22,6 +22,7 @@
 
 #include "sd-lldp.h"
 
+#include "alloc-util.h"
 #include "lldp-internal.h"
 
 /* We store maximum 1K chassis entries */

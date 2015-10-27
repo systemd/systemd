@@ -22,6 +22,7 @@
 #include <sys/sendfile.h>
 #include <sys/xattr.h>
 
+#include "alloc-util.h"
 #include "btrfs-util.h"
 #include "chattr-util.h"
 #include "copy.h"

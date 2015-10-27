@@ -21,6 +21,7 @@
 
 #include <sys/mount.h>
 
+#include "alloc-util.h"
 #include "cgroup-util.h"
 #include "fd-util.h"
 #include "fileio.h"

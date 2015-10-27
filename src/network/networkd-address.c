@@ -21,6 +21,7 @@
 
 #include <net/if.h>
 
+#include "alloc-util.h"
 #include "conf-parser.h"
 #include "firewall-util.h"
 #include "netlink-util.h"

@@ -20,6 +20,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "alloc-util.h"
 #include "cpu-set-util.h"
 #include "extract-word.h"
 #include "parse-util.h"

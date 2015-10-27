@@ -25,6 +25,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "conf-files.h"
 #include "conf-parser.h"
 #include "dirent-util.h"

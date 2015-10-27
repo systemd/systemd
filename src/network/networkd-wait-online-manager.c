@@ -23,14 +23,13 @@
 #include <linux/if.h>
 #include <fnmatch.h>
 
+#include "alloc-util.h"
 #include "netlink-util.h"
-
 #include "network-internal.h"
 #include "networkd-wait-online-link.h"
 #include "networkd-wait-online.h"
-
-#include "util.h"
 #include "time-util.h"
+#include "util.h"
 
 bool manager_ignore_link(Manager *m, Link *link) {
         char **ignore;

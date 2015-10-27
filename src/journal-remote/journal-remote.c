@@ -35,6 +35,7 @@
 
 #include "sd-daemon.h"
 
+#include "alloc-util.h"
 #include "conf-parser.h"
 #include "escape.h"
 #include "fd-util.h"

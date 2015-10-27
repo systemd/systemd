@@ -24,6 +24,7 @@
 
 #include "sd-daemon.h"
 
+#include "alloc-util.h"
 #include "aufs-util.h"
 #include "btrfs-util.h"
 #include "curl-util.h"

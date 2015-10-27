@@ -943,6 +943,8 @@ libbasic_la_SOURCES = \
 	src/basic/rm-rf.h \
 	src/basic/copy.c \
 	src/basic/copy.h \
+	src/basic/alloc-util.h \
+	src/basic/alloc-util.c \
 	src/basic/formats-util.h
 
 nodist_libbasic_la_SOURCES = \

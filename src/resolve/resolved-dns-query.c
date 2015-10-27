@@ -19,10 +19,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "hostname-util.h"
+#include "alloc-util.h"
 #include "dns-domain.h"
+#include "hostname-util.h"
 #include "local-addresses.h"
-
 #include "resolved-dns-query.h"
 
 /* How long to wait for the query in total */

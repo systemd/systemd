@@ -28,6 +28,7 @@
 #include <unistd.h>
 #include <linux/fs.h>
 
+#include "alloc-util.h"
 #include "dev-setup.h"
 #include "fd-util.h"
 #include "loopback-setup.h"

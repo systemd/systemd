@@ -23,6 +23,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "alloc-util.h"
 #include "log.h"
 #include "string-util.h"
 #include "strv.h"

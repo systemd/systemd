@@ -25,6 +25,7 @@
 #include <sys/socket.h>
 #include <time.h>
 
+#include "alloc-util.h"
 #include "fd-util.h"
 #include "formats-util.h"
 #include "hashmap.h"

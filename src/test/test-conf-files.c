@@ -22,6 +22,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 
+#include "alloc-util.h"
 #include "conf-files.h"
 #include "fs-util.h"
 #include "macro.h"

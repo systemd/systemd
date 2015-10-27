@@ -31,6 +31,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "cgroup-util.h"
 #include "def.h"
 #include "fileio.h"

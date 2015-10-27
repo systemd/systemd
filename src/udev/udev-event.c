@@ -30,6 +30,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "event-util.h"
 #include "fd-util.h"
 #include "formats-util.h"

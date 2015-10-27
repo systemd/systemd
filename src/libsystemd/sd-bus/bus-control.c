@@ -28,6 +28,7 @@
 
 #include "sd-bus.h"
 
+#include "alloc-util.h"
 #include "bus-bloom.h"
 #include "bus-control.h"
 #include "bus-internal.h"

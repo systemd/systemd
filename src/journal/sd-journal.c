@@ -30,6 +30,7 @@
 
 #include "sd-journal.h"
 
+#include "alloc-util.h"
 #include "catalog.h"
 #include "compress.h"
 #include "dirent-util.h"

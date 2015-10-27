@@ -30,6 +30,7 @@
 
 #include "sd-messages.h"
 
+#include "alloc-util.h"
 #include "audit-util.h"
 #include "bus-error.h"
 #include "bus-util.h"

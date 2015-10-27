@@ -28,6 +28,7 @@
 #include "sd-netlink.h"
 #include "sd-network.h"
 
+#include "alloc-util.h"
 #include "arphrd-list.h"
 #include "device-util.h"
 #include "ether-addr-util.h"

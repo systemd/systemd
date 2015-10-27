@@ -25,6 +25,7 @@
 #include "sd-bus.h"
 
 #include "af-list.h"
+#include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-util.h"
 #include "in-addr-util.h"

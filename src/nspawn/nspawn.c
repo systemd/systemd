@@ -46,6 +46,7 @@
 #include "sd-daemon.h"
 #include "sd-id128.h"
 
+#include "alloc-util.h"
 #include "barrier.h"
 #include "base-filesystem.h"
 #include "blkid-util.h"

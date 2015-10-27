@@ -22,16 +22,17 @@
 #include <errno.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "dbus-scope.h"
 #include "load-dropin.h"
 #include "log.h"
+#include "scope.h"
 #include "special.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "unit-name.h"
 #include "unit.h"
-#include "scope.h"
 
 static const UnitActiveState state_translation_table[_SCOPE_STATE_MAX] = {
         [SCOPE_DEAD] = UNIT_INACTIVE,

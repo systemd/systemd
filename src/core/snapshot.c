@@ -21,6 +21,7 @@
 
 #include <errno.h>
 
+#include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "dbus-snapshot.h"
 #include "parse-util.h"

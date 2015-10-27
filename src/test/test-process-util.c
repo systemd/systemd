@@ -23,6 +23,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "log.h"
 #include "macro.h"
 #include "process-util.h"

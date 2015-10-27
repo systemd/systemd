@@ -48,6 +48,7 @@
 
 #include "sd-journal.h"
 
+#include "alloc-util.h"
 #include "bootchart.h"
 #include "conf-parser.h"
 #include "fd-util.h"

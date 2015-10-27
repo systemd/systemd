@@ -26,6 +26,7 @@
 #include "sd-id128.h"
 #include "sd-netlink.h"
 
+#include "alloc-util.h"
 #include "ether-addr-util.h"
 #include "netlink-util.h"
 #include "siphash24.h"

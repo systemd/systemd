@@ -24,6 +24,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "alloc-util.h"
 #include "cgroup-show.h"
 #include "cgroup-util.h"
 #include "fd-util.h"

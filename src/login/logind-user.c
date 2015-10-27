@@ -24,6 +24,7 @@
 #include <sys/mount.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-util.h"
 #include "clean-ipc.h"

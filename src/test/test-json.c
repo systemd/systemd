@@ -21,6 +21,7 @@
 
 #include <math.h>
 
+#include "alloc-util.h"
 #include "json.h"
 #include "string-util.h"
 #include "util.h"

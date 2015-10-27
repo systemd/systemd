@@ -29,6 +29,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "async.h"
 #include "automount.h"
 #include "bus-error.h"

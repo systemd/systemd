@@ -21,6 +21,7 @@
 
 #include <sys/xattr.h>
 
+#include "alloc-util.h"
 #include "fd-util.h"
 #include "sparse-endian.h"
 #include "stdio-util.h"

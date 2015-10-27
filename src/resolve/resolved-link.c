@@ -23,6 +23,7 @@
 
 #include "sd-network.h"
 
+#include "alloc-util.h"
 #include "missing.h"
 #include "parse-util.h"
 #include "resolved-link.h"

@@ -25,6 +25,7 @@
 #include <unistd.h>
 #include <ftw.h>
 
+#include "alloc-util.h"
 #include "bus-util.h"
 #include "cgroup-util.h"
 #include "dev-setup.h"

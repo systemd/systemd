@@ -32,6 +32,7 @@
 #include <termios.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "ask-password-api.h"
 #include "fd-util.h"
 #include "fileio.h"

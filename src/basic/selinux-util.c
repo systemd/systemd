@@ -29,6 +29,7 @@
 #include <selinux/context.h>
 #endif
 
+#include "alloc-util.h"
 #include "strv.h"
 #include "path-util.h"
 #include "selinux-util.h"

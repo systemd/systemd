@@ -21,6 +21,7 @@
 
 #include "libudev.h"
 
+#include "alloc-util.h"
 #include "def.h"
 #include "escape.h"
 #include "fileio.h"

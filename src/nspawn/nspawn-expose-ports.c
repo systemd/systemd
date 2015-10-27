@@ -21,6 +21,7 @@
 
 #include "sd-netlink.h"
 
+#include "alloc-util.h"
 #include "fd-util.h"
 #include "firewall-util.h"
 #include "in-addr-util.h"

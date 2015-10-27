@@ -22,6 +22,7 @@
 
 #include "sd-network.h"
 
+#include "alloc-util.h"
 #include "networkd-wait-online-link.h"
 #include "string-util.h"
 

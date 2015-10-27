@@ -19,10 +19,11 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
  ***/
 
+#include "alloc-util.h"
 #include "conf-parser.h"
+#include "extract-word.h"
 #include "parse-util.h"
 #include "resolved-conf.h"
-#include "extract-word.h"
 #include "string-util.h"
 
 int manager_parse_dns_server(Manager *m, DnsServerType type, const char *string) {
@@ -35,7 +36,7 @@ int manager_parse_dns_server(Manager *m, DnsServerType type, const char *string)
         first = type == DNS_SERVER_FALLBACK ? m->fallback_dns_servers : m->dns_servers;
 
         for(;;) {
-                _cleanup_free_ char *word;
+                _cleanup_free_ char *word = NULL;
                 union in_addr_union addr;
                 bool found = false;
                 DnsServer *s;
@@ -44,7 +45,6 @@ int manager_parse_dns_server(Manager *m, DnsServerType type, const char *string)
                 r = extract_first_word(&string, &word, NULL, 0);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse resolved dns server syntax \"%s\": %m", string);
-
                 if (r == 0)
                         break;
 

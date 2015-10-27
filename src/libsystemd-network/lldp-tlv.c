@@ -23,8 +23,9 @@
 #include <net/ethernet.h>
 #include <arpa/inet.h>
 
-#include "macro.h"
+#include "alloc-util.h"
 #include "lldp-tlv.h"
+#include "macro.h"
 
 int tlv_section_new(tlv_section **ret) {
         tlv_section *s;

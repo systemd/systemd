@@ -21,6 +21,7 @@
 
 #include <net/if.h>
 
+#include "alloc-util.h"
 #include "conf-files.h"
 #include "conf-parser.h"
 #include "fd-util.h"

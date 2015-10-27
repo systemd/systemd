@@ -24,6 +24,7 @@
 #include <fcntl.h>
 #include <stddef.h>
 
+#include "alloc-util.h"
 #include "compress.h"
 #include "fd-util.h"
 #include "fileio.h"

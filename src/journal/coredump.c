@@ -34,6 +34,7 @@
 #include "sd-login.h"
 
 #include "acl-util.h"
+#include "alloc-util.h"
 #include "capability-util.h"
 #include "cgroup-util.h"
 #include "compress.h"

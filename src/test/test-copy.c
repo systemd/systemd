@@ -19,6 +19,7 @@
 
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "copy.h"
 #include "fd-util.h"
 #include "fileio.h"

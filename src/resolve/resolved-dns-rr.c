@@ -21,6 +21,7 @@
 
 #include <math.h>
 
+#include "alloc-util.h"
 #include "dns-domain.h"
 #include "dns-type.h"
 #include "hexdecoct.h"

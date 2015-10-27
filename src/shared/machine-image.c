@@ -23,6 +23,7 @@
 #include <linux/fs.h>
 #include <sys/statfs.h>
 
+#include "alloc-util.h"
 #include "btrfs-util.h"
 #include "chattr-util.h"
 #include "copy.h"

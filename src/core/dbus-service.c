@@ -19,6 +19,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "alloc-util.h"
 #include "async.h"
 #include "bus-util.h"
 #include "dbus-cgroup.h"

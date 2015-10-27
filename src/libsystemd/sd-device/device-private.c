@@ -24,6 +24,7 @@
 
 #include "sd-device.h"
 
+#include "alloc-util.h"
 #include "device-internal.h"
 #include "device-private.h"
 #include "device-util.h"

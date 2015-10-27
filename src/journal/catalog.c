@@ -29,6 +29,7 @@
 
 #include "sd-id128.h"
 
+#include "alloc-util.h"
 #include "catalog.h"
 #include "conf-files.h"
 #include "fd-util.h"

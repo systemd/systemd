@@ -33,6 +33,7 @@
 
 #include "sd-daemon.h"
 
+#include "alloc-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "list.h"

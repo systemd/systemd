@@ -26,6 +26,7 @@
 #include <shadow.h>
 #include <utmp.h>
 
+#include "alloc-util.h"
 #include "conf-files.h"
 #include "copy.h"
 #include "fileio-label.h"

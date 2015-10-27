@@ -21,6 +21,7 @@
 
 #include <errno.h>
 
+#include "alloc-util.h"
 #include "dropin.h"
 #include "fd-util.h"
 #include "fileio.h"

@@ -33,6 +33,7 @@
 #include <libgen.h>
 #undef basename
 
+#include "alloc-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"

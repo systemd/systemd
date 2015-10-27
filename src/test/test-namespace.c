@@ -21,6 +21,7 @@
 
 #include <sys/socket.h>
 
+#include "alloc-util.h"
 #include "fd-util.h"
 #include "namespace.h"
 #include "process-util.h"

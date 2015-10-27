@@ -24,6 +24,7 @@
 #include <unistd.h>
 #include <sys/utsname.h>
 
+#include "alloc-util.h"
 #include "bus-util.h"
 #include "def.h"
 #include "env-util.h"

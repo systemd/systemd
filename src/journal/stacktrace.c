@@ -22,6 +22,7 @@
 #include <dwarf.h>
 #include <elfutils/libdwfl.h>
 
+#include "alloc-util.h"
 #include "fd-util.h"
 #include "formats-util.h"
 #include "macro.h"

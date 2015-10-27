@@ -32,6 +32,7 @@
 
 #include "sd-bus.h"
 
+#include "alloc-util.h"
 #include "bus-dump.h"
 #include "bus-label.h"
 #include "bus-message.h"

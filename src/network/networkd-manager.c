@@ -25,6 +25,7 @@
 #include "sd-daemon.h"
 #include "sd-netlink.h"
 
+#include "alloc-util.h"
 #include "bus-util.h"
 #include "conf-parser.h"
 #include "def.h"

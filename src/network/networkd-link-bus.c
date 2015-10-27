@@ -22,6 +22,7 @@
 #include "bus-util.h"
 #include "strv.h"
 
+#include "alloc-util.h"
 #include "networkd-link.h"
 #include "networkd.h"
 #include "parse-util.h"

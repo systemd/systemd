@@ -23,6 +23,7 @@
 #include <linux/if.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "bus-util.h"
 #include "dhcp-lease-internal.h"
 #include "fd-util.h"

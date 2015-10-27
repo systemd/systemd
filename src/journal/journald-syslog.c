@@ -25,6 +25,7 @@
 
 #include "sd-messages.h"
 
+#include "alloc-util.h"
 #include "fd-util.h"
 #include "formats-util.h"
 #include "io-util.h"

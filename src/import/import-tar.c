@@ -24,6 +24,7 @@
 #include "sd-daemon.h"
 #include "sd-event.h"
 
+#include "alloc-util.h"
 #include "btrfs-util.h"
 #include "copy.h"
 #include "fd-util.h"

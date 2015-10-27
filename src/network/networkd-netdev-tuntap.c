@@ -23,6 +23,7 @@
 #include <net/if.h>
 #include <linux/if_tun.h>
 
+#include "alloc-util.h"
 #include "fd-util.h"
 #include "networkd-netdev-tuntap.h"
 #include "user-util.h"

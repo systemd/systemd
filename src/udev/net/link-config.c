@@ -24,6 +24,7 @@
 
 #include "sd-netlink.h"
 
+#include "alloc-util.h"
 #include "conf-files.h"
 #include "conf-parser.h"
 #include "ethtool-util.h"

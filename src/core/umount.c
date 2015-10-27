@@ -29,6 +29,7 @@
 
 #include "libudev.h"
 
+#include "alloc-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fstab-util.h"

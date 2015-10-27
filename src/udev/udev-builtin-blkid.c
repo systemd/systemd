@@ -29,6 +29,7 @@
 
 #include "sd-id128.h"
 
+#include "alloc-util.h"
 #include "efivars.h"
 #include "fd-util.h"
 #include "gpt.h"

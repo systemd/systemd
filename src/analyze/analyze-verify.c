@@ -21,6 +21,7 @@
 
 #include <stdlib.h>
 
+#include "alloc-util.h"
 #include "analyze-verify.h"
 #include "bus-util.h"
 #include "log.h"

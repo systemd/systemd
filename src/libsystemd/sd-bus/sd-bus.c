@@ -29,6 +29,7 @@
 
 #include "sd-bus.h"
 
+#include "alloc-util.h"
 #include "bus-container.h"
 #include "bus-control.h"
 #include "bus-internal.h"

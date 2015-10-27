@@ -23,6 +23,7 @@
 
 #include "sd-event.h"
 
+#include "alloc-util.h"
 #include "event-util.h"
 #include "hostname-util.h"
 #include "import-util.h"

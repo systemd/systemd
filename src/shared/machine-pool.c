@@ -24,6 +24,7 @@
 #include <sys/statvfs.h>
 #include <sys/vfs.h>
 
+#include "alloc-util.h"
 #include "btrfs-util.h"
 #include "fd-util.h"
 #include "fileio.h"

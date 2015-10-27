@@ -22,6 +22,7 @@
 #include <pwd.h>
 #include <grp.h>
 
+#include "alloc-util.h"
 #include "fd-util.h"
 #include "macro.h"
 #include "parse-util.h"

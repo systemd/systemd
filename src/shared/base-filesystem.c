@@ -24,6 +24,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "base-filesystem.h"
 #include "fd-util.h"
 #include "log.h"

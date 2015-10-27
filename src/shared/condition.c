@@ -27,6 +27,7 @@
 
 #include "sd-id128.h"
 
+#include "alloc-util.h"
 #include "apparmor-util.h"
 #include "architecture.h"
 #include "audit-util.h"

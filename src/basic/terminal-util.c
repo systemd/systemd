@@ -31,6 +31,7 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"

@@ -25,6 +25,7 @@
 
 #include "sd-bus.h"
 
+#include "alloc-util.h"
 #include "bus-gvariant.h"
 #include "bus-internal.h"
 #include "bus-message.h"

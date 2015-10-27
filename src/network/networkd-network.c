@@ -22,6 +22,7 @@
 #include <ctype.h>
 #include <net/if.h>
 
+#include "alloc-util.h"
 #include "conf-files.h"
 #include "conf-parser.h"
 #include "dns-domain.h"

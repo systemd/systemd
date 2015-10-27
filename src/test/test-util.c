@@ -31,6 +31,7 @@
 #include <sys/xattr.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "conf-parser.h"
 #include "cpu-set-util.h"
 #include "def.h"

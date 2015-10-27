@@ -21,6 +21,7 @@
 
 #include <arpa/inet.h>
 
+#include "alloc-util.h"
 #include "in-addr-util.h"
 
 int in_addr_is_null(int family, const union in_addr_union *u) {

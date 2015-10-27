@@ -28,6 +28,7 @@
 #include "sd-id128.h"
 #include "sd-messages.h"
 
+#include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-util.h"
 #include "cgroup-util.h"

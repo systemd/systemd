@@ -26,6 +26,7 @@
 #endif
 
 #include "af-list.h"
+#include "alloc-util.h"
 #include "bus-util.h"
 #include "capability-util.h"
 #include "dbus-execute.h"

@@ -19,6 +19,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "alloc-util.h"
 #include "conf-parser.h"
 #include "in-addr-util.h"
 #include "netlink-util.h"

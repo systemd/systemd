@@ -22,6 +22,7 @@
 #include <fcntl.h>
 #include <fnmatch.h>
 
+#include "alloc-util.h"
 #include "cgroup-util.h"
 #include "cgroup.h"
 #include "fd-util.h"

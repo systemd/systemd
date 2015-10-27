@@ -54,23 +54,6 @@
 size_t page_size(void) _pure_;
 #define PAGE_ALIGN(l) ALIGN_TO((l), page_size())
 
-#define new(t, n) ((t*) malloc_multiply(sizeof(t), (n)))
-
-#define new0(t, n) ((t*) calloc((n), sizeof(t)))
-
-#define newa(t, n) ((t*) alloca(sizeof(t)*(n)))
-
-#define newa0(t, n) ((t*) alloca0(sizeof(t)*(n)))
-
-#define newdup(t, p, n) ((t*) memdup_multiply(p, sizeof(t), (n)))
-
-#define malloc0(n) (calloc(1, (n)))
-
-static inline void *mfree(void *memory) {
-        free(memory);
-        return NULL;
-}
-
 static inline const char* yes_no(bool b) {
         return b ? "yes" : "no";
 }
@@ -118,60 +101,35 @@ bool kexec_loaded(void);
 
 int prot_from_flags(int flags) _const_;
 
-void* memdup(const void *p, size_t l) _alloc_(2);
-
 int fork_agent(pid_t *pid, const int except[], unsigned n_except, const char *path, ...);
 
 bool in_initrd(void);
-
-static inline void freep(void *p) {
-        free(*(void**) p);
-}
-
-#define _cleanup_free_ _cleanup_(freep)
-
-_malloc_  _alloc_(1, 2) static inline void *malloc_multiply(size_t a, size_t b) {
-        if (_unlikely_(b != 0 && a > ((size_t) -1) / b))
-                return NULL;
-
-        return malloc(a * b);
-}
-
-_alloc_(2, 3) static inline void *realloc_multiply(void *p, size_t a, size_t b) {
-        if (_unlikely_(b != 0 && a > ((size_t) -1) / b))
-                return NULL;
-
-        return realloc(p, a * b);
-}
-
-_alloc_(2, 3) static inline void *memdup_multiply(const void *p, size_t a, size_t b) {
-        if (_unlikely_(b != 0 && a > ((size_t) -1) / b))
-                return NULL;
-
-        return memdup(p, a * b);
-}
 
 void *xbsearch_r(const void *key, const void *base, size_t nmemb, size_t size,
                  int (*compar) (const void *, const void *, void *),
                  void *arg);
 
+/**
+ * Normal qsort requires base to be nonnull. Here were require
+ * that only if nmemb > 0.
+ */
+static inline void qsort_safe(void *base, size_t nmemb, size_t size, comparison_fn_t compar) {
+        if (nmemb <= 1)
+                return;
+
+        assert(base);
+        qsort(base, nmemb, size, compar);
+}
+
 int on_ac_power(void);
+
+#define memzero(x,l) (memset((x), 0, (l)))
+#define zero(x) (memzero(&(x), sizeof(x)))
 
 static inline void *mempset(void *s, int c, size_t n) {
         memset(s, c, n);
         return (uint8_t*)s + n;
 }
-
-#define memzero(x,l) (memset((x), 0, (l)))
-#define zero(x) (memzero(&(x), sizeof(x)))
-
-void* greedy_realloc(void **p, size_t *allocated, size_t need, size_t size);
-void* greedy_realloc0(void **p, size_t *allocated, size_t need, size_t size);
-#define GREEDY_REALLOC(array, allocated, need)                          \
-        greedy_realloc((void**) &(array), &(allocated), (need), sizeof((array)[0]))
-
-#define GREEDY_REALLOC0(array, allocated, need)                         \
-        greedy_realloc0((void**) &(array), &(allocated), (need), sizeof((array)[0]))
 
 static inline void _reset_errno_(int *saved_errno) {
         errno = *saved_errno;
@@ -225,44 +183,7 @@ static inline unsigned log2u_round_up(unsigned x) {
         return log2u(x - 1) + 1;
 }
 
-#define alloca0(n)                                      \
-        ({                                              \
-                char *_new_;                            \
-                size_t _len_ = n;                       \
-                _new_ = alloca(_len_);                  \
-                (void *) memset(_new_, 0, _len_);       \
-        })
-
-/* It's not clear what alignment glibc/gcc alloca() guarantee, hence provide a guaranteed safe version */
-#define alloca_align(size, align)                                       \
-        ({                                                              \
-                void *_ptr_;                                            \
-                size_t _mask_ = (align) - 1;                            \
-                _ptr_ = alloca((size) + _mask_);                        \
-                (void*)(((uintptr_t)_ptr_ + _mask_) & ~_mask_);         \
-        })
-
-#define alloca0_align(size, align)                                      \
-        ({                                                              \
-                void *_new_;                                            \
-                size_t _size_ = (size);                                 \
-                _new_ = alloca_align(_size_, (align));                  \
-                (void*)memset(_new_, 0, _size_);                        \
-        })
-
 bool id128_is_valid(const char *s) _pure_;
-
-/**
- * Normal qsort requires base to be nonnull. Here were require
- * that only if nmemb > 0.
- */
-static inline void qsort_safe(void *base, size_t nmemb, size_t size, comparison_fn_t compar) {
-        if (nmemb <= 1)
-                return;
-
-        assert(base);
-        qsort(base, nmemb, size, compar);
-}
 
 int container_get_leader(const char *machine, pid_t *pid);
 

@@ -21,6 +21,7 @@
 
 #include <sys/prctl.h>
 
+#include "alloc-util.h"
 #include "btrfs-util.h"
 #include "capability-util.h"
 #include "copy.h"

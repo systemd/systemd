@@ -33,6 +33,7 @@
 
 #include "sd-bus.h"
 
+#include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-util.h"
 #include "cgroup-show.h"

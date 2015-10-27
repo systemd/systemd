@@ -26,6 +26,7 @@
 
 #include "sd-path.h"
 
+#include "alloc-util.h"
 #include "log.h"
 #include "macro.h"
 #include "string-util.h"

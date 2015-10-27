@@ -26,6 +26,7 @@
 
 #include "sd-dhcp-lease.h"
 
+#include "alloc-util.h"
 #include "dhcp-lease-internal.h"
 #include "dhcp-protocol.h"
 #include "dns-domain.h"
