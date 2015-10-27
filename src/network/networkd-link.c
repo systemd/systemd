@@ -2614,9 +2614,9 @@ int link_save(Link *link) {
                         }
                 }
 
-                fputs("\n", f);
+                fputc('\n', f);
 
-                fprintf(f, "NTP=");
+                fputs("NTP=", f);
                 space = false;
                 STRV_FOREACH(address, link->network->ntp) {
                         if (space)
@@ -2663,9 +2663,9 @@ int link_save(Link *link) {
                         }
                 }
 
-                fputs("\n", f);
+                fputc('\n', f);
 
-                fprintf(f, "DOMAINS=");
+                fputs("DOMAINS=", f);
                 space = false;
                 STRV_FOREACH(domain, link->network->domains) {
                         if (space)
@@ -2701,7 +2701,7 @@ int link_save(Link *link) {
                         }
                 }
 
-                fputs("\n", f);
+                fputc('\n', f);
 
                 fprintf(f, "WILDCARD_DOMAIN=%s\n",
                         yes_no(link->network->wildcard_domain));
@@ -2709,7 +2709,7 @@ int link_save(Link *link) {
                 fprintf(f, "LLMNR=%s\n",
                         resolve_support_to_string(link->network->llmnr));
 
-                fprintf(f, "ADDRESSES=");
+                fputs("ADDRESSES=", f);
                 space = false;
                 SET_FOREACH(a, link->addresses, i) {
                         _cleanup_free_ char *address_str = NULL;
@@ -2722,9 +2722,9 @@ int link_save(Link *link) {
                         space = true;
                 }
 
-                fputs("\n", f);
+                fputc('\n', f);
 
-                fprintf(f, "ROUTES=");
+                fputs("ROUTES=", f);
                 space = false;
                 SET_FOREACH(route, link->routes, i) {
                         _cleanup_free_ char *route_str = NULL;
@@ -2738,7 +2738,7 @@ int link_save(Link *link) {
                         space = true;
                 }
 
-                fputs("\n", f);
+                fputc('\n', f);
         }
 
         if (!hashmap_isempty(link->bound_to_links)) {
@@ -2753,7 +2753,7 @@ int link_save(Link *link) {
                         space = true;
                 }
 
-                fputs("\n", f);
+                fputc('\n', f);
         }
 
         if (!hashmap_isempty(link->bound_by_links)) {
@@ -2768,7 +2768,7 @@ int link_save(Link *link) {
                         space = true;
                 }
 
-                fputs("\n", f);
+                fputc('\n', f);
         }
 
         if (link->dhcp_lease) {
