@@ -22,10 +22,9 @@
 #include "conf-parser.h"
 #include "string-util.h"
 #include "resolved-conf.h"
+#include "extract-word.h"
 
 int manager_parse_dns_server(Manager *m, DnsServerType type, const char *string) {
-        const char *word, *state;
-        size_t length;
         DnsServer *first;
         int r;
 
@@ -34,19 +33,23 @@ int manager_parse_dns_server(Manager *m, DnsServerType type, const char *string)
 
         first = type == DNS_SERVER_FALLBACK ? m->fallback_dns_servers : m->dns_servers;
 
-        FOREACH_WORD_QUOTED(word, length, string, state) {
-                char buffer[length+1];
-                int family;
+        for(;;) {
+                _cleanup_free_ char *word;
                 union in_addr_union addr;
                 bool found = false;
                 DnsServer *s;
+                int family;
 
-                memcpy(buffer, word, length);
-                buffer[length] = 0;
+                r = extract_first_word(&string, &word, NULL, 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse resolved dns server syntax \"%s\": %m", string);
 
-                r = in_addr_from_string_auto(buffer, &family, &addr);
+                if (r == 0)
+                        break;
+
+                r = in_addr_from_string_auto(word, &family, &addr);
                 if (r < 0) {
-                        log_warning("Ignoring invalid DNS address '%s'", buffer);
+                        log_warning("Ignoring invalid DNS address '%s'", word);
                         continue;
                 }
 

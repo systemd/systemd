@@ -23,10 +23,9 @@
 #include "timesyncd-manager.h"
 #include "timesyncd-server.h"
 #include "timesyncd-conf.h"
+#include "extract-word.h"
 
 int manager_parse_server_string(Manager *m, ServerType type, const char *string) {
-        const char *word, *state;
-        size_t length;
         ServerName *first;
         int r;
 
@@ -35,17 +34,20 @@ int manager_parse_server_string(Manager *m, ServerType type, const char *string)
 
         first = type == SERVER_FALLBACK ? m->fallback_servers : m->system_servers;
 
-        FOREACH_WORD_QUOTED(word, length, string, state) {
-                char buffer[length+1];
+        for (;;) {
+                _cleanup_free_ char *word;
                 bool found = false;
                 ServerName *n;
 
-                memcpy(buffer, word, length);
-                buffer[length] = 0;
+                r = extract_first_word(&string, &word, NULL, 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse timesyncd server syntax \"%s\": %m", string);
 
+                if (r == 0)
+                        break;
                 /* Filter out duplicates */
                 LIST_FOREACH(names, n, first)
-                        if (streq_ptr(n->string, buffer)) {
+                        if (streq_ptr(n->string, word)) {
                                 found = true;
                                 break;
                         }
@@ -53,7 +55,7 @@ int manager_parse_server_string(Manager *m, ServerType type, const char *string)
                 if (found)
                         continue;
 
-                r = server_name_new(m, NULL, type, buffer);
+                r = server_name_new(m, NULL, type, word);
                 if (r < 0)
                         return r;
         }
