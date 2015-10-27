@@ -595,8 +595,11 @@ int getenv_for_pid(pid_t pid, const char *field, char **_value) {
 bool pid_is_unwaited(pid_t pid) {
         /* Checks whether a PID is still valid at all, including a zombie */
 
-        if (pid <= 0)
+        if (pid < 0)
                 return false;
+
+        if (pid <= 1) /* If we or PID 1 would be dead and have been waited for, this code would not be running */
+                return true;
 
         if (kill(pid, 0) >= 0)
                 return true;
@@ -609,8 +612,11 @@ bool pid_is_alive(pid_t pid) {
 
         /* Checks whether a PID is still valid and not a zombie */
 
-        if (pid <= 0)
+        if (pid < 0)
                 return false;
+
+        if (pid <= 1) /* If we or PID 1 would be a zombie, this code would not be running */
+                return true;
 
         r = get_process_state(pid);
         if (r == -ESRCH || r == 'Z')
