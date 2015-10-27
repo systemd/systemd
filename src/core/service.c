@@ -912,66 +912,67 @@ static int service_coldplug(Unit *u) {
         assert(s);
         assert(s->state == SERVICE_DEAD);
 
-        if (s->deserialized_state != s->state) {
+        if (s->deserialized_state == s->state)
+                return 0;
 
-                if (IN_SET(s->deserialized_state,
-                           SERVICE_START_PRE, SERVICE_START, SERVICE_START_POST,
-                           SERVICE_RELOAD,
-                           SERVICE_STOP, SERVICE_STOP_SIGABRT, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
-                           SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL)) {
+        if (IN_SET(s->deserialized_state,
+                   SERVICE_START_PRE, SERVICE_START, SERVICE_START_POST,
+                   SERVICE_RELOAD,
+                   SERVICE_STOP, SERVICE_STOP_SIGABRT, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
+                   SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL)) {
 
-                        usec_t k;
+                usec_t k;
 
-                        k = IN_SET(s->deserialized_state, SERVICE_START_PRE, SERVICE_START, SERVICE_START_POST, SERVICE_RELOAD) ? s->timeout_start_usec : s->timeout_stop_usec;
+                k = IN_SET(s->deserialized_state, SERVICE_START_PRE, SERVICE_START, SERVICE_START_POST, SERVICE_RELOAD) ? s->timeout_start_usec : s->timeout_stop_usec;
 
-                        /* For the start/stop timeouts 0 means off */
-                        if (k > 0) {
-                                r = service_arm_timer(s, k);
-                                if (r < 0)
-                                        return r;
-                        }
-                }
-
-                if (s->deserialized_state == SERVICE_AUTO_RESTART) {
-
-                        /* The restart timeouts 0 means immediately */
-                        r = service_arm_timer(s, s->restart_usec);
+                /* For the start/stop timeouts 0 means off */
+                if (k > 0) {
+                        r = service_arm_timer(s, k);
                         if (r < 0)
                                 return r;
                 }
-
-                if (pid_is_unwaited(s->main_pid) &&
-                    ((s->deserialized_state == SERVICE_START && IN_SET(s->type, SERVICE_FORKING, SERVICE_DBUS, SERVICE_ONESHOT, SERVICE_NOTIFY)) ||
-                     IN_SET(s->deserialized_state,
-                            SERVICE_START, SERVICE_START_POST,
-                            SERVICE_RUNNING, SERVICE_RELOAD,
-                            SERVICE_STOP, SERVICE_STOP_SIGABRT, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
-                            SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL))) {
-                        r = unit_watch_pid(UNIT(s), s->main_pid);
-                        if (r < 0)
-                                return r;
-                }
-
-                if (pid_is_unwaited(s->control_pid) &&
-                    IN_SET(s->deserialized_state,
-                           SERVICE_START_PRE, SERVICE_START, SERVICE_START_POST,
-                           SERVICE_RELOAD,
-                           SERVICE_STOP, SERVICE_STOP_SIGABRT, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
-                           SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL)) {
-                        r = unit_watch_pid(UNIT(s), s->control_pid);
-                        if (r < 0)
-                                return r;
-                }
-
-                if (!IN_SET(s->deserialized_state, SERVICE_DEAD, SERVICE_FAILED, SERVICE_AUTO_RESTART))
-                        unit_watch_all_pids(UNIT(s));
-
-                if (IN_SET(s->deserialized_state, SERVICE_START_POST, SERVICE_RUNNING, SERVICE_RELOAD))
-                        service_start_watchdog(s);
-
-                service_set_state(s, s->deserialized_state);
         }
 
+        if (s->deserialized_state == SERVICE_AUTO_RESTART) {
+
+                /* The restart timeouts 0 means immediately */
+                r = service_arm_timer(s, s->restart_usec);
+                if (r < 0)
+                        return r;
+        }
+
+        if (s->main_pid > 0 &&
+            pid_is_unwaited(s->main_pid) &&
+            ((s->deserialized_state == SERVICE_START && IN_SET(s->type, SERVICE_FORKING, SERVICE_DBUS, SERVICE_ONESHOT, SERVICE_NOTIFY)) ||
+             IN_SET(s->deserialized_state,
+                    SERVICE_START, SERVICE_START_POST,
+                    SERVICE_RUNNING, SERVICE_RELOAD,
+                    SERVICE_STOP, SERVICE_STOP_SIGABRT, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
+                    SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL))) {
+                r = unit_watch_pid(UNIT(s), s->main_pid);
+                if (r < 0)
+                        return r;
+        }
+
+        if (s->control_pid > 0 &&
+            pid_is_unwaited(s->control_pid) &&
+            IN_SET(s->deserialized_state,
+                   SERVICE_START_PRE, SERVICE_START, SERVICE_START_POST,
+                   SERVICE_RELOAD,
+                   SERVICE_STOP, SERVICE_STOP_SIGABRT, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
+                   SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL)) {
+                r = unit_watch_pid(UNIT(s), s->control_pid);
+                if (r < 0)
+                        return r;
+        }
+
+        if (!IN_SET(s->deserialized_state, SERVICE_DEAD, SERVICE_FAILED, SERVICE_AUTO_RESTART))
+                unit_watch_all_pids(UNIT(s));
+
+        if (IN_SET(s->deserialized_state, SERVICE_START_POST, SERVICE_RUNNING, SERVICE_RELOAD))
+                service_start_watchdog(s);
+
+        service_set_state(s, s->deserialized_state);
         return 0;
 }
 

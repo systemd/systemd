@@ -632,19 +632,19 @@ static int mount_coldplug(Unit *u) {
         if (new_state == m->state)
                 return 0;
 
-        if (new_state == MOUNT_MOUNTING ||
-            new_state == MOUNT_MOUNTING_DONE ||
-            new_state == MOUNT_REMOUNTING ||
-            new_state == MOUNT_UNMOUNTING ||
-            new_state == MOUNT_MOUNTING_SIGTERM ||
-            new_state == MOUNT_MOUNTING_SIGKILL ||
-            new_state == MOUNT_UNMOUNTING_SIGTERM ||
-            new_state == MOUNT_UNMOUNTING_SIGKILL ||
-            new_state == MOUNT_REMOUNTING_SIGTERM ||
-            new_state == MOUNT_REMOUNTING_SIGKILL) {
-
-                if (m->control_pid <= 0)
-                        return -EBADMSG;
+        if (m->control_pid > 0 &&
+            pid_is_unwaited(m->control_pid) &&
+            IN_SET(new_state,
+                   MOUNT_MOUNTING,
+                   MOUNT_MOUNTING_DONE,
+                   MOUNT_REMOUNTING,
+                   MOUNT_UNMOUNTING,
+                   MOUNT_MOUNTING_SIGTERM,
+                   MOUNT_MOUNTING_SIGKILL,
+                   MOUNT_UNMOUNTING_SIGTERM,
+                   MOUNT_UNMOUNTING_SIGKILL,
+                   MOUNT_REMOUNTING_SIGTERM,
+                   MOUNT_REMOUNTING_SIGKILL)) {
 
                 r = unit_watch_pid(UNIT(m), m->control_pid);
                 if (r < 0)

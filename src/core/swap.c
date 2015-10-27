@@ -528,16 +528,16 @@ static int swap_coldplug(Unit *u) {
         if (new_state == s->state)
                 return 0;
 
-        if (new_state == SWAP_ACTIVATING ||
-            new_state == SWAP_ACTIVATING_SIGTERM ||
-            new_state == SWAP_ACTIVATING_SIGKILL ||
-            new_state == SWAP_ACTIVATING_DONE ||
-            new_state == SWAP_DEACTIVATING ||
-            new_state == SWAP_DEACTIVATING_SIGTERM ||
-            new_state == SWAP_DEACTIVATING_SIGKILL) {
-
-                if (s->control_pid <= 0)
-                        return -EBADMSG;
+        if (s->control_pid > 0 &&
+            pid_is_unwaited(s->control_pid) &&
+            IN_SET(new_state,
+                   SWAP_ACTIVATING,
+                   SWAP_ACTIVATING_SIGTERM,
+                   SWAP_ACTIVATING_SIGKILL,
+                   SWAP_ACTIVATING_DONE,
+                   SWAP_DEACTIVATING,
+                   SWAP_DEACTIVATING_SIGTERM,
+                   SWAP_DEACTIVATING_SIGKILL)) {
 
                 r = unit_watch_pid(UNIT(s), s->control_pid);
                 if (r < 0)
