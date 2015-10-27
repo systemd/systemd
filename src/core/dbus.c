@@ -25,6 +25,7 @@
 
 #include "sd-bus.h"
 
+#include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-internal.h"
@@ -45,6 +46,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "strxcpyx.h"
+#include "user-util.h"
 
 #define CONNECTIONS_MAX 4096
 

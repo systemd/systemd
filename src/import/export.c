@@ -23,10 +23,12 @@
 
 #include "sd-event.h"
 
+#include "alloc-util.h"
 #include "event-util.h"
 #include "export-raw.h"
 #include "export-tar.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "hostname-util.h"
 #include "import-util.h"
 #include "machine-image.h"

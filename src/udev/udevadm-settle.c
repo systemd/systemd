@@ -26,6 +26,7 @@
 #include <getopt.h>
 #include <poll.h>
 
+#include "parse-util.h"
 #include "udev.h"
 #include "util.h"
 

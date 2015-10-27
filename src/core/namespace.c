@@ -28,17 +28,22 @@
 #include <unistd.h>
 #include <linux/fs.h>
 
+#include "alloc-util.h"
 #include "dev-setup.h"
 #include "fd-util.h"
 #include "loopback-setup.h"
 #include "missing.h"
 #include "mkdir.h"
+#include "mount-util.h"
 #include "namespace.h"
 #include "path-util.h"
 #include "selinux-util.h"
 #include "socket-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
+#include "umask-util.h"
+#include "user-util.h"
 #include "util.h"
 
 typedef enum MountMode {

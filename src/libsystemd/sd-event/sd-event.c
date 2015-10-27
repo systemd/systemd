@@ -27,6 +27,7 @@
 #include "sd-event.h"
 #include "sd-id128.h"
 
+#include "alloc-util.h"
 #include "fd-util.h"
 #include "hashmap.h"
 #include "list.h"

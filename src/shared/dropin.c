@@ -19,12 +19,14 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "alloc-util.h"
 #include "conf-files.h"
 #include "dropin.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio-label.h"
 #include "mkdir.h"
+#include "path-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "util.h"

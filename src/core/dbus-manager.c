@@ -23,6 +23,7 @@
 #include <sys/prctl.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "architecture.h"
 #include "build.h"
 #include "bus-common-errors.h"
@@ -35,13 +36,16 @@
 #include "dbus.h"
 #include "env-util.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "formats-util.h"
 #include "install.h"
 #include "log.h"
 #include "path-util.h"
 #include "selinux-access.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "syslog-util.h"
 #include "virt.h"
 #include "watchdog.h"
 

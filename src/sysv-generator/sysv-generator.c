@@ -25,8 +25,10 @@
 #include <stdio.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "fd-util.h"
 #include "hashmap.h"
+#include "hexdecoct.h"
 #include "install.h"
 #include "log.h"
 #include "mkdir.h"
@@ -34,6 +36,7 @@
 #include "path-util.h"
 #include "set.h"
 #include "special.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "unit-name.h"

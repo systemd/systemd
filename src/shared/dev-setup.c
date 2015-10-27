@@ -23,10 +23,12 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#include "util.h"
+#include "alloc-util.h"
+#include "dev-setup.h"
 #include "label.h"
 #include "path-util.h"
-#include "dev-setup.h"
+#include "user-util.h"
+#include "util.h"
 
 int dev_setup(const char *prefix, uid_t uid, gid_t gid) {
         static const char symlinks[] =

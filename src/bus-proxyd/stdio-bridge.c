@@ -30,6 +30,7 @@
 #include "sd-daemon.h"
 #include "sd-bus.h"
 
+#include "alloc-util.h"
 #include "bus-internal.h"
 #include "bus-util.h"
 #include "def.h"

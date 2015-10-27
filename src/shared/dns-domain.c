@@ -24,8 +24,11 @@
 #include <stringprep.h>
 #endif
 
-#include "string-util.h"
+#include "alloc-util.h"
 #include "dns-domain.h"
+#include "hexdecoct.h"
+#include "parse-util.h"
+#include "string-util.h"
 
 int dns_label_unescape(const char **name, char *dest, size_t sz) {
         const char *n;

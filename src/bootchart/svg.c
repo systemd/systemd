@@ -30,6 +30,7 @@
 #include <sys/utsname.h>
 #include <fcntl.h>
 
+#include "alloc-util.h"
 #include "architecture.h"
 #include "util.h"
 #include "fileio.h"

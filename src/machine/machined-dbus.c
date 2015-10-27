@@ -25,6 +25,7 @@
 
 #include "sd-id128.h"
 
+#include "alloc-util.h"
 #include "btrfs-util.h"
 #include "bus-common-errors.h"
 #include "bus-util.h"
@@ -39,6 +40,7 @@
 #include "machined.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "stdio-util.h"
 #include "strv.h"
 #include "unit-name.h"
 #include "user-util.h"

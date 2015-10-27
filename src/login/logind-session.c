@@ -30,7 +30,8 @@
 
 #include "sd-messages.h"
 
-#include "audit.h"
+#include "alloc-util.h"
+#include "audit-util.h"
 #include "bus-error.h"
 #include "bus-util.h"
 #include "escape.h"
@@ -41,7 +42,9 @@
 #include "io-util.h"
 #include "logind-session.h"
 #include "mkdir.h"
+#include "parse-util.h"
 #include "path-util.h"
+#include "string-table.h"
 #include "terminal-util.h"
 #include "user-util.h"
 #include "util.h"

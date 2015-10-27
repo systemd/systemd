@@ -26,6 +26,7 @@
 #include <shadow.h>
 #include <utmp.h>
 
+#include "alloc-util.h"
 #include "conf-files.h"
 #include "copy.h"
 #include "fileio-label.h"
@@ -1859,7 +1860,7 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 goto finish;
 
-        lock = take_password_lock(arg_root);
+        lock = take_etc_passwd_lock(arg_root);
         if (lock < 0) {
                 log_error_errno(lock, "Failed to take lock: %m");
                 goto finish;

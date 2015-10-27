@@ -21,10 +21,11 @@
 
 #include "sd-bus.h"
 
+#include "alloc-util.h"
+#include "busctl-introspect.h"
 #include "string-util.h"
 #include "util.h"
 #include "xml.h"
-#include "busctl-introspect.h"
 
 #define NODE_DEPTH_MAX 16
 

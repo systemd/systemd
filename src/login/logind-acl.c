@@ -23,6 +23,8 @@
 #include <string.h>
 
 #include "acl-util.h"
+#include "alloc-util.h"
+#include "dirent-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "formats-util.h"

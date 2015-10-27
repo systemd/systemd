@@ -28,6 +28,7 @@
 
 #include "sd-dhcp-client.h"
 
+#include "alloc-util.h"
 #include "async.h"
 #include "dhcp-identifier.h"
 #include "dhcp-internal.h"

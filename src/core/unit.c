@@ -28,6 +28,7 @@
 #include "sd-id128.h"
 #include "sd-messages.h"
 
+#include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-util.h"
 #include "cgroup-util.h"
@@ -44,10 +45,12 @@
 #include "macro.h"
 #include "missing.h"
 #include "mkdir.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "set.h"
 #include "special.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "unit-name.h"
@@ -416,12 +419,11 @@ static void unit_remove_transient(Unit *u) {
 
         STRV_FOREACH(i, u->dropin_paths) {
                 _cleanup_free_ char *p = NULL;
-                int r;
 
                 (void) unlink(*i);
 
-                r = path_get_parent(*i, &p);
-                if (r >= 0)
+                p = dirname_malloc(*i);
+                if (p)
                         (void) rmdir(p);
         }
 }

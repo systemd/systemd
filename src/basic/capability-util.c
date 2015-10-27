@@ -26,10 +26,12 @@
 #include <sys/prctl.h>
 #include <unistd.h>
 
-#include "capability.h"
+#include "alloc-util.h"
+#include "capability-util.h"
 #include "fileio.h"
 #include "log.h"
 #include "macro.h"
+#include "parse-util.h"
 #include "util.h"
 
 int have_effective_cap(int value) {

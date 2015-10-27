@@ -19,6 +19,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "alloc-util.h"
 #include "async.h"
 #include "bus-util.h"
 #include "dbus-cgroup.h"
@@ -26,6 +27,7 @@
 #include "dbus-kill.h"
 #include "dbus-service.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "path-util.h"
 #include "service.h"
 #include "string-util.h"

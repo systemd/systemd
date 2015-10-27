@@ -24,7 +24,10 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
+#include "io-util.h"
 #include "journald-console.h"
 #include "journald-kmsg.h"
 #include "journald-native.h"
@@ -32,6 +35,7 @@
 #include "journald-syslog.h"
 #include "journald-wall.h"
 #include "memfd-util.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "selinux-util.h"
 #include "socket-util.h"

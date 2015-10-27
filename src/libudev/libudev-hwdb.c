@@ -19,6 +19,7 @@
 
 #include "sd-hwdb.h"
 
+#include "alloc-util.h"
 #include "hwdb-util.h"
 #include "libudev-private.h"
 

@@ -24,19 +24,24 @@
 #include <shadow.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "ask-password-api.h"
 #include "copy.h"
+#include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "hostname-util.h"
 #include "locale-util.h"
 #include "mkdir.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "random-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "time-util.h"
-#include "string-util.h"
-#include "fd-util.h"
+#include "umask-util.h"
+#include "user-util.h"
 
 static char *arg_root = NULL;
 static char *arg_locale = NULL;  /* $LANG */
@@ -535,7 +540,7 @@ static int process_root_password(void) {
 
         mkdir_parents(etc_shadow, 0755);
 
-        lock = take_password_lock(arg_root);
+        lock = take_etc_passwd_lock(arg_root);
         if (lock < 0)
                 return lock;
 

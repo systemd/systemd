@@ -19,10 +19,13 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "alloc-util.h"
 #include "btrfs-util.h"
+#include "import-util.h"
+#include "path-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "util.h"
-#include "import-util.h"
 
 int import_url_last_component(const char *url, char **ret) {
         const char *e, *p;

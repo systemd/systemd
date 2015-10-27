@@ -24,6 +24,7 @@
 
 #include "sd-dhcp-server.h"
 
+#include "alloc-util.h"
 #include "dhcp-internal.h"
 #include "dhcp-server-internal.h"
 #include "fd-util.h"

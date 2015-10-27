@@ -67,3 +67,5 @@ int close_all_fds(const int except[], unsigned n_except);
 int same_fd(int a, int b);
 
 void cmsg_close_all(struct msghdr *mh);
+
+bool fdname_is_valid(const char *s);

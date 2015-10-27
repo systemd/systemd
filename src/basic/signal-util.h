@@ -39,3 +39,5 @@ const char *signal_to_string(int i) _const_;
 int signal_from_string(const char *s) _pure_;
 
 int signal_from_string_try_harder(const char *s);
+
+void nop_signal_handler(int sig);

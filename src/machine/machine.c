@@ -25,6 +25,7 @@
 
 #include "sd-messages.h"
 
+#include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-util.h"
 #include "escape.h"
@@ -35,7 +36,9 @@
 #include "machine-dbus.h"
 #include "machine.h"
 #include "mkdir.h"
+#include "parse-util.h"
 #include "special.h"
+#include "string-table.h"
 #include "terminal-util.h"
 #include "unit-name.h"
 #include "util.h"

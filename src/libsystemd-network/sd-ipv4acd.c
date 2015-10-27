@@ -26,6 +26,7 @@
 
 #include "sd-ipv4acd.h"
 
+#include "alloc-util.h"
 #include "arp-util.h"
 #include "event-util.h"
 #include "fd-util.h"

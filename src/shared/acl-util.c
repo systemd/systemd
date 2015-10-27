@@ -22,6 +22,7 @@
 #include <errno.h>
 #include <stdbool.h>
 
+#include "alloc-util.h"
 #include "acl-util.h"
 #include "string-util.h"
 #include "strv.h"

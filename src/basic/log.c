@@ -31,15 +31,22 @@
 
 #include "sd-messages.h"
 
+#include "alloc-util.h"
 #include "fd-util.h"
 #include "formats-util.h"
+#include "io-util.h"
 #include "log.h"
 #include "macro.h"
 #include "missing.h"
+#include "parse-util.h"
+#include "proc-cmdline.h"
 #include "process-util.h"
 #include "signal-util.h"
 #include "socket-util.h"
+#include "stdio-util.h"
+#include "string-table.h"
 #include "string-util.h"
+#include "syslog-util.h"
 #include "terminal-util.h"
 #include "util.h"
 

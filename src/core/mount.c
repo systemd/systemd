@@ -26,6 +26,7 @@
 
 #include "sd-messages.h"
 
+#include "alloc-util.h"
 #include "dbus-mount.h"
 #include "escape.h"
 #include "exit-status.h"
@@ -35,10 +36,14 @@
 #include "manager.h"
 #include "mkdir.h"
 #include "mount-setup.h"
+#include "mount-util.h"
 #include "mount.h"
+#include "parse-util.h"
 #include "path-util.h"
+#include "process-util.h"
 #include "smack-util.h"
 #include "special.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "unit-name.h"
@@ -251,9 +256,10 @@ static int mount_add_mount_links(Mount *m) {
         if (!path_equal(m->where, "/")) {
                 /* Adds in links to other mount points that might lie further
                  * up in the hierarchy */
-                r = path_get_parent(m->where, &parent);
-                if (r < 0)
-                        return r;
+
+                parent = dirname_malloc(m->where);
+                if (!parent)
+                        return -ENOMEM;
 
                 r = unit_require_mounts_for(UNIT(m), parent);
                 if (r < 0)

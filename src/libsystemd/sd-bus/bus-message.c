@@ -25,6 +25,7 @@
 
 #include "sd-bus.h"
 
+#include "alloc-util.h"
 #include "bus-gvariant.h"
 #include "bus-internal.h"
 #include "bus-message.h"
@@ -32,6 +33,7 @@
 #include "bus-type.h"
 #include "bus-util.h"
 #include "fd-util.h"
+#include "io-util.h"
 #include "memfd-util.h"
 #include "string-util.h"
 #include "strv.h"

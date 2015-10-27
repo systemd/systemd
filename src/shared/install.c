@@ -25,21 +25,26 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "conf-files.h"
 #include "conf-parser.h"
+#include "dirent-util.h"
+#include "fd-util.h"
+#include "fs-util.h"
 #include "hashmap.h"
 #include "install-printf.h"
+#include "install.h"
 #include "mkdir.h"
 #include "path-lookup.h"
 #include "path-util.h"
 #include "set.h"
 #include "special.h"
+#include "stat-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "unit-name.h"
 #include "util.h"
-#include "install.h"
-#include "fd-util.h"
 
 typedef struct {
         OrderedHashmap *will_install;
@@ -48,13 +53,12 @@ typedef struct {
 
 static int in_search_path(const char *path, char **search) {
         _cleanup_free_ char *parent = NULL;
-        int r;
 
         assert(path);
 
-        r = path_get_parent(path, &parent);
-        if (r < 0)
-                return r;
+        parent = dirname_malloc(path);
+        if (!parent)
+                return -ENOMEM;
 
         return strv_contains(search, parent);
 }

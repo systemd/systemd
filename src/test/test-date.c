@@ -21,8 +21,9 @@
 
 #include <string.h>
 
-#include "util.h"
+#include "alloc-util.h"
 #include "string-util.h"
+#include "util.h"
 
 static void test_should_pass(const char *p) {
         usec_t t, q;

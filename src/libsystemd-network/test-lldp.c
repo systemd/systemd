@@ -28,6 +28,7 @@
 #include "sd-event.h"
 #include "sd-lldp.h"
 
+#include "alloc-util.h"
 #include "event-util.h"
 #include "fd-util.h"
 #include "lldp-network.h"

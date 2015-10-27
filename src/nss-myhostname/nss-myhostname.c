@@ -26,6 +26,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "alloc-util.h"
 #include "hostname-util.h"
 #include "local-addresses.h"
 #include "macro.h"

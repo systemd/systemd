@@ -22,8 +22,11 @@
 #include <errno.h>
 #include <stdio.h>
 
+#include "alloc-util.h"
+#include "fstab-util.h"
 #include "log.h"
 #include "mkdir.h"
+#include "proc-cmdline.h"
 #include "special.h"
 #include "string-util.h"
 #include "unit-name.h"

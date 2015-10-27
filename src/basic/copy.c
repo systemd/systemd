@@ -22,13 +22,20 @@
 #include <sys/sendfile.h>
 #include <sys/xattr.h>
 
+#include "alloc-util.h"
 #include "btrfs-util.h"
+#include "chattr-util.h"
 #include "copy.h"
+#include "dirent-util.h"
 #include "fd-util.h"
+#include "fileio.h"
+#include "fs-util.h"
 #include "io-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "umask-util.h"
 #include "util.h"
+#include "xattr-util.h"
 
 #define COPY_BUFFER_SIZE (16*1024)
 

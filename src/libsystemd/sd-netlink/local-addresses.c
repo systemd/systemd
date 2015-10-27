@@ -21,6 +21,8 @@
 ***/
 
 #include "sd-netlink.h"
+
+#include "alloc-util.h"
 #include "netlink-util.h"
 #include "macro.h"
 #include "local-addresses.h"

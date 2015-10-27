@@ -23,6 +23,7 @@
 #include <sys/utsname.h>
 
 #include "fd-util.h"
+#include "fileio.h"
 #include "hostname-util.h"
 #include "string-util.h"
 #include "util.h"

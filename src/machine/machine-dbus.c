@@ -29,6 +29,7 @@
 #include <libgen.h>
 #undef basename
 
+#include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-internal.h"
 #include "bus-label.h"
@@ -38,6 +39,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "formats-util.h"
+#include "fs-util.h"
 #include "in-addr-util.h"
 #include "local-addresses.h"
 #include "machine-dbus.h"
@@ -47,6 +49,7 @@
 #include "process-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "user-util.h"
 
 static int property_get_id(
                 sd_bus *bus,

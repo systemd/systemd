@@ -26,6 +26,7 @@
 #include <linux/btrfs.h>
 #endif
 
+#include "alloc-util.h"
 #include "btrfs-ctree.h"
 #include "btrfs-util.h"
 #include "copy.h"
@@ -36,6 +37,7 @@
 #include "path-util.h"
 #include "selinux-util.h"
 #include "smack-util.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "util.h"
 
@@ -60,13 +62,13 @@ static int validate_subvolume_name(const char *name) {
 
 static int open_parent(const char *path, int flags) {
         _cleanup_free_ char *parent = NULL;
-        int r, fd;
+        int fd;
 
         assert(path);
 
-        r = path_get_parent(path, &parent);
-        if (r < 0)
-                return r;
+        parent = dirname_malloc(path);
+        if (!parent)
+                return -ENOMEM;
 
         fd = open(parent, flags);
         if (fd < 0)

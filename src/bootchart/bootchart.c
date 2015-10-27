@@ -48,6 +48,7 @@
 
 #include "sd-journal.h"
 
+#include "alloc-util.h"
 #include "bootchart.h"
 #include "conf-parser.h"
 #include "fd-util.h"
@@ -55,6 +56,7 @@
 #include "io-util.h"
 #include "list.h"
 #include "macro.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "store.h"
 #include "string-util.h"

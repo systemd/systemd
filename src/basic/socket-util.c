@@ -30,14 +30,18 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "formats-util.h"
 #include "macro.h"
 #include "missing.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "socket-util.h"
+#include "string-table.h"
 #include "string-util.h"
+#include "user-util.h"
 #include "util.h"
 
 int socket_address_parse(SocketAddress *a, const char *s) {

@@ -19,8 +19,9 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "resolved-dns-question.h"
+#include "alloc-util.h"
 #include "dns-domain.h"
+#include "resolved-dns-question.h"
 
 DnsQuestion *dns_question_new(unsigned n) {
         DnsQuestion *q;

@@ -21,12 +21,15 @@
 
 #include "sd-login.h"
 
+#include "alloc-util.h"
 #include "bus-internal.h"
 #include "bus-xml-policy.h"
 #include "conf-files.h"
 #include "fileio.h"
 #include "formats-util.h"
+#include "locale-util.h"
 #include "set.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "user-util.h"

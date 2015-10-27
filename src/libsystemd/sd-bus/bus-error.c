@@ -28,6 +28,7 @@
 
 #include "sd-bus.h"
 
+#include "alloc-util.h"
 #include "errno-list.h"
 #include "string-util.h"
 #include "util.h"

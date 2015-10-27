@@ -29,6 +29,7 @@
 
 #include "sd-bus.h"
 
+#include "alloc-util.h"
 #include "bus-container.h"
 #include "bus-control.h"
 #include "bus-internal.h"
@@ -48,6 +49,8 @@
 #include "hostname-util.h"
 #include "macro.h"
 #include "missing.h"
+#include "hexdecoct.h"
+#include "parse-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "util.h"

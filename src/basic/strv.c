@@ -24,6 +24,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "alloc-util.h"
 #include "escape.h"
 #include "string-util.h"
 #include "util.h"

@@ -19,10 +19,11 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "alloc-util.h"
+#include "escape.h"
+#include "hexdecoct.h"
 #include "utf8.h"
 #include "util.h"
-
-#include "escape.h"
 
 size_t cescape_char(char c, char *buf) {
         char * buf_old = buf;

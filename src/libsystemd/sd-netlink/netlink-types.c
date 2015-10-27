@@ -28,16 +28,15 @@
 #include <linux/if_bridge.h>
 #include <linux/if_addr.h>
 #include <linux/if.h>
-
 #include <linux/ip.h>
 #include <linux/if_link.h>
 #include <linux/if_tunnel.h>
 
 #include "macro.h"
-#include "util.h"
-
-#include "netlink-types.h"
 #include "missing.h"
+#include "netlink-types.h"
+#include "string-table.h"
+#include "util.h"
 
 /* Maximum ARP IP target defined in kernel */
 #define BOND_MAX_ARP_TARGETS    16

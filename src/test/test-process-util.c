@@ -23,6 +23,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "log.h"
 #include "macro.h"
 #include "process-util.h"
@@ -54,7 +55,7 @@ static void test_get_process_comm(void) {
         assert_se(get_process_cmdline(1, 8, false, &d) >= 0);
         log_info("pid1 cmdline truncated: '%s'", d);
 
-        assert_se(get_parent_of_pid(1, &e) >= 0);
+        assert_se(get_process_ppid(1, &e) >= 0);
         log_info("pid1 ppid: "PID_FMT, e);
         assert_se(e == 0);
 

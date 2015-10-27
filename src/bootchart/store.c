@@ -31,10 +31,13 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "bootchart.h"
 #include "cgroup-util.h"
+#include "dirent-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "parse-util.h"
 #include "store.h"
 #include "string-util.h"
 #include "strxcpyx.h"

@@ -28,6 +28,7 @@
 #include "sd-bus.h"
 #include "sd-id128.h"
 
+#include "alloc-util.h"
 #include "architecture.h"
 #include "bus-error.h"
 #include "bus-util.h"

@@ -24,10 +24,12 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "alloc-util.h"
 #include "cgroup-show.h"
 #include "cgroup-util.h"
 #include "fd-util.h"
 #include "formats-util.h"
+#include "locale-util.h"
 #include "macro.h"
 #include "path-util.h"
 #include "process-util.h"

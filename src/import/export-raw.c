@@ -25,10 +25,12 @@
 
 #include "sd-daemon.h"
 
+#include "alloc-util.h"
 #include "btrfs-util.h"
 #include "copy.h"
 #include "export-raw.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "import-common.h"
 #include "ratelimit.h"
 #include "string-util.h"

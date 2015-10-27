@@ -168,3 +168,5 @@ void string_erase(char *x);
 char *string_free_erase(char *s);
 DEFINE_TRIVIAL_CLEANUP_FUNC(char *, string_free_erase);
 #define _cleanup_string_free_erase_ _cleanup_(string_free_erasep)
+
+bool string_is_safe(const char *p) _pure_;

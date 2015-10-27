@@ -29,9 +29,12 @@
 #include "sd-daemon.h"
 #include "sd-event.h"
 
+#include "alloc-util.h"
+#include "dirent-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "io-util.h"
 #include "journald-console.h"
 #include "journald-kmsg.h"
 #include "journald-server.h"
@@ -39,9 +42,12 @@
 #include "journald-syslog.h"
 #include "journald-wall.h"
 #include "mkdir.h"
+#include "parse-util.h"
 #include "selinux-util.h"
 #include "socket-util.h"
+#include "stdio-util.h"
 #include "string-util.h"
+#include "syslog-util.h"
 
 #define STDOUT_STREAMS_MAX 4096
 

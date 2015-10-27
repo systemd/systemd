@@ -22,11 +22,14 @@
 #include <stdarg.h>
 #include <stdio.h>
 
+#include "alloc-util.h"
 #include "conf-files.h"
+#include "fs-util.h"
 #include "macro.h"
 #include "rm-rf.h"
 #include "string-util.h"
 #include "strv.h"
+#include "user-util.h"
 #include "util.h"
 
 static void setup_test_dir(char *tmp_dir, const char *files, ...) {

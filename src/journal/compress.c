@@ -33,12 +33,14 @@
 #include <lz4frame.h>
 #endif
 
+#include "alloc-util.h"
 #include "compress.h"
 #include "fd-util.h"
 #include "io-util.h"
 #include "journal-def.h"
 #include "macro.h"
 #include "sparse-endian.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "util.h"
 

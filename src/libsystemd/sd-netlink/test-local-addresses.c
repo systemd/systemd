@@ -19,6 +19,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "alloc-util.h"
 #include "in-addr-util.h"
 #include "local-addresses.h"
 #include "af-list.h"

@@ -25,6 +25,7 @@
 #include <sys/socket.h>
 #include <time.h>
 
+#include "alloc-util.h"
 #include "fd-util.h"
 #include "formats-util.h"
 #include "hashmap.h"
@@ -33,7 +34,9 @@
 #include "journal-internal.h"
 #include "log.h"
 #include "logs-show.h"
+#include "parse-util.h"
 #include "process-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "terminal-util.h"
 #include "utf8.h"

@@ -29,6 +29,7 @@
 #include "MurmurHash2.h"
 #include "device-nodes.h"
 #include "libudev-private.h"
+#include "syslog-util.h"
 #include "utf8.h"
 
 /**

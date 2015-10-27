@@ -23,8 +23,10 @@
 #include <sys/mount.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "fd-util.h"
 #include "macro.h"
+#include "mount-util.h"
 #include "path-util.h"
 #include "rm-rf.h"
 #include "string-util.h"
@@ -76,20 +78,6 @@ static void test_path(void) {
         assert_se(streq(basename("/aa///.file"), ".file"));
         assert_se(streq(basename("/aa///file..."), "file..."));
         assert_se(streq(basename("file.../"), ""));
-
-#define test_parent(x, y) {                                \
-                _cleanup_free_ char *z = NULL;             \
-                int r = path_get_parent(x, &z);            \
-                printf("expected: %s\n", y ? y : "error"); \
-                printf("actual: %s\n", r<0 ? "error" : z); \
-                assert_se((y==NULL) ^ (r==0));             \
-                assert_se(y==NULL || path_equal(z, y));    \
-        }
-
-        test_parent("./aa/bb/../file.da.", "./aa/bb/..");
-        test_parent("/aa///.file", "/aa///");
-        test_parent("/aa///file...", "/aa///");
-        test_parent("file.../", NULL);
 
         fd = open("/", O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOCTTY);
         assert_se(fd >= 0);

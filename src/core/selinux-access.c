@@ -32,13 +32,16 @@
 #endif
 
 #include "sd-bus.h"
-#include "bus-util.h"
-#include "util.h"
-#include "log.h"
-#include "selinux-util.h"
+
+#include "alloc-util.h"
 #include "audit-fd.h"
-#include "strv.h"
+#include "bus-util.h"
+#include "log.h"
 #include "path-util.h"
+#include "selinux-util.h"
+#include "stdio-util.h"
+#include "strv.h"
+#include "util.h"
 
 static bool initialized = false;
 

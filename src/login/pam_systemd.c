@@ -30,7 +30,8 @@
 #include <security/pam_modutil.h>
 #include <sys/file.h>
 
-#include "audit.h"
+#include "alloc-util.h"
+#include "audit-util.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-util.h"
@@ -41,6 +42,7 @@
 #include "hostname-util.h"
 #include "login-util.h"
 #include "macro.h"
+#include "parse-util.h"
 #include "socket-util.h"
 #include "strv.h"
 #include "terminal-util.h"

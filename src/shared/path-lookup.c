@@ -24,6 +24,7 @@
 #include <string.h>
 #include <errno.h>
 
+#include "alloc-util.h"
 #include "util.h"
 #include "strv.h"
 #include "path-util.h"

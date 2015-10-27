@@ -31,22 +31,33 @@
 #include <sys/xattr.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "conf-parser.h"
 #include "cpu-set-util.h"
 #include "def.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
+#include "fstab-util.h"
+#include "glob-util.h"
+#include "hexdecoct.h"
 #include "io-util.h"
 #include "mkdir.h"
+#include "parse-util.h"
+#include "path-util.h"
+#include "proc-cmdline.h"
 #include "process-util.h"
 #include "rm-rf.h"
 #include "signal-util.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "user-util.h"
 #include "util.h"
 #include "virt.h"
-#include "user-util.h"
+#include "web-util.h"
+#include "xattr-util.h"
 
 static void test_streq_ptr(void) {
         assert_se(streq_ptr(NULL, NULL));

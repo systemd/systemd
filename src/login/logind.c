@@ -27,9 +27,11 @@
 #include "libudev.h"
 #include "sd-daemon.h"
 
+#include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-util.h"
 #include "conf-parser.h"
+#include "dirent-util.h"
 #include "fd-util.h"
 #include "formats-util.h"
 #include "logind.h"

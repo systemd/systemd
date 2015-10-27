@@ -28,6 +28,7 @@
 
 #include "sd-messages.h"
 
+#include "alloc-util.h"
 #include "fd-util.h"
 #include "logind-button.h"
 #include "string-util.h"

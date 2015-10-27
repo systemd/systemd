@@ -24,6 +24,7 @@
 #include "sd-daemon.h"
 #include "sd-id128.h"
 
+#include "alloc-util.h"
 #include "macro.h"
 #include "string-util.h"
 #include "util.h"

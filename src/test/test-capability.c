@@ -24,7 +24,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#include "capability.h"
+#include "capability-util.h"
 #include "fd-util.h"
 #include "macro.h"
 #include "util.h"

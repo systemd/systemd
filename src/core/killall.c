@@ -24,9 +24,11 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "fd-util.h"
 #include "formats-util.h"
 #include "killall.h"
+#include "parse-util.h"
 #include "process-util.h"
 #include "set.h"
 #include "string-util.h"

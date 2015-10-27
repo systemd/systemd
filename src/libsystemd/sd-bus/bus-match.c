@@ -19,11 +19,14 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "alloc-util.h"
 #include "bus-internal.h"
 #include "bus-match.h"
 #include "bus-message.h"
 #include "bus-util.h"
 #include "fd-util.h"
+#include "fileio.h"
+#include "hexdecoct.h"
 #include "string-util.h"
 #include "strv.h"
 

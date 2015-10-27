@@ -28,6 +28,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "alloc-util.h"
+#include "dirent-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "log.h"

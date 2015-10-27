@@ -43,6 +43,7 @@
 #include "sd-daemon.h"
 #include "sd-event.h"
 
+#include "alloc-util.h"
 #include "cgroup-util.h"
 #include "cpu-set-util.h"
 #include "dev-setup.h"
@@ -50,16 +51,21 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "formats-util.h"
+#include "fs-util.h"
 #include "hashmap.h"
 #include "io-util.h"
 #include "netlink-util.h"
+#include "parse-util.h"
+#include "proc-cmdline.h"
 #include "process-util.h"
 #include "selinux-util.h"
 #include "signal-util.h"
+#include "socket-util.h"
 #include "string-util.h"
 #include "terminal-util.h"
 #include "udev-util.h"
 #include "udev.h"
+#include "user-util.h"
 
 static bool arg_debug = false;
 static int arg_daemonize = false;

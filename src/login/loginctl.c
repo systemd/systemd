@@ -27,6 +27,7 @@
 
 #include "sd-bus.h"
 
+#include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-util.h"
 #include "cgroup-show.h"
@@ -35,6 +36,7 @@
 #include "logs-show.h"
 #include "macro.h"
 #include "pager.h"
+#include "parse-util.h"
 #include "process-util.h"
 #include "signal-util.h"
 #include "spawn-polkit-agent.h"

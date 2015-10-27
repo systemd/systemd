@@ -21,12 +21,14 @@
 
 #include "sd-netlink.h"
 
+#include "alloc-util.h"
 #include "fd-util.h"
 #include "firewall-util.h"
 #include "in-addr-util.h"
 #include "local-addresses.h"
 #include "netlink-util.h"
 #include "nspawn-expose-ports.h"
+#include "parse-util.h"
 #include "socket-util.h"
 #include "string-util.h"
 #include "util.h"

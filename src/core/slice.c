@@ -21,6 +21,7 @@
 
 #include <errno.h>
 
+#include "alloc-util.h"
 #include "dbus-slice.h"
 #include "log.h"
 #include "special.h"

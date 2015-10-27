@@ -25,7 +25,7 @@
 #include <unistd.h>
 
 #include "btrfs-util.h"
-#include "capability.h"
+#include "capability-util.h"
 #include "fd-util.h"
 #include "import-common.h"
 #include "signal-util.h"

@@ -26,6 +26,7 @@
 
 #include "sd-ndisc.h"
 
+#include "alloc-util.h"
 #include "async.h"
 #include "icmp6-util.h"
 #include "list.h"

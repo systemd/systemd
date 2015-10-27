@@ -19,8 +19,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "alloc-util.h"
 #include "bus-internal.h"
 #include "bus-message.h"
+#include "hexdecoct.h"
 #include "string-util.h"
 
 bool object_path_is_valid(const char *p) {

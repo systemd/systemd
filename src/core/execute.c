@@ -53,6 +53,7 @@
 #include "sd-messages.h"
 
 #include "af-list.h"
+#include "alloc-util.h"
 #ifdef HAVE_APPARMOR
 #include "apparmor-util.h"
 #endif
@@ -60,7 +61,7 @@
 #include "barrier.h"
 #include "bus-endpoint.h"
 #include "cap-list.h"
-#include "capability.h"
+#include "capability-util.h"
 #include "def.h"
 #include "env-util.h"
 #include "errno-list.h"
@@ -69,6 +70,8 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "formats-util.h"
+#include "fs-util.h"
+#include "glob-util.h"
 #include "io-util.h"
 #include "ioprio.h"
 #include "log.h"
@@ -76,8 +79,10 @@
 #include "missing.h"
 #include "mkdir.h"
 #include "namespace.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "rlimit-util.h"
 #include "rm-rf.h"
 #ifdef HAVE_SECCOMP
 #include "seccomp-util.h"
@@ -86,8 +91,10 @@
 #include "selinux-util.h"
 #include "signal-util.h"
 #include "smack-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
+#include "syslog-util.h"
 #include "terminal-util.h"
 #include "unit.h"
 #include "user-util.h"

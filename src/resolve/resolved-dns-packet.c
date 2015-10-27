@@ -19,12 +19,14 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
  ***/
 
-#include "utf8.h"
-#include "util.h"
-#include "strv.h"
-#include "unaligned.h"
+#include "alloc-util.h"
 #include "dns-domain.h"
 #include "resolved-dns-packet.h"
+#include "string-table.h"
+#include "strv.h"
+#include "unaligned.h"
+#include "utf8.h"
+#include "util.h"
 
 int dns_packet_new(DnsPacket **ret, DnsProtocol protocol, size_t mtu) {
         DnsPacket *p;

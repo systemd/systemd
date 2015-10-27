@@ -24,20 +24,25 @@
 
 #include "sd-device.h"
 
+#include "alloc-util.h"
 #include "device-internal.h"
 #include "device-private.h"
 #include "device-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "hashmap.h"
 #include "macro.h"
 #include "mkdir.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "refcnt.h"
 #include "set.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "strxcpyx.h"
+#include "user-util.h"
 #include "util.h"
 
 int device_add_property(sd_device *device, const char *key, const char *value) {

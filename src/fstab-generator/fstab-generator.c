@@ -25,14 +25,20 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "fstab-util.h"
 #include "generator.h"
 #include "log.h"
 #include "mkdir.h"
 #include "mount-setup.h"
+#include "mount-util.h"
+#include "parse-util.h"
 #include "path-util.h"
+#include "proc-cmdline.h"
 #include "special.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "unit-name.h"

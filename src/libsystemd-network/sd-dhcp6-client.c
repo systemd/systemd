@@ -26,6 +26,7 @@
 
 #include "sd-dhcp6-client.h"
 
+#include "alloc-util.h"
 #include "dhcp-identifier.h"
 #include "dhcp6-internal.h"
 #include "dhcp6-lease-internal.h"
@@ -33,6 +34,7 @@
 #include "fd-util.h"
 #include "network-internal.h"
 #include "random-util.h"
+#include "string-table.h"
 #include "util.h"
 
 #define MAX_MAC_ADDR_LEN INFINIBAND_ALEN

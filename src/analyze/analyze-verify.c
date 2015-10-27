@@ -21,12 +21,14 @@
 
 #include <stdlib.h>
 
-#include "manager.h"
+#include "alloc-util.h"
+#include "analyze-verify.h"
 #include "bus-util.h"
 #include "log.h"
-#include "strv.h"
+#include "manager.h"
 #include "pager.h"
-#include "analyze-verify.h"
+#include "path-util.h"
+#include "strv.h"
 
 static int generate_path(char **var, char **filenames) {
         char **filename;

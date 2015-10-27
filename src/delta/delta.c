@@ -26,13 +26,19 @@
 #include <sys/prctl.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
+#include "dirent-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "hashmap.h"
+#include "locale-util.h"
 #include "log.h"
 #include "pager.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "signal-util.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"

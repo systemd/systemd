@@ -24,6 +24,7 @@
 
 #include "sd-netlink.h"
 
+#include "alloc-util.h"
 #include "conf-files.h"
 #include "conf-parser.h"
 #include "ethtool-util.h"
@@ -34,8 +35,12 @@
 #include "missing.h"
 #include "netlink-util.h"
 #include "network-internal.h"
+#include "parse-util.h"
 #include "path-util.h"
+#include "proc-cmdline.h"
 #include "random-util.h"
+#include "stat-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "util.h"

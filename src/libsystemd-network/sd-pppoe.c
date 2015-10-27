@@ -30,6 +30,7 @@
 
 #include "sd-pppoe.h"
 
+#include "alloc-util.h"
 #include "async.h"
 #include "event-util.h"
 #include "fd-util.h"

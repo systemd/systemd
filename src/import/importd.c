@@ -23,6 +23,7 @@
 
 #include "sd-bus.h"
 
+#include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-util.h"
 #include "def.h"
@@ -32,12 +33,17 @@
 #include "machine-pool.h"
 #include "missing.h"
 #include "mkdir.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "signal-util.h"
 #include "socket-util.h"
+#include "string-table.h"
 #include "strv.h"
+#include "syslog-util.h"
+#include "user-util.h"
 #include "util.h"
+#include "web-util.h"
 
 typedef struct Transfer Transfer;
 typedef struct Manager Manager;

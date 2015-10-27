@@ -20,18 +20,20 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdlib.h>
 #include <errno.h>
 #include <pthread.h>
+#include <stdlib.h>
 
-#include "util.h"
+#include "alloc-util.h"
 #include "hashmap.h"
-#include "set.h"
 #include "macro.h"
+#include "mempool.h"
+#include "process-util.h"
+#include "random-util.h"
+#include "set.h"
 #include "siphash24.h"
 #include "strv.h"
-#include "mempool.h"
-#include "random-util.h"
+#include "util.h"
 
 #ifdef ENABLE_DEBUG_HASHMAP
 #include "list.h"

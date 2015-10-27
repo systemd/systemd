@@ -5,11 +5,11 @@
 #include <errno.h>
 #include <string.h>
 
-#include "util.h"
-#include "macro.h"
-
-#include "dhcp-protocol.h"
+#include "alloc-util.h"
 #include "dhcp-internal.h"
+#include "dhcp-protocol.h"
+#include "macro.h"
+#include "util.h"
 
 struct option_desc {
         uint8_t sname[64];

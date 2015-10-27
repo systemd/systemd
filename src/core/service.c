@@ -23,6 +23,7 @@
 #include <signal.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "async.h"
 #include "bus-error.h"
 #include "bus-kernel.h"
@@ -35,15 +36,18 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "formats-util.h"
+#include "fs-util.h"
 #include "load-dropin.h"
 #include "load-fragment.h"
 #include "log.h"
 #include "manager.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "service.h"
 #include "signal-util.h"
 #include "special.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "unit-name.h"
@@ -171,7 +175,7 @@ static int service_set_main_pid(Service *s, pid_t pid) {
         s->main_pid = pid;
         s->main_pid_known = true;
 
-        if (get_parent_of_pid(pid, &ppid) >= 0 && ppid != getpid()) {
+        if (get_process_ppid(pid, &ppid) >= 0 && ppid != getpid()) {
                 log_unit_warning(UNIT(s), "Supervising process "PID_FMT" which is not our child. We'll most likely not notice when it exits.", pid);
                 s->main_pid_alien = true;
         } else

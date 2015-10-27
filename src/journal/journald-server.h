@@ -25,9 +25,9 @@
 #include <sys/types.h>
 
 #include "sd-event.h"
-#include "journal-file.h"
+
 #include "hashmap.h"
-#include "audit.h"
+#include "journal-file.h"
 #include "journald-rate-limit.h"
 #include "list.h"
 

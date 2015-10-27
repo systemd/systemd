@@ -33,9 +33,10 @@
 
 #include "sd-daemon.h"
 
+#include "alloc-util.h"
 #include "bus-internal.h"
 #include "bus-xml-policy.h"
-#include "capability.h"
+#include "capability-util.h"
 #include "def.h"
 #include "fd-util.h"
 #include "formats-util.h"

@@ -21,12 +21,18 @@
 
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "ctype.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
+#include "hexdecoct.h"
+#include "path-util.h"
+#include "random-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "umask-util.h"
 #include "utf8.h"
 #include "util.h"
 
@@ -54,7 +60,7 @@ static int write_string_file_atomic(const char *fn, const char *line, bool enfor
         if (r < 0)
                 return r;
 
-        fchmod_umask(fileno(f), 0644);
+        (void) fchmod_umask(fileno(f), 0644);
 
         r = write_string_stream(f, line, enforce_newline);
         if (r >= 0) {
@@ -63,7 +69,7 @@ static int write_string_file_atomic(const char *fn, const char *line, bool enfor
         }
 
         if (r < 0)
-                unlink(p);
+                (void) unlink(p);
 
         return r;
 }
@@ -846,5 +852,300 @@ int get_proc_field(const char *filename, const char *pattern, const char *termin
                 return -ENOMEM;
 
         *field = f;
+        return 0;
+}
+
+DIR *xopendirat(int fd, const char *name, int flags) {
+        int nfd;
+        DIR *d;
+
+        assert(!(flags & O_CREAT));
+
+        nfd = openat(fd, name, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|flags, 0);
+        if (nfd < 0)
+                return NULL;
+
+        d = fdopendir(nfd);
+        if (!d) {
+                safe_close(nfd);
+                return NULL;
+        }
+
+        return d;
+}
+
+static int search_and_fopen_internal(const char *path, const char *mode, const char *root, char **search, FILE **_f) {
+        char **i;
+
+        assert(path);
+        assert(mode);
+        assert(_f);
+
+        if (!path_strv_resolve_uniq(search, root))
+                return -ENOMEM;
+
+        STRV_FOREACH(i, search) {
+                _cleanup_free_ char *p = NULL;
+                FILE *f;
+
+                if (root)
+                        p = strjoin(root, *i, "/", path, NULL);
+                else
+                        p = strjoin(*i, "/", path, NULL);
+                if (!p)
+                        return -ENOMEM;
+
+                f = fopen(p, mode);
+                if (f) {
+                        *_f = f;
+                        return 0;
+                }
+
+                if (errno != ENOENT)
+                        return -errno;
+        }
+
+        return -ENOENT;
+}
+
+int search_and_fopen(const char *path, const char *mode, const char *root, const char **search, FILE **_f) {
+        _cleanup_strv_free_ char **copy = NULL;
+
+        assert(path);
+        assert(mode);
+        assert(_f);
+
+        if (path_is_absolute(path)) {
+                FILE *f;
+
+                f = fopen(path, mode);
+                if (f) {
+                        *_f = f;
+                        return 0;
+                }
+
+                return -errno;
+        }
+
+        copy = strv_copy((char**) search);
+        if (!copy)
+                return -ENOMEM;
+
+        return search_and_fopen_internal(path, mode, root, copy, _f);
+}
+
+int search_and_fopen_nulstr(const char *path, const char *mode, const char *root, const char *search, FILE **_f) {
+        _cleanup_strv_free_ char **s = NULL;
+
+        if (path_is_absolute(path)) {
+                FILE *f;
+
+                f = fopen(path, mode);
+                if (f) {
+                        *_f = f;
+                        return 0;
+                }
+
+                return -errno;
+        }
+
+        s = strv_split_nulstr(search);
+        if (!s)
+                return -ENOMEM;
+
+        return search_and_fopen_internal(path, mode, root, s, _f);
+}
+
+int fopen_temporary(const char *path, FILE **_f, char **_temp_path) {
+        FILE *f;
+        char *t;
+        int r, fd;
+
+        assert(path);
+        assert(_f);
+        assert(_temp_path);
+
+        r = tempfn_xxxxxx(path, NULL, &t);
+        if (r < 0)
+                return r;
+
+        fd = mkostemp_safe(t, O_WRONLY|O_CLOEXEC);
+        if (fd < 0) {
+                free(t);
+                return -errno;
+        }
+
+        f = fdopen(fd, "we");
+        if (!f) {
+                unlink_noerrno(t);
+                free(t);
+                safe_close(fd);
+                return -errno;
+        }
+
+        *_f = f;
+        *_temp_path = t;
+
+        return 0;
+}
+
+int fflush_and_check(FILE *f) {
+        assert(f);
+
+        errno = 0;
+        fflush(f);
+
+        if (ferror(f))
+                return errno ? -errno : -EIO;
+
+        return 0;
+}
+
+/* This is much like like mkostemp() but is subject to umask(). */
+int mkostemp_safe(char *pattern, int flags) {
+        _cleanup_umask_ mode_t u;
+        int fd;
+
+        assert(pattern);
+
+        u = umask(077);
+
+        fd = mkostemp(pattern, flags);
+        if (fd < 0)
+                return -errno;
+
+        return fd;
+}
+
+int open_tmpfile(const char *path, int flags) {
+        char *p;
+        int fd;
+
+        assert(path);
+
+#ifdef O_TMPFILE
+        /* Try O_TMPFILE first, if it is supported */
+        fd = open(path, flags|O_TMPFILE|O_EXCL, S_IRUSR|S_IWUSR);
+        if (fd >= 0)
+                return fd;
+#endif
+
+        /* Fall back to unguessable name + unlinking */
+        p = strjoina(path, "/systemd-tmp-XXXXXX");
+
+        fd = mkostemp_safe(p, flags);
+        if (fd < 0)
+                return fd;
+
+        unlink(p);
+        return fd;
+}
+
+int tempfn_xxxxxx(const char *p, const char *extra, char **ret) {
+        const char *fn;
+        char *t;
+
+        assert(p);
+        assert(ret);
+
+        /*
+         * Turns this:
+         *         /foo/bar/waldo
+         *
+         * Into this:
+         *         /foo/bar/.#<extra>waldoXXXXXX
+         */
+
+        fn = basename(p);
+        if (!filename_is_valid(fn))
+                return -EINVAL;
+
+        if (extra == NULL)
+                extra = "";
+
+        t = new(char, strlen(p) + 2 + strlen(extra) + 6 + 1);
+        if (!t)
+                return -ENOMEM;
+
+        strcpy(stpcpy(stpcpy(stpcpy(mempcpy(t, p, fn - p), ".#"), extra), fn), "XXXXXX");
+
+        *ret = path_kill_slashes(t);
+        return 0;
+}
+
+int tempfn_random(const char *p, const char *extra, char **ret) {
+        const char *fn;
+        char *t, *x;
+        uint64_t u;
+        unsigned i;
+
+        assert(p);
+        assert(ret);
+
+        /*
+         * Turns this:
+         *         /foo/bar/waldo
+         *
+         * Into this:
+         *         /foo/bar/.#<extra>waldobaa2a261115984a9
+         */
+
+        fn = basename(p);
+        if (!filename_is_valid(fn))
+                return -EINVAL;
+
+        if (!extra)
+                extra = "";
+
+        t = new(char, strlen(p) + 2 + strlen(extra) + 16 + 1);
+        if (!t)
+                return -ENOMEM;
+
+        x = stpcpy(stpcpy(stpcpy(mempcpy(t, p, fn - p), ".#"), extra), fn);
+
+        u = random_u64();
+        for (i = 0; i < 16; i++) {
+                *(x++) = hexchar(u & 0xF);
+                u >>= 4;
+        }
+
+        *x = 0;
+
+        *ret = path_kill_slashes(t);
+        return 0;
+}
+
+int tempfn_random_child(const char *p, const char *extra, char **ret) {
+        char *t, *x;
+        uint64_t u;
+        unsigned i;
+
+        assert(p);
+        assert(ret);
+
+        /* Turns this:
+         *         /foo/bar/waldo
+         * Into this:
+         *         /foo/bar/waldo/.#<extra>3c2b6219aa75d7d0
+         */
+
+        if (!extra)
+                extra = "";
+
+        t = new(char, strlen(p) + 3 + strlen(extra) + 16 + 1);
+        if (!t)
+                return -ENOMEM;
+
+        x = stpcpy(stpcpy(stpcpy(t, p), "/.#"), extra);
+
+        u = random_u64();
+        for (i = 0; i < 16; i++) {
+                *(x++) = hexchar(u & 0xF);
+                u >>= 4;
+        }
+
+        *x = 0;
+
+        *ret = path_kill_slashes(t);
         return 0;
 }

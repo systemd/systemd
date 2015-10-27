@@ -35,6 +35,7 @@
 
 #include "sd-daemon.h"
 
+#include "alloc-util.h"
 #include "conf-parser.h"
 #include "escape.h"
 #include "fd-util.h"
@@ -44,8 +45,12 @@
 #include "journal-remote.h"
 #include "journald-native.h"
 #include "macro.h"
+#include "parse-util.h"
 #include "signal-util.h"
 #include "socket-util.h"
+#include "stat-util.h"
+#include "stdio-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 

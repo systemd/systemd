@@ -19,12 +19,13 @@
 
 #include <stdio.h>
 
-#include "unit.h"
-#include "manager.h"
-#include "util.h"
+#include "fs-util.h"
 #include "macro.h"
+#include "manager.h"
 #include "mkdir.h"
 #include "rm-rf.h"
+#include "unit.h"
+#include "util.h"
 
 typedef void (*test_function_t)(Manager *m);
 

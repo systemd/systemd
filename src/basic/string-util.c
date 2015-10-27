@@ -19,6 +19,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "alloc-util.h"
 #include "gunicode.h"
 #include "utf8.h"
 #include "util.h"
@@ -764,4 +765,21 @@ char *string_free_erase(char *s) {
 
         string_erase(s);
         return mfree(s);
+}
+
+bool string_is_safe(const char *p) {
+        const char *t;
+
+        if (!p)
+                return false;
+
+        for (t = p; *t; t++) {
+                if (*t > 0 && *t < ' ') /* no control characters */
+                        return false;
+
+                if (strchr(QUOTES "\\\x7f", *t))
+                        return false;
+        }
+
+        return true;
 }

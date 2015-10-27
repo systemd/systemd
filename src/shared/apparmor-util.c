@@ -19,10 +19,11 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-
-#include "util.h"
-#include "fileio.h"
+#include "alloc-util.h"
 #include "apparmor-util.h"
+#include "fileio.h"
+#include "parse-util.h"
+#include "util.h"
 
 bool mac_apparmor_use(void) {
         static int cached_use = -1;

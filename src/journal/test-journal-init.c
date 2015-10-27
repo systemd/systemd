@@ -22,6 +22,7 @@
 #include "sd-journal.h"
 
 #include "log.h"
+#include "parse-util.h"
 #include "rm-rf.h"
 #include "util.h"
 

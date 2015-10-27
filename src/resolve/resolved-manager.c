@@ -25,6 +25,7 @@
 #include <sys/ioctl.h>
 
 #include "af-list.h"
+#include "alloc-util.h"
 #include "dns-domain.h"
 #include "fd-util.h"
 #include "fileio-label.h"
@@ -33,12 +34,14 @@
 #include "netlink-util.h"
 #include "network-internal.h"
 #include "ordered-set.h"
+#include "parse-util.h"
 #include "random-util.h"
 #include "resolved-bus.h"
 #include "resolved-conf.h"
 #include "resolved-llmnr.h"
 #include "resolved-manager.h"
 #include "socket-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "utf8.h"
 

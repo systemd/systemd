@@ -22,6 +22,7 @@
 
 #include <string.h>
 
+#include "alloc-util.h"
 #include "specifier.h"
 #include "string-util.h"
 #include "strv.h"

@@ -25,16 +25,19 @@
 
 #include "sd-ndisc.h"
 
+#include "alloc-util.h"
 #include "condition.h"
 #include "conf-parser.h"
 #include "dhcp-lease-internal.h"
 #include "log.h"
+#include "network-internal.h"
+#include "hexdecoct.h"
+#include "parse-util.h"
 #include "siphash24.h"
 #include "string-util.h"
 #include "strv.h"
 #include "utf8.h"
 #include "util.h"
-#include "network-internal.h"
 
 const char *net_get_name(struct udev_device *device) {
         const char *name, *field;

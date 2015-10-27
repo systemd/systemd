@@ -21,10 +21,13 @@
 
 #include "libudev.h"
 
+#include "alloc-util.h"
 #include "def.h"
 #include "escape.h"
 #include "fileio.h"
 #include "mkdir.h"
+#include "parse-util.h"
+#include "proc-cmdline.h"
 #include "string-util.h"
 #include "udev-util.h"
 #include "util.h"

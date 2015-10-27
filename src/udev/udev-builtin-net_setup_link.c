@@ -19,9 +19,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "alloc-util.h"
 #include "link-config.h"
-#include "udev.h"
 #include "log.h"
+#include "udev.h"
 
 static link_config_ctx *ctx = NULL;
 

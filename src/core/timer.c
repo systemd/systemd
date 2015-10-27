@@ -21,10 +21,14 @@
 
 #include <errno.h>
 
+#include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-util.h"
 #include "dbus-timer.h"
+#include "fs-util.h"
+#include "parse-util.h"
 #include "special.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "timer.h"
 #include "unit-name.h"

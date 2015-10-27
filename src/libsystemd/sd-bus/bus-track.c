@@ -21,6 +21,7 @@
 
 #include "sd-bus.h"
 
+#include "alloc-util.h"
 #include "bus-internal.h"
 #include "bus-track.h"
 #include "bus-util.h"

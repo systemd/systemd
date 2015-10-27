@@ -24,6 +24,7 @@
 #include <sys/mount.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-util.h"
 #include "clean-ipc.h"
@@ -32,15 +33,20 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "formats-util.h"
+#include "fs-util.h"
 #include "hashmap.h"
 #include "label.h"
 #include "logind-user.h"
 #include "mkdir.h"
+#include "mount-util.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "rm-rf.h"
 #include "smack-util.h"
 #include "special.h"
+#include "string-table.h"
 #include "unit-name.h"
+#include "user-util.h"
 #include "util.h"
 
 User* user_new(Manager *m, uid_t uid, gid_t gid, const char *name) {

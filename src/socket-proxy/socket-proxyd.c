@@ -34,6 +34,7 @@
 #include "sd-event.h"
 #include "sd-resolve.h"
 
+#include "alloc-util.h"
 #include "fd-util.h"
 #include "log.h"
 #include "path-util.h"

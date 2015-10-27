@@ -21,6 +21,7 @@
 
 #include <stdlib.h>
 
+#include "alloc-util.h"
 #include "formats-util.h"
 #include "install-printf.h"
 #include "specifier.h"

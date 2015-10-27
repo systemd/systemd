@@ -30,12 +30,14 @@
 
 #include "sd-bus.h"
 
+#include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-util.h"
 #include "cgroup-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "hashmap.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "terminal-util.h"

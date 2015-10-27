@@ -19,11 +19,14 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "alloc-util.h"
 #include "bus-internal.h"
 #include "bus-util.h"
 #include "cgroup-util.h"
 #include "conf-parser.h"
+#include "dirent-util.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "mkdir.h"
 #include "special.h"
 #include "unit-name.h"

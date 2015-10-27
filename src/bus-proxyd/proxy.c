@@ -31,6 +31,7 @@
 #include "sd-bus.h"
 #include "sd-daemon.h"
 
+#include "alloc-util.h"
 #include "bus-control.h"
 #include "bus-internal.h"
 #include "bus-message.h"
@@ -44,6 +45,7 @@
 #include "set.h"
 #include "strv.h"
 #include "synthesize.h"
+#include "user-util.h"
 #include "util.h"
 
 static int proxy_create_destination(Proxy *p, const char *destination, const char *local_sec, bool negotiate_fds) {

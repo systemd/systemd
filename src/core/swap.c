@@ -26,14 +26,18 @@
 
 #include "libudev.h"
 
+#include "alloc-util.h"
 #include "dbus-swap.h"
 #include "escape.h"
 #include "exit-status.h"
 #include "fd-util.h"
 #include "formats-util.h"
 #include "fstab-util.h"
+#include "parse-util.h"
 #include "path-util.h"
+#include "process-util.h"
 #include "special.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "swap.h"
 #include "udev-util.h"

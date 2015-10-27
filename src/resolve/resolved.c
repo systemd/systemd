@@ -22,7 +22,7 @@
 #include "sd-daemon.h"
 #include "sd-event.h"
 
-#include "capability.h"
+#include "capability-util.h"
 #include "mkdir.h"
 #include "resolved-conf.h"
 #include "resolved-manager.h"

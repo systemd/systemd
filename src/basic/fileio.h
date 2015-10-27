@@ -20,8 +20,12 @@
   You should have received a copy of the GNU Lesser General Public License
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
+
+#include <dirent.h>
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
+#include <sys/types.h>
 
 #include "macro.h"
 
@@ -49,3 +53,27 @@ int write_env_file(const char *fname, char **l);
 int executable_is_script(const char *path, char **interpreter);
 
 int get_proc_field(const char *filename, const char *pattern, const char *terminator, char **field);
+
+DIR *xopendirat(int dirfd, const char *name, int flags);
+
+int search_and_fopen(const char *path, const char *mode, const char *root, const char **search, FILE **_f);
+int search_and_fopen_nulstr(const char *path, const char *mode, const char *root, const char *search, FILE **_f);
+
+#define FOREACH_LINE(line, f, on_error)                         \
+        for (;;)                                                \
+                if (!fgets(line, sizeof(line), f)) {            \
+                        if (ferror(f)) {                        \
+                                on_error;                       \
+                        }                                       \
+                        break;                                  \
+                } else
+
+int fflush_and_check(FILE *f);
+
+int fopen_temporary(const char *path, FILE **_f, char **_temp_path);
+int mkostemp_safe(char *pattern, int flags);
+int open_tmpfile(const char *path, int flags);
+
+int tempfn_xxxxxx(const char *p, const char *extra, char **ret);
+int tempfn_random(const char *p, const char *extra, char **ret);
+int tempfn_random_child(const char *p, const char *extra, char **ret);

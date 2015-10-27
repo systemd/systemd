@@ -21,9 +21,10 @@
 
 #include <string.h>
 
-#include "util.h"
 #include "cap-list.h"
 #include "missing.h"
+#include "parse-util.h"
+#include "util.h"
 
 static const struct capability_name* lookup_capability(register const char *str, register unsigned int len);
 

@@ -127,3 +127,6 @@ int getpeersec(int fd, char **ret);
 
 int send_one_fd(int transport_fd, int fd, int flags);
 int receive_one_fd(int transport_fd, int flags);
+
+#define CMSG_FOREACH(cmsg, mh)                                          \
+        for ((cmsg) = CMSG_FIRSTHDR(mh); (cmsg); (cmsg) = CMSG_NXTHDR((mh), (cmsg)))

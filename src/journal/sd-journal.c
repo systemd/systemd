@@ -30,11 +30,14 @@
 
 #include "sd-journal.h"
 
+#include "alloc-util.h"
 #include "catalog.h"
 #include "compress.h"
+#include "dirent-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "formats-util.h"
+#include "fs-util.h"
 #include "hashmap.h"
 #include "hostname-util.h"
 #include "io-util.h"
@@ -46,6 +49,8 @@
 #include "missing.h"
 #include "path-util.h"
 #include "replace-var.h"
+#include "stat-util.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 

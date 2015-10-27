@@ -22,6 +22,7 @@
 #include <ctype.h>
 #include <net/if.h>
 
+#include "alloc-util.h"
 #include "conf-files.h"
 #include "conf-parser.h"
 #include "dns-domain.h"
@@ -30,6 +31,9 @@
 #include "network-internal.h"
 #include "networkd-network.h"
 #include "networkd.h"
+#include "parse-util.h"
+#include "stat-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "util.h"
 

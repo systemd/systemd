@@ -27,12 +27,16 @@
 
 #include "sd-bus.h"
 
+#include "alloc-util.h"
 #include "analyze-verify.h"
 #include "bus-error.h"
 #include "bus-util.h"
+#include "glob-util.h"
 #include "hashmap.h"
+#include "locale-util.h"
 #include "log.h"
 #include "pager.h"
+#include "parse-util.h"
 #include "special.h"
 #include "strv.h"
 #include "strxcpyx.h"

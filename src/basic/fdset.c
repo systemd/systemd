@@ -25,9 +25,11 @@
 
 #include "sd-daemon.h"
 
+#include "dirent-util.h"
 #include "fd-util.h"
 #include "fdset.h"
 #include "macro.h"
+#include "parse-util.h"
 #include "set.h"
 #include "util.h"
 

@@ -22,6 +22,7 @@
 #include <errno.h>
 #include <string.h>
 
+#include "alloc-util.h"
 #include "hashmap.h"
 #include "list.h"
 #include "random-util.h"

@@ -21,12 +21,15 @@
 
 #include <sys/prctl.h>
 
+#include "alloc-util.h"
 #include "btrfs-util.h"
-#include "capability.h"
+#include "capability-util.h"
 #include "copy.h"
+#include "dirent-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "io-util.h"
+#include "path-util.h"
 #include "process-util.h"
 #include "pull-common.h"
 #include "pull-job.h"
@@ -36,6 +39,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "util.h"
+#include "web-util.h"
 
 #define FILENAME_ESCAPE "/.#\"\'"
 #define HASH_URL_THRESHOLD_LENGTH (_POSIX_PATH_MAX - 16)

@@ -21,6 +21,7 @@
 
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "dropin.h"
 #include "escape.h"
 #include "fd-util.h"
@@ -28,6 +29,7 @@
 #include "fstab-util.h"
 #include "generator.h"
 #include "mkdir.h"
+#include "mount-util.h"
 #include "path-util.h"
 #include "special.h"
 #include "string-util.h"

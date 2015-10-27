@@ -21,6 +21,7 @@
 
 #include <stdio.h>
 
+#include "alloc-util.h"
 #include "conf-parser.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -29,6 +30,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "util.h"
+#include "parse-util.h"
 
 #define USE(x, y) do{ (x) = (y); (y) = NULL; } while(0)
 

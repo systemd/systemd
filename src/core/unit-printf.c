@@ -19,6 +19,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "alloc-util.h"
 #include "cgroup-util.h"
 #include "formats-util.h"
 #include "macro.h"

@@ -762,10 +762,11 @@ noinst_LTLIBRARIES += \
 
 libbasic_la_SOURCES = \
 	src/basic/missing.h \
-	src/basic/capability.c \
-	src/basic/capability.h \
+	src/basic/capability-util.c \
+	src/basic/capability-util.h \
 	src/basic/conf-files.c \
 	src/basic/conf-files.h \
+	src/basic/stdio-util.h \
 	src/basic/hostname-util.h \
 	src/basic/hostname-util.c \
 	src/basic/unit-name.c \
@@ -787,8 +788,32 @@ libbasic_la_SOURCES = \
 	src/basic/string-util.h \
 	src/basic/fd-util.c \
 	src/basic/fd-util.h \
+	src/basic/parse-util.c \
+	src/basic/parse-util.h \
 	src/basic/user-util.c \
 	src/basic/user-util.h \
+	src/basic/rlimit-util.c \
+	src/basic/rlimit-util.h \
+	src/basic/dirent-util.c \
+	src/basic/dirent-util.h \
+	src/basic/xattr-util.c \
+	src/basic/xattr-util.h \
+	src/basic/chattr-util.c \
+	src/basic/chattr-util.h \
+	src/basic/proc-cmdline.c \
+	src/basic/proc-cmdline.h \
+	src/basic/fs-util.c \
+	src/basic/fs-util.h \
+	src/basic/syslog-util.c \
+	src/basic/syslog-util.h \
+	src/basic/stat-util.c \
+	src/basic/stat-util.h \
+	src/basic/mount-util.c \
+	src/basic/mount-util.h \
+	src/basic/hexdecoct.c \
+	src/basic/hexdecoct.h \
+	src/basic/glob-util.h \
+	src/basic/glob-util.c \
 	src/basic/extract-word.c \
 	src/basic/extract-word.h \
 	src/basic/escape.c \
@@ -803,8 +828,11 @@ libbasic_la_SOURCES = \
 	src/basic/time-util.h \
 	src/basic/locale-util.c \
 	src/basic/locale-util.h \
+	src/basic/umask-util.h \
 	src/basic/signal-util.c \
 	src/basic/signal-util.h \
+	src/basic/string-table.c \
+	src/basic/string-table.h \
 	src/basic/mempool.c \
 	src/basic/mempool.h \
 	src/basic/hashmap.c \
@@ -819,6 +847,8 @@ libbasic_la_SOURCES = \
 	src/basic/fdset.h \
 	src/basic/prioq.c \
 	src/basic/prioq.h \
+	src/basic/web-util.c \
+	src/basic/web-util.h \
 	src/basic/strv.c \
 	src/basic/strv.h \
 	src/basic/env-util.c \
@@ -877,8 +907,8 @@ libbasic_la_SOURCES = \
 	src/basic/login-util.c \
 	src/basic/cap-list.c \
 	src/basic/cap-list.h \
-	src/basic/audit.c \
-	src/basic/audit.h \
+	src/basic/audit-util.c \
+	src/basic/audit-util.h \
 	src/basic/xml.c \
 	src/basic/xml.h \
 	src/basic/json.c \
@@ -913,6 +943,8 @@ libbasic_la_SOURCES = \
 	src/basic/rm-rf.h \
 	src/basic/copy.c \
 	src/basic/copy.h \
+	src/basic/alloc-util.h \
+	src/basic/alloc-util.c \
 	src/basic/formats-util.h
 
 nodist_libbasic_la_SOURCES = \

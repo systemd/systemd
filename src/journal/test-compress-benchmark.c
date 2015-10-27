@@ -19,8 +19,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "alloc-util.h"
 #include "compress.h"
 #include "macro.h"
+#include "parse-util.h"
 #include "random-util.h"
 #include "string-util.h"
 #include "util.h"

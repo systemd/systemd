@@ -23,13 +23,17 @@
 #include <fcntl.h>
 #include <sys/socket.h>
 
-#include "fileio.h"
-#include "journald-server.h"
-#include "journald-console.h"
-#include "formats-util.h"
-#include "process-util.h"
-#include "terminal-util.h"
+#include "alloc-util.h"
 #include "fd-util.h"
+#include "fileio.h"
+#include "formats-util.h"
+#include "io-util.h"
+#include "journald-console.h"
+#include "journald-server.h"
+#include "parse-util.h"
+#include "process-util.h"
+#include "stdio-util.h"
+#include "terminal-util.h"
 
 static bool prefix_timestamp(void) {
 

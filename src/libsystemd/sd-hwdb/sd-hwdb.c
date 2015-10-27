@@ -29,6 +29,7 @@
 
 #include "sd-hwdb.h"
 
+#include "alloc-util.h"
 #include "fd-util.h"
 #include "hashmap.h"
 #include "hwdb-internal.h"

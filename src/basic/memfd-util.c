@@ -27,6 +27,7 @@
 #include <sys/mman.h>
 #include <sys/prctl.h>
 
+#include "alloc-util.h"
 #include "fd-util.h"
 #include "memfd-util.h"
 #include "missing.h"

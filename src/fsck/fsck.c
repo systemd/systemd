@@ -32,16 +32,21 @@
 #include "sd-bus.h"
 #include "sd-device.h"
 
+#include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-util.h"
 #include "device-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
+#include "parse-util.h"
 #include "path-util.h"
+#include "proc-cmdline.h"
 #include "process-util.h"
 #include "signal-util.h"
 #include "socket-util.h"
 #include "special.h"
+#include "stdio-util.h"
 #include "util.h"
 
 /* exit codes as defined in fsck(8) */

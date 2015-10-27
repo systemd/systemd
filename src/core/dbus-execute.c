@@ -26,8 +26,9 @@
 #endif
 
 #include "af-list.h"
+#include "alloc-util.h"
 #include "bus-util.h"
-#include "capability.h"
+#include "capability-util.h"
 #include "dbus-execute.h"
 #include "env-util.h"
 #include "execute.h"
@@ -36,13 +37,16 @@
 #include "ioprio.h"
 #include "missing.h"
 #include "namespace.h"
+#include "parse-util.h"
 #include "path-util.h"
-#include "strv.h"
-#include "utf8.h"
-
+#include "process-util.h"
+#include "rlimit-util.h"
 #ifdef HAVE_SECCOMP
 #include "seccomp-util.h"
 #endif
+#include "strv.h"
+#include "syslog-util.h"
+#include "utf8.h"
 
 BUS_DEFINE_PROPERTY_GET_ENUM(bus_property_get_exec_output, exec_output, ExecOutput);
 
@@ -109,7 +113,7 @@ static int property_get_oom_score_adjust(
 
                 n = 0;
                 if (read_one_line_file("/proc/self/oom_score_adj", &t) >= 0)
-                        safe_atoi(t, &n);
+                        safe_atoi32(t, &n);
         }
 
         return sd_bus_message_append(reply, "i", n);

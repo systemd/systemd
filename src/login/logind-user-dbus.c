@@ -22,6 +22,7 @@
 #include <errno.h>
 #include <string.h>
 
+#include "alloc-util.h"
 #include "bus-util.h"
 #include "formats-util.h"
 #include "logind-user.h"

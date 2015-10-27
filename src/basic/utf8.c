@@ -49,6 +49,8 @@
 #include <string.h>
 #include <stdbool.h>
 
+#include "alloc-util.h"
+#include "hexdecoct.h"
 #include "utf8.h"
 #include "util.h"
 

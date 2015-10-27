@@ -24,14 +24,20 @@
 #include <sys/statvfs.h>
 #include <sys/vfs.h>
 
+#include "alloc-util.h"
 #include "btrfs-util.h"
 #include "fd-util.h"
+#include "fileio.h"
+#include "fs-util.h"
 #include "lockfile-util.h"
 #include "machine-pool.h"
 #include "mkdir.h"
+#include "mount-util.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "signal-util.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "util.h"
 

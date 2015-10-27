@@ -29,6 +29,7 @@
 #include <gnutls/x509.h>
 #endif
 
+#include "alloc-util.h"
 #include "log.h"
 #include "macro.h"
 #include "string-util.h"

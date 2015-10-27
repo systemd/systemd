@@ -28,6 +28,7 @@
 #include "sd-bus.h"
 #include "sd-daemon.h"
 
+#include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-util.h"
 #include "def.h"

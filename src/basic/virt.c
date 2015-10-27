@@ -23,8 +23,11 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "fileio.h"
 #include "process-util.h"
+#include "stat-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "util.h"
 #include "virt.h"
@@ -409,6 +412,16 @@ int detect_virtualization(void) {
                 return r;
 
         return detect_vm();
+}
+
+int running_in_chroot(void) {
+        int ret;
+
+        ret = files_same("/proc/1/root", "/");
+        if (ret < 0)
+                return ret;
+
+        return ret == 0;
 }
 
 static const char *const virtualization_table[_VIRTUALIZATION_MAX] = {

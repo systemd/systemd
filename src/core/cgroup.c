@@ -22,12 +22,17 @@
 #include <fcntl.h>
 #include <fnmatch.h>
 
+#include "alloc-util.h"
 #include "cgroup-util.h"
 #include "cgroup.h"
 #include "fd-util.h"
+#include "fileio.h"
+#include "fs-util.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "special.h"
+#include "string-table.h"
 #include "string-util.h"
 
 #define CGROUP_CPU_QUOTA_PERIOD_USEC ((usec_t) 100 * USEC_PER_MSEC)
@@ -1204,7 +1209,7 @@ int unit_search_main_pid(Unit *u, pid_t *ret) {
                         continue;
 
                 /* Ignore processes that aren't our kids */
-                if (get_parent_of_pid(npid, &ppid) >= 0 && ppid != mypid)
+                if (get_process_ppid(npid, &ppid) >= 0 && ppid != mypid)
                         continue;
 
                 if (pid != 0)

@@ -22,7 +22,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "alloc-util.h"
 #include "conf-files.h"
+#include "fileio.h"
+#include "fs-util.h"
 #include "hwdb-internal.h"
 #include "hwdb-util.h"
 #include "strbuf.h"

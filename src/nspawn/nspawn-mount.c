@@ -22,17 +22,23 @@
 #include <sys/mount.h>
 #include <linux/magic.h>
 
+#include "alloc-util.h"
 #include "cgroup-util.h"
 #include "escape.h"
+#include "fs-util.h"
 #include "label.h"
 #include "mkdir.h"
+#include "mount-util.h"
+#include "nspawn-mount.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "rm-rf.h"
 #include "set.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "user-util.h"
 #include "util.h"
-#include "nspawn-mount.h"
 
 CustomMount* custom_mount_add(CustomMount **l, unsigned *n, CustomMountType t) {
         CustomMount *c, *ret;

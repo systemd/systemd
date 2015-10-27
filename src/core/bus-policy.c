@@ -19,9 +19,11 @@
 
 #include <stdlib.h>
 
+#include "alloc-util.h"
 #include "bus-kernel.h"
 #include "bus-policy.h"
 #include "kdbus.h"
+#include "string-table.h"
 #include "user-util.h"
 #include "util.h"
 

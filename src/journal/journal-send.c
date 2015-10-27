@@ -31,10 +31,13 @@
 
 #include "sd-journal.h"
 
+#include "alloc-util.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "io-util.h"
 #include "memfd-util.h"
 #include "socket-util.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "util.h"
 

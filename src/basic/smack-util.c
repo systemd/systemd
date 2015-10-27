@@ -23,11 +23,14 @@
 
 #include <sys/xattr.h>
 
-#include "util.h"
-#include "process-util.h"
-#include "path-util.h"
+#include "alloc-util.h"
 #include "fileio.h"
+#include "path-util.h"
+#include "process-util.h"
 #include "smack-util.h"
+#include "string-table.h"
+#include "util.h"
+#include "xattr-util.h"
 
 #ifdef HAVE_SMACK
 bool mac_smack_use(void) {

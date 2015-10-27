@@ -23,10 +23,11 @@
 #include <sys/reboot.h>
 #include <linux/reboot.h>
 
-#include "bus-util.h"
 #include "bus-error.h"
-#include "special.h"
+#include "bus-util.h"
 #include "failure-action.h"
+#include "special.h"
+#include "string-table.h"
 #include "terminal-util.h"
 
 static void log_and_status(Manager *m, const char *message) {

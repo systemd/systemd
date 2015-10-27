@@ -31,9 +31,11 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "io-util.h"
+#include "locale-util.h"
 #include "log.h"
 #include "process-util.h"
 #include "signal-util.h"

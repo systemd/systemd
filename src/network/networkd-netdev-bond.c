@@ -25,10 +25,12 @@
 
 #include "sd-netlink.h"
 
+#include "alloc-util.h"
 #include "conf-parser.h"
 #include "missing.h"
-#include "string-util.h"
 #include "networkd-netdev-bond.h"
+#include "string-util.h"
+#include "string-table.h"
 
 /*
  * Number of seconds between instances where the bonding

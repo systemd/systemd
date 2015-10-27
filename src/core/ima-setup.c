@@ -25,6 +25,7 @@
 #include <errno.h>
 
 #include "fd-util.h"
+#include "fileio.h"
 #include "ima-setup.h"
 #include "log.h"
 #include "util.h"

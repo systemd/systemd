@@ -21,6 +21,7 @@
 
 #include <sys/types.h>
 
+#include "alloc-util.h"
 #include "device-nodes.h"
 #include "string-util.h"
 #include "util.h"

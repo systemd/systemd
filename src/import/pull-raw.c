@@ -25,10 +25,14 @@
 
 #include "sd-daemon.h"
 
+#include "alloc-util.h"
 #include "btrfs-util.h"
+#include "chattr-util.h"
 #include "copy.h"
 #include "curl-util.h"
 #include "fd-util.h"
+#include "fileio.h"
+#include "fs-util.h"
 #include "hostname-util.h"
 #include "import-common.h"
 #include "import-util.h"
@@ -44,6 +48,7 @@
 #include "strv.h"
 #include "utf8.h"
 #include "util.h"
+#include "web-util.h"
 
 typedef enum RawProgress {
         RAW_DOWNLOADING,

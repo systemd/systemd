@@ -29,6 +29,7 @@
 #include <inttypes.h>
 
 #include "macro.h"
+#include "util.h"
 
 #ifdef __cplusplus
 extern "C" {

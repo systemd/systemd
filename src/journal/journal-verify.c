@@ -24,8 +24,10 @@
 #include <fcntl.h>
 #include <stddef.h>
 
+#include "alloc-util.h"
 #include "compress.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "journal-authenticate.h"
 #include "journal-def.h"
 #include "journal-file.h"

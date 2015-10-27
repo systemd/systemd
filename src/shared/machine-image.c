@@ -23,16 +23,22 @@
 #include <linux/fs.h>
 #include <sys/statfs.h>
 
+#include "alloc-util.h"
 #include "btrfs-util.h"
+#include "chattr-util.h"
 #include "copy.h"
+#include "dirent-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "machine-image.h"
 #include "mkdir.h"
 #include "path-util.h"
 #include "rm-rf.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "utf8.h"
+#include "xattr-util.h"
 
 static const char image_search_path[] =
         "/var/lib/machines\0"

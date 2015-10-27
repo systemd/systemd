@@ -37,6 +37,7 @@
 #include "sd-daemon.h"
 #include "sd-login.h"
 
+#include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-message.h"
@@ -51,25 +52,31 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "formats-util.h"
+#include "fs-util.h"
+#include "glob-util.h"
 #include "hostname-util.h"
 #include "initreq.h"
 #include "install.h"
 #include "io-util.h"
 #include "list.h"
+#include "locale-util.h"
 #include "log.h"
 #include "logs-show.h"
 #include "macro.h"
 #include "mkdir.h"
 #include "pager.h"
+#include "parse-util.h"
 #include "path-lookup.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "rlimit-util.h"
 #include "set.h"
 #include "signal-util.h"
 #include "socket-util.h"
 #include "spawn-ask-password-agent.h"
 #include "spawn-polkit-agent.h"
 #include "special.h"
+#include "stat-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "unit-name.h"
@@ -77,6 +84,7 @@
 #include "util.h"
 #include "utmp-wtmp.h"
 #include "verbs.h"
+#include "virt.h"
 
 static char **arg_types = NULL;
 static char **arg_states = NULL;
@@ -3478,7 +3486,8 @@ static void print_status_info(
 
                                 dir = mfree(dir);
 
-                                if (path_get_parent(*dropin, &dir) < 0) {
+                                dir = dirname_malloc(*dropin);
+                                if (!dir) {
                                         log_oom();
                                         return;
                                 }

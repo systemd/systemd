@@ -19,6 +19,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "alloc-util.h"
 #include "string-util.h"
 #include "timesyncd-manager.h"
 #include "timesyncd-server.h"
@@ -35,16 +36,16 @@ int manager_parse_server_string(Manager *m, ServerType type, const char *string)
         first = type == SERVER_FALLBACK ? m->fallback_servers : m->system_servers;
 
         for (;;) {
-                _cleanup_free_ char *word;
+                _cleanup_free_ char *word = NULL;
                 bool found = false;
                 ServerName *n;
 
                 r = extract_first_word(&string, &word, NULL, 0);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse timesyncd server syntax \"%s\": %m", string);
-
                 if (r == 0)
                         break;
+
                 /* Filter out duplicates */
                 LIST_FOREACH(names, n, first)
                         if (streq_ptr(n->string, word)) {

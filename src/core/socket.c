@@ -31,6 +31,7 @@
 
 #include "sd-event.h"
 
+#include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-util.h"
 #include "copy.h"
@@ -43,12 +44,15 @@
 #include "log.h"
 #include "missing.h"
 #include "mkdir.h"
+#include "parse-util.h"
 #include "path-util.h"
+#include "process-util.h"
 #include "selinux-util.h"
 #include "signal-util.h"
 #include "smack-util.h"
 #include "socket.h"
 #include "special.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "unit-name.h"
@@ -1168,9 +1172,9 @@ static int usbffs_dispatch_eps(SocketPort *p) {
         _cleanup_free_ char *path = NULL;
         int r, i, n, k;
 
-        r = path_get_parent(p->path, &path);
-        if (r < 0)
-                return r;
+        path = dirname_malloc(p->path);
+        if (!path)
+                return -ENOMEM;
 
         r = scandir(path, &ent, usbffs_select_ep, alphasort);
         if (r < 0)

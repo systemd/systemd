@@ -28,7 +28,9 @@
 
 #include "conf-files.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "log.h"
+#include "proc-cmdline.h"
 #include "string-util.h"
 #include "strv.h"
 #include "util.h"

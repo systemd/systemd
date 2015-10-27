@@ -24,6 +24,7 @@
 #include <limits.h>
 #include <termios.h>
 
+#include "alloc-util.h"
 #include "fd-util.h"
 #include "ptyfwd.h"
 #include "util.h"

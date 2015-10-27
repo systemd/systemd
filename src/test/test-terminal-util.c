@@ -21,11 +21,12 @@
 #include <stdio.h>
 #include <stdbool.h>
 
-#include "terminal-util.h"
-#include "macro.h"
-#include "util.h"
-#include "log.h"
 #include "fd-util.h"
+#include "fileio.h"
+#include "log.h"
+#include "macro.h"
+#include "terminal-util.h"
+#include "util.h"
 
 static void test_default_term_for_tty(void) {
         puts(default_term_for_tty("/dev/tty23"));

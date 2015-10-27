@@ -23,6 +23,7 @@
 
 #include "sd-bus.h"
 
+#include "alloc-util.h"
 #include "bus-dump.h"
 #include "bus-internal.h"
 #include "bus-signature.h"
@@ -31,8 +32,10 @@
 #include "busctl-introspect.h"
 #include "escape.h"
 #include "fd-util.h"
+#include "locale-util.h"
 #include "log.h"
 #include "pager.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "set.h"
 #include "strv.h"
