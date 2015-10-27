@@ -982,6 +982,7 @@ int config_parse_bounding_set(const char *unit,
                               void *userdata) {
 
         uint64_t *capability_bounding_set_drop = data;
+        uint64_t capability_bounding_set;
         const char *word, *state;
         size_t l;
         bool invert = false;
@@ -1021,10 +1022,11 @@ int config_parse_bounding_set(const char *unit,
         if (!isempty(state))
                 log_syntax(unit, LOG_ERR, filename, line, 0, "Trailing garbage, ignoring.");
 
-        if (invert)
-                *capability_bounding_set_drop |= sum;
+        capability_bounding_set = invert ? ~sum : sum;
+        if (*capability_bounding_set_drop)
+                *capability_bounding_set_drop = ~(~*capability_bounding_set_drop | capability_bounding_set);
         else
-                *capability_bounding_set_drop |= ~sum;
+                *capability_bounding_set_drop = ~capability_bounding_set;
 
         return 0;
 }
