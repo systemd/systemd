@@ -237,15 +237,6 @@ static inline unsigned log2u_round_up(unsigned x) {
         return log2u(x - 1) + 1;
 }
 
-#define DECIMAL_STR_WIDTH(x)                            \
-        ({                                              \
-                typeof(x) _x_ = (x);                    \
-                unsigned ans = 1;                       \
-                while (_x_ /= 10)                       \
-                        ans++;                          \
-                ans;                                    \
-        })
-
 #define alloca0(n)                                      \
         ({                                              \
                 char *_new_;                            \

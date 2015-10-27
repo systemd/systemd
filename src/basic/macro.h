@@ -362,6 +362,15 @@ do {                                                                    \
             sizeof(type) <= 4 ? 10 :                                    \
             sizeof(type) <= 8 ? 20 : sizeof(int[-2*(sizeof(type) > 8)])))
 
+#define DECIMAL_STR_WIDTH(x)                            \
+        ({                                              \
+                typeof(x) _x_ = (x);                    \
+                unsigned ans = 1;                       \
+                while (_x_ /= 10)                       \
+                        ans++;                          \
+                ans;                                    \
+        })
+
 #define SET_FLAG(v, flag, b) \
         (v) = (b) ? ((v) | (flag)) : ((v) & ~(flag))
 
