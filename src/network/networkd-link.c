@@ -2141,6 +2141,7 @@ static int link_load(Link *link) {
                             *ipv4ll_address = NULL;
         union in_addr_union address;
         union in_addr_union route_dst;
+        const char *p;
         int r;
 
         assert(link);
@@ -2161,21 +2162,27 @@ static int link_load(Link *link) {
 
                 /* drop suffix */
                 suffix = strrchr(network_file, '.');
-                if (!suffix)
-                        return log_link_error_errno(link, r, "Failed to get network name from %s: %m", network_file);
+                if (!suffix) {
+                        log_link_debug_errno(link, r, "Failed to get network name from %s: %m", network_file);
+                        goto network_file_fail;
+                }
                 *suffix = '\0';
 
                 r = network_get_by_name(link->manager, basename(network_file), &network);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Failed to get network %s: %m", basename(network_file));
+                if (r < 0) {
+                        log_link_debug_errno(link, r, "Failed to get network %s: %m", basename(network_file));
+                        goto network_file_fail;
+                }
 
                 r = network_apply(link->manager, network, link);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Failed to apply network %s: %m", basename(network_file));
         }
 
+network_file_fail:
+
         if (addresses) {
-                const char *p = addresses;
+                p = addresses;
 
                 for (;;) {
                         _cleanup_free_ char *address_str = NULL;
@@ -2184,24 +2191,31 @@ static int link_load(Link *link) {
                         unsigned char prefixlen;
 
                         r = extract_first_word(&p, &address_str, NULL, 0);
-                        if (r < 0)
-                                return log_link_error_errno(link, r, "Failed to extract next address string: %m");
-                        if (r == 0)
+                        if (r < 0) {
+                                log_link_debug_errno(link, r, "Failed to extract next address string: %m");
+                                continue;
+                        } if (r == 0)
                                 break;
 
                         prefixlen_str = strchr(address_str, '/');
-                        if (!prefixlen_str)
-                                return log_link_error(link, "Failed to parse address and prefix length %s: %m", address_str);
+                        if (!prefixlen_str) {
+                                log_link_debug(link, "Failed to parse address and prefix length %s: %m", address_str);
+                                continue;
+                        }
 
                         *prefixlen_str ++ = '\0';
 
                         r = sscanf(prefixlen_str, "%hhu", &prefixlen);
-                        if (r != 1)
-                                return log_link_error(link, "Failed to parse prefixlen %s: %m", prefixlen_str);
+                        if (r != 1) {
+                                log_link_debug(link, "Failed to parse prefixlen %s: %m", prefixlen_str);
+                                continue;
+                        }
 
                         r = in_addr_from_string_auto(address_str, &family, &address);
-                        if (r < 0)
-                                return log_link_error_errno(link, r, "Failed to parse address %s: %m", address_str);
+                        if (r < 0) {
+                                log_link_debug_errno(link, r, "Failed to parse address %s: %m", address_str);
+                                continue;
+                        }
 
                         r = address_add(link, family, &address, prefixlen, NULL);
                         if (r < 0)
@@ -2210,8 +2224,6 @@ static int link_load(Link *link) {
         }
 
         if (routes) {
-                const char *p = routes;
-
                 for (;;) {
                         Route *route;
                         _cleanup_free_ char *route_str = NULL;
@@ -2223,26 +2235,32 @@ static int link_load(Link *link) {
                         uint32_t priority;
 
                         r = extract_first_word(&p, &route_str, NULL, 0);
-                        if (r < 0)
-                                return log_link_error_errno(link, r, "Failed to extract next route string: %m");
-                        if (r == 0)
+                        if (r < 0) {
+                                log_link_debug_errno(link, r, "Failed to extract next route string: %m");
+                                continue;
+                        } if (r == 0)
                                 break;
 
                         prefixlen_str = strchr(route_str, '/');
-                        if (!prefixlen_str)
-                                return log_link_error(link, "Failed to parse route %s: %m", route_str);
+                        if (!prefixlen_str) {
+                                log_link_debug(link, "Failed to parse route %s", route_str);
+                                continue;
+                        }
 
                         *prefixlen_str ++ = '\0';
 
                         r = sscanf(prefixlen_str, "%hhu/%hhu/%"SCNu32"/%hhu/"USEC_FMT, &prefixlen, &tos, &priority, &table, &lifetime);
-                        if (r != 5)
-                                return log_link_error(link,
-                                                      "Failed to parse destination prefix length, tos, priority, table or expiration %s",
-                                                      prefixlen_str);
+                        if (r != 5) {
+                                log_link_debug(link, "Failed to parse destination prefix length, tos, priority, table or expiration %s",
+                                               prefixlen_str);
+                                continue;
+                        }
 
                         r = in_addr_from_string_auto(route_str, &family, &route_dst);
-                        if (r < 0)
-                                return log_link_error_errno(link, r, "Failed to parse route destination %s: %m", route_str);
+                        if (r < 0) {
+                                log_link_debug_errno(link, r, "Failed to parse route destination %s: %m", route_str);
+                                continue;
+                        }
 
                         r = route_add(link, family, &route_dst, prefixlen, tos, priority, table, &route);
                         if (r < 0)
@@ -2264,8 +2282,10 @@ static int link_load(Link *link) {
 
         if (dhcp4_address) {
                 r = in_addr_from_string(AF_INET, dhcp4_address, &address);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Falied to parse DHCPv4 address %s: %m", dhcp4_address);
+                if (r < 0) {
+                        log_link_debug_errno(link, r, "Falied to parse DHCPv4 address %s: %m", dhcp4_address);
+                        goto dhcp4_address_fail;
+                }
 
                 r = sd_dhcp_client_new(&link->dhcp_client);
                 if (r < 0)
@@ -2276,10 +2296,14 @@ static int link_load(Link *link) {
                         return log_link_error_errno(link, r, "Falied to set inital DHCPv4 address %s: %m", dhcp4_address);
         }
 
+dhcp4_address_fail:
+
         if (ipv4ll_address) {
                 r = in_addr_from_string(AF_INET, ipv4ll_address, &address);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Falied to parse IPv4LL address %s: %m", ipv4ll_address);
+                if (r < 0) {
+                        log_link_debug_errno(link, r, "Falied to parse IPv4LL address %s: %m", ipv4ll_address);
+                        goto ipv4ll_address_fail;
+                }
 
                 r = sd_ipv4ll_new(&link->ipv4ll);
                 if (r < 0)
@@ -2289,6 +2313,8 @@ static int link_load(Link *link) {
                 if (r < 0)
                         return log_link_error_errno(link, r, "Falied to set inital IPv4LL address %s: %m", ipv4ll_address);
         }
+
+ipv4ll_address_fail:
 
         return 0;
 }
