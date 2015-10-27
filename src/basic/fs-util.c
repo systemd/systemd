@@ -24,6 +24,7 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "mkdir.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "string-util.h"
 #include "strv.h"

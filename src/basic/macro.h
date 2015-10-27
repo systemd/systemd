@@ -427,8 +427,6 @@ do {                                                                    \
 #endif
 #endif
 
-#define MODE_INVALID ((mode_t) -1)
-
 #define DEFINE_TRIVIAL_CLEANUP_FUNC(type, func)                 \
         static inline void func##p(type *p) {                   \
                 if (*p)                                         \
