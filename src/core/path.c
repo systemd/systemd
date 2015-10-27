@@ -28,6 +28,7 @@
 #include "bus-util.h"
 #include "dbus-path.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "glob-util.h"
 #include "macro.h"
 #include "mkdir.h"

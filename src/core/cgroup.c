@@ -27,6 +27,7 @@
 #include "cgroup.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"

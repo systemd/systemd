@@ -181,16 +181,4 @@ uint64_t physical_memory(void);
 
 int update_reboot_param_file(const char *param);
 
-#define INOTIFY_EVENT_MAX (sizeof(struct inotify_event) + NAME_MAX + 1)
-
-#define FOREACH_INOTIFY_EVENT(e, buffer, sz) \
-        for ((e) = &buffer.ev;                                \
-             (uint8_t*) (e) < (uint8_t*) (buffer.raw) + (sz); \
-             (e) = (struct inotify_event*) ((uint8_t*) (e) + sizeof(struct inotify_event) + (e)->len))
-
-union inotify_event_buffer {
-        struct inotify_event ev;
-        uint8_t raw[INOTIFY_EVENT_MAX];
-};
-
 int version(void);

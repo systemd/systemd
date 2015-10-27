@@ -28,13 +28,14 @@
 #include "sd-network.h"
 
 #include "alloc-util.h"
+#include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "macro.h"
+#include "parse-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "util.h"
-#include "fd-util.h"
-#include "parse-util.h"
 
 _public_ int sd_network_get_operational_state(char **state) {
         _cleanup_free_ char *s = NULL;

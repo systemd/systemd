@@ -21,9 +21,11 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/types.h>
 #include <fcntl.h>
+#include <sys/inotify.h>
+#include <sys/types.h>
 #include <unistd.h>
+#include <limits.h>
 
 #include "time-util.h"
 
@@ -58,3 +60,15 @@ int mknod_atomic(const char *path, mode_t mode, dev_t dev);
 int mkfifo_atomic(const char *path, mode_t mode);
 
 int get_files_in_directory(const char *path, char ***list);
+
+#define INOTIFY_EVENT_MAX (sizeof(struct inotify_event) + NAME_MAX + 1)
+
+#define FOREACH_INOTIFY_EVENT(e, buffer, sz) \
+        for ((e) = &buffer.ev;                                \
+             (uint8_t*) (e) < (uint8_t*) (buffer.raw) + (sz); \
+             (e) = (struct inotify_event*) ((uint8_t*) (e) + sizeof(struct inotify_event) + (e)->len))
+
+union inotify_event_buffer {
+        struct inotify_event ev;
+        uint8_t raw[INOTIFY_EVENT_MAX];
+};
