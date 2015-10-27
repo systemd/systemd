@@ -36,6 +36,7 @@
 #include "path-util.h"
 #include "selinux-util.h"
 #include "smack-util.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "util.h"
 

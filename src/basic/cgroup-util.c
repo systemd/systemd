@@ -41,15 +41,16 @@
 #include "mkdir.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "proc-cmdline.h"
 #include "process-util.h"
 #include "set.h"
 #include "special.h"
+#include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "unit-name.h"
 #include "user-util.h"
 #include "util.h"
-#include "proc-cmdline.h"
 
 int cg_enumerate_processes(const char *controller, const char *path, FILE **_f) {
         _cleanup_free_ char *fs = NULL;

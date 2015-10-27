@@ -301,12 +301,6 @@ static inline unsigned long ALIGN_POWER2(unsigned long u) {
 
 #define char_array_0(x) x[sizeof(x)-1] = 0;
 
- /* Because statfs.t_type can be int on some architectures, we have to cast
-  * the const magic to the type, otherwise the compiler warns about
-  * signed/unsigned comparison, because the magic can be 32 bit unsigned.
- */
-#define F_TYPE_EQUAL(a, b) (a == (typeof(a)) b)
-
 /* Returns the number of chars needed to format variables of the
  * specified type as a decimal string. Adds in extra space for a
  * negative '-' prefix (hence works correctly on signed

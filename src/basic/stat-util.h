@@ -61,3 +61,9 @@ int path_check_fstype(const char *path, statfs_f_type_t magic_value);
 
 bool is_temporary_fs(const struct statfs *s) _pure_;
 int fd_is_temporary_fs(int fd);
+
+/* Because statfs.t_type can be int on some architectures, we have to cast
+ * the const magic to the type, otherwise the compiler warns about
+ * signed/unsigned comparison, because the magic can be 32 bit unsigned.
+ */
+#define F_TYPE_EQUAL(a, b) (a == (typeof(a)) b)
