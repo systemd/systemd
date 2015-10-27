@@ -2175,21 +2175,23 @@ static int link_load(Link *link) {
         }
 
         if (addresses) {
-                _cleanup_strv_free_ char **addresses_strv = NULL;
-                char **address_str;
+                const char *p = addresses;
 
-                addresses_strv = strv_split(addresses, " ");
-                if (!addresses_strv)
-                        return log_oom();
-
-                STRV_FOREACH(address_str, addresses_strv) {
+                for (;;) {
+                        _cleanup_free_ char *address_str = NULL;
                         char *prefixlen_str;
                         int family;
                         unsigned char prefixlen;
 
-                        prefixlen_str = strchr(*address_str, '/');
+                        r = extract_first_word(&p, &address_str, NULL, 0);
+                        if (r < 0)
+                                return log_link_error_errno(link, r, "Failed to extract next address string: %m");
+                        if (r == 0)
+                                break;
+
+                        prefixlen_str = strchr(address_str, '/');
                         if (!prefixlen_str)
-                                return log_link_error(link, "Failed to parse address and prefix length %s: %m", *address_str);
+                                return log_link_error(link, "Failed to parse address and prefix length %s: %m", address_str);
 
                         *prefixlen_str ++ = '\0';
 
@@ -2197,9 +2199,9 @@ static int link_load(Link *link) {
                         if (r != 1)
                                 return log_link_error(link, "Failed to parse prefixlen %s: %m", prefixlen_str);
 
-                        r = in_addr_from_string_auto(*address_str, &family, &address);
+                        r = in_addr_from_string_auto(address_str, &family, &address);
                         if (r < 0)
-                                return log_link_error_errno(link, r, "Failed to parse address %s: %m", *address_str);
+                                return log_link_error_errno(link, r, "Failed to parse address %s: %m", address_str);
 
                         r = address_add(link, family, &address, prefixlen, NULL);
                         if (r < 0)
@@ -2208,15 +2210,11 @@ static int link_load(Link *link) {
         }
 
         if (routes) {
-                _cleanup_strv_free_ char **routes_strv = NULL;
-                char **route_str;
+                const char *p = routes;
 
-                routes_strv = strv_split(routes, " ");
-                if (!routes_strv)
-                        return log_oom();
-
-                STRV_FOREACH(route_str, routes_strv) {
+                for (;;) {
                         Route *route;
+                        _cleanup_free_ char *route_str = NULL;
                         _cleanup_event_source_unref_ sd_event_source *expire = NULL;
                         usec_t lifetime;
                         char *prefixlen_str;
@@ -2224,9 +2222,15 @@ static int link_load(Link *link) {
                         unsigned char prefixlen, tos, table;
                         uint32_t priority;
 
-                        prefixlen_str = strchr(*route_str, '/');
+                        r = extract_first_word(&p, &route_str, NULL, 0);
+                        if (r < 0)
+                                return log_link_error_errno(link, r, "Failed to extract next route string: %m");
+                        if (r == 0)
+                                break;
+
+                        prefixlen_str = strchr(route_str, '/');
                         if (!prefixlen_str)
-                                return log_link_error(link, "Failed to parse route %s: %m", *route_str);
+                                return log_link_error(link, "Failed to parse route %s: %m", route_str);
 
                         *prefixlen_str ++ = '\0';
 
@@ -2236,9 +2240,9 @@ static int link_load(Link *link) {
                                                       "Failed to parse destination prefix length, tos, priority, table or expiration %s",
                                                       prefixlen_str);
 
-                        r = in_addr_from_string_auto(*route_str, &family, &route_dst);
+                        r = in_addr_from_string_auto(route_str, &family, &route_dst);
                         if (r < 0)
-                                return log_link_error_errno(link, r, "Failed to parse route destination %s: %m", *route_str);
+                                return log_link_error_errno(link, r, "Failed to parse route destination %s: %m", route_str);
 
                         r = route_add(link, family, &route_dst, prefixlen, tos, priority, table, &route);
                         if (r < 0)
