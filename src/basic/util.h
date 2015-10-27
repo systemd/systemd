@@ -66,8 +66,6 @@ static inline const char* one_zero(bool b) {
         return b ? "1" : "0";
 }
 
-bool fstype_is_network(const char *fstype);
-
 noreturn void freeze(void);
 
 void execute_directories(const char* const* directories, usec_t timeout, char *argv[]);
@@ -201,12 +199,6 @@ unsigned long personality_from_string(const char *p);
 const char *personality_to_string(unsigned long);
 
 uint64_t physical_memory(void);
-
-union file_handle_union {
-        struct file_handle handle;
-        char padding[sizeof(struct file_handle) + MAX_HANDLE_SZ];
-};
-#define FILE_HANDLE_INIT { .handle.handle_bytes = MAX_HANDLE_SZ }
 
 int update_reboot_param_file(const char *param);
 

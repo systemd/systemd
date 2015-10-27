@@ -23,6 +23,7 @@
 
 #include <stdbool.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 #include <sys/vfs.h>
 
 #include "macro.h"

@@ -36,6 +36,7 @@
 #include "formats-util.h"
 #include "libudev-private.h"
 #include "missing.h"
+#include "mount-util.h"
 #include "socket-util.h"
 #include "string-util.h"
 

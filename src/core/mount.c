@@ -36,6 +36,7 @@
 #include "manager.h"
 #include "mkdir.h"
 #include "mount-setup.h"
+#include "mount-util.h"
 #include "mount.h"
 #include "parse-util.h"
 #include "path-util.h"

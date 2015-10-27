@@ -57,6 +57,7 @@
 #include "macro.h"
 #include "missing.h"
 #include "mkdir.h"
+#include "mount-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "rm-rf.h"
