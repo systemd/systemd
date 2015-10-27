@@ -322,3 +322,30 @@ void cmsg_close_all(struct msghdr *mh) {
                 if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_RIGHTS)
                         close_many((int*) CMSG_DATA(cmsg), (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int));
 }
+
+bool fdname_is_valid(const char *s) {
+        const char *p;
+
+        /* Validates a name for $LISTEN_FDNAMES. We basically allow
+         * everything ASCII that's not a control character. Also, as
+         * special exception the ":" character is not allowed, as we
+         * use that as field separator in $LISTEN_FDNAMES.
+         *
+         * Note that the empty string is explicitly allowed
+         * here. However, we limit the length of the names to 255
+         * characters. */
+
+        if (!s)
+                return false;
+
+        for (p = s; *p; p++) {
+                if (*p < ' ')
+                        return false;
+                if (*p >= 127)
+                        return false;
+                if (*p == ':')
+                        return false;
+        }
+
+        return p - s < 256;
+}

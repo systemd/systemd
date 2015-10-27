@@ -194,5 +194,3 @@ union inotify_event_buffer {
 };
 
 int version(void);
-
-bool fdname_is_valid(const char *s);
