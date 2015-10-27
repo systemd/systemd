@@ -175,7 +175,7 @@ static int service_set_main_pid(Service *s, pid_t pid) {
         s->main_pid = pid;
         s->main_pid_known = true;
 
-        if (get_parent_of_pid(pid, &ppid) >= 0 && ppid != getpid()) {
+        if (get_process_ppid(pid, &ppid) >= 0 && ppid != getpid()) {
                 log_unit_warning(UNIT(s), "Supervising process "PID_FMT" which is not our child. We'll most likely not notice when it exits.", pid);
                 s->main_pid_alien = true;
         } else

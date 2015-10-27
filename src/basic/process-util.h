@@ -51,6 +51,7 @@ int get_process_capeff(pid_t pid, char **capeff);
 int get_process_cwd(pid_t pid, char **cwd);
 int get_process_root(pid_t pid, char **root);
 int get_process_environ(pid_t pid, char **environ);
+int get_process_ppid(pid_t pid, pid_t *ppid);
 
 int wait_for_terminate(pid_t pid, siginfo_t *status);
 int wait_for_terminate_and_warn(const char *name, pid_t pid, bool check_exit_code);
@@ -59,7 +60,6 @@ void sigkill_wait(pid_t *pid);
 #define _cleanup_sigkill_wait_ _cleanup_(sigkill_wait)
 
 int kill_and_sigcont(pid_t pid, int sig);
-pid_t get_parent_of_pid(pid_t pid, pid_t *ppid);
 
 void rename_process(const char name[8]);
 int is_kernel_thread(pid_t pid);

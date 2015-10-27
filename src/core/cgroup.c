@@ -1208,7 +1208,7 @@ int unit_search_main_pid(Unit *u, pid_t *ret) {
                         continue;
 
                 /* Ignore processes that aren't our kids */
-                if (get_parent_of_pid(npid, &ppid) >= 0 && ppid != mypid)
+                if (get_process_ppid(npid, &ppid) >= 0 && ppid != mypid)
                         continue;
 
                 if (pid != 0)

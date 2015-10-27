@@ -402,7 +402,7 @@ int get_process_environ(pid_t pid, char **env) {
         return 0;
 }
 
-int get_parent_of_pid(pid_t pid, pid_t *_ppid) {
+int get_process_ppid(pid_t pid, pid_t *_ppid) {
         int r;
         _cleanup_free_ char *line = NULL;
         long unsigned ppid;
