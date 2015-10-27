@@ -940,7 +940,8 @@ static int service_coldplug(Unit *u) {
                                 return r;
                 }
 
-                if (pid_is_unwaited(s->main_pid) &&
+                if (s->main_pid > 0 &&
+                    pid_is_unwaited(s->main_pid) &&
                     ((s->deserialized_state == SERVICE_START && IN_SET(s->type, SERVICE_FORKING, SERVICE_DBUS, SERVICE_ONESHOT, SERVICE_NOTIFY)) ||
                      IN_SET(s->deserialized_state,
                             SERVICE_START, SERVICE_START_POST,
@@ -952,7 +953,8 @@ static int service_coldplug(Unit *u) {
                                 return r;
                 }
 
-                if (pid_is_unwaited(s->control_pid) &&
+                if (s->control_pid > 0 &&
+                    pid_is_unwaited(s->control_pid) &&
                     IN_SET(s->deserialized_state,
                            SERVICE_START_PRE, SERVICE_START, SERVICE_START_POST,
                            SERVICE_RELOAD,
