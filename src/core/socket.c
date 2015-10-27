@@ -46,6 +46,7 @@
 #include "mkdir.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "process-util.h"
 #include "selinux-util.h"
 #include "signal-util.h"
 #include "smack-util.h"

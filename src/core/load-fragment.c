@@ -52,6 +52,7 @@
 #include "missing.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "process-util.h"
 #ifdef HAVE_SECCOMP
 #include "seccomp-util.h"
 #endif

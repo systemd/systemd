@@ -39,6 +39,7 @@
 #include "namespace.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "process-util.h"
 #include "rlimit-util.h"
 #ifdef HAVE_SECCOMP
 #include "seccomp-util.h"

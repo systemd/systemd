@@ -41,6 +41,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "proc-cmdline.h"
+#include "process-util.h"
 #include "rlimit-util.h"
 #include "set.h"
 #include "signal-util.h"

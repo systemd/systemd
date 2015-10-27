@@ -125,17 +125,6 @@ size_t page_size(void) {
         return pgsz;
 }
 
-noreturn void freeze(void) {
-
-        /* Make sure nobody waits for us on a socket anymore */
-        close_all_fds(NULL, 0);
-
-        sync();
-
-        for (;;)
-                pause();
-}
-
 static int do_execute(char **directories, usec_t timeout, char *argv[]) {
         _cleanup_hashmap_free_free_ Hashmap *pids = NULL;
         _cleanup_set_free_free_ Set *seen = NULL;
@@ -373,36 +362,6 @@ int block_get_whole_disk(dev_t d, dev_t *ret) {
 
         return -ENOENT;
 }
-
-static const char *const ioprio_class_table[] = {
-        [IOPRIO_CLASS_NONE] = "none",
-        [IOPRIO_CLASS_RT] = "realtime",
-        [IOPRIO_CLASS_BE] = "best-effort",
-        [IOPRIO_CLASS_IDLE] = "idle"
-};
-
-DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(ioprio_class, int, INT_MAX);
-
-static const char *const sigchld_code_table[] = {
-        [CLD_EXITED] = "exited",
-        [CLD_KILLED] = "killed",
-        [CLD_DUMPED] = "dumped",
-        [CLD_TRAPPED] = "trapped",
-        [CLD_STOPPED] = "stopped",
-        [CLD_CONTINUED] = "continued",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(sigchld_code, int);
-
-static const char* const sched_policy_table[] = {
-        [SCHED_OTHER] = "other",
-        [SCHED_BATCH] = "batch",
-        [SCHED_IDLE] = "idle",
-        [SCHED_FIFO] = "fifo",
-        [SCHED_RR] = "rr"
-};
-
-DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(sched_policy, int, INT_MAX);
 
 bool kexec_loaded(void) {
        bool loaded = false;
@@ -849,78 +808,6 @@ int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int
         return reset_uid_gid();
 }
 
-unsigned long personality_from_string(const char *p) {
-
-        /* Parse a personality specifier. We introduce our own
-         * identifiers that indicate specific ABIs, rather than just
-         * hints regarding the register size, since we want to keep
-         * things open for multiple locally supported ABIs for the
-         * same register size. We try to reuse the ABI identifiers
-         * used by libseccomp. */
-
-#if defined(__x86_64__)
-
-        if (streq(p, "x86"))
-                return PER_LINUX32;
-
-        if (streq(p, "x86-64"))
-                return PER_LINUX;
-
-#elif defined(__i386__)
-
-        if (streq(p, "x86"))
-                return PER_LINUX;
-
-#elif defined(__s390x__)
-
-        if (streq(p, "s390"))
-                return PER_LINUX32;
-
-        if (streq(p, "s390x"))
-                return PER_LINUX;
-
-#elif defined(__s390__)
-
-        if (streq(p, "s390"))
-                return PER_LINUX;
-#endif
-
-        return PERSONALITY_INVALID;
-}
-
-const char* personality_to_string(unsigned long p) {
-
-#if defined(__x86_64__)
-
-        if (p == PER_LINUX32)
-                return "x86";
-
-        if (p == PER_LINUX)
-                return "x86-64";
-
-#elif defined(__i386__)
-
-        if (p == PER_LINUX)
-                return "x86";
-
-#elif defined(__s390x__)
-
-        if (p == PER_LINUX)
-                return "s390x";
-
-        if (p == PER_LINUX32)
-                return "s390";
-
-#elif defined(__s390__)
-
-        if (p == PER_LINUX)
-                return "s390";
-
-#endif
-
-        return NULL;
-}
-
 uint64_t physical_memory(void) {
         long mem;
 
@@ -977,8 +864,4 @@ bool fdname_is_valid(const char *s) {
         }
 
         return p - s < 256;
-}
-
-bool oom_score_adjust_is_valid(int oa) {
-        return oa >= OOM_SCORE_ADJ_MIN && oa <= OOM_SCORE_ADJ_MAX;
 }

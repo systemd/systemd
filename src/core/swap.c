@@ -35,6 +35,7 @@
 #include "fstab-util.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "process-util.h"
 #include "special.h"
 #include "string-table.h"
 #include "string-util.h"

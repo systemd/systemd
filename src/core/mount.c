@@ -40,6 +40,7 @@
 #include "mount.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "process-util.h"
 #include "smack-util.h"
 #include "special.h"
 #include "string-table.h"

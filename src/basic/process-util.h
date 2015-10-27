@@ -27,6 +27,7 @@
 #include <signal.h>
 
 #include "formats-util.h"
+#include "macro.h"
 
 #define procfs_file_alloca(pid, field)                                  \
         ({                                                              \
@@ -70,6 +71,29 @@ bool pid_is_alive(pid_t pid);
 bool pid_is_unwaited(pid_t pid);
 
 bool is_main_thread(void);
+
+noreturn void freeze(void);
+
+bool oom_score_adjust_is_valid(int oa);
+
+#ifndef PERSONALITY_INVALID
+/* personality(7) documents that 0xffffffffUL is used for querying the
+ * current personality, hence let's use that here as error
+ * indicator. */
+#define PERSONALITY_INVALID 0xffffffffLU
+#endif
+
+unsigned long personality_from_string(const char *p);
+const char *personality_to_string(unsigned long);
+
+int ioprio_class_to_string_alloc(int i, char **s);
+int ioprio_class_from_string(const char *s);
+
+const char *sigchld_code_to_string(int i) _const_;
+int sigchld_code_from_string(const char *s) _pure_;
+
+int sched_policy_to_string_alloc(int i, char **s);
+int sched_policy_from_string(const char *s);
 
 #define PTR_TO_PID(p) ((pid_t) ((uintptr_t) p))
 #define PID_TO_PTR(p) ((void*) ((uintptr_t) p))

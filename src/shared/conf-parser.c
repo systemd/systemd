@@ -35,12 +35,13 @@
 #include "macro.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "process-util.h"
 #include "signal-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "syslog-util.h"
 #include "utf8.h"
 #include "util.h"
-#include "syslog-util.h"
 
 int config_item_table_lookup(
                 const void *table,

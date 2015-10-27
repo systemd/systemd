@@ -32,6 +32,7 @@
 #include "formats-util.h"
 #include "kdbus.h"
 #include "parse-util.h"
+#include "process-util.h"
 #include "service.h"
 #include "signal-util.h"
 #include "special.h"

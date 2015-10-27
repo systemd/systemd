@@ -66,8 +66,6 @@ static inline const char* one_zero(bool b) {
         return b ? "1" : "0";
 }
 
-noreturn void freeze(void);
-
 void execute_directories(const char* const* directories, usec_t timeout, char *argv[]);
 
 bool plymouth_running(void);
@@ -82,15 +80,6 @@ int block_get_whole_disk(dev_t d, dev_t *ret);
 
 #define NULSTR_FOREACH_PAIR(i, j, l)                             \
         for ((i) = (l), (j) = strchr((i), 0)+1; (i) && *(i); (i) = strchr((j), 0)+1, (j) = *(i) ? strchr((i), 0)+1 : (i))
-
-int ioprio_class_to_string_alloc(int i, char **s);
-int ioprio_class_from_string(const char *s);
-
-const char *sigchld_code_to_string(int i) _const_;
-int sigchld_code_from_string(const char *s) _pure_;
-
-int sched_policy_to_string_alloc(int i, char **s);
-int sched_policy_from_string(const char *s);
 
 extern int saved_argc;
 extern char **saved_argv;
@@ -188,16 +177,6 @@ int container_get_leader(const char *machine, pid_t *pid);
 int namespace_open(pid_t pid, int *pidns_fd, int *mntns_fd, int *netns_fd, int *userns_fd, int *root_fd);
 int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int root_fd);
 
-#ifndef PERSONALITY_INVALID
-/* personality(7) documents that 0xffffffffUL is used for querying the
- * current personality, hence let's use that here as error
- * indicator. */
-#define PERSONALITY_INVALID 0xffffffffLU
-#endif
-
-unsigned long personality_from_string(const char *p);
-const char *personality_to_string(unsigned long);
-
 uint64_t physical_memory(void);
 
 int update_reboot_param_file(const char *param);
@@ -217,5 +196,3 @@ union inotify_event_buffer {
 int version(void);
 
 bool fdname_is_valid(const char *s);
-
-bool oom_score_adjust_is_valid(int oa);
