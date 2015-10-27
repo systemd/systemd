@@ -47,6 +47,7 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "fsprg.h"
+#include "glob-util.h"
 #include "hostname-util.h"
 #include "io-util.h"
 #include "journal-def.h"

@@ -94,9 +94,6 @@ bool plymouth_running(void);
 bool display_is_local(const char *display) _pure_;
 int socket_from_display(const char *display, char **path);
 
-int glob_exists(const char *path);
-int glob_extend(char ***strv, const char *path);
-
 int block_get_whole_disk(dev_t d, dev_t *ret);
 
 #define NULSTR_FOREACH(i, l)                                    \
@@ -132,7 +129,6 @@ static inline void freep(void *p) {
 }
 
 #define _cleanup_free_ _cleanup_(freep)
-#define _cleanup_globfree_ _cleanup_(globfree)
 
 _malloc_  _alloc_(1, 2) static inline void *malloc_multiply(size_t a, size_t b) {
         if (_unlikely_(b != 0 && a > ((size_t) -1) / b))
@@ -155,13 +151,6 @@ _alloc_(2, 3) static inline void *memdup_multiply(const void *p, size_t a, size_
         return memdup(p, a * b);
 }
 
-/**
- * Check if a string contains any glob patterns.
- */
-_pure_ static inline bool string_is_glob(const char *p) {
-        return !!strpbrk(p, GLOB_CHARS);
-}
-
 void *xbsearch_r(const void *key, const void *base, size_t nmemb, size_t size,
                  int (*compar) (const void *, const void *, void *),
                  void *arg);
@@ -172,6 +161,9 @@ static inline void *mempset(void *s, int c, size_t n) {
         memset(s, c, n);
         return (uint8_t*)s + n;
 }
+
+#define memzero(x,l) (memset((x), 0, (l)))
+#define zero(x) (memzero(&(x), sizeof(x)))
 
 void* greedy_realloc(void **p, size_t *allocated, size_t need, size_t size);
 void* greedy_realloc0(void **p, size_t *allocated, size_t need, size_t size);

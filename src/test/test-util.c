@@ -39,6 +39,7 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "fstab-util.h"
+#include "glob-util.h"
 #include "hexdecoct.h"
 #include "io-util.h"
 #include "mkdir.h"
@@ -54,8 +55,8 @@
 #include "user-util.h"
 #include "util.h"
 #include "virt.h"
-#include "xattr-util.h"
 #include "web-util.h"
+#include "xattr-util.h"
 
 static void test_streq_ptr(void) {
         assert_se(streq_ptr(NULL, NULL));

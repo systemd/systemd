@@ -23,7 +23,6 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <glob.h>
 #include <grp.h>
 #include <langinfo.h>
 #include <libintl.h>
@@ -366,49 +365,6 @@ int socket_from_display(const char *display, char **path) {
         *path = f;
 
         return 0;
-}
-
-int glob_exists(const char *path) {
-        _cleanup_globfree_ glob_t g = {};
-        int k;
-
-        assert(path);
-
-        errno = 0;
-        k = glob(path, GLOB_NOSORT|GLOB_BRACE, NULL, &g);
-
-        if (k == GLOB_NOMATCH)
-                return 0;
-        else if (k == GLOB_NOSPACE)
-                return -ENOMEM;
-        else if (k == 0)
-                return !strv_isempty(g.gl_pathv);
-        else
-                return errno ? -errno : -EIO;
-}
-
-int glob_extend(char ***strv, const char *path) {
-        _cleanup_globfree_ glob_t g = {};
-        int k;
-        char **p;
-
-        errno = 0;
-        k = glob(path, GLOB_NOSORT|GLOB_BRACE, NULL, &g);
-
-        if (k == GLOB_NOMATCH)
-                return -ENOENT;
-        else if (k == GLOB_NOSPACE)
-                return -ENOMEM;
-        else if (k != 0 || strv_isempty(g.gl_pathv))
-                return errno ? -errno : -EIO;
-
-        STRV_FOREACH(p, g.gl_pathv) {
-                k = strv_extend(strv, *p);
-                if (k < 0)
-                        break;
-        }
-
-        return k;
 }
 
 int block_get_whole_disk(dev_t d, dev_t *ret) {

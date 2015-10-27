@@ -31,6 +31,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "formats-util.h"
+#include "glob-util.h"
 #include "journal-upload.h"
 #include "log.h"
 #include "mkdir.h"

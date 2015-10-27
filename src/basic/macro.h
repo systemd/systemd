@@ -294,9 +294,6 @@ static inline unsigned long ALIGN_POWER2(unsigned long u) {
 #define PTR_TO_SIZE(p) ((size_t) ((uintptr_t) (p)))
 #define SIZE_TO_PTR(u) ((void *) ((uintptr_t) (u)))
 
-#define memzero(x,l) (memset((x), 0, (l)))
-#define zero(x) (memzero(&(x), sizeof(x)))
-
 #define CHAR_TO_STR(x) ((char[2]) { x, 0 })
 
 #define char_array_0(x) x[sizeof(x)-1] = 0;

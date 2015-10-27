@@ -812,6 +812,8 @@ libbasic_la_SOURCES = \
 	src/basic/mount-util.h \
 	src/basic/hexdecoct.c \
 	src/basic/hexdecoct.h \
+	src/basic/glob-util.h \
+	src/basic/glob-util.c \
 	src/basic/extract-word.c \
 	src/basic/extract-word.h \
 	src/basic/escape.c \

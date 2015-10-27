@@ -34,6 +34,7 @@
 #include "condition.h"
 #include "extract-word.h"
 #include "fd-util.h"
+#include "glob-util.h"
 #include "hostname-util.h"
 #include "ima-util.h"
 #include "mount-util.h"

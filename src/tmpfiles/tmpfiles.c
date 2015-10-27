@@ -49,6 +49,7 @@
 #include "fileio.h"
 #include "formats-util.h"
 #include "fs-util.h"
+#include "glob-util.h"
 #include "io-util.h"
 #include "label.h"
 #include "log.h"

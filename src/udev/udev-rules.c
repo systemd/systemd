@@ -32,6 +32,7 @@
 #include "conf-files.h"
 #include "escape.h"
 #include "fd-util.h"
+#include "glob-util.h"
 #include "path-util.h"
 #include "stat-util.h"
 #include "strbuf.h"

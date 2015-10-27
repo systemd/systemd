@@ -52,6 +52,7 @@
 #include "fileio.h"
 #include "formats-util.h"
 #include "fs-util.h"
+#include "glob-util.h"
 #include "hostname-util.h"
 #include "initreq.h"
 #include "install.h"
