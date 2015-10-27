@@ -21,8 +21,9 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/types.h>
 #include <stdbool.h>
+#include <sys/types.h>
+#include <sys/uio.h>
 
 #include "time-util.h"
 
@@ -37,3 +38,39 @@ int pipe_eof(int fd);
 int fd_wait_for_event(int fd, int event, usec_t timeout);
 
 ssize_t sparse_write(int fd, const void *p, size_t sz, size_t run_length);
+
+#define IOVEC_SET_STRING(i, s)                  \
+        do {                                    \
+                struct iovec *_i = &(i);        \
+                char *_s = (char *)(s);         \
+                _i->iov_base = _s;              \
+                _i->iov_len = strlen(_s);       \
+        } while(false)
+
+static inline size_t IOVEC_TOTAL_SIZE(const struct iovec *i, unsigned n) {
+        unsigned j;
+        size_t r = 0;
+
+        for (j = 0; j < n; j++)
+                r += i[j].iov_len;
+
+        return r;
+}
+
+static inline size_t IOVEC_INCREMENT(struct iovec *i, unsigned n, size_t k) {
+        unsigned j;
+
+        for (j = 0; j < n; j++) {
+                size_t sub;
+
+                if (_unlikely_(k <= 0))
+                        break;
+
+                sub = MIN(i[j].iov_len, k);
+                i[j].iov_len -= sub;
+                i[j].iov_base = (uint8_t*) i[j].iov_base + sub;
+                k -= sub;
+        }
+
+        return k;
+}

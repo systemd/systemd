@@ -31,6 +31,7 @@
 #include "escape.h"
 #include "fd-util.h"
 #include "formats-util.h"
+#include "io-util.h"
 #include "journald-kmsg.h"
 #include "journald-server.h"
 #include "journald-syslog.h"

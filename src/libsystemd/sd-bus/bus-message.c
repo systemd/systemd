@@ -32,6 +32,7 @@
 #include "bus-type.h"
 #include "bus-util.h"
 #include "fd-util.h"
+#include "io-util.h"
 #include "memfd-util.h"
 #include "string-util.h"
 #include "strv.h"

@@ -27,6 +27,7 @@
 
 #include "fd-util.h"
 #include "formats-util.h"
+#include "io-util.h"
 #include "journald-console.h"
 #include "journald-kmsg.h"
 #include "journald-server.h"

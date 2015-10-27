@@ -33,6 +33,7 @@
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "io-util.h"
 #include "journald-console.h"
 #include "journald-kmsg.h"
 #include "journald-server.h"

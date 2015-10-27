@@ -33,6 +33,7 @@
 
 #include "fd-util.h"
 #include "formats-util.h"
+#include "io-util.h"
 #include "log.h"
 #include "macro.h"
 #include "missing.h"

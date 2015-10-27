@@ -20,6 +20,7 @@
 ***/
 
 #include "fd-util.h"
+#include "io-util.h"
 #include "parse-util.h"
 #include "show-status.h"
 #include "string-util.h"
