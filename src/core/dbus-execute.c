@@ -1387,6 +1387,41 @@ int bus_exec_context_set_transient_property(
 
                 return 1;
 
+        } else if (streq(name, "RuntimeDirectory")) {
+                _cleanup_strv_free_ char **l = NULL;
+                char **p;
+
+                r = sd_bus_message_read_strv(message, &l);
+                if (r < 0)
+                        return r;
+
+                STRV_FOREACH(p, l) {
+                        if (!filename_is_valid(*p))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Runtime directory is not valid %s", *p);
+                }
+
+                if (mode != UNIT_CHECK) {
+                        _cleanup_free_ char *joined = NULL;
+
+                        if (strv_isempty(l)) {
+                                c->runtime_directory = strv_free(c->runtime_directory);
+                                unit_write_drop_in_private_format(u, mode, name, "%s=\n", name);
+                        } else {
+                                r = strv_extend_strv(&c->runtime_directory, l, true);
+
+                                if (r < 0)
+                                        return -ENOMEM;
+
+                                joined = strv_join_quoted(c->runtime_directory);
+                                if (!joined)
+                                        return -ENOMEM;
+
+                                unit_write_drop_in_private_format(u, mode, name, "%s=%s\n", name, joined);
+                        }
+                }
+
+                return 1;
+
         } else if (rlimit_from_string(name) >= 0) {
                 uint64_t rl;
                 rlim_t x;
