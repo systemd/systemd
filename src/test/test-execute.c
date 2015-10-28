@@ -18,6 +18,9 @@
 ***/
 
 #include <stdio.h>
+#include <sys/types.h>
+#include <grp.h>
+#include <pwd.h>
 
 #include "fs-util.h"
 #include "macro.h"
@@ -124,11 +127,13 @@ static void test_exec_systemcallerrornumber(Manager *m) {
 }
 
 static void test_exec_user(Manager *m) {
-        test(m, "exec-user.service", 0, CLD_EXITED);
+        if (getpwnam("nobody"))
+                test(m, "exec-user.service", 0, CLD_EXITED);
 }
 
 static void test_exec_group(Manager *m) {
-        test(m, "exec-group.service", 0, CLD_EXITED);
+        if (getgrnam("nobody"))
+                test(m, "exec-group.service", 0, CLD_EXITED);
 }
 
 static void test_exec_environment(Manager *m) {
@@ -145,7 +150,8 @@ static void test_exec_umask(Manager *m) {
 static void test_exec_runtimedirectory(Manager *m) {
         test(m, "exec-runtimedirectory.service", 0, CLD_EXITED);
         test(m, "exec-runtimedirectory-mode.service", 0, CLD_EXITED);
-        test(m, "exec-runtimedirectory-owner.service", 0, CLD_EXITED);
+        if (getgrnam("nobody"))
+                test(m, "exec-runtimedirectory-owner.service", 0, CLD_EXITED);
 }
 
 int main(int argc, char *argv[]) {
