@@ -1,0 +1,253 @@
+#  This file is part of systemd.
+#
+#  Copyright 2012 Lennart Poettering
+#  Copyright 2015 Boyuan Yang
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+#
+#  systemd is distributed in the hope that it will be useful, but
+#  WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+#  Lesser General Public License for more details.
+#
+#  You should have received a copy of the GNU Lesser General Public License
+#  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+
+# Message catalog for systemd's own messages
+# Simplified Chinese translation
+
+# 本 catalog 文档格式被记载在
+# http://www.freedesktop.org/wiki/Software/systemd/catalog
+
+# 如需了解我们为什么做这些工作，请见 https://xkcd.com/1024/
+
+-- f77379a8490b408bbe5f6940505a777b
+Subject: 日志已开始
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+系统日志进程已启动，已打开供写入的日志文件并准备好处理请求。
+
+-- d93fb3c9c24d451a97cea615ce59c00b
+Subject: 日志已停止
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+系统日志进程已终止，并已关闭所有当前活动的日志文件。
+
+-- a596d6fe7bfa4994828e72309e95d61e
+Subject: 由某个服务而来的消息已被抑制
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: man:journald.conf(5)
+
+某个服务在一个时间周期内记录了太多消息。
+从该服务而来的消息已被丢弃。
+
+请注意只有由有问题的服务传来的消息被丢弃，
+其它服务的消息不受影响。
+
+可以在 /etc/systemd/journald.conf 中设定 RateLimitInterval=
+以及 RateLimitBurst = 的值以控制丢弃信息的限制。
+请参见 journald.conf(5) 以了解详情。
+
+-- e9bf28e6e834481bb6f48f548ad13606
+Subject: 日志消息已遗失
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+因日志系统对内核消息的处理速度不够快，
+部分信息已经遗失。
+
+-- fc2e22bc6ee647b6b90729ab34a250b1
+Subject: 进程 @COREDUMP_PID@ (@COREDUMP_COMM@) 核心已转储
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: man:core(5)
+
+进程 @COREDUMP_PID@ (@COREDUMP_COMM@) 已崩溃并进行核心转储。
+
+这通常意味着崩溃程序中存在编程错误，并应当将此错误向其开发者报告。
+
+-- 8d45620c1a4348dbb17410da57c60c66
+Subject: 一个新会话 @SESSION_ID@ 已为用户 @USER_ID@ 建立
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+
+一个 ID 为 @SESSION_ID@ 的新会话已为用户 @USER_ID@ 建立。
+
+该会话的首进程为 @LEADER@。
+
+-- 3354939424b4456d9802ca8333ed424a
+Subject: 会话 @SESSION_ID@ 已终止
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+
+一个 ID 为 @SESSION_ID@ 的会话已终止。
+
+-- fcbefc5da23d428093f97c82a9290f7b
+Subject: 一个新的座位 @SEAT_ID@ 可用
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+
+一个新的座位 @SEAT_ID@ 已被配置并已可用。
+
+-- e7852bfe46784ed0accde04bc864c2d5
+Subject: 座位 @SEAT_ID@ 已被移除
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+
+座位 @SEAT_ID@ 已被移除并不再可用。
+
+-- c7a787079b354eaaa9e77b371893cd27
+Subject: 时间已变更
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+系统时钟已变更为1970年1月1日后 @REALTIME@ 微秒。
+
+-- 45f82f4aef7a4bbf942ce861d1f20990
+Subject: 时区变更为 @TIMEZONE@
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+系统时区已变更为 @TIMEZONE@。
+
+-- b07a249cd024414a82dd00cd181378ff
+Subject: 系统启动已完成
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+所有系统启动时需要的系统服务均已成功启动。
+请注意这并不代表现在机器已经空闲，因为某些服务可能仍处于完成启动的过程中。
+
+内核启动使用了 @KERNEL_USEC@ 毫秒。
+
+初始内存盘启动使用了 @INITRD_USEC@ 毫秒。
+
+用户空间启动使用了 @USERSPACE_USEC@ 毫秒。
+
+-- 6bbd95ee977941e497c48be27c254128
+Subject: 系统已进入 @SLEEP@ 睡眠状态
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-deve
+
+系统现已进入 @SLEEP@ 睡眠状态。
+
+-- 8811e6df2a8e40f58a94cea26f8ebf14
+Subject: 系统已离开 @SLEEP@ 睡眠状态
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+系统现已离开 @SLEEP@ 睡眠状态。
+
+-- 98268866d1d54a499c4e98921d93bc40
+Subject: 系统关机已开始
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+系统关机操作已初始化。
+关机已开始，所有系统服务均已结束，所有文件系统已卸载。
+
+-- 7d4958e842da4a758f6c1cdc7b36dcc5
+Subject: @UNIT@ 单元已开始启动
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+@UNIT@ 单元已开始启动。
+
+-- 39f53479d3a045ac8e11786248231fbf
+Subject: @UNIT@ 单元已结束启动
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+@UNIT@ 单元已结束启动。
+
+启动结果为“@RESULT@”。
+
+-- de5b426a63be47a7b6ac3eaac82e2f6f
+Subject: @UNIT@ 单元已开始停止操作
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+@UNIT@ 单元已开始停止操作。
+
+-- 9d1aaa27d60140bd96365438aad20286
+Subject: @UNIT@ 单元已结束停止操作
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+@UNIT@ 单元已结束停止操作。
+
+-- be02cf6855d2428ba40df7e9d022f03d
+Subject: @UNIT@ 单元已失败
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+@UNIT@ 单元已失败。
+
+结果为“@RESULT@”。
+
+-- d34d037fff1847e6ae669a370e694725
+Subject: @UNIT@ 单元已开始重新载入其配置
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+@UNIT@ 单元已开始重新载入其配置。
+
+-- 7b05ebc668384222baa8881179cfda54
+Subject: @UNIT@ 单元已结束配置重载入
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+@UNIT@ 单元已结束配置重载入操作。
+
+结果为“@RESULT@”。
+
+-- 641257651c1b4ec9a8624d7a40a9e1e7
+Subject: 进程 @EXECUTABLE@ 无法执行
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+进程 @EXECUTABLE@ 无法被执行并已失败。
+
+该进程返回的错误代码为 @ERRNO@。
+
+-- 0027229ca0644181a76c4e92458afa2e
+Subject: 一个或更多消息无法被转发至 syslog
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+有一条或更多的消息无法被转发至与 journald 同时运行的 syslog 服务。
+这通常意味着 syslog 实现无法跟上队列中消息进入的速度。
+
+-- 1dee0369c7fc4736b7099b38ecb46ee7
+Subject: 挂载点不为空
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+目录 @WHERE@ 被指定为挂载点（即 /etc/fstab 文件的第二栏，或 systemd 单元
+文件的 Where= 字段），且该目录非空。
+这并不会影响挂载行为，但该目录中先前已存在的文件将无法被访问。
+如需查看这些文件，请手动将其下的文件系统挂载到另一个位置。
+
+-- 24d8d4452573402496068381a6312df2
+Subject: 一个虚拟机或容器已启动
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+虚拟机 @NAME@，以及其首进程 PID @LEADER@，已被启动并可被使用。
+
+-- 58432bd3bace477cb514b56381b8a758
+Subject: 一个虚拟机或容器已被终止
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+虚拟机 @NAME@，以及其首进程 PID @LEADER@，已被关闭并停止。

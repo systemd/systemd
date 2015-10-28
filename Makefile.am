@@ -4234,6 +4234,7 @@ dist_catalog_DATA = \
 	catalog/systemd.pl.catalog \
 	catalog/systemd.pt_BR.catalog \
 	catalog/systemd.ru.catalog \
+	catalog/systemd.zh_CN.catalog \
 	catalog/systemd.zh_TW.catalog \
 	catalog/systemd.catalog
 
