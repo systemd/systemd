@@ -929,8 +929,6 @@ static int config_parse_also(
                 void *data,
                 void *userdata) {
 
-        size_t l;
-        const char *word, *state;
         InstallContext *c = data;
         UnitFileInstallInfo *i = userdata;
 
@@ -938,13 +936,18 @@ static int config_parse_also(
         assert(lvalue);
         assert(rvalue);
 
-        FOREACH_WORD_QUOTED(word, l, rvalue, state) {
-                _cleanup_free_ char *n;
+        for(;;) {
+                _cleanup_free_ char *n = NULL;
                 int r;
 
-                n = strndup(word, l);
-                if (!n)
-                        return -ENOMEM;
+                r = extract_first_word(&rvalue, &n, NULL, 0);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse config %s, ignoring.", rvalue);
+                        return 0;
+                }
+
+                if (r == 0)
+                        break;
 
                 r = install_info_add(c, n, NULL);
                 if (r < 0)
@@ -954,8 +957,6 @@ static int config_parse_also(
                 if (r < 0)
                         return r;
         }
-        if (!isempty(state))
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Trailing garbage, ignoring.");
 
         return 0;
 }
