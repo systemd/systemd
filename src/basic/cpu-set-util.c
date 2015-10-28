@@ -73,10 +73,8 @@ int parse_cpu_set_and_warn(
                 int r;
 
                 r = extract_first_word(&rvalue, &word, WHITESPACE ",", EXTRACT_QUOTES);
-                if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Invalid value for %s: %s", lvalue, whole_rvalue);
-                        return r;
-                }
+                if (r < 0)
+                        return log_syntax(unit, LOG_ERR, filename, line, r, "Invalid value for %s: %s", lvalue, whole_rvalue);
                 if (r == 0)
                         break;
 
@@ -87,17 +85,13 @@ int parse_cpu_set_and_warn(
                 }
 
                 r = parse_range(word, &cpu_lower, &cpu_upper);
-                if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse CPU affinity '%s'", word);
-                        return r;
-                }
-                if (cpu_lower >= ncpus || cpu_upper >= ncpus) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "CPU out of range '%s' ncpus is %u", word, ncpus);
-                        return -EINVAL;
-                }
+                if (r < 0)
+                        return log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse CPU affinity '%s'", word);
+                if (cpu_lower >= ncpus || cpu_upper >= ncpus)
+                        return log_syntax(unit, LOG_ERR, filename, line, EINVAL, "CPU out of range '%s' ncpus is %u", word, ncpus);
 
                 if (cpu_lower > cpu_upper)
-                        log_syntax(unit, LOG_WARNING, filename, line, r, "Range '%s' is invalid, %u > %u", word, cpu_lower, cpu_upper);
+                        log_syntax(unit, LOG_WARNING, filename, line, 0, "Range '%s' is invalid, %u > %u", word, cpu_lower, cpu_upper);
                 else
                         for (cpu = cpu_lower; cpu <= cpu_upper; cpu++)
                                 CPU_SET_S(cpu, CPU_ALLOC_SIZE(ncpus), c);

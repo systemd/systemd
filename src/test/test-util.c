@@ -1046,6 +1046,12 @@ static void test_parse_range(void) {
         assert_se(lower == 9999);
         assert_se(upper == 9999);
 
+        /* Empty string */
+        lower = upper = 9999;
+        assert_se(parse_range("", &lower, &upper) == -EINVAL);
+        assert_se(lower == 9999);
+        assert_se(upper == 9999);
+
         /* 111--123 will pass -123 to safe_atou which returns -ERANGE for negative */
         assert_se(parse_range("111--123", &lower, &upper) == -ERANGE);
         assert_se(lower == 9999);

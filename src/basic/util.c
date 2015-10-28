@@ -2381,6 +2381,9 @@ int parse_range(const char *t, unsigned *lower, unsigned *upper) {
         r = extract_first_word(&t, &word, "-", EXTRACT_DONT_COALESCE_SEPARATORS);
         if (r < 0)
                 return r;
+        if (r == 0)
+                return -EINVAL;
+
         r = safe_atou(word, &l);
         if (r < 0)
                 return r;
