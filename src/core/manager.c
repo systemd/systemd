@@ -2110,6 +2110,9 @@ void manager_send_unit_audit(Manager *m, Unit *u, int type, bool success) {
         const char *msg;
         int audit_fd, r;
 
+        if (m->running_as != MANAGER_SYSTEM)
+                return;
+
         audit_fd = get_audit_fd();
         if (audit_fd < 0)
                 return;
@@ -2117,9 +2120,6 @@ void manager_send_unit_audit(Manager *m, Unit *u, int type, bool success) {
         /* Don't generate audit events if the service was already
          * started and we're just deserializing */
         if (m->n_reloading > 0)
-                return;
-
-        if (m->running_as != MANAGER_SYSTEM)
                 return;
 
         if (u->type != UNIT_SERVICE)
