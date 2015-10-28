@@ -188,6 +188,7 @@
 /test-env-replace
 /test-event
 /test-execute
+/test-extract-word
 /test-fdset
 /test-fileio
 /test-firewall-util
