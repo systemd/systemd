@@ -1255,6 +1255,7 @@ static int parse_argv(int argc, char *argv[]) {
         };
 
         int c, r;
+        const char *p;
         bool type_a, type_b;
 
         assert(argc >= 0);
@@ -1415,18 +1416,21 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_GNUTLS_LOG: {
 #ifdef HAVE_GNUTLS
-                        const char *word, *state;
-                        size_t size;
+                        p = optarg;
+                        for (;;) {
+                                _cleanup_free_ char *word = NULL;
 
-                        FOREACH_WORD_SEPARATOR(word, size, optarg, ",", state) {
-                                char *cat;
+                                r = extract_first_word(&p, &word, ",", 0);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse --gnutls-log= argument: %m");
 
-                                cat = strndup(word, size);
-                                if (!cat)
+                                if (r == 0)
+                                        break;
+
+                                if (strv_push(&arg_gnutls_log, word) < 0)
                                         return log_oom();
 
-                                if (strv_consume(&arg_gnutls_log, cat) < 0)
-                                        return log_oom();
+                                word = NULL;
                         }
                         break;
 #else
