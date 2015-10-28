@@ -297,6 +297,22 @@ CHAR16 *stra_to_path(CHAR8 *stra) {
         return str;
 }
 
+CHAR16 *strrchr(CHAR16 *s, CHAR8 c) {
+        CHAR16 *t, d;
+
+        t = s;
+        d = c;
+
+        while (*t) t++;
+
+        do {
+                if (*t == d)
+                        return t;
+        } while (t-- != s);
+
+        return NULL;
+}
+
 CHAR8 *strchra(CHAR8 *s, CHAR8 c) {
         do {
                 if (*s == c)

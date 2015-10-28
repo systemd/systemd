@@ -43,6 +43,7 @@ EFI_STATUS efivar_get_raw(const EFI_GUID *vendor, CHAR16 *name, CHAR8 **buffer, 
 EFI_STATUS efivar_get_int(CHAR16 *name, UINTN *i);
 
 CHAR8 *strchra(CHAR8 *s, CHAR8 c);
+CHAR16 *strrchr(CHAR16 *s, CHAR8 c);
 CHAR16 *stra_to_path(CHAR8 *stra);
 CHAR16 *stra_to_str(CHAR8 *stra);
 
