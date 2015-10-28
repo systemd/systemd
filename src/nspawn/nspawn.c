@@ -387,6 +387,7 @@ static int parse_argv(int argc, char *argv[]) {
         };
 
         int c, r;
+        const char *p;
         uint64_t plus = 0, minus = 0;
         bool mask_all_settings = false, mask_no_settings = false;
 
@@ -524,15 +525,16 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_CAPABILITY:
                 case ARG_DROP_CAPABILITY: {
-                        const char *state, *word;
-                        size_t length;
+                        p = optarg;
+                        for(;;) {
+                                _cleanup_free_ char *t = NULL;
 
-                        FOREACH_WORD_SEPARATOR(word, length, optarg, ",", state) {
-                                _cleanup_free_ char *t;
+                                r = extract_first_word(&p, &t, ",", 0);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse capability %s.", t);
 
-                                t = strndup(word, length);
-                                if (!t)
-                                        return log_oom();
+                                if (r == 0)
+                                        break;
 
                                 if (streq(t, "all")) {
                                         if (c == ARG_CAPABILITY)
