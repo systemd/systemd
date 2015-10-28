@@ -44,7 +44,7 @@ FDSet *fdset_new(void) {
         return MAKE_FDSET(set_new(NULL));
 }
 
-int fdset_new_array(FDSet **ret, int *fds, unsigned n_fds) {
+int fdset_new_array(FDSet **ret, const int *fds, unsigned n_fds) {
         unsigned i;
         FDSet *s;
         int r;

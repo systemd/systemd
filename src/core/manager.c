@@ -1488,7 +1488,7 @@ static unsigned manager_dispatch_dbus_queue(Manager *m) {
         return n;
 }
 
-static void manager_invoke_notify_message(Manager *m, Unit *u, pid_t pid, char *buf, size_t n, FDSet *fds) {
+static void manager_invoke_notify_message(Manager *m, Unit *u, pid_t pid, const char *buf, size_t n, FDSet *fds) {
         _cleanup_strv_free_ char **tags = NULL;
 
         assert(m);
@@ -1618,7 +1618,7 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
         return 0;
 }
 
-static void invoke_sigchld_event(Manager *m, Unit *u, siginfo_t *si) {
+static void invoke_sigchld_event(Manager *m, Unit *u, const siginfo_t *si) {
         assert(m);
         assert(u);
         assert(si);
