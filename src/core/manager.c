@@ -2000,8 +2000,7 @@ int manager_loop(Manager *m) {
         m->exit_code = MANAGER_OK;
 
         /* Release the path cache */
-        set_free_free(m->unit_path_cache);
-        m->unit_path_cache = NULL;
+        m->unit_path_cache = set_free_free(m->unit_path_cache);
 
         manager_check_finished(m);
 
@@ -2771,8 +2770,7 @@ static int create_generator_dir(Manager *m, char **generator, const char *name) 
                         return log_oom();
 
                 if (!mkdtemp(p)) {
-                        log_error_errno(errno, "Failed to create generator directory %s: %m",
-                                  p);
+                        log_error_errno(errno, "Failed to create generator directory %s: %m", p);
                         free(p);
                         return -errno;
                 }
