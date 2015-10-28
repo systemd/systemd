@@ -18,6 +18,10 @@
 ***/
 
 #include <stdio.h>
+#include <stdbool.h>
+#include <sys/types.h>
+#include <grp.h>
+#include <pwd.h>
 
 #include "fs-util.h"
 #include "macro.h"
@@ -28,6 +32,22 @@
 #include "util.h"
 
 typedef void (*test_function_t)(Manager *m);
+
+static bool user_exists(const char *user) {
+        struct passwd *pw;
+
+        pw = getpwnam(user);
+
+        return !!pw;
+}
+
+static bool group_exists(const char *group) {
+        struct group *gr;
+
+        gr = getgrnam(group);
+
+        return !!gr;
+}
 
 static void check(Manager *m, Unit *unit, int status_expected, int code_expected) {
         Service *service = NULL;
@@ -124,11 +144,15 @@ static void test_exec_systemcallerrornumber(Manager *m) {
 }
 
 static void test_exec_user(Manager *m) {
-        test(m, "exec-user.service", 0, CLD_EXITED);
+        if (user_exists("nobody")) {
+                test(m, "exec-user.service", 0, CLD_EXITED);
+        }
 }
 
 static void test_exec_group(Manager *m) {
-        test(m, "exec-group.service", 0, CLD_EXITED);
+        if (group_exists("nobody")) {
+                test(m, "exec-group.service", 0, CLD_EXITED);
+        }
 }
 
 static void test_exec_environment(Manager *m) {
@@ -145,7 +169,9 @@ static void test_exec_umask(Manager *m) {
 static void test_exec_runtimedirectory(Manager *m) {
         test(m, "exec-runtimedirectory.service", 0, CLD_EXITED);
         test(m, "exec-runtimedirectory-mode.service", 0, CLD_EXITED);
-        test(m, "exec-runtimedirectory-owner.service", 0, CLD_EXITED);
+        if (group_exists("nobody")) {
+                test(m, "exec-runtimedirectory-owner.service", 0, CLD_EXITED);
+        }
 }
 
 int main(int argc, char *argv[]) {
