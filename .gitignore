@@ -235,6 +235,7 @@
 /test-network
 /test-network-tables
 /test-ns
+/test-parse-util
 /test-path
 /test-path-lookup
 /test-path-util

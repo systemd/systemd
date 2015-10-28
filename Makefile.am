@@ -1448,6 +1448,7 @@ tests += \
 	test-ellipsize \
 	test-util \
 	test-extract-word \
+	test-parse-util \
 	test-user-util \
 	test-hostname-util \
 	test-process-util \
@@ -1737,6 +1738,12 @@ test_extract_word_SOURCES = \
 	src/test/test-extract-word.c
 
 test_extract_word_LDADD = \
+	libshared.la
+
+test_parse_util_SOURCES = \
+	src/test/test-parse-util.c
+
+test_parse_util_LDADD = \
 	libshared.la
 
 test_user_util_SOURCES = \
