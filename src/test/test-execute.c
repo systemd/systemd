@@ -17,15 +17,16 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdio.h>
-#include <sys/types.h>
 #include <grp.h>
 #include <pwd.h>
+#include <stdio.h>
+#include <sys/types.h>
 
 #include "fs-util.h"
 #include "macro.h"
 #include "manager.h"
 #include "mkdir.h"
+#include "path-util.h"
 #include "rm-rf.h"
 #include "unit.h"
 #include "util.h"
@@ -129,11 +130,15 @@ static void test_exec_systemcallerrornumber(Manager *m) {
 static void test_exec_user(Manager *m) {
         if (getpwnam("nobody"))
                 test(m, "exec-user.service", 0, CLD_EXITED);
+        else
+                log_error_errno(errno, "Skipping test_exec_user, could not find nobody user: %m");
 }
 
 static void test_exec_group(Manager *m) {
         if (getgrnam("nobody"))
                 test(m, "exec-group.service", 0, CLD_EXITED);
+        else
+                log_error_errno(errno, "Skipping test_exec_group, could not find nobody group: %m");
 }
 
 static void test_exec_environment(Manager *m) {
@@ -152,6 +157,25 @@ static void test_exec_runtimedirectory(Manager *m) {
         test(m, "exec-runtimedirectory-mode.service", 0, CLD_EXITED);
         if (getgrnam("nobody"))
                 test(m, "exec-runtimedirectory-owner.service", 0, CLD_EXITED);
+        else
+                log_error_errno(errno, "Skipping test_exec_runtimedirectory-owner, could not find nobody group: %m");
+}
+
+static void test_exec_capabilityboundingset(Manager *m) {
+        int r;
+
+        /* We use capsh to test if the capabilities are
+         * properly set, so be sure that it exists */
+        r = find_binary("capsh", NULL);
+        if (r < 0) {
+                log_error_errno(r, "Skipping test_exec_capabilityboundingset, could not find capsh binary: %m");
+                return;
+        }
+
+        test(m, "exec-capabilityboundingset-simple.service", 0, CLD_EXITED);
+        test(m, "exec-capabilityboundingset-reset.service", 0, CLD_EXITED);
+        test(m, "exec-capabilityboundingset-merge.service", 0, CLD_EXITED);
+        test(m, "exec-capabilityboundingset-invert.service", 0, CLD_EXITED);
 }
 
 int main(int argc, char *argv[]) {
@@ -168,6 +192,7 @@ int main(int argc, char *argv[]) {
                 test_exec_environment,
                 test_exec_umask,
                 test_exec_runtimedirectory,
+                test_exec_capabilityboundingset,
                 NULL,
         };
         test_function_t *test = NULL;
