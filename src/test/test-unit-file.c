@@ -24,6 +24,7 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/capability.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -629,6 +630,50 @@ static void test_install_printf(void) {
         expect(i4, "%U", "0");
 }
 
+static uint64_t make_cap(int cap) {
+        return ((uint64_t) 1ULL << (uint64_t) cap);
+}
+
+static void test_config_parse_bounding_set(void) {
+        /* int config_parse_bounding_set(
+                 const char *unit,
+                 const char *filename,
+                 unsigned line,
+                 const char *section,
+                 unsigned section_line,
+                 const char *lvalue,
+                 int ltype,
+                 const char *rvalue,
+                 void *data,
+                 void *userdata) */
+        int r;
+        uint64_t capability_bounding_set_drop = 0;
+
+        r = config_parse_bounding_set(NULL, "fake", 1, "section", 1,
+                              "CapabilityBoundingSet", 0, "CAP_NET_RAW",
+                              &capability_bounding_set_drop, NULL);
+        assert_se(r >= 0);
+        assert_se(capability_bounding_set_drop == ~make_cap(CAP_NET_RAW));
+
+        r = config_parse_bounding_set(NULL, "fake", 1, "section", 1,
+                              "CapabilityBoundingSet", 0, "CAP_NET_ADMIN",
+                              &capability_bounding_set_drop, NULL);
+        assert_se(r >= 0);
+        assert_se(capability_bounding_set_drop == ~(make_cap(CAP_NET_RAW) | make_cap(CAP_NET_ADMIN)));
+
+        r = config_parse_bounding_set(NULL, "fake", 1, "section", 1,
+                              "CapabilityBoundingSet", 0, "",
+                              &capability_bounding_set_drop, NULL);
+        assert_se(r >= 0);
+        assert_se(capability_bounding_set_drop == ~((uint64_t) 0ULL));
+
+        r = config_parse_bounding_set(NULL, "fake", 1, "section", 1,
+                              "CapabilityBoundingSet", 0, "~",
+                              &capability_bounding_set_drop, NULL);
+        assert_se(r >= 0);
+        assert_se(capability_bounding_set_drop == (uint64_t) 0ULL);
+}
+
 int main(int argc, char *argv[]) {
         int r;
 
@@ -637,6 +682,7 @@ int main(int argc, char *argv[]) {
 
         r = test_unit_file_get_set();
         test_config_parse_exec();
+        test_config_parse_bounding_set();
         test_load_env_file_1();
         test_load_env_file_2();
         test_load_env_file_3();
