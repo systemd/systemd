@@ -106,6 +106,8 @@ _systemctl () {
 
         if __contains_word "--user" ${COMP_WORDS[*]}; then
             mode=--user
+        elif __contains_word "--global" ${COMP_WORDS[*]}; then
+            mode=--user
         else
             mode=--system
         fi
