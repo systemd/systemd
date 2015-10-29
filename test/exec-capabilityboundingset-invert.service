@@ -1,0 +1,6 @@
+[Unit]
+Description=Test for CapabilityBoundingSet
+
+[Service]
+ExecStart=/bin/sh -c 'c=$(capsh --print | grep "Bounding set " | grep "cap_chown"); echo $c; exit $(test -z $c)'
+CapabilityBoundingSet=~CAP_CHOWN
