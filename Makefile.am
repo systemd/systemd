@@ -1567,6 +1567,7 @@ EXTRA_DIST += \
 	test/exec-umask-0177.service \
 	test/exec-umask-default.service \
 	test/exec-privatenetwork-yes.service \
+	test/exec-environmentfile.service \
 	test/bus-policy/hello.conf \
 	test/bus-policy/methods.conf \
 	test/bus-policy/ownerships.conf \
