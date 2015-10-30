@@ -1568,6 +1568,8 @@ EXTRA_DIST += \
 	test/exec-umask-default.service \
 	test/exec-privatenetwork-yes.service \
 	test/exec-environmentfile.service \
+	test/exec-oomscoreadjust-positive.service \
+	test/exec-oomscoreadjust-negative.service \
 	test/bus-policy/hello.conf \
 	test/bus-policy/methods.conf \
 	test/bus-policy/ownerships.conf \
