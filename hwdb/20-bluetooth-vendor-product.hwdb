@@ -1982,3 +1982,87 @@ bluetooth:v0291*
 
 bluetooth:v0292*
  ID_VENDOR_FROM_DATABASE=SwiftSensors
+
+bluetooth:v0293*
+ ID_VENDOR_FROM_DATABASE=Blue Bite
+
+bluetooth:v0294*
+ ID_VENDOR_FROM_DATABASE=ELIAS GmbH
+
+bluetooth:v0295*
+ ID_VENDOR_FROM_DATABASE=Sivantos GmbH
+
+bluetooth:v0296*
+ ID_VENDOR_FROM_DATABASE=Petzl
+
+bluetooth:v0297*
+ ID_VENDOR_FROM_DATABASE=storm power ltd
+
+bluetooth:v0298*
+ ID_VENDOR_FROM_DATABASE=EISST Ltd
+
+bluetooth:v0299*
+ ID_VENDOR_FROM_DATABASE=Inexess Technology Simma KG
+
+bluetooth:v029A*
+ ID_VENDOR_FROM_DATABASE=Currant, Inc.
+
+bluetooth:v029B*
+ ID_VENDOR_FROM_DATABASE=C2 Development, Inc.
+
+bluetooth:v029C*
+ ID_VENDOR_FROM_DATABASE=Blue Sky Scientific, LLC
+
+bluetooth:v029D*
+ ID_VENDOR_FROM_DATABASE=ALOTTAZS LABS, LLC
+
+bluetooth:v029E*
+ ID_VENDOR_FROM_DATABASE=Kupson spol. s r.o.
+
+bluetooth:v029F*
+ ID_VENDOR_FROM_DATABASE=Areus Engineering GmbH
+
+bluetooth:v02A0*
+ ID_VENDOR_FROM_DATABASE=Impossible Camera GmbH
+
+bluetooth:v02A1*
+ ID_VENDOR_FROM_DATABASE=InventureTrack Systems
+
+bluetooth:v02A2*
+ ID_VENDOR_FROM_DATABASE=LockedUp
+
+bluetooth:v02A3*
+ ID_VENDOR_FROM_DATABASE=Itude
+
+bluetooth:v02A4*
+ ID_VENDOR_FROM_DATABASE=Pacific Lock Company
+
+bluetooth:v02A5*
+ ID_VENDOR_FROM_DATABASE=Tendyron Corporation ( 天地融科技股份有限公司 )
+
+bluetooth:v02A6*
+ ID_VENDOR_FROM_DATABASE=Robert Bosch GmbH
+
+bluetooth:v02A7*
+ ID_VENDOR_FROM_DATABASE=Illuxtron international B.V.
+
+bluetooth:v02A8*
+ ID_VENDOR_FROM_DATABASE=miSport Ltd.
+
+bluetooth:v02A9*
+ ID_VENDOR_FROM_DATABASE=Chargelib
+
+bluetooth:v02AA*
+ ID_VENDOR_FROM_DATABASE=Doppler Lab
+
+bluetooth:v02AB*
+ ID_VENDOR_FROM_DATABASE=BBPOS Limited
+
+bluetooth:v02AC*
+ ID_VENDOR_FROM_DATABASE=RTB Elektronik GmbH & Co. KG
+
+bluetooth:v02AD*
+ ID_VENDOR_FROM_DATABASE=Rx Networks, Inc.
+
+bluetooth:v02AE*
+ ID_VENDOR_FROM_DATABASE=WeatherFlow, Inc.
