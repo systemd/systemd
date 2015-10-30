@@ -178,6 +178,18 @@ static void test_exec_capabilityboundingset(Manager *m) {
         test(m, "exec-capabilityboundingset-invert.service", 0, CLD_EXITED);
 }
 
+static void test_exec_privatenetwork(Manager *m) {
+        int r;
+
+        r = find_binary("ip", NULL);
+        if (r < 0) {
+                log_error_errno(r, "Skipping test_exec_privatenetwork, could not find ip binary: %m");
+                return;
+        }
+
+        test(m, "exec-privatenetwork-yes.service", 0, CLD_EXITED);
+}
+
 int main(int argc, char *argv[]) {
         test_function_t tests[] = {
                 test_exec_workingdirectory,
@@ -185,6 +197,7 @@ int main(int argc, char *argv[]) {
                 test_exec_ignoresigpipe,
                 test_exec_privatetmp,
                 test_exec_privatedevices,
+                test_exec_privatenetwork,
                 test_exec_systemcallfilter,
                 test_exec_systemcallerrornumber,
                 test_exec_user,
