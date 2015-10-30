@@ -211,6 +211,11 @@ static void test_exec_privatenetwork(Manager *m) {
         test(m, "exec-privatenetwork-yes.service", 0, CLD_EXITED);
 }
 
+static void test_exec_oomscoreadjust(Manager *m) {
+        test(m, "exec-oomscoreadjust-positive.service", 0, CLD_EXITED);
+        test(m, "exec-oomscoreadjust-negative.service", 0, CLD_EXITED);
+}
+
 int main(int argc, char *argv[]) {
         test_function_t tests[] = {
                 test_exec_workingdirectory,
@@ -228,6 +233,7 @@ int main(int argc, char *argv[]) {
                 test_exec_umask,
                 test_exec_runtimedirectory,
                 test_exec_capabilityboundingset,
+                test_exec_oomscoreadjust,
                 NULL,
         };
         test_function_t *test = NULL;
