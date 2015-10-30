@@ -1544,40 +1544,40 @@ EXTRA_DIST += \
 	test/path-makedirectory.path \
 	test/path-modified.path \
 	test/path-unit.path \
-	test/exec-environment-empty.service \
-	test/exec-environment-multiple.service \
-	test/exec-environment.service \
-	test/exec-group.service \
-	test/exec-ignoresigpipe-no.service \
-	test/exec-ignoresigpipe-yes.service \
-	test/exec-personality-x86-64.service \
-	test/exec-personality-x86.service \
-	test/exec-personality-s390.service \
-	test/exec-privatedevices-no.service \
-	test/exec-privatedevices-yes.service \
-	test/exec-privatetmp-no.service \
-	test/exec-privatetmp-yes.service \
-	test/exec-systemcallerrornumber.service \
-	test/exec-systemcallfilter-failing2.service \
-	test/exec-systemcallfilter-failing.service \
-	test/exec-systemcallfilter-not-failing2.service \
-	test/exec-systemcallfilter-not-failing.service \
-	test/exec-user.service \
-	test/exec-workingdirectory.service \
-	test/exec-umask-0177.service \
-	test/exec-umask-default.service \
-	test/exec-privatenetwork-yes.service \
-	test/exec-environmentfile.service \
-	test/exec-oomscoreadjust-positive.service \
-	test/exec-oomscoreadjust-negative.service \
-	test/exec-ioschedulingclass-best-effort.service \
-	test/exec-ioschedulingclass-idle.service \
-	test/exec-ioschedulingclass-none.service \
-	test/exec-ioschedulingclass-realtime.service \
-	test/exec-capabilityboundingset-invert.service \
-	test/exec-capabilityboundingset-merge.service \
-	test/exec-capabilityboundingset-reset.service \
-	test/exec-capabilityboundingset-simple.service \
+	test/test-execute/exec-environment-empty.service \
+	test/test-execute/exec-environment-multiple.service \
+	test/test-execute/exec-environment.service \
+	test/test-execute/exec-group.service \
+	test/test-execute/exec-ignoresigpipe-no.service \
+	test/test-execute/exec-ignoresigpipe-yes.service \
+	test/test-execute/exec-personality-x86-64.service \
+	test/test-execute/exec-personality-x86.service \
+	test/test-execute/exec-personality-s390.service \
+	test/test-execute/exec-privatedevices-no.service \
+	test/test-execute/exec-privatedevices-yes.service \
+	test/test-execute/exec-privatetmp-no.service \
+	test/test-execute/exec-privatetmp-yes.service \
+	test/test-execute/exec-systemcallerrornumber.service \
+	test/test-execute/exec-systemcallfilter-failing2.service \
+	test/test-execute/exec-systemcallfilter-failing.service \
+	test/test-execute/exec-systemcallfilter-not-failing2.service \
+	test/test-execute/exec-systemcallfilter-not-failing.service \
+	test/test-execute/exec-user.service \
+	test/test-execute/exec-workingdirectory.service \
+	test/test-execute/exec-umask-0177.service \
+	test/test-execute/exec-umask-default.service \
+	test/test-execute/exec-privatenetwork-yes.service \
+	test/test-execute/exec-environmentfile.service \
+	test/test-execute/exec-oomscoreadjust-positive.service \
+	test/test-execute/exec-oomscoreadjust-negative.service \
+	test/test-execute/exec-ioschedulingclass-best-effort.service \
+	test/test-execute/exec-ioschedulingclass-idle.service \
+	test/test-execute/exec-ioschedulingclass-none.service \
+	test/test-execute/exec-ioschedulingclass-realtime.service \
+	test/test-execute/exec-capabilityboundingset-invert.service \
+	test/test-execute/exec-capabilityboundingset-merge.service \
+	test/test-execute/exec-capabilityboundingset-reset.service \
+	test/test-execute/exec-capabilityboundingset-simple.service \
 	test/bus-policy/hello.conf \
 	test/bus-policy/methods.conf \
 	test/bus-policy/ownerships.conf \

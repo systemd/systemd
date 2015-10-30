@@ -258,7 +258,7 @@ int main(int argc, char *argv[]) {
         }
 
         assert_se(setenv("XDG_RUNTIME_DIR", "/tmp/", 1) == 0);
-        assert_se(set_unit_path(TEST_DIR) >= 0);
+        assert_se(set_unit_path(TEST_DIR "/test-execute/") >= 0);
 
         r = manager_new(MANAGER_USER, true, &m);
         if (IN_SET(r, -EPERM, -EACCES, -EADDRINUSE, -EHOSTDOWN, -ENOENT)) {
