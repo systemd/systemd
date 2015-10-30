@@ -352,6 +352,10 @@ int network_get(Manager *manager, struct udev_device *device,
 int network_apply(Manager *manager, Network *network, Link *link) {
         int r;
 
+        assert(manager);
+        assert(network);
+        assert(link);
+
         link->network = network;
 
         if (network->ipv4ll_route) {
@@ -361,7 +365,7 @@ int network_apply(Manager *manager, Network *network, Link *link) {
                 if (r < 0)
                         return r;
 
-                r = inet_pton(AF_INET, "169.254.0.0", &route->dst_addr.in);
+                r = inet_pton(AF_INET, "169.254.0.0", &route->dst.in);
                 if (r == 0)
                         return -EINVAL;
                 if (r < 0)
@@ -370,7 +374,7 @@ int network_apply(Manager *manager, Network *network, Link *link) {
                 route->family = AF_INET;
                 route->dst_prefixlen = 16;
                 route->scope = RT_SCOPE_LINK;
-                route->metrics = IPV4LL_ROUTE_METRIC;
+                route->priority = IPV4LL_ROUTE_METRIC;
                 route->protocol = RTPROT_STATIC;
         }
 
