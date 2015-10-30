@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <sys/types.h>
 
+#include "fileio.h"
 #include "fs-util.h"
 #include "macro.h"
 #include "manager.h"
@@ -147,6 +148,26 @@ static void test_exec_environment(Manager *m) {
         test(m, "exec-environment-empty.service", 0, CLD_EXITED);
 }
 
+static void test_exec_environmentfile(Manager *m) {
+        static const char e[] =
+                "VAR1='word1 word2'\n"
+                "VAR2=word3 \n"
+                "# comment1\n"
+                "\n"
+                "; comment2\n"
+                " ; # comment3\n"
+                "line without an equal\n"
+                "VAR3='$word 5 6'\n";
+        int r;
+
+        r = write_string_file("/tmp/test-exec_environmentfile.conf", e, WRITE_STRING_FILE_CREATE);
+        assert_se(r == 0);
+
+        test(m, "exec-environmentfile.service", 0, CLD_EXITED);
+
+        unlink("/tmp/test-exec_environmentfile.conf");
+}
+
 static void test_exec_umask(Manager *m) {
         test(m, "exec-umask-default.service", 0, CLD_EXITED);
         test(m, "exec-umask-0177.service", 0, CLD_EXITED);
@@ -203,6 +224,7 @@ int main(int argc, char *argv[]) {
                 test_exec_user,
                 test_exec_group,
                 test_exec_environment,
+                test_exec_environmentfile,
                 test_exec_umask,
                 test_exec_runtimedirectory,
                 test_exec_capabilityboundingset,
