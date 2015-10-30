@@ -216,6 +216,13 @@ static void test_exec_oomscoreadjust(Manager *m) {
         test(m, "exec-oomscoreadjust-negative.service", 0, CLD_EXITED);
 }
 
+static void test_exec_ioschedulingclass(Manager *m) {
+        test(m, "exec-ioschedulingclass-none.service", 0, CLD_EXITED);
+        test(m, "exec-ioschedulingclass-idle.service", 0, CLD_EXITED);
+        test(m, "exec-ioschedulingclass-realtime.service", 0, CLD_EXITED);
+        test(m, "exec-ioschedulingclass-best-effort.service", 0, CLD_EXITED);
+}
+
 int main(int argc, char *argv[]) {
         test_function_t tests[] = {
                 test_exec_workingdirectory,
@@ -234,6 +241,7 @@ int main(int argc, char *argv[]) {
                 test_exec_runtimedirectory,
                 test_exec_capabilityboundingset,
                 test_exec_oomscoreadjust,
+                test_exec_ioschedulingclass,
                 NULL,
         };
         test_function_t *test = NULL;
