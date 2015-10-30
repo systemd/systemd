@@ -1,0 +1,7 @@
+[Unit]
+Description=Test for IOSchedulingClass=realtime
+
+[Service]
+ExecStart=/bin/bash -c 'c=$(ionice); echo $c; [[ "$c" == realtime* ]]'
+Type=oneshot
+IOSchedulingClass=realtime

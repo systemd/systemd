@@ -1570,6 +1570,10 @@ EXTRA_DIST += \
 	test/exec-environmentfile.service \
 	test/exec-oomscoreadjust-positive.service \
 	test/exec-oomscoreadjust-negative.service \
+	test/exec-ioschedulingclass-best-effort.service \
+	test/exec-ioschedulingclass-idle.service \
+	test/exec-ioschedulingclass-none.service \
+	test/exec-ioschedulingclass-realtime.service \
 	test/bus-policy/hello.conf \
 	test/bus-policy/methods.conf \
 	test/bus-policy/ownerships.conf \

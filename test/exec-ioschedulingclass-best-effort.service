@@ -1,0 +1,7 @@
+[Unit]
+Description=Test for IOSchedulingClass=best-effort
+
+[Service]
+ExecStart=/bin/bash -c 'c=$(ionice); echo $c; [[ "$c" == best-effort* ]]'
+Type=oneshot
+IOSchedulingClass=best-effort
