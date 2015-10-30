@@ -1515,7 +1515,6 @@ EXTRA_DIST += \
 	test/h.service \
 	test/parent-deep.slice \
 	test/parent.slice \
-	test/paths.target \
 	test/sched_idle_bad.service \
 	test/sched_idle_ok.service \
 	test/sched_rr_bad.service \
@@ -1529,21 +1528,24 @@ EXTRA_DIST += \
 	test/testsuite.target \
 	test/timers.target \
 	test/unstoppable.service \
-	test/path-changed.service \
-	test/path-directorynotempty.service \
-	test/path-existsglob.service \
-	test/path-exists.service \
-	test/path-makedirectory.service \
-	test/path-modified.service \
-	test/path-mycustomunit.service \
-	test/path-service.service \
-	test/path-changed.path \
-	test/path-directorynotempty.path \
-	test/path-existsglob.path \
-	test/path-exists.path \
-	test/path-makedirectory.path \
-	test/path-modified.path \
-	test/path-unit.path \
+	test/test-path/paths.target \
+	test/test-path/basic.target \
+	test/test-path/sysinit.target \
+	test/test-path/path-changed.service \
+	test/test-path/path-directorynotempty.service \
+	test/test-path/path-existsglob.service \
+	test/test-path/path-exists.service \
+	test/test-path/path-makedirectory.service \
+	test/test-path/path-modified.service \
+	test/test-path/path-mycustomunit.service \
+	test/test-path/path-service.service \
+	test/test-path/path-changed.path \
+	test/test-path/path-directorynotempty.path \
+	test/test-path/path-existsglob.path \
+	test/test-path/path-exists.path \
+	test/test-path/path-makedirectory.path \
+	test/test-path/path-modified.path \
+	test/test-path/path-unit.path \
 	test/test-execute/exec-environment-empty.service \
 	test/test-execute/exec-environment-multiple.service \
 	test/test-execute/exec-environment.service \
