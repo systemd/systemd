@@ -1,0 +1,7 @@
+[Unit]
+Description=Test for IOSchedulingClass=idle
+
+[Service]
+ExecStart=/bin/bash -c 'c=$(ionice); echo $c; [[ "$c" == idle* ]]'
+Type=oneshot
+IOSchedulingClass=idle
