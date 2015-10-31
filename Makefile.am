@@ -1574,6 +1574,10 @@ EXTRA_DIST += \
 	test/exec-ioschedulingclass-idle.service \
 	test/exec-ioschedulingclass-none.service \
 	test/exec-ioschedulingclass-realtime.service \
+	test/exec-capabilityboundingset-invert.service \
+	test/exec-capabilityboundingset-merge.service \
+	test/exec-capabilityboundingset-reset.service \
+	test/exec-capabilityboundingset-simple.service \
 	test/bus-policy/hello.conf \
 	test/bus-policy/methods.conf \
 	test/bus-policy/ownerships.conf \
