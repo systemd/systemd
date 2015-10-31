@@ -1135,7 +1135,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
                 <tbody>
                   <row>
                     <entry><literal>enabled</literal></entry>
-                    <entry morerows='1'>Enabled through a symlink in <filename>.wants</filename> directory (permanently or just in <filename>/run</filename>).</entry>
+                    <entry morerows='1'>Enabled through a symlink in a <filename>.wants/</filename> or <filename>.requires/</filename> subdirectory of <filename>/etc/systemd/system/</filename> (persistently) or <filename>/run/systemd/system/</filename> (transiently).</entry>
                     <entry morerows='1'>0</entry>
                   </row>
                   <row>
@@ -1143,7 +1143,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
                   </row>
                   <row>
                     <entry><literal>linked</literal></entry>
-                    <entry morerows='1'>Made available through a symlink to the unit file (permanently or just in <filename>/run</filename>).</entry>
+                    <entry morerows='1'>Made available through one or more symlinks to the unit file (permanently in <filename>/etc/systemd/system/</filename> or transiently in <filename>/run/systemd/system/</filename>), even though the unit file might reside outside of the unit file search path.</entry>
                     <entry morerows='1'>&gt; 0</entry>
                   </row>
                   <row>
@@ -1151,7 +1151,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
                   </row>
                   <row>
                     <entry><literal>masked</literal></entry>
-                    <entry morerows='1'>Disabled entirely (permanently or just in <filename>/run</filename>).</entry>
+                    <entry morerows='1'>Completely disabled, so that any start operation on it fails (permanently in <filename>/etc/systemd/system/</filename> or transiently in <filename>/run/systemd/systemd/</filename>).</entry>
                     <entry morerows='1'>&gt; 0</entry>
                   </row>
                   <row>
@@ -1169,7 +1169,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
                   </row>
                   <row>
                     <entry><literal>disabled</literal></entry>
-                    <entry>The unit file is not enabled.</entry>
+                    <entry>Unit file is not enabled, but contains an <literal>[Install]</literal> section with installation instructions.</entry>
                     <entry>&gt; 0</entry>
                   </row>
                   <row>
