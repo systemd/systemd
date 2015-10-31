@@ -40,6 +40,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "test-helper.h"
+#include "user-util.h"
 #include "util.h"
 
 static int test_unit_file_get_set(void) {
@@ -558,76 +559,66 @@ static void test_load_env_file_5(void) {
 
 static void test_install_printf(void) {
         char    name[] = "name.service",
-                path[] = "/run/systemd/system/name.service",
-                user[] = "xxxx-no-such-user";
-        UnitFileInstallInfo i = {name, path, user};
-        UnitFileInstallInfo i2 = {name, path, NULL};
+                path[] = "/run/systemd/system/name.service";
+        UnitFileInstallInfo i = { .name = name, .path = path, };
+        UnitFileInstallInfo i2 = { .name= name, .path = path, };
         char    name3[] = "name@inst.service",
                 path3[] = "/run/systemd/system/name.service";
-        UnitFileInstallInfo i3 = {name3, path3, user};
-        UnitFileInstallInfo i4 = {name3, path3, NULL};
+        UnitFileInstallInfo i3 = { .name = name3, .path = path3, };
+        UnitFileInstallInfo i4 = { .name = name3, .path = path3, };
 
-        _cleanup_free_ char *mid, *bid, *host;
+        _cleanup_free_ char *mid = NULL, *bid = NULL, *host = NULL, *uid = NULL, *user = NULL;
 
         assert_se(specifier_machine_id('m', NULL, NULL, &mid) >= 0 && mid);
         assert_se(specifier_boot_id('b', NULL, NULL, &bid) >= 0 && bid);
         assert_se((host = gethostname_malloc()));
+        assert_se((user = getusername_malloc()));
+        assert_se(asprintf(&uid, UID_FMT, getuid()) >= 0);
 
 #define expect(src, pattern, result)                                    \
         do {                                                            \
                 _cleanup_free_ char *t = NULL;                          \
                 _cleanup_free_ char                                     \
                         *d1 = strdup(i.name),                           \
-                        *d2 = strdup(i.path),                           \
-                        *d3 = strdup(i.user);                           \
+                        *d2 = strdup(i.path);                           \
                 assert_se(install_full_printf(&src, pattern, &t) >= 0 || !result); \
                 memzero(i.name, strlen(i.name));                        \
                 memzero(i.path, strlen(i.path));                        \
-                memzero(i.user, strlen(i.user));                        \
-                assert_se(d1 && d2 && d3);                                 \
+                assert_se(d1 && d2);                                    \
                 if (result) {                                           \
                         printf("%s\n", t);                              \
-                        assert_se(streq(t, result));                       \
-                } else assert_se(t == NULL);                               \
+                        assert_se(streq(t, result));                    \
+                } else assert_se(t == NULL);                            \
                 strcpy(i.name, d1);                                     \
                 strcpy(i.path, d2);                                     \
-                strcpy(i.user, d3);                                     \
         } while(false)
-
-        assert_se(setenv("USER", "root", 1) == 0);
 
         expect(i, "%n", "name.service");
         expect(i, "%N", "name");
         expect(i, "%p", "name");
         expect(i, "%i", "");
-        expect(i, "%u", "xxxx-no-such-user");
-
-        DISABLE_WARNING_NONNULL;
-        expect(i, "%U", NULL);
-        REENABLE_WARNING;
+        expect(i, "%u", user);
+        expect(i, "%U", uid);
 
         expect(i, "%m", mid);
         expect(i, "%b", bid);
         expect(i, "%H", host);
 
-        expect(i2, "%u", "root");
-        expect(i2, "%U", "0");
+        expect(i2, "%u", user);
+        expect(i2, "%U", uid);
 
         expect(i3, "%n", "name@inst.service");
         expect(i3, "%N", "name@inst");
         expect(i3, "%p", "name");
-        expect(i3, "%u", "xxxx-no-such-user");
-
-        DISABLE_WARNING_NONNULL;
-        expect(i3, "%U", NULL);
-        REENABLE_WARNING;
+        expect(i3, "%u", user);
+        expect(i3, "%U", uid);
 
         expect(i3, "%m", mid);
         expect(i3, "%b", bid);
         expect(i3, "%H", host);
 
-        expect(i4, "%u", "root");
-        expect(i4, "%U", "0");
+        expect(i4, "%u", user);
+        expect(i4, "%U", uid);
 }
 
 static uint64_t make_cap(int cap) {

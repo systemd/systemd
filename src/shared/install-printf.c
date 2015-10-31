@@ -67,42 +67,28 @@ static int specifier_instance(char specifier, void *data, void *userdata, char *
 }
 
 static int specifier_user_name(char specifier, void *data, void *userdata, char **ret) {
-        UnitFileInstallInfo *i = userdata;
-        const char *username;
-        _cleanup_free_ char *tmp = NULL;
-        char *printed = NULL;
+        char *t;
 
-        assert(i);
+        /* If we are UID 0 (root), this will not result in NSS,
+         * otherwise it might. This is good, as we want to be able to
+         * run this in PID 1, where our user ID is 0, but where NSS
+         * lookups are not allowed. */
 
-        if (i->user)
-                username = i->user;
-        else
-                /* get USER env from env or our own uid */
-                username = tmp = getusername_malloc();
+        t = getusername_malloc();
+        if (!t)
+                return -ENOMEM;
 
-        switch (specifier) {
-        case 'u':
-                printed = strdup(username);
-                break;
-        case 'U': {
-                /* fish username from passwd */
-                uid_t uid;
-                int r;
-
-                r = get_user_creds(&username, &uid, NULL, NULL, NULL);
-                if (r < 0)
-                        return r;
-
-                if (asprintf(&printed, UID_FMT, uid) < 0)
-                        return -ENOMEM;
-                break;
-        }}
-
-
-        *ret = printed;
+        *ret = t;
         return 0;
 }
 
+static int specifier_user_id(char specifier, void *data, void *userdata, char **ret) {
+
+        if (asprintf(ret, UID_FMT, getuid()) < 0)
+                return -ENOMEM;
+
+        return 0;
+}
 
 int install_full_printf(UnitFileInstallInfo *i, const char *format, char **ret) {
 
@@ -114,8 +100,8 @@ int install_full_printf(UnitFileInstallInfo *i, const char *format, char **ret) 
          * %p: the prefix                              (foo)
          * %i: the instance                            (bar)
 
-         * %U the UID of the configured user or running user
-         * %u the username of the configured user or running user
+         * %U the UID of the running user
+         * %u the username of running user
          * %m the machine ID of the running system
          * %H the host name of the running system
          * %b the boot ID of the running system
@@ -128,7 +114,7 @@ int install_full_printf(UnitFileInstallInfo *i, const char *format, char **ret) 
                 { 'p', specifier_prefix,              NULL },
                 { 'i', specifier_instance,            NULL },
 
-                { 'U', specifier_user_name,           NULL },
+                { 'U', specifier_user_id,             NULL },
                 { 'u', specifier_user_name,           NULL },
 
                 { 'm', specifier_machine_id,          NULL },

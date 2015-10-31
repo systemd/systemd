@@ -855,36 +855,6 @@ static int config_parse_also(
         return 0;
 }
 
-static int config_parse_user(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        UnitFileInstallInfo *i = data;
-        char *printed;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-
-        r = install_full_printf(i, rvalue, &printed);
-        if (r < 0)
-                return r;
-
-        free(i->user);
-        i->user = printed;
-
-        return 0;
-}
-
 static int config_parse_default_instance(
                 const char *unit,
                 const char *filename,
@@ -933,7 +903,6 @@ static int unit_file_load(
                 { "Install", "RequiredBy",      config_parse_strv,             0, &info->required_by       },
                 { "Install", "DefaultInstance", config_parse_default_instance, 0, info                     },
                 { "Install", "Also",            config_parse_also,             0, c                        },
-                { "Exec",    "User",            config_parse_user,             0, info                     },
                 {}
         };
 
