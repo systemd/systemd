@@ -42,6 +42,7 @@
 #include "terminal-util.h"
 #include "unit-name.h"
 #include "util.h"
+#include "extract-word.h"
 
 Machine* machine_new(Manager *manager, MachineClass class, const char *name) {
         Machine *m;
@@ -312,17 +313,23 @@ int machine_load(Machine *m) {
         }
 
         if (netif) {
-                size_t l, allocated = 0, nr = 0;
-                const char *word, *state;
+                size_t allocated = 0, nr = 0;
+                const char *p;
                 int *ni = NULL;
 
-                FOREACH_WORD(word, l, netif, state) {
-                        char buf[l+1];
+                p = netif;
+                for(;;) {
+                        _cleanup_free_ char *word = NULL;
                         int ifi;
 
-                        *(char*) (mempcpy(buf, word, l)) = 0;
+                        r = extract_first_word(&p, &word, NULL, 0);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse NETIF: %s", netif);
 
-                        if (safe_atoi(buf, &ifi) < 0)
+                        if (r == 0)
+                                break;
+
+                        if (safe_atoi(word, &ifi) < 0)
                                 continue;
                         if (ifi <= 0)
                                 continue;
