@@ -1025,8 +1025,6 @@ _public_ int sd_journal_seek_cursor(sd_journal *j, const char *cursor) {
 
 _public_ int sd_journal_test_cursor(sd_journal *j, const char *cursor) {
         int r;
-        const char *word, *state;
-        size_t l;
         Object *o;
 
         assert_return(j, -EINVAL);
@@ -1040,20 +1038,23 @@ _public_ int sd_journal_test_cursor(sd_journal *j, const char *cursor) {
         if (r < 0)
                 return r;
 
-        FOREACH_WORD_SEPARATOR(word, l, cursor, ";", state) {
+        for(;;) {
                 _cleanup_free_ char *item = NULL;
-                sd_id128_t id;
                 unsigned long long ll;
+                sd_id128_t id;
                 int k = 0;
 
-                if (l < 2 || word[1] != '=')
+                r = extract_first_word(&cursor, &item, ";", EXTRACT_DONT_COALESCE_SEPARATORS);
+                if (r < 0)
+                        return r;
+
+                if (r == 0)
+                        break;
+
+                if (strlen(item) < 2 || item[1] != '=')
                         return -EINVAL;
 
-                item = strndup(word, l);
-                if (!item)
-                        return -ENOMEM;
-
-                switch (word[0]) {
+                switch (item[0]) {
 
                 case 's':
                         k = sd_id128_from_string(item+2, &id);
