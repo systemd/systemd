@@ -78,6 +78,8 @@
 
 #define RECHECK_SPACE_USEC (30*USEC_PER_SEC)
 
+#define NOTIFY_SNDBUF_SIZE (8*1024*1024)
+
 static int determine_space_for(
                 Server *s,
                 JournalMetrics *metrics,
@@ -1457,6 +1459,126 @@ static int server_open_hostname(Server *s) {
         return 0;
 }
 
+static int dispatch_notify_event(sd_event_source *es, int fd, uint32_t revents, void *userdata) {
+        Server *s = userdata;
+        int r;
+
+        assert(s);
+        assert(s->notify_event_source == es);
+        assert(s->notify_fd == fd);
+
+        if (revents != EPOLLOUT) {
+                log_error("Invalid events on notify file descriptor.");
+                return -EINVAL;
+        }
+
+        /* The $NOTIFY_SOCKET is writable again, now send exactly one
+         * message on it. Either it's the initial READY=1 event or an
+         * stdout stream event. If there's nothing to write anymore,
+         * turn our event source off. The next time there's something
+         * to send it will be turned on again. */
+
+        if (!s->sent_notify_ready) {
+                static const char p[] =
+                        "READY=1\n"
+                        "STATUS=Processing requests...";
+                ssize_t l;
+
+                l = send(s->notify_fd, p, strlen(p), MSG_DONTWAIT);
+                if (l < 0) {
+                        if (errno == EAGAIN)
+                                return 0;
+
+                        return log_error_errno(errno, "Failed to send READY=1 notification message: %m");
+                }
+
+                s->sent_notify_ready = true;
+                log_debug("Sent READY=1 notification.");
+
+        } else if (s->stdout_streams_notify_queue)
+                /* Dispatch one stream notification event */
+                stdout_stream_send_notify(s->stdout_streams_notify_queue);
+
+        /* Leave us enabled if there's still more to to do. */
+        if (s->stdout_streams_notify_queue)
+                return 0;
+
+        /* There was nothing to do anymore, let's turn ourselves off. */
+        r = sd_event_source_set_enabled(es, SD_EVENT_OFF);
+        if (r < 0)
+                return log_error_errno(r, "Failed to turn off notify event source: %m");
+
+        return 0;
+}
+
+static int server_connect_notify(Server *s) {
+        union sockaddr_union sa = {
+                .un.sun_family = AF_UNIX,
+        };
+        const char *e;
+        int r;
+
+        assert(s);
+        assert(s->notify_fd < 0);
+        assert(!s->notify_event_source);
+
+        /*
+          So here's the problem: we'd like to send notification
+          messages to PID 1, but we cannot do that via sd_notify(),
+          since that's synchronous, and we might end up blocking on
+          it. Specifically: given that PID 1 might block on
+          dbus-daemon during IPC, and dbus-daemon is logging to us,
+          and might hence block on us, we might end up in a deadlock
+          if we block on sending PID 1 notification messages -- by
+          generating a full blocking circle. To avoid this, let's
+          create a non-blocking socket, and connect it to the
+          notification socket, and then wait for POLLOUT before we
+          send anything. This should efficiently avoid any deadlocks,
+          as we'll never block on PID 1, hence PID 1 can safely block
+          on dbus-daemon which can safely block on us again.
+
+          Don't think that this issue is real? It is, see:
+          https://github.com/systemd/systemd/issues/1505
+        */
+
+        e = getenv("NOTIFY_SOCKET");
+        if (!e)
+                return 0;
+
+        if ((e[0] != '@' && e[0] != '/') || e[1] == 0) {
+                log_error("NOTIFY_SOCKET set to an invalid value: %s", e);
+                return -EINVAL;
+        }
+
+        if (strlen(e) > sizeof(sa.un.sun_path)) {
+                log_error("NOTIFY_SOCKET path too long: %s", e);
+                return -EINVAL;
+        }
+
+        s->notify_fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
+        if (s->notify_fd < 0)
+                return log_error_errno(errno, "Failed to create notify socket: %m");
+
+        (void) fd_inc_sndbuf(s->notify_fd, NOTIFY_SNDBUF_SIZE);
+
+        strncpy(sa.un.sun_path, e, sizeof(sa.un.sun_path));
+        if (sa.un.sun_path[0] == '@')
+                sa.un.sun_path[0] = 0;
+
+        r = connect(s->notify_fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(e));
+        if (r < 0)
+                return log_error_errno(errno, "Failed to connect to notify socket: %m");
+
+        r = sd_event_add_io(s->event, &s->notify_event_source, s->notify_fd, EPOLLOUT, dispatch_notify_event, s);
+        if (r < 0)
+                return log_error_errno(r, "Failed to watch notification socket: %m");
+
+        /* This should fire pretty soon, which we'll use to send the
+         * READY=1 event. */
+
+        return 0;
+}
+
 int server_init(Server *s) {
         _cleanup_fdset_free_ FDSet *fds = NULL;
         int n, r, fd;
@@ -1465,7 +1587,7 @@ int server_init(Server *s) {
         assert(s);
 
         zero(*s);
-        s->syslog_fd = s->native_fd = s->stdout_fd = s->dev_kmsg_fd = s->audit_fd = s->hostname_fd = -1;
+        s->syslog_fd = s->native_fd = s->stdout_fd = s->dev_kmsg_fd = s->audit_fd = s->hostname_fd = s->notify_fd = -1;
         s->compress = true;
         s->seal = true;
 
@@ -1510,8 +1632,6 @@ int server_init(Server *s) {
         r = sd_event_default(&s->event);
         if (r < 0)
                 return log_error_errno(r, "Failed to create event loop: %m");
-
-        sd_event_set_watchdog(s->event, true);
 
         n = sd_listen_fds(true);
         if (n < 0)
@@ -1637,6 +1757,8 @@ int server_init(Server *s) {
         server_cache_boot_id(s);
         server_cache_machine_id(s);
 
+        (void) server_connect_notify(s);
+
         return system_journal_open(s, false);
 }
 
@@ -1685,6 +1807,7 @@ void server_done(Server *s) {
         sd_event_source_unref(s->sigterm_event_source);
         sd_event_source_unref(s->sigint_event_source);
         sd_event_source_unref(s->hostname_event_source);
+        sd_event_source_unref(s->notify_event_source);
         sd_event_unref(s->event);
 
         safe_close(s->syslog_fd);
@@ -1693,6 +1816,7 @@ void server_done(Server *s) {
         safe_close(s->dev_kmsg_fd);
         safe_close(s->audit_fd);
         safe_close(s->hostname_fd);
+        safe_close(s->notify_fd);
 
         if (s->rate_limit)
                 journal_rate_limit_free(s->rate_limit);
