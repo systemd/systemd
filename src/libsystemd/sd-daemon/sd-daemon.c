@@ -436,6 +436,11 @@ _public_ int sd_pid_notify_with_fds(pid_t pid, int unset_environment, const char
                 goto finish;
         }
 
+        if (strlen(e) > sizeof(sockaddr.un.sun_path)) {
+                r = -EINVAL;
+                goto finish;
+        }
+
         fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0);
         if (fd < 0) {
                 r = -errno;
