@@ -120,9 +120,6 @@ Features:
 
 * nspawn: as soon as networkd has a bus interface, hook up --network-interface=, --network-bridge= with networkd, to trigger netdev creation should an interface be missing
 
-* rework C11 utf8.[ch] to use char32_t instead of uint32_t when referring
-  to unicode chars, to make things more expressive.
-
 * "machinectl migrate" or similar to copy a container from or to a
   difference host, via ssh
 
