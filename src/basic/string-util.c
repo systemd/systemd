@@ -748,23 +748,38 @@ int free_and_strdup(char **p, const char *s) {
         return 1;
 }
 
-void string_erase(char *x) {
+#pragma GCC push_options
+#pragma GCC optimize("O0")
+
+void* memory_erase(void *p, size_t l) {
+        volatile uint8_t* x = (volatile uint8_t*) p;
+
+        /* This basically does what memset() does, but hopefully isn't
+         * optimized away by the compiler. One of those days, when
+         * glibc learns memset_s() we should replace this call by
+         * memset_s(), but until then this has to do. */
+
+        for (; l > 0; l--)
+                *(x++) = 'x';
+
+        return p;
+}
+
+#pragma GCC pop_options
+
+char* string_erase(char *x) {
 
         if (!x)
-                return;
+                return NULL;
 
         /* A delicious drop of snake-oil! To be called on memory where
          * we stored passphrases or so, after we used them. */
 
-        memory_erase(x, strlen(x));
+        return memory_erase(x, strlen(x));
 }
 
 char *string_free_erase(char *s) {
-        if (!s)
-                return NULL;
-
-        string_erase(s);
-        return mfree(s);
+        return mfree(string_erase(s));
 }
 
 bool string_is_safe(const char *p) {

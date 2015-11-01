@@ -162,8 +162,8 @@ static inline void *memmem_safe(const void *haystack, size_t haystacklen, const 
         return memmem(haystack, haystacklen, needle, needlelen);
 }
 
-#define memory_erase(p, l) memset((p), 'x', (l))
-void string_erase(char *x);
+void* memory_erase(void *p, size_t l);
+char *string_erase(char *x);
 
 char *string_free_erase(char *s);
 DEFINE_TRIVIAL_CLEANUP_FUNC(char *, string_free_erase);
