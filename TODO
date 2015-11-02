@@ -231,8 +231,6 @@ Features:
 * Find a solution for SMACK capabilities stuff:
   http://lists.freedesktop.org/archives/systemd-devel/2014-December/026188.html
 
-* port libmount hookup to use API's own inotify interface, as soon as that is table in libmount
-
 * "systemctl preset-all" should probably order the unit files it
   operates on lexicographically before starting to work, in order to
   ensure deterministic behaviour if two unit files conflict (like DMs
@@ -560,9 +558,6 @@ Features:
   - change bootctl to be backed by systemd-bootd to control temporary and persistent default boot goal plus efi variables
 
 * maybe do not install getty@tty1.service symlink in /etc but in /usr?
-
-* fstab: add new mount option x-systemd-after=/foobar/waldo to allow manual dependencies to other mount points
-  https://bugzilla.redhat.com/show_bug.cgi?id=812826
 
 * print a nicer explanation if people use variable/specifier expansion in ExecStart= for the first word
 
