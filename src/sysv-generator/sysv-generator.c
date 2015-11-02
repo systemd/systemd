@@ -530,7 +530,7 @@ static int load_sysv(SysvStub *s) {
                         if (startswith_no_case(t, "description:")) {
 
                                 size_t k;
-                                const const char *j;
+                                const char *j;
 
                                 k = strlen(t);
                                 if (k > 0 && t[k-1] == '\\') {
