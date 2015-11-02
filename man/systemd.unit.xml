@@ -263,10 +263,8 @@
     in directories listed earlier override files with the same name in
     directories lower in the list.</para>
 
-    <para>When systemd is running in user mode
-    (<option>--user</option>) and the variable
-    <varname>$SYSTEMD_UNIT_PATH</varname> is set, the contents of this
-    variable overrides the unit load path. If
+    <para>When the variable <varname>$SYSTEMD_UNIT_PATH</varname> is set,
+    the contents of this variable overrides the unit load path. If
     <varname>$SYSTEMD_UNIT_PATH</varname> ends with an empty component
     (<literal>:</literal>), the usual unit load path will be appended
     to the contents of the variable.</para>
