@@ -349,12 +349,12 @@ static void link_free(Link *link) {
         while (!set_isempty(link->addresses))
                 address_free(set_first(link->addresses));
 
-        set_free(link->addresses);
-
         while (!set_isempty(link->addresses_foreign))
                 address_free(set_first(link->addresses_foreign));
 
-        set_free(link->addresses_foreign);
+        link->addresses = set_free(link->addresses);
+
+        link->addresses_foreign = set_free(link->addresses_foreign);
 
         while ((address = link->pool_addresses)) {
                 LIST_REMOVE(addresses, link->pool_addresses, address);
