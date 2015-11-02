@@ -413,7 +413,7 @@ char *ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigne
 
         k = 0;
         for (i = s; k < x && i < s + old_length; i = utf8_next_char(i)) {
-                char32_t c;
+                int c;
 
                 c = utf8_encoded_to_unichar(i);
                 if (c < 0)
@@ -425,7 +425,7 @@ char *ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigne
                 x ++;
 
         for (j = s + old_length; k < new_length && j > i; ) {
-                char32_t c;
+                int c;
 
                 j = utf8_prev_char(j);
                 c = utf8_encoded_to_unichar(j);
