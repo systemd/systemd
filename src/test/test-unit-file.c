@@ -672,6 +672,13 @@ static void test_config_parse_bounding_set(void) {
                               &capability_bounding_set_drop, NULL);
         assert_se(r >= 0);
         assert_se(capability_bounding_set_drop == (uint64_t) 0ULL);
+
+        capability_bounding_set_drop = 0;
+        r = config_parse_bounding_set(NULL, "fake", 1, "section", 1,
+                              "CapabilityBoundingSet", 0, "  'CAP_NET_RAW' WAT_CAP??? CAP_NET_ADMIN CAP'_trailing_garbage",
+                              &capability_bounding_set_drop, NULL);
+        assert_se(r >= 0);
+        assert_se(capability_bounding_set_drop == ~(make_cap(CAP_NET_RAW) | make_cap(CAP_NET_ADMIN)));
 }
 
 int main(int argc, char *argv[]) {

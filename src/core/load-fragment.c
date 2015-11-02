@@ -983,10 +983,10 @@ int config_parse_bounding_set(const char *unit,
 
         uint64_t *capability_bounding_set_drop = data;
         uint64_t capability_bounding_set;
-        const char *word, *state;
-        size_t l;
         bool invert = false;
         uint64_t sum = 0;
+        const char *prev;
+        const char *cur;
 
         assert(filename);
         assert(lvalue);
@@ -1003,24 +1003,32 @@ int config_parse_bounding_set(const char *unit,
          * non-inverted everywhere to have a fully normalized
          * interface. */
 
-        FOREACH_WORD_QUOTED(word, l, rvalue, state) {
-                _cleanup_free_ char *t = NULL;
+        prev = cur = rvalue;
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
                 int cap;
+                int r;
 
-                t = strndup(word, l);
-                if (!t)
+                r = extract_first_word(&cur, &word, NULL, EXTRACT_QUOTES);
+                if (r == 0)
+                        break;
+                if (r == -ENOMEM)
                         return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Trailing garbage in bounding set, ignoring: %s", prev);
+                        break;
+                }
 
-                cap = capability_from_name(t);
+                cap = capability_from_name(word);
                 if (cap < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse capability in bounding set, ignoring: %s", t);
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse capability in bounding set, ignoring: %s", word);
+                        prev = cur;
                         continue;
                 }
 
                 sum |= ((uint64_t) 1ULL) << (uint64_t) cap;
+                prev = cur;
         }
-        if (!isempty(state))
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Trailing garbage, ignoring.");
 
         capability_bounding_set = invert ? ~sum : sum;
         if (*capability_bounding_set_drop && capability_bounding_set)
