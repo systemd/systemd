@@ -6631,6 +6631,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 {}
         };
 
+        const char *p;
         int c, r;
 
         assert(argc >= 0);
@@ -6651,15 +6652,19 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         return version();
 
                 case 't': {
-                        const char *word, *state;
-                        size_t size;
+                        if (isempty(optarg) && !arg_properties)
+                                return log_error_errno(r, "--type requires arguments.");
 
-                        FOREACH_WORD_SEPARATOR(word, size, optarg, ",", state) {
-                                _cleanup_free_ char *type;
+                        p = optarg;
+                        for(;;) {
+                                _cleanup_free_ char *type = NULL;
 
-                                type = strndup(word, size);
-                                if (!type)
-                                        return -ENOMEM;
+                                r = extract_first_word(&p, &type, ",", 0);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse type: %s", optarg);
+
+                                if (r == 0)
+                                        break;
 
                                 if (streq(type, "help")) {
                                         help_types();
@@ -6700,18 +6705,21 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                                 if (!arg_properties)
                                         return log_oom();
                         } else {
-                                const char *word, *state;
-                                size_t size;
+                                p = optarg;
+                                for(;;) {
+                                        _cleanup_free_ char *prop = NULL;
 
-                                FOREACH_WORD_SEPARATOR(word, size, optarg, ",", state) {
-                                        char *prop;
+                                        r = extract_first_word(&p, &prop, ",", 0);
+                                        if (r < 0)
+                                                return log_error_errno(r, "Failed to parse property: %s", optarg);
 
-                                        prop = strndup(word, size);
-                                        if (!prop)
+                                        if (r == 0)
+                                                break;
+
+                                        if (strv_push(&arg_properties, prop) < 0)
                                                 return log_oom();
 
-                                        if (strv_consume(&arg_properties, prop) < 0)
-                                                return log_oom();
+                                        prop = NULL;
                                 }
                         }
 
@@ -6877,15 +6885,19 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_STATE: {
-                        const char *word, *state;
-                        size_t size;
+                        if (isempty(optarg) && !arg_properties)
+                                return log_error_errno(r, "--signal requires arguments.");
 
-                        FOREACH_WORD_SEPARATOR(word, size, optarg, ",", state) {
+                        p = optarg;
+                        for(;;) {
                                 _cleanup_free_ char *s = NULL;
 
-                                s = strndup(word, size);
-                                if (!s)
-                                        return log_oom();
+                                r = extract_first_word(&p, &s, ",", 0);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse signal: %s", optarg);
+
+                                if (r == 0)
+                                        break;
 
                                 if (streq(s, "help")) {
                                         help_states();
