@@ -88,7 +88,7 @@
         </thead>
         <tbody>
           <row>
-            <entry morerows="9">VM</entry>
+            <entry valign="top" morerows="9">VM</entry>
             <entry><varname>qemu</varname></entry>
             <entry>QEMU software virtualization</entry>
           </row>
@@ -139,7 +139,7 @@
           </row>
 
           <row>
-            <entry morerows="5">Container</entry>
+            <entry valign="top" morerows="5">Container</entry>
             <entry><varname>openvz</varname></entry>
             <entry>OpenVZ/Virtuozzo</entry>
           </row>
