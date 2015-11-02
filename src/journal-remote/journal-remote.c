@@ -1256,7 +1256,6 @@ static int parse_argv(int argc, char *argv[]) {
         };
 
         int c, r;
-        const char *p;
         bool type_a, type_b;
 
         assert(argc >= 0);
@@ -1417,7 +1416,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_GNUTLS_LOG: {
 #ifdef HAVE_GNUTLS
-                        p = optarg;
+                        const char* p = optarg;
                         for (;;) {
                                 _cleanup_free_ char *word = NULL;
 

@@ -86,6 +86,8 @@
 #include "virt.h"
 #include "watchdog.h"
 
+#define NOTIFY_RCVBUF_SIZE (8*1024*1024)
+
 /* Initial delay and the interval for printing status messages about running jobs */
 #define JOBS_IN_PROGRESS_WAIT_USEC (5*USEC_PER_SEC)
 #define JOBS_IN_PROGRESS_PERIOD_USEC (USEC_PER_SEC / 3)
@@ -688,6 +690,8 @@ static int manager_setup_notify(Manager *m) {
                 fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
                 if (fd < 0)
                         return log_error_errno(errno, "Failed to allocate notification socket: %m");
+
+                fd_inc_rcvbuf(fd, NOTIFY_RCVBUF_SIZE);
 
                 if (m->running_as == MANAGER_SYSTEM)
                         m->notify_socket = strdup("/run/systemd/notify");
@@ -1488,7 +1492,7 @@ static unsigned manager_dispatch_dbus_queue(Manager *m) {
         return n;
 }
 
-static void manager_invoke_notify_message(Manager *m, Unit *u, pid_t pid, char *buf, size_t n, FDSet *fds) {
+static void manager_invoke_notify_message(Manager *m, Unit *u, pid_t pid, const char *buf, size_t n, FDSet *fds) {
         _cleanup_strv_free_ char **tags = NULL;
 
         assert(m);
@@ -1618,7 +1622,7 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
         return 0;
 }
 
-static void invoke_sigchld_event(Manager *m, Unit *u, siginfo_t *si) {
+static void invoke_sigchld_event(Manager *m, Unit *u, const siginfo_t *si) {
         assert(m);
         assert(u);
         assert(si);
@@ -2000,8 +2004,7 @@ int manager_loop(Manager *m) {
         m->exit_code = MANAGER_OK;
 
         /* Release the path cache */
-        set_free_free(m->unit_path_cache);
-        m->unit_path_cache = NULL;
+        m->unit_path_cache = set_free_free(m->unit_path_cache);
 
         manager_check_finished(m);
 
@@ -2111,6 +2114,9 @@ void manager_send_unit_audit(Manager *m, Unit *u, int type, bool success) {
         const char *msg;
         int audit_fd, r;
 
+        if (m->running_as != MANAGER_SYSTEM)
+                return;
+
         audit_fd = get_audit_fd();
         if (audit_fd < 0)
                 return;
@@ -2118,9 +2124,6 @@ void manager_send_unit_audit(Manager *m, Unit *u, int type, bool success) {
         /* Don't generate audit events if the service was already
          * started and we're just deserializing */
         if (m->n_reloading > 0)
-                return;
-
-        if (m->running_as != MANAGER_SYSTEM)
                 return;
 
         if (u->type != UNIT_SERVICE)
@@ -2771,8 +2774,7 @@ static int create_generator_dir(Manager *m, char **generator, const char *name) 
                         return log_oom();
 
                 if (!mkdtemp(p)) {
-                        log_error_errno(errno, "Failed to create generator directory %s: %m",
-                                  p);
+                        log_error_errno(errno, "Failed to create generator directory %s: %m", p);
                         free(p);
                         return -errno;
                 }

@@ -44,6 +44,8 @@
 #include "strv.h"
 #include "util.h"
 
+#define SNDBUF_SIZE (8*1024*1024)
+
 static void unsetenv_all(bool unset_environment) {
 
         if (!unset_environment)
@@ -434,11 +436,18 @@ _public_ int sd_pid_notify_with_fds(pid_t pid, int unset_environment, const char
                 goto finish;
         }
 
+        if (strlen(e) > sizeof(sockaddr.un.sun_path)) {
+                r = -EINVAL;
+                goto finish;
+        }
+
         fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0);
         if (fd < 0) {
                 r = -errno;
                 goto finish;
         }
+
+        fd_inc_sndbuf(fd, SNDBUF_SIZE);
 
         iovec.iov_len = strlen(state);
 

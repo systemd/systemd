@@ -413,6 +413,7 @@ PTYForward *pty_forward_free(PTYForward *f) {
                 sd_event_source_unref(f->stdin_event_source);
                 sd_event_source_unref(f->stdout_event_source);
                 sd_event_source_unref(f->master_event_source);
+                sd_event_source_unref(f->sigwinch_event_source);
                 sd_event_unref(f->event);
 
                 if (f->saved_stdout)

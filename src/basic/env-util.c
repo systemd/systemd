@@ -25,6 +25,7 @@
 #include "alloc-util.h"
 #include "def.h"
 #include "env-util.h"
+#include "parse-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "utf8.h"
@@ -593,4 +594,14 @@ char **replace_env_argv(char **argv, char **env) {
 
         ret[k] = NULL;
         return ret;
+}
+
+int getenv_bool(const char *p) {
+        const char *e;
+
+        e = getenv(p);
+        if (!e)
+                return -ENXIO;
+
+        return parse_boolean(e);
 }
