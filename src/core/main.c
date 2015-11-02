@@ -1242,12 +1242,50 @@ static int status_welcome(void) {
 
 static int write_container_id(void) {
         const char *c;
+        int r;
 
         c = getenv("container");
         if (isempty(c))
                 return 0;
 
-        return write_string_file("/run/systemd/container", c, WRITE_STRING_FILE_CREATE);
+        r = write_string_file("/run/systemd/container", c, WRITE_STRING_FILE_CREATE);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to write /run/systed/container, ignoring: %m");
+
+        return 1;
+}
+
+static int bump_unix_max_dgram_qlen(void) {
+        _cleanup_free_ char *qlen = NULL;
+        unsigned long v;
+        int r;
+
+        /* Let's bump the net.unix.max_dgram_qlen sysctl. The kernel
+         * default of 16 is simply too low. We set the value really
+         * really early during boot, so that it is actually applied to
+         * all our sockets, including the $NOTIFY_SOCKET one. */
+
+        r = read_one_line_file("/proc/sys/net/unix/max_dgram_qlen", &qlen);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to read AF_UNIX datagram queue length, ignoring: %m");
+
+        r = safe_atolu(qlen, &v);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to parse AF_UNIX datagram queue length, ignoring: %m");
+
+        if (v >= DEFAULT_UNIX_MAX_DGRAM_QLEN)
+                return 0;
+
+        qlen = mfree(qlen);
+        if (asprintf(&qlen, "%lu\n", DEFAULT_UNIX_MAX_DGRAM_QLEN) < 0)
+                return log_oom();
+
+        r = write_string_file("/proc/sys/net/unix/max_dgram_qlen", qlen, 0);
+        if (r < 0)
+                return log_full_errno(IN_SET(r, -EROFS, -EPERM, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
+                                      "Failed to bump AF_UNIX datagram queue length, ignoring: %m");
+
+        return 1;
 }
 
 int main(int argc, char *argv[]) {
@@ -1613,6 +1651,7 @@ int main(int argc, char *argv[]) {
                 hostname_setup();
                 machine_id_setup(NULL);
                 loopback_setup();
+                bump_unix_max_dgram_qlen();
 
                 test_mtab();
                 test_usr();
