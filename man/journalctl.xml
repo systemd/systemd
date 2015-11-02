@@ -395,7 +395,7 @@
 
         <para>If the boot ID is omitted, a positive
         <replaceable>offset</replaceable> will look up the boots
-        starting from the beginning of the journal, and a
+        starting from the beginning of the journal, and an
         equal-or-less-than zero <replaceable>offset</replaceable> will
         look up boots starting from the end of the journal. Thus,
         <constant>1</constant> means the first boot found in the
@@ -413,7 +413,7 @@
         <replaceable>offset</replaceable> which identifies the boot
         relative to the one given by boot
         <replaceable>ID</replaceable>. Negative values mean earlier
-        boots and a positive values mean later boots. If
+        boots and positive values mean later boots. If
         <replaceable>offset</replaceable> is not specified, a value of
         zero is assumed, and the logs for the boot given by
         <replaceable>ID</replaceable> are shown.</para>
@@ -520,7 +520,7 @@
 
         <listitem><para>Start showing entries from the location in the
         journal <emphasis>after</emphasis> the location specified by
-        the this cursor.  The cursor is shown when the
+        the passed cursor.  The cursor is shown when the
         <option>--show-cursor</option> option is used.</para>
         </listitem>
       </varlistentry>
@@ -666,7 +666,7 @@
         remain. Note that running <option>--vacuum-size=</option> has
         only indirect effect on the output shown by
         <option>--disk-usage</option> as the latter includes active
-        journal files, while the the vacuuming operation only operates
+        journal files, while the vacuuming operation only operates
         on archived journal files. Similar,
         <option>--vacuum-files=</option> might not actually reduce the
         number of journal files to below the specified number, as it

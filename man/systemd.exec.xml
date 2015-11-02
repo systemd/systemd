@@ -994,7 +994,7 @@
         <listitem><para>Takes a <option>SMACK64</option> security
         label as argument. The process executed by the unit will be
         started under this label and SMACK will decide whether the
-        processes is allowed to run or not based on it. The process
+        process is allowed to run or not based on it. The process
         will continue to run under the label specified here unless the
         executable has its own <option>SMACK64EXEC</option> label, in
         which case the process will transition to run under that
