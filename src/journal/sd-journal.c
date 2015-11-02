@@ -73,19 +73,46 @@ static bool journal_pid_changed(sd_journal *j) {
         return j->original_pid != getpid();
 }
 
-/* We return an error here only if we didn't manage to
-   memorize the real error. */
-static int set_put_error(sd_journal *j, int r) {
+static int journal_put_error(sd_journal *j, int r, const char *path) {
+        char *copy;
         int k;
+
+        /* Memorize an error we encountered, and store which
+         * file/directory it was generated from. Note that we store
+         * only *one* path per error code, as the error code is the
+         * key into the hashmap, and the path is the value. This means
+         * we keep track only of all error kinds, but not of all error
+         * locations. This has the benefit that the hashmap cannot
+         * grow beyond bounds.
+         *
+         * We return an error here only if we didn't manage to
+         * memorize the real error. */
 
         if (r >= 0)
                 return r;
 
-        k = set_ensure_allocated(&j->errors, NULL);
+        k = hashmap_ensure_allocated(&j->errors, NULL);
         if (k < 0)
                 return k;
 
-        return set_put(j->errors, INT_TO_PTR(r));
+        if (path) {
+                copy = strdup(path);
+                if (!copy)
+                        return -ENOMEM;
+        } else
+                copy = NULL;
+
+        k = hashmap_put(j->errors, INT_TO_PTR(r), copy);
+        if (k < 0) {
+                free(copy);
+
+                if (k == -EEXIST)
+                        return 0;
+
+                return k;
+        }
+
+        return 0;
 }
 
 static void detach_location(sd_journal *j) {
@@ -1246,7 +1273,7 @@ static int add_any_file(sd_journal *j, const char *path) {
         return 0;
 
 fail:
-        k = set_put_error(j, r);
+        k = journal_put_error(j, r, path);
         if (k < 0)
                 return k;
 
@@ -1402,7 +1429,7 @@ static int add_directory(sd_journal *j, const char *prefix, const char *dirname)
         return 0;
 
 fail:
-        k = set_put_error(j, r);
+        k = journal_put_error(j, r, path ?: dirname);
         if (k < 0)
                 return k;
 
@@ -1493,7 +1520,7 @@ static int add_root_directory(sd_journal *j, const char *p, bool missing_ok) {
         return 0;
 
 fail:
-        k = set_put_error(j, r);
+        k = journal_put_error(j, r, p);
         if (k < 0)
                 return k;
 
@@ -1738,6 +1765,7 @@ fail:
 _public_ void sd_journal_close(sd_journal *j) {
         Directory *d;
         JournalFile *f;
+        char *p;
 
         if (!j)
                 return;
@@ -1765,10 +1793,13 @@ _public_ void sd_journal_close(sd_journal *j) {
                 mmap_cache_unref(j->mmap);
         }
 
+        while ((p = hashmap_steal_first(j->errors)))
+                free(p);
+        hashmap_free(j->errors);
+
         free(j->path);
         free(j->prefix);
         free(j->unique_field);
-        set_free(j->errors);
         free(j);
 }
 

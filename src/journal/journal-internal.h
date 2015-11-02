@@ -121,7 +121,7 @@ struct sd_journal {
         Hashmap *directories_by_path;
         Hashmap *directories_by_wd;
 
-        Set *errors;
+        Hashmap *errors;
 };
 
 char *journal_make_match_string(sd_journal *j);
