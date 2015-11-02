@@ -1729,15 +1729,12 @@ static int access_check(sd_journal *j) {
         SET_FOREACH(code, j->errors, it) {
                 int err;
 
-                err = -PTR_TO_INT(code);
-                assert(err > 0);
+                err = abs(PTR_TO_INT(code));
 
                 if (err == EACCES)
                         continue;
 
-                log_warning_errno(err, "Error was encountered while opening journal files: %m");
-                if (r == 0)
-                        r = -err;
+                log_warning_errno(err, "An error was encountered while opening journal files, ignoring: %m");
         }
 
         return r;
