@@ -420,7 +420,7 @@ static int service_add_fd_store_set(Service *s, FDSet *fds, const char *name) {
         }
 
         if (fdset_size(fds) > 0)
-                log_unit_warning(UNIT(s), "Tried to store more fds than FDStoreMax=%u allows, closing remaining.", s->n_fd_store_max);
+                log_unit_warning(UNIT(s), "Tried to store more fds than FileDescriptorStoreMax=%u allows, closing remaining.", s->n_fd_store_max);
 
         return 0;
 }
