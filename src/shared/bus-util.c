@@ -1789,6 +1789,40 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
 
                 r = sd_bus_message_close_container(m);
 
+        } else if (streq(field, "RuntimeDirectory")) {
+                const char *p;
+
+                r = sd_bus_message_open_container(m, 'v', "as");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_open_container(m, 'a', "s");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                p = eq;
+
+                for (;;) {
+                        _cleanup_free_ char *word = NULL;
+
+                        r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse %s value %s", field, eq);
+
+                        if (r == 0)
+                                break;
+
+                        r = sd_bus_message_append_basic(m, 's', word);
+                        if (r < 0)
+                                return bus_log_create_error(r);
+                }
+
+                r = sd_bus_message_close_container(m);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_close_container(m);
+
         } else {
                 log_error("Unknown assignment %s.", assignment);
                 return -EINVAL;
