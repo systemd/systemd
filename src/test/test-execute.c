@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <sys/types.h>
 
+#include "fileio.h"
 #include "fs-util.h"
 #include "macro.h"
 #include "manager.h"
@@ -147,6 +148,26 @@ static void test_exec_environment(Manager *m) {
         test(m, "exec-environment-empty.service", 0, CLD_EXITED);
 }
 
+static void test_exec_environmentfile(Manager *m) {
+        static const char e[] =
+                "VAR1='word1 word2'\n"
+                "VAR2=word3 \n"
+                "# comment1\n"
+                "\n"
+                "; comment2\n"
+                " ; # comment3\n"
+                "line without an equal\n"
+                "VAR3='$word 5 6'\n";
+        int r;
+
+        r = write_string_file("/tmp/test-exec_environmentfile.conf", e, WRITE_STRING_FILE_CREATE);
+        assert_se(r == 0);
+
+        test(m, "exec-environmentfile.service", 0, CLD_EXITED);
+
+        unlink("/tmp/test-exec_environmentfile.conf");
+}
+
 static void test_exec_umask(Manager *m) {
         test(m, "exec-umask-default.service", 0, CLD_EXITED);
         test(m, "exec-umask-0177.service", 0, CLD_EXITED);
@@ -178,6 +199,30 @@ static void test_exec_capabilityboundingset(Manager *m) {
         test(m, "exec-capabilityboundingset-invert.service", 0, CLD_EXITED);
 }
 
+static void test_exec_privatenetwork(Manager *m) {
+        int r;
+
+        r = find_binary("ip", NULL);
+        if (r < 0) {
+                log_error_errno(r, "Skipping test_exec_privatenetwork, could not find ip binary: %m");
+                return;
+        }
+
+        test(m, "exec-privatenetwork-yes.service", 0, CLD_EXITED);
+}
+
+static void test_exec_oomscoreadjust(Manager *m) {
+        test(m, "exec-oomscoreadjust-positive.service", 0, CLD_EXITED);
+        test(m, "exec-oomscoreadjust-negative.service", 0, CLD_EXITED);
+}
+
+static void test_exec_ioschedulingclass(Manager *m) {
+        test(m, "exec-ioschedulingclass-none.service", 0, CLD_EXITED);
+        test(m, "exec-ioschedulingclass-idle.service", 0, CLD_EXITED);
+        test(m, "exec-ioschedulingclass-realtime.service", 0, CLD_EXITED);
+        test(m, "exec-ioschedulingclass-best-effort.service", 0, CLD_EXITED);
+}
+
 int main(int argc, char *argv[]) {
         test_function_t tests[] = {
                 test_exec_workingdirectory,
@@ -185,14 +230,18 @@ int main(int argc, char *argv[]) {
                 test_exec_ignoresigpipe,
                 test_exec_privatetmp,
                 test_exec_privatedevices,
+                test_exec_privatenetwork,
                 test_exec_systemcallfilter,
                 test_exec_systemcallerrornumber,
                 test_exec_user,
                 test_exec_group,
                 test_exec_environment,
+                test_exec_environmentfile,
                 test_exec_umask,
                 test_exec_runtimedirectory,
                 test_exec_capabilityboundingset,
+                test_exec_oomscoreadjust,
+                test_exec_ioschedulingclass,
                 NULL,
         };
         test_function_t *test = NULL;
@@ -209,7 +258,7 @@ int main(int argc, char *argv[]) {
         }
 
         assert_se(setenv("XDG_RUNTIME_DIR", "/tmp/", 1) == 0);
-        assert_se(set_unit_path(TEST_DIR) >= 0);
+        assert_se(set_unit_path(TEST_DIR "/test-execute/") >= 0);
 
         r = manager_new(MANAGER_USER, true, &m);
         if (IN_SET(r, -EPERM, -EACCES, -EADDRINUSE, -EHOSTDOWN, -ENOENT)) {

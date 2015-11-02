@@ -1515,7 +1515,6 @@ EXTRA_DIST += \
 	test/h.service \
 	test/parent-deep.slice \
 	test/parent.slice \
-	test/paths.target \
 	test/sched_idle_bad.service \
 	test/sched_idle_ok.service \
 	test/sched_rr_bad.service \
@@ -1529,43 +1528,58 @@ EXTRA_DIST += \
 	test/testsuite.target \
 	test/timers.target \
 	test/unstoppable.service \
-	test/path-changed.service \
-	test/path-directorynotempty.service \
-	test/path-existsglob.service \
-	test/path-exists.service \
-	test/path-makedirectory.service \
-	test/path-modified.service \
-	test/path-mycustomunit.service \
-	test/path-service.service \
-	test/path-changed.path \
-	test/path-directorynotempty.path \
-	test/path-existsglob.path \
-	test/path-exists.path \
-	test/path-makedirectory.path \
-	test/path-modified.path \
-	test/path-unit.path \
-	test/exec-environment-empty.service \
-	test/exec-environment-multiple.service \
-	test/exec-environment.service \
-	test/exec-group.service \
-	test/exec-ignoresigpipe-no.service \
-	test/exec-ignoresigpipe-yes.service \
-	test/exec-personality-x86-64.service \
-	test/exec-personality-x86.service \
-	test/exec-personality-s390.service \
-	test/exec-privatedevices-no.service \
-	test/exec-privatedevices-yes.service \
-	test/exec-privatetmp-no.service \
-	test/exec-privatetmp-yes.service \
-	test/exec-systemcallerrornumber.service \
-	test/exec-systemcallfilter-failing2.service \
-	test/exec-systemcallfilter-failing.service \
-	test/exec-systemcallfilter-not-failing2.service \
-	test/exec-systemcallfilter-not-failing.service \
-	test/exec-user.service \
-	test/exec-workingdirectory.service \
-	test/exec-umask-0177.service \
-	test/exec-umask-default.service \
+	test/test-path/paths.target \
+	test/test-path/basic.target \
+	test/test-path/sysinit.target \
+	test/test-path/path-changed.service \
+	test/test-path/path-directorynotempty.service \
+	test/test-path/path-existsglob.service \
+	test/test-path/path-exists.service \
+	test/test-path/path-makedirectory.service \
+	test/test-path/path-modified.service \
+	test/test-path/path-mycustomunit.service \
+	test/test-path/path-service.service \
+	test/test-path/path-changed.path \
+	test/test-path/path-directorynotempty.path \
+	test/test-path/path-existsglob.path \
+	test/test-path/path-exists.path \
+	test/test-path/path-makedirectory.path \
+	test/test-path/path-modified.path \
+	test/test-path/path-unit.path \
+	test/test-execute/exec-environment-empty.service \
+	test/test-execute/exec-environment-multiple.service \
+	test/test-execute/exec-environment.service \
+	test/test-execute/exec-group.service \
+	test/test-execute/exec-ignoresigpipe-no.service \
+	test/test-execute/exec-ignoresigpipe-yes.service \
+	test/test-execute/exec-personality-x86-64.service \
+	test/test-execute/exec-personality-x86.service \
+	test/test-execute/exec-personality-s390.service \
+	test/test-execute/exec-privatedevices-no.service \
+	test/test-execute/exec-privatedevices-yes.service \
+	test/test-execute/exec-privatetmp-no.service \
+	test/test-execute/exec-privatetmp-yes.service \
+	test/test-execute/exec-systemcallerrornumber.service \
+	test/test-execute/exec-systemcallfilter-failing2.service \
+	test/test-execute/exec-systemcallfilter-failing.service \
+	test/test-execute/exec-systemcallfilter-not-failing2.service \
+	test/test-execute/exec-systemcallfilter-not-failing.service \
+	test/test-execute/exec-user.service \
+	test/test-execute/exec-workingdirectory.service \
+	test/test-execute/exec-umask-0177.service \
+	test/test-execute/exec-umask-default.service \
+	test/test-execute/exec-privatenetwork-yes.service \
+	test/test-execute/exec-environmentfile.service \
+	test/test-execute/exec-oomscoreadjust-positive.service \
+	test/test-execute/exec-oomscoreadjust-negative.service \
+	test/test-execute/exec-ioschedulingclass-best-effort.service \
+	test/test-execute/exec-ioschedulingclass-idle.service \
+	test/test-execute/exec-ioschedulingclass-none.service \
+	test/test-execute/exec-ioschedulingclass-realtime.service \
+	test/test-execute/exec-capabilityboundingset-invert.service \
+	test/test-execute/exec-capabilityboundingset-merge.service \
+	test/test-execute/exec-capabilityboundingset-reset.service \
+	test/test-execute/exec-capabilityboundingset-simple.service \
 	test/bus-policy/hello.conf \
 	test/bus-policy/methods.conf \
 	test/bus-policy/ownerships.conf \
