@@ -332,9 +332,7 @@ int machine_load(Machine *m) {
                                 break;
                         }
 
-                        if (safe_atoi(word, &ifi) < 0)
-                                continue;
-                        if (ifi <= 0)
+                        if (parse_ifindex(word, &ifi) < 0)
                                 continue;
 
                         if (!GREEDY_REALLOC(ni, allocated, nr+1)) {

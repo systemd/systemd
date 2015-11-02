@@ -81,6 +81,19 @@ int parse_mode(const char *s, mode_t *ret) {
         return 0;
 }
 
+int parse_ifindex(const char *s, int *ret) {
+        int ifi, r;
+
+        r = safe_atoi(s, &ifi);
+        if (r < 0)
+                return r;
+        if (ifi <= 0)
+                return -EINVAL;
+
+        *ret = ifi;
+        return 0;
+}
+
 int parse_size(const char *t, uint64_t base, uint64_t *size) {
 
         /* Soo, sometimes we want to parse IEC binary suffixes, and

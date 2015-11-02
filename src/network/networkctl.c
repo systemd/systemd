@@ -521,7 +521,7 @@ static int link_status_one(
         assert(rtnl);
         assert(name);
 
-        if (safe_atoi(name, &ifindex) >= 0 && ifindex > 0)
+        if (parse_ifindex(name, &ifindex) >= 0)
                 r = sd_rtnl_message_new_link(rtnl, &req, RTM_GETLINK, ifindex);
         else {
                 r = sd_rtnl_message_new_link(rtnl, &req, RTM_GETLINK, 0);
