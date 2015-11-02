@@ -226,7 +226,7 @@ int cunescape_one(const char *p, size_t length, char *ret, uint32_t *ret_unicode
 
                 int a[8];
                 unsigned i;
-                char32_t c;
+                uint32_t c;
 
                 if (length != (size_t) -1 && length < 9)
                         return -EINVAL;
@@ -237,8 +237,8 @@ int cunescape_one(const char *p, size_t length, char *ret, uint32_t *ret_unicode
                                 return a[i];
                 }
 
-                c = (a[0] << 28U) | (a[1] << 24U) | (a[2] << 20U) | (a[3] << 16U) |
-                    (a[4] << 12U) | (a[5] <<  8U) | (a[6] <<  4U) | (a[7] <<  0U);
+                c = ((uint32_t) a[0] << 28U) | ((uint32_t) a[1] << 24U) | ((uint32_t) a[2] << 20U) | ((uint32_t) a[3] << 16U) |
+                    ((uint32_t) a[4] << 12U) | ((uint32_t) a[5] <<  8U) | ((uint32_t) a[6] <<  4U) |  (uint32_t) a[7];
 
                 /* Don't allow 0 chars */
                 if (c == 0)
@@ -272,7 +272,7 @@ int cunescape_one(const char *p, size_t length, char *ret, uint32_t *ret_unicode
         case '7': {
                 /* octal encoding */
                 int a, b, c;
-                char32_t m;
+                uint32_t m;
 
                 if (length != (size_t) -1 && length < 3)
                         return -EINVAL;
@@ -294,7 +294,7 @@ int cunescape_one(const char *p, size_t length, char *ret, uint32_t *ret_unicode
                         return -EINVAL;
 
                 /* Don't allow bytes above 255 */
-                m = (a << 6U) | (b << 3U) | (char32_t) c;
+                m = ((uint32_t) a << 6U) | ((uint32_t) b << 3U) | (uint32_t) c;
                 if (m > 255)
                         return -EINVAL;
 
@@ -331,7 +331,7 @@ int cunescape_length_with_prefix(const char *s, size_t length, const char *prefi
 
         for (f = s, t = r + pl; f < s + length; f++) {
                 size_t remaining;
-                char32_t u;
+                uint32_t u;
                 char c;
                 int k;
 
