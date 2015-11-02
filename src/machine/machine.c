@@ -323,11 +323,14 @@ int machine_load(Machine *m) {
                         int ifi;
 
                         r = extract_first_word(&p, &word, NULL, 0);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse NETIF: %s", netif);
-
                         if (r == 0)
                                 break;
+                        else if (r == -ENOMEM)
+                                return log_oom();
+                        else if (r < 0) {
+                                log_warning_errno(r, "Failed to parse NETIF: %s", netif);
+                                continue;
+                        }
 
                         if (safe_atoi(word, &ifi) < 0)
                                 continue;
