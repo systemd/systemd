@@ -141,5 +141,5 @@ int shall_restore_state(void) {
         if (r == 0)
                 return true;
 
-        return parse_boolean(value) != 0;
+        return parse_boolean(value);
 }

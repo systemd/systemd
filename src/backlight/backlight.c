@@ -381,7 +381,7 @@ int main(int argc, char *argv[]) {
                 _cleanup_free_ char *value = NULL;
                 const char *clamp;
 
-                if (!shall_restore_state())
+                if (shall_restore_state() == 0)
                         return EXIT_SUCCESS;
 
                 if (!validate_device(udev, device))

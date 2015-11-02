@@ -212,7 +212,7 @@ static int load_state(
         assert(udev);
         assert(event);
 
-        if (!shall_restore_state())
+        if (shall_restore_state() == 0)
                 return 0;
 
         r = find_device(udev, event, &device);
