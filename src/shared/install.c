@@ -521,6 +521,49 @@ static int find_symlinks_in_scope(
         return 0;
 }
 
+static int create_symlink(
+                const char *old_path,
+                const char *new_path,
+                bool force,
+                UnitFileChange **changes,
+                unsigned *n_changes) {
+
+        _cleanup_free_ char *dest = NULL;
+        int r;
+
+        assert(old_path);
+        assert(new_path);
+
+        mkdir_parents_label(new_path, 0755);
+
+        if (symlink(old_path, new_path) >= 0) {
+                unit_file_changes_add(changes, n_changes, UNIT_FILE_SYMLINK, new_path, old_path);
+                return 0;
+        }
+
+        if (errno != EEXIST)
+                return -errno;
+
+        r = readlink_and_make_absolute(new_path, &dest);
+        if (r < 0)
+                return r;
+
+        if (path_equal(dest, old_path))
+                return 0;
+
+        if (!force)
+                return -EEXIST;
+
+        r = symlink_atomic(old_path, new_path);
+        if (r < 0)
+                return r;
+
+        unit_file_changes_add(changes, n_changes, UNIT_FILE_UNLINK, new_path, NULL);
+        unit_file_changes_add(changes, n_changes, UNIT_FILE_SYMLINK, new_path, old_path);
+
+        return 0;
+}
+
 int unit_file_mask(
                 UnitFileScope scope,
                 bool runtime,
@@ -532,7 +575,7 @@ int unit_file_mask(
 
         char **i;
         _cleanup_free_ char *prefix = NULL;
-        int r;
+        int r, q;
 
         assert(scope >= 0);
         assert(scope < _UNIT_FILE_SCOPE_MAX);
@@ -556,30 +599,9 @@ int unit_file_mask(
                         break;
                 }
 
-                if (symlink("/dev/null", path) >= 0) {
-                        unit_file_changes_add(changes, n_changes, UNIT_FILE_SYMLINK, path, "/dev/null");
-                        continue;
-                }
-
-                if (errno == EEXIST) {
-
-                        if (null_or_empty_path(path) > 0)
-                                continue;
-
-                        if (force) {
-                                if (symlink_atomic("/dev/null", path) >= 0) {
-                                        unit_file_changes_add(changes, n_changes, UNIT_FILE_UNLINK, path, NULL);
-                                        unit_file_changes_add(changes, n_changes, UNIT_FILE_SYMLINK, path, "/dev/null");
-                                        continue;
-                                }
-                        }
-
-                        if (r == 0)
-                                r = -EEXIST;
-                } else {
-                        if (r == 0)
-                                r = -errno;
-                }
+                q = create_symlink("/dev/null", path, force, changes, n_changes);
+                if (r == 0)
+                        r = q;
         }
 
         return r;
@@ -706,38 +728,9 @@ int unit_file_link(
                 if (!path)
                         return -ENOMEM;
 
-                if (symlink(*i, path) >= 0) {
-                        unit_file_changes_add(changes, n_changes, UNIT_FILE_SYMLINK, path, *i);
-                        continue;
-                }
-
-                if (errno == EEXIST) {
-                        _cleanup_free_ char *dest = NULL;
-
-                        q = readlink_and_make_absolute(path, &dest);
-                        if (q < 0 && errno != ENOENT) {
-                                if (r == 0)
-                                        r = q;
-                                continue;
-                        }
-
-                        if (q >= 0 && path_equal(dest, *i))
-                                continue;
-
-                        if (force) {
-                                if (symlink_atomic(*i, path) >= 0) {
-                                        unit_file_changes_add(changes, n_changes, UNIT_FILE_UNLINK, path, NULL);
-                                        unit_file_changes_add(changes, n_changes, UNIT_FILE_SYMLINK, path, *i);
-                                        continue;
-                                }
-                        }
-
-                        if (r == 0)
-                                r = -EEXIST;
-                } else {
-                        if (r == 0)
-                                r = -errno;
-                }
+                q = create_symlink(*i, path, force, changes, n_changes);
+                if (r == 0)
+                        r = q;
         }
 
         return r;
@@ -1186,49 +1179,6 @@ static int unit_file_can_install(
                         (int) strv_length(i->required_by);
 
         return r;
-}
-
-static int create_symlink(
-                const char *old_path,
-                const char *new_path,
-                bool force,
-                UnitFileChange **changes,
-                unsigned *n_changes) {
-
-        _cleanup_free_ char *dest = NULL;
-        int r;
-
-        assert(old_path);
-        assert(new_path);
-
-        mkdir_parents_label(new_path, 0755);
-
-        if (symlink(old_path, new_path) >= 0) {
-                unit_file_changes_add(changes, n_changes, UNIT_FILE_SYMLINK, new_path, old_path);
-                return 0;
-        }
-
-        if (errno != EEXIST)
-                return -errno;
-
-        r = readlink_and_make_absolute(new_path, &dest);
-        if (r < 0)
-                return r;
-
-        if (path_equal(dest, old_path))
-                return 0;
-
-        if (!force)
-                return -EEXIST;
-
-        r = symlink_atomic(old_path, new_path);
-        if (r < 0)
-                return r;
-
-        unit_file_changes_add(changes, n_changes, UNIT_FILE_UNLINK, new_path, NULL);
-        unit_file_changes_add(changes, n_changes, UNIT_FILE_SYMLINK, new_path, old_path);
-
-        return 0;
 }
 
 static int install_info_symlink_alias(
