@@ -266,34 +266,36 @@ int strv_extend_strv_concat(char ***a, char **b, const char *suffix) {
 }
 
 char **strv_split(const char *s, const char *separator) {
-        const char *word, *state;
-        size_t l;
-        unsigned n, i;
-        char **r;
+        _cleanup_strv_free_ char **l = NULL;
+        size_t n = 0, allocated = 0;
+        char **t;
+        int r;
 
         assert(s);
 
-        n = 0;
-        FOREACH_WORD_SEPARATOR(word, l, s, separator, state)
-                n++;
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
 
-        r = new(char*, n+1);
-        if (!r)
-                return NULL;
-
-        i = 0;
-        FOREACH_WORD_SEPARATOR(word, l, s, separator, state) {
-                r[i] = strndup(word, l);
-                if (!r[i]) {
-                        strv_free(r);
+                r = extract_first_word(&s, &word, separator, 0);
+                if (r < 0)
                         return NULL;
-                }
 
-                i++;
+                if (r == 0)
+                        break;
+
+                if (!GREEDY_REALLOC(l, allocated, n + 2))
+                        return NULL;
+
+                l[n++] = word;
+                word = NULL;
+
+                l[n] = NULL;
         }
 
-        r[i] = NULL;
-        return r;
+        t = l;
+        l = NULL;
+
+        return t;
 }
 
 char **strv_split_newlines(const char *s) {
