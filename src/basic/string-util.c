@@ -21,9 +21,9 @@
 
 #include "alloc-util.h"
 #include "gunicode.h"
+#include "string-util.h"
 #include "utf8.h"
 #include "util.h"
-#include "string-util.h"
 
 int strcmp_ptr(const char *a, const char *b) {
 

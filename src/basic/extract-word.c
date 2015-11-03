@@ -21,9 +21,10 @@
 
 #include "alloc-util.h"
 #include "escape.h"
+#include "extract-word.h"
+#include "string-util.h"
 #include "utf8.h"
 #include "util.h"
-#include "extract-word.h"
 
 int extract_first_word(const char **p, char **ret, const char *separators, ExtractFlags flags) {
         _cleanup_free_ char *s = NULL;

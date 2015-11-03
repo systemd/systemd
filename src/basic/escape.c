@@ -22,6 +22,7 @@
 #include "alloc-util.h"
 #include "escape.h"
 #include "hexdecoct.h"
+#include "string-util.h"
 #include "utf8.h"
 #include "util.h"
 
