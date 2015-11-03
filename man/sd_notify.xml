@@ -311,7 +311,7 @@
 
     <xi:include href="libsystemd-pkgconfig.xml" xpointer="pkgconfig-text"/>
 
-    <para>Internally, these functions send a single datagram with the
+    <para>These functions send a single datagram with the
     state string as payload to the <constant>AF_UNIX</constant> socket
     referenced in the <varname>$NOTIFY_SOCKET</varname> environment
     variable. If the first character of
