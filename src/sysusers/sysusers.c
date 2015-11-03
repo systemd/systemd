@@ -29,6 +29,8 @@
 #include "alloc-util.h"
 #include "conf-files.h"
 #include "copy.h"
+#include "def.h"
+#include "fd-util.h"
 #include "fileio-label.h"
 #include "formats-util.h"
 #include "hashmap.h"
@@ -39,10 +41,9 @@
 #include "string-util.h"
 #include "strv.h"
 #include "uid-range.h"
+#include "user-util.h"
 #include "utf8.h"
 #include "util.h"
-#include "fd-util.h"
-#include "user-util.h"
 
 typedef enum ItemType {
         ADD_USER = 'u',

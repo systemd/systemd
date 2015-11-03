@@ -45,6 +45,7 @@
 #include "chattr-util.h"
 #include "conf-files.h"
 #include "copy.h"
+#include "def.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"

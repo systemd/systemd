@@ -20,11 +20,12 @@
 ***/
 
 #include "alloc-util.h"
+#include "def.h"
+#include "extract-word.h"
 #include "string-util.h"
+#include "timesyncd-conf.h"
 #include "timesyncd-manager.h"
 #include "timesyncd-server.h"
-#include "timesyncd-conf.h"
-#include "extract-word.h"
 
 int manager_parse_server_string(Manager *m, ServerType type, const char *string) {
         ServerName *first;

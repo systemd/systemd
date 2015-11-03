@@ -21,6 +21,7 @@
 
 #include "alloc-util.h"
 #include "conf-parser.h"
+#include "def.h"
 #include "extract-word.h"
 #include "parse-util.h"
 #include "resolved-conf.h"
