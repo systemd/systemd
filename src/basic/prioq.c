@@ -109,10 +109,20 @@ static unsigned shuffle_up(Prioq *q, unsigned idx) {
 
         while (idx > 0) {
                 unsigned k;
+                void *d1, *d2;
 
                 k = (idx-1)/2;
 
-                if (q->compare_func(q->items[k].data, q->items[idx].data) <= 0)
+                d1 = q->items[k].data;
+                d2 = q->items[idx].data;
+
+                if (d1 == d2)
+                        break;
+                else if (!d1)
+                        break;
+                else if (!d2)
+                        continue;
+                else if (q->compare_func(q->items[k].data, q->items[idx].data) <= 0)
                         break;
 
                 swap(q, idx, k);

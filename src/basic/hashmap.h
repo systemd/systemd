@@ -68,6 +68,16 @@ typedef struct {
 #define _IDX_ITERATOR_FIRST (UINT_MAX - 1)
 #define ITERATOR_FIRST ((Iterator) { .idx = _IDX_ITERATOR_FIRST, .next_key = NULL })
 
+/* Neither the hash nor compare functions need check for the input being NULL, direct
+ * callers of these functions must make sure the input is non-NULL. The hash function
+ * must feed the same data to siphash24_compress() for two inputs if and only if they
+ * are considered equal by the compare functions. The hash function should feed at
+ * least one byte to siphash24_compress(), to avoid the object being considered equal
+ * to NULL. To avoid the possibility of playing games with hash collisions, data
+ * passed to siphash24_compress() should be unambiguous, which means that variable-sized
+ * data must either be terminated or their size encoded in some way. The comparison
+ * function must form a total order (in particular the relation must be transitive),
+ * and possibly be stable modulo endianess (depending on the usecase). */
 typedef void (*hash_func_t)(const void *p, struct siphash *state);
 typedef int (*compare_func_t)(const void *a, const void *b);
 

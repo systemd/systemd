@@ -378,7 +378,8 @@ static unsigned base_bucket_hash(HashmapBase *h, const void *p) {
 
         siphash24_init(&state, hash_key(h));
 
-        h->hash_ops->hash(p, &state);
+        if (p)
+                h->hash_ops->hash(p, &state);
 
         siphash24_finalize((uint8_t*)&hash, &state);
 
@@ -1241,7 +1242,10 @@ static unsigned base_bucket_scan(HashmapBase *h, unsigned idx, const void *key) 
                         return IDX_NIL;
                 if (dib == distance) {
                         e = bucket_at(h, idx);
-                        if (h->hash_ops->compare(e->key, key) == 0)
+                        if (e->key == key)
+                                return idx;
+                        else if (e->key && key &&
+                                 h->hash_ops->compare(e->key, key) == 0)
                                 return idx;
                 }
 
