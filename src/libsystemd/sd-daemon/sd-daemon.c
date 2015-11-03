@@ -58,8 +58,7 @@ static void unsetenv_all(bool unset_environment) {
 
 _public_ int sd_listen_fds(int unset_environment) {
         const char *e;
-        unsigned n;
-        int r, fd;
+        int n, r, fd;
         pid_t pid;
 
         e = getenv("LISTEN_PID");
@@ -84,17 +83,23 @@ _public_ int sd_listen_fds(int unset_environment) {
                 goto finish;
         }
 
-        r = safe_atou(e, &n);
+        r = safe_atoi(e, &n);
         if (r < 0)
                 goto finish;
 
-        for (fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + (int) n; fd ++) {
+        assert_cc(SD_LISTEN_FDS_START < INT_MAX);
+        if (n <= 0 || n > INT_MAX - SD_LISTEN_FDS_START) {
+                r = -EINVAL;
+                goto finish;
+        }
+
+        for (fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + n; fd ++) {
                 r = fd_cloexec(fd, true);
                 if (r < 0)
                         goto finish;
         }
 
-        r = (int) n;
+        r = n;
 
 finish:
         unsetenv_all(unset_environment);
