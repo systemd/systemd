@@ -301,20 +301,6 @@ static int parse_crash_chvt(const char *value) {
 
 static int parse_proc_cmdline_item(const char *key, const char *value) {
 
-        static const char * const rlmap[] = {
-                "emergency", SPECIAL_EMERGENCY_TARGET,
-                "-b",        SPECIAL_EMERGENCY_TARGET,
-                "rescue",    SPECIAL_RESCUE_TARGET,
-                "single",    SPECIAL_RESCUE_TARGET,
-                "-s",        SPECIAL_RESCUE_TARGET,
-                "s",         SPECIAL_RESCUE_TARGET,
-                "S",         SPECIAL_RESCUE_TARGET,
-                "1",         SPECIAL_RESCUE_TARGET,
-                "2",         SPECIAL_MULTI_USER_TARGET,
-                "3",         SPECIAL_MULTI_USER_TARGET,
-                "4",         SPECIAL_MULTI_USER_TARGET,
-                "5",         SPECIAL_GRAPHICAL_TARGET,
-        };
         int r;
 
         assert(key);
@@ -415,12 +401,12 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
                         log_set_target(LOG_TARGET_CONSOLE);
 
         } else if (!in_initrd() && !value) {
-                unsigned i;
+                const char *target;
 
                 /* SysV compatibility */
-                for (i = 0; i < ELEMENTSOF(rlmap); i += 2)
-                        if (streq(key, rlmap[i]))
-                                return free_and_strdup(&arg_default_unit, rlmap[i+1]);
+                target = runlevel_to_target(key);
+                if (target)
+                        return free_and_strdup(&arg_default_unit, target);
         }
 
         return 0;
