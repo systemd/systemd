@@ -1122,3 +1122,17 @@ time_t mktime_or_timegm(struct tm *tm, bool utc) {
 struct tm *localtime_or_gmtime_r(const time_t *t, struct tm *tm, bool utc) {
         return utc ? gmtime_r(t, tm) : localtime_r(t, tm);
 }
+
+unsigned long usec_to_jiffies(usec_t u) {
+        static thread_local unsigned long hz = 0;
+        long r;
+
+        if (hz == 0) {
+                r = sysconf(_SC_CLK_TCK);
+
+                assert(r > 0);
+                hz = (unsigned long) r;
+        }
+
+        return DIV_ROUND_UP(u , USEC_PER_SEC / hz);
+}
