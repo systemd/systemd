@@ -300,8 +300,7 @@ static int parse_address(const char *s, int *family, union in_addr_union *addres
 
         percent = strchr(s, '%');
         if (percent) {
-                r = safe_atoi(percent+1, &ifi);
-                if (r < 0 || ifi <= 0) {
+                if (parse_ifindex(percent+1, &ifi) < 0) {
                         ifi = if_nametoindex(percent+1);
                         if (ifi <= 0)
                                 return -EINVAL;
@@ -521,7 +520,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case 'i': {
                         int ifi;
 
-                        if (safe_atoi(optarg, &ifi) >= 0 && ifi > 0)
+                        if (parse_ifindex(optarg, &ifi) >= 0)
                                 arg_ifindex = ifi;
                         else {
                                 ifi = if_nametoindex(optarg);

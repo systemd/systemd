@@ -1708,36 +1708,50 @@ static int access_check_var_log_journal(sd_journal *j) {
 static int access_check(sd_journal *j) {
         Iterator it;
         void *code;
+        char *path;
         int r = 0;
 
         assert(j);
 
-        if (set_isempty(j->errors)) {
+        if (hashmap_isempty(j->errors)) {
                 if (ordered_hashmap_isempty(j->files))
                         log_notice("No journal files were found.");
 
                 return 0;
         }
 
-        if (set_contains(j->errors, INT_TO_PTR(-EACCES))) {
+        if (hashmap_contains(j->errors, INT_TO_PTR(-EACCES))) {
                 (void) access_check_var_log_journal(j);
 
                 if (ordered_hashmap_isempty(j->files))
                         r = log_error_errno(EACCES, "No journal files were opened due to insufficient permissions.");
         }
 
-        SET_FOREACH(code, j->errors, it) {
+        HASHMAP_FOREACH_KEY(path, code, j->errors, it) {
                 int err;
 
-                err = -PTR_TO_INT(code);
-                assert(err > 0);
+                err = abs(PTR_TO_INT(code));
 
-                if (err == EACCES)
+                switch (err) {
+                case EACCES:
                         continue;
 
-                log_warning_errno(err, "Error was encountered while opening journal files: %m");
-                if (r == 0)
-                        r = -err;
+                case ENODATA:
+                        log_warning_errno(err, "Journal file %s is truncated, ignoring file.", path);
+                        break;
+
+                case EPROTONOSUPPORT:
+                        log_warning_errno(err, "Journal file %s uses an unsupported feature, ignoring file.", path);
+                        break;
+
+                case EBADMSG:
+                        log_warning_errno(err, "Journal file %s corrupted, ignoring file.", path);
+                        break;
+
+                default:
+                        log_warning_errno(err, "An error was encountered while opening journal file %s, ignoring file.", path);
+                        break;
+                }
         }
 
         return r;

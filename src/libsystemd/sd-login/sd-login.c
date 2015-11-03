@@ -932,9 +932,7 @@ _public_ int sd_machine_get_ifindices(const char *machine, int **ifindices) {
 
                 *(char*) (mempcpy(buf, word, l)) = 0;
 
-                if (safe_atoi(buf, &ifi) < 0)
-                        continue;
-                if (ifi <= 0)
+                if (parse_ifindex(buf, &ifi) < 0)
                         continue;
 
                 if (!GREEDY_REALLOC(ni, allocated, nr+1)) {

@@ -256,6 +256,7 @@
 /test-socket-util
 /test-ssd
 /test-strbuf
+/test-string-util
 /test-strip-tab-ansi
 /test-strv
 /test-strxcpyx

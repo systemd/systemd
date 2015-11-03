@@ -356,12 +356,9 @@ int device_set_ifindex(sd_device *device, const char *_ifindex) {
         assert(device);
         assert(_ifindex);
 
-        r = safe_atoi(_ifindex, &ifindex);
+        r = parse_ifindex(_ifindex, &ifindex);
         if (r < 0)
                 return r;
-
-        if (ifindex <= 0)
-                return -EINVAL;
 
         r = device_add_property_internal(device, "IFINDEX", _ifindex);
         if (r < 0)
@@ -632,11 +629,9 @@ _public_ int sd_device_new_from_device_id(sd_device **ret, const char *id) {
                 struct ifreq ifr = {};
                 int ifindex;
 
-                r = safe_atoi(&id[1], &ifr.ifr_ifindex);
+                r = parse_ifindex(&id[1], &ifr.ifr_ifindex);
                 if (r < 0)
                         return r;
-                else if (ifr.ifr_ifindex <= 0)
-                        return -EINVAL;
 
                 sk = socket(PF_INET, SOCK_DGRAM, 0);
                 if (sk < 0)

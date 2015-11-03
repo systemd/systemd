@@ -35,6 +35,9 @@
  * the watchdog pings will keep the loop busy. */
 #define DEFAULT_EXIT_USEC (30*USEC_PER_SEC)
 
+/* The default value for the net.unix.max_dgram_qlen sysctl */
+#define DEFAULT_UNIX_MAX_DGRAM_QLEN 512UL
+
 #define SYSTEMD_CGROUP_CONTROLLER "name=systemd"
 
 #define SIGNALS_CRASH_HANDLER SIGSEGV,SIGILL,SIGFPE,SIGBUS,SIGQUIT,SIGABRT

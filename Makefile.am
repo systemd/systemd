@@ -1447,6 +1447,7 @@ tests += \
 	test-utf8 \
 	test-ellipsize \
 	test-util \
+	test-string-util \
 	test-extract-word \
 	test-parse-util \
 	test-user-util \
@@ -1746,6 +1747,12 @@ test_util_SOURCES = \
 	src/test/test-util.c
 
 test_util_LDADD = \
+	libshared.la
+
+test_string_util_SOURCES = \
+	src/test/test-string-util.c
+
+test_string_util_LDADD = \
 	libshared.la
 
 test_extract_word_SOURCES = \
