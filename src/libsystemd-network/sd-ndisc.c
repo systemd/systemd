@@ -519,15 +519,14 @@ static int ndisc_router_advertisment_recv(sd_event_source *s, int fd, uint32_t r
         nd->state = NDISC_STATE_ADVERTISMENT_LISTEN;
 
         stateful = ra->nd_ra_flags_reserved & (ND_RA_FLAG_MANAGED | ND_RA_FLAG_OTHER);
-        switch (ra->nd_ra_flags_reserved & ND_RA_FLAG_PREF >> 3) {
+        pref = ra->nd_ra_flags_reserved & ND_RA_FLAG_PREF >> 3;
+
+        switch (pref) {
         case ND_RA_FLAG_PREF_LOW:
-                pref = -1;
-                break;
         case ND_RA_FLAG_PREF_HIGH:
-                pref = 1;
                 break;
         default:
-                pref = 0;
+                pref = ND_RA_FLAG_PREF_MEDIUM;
                 break;
         }
 
@@ -535,7 +534,7 @@ static int ndisc_router_advertisment_recv(sd_event_source *s, int fd, uint32_t r
 
         log_ndisc(nd, "Received Router Advertisement: flags %s preference %s lifetime %u sec",
                   stateful & ND_RA_FLAG_MANAGED ? "MANAGED" : stateful & ND_RA_FLAG_OTHER ? "OTHER" : "none",
-                  pref == 1 ? "high" : pref == -1 ? "low" : "medium",
+                  pref == ND_RA_FLAG_PREF_HIGH ? "high" : pref == ND_RA_FLAG_PREF_LOW ? "low" : "medium",
                   lifetime);
 
         r = ndisc_ra_parse(nd, ra, len);

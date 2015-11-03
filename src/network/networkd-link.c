@@ -611,6 +611,9 @@ void link_check_ready(Link *link) {
              !link->dhcp4_configured && !link->dhcp6_configured))
                 return;
 
+        if (link_ipv6_accept_ra_enabled(link) && !link->ndisc_configured)
+                return;
+
         SET_FOREACH(a, link->addresses, i)
                 if (!address_is_ready(a))
                         return;
@@ -1915,7 +1918,7 @@ static int link_set_ipv6_privacy_extensions(Link *link) {
 }
 
 static int link_set_ipv6_accept_ra(Link *link) {
-        const char *p = NULL, *v = NULL;
+        const char *p = NULL;
         int r;
 
         /* Make this a NOP if IPv6 is not available */
@@ -1925,29 +1928,16 @@ static int link_set_ipv6_accept_ra(Link *link) {
         if (link->flags & IFF_LOOPBACK)
                 return 0;
 
-        /* If unset use system default (enabled if local forwarding is disabled.
-         * disabled if local forwarding is enabled).
-         * If set, ignore or enforce RA independent of local forwarding state.
-         */
-        if (link->network->ipv6_accept_ra < 0)
-                /* default to accept RA if ip_forward is disabled and ignore RA if ip_forward is enabled */
-                v = "1";
-        else if (link->network->ipv6_accept_ra > 0)
-                /* "2" means accept RA even if ip_forward is enabled */
-                v = "2";
-        else
-                /* "0" means ignore RA */
-                v = "0";
-
         p = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/accept_ra");
 
-        r = write_string_file(p, v, 0);
+        /* we handle router advertisments ourselves, tell the kernel to GTFO */
+        r = write_string_file(p, "0", 0);
         if (r < 0) {
                 /* If the right value is set anyway, don't complain */
-                if (verify_one_line_file(p, v) > 0)
+                if (verify_one_line_file(p, "0") > 0)
                         return 0;
 
-                log_link_warning_errno(link, r, "Cannot configure IPv6 accept_ra for interface: %m");
+                log_link_warning_errno(link, r, "Cannot disable kernel IPv6 accept_ra for interface: %m");
         }
 
         return 0;

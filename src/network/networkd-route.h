@@ -40,6 +40,8 @@ struct Route {
         unsigned char tos;
         uint32_t priority; /* note that ip(8) calls this 'metric' */
         unsigned char table;
+        unsigned char pref;
+        unsigned flags;
 
         union in_addr_union gw;
         union in_addr_union dst;
