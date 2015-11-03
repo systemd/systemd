@@ -63,7 +63,7 @@ static int ipv4ll_address_lost(Link *link) {
 
         route->family = AF_INET;
         route->scope = RT_SCOPE_LINK;
-        route->metrics = IPV4LL_ROUTE_METRIC;
+        route->priority = IPV4LL_ROUTE_METRIC;
 
         route_remove(route, link, &link_route_remove_handler);
 
@@ -156,7 +156,7 @@ static int ipv4ll_address_claimed(sd_ipv4ll *ll, Link *link) {
         route->family = AF_INET;
         route->scope = RT_SCOPE_LINK;
         route->protocol = RTPROT_STATIC;
-        route->metrics = IPV4LL_ROUTE_METRIC;
+        route->priority = IPV4LL_ROUTE_METRIC;
 
         r = route_configure(route, link, ipv4ll_route_handler);
         if (r < 0)
@@ -208,9 +208,11 @@ int ipv4ll_configure(Link *link) {
         assert(link->network);
         assert(link->network->link_local & ADDRESS_FAMILY_IPV4);
 
-        r = sd_ipv4ll_new(&link->ipv4ll);
-        if (r < 0)
-                return r;
+        if (!link->ipv4ll) {
+                r = sd_ipv4ll_new(&link->ipv4ll);
+                if (r < 0)
+                        return r;
+        }
 
         if (link->udev_device) {
                 r = net_get_unique_predictable_data(link->udev_device, seed);

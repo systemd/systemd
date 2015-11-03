@@ -26,6 +26,7 @@
 #include "alloc-util.h"
 #include "bus-util.h"
 #include "dhcp-lease-internal.h"
+#include "event-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "netlink-util.h"
@@ -2057,28 +2058,30 @@ static int link_initialized_and_synced(sd_netlink *rtnl, sd_netlink_message *m,
         if (r < 0)
                 return r;
 
-        r = network_get(link->manager, link->udev_device, link->ifname,
-                        &link->mac, &network);
-        if (r == -ENOENT) {
-                link_enter_unmanaged(link);
-                return 1;
-        } else if (r < 0)
-                return r;
+        if (!link->network) {
+                r = network_get(link->manager, link->udev_device, link->ifname,
+                                &link->mac, &network);
+                if (r == -ENOENT) {
+                        link_enter_unmanaged(link);
+                        return 1;
+                } else if (r < 0)
+                        return r;
 
-        if (link->flags & IFF_LOOPBACK) {
-                if (network->link_local != ADDRESS_FAMILY_NO)
-                        log_link_debug(link, "Ignoring link-local autoconfiguration for loopback link");
+                if (link->flags & IFF_LOOPBACK) {
+                        if (network->link_local != ADDRESS_FAMILY_NO)
+                                log_link_debug(link, "Ignoring link-local autoconfiguration for loopback link");
 
-                if (network->dhcp != ADDRESS_FAMILY_NO)
-                        log_link_debug(link, "Ignoring DHCP clients for loopback link");
+                        if (network->dhcp != ADDRESS_FAMILY_NO)
+                                log_link_debug(link, "Ignoring DHCP clients for loopback link");
 
-                if (network->dhcp_server)
-                        log_link_debug(link, "Ignoring DHCP server for loopback link");
+                        if (network->dhcp_server)
+                                log_link_debug(link, "Ignoring DHCP server for loopback link");
+                }
+
+                r = network_apply(link->manager, network, link);
+                if (r < 0)
+                        return r;
         }
-
-        r = network_apply(link->manager, network, link);
-        if (r < 0)
-                return r;
 
         r = link_new_bound_to_list(link);
         if (r < 0)
@@ -2130,6 +2133,193 @@ int link_initialized(Link *link, struct udev_device *device) {
         return 0;
 }
 
+static int link_load(Link *link) {
+        _cleanup_free_ char *network_file = NULL,
+                            *addresses = NULL,
+                            *routes = NULL,
+                            *dhcp4_address = NULL,
+                            *ipv4ll_address = NULL;
+        union in_addr_union address;
+        union in_addr_union route_dst;
+        const char *p;
+        int r;
+
+        assert(link);
+
+        r = parse_env_file(link->state_file, NEWLINE,
+                           "NETWORK_FILE", &network_file,
+                           "ADDRESSES", &addresses,
+                           "ROUTES", &routes,
+                           "DHCP4_ADDRESS", &dhcp4_address,
+                           "IPV4LL_ADDRESS", &ipv4ll_address,
+                           NULL);
+        if (r < 0 && r != -ENOENT)
+                return log_link_error_errno(link, r, "Failed to read %s: %m", link->state_file);
+
+        if (network_file) {
+                Network *network;
+                char *suffix;
+
+                /* drop suffix */
+                suffix = strrchr(network_file, '.');
+                if (!suffix) {
+                        log_link_debug(link, "Failed to get network name from %s", network_file);
+                        goto network_file_fail;
+                }
+                *suffix = '\0';
+
+                r = network_get_by_name(link->manager, basename(network_file), &network);
+                if (r < 0) {
+                        log_link_debug_errno(link, r, "Failed to get network %s: %m", basename(network_file));
+                        goto network_file_fail;
+                }
+
+                r = network_apply(link->manager, network, link);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Failed to apply network %s: %m", basename(network_file));
+        }
+
+network_file_fail:
+
+        if (addresses) {
+                p = addresses;
+
+                for (;;) {
+                        _cleanup_free_ char *address_str = NULL;
+                        char *prefixlen_str;
+                        int family;
+                        unsigned char prefixlen;
+
+                        r = extract_first_word(&p, &address_str, NULL, 0);
+                        if (r < 0) {
+                                log_link_debug_errno(link, r, "Failed to extract next address string: %m");
+                                continue;
+                        } if (r == 0)
+                                break;
+
+                        prefixlen_str = strchr(address_str, '/');
+                        if (!prefixlen_str) {
+                                log_link_debug(link, "Failed to parse address and prefix length %s", address_str);
+                                continue;
+                        }
+
+                        *prefixlen_str ++ = '\0';
+
+                        r = sscanf(prefixlen_str, "%hhu", &prefixlen);
+                        if (r != 1) {
+                                log_link_error(link, "Failed to parse prefixlen %s", prefixlen_str);
+                                continue;
+                        }
+
+                        r = in_addr_from_string_auto(address_str, &family, &address);
+                        if (r < 0) {
+                                log_link_debug_errno(link, r, "Failed to parse address %s: %m", address_str);
+                                continue;
+                        }
+
+                        r = address_add(link, family, &address, prefixlen, NULL);
+                        if (r < 0)
+                                return log_link_error_errno(link, r, "Failed to add address: %m");
+                }
+        }
+
+        if (routes) {
+                for (;;) {
+                        Route *route;
+                        _cleanup_free_ char *route_str = NULL;
+                        _cleanup_event_source_unref_ sd_event_source *expire = NULL;
+                        usec_t lifetime;
+                        char *prefixlen_str;
+                        int family;
+                        unsigned char prefixlen, tos, table;
+                        uint32_t priority;
+
+                        r = extract_first_word(&p, &route_str, NULL, 0);
+                        if (r < 0) {
+                                log_link_debug_errno(link, r, "Failed to extract next route string: %m");
+                                continue;
+                        } if (r == 0)
+                                break;
+
+                        prefixlen_str = strchr(route_str, '/');
+                        if (!prefixlen_str) {
+                                log_link_debug(link, "Failed to parse route %s", route_str);
+                                continue;
+                        }
+
+                        *prefixlen_str ++ = '\0';
+
+                        r = sscanf(prefixlen_str, "%hhu/%hhu/%"SCNu32"/%hhu/"USEC_FMT, &prefixlen, &tos, &priority, &table, &lifetime);
+                        if (r != 5) {
+                                log_link_debug(link,
+                                               "Failed to parse destination prefix length, tos, priority, table or expiration %s",
+                                               prefixlen_str);
+                                continue;
+                        }
+
+                        r = in_addr_from_string_auto(route_str, &family, &route_dst);
+                        if (r < 0) {
+                                log_link_debug_errno(link, r, "Failed to parse route destination %s: %m", route_str);
+                                continue;
+                        }
+
+                        r = route_add(link, family, &route_dst, prefixlen, tos, priority, table, &route);
+                        if (r < 0)
+                                return log_link_error_errno(link, r, "Failed to add route: %m");
+
+                        if (lifetime != USEC_INFINITY) {
+                                r = sd_event_add_time(link->manager->event, &expire, clock_boottime_or_monotonic(), lifetime,
+                                                      0, route_expire_handler, route);
+                                if (r < 0)
+                                        log_link_warning_errno(link, r, "Could not arm route expiration handler: %m");
+                        }
+
+                        route->lifetime = lifetime;
+                        sd_event_source_unref(route->expire);
+                        route->expire = expire;
+                        expire = NULL;
+                }
+        }
+
+        if (dhcp4_address) {
+                r = in_addr_from_string(AF_INET, dhcp4_address, &address);
+                if (r < 0) {
+                        log_link_debug_errno(link, r, "Falied to parse DHCPv4 address %s: %m", dhcp4_address);
+                        goto dhcp4_address_fail;
+                }
+
+                r = sd_dhcp_client_new(&link->dhcp_client);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Falied to create DHCPv4 client: %m");
+
+                r = sd_dhcp_client_set_request_address(link->dhcp_client, &address.in);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Falied to set inital DHCPv4 address %s: %m", dhcp4_address);
+        }
+
+dhcp4_address_fail:
+
+        if (ipv4ll_address) {
+                r = in_addr_from_string(AF_INET, ipv4ll_address, &address);
+                if (r < 0) {
+                        log_link_debug_errno(link, r, "Falied to parse IPv4LL address %s: %m", ipv4ll_address);
+                        goto ipv4ll_address_fail;
+                }
+
+                r = sd_ipv4ll_new(&link->ipv4ll);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Falied to create IPv4LL client: %m");
+
+                r = sd_ipv4ll_set_address(link->ipv4ll, &address.in);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Falied to set inital IPv4LL address %s: %m", ipv4ll_address);
+        }
+
+ipv4ll_address_fail:
+
+        return 0;
+}
+
 int link_add(Manager *m, sd_netlink_message *message, Link **ret) {
         Link *link;
         _cleanup_udev_device_unref_ struct udev_device *device = NULL;
@@ -2148,6 +2338,10 @@ int link_add(Manager *m, sd_netlink_message *message, Link **ret) {
         link = *ret;
 
         log_link_debug(link, "Link %d added", link->ifindex);
+
+        r = link_load(link);
+        if (r < 0)
+                return r;
 
         if (detect_container() <= 0) {
                 /* not in a container, udev will be around */
@@ -2372,6 +2566,7 @@ int link_save(Link *link) {
         _cleanup_fclose_ FILE *f = NULL;
         const char *admin_state, *oper_state;
         Address *a;
+        Route *route;
         Iterator i;
         int r;
 
@@ -2450,9 +2645,9 @@ int link_save(Link *link) {
                         }
                 }
 
-                fputs("\n", f);
+                fputc('\n', f);
 
-                fprintf(f, "NTP=");
+                fputs("NTP=", f);
                 space = false;
                 STRV_FOREACH(address, link->network->ntp) {
                         if (space)
@@ -2499,9 +2694,9 @@ int link_save(Link *link) {
                         }
                 }
 
-                fputs("\n", f);
+                fputc('\n', f);
 
-                fprintf(f, "DOMAINS=");
+                fputs("DOMAINS=", f);
                 space = false;
                 STRV_FOREACH(domain, link->network->domains) {
                         if (space)
@@ -2537,7 +2732,7 @@ int link_save(Link *link) {
                         }
                 }
 
-                fputs("\n", f);
+                fputc('\n', f);
 
                 fprintf(f, "WILDCARD_DOMAIN=%s\n",
                         yes_no(link->network->wildcard_domain));
@@ -2545,7 +2740,7 @@ int link_save(Link *link) {
                 fprintf(f, "LLMNR=%s\n",
                         resolve_support_to_string(link->network->llmnr));
 
-                fprintf(f, "ADDRESSES=");
+                fputs("ADDRESSES=", f);
                 space = false;
                 SET_FOREACH(a, link->addresses, i) {
                         _cleanup_free_ char *address_str = NULL;
@@ -2558,7 +2753,23 @@ int link_save(Link *link) {
                         space = true;
                 }
 
-                fputs("\n", f);
+                fputc('\n', f);
+
+                fputs("ROUTES=", f);
+                space = false;
+                SET_FOREACH(route, link->routes, i) {
+                        _cleanup_free_ char *route_str = NULL;
+
+                        r = in_addr_to_string(route->family, &route->dst, &route_str);
+                        if (r < 0)
+                                goto fail;
+
+                        fprintf(f, "%s%s/%hhu/%hhu/%"PRIu32"/%hhu/"USEC_FMT, space ? " " : "", route_str,
+                                route->dst_prefixlen, route->tos, route->priority, route->table, route->lifetime);
+                        space = true;
+                }
+
+                fputc('\n', f);
         }
 
         if (!hashmap_isempty(link->bound_to_links)) {
@@ -2573,7 +2784,7 @@ int link_save(Link *link) {
                         space = true;
                 }
 
-                fputs("\n", f);
+                fputc('\n', f);
         }
 
         if (!hashmap_isempty(link->bound_by_links)) {
@@ -2588,19 +2799,25 @@ int link_save(Link *link) {
                         space = true;
                 }
 
-                fputs("\n", f);
+                fputc('\n', f);
         }
 
         if (link->dhcp_lease) {
+                struct in_addr address;
                 const char *tz = NULL;
+
+                assert(link->network);
 
                 r = sd_dhcp_lease_get_timezone(link->dhcp_lease, &tz);
                 if (r >= 0)
                         fprintf(f, "TIMEZONE=%s\n", tz);
-        }
 
-        if (link->dhcp_lease) {
-                assert(link->network);
+                r = sd_dhcp_lease_get_address(link->dhcp_lease, &address);
+                if (r >= 0) {
+                        fputs("DHCP4_ADDRESS=", f);
+                        serialize_in_addrs(f, &address, 1);
+                        fputc('\n', f);
+                }
 
                 r = dhcp_lease_save(link->dhcp_lease, link->lease_file);
                 if (r < 0)
@@ -2611,6 +2828,17 @@ int link_save(Link *link) {
                         link->lease_file);
         } else
                 unlink(link->lease_file);
+
+        if (link->ipv4ll) {
+                struct in_addr address;
+
+                r = sd_ipv4ll_get_address(link->ipv4ll, &address);
+                if (r >= 0) {
+                        fputs("IPV4LL_ADDRESS=", f);
+                        serialize_in_addrs(f, &address, 1);
+                        fputc('\n', f);
+                }
+        }
 
         if (link->lldp) {
                 assert(link->network);

@@ -271,15 +271,35 @@ int address_add_foreign(Link *link, int family, const union in_addr_union *in_ad
         return address_add_internal(link, &link->addresses_foreign, family, in_addr, prefixlen, ret);
 }
 
-static int address_add(Link *link, int family, const union in_addr_union *in_addr, unsigned char prefixlen, Address **ret) {
+int address_add(Link *link, int family, const union in_addr_union *in_addr, unsigned char prefixlen, Address **ret) {
+        Address *address;
         int r;
 
-        r = address_add_internal(link, &link->addresses, family, in_addr, prefixlen, ret);
-        if (r < 0)
+        r = address_get(link, family, in_addr, prefixlen, &address);
+        if (r == -ENOENT) {
+                /* Address does not exist, create a new one */
+                r = address_add_internal(link, &link->addresses, family, in_addr, prefixlen, &address);
+                if (r < 0)
+                        return r;
+        } else if (r == 0) {
+                /* Take over a foreign address */
+                r = set_ensure_allocated(&link->addresses, &address_hash_ops);
+                if (r < 0)
+                        return r;
+
+                r = set_put(link->addresses, address);
+                if (r < 0)
+                        return r;
+
+                set_remove(link->addresses_foreign, address);
+        } else if (r == 1) {
+                /* Already exists, do nothing */
+                ;
+        } else
                 return r;
 
-        link_update_operstate(link);
-        link_dirty(link);
+        if (ret)
+                *ret = address;
 
         return 0;
 }
@@ -318,8 +338,12 @@ int address_update(Address *address, unsigned char flags, unsigned char scope, s
         address->scope = scope;
         address->cinfo = *cinfo;
 
-        if (!ready && address_is_ready(address) && address->link)
-                link_check_ready(address->link);
+        if (address->link) {
+                link_update_operstate(address->link);
+
+                if (!ready && address_is_ready(address))
+                        link_check_ready(address->link);
+        }
 
         return 0;
 }
@@ -356,7 +380,11 @@ int address_get(Link *link, int family, const union in_addr_union *in_addr, unsi
         address.prefixlen = prefixlen;
 
         existing = set_get(link->addresses, &address);
-        if (!existing) {
+        if (existing) {
+                *ret = existing;
+
+                return 1;
+        } else {
                 existing = set_get(link->addresses_foreign, &address);
                 if (!existing)
                         return -ENOENT;

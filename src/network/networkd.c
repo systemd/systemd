@@ -109,6 +109,12 @@ int main(int argc, char *argv[]) {
                 goto out;
         }
 
+        r = manager_rtnl_enumerate_routes(m);
+        if (r < 0) {
+                log_error_errno(r, "Could not enumerate routes: %m");
+                goto out;
+        }
+
         log_info("Enumeration completed");
 
         sd_notify(false,
