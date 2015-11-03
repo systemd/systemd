@@ -44,3 +44,4 @@ a+ /var/log/journal/%m/system.journal - - - - group:adm:r--,group:wheel:r--
 
 d /var/lib/systemd 0755 root root -
 d /var/lib/systemd/coredump 0755 root root 3d
+d /var/lib/systemd/journal-upload 0755 systemd-journal-upload systemd-journal-upload - -

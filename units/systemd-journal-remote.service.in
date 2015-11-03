@@ -12,7 +12,7 @@ Requires=systemd-journal-remote.socket
 
 [Service]
 ExecStart=@rootlibexecdir@/systemd-journal-remote \
-          --listen-https=-3 \
+          --listen-http=-3 \
           --output=/var/log/journal/remote/
 User=systemd-journal-remote
 Group=systemd-journal-remote
