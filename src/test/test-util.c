@@ -48,6 +48,7 @@
 #include "process-util.h"
 #include "rm-rf.h"
 #include "signal-util.h"
+#include "special.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -1638,6 +1639,12 @@ cleanup:
         assert_se(rmdir(t) >= 0);
 }
 
+static void test_runlevel_to_target(void) {
+        assert_se(streq_ptr(runlevel_to_target(NULL), NULL));
+        assert_se(streq_ptr(runlevel_to_target("unknown-runlevel"), NULL));
+        assert_se(streq_ptr(runlevel_to_target("3"), SPECIAL_MULTI_USER_TARGET));
+}
+
 int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
@@ -1718,6 +1725,7 @@ int main(int argc, char *argv[]) {
         test_tempfn();
         test_strcmp_ptr();
         test_fgetxattrat_fake();
+        test_runlevel_to_target();
 
         return 0;
 }

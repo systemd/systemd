@@ -26,6 +26,7 @@
 #include "parse-util.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
+#include "special.h"
 #include "string-util.h"
 #include "util.h"
 #include "virt.h"
@@ -142,4 +143,32 @@ int shall_restore_state(void) {
                 return true;
 
         return parse_boolean(value) != 0;
+}
+
+static const char * const rlmap[] = {
+        "emergency", SPECIAL_EMERGENCY_TARGET,
+        "-b",        SPECIAL_EMERGENCY_TARGET,
+        "rescue",    SPECIAL_RESCUE_TARGET,
+        "single",    SPECIAL_RESCUE_TARGET,
+        "-s",        SPECIAL_RESCUE_TARGET,
+        "s",         SPECIAL_RESCUE_TARGET,
+        "S",         SPECIAL_RESCUE_TARGET,
+        "1",         SPECIAL_RESCUE_TARGET,
+        "2",         SPECIAL_MULTI_USER_TARGET,
+        "3",         SPECIAL_MULTI_USER_TARGET,
+        "4",         SPECIAL_MULTI_USER_TARGET,
+        "5",         SPECIAL_GRAPHICAL_TARGET,
+};
+
+const char* runlevel_to_target(const char *word) {
+        size_t i;
+
+        if (!word)
+                return NULL;
+
+        for (i = 0; i < ELEMENTSOF(rlmap); i += 2)
+                if (streq(word, rlmap[i]))
+                        return rlmap[i+1];
+
+        return NULL;
 }
