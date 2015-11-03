@@ -74,6 +74,7 @@ struct Server {
         sd_event_source *sigint_event_source;
         sd_event_source *hostname_event_source;
         sd_event_source *notify_event_source;
+        sd_event_source *watchdog_event_source;
 
         JournalFile *runtime_journal;
         JournalFile *system_journal;
@@ -130,14 +131,14 @@ struct Server {
 
         MMapCache *mmap;
 
-        bool dev_kmsg_readable;
-
-        uint64_t *kernel_seqnum;
-
         struct udev *udev;
 
-        bool sent_notify_ready;
-        bool sync_scheduled;
+        uint64_t *kernel_seqnum;
+        bool dev_kmsg_readable:1;
+
+        bool send_watchdog:1;
+        bool sent_notify_ready:1;
+        bool sync_scheduled:1;
 
         char machine_id_field[sizeof("_MACHINE_ID=") + 32];
         char boot_id_field[sizeof("_BOOT_ID=") + 32];
@@ -145,6 +146,8 @@ struct Server {
 
         /* Cached cgroup root, so that we don't have to query that all the time */
         char *cgroup_root;
+
+        usec_t watchdog_usec;
 };
 
 #define SERVER_MACHINE_ID(s) ((s)->machine_id_field + strlen("_MACHINE_ID="))

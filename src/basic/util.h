@@ -44,13 +44,6 @@
 #include "missing.h"
 #include "time-util.h"
 
-/* What is interpreted as whitespace? */
-#define WHITESPACE " \t\n\r"
-#define NEWLINE    "\n\r"
-#define QUOTES     "\"\'"
-#define COMMENTS   "#;"
-#define GLOB_CHARS "*?["
-
 size_t page_size(void) _pure_;
 #define PAGE_ALIGN(l) ALIGN_TO((l), page_size())
 

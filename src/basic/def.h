@@ -43,12 +43,6 @@
 #define SIGNALS_CRASH_HANDLER SIGSEGV,SIGILL,SIGFPE,SIGBUS,SIGQUIT,SIGABRT
 #define SIGNALS_IGNORE SIGPIPE
 
-#define DIGITS            "0123456789"
-#define LOWERCASE_LETTERS "abcdefghijklmnopqrstuvwxyz"
-#define UPPERCASE_LETTERS "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-#define LETTERS LOWERCASE_LETTERS UPPERCASE_LETTERS
-#define ALPHANUMERICAL LETTERS DIGITS
-
 #define REBOOT_PARAM_FILE "/run/systemd/reboot-param"
 
 #ifdef HAVE_SPLIT_USR
@@ -81,3 +75,18 @@
 
 #define NOTIFY_FD_MAX 768
 #define NOTIFY_BUFFER_MAX PIPE_BUF
+
+/* Return a nulstr for a standard cascade of configuration directories,
+ * suitable to pass to conf_files_list_nulstr or config_parse_many. */
+#define CONF_DIRS_NULSTR(n) \
+        "/etc/" n ".d\0" \
+        "/run/" n ".d\0" \
+        "/usr/local/lib/" n ".d\0" \
+        "/usr/lib/" n ".d\0" \
+        CONF_DIR_SPLIT_USR(n)
+
+#ifdef HAVE_SPLIT_USR
+#define CONF_DIR_SPLIT_USR(n) "/lib/" n ".d\0"
+#else
+#define CONF_DIR_SPLIT_USR(n)
+#endif

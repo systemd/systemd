@@ -1473,10 +1473,10 @@ static int dispatch_notify_event(sd_event_source *es, int fd, uint32_t revents, 
         }
 
         /* The $NOTIFY_SOCKET is writable again, now send exactly one
-         * message on it. Either it's the initial READY=1 event or an
-         * stdout stream event. If there's nothing to write anymore,
-         * turn our event source off. The next time there's something
-         * to send it will be turned on again. */
+         * message on it. Either it's the wtachdog event, the initial
+         * READY=1 event or an stdout stream event. If there's nothing
+         * to write anymore, turn our event source off. The next time
+         * there's something to send it will be turned on again. */
 
         if (!s->sent_notify_ready) {
                 static const char p[] =
@@ -1495,18 +1495,59 @@ static int dispatch_notify_event(sd_event_source *es, int fd, uint32_t revents, 
                 s->sent_notify_ready = true;
                 log_debug("Sent READY=1 notification.");
 
+        } else if (s->send_watchdog) {
+
+                static const char p[] =
+                        "WATCHDOG=1";
+
+                ssize_t l;
+
+                l = send(s->notify_fd, p, strlen(p), MSG_DONTWAIT);
+                if (l < 0) {
+                        if (errno == EAGAIN)
+                                return 0;
+
+                        return log_error_errno(errno, "Failed to send WATCHDOG=1 notification message: %m");
+                }
+
+                s->send_watchdog = false;
+                log_debug("Sent WATCHDOG=1 notification.");
+
         } else if (s->stdout_streams_notify_queue)
                 /* Dispatch one stream notification event */
                 stdout_stream_send_notify(s->stdout_streams_notify_queue);
 
         /* Leave us enabled if there's still more to to do. */
-        if (s->stdout_streams_notify_queue)
+        if (s->send_watchdog || s->stdout_streams_notify_queue)
                 return 0;
 
         /* There was nothing to do anymore, let's turn ourselves off. */
         r = sd_event_source_set_enabled(es, SD_EVENT_OFF);
         if (r < 0)
                 return log_error_errno(r, "Failed to turn off notify event source: %m");
+
+        return 0;
+}
+
+static int dispatch_watchdog(sd_event_source *es, uint64_t usec, void *userdata) {
+        Server *s = userdata;
+        int r;
+
+        assert(s);
+
+        s->send_watchdog = true;
+
+        r = sd_event_source_set_enabled(s->notify_event_source, SD_EVENT_ON);
+        if (r < 0)
+                log_warning_errno(r, "Failed to turn on notify event source: %m");
+
+        r = sd_event_source_set_time(s->watchdog_event_source, usec + s->watchdog_usec / 2);
+        if (r < 0)
+                return log_error_errno(r, "Failed to restart watchdog event source: %m");
+
+        r = sd_event_source_set_enabled(s->watchdog_event_source, SD_EVENT_ON);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enable watchdog event source: %m");
 
         return 0;
 }
@@ -1573,6 +1614,14 @@ static int server_connect_notify(Server *s) {
         if (r < 0)
                 return log_error_errno(r, "Failed to watch notification socket: %m");
 
+        if (sd_watchdog_enabled(false, &s->watchdog_usec) > 0) {
+                s->send_watchdog = true;
+
+                r = sd_event_add_time(s->event, &s->watchdog_event_source, CLOCK_MONOTONIC, now(CLOCK_MONOTONIC) + s->watchdog_usec/2, s->watchdog_usec*3/4, dispatch_watchdog, s);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add watchdog time event: %m");
+        }
+
         /* This should fire pretty soon, which we'll use to send the
          * READY=1 event. */
 
@@ -1590,6 +1639,8 @@ int server_init(Server *s) {
         s->syslog_fd = s->native_fd = s->stdout_fd = s->dev_kmsg_fd = s->audit_fd = s->hostname_fd = s->notify_fd = -1;
         s->compress = true;
         s->seal = true;
+
+        s->watchdog_usec = USEC_INFINITY;
 
         s->sync_interval_usec = DEFAULT_SYNC_INTERVAL_USEC;
         s->sync_scheduled = false;
@@ -1808,6 +1859,7 @@ void server_done(Server *s) {
         sd_event_source_unref(s->sigint_event_source);
         sd_event_source_unref(s->hostname_event_source);
         sd_event_source_unref(s->notify_event_source);
+        sd_event_source_unref(s->watchdog_event_source);
         sd_event_unref(s->event);
 
         safe_close(s->syslog_fd);

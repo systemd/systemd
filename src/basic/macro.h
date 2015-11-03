@@ -334,21 +334,6 @@ static inline unsigned long ALIGN_POWER2(unsigned long u) {
                 _found;                                                 \
         })
 
-/* Return a nulstr for a standard cascade of configuration directories,
- * suitable to pass to conf_files_list_nulstr or config_parse_many. */
-#define CONF_DIRS_NULSTR(n) \
-        "/etc/" n ".d\0" \
-        "/run/" n ".d\0" \
-        "/usr/local/lib/" n ".d\0" \
-        "/usr/lib/" n ".d\0" \
-        CONF_DIR_SPLIT_USR(n)
-
-#ifdef HAVE_SPLIT_USR
-#define CONF_DIR_SPLIT_USR(n) "/lib/" n ".d\0"
-#else
-#define CONF_DIR_SPLIT_USR(n)
-#endif
-
 /* Define C11 thread_local attribute even on older gcc compiler
  * version */
 #ifndef thread_local

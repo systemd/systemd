@@ -51,6 +51,7 @@
 #include "alloc-util.h"
 #include "bootchart.h"
 #include "conf-parser.h"
+#include "def.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "io-util.h"

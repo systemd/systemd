@@ -22,6 +22,7 @@
 #include <glob.h>
 
 #include "glob-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "util.h"
 
