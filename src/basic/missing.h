@@ -901,6 +901,10 @@ static inline int setns(int fd, int nstype) {
 #define NDA_MAX (__NDA_MAX - 1)
 #endif
 
+#ifndef RTA_PREF
+#define RTA_PREF 20
+#endif
+
 #ifndef IPV6_UNICAST_IF
 #define IPV6_UNICAST_IF 76
 #endif

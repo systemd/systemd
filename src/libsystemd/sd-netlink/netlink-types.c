@@ -490,7 +490,11 @@ static const NLType rtnl_route_types[] = {
         RTA_TABLE,
         RTA_MARK,
         RTA_MFC_STATS,
+        RTA_VIA,
+        RTA_NEWDST,
 */
+        [RTA_PREF]              = { .type = NETLINK_TYPE_U8 },
+
 };
 
 static const NLTypeSystem rtnl_route_type_system = {
