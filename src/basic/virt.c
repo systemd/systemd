@@ -267,12 +267,7 @@ int detect_vm(void) {
         if (cached_found >= 0)
                 return cached_found;
 
-        /* Try xen capabilities file first, if not found try
-         * high-level hypervisor sysfs file:
-         *
-         * https://bugs.freedesktop.org/show_bug.cgi?id=77271 */
-
-        r = detect_vm_xen();
+        r = detect_vm_cpuid();
         if (r < 0)
                 return r;
         if (r != VIRTUALIZATION_NONE)
@@ -284,7 +279,14 @@ int detect_vm(void) {
         if (r != VIRTUALIZATION_NONE)
                 goto finish;
 
-        r = detect_vm_cpuid();
+        /* x86 xen will most likely be detected by cpuid. If not (most likely
+         * because we're not an x86 guest), then we should try the xen capabilities
+         * file next. If that's not found, then we check for the high-level
+         * hypervisor sysfs file:
+         *
+         * https://bugs.freedesktop.org/show_bug.cgi?id=77271 */
+
+        r = detect_vm_xen();
         if (r < 0)
                 return r;
         if (r != VIRTUALIZATION_NONE)
