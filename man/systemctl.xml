@@ -888,6 +888,11 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
 
             <para>Example: <command>systemctl set-property foobar.service CPUShares=777</command></para>
 
+            <para>If the specified unit appears to be inactive, the
+            changes will be only stored on disk as described
+            previously hence they will be effective when the unit will
+            be started.</para>
+
             <para>Note that this command allows changing multiple
             properties at the same time, which is preferable over
             setting them individually. Like unit file configuration
