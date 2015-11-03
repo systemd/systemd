@@ -2,19 +2,20 @@
 # Copyright (C) 2015 systemd author and translators.
 # This file is distributed under the same license as the systemd package.
 # Seong-ho Cho <shcho@gnome.org>, 2015.
+# Dongsu Park <dongsu@endocode.com>, 2015.
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: https://github.com/systemd/systemd/issues\n"
 "POT-Creation-Date: 2015-09-25 22:52+0900\n"
-"PO-Revision-Date: 2015-09-25 23:50+0900\n"
-"Last-Translator: Seong-ho Cho <shcho@gnome.org>\n"
+"PO-Revision-Date: 2015-11-03 13:19+0100\n"
+"Last-Translator: Dongsu Park <dongsu@endocode.com>\n"
 "Language-Team: GNOME Korea <gnome-kr@googlegroups.com>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"X-Generator: Poedit 1.5.5\n"
+"X-Generator: Gtranslator 2.91.7\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
 "Language: ko\n"
 "X-Poedit-SourceCharset: UTF-8\n"
@@ -242,7 +243,7 @@ msgstr "시트에 장치 부착을 허용하려면 인증이 필요합니다."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:23
 msgid "Flush device to seat attachments"
-msgstr "시트로부터 장치 탈거 허용"
+msgstr "시트로부터 장치 해제 허용"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:24
 msgid ""
@@ -393,13 +394,13 @@ msgstr "활성화 세션을 잠금 또는 잠금 해제하려면 인증이 필�
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:53
 msgid "Allow indication to the firmware to boot to setup interface"
-msgstr "인터페이스를 설정하도록 펌웨어 부팅 지시 허용"
+msgstr "설정 화면으로 부팅하도록 펌웨어에게 지시 허용"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:54
 msgid ""
 "Authentication is required to indicate to the firmware to boot to setup "
 "interface."
-msgstr "인터페이스를 설정하도록 펌웨어 부팅을 지시하려면 인증이 필요합니다."
+msgstr "설정 화면으로 부팅하도록 펌웨어에게 지시하려면 인증이 필요합니다."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:55
 msgid "Set a wall message"
@@ -452,7 +453,7 @@ msgstr "로컬 컨테이너에서 의사 TTY를 획득하려면 인증이 필요
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:11
 msgid "Acquire a pseudo TTY on the local host"
-msgstr "로컬 호스트에서 의사 TTY 획득"
+msgstr "로컬 호스트에서 유사 TTY 획득"
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:12
 msgid "Authentication is required to acquire a pseudo TTY on the local host."
