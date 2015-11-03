@@ -3305,7 +3305,6 @@ libsystemd_network_la_SOURCES = \
 	src/systemd/sd-ndisc.h \
 	src/systemd/sd-dhcp6-client.h \
 	src/systemd/sd-dhcp6-lease.h \
-	src/systemd/sd-pppoe.h \
 	src/systemd/sd-lldp.h \
 	src/libsystemd-network/sd-dhcp-client.c \
 	src/libsystemd-network/sd-dhcp-server.c \
@@ -3321,7 +3320,6 @@ libsystemd_network_la_SOURCES = \
 	src/libsystemd-network/sd-ipv4acd.c \
 	src/libsystemd-network/arp-util.h \
 	src/libsystemd-network/arp-util.c \
-	src/libsystemd-network/sd-pppoe.c \
 	src/libsystemd-network/network-internal.c \
 	src/libsystemd-network/network-internal.h \
 	src/libsystemd-network/sd-ndisc.c \
@@ -3402,14 +3400,6 @@ test_acd_LDADD = \
 	libsystemd-network.la \
 	libshared.la
 
-test_pppoe_SOURCES = \
-	src/systemd/sd-pppoe.h \
-	src/libsystemd-network/test-pppoe.c
-
-test_pppoe_LDADD = \
-	libsystemd-network.la \
-	libshared.la
-
 test_ndisc_rs_SOURCES = \
 	src/systemd/sd-dhcp6-client.h \
 	src/systemd/sd-ndisc.h \
@@ -3453,9 +3443,6 @@ tests += \
 	test-ndisc-rs \
 	test-dhcp6-client \
 	test-lldp
-
-manual_tests += \
-	test-pppoe
 
 # ------------------------------------------------------------------------------
 include_HEADERS += \
