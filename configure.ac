@@ -437,7 +437,7 @@ AM_CONDITIONAL(HAVE_BLKID, [test "$have_blkid" = "yes"])
 
 # ------------------------------------------------------------------------------
 have_libmount=no
-PKG_CHECK_MODULES(MOUNT, [ mount >= 2.27.1 ],
+PKG_CHECK_MODULES(MOUNT, [ mount >= 2.27 ],
         [AC_DEFINE(HAVE_LIBMOUNT, 1, [Define if libmount is available]) have_libmount=yes], have_libmount=no)
 if test "x$have_libmount" = xno; then
         AC_MSG_ERROR([*** libmount support required but libraries not found])
