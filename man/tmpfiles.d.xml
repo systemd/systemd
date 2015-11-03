@@ -390,7 +390,7 @@
           attributes to set exactly as the following letters. The
           letters <literal>aAcCdDeijsStTu</literal> select the new
           attributes for the files, see
-          <citerefentry><refentrytitle>chattr</refentrytitle>
+          <citerefentry project='man-pages'><refentrytitle>chattr</refentrytitle>
           <manvolnum>1</manvolnum></citerefentry> for further information.
           </para>
           <para>Passing only <varname>=</varname> as argument resets
