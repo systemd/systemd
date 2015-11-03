@@ -1113,33 +1113,6 @@ static int bump_rlimit_nofile(struct rlimit *saved_rlimit) {
         return 0;
 }
 
-static void test_mtab(void) {
-
-        static const char ok[] =
-                "/proc/self/mounts\0"
-                "/proc/mounts\0"
-                "../proc/self/mounts\0"
-                "../proc/mounts\0";
-
-        _cleanup_free_ char *p = NULL;
-        int r;
-
-        /* Check that /etc/mtab is a symlink to the right place or
-         * non-existing. But certainly not a file, or a symlink to
-         * some weird place... */
-
-        r = readlink_malloc("/etc/mtab", &p);
-        if (r == -ENOENT)
-                return;
-        if (r >= 0 && nulstr_contains(ok, p))
-                return;
-
-        log_error("/etc/mtab is not a symlink or not pointing to /proc/self/mounts. "
-                  "This is not supported anymore. "
-                  "Please replace /etc/mtab with a symlink to /proc/self/mounts.");
-        freeze_or_reboot();
-}
-
 static void test_usr(void) {
 
         /* Check that /usr is not a separate fs */
@@ -1653,7 +1626,6 @@ int main(int argc, char *argv[]) {
                 loopback_setup();
                 bump_unix_max_dgram_qlen();
 
-                test_mtab();
                 test_usr();
         }
 
