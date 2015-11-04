@@ -600,7 +600,9 @@
 
         <listitem>
           <para>When used with <command>list-dependencies</command>,
-          the output is printed as a list instead of a tree.</para>
+          <command>list-units</command> or <command>list-machines</command>, the
+          the output is printed as a list instead of a tree, and the bullet
+          circles are omitted.</para>
         </listitem>
       </varlistentry>
 
