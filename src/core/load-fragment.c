@@ -3232,12 +3232,14 @@ int config_parse_namespace_path_strv(
                 int offset;
 
                 r = extract_first_word(&cur, &word, NULL, EXTRACT_QUOTES);
-                if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Trailing garbage, ignoring: %s", prev);
-                        return 0;
-                }
                 if (r == 0)
                         break;
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Trailing garbage, ignoring: %s", prev);
+                        return 0;
+                }
 
                 if (!utf8_is_valid(word)) {
                         log_syntax_invalid_utf8(unit, LOG_ERR, filename, line, word);
