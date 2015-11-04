@@ -29,12 +29,12 @@
 int extract_first_word(const char **p, char **ret, const char *separators, ExtractFlags flags) {
         _cleanup_free_ char *s = NULL;
         size_t allocated = 0, sz = 0;
+        char c;
         int r;
 
         char quote = 0;                 /* 0 or ' or " */
         bool backslash = false;         /* whether we've just seen a backslash */
         bool separator = false;         /* whether we've just seen a separator */
-        bool start = true;              /* false means we're looking at a value */
 
         assert(p);
         assert(ret);
@@ -51,31 +51,30 @@ int extract_first_word(const char **p, char **ret, const char *separators, Extra
          * (because of an uneven number of quotes or similar), leaves
          * the pointer *p at the first invalid character. */
 
+        if (flags & EXTRACT_DONT_COALESCE_SEPARATORS)
+                if (!GREEDY_REALLOC(s, allocated, sz+1))
+                        return -ENOMEM;
+
         for (;;) {
-                char c = **p;
-
-                if (start) {
+                c = **p;
+                if (c == 0)
+                        goto finish_force_terminate;
+                else if (strchr(separators, c)) {
+                        (*p) ++;
                         if (flags & EXTRACT_DONT_COALESCE_SEPARATORS)
-                                if (!GREEDY_REALLOC(s, allocated, sz+1))
-                                        return -ENOMEM;
-
-                        if (c == 0)
-                                goto finish_force_terminate;
-                        else if (strchr(separators, c)) {
-                                (*p) ++;
-                                if (flags & EXTRACT_DONT_COALESCE_SEPARATORS)
-                                        goto finish_force_next;
-                                continue;
-                        }
-
+                                goto finish_force_next;
+                } else {
                         /* We found a non-blank character, so we will always
                          * want to return a string (even if it is empty),
                          * allocate it here. */
                         if (!GREEDY_REALLOC(s, allocated, sz+1))
                                 return -ENOMEM;
-
-                        start = false;
+                        break;
                 }
+        }
+
+        for (;;) {
+                c = **p;
 
                 if (backslash) {
                         if (!GREEDY_REALLOC(s, allocated, sz+7))
