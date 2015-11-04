@@ -1582,8 +1582,7 @@ int config_parse_service_sockets(
                 void *userdata) {
 
         Service *s = data;
-        const char *word, *state;
-        size_t l;
+        const char *p;
         int r;
 
         assert(filename);
@@ -1591,14 +1590,21 @@ int config_parse_service_sockets(
         assert(rvalue);
         assert(data);
 
-        FOREACH_WORD_QUOTED(word, l, rvalue, state) {
-                _cleanup_free_ char *t = NULL, *k = NULL;
+        p = rvalue;
+        for(;;) {
+                _cleanup_free_ char *word = NULL, *t = NULL, *k = NULL;
 
-                t = strndup(word, l);
-                if (!t)
+                r = extract_first_word(&p, &word, NULL, 0);
+                if (r == 0)
+                        break;
+                if (r == -ENOMEM)
                         return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Trailing garbage in sockets, ignoring: %s", rvalue);
+                        break;
+                }
 
-                r = unit_name_printf(UNIT(s), t, &k);
+                r = unit_name_printf(UNIT(s), word, &k);
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, r, "Failed to resolve specifiers, ignoring: %m");
                         continue;
@@ -1617,8 +1623,6 @@ int config_parse_service_sockets(
                 if (r < 0)
                         log_syntax(unit, LOG_ERR, filename, line, r, "Failed to add dependency on %s, ignoring: %m", k);
         }
-        if (!isempty(state))
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Trailing garbage, ignoring.");
 
         return 0;
 }
