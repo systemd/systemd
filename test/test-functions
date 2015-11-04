@@ -260,7 +260,7 @@ install_dbus() {
     inst $ROOTLIBDIR/system/dbus.service
 
     find \
-        /etc/dbus-1 -xtype f \
+        /etc/dbus-1 /usr/share/dbus-1 -xtype f \
         | while read file; do
         inst $file
     done
