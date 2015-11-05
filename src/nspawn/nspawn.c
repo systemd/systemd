@@ -1662,7 +1662,7 @@ static int setup_image(char **device_path, int *loop_nr) {
         }
 
         if (!S_ISREG(st.st_mode)) {
-                log_error_errno(errno, "%s is not a regular file or block device: %m", arg_image);
+                log_error("%s is not a regular file or block device.", arg_image);
                 return -EINVAL;
         }
 
