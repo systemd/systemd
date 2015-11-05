@@ -3087,9 +3087,7 @@ int config_parse_runtime_directory(
 
         char***rt = data;
         Unit *u = userdata;
-        const char *word, *state;
-        size_t l;
-        int r;
+        const char *p;
 
         assert(filename);
         assert(lvalue);
@@ -3102,14 +3100,22 @@ int config_parse_runtime_directory(
                 return 0;
         }
 
-        FOREACH_WORD_QUOTED(word, l, rvalue, state) {
-                _cleanup_free_ char *t = NULL, *n = NULL;
+        p = rvalue;
+        for(;;) {
+                _cleanup_free_ char *word = NULL, *n = NULL;
+                int r;
 
-                t = strndup(word, l);
-                if (!t)
+                r = extract_first_word(&p, &word,  ", ", 0);
+                if (r == 0)
+                        break;
+                if (r == -ENOMEM)
                         return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse runtime directory, ignoring: %s", rvalue);
+                        break;
+                }
 
-                r = unit_name_printf(u, t, &n);
+                r = unit_name_printf(u, word, &n);
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, r, "Failed to resolve specifiers, ignoring: %m");
                         continue;
@@ -3126,8 +3132,6 @@ int config_parse_runtime_directory(
 
                 n = NULL;
         }
-        if (!isempty(state))
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Trailing garbage, ignoring.");
 
         return 0;
 }
