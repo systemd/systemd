@@ -2585,8 +2585,9 @@ static int inner_child(
                 execle("/bin/sh", "-sh", NULL, env_use);
         }
 
+        r = -errno;
         (void) log_open();
-        return log_error_errno(errno, "execv() failed: %m");
+        return log_error_errno(r, "execv() failed: %m");
 }
 
 static int outer_child(
