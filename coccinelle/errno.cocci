@@ -23,3 +23,10 @@ expression e;
 + return
   log_LEVEL_errno(e, ...);
 - return r;
+@@
+identifier log_LEVEL_errno =~ "^log_(debug|info|notice|warning|error|emergency)_errno$";
+expression e;
+@@
++ return
+  log_LEVEL_errno(e, ...);
+- return -e;
