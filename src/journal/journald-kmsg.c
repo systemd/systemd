@@ -442,6 +442,7 @@ fail:
 int server_open_kernel_seqnum(Server *s) {
         _cleanup_close_ int fd;
         uint64_t *p;
+        int r;
 
         assert(s);
 
@@ -455,8 +456,9 @@ int server_open_kernel_seqnum(Server *s) {
                 return 0;
         }
 
-        if (posix_fallocate(fd, 0, sizeof(uint64_t)) < 0) {
-                log_error_errno(errno, "Failed to allocate sequential number file, ignoring: %m");
+        r = posix_fallocate(fd, 0, sizeof(uint64_t));
+        if (r != 0) {
+                log_error_errno(r, "Failed to allocate sequential number file, ignoring: %m");
                 return 0;
         }
 
