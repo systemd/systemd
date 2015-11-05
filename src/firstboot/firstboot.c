@@ -590,7 +590,7 @@ static int process_root_password(void) {
         item.sp_pwdp = crypt(arg_root_password, salt);
         if (!item.sp_pwdp) {
                 if (!errno)
-                        errno = -EINVAL;
+                        errno = EINVAL;
 
                 log_error_errno(errno, "Failed to encrypt password: %m");
                 return -errno;
