@@ -347,8 +347,7 @@ static int server_read_dev_kmsg(Server *s) {
                 if (errno == EAGAIN || errno == EINTR || errno == EPIPE)
                         return 0;
 
-                log_error_errno(errno, "Failed to read from kernel: %m");
-                return -errno;
+                return log_error_errno(errno, "Failed to read from kernel: %m");
         }
 
         dev_kmsg_record(s, buffer, l);

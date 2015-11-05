@@ -48,8 +48,7 @@ static int clean_sysvipc_shm(uid_t delete_uid) {
                 if (errno == ENOENT)
                         return 0;
 
-                log_warning_errno(errno, "Failed to open /proc/sysvipc/shm: %m");
-                return -errno;
+                return log_warning_errno(errno, "Failed to open /proc/sysvipc/shm: %m");
         }
 
         FOREACH_LINE(line, f, goto fail) {
@@ -91,8 +90,7 @@ static int clean_sysvipc_shm(uid_t delete_uid) {
         return ret;
 
 fail:
-        log_warning_errno(errno, "Failed to read /proc/sysvipc/shm: %m");
-        return -errno;
+        return log_warning_errno(errno, "Failed to read /proc/sysvipc/shm: %m");
 }
 
 static int clean_sysvipc_sem(uid_t delete_uid) {
@@ -106,8 +104,7 @@ static int clean_sysvipc_sem(uid_t delete_uid) {
                 if (errno == ENOENT)
                         return 0;
 
-                log_warning_errno(errno, "Failed to open /proc/sysvipc/sem: %m");
-                return -errno;
+                return log_warning_errno(errno, "Failed to open /proc/sysvipc/sem: %m");
         }
 
         FOREACH_LINE(line, f, goto fail) {
@@ -144,8 +141,7 @@ static int clean_sysvipc_sem(uid_t delete_uid) {
         return ret;
 
 fail:
-        log_warning_errno(errno, "Failed to read /proc/sysvipc/sem: %m");
-        return -errno;
+        return log_warning_errno(errno, "Failed to read /proc/sysvipc/sem: %m");
 }
 
 static int clean_sysvipc_msg(uid_t delete_uid) {
@@ -159,8 +155,7 @@ static int clean_sysvipc_msg(uid_t delete_uid) {
                 if (errno == ENOENT)
                         return 0;
 
-                log_warning_errno(errno, "Failed to open /proc/sysvipc/msg: %m");
-                return -errno;
+                return log_warning_errno(errno, "Failed to open /proc/sysvipc/msg: %m");
         }
 
         FOREACH_LINE(line, f, goto fail) {
@@ -198,8 +193,7 @@ static int clean_sysvipc_msg(uid_t delete_uid) {
         return ret;
 
 fail:
-        log_warning_errno(errno, "Failed to read /proc/sysvipc/msg: %m");
-        return -errno;
+        return log_warning_errno(errno, "Failed to read /proc/sysvipc/msg: %m");
 }
 
 static int clean_posix_shm_internal(DIR *dir, uid_t uid) {
@@ -277,8 +271,7 @@ static int clean_posix_shm(uid_t uid) {
                 if (errno == ENOENT)
                         return 0;
 
-                log_warning_errno(errno, "Failed to open /dev/shm: %m");
-                return -errno;
+                return log_warning_errno(errno, "Failed to open /dev/shm: %m");
         }
 
         return clean_posix_shm_internal(dir, uid);
@@ -294,8 +287,7 @@ static int clean_posix_mq(uid_t uid) {
                 if (errno == ENOENT)
                         return 0;
 
-                log_warning_errno(errno, "Failed to open /dev/mqueue: %m");
-                return -errno;
+                return log_warning_errno(errno, "Failed to open /dev/mqueue: %m");
         }
 
         FOREACH_DIRENT(de, dir, goto fail) {
@@ -334,8 +326,7 @@ static int clean_posix_mq(uid_t uid) {
         return ret;
 
 fail:
-        log_warning_errno(errno, "Failed to read /dev/mqueue: %m");
-        return -errno;
+        return log_warning_errno(errno, "Failed to read /dev/mqueue: %m");
 }
 
 int clean_ipc(uid_t uid) {

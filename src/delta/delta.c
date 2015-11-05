@@ -319,8 +319,7 @@ static int enumerate_dir(Hashmap *top, Hashmap *bottom, Hashmap *drops, const ch
                 if (errno == ENOENT)
                         return 0;
 
-                log_error_errno(errno, "Failed to open %s: %m", path);
-                return -errno;
+                return log_error_errno(errno, "Failed to open %s: %m", path);
         }
 
         for (;;) {

@@ -441,8 +441,7 @@ static int mount_bind(const char *dest, CustomMount *m) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to make parents of %s: %m", where);
         } else {
-                log_error_errno(errno, "Failed to stat %s: %m", where);
-                return -errno;
+                return log_error_errno(errno, "Failed to stat %s: %m", where);
         }
 
         /* Create the mount point. Any non-directory file can be

@@ -221,8 +221,7 @@ int catalog_import_file(Hashmap *h, struct strbuf *sb, const char *path) {
                         if (feof(f))
                                 break;
 
-                        log_error_errno(errno, "Failed to read file %s: %m", path);
-                        return -errno;
+                        return log_error_errno(errno, "Failed to read file %s: %m", path);
                 }
 
                 n++;

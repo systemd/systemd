@@ -302,8 +302,7 @@ static int probe_and_add_mount(
         if (!b) {
                 if (errno == 0)
                         return log_oom();
-                log_error_errno(errno, "Failed to allocate prober: %m");
-                return -errno;
+                return log_error_errno(errno, "Failed to allocate prober: %m");
         }
 
         blkid_probe_enable_superblocks(b, 1);
@@ -502,8 +501,7 @@ static int add_boot(const char *what) {
         if (!b) {
                 if (errno == 0)
                         return log_oom();
-                log_error_errno(errno, "Failed to allocate prober: %m");
-                return -errno;
+                return log_error_errno(errno, "Failed to allocate prober: %m");
         }
 
         blkid_probe_enable_partitions(b, 1);

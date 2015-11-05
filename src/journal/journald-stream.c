@@ -538,8 +538,7 @@ static int stdout_stream_new(sd_event_source *es, int listen_fd, uint32_t revent
                 if (errno == EAGAIN)
                         return 0;
 
-                log_error_errno(errno, "Failed to accept stdout connection: %m");
-                return -errno;
+                return log_error_errno(errno, "Failed to accept stdout connection: %m");
         }
 
         if (s->n_stdout_streams >= STDOUT_STREAMS_MAX) {
