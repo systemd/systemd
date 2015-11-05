@@ -319,7 +319,7 @@ int catalog_import_file(Hashmap *h, struct strbuf *sb, const char *path) {
         return 0;
 }
 
-static long write_catalog(const char *database, Hashmap *h, struct strbuf *sb,
+static long write_catalog(const char *database, struct strbuf *sb,
                           CatalogItem *items, size_t n) {
         CatalogHeader header;
         _cleanup_fclose_ FILE *w = NULL;
@@ -344,7 +344,7 @@ static long write_catalog(const char *database, Hashmap *h, struct strbuf *sb,
         memcpy(header.signature, CATALOG_SIGNATURE, sizeof(header.signature));
         header.header_size = htole64(ALIGN_TO(sizeof(CatalogHeader), 8));
         header.catalog_item_size = htole64(sizeof(CatalogItem));
-        header.n_items = htole64(hashmap_size(h));
+        header.n_items = htole64(n);
 
         r = -EIO;
 
@@ -445,7 +445,7 @@ int catalog_update(const char* database, const char* root, const char* const* di
         assert(n == hashmap_size(h));
         qsort_safe(items, n, sizeof(CatalogItem), catalog_compare_func);
 
-        r = write_catalog(database, h, sb, items, n);
+        r = write_catalog(database, sb, items, n);
         if (r < 0)
                 log_error_errno(r, "Failed to write %s: %m", database);
         else
