@@ -111,22 +111,28 @@ int config_parse_unit_deps(const char *unit,
 
         UnitDependency d = ltype;
         Unit *u = userdata;
-        const char *word, *state;
-        size_t l;
+        const char *p;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
 
-        FOREACH_WORD_QUOTED(word, l, rvalue, state) {
-                _cleanup_free_ char *t = NULL, *k = NULL;
+        p = rvalue;
+        for(;;) {
+                _cleanup_free_ char *word = NULL, *k = NULL;
                 int r;
 
-                t = strndup(word, l);
-                if (!t)
+                r = extract_first_word(&p, &word, NULL, 0);
+                if (r == 0)
+                        break;
+                if (r == -ENOMEM)
                         return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Invalid syntax, ignoring: %s", rvalue);
+                        break;
+                }
 
-                r = unit_name_printf(u, t, &k);
+                r = unit_name_printf(u, word, &k);
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, r, "Failed to resolve specifiers, ignoring: %m");
                         continue;
@@ -136,8 +142,6 @@ int config_parse_unit_deps(const char *unit,
                 if (r < 0)
                         log_syntax(unit, LOG_ERR, filename, line, r, "Failed to add dependency on %s, ignoring: %m", k);
         }
-        if (!isempty(state))
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid syntax, ignoring.");
 
         return 0;
 }
