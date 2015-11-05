@@ -1412,15 +1412,11 @@ static int setup_journal(const char *directory) {
                         if (errno == ENOTDIR) {
                                 log_error("%s already exists and is neither a symlink nor a directory", p);
                                 return r;
-                        } else {
-                                log_error_errno(errno, "Failed to remove %s: %m", p);
-                                return -errno;
-                        }
+                        } else
+                                return log_error_errno(errno, "Failed to remove %s: %m", p);
                 }
-        } else if (r != -ENOENT) {
-                log_error_errno(r, "readlink(%s) failed: %m", p);
-                return r;
-        }
+        } else if (r != -ENOENT)
+                return log_error_errno(r, "readlink(%s) failed: %m", p);
 
         if (arg_link_journal == LINK_GUEST) {
 
@@ -1428,10 +1424,8 @@ static int setup_journal(const char *directory) {
                         if (arg_link_journal_try) {
                                 log_debug_errno(errno, "Failed to symlink %s to %s, skipping journal setup: %m", q, p);
                                 return 0;
-                        } else {
-                                log_error_errno(errno, "Failed to symlink %s to %s: %m", q, p);
-                                return -errno;
-                        }
+                        } else
+                                return log_error_errno(errno, "Failed to symlink %s to %s: %m", q, p);
                 }
 
                 r = userns_mkdir(directory, p, 0755, 0, 0);
@@ -1448,10 +1442,8 @@ static int setup_journal(const char *directory) {
                         if (arg_link_journal_try) {
                                 log_debug_errno(errno, "Failed to create %s, skipping journal setup: %m", p);
                                 return 0;
-                        } else {
-                                log_error_errno(errno, "Failed to create %s: %m", p);
-                                return r;
-                        }
+                        } else
+                                return log_error_errno(errno, "Failed to create %s: %m", p);
                 }
 
         } else if (access(p, F_OK) < 0)
