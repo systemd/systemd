@@ -370,7 +370,7 @@ static int manager_adjust_clock(Manager *m, double offset, int leap_sec) {
 
         r = clock_adjtime(CLOCK_REALTIME, &tmx);
         if (r < 0)
-                return r;
+                return -errno;
 
         touch("/var/lib/systemd/clock");
 
@@ -667,7 +667,7 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                 m->sync = true;
                 r = manager_adjust_clock(m, offset, leap_sec);
                 if (r < 0)
-                        log_error_errno(errno, "Failed to call clock_adjtime(): %m");
+                        log_error_errno(r, "Failed to call clock_adjtime(): %m");
         }
 
         log_debug("interval/delta/delay/jitter/drift " USEC_FMT "s/%+.3fs/%.3fs/%.3fs/%+ippm%s",
