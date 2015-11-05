@@ -335,8 +335,9 @@ static int raw_pull_make_local_copy(RawPull *i) {
 
         r = rename(tp, p);
         if (r < 0)  {
+                r = log_error_errno(errno, "Failed to move writable image into place: %m");
                 unlink(tp);
-                return log_error_errno(errno, "Failed to move writable image into place: %m");
+                return r;
         }
 
         log_info("Created new local image '%s'.", i->local);
