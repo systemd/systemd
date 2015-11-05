@@ -244,7 +244,7 @@ static int raw_pull_maybe_convert_qcow2(RawPull *i) {
 
         r = chattr_fd(converted_fd, FS_NOCOW_FL, FS_NOCOW_FL);
         if (r < 0)
-                log_warning_errno(errno, "Failed to set file attributes on %s: %m", t);
+                log_warning_errno(r, "Failed to set file attributes on %s: %m", t);
 
         log_info("Unpacking QCOW2 file.");
 
@@ -320,7 +320,7 @@ static int raw_pull_make_local_copy(RawPull *i) {
          * writes. */
         r = chattr_fd(dfd, FS_NOCOW_FL, FS_NOCOW_FL);
         if (r < 0)
-                log_warning_errno(errno, "Failed to set file attributes on %s: %m", tp);
+                log_warning_errno(r, "Failed to set file attributes on %s: %m", tp);
 
         r = copy_bytes(i->raw_job->disk_fd, dfd, (uint64_t) -1, true);
         if (r < 0) {
@@ -511,7 +511,7 @@ static int raw_pull_job_on_open_disk_raw(PullJob *j) {
 
         r = chattr_fd(j->disk_fd, FS_NOCOW_FL, FS_NOCOW_FL);
         if (r < 0)
-                log_warning_errno(errno, "Failed to set file attributes on %s: %m", i->temp_path);
+                log_warning_errno(r, "Failed to set file attributes on %s: %m", i->temp_path);
 
         return 0;
 }

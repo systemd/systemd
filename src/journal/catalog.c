@@ -208,7 +208,7 @@ int catalog_import_file(Hashmap *h, struct strbuf *sb, const char *path) {
 
         r = catalog_file_lang(path, &deflang);
         if (r < 0)
-                log_error_errno(errno, "Failed to determine language for file %s: %m", path);
+                log_error_errno(r, "Failed to determine language for file %s: %m", path);
         if (r == 1)
                 log_debug("File %s has language %s.", path, deflang);
 

@@ -472,7 +472,7 @@ int ask_password_agent(
 
         fd = mkostemp_safe(temp, O_WRONLY|O_CLOEXEC);
         if (fd < 0) {
-                r = -errno;
+                r = fd;
                 goto finish;
         }
 

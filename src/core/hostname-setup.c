@@ -61,8 +61,9 @@ int hostname_setup(void) {
                 hn = "localhost";
         }
 
-        if (sethostname_idempotent(hn) < 0)
-                return log_warning_errno(errno, "Failed to set hostname to <%s>: %m", hn);
+        r = sethostname_idempotent(hn);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to set hostname to <%s>: %m", hn);
 
         log_info("Set hostname to <%s>.", hn);
         return 0;

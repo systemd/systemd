@@ -617,7 +617,7 @@ static int save_core(sd_journal *j, int fd, char **path, bool *unlink_temp) {
 
                         fdt = mkostemp_safe(temp, O_WRONLY|O_CLOEXEC);
                         if (fdt < 0)
-                                return log_error_errno(errno, "Failed to create temporary file: %m");
+                                return log_error_errno(fdt, "Failed to create temporary file: %m");
                         log_debug("Created temporary file %s", temp);
 
                         fd = fdt;
@@ -776,7 +776,7 @@ static int run_gdb(sd_journal *j) {
 
         r = wait_for_terminate(pid, &st);
         if (r < 0) {
-                log_error_errno(errno, "Failed to wait for gdb: %m");
+                log_error_errno(r, "Failed to wait for gdb: %m");
                 goto finish;
         }
 

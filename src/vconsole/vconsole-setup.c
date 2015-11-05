@@ -275,7 +275,7 @@ int main(int argc, char **argv) {
 
         fd = open_terminal(vc, O_RDWR|O_CLOEXEC);
         if (fd < 0) {
-                log_error_errno(errno, "Failed to open %s: %m", vc);
+                log_error_errno(fd, "Failed to open %s: %m", vc);
                 return EXIT_FAILURE;
         }
 

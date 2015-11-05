@@ -344,7 +344,7 @@ void server_process_native_file(
 
                 r = readlink_malloc(sl, &k);
                 if (r < 0) {
-                        log_error_errno(errno, "readlink(%s) failed: %m", sl);
+                        log_error_errno(r, "readlink(%s) failed: %m", sl);
                         return;
                 }
 

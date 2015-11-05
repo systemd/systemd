@@ -139,6 +139,7 @@ static int fix_acl(int fd, uid_t uid) {
         _cleanup_(acl_freep) acl_t acl = NULL;
         acl_entry_t entry;
         acl_permset_t permset;
+        int r;
 
         assert(fd >= 0);
 
@@ -160,11 +161,12 @@ static int fix_acl(int fd, uid_t uid) {
         }
 
         if (acl_get_permset(entry, &permset) < 0 ||
-            acl_add_perm(permset, ACL_READ) < 0 ||
-            calc_acl_mask_if_needed(&acl) < 0) {
-                log_warning_errno(errno, "Failed to patch ACL: %m");
-                return -errno;
-        }
+            acl_add_perm(permset, ACL_READ) < 0)
+                return log_warning_errno(errno, "Failed to patch ACL: %m");
+
+        r = calc_acl_mask_if_needed(&acl);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to patch ACL: %m");
 
         if (acl_set_fd(fd, acl) < 0)
                 return log_error_errno(errno, "Failed to apply ACL: %m");
