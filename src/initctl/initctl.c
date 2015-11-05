@@ -212,8 +212,7 @@ static int fifo_process(Fifo *f) {
                 if (errno == EAGAIN)
                         return 0;
 
-                log_warning_errno(errno, "Failed to read from fifo: %m");
-                return -errno;
+                return log_warning_errno(errno, "Failed to read from fifo: %m");
         }
 
         f->bytes_read += l;

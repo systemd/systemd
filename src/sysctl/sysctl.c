@@ -88,8 +88,7 @@ static int parse_file(Hashmap *sysctl_options, const char *path, bool ignore_eno
                         if (feof(f))
                                 break;
 
-                        log_error_errno(errno, "Failed to read file '%s', ignoring: %m", path);
-                        return -errno;
+                        return log_error_errno(errno, "Failed to read file '%s', ignoring: %m", path);
                 }
 
                 p = strstrip(l);

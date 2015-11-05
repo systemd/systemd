@@ -1754,8 +1754,7 @@ static int dissect_image(
                 if (errno == 0)
                         return log_oom();
 
-                log_error_errno(errno, "Failed to set device on blkid probe: %m");
-                return -errno;
+                return log_error_errno(errno, "Failed to set device on blkid probe: %m");
         }
 
         blkid_probe_enable_partitions(b, 1);
@@ -1771,8 +1770,7 @@ static int dissect_image(
         } else if (r != 0) {
                 if (errno == 0)
                         errno = EIO;
-                log_error_errno(errno, "Failed to probe: %m");
-                return -errno;
+                return log_error_errno(errno, "Failed to probe: %m");
         }
 
         (void) blkid_probe_lookup_value(b, "PTTYPE", &pttype, NULL);
@@ -1895,8 +1893,7 @@ static int dissect_image(
                         if (!errno)
                                 errno = ENOMEM;
 
-                        log_error_errno(errno, "Failed to get partition device of %s: %m", arg_image);
-                        return -errno;
+                        return log_error_errno(errno, "Failed to get partition device of %s: %m", arg_image);
                 }
 
                 qn = udev_device_get_devnum(q);
@@ -2103,8 +2100,7 @@ static int mount_device(const char *what, const char *where, const char *directo
         if (!b) {
                 if (errno == 0)
                         return log_oom();
-                log_error_errno(errno, "Failed to allocate prober for %s: %m", what);
-                return -errno;
+                return log_error_errno(errno, "Failed to allocate prober for %s: %m", what);
         }
 
         blkid_probe_enable_superblocks(b, 1);
@@ -2118,8 +2114,7 @@ static int mount_device(const char *what, const char *where, const char *directo
         } else if (r != 0) {
                 if (errno == 0)
                         errno = EIO;
-                log_error_errno(errno, "Failed to probe %s: %m", what);
-                return -errno;
+                return log_error_errno(errno, "Failed to probe %s: %m", what);
         }
 
         errno = 0;

@@ -441,9 +441,7 @@ static int spawn_exec(struct udev_event *event,
         execve(argv[0], argv, envp);
 
         /* exec failed */
-        log_error_errno(errno, "failed to execute '%s' '%s': %m", argv[0], cmd);
-
-        return -errno;
+        return log_error_errno(errno, "failed to execute '%s' '%s': %m", argv[0], cmd);
 }
 
 static void spawn_read(struct udev_event *event,
