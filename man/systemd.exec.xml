@@ -568,7 +568,9 @@
         of various resources for executed processes. See
         <citerefentry><refentrytitle>setrlimit</refentrytitle><manvolnum>2</manvolnum></citerefentry>
         for details. Use the string <varname>infinity</varname> to
-        configure no limit on a specific resource.</para></listitem>
+        configure no limit on a specific resource. The multiplicative suffixes
+        K (=1024), M (=1024*1024) and so on for G, T, P and E may be used for
+        resource limits measured in bytes (e.g. LimitAS=16G).</para></listitem>
 
         <table>
           <title>Limit directives and their equivalent with ulimit</title>

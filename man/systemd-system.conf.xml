@@ -342,8 +342,10 @@
         resource limits for units. See
         <citerefentry><refentrytitle>setrlimit</refentrytitle><manvolnum>2</manvolnum></citerefentry>
         for details. Use the string <varname>infinity</varname> to
-        configure no limit on a specific resource. These settings may
-        be overridden in individual units using the corresponding
+        configure no limit on a specific resource. The multiplicative suffixes
+        K (=1024), M (=1024*1024) and so on for G, T, P and E may be used for
+        resource limits measured in bytes (e.g. DefaultLimitAS=16G). These
+        settings may be overridden in individual units using the corresponding
         LimitXXX= directives. Note that these resource limits are only
         defaults for units, they are not applied to PID 1
         itself.</para></listitem>
