@@ -39,12 +39,12 @@ int extract_first_word(const char **p, char **ret, const char *separators, Extra
         assert(p);
         assert(ret);
 
-        if (!separators)
-                separators = WHITESPACE;
-
         /* Bail early if called after last value or with no input */
         if (!*p)
                 goto finish_force_terminate;
+
+        if (!separators)
+                separators = WHITESPACE;
 
         /* Parses the first word of a string, and returns it in
          * *ret. Removes all quotes in the process. When parsing fails
