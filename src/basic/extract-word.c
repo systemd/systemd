@@ -42,6 +42,7 @@ int extract_first_word(const char **p, char **ret, const char *separators, Extra
         /* Bail early if called after last value or with no input */
         if (!*p)
                 goto finish_force_terminate;
+        c = **p;
 
         if (!separators)
                 separators = WHITESPACE;
@@ -55,14 +56,14 @@ int extract_first_word(const char **p, char **ret, const char *separators, Extra
                 if (!GREEDY_REALLOC(s, allocated, sz+1))
                         return -ENOMEM;
 
-        for (;;) {
-                c = **p;
+        for (;; (*p) ++, c = **p) {
                 if (c == 0)
                         goto finish_force_terminate;
                 else if (strchr(separators, c)) {
-                        (*p) ++;
-                        if (flags & EXTRACT_DONT_COALESCE_SEPARATORS)
+                        if (flags & EXTRACT_DONT_COALESCE_SEPARATORS) {
+                                (*p) ++;
                                 goto finish_force_next;
+                        }
                 } else {
                         /* We found a non-blank character, so we will always
                          * want to return a string (even if it is empty),
@@ -73,9 +74,7 @@ int extract_first_word(const char **p, char **ret, const char *separators, Extra
                 }
         }
 
-        for (;;) {
-                c = **p;
-
+        for (;; (*p) ++, c = **p) {
                 if (backslash) {
                         if (!GREEDY_REALLOC(s, allocated, sz+7))
                                 return -ENOMEM;
@@ -163,8 +162,6 @@ int extract_first_word(const char **p, char **ret, const char *separators, Extra
                                 s[sz++] = c;
                         }
                 }
-
-                (*p) ++;
         }
 
 finish_force_terminate:
