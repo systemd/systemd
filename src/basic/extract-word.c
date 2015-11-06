@@ -121,45 +121,56 @@ int extract_first_word(const char **p, char **ret, const char *separators, Extra
                         backslash = false;
 
                 } else if (quote) {     /* inside either single or double quotes */
-                        if (c == 0) {
-                                if (flags & EXTRACT_RELAX)
-                                        goto finish_force_terminate;
-                                return -EINVAL;
-                        } else if (c == quote)          /* found the end quote */
-                                quote = 0;
-                        else if (c == '\\')
-                                backslash = true;
-                        else {
-                                if (!GREEDY_REALLOC(s, allocated, sz+2))
-                                        return -ENOMEM;
+                        for (;; (*p) ++, c = **p) {
+                                if (c == 0) {
+                                        if (flags & EXTRACT_RELAX)
+                                                goto finish_force_terminate;
+                                        return -EINVAL;
+                                } else if (c == quote) {        /* found the end quote */
+                                        quote = 0;
+                                        break;
+                                } else if (c == '\\') {
+                                        backslash = true;
+                                        break;
+                                } else {
+                                        if (!GREEDY_REALLOC(s, allocated, sz+2))
+                                                return -ENOMEM;
 
-                                s[sz++] = c;
+                                        s[sz++] = c;
+                                }
                         }
 
                 } else if (separator) {
-                        if (c == 0)
-                                goto finish_force_terminate;
-                        if (!strchr(separators, c))
-                                goto finish;
+                        for (;; (*p) ++, c = **p) {
+                                if (c == 0)
+                                        goto finish_force_terminate;
+                                if (!strchr(separators, c))
+                                        goto finish;
+                        }
 
                 } else {
-                        if (c == 0)
-                                goto finish_force_terminate;
-                        else if ((c == '\'' || c == '"') && (flags & EXTRACT_QUOTES))
-                                quote = c;
-                        else if (c == '\\')
-                                backslash = true;
-                        else if (strchr(separators, c)) {
-                                if (flags & EXTRACT_DONT_COALESCE_SEPARATORS) {
-                                        (*p) ++;
-                                        goto finish_force_next;
-                                }
-                                separator = true;
-                        } else {
-                                if (!GREEDY_REALLOC(s, allocated, sz+2))
-                                        return -ENOMEM;
+                        for (;; (*p) ++, c = **p) {
+                                if (c == 0)
+                                        goto finish_force_terminate;
+                                else if ((c == '\'' || c == '"') && (flags & EXTRACT_QUOTES)) {
+                                        quote = c;
+                                        break;
+                                } else if (c == '\\') {
+                                        backslash = true;
+                                        break;
+                                } else if (strchr(separators, c)) {
+                                        if (flags & EXTRACT_DONT_COALESCE_SEPARATORS) {
+                                                (*p) ++;
+                                                goto finish_force_next;
+                                        }
+                                        separator = true;
+                                        break;
+                                } else {
+                                        if (!GREEDY_REALLOC(s, allocated, sz+2))
+                                                return -ENOMEM;
 
-                                s[sz++] = c;
+                                        s[sz++] = c;
+                                }
                         }
                 }
         }
