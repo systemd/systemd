@@ -164,15 +164,15 @@ and these came close:
 
 /*
 --------------------------------------------------------------------
- This works on all machines.  To be useful, it requires
- -- that the key be an array of uint32_t's, and
- -- that the length be the number of uint32_t's in the key
+This works on all machines.  To be useful, it requires
+ * that the key be an array of uint32_t's, and
+ * that the length be the number of uint32_t's in the key
 
- The function hashword() is identical to hashlittle() on little-endian
- machines, and identical to hashbig() on big-endian machines,
- except that the length has to be measured in uint32_ts rather than in
- bytes.  hashlittle() is more complicated than hashword() only because
- hashlittle() has to dance around fitting the key bytes into registers.
+The function hashword() is identical to hashlittle() on little-endian
+machines, and identical to hashbig() on big-endian machines,
+except that the length has to be measured in uint32_ts rather than in
+bytes.  hashlittle() is more complicated than hashword() only because
+hashlittle() has to dance around fitting the key bytes into registers.
 --------------------------------------------------------------------
 */
 uint32_t jenkins_hashword(

@@ -467,7 +467,7 @@ msgstr ""
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:5
 msgid "Manage local virtual machine and container images"
-msgstr "Administrar imágenes de máquina virtual y de contenedor locales"
+msgstr "Administrar máquina virtual local e imágenes del contenedor"
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:6
 msgid ""
