@@ -106,21 +106,19 @@ int extract_first_word(const char **p, char **ret, const char *separators, Extra
                                         if (flags & EXTRACT_CUNESCAPE_RELAX) {
                                                 s[sz++] = '\\';
                                                 s[sz++] = c;
-                                                goto end_escape;
-                                        }
-                                        return -EINVAL;
+                                        } else
+                                                return -EINVAL;
+                                } else {
+                                        (*p) += r - 1;
+
+                                        if (c != 0)
+                                                s[sz++] = c; /* normal explicit char */
+                                        else
+                                                sz += utf8_encode_unichar(s + sz, u); /* unicode chars we'll encode as utf8 */
                                 }
-
-                                (*p) += r - 1;
-
-                                if (c != 0)
-                                        s[sz++] = c; /* normal explicit char */
-                                else
-                                        sz += utf8_encode_unichar(s + sz, u); /* unicode chars we'll encode as utf8 */
                         } else
                                 s[sz++] = c;
 
-end_escape:
                         backslash = false;
 
                 } else if (quote) {     /* inside either single or double quotes */
