@@ -34,7 +34,6 @@ int extract_first_word(const char **p, char **ret, const char *separators, Extra
 
         char quote = 0;                 /* 0 or ' or " */
         bool backslash = false;         /* whether we've just seen a backslash */
-        bool separator = false;         /* whether we've just seen a separator */
 
         assert(p);
         assert(ret);
@@ -140,14 +139,6 @@ int extract_first_word(const char **p, char **ret, const char *separators, Extra
                                 }
                         }
 
-                } else if (separator) {
-                        for (;; (*p) ++, c = **p) {
-                                if (c == 0)
-                                        goto finish_force_terminate;
-                                if (!strchr(separators, c))
-                                        goto finish;
-                        }
-
                 } else {
                         for (;; (*p) ++, c = **p) {
                                 if (c == 0)
@@ -163,8 +154,15 @@ int extract_first_word(const char **p, char **ret, const char *separators, Extra
                                                 (*p) ++;
                                                 goto finish_force_next;
                                         }
-                                        separator = true;
-                                        break;
+                                        /* Skip additional coalesced separators. */
+                                        for (;; (*p) ++, c = **p) {
+                                                if (c == 0)
+                                                        goto finish_force_terminate;
+                                                if (!strchr(separators, c))
+                                                        break;
+                                        }
+                                        goto finish;
+
                                 } else {
                                         if (!GREEDY_REALLOC(s, allocated, sz+2))
                                                 return -ENOMEM;
