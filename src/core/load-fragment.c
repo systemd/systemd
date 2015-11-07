@@ -1592,7 +1592,7 @@ int config_parse_service_sockets(
 
         p = rvalue;
         for(;;) {
-                _cleanup_free_ char *word = NULL, *t = NULL, *k = NULL;
+                _cleanup_free_ char *word = NULL, *k = NULL;
 
                 r = extract_first_word(&p, &word, NULL, 0);
                 if (r == 0)
