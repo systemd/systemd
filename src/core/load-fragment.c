@@ -2052,6 +2052,7 @@ int config_parse_pass_environ(const char *unit,
         char*** passenv = data;
         _cleanup_strv_free_ char **n = NULL;
         size_t nlen = 0, nbufsize = 0;
+        int r;
 
         assert(filename);
         assert(lvalue);
@@ -2066,20 +2067,18 @@ int config_parse_pass_environ(const char *unit,
 
         for (;;) {
                 _cleanup_free_ char *word = NULL;
-                int r;
 
-                r = extract_first_word(&rvalue, &word, WHITESPACE, EXTRACT_QUOTES);
+                r = extract_first_word(&rvalue, &word, WHITESPACE, EXTRACT_QUOTES|EXTRACT_RELAX);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r,
-                                   "Invalid value for %s: %s", lvalue, whole_rvalue);
-                        return r;
+                        return log_syntax(unit, LOG_ERR, filename, line, r,
+                                          "Invalid value for %s: %s", lvalue, whole_rvalue);
                 }
                 if (r == 0)
                         break;
 
                 if (!env_name_is_valid(word)) {
                         log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                                   "Invalid environment name for %s, ignoring: %s", lvalue, whole_rvalue);
+                                   "Invalid environment name for %s, ignoring: %s", lvalue, word);
                         continue;
                 }
 
@@ -2089,13 +2088,8 @@ int config_parse_pass_environ(const char *unit,
                 n[nlen] = NULL;
                 word = NULL;
         }
-        if (!isempty(rvalue))
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Trailing garbage, ignoring.");
 
         if (n) {
-                int r;
-
                 r = strv_extend_strv(passenv, n, true);
                 if (r < 0)
                         return r;
