@@ -2,5 +2,6 @@
 Description=Test for Group
 
 [Service]
-ExecStart=/bin/sh -c 'exit $(test $(id -n -g) = nobody)'
+ExecStart=/bin/sh -x -c 'test "$$(id -n -g)" = "nobody"'
+Type=oneshot
 Group=nobody

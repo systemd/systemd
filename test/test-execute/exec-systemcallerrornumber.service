@@ -2,6 +2,7 @@
 Description=Test for SystemCallErrorNumber
 
 [Service]
-ExecStart=/bin/sh -c 'uname -a'
+ExecStart=/bin/sh -x -c 'uname -a'
+Type=oneshot
 SystemCallFilter=~uname
 SystemCallErrorNumber=EACCES
