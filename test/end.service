@@ -1,0 +1,10 @@
+[Unit]
+Description=End the test
+After=testsuite.service
+OnFailure=poweroff.target
+OnFailureJobMode=replace-irreversibly
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -x -c 'systemctl poweroff --no-block'
+TimeoutStartSec=5m

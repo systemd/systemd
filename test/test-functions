@@ -305,7 +305,7 @@ install_terminfo() {
 
 setup_testsuite() {
     cp $TEST_BASE_DIR/testsuite.target $initdir/etc/systemd/system/
-    sed "s#@SYSTEMCTL@#$(type -P systemctl)#g" $TEST_BASE_DIR/end.service.in > $initdir/etc/systemd/system/end.service
+    cp $TEST_BASE_DIR/end.service $initdir/etc/systemd/system/
 
     mkdir -p $initdir/etc/systemd/system/testsuite.target.wants
     ln -fs $TEST_BASE_DIR/testsuite.service $initdir/etc/systemd/system/testsuite.target.wants/testsuite.service
