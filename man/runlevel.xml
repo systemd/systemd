@@ -51,9 +51,60 @@
 
   <refsynopsisdiv>
     <cmdsynopsis>
-      <command>runlevel <arg choice="opt" rep="repeat">options</arg></command>
+      <command>runlevel</command>
+      <arg choice="opt" rep="repeat">options</arg>
     </cmdsynopsis>
   </refsynopsisdiv>
+
+  <refsect1>
+    <title>Overview</title>
+
+    <para>"Runlevels" are an obsolete way to start and stop groups of
+    services used in SysV init. systemd provides a compatibility layer
+    that maps runlevels to targets, and associated binaries like
+    <command>runlevel</command>. Nevertheless, only one runlevel can
+    be "active" at a given time, while systemd can activate multiple
+    targets concurrently, so the mapping to runlevels is confusing
+    and only approximate. Runlevels should not be used in new code,
+    and are mostly useful as a shorthand way to refer the matching
+    systemd targets in kernel boot parameters.</para>
+
+    <table>
+      <title>Mapping between runlevels and systemd targets</title>
+      <tgroup cols='2' align='left' colsep='1' rowsep='1'>
+        <colspec colname="runlevel" />
+        <colspec colname="target" />
+        <thead>
+          <row>
+            <entry>Runlevel</entry>
+            <entry>Target</entry>
+          </row>
+        </thead>
+        <tbody>
+          <row>
+            <entry>0</entry>
+            <entry><filename>poweroff.target</filename></entry>
+          </row>
+          <row>
+            <entry>1</entry>
+            <entry><filename>rescue.target</filename></entry>
+          </row>
+          <row>
+            <entry>2, 3, 4</entry>
+            <entry><filename>multi-user.target</filename></entry>
+          </row>
+          <row>
+            <entry>5</entry>
+            <entry><filename>graphical.target</filename></entry>
+          </row>
+          <row>
+            <entry>6</entry>
+            <entry><filename>reboot.target</filename></entry>
+          </row>
+        </tbody>
+      </tgroup>
+    </table>
+  </refsect1>
 
   <refsect1>
     <title>Description</title>
@@ -130,17 +181,10 @@
   </refsect1>
 
   <refsect1>
-    <title>Notes</title>
-
-    <para>This is a legacy command available for compatibility only.
-    It should not be used anymore, as the concept of runlevels is
-    obsolete.</para>
-  </refsect1>
-
-  <refsect1>
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.target</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     </para>
   </refsect1>
