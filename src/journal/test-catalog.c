@@ -109,6 +109,73 @@ static void test_catalog_import_one(void) {
         }
 }
 
+static void test_catalog_import_merge(void) {
+        _cleanup_hashmap_free_free_free_ Hashmap *h = NULL;
+        char *payload;
+        Iterator j;
+
+        const char *input =
+"-- 0027229ca0644181a76c4e92458afaff dededededededededededededededed\n" \
+"Subject: message\n" \
+"Defined-By: me\n" \
+"\n" \
+"payload\n" \
+"\n" \
+"-- 0027229ca0644181a76c4e92458afaff dededededededededededededededed\n" \
+"Subject: override subject\n" \
+"X-Header: hello\n" \
+"\n" \
+"override payload\n";
+
+        const char *combined =
+"Subject: override subject\n" \
+"X-Header: hello\n" \
+"Subject: message\n" \
+"Defined-By: me\n" \
+"\n" \
+"override payload\n";
+
+        h = test_import(input, -1, 0);
+        assert_se(hashmap_size(h) == 1);
+
+        HASHMAP_FOREACH(payload, h, j) {
+                assert_se(streq(combined, payload));
+        }
+}
+
+static void test_catalog_import_merge_no_body(void) {
+        _cleanup_hashmap_free_free_free_ Hashmap *h = NULL;
+        char *payload;
+        Iterator j;
+
+        const char *input =
+"-- 0027229ca0644181a76c4e92458afaff dededededededededededededededed\n" \
+"Subject: message\n" \
+"Defined-By: me\n" \
+"\n" \
+"payload\n" \
+"\n" \
+"-- 0027229ca0644181a76c4e92458afaff dededededededededededededededed\n" \
+"Subject: override subject\n" \
+"X-Header: hello\n" \
+"\n";
+
+        const char *combined =
+"Subject: override subject\n" \
+"X-Header: hello\n" \
+"Subject: message\n" \
+"Defined-By: me\n" \
+"\n" \
+"payload\n";
+
+        h = test_import(input, -1, 0);
+        assert_se(hashmap_size(h) == 1);
+
+        HASHMAP_FOREACH(payload, h, j) {
+                assert_se(streq(combined, payload));
+        }
+}
+
 static const char* database = NULL;
 
 static void test_catalog_update(void) {
@@ -176,6 +243,8 @@ int main(int argc, char *argv[]) {
         test_catalog_import_invalid();
         test_catalog_import_badid();
         test_catalog_import_one();
+        test_catalog_import_merge();
+        test_catalog_import_merge_no_body();
 
         test_catalog_update();
 
