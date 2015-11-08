@@ -564,7 +564,8 @@ nodist_systemunit_DATA = \
 	units/initrd-udevadm-cleanup-db.service \
 	units/initrd-switch-root.service \
 	units/systemd-nspawn@.service \
-	units/systemd-update-done.service
+	units/systemd-update-done.service \
+	units/systemd-remove-attempts.service
 
 if HAVE_UTMP
 nodist_systemunit_DATA += \
@@ -617,6 +618,7 @@ EXTRA_DIST += \
 	units/initrd-switch-root.service.in \
 	units/systemd-nspawn@.service.in \
 	units/systemd-update-done.service.in \
+	units/systemd-remove-attempts.service.in \
     units/tmp.mount.m4
 
 if HAVE_SYSV_COMPAT
@@ -2549,7 +2551,9 @@ EXTRA_DIST += \
 if ENABLE_EFI
 if HAVE_BLKID
 bootctl_SOURCES = \
-	src/boot/bootctl.c
+	src/boot/bootctl.c \
+	src/boot/boot-util.c \
+	src/boot/boot-util.h
 
 bootctl_CPPFLAGS = \
 	$(AM_CPPFLAGS) \
@@ -2575,6 +2579,34 @@ endif
 if ENABLE_ZSH_COMPLETION
 dist_zshcompletion_DATA += \
 	shell-completion/zsh/_bootctl
+endif
+endif
+
+# ------------------------------------------------------------------------------
+if ENABLE_EFI
+if HAVE_BLKID
+systemd_remove_attempts_SOURCES = \
+	src/boot/systemd-remove-attempts.c \
+	src/boot/boot-util.c
+	src/boot/boot-util.h
+
+systemd_remove_attempts_CPPFLAGS = \
+	$(AM_CPPFLAGS)
+
+systemd_remove_attempts_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(BLKID_CFLAGS)
+
+systemd_remove_attempts_LDADD = \
+	libshared.la \
+	$(BLKID_LIBS)
+
+rootlibexec_PROGRAMS += \
+	systemd-remove-attempts
+
+SYSINIT_TARGET_WANTS += \
+	systemd-remove-attempts.service
+
 endif
 endif
 
