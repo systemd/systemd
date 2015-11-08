@@ -1,0 +1,8 @@
+[Unit]
+Description=Test for PassEnvironment and erasing the variable list
+
+[Service]
+ExecStart=/bin/sh -x -c 'test "$${VAR1-unset}" = "unset" && test "$${VAR2-unset}" = "unset" && test "$${VAR3-unset}" = "unset"'
+Type=oneshot
+PassEnvironment=VAR1 VAR2 VAR3
+PassEnvironment=
