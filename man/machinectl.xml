@@ -317,7 +317,7 @@
       <varlistentry>
         <term><command>status</command> <replaceable>NAME</replaceable>...</term>
 
-        <listitem><para>Show terse runtime status information about
+        <listitem><para>Show runtime status information about
         one or more virtual machines and containers, followed by the
         most recent log data from the journal. This function is
         intended to generate human-readable output. If you are looking
@@ -339,7 +339,8 @@
         are suppressed. Use <option>--all</option> to show those too.
         To select specific properties to show, use
         <option>--property=</option>. This command is intended to be
-        used whenever computer-parsable output is required. Use
+        used whenever computer-parsable output is required, and does
+        not print the cgroup tree or journal entries. Use
         <command>status</command> if you are looking for formatted
         human-readable output.</para></listitem>
       </varlistentry>
