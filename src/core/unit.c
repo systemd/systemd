@@ -63,7 +63,6 @@ const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX] = {
         [UNIT_SOCKET] = &socket_vtable,
         [UNIT_BUSNAME] = &busname_vtable,
         [UNIT_TARGET] = &target_vtable,
-        [UNIT_SNAPSHOT] = &snapshot_vtable,
         [UNIT_DEVICE] = &device_vtable,
         [UNIT_MOUNT] = &mount_vtable,
         [UNIT_AUTOMOUNT] = &automount_vtable,
@@ -998,15 +997,13 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                         "%s\tRefuseManualStop: %s\n"
                         "%s\tDefaultDependencies: %s\n"
                         "%s\tOnFailureJobMode: %s\n"
-                        "%s\tIgnoreOnIsolate: %s\n"
-                        "%s\tIgnoreOnSnapshot: %s\n",
+                        "%s\tIgnoreOnIsolate: %s\n",
                         prefix, yes_no(u->stop_when_unneeded),
                         prefix, yes_no(u->refuse_manual_start),
                         prefix, yes_no(u->refuse_manual_stop),
                         prefix, yes_no(u->default_dependencies),
                         prefix, job_mode_to_string(u->on_failure_job_mode),
-                        prefix, yes_no(u->ignore_on_isolate),
-                        prefix, yes_no(u->ignore_on_snapshot));
+                        prefix, yes_no(u->ignore_on_isolate));
 
                 if (UNIT_VTABLE(u)->dump)
                         UNIT_VTABLE(u)->dump(u, f, prefix2);

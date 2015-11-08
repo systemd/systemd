@@ -117,7 +117,6 @@ static void device_init(Unit *u) {
         u->job_timeout = u->manager->default_timeout_start_usec;
 
         u->ignore_on_isolate = true;
-        u->ignore_on_snapshot = true;
 }
 
 static void device_done(Unit *u) {

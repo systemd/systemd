@@ -54,7 +54,6 @@ static void scope_init(Unit *u) {
         s->timeout_stop_usec = u->manager->default_timeout_stop_usec;
 
         UNIT(s)->ignore_on_isolate = true;
-        UNIT(s)->ignore_on_snapshot = true;
 }
 
 static void scope_done(Unit *u) {

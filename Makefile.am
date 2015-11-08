@@ -1138,8 +1138,6 @@ libcore_la_SOURCES = \
 	src/core/bus-policy.h \
 	src/core/target.c \
 	src/core/target.h \
-	src/core/snapshot.c \
-	src/core/snapshot.h \
 	src/core/device.c \
 	src/core/device.h \
 	src/core/mount.c \
@@ -1178,8 +1176,6 @@ libcore_la_SOURCES = \
 	src/core/dbus-busname.h \
 	src/core/dbus-target.c \
 	src/core/dbus-target.h \
-	src/core/dbus-snapshot.c \
-	src/core/dbus-snapshot.h \
 	src/core/dbus-device.c \
 	src/core/dbus-device.h \
 	src/core/dbus-mount.c \

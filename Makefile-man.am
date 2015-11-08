@@ -136,7 +136,6 @@ MANPAGES += \
 	man/systemd.scope.5 \
 	man/systemd.service.5 \
 	man/systemd.slice.5 \
-	man/systemd.snapshot.5 \
 	man/systemd.socket.5 \
 	man/systemd.special.7 \
 	man/systemd.swap.5 \
@@ -2413,7 +2412,6 @@ EXTRA_DIST += \
 	man/systemd.scope.xml \
 	man/systemd.service.xml \
 	man/systemd.slice.xml \
-	man/systemd.snapshot.xml \
 	man/systemd.socket.xml \
 	man/systemd.special.xml \
 	man/systemd.swap.xml \

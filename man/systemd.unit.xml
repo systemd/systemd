@@ -60,7 +60,6 @@
     <filename><replaceable>target</replaceable>.target</filename>,
     <filename><replaceable>path</replaceable>.path</filename>,
     <filename><replaceable>timer</replaceable>.timer</filename>,
-    <filename><replaceable>snapshot</replaceable>.snapshot</filename>,
     <filename><replaceable>slice</replaceable>.slice</filename>,
     <filename><replaceable>scope</replaceable>.scope</filename></para>
 
@@ -90,7 +89,7 @@
     swap file or partition, a start-up target, a watched file system
     path, a timer controlled and supervised by
     <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-    a temporary system state snapshot, a resource management slice or
+    a resource management slice or
     a group of externally created processes. The syntax is inspired by
     <ulink
     url="http://standards.freedesktop.org/desktop-entry-spec/latest/">XDG
@@ -115,8 +114,7 @@
     <citerefentry><refentrytitle>systemd.target</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
     <citerefentry><refentrytitle>systemd.path</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
     <citerefentry><refentrytitle>systemd.timer</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-    <citerefentry><refentrytitle>systemd.snapshot</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-    <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
     <citerefentry><refentrytitle>systemd.scope</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
     </para>
 
@@ -649,16 +647,6 @@
         <option>true</option>, this unit will not be stopped when
         isolating another unit. Defaults to
         <option>false</option>.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><varname>IgnoreOnSnapshot=</varname></term>
-
-        <listitem><para>Takes a boolean argument. If
-        <option>true</option>, this unit will not be included in
-        snapshots. Defaults to <option>true</option> for device and
-        snapshot units, <option>false</option> for the
-        others.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1431,7 +1419,6 @@ PrivateTmp=yes</programlisting>
       <citerefentry><refentrytitle>systemd.target</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.path</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.timer</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd.snapshot</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.scope</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>,

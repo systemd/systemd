@@ -31,7 +31,6 @@
 #include "dbus-execute.h"
 #include "dbus-job.h"
 #include "dbus-manager.h"
-#include "dbus-snapshot.h"
 #include "dbus-unit.h"
 #include "dbus.h"
 #include "env-util.h"
@@ -1101,66 +1100,8 @@ static int method_dump(sd_bus_message *message, void *userdata, sd_bus_error *er
         return sd_bus_reply_method_return(message, "s", dump);
 }
 
-static int method_create_snapshot(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_free_ char *path = NULL;
-        Manager *m = userdata;
-        const char *name;
-        int cleanup;
-        Snapshot *s = NULL;
-        int r;
-
-        assert(message);
-        assert(m);
-
-        r = mac_selinux_access_check(message, "start", error);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_read(message, "sb", &name, &cleanup);
-        if (r < 0)
-                return r;
-
-        if (isempty(name))
-                name = NULL;
-
-        r = bus_verify_manage_units_async(m, message, error);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
-
-        r = snapshot_create(m, name, cleanup, error, &s);
-        if (r < 0)
-                return r;
-
-        path = unit_dbus_path(UNIT(s));
-        if (!path)
-                return -ENOMEM;
-
-        return sd_bus_reply_method_return(message, "o", path);
-}
-
-static int method_remove_snapshot(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
-        const char *name;
-        Unit *u;
-        int r;
-
-        assert(message);
-        assert(m);
-
-        r = sd_bus_message_read(message, "s", &name);
-        if (r < 0)
-                return r;
-
-        u = manager_get_unit(m, name);
-        if (!u)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s does not exist.", name);
-
-        if (u->type != UNIT_SNAPSHOT)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s is not a snapshot", name);
-
-        return bus_snapshot_method_remove(message, u, error);
+static int method_refuse_snapshot(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Support for snapshots has been removed.");
 }
 
 static int method_reload(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -2042,8 +1983,8 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_METHOD("Subscribe", NULL, NULL, method_subscribe, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("Unsubscribe", NULL, NULL, method_unsubscribe, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("Dump", NULL, "s", method_dump, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("CreateSnapshot", "sb", "o", method_create_snapshot, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("RemoveSnapshot", "s", NULL, method_remove_snapshot, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("CreateSnapshot", "sb", "o", method_refuse_snapshot, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("RemoveSnapshot", "s", NULL, method_refuse_snapshot, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("Reload", NULL, NULL, method_reload, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("Reexecute", NULL, NULL, method_reexecute, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("Exit", NULL, NULL, method_exit, 0),

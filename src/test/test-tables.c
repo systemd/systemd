@@ -39,7 +39,6 @@
 #include "scope.h"
 #include "service.h"
 #include "slice.h"
-#include "snapshot.h"
 #include "socket-util.h"
 #include "socket.h"
 #include "swap.h"
@@ -98,7 +97,6 @@ int main(int argc, char **argv) {
         test_table(service_state, SERVICE_STATE);
         test_table(service_type, SERVICE_TYPE);
         test_table(slice_state, SLICE_STATE);
-        test_table(snapshot_state, SNAPSHOT_STATE);
         test_table(socket_address_bind_ipv6_only, SOCKET_ADDRESS_BIND_IPV6_ONLY);
         test_table(socket_exec_command, SOCKET_EXEC_COMMAND);
         test_table(socket_result, SOCKET_RESULT);

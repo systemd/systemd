@@ -43,8 +43,6 @@
     "is-enabled:Check whether unit files are enabled"
     "list-jobs:List jobs"
     "cancel:Cancel all, one, or more jobs"
-    "snapshot:Create a snapshot"
-    "delete:Remove one or more snapshots"
     "show-environment:Dump environment"
     "set-environment:Set one or more environment variables"
     "unset-environment:Unset one or more environment variables"
@@ -268,14 +266,6 @@ done
       _message "no jobs found"
 }
 
-# Completion functions for SNAPSHOTS
-(( $+functions[_systemctl_delete] )) || _systemctl_delete()
-{
-  _wanted systemd-snapshots expl snapshot \
-    compadd "$@" - ${${(f)"$(__systemctl list-units --type snapshot --all)"}%% *} ||
-      _message "no snapshots found"
-}
-
 # Completion functions for TARGETS
 (( $+functions[_systemctl_set-default] )) || _systemctl_set-default()
 {
@@ -310,7 +300,6 @@ done
 #    [STANDALONE]='daemon-reexec daemon-reload default
 #                  emergency exit halt kexec list-jobs list-units
 #                  list-unit-files poweroff reboot rescue show-environment'
-#         [NAME]='snapshot'
 
 _systemctl_caching_policy()
 {
