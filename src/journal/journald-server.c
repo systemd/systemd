@@ -70,6 +70,7 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "user-util.h"
+#include "log.h"
 
 #define USER_JOURNALS_MAX 1024
 
@@ -142,7 +143,7 @@ static int determine_space_for(
                 sum += (uint64_t) st.st_blocks * 512UL;
         }
 
-        /* If request, then let's bump the min_use limit to the
+        /* If requested, then let's bump the min_use limit to the
          * current usage on disk. We do this when starting up and
          * first opening the journal files. This way sudden spikes in
          * disk usage will not cause journald to vacuum files without
@@ -164,6 +165,7 @@ static int determine_space_for(
                         fb4[FORMAT_BYTES_MAX], fb5[FORMAT_BYTES_MAX], fb6[FORMAT_BYTES_MAX];
 
                 server_driver_message(s, SD_MESSAGE_JOURNAL_USAGE,
+                                      LOG_MESSAGE(
                                       "%s (%s) is currently using %s.\n"
                                       "Maximum allowed usage is set to %s.\n"
                                       "Leaving at least %s free (of currently available %s of space).\n"
@@ -174,7 +176,8 @@ static int determine_space_for(
                                       format_bytes(fb3, sizeof(fb3), metrics->keep_free),
                                       format_bytes(fb4, sizeof(fb4), ss_avail),
                                       format_bytes(fb5, sizeof(fb5), s->cached_space_limit),
-                                      format_bytes(fb6, sizeof(fb6), s->cached_space_available));
+                                      format_bytes(fb6, sizeof(fb6), s->cached_space_available)),
+                                      NULL);
         }
 
         if (available)
@@ -808,9 +811,8 @@ static void dispatch_message_real(
 
 void server_driver_message(Server *s, sd_id128_t message_id, const char *format, ...) {
         char mid[11 + 32 + 1];
-        char buffer[16 + LINE_MAX + 1];
-        struct iovec iovec[N_IOVEC_META_FIELDS + 6];
-        int n = 0;
+        struct iovec iovec[N_IOVEC_META_FIELDS + 5 + N_IOVEC_PAYLOAD_FIELDS];
+        unsigned n = 0, m;
         va_list ap;
         struct ucred ucred = {};
 
@@ -823,22 +825,25 @@ void server_driver_message(Server *s, sd_id128_t message_id, const char *format,
         IOVEC_SET_STRING(iovec[n++], "PRIORITY=6");
         IOVEC_SET_STRING(iovec[n++], "_TRANSPORT=driver");
 
-        memcpy(buffer, "MESSAGE=", 8);
-        va_start(ap, format);
-        vsnprintf(buffer + 8, sizeof(buffer) - 8, format, ap);
-        va_end(ap);
-        IOVEC_SET_STRING(iovec[n++], buffer);
-
         if (!sd_id128_equal(message_id, SD_ID128_NULL)) {
                 snprintf(mid, sizeof(mid), LOG_MESSAGE_ID(message_id));
                 IOVEC_SET_STRING(iovec[n++], mid);
         }
+
+        m = n;
+
+        va_start(ap, format);
+        assert_se(log_format_iovec(iovec, ELEMENTSOF(iovec), &n, false, 0, format, ap) >= 0);
+        va_end(ap);
 
         ucred.pid = getpid();
         ucred.uid = getuid();
         ucred.gid = getgid();
 
         dispatch_message_real(s, iovec, n, ELEMENTSOF(iovec), &ucred, NULL, NULL, 0, NULL, LOG_INFO, 0);
+
+        while (m < n)
+                free(iovec[m++].iov_base);
 }
 
 void server_dispatch_message(
@@ -901,7 +906,8 @@ void server_dispatch_message(
         /* Write a suppression message if we suppressed something */
         if (rl > 1)
                 server_driver_message(s, SD_MESSAGE_JOURNAL_DROPPED,
-                                      "Suppressed %u messages from %s", rl - 1, path);
+                                      LOG_MESSAGE("Suppressed %u messages from %s", rl - 1, path),
+                                      NULL);
 
 finish:
         dispatch_message_real(s, iovec, n, m, ucred, tv, label, label_len, unit_id, priority, object_pid);
@@ -1073,7 +1079,11 @@ finish:
 
         sd_journal_close(j);
 
-        server_driver_message(s, SD_ID128_NULL, "Time spent on flushing to /var is %s for %u entries.", format_timespan(ts, sizeof(ts), now(CLOCK_MONOTONIC) - start, 0), n);
+        server_driver_message(s, SD_ID128_NULL,
+                              LOG_MESSAGE("Time spent on flushing to /var is %s for %u entries.",
+                                          format_timespan(ts, sizeof(ts), now(CLOCK_MONOTONIC) - start, 0),
+                                          n),
+                              NULL);
 
         return r;
 }

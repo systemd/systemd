@@ -805,6 +805,52 @@ int log_oom_internal(const char *file, int line, const char *func) {
         return -ENOMEM;
 }
 
+int log_format_iovec(
+                struct iovec *iovec,
+                unsigned iovec_len,
+                unsigned *n,
+                bool newline_separator,
+                int error,
+                const char *format,
+                va_list ap) {
+
+        static const char nl = '\n';
+
+        while (format && *n + 1 < iovec_len) {
+                va_list aq;
+                char *m;
+                int r;
+
+                /* We need to copy the va_list structure,
+                 * since vasprintf() leaves it afterwards at
+                 * an undefined location */
+
+                if (error != 0)
+                        errno = error;
+
+                va_copy(aq, ap);
+                r = vasprintf(&m, format, aq);
+                va_end(aq);
+                if (r < 0)
+                        return -EINVAL;
+
+                /* Now, jump enough ahead, so that we point to
+                 * the next format string */
+                VA_FORMAT_ADVANCE(format, ap);
+
+                IOVEC_SET_STRING(iovec[(*n)++], m);
+
+                if (newline_separator) {
+                        iovec[*n].iov_base = (char*) &nl;
+                        iovec[*n].iov_len = 1;
+                        (*n)++;
+                }
+
+                format = va_arg(ap, char *);
+        }
+        return 0;
+}
+
 int log_struct_internal(
                 int level,
                 int error,
@@ -837,10 +883,10 @@ int log_struct_internal(
                 char header[LINE_MAX];
                 struct iovec iovec[17] = {};
                 unsigned n = 0, i;
+                int r;
                 struct msghdr mh = {
                         .msg_iov = iovec,
                 };
-                static const char nl = '\n';
                 bool fallback = false;
 
                 /* If the journal is available do structured logging */
@@ -848,43 +894,14 @@ int log_struct_internal(
                 IOVEC_SET_STRING(iovec[n++], header);
 
                 va_start(ap, format);
-                while (format && n + 1 < ELEMENTSOF(iovec)) {
-                        va_list aq;
-                        char *m;
-
-                        /* We need to copy the va_list structure,
-                         * since vasprintf() leaves it afterwards at
-                         * an undefined location */
-
-                        if (error != 0)
-                                errno = error;
-
-                        va_copy(aq, ap);
-                        if (vasprintf(&m, format, aq) < 0) {
-                                va_end(aq);
-                                fallback = true;
-                                goto finish;
-                        }
-                        va_end(aq);
-
-                        /* Now, jump enough ahead, so that we point to
-                         * the next format string */
-                        VA_FORMAT_ADVANCE(format, ap);
-
-                        IOVEC_SET_STRING(iovec[n++], m);
-
-                        iovec[n].iov_base = (char*) &nl;
-                        iovec[n].iov_len = 1;
-                        n++;
-
-                        format = va_arg(ap, char *);
+                r = log_format_iovec(iovec, ELEMENTSOF(iovec), &n, true, error, format, ap);
+                if (r < 0)
+                        fallback = true;
+                else {
+                        mh.msg_iovlen = n;
+                        (void) sendmsg(journal_fd, &mh, MSG_NOSIGNAL);
                 }
 
-                mh.msg_iovlen = n;
-
-                (void) sendmsg(journal_fd, &mh, MSG_NOSIGNAL);
-
-        finish:
                 va_end(ap);
                 for (i = 1; i < n; i += 2)
                         free(iovec[i].iov_base);

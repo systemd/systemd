@@ -58,7 +58,9 @@ int main(int argc, char *argv[]) {
         server_flush_dev_kmsg(&server);
 
         log_debug("systemd-journald running as pid "PID_FMT, getpid());
-        server_driver_message(&server, SD_MESSAGE_JOURNAL_START, "Journal started");
+        server_driver_message(&server, SD_MESSAGE_JOURNAL_START,
+                              LOG_MESSAGE("Journal started"),
+                              NULL);
 
         for (;;) {
                 usec_t t = USEC_INFINITY, n;
@@ -109,7 +111,9 @@ int main(int argc, char *argv[]) {
         }
 
         log_debug("systemd-journald stopped as pid "PID_FMT, getpid());
-        server_driver_message(&server, SD_MESSAGE_JOURNAL_STOP, "Journal stopped");
+        server_driver_message(&server, SD_MESSAGE_JOURNAL_STOP,
+                              LOG_MESSAGE("Journal stopped"),
+                              NULL);
 
 finish:
         server_done(&server);
