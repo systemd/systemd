@@ -108,6 +108,7 @@ MANPAGES += \
 	man/systemd-nspawn.1 \
 	man/systemd-path.1 \
 	man/systemd-remount-fs.service.8 \
+	man/systemd-remove-attempts.service.8 \
 	man/systemd-run.1 \
 	man/systemd-sleep.conf.5 \
 	man/systemd-socket-proxyd.8 \
@@ -381,6 +382,7 @@ MANPAGES_ALIAS += \
 	man/systemd-poweroff.service.8 \
 	man/systemd-reboot.service.8 \
 	man/systemd-remount-fs.8 \
+	man/systemd-remove-attempts.8 \
 	man/systemd-shutdown.8 \
 	man/systemd-sleep.8 \
 	man/systemd-sysctl.8 \
@@ -671,6 +673,7 @@ man/systemd-kexec.service.8: man/systemd-halt.service.8
 man/systemd-poweroff.service.8: man/systemd-halt.service.8
 man/systemd-reboot.service.8: man/systemd-halt.service.8
 man/systemd-remount-fs.8: man/systemd-remount-fs.service.8
+man/systemd-remove-attempts.8: man/systemd-remove-attempts.service.8
 man/systemd-shutdown.8: man/systemd-halt.service.8
 man/systemd-sleep.8: man/systemd-suspend.service.8
 man/systemd-sysctl.8: man/systemd-sysctl.service.8
@@ -1401,6 +1404,9 @@ man/systemd-reboot.service.html: man/systemd-halt.service.html
 	$(html-alias)
 
 man/systemd-remount-fs.html: man/systemd-remount-fs.service.html
+	$(html-alias)
+
+man/systemd-remove-attempts.html: man/systemd-remove-attempts.service.html
 	$(html-alias)
 
 man/systemd-shutdown.html: man/systemd-halt.service.html
@@ -2375,6 +2381,7 @@ EXTRA_DIST += \
 	man/systemd-quotacheck.service.xml \
 	man/systemd-random-seed.service.xml \
 	man/systemd-remount-fs.service.xml \
+	man/systemd-remove-attempts.service.xml \
 	man/systemd-resolved.service.xml \
 	man/systemd-rfkill.service.xml \
 	man/systemd-run.xml \
