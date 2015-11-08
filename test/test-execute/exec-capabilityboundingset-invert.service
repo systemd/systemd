@@ -2,5 +2,6 @@
 Description=Test for CapabilityBoundingSet
 
 [Service]
-ExecStart=/bin/sh -c 'c=$(capsh --print | grep "Bounding set " | grep "cap_chown"); echo $c; exit $(test -z $c)'
+ExecStart=/bin/sh -x -c 'c=$$(capsh --print | grep "^Bounding set .*cap_chown"); test -z "$$c"'
+Type=oneshot
 CapabilityBoundingSet=~CAP_CHOWN

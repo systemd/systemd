@@ -2,5 +2,6 @@
 Description=Test for UMask default
 
 [Service]
-ExecStart=/bin/sh -c 'touch /tmp/test-exec-umask; s=$(stat -c %a /tmp/test-exec-umask); echo $s; exit $(test $s = "644")'
+ExecStart=/bin/sh -x -c 'touch /tmp/test-exec-umask; mode=$$(stat -c %%a /tmp/test-exec-umask); test "$$mode" = "644"'
+Type=oneshot
 PrivateTmp=yes
