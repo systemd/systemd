@@ -94,24 +94,86 @@ const struct hash_ops catalog_hash_ops = {
         .compare = catalog_compare_func
 };
 
+static bool next_header(const char **s) {
+        const char *e;
+
+        e = strchr(*s, '\n');
+
+        /* Unexpected end */
+        if (!e)
+                return false;
+
+        /* End of headers */
+        if (e == *s)
+                return false;
+
+        *s = e + 1;
+        return true;
+}
+
+static const char *skip_header(const char *s) {
+        while (next_header(&s))
+                ;
+        return s;
+}
+
+static char *combine_entries(const char *one, const char *two) {
+        const char *b1, *b2;
+        size_t l1, l2, n;
+        char *dest, *p;
+
+        /* Find split point of headers to body */
+        b1 = skip_header(one);
+        b2 = skip_header(two);
+
+        l1 = strlen(one);
+        l2 = strlen(two);
+        dest = new(char, l1 + l2 + 1);
+        if (!dest) {
+                log_oom();
+                return NULL;
+        }
+
+        p = dest;
+
+        /* Headers from @one */
+        n = b1 - one;
+        p = mempcpy(p, one, n);
+
+        /* Headers from @two, these will only be found if not present above */
+        n = b2 - two;
+        p = mempcpy(p, two, n);
+
+        /* Body from @one */
+        n = l1 - (b1 - one);
+        if (n > 0) {
+                memcpy(p, b1, n);
+                p += n;
+
+        /* Body from @two */
+        } else {
+                n = l2 - (b2 - two);
+                memcpy(p, b2, n);
+                p += n;
+        }
+
+        assert(p - dest <= (ptrdiff_t)(l1 + l2));
+        p[0] = '\0';
+        return dest;
+}
+
 static int finish_item(
                 Hashmap *h,
-                struct strbuf *sb,
                 sd_id128_t id,
                 const char *language,
-                const char *payload) {
+                char *payload) {
 
-        ssize_t offset;
         _cleanup_free_ CatalogItem *i = NULL;
+        _cleanup_free_ char *combined = NULL, *prev = NULL;
         int r;
 
         assert(h);
-        assert(sb);
         assert(payload);
-
-        offset = strbuf_add_string(sb, payload, strlen(payload));
-        if (offset < 0)
-                return log_oom();
 
         i = new0(CatalogItem, 1);
         if (!i)
@@ -122,17 +184,27 @@ static int finish_item(
                 assert(strlen(language) > 1 && strlen(language) < 32);
                 strcpy(i->language, language);
         }
-        i->offset = htole64((uint64_t) offset);
 
-        r = hashmap_put(h, i, i);
-        if (r == -EEXIST) {
-                log_warning("Duplicate entry for " SD_ID128_FORMAT_STR ".%s, ignoring.",
-                            SD_ID128_FORMAT_VAL(id), language ? language : "C");
-                return 0;
-        } else if (r < 0)
-                return r;
+        prev = hashmap_get(h, i);
 
-        i = NULL;
+        /* Already have such an item, combine them */
+        if (prev) {
+                combined = combine_entries(payload, prev);
+                if (!combined)
+                        return log_oom();
+                r = hashmap_update(h, i, combined);
+                if (r < 0)
+                        return r;
+                combined = NULL;
+
+        /* A new item */
+        } else {
+                r = hashmap_put(h, i, payload);
+                if (r < 0)
+                        return r;
+                i = NULL;
+        }
+
         return 0;
 }
 
@@ -189,7 +261,7 @@ static int catalog_entry_lang(const char* filename, int line,
         return 0;
 }
 
-int catalog_import_file(Hashmap *h, struct strbuf *sb, const char *path) {
+int catalog_import_file(Hashmap *h, const char *path) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *payload = NULL;
         unsigned n = 0;
@@ -199,7 +271,6 @@ int catalog_import_file(Hashmap *h, struct strbuf *sb, const char *path) {
         int r;
 
         assert(h);
-        assert(sb);
         assert(path);
 
         f = fopen(path, "re");
@@ -254,10 +325,11 @@ int catalog_import_file(Hashmap *h, struct strbuf *sb, const char *path) {
                         if (sd_id128_from_string(line + 2 + 1, &jd) >= 0) {
 
                                 if (got_id) {
-                                        r = finish_item(h, sb, id, lang ?: deflang, payload);
+                                        r = finish_item(h, id, lang ?: deflang, payload);
                                         if (r < 0)
                                                 return r;
 
+                                        payload = NULL;
                                         lang = mfree(lang);
                                 }
 
@@ -310,9 +382,10 @@ int catalog_import_file(Hashmap *h, struct strbuf *sb, const char *path) {
         }
 
         if (got_id) {
-                r = finish_item(h, sb, id, lang ?: deflang, payload);
+                r = finish_item(h, id, lang ?: deflang, payload);
                 if (r < 0)
                         return r;
+                payload = NULL;
         }
 
         return 0;
@@ -389,8 +462,10 @@ int catalog_update(const char* database, const char* root, const char* const* di
         _cleanup_strv_free_ char **files = NULL;
         char **f;
         struct strbuf *sb = NULL;
-        _cleanup_hashmap_free_free_ Hashmap *h = NULL;
+        _cleanup_hashmap_free_free_free_ Hashmap *h = NULL;
         _cleanup_free_ CatalogItem *items = NULL;
+        ssize_t offset;
+        char *payload;
         CatalogItem *i;
         Iterator j;
         unsigned n;
@@ -413,7 +488,7 @@ int catalog_update(const char* database, const char* root, const char* const* di
 
         STRV_FOREACH(f, files) {
                 log_debug("Reading file '%s'", *f);
-                r = catalog_import_file(h, sb, *f);
+                r = catalog_import_file(h, *f);
                 if (r < 0) {
                         log_error_errno(r, "Failed to import file '%s': %m", *f);
                         goto finish;
@@ -426,8 +501,6 @@ int catalog_update(const char* database, const char* root, const char* const* di
         } else
                 log_debug("Found %u items in catalog.", hashmap_size(h));
 
-        strbuf_complete(sb);
-
         items = new(CatalogItem, hashmap_size(h));
         if (!items) {
                 r = log_oom();
@@ -435,15 +508,24 @@ int catalog_update(const char* database, const char* root, const char* const* di
         }
 
         n = 0;
-        HASHMAP_FOREACH(i, h, j) {
+        HASHMAP_FOREACH_KEY(payload, i, h, j) {
                 log_debug("Found " SD_ID128_FORMAT_STR ", language %s",
                           SD_ID128_FORMAT_VAL(i->id),
                           isempty(i->language) ? "C" : i->language);
+
+                offset = strbuf_add_string(sb, payload, strlen(payload));
+                if (offset < 0) {
+                        r = log_oom();
+                        goto finish;
+                }
+                i->offset = htole64((uint64_t) offset);
                 items[n++] = *i;
         }
 
         assert(n == hashmap_size(h));
         qsort_safe(items, n, sizeof(CatalogItem), catalog_compare_func);
+
+        strbuf_complete(sb);
 
         sz = write_catalog(database, sb, items, n);
         if (sz < 0)
@@ -587,7 +669,7 @@ finish:
 static char *find_header(const char *s, const char *header) {
 
         for (;;) {
-                const char *v, *e;
+                const char *v;
 
                 v = startswith(s, header);
                 if (v) {
@@ -595,16 +677,8 @@ static char *find_header(const char *s, const char *header) {
                         return strndup(v, strcspn(v, NEWLINE));
                 }
 
-                /* End of text */
-                e = strchr(s, '\n');
-                if (!e)
+                if (!next_header(&s))
                         return NULL;
-
-                /* End of header */
-                if (e == s)
-                        return NULL;
-
-                s = e + 1;
         }
 }
 

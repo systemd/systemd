@@ -46,8 +46,7 @@ static const char *no_catalog_dirs[] = {
         NULL
 };
 
-static void test_import(Hashmap *h, struct strbuf *sb,
-                        const char* contents, ssize_t size, int code) {
+static void test_import(Hashmap *h, const char* contents, ssize_t size, int code) {
         int r;
         char name[] = "/tmp/test-catalog.XXXXXX";
         _cleanup_close_ int fd;
@@ -56,7 +55,7 @@ static void test_import(Hashmap *h, struct strbuf *sb,
         assert_se(fd >= 0);
         assert_se(write(fd, contents, size) == size);
 
-        r = catalog_import_file(h, sb, name);
+        r = catalog_import_file(h, name);
         assert_se(r == code);
 
         unlink(name);
@@ -64,13 +63,11 @@ static void test_import(Hashmap *h, struct strbuf *sb,
 
 static void test_catalog_importing(void) {
         Hashmap *h;
-        struct strbuf *sb;
 
         assert_se(h = hashmap_new(&catalog_hash_ops));
-        assert_se(sb = strbuf_new());
 
 #define BUF "xxx"
-        test_import(h, sb, BUF, sizeof(BUF), -EINVAL);
+        test_import(h, BUF, sizeof(BUF), -EINVAL);
 #undef BUF
         assert_se(hashmap_isempty(h));
         log_debug("----------------------------------------");
@@ -80,7 +77,7 @@ static void test_catalog_importing(void) {
 "Subject: message\n" \
 "\n" \
 "payload\n"
-        test_import(h, sb, BUF, sizeof(BUF), -EINVAL);
+        test_import(h, BUF, sizeof(BUF), -EINVAL);
 #undef BUF
 
         log_debug("----------------------------------------");
@@ -90,7 +87,7 @@ static void test_catalog_importing(void) {
 "Subject: message\n" \
 "\n" \
 "payload\n"
-        test_import(h, sb, BUF, sizeof(BUF), 0);
+        test_import(h, BUF, sizeof(BUF), 0);
 #undef BUF
 
         assert_se(hashmap_size(h) == 1);
@@ -98,7 +95,6 @@ static void test_catalog_importing(void) {
         log_debug("----------------------------------------");
 
         hashmap_free_free(h);
-        strbuf_cleanup(sb);
 }
 
 
