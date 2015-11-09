@@ -414,10 +414,8 @@ _public_ int udev_monitor_enable_receiving(struct udev_monitor *udev_monitor)
 
         if (err >= 0)
                 monitor_set_nl_address(udev_monitor);
-        else {
-                log_debug_errno(errno, "bind failed: %m");
-                return -errno;
-        }
+        else
+                return log_debug_errno(errno, "bind failed: %m");
 
         /* enable receiving of sender credentials */
         err = setsockopt(udev_monitor->sock, SOL_SOCKET, SO_PASSCRED, &on, sizeof(on));

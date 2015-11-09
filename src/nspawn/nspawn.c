@@ -1182,6 +1182,7 @@ static int copy_devnodes(const char *dest) {
 static int setup_pts(const char *dest) {
         _cleanup_free_ char *options = NULL;
         const char *p;
+        int r;
 
 #ifdef HAVE_SELINUX
         if (arg_selinux_apifs_context)
@@ -1204,20 +1205,23 @@ static int setup_pts(const char *dest) {
                 return log_error_errno(errno, "Failed to create /dev/pts: %m");
         if (mount("devpts", p, "devpts", MS_NOSUID|MS_NOEXEC, options) < 0)
                 return log_error_errno(errno, "Failed to mount /dev/pts: %m");
-        if (userns_lchown(p, 0, 0) < 0)
-                return log_error_errno(errno, "Failed to chown /dev/pts: %m");
+        r = userns_lchown(p, 0, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to chown /dev/pts: %m");
 
         /* Create /dev/ptmx symlink */
         p = prefix_roota(dest, "/dev/ptmx");
         if (symlink("pts/ptmx", p) < 0)
                 return log_error_errno(errno, "Failed to create /dev/ptmx symlink: %m");
-        if (userns_lchown(p, 0, 0) < 0)
-                return log_error_errno(errno, "Failed to chown /dev/ptmx: %m");
+        r = userns_lchown(p, 0, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to chown /dev/ptmx: %m");
 
         /* And fix /dev/pts/ptmx ownership */
         p = prefix_roota(dest, "/dev/pts/ptmx");
-        if (userns_lchown(p, 0, 0) < 0)
-                return log_error_errno(errno, "Failed to chown /dev/pts/ptmx: %m");
+        r = userns_lchown(p, 0, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to chown /dev/pts/ptmx: %m");
 
         return 0;
 }
@@ -1399,7 +1403,7 @@ static int setup_journal(const char *directory) {
 
                         r = userns_mkdir(directory, p, 0755, 0, 0);
                         if (r < 0)
-                                log_warning_errno(errno, "Failed to create directory %s: %m", q);
+                                log_warning_errno(r, "Failed to create directory %s: %m", q);
                         return 0;
                 }
 
@@ -1413,15 +1417,11 @@ static int setup_journal(const char *directory) {
                         if (errno == ENOTDIR) {
                                 log_error("%s already exists and is neither a symlink nor a directory", p);
                                 return r;
-                        } else {
-                                log_error_errno(errno, "Failed to remove %s: %m", p);
-                                return -errno;
-                        }
+                        } else
+                                return log_error_errno(errno, "Failed to remove %s: %m", p);
                 }
-        } else if (r != -ENOENT) {
-                log_error_errno(errno, "readlink(%s) failed: %m", p);
-                return r;
-        }
+        } else if (r != -ENOENT)
+                return log_error_errno(r, "readlink(%s) failed: %m", p);
 
         if (arg_link_journal == LINK_GUEST) {
 
@@ -1429,15 +1429,13 @@ static int setup_journal(const char *directory) {
                         if (arg_link_journal_try) {
                                 log_debug_errno(errno, "Failed to symlink %s to %s, skipping journal setup: %m", q, p);
                                 return 0;
-                        } else {
-                                log_error_errno(errno, "Failed to symlink %s to %s: %m", q, p);
-                                return -errno;
-                        }
+                        } else
+                                return log_error_errno(errno, "Failed to symlink %s to %s: %m", q, p);
                 }
 
                 r = userns_mkdir(directory, p, 0755, 0, 0);
                 if (r < 0)
-                        log_warning_errno(errno, "Failed to create directory %s: %m", q);
+                        log_warning_errno(r, "Failed to create directory %s: %m", q);
                 return 0;
         }
 
@@ -1449,10 +1447,8 @@ static int setup_journal(const char *directory) {
                         if (arg_link_journal_try) {
                                 log_debug_errno(errno, "Failed to create %s, skipping journal setup: %m", p);
                                 return 0;
-                        } else {
-                                log_error_errno(errno, "Failed to create %s: %m", p);
-                                return r;
-                        }
+                        } else
+                                return log_error_errno(errno, "Failed to create %s: %m", p);
                 }
 
         } else if (access(p, F_OK) < 0)
@@ -1462,10 +1458,8 @@ static int setup_journal(const char *directory) {
                 log_warning("%s is not empty, proceeding anyway.", q);
 
         r = userns_mkdir(directory, p, 0755, 0, 0);
-        if (r < 0) {
-                log_error_errno(errno, "Failed to create %s: %m", q);
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to create %s: %m", q);
 
         if (mount(p, q, NULL, MS_BIND, NULL) < 0)
                 return log_error_errno(errno, "Failed to bind mount journal from host into guest: %m");
@@ -1606,20 +1600,24 @@ finish:
 
 static int setup_propagate(const char *root) {
         const char *p, *q;
+        int r;
 
         (void) mkdir_p("/run/systemd/nspawn/", 0755);
         (void) mkdir_p("/run/systemd/nspawn/propagate", 0600);
         p = strjoina("/run/systemd/nspawn/propagate/", arg_machine);
         (void) mkdir_p(p, 0600);
 
-        if (userns_mkdir(root, "/run/systemd", 0755, 0, 0) < 0)
-                return log_error_errno(errno, "Failed to create /run/systemd: %m");
+        r = userns_mkdir(root, "/run/systemd", 0755, 0, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create /run/systemd: %m");
 
-        if (userns_mkdir(root, "/run/systemd/nspawn", 0755, 0, 0) < 0)
-                return log_error_errno(errno, "Failed to create /run/systemd/nspawn: %m");
+        r = userns_mkdir(root, "/run/systemd/nspawn", 0755, 0, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create /run/systemd/nspawn: %m");
 
-        if (userns_mkdir(root, "/run/systemd/nspawn/incoming", 0600, 0, 0) < 0)
-                return log_error_errno(errno, "Failed to create /run/systemd/nspawn/incoming: %m");
+        r = userns_mkdir(root, "/run/systemd/nspawn/incoming", 0600, 0, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create /run/systemd/nspawn/incoming: %m");
 
         q = prefix_roota(root, "/run/systemd/nspawn/incoming");
         if (mount(p, q, NULL, MS_BIND, NULL) < 0)
@@ -1669,7 +1667,7 @@ static int setup_image(char **device_path, int *loop_nr) {
         }
 
         if (!S_ISREG(st.st_mode)) {
-                log_error_errno(errno, "%s is not a regular file or block device: %m", arg_image);
+                log_error("%s is not a regular file or block device.", arg_image);
                 return -EINVAL;
         }
 
@@ -1761,8 +1759,7 @@ static int dissect_image(
                 if (errno == 0)
                         return log_oom();
 
-                log_error_errno(errno, "Failed to set device on blkid probe: %m");
-                return -errno;
+                return log_error_errno(errno, "Failed to set device on blkid probe: %m");
         }
 
         blkid_probe_enable_partitions(b, 1);
@@ -1778,8 +1775,7 @@ static int dissect_image(
         } else if (r != 0) {
                 if (errno == 0)
                         errno = EIO;
-                log_error_errno(errno, "Failed to probe: %m");
-                return -errno;
+                return log_error_errno(errno, "Failed to probe: %m");
         }
 
         (void) blkid_probe_lookup_value(b, "PTTYPE", &pttype, NULL);
@@ -1902,8 +1898,7 @@ static int dissect_image(
                         if (!errno)
                                 errno = ENOMEM;
 
-                        log_error_errno(errno, "Failed to get partition device of %s: %m", arg_image);
-                        return -errno;
+                        return log_error_errno(errno, "Failed to get partition device of %s: %m", arg_image);
                 }
 
                 qn = udev_device_get_devnum(q);
@@ -2110,8 +2105,7 @@ static int mount_device(const char *what, const char *where, const char *directo
         if (!b) {
                 if (errno == 0)
                         return log_oom();
-                log_error_errno(errno, "Failed to allocate prober for %s: %m", what);
-                return -errno;
+                return log_error_errno(errno, "Failed to allocate prober for %s: %m", what);
         }
 
         blkid_probe_enable_superblocks(b, 1);
@@ -2125,8 +2119,7 @@ static int mount_device(const char *what, const char *where, const char *directo
         } else if (r != 0) {
                 if (errno == 0)
                         errno = EIO;
-                log_error_errno(errno, "Failed to probe %s: %m", what);
-                return -errno;
+                return log_error_errno(errno, "Failed to probe %s: %m", what);
         }
 
         errno = 0;
@@ -2490,8 +2483,9 @@ static int inner_child(
                 rtnl_socket = safe_close(rtnl_socket);
         }
 
-        if (drop_capabilities() < 0)
-                return log_error_errno(errno, "drop_capabilities() failed: %m");
+        r = drop_capabilities();
+        if (r < 0)
+                return log_error_errno(r, "drop_capabilities() failed: %m");
 
         setup_hostname();
 
@@ -2594,8 +2588,9 @@ static int inner_child(
                 execle("/bin/sh", "-sh", NULL, env_use);
         }
 
+        r = -errno;
         (void) log_open();
-        return log_error_errno(errno, "execv() failed: %m");
+        return log_error_errno(r, "execv() failed: %m");
 }
 
 static int outer_child(

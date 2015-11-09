@@ -263,8 +263,7 @@ static int node_permissions_apply(struct udev_device *dev, bool apply,
                 mode |= S_IFCHR;
 
         if (lstat(devnode, &stats) != 0) {
-                err = -errno;
-                log_debug_errno(errno, "can not stat() node '%s' (%m)", devnode);
+                err = log_debug_errno(errno, "can not stat() node '%s' (%m)", devnode);
                 goto out;
         }
 

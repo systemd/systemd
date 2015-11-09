@@ -344,7 +344,7 @@ void server_process_native_file(
 
                 r = readlink_malloc(sl, &k);
                 if (r < 0) {
-                        log_error_errno(errno, "readlink(%s) failed: %m", sl);
+                        log_error_errno(r, "readlink(%s) failed: %m", sl);
                         return;
                 }
 
@@ -413,7 +413,7 @@ void server_process_native_file(
 
                 n = pread(fd, p, st.st_size, 0);
                 if (n < 0)
-                        log_error_errno(n, "Failed to read file, ignoring: %m");
+                        log_error_errno(errno, "Failed to read file, ignoring: %m");
                 else if (n > 0)
                         server_process_native_message(s, p, n, ucred, tv, label, label_len);
         }

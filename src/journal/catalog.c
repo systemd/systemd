@@ -208,7 +208,7 @@ int catalog_import_file(Hashmap *h, struct strbuf *sb, const char *path) {
 
         r = catalog_file_lang(path, &deflang);
         if (r < 0)
-                log_error_errno(errno, "Failed to determine language for file %s: %m", path);
+                log_error_errno(r, "Failed to determine language for file %s: %m", path);
         if (r == 1)
                 log_debug("File %s has language %s.", path, deflang);
 
@@ -221,8 +221,7 @@ int catalog_import_file(Hashmap *h, struct strbuf *sb, const char *path) {
                         if (feof(f))
                                 break;
 
-                        log_error_errno(errno, "Failed to read file %s: %m", path);
-                        return -errno;
+                        return log_error_errno(errno, "Failed to read file %s: %m", path);
                 }
 
                 n++;
@@ -319,8 +318,8 @@ int catalog_import_file(Hashmap *h, struct strbuf *sb, const char *path) {
         return 0;
 }
 
-static long write_catalog(const char *database, Hashmap *h, struct strbuf *sb,
-                          CatalogItem *items, size_t n) {
+static int64_t write_catalog(const char *database, struct strbuf *sb,
+                             CatalogItem *items, size_t n) {
         CatalogHeader header;
         _cleanup_fclose_ FILE *w = NULL;
         int r;
@@ -344,7 +343,7 @@ static long write_catalog(const char *database, Hashmap *h, struct strbuf *sb,
         memcpy(header.signature, CATALOG_SIGNATURE, sizeof(header.signature));
         header.header_size = htole64(ALIGN_TO(sizeof(CatalogHeader), 8));
         header.catalog_item_size = htole64(sizeof(CatalogItem));
-        header.n_items = htole64(hashmap_size(h));
+        header.n_items = htole64(n);
 
         r = -EIO;
 
@@ -379,7 +378,7 @@ static long write_catalog(const char *database, Hashmap *h, struct strbuf *sb,
                 goto error;
         }
 
-        return ftell(w);
+        return ftello(w);
 
 error:
         (void) unlink(p);
@@ -395,7 +394,8 @@ int catalog_update(const char* database, const char* root, const char* const* di
         CatalogItem *i;
         Iterator j;
         unsigned n;
-        long r;
+        int r;
+        int64_t sz;
 
         h = hashmap_new(&catalog_hash_ops);
         sb = strbuf_new();
@@ -445,18 +445,19 @@ int catalog_update(const char* database, const char* root, const char* const* di
         assert(n == hashmap_size(h));
         qsort_safe(items, n, sizeof(CatalogItem), catalog_compare_func);
 
-        r = write_catalog(database, h, sb, items, n);
-        if (r < 0)
-                log_error_errno(r, "Failed to write %s: %m", database);
-        else
-                log_debug("%s: wrote %u items, with %zu bytes of strings, %ld total size.",
-                          database, n, sb->len, r);
+        sz = write_catalog(database, sb, items, n);
+        if (sz < 0)
+                r = log_error_errno(sz, "Failed to write %s: %m", database);
+        else {
+                r = 0;
+                log_debug("%s: wrote %u items, with %zu bytes of strings, %"PRIi64" total size.",
+                          database, n, sb->len, sz);
+        }
 
 finish:
-        if (sb)
-                strbuf_cleanup(sb);
+        strbuf_cleanup(sb);
 
-        return r < 0 ? r : 0;
+        return r;
 }
 
 static int open_mmap(const char *database, int *_fd, struct stat *_st, void **_p) {

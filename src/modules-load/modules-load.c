@@ -151,8 +151,7 @@ static int apply_file(struct kmod_ctx *ctx, const char *path, bool ignore_enoent
                         if (feof(f))
                                 break;
 
-                        log_error_errno(errno, "Failed to read file '%s', ignoring: %m", path);
-                        return -errno;
+                        return log_error_errno(errno, "Failed to read file '%s', ignoring: %m", path);
                 }
 
                 l = strstrip(line);

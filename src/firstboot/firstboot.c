@@ -554,8 +554,7 @@ static int process_root_password(void) {
                                 if (!errno)
                                         errno = EIO;
 
-                                log_error_errno(errno, "Failed to find shadow entry for root: %m");
-                                return -errno;
+                                return log_error_errno(errno, "Failed to find shadow entry for root: %m");
                         }
 
                         r = write_root_shadow(etc_shadow, p);
@@ -590,10 +589,9 @@ static int process_root_password(void) {
         item.sp_pwdp = crypt(arg_root_password, salt);
         if (!item.sp_pwdp) {
                 if (!errno)
-                        errno = -EINVAL;
+                        errno = EINVAL;
 
-                log_error_errno(errno, "Failed to encrypt password: %m");
-                return -errno;
+                return log_error_errno(errno, "Failed to encrypt password: %m");
         }
 
         item.sp_lstchg = (long) (now(CLOCK_REALTIME) / USEC_PER_DAY);

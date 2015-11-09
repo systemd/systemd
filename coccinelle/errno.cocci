@@ -1,48 +1,32 @@
 @@
-identifier r;
+identifier log_LEVEL_errno =~ "^log_(debug|info|notice|warning|error|emergency)_errno$";
+local idexpression r;
 expression e;
 @@
 - r = -e;
-- log_error_errno(e,
-+ r = log_error_errno(e,
-  ...);
++ r =
+  log_LEVEL_errno(e, ...);
 @@
-identifier r;
+identifier log_LEVEL_errno =~ "^log_(debug|info|notice|warning|error|emergency)_errno$";
+local idexpression r;
 expression e;
 @@
-- log_error_errno(e,
-+ r = log_error_errno(e,
-  ...);
++ r =
+  log_LEVEL_errno(e, ...);
 - r = -e;
 @@
-identifier r;
+identifier log_LEVEL_errno =~ "^log_(debug|info|notice|warning|error|emergency)_errno$";
+local idexpression r;
 expression e;
 @@
-- r = log_error_errno(e,
-+ return log_error_errno(e,
-  ...);
+- r =
++ return
+  log_LEVEL_errno(e, ...);
 - return r;
 @@
-identifier r;
+identifier log_LEVEL_errno =~ "^log_(debug|info|notice|warning|error|emergency)_errno$";
 expression e;
 @@
-- r = -e;
-- log_warning_errno(e,
-+ r = log_warning_errno(e,
-  ...);
-@@
-identifier r;
-expression e;
-@@
-- log_warning_errno(e,
-+ r = log_warning_errno(e,
-  ...);
-- r = -e;
-@@
-identifier r;
-expression e;
-@@
-- r = log_warning_errno(e,
-+ return log_warning_errno(e,
-  ...);
-- return r;
++ return
+  log_LEVEL_errno(e, ...);
+- return -e;

@@ -241,7 +241,7 @@ static int tar_import_fork_tar(TarImport *i) {
                 if (mkdir(i->temp_path, 0755) < 0)
                         return log_error_errno(errno, "Failed to create directory %s: %m", i->temp_path);
         } else if (r < 0)
-                return log_error_errno(errno, "Failed to create subvolume %s: %m", i->temp_path);
+                return log_error_errno(r, "Failed to create subvolume %s: %m", i->temp_path);
         else
                 (void) import_assign_pool_quota_and_warn(i->temp_path);
 

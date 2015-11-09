@@ -146,7 +146,7 @@ static int spawn_curl(const char* url) {
 
         r = spawn_child("curl", argv);
         if (r < 0)
-                log_error_errno(errno, "Failed to spawn curl: %m");
+                log_error_errno(r, "Failed to spawn curl: %m");
         return r;
 }
 
@@ -165,7 +165,7 @@ static int spawn_getter(const char *getter, const char *url) {
 
         r = spawn_child(words[0], words);
         if (r < 0)
-                log_error_errno(errno, "Failed to spawn getter %s: %m", getter);
+                log_error_errno(r, "Failed to spawn getter %s: %m", getter);
 
         return r;
 }

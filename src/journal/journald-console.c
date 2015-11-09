@@ -106,7 +106,7 @@ void server_forward_console(
 
         fd = open_terminal(tty, O_WRONLY|O_NOCTTY|O_CLOEXEC);
         if (fd < 0) {
-                log_debug_errno(errno, "Failed to open %s for logging: %m", tty);
+                log_debug_errno(fd, "Failed to open %s for logging: %m", tty);
                 return;
         }
 

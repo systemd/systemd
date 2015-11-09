@@ -584,12 +584,8 @@ static void resolve_free(sd_resolve *resolve) {
         }
 
         /* Now terminate them and wait until they are gone. */
-        for (i = 0; i < resolve->n_valid_workers; i++) {
-                for (;;) {
-                        if (pthread_join(resolve->workers[i], NULL) != EINTR)
-                                break;
-                }
-        }
+        for (i = 0; i < resolve->n_valid_workers; i++)
+                pthread_join(resolve->workers[i], NULL);
 
         /* Close all communication channels */
         for (i = 0; i < _FD_MAX; i++)

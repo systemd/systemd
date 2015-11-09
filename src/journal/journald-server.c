@@ -221,30 +221,27 @@ void server_fix_perms(Server *s, JournalFile *f, uid_t uid) {
                 return;
 
         acl = acl_get_fd(f->fd);
-        if (!acl) {
-                log_warning_errno(errno, "Failed to read ACL on %s, ignoring: %m", f->path);
-                return;
-        }
+        if (!acl)
+                return (void) log_warning_errno(errno, "Failed to read ACL on %s, ignoring: %m", f->path);
 
         r = acl_find_uid(acl, uid, &entry);
         if (r <= 0) {
 
                 if (acl_create_entry(&acl, &entry) < 0 ||
                     acl_set_tag_type(entry, ACL_USER) < 0 ||
-                    acl_set_qualifier(entry, &uid) < 0) {
-                        log_warning_errno(errno, "Failed to patch ACL on %s, ignoring: %m", f->path);
-                        return;
-                }
+                    acl_set_qualifier(entry, &uid) < 0)
+                        return (void) log_warning_errno(errno, "Failed to patch ACL on %s, ignoring: %m", f->path);
         }
 
         /* We do not recalculate the mask unconditionally here,
          * so that the fchmod() mask above stays intact. */
         if (acl_get_permset(entry, &permset) < 0 ||
-            acl_add_perm(permset, ACL_READ) < 0 ||
-            calc_acl_mask_if_needed(&acl) < 0) {
-                log_warning_errno(errno, "Failed to patch ACL on %s, ignoring: %m", f->path);
-                return;
-        }
+            acl_add_perm(permset, ACL_READ) < 0)
+                return (void) log_warning_errno(errno, "Failed to patch ACL on %s, ignoring: %m", f->path);
+
+        r = calc_acl_mask_if_needed(&acl);
+        if (r < 0)
+                return (void) log_warning_errno(r, "Failed to patch ACL on %s, ignoring: %m", f->path);
 
         if (acl_set_fd(f->fd, acl) < 0)
                 log_warning_errno(errno, "Failed to set ACL on %s, ignoring: %m", f->path);

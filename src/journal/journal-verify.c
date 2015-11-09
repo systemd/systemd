@@ -842,19 +842,19 @@ int journal_file_verify(
 
         data_fd = open_tmpfile("/var/tmp", O_RDWR | O_CLOEXEC);
         if (data_fd < 0) {
-                r = log_error_errno(errno, "Failed to create data file: %m");
+                r = log_error_errno(data_fd, "Failed to create data file: %m");
                 goto fail;
         }
 
         entry_fd = open_tmpfile("/var/tmp", O_RDWR | O_CLOEXEC);
         if (entry_fd < 0) {
-                r = log_error_errno(errno, "Failed to create entry file: %m");
+                r = log_error_errno(entry_fd, "Failed to create entry file: %m");
                 goto fail;
         }
 
         entry_array_fd = open_tmpfile("/var/tmp", O_RDWR | O_CLOEXEC);
         if (entry_array_fd < 0) {
-                r = log_error_errno(errno,
+                r = log_error_errno(entry_array_fd,
                                     "Failed to create entry array file: %m");
                 goto fail;
         }
