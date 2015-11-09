@@ -165,8 +165,10 @@ static int get_cgroup_root(char **ret) {
 }
 
 static void show_cg_info(const char *controller, const char *path) {
-        if (cg_unified() <= 0)
+
+        if (cg_unified() <= 0 && controller && !streq(controller, SYSTEMD_CGROUP_CONTROLLER))
                 printf("Controller %s; ", controller);
+
         printf("Control group %s:\n", isempty(path) ? "/" : path);
         fflush(stdout);
 }
