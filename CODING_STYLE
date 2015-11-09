@@ -145,11 +145,15 @@
 - Think about the types you use. If a value cannot sensibly be
   negative, do not use "int", but use "unsigned".
 
-- Do not use types like "short". They *never* make sense. Use ints,
-  longs, long longs, all in unsigned+signed fashion, and the fixed
-  size types uint32_t and so on, as well as size_t, but nothing
-  else. Do not use kernel types like u32 and so on, leave that to the
-  kernel.
+- Use "char" only for actual characters. Use "uint8_t" or "int8_t"
+  when you actually mean a byte-sized signed or unsigned
+  integers. When referring to a generic byte, we generally prefer the
+  unsigned variant "uint8_t". Do not use types based on "short". They
+  *never* make sense. Use ints, longs, long longs, all in
+  unsigned+signed fashion, and the fixed size types
+  uint8_t/uint16_t/uint32_t/uint64_t/int8_t/int16_t/int32_t and so on,
+  as well as size_t, but nothing else. Do not use kernel types like
+  u32 and so on, leave that to the kernel.
 
 - Public API calls (i.e. functions exported by our shared libraries)
   must be marked "_public_" and need to be prefixed with "sd_". No
