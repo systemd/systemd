@@ -1082,6 +1082,49 @@ int config_parse_limit(const char *unit,
         return 0;
 }
 
+int config_parse_bytes_limit(const char *unit,
+                       const char *filename,
+                       unsigned line,
+                       const char *section,
+                       unsigned section_line,
+                       const char *lvalue,
+                       int ltype,
+                       const char *rvalue,
+                       void *data,
+                       void *userdata) {
+
+        struct rlimit **rl = data;
+        uint64_t bytes;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        rl += ltype;
+
+        if (streq(rvalue, "infinity"))
+                bytes = (uint64_t) RLIM_INFINITY;
+        else {
+                int r;
+
+                r = parse_size(rvalue, 1024, &bytes);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse resource value, ignoring: %s", rvalue);
+                        return 0;
+                }
+        }
+
+        if (!*rl) {
+                *rl = new(struct rlimit, 1);
+                if (!*rl)
+                        return log_oom();
+        }
+
+        (*rl)->rlim_cur = (*rl)->rlim_max = (rlim_t) bytes;
+        return 0;
+}
+
 #ifdef HAVE_SYSV_COMPAT
 int config_parse_sysv_priority(const char *unit,
                                const char *filename,
