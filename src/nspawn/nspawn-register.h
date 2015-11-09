@@ -27,5 +27,5 @@
 
 #include "nspawn-mount.h"
 
-int register_machine(const char *machine_name, pid_t pid, const char *directory, sd_id128_t uuid, int local_ifindex, const char *slice, CustomMount *mounts, unsigned n_mounts, int kill_signal, char **properties, bool keep_unit);
+int register_machine(const char *machine_name, pid_t pid, const char *directory, sd_id128_t uuid, int local_ifindex, const char *slice, CustomMount *mounts, unsigned n_mounts, int kill_signal, char **properties, bool keep_unit, const char *service);
 int terminate_machine(pid_t pid);
