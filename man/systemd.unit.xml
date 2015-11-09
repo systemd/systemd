@@ -854,7 +854,8 @@
         <varname>lxc</varname>,
         <varname>lxc-libvirt</varname>,
         <varname>systemd-nspawn</varname>,
-        <varname>docker</varname> to test
+        <varname>docker</varname>,
+        <varname>rkt</varname> to test
         against a specific implementation. See
         <citerefentry><refentrytitle>systemd-detect-virt</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         for a full list of known virtualization technologies and their
