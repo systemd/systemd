@@ -44,7 +44,7 @@ static int fake_filesystems(void) {
                 { "test/dev", "/dev",                   "failed to mount test /dev" },
                 { "test/run", "/run",                   "failed to mount test /run" },
                 { "test/run", "/etc/udev/rules.d",      "failed to mount empty /etc/udev/rules.d" },
-                { "test/run", "/usr/lib/udev/rules.d",  "failed to mount empty /usr/lib/udev/rules.d" },
+                { "test/run", UDEVLIBEXECDIR "/rules.d","failed to mount empty " UDEVLIBEXECDIR "/rules.d" },
         };
         unsigned int i;
         int err;
@@ -66,7 +66,7 @@ static int fake_filesystems(void) {
                 err = mount(fakefss[i].src, fakefss[i].target, NULL, MS_BIND, NULL);
                 if (err < 0) {
                         err = -errno;
-                        fprintf(stderr, "%s %m", fakefss[i].error);
+                        fprintf(stderr, "%s %m\n", fakefss[i].error);
                         return err;
                 }
         }
