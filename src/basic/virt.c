@@ -400,7 +400,7 @@ int detect_container(void) {
                         goto finish;
                 }
 
-        r = VIRTUALIZATION_NONE;
+        r = VIRTUALIZATION_CONTAINER_OTHER;
 
 finish:
         cached_found = r;
