@@ -125,7 +125,7 @@
 
 <!--
   - helper template to do conflict resolution between various headings with the same inferred ID attribute/tag from the headerlink template
-  - this conflict resolution is necessary to prevent malformed HTML output (multiple id attributes with the same value)
+  - this conflict resolution is necessary to prevent malformed HTML output (multiple ID attributes with the same value)
   - and it fixes xsltproc warnings during compilation of HTML man pages
   -
   - A simple top-to-bottom numbering scheme is implemented for nodes with the same ID value to derive unique ID values for HTML output.
@@ -171,7 +171,7 @@
   <!--
     - If stable URLs with fragment markers (references to the ID) turn out not to be important:
     - generatedID could simply take the value of generate-id(), and various other helper templates may be dropped entirely.
-    - Alternatively if xsltproc is patched to generate reproducible generate-id() output the same simplifications can be
+    - Alternatively, if xsltproc is patched to generate reproducible generate-id() output, the same simplifications can be
     - applied at the cost of breaking compatibility with URLs generated from output of previous versions of this stylesheet.
    -->
   <xsl:variable name="generatedID">

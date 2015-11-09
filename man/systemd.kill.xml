@@ -138,8 +138,8 @@
         <citerefentry project='man-pages'><refentrytitle>signal</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
         Defaults to <constant>SIGTERM</constant>. </para>
 
-        <para>Note that right after sending the signal specified in
-        this setting systemd will always send
+        <para>Note that, right after sending the signal specified in
+        this setting, systemd will always send
         <constant>SIGCONT</constant>, to ensure that even suspended
         tasks can be terminated cleanly.</para>
         </listitem>

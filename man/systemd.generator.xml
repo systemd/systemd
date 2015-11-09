@@ -87,7 +87,7 @@
     dynamically into native unit files.</para>
 
     <para>Generators are loaded from a set of paths determined during
-    compilation, listed above. System and user generators are loaded
+    compilation, as listed above. System and user generators are loaded
     from directories with names ending in
     <filename>system-generators/</filename> and
     <filename>user-generators/</filename>, respectively. Generators
@@ -96,7 +96,7 @@
     <filename>/dev/null</filename> or an empty file can be used to
     mask a generator, thereby preventing it from running. Please note
     that the order of the two directories with the highest priority is
-    reversed with respect to the unit load path and generators in
+    reversed with respect to the unit load path, and generators in
     <filename>/run</filename> overwrite those in
     <filename>/etc</filename>.</para>
 
@@ -169,14 +169,14 @@
             or <command>systemd</command> itself (this means: no
             <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>!). They
             can however rely on the most basic kernel functionality to
-            be available, including mounted <filename>/sys</filename>,
+            be available, including a mounted <filename>/sys</filename>,
             <filename>/proc</filename>, <filename>/dev</filename>.
           </para>
         </listitem>
 
         <listitem>
           <para>
-            Units written by generators are removed when configuration
+            Units written by generators are removed when the configuration
             is reloaded. That means the lifetime of the generated
             units is closely bound to the reload cycles of
             <command>systemd</command> itself.
@@ -187,9 +187,9 @@
           <para>
             Generators should only be used to generate unit files, not
             any other kind of configuration. Due to the lifecycle
-            logic mentioned above generators are not a good fit to
+            logic mentioned above, generators are not a good fit to
             generate dynamic configuration for other services. If you
-            need to generate dynamic configuration for other services
+            need to generate dynamic configuration for other services,
             do so in normal services you order before the service in
             question.
           </para>
@@ -199,7 +199,7 @@
           <para>
             Since
             <citerefentry project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-            is not available (see above) log messages have to be
+            is not available (see above), log messages have to be
             written to <filename>/dev/kmsg</filename> instead.
           </para>
         </listitem>
@@ -221,19 +221,19 @@
             Generators may write out dynamic unit files or just hook
             unit files into other units with the usual
             <filename>.wants/</filename> or
-            <filename>.requires/</filename> symlinks. Often it is
+            <filename>.requires/</filename> symlinks. Often, it is
             nicer to simply instantiate a template unit file from
             <filename>/usr</filename> with a generator instead of
-            writing out entirely dynamic unit files. Of course this
+            writing out entirely dynamic unit files. Of course, this
             works only if a single parameter is to be used.
           </para>
         </listitem>
 
         <listitem>
           <para>
-            If you are careful you can implement generators in shell
+            If you are careful, you can implement generators in shell
             scripts. We do recommend C code however, since generators
-            delay are executed synchronously and hence delay the
+            are executed synchronously and hence delay the
             entire boot if they are slow.
           </para>
         </listitem>
@@ -269,7 +269,7 @@
           <para>
             Instead of heading off now and writing all kind of
             generators for legacy configuration file formats, please
-            think twice! It's often a better idea to just deprecate
+            think twice! It is often a better idea to just deprecate
             old stuff instead of keeping it artificially alive.
           </para>
         </listitem>
@@ -308,7 +308,7 @@
       temporarily redirects <filename>default.target</filename> to
       <filename>system-update.target</filename> if a system update is
       scheduled. Since this needs to override the default user
-      configuration for <filename>default.target</filename> it uses
+      configuration for <filename>default.target</filename>, it uses
       argv[2]. For details about this logic, see
       <ulink url="http://www.freedesktop.org/wiki/Software/systemd/SystemUpdates">Implementing
       Offline System Updates</ulink>.</para>

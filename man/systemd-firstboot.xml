@@ -80,12 +80,12 @@
       <listitem><para>The root user's password</para></listitem>
     </itemizedlist>
 
-    <para>Each of the fields may either be queried interactively from
-    the users, set non-interactively on the tool's command line, or be
+    <para>Each of the fields may either be queried interactively by
+    users, set non-interactively on the tool's command line, or be
     copied from a host system that is used to set up the system
     image.</para>
 
-    <para>If a setting is already initialized it will not be
+    <para>If a setting is already initialized, it will not be
     overwritten and the user will not be prompted for the
     setting.</para>
 
@@ -166,10 +166,10 @@
         <citerefentry project='die-net'><refentrytitle>shadow</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         file. This setting exists in two forms:
         <option>--root-password=</option> accepts the password to set
-        directly on the command line,
+        directly on the command line, and
         <option>--root-password-file=</option> reads it from a file.
-        Note that it is not recommended specifying passwords on the
-        command line as other users might be able to see them simply
+        Note that it is not recommended to specify passwords on the
+        command line, as other users might be able to see them simply
         by invoking
         <citerefentry project='die-net'><refentrytitle>ps</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para></listitem>
       </varlistentry>

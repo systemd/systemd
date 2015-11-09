@@ -552,7 +552,7 @@ int machine_kill(Machine *m, KillWho who, int signo) {
                 return 0;
         }
 
-        /* Otherwise make PID 1 do it for us, for the entire cgroup */
+        /* Otherwise, make PID 1 do it for us, for the entire cgroup */
         return manager_kill_unit(m->manager, m->unit, signo, NULL);
 }
 

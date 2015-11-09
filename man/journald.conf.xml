@@ -203,7 +203,7 @@
 
         <para><varname>SystemMaxUse=</varname> and
         <varname>RuntimeMaxUse=</varname> control how much disk space
-        the journal may use up at maximum.
+        the journal may use up at most.
         <varname>SystemKeepFree=</varname> and
         <varname>RuntimeKeepFree=</varname> control how much disk
         space systemd-journald shall leave free for other uses.
@@ -220,12 +220,12 @@
         enough free space before and journal files were created, and
         subsequently something else causes the file system to fill up,
         journald will stop using more space, but it will not be
-        removing existing files to reduce footprint again
+        removing existing files to reduce the footprint again,
         either.</para>
 
         <para><varname>SystemMaxFileSize=</varname> and
         <varname>RuntimeMaxFileSize=</varname> control how large
-        individual journal files may grow at maximum. This influences
+        individual journal files may grow at most. This influences
         the granularity in which disk space is made available through
         rotation, i.e. deletion of historic data. Defaults to one
         eighth of the values configured with
@@ -234,17 +234,17 @@
         rotated journal files are kept as history.</para>
 
         <para>Specify values in bytes or use K, M, G, T, P, E as
-        units for the specified sizes (equal to 1024, 1024²,... bytes).
+        units for the specified sizes (equal to 1024, 1024², ... bytes).
         Note that size limits are enforced synchronously when journal
         files are extended, and no explicit rotation step triggered by
         time is needed.</para>
 
         <para><varname>SystemMaxFiles=</varname> and
         <varname>RuntimeMaxFiles=</varname> control how many
-        individual journal files to keep at maximum. Note that only
+        individual journal files to keep at most. Note that only
         archived files are deleted to reduce the number of files until
         this limit is reached; active files will stay around. This
-        means that in effect there might still be more journal files
+        means that, in effect, there might still be more journal files
         around in total than this limit after a vacuuming operation is
         complete. This setting defaults to 100.</para></listitem>
       </varlistentry>
@@ -345,7 +345,7 @@
         <literal>notice</literal>,
         <literal>info</literal>,
         <literal>debug</literal>,
-        or integer values in the range of 0..7 (corresponding to the
+        or integer values in the range of 0–7 (corresponding to the
         same levels). Messages equal or below the log level specified
         are stored/forwarded, messages above are dropped. Defaults to
         <literal>debug</literal> for <varname>MaxLevelStore=</varname>
@@ -375,15 +375,15 @@
 
     <para>
       Journal events can be transferred to a different logging daemon
-      in two different ways. In the first method, messages are
+      in two different ways. With the first method, messages are
       immediately forwarded to a socket
       (<filename>/run/systemd/journal/syslog</filename>), where the
       traditional syslog daemon can read them. This method is
-      controlled by <varname>ForwardToSyslog=</varname> option.  In a
+      controlled by the <varname>ForwardToSyslog=</varname> option. With a
       second method, a syslog daemon behaves like a normal journal
       client, and reads messages from the journal files, similarly to
       <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
-      In this method, messages do not have to be read immediately,
+      With this, messages do not have to be read immediately,
       which allows a logging daemon which is only started late in boot
       to access all messages since the start of the system. In
       addition, full structured meta-data is available to it. This

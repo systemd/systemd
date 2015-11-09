@@ -129,7 +129,7 @@ IDX LINK         TYPE     OPERATIONAL SETUP
           configured DNS servers, etc.</para>
 
           <para>When no links are specified, routable links are
-          shown. See also option <option>--all</option>.</para>
+          shown. Also see the option <option>--all</option>.</para>
 
           <para>Produces output similar to
           <programlisting>

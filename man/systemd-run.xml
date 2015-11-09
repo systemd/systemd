@@ -80,7 +80,7 @@
     and thus shows up in the output of <command>systemctl
     list-units</command> like any other unit. It will run in a clean
     and detached execution environment, with the service manager as
-    its parent process. In this mode <command>systemd-run</command>
+    its parent process. In this mode, <command>systemd-run</command>
     will start the service asynchronously in the background and return
     after the command has begun execution.</para>
 
@@ -239,7 +239,7 @@
         <term><option>--pty</option></term>
         <term><option>-t</option></term>
 
-        <listitem><para>When invoking a command as service connects
+        <listitem><para>When invoking a command, the service connects
         its standard input and output to the invoking tty via a
         pseudo TTY device. This allows invoking binaries as services
         that expect interactive user input, such as interactive
@@ -355,7 +355,7 @@ Sep 08 07:37:21 bupkis env[19948]: BOOT_IMAGE=/vmlinuz-3.11.0-0.rc5.git6.2.fc20.
 
     <para>The following command invokes the
     <citerefentry project='man-pages'><refentrytitle>updatedb</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-    tool, but lowers the block IO weight for it to 10. See
+    tool, but lowers the block I/O weight for it to 10. See
     <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     for more information on the <varname>BlockIOWeight=</varname>
     property.</para>

@@ -117,7 +117,7 @@ CHANGES WITH 227:
 
         * File descriptors passed during socket activation may now be
           named. A new API sd_listen_fds_with_names() is added to
-          access the names.  The default names may be overriden,
+          access the names.  The default names may be overridden,
           either in the .socket file using the FileDescriptorName=
           parameter, or by passing FDNAME= when storing the file
           descriptors using sd_notify().
@@ -1156,7 +1156,7 @@ CHANGES WITH 218:
           another unit listed in its Also= setting might be.
 
         * Similar to the various existing ConditionXYZ= settings for
-          units there are now matching AssertXYZ= settings. While
+          units, there are now matching AssertXYZ= settings. While
           failing conditions cause a unit to be skipped, but its job
           to succeed, failing assertions declared like this will cause
           a unit start operation and its job to fail.
@@ -1164,7 +1164,7 @@ CHANGES WITH 218:
         * hostnamed now knows a new chassis type "embedded".
 
         * systemctl gained a new "edit" command. When used on a unit
-          file this allows extending unit files with .d/ drop-in
+          file, this allows extending unit files with .d/ drop-in
           configuration snippets or editing the full file (after
           copying it from /usr/lib to /etc). This will invoke the
           user's editor (as configured with $EDITOR), and reload the
@@ -1188,7 +1188,7 @@ CHANGES WITH 218:
           inhibitors.
 
         * Scope and service units gained a new "Delegate" boolean
-          property, which when set allows processes running inside the
+          property, which, when set, allows processes running inside the
           unit to further partition resources. This is primarily
           useful for systemd user instances as well as container
           managers.
@@ -1198,7 +1198,7 @@ CHANGES WITH 218:
           audit fields are split up and fully indexed. This means that
           journalctl in many ways is now a (nicer!) alternative to
           ausearch, the traditional audit client. Note that this
-          implements only a minimal audit client, if you want the
+          implements only a minimal audit client. If you want the
           special audit modes like reboot-on-log-overflow, please use
           the traditional auditd instead, which can be used in
           parallel to journald.
@@ -1209,7 +1209,7 @@ CHANGES WITH 218:
 
         * journalctl gained two new commands --vacuum-size= and
           --vacuum-time= to delete old journal files until the
-          remaining ones take up no more the specified size on disk,
+          remaining ones take up no more than the specified size on disk,
           or are not older than the specified time.
 
         * A new, native PPPoE library has been added to sd-network,
@@ -1262,9 +1262,9 @@ CHANGES WITH 218:
           will spew out warnings if the compilation fails. This
           requires libxkbcommon to be installed.
 
-        * When a coredump is collected a larger number of metadata
+        * When a coredump is collected, a larger number of metadata
           fields is now collected and included in the journal records
-          created for it. More specifically control group membership,
+          created for it. More specifically, control group membership,
           environment variables, memory maps, working directory,
           chroot directory, /proc/$PID/status, and a list of open file
           descriptors is now stored in the log entry.
@@ -1303,7 +1303,7 @@ CHANGES WITH 218:
           a fixed machine ID for subsequent boots.
 
         * networkd's .netdev files now provide a large set of
-          configuration parameters for VXLAN devices. Similar, the
+          configuration parameters for VXLAN devices. Similarly, the
           bridge port cost parameter is now configurable in .network
           files. There's also new support for configuring IP source
           routing. networkd .link files gained support for a new
@@ -1636,7 +1636,7 @@ CHANGES WITH 216:
 
         * .socket units gained a new DeferAcceptSec= setting that
           controls the kernels' TCP_DEFER_ACCEPT sockopt for
-          TCP. Similar, support for controlling TCP keep-alive
+          TCP. Similarly, support for controlling TCP keep-alive
           settings has been added (KeepAliveTimeSec=,
           KeepAliveIntervalSec=, KeepAliveProbes=). Also, support for
           turning off Nagle's algorithm on TCP has been added
@@ -1852,7 +1852,7 @@ CHANGES WITH 215:
         * tmpfiles learnt a new "L+" directive which creates a symlink
           but (unlike "L") deletes a pre-existing file first, should
           it already exist and not already be the correct
-          symlink. Similar, "b+", "c+" and "p+" directives have been
+          symlink. Similarly, "b+", "c+" and "p+" directives have been
           added as well, which create block and character devices, as
           well as fifos in the filesystem, possibly removing any
           pre-existing files of different types.
@@ -1934,8 +1934,8 @@ CHANGES WITH 215:
           open_by_handle_at() is now prohibited for containers,
           closing a hole similar to a recently discussed vulnerability
           in docker regarding access to files on file hierarchies the
-          container should normally not have access to. Note that for
-          nspawn we generally make no security claims anyway (and
+          container should normally not have access to. Note that, for
+          nspawn, we generally make no security claims anyway (and
           this is explicitly documented in the man page), so this is
           just a fix for one of the most obvious problems.
 
@@ -2035,14 +2035,14 @@ CHANGES WITH 214:
           CAP_NET_BROADCAST, CAP_NET_RAW capabilities though, but
           loses the ability to write to files owned by root this way.
 
-        * Similar, systemd-resolved now runs under its own
+        * Similarly, systemd-resolved now runs under its own
           "systemd-resolve" user with no capabilities remaining.
 
-        * Similar, systemd-bus-proxyd now runs under its own
+        * Similarly, systemd-bus-proxyd now runs under its own
           "systemd-bus-proxy" user with only CAP_IPC_OWNER remaining.
 
         * systemd-networkd gained support for setting up "veth"
-          virtual ethernet devices for container connectivity, as well
+          virtual Ethernet devices for container connectivity, as well
           as GRE and VTI tunnels.
 
         * systemd-networkd will no longer automatically attempt to
@@ -2744,7 +2744,7 @@ CHANGES WITH 209:
         * The configuration of network interface naming rules for
           "permanent interface names" has changed: a new NamePolicy=
           setting in the [Link] section of .link files determines the
-          priority of possible naming schemes (onboard, slot, mac,
+          priority of possible naming schemes (onboard, slot, MAC,
           path). The default value of this setting is determined by
           /usr/lib/net/links/99-default.link. Old
           80-net-name-slot.rules udev configuration file has been
@@ -4274,8 +4274,8 @@ CHANGES WITH 197:
           devices as seat masters, i.e. as devices that are required
           to be existing before a seat is considered preset. Instead,
           it will now look for all devices that are tagged as
-          "seat-master" in udev. By default framebuffer devices will
-          be marked as such, but depending on local systems other
+          "seat-master" in udev. By default, framebuffer devices will
+          be marked as such, but depending on local systems, other
           devices might be marked as well. This may be used to
           integrate graphics cards using closed source drivers (such
           as NVidia ones) more nicely into logind. Note however, that
@@ -5315,7 +5315,7 @@ CHANGES WITH 44:
 
         * Reorder configuration file lookup order. /etc now always
           overrides /run in order to allow the administrator to always
-          and unconditionally override vendor supplied or
+          and unconditionally override vendor-supplied or
           automatically generated data.
 
         * The various user visible bits of the journal now have man

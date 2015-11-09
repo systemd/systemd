@@ -58,8 +58,8 @@
 
     <para><command>nss-mymachines</command> is a plugin for the GNU
     Name Service Switch (NSS) functionality of the GNU C Library
-    (<command>glibc</command>) providing hostname resolution for
-    container names of containers running locally, that are registered
+    (<command>glibc</command>), providing hostname resolution for
+    container names of containers running locally that are registered
     with
     <citerefentry><refentrytitle>systemd-machined.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
     The container names are resolved to the IP addresses of the
@@ -76,16 +76,16 @@
 
     <para>It is recommended to place <literal>mymachines</literal>
     near the end of the <filename>nsswitch.conf</filename> lines to
-    make sure that its mappings are only used as fallback, and any
+    make sure that its mappings are only used as fallback, and that any
     other mappings, such as DNS or <filename>/etc/hosts</filename>
-    based mappings take precedence.</para>
+    based mappings, take precedence.</para>
   </refsect1>
 
   <refsect1>
     <title>Example</title>
 
-    <para>Here's an example <filename>/etc/nsswitch.conf</filename>
-    file, that enables <command>mymachines</command> correctly:</para>
+    <para>Here is an example <filename>/etc/nsswitch.conf</filename>
+    file that enables <command>mymachines</command> correctly:</para>
 
     <programlisting>passwd:         compat <command>mymachines</command>
 group:          compat <command>mymachines</command>

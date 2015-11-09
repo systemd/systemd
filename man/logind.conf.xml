@@ -255,8 +255,8 @@
 
         <listitem><para>Specifies the timeout after system startup or
         system resume in which systemd will hold off on reacting to
-        LID events. This is required for the system to properly
-        detect any hotplugged devices so systemd can ignore LID events
+        lid events. This is required for the system to properly
+        detect any hotplugged devices so systemd can ignore lid events
         if external monitors, or docks, are connected. If set to 0,
         systemd will always react immediately, possibly before the
         kernel fully probed all hotplugged devices. This is safe, as

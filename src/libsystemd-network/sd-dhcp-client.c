@@ -1517,7 +1517,7 @@ static int client_receive_message_udp(sd_event_source *s, int fd,
                 expected_hlen = ETH_ALEN;
                 expected_chaddr = (const struct ether_addr *) &client->mac_addr;
         } else {
-               /* Non-ethernet links expect zero chaddr */
+               /* Non-Ethernet links expect zero chaddr */
                expected_hlen = 0;
                expected_chaddr = &zero_mac;
         }

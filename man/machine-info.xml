@@ -124,7 +124,7 @@
         <literal>tablet</literal>,
         <literal>handset</literal>,
         <literal>watch</literal>, and
-        <literal>embedded</literal>
+        <literal>embedded</literal>,
         as well as the special chassis types
         <literal>vm</literal> and
         <literal>container</literal> for

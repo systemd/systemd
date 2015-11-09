@@ -117,11 +117,11 @@
   <refsect1>
     <title>Parsing Timestamps</title>
 
-    <para>When parsing systemd will accept a similar syntax, but
+    <para>When parsing, systemd will accept a similar syntax, but
     expects no timezone specification, unless it is given as the
-    literal string "UTC". In this case the time is considered in UTC,
+    literal string "UTC". In this case, the time is considered in UTC,
     otherwise in the local timezone. The weekday specification is
-    optional, but when the weekday is specified it must either be in
+    optional, but when the weekday is specified, it must either be in
     the abbreviated (<literal>Wed</literal>) or non-abbreviated
     (<literal>Wednesday</literal>) English language form (case does
     not matter), and is not subject to the locale choice of the user.
@@ -139,8 +139,8 @@
     placeholders instead of timestamps: <literal>now</literal> may be
     used to refer to the current time (or of the invocation of the
     command that is currently executed). <literal>today</literal>,
-    <literal>yesterday</literal>, <literal>tomorrow</literal> refer to
-    00:00:00 of the current day, the day before or the next day,
+    <literal>yesterday</literal>, and <literal>tomorrow</literal> refer to
+    00:00:00 of the current day, the day before, or the next day,
     respectively.</para>
 
     <para>When parsing, systemd will also accept relative time
@@ -185,7 +185,7 @@
     <para>Note that timestamps printed by systemd will not be parsed
     correctly by systemd, as the timezone specification is not
     accepted, and printing timestamps is subject to locale settings
-    for the weekday while parsing only accepts English weekday
+    for the weekday, while parsing only accepts English weekday
     names.</para>
 
     <para>In some cases, systemd will display a relative timestamp
@@ -252,7 +252,7 @@
     <literal>Mon *-*-* 00:00:00</literal>,
     <literal>*-01-01 00:00:00</literal>,
     <literal>*-01,04,07,10-01 00:00:00</literal> and
-    <literal>*-01,07-01 00:00:00</literal> respectively.
+    <literal>*-01,07-01 00:00:00</literal>, respectively.
     </para>
 
     <para>Examples for valid timestamps and their

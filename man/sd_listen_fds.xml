@@ -76,7 +76,7 @@
     daemon to check for file descriptors passed by the service manager as
     part of the socket-based activation logic. It returns the number
     of received file descriptors. If no file descriptors have been
-    received zero is returned. The first file descriptor may be found
+    received, zero is returned. The first file descriptor may be found
     at file descriptor number 3
     (i.e. <constant>SD_LISTEN_FDS_START</constant>), the remaining
     descriptors follow at 4, 5, 6, ..., if any.</para>
@@ -104,7 +104,7 @@
     passed file descriptors to avoid further inheritance to children
     of the calling process.</para>
 
-    <para>If multiple socket units activate the same service the order
+    <para>If multiple socket units activate the same service, the order
     of the file descriptors passed to its main process is undefined.
     If additional file descriptors have been passed to the service
     manager using
@@ -123,9 +123,9 @@
     variables are no longer inherited by child processes.</para>
 
     <para><function>sd_listen_fds_with_names()</function> is like
-    <function>sd_listen_fds()</function> but optionally also returns
+    <function>sd_listen_fds()</function>, but optionally also returns
     an array of strings with identification names for the passed file
-    descriptors, if that is available, and the
+    descriptors, if that is available and the
     <parameter>names</parameter> parameter is non-NULL. This
     information is read from the <varname>$LISTEN_FDNAMES</varname>
     variable, which may contain a colon-separated list of names. For
@@ -134,7 +134,7 @@
     files, see
     <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     for details. For file descriptors pushed into the file descriptor
-    store (see above) the name is set via the
+    store (see above), the name is set via the
     <varname>FDNAME=</varname> field transmitted via
     <function>sd_pid_notify_with_fds()</function>. The primary usecase
     for these names are services which accept a variety of file
@@ -145,14 +145,14 @@
     <function>sd_is_socket()</function> and related calls is not
     sufficient. Note that the names used are not unique in any
     way. The returned array of strings has as many entries as file
-    descriptors has been received, plus a final NULL pointer
+    descriptors have been received, plus a final NULL pointer
     terminating the array. The caller needs to free the array itself
     and each of its elements with libc's <function>free()</function>
     call after use. If the <parameter>names</parameter> parameter is
-    NULL the call is entirely equivalent to
+    NULL, the call is entirely equivalent to
     <function>sd_listen_fds()</function>.</para>
 
-    <para>Under specific conditions the following automatic file
+    <para>Under specific conditions, the following automatic file
     descriptor names are returned:
 
     <table>

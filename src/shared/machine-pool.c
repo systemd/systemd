@@ -378,7 +378,7 @@ int grow_machine_directory(void) {
         if (b.f_bavail > b.f_blocks / 3)
                 return 0;
 
-        /* Calculate how much we are willing to add at maximum */
+        /* Calculate how much we are willing to add at most */
         max_add = ((uint64_t) a.f_bavail * (uint64_t) a.f_bsize) - VAR_LIB_MACHINES_FREE_MIN;
 
         /* Calculate the old size */

@@ -176,7 +176,7 @@
     not all processes are part of a login session (e.g. system service
     processes, user processes that are shared between multiple
     sessions of the same user, or kernel threads). For processes not
-    being part of a login session this function will fail with
+    being part of a login session, this function will fail with
     -ENODATA. The returned string needs to be freed with the libc
     <citerefentry
     project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
@@ -188,8 +188,8 @@
     unit name is a short string, suitable for usage in file system
     paths. Note that not all processes are part of a system
     unit/service (e.g. user processes, or kernel threads). For
-    processes not being part of a systemd system unit this function
-    will fail with -ENODATA (More specifically: this call will not
+    processes not being part of a systemd system unit, this function
+    will fail with -ENODATA. (More specifically, this call will not
     work for kernel threads.) The returned string needs to be freed
     with the libc <citerefentry
     project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
@@ -198,17 +198,17 @@
     <para><function>sd_pid_get_user_unit()</function> may be used to
     determine the systemd user unit (i.e. user service or scope unit)
     identifier of a process identified by the specified PID. This is
-    similar to <function>sd_pid_get_unit()</function> but applies to
+    similar to <function>sd_pid_get_unit()</function>, but applies to
     user units instead of system units.</para>
 
     <para><function>sd_pid_get_owner_uid()</function> may be used to
     determine the Unix UID (user identifier) of the owner of the
     session of a process identified the specified PID. Note that this
     function will succeed for user processes which are shared between
-    multiple login sessions of the same user, where
+    multiple login sessions of the same user, whereas
     <function>sd_pid_get_session()</function> will fail. For processes
     not being part of a login session and not being a shared process
-    of a user this function will fail with -ENODATA.</para>
+    of a user, this function will fail with -ENODATA.</para>
 
     <para><function>sd_pid_get_machine_name()</function> may be used
     to determine the name of the VM or container is a member of. The
@@ -216,7 +216,7 @@
     paths. The returned string needs to be freed with the libc
     <citerefentry
     project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-    call after use. For processes not part of a VM or containers this
+    call after use. For processes not part of a VM or containers, this
     function fails with -ENODATA.</para>
 
     <para><function>sd_pid_get_slice()</function> may be used to
@@ -227,7 +227,7 @@
     <citerefentry project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     call after use.</para>
 
-    <para>Similar, <function>sd_pid_get_user_slice()</function>
+    <para>Similarly, <function>sd_pid_get_user_slice()</function>
     returns the user slice (as managed by the user's systemd instance)
     of a process.</para>
 
@@ -235,7 +235,7 @@
     group path of the specified process, relative to the root of the
     hierarchy. Returns the path without trailing slash, except for
     processes located in the root control group, where "/" is
-    returned. To find the actual control group path in the file system
+    returned. To find the actual control group path in the file system,
     the returned path needs to be prefixed with
     <filename>/sys/fs/cgroup/</filename> (if the unified control group
     setup is used), or
@@ -294,7 +294,7 @@
       <varlistentry>
         <term><constant>-ENODATA</constant></term>
 
-        <listitem><para>Given field is not specified for the described
+        <listitem><para>The given field is not specified for the described
         process or peer.</para>
         </listitem>
       </varlistentry>
@@ -303,7 +303,7 @@
         <term><constant>-EINVAL</constant></term>
 
         <listitem><para>An input parameter was invalid (out of range,
-        or NULL, where that's not accepted).</para></listitem>
+        or NULL, where that is not accepted).</para></listitem>
       </varlistentry>
 
       <varlistentry>

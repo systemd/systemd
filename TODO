@@ -876,7 +876,7 @@ Features:
    - add Scope= parsing option for [Network]
    - properly handle routerless dhcp leases
    - add more attribute support for SIT tunnel
-   - work with non-ethernet devices
+   - work with non-Ethernet devices
    - add support for more bond options
 
 * networkd-wait-online:

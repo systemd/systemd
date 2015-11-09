@@ -84,7 +84,7 @@
     or a related call, and then start the connection with
     <citerefentry><refentrytitle>sd_bus_start</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
 
-    <para>In most cases it's a better idea to invoke
+    <para>In most cases, it is a better idea to invoke
     <citerefentry><refentrytitle>sd_bus_default_user</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
     <citerefentry><refentrytitle>sd_bus_default_system</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     or related calls instead of the more low-level

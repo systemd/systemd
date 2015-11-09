@@ -186,8 +186,8 @@
     be parsed after the file itself is parsed. This is useful to alter
     or add configuration settings to a unit, without having to modify
     their unit files. Make sure that the file that is included has the
-    appropriate section headers before any directive. Note that for
-    instanced units this logic will first look for the instance
+    appropriate section headers before any directive. Note that, for
+    instanced units, this logic will first look for the instance
     <literal>.d/</literal> subdirectory and read its
     <literal>.conf</literal> files, followed by the template
     <literal>.d/</literal> subdirectory and reads its
@@ -209,7 +209,7 @@
     device node <filename noindex='true'>/dev/sda</filename> in the
     file system namespace. If this applies, a special way to escape
     the path name is used, so that the result is usable as part of a
-    filename. Basically, given a path, "/" is replaced by "-" and all
+    filename. Basically, given a path, "/" is replaced by "-", and all
     other characters which are not ASCII alphanumerics are replaced by
     C-style "\x2d" escapes (except that "_" is never replaced and "."
     is only replaced when it would be the first character in the
@@ -363,7 +363,7 @@
   <refsect1>
     <title>[Unit] Section Options</title>
 
-    <para>Unit file may include a [Unit] section, which carries
+    <para>The unit file may include a [Unit] section, which carries
     generic information about the unit that is not dependent on the
     type of unit:</para>
 
@@ -422,7 +422,7 @@
         with <varname>After=</varname> or <varname>Before=</varname>,
         then both units will be started simultaneously and without any
         delay between them if <filename>foo.service</filename> is
-        activated. Often it is a better choice to use
+        activated. Often, it is a better choice to use
         <varname>Wants=</varname> instead of
         <varname>Requires=</varname> in order to achieve a system that
         is more robust when dealing with failing services.</para>
@@ -430,7 +430,7 @@
         <para>Note that dependencies of this type may also be
         configured outside of the unit configuration file by adding a
         symlink to a <filename>.requires/</filename> directory
-        accompanying the unit file. For details see
+        accompanying the unit file. For details, see
         above.</para></listitem>
       </varlistentry>
 
@@ -666,7 +666,7 @@
 
         <listitem><para>Takes a boolean argument. If
         <option>true</option>, this unit will be stopped when it is no
-        longer used. Note that in order to minimize the work to be
+        longer used. Note that, in order to minimize the work to be
         executed, systemd will not stop units by default unless they
         are conflicting with other units, or the user explicitly
         requested their shut down. If this option is set, a unit will
@@ -728,7 +728,7 @@
         <term><varname>JobTimeoutAction=</varname></term>
         <term><varname>JobTimeoutRebootArgument=</varname></term>
 
-        <listitem><para>When a job for this unit is queued a time-out
+        <listitem><para>When a job for this unit is queued, a time-out
         may be configured. If this time limit is reached, the job will
         be cancelled, the unit however will not change state or even
         enter the <literal>failed</literal> mode. This value defaults
@@ -779,8 +779,8 @@
         <term><varname>ConditionFileNotEmpty=</varname></term>
         <term><varname>ConditionFileIsExecutable=</varname></term>
 
-        <!-- We don't document ConditionNull=
-             here as it is not particularly
+        <!-- We do not document ConditionNull=
+             here, as it is not particularly
              useful and probably just
              confusing. -->
 
@@ -886,7 +886,7 @@
 
         <para><varname>ConditionSecurity=</varname> may be used to
         check whether the given security module is enabled on the
-        system. Currently the recognized values values are
+        system. Currently, the recognized values values are
         <varname>selinux</varname>,
         <varname>apparmor</varname>,
         <varname>ima</varname>,
@@ -1026,10 +1026,10 @@
 
         <listitem><para>Similar to the
         <varname>ConditionArchitecture=</varname>,
-        <varname>ConditionVirtualization=</varname>, ... condition
-        settings described above these settings add assertion checks
+        <varname>ConditionVirtualization=</varname>, etc., condition
+        settings described above, these settings add assertion checks
         to the start-up of the unit. However, unlike the conditions
-        settings any assertion setting that is not met results in
+        settings, any assertion setting that is not met results in
         failure of the start job it was triggered
         by.</para></listitem>
       </varlistentry>

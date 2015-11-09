@@ -42,7 +42,7 @@
 
   <refnamediv>
     <refname>systemd-machine-id-commit.service</refname>
-    <refpurpose>Commit a transient machine-id to disk</refpurpose>
+    <refpurpose>Commit a transient machine ID to disk</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -53,7 +53,7 @@
     <title>Description</title>
 
     <para><filename>systemd-machine-id-commit.service</filename> is an
-    early-boot service responsible for committing transient
+    early boot service responsible for committing transient
     <filename>/etc/machine-id</filename> files to a writable disk file
     system. See
     <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>
@@ -74,7 +74,7 @@
 
     <para>The main use case of this service are systems where
     <filename>/etc/machine-id</filename> is read-only and initially
-    not initialized. In this case the system manager will generate a
+    not initialized. In this case, the system manager will generate a
     transient machine ID file on a memory file system, and mount it
     over <filename>/etc/machine-id</filename>, during the early boot
     phase. This service is then invoked in a later boot phase, as soon

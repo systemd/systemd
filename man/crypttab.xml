@@ -160,10 +160,10 @@
         at the beginning. This is different from the <option>--offset</option>
         option with respect to the sector numbers used in initialization vector
         (IV) calculation. Using <option>--offset</option> will shift the IV
-        calculation by the same negative amount.  Hence, if <option>--offset n</option>,
+        calculation by the same negative amount.  Hence, if <option>--offset n</option> is given,
         sector n will  get a sector number of 0 for the IV calculation.
         Using <option>--skip</option> causes sector n to also be the first
-        sector of the mapped device, but with its number for IV generation is n.</para>
+        sector of the mapped device, but with its number for IV generation being n.</para>
 
         <para>This option is only relevant for plain devices.</para>
         </listitem>

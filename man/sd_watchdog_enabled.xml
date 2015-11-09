@@ -157,7 +157,7 @@
     systemd-41.</para>
 
     <para><function>sd_watchdog_enabled()</function> function was
-    added in systemd-209. Since that version the
+    added in systemd-209. Since that version, the
     <varname>$WATCHDOG_PID</varname> variable is also set.</para>
   </refsect1>
 

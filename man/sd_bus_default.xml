@@ -112,7 +112,7 @@
     connection object to the user bus when invoked in user context, or
     to the system bus otherwise. The connection object is associated
     with the calling thread. Each time the function is invoked from
-    the same thread the same object is returned, but its reference
+    the same thread, the same object is returned, but its reference
     count is increased by one, as long as at least one reference is
     kept. When the last reference to the connection is dropped (using
     the
@@ -120,8 +120,8 @@
     call), the connection is terminated. Note that the connection is
     not automatically terminated when the associated thread ends. It
     is important to drop the last reference to the bus connection
-    explicitly before the thread ends or otherwise the connection will
-    be leaked. Also, queued but unread or unwritten messages keep the
+    explicitly before the thread ends, as otherwise, the connection will
+    leak. Also, queued but unread or unwritten messages keep the
     bus referenced, see below.</para>
 
     <para><function>sd_bus_default_user()</function> returns a user
@@ -139,14 +139,14 @@
     <function>sd_bus_open_system()</function> does the same, but
     connects to the system bus. In contrast to
     <function>sd_bus_default()</function>,
-    <function>sd_bus_default_user()</function>,
-    <function>sd_bus_default_system()</function> these calls return
+    <function>sd_bus_default_user()</function>, and
+    <function>sd_bus_default_system()</function>, these calls return
     new, independent connection objects that are not associated with
     the invoking thread and are not shared between multiple
     invocations. It is recommended to share connections per thread to
     efficiently make use the available resources. Thus, it is
     recommended to use <function>sd_bus_default()</function>,
-    <function>sd_bus_default_user()</function>,
+    <function>sd_bus_default_user()</function> and
     <function>sd_bus_default_system()</function> to connect to the
     user or system buses.</para>
 
@@ -215,31 +215,31 @@
 
     <para>Queued but unwritten/unread messages also keep a reference
     to their bus connection object. For this reason, even if an
-    application dropped all references to a bus connection it might
-    not get destroyed right-away. Until all incoming queued
+    application dropped all references to a bus connection, it might
+    not get destroyed right away. Until all incoming queued
     messages are read, and until all outgoing unwritten messages are
     written, the bus object will stay
     alive. <function>sd_bus_flush()</function> may be used to write
     all outgoing queued messages so they drop their references. To
-    flush the unread incoming messages use
+    flush the unread incoming messages, use
     <function>sd_bus_close()</function>, which will also close the bus
-    connection. When using the default bus logic it is a good idea to
+    connection. When using the default bus logic, it is a good idea to
     first invoke <function>sd_bus_flush()</function> followed by
     <function>sd_bus_close()</function> when a thread or process
     terminates, and thus its bus connection object should be
     freed.</para>
 
-    <para>The life-cycle of the default bus connection should be the
+    <para>The life cycle of the default bus connection should be the
     responsibility of the code that creates/owns the thread the
     default bus connection object is associated with. Library code
     should neither call <function>sd_bus_flush()</function> nor
     <function>sd_bus_close()</function> on default bus objects unless
     it does so in its own private, self-allocated thread. Library code
     should not use the default bus object in other threads unless it
-    is clear that the program using it will life-cycle the bus
+    is clear that the program using it will life cycle the bus
     connection object and flush and close it before exiting from the
     thread. In libraries where it is not clear that the calling
-    program will life-cycle the bus connection object it is hence
+    program will life cycle the bus connection object, it is hence
     recommended to use <function>sd_bus_open_system()</function>
     instead of <function>sd_bus_default_system()</function> and
     related calls.</para>

@@ -55,7 +55,7 @@
     <title>Description</title>
 
     <para><filename>systemd-random-seed.service</filename> is a
-    service that restores the random seed of the system at early-boot
+    service that restores the random seed of the system at early boot
     and saves it at shutdown. See
     <citerefentry><refentrytitle>random</refentrytitle><manvolnum>4</manvolnum></citerefentry>
     for details. Saving/restoring the random seed across boots

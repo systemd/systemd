@@ -244,7 +244,7 @@ systemd-tmpfiles --create --prefix /var/log/journal</programlisting>
 
         <listitem><para>Sockets and other paths that
         <command>systemd-journald</command> will listen on that are
-        visible in the file system. In addition to those, journald can
+        visible in the file system. In addition to these, journald can
         listen for audit events using netlink.</para></listitem>
       </varlistentry>
     </variablelist>

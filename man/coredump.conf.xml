@@ -98,7 +98,7 @@
         <term><varname>Compress=</varname></term>
 
         <listitem><para>Controls compression for external
-        storage. Takes a boolean argument, defaults to
+        storage. Takes a boolean argument, which defaults to
         <literal>yes</literal>.</para>
         </listitem>
       </varlistentry>
@@ -135,7 +135,7 @@
         coredumps are processed. Note that old coredumps are also
         removed based on time via
         <citerefentry><refentrytitle>systemd-tmpfiles</refentrytitle><manvolnum>8</manvolnum></citerefentry>. Set
-        either value to 0 to turn off size based
+        either value to 0 to turn off size-based
         clean-up.</para></listitem>
       </varlistentry>
     </variablelist>

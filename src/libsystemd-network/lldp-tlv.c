@@ -278,7 +278,7 @@ int tlv_packet_parse_pdu(tlv_packet *m, uint16_t size) {
 
         p = m->pdu;
 
-        /* extract ethernet header */
+        /* extract Ethernet header */
         memcpy(&m->mac, p, ETH_ALEN);
         p += sizeof(struct ether_header);
 

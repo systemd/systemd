@@ -420,7 +420,7 @@ int acquire_terminal(
 
                 assert_se(sigaction(SIGHUP, &sa_old, NULL) == 0);
 
-                /* Sometimes it makes sense to ignore TIOCSCTTY
+                /* Sometimes, it makes sense to ignore TIOCSCTTY
                  * returning EPERM, i.e. when very likely we already
                  * are have this controlling terminal. */
                 if (r < 0 && r == -EPERM && ignore_tiocstty_eperm)

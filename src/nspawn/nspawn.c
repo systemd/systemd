@@ -210,10 +210,10 @@ static void help(void) {
                "     --network-ipvlan=INTERFACE\n"
                "                            Create a ipvlan network interface based on an\n"
                "                            existing network interface to the container\n"
-               "  -n --network-veth         Add a virtual ethernet connection between host\n"
+               "  -n --network-veth         Add a virtual Ethernet connection between host\n"
                "                            and container\n"
                "     --network-bridge=INTERFACE\n"
-               "                            Add a virtual ethernet connection between host\n"
+               "                            Add a virtual Ethernet connection between host\n"
                "                            and container and add it to an existing bridge on\n"
                "                            the host\n"
                "  -p --port=[PROTOCOL:]HOSTPORT[:CONTAINERPORT]\n"
@@ -2836,7 +2836,7 @@ static int load_settings(void) {
                         p = j;
                         j = NULL;
 
-                        /* By default we trust configuration from /etc and /run */
+                        /* By default, we trust configuration from /etc and /run */
                         if (arg_settings_trusted < 0)
                                 arg_settings_trusted = true;
 
@@ -2866,7 +2866,7 @@ static int load_settings(void) {
                         if (!f && errno != ENOENT)
                                 return log_error_errno(errno, "Failed to open %s: %m", p);
 
-                        /* By default we do not trust configuration from /var/lib/machines */
+                        /* By default, we do not trust configuration from /var/lib/machines */
                         if (arg_settings_trusted < 0)
                                 arg_settings_trusted = false;
                 }

@@ -655,7 +655,7 @@ static char *do_escape_mangle(const char *f, UnitNameMangle allow_globs, char *t
  *  /blah/blah is converted to blah-blah.mount, anything else is left alone,
  *  except that @suffix is appended if a valid unit suffix is not present.
  *
- *  If @allow_globs, globs characters are preserved. Otherwise they are escaped.
+ *  If @allow_globs, globs characters are preserved. Otherwise, they are escaped.
  */
 int unit_name_mangle_with_suffix(const char *name, UnitNameMangle allow_globs, const char *suffix, char **ret) {
         char *s, *t;

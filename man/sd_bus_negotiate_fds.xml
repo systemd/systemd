@@ -108,7 +108,7 @@
     <citerefentry><refentrytitle>sd_bus_message_get_realtime_usec</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
     <citerefentry><refentrytitle>sd_bus_message_get_seqnum</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     to query the timestamps of incoming messages. If negotiation is
-    disabled or not supported these calls will fail with
+    disabled or not supported, these calls will fail with
     <constant>-ENODATA</constant>. Note that not all transports
     support timestamping of messages. Specifically, timestamping is
     only available on the kdbus transport, but not on dbus1. The
@@ -118,7 +118,7 @@
 
     <para><function>sd_bus_negotiate_creds()</function> controls
     whether and which implicit sender credentials shall be attached
-    automatically to all incoming messages. Takes a bus object, a
+    automatically to all incoming messages. Takes a bus object and a
     boolean indicating whether to enable or disable the credential
     parts encoded in the bit mask value argument. Note that not all
     transports support attaching sender credentials to messages, or do
@@ -140,10 +140,10 @@
     <citerefentry><refentrytitle>sd_bus_start</refentrytitle><manvolnum>3</manvolnum></citerefentry>. Both
     <function>sd_bus_negotiate_timestamp()</function> and
     <function>sd_bus_negotiate_creds()</function> may also be called
-    after a connection has been set up. Note that when operating on a
+    after a connection has been set up. Note that, when operating on a
     connection that is shared between multiple components of the same
     program (for example via
-    <citerefentry><refentrytitle>sd_bus_default</refentrytitle><manvolnum>3</manvolnum></citerefentry>)
+    <citerefentry><refentrytitle>sd_bus_default</refentrytitle><manvolnum>3</manvolnum></citerefentry>),
     it is highly recommended to only enable additional per message
     metadata fields, but never disable them again, in order not to
     disable functionality needed by other components.</para>

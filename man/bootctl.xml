@@ -68,14 +68,14 @@
     system.</para>
 
     <para><command>bootctl status</command> checks and prints the
-    currently installed versions of the boot loader binaries and the
+    currently installed versions of the boot loader binaries and
     all current EFI boot variables.</para>
 
     <para><command>bootctl update</command> updates all installed
     versions of systemd-boot, if the current version is newer than the
     version installed in the EFI system partition. This also includes
     the EFI default/fallback loader at /EFI/Boot/boot*.efi. A
-    systemd-boot entry in the EFI boot variables is created, if there
+    systemd-boot entry in the EFI boot variables is created if there
     is no current entry. The created entry will be added to the end of
     the boot order list.</para>
 
@@ -89,7 +89,7 @@
     versions of systemd-boot from the EFI system partition, and removes
     systemd-boot from the EFI boot variables.</para>
 
-    <para>If no command is passed <command>status</command> is
+    <para>If no command is passed, <command>status</command> is
     implied.</para>
   </refsect1>
 
@@ -114,7 +114,7 @@
 
   <refsect1>
     <title>Exit status</title>
-    <para>On success 0 is returned, a non-zero failure
+    <para>On success, 0 is returned, a non-zero failure
     code otherwise.</para>
   </refsect1>
 

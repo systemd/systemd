@@ -1206,7 +1206,7 @@ static Unit *swap_following(Unit *u) {
                 if (other->from_fragment)
                         return UNIT(other);
 
-        /* Otherwise make everybody follow the unit that's named after
+        /* Otherwise, make everybody follow the unit that's named after
          * the swap device in the kernel */
 
         if (streq_ptr(s->what, s->devnode))

@@ -47,7 +47,7 @@
     <refname>sd_event_prepare</refname>
     <refname>sd_event_dispatch</refname>
 
-    <refpurpose>Run parts of libsystemd event loop</refpurpose>
+    <refpurpose>Run parts of the libsystemd event loop</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -123,8 +123,8 @@
              └──────────┘
     </programlisting>
 
-    <para>All three functions as the first argument take the event
-    loop object <parameter>event</parameter> that is created with with
+    <para>All three functions take, as the first argument, the event
+    loop object <parameter>event</parameter> that is created with
     <function>sd_event_new</function>. The timeout for
     <function>sd_event_wait</function> is specified with
     <parameter>timeout</parameter> in milliseconds.
@@ -138,11 +138,11 @@
     <para>On success, these functions return 0 or a positive integer.
     On failure, they return a negative errno-style error code. In case
     of <function>sd_event_prepare</function> and
-    <function>sd_event_wait</function> a positive value means that
+    <function>sd_event_wait</function>, a positive value means that
     events are ready to be processed and 0 means that no events are
-    ready. In case of <function>sd_event_dispatch</function> a
+    ready. In case of <function>sd_event_dispatch</function>, a
     positive value means that the loop is again in the initial state
-    and 0 means the loop is finished. For any of those functions, a
+    and 0 means the loop is finished. For any of these functions, a
     negative return value means the loop must be aborted.</para>
   </refsect1>
 
@@ -155,7 +155,7 @@
       <varlistentry>
         <term><constant>-EINVAL</constant></term>
 
-        <listitem><para>Parameter <parameter>event</parameter> is
+        <listitem><para>The <parameter>event</parameter> parameter is
         <constant>NULL</constant>.</para></listitem>
       </varlistentry>
 
@@ -182,7 +182,7 @@
 
     </variablelist>
 
-    <para>Other errors are possible too.</para>
+    <para>Other errors are possible, too.</para>
   </refsect1>
 
   <refsect1>

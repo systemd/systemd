@@ -62,7 +62,7 @@
     technology and can distinguish full VM virtualization from
     container virtualization. <filename>systemd-detect-virt</filename>
     exits with a return value of 0 (success) if a virtualization
-    technology is detected, and non-zero (error) otherwise. By default
+    technology is detected, and non-zero (error) otherwise. By default,
     any type of virtualization is detected, and the options
     <option>--container</option> and <option>--vm</option> can be used
     to limit what types of virtualization are detected.</para>
@@ -207,7 +207,7 @@
 
         <listitem><para>Detect whether invoked in a
         <citerefentry><refentrytitle>chroot</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-        environment. In this mode no output is written, but the return
+        environment. In this mode, no output is written, but the return
         value indicates whether the process was invoked in a
         <function>chroot()</function>
         environment or not.</para></listitem>

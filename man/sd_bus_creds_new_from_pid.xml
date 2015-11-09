@@ -130,7 +130,7 @@
     <para><function>sd_bus_creds_new_from_pid()</function> creates a
     new credentials object and fills it with information about the
     process <parameter>pid</parameter>. The pointer to this object
-    will be stored in <parameter>ret</parameter> pointer. Note that
+    will be stored in the <parameter>ret</parameter> pointer. Note that
     credential objects may also be created and retrieved via
     <citerefentry><refentrytitle>sd_bus_get_name_creds</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
     <citerefentry><refentrytitle>sd_bus_get_owner_creds</refentrytitle><manvolnum>3</manvolnum></citerefentry>
@@ -171,11 +171,11 @@
     <constant>SD_BUS_CREDS_AUDIT_LOGIN_UID</constant>,
     <constant>SD_BUS_CREDS_TTY</constant>,
     <constant>SD_BUS_CREDS_UNIQUE_NAME</constant>,
-    <constant>SD_BUS_CREDS_WELL_KNOWN_NAMES</constant>,
+    <constant>SD_BUS_CREDS_WELL_KNOWN_NAMES</constant>, and
     <constant>SD_BUS_CREDS_DESCRIPTION</constant>. Use the special
     value <constant>_SD_BUS_CREDS_ALL</constant> to request all
     supported fields. The <constant>SD_BUS_CREDS_AUGMENT</constant>
-    may not be ORed into the mask for invocations of
+    constant may not be ORed into the mask for invocations of
     <function>sd_bus_creds_new_from_pid()</function>.</para>
 
     <para>Fields can be retrieved from the credentials object using
@@ -191,35 +191,35 @@
     subset of fields requested in <parameter>creds_mask</parameter>.
     </para>
 
-    <para>Similar to <function>sd_bus_creds_get_mask()</function> the
+    <para>Similar to <function>sd_bus_creds_get_mask()</function>, the
     function <function>sd_bus_creds_get_augmented_mask()</function>
     returns a bitmask of field constants. The mask indicates which
     credential fields have been retrieved in a non-atomic fashion. For
     credential objects created via
-    <function>sd_bus_creds_new_from_pid()</function> this mask will be
+    <function>sd_bus_creds_new_from_pid()</function>, this mask will be
     identical to the mask returned by
     <function>sd_bus_creds_get_mask()</function>. However, for
     credential objects retrieved via
-    <function>sd_bus_get_name_creds()</function> this mask will be set
+    <function>sd_bus_get_name_creds()</function>, this mask will be set
     for the credential fields that could not be determined atomically
     at peer connection time, and which were later added by reading
     augmenting credential data from
-    <filename>/proc</filename>. Similar, for credential objects
-    retrieved via <function>sd_bus_get_owner_creds()</function> the
+    <filename>/proc</filename>. Similarly, for credential objects
+    retrieved via <function>sd_bus_get_owner_creds()</function>, the
     mask is set for the fields that could not be determined atomically
-    at bus creation time, but have been augmented. Similar, for
+    at bus creation time, but have been augmented. Similarly, for
     credential objects retrieved via
-    <function>sd_bus_message_get_creds()</function> the mask is set
+    <function>sd_bus_message_get_creds()</function>, the mask is set
     for the fields that could not be determined atomically at message
-    send time, but have been augmented. The mask returned by
+    sending time, but have been augmented. The mask returned by
     <function>sd_bus_creds_get_augmented_mask()</function> is always a
     subset of (or identical to) the mask returned by
     <function>sd_bus_creds_get_mask()</function> for the same
     object. The latter call hence returns all credential fields
     available in the credential object, the former then marks the
     subset of those that have been augmented. Note that augmented
-    fields are unsuitable for authorization decisions as they may be
-    retrieved at different times, thus being subject to races. Hence
+    fields are unsuitable for authorization decisions, as they may be
+    retrieved at different times, thus being subject to races. Hence,
     augmented fields should be used exclusively for informational
     purposes.
     </para>

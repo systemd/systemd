@@ -127,7 +127,7 @@
         <term><option>--size=</option></term>
 
         <listitem>
-          <para>When used with the <command>capture</command> command
+          <para>When used with the <command>capture</command> command,
           specifies the maximum bus message size to capture
           ("snaplen"). Defaults to 4096 bytes.</para>
         </listitem>
@@ -137,7 +137,7 @@
         <term><option>--list</option></term>
 
         <listitem>
-          <para>When used with the <command>tree</command> command shows a
+          <para>When used with the <command>tree</command> command, shows a
           flat list of object paths instead of a tree.</para>
         </listitem>
       </varlistentry>
@@ -146,9 +146,9 @@
         <term><option>--quiet</option></term>
 
         <listitem>
-          <para>When used with the <command>call</command> command
+          <para>When used with the <command>call</command> command,
           suppresses display of the response message payload. Note that even
-          if this option is specified errors returned will still be
+          if this option is specified, errors returned will still be
           printed and the tool will indicate success or failure with
           the process exit code.</para>
         </listitem>
@@ -159,7 +159,7 @@
 
         <listitem>
           <para>When used with the <command>call</command> or
-          <command>get-property</command> command shows output in a
+          <command>get-property</command> command, shows output in a
           more verbose format.</para>
         </listitem>
       </varlistentry>
@@ -168,15 +168,15 @@
         <term><option>--expect-reply=</option><replaceable>BOOL</replaceable></term>
 
         <listitem>
-          <para>When used with the <command>call</command> command
+          <para>When used with the <command>call</command> command,
           specifies whether <command>busctl</command> shall wait for
           completion of the method call, output the returned method
           response data, and return success or failure via the process
-          exit code. If this is set to <literal>no</literal> the
+          exit code. If this is set to <literal>no</literal>, the
           method call will be issued but no response is expected, the
           tool terminates immediately, and thus no response can be
           shown, and no success or failure is returned via the exit
-          code. To only suppress output of the reply message payload
+          code. To only suppress output of the reply message payload,
           use <option>--quiet</option> above. Defaults to
           <literal>yes</literal>.</para>
         </listitem>
@@ -186,9 +186,9 @@
         <term><option>--auto-start=</option><replaceable>BOOL</replaceable></term>
 
         <listitem>
-          <para>When used with the <command>call</command> command specifies
+          <para>When used with the <command>call</command> command, specifies
           whether the method call should implicitly activate the
-          called service should it not be running yet but is
+          called service, should it not be running yet but is
           configured to be auto-started. Defaults to
           <literal>yes</literal>.</para>
         </listitem>
@@ -198,7 +198,7 @@
         <term><option>--allow-interactive-authorization=</option><replaceable>BOOL</replaceable></term>
 
         <listitem>
-          <para>When used with the <command>call</command> command
+          <para>When used with the <command>call</command> command,
           specifies whether the services may enforce interactive
           authorization while executing the operation, if the security
           policy is configured for this. Defaults to
@@ -210,14 +210,14 @@
         <term><option>--timeout=</option><replaceable>SECS</replaceable></term>
 
         <listitem>
-          <para>When used with the <command>call</command> command
+          <para>When used with the <command>call</command> command,
           specifies the maximum time to wait for method call
-          completion. If no time unit is specified assumes
+          completion. If no time unit is specified, assumes
           seconds. The usual other units are understood, too (ms, us,
           s, min, h, d, w, month, y). Note that this timeout does not
-          apply if <option>--expect-reply=no</option> is used as the
+          apply if <option>--expect-reply=no</option> is used, as the
           tool does not wait for any reply message then. When not
-          specified or when set to 0 the default of
+          specified or when set to 0, the default of
           <literal>25s</literal> is assumed.</para>
         </listitem>
       </varlistentry>
@@ -229,9 +229,9 @@
           <para>Controls whether credential data reported by
           <command>list</command> or <command>status</command> shall
           be augmented with data from
-          <filename>/proc</filename>. When this is turned on the data
+          <filename>/proc</filename>. When this is turned on, the data
           shown is possibly inconsistent, as the data read from
-          <filename>/proc</filename> might be more recent than rest of
+          <filename>/proc</filename> might be more recent than the rest of
           the credential information. Defaults to <literal>yes</literal>.</para>
         </listitem>
       </varlistentry>
@@ -258,7 +258,7 @@
         <term><command>list</command></term>
 
         <listitem><para>Show all peers on the bus, by their service
-        names. By default shows both unique and well-known names, but
+        names. By default, shows both unique and well-known names, but
         this may be changed with the <option>--unique</option> and
         <option>--acquired</option> switches. This is the default
         operation if no command is specified.</para></listitem>
@@ -281,14 +281,14 @@
         <replaceable>SERVICE</replaceable> is specified, show messages
         to or from this peer, identified by its well-known or unique
         name. Otherwise, show all messages on the bus. Use Ctrl-C to
-        terminate dump.</para></listitem>
+        terminate the dump.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><command>capture</command> <arg choice="opt" rep="repeat"><replaceable>SERVICE</replaceable></arg></term>
 
         <listitem><para>Similar to <command>monitor</command> but
-        writes the output in pcap format (for details see the <ulink
+        writes the output in pcap format (for details, see the <ulink
         url="http://wiki.wireshark.org/Development/LibpcapFileFormat">Libpcap
         File Format</ulink> description. Make sure to redirect the
         output to STDOUT to a file. Tools like
@@ -312,7 +312,7 @@
 
         <listitem><para>Show interfaces, methods, properties and
         signals of the specified object (identified by its path) on
-        the specified service. If the interface argument is passed the
+        the specified service. If the interface argument is passed, the
         output is limited to members of the specified
         interface.</para></listitem>
       </varlistentry>
@@ -322,10 +322,10 @@
 
         <listitem><para>Invoke a method and show the response. Takes a
         service name, object path, interface name and method name. If
-        parameters shall be passed to the method call a signature
+        parameters shall be passed to the method call, a signature
         string is required, followed by the arguments, individually
         formatted as strings. For details on the formatting used, see
-        below. To suppress output of the returned data use the
+        below. To suppress output of the returned data, use the
         <option>--quiet</option> option.</para></listitem>
       </varlistentry>
 
@@ -335,16 +335,16 @@
         <listitem><para>Retrieve the current value of one or more
         object properties. Takes a service name, object path,
         interface name and property name. Multiple properties may be
-        specified at once in which case their values will be shown one
-        after the other, separated by newlines. The output is by
-        default in terse format. Use <option>--verbose</option> for a
+        specified at once, in which case their values will be shown one
+        after the other, separated by newlines. The output is, by
+        default, in terse format. Use <option>--verbose</option> for a
         more elaborate output format.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><command>set-property</command> <arg choice="plain"><replaceable>SERVICE</replaceable></arg> <arg choice="plain"><replaceable>OBJECT</replaceable></arg> <arg choice="plain"><replaceable>INTERFACE</replaceable></arg> <arg choice="plain"><replaceable>PROPERTY</replaceable></arg> <arg choice="plain"><replaceable>SIGNATURE</replaceable></arg> <arg choice="plain" rep="repeat"><replaceable>ARGUMENT</replaceable></arg></term>
 
-        <listitem><para>Set the current value an object
+        <listitem><para>Set the current value of an object
         property. Takes a service name, object path, interface name,
         property name, property signature, followed by a list of
         parameters formatted as strings.</para></listitem>
@@ -364,19 +364,19 @@
     <para>The <command>call</command> and
     <command>set-property</command> commands take a signature string
     followed by a list of parameters formatted as string (for details
-    on D-Bus signature strings see the <ulink
+    on D-Bus signature strings, see the <ulink
     url="http://dbus.freedesktop.org/doc/dbus-specification.html#type-system">Type
     system chapter of the D-Bus specification</ulink>). For simple
-    types each parameter following the signature should simply be the
+    types, each parameter following the signature should simply be the
     parameter's value formatted as string. Positive boolean values may
     be formatted as <literal>true</literal>, <literal>yes</literal>,
-    <literal>on</literal>, <literal>1</literal>; negative boolean
+    <literal>on</literal>, or <literal>1</literal>; negative boolean
     values may be specified as <literal>false</literal>,
-    <literal>no</literal>, <literal>off</literal>,
+    <literal>no</literal>, <literal>off</literal>, or
     <literal>0</literal>. For arrays, a numeric argument for the
     number of entries followed by the entries shall be specified. For
-    variants the signature of the contents shall be specified,
-    followed by the contents. For dictionaries and structs the
+    variants, the signature of the contents shall be specified,
+    followed by the contents. For dictionaries and structs, the
     contents of them shall be directly specified.</para>
 
     <para>For example,
@@ -395,7 +395,7 @@
     array that maps strings to variants, consisting of three
     entries. The string <literal>One</literal> is assigned the
     string <literal>Eins</literal>. The string
-    <literal>Two</literal> is assigned the 32bit unsigned
+    <literal>Two</literal> is assigned the 32-bit unsigned
     integer 2. The string <literal>Yes</literal> is assigned a
     positive boolean.</para>
 
@@ -456,8 +456,8 @@ ARRAY "s" {
       of the <literal>org.freedesktop.systemd1</literal>
       service, and passes it two strings
       <literal>cups.service</literal> and
-      <literal>replace</literal>. As result of the method
-      call a single object path parameter is received and
+      <literal>replace</literal>. As a result of the method
+      call, a single object path parameter is received and
       shown:</para>
 
       <programlisting># busctl call org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager StartUnit ss "cups.service" "replace"

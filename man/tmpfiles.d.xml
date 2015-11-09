@@ -102,8 +102,8 @@
     prefix and suffix of each other, then the prefix is always
     processed first, the suffix later. Lines that take globs are
     applied after those accepting no globs. If multiple operations
-    shall be applied on the same file (such as ACL, xattr, file
-    attribute adjustments) these are always done in the same fixed
+    shall be applied on the same file, (such as ACL, xattr, file
+    attribute adjustments), these are always done in the same fixed
     order. Otherwise, the files/directories are processed in the order
     they are listed.</para>
 
@@ -170,17 +170,17 @@
           <term><varname>v</varname></term>
           <listitem><para>Create a subvolume if the path does not
           exist yet and the file system supports this
-          (btrfs). Otherwise create a normal directory, in the same
+          (btrfs). Otherwise, create a normal directory, in the same
           way as <varname>d</varname>. A subvolume created with this
           line type is not assigned to any higher-level quota
-          group. For that use <varname>q</varname> or
-          <varname>Q</varname> which allow creating simple quota group
+          group. For that, use <varname>q</varname> or
+          <varname>Q</varname>, which allow creating simple quota group
           hierarchies, see below.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><varname>q</varname></term>
-          <listitem><para>Similar to <varname>v</varname>, however
+          <listitem><para>Similar to <varname>v</varname>. However,
           makes sure that the subvolume will be assigned to the same
           higher-level quota groups as the subvolume it has been
           created in. This ensures that higher-level limits and
@@ -188,7 +188,7 @@
           specified subvolume. On non-btrfs file systems, this line
           type is identical to <varname>d</varname>. If the subvolume
           already exists and is already assigned to one or more higher
-          level quota groups no change to the quota hierarchy is
+          level quota groups, no change to the quota hierarchy is
           made. Also see <varname>Q</varname> below. See <citerefentry
           project='die-net'><refentrytitle>btrfs-qgroup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
           for details about the btrfs quota group
@@ -197,7 +197,7 @@
 
         <varlistentry>
           <term><varname>Q</varname></term>
-          <listitem><para>Similar to <varname>q</varname>, however
+          <listitem><para>Similar to <varname>q</varname>. However,
           instead of copying the higher-level quota group assignments
           from the parent as-is, the lowest quota group of the parent
           subvolume is determined that is not the leaf quota
@@ -217,7 +217,7 @@
           enforce limits and accounting to the specified subvolume and
           children subvolume created within it. Thus, by creating
           subvolumes only via <varname>q</varname> and
-          <varname>Q</varname> a concept of "subtree quotas" is
+          <varname>Q</varname>, a concept of "subtree quotas" is
           implemented. Each subvolume for which <varname>Q</varname>
           is set will get a "subtree" quota group created, and all
           child subvolumes created within it will be assigned to
@@ -387,7 +387,7 @@
           <varname>+</varname> (the default one) causes the
           attribute(s) to be added; <varname>-</varname> causes the
           attribute(s) to be removed; <varname>=</varname> causes the
-          attributes to set exactly as the following letters. The
+          attributes to be set exactly as the following letters. The
           letters <literal>aAcCdDeijsStTu</literal> select the new
           attributes for the files, see
           <citerefentry project='man-pages'><refentrytitle>chattr</refentrytitle>
@@ -395,7 +395,7 @@
           </para>
           <para>Passing only <varname>=</varname> as argument resets
           all the file attributes listed above. It has to be pointed
-          out that the <varname>=</varname> prefix, limits itself to
+          out that the <varname>=</varname> prefix limits itself to
           the attributes corresponding to the letters listed here. All
           other attributes will be left untouched. Does not follow
           symlinks.</para>
@@ -414,7 +414,7 @@
           <term><varname>a</varname></term>
           <term><varname>a+</varname></term>
           <listitem><para>Set POSIX ACLs (access control lists). If
-          suffixed with <varname>+</varname>, specified entries will
+          suffixed with <varname>+</varname>, the specified entries will
           be added to the existing set.
           <command>systemd-tmpfiles</command> will automatically add
           the required base entries for user and group based on the
@@ -537,7 +537,7 @@
       <para>The user and group to use for this file or directory. This
       may either be a numeric user/group ID or a user or group
       name. If omitted or when set to <literal>-</literal>, the
-      default 0 (root) is used. For <varname>z</varname>,
+      default 0 (root) is used. For <varname>z</varname> and
       <varname>Z</varname> lines, when omitted or when set to
       <literal>-</literal>, the file ownership will not be
       modified. These parameters are ignored for <varname>x</varname>,
@@ -552,16 +552,16 @@
       delete when cleaning. If a file or directory is older than the
       current time minus the age field, it is deleted. The field
       format is a series of integers each followed by one of the
-      following postfixes for the respective time units:
+      following suffixes for the respective time units:
       <constant>s</constant>,
       <constant>m</constant> or <constant>min</constant>,
       <constant>h</constant>,
       <constant>d</constant>,
       <constant>w</constant>,
-      <constant>ms</constant>,
+      <constant>ms</constant>, and
       <constant>us</constant>,
-      respectively meaning seconds, minutes, hours, days, weeks,
-      milliseconds, and microseconds. Full names of the time units can
+      meaning seconds, minutes, hours, days, weeks,
+      milliseconds, and microseconds, respectively. Full names of the time units can
       be used too.
       </para>
 
@@ -590,19 +590,19 @@
       <title>Argument</title>
 
       <para>For <varname>L</varname> lines determines the destination
-      path of the symlink. For <varname>c</varname>,
-      <varname>b</varname> determines the major/minor of the device
+      path of the symlink. For <varname>c</varname> and
+      <varname>b</varname>, determines the major/minor of the device
       node, with major and minor formatted as integers, separated by
       <literal>:</literal>, e.g.  <literal>1:3</literal>. For
       <varname>f</varname>, <varname>F</varname>, and
-      <varname>w</varname> may be used to specify a short string that
+      <varname>w</varname>, the argument may be used to specify a short string that
       is written to the file, suffixed by a newline. For
       <varname>C</varname>, specifies the source file or
-      directory. For <varname>t</varname>, <varname>T</varname>
+      directory. For <varname>t</varname> and <varname>T</varname>,
       determines extended attributes to be set. For
-      <varname>a</varname>, <varname>A</varname> determines ACL
-      attributes to be set. For <varname>h</varname>,
-      <varname>H</varname> determines the file attributes to
+      <varname>a</varname> and <varname>A</varname>, determines ACL
+      attributes to be set. For <varname>h</varname> and
+      <varname>H</varname>, determines the file attributes to
       set. Ignored for all other lines.</para>
     </refsect2>
 

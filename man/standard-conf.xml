@@ -38,9 +38,9 @@
   <refsection id='main-conf'>
     <title>Configuration Directories and Precedence</title>
 
-    <para>Default configuration is defined during compilation, so a
+    <para>The default configuration is defined during compilation, so a
     configuration file is only needed when it is necessary to deviate
-    from those defaults. By default the configuration file in
+    from those defaults. By default, the configuration file in
     <filename>/etc/systemd/</filename> contains commented out entries
     showing the defaults as a guide to the administrator. This file
     can be edited to create local overrides.

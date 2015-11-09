@@ -254,7 +254,7 @@
         for, and its node will be bind-mounted over the default bus
         node location, so the service can only access the bus through
         its own endpoint. Note that custom bus endpoints default to a
-        'deny all' policy. Hence, if at least one
+        "deny all" policy. Hence, if at least one
         <varname>BusPolicy=</varname> directive is given, you have to
         make sure to add explicit rules for everything the service
         should be able to do.</para>
@@ -283,7 +283,7 @@
         <term><varname>ExecStart=</varname></term>
         <listitem><para>Commands with their arguments that are
         executed when this service is started. The value is split into
-        zero or more command lines is according to the rules described
+        zero or more command lines according to the rules described
         below (see section "Command Lines" below).
         </para>
 
@@ -343,7 +343,7 @@
 
         <para><varname>ExecStartPost=</varname> commands are only run after
         the service has started, as determined by <varname>Type=</varname>
-        (i.e. The process has been started for <varname>Type=simple</varname>
+        (i.e. the process has been started for <varname>Type=simple</varname>
         or <varname>Type=idle</varname>, the process exits successfully for
         <varname>Type=oneshot</varname>, the initial process exits successfully
         for <varname>Type=forking</varname>, <literal>READY=1</literal> is sent
@@ -403,11 +403,11 @@
 
         <para>Note that it is usually not sufficient to specify a
         command for this setting that only asks the service to
-        terminate (for example by queuing some form of termination
+        terminate (for example, by queuing some form of termination
         signal for it), but does not wait for it to do so. Since the
         remaining processes of the services are killed using
         <constant>SIGKILL</constant> immediately after the command
-        exited this would not result in a clean stop. The specified
+        exited, this would not result in a clean stop. The specified
         command should hence be a synchronous operation, not an
         asynchronous one.</para></listitem>
       </varlistentry>
@@ -628,7 +628,7 @@
           </tgroup>
         </table>
 
-        <para>As exceptions to the setting above the service will not
+        <para>As exceptions to the setting above, the service will not
         be restarted if the exit code or signal is specified in
         <varname>RestartPreventExitStatus=</varname> (see below).
         Also, the services will always be restarted if the exit code
@@ -646,8 +646,8 @@
 
       <varlistentry>
         <term><varname>SuccessExitStatus=</varname></term>
-        <listitem><para>Takes a list of exit status definitions that
-        when returned by the main service process will be considered
+        <listitem><para>Takes a list of exit status definitions that,
+        when returned by the main service process, will be considered
         successful termination, in addition to the normal successful
         exit code 0 and the signals <constant>SIGHUP</constant>,
         <constant>SIGINT</constant>, <constant>SIGTERM</constant>, and
@@ -679,8 +679,8 @@
 
       <varlistentry>
         <term><varname>RestartPreventExitStatus=</varname></term>
-        <listitem><para>Takes a list of exit status definitions that
-        when returned by the main service process will prevent
+        <listitem><para>Takes a list of exit status definitions that,
+        when returned by the main service process, will prevent
         automatic service restarts, regardless of the restart setting
         configured with <varname>Restart=</varname>. Exit status
         definitions can either be numeric exit codes or termination
@@ -699,8 +699,8 @@
 
       <varlistentry>
         <term><varname>RestartForceExitStatus=</varname></term>
-        <listitem><para>Takes a list of exit status definitions that
-        when returned by the main service process will force automatic
+        <listitem><para>Takes a list of exit status definitions that,
+        when returned by the main service process, will force automatic
         service restarts, regardless of the restart setting configured
         with <varname>Restart=</varname>. The argument format is
         similar to
@@ -779,8 +779,8 @@
         <term><varname>Sockets=</varname></term>
         <listitem><para>Specifies the name of the socket units this
         service shall inherit socket file descriptors from when the
-        service is started. Normally it should not be necessary to use
-        this setting as all socket file descriptors whose unit shares
+        service is started. Normally, it should not be necessary to use
+        this setting, as all socket file descriptors whose unit shares
         the same name as the service (subject to the different unit
         name suffix of course) are passed to the spawned
         process.</para>
@@ -789,7 +789,7 @@
         to multiple processes simultaneously. Also note that a
         different service may be activated on incoming socket traffic
         than the one which is ultimately configured to inherit the
-        socket file descriptors. Or in other words: the
+        socket file descriptors. Or, in other words: the
         <varname>Service=</varname> setting of
         <filename>.socket</filename> units does not have to match the
         inverse of the <varname>Sockets=</varname> setting of the
@@ -859,7 +859,7 @@
         <option>reboot-immediate</option> causes immediate execution
         of the
         <citerefentry><refentrytitle>reboot</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-        system call, which might result in data loss. Similar,
+        system call, which might result in data loss. Similarly,
         <option>poweroff</option>, <option>poweroff-force</option>,
         <option>poweroff-immediate</option> have the effect of
         powering down the system with similar semantics. Defaults to
@@ -909,9 +909,9 @@
         <ulink
         url="https://www.kernel.org/doc/Documentation/usb/functionfs.txt">USB
         FunctionFS</ulink> descriptors, for implementation of USB
-        gadget functions. This is is used only in conjunction with a
+        gadget functions. This is used only in conjunction with a
         socket unit with <varname>ListenUSBFunction=</varname>
-        configured. The contents of this file is written to the
+        configured. The contents of this file are written to the
         <filename>ep0</filename> file after it is
         opened.</para></listitem>
       </varlistentry>
@@ -992,7 +992,7 @@
     contains, resulting in a single argument. Use
     <literal>$FOO</literal> as a separate word on the command line, in
     which case it will be replaced by the value of the environment
-    variable split at whitespace resulting in zero or more arguments.
+    variable split at whitespace, resulting in zero or more arguments.
     For this type of expansion, quotes are respected when splitting
     into words, and afterwards removed.</para>
 
@@ -1175,7 +1175,7 @@ WantedBy=multi-user.target</programlisting>
     <example>
       <title>Oneshot service</title>
 
-      <para>Sometimes units should just execute an action without
+      <para>Sometimes, units should just execute an action without
       keeping active processes, such as a filesystem check or a
       cleanup action on boot. For this,
       <varname>Type=</varname><option>oneshot</option> exists. Units
@@ -1194,10 +1194,10 @@ ExecStart=/usr/sbin/foo-cleanup
 WantedBy=multi-user.target</programlisting>
 
       <para>Note that systemd will consider the unit to be in the
-      state 'starting' until the program has terminated, so ordered
+      state "starting" until the program has terminated, so ordered
       dependencies will wait for the program to finish before starting
-      themselves. The unit will revert to the 'inactive' state after
-      the execution is done, never reaching the 'active' state. That
+      themselves. The unit will revert to the "inactive" state after
+      the execution is done, never reaching the "active" state. That
       means another request to start the unit will perform the action
       again.</para>
 
@@ -1214,9 +1214,9 @@ WantedBy=multi-user.target</programlisting>
       <para>Similarly to the oneshot services, there are sometimes
       units that need to execute a program to set up something and
       then execute another to shut it down, but no process remains
-      active while they are considered 'started'. Network
+      active while they are considered "started". Network
       configuration can sometimes fall into this category. Another use
-      case is if a oneshot service shall not be executed a each time
+      case is if a oneshot service shall not be executed each time
       when they are pulled in as a dependency, but only the first
       time.</para>
 
@@ -1227,11 +1227,11 @@ WantedBy=multi-user.target</programlisting>
       types, but is most useful with
       <varname>Type=</varname><option>oneshot</option> and
       <varname>Type=</varname><option>simple</option>. With
-      <varname>Type=</varname><option>oneshot</option> systemd waits
+      <varname>Type=</varname><option>oneshot</option>, systemd waits
       until the start action has completed before it considers the
       unit to be active, so dependencies start only after the start
       action has succeeded. With
-      <varname>Type=</varname><option>simple</option> dependencies
+      <varname>Type=</varname><option>simple</option>, dependencies
       will start immediately after the start action has been
       dispatched. The following unit provides an example for a simple
       static firewall.</para>
@@ -1266,7 +1266,7 @@ WantedBy=multi-user.target</programlisting>
       <varname>RemainAfterExit=</varname><option>no</option>), the
       service is considered started.</para>
 
-      <para>Often a traditional daemon only consists of one process.
+      <para>Often, a traditional daemon only consists of one process.
       Therefore, if only one process is left after the original
       process terminates, systemd will consider that process the main
       process of the service. In that case, the
@@ -1281,7 +1281,7 @@ WantedBy=multi-user.target</programlisting>
       traditional PID file, systemd will be able to read the main PID
       from there. Please set <varname>PIDFile=</varname> accordingly.
       Note that the daemon should write that file before finishing
-      with its initialization, otherwise systemd might try to read the
+      with its initialization. Otherwise, systemd might try to read the
       file before it exists.</para>
 
       <para>The following example shows a simple daemon that forks and
@@ -1324,7 +1324,7 @@ ExecStart=/usr/sbin/simple-dbus-service
 [Install]
 WantedBy=multi-user.target</programlisting>
 
-      <para>For <emphasis>bus-activatable</emphasis> services, don't
+      <para>For <emphasis>bus-activatable</emphasis> services, do not
       include a <literal>[Install]</literal> section in the systemd
       service file, but use the <varname>SystemdService=</varname>
       option in the corresponding DBus service file, for example
@@ -1366,7 +1366,7 @@ ExecStart=/usr/sbin/simple-notifying-service
 WantedBy=multi-user.target</programlisting>
 
       <para>Note that the daemon has to support systemd's notification
-      protocol, else systemd will think the service hasn't started yet
+      protocol, else systemd will think the service has not started yet
       and kill it after a timeout. For an example of how to update
       daemons to support this protocol transparently, take a look at
       <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>.

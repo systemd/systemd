@@ -180,7 +180,7 @@
       <varlistentry>
         <term><option>x-systemd.idle-timeout=</option></term>
 
-        <listitem><para>Configures the idleness timeout of the
+        <listitem><para>Configures the idle timeout of the
         automount unit. See <varname>TimeoutIdleSec=</varname> in
         <citerefentry><refentrytitle>systemd.automount</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         for details.</para></listitem>
@@ -192,13 +192,13 @@
         <listitem><para>Configure how long systemd should wait for a
         device to show up before giving up on an entry from
         <filename>/etc/fstab</filename>. Specify a time in seconds or
-        explicitly append a unit as <literal>s</literal>,
+        explicitly append a unit such as <literal>s</literal>,
         <literal>min</literal>, <literal>h</literal>,
         <literal>ms</literal>.</para>
 
         <para>Note that this option can only be used in
         <filename>/etc/fstab</filename>, and will be
-        ignored when part of <varname>Options=</varname>
+        ignored when part of the <varname>Options=</varname>
         setting in a unit file.</para>
         </listitem>
       </varlistentry>
@@ -212,7 +212,7 @@
         <filename>local-fs.target</filename> or
         <filename>remote-fs.target</filename>. This means that it will
         not be mounted automatically during boot, unless it is pulled
-        in by some other unit. Option <option>auto</option> has the
+        in by some other unit. The <option>auto</option> option has the
         opposite meaning and is the default.</para>
         </listitem>
       </varlistentry>
@@ -220,7 +220,7 @@
       <varlistentry>
         <term><option>nofail</option></term>
 
-        <listitem><para>With <option>nofail</option> this mount will
+        <listitem><para>With <option>nofail</option>, this mount will
         be only wanted, not required, by
         <filename>local-fs.target</filename> or
         <filename>remote-fs.target</filename>. This means that the
@@ -325,11 +325,11 @@
 
       <varlistentry>
         <term><varname>SmackFileSystemRootLabel=</varname></term>
-        <listitem><para>Takes a string for the smack label.
+        <listitem><para>Takes a string for the SMACK label.
         This option specifies the label to assign the root of the
-        file system if it lacks the Smack extended attribute.
+        file system if it lacks the SMACK extended attribute.
         Note that this option will be ignored if kernel does not
-        support the Smack feature.
+        support the SMACK feature.
         See <ulink
         url="https://www.kernel.org/doc/Documentation/security/Smack.txt">Smack.txt</ulink>
         for details. </para></listitem>

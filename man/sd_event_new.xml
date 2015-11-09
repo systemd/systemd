@@ -114,7 +114,7 @@
     <function>sd_event_default()</function>, then releasing it, and
     then acquiring a new one with
     <function>sd_event_default()</function> will result in two
-    distinct objects. Note that in order to free an event loop object,
+    distinct objects. Note that, in order to free an event loop object,
     all remaining event sources of the event loop also need to be
     freed as each keeps a reference to it.</para>
   </refsect1>

@@ -116,7 +116,7 @@
         <term><constant>-EINVAL</constant></term>
 
         <listitem><para>An input parameter was invalid (out of range,
-        or NULL, where that's not accepted).</para></listitem>
+        or NULL, where that is not accepted).</para></listitem>
       </varlistentry>
 
       <varlistentry>

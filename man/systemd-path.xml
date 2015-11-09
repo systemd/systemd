@@ -62,11 +62,11 @@
     <citerefentry><refentrytitle>file-hierarchy</refentrytitle><manvolnum>7</manvolnum></citerefentry>
     queriable.</para>
 
-    <para>When invoked without arguments a list of known paths and
+    <para>When invoked without arguments, a list of known paths and
     their current values is shown. When at least one argument is
-    passed the path with this name is queried and its value shown.
+    passed, the path with this name is queried and its value shown.
     The variables whose name begins with <literal>search-</literal>
-    don't refer to individual paths, but instead to a list of
+    do not refer to individual paths, but instead to a list of
     colon-separated search paths, in their order of precedence.</para>
   </refsect1>
 

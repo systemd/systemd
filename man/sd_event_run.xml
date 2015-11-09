@@ -46,7 +46,7 @@
     <refname>sd_event_run</refname>
     <refname>sd_event_loop</refname>
 
-    <refpurpose>Run libsystemd event loop</refpurpose>
+    <refpurpose>Run the libsystemd event loop</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -71,8 +71,8 @@
 
     <para><function>sd_event_run()</function> can be used to run one
     iteration of the event loop of libsystemd. This function waits
-    until an event to process is available and dispatches a handler
-    for it. Parameter <parameter>timeout</parameter> specifices the
+    until an event to process is available, and dispatches a handler
+    for it. The <parameter>timeout</parameter> parameter specifices the
     maximum time (in microseconds) to wait. <constant>(uint64_t)
     -1</constant> may be used to specify an infinite timeout.</para>
 
@@ -121,7 +121,7 @@
       <varlistentry>
         <term><constant>-EINVAL</constant></term>
 
-        <listitem><para>Parameter <parameter>event</parameter> is
+        <listitem><para>The <parameter>event</parameter> parameter is
         <constant>NULL</constant>.</para></listitem>
       </varlistentry>
 
@@ -150,7 +150,7 @@
 
     </variablelist>
 
-    <para>Other errors are possible too.</para>
+    <para>Other errors are possible, too.</para>
   </refsect1>
 
   <refsect1>
@@ -176,7 +176,7 @@
       <citerefentry><refentrytitle>sd_event_add_defer</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_event_add_exit</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_event_add_post</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-      <ulink url="https://developer.gnome.org/glib/unstable/glib-The-Main-Event-Loop.html">GLIb Main Event Loop</ulink>.
+      <ulink url="https://developer.gnome.org/glib/unstable/glib-The-Main-Event-Loop.html">GLib Main Event Loop</ulink>.
     </para>
   </refsect1>
 

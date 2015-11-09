@@ -89,7 +89,7 @@
     and
     <citerefentry><refentrytitle>sd_journal_get_data</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
     Matches are of the form <literal>FIELD=value</literal>, where the
-    field part is a short uppercase string consisting only of 0-9, A-Z
+    field part is a short uppercase string consisting only of 0–9, A–Z
     and the underscore. It may not begin with two underscores or be
     the empty string. The value part may be any value, including
     binary. If a match is applied, only entries with this field set

@@ -82,7 +82,7 @@
       matches apply to the same field, then they are automatically
       matched as alternatives, i.e. the resulting output will show
       entries matching any of the specified matches for the same
-      field. Finally, the character <literal>+</literal> may appears
+      field. Finally, the character <literal>+</literal> may appear
       as a separate word between other terms on the command line. This
       causes all matches before and after to be combined in a
       disjunction (i.e. logical OR).</para>
@@ -95,7 +95,7 @@
       <literal>_KERNEL_DEVICE=</literal> match for the device.</para>
 
       <para>Additional constraints may be added using options
-      <option>--boot</option>, <option>--unit=</option>, etc, to
+      <option>--boot</option>, <option>--unit=</option>, etc., to
       further limit what entries will be shown (logical AND).</para>
 
       <para>Output is interleaved from all accessible journal files,
@@ -181,7 +181,7 @@
           <option>-n1000</option> to guarantee that the pager will not
           buffer logs of unbounded size. This may be overridden with
           an explicit <option>-n</option> with some other numeric
-          value while <option>-nall</option> will disable this cap.
+          value, while <option>-nall</option> will disable this cap.
           Note that this option is only supported for the
           <citerefentry project='man-pages'><refentrytitle>less</refentrytitle><manvolnum>1</manvolnum></citerefentry>
           pager.</para></listitem>
@@ -656,18 +656,18 @@
         <listitem><para>Removes archived journal files until the disk
         space they use falls below the specified size (specified with
         the usual <literal>K</literal>, <literal>M</literal>,
-        <literal>G</literal>, <literal>T</literal> suffixes), or all
+        <literal>G</literal> and <literal>T</literal> suffixes), or all
         journal files contain no data older than the specified
         timespan (specified with the usual <literal>s</literal>,
         <literal>min</literal>, <literal>h</literal>,
         <literal>days</literal>, <literal>months</literal>,
-        <literal>weeks</literal>, <literal>years</literal> suffixes),
+        <literal>weeks</literal> and <literal>years</literal> suffixes),
         or no more than the specified number of separate journal files
         remain. Note that running <option>--vacuum-size=</option> has
-        only indirect effect on the output shown by
-        <option>--disk-usage</option> as the latter includes active
+        only an indirect effect on the output shown by
+        <option>--disk-usage</option>, as the latter includes active
         journal files, while the vacuuming operation only operates
-        on archived journal files. Similar,
+        on archived journal files. Similarly,
         <option>--vacuum-files=</option> might not actually reduce the
         number of journal files to below the specified number, as it
         will not remove active journal
@@ -772,7 +772,7 @@
       <varlistentry>
         <term><option>--flush</option></term>
 
-        <listitem><para>Asks the Journal daemon to flush any log data
+        <listitem><para>Asks the journal daemon to flush any log data
         stored in <filename>/run/log/journal</filename> into
         <filename>/var/log/journal</filename>, if persistent storage is
         enabled. This call does not return until the operation is
@@ -782,7 +782,7 @@
       <varlistentry>
         <term><option>--rotate</option></term>
 
-        <listitem><para>Asks the Journal daemon to rotate journal files.
+        <listitem><para>Asks the journal daemon to rotate journal files.
         </para></listitem>
       </varlistentry>
       <xi:include href="standard-options.xml" xpointer="help" />

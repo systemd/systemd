@@ -74,7 +74,7 @@
     specified in
     <citerefentry><refentrytitle>sysusers.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     are searched for a matching file. If the string
-    <filename>-</filename> is specified as filenames entries from the
+    <filename>-</filename> is specified as filename, entries from the
     standard input of the process are read.</para>
   </refsect1>
 

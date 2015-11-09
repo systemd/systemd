@@ -73,9 +73,9 @@
     <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     and
     <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    for details. To improve compatibility
+    for details. To improve compatibility,
     <filename>/etc/resolv.conf</filename> is read in order to discover
-    configured system DNS servers, however only if it is not a symlink
+    configured system DNS servers, but only if it is not a symlink
     to <filename>/run/systemd/resolve/resolv.conf</filename> (see above).</para>
 
     <para><command>systemd-resolved</command> synthesizes DNS RRs for the following cases:</para>
@@ -124,10 +124,10 @@
     <para>If lookups are routed to multiple interfaces, the first
     successful response is returned (thus effectively merging the
     lookup zones on all matching interfaces). If the lookup failed on
-    all interfaces the last failing response is returned.</para>
+    all interfaces, the last failing response is returned.</para>
 
     <para>Routing of lookups may be influenced by configuring
-    per-interface domain names, see
+    per-interface domain names. See
     <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     for details. Lookups for a hostname ending in one of the
     per-interface domains are exclusively routed to the matching

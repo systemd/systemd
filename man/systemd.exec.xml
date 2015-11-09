@@ -86,7 +86,7 @@
 
         <listitem><para>Takes an absolute directory path, or the
         special value <literal>~</literal>. Sets the working directory
-        for executed processes. If set to <literal>~</literal> the
+        for executed processes. If set to <literal>~</literal>, the
         home directory of the user specified in
         <varname>User=</varname> is used. If not set, defaults to the
         root directory when systemd is running as a system instance
@@ -123,8 +123,8 @@
         <listitem><para>Sets the supplementary Unix groups the
         processes are executed as. This takes a space-separated list
         of group names or IDs. This option may be specified more than
-        once in which case all listed groups are set as supplementary
-        groups. When the empty string is assigned the list of
+        once, in which case all listed groups are set as supplementary
+        groups. When the empty string is assigned, the list of
         supplementary groups is reset, and all assignments prior to
         this one will have no effect. In any way, this option does not
         override, but extends the list of supplementary groups
@@ -157,7 +157,7 @@
       <varlistentry>
         <term><varname>IOSchedulingClass=</varname></term>
 
-        <listitem><para>Sets the IO scheduling class for executed
+        <listitem><para>Sets the I/O scheduling class for executed
         processes. Takes an integer between 0 and 3 or one of the
         strings <option>none</option>, <option>realtime</option>,
         <option>best-effort</option> or <option>idle</option>. See
@@ -168,10 +168,10 @@
       <varlistentry>
         <term><varname>IOSchedulingPriority=</varname></term>
 
-        <listitem><para>Sets the IO scheduling priority for executed
+        <listitem><para>Sets the I/O scheduling priority for executed
         processes. Takes an integer between 0 (highest priority) and 7
         (lowest priority). The available priorities depend on the
-        selected IO scheduling class (see above). See
+        selected I/O scheduling class (see above). See
         <citerefentry><refentrytitle>ioprio_set</refentrytitle><manvolnum>2</manvolnum></citerefentry>
         for details.</para></listitem>
       </varlistentry>
@@ -220,7 +220,7 @@
         processes. Takes a list of CPU indices or ranges separated by
         either whitespace or commas. CPU ranges are specified by the
         lower and upper CPU indices separated by a dash.
-        This option may be specified more than once in which case the
+        This option may be specified more than once, in which case the
         specified CPU affinity masks are merged. If the empty string
         is assigned, the mask is reset, all assignments prior to this
         will have no effect. See
@@ -242,7 +242,7 @@
 
         <listitem><para>Sets environment variables for executed
         processes. Takes a space-separated list of variable
-        assignments. This option may be specified more than once in
+        assignments. This option may be specified more than once, in
         which case all listed variables will be set. If the same
         variable is set twice, the later setting will override the
         earlier setting. If the empty string is assigned to this
@@ -493,7 +493,7 @@
       </varlistentry>
       <varlistentry>
         <term><varname>SyslogLevel=</varname></term>
-        <listitem><para>Default syslog level to use when logging to
+        <listitem><para>The default syslog level to use when logging to
         syslog or the kernel log buffer. One of
         <option>emerg</option>,
         <option>alert</option>,
@@ -512,7 +512,7 @@
         different log level which can be used to override the default
         log level specified here. The interpretation of these prefixes
         may be disabled with <varname>SyslogLevelPrefix=</varname>,
-        see below. For details see
+        see below. For details, see
         <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
 
         Defaults to
@@ -687,7 +687,7 @@
         of what <varname>Capabilities=</varname> does. If this option
         is not used, the capability bounding set is not modified on
         process execution, hence no limits on the capabilities of the
-        process are enforced. This option may appear more than once in
+        process are enforced. This option may appear more than once, in
         which case the bounding sets are merged. If the empty string
         is assigned to this option, the bounding set is reset to the
         empty capability set, and all prior settings have no effect.
@@ -708,7 +708,7 @@
         <option>no-setuid-fixup-locked</option>,
         <option>noroot</option>, and
         <option>noroot-locked</option>.
-        This option may appear more than once in which case the secure
+        This option may appear more than once, in which case the secure
         bits are ORed. If the empty string is assigned to this option,
         the bits are reset to 0. See
         <citerefentry project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
@@ -749,7 +749,7 @@
         inaccessible for processes inside the namespace. Note that
         restricting access with these options does not extend to
         submounts of a directory that are created later on. These
-        options may be specified more than once in which case all
+        options may be specified more than once, in which case all
         directories listed will have limited access from within the
         namespace. If the empty string is assigned to this option, the
         specific list is reset, and all prior assignments have no
@@ -852,7 +852,7 @@
         directories read-only for processes invoked by this unit. If
         set to <literal>full</literal>, the <filename>/etc</filename>
         directory is mounted read-only, too. This setting ensures that
-        any modification of the vendor supplied operating system (and
+        any modification of the vendor-supplied operating system (and
         optionally its configuration) is prohibited for the service.
         It is recommended to enable this setting for all long-running
         services, unless they are involved with system updates or need
@@ -953,15 +953,15 @@
          invoked process must implement a
          <command>getty</command>-compatible utmp/wtmp logic. If
          <literal>login</literal> is set, first an
-         <constant>INIT_PROCESS</constant> entry, followed by an
+         <constant>INIT_PROCESS</constant> entry, followed by a
          <constant>LOGIN_PROCESS</constant> entry is generated. In
-         this case the invoked process must implement a <citerefentry
+         this case, the invoked process must implement a <citerefentry
          project='die-net'><refentrytitle>login</refentrytitle><manvolnum>1</manvolnum></citerefentry>-compatible
          utmp/wtmp logic. If <literal>user</literal> is set, first an
          <constant>INIT_PROCESS</constant> entry, then a
-         <constant>LOGIN_PROCESS</constant> entry and finally an
+         <constant>LOGIN_PROCESS</constant> entry and finally a
          <constant>USER_PROCESS</constant> entry is generated. In this
-         case the invoked process may be any process that is suitable
+         case, the invoked process may be any process that is suitable
          to be run as session leader. Defaults to
          <literal>init</literal>.</para></listitem>
       </varlistentry>
@@ -996,7 +996,7 @@
         <listitem><para>Takes a <option>SMACK64</option> security
         label as argument. The process executed by the unit will be
         started under this label and SMACK will decide whether the
-        process is allowed to run or not based on it. The process
+        process is allowed to run or not, based on it. The process
         will continue to run under the label specified here unless the
         executable has its own <option>SMACK64EXEC</option> label, in
         which case the process will transition to run under that
@@ -1052,7 +1052,7 @@
         <function>sigreturn</function>,
         <function>exit_group</function>, <function>exit</function>
         system calls are implicitly whitelisted and do not need to be
-        listed explicitly. This option may be specified more than once
+        listed explicitly. This option may be specified more than once,
         in which case the filter masks are merged. If the empty string
         is assigned, the filter is reset, all prior assignments will
         have no effect.</para>
@@ -1088,7 +1088,7 @@
       <varlistentry>
         <term><varname>SystemCallArchitectures=</varname></term>
 
-        <listitem><para>Takes a space separated list of architecture
+        <listitem><para>Takes a space-separated list of architecture
         identifiers to include in the system call filter. The known
         architecture identifiers are <constant>x86</constant>,
         <constant>x86-64</constant>, <constant>x32</constant>,

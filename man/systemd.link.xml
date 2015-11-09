@@ -70,7 +70,7 @@
     name in <filename>/usr/lib</filename>. This can be used to
     override a system-supplied link file with a local file if needed.
     As a special case, an empty file (file size 0) or symlink with the
-    same name pointing to <filename>/dev/null</filename>, disable the
+    same name pointing to <filename>/dev/null</filename> disables the
     configuration file entirely (it is "masked").</para>
 
     <para>The link file contains a <literal>[Match]</literal> section,
@@ -217,8 +217,8 @@
                 generated which is guaranteed to be the same on every
                 boot for the given machine and the given device, but
                 which is otherwise random. This feature depends on ID_NET_NAME_*
-                properties existing for the link, on hardware where these
-                properties are not set the generation of a persistent MAC address
+                properties to exist for the link. On hardware where these
+                properties are not set, the generation of a persistent MAC address
                 will fail.</para>
               </listitem>
             </varlistentry>
@@ -228,7 +228,7 @@
                 <para>If the kernel is using a random MAC address,
                 nothing is done. Otherwise, a new address is randomly
                 generated each time the device appears, typically at
-                boot. Either way the random address will have the
+                boot. Either way, the random address will have the
                 <literal>unicast</literal> and
                 <literal>locally administered</literal> bits set.</para>
               </listitem>

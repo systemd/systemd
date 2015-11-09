@@ -113,7 +113,7 @@
     <function>sd_journal_get_data()</function> or
     <function>sd_journal_enumerate_data()</function>, or the read
     pointer is altered. Note that the data returned will be prefixed
-    with the field name and '='. Also note that by default data fields
+    with the field name and '='. Also note that, by default, data fields
     larger than 64K might get truncated to 64K. This threshold may be
     changed and turned off with
     <function>sd_journal_set_data_threshold()</function> (see
