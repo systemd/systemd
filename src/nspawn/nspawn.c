@@ -178,6 +178,7 @@ static bool arg_unified_cgroup_hierarchy = false;
 static SettingsMask arg_settings_mask = 0;
 static int arg_settings_trusted = -1;
 static char **arg_parameters = NULL;
+static const char *arg_container_service_name = "systemd-nspawn";
 
 static void help(void) {
         printf("%s [OPTIONS...] [PATH] [ARGUMENTS...]\n\n"
@@ -387,7 +388,7 @@ static int parse_argv(int argc, char *argv[]) {
         };
 
         int c, r;
-        const char *p;
+        const char *p, *e;
         uint64_t plus = 0, minus = 0;
         bool mask_all_settings = false, mask_no_settings = false;
 
@@ -908,6 +909,10 @@ static int parse_argv(int argc, char *argv[]) {
         r = detect_unified_cgroup_hierarchy();
         if (r < 0)
                 return r;
+
+        e = getenv("container");
+        if (e)
+                arg_container_service_name = e;
 
         return 1;
 }
@@ -2404,10 +2409,10 @@ static int inner_child(
                 FDSet *fds) {
 
         _cleanup_free_ char *home = NULL;
-        unsigned n_env = 2;
+        unsigned n_env = 1;
         const char *envp[] = {
                 "PATH=" DEFAULT_PATH_SPLIT_USR,
-                "container=systemd-nspawn", /* LXC sets container=lxc, so follow the scheme here */
+                NULL, /* container. LXC sets container=lxc, so follow the scheme here */
                 NULL, /* TERM */
                 NULL, /* HOME */
                 NULL, /* USER */
@@ -2507,6 +2512,8 @@ static int inner_child(
         r = change_uid_gid(arg_user, &home);
         if (r < 0)
                 return r;
+
+        envp[n_env++] = strjoina("container=", arg_container_service_name);
 
         envp[n_env] = strv_find_prefix(environ, "TERM=");
         if (envp[n_env])
@@ -3426,7 +3433,8 @@ int main(int argc, char *argv[]) {
                                         arg_custom_mounts, arg_n_custom_mounts,
                                         arg_kill_signal,
                                         arg_property,
-                                        arg_keep_unit);
+                                        arg_keep_unit,
+                                        arg_container_service_name);
                         if (r < 0)
                                 goto finish;
                 }

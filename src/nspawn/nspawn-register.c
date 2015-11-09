@@ -39,7 +39,8 @@ int register_machine(
                 unsigned n_mounts,
                 int kill_signal,
                 char **properties,
-                bool keep_unit) {
+                bool keep_unit,
+                const char *service) {
 
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
@@ -61,7 +62,7 @@ int register_machine(
                                 "sayssusai",
                                 machine_name,
                                 SD_BUS_MESSAGE_APPEND_ID128(uuid),
-                                "nspawn",
+                                service,
                                 "container",
                                 (uint32_t) pid,
                                 strempty(directory),
@@ -86,7 +87,7 @@ int register_machine(
                                 "sayssusai",
                                 machine_name,
                                 SD_BUS_MESSAGE_APPEND_ID128(uuid),
-                                "nspawn",
+                                service,
                                 "container",
                                 (uint32_t) pid,
                                 strempty(directory),
