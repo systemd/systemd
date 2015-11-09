@@ -34,6 +34,7 @@
 #include "unit-name.h"
 #include "unit.h"
 #include "user-util.h"
+#include "virt.h"
 
 static const UnitActiveState state_translation_table[_TIMER_STATE_MAX] = {
         [TIMER_DEAD] = UNIT_INACTIVE,
@@ -359,10 +360,14 @@ static void timer_enter_waiting(Timer *t, bool initial) {
                                 break;
 
                         case TIMER_BOOT:
-                                /* CLOCK_MONOTONIC equals the uptime on Linux */
-                                base = 0;
-                                break;
-
+                                if (detect_container() <= 0) {
+                                        /* CLOCK_MONOTONIC equals the uptime on Linux */
+                                        base = 0;
+                                        break;
+                                }
+                                /* In a container we don't want to include the time the host
+                                 * was already up when the container started, so count from
+                                 * our own startup. Fall through. */
                         case TIMER_STARTUP:
                                 base = UNIT(t)->manager->userspace_timestamp.monotonic;
                                 break;
