@@ -272,6 +272,7 @@ int main(int argc, char *argv[]) {
 
                         show_cg_info(SYSTEMD_CGROUP_CONTROLLER, root);
 
+                        printf("-.slice\n");
                         r = show_cgroup(SYSTEMD_CGROUP_CONTROLLER, root, NULL, 0, arg_kernel_threads, output_flags);
                 }
         }
