@@ -227,8 +227,7 @@ static int parse_dbus_fragments(const char *path, const char *type) {
                 if (errno == -ENOENT)
                         return 0;
 
-                log_error_errno(errno, "Failed to enumerate D-Bus activated services: %m");
-                return -errno;
+                return log_error_errno(errno, "Failed to enumerate D-Bus activated services: %m");
         }
 
         r = 0;
@@ -246,8 +245,7 @@ static int parse_dbus_fragments(const char *path, const char *type) {
         return r;
 
 fail:
-        log_error_errno(errno, "Failed to read D-Bus services directory: %m");
-        return -errno;
+        return log_error_errno(errno, "Failed to read D-Bus services directory: %m");
 }
 
 static int link_busnames_target(const char *units) {

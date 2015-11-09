@@ -278,10 +278,8 @@ int drop_privileges(uid_t uid, gid_t gid, uint64_t keep_capabilities) {
                 assert(keep_capabilities & (1ULL << (i - 1)));
 
                 if (cap_set_flag(d, CAP_EFFECTIVE, j, bits, CAP_SET) < 0 ||
-                    cap_set_flag(d, CAP_PERMITTED, j, bits, CAP_SET) < 0) {
-                        log_error_errno(errno, "Failed to enable capabilities bits: %m");
-                        return -errno;
-                }
+                    cap_set_flag(d, CAP_PERMITTED, j, bits, CAP_SET) < 0)
+                        return log_error_errno(errno, "Failed to enable capabilities bits: %m");
 
                 if (cap_set_proc(d) < 0)
                         return log_error_errno(errno, "Failed to increase capabilities: %m");

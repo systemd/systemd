@@ -297,8 +297,7 @@ static int manager_enumerate_seats(Manager *m) {
                 if (errno == ENOENT)
                         return 0;
 
-                log_error_errno(errno, "Failed to open /run/systemd/seats: %m");
-                return -errno;
+                return log_error_errno(errno, "Failed to open /run/systemd/seats: %m");
         }
 
         FOREACH_DIRENT(de, d, return -errno) {
@@ -334,8 +333,7 @@ static int manager_enumerate_linger_users(Manager *m) {
                 if (errno == ENOENT)
                         return 0;
 
-                log_error_errno(errno, "Failed to open /var/lib/systemd/linger/: %m");
-                return -errno;
+                return log_error_errno(errno, "Failed to open /var/lib/systemd/linger/: %m");
         }
 
         FOREACH_DIRENT(de, d, return -errno) {
@@ -370,8 +368,7 @@ static int manager_enumerate_users(Manager *m) {
                 if (errno == ENOENT)
                         return 0;
 
-                log_error_errno(errno, "Failed to open /run/systemd/users: %m");
-                return -errno;
+                return log_error_errno(errno, "Failed to open /run/systemd/users: %m");
         }
 
         FOREACH_DIRENT(de, d, return -errno) {
@@ -411,8 +408,7 @@ static int manager_enumerate_sessions(Manager *m) {
                 if (errno == ENOENT)
                         return 0;
 
-                log_error_errno(errno, "Failed to open /run/systemd/sessions: %m");
-                return -errno;
+                return log_error_errno(errno, "Failed to open /run/systemd/sessions: %m");
         }
 
         FOREACH_DIRENT(de, d, return -errno) {
@@ -458,8 +454,7 @@ static int manager_enumerate_inhibitors(Manager *m) {
                 if (errno == ENOENT)
                         return 0;
 
-                log_error_errno(errno, "Failed to open /run/systemd/inhibit: %m");
-                return -errno;
+                return log_error_errno(errno, "Failed to open /run/systemd/inhibit: %m");
         }
 
         FOREACH_DIRENT(de, d, return -errno) {
@@ -749,8 +744,7 @@ static int manager_connect_console(Manager *m) {
                 if (errno == ENOENT)
                         return 0;
 
-                log_error_errno(errno, "Failed to open /sys/class/tty/tty0/active: %m");
-                return -errno;
+                return log_error_errno(errno, "Failed to open /sys/class/tty/tty0/active: %m");
         }
 
         r = sd_event_add_io(m->event, &m->console_active_event_source, m->console_active_fd, 0, manager_dispatch_console, m);

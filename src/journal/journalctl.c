@@ -1483,7 +1483,7 @@ static int setup_keys(void) {
         safe_close(fd);
         fd = mkostemp_safe(k, O_WRONLY|O_CLOEXEC);
         if (fd < 0) {
-                r = log_error_errno(errno, "Failed to open %s: %m", k);
+                r = log_error_errno(fd, "Failed to open %s: %m", k);
                 goto finish;
         }
 
@@ -1491,7 +1491,7 @@ static int setup_keys(void) {
          * writing and in-place updating */
         r = chattr_fd(fd, FS_SECRM_FL|FS_NODUMP_FL|FS_SYNC_FL|FS_NOCOW_FL, FS_SECRM_FL|FS_NODUMP_FL|FS_SYNC_FL|FS_NOCOW_FL);
         if (r < 0)
-                log_warning_errno(errno, "Failed to set file attributes: %m");
+                log_warning_errno(r, "Failed to set file attributes: %m");
 
         zero(h);
         memcpy(h.signature, "KSHHRHLP", 8);

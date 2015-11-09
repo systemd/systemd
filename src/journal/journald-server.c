@@ -240,9 +240,14 @@ void server_fix_perms(Server *s, JournalFile *f, uid_t uid) {
         /* We do not recalculate the mask unconditionally here,
          * so that the fchmod() mask above stays intact. */
         if (acl_get_permset(entry, &permset) < 0 ||
-            acl_add_perm(permset, ACL_READ) < 0 ||
-            calc_acl_mask_if_needed(&acl) < 0) {
+            acl_add_perm(permset, ACL_READ) < 0) {
                 log_warning_errno(errno, "Failed to patch ACL on %s, ignoring: %m", f->path);
+                return;
+        }
+
+        r = calc_acl_mask_if_needed(&acl);
+        if (r < 0) {
+                log_warning_errno(r, "Failed to patch ACL on %s, ignoring: %m", f->path);
                 return;
         }
 

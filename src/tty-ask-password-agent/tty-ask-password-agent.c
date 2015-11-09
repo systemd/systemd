@@ -475,7 +475,7 @@ static int show_passwords(void) {
                 if (errno == ENOENT)
                         return 0;
 
-                return log_error_errno(errno, "Failed top open /run/systemd/ask-password: %m");
+                return log_error_errno(errno, "Failed to open /run/systemd/ask-password: %m");
         }
 
         FOREACH_DIRENT_ALL(de, d, return log_error_errno(errno, "Failed to read directory: %m")) {
