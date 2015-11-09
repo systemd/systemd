@@ -857,9 +857,15 @@ _public_ int udev_device_set_sysattr_value(struct udev_device *udev_device, cons
  * udev_device_get_sysattr_list_entry:
  * @udev_device: udev device
  *
- * Retrieve the list of available sysattrs, with value being empty;
- * This just return all available sysfs attributes for a particular
- * device without reading their values.
+ * Retrieve the list of available sysattrs, with value being empty.
+ * Return all available sysfs attributes for a particular device without
+ * reading their values.
+ *
+ * For a sysattr to be considered available, it is sufficient that a
+ * corresponding file of the appropriate sort be found in sysfs.
+ * udev_device_get_sysattr_value() may return NULL for an available sysfs
+ * attribute if, for any reason, the corresponding file is unreadable at
+ * the time it is invoked.
  *
  * Returns: the first entry of the property list
  **/
