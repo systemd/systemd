@@ -163,6 +163,11 @@
       <entry><varname>docker</varname></entry>
       <entry>Docker container manager</entry>
           </row>
+
+          <row>
+      <entry><varname>rkt</varname></entry>
+      <entry>rkt app container runtime</entry>
+          </row>
         </tbody>
       </tgroup>
     </table>
