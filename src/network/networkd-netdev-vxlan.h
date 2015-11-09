@@ -39,6 +39,7 @@ struct VxLan {
 
         unsigned tos;
         unsigned ttl;
+        unsigned max_fdb;
 
         usec_t fdb_ageing;
 

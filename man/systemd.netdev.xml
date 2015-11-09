@@ -434,6 +434,12 @@
         </listitem>
       </varlistentry>
       <varlistentry>
+        <term><varname>MaximumFDBEntries=</varname></term>
+        <listitem>
+          <para>Configures maximum number of FDB entries.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
         <term><varname>ARPProxy=</varname></term>
         <listitem>
           <para>A boolean. When true, enables ARP proxying.</para>
