@@ -84,96 +84,95 @@ static int generate_mac(
         return 0;
 }
 
-int setup_veth(const char *machine_name,
-               pid_t pid,
-               char iface_name[IFNAMSIZ],
-               bool bridge) {
+int setup_veth(const char *machine_name, pid_t pid, char **veth) {
 
         _cleanup_netlink_message_unref_ sd_netlink_message *m = NULL;
         _cleanup_netlink_unref_ sd_netlink *rtnl = NULL;
         struct ether_addr mac_host, mac_container;
         int r, i;
+        char **a, **b;
 
-        /* Use two different interface name prefixes depending whether
-         * we are in bridge mode or not. */
-        snprintf(iface_name, IFNAMSIZ - 1, "%s-%s",
-                 bridge ? "vb" : "ve", machine_name);
+        STRV_FOREACH_PAIR(a, b, veth) {
 
-        r = generate_mac(machine_name, &mac_container, CONTAINER_HASH_KEY, 0);
-        if (r < 0)
-                return log_error_errno(r, "Failed to generate predictable MAC address for container side: %m");
+                printf("veth pair '%s, %s' \n", *a, *b);
 
-        r = generate_mac(machine_name, &mac_host, HOST_HASH_KEY, 0);
-        if (r < 0)
-                return log_error_errno(r, "Failed to generate predictable MAC address for host side: %m");
+                r = generate_mac(machine_name, &mac_container, CONTAINER_HASH_KEY, 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to generate predictable MAC address for container side: %m");
 
-        r = sd_netlink_open(&rtnl);
-        if (r < 0)
-                return log_error_errno(r, "Failed to connect to netlink: %m");
+                r = generate_mac(machine_name, &mac_host, HOST_HASH_KEY, 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to generate predictable MAC address for host side: %m");
 
-        r = sd_rtnl_message_new_link(rtnl, &m, RTM_NEWLINK, 0);
-        if (r < 0)
-                return log_error_errno(r, "Failed to allocate netlink message: %m");
+                r = sd_netlink_open(&rtnl);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to connect to netlink: %m");
 
-        r = sd_netlink_message_append_string(m, IFLA_IFNAME, iface_name);
-        if (r < 0)
-                return log_error_errno(r, "Failed to add netlink interface name: %m");
+                r = sd_rtnl_message_new_link(rtnl, &m, RTM_NEWLINK, 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to allocate netlink message: %m");
 
-        r = sd_netlink_message_append_ether_addr(m, IFLA_ADDRESS, &mac_host);
-        if (r < 0)
-                return log_error_errno(r, "Failed to add netlink MAC address: %m");
+                r = sd_netlink_message_append_string(m, IFLA_IFNAME, *a);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add netlink interface name: %m");
 
-        r = sd_netlink_message_open_container(m, IFLA_LINKINFO);
-        if (r < 0)
-                return log_error_errno(r, "Failed to open netlink container: %m");
+                r = sd_netlink_message_append_ether_addr(m, IFLA_ADDRESS, &mac_host);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add netlink MAC address: %m");
 
-        r = sd_netlink_message_open_container_union(m, IFLA_INFO_DATA, "veth");
-        if (r < 0)
-                return log_error_errno(r, "Failed to open netlink container: %m");
+                r = sd_netlink_message_open_container(m, IFLA_LINKINFO);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to open netlink container: %m");
 
-        r = sd_netlink_message_open_container(m, VETH_INFO_PEER);
-        if (r < 0)
-                return log_error_errno(r, "Failed to open netlink container: %m");
+                r = sd_netlink_message_open_container_union(m, IFLA_INFO_DATA, "veth");
+                if (r < 0)
+                        return log_error_errno(r, "Failed to open netlink container: %m");
 
-        r = sd_netlink_message_append_string(m, IFLA_IFNAME, "host0");
-        if (r < 0)
-                return log_error_errno(r, "Failed to add netlink interface name: %m");
+                r = sd_netlink_message_open_container(m, VETH_INFO_PEER);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to open netlink container: %m");
 
-        r = sd_netlink_message_append_ether_addr(m, IFLA_ADDRESS, &mac_container);
-        if (r < 0)
-                return log_error_errno(r, "Failed to add netlink MAC address: %m");
+                r = sd_netlink_message_append_string(m, IFLA_IFNAME, *b);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add netlink interface name: %m");
 
-        r = sd_netlink_message_append_u32(m, IFLA_NET_NS_PID, pid);
-        if (r < 0)
-                return log_error_errno(r, "Failed to add netlink namespace field: %m");
+                r = sd_netlink_message_append_ether_addr(m, IFLA_ADDRESS, &mac_container);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add netlink MAC address: %m");
 
-        r = sd_netlink_message_close_container(m);
-        if (r < 0)
-                return log_error_errno(r, "Failed to close netlink container: %m");
+                r = sd_netlink_message_append_u32(m, IFLA_NET_NS_PID, pid);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add netlink namespace field: %m");
 
-        r = sd_netlink_message_close_container(m);
-        if (r < 0)
-                return log_error_errno(r, "Failed to close netlink container: %m");
+                r = sd_netlink_message_close_container(m);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to close netlink container: %m");
 
-        r = sd_netlink_message_close_container(m);
-        if (r < 0)
-                return log_error_errno(r, "Failed to close netlink container: %m");
+                r = sd_netlink_message_close_container(m);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to close netlink container: %m");
 
-        r = sd_netlink_call(rtnl, m, 0, NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to add new veth interfaces (host0, %s): %m", iface_name);
+                r = sd_netlink_message_close_container(m);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to close netlink container: %m");
 
-        i = (int) if_nametoindex(iface_name);
-        if (i <= 0)
-                return log_error_errno(errno, "Failed to resolve interface %s: %m", iface_name);
+                r = sd_netlink_call(rtnl, m, 0, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add new veth interfaces (%s, %s): %m", *a, *b);
+
+                i = (int) if_nametoindex(*a);
+                if (i <= 0)
+                        return log_error_errno(errno, "Failed to resolve interface %s: %m", *a);
+        }
 
         return i;
 }
 
-int setup_bridge(const char *veth_name, const char *bridge_name) {
+int setup_bridge(char **veth_name, const char *bridge_name) {
         _cleanup_netlink_message_unref_ sd_netlink_message *m = NULL;
         _cleanup_netlink_unref_ sd_netlink *rtnl = NULL;
         int r, bridge_ifi;
+        char **a, **b;
 
         assert(veth_name);
         assert(bridge_name);
@@ -182,29 +181,32 @@ int setup_bridge(const char *veth_name, const char *bridge_name) {
         if (bridge_ifi <= 0)
                 return log_error_errno(errno, "Failed to resolve interface %s: %m", bridge_name);
 
-        r = sd_netlink_open(&rtnl);
-        if (r < 0)
-                return log_error_errno(r, "Failed to connect to netlink: %m");
+        STRV_FOREACH_PAIR(a, b, veth_name) {
 
-        r = sd_rtnl_message_new_link(rtnl, &m, RTM_SETLINK, 0);
-        if (r < 0)
-                return log_error_errno(r, "Failed to allocate netlink message: %m");
+                r = sd_netlink_open(&rtnl);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to connect to netlink: %m");
 
-        r = sd_rtnl_message_link_set_flags(m, IFF_UP, IFF_UP);
-        if (r < 0)
-                return log_error_errno(r, "Failed to set IFF_UP flag: %m");
+                r = sd_rtnl_message_new_link(rtnl, &m, RTM_SETLINK, 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to allocate netlink message: %m");
 
-        r = sd_netlink_message_append_string(m, IFLA_IFNAME, veth_name);
-        if (r < 0)
-                return log_error_errno(r, "Failed to add netlink interface name field: %m");
+                r = sd_rtnl_message_link_set_flags(m, IFF_UP, IFF_UP);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set IFF_UP flag: %m");
 
-        r = sd_netlink_message_append_u32(m, IFLA_MASTER, bridge_ifi);
-        if (r < 0)
-                return log_error_errno(r, "Failed to add netlink master field: %m");
+                r = sd_netlink_message_append_string(m, IFLA_IFNAME, *a);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add netlink interface name field: %m");
 
-        r = sd_netlink_call(rtnl, m, 0, NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to add veth interface to bridge: %m");
+                r = sd_netlink_message_append_u32(m, IFLA_MASTER, bridge_ifi);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add netlink master field: %m");
+
+                r = sd_netlink_call(rtnl, m, 0, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add veth interface to bridge: %m");
+        }
 
         return bridge_ifi;
 }
