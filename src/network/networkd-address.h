@@ -52,7 +52,6 @@ struct Address {
         union in_addr_union in_addr;
         union in_addr_union in_addr_peer;
 
-        bool added:1;
         bool ip_masquerade_done:1;
 
         LIST_FIELDS(Address, addresses);

@@ -248,6 +248,8 @@ static int address_add_internal(Link *link, Set **addresses,
         address->family = family;
         address->in_addr = *in_addr;
         address->prefixlen = prefixlen;
+        /* Consider address tentative until we get the real flags from the kernel */
+        address->flags = IFA_F_TENTATIVE;
 
         r = set_ensure_allocated(addresses, &address_hash_ops);
         if (r < 0)
@@ -333,7 +335,6 @@ int address_update(Address *address, unsigned char flags, unsigned char scope, s
 
         ready = address_is_ready(address);
 
-        address->added = true;
         address->flags = flags;
         address->scope = scope;
         address->cinfo = *cinfo;
@@ -769,5 +770,5 @@ int config_parse_label(const char *unit,
 bool address_is_ready(const Address *a) {
         assert(a);
 
-        return a->added && !(a->flags & (IFA_F_TENTATIVE | IFA_F_DEPRECATED));
+        return !(a->flags & (IFA_F_TENTATIVE | IFA_F_DEPRECATED));
 }
