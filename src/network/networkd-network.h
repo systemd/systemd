@@ -122,6 +122,7 @@ struct Network {
 
         int ipv6_accept_ra;
         int ipv6_dad_transmits;
+        int ipv6_hop_limit;
 
         union in_addr_union ipv6_token;
         IPv6PrivacyExtensions ipv6_privacy_extensions;
