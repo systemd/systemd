@@ -147,7 +147,8 @@ int link_set_timezone(Link *link, const char *timezone);
 
 int ipv4ll_configure(Link *link);
 int dhcp4_configure(Link *link);
-int dhcp6_configure(Link *link, bool information_request);
+int dhcp6_configure(Link *link);
+int dhcp6_request_address(Link *link);
 int ndisc_configure(Link *link);
 
 bool link_lldp_enabled(Link *link);

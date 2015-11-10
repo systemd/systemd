@@ -29,6 +29,7 @@
 
 static void ndisc_router_handler(sd_ndisc *nd, uint8_t flags, const struct in6_addr *gateway, unsigned lifetime, int pref, void *userdata) {
         Link *link = userdata;
+        int r;
 
         assert(link);
         assert(link->network);
@@ -36,14 +37,19 @@ static void ndisc_router_handler(sd_ndisc *nd, uint8_t flags, const struct in6_a
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return;
 
-        if (flags & ND_RA_FLAG_MANAGED)
-                dhcp6_configure(link, false);
-        else if (flags & ND_RA_FLAG_OTHER)
-                dhcp6_configure(link, true);
+        if (flags & (ND_RA_FLAG_MANAGED | ND_RA_FLAG_OTHER)) {
+                if (flags & ND_RA_FLAG_MANAGED)
+                        dhcp6_request_address(link);
+
+                r = sd_dhcp6_client_start(link->dhcp6_client);
+                if (r < 0 && r != -EBUSY)
+                        log_link_warning_errno(link, r, "Starting DHCPv6 client on NDisc request failed: %m");
+        }
 }
 
 static void ndisc_handler(sd_ndisc *nd, int event, void *userdata) {
         Link *link = userdata;
+        int r;
 
         assert(link);
 
@@ -52,7 +58,11 @@ static void ndisc_handler(sd_ndisc *nd, int event, void *userdata) {
 
         switch (event) {
         case SD_NDISC_EVENT_TIMEOUT:
-                dhcp6_configure(link, false);
+                dhcp6_request_address(link);
+
+                r = sd_dhcp6_client_start(link->dhcp6_client);
+                if (r < 0 && r != -EBUSY)
+                        log_link_warning_errno(link, r, "Starting DHCPv6 client after NDisc timeout failed: %m");
                 break;
         case SD_NDISC_EVENT_STOP:
                 break;
