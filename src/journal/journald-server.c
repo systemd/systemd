@@ -1484,11 +1484,6 @@ static int dispatch_notify_event(sd_event_source *es, int fd, uint32_t revents, 
         assert(s->notify_event_source == es);
         assert(s->notify_fd == fd);
 
-        if (revents != EPOLLOUT) {
-                log_error("Invalid events on notify file descriptor.");
-                return -EINVAL;
-        }
-
         /* The $NOTIFY_SOCKET is writable again, now send exactly one
          * message on it. Either it's the wtachdog event, the initial
          * READY=1 event or an stdout stream event. If there's nothing
