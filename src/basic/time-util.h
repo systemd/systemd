@@ -104,6 +104,7 @@ int dual_timestamp_deserialize(const char *value, dual_timestamp *t);
 int parse_timestamp(const char *t, usec_t *usec);
 
 int parse_sec(const char *t, usec_t *usec);
+int parse_time(const char *t, usec_t *usec, usec_t default_unit);
 int parse_nsec(const char *t, nsec_t *nsec);
 
 bool ntp_synced(void);

@@ -562,7 +562,7 @@ static int parse_date(const char **p, CalendarSpec *c) {
         return -EINVAL;
 }
 
-static int parse_time(const char **p, CalendarSpec *c) {
+static int parse_calendar_time(const char **p, CalendarSpec *c) {
         CalendarComponent *h = NULL, *m = NULL, *s = NULL;
         const char *t;
         int r;
@@ -802,7 +802,7 @@ int calendar_spec_from_string(const char *p, CalendarSpec **spec) {
                 if (r < 0)
                         goto fail;
 
-                r = parse_time(&p, c);
+                r = parse_calendar_time(&p, c);
                 if (r < 0)
                         goto fail;
 

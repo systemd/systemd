@@ -705,7 +705,8 @@ finish:
         return 0;
 }
 
-int parse_sec(const char *t, usec_t *usec) {
+int parse_time(const char *t, usec_t *usec, usec_t default_unit) {
+
         static const struct {
                 const char *suffix;
                 usec_t usec;
@@ -737,7 +738,6 @@ int parse_sec(const char *t, usec_t *usec) {
                 { "y", USEC_PER_YEAR },
                 { "usec", 1ULL },
                 { "us", 1ULL },
-                { "", USEC_PER_SEC }, /* default is sec */
         };
 
         const char *p, *s;
@@ -746,6 +746,7 @@ int parse_sec(const char *t, usec_t *usec) {
 
         assert(t);
         assert(usec);
+        assert(default_unit > 0);
 
         p = t;
 
@@ -764,6 +765,7 @@ int parse_sec(const char *t, usec_t *usec) {
                 long long l, z = 0;
                 char *e;
                 unsigned i, n = 0;
+                usec_t multiplier, k;
 
                 p += strspn(p, WHITESPACE);
 
@@ -806,26 +808,33 @@ int parse_sec(const char *t, usec_t *usec) {
 
                 for (i = 0; i < ELEMENTSOF(table); i++)
                         if (startswith(e, table[i].suffix)) {
-                                usec_t k = (usec_t) z * table[i].usec;
-
-                                for (; n > 0; n--)
-                                        k /= 10;
-
-                                r += (usec_t) l * table[i].usec + k;
+                                multiplier = table[i].usec;
                                 p = e + strlen(table[i].suffix);
-
-                                something = true;
                                 break;
                         }
 
-                if (i >= ELEMENTSOF(table))
-                        return -EINVAL;
+                if (i >= ELEMENTSOF(table)) {
+                        multiplier = default_unit;
+                        p = e;
+                }
 
+                something = true;
+
+                k = (usec_t) z * multiplier;
+
+                for (; n > 0; n--)
+                        k /= 10;
+
+                r += (usec_t) l * multiplier + k;
         }
 
         *usec = r;
 
         return 0;
+}
+
+int parse_sec(const char *t, usec_t *usec) {
+        return parse_time(t, usec, USEC_PER_SEC);
 }
 
 int parse_nsec(const char *t, nsec_t *nsec) {
