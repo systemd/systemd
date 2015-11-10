@@ -1094,10 +1094,9 @@ fail:
 }
 
 
-static int manager_distribute_fds(Manager *m, FDSet *fds) {
-        Unit *u;
+static void manager_distribute_fds(Manager *m, FDSet *fds) {
         Iterator i;
-        int r;
+        Unit *u;
 
         assert(m);
 
@@ -1106,14 +1105,11 @@ static int manager_distribute_fds(Manager *m, FDSet *fds) {
                 if (fdset_size(fds) <= 0)
                         break;
 
-                if (UNIT_VTABLE(u)->distribute_fds) {
-                        r = UNIT_VTABLE(u)->distribute_fds(u, fds);
-                        if (r < 0)
-                                return r;
-                }
-        }
+                if (!UNIT_VTABLE(u)->distribute_fds)
+                        continue;
 
-        return 0;
+                UNIT_VTABLE(u)->distribute_fds(u, fds);
+        }
 }
 
 int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
@@ -1157,11 +1153,7 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
          * useful to allow container managers to pass some file
          * descriptors to us pre-initialized. This enables
          * socket-based activation of entire containers. */
-        if (fdset_size(fds) > 0) {
-                q = manager_distribute_fds(m, fds);
-                if (q < 0 && r == 0)
-                        r = q;
-        }
+        manager_distribute_fds(m, fds);
 
         /* We might have deserialized the notify fd, but if we didn't
          * then let's create the bus now */
