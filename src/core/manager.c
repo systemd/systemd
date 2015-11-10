@@ -2024,7 +2024,6 @@ int manager_loop(Manager *m) {
                         /* Yay, something is going seriously wrong, pause a little */
                         log_warning("Looping too fast. Throttling execution a little.");
                         sleep(1);
-                        continue;
                 }
 
                 if (manager_dispatch_load_queue(m) > 0)
