@@ -970,23 +970,22 @@ int config_parse_exec_secure_bits(const char *unit,
         return 0;
 }
 
-int config_parse_bounding_set(const char *unit,
-                              const char *filename,
-                              unsigned line,
-                              const char *section,
-                              unsigned section_line,
-                              const char *lvalue,
-                              int ltype,
-                              const char *rvalue,
-                              void *data,
-                              void *userdata) {
+int config_parse_bounding_set(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
         uint64_t *capability_bounding_set_drop = data;
-        uint64_t capability_bounding_set;
+        uint64_t capability_bounding_set, sum = 0;
         bool invert = false;
-        uint64_t sum = 0;
-        const char *prev;
-        const char *cur;
+        const char *p;
 
         assert(filename);
         assert(lvalue);
@@ -1003,35 +1002,32 @@ int config_parse_bounding_set(const char *unit,
          * non-inverted everywhere to have a fully normalized
          * interface. */
 
-        prev = cur = rvalue;
+        p = rvalue;
         for (;;) {
                 _cleanup_free_ char *word = NULL;
-                int cap;
-                int r;
+                int cap, r;
 
-                r = extract_first_word(&cur, &word, NULL, EXTRACT_QUOTES);
+                r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES);
                 if (r == 0)
                         break;
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Trailing garbage in bounding set, ignoring: %s", prev);
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse word, ignoring: %s", rvalue);
                         break;
                 }
 
                 cap = capability_from_name(word);
                 if (cap < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse capability in bounding set, ignoring: %s", word);
-                        prev = cur;
                         continue;
                 }
 
-                sum |= ((uint64_t) 1ULL) << (uint64_t) cap;
-                prev = cur;
+                sum |= ((uint64_t) UINT64_C(1)) << (uint64_t) cap;
         }
 
         capability_bounding_set = invert ? ~sum : sum;
-        if (*capability_bounding_set_drop && capability_bounding_set)
+        if (*capability_bounding_set_drop != 0 && capability_bounding_set != 0)
                 *capability_bounding_set_drop = ~(~*capability_bounding_set_drop | capability_bounding_set);
         else
                 *capability_bounding_set_drop = ~capability_bounding_set;
