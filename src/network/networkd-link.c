@@ -2706,9 +2706,8 @@ int link_save(Link *link) {
                 sd_dhcp6_lease *dhcp6_lease = NULL;
 
                 if (link->dhcp6_client) {
-                        r = sd_dhcp6_client_get_lease(link->dhcp6_client,
-                                                      &dhcp6_lease);
-                        if (r < 0)
+                        r = sd_dhcp6_client_get_lease(link->dhcp6_client, &dhcp6_lease);
+                        if (r < 0 && r != -ENOMSG)
                                 log_link_debug(link, "No DHCPv6 lease");
                 }
 
