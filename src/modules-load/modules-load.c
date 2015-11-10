@@ -38,7 +38,7 @@
 
 static char **arg_proc_cmdline_modules = NULL;
 
-static const char conf_file_dirs[] = CONF_DIRS_NULSTR("modules-load");
+static const char conf_file_dirs[] = CONF_PATHS_NULSTR("modules-load.d");
 
 static void systemd_kmod_log(void *data, int priority, const char *file, int line,
                              const char *fn, const char *format, va_list args) {

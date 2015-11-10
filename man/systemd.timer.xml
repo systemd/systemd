@@ -127,7 +127,7 @@
         boot-up. The argument may also include time units. Example:
         "OnBootSec=5h 30min" means 5 hours and 30 minutes after
         boot-up. For details about the syntax of time spans, see
-        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
 
         <para>If a timer configured with <varname>OnBootSec=</varname>
         or <varname>OnStartupSec=</varname> is already in the past

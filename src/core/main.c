@@ -682,8 +682,14 @@ static int parse_config_file(void) {
 
         const char *fn, *conf_dirs_nulstr;
 
-        fn = arg_running_as == MANAGER_SYSTEM ? PKGSYSCONFDIR "/system.conf" : PKGSYSCONFDIR "/user.conf";
-        conf_dirs_nulstr = arg_running_as == MANAGER_SYSTEM ? CONF_DIRS_NULSTR("systemd/system.conf") : CONF_DIRS_NULSTR("systemd/user.conf");
+        fn = arg_running_as == MANAGER_SYSTEM ?
+                PKGSYSCONFDIR "/system.conf" :
+                PKGSYSCONFDIR "/user.conf";
+
+        conf_dirs_nulstr = arg_running_as == MANAGER_SYSTEM ?
+                CONF_PATHS_NULSTR("systemd/system.conf.d") :
+                CONF_PATHS_NULSTR("systemd/user.conf.d");
+
         config_parse_many(fn, conf_dirs_nulstr, "Manager\0",
                           config_item_table_lookup, items, false, NULL);
 

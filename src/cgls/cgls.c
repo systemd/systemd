@@ -165,8 +165,10 @@ static int get_cgroup_root(char **ret) {
 }
 
 static void show_cg_info(const char *controller, const char *path) {
-        if (cg_unified() <= 0)
+
+        if (cg_unified() <= 0 && controller && !streq(controller, SYSTEMD_CGROUP_CONTROLLER))
                 printf("Controller %s; ", controller);
+
         printf("Control group %s:\n", isempty(path) ? "/" : path);
         fflush(stdout);
 }
@@ -270,6 +272,7 @@ int main(int argc, char *argv[]) {
 
                         show_cg_info(SYSTEMD_CGROUP_CONTROLLER, root);
 
+                        printf("-.slice\n");
                         r = show_cgroup(SYSTEMD_CGROUP_CONTROLLER, root, NULL, 0, arg_kernel_threads, output_flags);
                 }
         }

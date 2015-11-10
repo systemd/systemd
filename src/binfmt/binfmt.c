@@ -37,7 +37,7 @@
 #include "strv.h"
 #include "util.h"
 
-static const char conf_file_dirs[] = CONF_DIRS_NULSTR("binfmt");
+static const char conf_file_dirs[] = CONF_PATHS_NULSTR("binfmt.d");
 
 static int delete_rule(const char *rule) {
         _cleanup_free_ char *x = NULL, *fn = NULL;

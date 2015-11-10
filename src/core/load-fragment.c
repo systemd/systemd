@@ -974,23 +974,22 @@ int config_parse_exec_secure_bits(const char *unit,
         return 0;
 }
 
-int config_parse_bounding_set(const char *unit,
-                              const char *filename,
-                              unsigned line,
-                              const char *section,
-                              unsigned section_line,
-                              const char *lvalue,
-                              int ltype,
-                              const char *rvalue,
-                              void *data,
-                              void *userdata) {
+int config_parse_bounding_set(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
         uint64_t *capability_bounding_set_drop = data;
-        uint64_t capability_bounding_set;
+        uint64_t capability_bounding_set, sum = 0;
         bool invert = false;
-        uint64_t sum = 0;
-        const char *prev;
-        const char *cur;
+        const char *p;
 
         assert(filename);
         assert(lvalue);
@@ -1007,35 +1006,32 @@ int config_parse_bounding_set(const char *unit,
          * non-inverted everywhere to have a fully normalized
          * interface. */
 
-        prev = cur = rvalue;
+        p = rvalue;
         for (;;) {
                 _cleanup_free_ char *word = NULL;
-                int cap;
-                int r;
+                int cap, r;
 
-                r = extract_first_word(&cur, &word, NULL, EXTRACT_QUOTES);
+                r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES);
                 if (r == 0)
                         break;
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Trailing garbage in bounding set, ignoring: %s", prev);
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse word, ignoring: %s", rvalue);
                         break;
                 }
 
                 cap = capability_from_name(word);
                 if (cap < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse capability in bounding set, ignoring: %s", word);
-                        prev = cur;
                         continue;
                 }
 
-                sum |= ((uint64_t) 1ULL) << (uint64_t) cap;
-                prev = cur;
+                sum |= ((uint64_t) UINT64_C(1)) << (uint64_t) cap;
         }
 
         capability_bounding_set = invert ? ~sum : sum;
-        if (*capability_bounding_set_drop && capability_bounding_set)
+        if (*capability_bounding_set_drop != 0 && capability_bounding_set != 0)
                 *capability_bounding_set_drop = ~(~*capability_bounding_set_drop | capability_bounding_set);
         else
                 *capability_bounding_set_drop = ~capability_bounding_set;
@@ -1043,19 +1039,21 @@ int config_parse_bounding_set(const char *unit,
         return 0;
 }
 
-int config_parse_limit(const char *unit,
-                       const char *filename,
-                       unsigned line,
-                       const char *section,
-                       unsigned section_line,
-                       const char *lvalue,
-                       int ltype,
-                       const char *rvalue,
-                       void *data,
-                       void *userdata) {
+int config_parse_limit(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
         struct rlimit **rl = data;
-        unsigned long long u;
+        rlim_t v;
+        int r;
 
         assert(filename);
         assert(lvalue);
@@ -1065,15 +1063,22 @@ int config_parse_limit(const char *unit,
         rl += ltype;
 
         if (streq(rvalue, "infinity"))
-                u = (unsigned long long) RLIM_INFINITY;
+                v = RLIM_INFINITY;
         else {
-                int r;
+                uint64_t u;
 
-                r = safe_atollu(rvalue, &u);
+                /* setrlimit(2) suggests rlim_t is always 64bit on Linux. */
+                assert_cc(sizeof(rlim_t) == sizeof(uint64_t));
+
+                r = safe_atou64(rvalue, &u);
+                if (r >= 0 && u >= (uint64_t) RLIM_INFINITY)
+                        r = -ERANGE;
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse resource value, ignoring: %s", rvalue);
                         return 0;
                 }
+
+                v = (rlim_t) u;
         }
 
         if (!*rl) {
@@ -1082,23 +1087,25 @@ int config_parse_limit(const char *unit,
                         return log_oom();
         }
 
-        (*rl)->rlim_cur = (*rl)->rlim_max = (rlim_t) u;
+        (*rl)->rlim_cur = (*rl)->rlim_max = v;
         return 0;
 }
 
-int config_parse_bytes_limit(const char *unit,
-                       const char *filename,
-                       unsigned line,
-                       const char *section,
-                       unsigned section_line,
-                       const char *lvalue,
-                       int ltype,
-                       const char *rvalue,
-                       void *data,
-                       void *userdata) {
+int config_parse_bytes_limit(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
         struct rlimit **rl = data;
-        uint64_t bytes;
+        rlim_t bytes;
+        int r;
 
         assert(filename);
         assert(lvalue);
@@ -1108,15 +1115,19 @@ int config_parse_bytes_limit(const char *unit,
         rl += ltype;
 
         if (streq(rvalue, "infinity"))
-                bytes = (uint64_t) RLIM_INFINITY;
+                bytes = RLIM_INFINITY;
         else {
-                int r;
+                uint64_t u;
 
-                r = parse_size(rvalue, 1024, &bytes);
+                r = parse_size(rvalue, 1024, &u);
+                if (r >= 0 && u >= (uint64_t) RLIM_INFINITY)
+                        r = -ERANGE;
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse resource value, ignoring: %s", rvalue);
                         return 0;
                 }
+
+                bytes = (rlim_t) u;
         }
 
         if (!*rl) {
@@ -1125,7 +1136,108 @@ int config_parse_bytes_limit(const char *unit,
                         return log_oom();
         }
 
-        (*rl)->rlim_cur = (*rl)->rlim_max = (rlim_t) bytes;
+        (*rl)->rlim_cur = (*rl)->rlim_max = bytes;
+        return 0;
+}
+
+int config_parse_sec_limit(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        struct rlimit **rl = data;
+        rlim_t seconds;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        rl += ltype;
+
+        if (streq(rvalue, "infinity"))
+                seconds = RLIM_INFINITY;
+        else {
+                usec_t t;
+
+                r = parse_sec(rvalue, &t);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse resource value, ignoring: %s", rvalue);
+                        return 0;
+                }
+
+                if (t == USEC_INFINITY)
+                        seconds = RLIM_INFINITY;
+                else
+                        seconds = (rlim_t) (DIV_ROUND_UP(t, USEC_PER_SEC));
+        }
+
+        if (!*rl) {
+                *rl = new(struct rlimit, 1);
+                if (!*rl)
+                        return log_oom();
+        }
+
+        (*rl)->rlim_cur = (*rl)->rlim_max = seconds;
+        return 0;
+}
+
+
+int config_parse_usec_limit(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        struct rlimit **rl = data;
+        rlim_t useconds;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        rl += ltype;
+
+        if (streq(rvalue, "infinity"))
+                useconds = RLIM_INFINITY;
+        else {
+                usec_t t;
+
+                r = parse_time(rvalue, &t, 1);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse resource value, ignoring: %s", rvalue);
+                        return 0;
+                }
+
+                if (t == USEC_INFINITY)
+                        useconds = RLIM_INFINITY;
+                else
+                        useconds = (rlim_t) t;
+        }
+
+        if (!*rl) {
+                *rl = new(struct rlimit, 1);
+                if (!*rl)
+                        return log_oom();
+        }
+
+        (*rl)->rlim_cur = (*rl)->rlim_max = useconds;
         return 0;
 }
 

@@ -1102,8 +1102,8 @@ static int manager_run(Manager *m) {
 static int manager_parse_config_file(Manager *m) {
         assert(m);
 
-        return config_parse_many("/etc/systemd/logind.conf",
-                                 CONF_DIRS_NULSTR("systemd/logind.conf"),
+        return config_parse_many(PKGSYSCONFDIR "/logind.conf",
+                                 CONF_PATHS_NULSTR("systemd/logind.conf.d"),
                                  "Login\0",
                                  config_item_perf_lookup, logind_gperf_lookup,
                                  false, m);

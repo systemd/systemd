@@ -41,7 +41,7 @@
 
 static char **arg_prefixes = NULL;
 
-static const char conf_file_dirs[] = CONF_DIRS_NULSTR("sysctl");
+static const char conf_file_dirs[] = CONF_PATHS_NULSTR("sysctl.d");
 
 static int apply_all(Hashmap *sysctl_options) {
         char *property, *value;

@@ -1296,7 +1296,19 @@ static int setup_signals(Server *s) {
         if (r < 0)
                 return r;
 
+        /* Let's process SIGTERM late, so that we flush all queued
+         * messages to disk before we exit */
+        r = sd_event_source_set_priority(s->sigterm_event_source, SD_EVENT_PRIORITY_NORMAL+20);
+        if (r < 0)
+                return r;
+
+        /* When journald is invoked on the terminal (when debugging),
+         * it's useful if C-c is handled equivalent to SIGTERM. */
         r = sd_event_add_signal(s->event, &s->sigint_event_source, SIGINT, dispatch_sigterm, s);
+        if (r < 0)
+                return r;
+
+        r = sd_event_source_set_priority(s->sigint_event_source, SD_EVENT_PRIORITY_NORMAL+20);
         if (r < 0)
                 return r;
 
@@ -1360,8 +1372,8 @@ static int server_parse_proc_cmdline(Server *s) {
 static int server_parse_config_file(Server *s) {
         assert(s);
 
-        return config_parse_many("/etc/systemd/journald.conf",
-                                 CONF_DIRS_NULSTR("systemd/journald.conf"),
+        return config_parse_many(PKGSYSCONFDIR "/journald.conf",
+                                 CONF_PATHS_NULSTR("systemd/journald.conf.d"),
                                  "Journal\0",
                                  config_item_perf_lookup, journald_gperf_lookup,
                                  false, s);

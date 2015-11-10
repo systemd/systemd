@@ -72,7 +72,7 @@ typedef struct Item {
 
 static char *arg_root = NULL;
 
-static const char conf_file_dirs[] = CONF_DIRS_NULSTR("sysusers");
+static const char conf_file_dirs[] = CONF_PATHS_NULSTR("sysusers.d");
 
 static Hashmap *users = NULL, *groups = NULL;
 static Hashmap *todo_uids = NULL, *todo_gids = NULL;

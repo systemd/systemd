@@ -33,6 +33,12 @@ Janitorial Clean-ups:
 
 Features:
 
+* add an explicit parser for LimitNICE= and LimitRTPRIO= that verifies
+  the specified range and generates sane error messages for incorrect
+  specifications. Also, for LimitNICE= maybe introduce a syntax such
+  as "+5" or "-7" in order to make the limits more readable as they
+  are otherwise shifted by 20.
+
 * do something about "/control" subcgroups in the unified cgroup hierarchy
 
 * when we detect that there are waiting jobs but no running jobs, do something
