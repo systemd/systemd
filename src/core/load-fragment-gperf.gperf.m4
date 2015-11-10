@@ -242,6 +242,7 @@ KILL_CONTEXT_CONFIG_ITEMS(Service)m4_dnl
 m4_dnl
 Socket.ListenStream,             config_parse_socket_listen,         SOCKET_SOCKET,                 0
 Socket.ListenDatagram,           config_parse_socket_listen,         SOCKET_SOCKET,                 0
+Socket.ListenDatagramLite,       config_parse_socket_listen,         SOCKET_SOCKET,                 0
 Socket.ListenSequentialPacket,   config_parse_socket_listen,         SOCKET_SOCKET,                 0
 Socket.ListenFIFO,               config_parse_socket_listen,         SOCKET_FIFO,                   0
 Socket.ListenNetlink,            config_parse_socket_listen,         SOCKET_SOCKET,                 0

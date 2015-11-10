@@ -372,7 +372,10 @@ int config_parse_socket_listen(const char *unit,
                         p->address.type = SOCK_STREAM;
                 else if (streq(lvalue, "ListenDatagram"))
                         p->address.type = SOCK_DGRAM;
-                else {
+                else if (streq(lvalue, "ListenDatagramLite")) {
+                        p->address.type = SOCK_DGRAM;
+                        p->address.protocol = IPPROTO_UDPLITE;
+                } else {
                         assert(streq(lvalue, "ListenSequentialPacket"));
                         p->address.type = SOCK_SEQPACKET;
                 }
