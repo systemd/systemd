@@ -1,6 +1,0 @@
-[Unit]
-Description=End the test
-After=testsuite.service
-
-[Service]
-ExecStart=@SYSTEMCTL@ poweroff --no-block
