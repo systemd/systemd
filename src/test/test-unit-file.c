@@ -681,6 +681,44 @@ static void test_config_parse_bounding_set(void) {
         assert_se(capability_bounding_set_drop == ~(make_cap(CAP_NET_RAW) | make_cap(CAP_NET_ADMIN)));
 }
 
+static void test_config_parse_pass_environ(void) {
+        /* int config_parse_pass_environ(
+                 const char *unit,
+                 const char *filename,
+                 unsigned line,
+                 const char *section,
+                 unsigned section_line,
+                 const char *lvalue,
+                 int ltype,
+                 const char *rvalue,
+                 void *data,
+                 void *userdata) */
+        int r;
+        _cleanup_strv_free_ char **passenv = NULL;
+
+        r = config_parse_pass_environ(NULL, "fake", 1, "section", 1,
+                              "PassEnvironment", 0, "A B",
+                              &passenv, NULL);
+        assert_se(r >= 0);
+        assert_se(strv_length(passenv) == 2);
+        assert_se(streq(passenv[0], "A"));
+        assert_se(streq(passenv[1], "B"));
+
+        r = config_parse_pass_environ(NULL, "fake", 1, "section", 1,
+                              "PassEnvironment", 0, "",
+                              &passenv, NULL);
+        assert_se(r >= 0);
+        assert_se(strv_isempty(passenv));
+
+        r = config_parse_pass_environ(NULL, "fake", 1, "section", 1,
+                              "PassEnvironment", 0, "'invalid name' 'normal_name' A=1 \\",
+                              &passenv, NULL);
+        assert_se(r >= 0);
+        assert_se(strv_length(passenv) == 1);
+        assert_se(streq(passenv[0], "normal_name"));
+
+}
+
 int main(int argc, char *argv[]) {
         int r;
 
@@ -690,6 +728,7 @@ int main(int argc, char *argv[]) {
         r = test_unit_file_get_set();
         test_config_parse_exec();
         test_config_parse_bounding_set();
+        test_config_parse_pass_environ();
         test_load_env_file_1();
         test_load_env_file_2();
         test_load_env_file_3();
