@@ -575,8 +575,12 @@ int btrfs_qgroup_get_quota_fd(int fd, uint64_t qgroupid, BtrfsQuotaInfo *ret) {
                 unsigned i;
 
                 args.key.nr_items = 256;
-                if (ioctl(fd, BTRFS_IOC_TREE_SEARCH, &args) < 0)
+                if (ioctl(fd, BTRFS_IOC_TREE_SEARCH, &args) < 0) {
+                        if (errno == ENOENT) /* quota tree is missing: quota disabled */
+                                break;
+
                         return -errno;
+                }
 
                 if (args.key.nr_items <= 0)
                         break;
@@ -1335,8 +1339,12 @@ int btrfs_qgroup_copy_limits(int fd, uint64_t old_qgroupid, uint64_t new_qgroupi
                 unsigned i;
 
                 args.key.nr_items = 256;
-                if (ioctl(fd, BTRFS_IOC_TREE_SEARCH, &args) < 0)
+                if (ioctl(fd, BTRFS_IOC_TREE_SEARCH, &args) < 0) {
+                        if (errno == ENOENT) /* quota tree missing: quota is not enabled, hence nothing to copy */
+                                break;
+
                         return -errno;
+                }
 
                 if (args.key.nr_items <= 0)
                         break;
@@ -1766,8 +1774,12 @@ int btrfs_qgroup_find_parents(int fd, uint64_t qgroupid, uint64_t **ret) {
                 unsigned i;
 
                 args.key.nr_items = 256;
-                if (ioctl(fd, BTRFS_IOC_TREE_SEARCH, &args) < 0)
+                if (ioctl(fd, BTRFS_IOC_TREE_SEARCH, &args) < 0) {
+                        if (errno == ENOENT) /* quota tree missing: quota is disabled */
+                                break;
+
                         return -errno;
+                }
 
                 if (args.key.nr_items <= 0)
                         break;
