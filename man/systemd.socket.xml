@@ -150,10 +150,11 @@
       <varlistentry>
         <term><varname>ListenStream=</varname></term>
         <term><varname>ListenDatagram=</varname></term>
+        <term><varname>ListenDatagramLite=</varname></term>
         <term><varname>ListenSequentialPacket=</varname></term>
         <listitem><para>Specifies an address to listen on for a stream
         (<constant>SOCK_STREAM</constant>), datagram
-        (<constant>SOCK_DGRAM</constant>), or sequential packet
+        (<constant>SOCK_DGRAM</constant>), UDP-Lite (Lightweight User Datagram Protocol) or sequential packet
         (<constant>SOCK_SEQPACKET</constant>) socket, respectively.
         The address can be written in various formats:</para>
 
