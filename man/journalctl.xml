@@ -556,7 +556,10 @@
         respectively. <literal>now</literal> refers to the current
         time. Finally, relative times may be specified, prefixed with
         <literal>-</literal> or <literal>+</literal>, referring to
-        times before or after the current time, respectively.</para>
+        times before or after the current time, respectively. For complete
+        time and date specification, see
+        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+        </para>
         </listitem>
       </varlistentry>
 
@@ -854,7 +857,8 @@
       <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>coredumpctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.journal-fields</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>
     </para>
   </refsect1>
 </refentry>
