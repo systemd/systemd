@@ -1136,6 +1136,107 @@ int config_parse_bytes_limit(
         return 0;
 }
 
+int config_parse_sec_limit(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        struct rlimit **rl = data;
+        rlim_t seconds;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        rl += ltype;
+
+        if (streq(rvalue, "infinity"))
+                seconds = RLIM_INFINITY;
+        else {
+                usec_t t;
+
+                r = parse_sec(rvalue, &t);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse resource value, ignoring: %s", rvalue);
+                        return 0;
+                }
+
+                if (t == USEC_INFINITY)
+                        seconds = RLIM_INFINITY;
+                else
+                        seconds = (rlim_t) (DIV_ROUND_UP(t, USEC_PER_SEC));
+        }
+
+        if (!*rl) {
+                *rl = new(struct rlimit, 1);
+                if (!*rl)
+                        return log_oom();
+        }
+
+        (*rl)->rlim_cur = (*rl)->rlim_max = seconds;
+        return 0;
+}
+
+
+int config_parse_usec_limit(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        struct rlimit **rl = data;
+        rlim_t useconds;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        rl += ltype;
+
+        if (streq(rvalue, "infinity"))
+                useconds = RLIM_INFINITY;
+        else {
+                usec_t t;
+
+                r = parse_time(rvalue, &t, 1);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse resource value, ignoring: %s", rvalue);
+                        return 0;
+                }
+
+                if (t == USEC_INFINITY)
+                        useconds = RLIM_INFINITY;
+                else
+                        useconds = (rlim_t) t;
+        }
+
+        if (!*rl) {
+                *rl = new(struct rlimit, 1);
+                if (!*rl)
+                        return log_oom();
+        }
+
+        (*rl)->rlim_cur = (*rl)->rlim_max = useconds;
+        return 0;
+}
+
 #ifdef HAVE_SYSV_COMPAT
 int config_parse_sysv_priority(const char *unit,
                                const char *filename,

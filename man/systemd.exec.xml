@@ -568,90 +568,133 @@
         of various resources for executed processes. See
         <citerefentry><refentrytitle>setrlimit</refentrytitle><manvolnum>2</manvolnum></citerefentry>
         for details. Use the string <varname>infinity</varname> to
-        configure no limit on a specific resource. The multiplicative suffixes
-        K (=1024), M (=1024*1024) and so on for G, T, P and E may be used for
-        resource limits measured in bytes (e.g. LimitAS=16G).</para></listitem>
+        configure no limit on a specific resource. The multiplicative
+        suffixes K (=1024), M (=1024*1024) and so on for G, T, P and E
+        may be used for resource limits measured in bytes
+        (e.g. LimitAS=16G). For the limits referring to time values,
+        the usual time units ms, s, min, h and so on may be used (see
+        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        for details). Note that if no time unit is specified for
+        <varname>LimitCPU=</varname> the default unit of seconds is
+        implied, while for <varname>LimitRTTIME=</varname> the default
+        unit of microseconds is implied. Also, note that the effective
+        granularity of the limits might influence their
+        enforcement. For example, time limits specified for
+        <varname>LimitCPU=</varname> will be rounded up implicitly to
+        multiples of 1s.</para>
+
+        <para>Note that most process resource limits configured with
+        these options are per-process, and processes may fork in order
+        to acquire a new set of resources that are accounted
+        independently of the original process, and may thus escape
+        limits set. Also note that <varname>LimitRSS=</varname> is not
+        implemented on Linux, and setting it has no effect. Often it
+        is advisable to prefer the resource controls listed in
+        <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        over these per-process limits, as they apply to services as a
+        whole, may be altered dynamically at runtime, and are
+        generally more expressive. For example,
+        <varname>MemoryLimit=</varname> is a more powerful (and
+        working) replacement for <varname>LimitRSS=</varname>.</para>
 
         <table>
           <title>Limit directives and their equivalent with ulimit</title>
 
-          <tgroup cols='2'>
+          <tgroup cols='3'>
             <colspec colname='directive' />
             <colspec colname='equivalent' />
+            <colspec colname='unit' />
             <thead>
               <row>
                 <entry>Directive</entry>
                 <entry>ulimit equivalent</entry>
+                <entry>Unit</entry>
               </row>
             </thead>
             <tbody>
               <row>
-                <entry>LimitCPU</entry>
+                <entry>LimitCPU=</entry>
                 <entry>ulimit -t</entry>
+                <entry>Seconds</entry>
               </row>
               <row>
-                <entry>LimitFSIZE</entry>
+                <entry>LimitFSIZE=</entry>
                 <entry>ulimit -f</entry>
+                <entry>Bytes</entry>
               </row>
               <row>
-                <entry>LimitDATA</entry>
+                <entry>LimitDATA=</entry>
                 <entry>ulimit -d</entry>
+                <entry>Bytes</entry>
               </row>
               <row>
-                <entry>LimitSTACK</entry>
+                <entry>LimitSTACK=</entry>
                 <entry>ulimit -s</entry>
+                <entry>Bytes</entry>
               </row>
               <row>
-                <entry>LimitCORE</entry>
+                <entry>LimitCORE=</entry>
                 <entry>ulimit -c</entry>
+                <entry>Bytes</entry>
               </row>
               <row>
-                <entry>LimitRSS</entry>
+                <entry>LimitRSS=</entry>
                 <entry>ulimit -m</entry>
+                <entry>Bytes</entry>
               </row>
               <row>
-                <entry>LimitNOFILE</entry>
+                <entry>LimitNOFILE=</entry>
                 <entry>ulimit -n</entry>
+                <entry>Number of File Descriptors</entry>
               </row>
               <row>
-                <entry>LimitAS</entry>
+                <entry>LimitAS=</entry>
                 <entry>ulimit -v</entry>
+                <entry>Bytes</entry>
               </row>
               <row>
-                <entry>LimitNPROC</entry>
+                <entry>LimitNPROC=</entry>
                 <entry>ulimit -u</entry>
+                <entry>Number of Processes</entry>
               </row>
               <row>
-                <entry>LimitMEMLOCK</entry>
+                <entry>LimitMEMLOCK=</entry>
                 <entry>ulimit -l</entry>
+                <entry>Bytes</entry>
               </row>
               <row>
-                <entry>LimitLOCKS</entry>
+                <entry>LimitLOCKS=</entry>
                 <entry>ulimit -x</entry>
+                <entry>Number of Locks</entry>
               </row>
               <row>
-                <entry>LimitSIGPENDING</entry>
+                <entry>LimitSIGPENDING=</entry>
                 <entry>ulimit -i</entry>
+                <entry>Number of Queued Signals</entry>
               </row>
               <row>
-                <entry>LimitMSGQUEUE</entry>
+                <entry>LimitMSGQUEUE=</entry>
                 <entry>ulimit -q</entry>
+                <entry>Bytes</entry>
               </row>
               <row>
-                <entry>LimitNICE</entry>
+                <entry>LimitNICE=</entry>
                 <entry>ulimit -e</entry>
+                <entry>Nice Level</entry>
               </row>
               <row>
-                <entry>LimitRTPRIO</entry>
+                <entry>LimitRTPRIO=</entry>
                 <entry>ulimit -r</entry>
+                <entry>Realtime Priority</entry>
               </row>
               <row>
-                <entry>LimitRTTIME</entry>
+                <entry>LimitRTTIME=</entry>
                 <entry>No equivalent</entry>
+                <entry>Microseconds</entry>
               </row>
             </tbody>
           </tgroup>
-        </table>
+        </table></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1320,6 +1363,7 @@
         <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
         <citerefentry project='man-pages'><refentrytitle>exec</refentrytitle><manvolnum>3</manvolnum></citerefentry>
