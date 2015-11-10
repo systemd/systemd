@@ -777,6 +777,13 @@ static void test_config_parse_pass_environ(void) {
         assert_se(strv_length(passenv) == 1);
         assert_se(streq(passenv[0], "normal_name"));
 
+        /* Trailing backslash makes the whole line invalid. */
+        passenv = strv_free(passenv);
+        r = config_parse_pass_environ(NULL, "fake", 1, "section", 1,
+                              "PassEnvironment", 0, "'invalid name' 'normal_name' A=1 \\",
+                              &passenv, NULL);
+        assert_se(r == -EINVAL);
+        assert_se(strv_isempty(passenv));
 }
 
 int main(int argc, char *argv[]) {
