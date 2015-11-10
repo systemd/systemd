@@ -38,6 +38,21 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 The system journal process has shut down and closed all currently
 active journal files.
 
+-- ec387f577b844b8fa948f33cad9a75e6
+Subject: Disk space used by the journal
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+@JOURNAL_NAME@ (@JOURNAL_PATH@) is currently using @CURRENT_USE_PRETTY@.
+Maximum allowed usage is set to @MAX_USE_PRETTY@.
+Leaving at least @DISK_KEEP_FREE_PRETTY@ free (of currently available @DISK_AVAILABLE_PRETTY@ of disk space).
+Enforced usage limit is thus @LIMIT_PRETTY@, of which @AVAILABLE_PRETTY@ are still available.
+
+The limits controlling how much disk space is used by the journal may
+be configured with SystemMaxUse=, SystemKeepFree=, SystemMaxFileSize=,
+RuntimeMaxUse=, RuntimeKeepFree=, RuntimeMaxFileSize= settings in
+/etc/systemd/journald.conf. See journald.conf(5) for details.
+
 -- a596d6fe7bfa4994828e72309e95d61e
 Subject: Messages from a service have been suppressed
 Defined-By: systemd

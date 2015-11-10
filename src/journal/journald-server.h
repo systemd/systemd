@@ -157,7 +157,7 @@ struct Server {
 #define N_IOVEC_KERNEL_FIELDS 64
 #define N_IOVEC_UDEV_FIELDS 32
 #define N_IOVEC_OBJECT_FIELDS 12
-#define N_IOVEC_PAYLOAD_FIELDS 1
+#define N_IOVEC_PAYLOAD_FIELDS 15
 
 void server_dispatch_message(Server *s, struct iovec *iovec, unsigned n, unsigned m, const struct ucred *ucred, const struct timeval *tv, const char *label, size_t label_len, const char *unit_id, int priority, pid_t object_pid);
 void server_driver_message(Server *s, sd_id128_t message_id, const char *format, ...) _printf_(3,0) _sentinel_;

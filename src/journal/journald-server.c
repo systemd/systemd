@@ -163,20 +163,30 @@ static int determine_space_for(
         if (verbose) {
                 char    fb1[FORMAT_BYTES_MAX], fb2[FORMAT_BYTES_MAX], fb3[FORMAT_BYTES_MAX],
                         fb4[FORMAT_BYTES_MAX], fb5[FORMAT_BYTES_MAX], fb6[FORMAT_BYTES_MAX];
+                format_bytes(fb1, sizeof(fb1), sum);
+                format_bytes(fb2, sizeof(fb2), metrics->max_use);
+                format_bytes(fb3, sizeof(fb3), metrics->keep_free);
+                format_bytes(fb4, sizeof(fb4), ss_avail);
+                format_bytes(fb5, sizeof(fb5), s->cached_space_limit);
+                format_bytes(fb6, sizeof(fb6), s->cached_space_available);
 
                 server_driver_message(s, SD_MESSAGE_JOURNAL_USAGE,
-                                      LOG_MESSAGE(
-                                      "%s (%s) is currently using %s.\n"
-                                      "Maximum allowed usage is set to %s.\n"
-                                      "Leaving at least %s free (of currently available %s of space).\n"
-                                      "Enforced usage limit is thus %s, of which %s are still available.",
-                                      name, path,
-                                      format_bytes(fb1, sizeof(fb1), sum),
-                                      format_bytes(fb2, sizeof(fb2), metrics->max_use),
-                                      format_bytes(fb3, sizeof(fb3), metrics->keep_free),
-                                      format_bytes(fb4, sizeof(fb4), ss_avail),
-                                      format_bytes(fb5, sizeof(fb5), s->cached_space_limit),
-                                      format_bytes(fb6, sizeof(fb6), s->cached_space_available)),
+                                      LOG_MESSAGE("%s (%s) is %s, max %s, %s free.",
+                                                  name, path, fb1, fb5, fb6),
+                                      "JOURNAL_NAME=%s", name,
+                                      "JOURNAL_PATH=%s", path,
+                                      "CURRENT_USE=%"PRIu64, sum,
+                                      "CURRENT_USE_PRETTY=%s", fb1,
+                                      "MAX_USE=%"PRIu64, metrics->max_use,
+                                      "MAX_USE_PRETTY=%s", fb2,
+                                      "DISK_KEEP_FREE=%"PRIu64, metrics->keep_free,
+                                      "DISK_KEEP_FREE_PRETTY=%s", fb3,
+                                      "DISK_AVAILABLE=%"PRIu64, ss_avail,
+                                      "DISK_AVAILABLE_PRETTY=%s", fb4,
+                                      "LIMIT=%"PRIu64, s->cached_space_limit,
+                                      "LIMIT_PRETTY=%s", fb5,
+                                      "AVAILABLE=%"PRIu64, s->cached_space_available,
+                                      "AVAILABLE_PRETTY=%s", fb6,
                                       NULL);
         }
 
