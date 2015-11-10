@@ -100,6 +100,22 @@ evdev:name:ETPS/2 Elantech Touchpad:dmi:bvn*:bvr*:bd*:svnASUSTeKComputerInc.:pnK
  EVDEV_ABS_36=::16
 
 #########################################
+# Dell
+#########################################
+
+# Dell Vostro 1510
+evdev:name:AlpsPS/2 ALPS GlidePoint*:dmi:bvn*:bvr*:bd*:svnDellInc.:pnVostro1510*
+ EVDEV_ABS_00=::14
+ EVDEV_ABS_01=::18
+
+# Dell Inspiron N5040
+evdev:name:AlpsPS/2 ALPS DualPoint TouchPad:dmi:bvn*:bvr*:bd*:svnDellInc.:pnInspironN5040*
+ EVDEV_ABS_00=25:2000:22
+ EVDEV_ABS_01=0:1351:28
+ EVDEV_ABS_35=25:2000:22
+ EVDEV_ABS_36=0:1351:28
+
+#########################################
 # Google
 #########################################
 
@@ -119,11 +135,9 @@ evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO*:pn*ThinkPad*X230*
  EVDEV_ABS_01=::100
  EVDEV_ABS_36=::100
 
-#########################################
-# Dell
-#########################################
-
-# Dell Vostro 1510
-evdev:name:AlpsPS/2 ALPS GlidePoint*:dmi:bvn*:bvr*:bd*:svnDellInc.:pnVostro1510*
- EVDEV_ABS_00=::14
- EVDEV_ABS_01=::18
+# Lenovo T510
+evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO*:pn*ThinkPad*T510*
+ EVDEV_ABS_00=778:6239:72
+ EVDEV_ABS_01=841:5330:100
+ EVDEV_ABS_35=778:6239:72
+ EVDEV_ABS_36=841:5330:100
