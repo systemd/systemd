@@ -21,9 +21,6 @@ External:
 
 * wiki: update journal format documentation for lz4 additions
 
-* When lz4 gets an API for lz4 command output, make use of it to
-  compress coredumps in a way compatible with /usr/bin/lz4.
-
 Janitorial Clean-ups:
 
 * code cleanup: retire FOREACH_WORD_QUOTED, port to extract_first_word() loops instead
@@ -76,8 +73,6 @@ Features:
   http://lists.freedesktop.org/archives/systemd-devel/2015-June/033121.html
 
 * man: document that unless you use StandardError=null the shell >/dev/stderr won't work in shell scripts in services
-
-* man: clarify that "machinectl show" shows different information than "machinectl status" (no cgroup tree, no IP addresses, ...)
 
 * "systemctl daemon-reload" should result in /etc/systemd/system.conf being reloaded by systemd
 
@@ -601,7 +596,6 @@ Features:
   - add API to close/reopen/get fd for journal client fd in libsystemd-journal.
   - fallback to /dev/log based logging in libsystemd-journal, if we cannot log natively?
   - declare the local journal protocol stable in the wiki interface chart
-  - journal: reuse XZ context
   - sd-journal: speed up sd_journal_get_data() with transparent hash table in bg
   - journald: when dropping msgs due to ratelimit make sure to write
     "dropped %u messages" not only when we are about to print the next
@@ -655,7 +649,6 @@ Features:
   - document systemd-journal-flush.service properly
   - documentation: recommend to connect the timer units of a service to the service via Also= in [Install]
   - man: document the very specific env the shutdown drop-in tools live in
-  - man: extend runlevel(8) to mention that runlevels suck, and are dead. Maybe add runlevel(7) with a note about that too
   - man: add more examples to man pages
   - man: maybe sort directives in man pages, and take sections from --help and apply them to man too
 
