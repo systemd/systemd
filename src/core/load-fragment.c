@@ -1035,19 +1035,21 @@ int config_parse_bounding_set(
         return 0;
 }
 
-int config_parse_limit(const char *unit,
-                       const char *filename,
-                       unsigned line,
-                       const char *section,
-                       unsigned section_line,
-                       const char *lvalue,
-                       int ltype,
-                       const char *rvalue,
-                       void *data,
-                       void *userdata) {
+int config_parse_limit(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
         struct rlimit **rl = data;
-        unsigned long long u;
+        rlim_t v;
+        int r;
 
         assert(filename);
         assert(lvalue);
@@ -1057,15 +1059,22 @@ int config_parse_limit(const char *unit,
         rl += ltype;
 
         if (streq(rvalue, "infinity"))
-                u = (unsigned long long) RLIM_INFINITY;
+                v = RLIM_INFINITY;
         else {
-                int r;
+                uint64_t u;
 
-                r = safe_atollu(rvalue, &u);
+                /* setrlimit(2) suggests rlim_t is always 64bit on Linux. */
+                assert_cc(sizeof(rlim_t) == sizeof(uint64_t));
+
+                r = safe_atou64(rvalue, &u);
+                if (r >= 0 && u >= (uint64_t) RLIM_INFINITY)
+                        r = -ERANGE;
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse resource value, ignoring: %s", rvalue);
                         return 0;
                 }
+
+                v = (rlim_t) u;
         }
 
         if (!*rl) {
@@ -1074,23 +1083,25 @@ int config_parse_limit(const char *unit,
                         return log_oom();
         }
 
-        (*rl)->rlim_cur = (*rl)->rlim_max = (rlim_t) u;
+        (*rl)->rlim_cur = (*rl)->rlim_max = v;
         return 0;
 }
 
-int config_parse_bytes_limit(const char *unit,
-                       const char *filename,
-                       unsigned line,
-                       const char *section,
-                       unsigned section_line,
-                       const char *lvalue,
-                       int ltype,
-                       const char *rvalue,
-                       void *data,
-                       void *userdata) {
+int config_parse_bytes_limit(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
         struct rlimit **rl = data;
-        uint64_t bytes;
+        rlim_t bytes;
+        int r;
 
         assert(filename);
         assert(lvalue);
@@ -1100,15 +1111,19 @@ int config_parse_bytes_limit(const char *unit,
         rl += ltype;
 
         if (streq(rvalue, "infinity"))
-                bytes = (uint64_t) RLIM_INFINITY;
+                bytes = RLIM_INFINITY;
         else {
-                int r;
+                uint64_t u;
 
-                r = parse_size(rvalue, 1024, &bytes);
+                r = parse_size(rvalue, 1024, &u);
+                if (r >= 0 && u >= (uint64_t) RLIM_INFINITY)
+                        r = -ERANGE;
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse resource value, ignoring: %s", rvalue);
                         return 0;
                 }
+
+                bytes = (rlim_t) u;
         }
 
         if (!*rl) {
@@ -1117,7 +1132,7 @@ int config_parse_bytes_limit(const char *unit,
                         return log_oom();
         }
 
-        (*rl)->rlim_cur = (*rl)->rlim_max = (rlim_t) bytes;
+        (*rl)->rlim_cur = (*rl)->rlim_max = bytes;
         return 0;
 }
 
