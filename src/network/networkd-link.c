@@ -1952,6 +1952,99 @@ static int link_set_ipv6_dad_transmits(Link *link) {
         return 0;
 }
 
+static int link_set_ipv6_router_solicitation_interval(Link *link) {
+        char buf[DECIMAL_STR_MAX(unsigned) + 1];
+        const char *p = NULL;
+        int r;
+
+        /* Make this a NOP if IPv6 is not available */
+        if (!socket_ipv6_is_supported())
+                return 0;
+
+        if (link->flags & IFF_LOOPBACK)
+                return 0;
+
+        if (link->network->router_solicitation_interval <= 0)
+                return 0;
+
+        p = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/router_solicitation_interval");
+
+        xsprintf(buf, "%lu", link->network->router_solicitation_interval / USEC_PER_SEC);
+
+        r = write_string_file(p, buf, 0);
+        if (r < 0) {
+                /* If the right value is set anyway, don't complain */
+                if (verify_one_line_file(p, buf) > 0)
+                        return 0;
+
+                log_link_warning_errno(link, r, "Cannot set IPv6 router solicitation interval for interface: %m");
+        }
+
+        return 0;
+}
+
+static int link_set_ipv6_router_solicitation_delay(Link *link) {
+        char buf[DECIMAL_STR_MAX(unsigned) + 1];
+        const char *p = NULL;
+        int r;
+
+        /* Make this a NOP if IPv6 is not available */
+        if (!socket_ipv6_is_supported())
+                return 0;
+
+        if (link->flags & IFF_LOOPBACK)
+                return 0;
+
+        if (link->network->router_solicitation_delay <= 0)
+                return 0;
+
+        p = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/router_solicitation_delay");
+
+        xsprintf(buf, "%lu", link->network->router_solicitation_delay / USEC_PER_SEC);
+
+        r = write_string_file(p, buf, 0);
+        if (r < 0) {
+                /* If the right value is set anyway, don't complain */
+                if (verify_one_line_file(p, buf) > 0)
+                        return 0;
+
+                log_link_warning_errno(link, r, "Cannot set IPv6 router solicitation delay for interface: %m");
+        }
+
+        return 0;
+}
+
+static int link_set_ipv6_router_solicitations(Link *link) {
+        char buf[DECIMAL_STR_MAX(unsigned) + 1];
+        const char *p = NULL;
+        int r;
+
+        /* Make this a NOP if IPv6 is not available */
+        if (!socket_ipv6_is_supported())
+                return 0;
+
+        if (link->flags & IFF_LOOPBACK)
+                return 0;
+
+        if (link->network->router_solicitations <= 0)
+                return 0;
+
+        p = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/router_solicitations");
+
+        xsprintf(buf, "%u", link->network->router_solicitations);
+
+        r = write_string_file(p, buf, 0);
+        if (r < 0) {
+                /* If the right value is set anyway, don't complain */
+                if (verify_one_line_file(p, buf) > 0)
+                        return 0;
+
+                log_link_warning_errno(link, r, "Cannot set IPv6 router solicitations for interface: %m");
+        }
+
+        return 0;
+}
+
 static int link_configure(Link *link) {
         int r;
 
@@ -1980,6 +2073,18 @@ static int link_configure(Link *link) {
                 return r;
 
         r = link_set_ipv6_dad_transmits(link);
+        if (r < 0)
+                return r;
+
+        r = link_set_ipv6_router_solicitation_delay(link);
+        if (r < 0)
+                return r;
+
+        r = link_set_ipv6_router_solicitation_interval(link);
+        if (r < 0)
+                return r;
+
+        r = link_set_ipv6_router_solicitations(link);
         if (r < 0)
                 return r;
 
