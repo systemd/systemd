@@ -432,6 +432,14 @@
         </para></listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>IPv6HopLimit=</varname></term>
+          <listitem><para>Configures IPv6 Hop Limit. For each router that
+          forwards the packet, the hop limit is decremented by 1. When the
+          hop limit field reaches zero, the packet is discarded.
+          Defaults to unset.
+        </para></listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>Bridge=</varname></term>
           <listitem>
             <para>The name of the bridge to add the link to.</para>
