@@ -3,4 +3,5 @@ Description=Test for SystemCallFilter
 
 [Service]
 ExecStart=/bin/echo "Foo bar"
+Type=oneshot
 SystemCallFilter=

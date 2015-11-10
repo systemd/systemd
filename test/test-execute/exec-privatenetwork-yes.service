@@ -2,5 +2,6 @@
 Description=Test for PrivateNetwork
 
 [Service]
-ExecStart=/bin/sh -c 'i=$(ip link | grep ": " | grep -v lo); echo $i; exit $(test -z $i)'
+ExecStart=/bin/sh -x -c 'i=$$(ip link | grep ": " | grep -v ": lo:"); test -z "$$i"'
+Type=oneshot
 PrivateNetwork=yes

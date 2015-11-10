@@ -2,6 +2,6 @@
 Description=Test for OOMScoreAdjust
 
 [Service]
-ExecStart=/bin/bash -c 'c=$(cat /proc/self/oom_score_adj); echo $c; exit $(test $c -eq -100)'
-OOMScoreAdjust=-100
+ExecStart=/bin/sh -x -c 'c=$$(cat /proc/self/oom_score_adj); test "$$c" -eq -100'
 Type=oneshot
+OOMScoreAdjust=-100
