@@ -329,6 +329,7 @@ static int address_release(Address *address) {
 
 int address_update(Address *address, unsigned char flags, unsigned char scope, struct ifa_cacheinfo *cinfo) {
         bool ready;
+        int r;
 
         assert(address);
         assert(cinfo);
@@ -342,8 +343,17 @@ int address_update(Address *address, unsigned char flags, unsigned char scope, s
         if (address->link) {
                 link_update_operstate(address->link);
 
-                if (!ready && address_is_ready(address))
+                if (!ready && address_is_ready(address)) {
                         link_check_ready(address->link);
+
+                        if (address->family == AF_INET6 &&
+                            in_addr_is_link_local(AF_INET6, &address->in_addr) &&
+                            !address->link->ipv6ll_address) {
+                                r = link_ipv6ll_gained(address->link);
+                                if (r < 0)
+                                        return r;
+                        }
+                }
         }
 
         return 0;

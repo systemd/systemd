@@ -99,8 +99,9 @@ struct Link {
         bool ndisc_configured;
 
         sd_ipv4ll *ipv4ll;
-        bool ipv4ll_address;
-        bool ipv4ll_route;
+        bool ipv4ll_address:1;
+        bool ipv4ll_route:1;
+        bool ipv6ll_address:1;
 
         bool static_configured;
 
@@ -142,6 +143,8 @@ int link_save(Link *link);
 
 int link_carrier_reset(Link *link);
 bool link_has_carrier(Link *link);
+
+int link_ipv6ll_gained(Link *link);
 
 int link_set_mtu(Link *link, uint32_t mtu);
 int link_set_hostname(Link *link, const char *hostname);

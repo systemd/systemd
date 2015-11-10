@@ -603,6 +603,10 @@ void link_check_ready(Link *link) {
                     !link->ipv4ll_route)
                         return;
 
+        if (link_ipv6ll_enabled(link))
+                if (!link->ipv6ll_address)
+                        return;
+
         if ((link_dhcp4_enabled(link) && !link_dhcp6_enabled(link) &&
              !link->dhcp4_configured) ||
             (link_dhcp6_enabled(link) && !link_dhcp4_enabled(link) &&
@@ -1238,6 +1242,34 @@ static void lldp_handler(sd_lldp *lldp, int event, void *userdata) {
         }
 }
 
+static int link_acquire_ipv6_conf(Link *link) {
+        int r;
+
+        assert(link);
+
+        if (link_dhcp6_enabled(link)) {
+                assert(link->dhcp6_client);
+
+                log_link_debug(link, "Acquiring DHCPv6 lease");
+
+                r = sd_dhcp6_client_start(link->dhcp6_client);
+                if (r < 0)
+                        return log_link_warning_errno(link, r,  "Could not acquire DHCPv6 lease: %m");
+        }
+
+        if (link_ipv6_accept_ra_enabled(link)) {
+                assert(link->ndisc_router_discovery);
+
+                log_link_debug(link, "Discovering IPv6 routers");
+
+                r = sd_ndisc_router_discovery_start(link->ndisc_router_discovery);
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Could not start IPv6 Router Discovery: %m");
+        }
+
+        return 0;
+}
+
 static int link_acquire_conf(Link *link) {
         int r;
 
@@ -1264,26 +1296,6 @@ static int link_acquire_conf(Link *link) {
                 r = sd_dhcp_client_start(link->dhcp_client);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Could not acquire DHCPv4 lease: %m");
-        }
-
-        if (link_dhcp6_enabled(link)) {
-                assert(link->dhcp6_client);
-
-                log_link_debug(link, "Acquiring DHCPv6 lease");
-
-                r = sd_dhcp6_client_start(link->dhcp6_client);
-                if (r < 0)
-                        return log_link_warning_errno(link, r,  "Could not acquire DHCPv6 lease: %m");
-        }
-
-        if (link_ipv6_accept_ra_enabled(link)) {
-                assert(link->ndisc_router_discovery);
-
-                log_link_debug(link, "Discovering IPv6 routers");
-
-                r = sd_ndisc_router_discovery_start(link->ndisc_router_discovery);
-                if (r < 0)
-                        return log_link_warning_errno(link, r, "Could not start IPv6 Router Discovery: %m");
         }
 
         if (link_lldp_enabled(link)) {
@@ -2093,6 +2105,12 @@ static int link_configure(Link *link) {
                 r = link_acquire_conf(link);
                 if (r < 0)
                         return r;
+
+                if (link->ipv6ll_address) {
+                        r = link_acquire_ipv6_conf(link);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         return link_enter_join_netdev(link);
@@ -2437,6 +2455,27 @@ int link_add(Manager *m, sd_netlink_message *message, Link **ret) {
 failed:
         link_enter_failed(link);
         return r;
+}
+
+int link_ipv6ll_gained(Link *link) {
+        int r;
+
+        assert(link);
+
+        log_link_info(link, "Gained IPv6LL");
+
+        link->ipv6ll_address = true;
+        link_check_ready(link);
+
+        if (link->network) {
+                r = link_acquire_ipv6_conf(link);
+                if (r < 0) {
+                        link_enter_failed(link);
+                        return r;
+                }
+        }
+
+        return 0;
 }
 
 static int link_carrier_gained(Link *link) {
