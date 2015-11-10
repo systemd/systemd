@@ -159,7 +159,7 @@ static char **arg_include_prefixes = NULL;
 static char **arg_exclude_prefixes = NULL;
 static char *arg_root = NULL;
 
-static const char conf_file_dirs[] = CONF_DIRS_NULSTR("tmpfiles");
+static const char conf_file_dirs[] = CONF_PATHS_NULSTR("tmpfiles.d");
 
 #define MAX_DEPTH 256
 

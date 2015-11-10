@@ -126,8 +126,8 @@ static int parse_config(void) {
                 {}
         };
 
-        return config_parse_many("/etc/systemd/coredump.conf",
-                                 CONF_DIRS_NULSTR("systemd/coredump.conf"),
+        return config_parse_many(PKGSYSCONFDIR "/coredump.conf",
+                                 CONF_PATHS_NULSTR("systemd/coredump.conf.d"),
                                  "Coredump\0",
                                  config_item_table_lookup, items,
                                  false, NULL);

@@ -542,7 +542,7 @@ static int parse_config(void) {
                 {}};
 
         return config_parse_many(PKGSYSCONFDIR "/journal-upload.conf",
-                                 CONF_DIRS_NULSTR("systemd/journal-upload.conf"),
+                                 CONF_PATHS_NULSTR("systemd/journal-upload.conf.d"),
                                  "Upload\0", config_item_table_lookup, items,
                                  false, NULL);
 }

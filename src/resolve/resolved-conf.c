@@ -150,8 +150,8 @@ int config_parse_support(
 int manager_parse_config_file(Manager *m) {
         assert(m);
 
-        return config_parse_many("/etc/systemd/resolved.conf",
-                                 CONF_DIRS_NULSTR("systemd/resolved.conf"),
+        return config_parse_many(PKGSYSCONFDIR "/resolved.conf",
+                                 CONF_PATHS_NULSTR("systemd/resolved.conf.d"),
                                  "Resolve\0",
                                  config_item_perf_lookup, resolved_gperf_lookup,
                                  false, m);

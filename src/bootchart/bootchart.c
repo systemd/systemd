@@ -95,8 +95,6 @@ static void signal_handler(int sig) {
         exiting = 1;
 }
 
-#define BOOTCHART_CONF "/etc/systemd/bootchart.conf"
-
 #define BOOTCHART_MAX (16*1024*1024)
 
 static void parse_conf(void) {
@@ -117,8 +115,8 @@ static void parse_conf(void) {
                 { NULL, NULL, NULL, 0, NULL }
         };
 
-        config_parse_many(BOOTCHART_CONF,
-                          CONF_DIRS_NULSTR("systemd/bootchart.conf"),
+        config_parse_many(PKGSYSCONFDIR "/bootchart.conf",
+                          CONF_PATHS_NULSTR("systemd/bootchart.conf.d"),
                           NULL, config_item_table_lookup, items, true, NULL);
 
         if (init != NULL)
