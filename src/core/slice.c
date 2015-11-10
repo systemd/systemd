@@ -255,7 +255,7 @@ _pure_ static const char *slice_sub_state_to_string(Unit *u) {
         return slice_state_to_string(SLICE(u)->state);
 }
 
-static int slice_enumerate(Manager *m) {
+static void slice_enumerate(Manager *m) {
         Unit *u;
         int r;
 
@@ -264,13 +264,16 @@ static int slice_enumerate(Manager *m) {
         u = manager_get_unit(m, SPECIAL_ROOT_SLICE);
         if (!u) {
                 u = unit_new(m, sizeof(Slice));
-                if (!u)
-                        return log_oom();
+                if (!u)  {
+                        log_oom();
+                        return;
+                }
 
                 r = unit_add_name(u, SPECIAL_ROOT_SLICE);
                 if (r < 0) {
                         unit_free(u);
-                        return log_error_errno(r, "Failed to add -.slice name");
+                        log_error_errno(r, "Failed to add -.slice name");
+                        return;
                 }
         }
 
@@ -288,8 +291,6 @@ static int slice_enumerate(Manager *m) {
 
         unit_add_to_load_queue(u);
         unit_add_to_dbus_queue(u);
-
-        return 0;
 }
 
 const UnitVTable slice_vtable = {

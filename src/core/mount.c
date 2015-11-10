@@ -1596,7 +1596,7 @@ static int mount_get_timeout(Unit *u, uint64_t *timeout) {
         return 1;
 }
 
-static int mount_enumerate(Manager *m) {
+static void mount_enumerate(Manager *m) {
         int r;
 
         assert(m);
@@ -1608,29 +1608,40 @@ static int mount_enumerate(Manager *m) {
 
                 m->mount_monitor = mnt_new_monitor();
                 if (!m->mount_monitor) {
-                        r = -ENOMEM;
+                        log_oom();
                         goto fail;
                 }
 
                 r = mnt_monitor_enable_kernel(m->mount_monitor, 1);
-                if (r < 0)
+                if (r < 0) {
+                        log_error_errno(r, "Failed to enable watching of kernel mount events: %m");
                         goto fail;
+                }
+
                 r = mnt_monitor_enable_userspace(m->mount_monitor, 1, NULL);
-                if (r < 0)
+                if (r < 0) {
+                        log_error_errno(r, "Failed to enable watching of userspace mount events: %m");
                         goto fail;
+                }
 
                 /* mnt_unref_monitor() will close the fd */
                 fd = r = mnt_monitor_get_fd(m->mount_monitor);
-                if (r < 0)
+                if (r < 0) {
+                        log_error_errno(r, "Failed to acquire watch file descriptor: %m");
                         goto fail;
+                }
 
                 r = sd_event_add_io(m->event, &m->mount_event_source, fd, EPOLLIN, mount_dispatch_io, m);
-                if (r < 0)
+                if (r < 0) {
+                        log_error_errno(r, "Failed to watch mount file descriptor: %m");
                         goto fail;
+                }
 
                 r = sd_event_source_set_priority(m->mount_event_source, -10);
-                if (r < 0)
+                if (r < 0) {
+                        log_error_errno(r, "Failed to adjust mount watch priority: %m");
                         goto fail;
+                }
 
                 (void) sd_event_source_set_description(m->mount_event_source, "mount-monitor-dispatch");
         }
@@ -1639,11 +1650,10 @@ static int mount_enumerate(Manager *m) {
         if (r < 0)
                 goto fail;
 
-        return 0;
+        return;
 
 fail:
         mount_shutdown(m);
-        return r;
 }
 
 static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata) {

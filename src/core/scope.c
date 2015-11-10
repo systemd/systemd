@@ -510,7 +510,7 @@ _pure_ static const char *scope_sub_state_to_string(Unit *u) {
         return scope_state_to_string(SCOPE(u)->state);
 }
 
-static int scope_enumerate(Manager *m) {
+static void scope_enumerate(Manager *m) {
         Unit *u;
         int r;
 
@@ -524,13 +524,16 @@ static int scope_enumerate(Manager *m) {
         u = manager_get_unit(m, SPECIAL_INIT_SCOPE);
         if (!u) {
                 u = unit_new(m, sizeof(Scope));
-                if (!u)
-                        return log_oom();
+                if (!u) {
+                        log_oom();
+                        return;
+                }
 
                 r = unit_add_name(u, SPECIAL_INIT_SCOPE);
                 if (r < 0)  {
                         unit_free(u);
-                        return log_error_errno(r, "Failed to add init.scope name");
+                        log_error_errno(r, "Failed to add init.scope name");
+                        return;
                 }
         }
 
@@ -551,8 +554,6 @@ static int scope_enumerate(Manager *m) {
 
         unit_add_to_load_queue(u);
         unit_add_to_dbus_queue(u);
-
-        return 0;
 }
 
 static const char* const scope_result_table[_SCOPE_RESULT_MAX] = {

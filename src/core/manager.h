@@ -316,7 +316,7 @@ struct Manager {
 int manager_new(ManagerRunningAs running_as, bool test_run, Manager **m);
 Manager* manager_free(Manager *m);
 
-int manager_enumerate(Manager *m);
+void manager_enumerate(Manager *m);
 int manager_startup(Manager *m, FILE *serialization, FDSet *fds);
 
 Job *manager_get_job(Manager *m, uint32_t id);

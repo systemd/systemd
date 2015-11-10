@@ -389,7 +389,7 @@ struct UnitVTable {
          * everything that is loaded here should still stay in
          * inactive state. It is the job of the coldplug() call above
          * to put the units into the initial state.  */
-        int (*enumerate)(Manager *m);
+        void (*enumerate)(Manager *m);
 
         /* Type specific cleanups. */
         void (*shutdown)(Manager *m);
