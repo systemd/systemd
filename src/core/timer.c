@@ -102,6 +102,9 @@ static int timer_add_default_dependencies(Timer *t) {
 
         assert(t);
 
+        if (!UNIT(t)->default_dependencies)
+                return 0;
+
         r = unit_add_dependency_by_name(UNIT(t), UNIT_BEFORE, SPECIAL_TIMERS_TARGET, NULL, true);
         if (r < 0)
                 return r;
@@ -192,11 +195,9 @@ static int timer_load(Unit *u) {
                 if (r < 0)
                         return r;
 
-                if (u->default_dependencies) {
-                        r = timer_add_default_dependencies(t);
-                        if (r < 0)
-                                return r;
-                }
+                r = timer_add_default_dependencies(t);
+                if (r < 0)
+                        return r;
         }
 
         return timer_verify(t);

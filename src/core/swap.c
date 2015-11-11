@@ -213,6 +213,9 @@ static int swap_add_device_links(Swap *s) {
 static int swap_add_default_dependencies(Swap *s) {
         assert(s);
 
+        if (!UNIT(s)->default_dependencies)
+                return 0;
+
         if (UNIT(s)->manager->running_as != MANAGER_SYSTEM)
                 return 0;
 
@@ -331,11 +334,9 @@ static int swap_load(Unit *u) {
                 if (r < 0)
                         return r;
 
-                if (UNIT(s)->default_dependencies) {
-                        r = swap_add_default_dependencies(s);
-                        if (r < 0)
-                                return r;
-                }
+                r = swap_add_default_dependencies(s);
+                if (r < 0)
+                        return r;
         }
 
         return swap_verify(s);

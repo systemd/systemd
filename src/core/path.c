@@ -315,20 +315,20 @@ static int path_add_default_dependencies(Path *p) {
 
         assert(p);
 
-        r = unit_add_dependency_by_name(UNIT(p), UNIT_BEFORE,
-                                        SPECIAL_PATHS_TARGET, NULL, true);
+        if (!UNIT(p)->default_dependencies)
+                return 0;
+
+        r = unit_add_dependency_by_name(UNIT(p), UNIT_BEFORE, SPECIAL_PATHS_TARGET, NULL, true);
         if (r < 0)
                 return r;
 
         if (UNIT(p)->manager->running_as == MANAGER_SYSTEM) {
-                r = unit_add_two_dependencies_by_name(UNIT(p), UNIT_AFTER, UNIT_REQUIRES,
-                                                      SPECIAL_SYSINIT_TARGET, NULL, true);
+                r = unit_add_two_dependencies_by_name(UNIT(p), UNIT_AFTER, UNIT_REQUIRES, SPECIAL_SYSINIT_TARGET, NULL, true);
                 if (r < 0)
                         return r;
         }
 
-        return unit_add_two_dependencies_by_name(UNIT(p), UNIT_BEFORE, UNIT_CONFLICTS,
-                                                 SPECIAL_SHUTDOWN_TARGET, NULL, true);
+        return unit_add_two_dependencies_by_name(UNIT(p), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, NULL, true);
 }
 
 static int path_load(Unit *u) {
@@ -360,11 +360,9 @@ static int path_load(Unit *u) {
                 if (r < 0)
                         return r;
 
-                if (UNIT(p)->default_dependencies) {
-                        r = path_add_default_dependencies(p);
-                        if (r < 0)
-                                return r;
-                }
+                r = path_add_default_dependencies(p);
+                if (r < 0)
+                        return r;
         }
 
         return path_verify(p);
