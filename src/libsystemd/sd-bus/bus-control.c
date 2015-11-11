@@ -981,8 +981,12 @@ static int bus_get_owner_creds_kdbus(sd_bus *bus, uint64_t mask, sd_bus_creds **
 static int bus_get_owner_creds_dbus1(sd_bus *bus, uint64_t mask, sd_bus_creds **ret) {
         _cleanup_bus_creds_unref_ sd_bus_creds *c = NULL;
         pid_t pid = 0;
+        bool do_label;
         int r;
-        bool do_label = bus->label && (mask & SD_BUS_CREDS_SELINUX_CONTEXT);
+
+        assert(bus);
+
+        do_label = bus->label && (mask & SD_BUS_CREDS_SELINUX_CONTEXT);
 
         /* Avoid allocating anything if we have no chance of returning useful data */
         if (!bus->ucred_valid && !do_label)
