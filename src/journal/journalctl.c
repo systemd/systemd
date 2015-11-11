@@ -1771,6 +1771,11 @@ static int flush_to_var(void) {
         _cleanup_close_ int watch_fd = -1;
         int r;
 
+        if (arg_machine) {
+                log_error("--flush is not supported in conjunction with --machine=.");
+                return -EOPNOTSUPP;
+        }
+
         /* Quick exit */
         if (access("/run/systemd/journal/flushed", F_OK) >= 0)
                 return 0;
@@ -1827,6 +1832,11 @@ static int send_signal_and_wait(int sig, const char *watch_path) {
         _cleanup_close_ int watch_fd = -1;
         usec_t start;
         int r;
+
+        if (arg_machine) {
+                log_error("--sync and --rotate are not supported in conjunction with --machine=.");
+                return -EOPNOTSUPP;
+        }
 
         start = now(CLOCK_REALTIME);
 
