@@ -134,6 +134,40 @@
   </refsect1>
 
   <refsect1>
+    <title>Automatic Dependencies</title>
+
+    <para>Socket units automatically gain a <varname>Before=</varname>
+    dependency on the service units they activate.</para>
+
+    <para>Socket units referring to file system paths (such as AF_UNIX
+    sockets or FIFOs) implicitly gain <varname>Requires=</varname> and
+    <varname>After=</varname> dependencies on all mount units
+    necessary to access those paths.</para>
+
+    <para>Socket units using the <varname>BindToDevice=</varname>
+    setting automatically gain a <varname>BindsTo=</varname> and
+    <varname>After=</varname> dependency on the device unit
+    encapsulating the specified network interface.</para>
+
+    <para>If <varname>DefaultDependencies=yes</varname> is set (the
+    default), socket units automatically gain a
+    <varname>Before=</varname> dependency on
+    <filename>sockets.target</filename>. They also gain a pair of
+    <varname>After=</varname> and <varname>Requires=</varname>
+    dependency on <filename>sysinit.target</filename>, and a pair of
+    <varname>Before=</varname> and <varname>Conflicts=</varname>
+    dependencies on <filename>shutdown.target</filename>. These
+    dependencies ensure that the socket unit is started before normal
+    services at boot, and is stopped on shutdown.</para>
+
+    <para>Additional implicit dependencies may be added as result of
+    execution and resource control parameters as documented in
+    <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    and
+    <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+  </refsect1>
+
+  <refsect1>
     <title>Options</title>
 
     <para>Socket files must include a [Socket] section, which carries
@@ -309,12 +343,14 @@
         <listitem><para>Specifies a network interface name to bind
         this socket to. If set, traffic will only be accepted from the
         specified network interfaces. This controls the
-        SO_BINDTODEVICE socket option (see
-        <citerefentry project='man-pages'><refentrytitle>socket</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        SO_BINDTODEVICE socket option (see <citerefentry
+        project='man-pages'><refentrytitle>socket</refentrytitle><manvolnum>7</manvolnum></citerefentry>
         for details). If this option is used, an automatic dependency
         from this socket unit on the network interface device unit
         (<citerefentry><refentrytitle>systemd.device</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        is created.</para></listitem>
+        is created. Note that setting this parameter might result in
+        additional dependencies to be added to the unit (see
+        above).</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -719,7 +755,9 @@
         with <varname>Accept=no</varname>. It defaults to the service
         that bears the same name as the socket (with the suffix
         replaced). In most cases, it should not be necessary to use
-        this option.</para></listitem>
+        this option. Note that setting this parameter might result in
+        additional dependencies to be added to the unit (see
+        above).</para></listitem>
       </varlistentry>
 
       <varlistentry>

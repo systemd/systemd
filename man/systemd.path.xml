@@ -79,13 +79,24 @@
     limitations as inotify, and for example cannot be used to monitor
     files or directories changed by other machines on remote NFS file
     systems.</para>
+  </refsect1>
 
-    <para>If a path unit is beneath another mount point in the file
-    system hierarchy, a dependency between both units is created
-    automatically.</para>
+  <refsect1>
+    <title>Automatic Dependencies</title>
+
+    <para>If a path unit is beneath another mount unit in the file
+    system hierarchy, both a requirement and an ordering dependency
+    between both units are created automatically.</para>
+
+    <para>An implicit <varname>Before=</varname> dependency is added
+    between a path unit and the unit it is supposed to activate.</para>
 
     <para>Unless <varname>DefaultDependencies=false</varname> is used,
     path units will implicitly have dependencies of type
+    <varname>Before=</varname> on <filename>paths.target</filename>,
+    dependencies of type <varname>After=</varname> and
+    <varname>Requires=</varname> on
+    <filename>sysinit.target</filename>, and have dependencies of type
     <varname>Conflicts=</varname> and <varname>Before=</varname> on
     <filename>shutdown.target</filename>. These ensure that path units
     are terminated cleanly prior to system shutdown. Only path units

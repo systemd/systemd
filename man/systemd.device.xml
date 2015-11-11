@@ -83,7 +83,18 @@
     the escaping logic used to convert a file system path to a unit
     name see
     <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+  </refsect1>
 
+  <refsect1>
+    <title>Automatic Dependencies</title>
+
+    <para>Many unit types automatically acquire dependencies on device
+    units of devices they require. For example,
+    <filename>.socket</filename> unit acquire dependencies on the
+    device units of the network interface specified in
+    <varname>BindToDevice=</varname>. Similar, swap and mount units
+    acquire dependencies on the units encapsulating their backing
+    block devices.</para>
   </refsect1>
 
   <refsect1>

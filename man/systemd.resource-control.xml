@@ -90,6 +90,15 @@
   </refsect1>
 
   <refsect1>
+    <title>Automatic Dependencies</title>
+
+    <para>Units with the <varname>Slice=</varname> setting set get
+    automatic <varname>Requires=</varname> and
+    <varname>After=</varname> dependencies on the specified slice
+    unit.</para>
+  </refsect1>
+
+  <refsect1>
     <title>Options</title>
 
     <para>Units of the types listed above can have settings
