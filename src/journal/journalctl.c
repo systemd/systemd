@@ -135,6 +135,7 @@ static enum {
         ACTION_FLUSH,
         ACTION_ROTATE,
         ACTION_VACUUM,
+        ACTION_SYNC,
 } arg_action = ACTION_SHOW;
 
 typedef struct BootId {
@@ -201,7 +202,7 @@ static void help(void) {
 
         printf("%s [OPTIONS...] [MATCHES...]\n\n"
                "Query the journal.\n\n"
-               "Flags:\n"
+               "Options:\n"
                "     --system              Show the system journal\n"
                "     --user                Show the user journal for the current user\n"
                "  -M --machine=CONTAINER   Operate on local container\n"
@@ -234,7 +235,7 @@ static void help(void) {
                "  -m --merge               Show entries from all available journals\n"
                "  -D --directory=PATH      Show journal files from directory\n"
                "     --file=PATH           Show journal file\n"
-               "     --root=ROOT           Operate on catalog files underneath the root ROOT\n"
+               "     --root=ROOT           Operate on catalog files below a root directory\n"
 #ifdef HAVE_GCRYPT
                "     --interval=TIME       Time interval for changing the FSS sealing key\n"
                "     --verify-key=KEY      Specify FSS verification key\n"
@@ -244,20 +245,21 @@ static void help(void) {
                "  -h --help                Show this help text\n"
                "     --version             Show package version\n"
                "  -F --field=FIELD         List all values that a specified field takes\n"
-               "     --new-id128           Generate a new 128-bit ID\n"
                "     --disk-usage          Show total disk usage of all journal files\n"
                "     --vacuum-size=BYTES   Reduce disk usage below specified size\n"
                "     --vacuum-files=INT    Leave only the specified number of journal files\n"
                "     --vacuum-time=TIME    Remove journal files older than specified time\n"
+               "     --verify              Verify journal file consistency\n"
+               "     --sync                Synchronize unwritten journal messages to disk\n"
                "     --flush               Flush all journal data from /run into /var\n"
                "     --rotate              Request immediate rotation of the journal files\n"
                "     --header              Show journal header information\n"
                "     --list-catalog        Show all message IDs in the catalog\n"
                "     --dump-catalog        Show entries in the message catalog\n"
                "     --update-catalog      Update the message catalog database\n"
+               "     --new-id128           Generate a new 128-bit ID\n"
 #ifdef HAVE_GCRYPT
                "     --setup-keys          Generate a new FSS key pair\n"
-               "     --verify              Verify journal file consistency\n"
 #endif
                , program_invocation_short_name);
 }
@@ -289,6 +291,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_UPDATE_CATALOG,
                 ARG_FORCE,
                 ARG_UTC,
+                ARG_SYNC,
                 ARG_FLUSH,
                 ARG_ROTATE,
                 ARG_VACUUM_SIZE,
@@ -345,6 +348,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "machine",        required_argument, NULL, 'M'                },
                 { "utc",            no_argument,       NULL, ARG_UTC            },
                 { "flush",          no_argument,       NULL, ARG_FLUSH          },
+                { "sync",           no_argument,       NULL, ARG_SYNC           },
                 { "rotate",         no_argument,       NULL, ARG_ROTATE         },
                 { "vacuum-size",    required_argument, NULL, ARG_VACUUM_SIZE    },
                 { "vacuum-files",   required_argument, NULL, ARG_VACUUM_FILES   },
@@ -727,6 +731,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_ROTATE:
                         arg_action = ACTION_ROTATE;
+                        break;
+
+                case ARG_SYNC:
+                        arg_action = ACTION_SYNC;
                         break;
 
                 case '?':
@@ -1782,10 +1790,8 @@ static int flush_to_var(void) {
                         &error,
                         NULL,
                         "ssi", "systemd-journald.service", "main", SIGUSR1);
-        if (r < 0) {
-                log_error("Failed to kill journal service: %s", bus_error_message(&error, r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to kill journal service: %s", bus_error_message(&error, r));
 
         mkdir_p("/run/systemd/journal", 0755);
 
@@ -1840,6 +1846,85 @@ static int rotate(void) {
         return 0;
 }
 
+static int sync_journal(void) {
+        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
+        _cleanup_close_ int watch_fd = -1;
+        usec_t start;
+        int r;
+
+        start = now(CLOCK_REALTIME);
+
+        /* Let's watch /run/systemd/sync until it's mtime is above
+         * the time we started the sync. Let's enqueue SIGRTMIN+1 to
+         * start the sync. */
+
+        for (;;) {
+                struct stat st;
+
+                /* See if a sync happened by now. */
+                if (stat("/run/systemd/journal/synced", &st) < 0) {
+                        if (errno != ENOENT)
+                                return log_error_errno(errno, "Failed to stat /run/systemd/journal/synced: %m");
+                } else {
+                        if (timespec_load(&st.st_mtim) >= start)
+                                return 0;
+                }
+
+                /* Let's ask for a sync, but only once. */
+                if (!bus) {
+                        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+
+                        r = bus_connect_system_systemd(&bus);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to get D-Bus connection: %m");
+
+                        r = sd_bus_call_method(
+                                        bus,
+                                        "org.freedesktop.systemd1",
+                                        "/org/freedesktop/systemd1",
+                                        "org.freedesktop.systemd1.Manager",
+                                        "KillUnit",
+                                        &error,
+                                        NULL,
+                                        "ssi", "systemd-journald.service", "main", SIGRTMIN+1);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to kill journal service: %s", bus_error_message(&error, r));
+
+                        continue;
+                }
+
+                /* Let's install the inotify watch, if we didn't do that yet. */
+                if (watch_fd < 0) {
+
+                        mkdir_p("/run/systemd/journal", 0755);
+
+                        watch_fd = inotify_init1(IN_NONBLOCK|IN_CLOEXEC);
+                        if (watch_fd < 0)
+                                return log_error_errno(errno, "Failed to create inotify watch: %m");
+
+                        r = inotify_add_watch(watch_fd, "/run/systemd/journal", IN_CREATE|IN_ATTRIB|IN_DONT_FOLLOW|IN_ONLYDIR);
+                        if (r < 0)
+                                return log_error_errno(errno, "Failed to watch journal directory: %m");
+
+                        /* Recheck the flag file immediately, so that we don't miss any event since the last check. */
+                        continue;
+                }
+
+                /* OK, all preparatory steps done, let's wait until
+                 * inotify reports an event. */
+
+                r = fd_wait_for_event(watch_fd, POLLIN, USEC_INFINITY);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to wait for event: %m");
+
+                r = flush_fd(watch_fd);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to flush inotify events: %m");
+        }
+
+        return 0;
+}
+
 int main(int argc, char *argv[]) {
         int r;
         _cleanup_journal_close_ sd_journal *j = NULL;
@@ -1872,6 +1957,11 @@ int main(int argc, char *argv[]) {
 
         if (arg_action == ACTION_FLUSH) {
                 r = flush_to_var();
+                goto finish;
+        }
+
+        if (arg_action == ACTION_SYNC) {
+                r = sync_journal();
                 goto finish;
         }
 
