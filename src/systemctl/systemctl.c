@@ -7335,7 +7335,7 @@ static int systemctl_main(int argc, char *argv[]) {
                 { "list-jobs",             VERB_ANY, VERB_ANY, 0,            list_jobs         },
                 { "list-machines",         VERB_ANY, VERB_ANY, 0,            list_machines     },
                 { "clear-jobs",            VERB_ANY, 1,        0,            daemon_reload     },
-                { "cancel",                2,        VERB_ANY, 0,            cancel_job        },
+                { "cancel",                VERB_ANY, VERB_ANY, 0,            cancel_job        },
                 { "start",                 2,        VERB_ANY, 0,            start_unit        },
                 { "stop",                  2,        VERB_ANY, 0,            start_unit        },
                 { "condstop",              2,        VERB_ANY, 0,            start_unit        }, /* For compatibility with ALTLinux */
@@ -7709,5 +7709,5 @@ finish:
 
         release_busses();
 
-        return r < 0 ? EXIT_FAILURE : r;
+        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
