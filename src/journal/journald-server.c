@@ -67,6 +67,7 @@
 #include "selinux-util.h"
 #include "signal-util.h"
 #include "socket-util.h"
+#include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "user-util.h"
@@ -823,6 +824,7 @@ void server_driver_message(Server *s, sd_id128_t message_id, const char *format,
         char mid[11 + 32 + 1];
         struct iovec iovec[N_IOVEC_META_FIELDS + 5 + N_IOVEC_PAYLOAD_FIELDS];
         unsigned n = 0, m;
+        int r;
         va_list ap;
         struct ucred ucred = {};
 
@@ -832,8 +834,8 @@ void server_driver_message(Server *s, sd_id128_t message_id, const char *format,
         IOVEC_SET_STRING(iovec[n++], "SYSLOG_FACILITY=3");
         IOVEC_SET_STRING(iovec[n++], "SYSLOG_IDENTIFIER=systemd-journald");
 
-        IOVEC_SET_STRING(iovec[n++], "PRIORITY=6");
         IOVEC_SET_STRING(iovec[n++], "_TRANSPORT=driver");
+        IOVEC_SET_STRING(iovec[n++], "PRIORITY=6");
 
         if (!sd_id128_equal(message_id, SD_ID128_NULL)) {
                 snprintf(mid, sizeof(mid), LOG_MESSAGE_ID(message_id));
@@ -843,17 +845,31 @@ void server_driver_message(Server *s, sd_id128_t message_id, const char *format,
         m = n;
 
         va_start(ap, format);
-        assert_se(log_format_iovec(iovec, ELEMENTSOF(iovec), &n, false, 0, format, ap) >= 0);
+        r = log_format_iovec(iovec, ELEMENTSOF(iovec), &n, false, 0, format, ap);
+        /* Error handling below */
         va_end(ap);
 
         ucred.pid = getpid();
         ucred.uid = getuid();
         ucred.gid = getgid();
 
-        dispatch_message_real(s, iovec, n, ELEMENTSOF(iovec), &ucred, NULL, NULL, 0, NULL, LOG_INFO, 0);
+        if (r >= 0)
+                dispatch_message_real(s, iovec, n, ELEMENTSOF(iovec), &ucred, NULL, NULL, 0, NULL, LOG_INFO, 0);
 
         while (m < n)
                 free(iovec[m++].iov_base);
+
+        if (r < 0) {
+                /* We failed to format the message. Emit a warning instead. */
+                char buf[LINE_MAX];
+
+                xsprintf(buf, "MESSAGE=Entry printing failed: %s", strerror(-r));
+
+                n = 3;
+                IOVEC_SET_STRING(iovec[n++], "PRIORITY=4");
+                IOVEC_SET_STRING(iovec[n++], buf);
+                dispatch_message_real(s, iovec, n, ELEMENTSOF(iovec), &ucred, NULL, NULL, 0, NULL, LOG_INFO, 0);
+        }
 }
 
 void server_dispatch_message(
