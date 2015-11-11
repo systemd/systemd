@@ -2186,7 +2186,7 @@ static int list_jobs(int argc, char *argv[], void *userdata) {
                 return bus_log_parse_error(r);
 
         output_jobs_list(jobs, c, skipped);
-        return r;
+        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
 
 static int cancel_job(int argc, char *argv[], void *userdata) {
