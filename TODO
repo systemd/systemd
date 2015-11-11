@@ -918,8 +918,6 @@ External:
 
 * dbus: in fedora, make /var/lib/dbus/machine-id a symlink to /etc/machine-id
 
-* add "# export SYSTEMD_PAGER=" to bash login
-
 * /usr/bin/service should actually show the new command line
 
 * fedora: suggest auto-restart on failure, but not on success and not on coredump. also, ask people to think about changing the start limit logic. Also point people to RestartPreventExitStatus=, SuccessExitStatus=
