@@ -7709,5 +7709,7 @@ finish:
 
         release_busses();
 
+        /* Note that we return r here, not EXIT_SUCCESS, so that we can implement the LSB-like return codes */
+
         return r < 0 ? EXIT_FAILURE : r;
 }
