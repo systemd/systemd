@@ -33,6 +33,15 @@ Janitorial Clean-ups:
 
 Features:
 
+* PID1: find a way how we can reload unit file configuration for
+  specific units only, without reloading the whole of systemd
+
+* For services: replace the default Requires=basic.target with After=basic.target + Requires=sysinit.target.
+
+* drop "Overridable" dependency types
+
+* document precise effect of DefaultDependencies=yes
+
 * add an explicit parser for LimitNICE= and LimitRTPRIO= that verifies
   the specified range and generates sane error messages for incorrect
   specifications. Also, for LimitNICE= maybe introduce a syntax such
@@ -43,7 +52,7 @@ Features:
 
 * when we detect that there are waiting jobs but no running jobs, do something
 
-* push CPUAffinity also into the "cpuset" cgroup controller
+* push CPUAffinity also into the "cpuset" cgroup controller (only after the cpuset controller got ported to the unified hierarchy)
 
 * add a concept of RemainAfterExit= to scope units
 

@@ -773,21 +773,41 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--sync</option></term>
+
+        <listitem><para>Asks the journal daemon to write all yet
+        unwritten journal data to the backing file system and
+        synchronize all journals. This call does not return until the
+        synchronization operation is complete. This command guarantees
+        that any log messages written before its invocation are safely
+        stored on disk at the time it returns.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--flush</option></term>
 
         <listitem><para>Asks the journal daemon to flush any log data
         stored in <filename>/run/log/journal</filename> into
-        <filename>/var/log/journal</filename>, if persistent storage is
-        enabled. This call does not return until the operation is
-        complete.</para></listitem>
+        <filename>/var/log/journal</filename>, if persistent storage
+        is enabled. This call does not return until the operation is
+        complete. Note that this call is idempotent: the data is only
+        flushed from <filename>/run/log/journal</filename> into
+        <filename>/var/log/journal</filename> once during system
+        runtime, and this command exits cleanly without executing any
+        operation if this has already has happened. This command
+        effectively guarantees that all data is flushed to
+        <filename>/var/log/journal</filename> at the time it
+        returns.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--rotate</option></term>
 
-        <listitem><para>Asks the journal daemon to rotate journal files.
-        </para></listitem>
+        <listitem><para>Asks the journal daemon to rotate journal
+        files. This call does not return until the rotation operation
+        is complete.</para></listitem>
       </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
       <xi:include href="standard-options.xml" xpointer="no-pager" />

@@ -2186,7 +2186,7 @@ static int list_jobs(int argc, char *argv[], void *userdata) {
                 return bus_log_parse_error(r);
 
         output_jobs_list(jobs, c, skipped);
-        return r;
+        return 0;
 }
 
 static int cancel_job(int argc, char *argv[], void *userdata) {
@@ -7708,6 +7708,8 @@ finish:
         free(arg_root);
 
         release_busses();
+
+        /* Note that we return r here, not EXIT_SUCCESS, so that we can implement the LSB-like return codes */
 
         return r < 0 ? EXIT_FAILURE : r;
 }

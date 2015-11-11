@@ -36,6 +36,7 @@
 #include "hexdecoct.h"
 #include "macro.h"
 #include "missing.h"
+#include "selinux-util.h"
 #include "signal-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
@@ -608,9 +609,11 @@ static void bus_get_peercred(sd_bus *b) {
         b->ucred_valid = getpeercred(b->input_fd, &b->ucred) >= 0;
 
         /* Get the SELinux context of the peer */
-        r = getpeersec(b->input_fd, &b->label);
-        if (r < 0 && r != -EOPNOTSUPP)
-                log_debug_errno(r, "Failed to determine peer security context: %m");
+        if (mac_selinux_use()) {
+                r = getpeersec(b->input_fd, &b->label);
+                if (r < 0 && r != -EOPNOTSUPP)
+                        log_debug_errno(r, "Failed to determine peer security context: %m");
+        }
 }
 
 static int bus_socket_start_auth_client(sd_bus *b) {

@@ -1243,7 +1243,7 @@ static int dispatch_sigusr1(sd_event_source *es, const struct signalfd_siginfo *
 
         assert(s);
 
-        log_info("Received request to flush runtime journal from PID %"PRIu32, si->ssi_pid);
+        log_info("Received request to flush runtime journal from PID " PID_FMT, si->ssi_pid);
 
         server_flush_to_var(s);
         server_sync(s);
@@ -1259,9 +1259,12 @@ static int dispatch_sigusr2(sd_event_source *es, const struct signalfd_siginfo *
 
         assert(s);
 
-        log_info("Received request to rotate journal from PID %"PRIu32, si->ssi_pid);
+        log_info("Received request to rotate journal from PID " PID_FMT, si->ssi_pid);
         server_rotate(s);
         server_vacuum(s, true, true);
+
+        /* Let clients know when the most recent rotation happened. */
+        (void) touch("/run/systemd/journal/rotated");
 
         return 0;
 }
@@ -1277,12 +1280,27 @@ static int dispatch_sigterm(sd_event_source *es, const struct signalfd_siginfo *
         return 0;
 }
 
+static int dispatch_sigrtmin1(sd_event_source *es, const struct signalfd_siginfo *si, void *userdata) {
+        Server *s = userdata;
+
+        assert(s);
+
+        log_debug("Received request to sync from PID " PID_FMT, si->ssi_pid);
+
+        server_sync(s);
+
+        /* Let clients know when the most recent sync happened. */
+        (void) touch("/run/systemd/journal/synced");
+
+        return 0;
+}
+
 static int setup_signals(Server *s) {
         int r;
 
         assert(s);
 
-        assert(sigprocmask_many(SIG_SETMASK, NULL, SIGINT, SIGTERM, SIGUSR1, SIGUSR2, -1) >= 0);
+        assert(sigprocmask_many(SIG_SETMASK, NULL, SIGINT, SIGTERM, SIGUSR1, SIGUSR2, SIGRTMIN+1, -1) >= 0);
 
         r = sd_event_add_signal(s->event, &s->sigusr1_event_source, SIGUSR1, dispatch_sigusr1, s);
         if (r < 0)
@@ -1309,6 +1327,19 @@ static int setup_signals(Server *s) {
                 return r;
 
         r = sd_event_source_set_priority(s->sigint_event_source, SD_EVENT_PRIORITY_NORMAL+20);
+        if (r < 0)
+                return r;
+
+        /* SIGRTMIN+1 causes an immediate sync. We process this very
+         * late, so that everything else queued at this point is
+         * really written to disk. Clients can watch
+         * /run/systemd/journal/synced with inotify until its mtime
+         * changes to see when a sync happened. */
+        r = sd_event_add_signal(s->event, &s->sigrtmin1_event_source, SIGRTMIN+1, dispatch_sigrtmin1, s);
+        if (r < 0)
+                return r;
+
+        r = sd_event_source_set_priority(s->sigrtmin1_event_source, SD_EVENT_PRIORITY_NORMAL+15);
         if (r < 0)
                 return r;
 
@@ -1869,6 +1900,7 @@ void server_done(Server *s) {
         sd_event_source_unref(s->sigusr2_event_source);
         sd_event_source_unref(s->sigterm_event_source);
         sd_event_source_unref(s->sigint_event_source);
+        sd_event_source_unref(s->sigrtmin1_event_source);
         sd_event_source_unref(s->hostname_event_source);
         sd_event_source_unref(s->notify_event_source);
         sd_event_source_unref(s->watchdog_event_source);
