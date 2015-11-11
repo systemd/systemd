@@ -2365,14 +2365,6 @@ static bool service_check_gc(Unit *u) {
         return false;
 }
 
-_pure_ static bool service_check_snapshot(Unit *u) {
-        Service *s = SERVICE(u);
-
-        assert(s);
-
-        return s->socket_fd < 0;
-}
-
 static int service_retry_pid_file(Service *s) {
         int r;
 
@@ -3294,7 +3286,6 @@ const UnitVTable service_vtable = {
         .sub_state_to_string = service_sub_state_to_string,
 
         .check_gc = service_check_gc,
-        .check_snapshot = service_check_snapshot,
 
         .sigchld_event = service_sigchld_event,
 

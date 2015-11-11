@@ -141,8 +141,6 @@ struct Manager {
 
         sd_event_source *jobs_in_progress_event_source;
 
-        unsigned n_snapshots;
-
         LookupPaths lookup_paths;
         Set *unit_path_cache;
 

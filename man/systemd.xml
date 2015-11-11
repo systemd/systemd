@@ -318,12 +318,6 @@
       boot-up. See
       <citerefentry><refentrytitle>systemd.automount</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>
 
-      <listitem><para>Snapshot units can be used to temporarily save
-      the state of the set of systemd units, which later may be
-      restored by activating the saved snapshot unit. For more
-      information, see
-      <citerefentry><refentrytitle>systemd.snapshot</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>
-
       <listitem><para>Timer units are useful for triggering activation
       of other units based on timers. You may find details in
       <citerefentry><refentrytitle>systemd.timer</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>

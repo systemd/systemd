@@ -174,14 +174,12 @@ _systemctl () {
          [TARGET_AND_UNITS]='add-wants add-requires'
              [MASKED_UNITS]='unmask'
                      [JOBS]='cancel'
-                [SNAPSHOTS]='delete'
                      [ENVS]='set-environment unset-environment'
                [STANDALONE]='daemon-reexec daemon-reload default
                              emergency exit halt hibernate hybrid-sleep kexec list-jobs
                              list-sockets list-timers list-units list-unit-files poweroff
                              reboot rescue show-environment suspend get-default
                              is-system-running'
-                     [NAME]='snapshot'
                      [FILE]='link switch-root'
                   [TARGETS]='set-default'
         )
@@ -259,15 +257,11 @@ _systemctl () {
                 fi
                 compopt -o filenames
 
-        elif __contains_word "$verb" ${VERBS[STANDALONE]} ${VERBS[NAME]}; then
+        elif __contains_word "$verb" ${VERBS[STANDALONE]}; then
                 comps=''
 
         elif __contains_word "$verb" ${VERBS[JOBS]}; then
                 comps=$( __systemctl $mode list-jobs | { while read -r a b; do echo " $a"; done; } )
-
-        elif __contains_word "$verb" ${VERBS[SNAPSHOTS]}; then
-                comps=$( __systemctl $mode list-units --type snapshot --full --all \
-                        | { while read -r a b; do echo " $a"; done; } )
 
         elif __contains_word "$verb" ${VERBS[ENVS]}; then
                 comps=$( __systemctl $mode show-environment \

@@ -1342,46 +1342,6 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
     </refsect2>
 
     <refsect2>
-      <title>Snapshot Commands</title>
-
-      <variablelist>
-        <varlistentry>
-          <term><command>snapshot <optional><replaceable>NAME</replaceable></optional></command></term>
-
-          <listitem>
-            <para>Create a snapshot. If a snapshot name is specified,
-            the new snapshot will be named after it. If none is
-            specified, an automatic snapshot name is generated. In
-            either case, the snapshot name used is printed to standard
-            output, unless <option>--quiet</option> is specified.
-            </para>
-
-            <para>A snapshot refers to a saved state of the systemd
-            manager. It is implemented itself as a unit that is
-            generated dynamically with this command and has dependencies
-            on all units active at the time. At a later time, the user
-            may return to this state by using the
-            <command>isolate</command> command on the snapshot unit.
-            </para>
-
-            <para>Snapshots are only useful for saving and restoring
-            which units are running or are stopped, they do not
-            save/restore any other state. Snapshots are dynamic and lost
-            on reboot.</para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><command>delete <replaceable>PATTERN</replaceable>...</command></term>
-
-          <listitem>
-            <para>Remove a snapshot previously created with
-            <command>snapshot</command>.</para>
-          </listitem>
-        </varlistentry>
-      </variablelist>
-    </refsect2>
-
-    <refsect2>
       <title>Environment Commands</title>
 
       <variablelist>

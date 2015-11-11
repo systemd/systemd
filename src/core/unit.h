@@ -203,9 +203,6 @@ struct Unit {
         /* Ignore this unit when isolating */
         bool ignore_on_isolate;
 
-        /* Ignore this unit when snapshotting */
-        bool ignore_on_snapshot;
-
         /* Did the last condition check succeed? */
         bool condition_result;
         bool assert_result;
@@ -248,7 +245,6 @@ typedef enum UnitSetPropertiesMode {
 #include "socket.h"
 #include "busname.h"
 #include "target.h"
-#include "snapshot.h"
 #include "device.h"
 #include "automount.h"
 #include "swap.h"
@@ -342,9 +338,6 @@ struct UnitVTable {
         /* When the unit is not running and no job for it queued we
          * shall release its runtime resources */
         void (*release_resources)(Unit *u);
-
-        /* Return true when this unit is suitable for snapshotting */
-        bool (*check_snapshot)(Unit *u);
 
         /* Invoked on every child that died */
         void (*sigchld_event)(Unit *u, pid_t pid, int code, int status);
@@ -443,7 +436,6 @@ DEFINE_CAST(SERVICE, Service);
 DEFINE_CAST(SOCKET, Socket);
 DEFINE_CAST(BUSNAME, BusName);
 DEFINE_CAST(TARGET, Target);
-DEFINE_CAST(SNAPSHOT, Snapshot);
 DEFINE_CAST(DEVICE, Device);
 DEFINE_CAST(MOUNT, Mount);
 DEFINE_CAST(AUTOMOUNT, Automount);

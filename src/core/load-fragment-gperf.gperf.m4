@@ -158,7 +158,7 @@ Unit.DefaultDependencies,        config_parse_bool,                  0,         
 Unit.OnFailureJobMode,           config_parse_job_mode,              0,                             offsetof(Unit, on_failure_job_mode)
 Unit.OnFailureIsolate,           config_parse_job_mode_isolate,      0,                             offsetof(Unit, on_failure_job_mode)
 Unit.IgnoreOnIsolate,            config_parse_bool,                  0,                             offsetof(Unit, ignore_on_isolate)
-Unit.IgnoreOnSnapshot,           config_parse_bool,                  0,                             offsetof(Unit, ignore_on_snapshot)
+Unit.IgnoreOnSnapshot,           config_parse_warn_compat,           DISABLED_LEGACY,               0
 Unit.JobTimeoutSec,              config_parse_sec,                   0,                             offsetof(Unit, job_timeout)
 Unit.JobTimeoutAction,           config_parse_failure_action,        0,                             offsetof(Unit, job_timeout_action)
 Unit.JobTimeoutRebootArgument,   config_parse_string,                0,                             offsetof(Unit, job_timeout_reboot_arg)

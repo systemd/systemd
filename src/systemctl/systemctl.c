@@ -4905,102 +4905,6 @@ static int set_property(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int snapshot(int argc, char *argv[], void *userdata) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-        _cleanup_free_ char *n = NULL, *id = NULL;
-        const char *path;
-        sd_bus *bus;
-        int r;
-
-        polkit_agent_open_if_enabled();
-
-        if (argc > 1) {
-                r = unit_name_mangle_with_suffix(argv[1], UNIT_NAME_NOGLOB, ".snapshot", &n);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to generate unit name: %m");
-        } else {
-                n = strdup("");
-                if (!n)
-                        return log_oom();
-        }
-
-        r = acquire_bus(BUS_MANAGER, &bus);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "CreateSnapshot",
-                        &error,
-                        &reply,
-                        "sb", n, false);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create snapshot: %s", bus_error_message(&error, r));
-
-        r = sd_bus_message_read(reply, "o", &path);
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        r = sd_bus_get_property_string(
-                        bus,
-                        "org.freedesktop.systemd1",
-                        path,
-                        "org.freedesktop.systemd1.Unit",
-                        "Id",
-                        &error,
-                        &id);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get ID of snapshot: %s", bus_error_message(&error, r));
-
-        if (!arg_quiet)
-                puts(id);
-
-        return 0;
-}
-
-static int delete_snapshot(int argc, char *argv[], void *userdata) {
-        _cleanup_strv_free_ char **names = NULL;
-        sd_bus *bus;
-        char **name;
-        int r;
-
-        polkit_agent_open_if_enabled();
-
-        r = acquire_bus(BUS_MANAGER, &bus);
-        if (r < 0)
-                return r;
-
-        r = expand_names(bus, strv_skip(argv, 1), ".snapshot", &names);
-        if (r < 0)
-                return log_error_errno(r, "Failed to expand names: %m");
-
-        STRV_FOREACH(name, names) {
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-                int q;
-
-                q = sd_bus_call_method(
-                                bus,
-                                "org.freedesktop.systemd1",
-                                "/org/freedesktop/systemd1",
-                                "org.freedesktop.systemd1.Manager",
-                                "RemoveSnapshot",
-                                &error,
-                                NULL,
-                                "s", *name);
-                if (q < 0) {
-                        log_error_errno(q, "Failed to remove snapshot %s: %s", *name, bus_error_message(&error, q));
-                        if (r == 0)
-                                r = q;
-                }
-        }
-
-        return r;
-}
-
 static int daemon_reload(int argc, char *argv[], void *userdata) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *method;
@@ -6381,9 +6285,6 @@ static void systemctl_help(void) {
                "Job Commands:\n"
                "  list-jobs [PATTERN...]          List jobs\n"
                "  cancel [JOB...]                 Cancel all, one, or more jobs\n\n"
-               "Snapshot Commands:\n"
-               "  snapshot [NAME]                 Create a snapshot\n"
-               "  delete NAME...                  Remove one or more snapshots\n\n"
                "Environment Commands:\n"
                "  show-environment                Dump environment\n"
                "  set-environment NAME=VALUE...   Set one or more environment variables\n"
@@ -6524,11 +6425,6 @@ static void help_states(void) {
                 puts("\nAvailable slice unit substates:");
         for (i = 0; i < _SLICE_STATE_MAX; i++)
                 puts(slice_state_to_string(i));
-
-        if (!arg_no_legend)
-                puts("\nAvailable snapshot unit substates:");
-        for (i = 0; i < _SNAPSHOT_STATE_MAX; i++)
-                puts(snapshot_state_to_string(i));
 
         if (!arg_no_legend)
                 puts("\nAvailable socket unit substates:");
@@ -7460,8 +7356,6 @@ static int systemctl_main(int argc, char *argv[]) {
                 { "cat",                   2,        VERB_ANY, 0,            cat               },
                 { "status",                VERB_ANY, VERB_ANY, 0,            show              },
                 { "help",                  VERB_ANY, VERB_ANY, 0,            show              },
-                { "snapshot",              VERB_ANY, 2,        0,            snapshot          },
-                { "delete",                2,        VERB_ANY, 0,            delete_snapshot   },
                 { "daemon-reload",         VERB_ANY, 1,        0,            daemon_reload     },
                 { "daemon-reexec",         VERB_ANY, 1,        0,            daemon_reload     },
                 { "show-environment",      VERB_ANY, 1,        0,            show_environment  },

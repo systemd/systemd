@@ -597,7 +597,6 @@ const char* unit_dbus_interface_from_type(UnitType t) {
                 [UNIT_SOCKET] = "org.freedesktop.systemd1.Socket",
                 [UNIT_BUSNAME] = "org.freedesktop.systemd1.BusName",
                 [UNIT_TARGET] = "org.freedesktop.systemd1.Target",
-                [UNIT_SNAPSHOT] = "org.freedesktop.systemd1.Snapshot",
                 [UNIT_DEVICE] = "org.freedesktop.systemd1.Device",
                 [UNIT_MOUNT] = "org.freedesktop.systemd1.Mount",
                 [UNIT_AUTOMOUNT] = "org.freedesktop.systemd1.Automount",
@@ -819,7 +818,6 @@ static const char* const unit_type_table[_UNIT_TYPE_MAX] = {
         [UNIT_SOCKET] = "socket",
         [UNIT_BUSNAME] = "busname",
         [UNIT_TARGET] = "target",
-        [UNIT_SNAPSHOT] = "snapshot",
         [UNIT_DEVICE] = "device",
         [UNIT_MOUNT] = "mount",
         [UNIT_AUTOMOUNT] = "automount",
@@ -949,13 +947,6 @@ static const char* const slice_state_table[_SLICE_STATE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(slice_state, SliceState);
-
-static const char* const snapshot_state_table[_SNAPSHOT_STATE_MAX] = {
-        [SNAPSHOT_DEAD] = "dead",
-        [SNAPSHOT_ACTIVE] = "active"
-};
-
-DEFINE_STRING_TABLE_LOOKUP(snapshot_state, SnapshotState);
 
 static const char* const socket_state_table[_SOCKET_STATE_MAX] = {
         [SOCKET_DEAD] = "dead",
