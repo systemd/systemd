@@ -122,7 +122,7 @@ int config_parse_unit_deps(const char *unit,
                 _cleanup_free_ char *word = NULL, *k = NULL;
                 int r;
 
-                r = extract_first_word(&p, &word, NULL, 0);
+                r = extract_first_word(&p, &word, NULL, EXTRACT_RETAIN_ESCAPE);
                 if (r == 0)
                         break;
                 if (r == -ENOMEM)
