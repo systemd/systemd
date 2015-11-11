@@ -352,6 +352,24 @@ static void test_safe_atolli(void) {
         assert_se(r == 0);
         assert_se(l == 12345);
 
+        r = safe_atolli("  12345", &l);
+        assert_se(r == 0);
+        assert_se(l == 12345);
+
+        r = safe_atolli("-12345", &l);
+        assert_se(r == 0);
+        assert_se(l == -12345);
+
+        r = safe_atolli("  -12345", &l);
+        assert_se(r == 0);
+        assert_se(l == -12345);
+
+        r = safe_atolli("12345678901234567890", &l);
+        assert_se(r == -ERANGE);
+
+        r = safe_atolli("-12345678901234567890", &l);
+        assert_se(r == -ERANGE);
+
         r = safe_atolli("junk", &l);
         assert_se(r == -EINVAL);
 }
@@ -364,7 +382,17 @@ static void test_safe_atou16(void) {
         assert_se(r == 0);
         assert_se(l == 12345);
 
+        r = safe_atou16("  12345", &l);
+        assert_se(r == 0);
+        assert_se(l == 12345);
+
         r = safe_atou16("123456", &l);
+        assert_se(r == -ERANGE);
+
+        r = safe_atou16("-1", &l);
+        assert_se(r == -ERANGE);
+
+        r = safe_atou16("  -1", &l);
         assert_se(r == -ERANGE);
 
         r = safe_atou16("junk", &l);
@@ -379,7 +407,22 @@ static void test_safe_atoi16(void) {
         assert_se(r == 0);
         assert_se(l == -12345);
 
+        r = safe_atoi16("  -12345", &l);
+        assert_se(r == 0);
+        assert_se(l == -12345);
+
+        r = safe_atoi16("32767", &l);
+        assert_se(r == 0);
+        assert_se(l == 32767);
+
+        r = safe_atoi16("  32767", &l);
+        assert_se(r == 0);
+        assert_se(l == 32767);
+
         r = safe_atoi16("36536", &l);
+        assert_se(r == -ERANGE);
+
+        r = safe_atoi16("-32769", &l);
         assert_se(r == -ERANGE);
 
         r = safe_atoi16("junk", &l);
