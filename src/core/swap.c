@@ -1268,26 +1268,36 @@ static void swap_shutdown(Manager *m) {
         m->swaps_by_devnode = hashmap_free(m->swaps_by_devnode);
 }
 
-static int swap_enumerate(Manager *m) {
+static void swap_enumerate(Manager *m) {
         int r;
 
         assert(m);
 
         if (!m->proc_swaps) {
                 m->proc_swaps = fopen("/proc/swaps", "re");
-                if (!m->proc_swaps)
-                        return errno == ENOENT ? 0 : -errno;
+                if (!m->proc_swaps) {
+                        if (errno == ENOENT)
+                                log_debug("Not swap enabled, skipping enumeration");
+                        else
+                                log_error_errno(errno, "Failed to open /proc/swaps: %m");
+
+                        return;
+                }
 
                 r = sd_event_add_io(m->event, &m->swap_event_source, fileno(m->proc_swaps), EPOLLPRI, swap_dispatch_io, m);
-                if (r < 0)
+                if (r < 0) {
+                        log_error_errno(r, "Failed to watch /proc/swaps: %m");
                         goto fail;
+                }
 
                 /* Dispatch this before we dispatch SIGCHLD, so that
                  * we always get the events from /proc/swaps before
                  * the SIGCHLD of /sbin/swapon. */
                 r = sd_event_source_set_priority(m->swap_event_source, -10);
-                if (r < 0)
+                if (r < 0) {
+                        log_error_errno(r, "Failed to change /proc/swaps priority: %m");
                         goto fail;
+                }
 
                 (void) sd_event_source_set_description(m->swap_event_source, "swap-proc");
         }
@@ -1296,11 +1306,10 @@ static int swap_enumerate(Manager *m) {
         if (r < 0)
                 goto fail;
 
-        return 0;
+        return;
 
 fail:
         swap_shutdown(m);
-        return r;
 }
 
 int swap_process_device_new(Manager *m, struct udev_device *dev) {

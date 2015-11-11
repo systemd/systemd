@@ -2887,7 +2887,7 @@ int unit_add_node_link(Unit *u, const char *what, bool wants) {
 }
 
 int unit_coldplug(Unit *u) {
-        int r;
+        int r = 0, q = 0;
 
         assert(u);
 
@@ -2898,17 +2898,16 @@ int unit_coldplug(Unit *u) {
 
         u->coldplugged = true;
 
-        if (UNIT_VTABLE(u)->coldplug) {
+        if (UNIT_VTABLE(u)->coldplug)
                 r = UNIT_VTABLE(u)->coldplug(u);
-                if (r < 0)
-                        return r;
-        }
 
-        if (u->job) {
-                r = job_coldplug(u->job);
-                if (r < 0)
-                        return r;
-        }
+        if (u->job)
+                q = job_coldplug(u->job);
+
+        if (r < 0)
+                return r;
+        if (q < 0)
+                return q;
 
         return 0;
 }

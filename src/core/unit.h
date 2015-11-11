@@ -318,7 +318,7 @@ struct UnitVTable {
         int (*deserialize_item)(Unit *u, const char *key, const char *data, FDSet *fds);
 
         /* Try to match up fds with what we need for this unit */
-        int (*distribute_fds)(Unit *u, FDSet *fds);
+        void (*distribute_fds)(Unit *u, FDSet *fds);
 
         /* Boils down the more complex internal state of this unit to
          * a simpler one that the engine can understand */
@@ -382,7 +382,7 @@ struct UnitVTable {
          * everything that is loaded here should still stay in
          * inactive state. It is the job of the coldplug() call above
          * to put the units into the initial state.  */
-        int (*enumerate)(Manager *m);
+        void (*enumerate)(Manager *m);
 
         /* Type specific cleanups. */
         void (*shutdown)(Manager *m);

@@ -1267,6 +1267,10 @@ static int create_item(Item *i) {
                                 log_debug_errno(r, "Couldn't adjust quota for subvolume \"%s\" because of read-only file system: %m", i->path);
                                 return 0;
                         }
+                        if (r == -ENOPROTOOPT) {
+                                log_debug_errno(r, "Couldn't adjust quota for subvolume \"%s\" because quota support is disabled: %m", i->path);
+                                return 0;
+                        }
                         if (r < 0)
                                 return log_error_errno(r, "Failed to adjust quota for subvolume \"%s\": %m", i->path);
                         if (r > 0)

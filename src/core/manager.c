@@ -993,8 +993,7 @@ Manager* manager_free(Manager *m) {
         return NULL;
 }
 
-int manager_enumerate(Manager *m) {
-        int r = 0;
+void manager_enumerate(Manager *m) {
         UnitType c;
 
         assert(m);
@@ -1002,8 +1001,6 @@ int manager_enumerate(Manager *m) {
         /* Let's ask every type to load all units from disk/kernel
          * that it might know */
         for (c = 0; c < _UNIT_TYPE_MAX; c++) {
-                int q;
-
                 if (!unit_type_supported(c)) {
                         log_debug("Unit type .%s is not supported on this system.", unit_type_to_string(c));
                         continue;
@@ -1012,13 +1009,10 @@ int manager_enumerate(Manager *m) {
                 if (!unit_vtable[c]->enumerate)
                         continue;
 
-                q = unit_vtable[c]->enumerate(m);
-                if (q < 0)
-                        r = q;
+                unit_vtable[c]->enumerate(m);
         }
 
         manager_dispatch_load_queue(m);
-        return r;
 }
 
 static void manager_coldplug(Manager *m) {
@@ -1100,10 +1094,9 @@ fail:
 }
 
 
-static int manager_distribute_fds(Manager *m, FDSet *fds) {
-        Unit *u;
+static void manager_distribute_fds(Manager *m, FDSet *fds) {
         Iterator i;
-        int r;
+        Unit *u;
 
         assert(m);
 
@@ -1112,14 +1105,11 @@ static int manager_distribute_fds(Manager *m, FDSet *fds) {
                 if (fdset_size(fds) <= 0)
                         break;
 
-                if (UNIT_VTABLE(u)->distribute_fds) {
-                        r = UNIT_VTABLE(u)->distribute_fds(u, fds);
-                        if (r < 0)
-                                return r;
-                }
-        }
+                if (!UNIT_VTABLE(u)->distribute_fds)
+                        continue;
 
-        return 0;
+                UNIT_VTABLE(u)->distribute_fds(u, fds);
+        }
 }
 
 int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
@@ -1152,7 +1142,7 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
 
         /* First, enumerate what we can from all config files */
         dual_timestamp_get(&m->units_load_start_timestamp);
-        r = manager_enumerate(m);
+        manager_enumerate(m);
         dual_timestamp_get(&m->units_load_finish_timestamp);
 
         /* Second, deserialize if there is something to deserialize */
@@ -1163,11 +1153,7 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
          * useful to allow container managers to pass some file
          * descriptors to us pre-initialized. This enables
          * socket-based activation of entire containers. */
-        if (fdset_size(fds) > 0) {
-                q = manager_distribute_fds(m, fds);
-                if (q < 0 && r == 0)
-                        r = q;
-        }
+        manager_distribute_fds(m, fds);
 
         /* We might have deserialized the notify fd, but if we didn't
          * then let's create the bus now */
@@ -2554,9 +2540,7 @@ int manager_reload(Manager *m) {
         manager_build_unit_path_cache(m);
 
         /* First, enumerate what we can from all config files */
-        q = manager_enumerate(m);
-        if (q < 0 && r >= 0)
-                r = q;
+        manager_enumerate(m);
 
         /* Second, deserialize our stored data */
         q = manager_deserialize(m, f, fds);

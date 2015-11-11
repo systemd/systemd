@@ -2332,7 +2332,7 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
         return 0;
 }
 
-static int socket_distribute_fds(Unit *u, FDSet *fds) {
+static void socket_distribute_fds(Unit *u, FDSet *fds) {
         Socket *s = SOCKET(u);
         SocketPort *p;
 
@@ -2356,8 +2356,6 @@ static int socket_distribute_fds(Unit *u, FDSet *fds) {
                         }
                 }
         }
-
-        return 0;
 }
 
 _pure_ static UnitActiveState socket_active_state(Unit *u) {
