@@ -910,12 +910,10 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
         _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL, *reply = NULL;
         _cleanup_netlink_unref_ sd_netlink *rtnl = NULL;
         _cleanup_free_ LinkInfo *links = NULL;
-        const char *state, *word;
-
         double ttl = -1;
         uint32_t capability;
         int i, r, c, j;
-        size_t ll;
+        const char *p;
         char **s;
 
         pager_open_if_enabled();
@@ -956,14 +954,19 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
                         return -ENOMEM;
 
                 STRV_FOREACH(s, l) {
-                        FOREACH_WORD_QUOTED(word, ll, *s, state) {
-                                _cleanup_free_ char *t = NULL, *a = NULL, *b = NULL;
 
-                                t = strndup(word, ll);
-                                if (!t)
-                                        return -ENOMEM;
+                        p = *s;
+                        for (;;) {
+                                _cleanup_free_ char *a = NULL, *b = NULL, *word = NULL;
 
-                                r = split_pair(t, "=", &a, &b);
+                                r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse LLDP syntax \"%s\": %m", *s);
+
+                                if (r == 0)
+                                        break;
+
+                                r = split_pair(word, "=", &a, &b);
                                 if (r < 0)
                                         continue;
 
