@@ -629,6 +629,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Environment", "as", NULL, offsetof(ExecContext, environment), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("EnvironmentFiles", "a(sb)", property_get_environment_files, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("PassEnvironment", "as", NULL, offsetof(ExecContext, pass_environment), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("UMask", "u", bus_property_get_mode, offsetof(ExecContext, umask), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("LimitCPU", "t", bus_property_get_rlimit, offsetof(ExecContext, rlimit[RLIMIT_CPU]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("LimitFSIZE", "t", bus_property_get_rlimit, offsetof(ExecContext, rlimit[RLIMIT_FSIZE]), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -1284,6 +1285,38 @@ int bus_exec_context_set_transient_property(
                                         return r;
 
                                 unit_write_drop_in_private(u, mode, name, joined);
+                        }
+                }
+
+                return 1;
+
+        } else if (streq(name, "PassEnvironment")) {
+
+                _cleanup_strv_free_ char **l = NULL;
+
+                r = sd_bus_message_read_strv(message, &l);
+                if (r < 0)
+                        return r;
+
+                if (!strv_env_name_is_valid(l))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid PassEnvironment block.");
+
+                if (mode != UNIT_CHECK) {
+                        if (strv_isempty(l)) {
+                                c->pass_environment = strv_free(c->pass_environment);
+                                unit_write_drop_in_private_format(u, mode, name, "PassEnvironment=\n");
+                        } else {
+                                _cleanup_free_ char *joined = NULL;
+
+                                r = strv_extend_strv(&c->pass_environment, l, true);
+                                if (r < 0)
+                                        return r;
+
+                                joined = strv_join_quoted(c->pass_environment);
+                                if (!joined)
+                                        return -ENOMEM;
+
+                                unit_write_drop_in_private_format(u, mode, name, "PassEnvironment=%s\n", joined);
                         }
                 }
 

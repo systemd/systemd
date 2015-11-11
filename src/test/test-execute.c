@@ -168,6 +168,30 @@ static void test_exec_environmentfile(Manager *m) {
         unlink("/tmp/test-exec_environmentfile.conf");
 }
 
+static void test_exec_passenvironment(Manager *m) {
+        /* test-execute runs under MANAGER_USER which, by default, forwards all
+         * variables present in the environment, but only those that are
+         * present _at the time it is created_!
+         *
+         * So these PassEnvironment checks are still expected to work, since we
+         * are ensuring the variables are not present at manager creation (they
+         * are unset explicitly in main) and are only set here.
+         *
+         * This is still a good approximation of how a test for MANAGER_SYSTEM
+         * would work.
+         */
+        assert_se(setenv("VAR1", "word1 word2", 1) == 0);
+        assert_se(setenv("VAR2", "word3", 1) == 0);
+        assert_se(setenv("VAR3", "$word 5 6", 1) == 0);
+        test(m, "exec-passenvironment.service", 0, CLD_EXITED);
+        test(m, "exec-passenvironment-repeated.service", 0, CLD_EXITED);
+        test(m, "exec-passenvironment-empty.service", 0, CLD_EXITED);
+        assert_se(unsetenv("VAR1") == 0);
+        assert_se(unsetenv("VAR2") == 0);
+        assert_se(unsetenv("VAR3") == 0);
+        test(m, "exec-passenvironment-absent.service", 0, CLD_EXITED);
+}
+
 static void test_exec_umask(Manager *m) {
         test(m, "exec-umask-default.service", 0, CLD_EXITED);
         test(m, "exec-umask-0177.service", 0, CLD_EXITED);
@@ -237,6 +261,7 @@ int main(int argc, char *argv[]) {
                 test_exec_group,
                 test_exec_environment,
                 test_exec_environmentfile,
+                test_exec_passenvironment,
                 test_exec_umask,
                 test_exec_runtimedirectory,
                 test_exec_capabilityboundingset,
@@ -259,6 +284,16 @@ int main(int argc, char *argv[]) {
 
         assert_se(setenv("XDG_RUNTIME_DIR", "/tmp/", 1) == 0);
         assert_se(set_unit_path(TEST_DIR "/test-execute/") >= 0);
+
+        /* Unset VAR1, VAR2 and VAR3 which are used in the PassEnvironment test
+         * cases, otherwise (and if they are present in the environment),
+         * `manager_default_environment` will copy them into the default
+         * environment which is passed to each created job, which will make the
+         * tests that expect those not to be present to fail.
+         */
+        assert_se(unsetenv("VAR1") == 0);
+        assert_se(unsetenv("VAR2") == 0);
+        assert_se(unsetenv("VAR3") == 0);
 
         r = manager_new(MANAGER_USER, true, &m);
         if (IN_SET(r, -EPERM, -EACCES, -EADDRINUSE, -EHOSTDOWN, -ENOENT)) {
