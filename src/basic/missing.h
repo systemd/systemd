@@ -23,19 +23,20 @@
 
 /* Missing glibc definitions to access certain kernel APIs */
 
-#include <sys/resource.h>
-#include <sys/syscall.h>
-#include <fcntl.h>
-#include <stdlib.h>
-#include <unistd.h>
 #include <errno.h>
-#include <linux/oom.h>
-#include <linux/input.h>
-#include <linux/if_link.h>
-#include <linux/loop.h>
+#include <fcntl.h>
 #include <linux/audit.h>
 #include <linux/capability.h>
+#include <linux/if_link.h>
+#include <linux/input.h>
+#include <linux/loop.h>
 #include <linux/neighbour.h>
+#include <linux/oom.h>
+#include <linux/rtnetlink.h>
+#include <stdlib.h>
+#include <sys/resource.h>
+#include <sys/syscall.h>
+#include <unistd.h>
 
 #ifdef HAVE_AUDIT
 #include <libaudit.h>
@@ -898,6 +899,10 @@ static inline int setns(int fd, int nstype) {
 #define __NDA_MAX 9
 
 #define NDA_MAX (__NDA_MAX - 1)
+#endif
+
+#ifndef RTA_PREF
+#define RTA_PREF 20
 #endif
 
 #ifndef IPV6_UNICAST_IF

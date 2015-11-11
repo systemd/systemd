@@ -95,10 +95,13 @@ struct Link {
         unsigned dhcp4_messages;
         bool dhcp4_configured;
         bool dhcp6_configured;
+        unsigned ndisc_messages;
+        bool ndisc_configured;
 
         sd_ipv4ll *ipv4ll;
-        bool ipv4ll_address;
-        bool ipv4ll_route;
+        bool ipv4ll_address:1;
+        bool ipv4ll_route:1;
+        bool ipv6ll_address:1;
 
         bool static_configured;
 
@@ -141,13 +144,16 @@ int link_save(Link *link);
 int link_carrier_reset(Link *link);
 bool link_has_carrier(Link *link);
 
+int link_ipv6ll_gained(Link *link);
+
 int link_set_mtu(Link *link, uint32_t mtu);
 int link_set_hostname(Link *link, const char *hostname);
 int link_set_timezone(Link *link, const char *timezone);
 
 int ipv4ll_configure(Link *link);
 int dhcp4_configure(Link *link);
-int dhcp6_configure(Link *link, bool information_request);
+int dhcp6_configure(Link *link);
+int dhcp6_request_address(Link *link);
 int ndisc_configure(Link *link);
 
 bool link_lldp_enabled(Link *link);
@@ -156,6 +162,7 @@ bool link_ipv6ll_enabled(Link *link);
 bool link_dhcp4_server_enabled(Link *link);
 bool link_dhcp4_enabled(Link *link);
 bool link_dhcp6_enabled(Link *link);
+bool link_ipv6_accept_ra_enabled(Link *link);
 
 const char* link_state_to_string(LinkState s) _const_;
 LinkState link_state_from_string(const char *s) _pure_;

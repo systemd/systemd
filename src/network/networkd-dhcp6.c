@@ -165,83 +165,82 @@ static void dhcp6_handler(sd_dhcp6_client *client, int event, void *userdata) {
         link_check_ready(link);
 }
 
-int dhcp6_configure(Link *link, bool inf_req) {
-        int r, information_request;
+int dhcp6_request_address(Link *link) {
+        int r, inf_req;
+        bool running;
 
-        assert_return(link, -EINVAL);
+        assert(link);
+        assert(link->dhcp6_client);
 
-        link->dhcp6_configured = false;
-
-        if (link->dhcp6_client) {
-                r = sd_dhcp6_client_get_information_request(link->dhcp6_client, &information_request);
-                if (r < 0) {
-                        log_link_warning_errno(link, r, "Could not get DHCPv6 Information request setting: %m");
-                        goto error;
-                }
-
-                if (information_request && !inf_req) {
-                        r = sd_dhcp6_client_stop(link->dhcp6_client);
-                        if (r < 0) {
-                                log_link_warning_errno(link, r, "Could not stop DHCPv6 while setting Managed mode: %m");
-                                goto error;
-                        }
-
-                        r = sd_dhcp6_client_set_information_request(link->dhcp6_client, false);
-                        if (r < 0) {
-                                log_link_warning_errno(link, r, "Could not unset DHCPv6 Information request: %m");
-                                goto error;
-                        }
-
-                }
-
-                r = sd_dhcp6_client_start(link->dhcp6_client);
-                if (r < 0 && r != -EALREADY) {
-                        log_link_warning_errno(link, r, "Could not restart DHCPv6: %m");
-                        goto error;
-                }
-
-                if (r == -EALREADY)
-                        link->dhcp6_configured = true;
-
+        r = sd_dhcp6_client_get_information_request(link->dhcp6_client, &inf_req);
+        if (r < 0)
                 return r;
+
+        if (!inf_req)
+                return 0;
+
+        r = sd_dhcp6_client_is_running(link->dhcp6_client);
+        if (r < 0)
+                return r;
+        else
+                running = !!r;
+
+        if (running) {
+                r = sd_dhcp6_client_stop(link->dhcp6_client);
+                if (r < 0)
+                        return r;
         }
 
-        r = sd_dhcp6_client_new(&link->dhcp6_client);
+        r = sd_dhcp6_client_set_information_request(link->dhcp6_client, false);
+        if (r < 0)
+                return r;
+
+        if (running) {
+                r = sd_dhcp6_client_start(link->dhcp6_client);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+int dhcp6_configure(Link *link) {
+        sd_dhcp6_client *client = NULL;
+        int r;
+
+        assert(link);
+
+        r = sd_dhcp6_client_new(&client);
+        if (r < 0)
+                return r;
+
+        r = sd_dhcp6_client_attach_event(client, NULL, 0);
         if (r < 0)
                 goto error;
 
-        r = sd_dhcp6_client_attach_event(link->dhcp6_client, NULL, 0);
+        r = sd_dhcp6_client_set_information_request(client, true);
         if (r < 0)
-                goto error;
+                return r;
 
-        r = sd_dhcp6_client_set_mac(link->dhcp6_client,
+        r = sd_dhcp6_client_set_mac(client,
                                     (const uint8_t *) &link->mac,
                                     sizeof (link->mac), ARPHRD_ETHER);
         if (r < 0)
                 goto error;
 
-        r = sd_dhcp6_client_set_index(link->dhcp6_client, link->ifindex);
+        r = sd_dhcp6_client_set_index(client, link->ifindex);
         if (r < 0)
                 goto error;
 
-        r = sd_dhcp6_client_set_callback(link->dhcp6_client, dhcp6_handler,
-                                         link);
+        r = sd_dhcp6_client_set_callback(client, dhcp6_handler, link);
         if (r < 0)
                 goto error;
 
-        if (inf_req) {
-                r = sd_dhcp6_client_set_information_request(link->dhcp6_client, true);
-                if (r < 0)
-                        goto error;
-        }
+        link->dhcp6_client = client;
 
-        r = sd_dhcp6_client_start(link->dhcp6_client);
-        if (r < 0)
-                goto error;
+        return 0;
 
-        return r;
-
- error:
-        link->dhcp6_client = sd_dhcp6_client_unref(link->dhcp6_client);
+error:
+        sd_dhcp6_client_unref(client);
         return r;
 }

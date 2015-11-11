@@ -577,9 +577,7 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
 
         r = sd_netlink_message_read_cache_info(message, IFA_CACHEINFO, &cinfo);
         if (r >= 0) {
-                if (cinfo.ifa_valid == CACHE_INFO_INFINITY_LIFE_TIME)
-                        valid_str = "ever";
-                else
+                if (cinfo.ifa_valid != CACHE_INFO_INFINITY_LIFE_TIME)
                         valid_str = format_timespan(valid_buf, FORMAT_TIMESPAN_MAX,
                                                     cinfo.ifa_valid * USEC_PER_SEC,
                                                     USEC_PER_SEC);
@@ -590,7 +588,8 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
         switch (type) {
         case RTM_NEWADDR:
                 if (address)
-                        log_link_debug(link, "Updating address: %s/%u (valid for %s)", buf, prefixlen, valid_str);
+                        log_link_debug(link, "Updating address: %s/%u (valid %s%s)", buf, prefixlen,
+                                       valid_str ? "for " : "forever", valid_str ?: "");
                 else {
                         /* An address appeared that we did not request */
                         r = address_add_foreign(link, family, &in_addr, prefixlen, &address);
@@ -598,7 +597,8 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
                                 log_link_warning_errno(link, r, "Failed to add address %s/%u: %m", buf, prefixlen);
                                 return 0;
                         } else
-                                log_link_debug(link, "Adding address: %s/%u (valid for %s)", buf, prefixlen, valid_str);
+                                log_link_debug(link, "Adding address: %s/%u (valid %s%s)", buf, prefixlen,
+                                               valid_str ? "for " : "forever", valid_str ?: "");
                 }
 
                 address_update(address, flags, scope, &cinfo);
@@ -608,10 +608,12 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
         case RTM_DELADDR:
 
                 if (address) {
-                        log_link_debug(link, "Removing address: %s/%u (valid for %s)", buf, prefixlen, valid_str);
+                        log_link_debug(link, "Removing address: %s/%u (valid %s%s)", buf, prefixlen,
+                                       valid_str ? "for " : "forever", valid_str ?: "");
                         address_drop(address);
                 } else
-                        log_link_warning(link, "Removing non-existent address: %s/%u (valid for %s)", buf, prefixlen, valid_str);
+                        log_link_warning(link, "Removing non-existent address: %s/%u (valid %s%s)", buf, prefixlen,
+                                         valid_str ? "for " : "forever", valid_str ?: "");
 
                 break;
         default:
@@ -1091,7 +1093,8 @@ static bool manager_check_idle(void *userdata) {
                     link_ipv4ll_enabled(link) ||
                     link_dhcp4_server_enabled(link) ||
                     link_dhcp4_enabled(link) ||
-                    link_dhcp6_enabled(link))
+                    link_dhcp6_enabled(link) ||
+                    link_ipv6_accept_ra_enabled(link))
                         return false;
         }
 

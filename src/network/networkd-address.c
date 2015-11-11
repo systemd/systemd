@@ -248,6 +248,8 @@ static int address_add_internal(Link *link, Set **addresses,
         address->family = family;
         address->in_addr = *in_addr;
         address->prefixlen = prefixlen;
+        /* Consider address tentative until we get the real flags from the kernel */
+        address->flags = IFA_F_TENTATIVE;
 
         r = set_ensure_allocated(addresses, &address_hash_ops);
         if (r < 0)
@@ -327,13 +329,13 @@ static int address_release(Address *address) {
 
 int address_update(Address *address, unsigned char flags, unsigned char scope, struct ifa_cacheinfo *cinfo) {
         bool ready;
+        int r;
 
         assert(address);
         assert(cinfo);
 
         ready = address_is_ready(address);
 
-        address->added = true;
         address->flags = flags;
         address->scope = scope;
         address->cinfo = *cinfo;
@@ -341,8 +343,17 @@ int address_update(Address *address, unsigned char flags, unsigned char scope, s
         if (address->link) {
                 link_update_operstate(address->link);
 
-                if (!ready && address_is_ready(address))
+                if (!ready && address_is_ready(address)) {
                         link_check_ready(address->link);
+
+                        if (address->family == AF_INET6 &&
+                            in_addr_is_link_local(AF_INET6, &address->in_addr) &&
+                            !address->link->ipv6ll_address) {
+                                r = link_ipv6ll_gained(address->link);
+                                if (r < 0)
+                                        return r;
+                        }
+                }
         }
 
         return 0;
@@ -769,5 +780,5 @@ int config_parse_label(const char *unit,
 bool address_is_ready(const Address *a) {
         assert(a);
 
-        return a->added && !(a->flags & (IFA_F_TENTATIVE | IFA_F_DEPRECATED));
+        return !(a->flags & (IFA_F_TENTATIVE | IFA_F_DEPRECATED));
 }

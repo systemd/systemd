@@ -34,7 +34,7 @@ static int dhcp4_route_handler(sd_netlink *rtnl, sd_netlink_message *m,
         int r;
 
         assert(link);
-        assert(link->dhcp4_messages);
+        assert(link->dhcp4_messages > 0);
 
         link->dhcp4_messages --;
 
@@ -44,7 +44,7 @@ static int dhcp4_route_handler(sd_netlink *rtnl, sd_netlink_message *m,
                 link_enter_failed(link);
         }
 
-        if (!link->dhcp4_messages) {
+        if (link->dhcp4_messages == 0) {
                 link->dhcp4_configured = true;
                 link_check_ready(link);
         }

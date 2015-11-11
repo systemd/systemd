@@ -29,6 +29,7 @@
 #include "alloc-util.h"
 #include "async.h"
 #include "icmp6-util.h"
+#include "in-addr-util.h"
 #include "list.h"
 #include "socket-util.h"
 
@@ -46,6 +47,12 @@ enum NDiscState {
 #define IP6_MIN_MTU (unsigned)1280
 #define ICMP6_RECV_SIZE (IP6_MIN_MTU - sizeof(struct ip6_hdr))
 #define NDISC_OPT_LEN_UNITS 8
+
+#define ND_RA_FLAG_PREF                0x18
+#define ND_RA_FLAG_PREF_LOW            0x03
+#define ND_RA_FLAG_PREF_MEDIUM         0x0
+#define ND_RA_FLAG_PREF_HIGH           0x1
+#define ND_RA_FLAG_PREF_INVALID        0x2
 
 typedef struct NDiscPrefix NDiscPrefix;
 
@@ -75,6 +82,9 @@ struct sd_ndisc {
         sd_event_source *recv;
         sd_event_source *timeout;
         int nd_sent;
+        sd_ndisc_router_callback_t router_callback;
+        sd_ndisc_prefix_autonomous_callback_t prefix_autonomous_callback;
+        sd_ndisc_prefix_onlink_callback_t prefix_onlink_callback;
         sd_ndisc_callback_t callback;
         void *userdata;
 };
@@ -119,15 +129,17 @@ static int ndisc_prefix_new(sd_ndisc *nd, NDiscPrefix **ret) {
         return 0;
 }
 
-static void ndisc_notify(sd_ndisc *nd, int event) {
-        if (nd->callback)
-                nd->callback(nd, event, nd->userdata);
-}
-
-int sd_ndisc_set_callback(sd_ndisc *nd, sd_ndisc_callback_t callback,
-                             void *userdata) {
+int sd_ndisc_set_callback(sd_ndisc *nd,
+                          sd_ndisc_router_callback_t router_callback,
+                          sd_ndisc_prefix_onlink_callback_t prefix_onlink_callback,
+                          sd_ndisc_prefix_autonomous_callback_t prefix_autonomous_callback,
+                          sd_ndisc_callback_t callback,
+                          void *userdata) {
         assert(nd);
 
+        nd->router_callback = router_callback;
+        nd->prefix_onlink_callback = prefix_onlink_callback;
+        nd->prefix_autonomous_callback = prefix_autonomous_callback;
         nd->callback = callback;
         nd->userdata = userdata;
 
@@ -320,7 +332,7 @@ static int ndisc_prefix_match(sd_ndisc *nd, const struct in6_addr *addr,
 static int ndisc_prefix_update(sd_ndisc *nd, ssize_t len,
                                const struct nd_opt_prefix_info *prefix_opt) {
         NDiscPrefix *prefix;
-        uint32_t lifetime;
+        uint32_t lifetime_valid, lifetime_preferred;
         usec_t time_now;
         char time_string[FORMAT_TIMESPAN_MAX];
         int r;
@@ -331,10 +343,17 @@ static int ndisc_prefix_update(sd_ndisc *nd, ssize_t len,
         if (len < prefix_opt->nd_opt_pi_len)
                 return -ENOMSG;
 
-        if (!(prefix_opt->nd_opt_pi_flags_reserved & ND_OPT_PI_FLAG_ONLINK))
+        if (!(prefix_opt->nd_opt_pi_flags_reserved & (ND_OPT_PI_FLAG_ONLINK | ND_OPT_PI_FLAG_AUTO)))
                 return 0;
 
-        lifetime = be32toh(prefix_opt->nd_opt_pi_valid_time);
+        if (in_addr_is_link_local(AF_INET6, (const union in_addr_union *) &prefix_opt->nd_opt_pi_prefix) > 0)
+                return 0;
+
+        lifetime_valid = be32toh(prefix_opt->nd_opt_pi_valid_time);
+        lifetime_preferred = be32toh(prefix_opt->nd_opt_pi_preferred_time);
+
+        if (lifetime_valid < lifetime_preferred)
+                return 0;
 
         r = ndisc_prefix_match(nd, &prefix_opt->nd_opt_pi_prefix,
                                prefix_opt->nd_opt_pi_prefix_len, &prefix);
@@ -357,8 +376,8 @@ static int ndisc_prefix_update(sd_ndisc *nd, ssize_t len,
 
                 log_ndisc(nd, "New prefix "SD_NDISC_ADDRESS_FORMAT_STR"/%d lifetime %d expires in %s",
                              SD_NDISC_ADDRESS_FORMAT_VAL(prefix->addr),
-                             prefix->len, lifetime,
-                             format_timespan(time_string, FORMAT_TIMESPAN_MAX, lifetime * USEC_PER_SEC, USEC_PER_SEC));
+                             prefix->len, lifetime_valid,
+                             format_timespan(time_string, FORMAT_TIMESPAN_MAX, lifetime_valid * USEC_PER_SEC, USEC_PER_SEC));
 
                 LIST_PREPEND(prefixes, nd->prefixes, prefix);
 
@@ -378,17 +397,24 @@ static int ndisc_prefix_update(sd_ndisc *nd, ssize_t len,
 
                 log_ndisc(nd, "Update prefix "SD_NDISC_ADDRESS_FORMAT_STR"/%d lifetime %d expires in %s",
                              SD_NDISC_ADDRESS_FORMAT_VAL(prefix->addr),
-                             prefix->len, lifetime,
-                             format_timespan(time_string, FORMAT_TIMESPAN_MAX, lifetime * USEC_PER_SEC, USEC_PER_SEC));
+                             prefix->len, lifetime_valid,
+                             format_timespan(time_string, FORMAT_TIMESPAN_MAX, lifetime_valid * USEC_PER_SEC, USEC_PER_SEC));
         }
 
         r = sd_event_now(nd->event, clock_boottime_or_monotonic(), &time_now);
         if (r < 0)
                 return r;
 
-        prefix->valid_until = time_now + lifetime * USEC_PER_SEC;
+        prefix->valid_until = time_now + lifetime_valid * USEC_PER_SEC;
 
-        return r;
+        if ((prefix_opt->nd_opt_pi_flags_reserved & ND_OPT_PI_FLAG_ONLINK) && nd->prefix_onlink_callback)
+                nd->prefix_onlink_callback(nd, &prefix->addr, prefix->len, prefix->valid_until, nd->userdata);
+
+        if ((prefix_opt->nd_opt_pi_flags_reserved & ND_OPT_PI_FLAG_AUTO) && nd->prefix_autonomous_callback)
+                nd->prefix_autonomous_callback(nd, &prefix->addr, prefix->len, lifetime_preferred, lifetime_valid,
+                                               nd->userdata);
+
+        return 0;
 }
 
 static int ndisc_ra_parse(sd_ndisc *nd, struct nd_router_advert *ra,
@@ -453,11 +479,13 @@ static int ndisc_ra_parse(sd_ndisc *nd, struct nd_router_advert *ra,
 }
 
 static int ndisc_router_advertisment_recv(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        sd_ndisc *nd = userdata;
-        int r, buflen = 0;
-        ssize_t len;
         _cleanup_free_ struct nd_router_advert *ra = NULL;
-        int event = SD_NDISC_EVENT_ROUTER_ADVERTISMENT_NONE;
+        sd_ndisc *nd = userdata;
+        int r, buflen = 0, pref, stateful;
+        union sockaddr_union router = {};
+        socklen_t router_len = sizeof(router);
+        unsigned lifetime;
+        ssize_t len;
 
         assert(s);
         assert(nd);
@@ -471,9 +499,12 @@ static int ndisc_router_advertisment_recv(sd_event_source *s, int fd, uint32_t r
         if (!ra)
                 return -ENOMEM;
 
-        len = read(fd, ra, buflen);
+        len = recvfrom(fd, ra, buflen, 0, &router.sa, &router_len);
         if (len < 0) {
-                log_ndisc(nd, "Could not receive message from UDP socket: %m");
+                log_ndisc(nd, "Could not receive message from ICMPv6 socket: %m");
+                return 0;
+        } else if (router_len != sizeof(router.in6) && router_len != 0) {
+                log_ndisc(nd, "Received invalid source address size from ICMPv6 socket: %zu bytes", (size_t)router_len);
                 return 0;
         }
 
@@ -487,26 +518,33 @@ static int ndisc_router_advertisment_recv(sd_event_source *s, int fd, uint32_t r
 
         nd->state = NDISC_STATE_ADVERTISMENT_LISTEN;
 
-        if (ra->nd_ra_flags_reserved & ND_RA_FLAG_OTHER )
-                event = SD_NDISC_EVENT_ROUTER_ADVERTISMENT_OTHER;
+        stateful = ra->nd_ra_flags_reserved & (ND_RA_FLAG_MANAGED | ND_RA_FLAG_OTHER);
+        pref = ra->nd_ra_flags_reserved & ND_RA_FLAG_PREF >> 3;
 
-        if (ra->nd_ra_flags_reserved & ND_RA_FLAG_MANAGED)
-                event = SD_NDISC_EVENT_ROUTER_ADVERTISMENT_MANAGED;
-
-        log_ndisc(nd, "Received Router Advertisement flags %s/%s",
-                     ra->nd_ra_flags_reserved & ND_RA_FLAG_MANAGED? "MANAGED": "none",
-                     ra->nd_ra_flags_reserved & ND_RA_FLAG_OTHER? "OTHER": "none");
-
-        if (event != SD_NDISC_EVENT_ROUTER_ADVERTISMENT_NONE) {
-                r = ndisc_ra_parse(nd, ra, len);
-                if (r < 0) {
-                        log_ndisc(nd, "Could not parse Router Advertisement: %s",
-                                     strerror(-r));
-                        return 0;
-                }
+        switch (pref) {
+        case ND_RA_FLAG_PREF_LOW:
+        case ND_RA_FLAG_PREF_HIGH:
+                break;
+        default:
+                pref = ND_RA_FLAG_PREF_MEDIUM;
+                break;
         }
 
-        ndisc_notify(nd, event);
+        lifetime = be16toh(ra->nd_ra_router_lifetime);
+
+        log_ndisc(nd, "Received Router Advertisement: flags %s preference %s lifetime %u sec",
+                  stateful & ND_RA_FLAG_MANAGED ? "MANAGED" : stateful & ND_RA_FLAG_OTHER ? "OTHER" : "none",
+                  pref == ND_RA_FLAG_PREF_HIGH ? "high" : pref == ND_RA_FLAG_PREF_LOW ? "low" : "medium",
+                  lifetime);
+
+        r = ndisc_ra_parse(nd, ra, len);
+        if (r < 0) {
+                log_ndisc(nd, "Could not parse Router Advertisement: %s", strerror(-r));
+                return 0;
+        }
+
+        if (nd->router_callback)
+                nd->router_callback(nd, stateful, router_len != 0 ? &router.in6.sin6_addr : NULL, lifetime, pref, nd->userdata);
 
         return 0;
 }
@@ -525,7 +563,8 @@ static int ndisc_router_solicitation_timeout(sd_event_source *s, uint64_t usec, 
         nd->timeout = sd_event_source_unref(nd->timeout);
 
         if (nd->nd_sent >= NDISC_MAX_ROUTER_SOLICITATIONS) {
-                ndisc_notify(nd, SD_NDISC_EVENT_ROUTER_ADVERTISMENT_TIMEOUT);
+                if (nd->callback)
+                        nd->callback(nd, SD_NDISC_EVENT_TIMEOUT, nd->userdata);
                 nd->state = NDISC_STATE_ADVERTISMENT_LISTEN;
         } else {
                 if (memcmp(&nd->mac_addr, &unset, sizeof(struct ether_addr)))
@@ -549,7 +588,8 @@ static int ndisc_router_solicitation_timeout(sd_event_source *s, uint64_t usec, 
                                       next_timeout, 0,
                                       ndisc_router_solicitation_timeout, nd);
                 if (r < 0) {
-                        ndisc_notify(nd, r);
+                        /* we cannot continue if we are unable to rearm the timer */
+                        sd_ndisc_stop(nd);
                         return 0;
                 }
 
@@ -574,6 +614,9 @@ int sd_ndisc_stop(sd_ndisc *nd) {
         ndisc_init(nd);
 
         nd->state = NDISC_STATE_IDLE;
+
+        if (nd->callback)
+                nd->callback(nd, SD_NDISC_EVENT_STOP, nd->userdata);
 
         return 0;
 }

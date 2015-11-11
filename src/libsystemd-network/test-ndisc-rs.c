@@ -85,29 +85,28 @@ int icmp6_send_router_solicitation(int s, const struct ether_addr *ether_addr) {
         return send_ra_function(0);
 }
 
-static void test_rs_done(sd_ndisc *nd, int event, void *userdata) {
+static void test_rs_done(sd_ndisc *nd, uint8_t flags, const struct in6_addr *gateway, unsigned lifetime, int pref, void *userdata) {
         sd_event *e = userdata;
-        static int idx = 0;
-        struct {
-                uint8_t flag;
-                int event;
-        } flag_event[] = {
-                { 0, SD_NDISC_EVENT_ROUTER_ADVERTISMENT_NONE },
-                { ND_RA_FLAG_OTHER, SD_NDISC_EVENT_ROUTER_ADVERTISMENT_OTHER },
-                { ND_RA_FLAG_MANAGED, SD_NDISC_EVENT_ROUTER_ADVERTISMENT_MANAGED }
+        static unsigned idx = 0;
+        uint8_t flags_array[] = {
+                0,
+                0,
+                0,
+                ND_RA_FLAG_OTHER,
+                ND_RA_FLAG_MANAGED
         };
         uint32_t mtu;
 
         assert_se(nd);
 
-        assert_se(event == flag_event[idx].event);
+        assert_se(flags == flags_array[idx]);
         idx++;
 
         if (verbose)
-                printf("  got event %d\n", event);
+                printf("  got event 0x%02x\n", flags);
 
-        if (idx < 3) {
-                send_ra(flag_event[idx].flag);
+        if (idx < ELEMENTSOF(flags_array)) {
+                send_ra(flags_array[idx]);
                 return;
         }
 
@@ -135,7 +134,7 @@ static void test_rs(void) {
 
         assert_se(sd_ndisc_set_index(nd, 42) >= 0);
         assert_se(sd_ndisc_set_mac(nd, &mac_addr) >= 0);
-        assert_se(sd_ndisc_set_callback(nd, test_rs_done, e) >= 0);
+        assert_se(sd_ndisc_set_callback(nd, test_rs_done, NULL, NULL, NULL, e) >= 0);
 
         assert_se(sd_event_add_time(e, &test_hangcheck, clock_boottime_or_monotonic(),
                                  time_now + 2 *USEC_PER_SEC, 0,
