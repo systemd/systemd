@@ -775,12 +775,12 @@
       <varlistentry>
         <term><option>--sync</option></term>
 
-        <listitem><para>Ask the journal daemon to write all yet
+        <listitem><para>Asks the journal daemon to write all yet
         unwritten journal data to the backing file system and
         synchronize all journals. This call does not return until the
-        operation is complete. This command guarantees that any log
-        messages written before its invocation are safely stored on
-        disk at the time it returns.</para></listitem>
+        synchronization operation is complete. This command guarantees
+        that any log messages written before its invocation are safely
+        stored on disk at the time it returns.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -803,9 +803,11 @@
       <varlistentry>
         <term><option>--rotate</option></term>
 
-        <listitem><para>Asks the journal daemon to rotate journal files.
-        </para></listitem>
+        <listitem><para>Asks the journal daemon to rotate journal
+        files. This call does not return until the rotation operation
+        is complete.</para></listitem>
       </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
       <xi:include href="standard-options.xml" xpointer="no-pager" />

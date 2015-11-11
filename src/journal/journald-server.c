@@ -1263,6 +1263,9 @@ static int dispatch_sigusr2(sd_event_source *es, const struct signalfd_siginfo *
         server_rotate(s);
         server_vacuum(s, true, true);
 
+        /* Let clients know when the most recent rotation happened. */
+        (void) touch("/run/systemd/journal/rotated");
+
         return 0;
 }
 

@@ -1822,31 +1822,7 @@ static int flush_to_var(void) {
         return 0;
 }
 
-static int rotate(void) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
-        int r;
-
-        r = bus_connect_system_systemd(&bus);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get D-Bus connection: %m");
-
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "KillUnit",
-                        &error,
-                        NULL,
-                        "ssi", "systemd-journald.service", "main", SIGUSR2);
-        if (r < 0)
-                return log_error_errno(r, "Failed to kill journal service: %s", bus_error_message(&error, r));
-
-        return 0;
-}
-
-static int sync_journal(void) {
+static int send_signal_and_wait(int sig, const char *watch_path) {
         _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
         _cleanup_close_ int watch_fd = -1;
         usec_t start;
@@ -1854,17 +1830,18 @@ static int sync_journal(void) {
 
         start = now(CLOCK_REALTIME);
 
-        /* Let's watch /run/systemd/sync until it's mtime is above
-         * the time we started the sync. Let's enqueue SIGRTMIN+1 to
-         * start the sync. */
+        /* This call sends the specified signal to journald, and waits
+         * for acknowledgment by watching the mtime of the specified
+         * flag file. This is used to trigger syncing or rotation and
+         * then wait for the operation to complete. */
 
         for (;;) {
                 struct stat st;
 
                 /* See if a sync happened by now. */
-                if (stat("/run/systemd/journal/synced", &st) < 0) {
+                if (stat(watch_path, &st) < 0) {
                         if (errno != ENOENT)
-                                return log_error_errno(errno, "Failed to stat /run/systemd/journal/synced: %m");
+                                return log_error_errno(errno, "Failed to stat %s: %m", watch_path);
                 } else {
                         if (timespec_load(&st.st_mtim) >= start)
                                 return 0;
@@ -1886,7 +1863,7 @@ static int sync_journal(void) {
                                         "KillUnit",
                                         &error,
                                         NULL,
-                                        "ssi", "systemd-journald.service", "main", SIGRTMIN+1);
+                                        "ssi", "systemd-journald.service", "main", sig);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to kill journal service: %s", bus_error_message(&error, r));
 
@@ -1923,6 +1900,14 @@ static int sync_journal(void) {
         }
 
         return 0;
+}
+
+static int rotate(void) {
+        return send_signal_and_wait(SIGUSR2, "/run/systemd/journal/rotated");
+}
+
+static int sync_journal(void) {
+        return send_signal_and_wait(SIGRTMIN+1, "/run/systemd/journal/synced");
 }
 
 int main(int argc, char *argv[]) {
