@@ -169,6 +169,17 @@ static void test_exec_environmentfile(Manager *m) {
 }
 
 static void test_exec_passenvironment(Manager *m) {
+        /* test-execute runs under MANAGER_USER which, by default, forwards all
+         * variables present in the environment, but only those that are
+         * present _at the time it is created_!
+         *
+         * So these PassEnvironment checks are still expected to work, since we
+         * are ensuring the variables are not present at manager creation (they
+         * are unset explicitly in main) and are only set here.
+         *
+         * This is still a good approximation of how a test for MANAGER_SYSTEM
+         * would work.
+         */
         assert_se(setenv("VAR1", "word1 word2", 1) == 0);
         assert_se(setenv("VAR2", "word3", 1) == 0);
         assert_se(setenv("VAR3", "$word 5 6", 1) == 0);
@@ -273,6 +284,16 @@ int main(int argc, char *argv[]) {
 
         assert_se(setenv("XDG_RUNTIME_DIR", "/tmp/", 1) == 0);
         assert_se(set_unit_path(TEST_DIR "/test-execute/") >= 0);
+
+        /* Unset VAR1, VAR2 and VAR3 which are used in the PassEnvironment test
+         * cases, otherwise (and if they are present in the environment),
+         * `manager_default_environment` will copy them into the default
+         * environment which is passed to each created job, which will make the
+         * tests that expect those not to be present to fail.
+         */
+        assert_se(unsetenv("VAR1") == 0);
+        assert_se(unsetenv("VAR2") == 0);
+        assert_se(unsetenv("VAR3") == 0);
 
         r = manager_new(MANAGER_USER, true, &m);
         if (IN_SET(r, -EPERM, -EACCES, -EADDRINUSE, -EHOSTDOWN, -ENOENT)) {
