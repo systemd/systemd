@@ -387,8 +387,8 @@ static bool should_umount(Mount *m) {
 }
 
 static int mount_add_default_dependencies(Mount *m) {
-        const char *after, *after2, *online;
         MountParameters *p;
+        const char *after;
         int r;
 
         assert(m);
@@ -416,30 +416,34 @@ static int mount_add_default_dependencies(Mount *m) {
                 return 0;
 
         if (mount_is_network(p)) {
+                /* We order ourselves after network.target. This is
+                 * primarily useful at shutdown: services that take
+                 * down the network should order themselves before
+                 * network.target, so that they are shut down only
+                 * after this mount unit is stopped. */
+
+                r = unit_add_dependency_by_name(UNIT(m), UNIT_AFTER, SPECIAL_NETWORK_TARGET, NULL, true);
+                if (r < 0)
+                        return r;
+
+                /* We pull in network-online.target, and order
+                 * ourselves after it. This is useful at start-up to
+                 * actively pull in tools that want to be started
+                 * before we start mounting network file systems, and
+                 * whose purpose it is to delay this until the network
+                 * is "up". */
+
+                r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_WANTS, UNIT_AFTER, SPECIAL_NETWORK_ONLINE_TARGET, NULL, true);
+                if (r < 0)
+                        return r;
+
                 after = SPECIAL_REMOTE_FS_PRE_TARGET;
-                after2 = SPECIAL_NETWORK_TARGET;
-                online = SPECIAL_NETWORK_ONLINE_TARGET;
-        } else {
+        } else
                 after = SPECIAL_LOCAL_FS_PRE_TARGET;
-                after2 = NULL;
-                online = NULL;
-        }
 
         r = unit_add_dependency_by_name(UNIT(m), UNIT_AFTER, after, NULL, true);
         if (r < 0)
                 return r;
-
-        if (after2) {
-                r = unit_add_dependency_by_name(UNIT(m), UNIT_AFTER, after2, NULL, true);
-                if (r < 0)
-                        return r;
-        }
-
-        if (online) {
-                r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_WANTS, UNIT_AFTER, online, NULL, true);
-                if (r < 0)
-                        return r;
-        }
 
         if (should_umount(m)) {
                 r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, NULL, true);
