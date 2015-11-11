@@ -26,6 +26,7 @@
 #include "conf-files.h"
 #include "fs-util.h"
 #include "macro.h"
+#include "parse-util.h"
 #include "rm-rf.h"
 #include "string-util.h"
 #include "strv.h"
@@ -40,7 +41,7 @@ static void setup_test_dir(char *tmp_dir, const char *files, ...) {
         va_start(ap, files);
         while (files != NULL) {
                 _cleanup_free_ char *path = strappend(tmp_dir, files);
-                assert_se(touch_file(path, true, USEC_INFINITY, UID_INVALID, GID_INVALID, 0) == 0);
+                assert_se(touch_file(path, true, USEC_INFINITY, UID_INVALID, GID_INVALID, MODE_INVALID) == 0);
                 files = va_arg(ap, const char *);
         }
         va_end(ap);

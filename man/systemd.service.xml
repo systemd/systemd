@@ -1,4 +1,4 @@
-<?xml version='1.0'?> <!--*-nxml-*-->
+<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
@@ -77,18 +77,6 @@
     which configure resource control settings for the processes of the
     service.</para>
 
-    <para>Unless <varname>DefaultDependencies=</varname> is set to
-    <option>false</option>, service units will implicitly have
-    dependencies of type <varname>Requires=</varname> and
-    <varname>After=</varname> on <filename>basic.target</filename> as
-    well as dependencies of type <varname>Conflicts=</varname> and
-    <varname>Before=</varname> on
-    <filename>shutdown.target</filename>. These ensure that normal
-    service units pull in basic system initialization, and are
-    terminated cleanly prior to system shutdown. Only services
-    involved with early boot or late system shutdown should disable
-    this option.</para>
-
     <para>If a service is requested under a certain name but no unit
     configuration file is found, systemd looks for a SysV init script
     by the same name (with the <filename>.service</filename> suffix
@@ -97,8 +85,39 @@
     compatibility is quite comprehensive but not 100%. For details
     about the incompatibilities, see the <ulink
     url="http://www.freedesktop.org/wiki/Software/systemd/Incompatibilities">Incompatibilities
-    with SysV</ulink> document.
-    </para>
+    with SysV</ulink> document.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Automatic Dependencies</title>
+
+    <para>Services with <varname>Type=dbus</varname> set automatically
+    acquire dependencies of type <varname>Requires=</varname> and
+    <varname>After=</varname> on
+    <filename>dbus.socket</filename>.</para>
+
+    <para>Socket activated service are automatically ordered after
+    their activated <filename>.socket</filename> units via an
+    automatic <varname>After=</varname> dependency.</para>
+
+    <para>Unless <varname>DefaultDependencies=</varname> is set to
+    <option>false</option>, service units will implicitly have
+    dependencies of type <varname>Requires=</varname> and
+    <varname>After=</varname> on <filename>sysinit.target</filename>,
+    a dependency of type <varname>After=</varname> on
+    <filename>basic.target</filename> as well as dependencies of
+    type <varname>Conflicts=</varname> and <varname>Before=</varname>
+    on <filename>shutdown.target</filename>. These ensure that normal
+    service units pull in basic system initialization, and are
+    terminated cleanly prior to system shutdown. Only services
+    involved with early boot or late system shutdown should disable
+    this option.</para>
+
+    <para>Additional implicit dependencies may be added as result of
+    execution and resource control parameters as documented in
+    <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    and
+    <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
   </refsect1>
 
   <refsect1>

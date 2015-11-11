@@ -133,9 +133,9 @@ static enum {
         ACTION_UPDATE_CATALOG,
         ACTION_LIST_BOOTS,
         ACTION_FLUSH,
+        ACTION_SYNC,
         ACTION_ROTATE,
         ACTION_VACUUM,
-        ACTION_SYNC,
 } arg_action = ACTION_SHOW;
 
 typedef struct BootId {
@@ -1771,6 +1771,11 @@ static int flush_to_var(void) {
         _cleanup_close_ int watch_fd = -1;
         int r;
 
+        if (arg_machine) {
+                log_error("--flush is not supported in conjunction with --machine=.");
+                return -EOPNOTSUPP;
+        }
+
         /* Quick exit */
         if (access("/run/systemd/journal/flushed", F_OK) >= 0)
                 return 0;
@@ -1827,6 +1832,11 @@ static int send_signal_and_wait(int sig, const char *watch_path) {
         _cleanup_close_ int watch_fd = -1;
         usec_t start;
         int r;
+
+        if (arg_machine) {
+                log_error("--sync and --rotate are not supported in conjunction with --machine=.");
+                return -EOPNOTSUPP;
+        }
 
         start = now(CLOCK_REALTIME);
 
@@ -1935,35 +1945,19 @@ int main(int argc, char *argv[]) {
          * be split up into many files. */
         setrlimit_closest(RLIMIT_NOFILE, &RLIMIT_MAKE_CONST(16384));
 
-        if (arg_action == ACTION_NEW_ID128) {
+        switch (arg_action) {
+
+        case ACTION_NEW_ID128:
                 r = generate_new_id128();
                 goto finish;
-        }
 
-        if (arg_action == ACTION_FLUSH) {
-                r = flush_to_var();
-                goto finish;
-        }
-
-        if (arg_action == ACTION_SYNC) {
-                r = sync_journal();
-                goto finish;
-        }
-
-        if (arg_action == ACTION_ROTATE) {
-                r = rotate();
-                goto finish;
-        }
-
-        if (arg_action == ACTION_SETUP_KEYS) {
+        case ACTION_SETUP_KEYS:
                 r = setup_keys();
                 goto finish;
-        }
 
-        if (arg_action == ACTION_UPDATE_CATALOG ||
-            arg_action == ACTION_LIST_CATALOG ||
-            arg_action == ACTION_DUMP_CATALOG) {
-
+        case ACTION_LIST_CATALOG:
+        case ACTION_DUMP_CATALOG:
+        case ACTION_UPDATE_CATALOG: {
                 _cleanup_free_ char *database;
 
                 database = path_join(arg_root, CATALOG_DATABASE, NULL);
@@ -1980,9 +1974,9 @@ int main(int argc, char *argv[]) {
                         bool oneline = arg_action == ACTION_LIST_CATALOG;
 
                         pager_open_if_enabled();
+
                         if (optind < argc)
-                                r = catalog_list_items(stdout, database,
-                                                       oneline, argv + optind);
+                                r = catalog_list_items(stdout, database, oneline, argv + optind);
                         else
                                 r = catalog_list(stdout, database, oneline);
                         if (r < 0)
@@ -1990,6 +1984,31 @@ int main(int argc, char *argv[]) {
                 }
 
                 goto finish;
+        }
+
+        case ACTION_FLUSH:
+                r = flush_to_var();
+                goto finish;
+
+        case ACTION_SYNC:
+                r = sync_journal();
+                goto finish;
+
+        case ACTION_ROTATE:
+                r = rotate();
+                goto finish;
+
+        case ACTION_SHOW:
+        case ACTION_PRINT_HEADER:
+        case ACTION_VERIFY:
+        case ACTION_DISK_USAGE:
+        case ACTION_LIST_BOOTS:
+        case ACTION_VACUUM:
+                /* These ones require access to the journal files, continue below. */
+                break;
+
+        default:
+                assert_not_reached("Unknown action");
         }
 
         if (arg_directory)
@@ -2001,8 +2020,7 @@ int main(int argc, char *argv[]) {
         else
                 r = sd_journal_open(&j, !arg_merge*SD_JOURNAL_LOCAL_ONLY + arg_journal_type);
         if (r < 0) {
-                log_error_errno(r, "Failed to open %s: %m",
-                                arg_directory ? arg_directory : arg_file ? "files" : "journal");
+                log_error_errno(r, "Failed to open %s: %m", arg_directory ?: arg_file ? "files" : "journal");
                 goto finish;
         }
 
@@ -2010,18 +2028,28 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 goto finish;
 
-        if (arg_action == ACTION_VERIFY) {
-                r = verify(j);
-                goto finish;
-        }
+        switch (arg_action) {
 
-        if (arg_action == ACTION_PRINT_HEADER) {
+        case ACTION_NEW_ID128:
+        case ACTION_SETUP_KEYS:
+        case ACTION_LIST_CATALOG:
+        case ACTION_DUMP_CATALOG:
+        case ACTION_UPDATE_CATALOG:
+        case ACTION_FLUSH:
+        case ACTION_SYNC:
+        case ACTION_ROTATE:
+                assert_not_reached("Unexpected action.");
+
+        case ACTION_PRINT_HEADER:
                 journal_print_header(j);
                 r = 0;
                 goto finish;
-        }
 
-        if (arg_action == ACTION_DISK_USAGE) {
+        case ACTION_VERIFY:
+                r = verify(j);
+                goto finish;
+
+        case ACTION_DISK_USAGE: {
                 uint64_t bytes = 0;
                 char sbytes[FORMAT_BYTES_MAX];
 
@@ -2034,7 +2062,11 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        if (arg_action == ACTION_VACUUM) {
+        case ACTION_LIST_BOOTS:
+                r = list_boots(j);
+                goto finish;
+
+        case ACTION_VACUUM: {
                 Directory *d;
                 Iterator i;
 
@@ -2054,9 +2086,11 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        if (arg_action == ACTION_LIST_BOOTS) {
-                r = list_boots(j);
-                goto finish;
+        case ACTION_SHOW:
+                break;
+
+        default:
+                assert_not_reached("Unknown action");
         }
 
         /* add_boot() must be called first!

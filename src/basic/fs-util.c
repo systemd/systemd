@@ -311,7 +311,7 @@ int touch_file(const char *path, bool parents, usec_t stamp, uid_t uid, gid_t gi
         if (fd < 0)
                 return -errno;
 
-        if (mode > 0) {
+        if (mode != MODE_INVALID) {
                 r = fchmod(fd, mode);
                 if (r < 0)
                         return -errno;
@@ -338,7 +338,7 @@ int touch_file(const char *path, bool parents, usec_t stamp, uid_t uid, gid_t gi
 }
 
 int touch(const char *path) {
-        return touch_file(path, false, USEC_INFINITY, UID_INVALID, GID_INVALID, 0);
+        return touch_file(path, false, USEC_INFINITY, UID_INVALID, GID_INVALID, MODE_INVALID);
 }
 
 int symlink_idempotent(const char *from, const char *to) {

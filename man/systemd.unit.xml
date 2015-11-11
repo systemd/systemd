@@ -1,4 +1,4 @@
-<?xml version='1.0'?> <!--*-nxml-*-->
+<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
 <!ENTITY % entities SYSTEM "custom-entities.ent" >
@@ -195,12 +195,6 @@
          consider it mostly obsolete, and want people to
          use .d/ drop-ins instead. -->
 
-    <para>Note that while systemd offers a flexible dependency system
-    between units it is recommended to use this functionality only
-    sparingly and instead rely on techniques such as bus-based or
-    socket-based activation which make dependencies implicit,
-    resulting in a both simpler and more flexible system.</para>
-
     <para>Some unit names reflect paths existing in the file system
     namespace. Example: a device unit
     <filename>dev-sda.device</filename> refers to a device with the
@@ -251,6 +245,31 @@
     url="http://www.freedesktop.org/wiki/Software/systemd/InterfaceStabilityPromise">Interface
     Stability Promise</ulink>.</para>
 
+  </refsect1>
+
+  <refsect1>
+    <title>Automatic Dependencies</title>
+
+    <para>Note that while systemd offers a flexible dependency system
+    between units it is recommended to use this functionality only
+    sparingly and instead rely on techniques such as bus-based or
+    socket-based activation which make dependencies implicit,
+    resulting in a both simpler and more flexible system.</para>
+
+    <para>A number of unit dependencies are automatically established,
+    depending on unit configuration. On top of that, for units with
+    <varname>DefaultDependencies=yes</varname> (the default) a couple
+    of additional dependencies are added. The precise effect of
+    <varname>DefaultDependencies=yes</varname> depends on the unit
+    type (see below).</para>
+
+    <para>If <varname>DefaultDependencies=yes</varname> is set, units
+    that are referenced by other units of type
+    <filename>.target</filename> via a <varname>Wants=</varname> or
+    <varname>Requires=</varname> dependency might automatically gain
+    an <varname>Before=</varname> dependency too. See
+    <citerefentry><refentrytitle>systemd.target</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    for details.</para>
   </refsect1>
 
   <refsect1>

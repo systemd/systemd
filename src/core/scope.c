@@ -122,6 +122,9 @@ static int scope_add_default_dependencies(Scope *s) {
 
         assert(s);
 
+        if (!UNIT(s)->default_dependencies)
+                return 0;
+
         /* Make sure scopes are unloaded on shutdown */
         r = unit_add_two_dependencies_by_name(
                         UNIT(s),
@@ -173,11 +176,9 @@ static int scope_load(Unit *u) {
         if (r < 0)
                 return r;
 
-        if (u->default_dependencies) {
-                r = scope_add_default_dependencies(s);
-                if (r < 0)
-                        return r;
-        }
+        r = scope_add_default_dependencies(s);
+        if (r < 0)
+                return r;
 
         return scope_verify(s);
 }

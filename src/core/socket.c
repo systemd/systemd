@@ -296,6 +296,9 @@ static int socket_add_default_dependencies(Socket *s) {
         int r;
         assert(s);
 
+        if (!UNIT(s)->default_dependencies)
+                return 0;
+
         r = unit_add_dependency_by_name(UNIT(s), UNIT_BEFORE, SPECIAL_SOCKETS_TARGET, NULL, true);
         if (r < 0)
                 return r;
@@ -365,11 +368,9 @@ static int socket_add_extras(Socket *s) {
                         return r;
         }
 
-        if (u->default_dependencies) {
-                r = socket_add_default_dependencies(s);
-                if (r < 0)
-                        return r;
-        }
+        r = socket_add_default_dependencies(s);
+        if (r < 0)
+                return r;
 
         return 0;
 }

@@ -128,7 +128,7 @@ int extract_first_word(const char **p, char **ret, const char *separators, Extra
                                 } else if (c == quote) {        /* found the end quote */
                                         quote = 0;
                                         break;
-                                } else if (c == '\\') {
+                                } else if (c == '\\' && !(flags & EXTRACT_RETAIN_ESCAPE)) {
                                         backslash = true;
                                         break;
                                 } else {
@@ -146,7 +146,7 @@ int extract_first_word(const char **p, char **ret, const char *separators, Extra
                                 else if ((c == '\'' || c == '"') && (flags & EXTRACT_QUOTES)) {
                                         quote = c;
                                         break;
-                                } else if (c == '\\') {
+                                } else if (c == '\\' && !(flags & EXTRACT_RETAIN_ESCAPE)) {
                                         backslash = true;
                                         break;
                                 } else if (strchr(separators, c)) {

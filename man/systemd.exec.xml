@@ -77,6 +77,31 @@
   </refsect1>
 
   <refsect1>
+    <title>Automatic Dependencies</title>
+
+    <para>A few execution parameters result in additional, automatic
+    dependencies to be added.</para>
+
+    <para>Units with <varname>WorkingDirectory=</varname> or
+    <varname>RootDirectory=</varname> set automatically gain
+    dependencies of type <varname>Requires=</varname> and
+    <varname>After=</varname> on all mount units required to access
+    the specified paths. This is equivalent to having them listed
+    explicitly in <varname>RequiresMountsFor=</varname>.</para>
+
+    <para>Similar, units with <varname>PrivateTmp=</varname> enabled
+    automatically get mount unit dependencies for all mounts
+    required to access <filename>/tmp</filename> and
+    <filename>/var/tmp</filename>.</para>
+
+    <para>Units whose output standard output or error output is
+    connected to any other sink but <option>null</option>,
+    <option>tty</option> and <option>socket</option> automatically
+    acquire dependencies of type <varname>After=</varname> on
+    <filename>journald.socket</filename>.</para>
+  </refsect1>
+
+  <refsect1>
     <title>Options</title>
 
     <variablelist class='unit-directives'>
@@ -93,7 +118,9 @@
         and the respective user's home directory if run as user. If
         the setting is prefixed with the <literal>-</literal>
         character, a missing working directory is not considered
-        fatal.</para></listitem>
+        fatal. Note that setting this parameter might result in
+        additional dependencies to be added to the unit (see
+        above).</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -104,7 +131,9 @@
         project='man-pages'><refentrytitle>chroot</refentrytitle><manvolnum>2</manvolnum></citerefentry>
         system call. If this is used, it must be ensured that the
         process binary and all its auxiliary files are available in
-        the <function>chroot()</function> jail.</para></listitem>
+        the <function>chroot()</function> jail. Note that setting this
+        parameter might result in additional dependencies to be added
+        to the unit (see above).</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -378,6 +407,7 @@
         <para>This setting defaults to
         <option>null</option>.</para></listitem>
       </varlistentry>
+
       <varlistentry>
         <term><varname>StandardOutput=</varname></term>
         <listitem><para>Controls where file descriptor 1 (STDOUT) of
@@ -443,8 +473,11 @@
         <para>This setting defaults to the value set with
         <option>DefaultStandardOutput=</option> in
         <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-        which defaults to <option>journal</option>.</para></listitem>
+        which defaults to <option>journal</option>. Note that setting
+        this parameter might result in additional dependencies to be
+        added to the unit (see above).</para></listitem>
       </varlistentry>
+
       <varlistentry>
         <term><varname>StandardError=</varname></term>
         <listitem><para>Controls where file descriptor 2 (STDERR) of
@@ -455,8 +488,11 @@
         standard error. This setting defaults to the value set with
         <option>DefaultStandardError=</option> in
         <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-        which defaults to <option>inherit</option>.</para></listitem>
+        which defaults to <option>inherit</option>. Note that setting
+        this parameter might result in additional dependencies to be
+        added to the unit (see above).</para></listitem>
       </varlistentry>
+
       <varlistentry>
         <term><varname>TTYPath=</varname></term>
         <listitem><para>Sets the terminal device node to use if

@@ -85,6 +85,9 @@ static int slice_add_default_dependencies(Slice *s) {
 
         assert(s);
 
+        if (!UNIT(s)->default_dependencies)
+                return 0;
+
         /* Make sure slices are unloaded on shutdown */
         r = unit_add_two_dependencies_by_name(
                         UNIT(s),
@@ -95,7 +98,6 @@ static int slice_add_default_dependencies(Slice *s) {
 
         return 0;
 }
-
 
 static int slice_verify(Slice *s) {
         _cleanup_free_ char *parent = NULL;
@@ -144,11 +146,9 @@ static int slice_load(Unit *u) {
                 if (r < 0)
                         return r;
 
-                if (u->default_dependencies) {
-                        r = slice_add_default_dependencies(s);
-                        if (r < 0)
-                                return r;
-                }
+                r = slice_add_default_dependencies(s);
+                if (r < 0)
+                        return r;
         }
 
         return slice_verify(s);

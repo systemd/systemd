@@ -148,6 +148,9 @@ static int automount_add_default_dependencies(Automount *a) {
 
         assert(a);
 
+        if (!UNIT(a)->default_dependencies)
+                return 0;
+
         if (UNIT(a)->manager->running_as != MANAGER_SYSTEM)
                 return 0;
 
@@ -219,11 +222,9 @@ static int automount_load(Unit *u) {
                 if (r < 0)
                         return r;
 
-                if (UNIT(a)->default_dependencies) {
-                        r = automount_add_default_dependencies(a);
-                        if (r < 0)
-                                return r;
-                }
+                r = automount_add_default_dependencies(a);
+                if (r < 0)
+                        return r;
         }
 
         return automount_verify(a);
