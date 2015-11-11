@@ -515,6 +515,9 @@ static int service_add_default_dependencies(Service *s) {
 
         assert(s);
 
+        if (!UNIT(s)->default_dependencies)
+                return 0;
+
         /* Add a number of automatic dependencies useful for the
          * majority of services. */
 
@@ -565,6 +568,43 @@ static void service_fix_output(Service *s) {
                 s->exec_context.std_output = UNIT(s)->manager->default_std_output;
 }
 
+static int service_setup_bus_name(Service *s) {
+        int r;
+
+        assert(s);
+
+        if (!s->bus_name)
+                return 0;
+
+        if (is_kdbus_available()) {
+                const char *n;
+
+                n = strjoina(s->bus_name, ".busname");
+                r = unit_add_dependency_by_name(UNIT(s), UNIT_AFTER, n, NULL, true);
+                if (r < 0)
+                        return log_unit_error_errno(UNIT(s), r, "Failed to add dependency to .busname unit: %m");
+
+        } else {
+                /* If kdbus is not available, we know the dbus socket is required, hence pull it in, and require it */
+                r = unit_add_dependency_by_name(UNIT(s), UNIT_REQUIRES, SPECIAL_DBUS_SOCKET, NULL, true);
+                if (r < 0)
+                        return log_unit_error_errno(UNIT(s), r, "Failed to add dependency on " SPECIAL_DBUS_SOCKET ": %m");
+        }
+
+        /* Regardless if kdbus is used or not, we always want to be ordered against dbus.socket if both are in the transaction. */
+        r = unit_add_dependency_by_name(UNIT(s), UNIT_AFTER, SPECIAL_DBUS_SOCKET, NULL, true);
+        if (r < 0)
+                return log_unit_error_errno(UNIT(s), r, "Failed to add depdendency on " SPECIAL_DBUS_SOCKET ": %m");
+
+        r = unit_watch_bus_name(UNIT(s), s->bus_name);
+        if (r == -EEXIST)
+                return log_unit_error_errno(UNIT(s), r, "Two services allocated for the same bus name %s, refusing operation.", s->bus_name);
+        if (r < 0)
+                return log_unit_error_errno(UNIT(s), r, "Cannot watch bus name %s: %m", s->bus_name);
+
+        return 0;
+}
+
 static int service_add_extras(Service *s) {
         int r;
 
@@ -604,26 +644,13 @@ static int service_add_extras(Service *s) {
         if (s->watchdog_usec > 0 && s->notify_access == NOTIFY_NONE)
                 s->notify_access = NOTIFY_MAIN;
 
-        if (s->bus_name) {
-                const char *n;
+        r = service_add_default_dependencies(s);
+        if (r < 0)
+                return r;
 
-                n = strjoina(s->bus_name, ".busname");
-                r = unit_add_dependency_by_name(UNIT(s), UNIT_AFTER, n, NULL, true);
-                if (r < 0)
-                        return r;
-
-                r = unit_watch_bus_name(UNIT(s), s->bus_name);
-                if (r == -EEXIST)
-                        return log_unit_error_errno(UNIT(s), r, "Two services allocated for the same bus name %s, refusing operation.", s->bus_name);
-                if (r < 0)
-                        return log_unit_error_errno(UNIT(s), r, "Cannot watch bus name %s: %m", s->bus_name);
-        }
-
-        if (UNIT(s)->default_dependencies) {
-                r = service_add_default_dependencies(s);
-                if (r < 0)
-                        return r;
-        }
+        r = service_setup_bus_name(s);
+        if (r < 0)
+                return r;
 
         return 0;
 }
