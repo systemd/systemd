@@ -1838,7 +1838,7 @@ static int send_signal_and_wait(int sig, const char *watch_path) {
                 return -EOPNOTSUPP;
         }
 
-        start = now(CLOCK_REALTIME);
+        start = now(CLOCK_MONOTONIC);
 
         /* This call sends the specified signal to journald, and waits
          * for acknowledgment by watching the mtime of the specified
@@ -1846,16 +1846,14 @@ static int send_signal_and_wait(int sig, const char *watch_path) {
          * then wait for the operation to complete. */
 
         for (;;) {
-                struct stat st;
+                usec_t tstamp;
 
                 /* See if a sync happened by now. */
-                if (stat(watch_path, &st) < 0) {
-                        if (errno != ENOENT)
-                                return log_error_errno(errno, "Failed to stat %s: %m", watch_path);
-                } else {
-                        if (timespec_load(&st.st_mtim) >= start)
-                                return 0;
-                }
+                r = read_timestamp_file(watch_path, &tstamp);
+                if (r < 0 && r != -ENOENT)
+                        return log_error_errno(errno, "Failed to read %s: %m", watch_path);
+                if (r >= 0 && tstamp >= start)
+                        return 0;
 
                 /* Let's ask for a sync, but only once. */
                 if (!bus) {
@@ -1889,7 +1887,7 @@ static int send_signal_and_wait(int sig, const char *watch_path) {
                         if (watch_fd < 0)
                                 return log_error_errno(errno, "Failed to create inotify watch: %m");
 
-                        r = inotify_add_watch(watch_fd, "/run/systemd/journal", IN_CREATE|IN_ATTRIB|IN_DONT_FOLLOW|IN_ONLYDIR);
+                        r = inotify_add_watch(watch_fd, "/run/systemd/journal", IN_MOVED_TO|IN_DONT_FOLLOW|IN_ONLYDIR);
                         if (r < 0)
                                 return log_error_errno(errno, "Failed to watch journal directory: %m");
 
