@@ -71,7 +71,6 @@ struct Mount {
         bool reset_cpu_usage:1;
 
         bool sloppy_options;
-        char *smack_fs_root_label;
 
         MountResult result;
         MountResult reload_result;

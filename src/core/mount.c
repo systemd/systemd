@@ -41,7 +41,6 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
-#include "smack-util.h"
 #include "special.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -211,7 +210,6 @@ static void mount_done(Unit *u) {
         assert(m);
 
         m->where = mfree(m->where);
-        m->smack_fs_root_label = mfree(m->smack_fs_root_label);
 
         mount_parameters_done(&m->parameters_proc_self_mountinfo);
         mount_parameters_done(&m->parameters_fragment);
@@ -682,8 +680,7 @@ static void mount_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sOptions: %s\n"
                 "%sFrom /proc/self/mountinfo: %s\n"
                 "%sFrom fragment: %s\n"
-                "%sDirectoryMode: %04o\n"
-                "%sSmackFileSystemRootLabel: %s\n",
+                "%sDirectoryMode: %04o\n",
                 prefix, mount_state_to_string(m->state),
                 prefix, mount_result_to_string(m->result),
                 prefix, m->where,
@@ -692,8 +689,7 @@ static void mount_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, p ? strna(p->options) : "n/a",
                 prefix, yes_no(m->from_proc_self_mountinfo),
                 prefix, yes_no(m->from_fragment),
-                prefix, m->directory_mode,
-                prefix, strna(m->smack_fs_root_label));
+                prefix, m->directory_mode);
 
         if (m->control_pid > 0)
                 fprintf(f,
@@ -870,29 +866,9 @@ fail:
         mount_enter_mounted(m, MOUNT_FAILURE_RESOURCES);
 }
 
-static int mount_get_opts(Mount *m, char **_opts) {
-        int r;
-        char *o = NULL, *opts = NULL;
-
-        r = fstab_filter_options(m->parameters_fragment.options,
-                                 "nofail\0" "noauto\0" "auto\0", NULL, NULL, &o);
-        if (r < 0)
-                return r;
-
-        if (mac_smack_use() && m->smack_fs_root_label) {
-                if (!isempty(o)) {
-                        opts = strjoin(o, ",", "smackfsroot=", m->smack_fs_root_label, NULL);
-                        free(o);
-                } else
-                        opts = strjoin("smackfsroot=", m->smack_fs_root_label, NULL);
-
-                if (!opts)
-                        return -ENOMEM;
-        } else
-                opts = o;
-
-        *_opts = opts;
-        return 0;
+static int mount_get_opts(Mount *m, char **ret) {
+        return fstab_filter_options(m->parameters_fragment.options,
+                                    "nofail\0" "noauto\0" "auto\0", NULL, NULL, ret);
 }
 
 static void mount_enter_mounting(Mount *m) {
