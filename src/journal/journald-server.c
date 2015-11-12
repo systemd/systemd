@@ -1670,7 +1670,7 @@ static int server_connect_notify(Server *s) {
         if (sd_watchdog_enabled(false, &s->watchdog_usec) > 0) {
                 s->send_watchdog = true;
 
-                r = sd_event_add_time(s->event, &s->watchdog_event_source, CLOCK_MONOTONIC, now(CLOCK_MONOTONIC) + s->watchdog_usec/2, s->watchdog_usec*3/4, dispatch_watchdog, s);
+                r = sd_event_add_time(s->event, &s->watchdog_event_source, CLOCK_MONOTONIC, now(CLOCK_MONOTONIC) + s->watchdog_usec/2, s->watchdog_usec/4, dispatch_watchdog, s);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add watchdog time event: %m");
         }
