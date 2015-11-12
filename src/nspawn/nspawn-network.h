@@ -27,6 +27,7 @@
 #include <stdbool.h>
 
 int setup_veth(const char *machine_name, pid_t pid, char iface_name[IFNAMSIZ], bool bridge);
+int setup_veth_extra(const char *machine_name, pid_t pid, char **pairs);
 
 int setup_bridge(const char *veth_name, const char *bridge_name);
 
@@ -34,3 +35,5 @@ int setup_macvlan(const char *machine_name, pid_t pid, char **ifaces);
 int setup_ipvlan(const char *machine_name, pid_t pid, char **ifaces);
 
 int move_network_interfaces(pid_t pid, char **ifaces);
+
+int veth_extra_parse(char ***l, const char *p);

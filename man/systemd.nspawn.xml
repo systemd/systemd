@@ -324,6 +324,23 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>VirtualEthernetExtra=</varname></term>
+
+        <listitem><para>Takes a colon-separated pair of interface
+        names. Configures an additional virtual Ethernet connection
+        (<literal>veth</literal>) between host and the container. The
+        first specified name is the interface name on the host, the
+        second the interface name in the container. The latter may be
+        omitted in which case it is set to the same name as the host
+        side interface. This setting implies
+        <varname>Private=yes</varname>. This setting corresponds to
+        the <option>--network-veth-extra=</option> command line
+        switch, and maybe be used multiple times. It is independent of
+        <varname>VirtualEthernet=</varname>. This option is privileged
+        (see above).</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>Interface=</varname></term>
 
         <listitem><para>Takes a space-separated list of interfaces to

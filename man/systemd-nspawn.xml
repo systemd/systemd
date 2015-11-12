@@ -433,6 +433,21 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--network-veth-extra=</option></term>
+
+        <listitem><para>Adds an additional virtual Ethernet link
+        between host and container. Takes a colon-separated pair of
+        host interface name and container interface name. The latter
+        may be omitted in which case the container and host sides will
+        be assigned the same name. This switch is independent of
+        <option>--network-veth</option>, and -- in contrast -- may be
+        used multiple times, and allows configuration of the network
+        interface names. Note that <option>--network-bridge=</option>
+        has no effect on interfaces created with
+        <option>--network-veth-extra=</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--network-bridge=</option></term>
 
         <listitem><para>Adds the host side of the Ethernet link
