@@ -1183,7 +1183,7 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
         return r;
 }
 
-int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool override, sd_bus_error *e, Job **_ret) {
+int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, sd_bus_error *e, Job **_ret) {
         int r;
         Transaction *tr;
 
@@ -1206,7 +1206,7 @@ int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool ove
         if (!tr)
                 return -ENOMEM;
 
-        r = transaction_add_job_and_dependencies(tr, type, unit, NULL, true, override, false,
+        r = transaction_add_job_and_dependencies(tr, type, unit, NULL, true, false,
                                                  mode == JOB_IGNORE_DEPENDENCIES || mode == JOB_IGNORE_REQUIREMENTS,
                                                  mode == JOB_IGNORE_DEPENDENCIES, e);
         if (r < 0)
@@ -1238,7 +1238,7 @@ tr_abort:
         return r;
 }
 
-int manager_add_job_by_name(Manager *m, JobType type, const char *name, JobMode mode, bool override, sd_bus_error *e, Job **_ret) {
+int manager_add_job_by_name(Manager *m, JobType type, const char *name, JobMode mode, sd_bus_error *e, Job **_ret) {
         Unit *unit;
         int r;
 
@@ -1251,7 +1251,7 @@ int manager_add_job_by_name(Manager *m, JobType type, const char *name, JobMode 
         if (r < 0)
                 return r;
 
-        return manager_add_job(m, type, unit, mode, override, e, _ret);
+        return manager_add_job(m, type, unit, mode, e, _ret);
 }
 
 Job *manager_get_job(Manager *m, uint32_t id) {
@@ -1687,7 +1687,7 @@ static int manager_start_target(Manager *m, const char *name, JobMode mode) {
 
         log_debug("Activating special unit %s", name);
 
-        r = manager_add_job_by_name(m, JOB_START, name, mode, true, &error, NULL);
+        r = manager_add_job_by_name(m, JOB_START, name, mode, &error, NULL);
         if (r < 0)
                 log_error("Failed to enqueue %s job: %s", name, bus_error_message(&error, r));
 

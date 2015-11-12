@@ -511,8 +511,7 @@ static void timer_enter_running(Timer *t) {
         if (unit_stop_pending(UNIT(t)))
                 return;
 
-        r = manager_add_job(UNIT(t)->manager, JOB_START, UNIT_TRIGGER(UNIT(t)),
-                            JOB_REPLACE, true, &error, NULL);
+        r = manager_add_job(UNIT(t)->manager, JOB_START, UNIT_TRIGGER(UNIT(t)), JOB_REPLACE, &error, NULL);
         if (r < 0)
                 goto fail;
 

@@ -68,7 +68,7 @@ int failure_action(
                 log_and_status(m, "Rebooting as result of failure.");
 
                 update_reboot_param_file(reboot_arg);
-                r = manager_add_job_by_name(m, JOB_START, SPECIAL_REBOOT_TARGET, JOB_REPLACE, true, &error, NULL);
+                r = manager_add_job_by_name(m, JOB_START, SPECIAL_REBOOT_TARGET, JOB_REPLACE, &error, NULL);
                 if (r < 0)
                         log_error("Failed to reboot: %s.", bus_error_message(&error, r));
 
@@ -101,7 +101,7 @@ int failure_action(
 
                 log_and_status(m, "Powering off as result of failure.");
 
-                r = manager_add_job_by_name(m, JOB_START, SPECIAL_POWEROFF_TARGET, JOB_REPLACE, true, &error, NULL);
+                r = manager_add_job_by_name(m, JOB_START, SPECIAL_POWEROFF_TARGET, JOB_REPLACE, &error, NULL);
                 if (r < 0)
                         log_error("Failed to poweroff: %s.", bus_error_message(&error, r));
 
