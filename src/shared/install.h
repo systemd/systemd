@@ -25,13 +25,15 @@ typedef enum UnitFileScope UnitFileScope;
 typedef enum UnitFileState UnitFileState;
 typedef enum UnitFilePresetMode UnitFilePresetMode;
 typedef enum UnitFileChangeType UnitFileChangeType;
+typedef enum UnitFileType UnitFileType;
 typedef struct UnitFileChange UnitFileChange;
 typedef struct UnitFileList UnitFileList;
 typedef struct UnitFileInstallInfo UnitFileInstallInfo;
 
 #include "hashmap.h"
-#include "unit-name.h"
 #include "path-lookup.h"
+#include "strv.h"
+#include "unit-name.h"
 
 enum UnitFileScope {
         UNIT_FILE_SYSTEM,
@@ -51,7 +53,7 @@ enum UnitFileState {
         UNIT_FILE_STATIC,
         UNIT_FILE_DISABLED,
         UNIT_FILE_INDIRECT,
-        UNIT_FILE_INVALID,
+        UNIT_FILE_BAD,
         _UNIT_FILE_STATE_MAX,
         _UNIT_FILE_STATE_INVALID = -1
 };
@@ -82,10 +84,17 @@ struct UnitFileList {
         UnitFileState state;
 };
 
+enum UnitFileType {
+        UNIT_FILE_TYPE_REGULAR,
+        UNIT_FILE_TYPE_SYMLINK,
+        UNIT_FILE_TYPE_MASKED,
+        _UNIT_FILE_TYPE_MAX,
+        _UNIT_FILE_TYPE_INVALID = -1,
+};
+
 struct UnitFileInstallInfo {
         char *name;
         char *path;
-        char *user;
 
         char **aliases;
         char **wanted_by;
@@ -93,7 +102,25 @@ struct UnitFileInstallInfo {
         char **also;
 
         char *default_instance;
+
+        UnitFileType type;
+
+        char *symlink_target;
 };
+
+static inline bool UNIT_FILE_INSTALL_INFO_HAS_RULES(UnitFileInstallInfo *i) {
+        assert(i);
+
+        return !strv_isempty(i->aliases) ||
+               !strv_isempty(i->wanted_by) ||
+               !strv_isempty(i->required_by);
+}
+
+static inline bool UNIT_FILE_INSTALL_INFO_HAS_ALSO(UnitFileInstallInfo *i) {
+        assert(i);
+
+        return !strv_isempty(i->also);
+}
 
 int unit_file_enable(UnitFileScope scope, bool runtime, const char *root_dir, char **files, bool force, UnitFileChange **changes, unsigned *n_changes);
 int unit_file_disable(UnitFileScope scope, bool runtime, const char *root_dir, char **files, UnitFileChange **changes, unsigned *n_changes);
@@ -105,21 +132,14 @@ int unit_file_mask(UnitFileScope scope, bool runtime, const char *root_dir, char
 int unit_file_unmask(UnitFileScope scope, bool runtime, const char *root_dir, char **files, UnitFileChange **changes, unsigned *n_changes);
 int unit_file_set_default(UnitFileScope scope, const char *root_dir, const char *file, bool force, UnitFileChange **changes, unsigned *n_changes);
 int unit_file_get_default(UnitFileScope scope, const char *root_dir, char **name);
-int unit_file_add_dependency(UnitFileScope scope, bool runtime, const char *root_dir, char **files, char *target, UnitDependency dep, bool force, UnitFileChange **changes, unsigned *n_changes);
+int unit_file_add_dependency(UnitFileScope scope, bool runtime, const char *root_dir, char **files, const char *target, UnitDependency dep, bool force, UnitFileChange **changes, unsigned *n_changes);
 
-UnitFileState unit_file_lookup_state(
-                UnitFileScope scope,
-                const char *root_dir,
-                const LookupPaths *paths,
-                const char *name);
-UnitFileState unit_file_get_state(
-                UnitFileScope scope,
-                const char *root_dir,
-                const char *filename);
+int unit_file_lookup_state(UnitFileScope scope, const char *root_dir,const LookupPaths *paths, const char *name, UnitFileState *ret);
+int unit_file_get_state(UnitFileScope scope, const char *root_dir, const char *filename, UnitFileState *ret);
 
 int unit_file_get_list(UnitFileScope scope, const char *root_dir, Hashmap *h);
+Hashmap* unit_file_list_free(Hashmap *h);
 
-void unit_file_list_free(Hashmap *h);
 int unit_file_changes_add(UnitFileChange **changes, unsigned *n_changes, UnitFileChangeType type, const char *path, const char *source);
 void unit_file_changes_free(UnitFileChange *changes, unsigned n_changes);
 

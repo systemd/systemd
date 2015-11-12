@@ -1227,22 +1227,22 @@
           <row>
       <entry><literal>%u</literal></entry>
       <entry>User name</entry>
-      <entry>This is the name of the configured user of the unit, or (if none is set) the user running the systemd instance.</entry>
+      <entry>This is the name of the user running the service manager instance. In case of the system manager this resolves to <literal>root</literal>.</entry>
           </row>
           <row>
       <entry><literal>%U</literal></entry>
       <entry>User UID</entry>
-      <entry>This is the numeric UID of the configured user of the unit, or (if none is set) the user running the systemd user instance. Note that this specifier is not available for units run by the systemd system instance (as opposed to those run by a systemd user instance), unless the user has been configured as a numeric UID in the first place or the configured user is the root user.</entry>
+      <entry>This is the numeric UID of the user running the service manager instance. In case of the system manager this resolves to <literal>0</literal>.</entry>
           </row>
           <row>
       <entry><literal>%h</literal></entry>
       <entry>User home directory</entry>
-      <entry>This is the home directory of the configured user of the unit, or (if none is set) the user running the systemd user instance. Similar to <literal>%U</literal>, this specifier is not available for units run by the systemd system instance, unless the configured user is the root user.</entry>
+      <entry>This is the home directory of the user running the service manager instance. In case of the system manager this resolves to <literal>/root</literal>.</entry>
           </row>
           <row>
       <entry><literal>%s</literal></entry>
       <entry>User shell</entry>
-      <entry>This is the shell of the configured user of the unit, or (if none is set) the user running the systemd user instance. Similar to <literal>%U</literal>, this specifier is not available for units run by the systemd system instance, unless the configured user is the root user.</entry>
+      <entry>This is the shell of the user running the service manager instance. In case of the system manager this resolves to <literal>/bin/sh</literal>.</entry>
           </row>
           <row>
       <entry><literal>%m</literal></entry>

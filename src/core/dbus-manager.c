@@ -1521,9 +1521,9 @@ static int method_get_unit_file_state(sd_bus_message *message, void *userdata, s
 
         scope = m->running_as == MANAGER_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER;
 
-        state = unit_file_get_state(scope, NULL, name);
-        if (state < 0)
-                return state;
+        r = unit_file_get_state(scope, NULL, name, &state);
+        if (r < 0)
+                return r;
 
         return sd_bus_reply_method_return(message, "s", unit_file_state_to_string(state));
 }
@@ -1651,6 +1651,8 @@ static int method_enable_unit_files_generic(
         scope = m->running_as == MANAGER_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER;
 
         r = call(scope, runtime, NULL, l, force, &changes, &n_changes);
+        if (r == -ESHUTDOWN)
+                return sd_bus_error_setf(error, BUS_ERROR_UNIT_MASKED, "Unit file is masked");
         if (r < 0)
                 return r;
 
@@ -1885,6 +1887,8 @@ static int method_add_dependency_unit_files(sd_bus_message *message, void *userd
         scope = m->running_as == MANAGER_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER;
 
         r = unit_file_add_dependency(scope, runtime, NULL, l, target, dep, force, &changes, &n_changes);
+        if (r == -ESHUTDOWN)
+                return sd_bus_error_setf(error, BUS_ERROR_UNIT_MASKED, "Unit file is masked");
         if (r < 0)
                 return r;
 

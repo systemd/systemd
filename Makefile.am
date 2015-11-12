@@ -1493,7 +1493,8 @@ tests += \
 	test-verbs \
 	test-af-list \
 	test-arphrd-list \
-	test-dns-domain
+	test-dns-domain \
+	test-install-root
 
 EXTRA_DIST += \
 	test/a.service \
@@ -1834,6 +1835,12 @@ test_verbs_SOURCES = \
 	src/test/test-verbs.c
 
 test_verbs_LDADD = \
+	libshared.la
+
+test_install_root_SOURCES = \
+	src/test/test-install-root.c
+
+test_install_root_LDADD = \
 	libshared.la
 
 test_namespace_LDADD = \
