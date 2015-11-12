@@ -248,27 +248,33 @@ int config_parse_unit_path_strv_printf(
                 void *data,
                 void *userdata) {
 
-        char ***x = data;
-        const char *word, *state;
         Unit *u = userdata;
-        size_t l;
-        int r;
+        char ***x = data;
+        const char *p;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(u);
 
-        FOREACH_WORD_QUOTED(word, l, rvalue, state) {
-                _cleanup_free_ char *k = NULL;
-                char t[l+1];
+        p = rvalue;
+        for(;;) {
+                _cleanup_free_ char *word = NULL, *k = NULL;
+                int r;
 
-                memcpy(t, word, l);
-                t[l] = 0;
-
-                r = unit_full_printf(u, t, &k);
+                r = extract_first_word(&p, &word, NULL, 0);
+                if (r == 0)
+                        break;
+                if (r == -ENOMEM)
+                        return log_oom();
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to resolve unit specifiers on %s, ignoring: %m", t);
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Invalid syntax, ignoring: %s", rvalue);
+                        break;
+                }
+
+                r = unit_full_printf(u, word, &k);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to resolve unit specifiers on %s, ignoring: %m", word);
                         return 0;
                 }
 
@@ -290,8 +296,6 @@ int config_parse_unit_path_strv_printf(
 
                 k = NULL;
         }
-        if (!isempty(state))
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid syntax, ignoring.");
 
         return 0;
 }
