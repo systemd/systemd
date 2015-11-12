@@ -128,6 +128,9 @@ static int network_load_one(Manager *manager, const char *filename) {
         network->ipv6_accept_ra = -1;
         network->ipv6_dad_transmits = -1;
         network->ipv6_hop_limit = -1;
+        network->router_solicitation_delay = 0;
+        network->router_solicitation_interval = 0;
+        network->router_solicitations = -1;
 
         r = config_parse(NULL, filename, file,
                          "Match\0"
