@@ -134,9 +134,7 @@ Unit.Description,                config_parse_unit_string_printf,    0,         
 Unit.Documentation,              config_parse_documentation,         0,                             offsetof(Unit, documentation)
 Unit.SourcePath,                 config_parse_path,                  0,                             offsetof(Unit, source_path)
 Unit.Requires,                   config_parse_unit_deps,             UNIT_REQUIRES,                 0
-Unit.RequiresOverridable,        config_parse_unit_deps,             UNIT_REQUIRES_OVERRIDABLE,     0
 Unit.Requisite,                  config_parse_unit_deps,             UNIT_REQUISITE,                0
-Unit.RequisiteOverridable,       config_parse_unit_deps,             UNIT_REQUISITE_OVERRIDABLE,    0
 Unit.Wants,                      config_parse_unit_deps,             UNIT_WANTS,                    0
 Unit.BindsTo,                    config_parse_unit_deps,             UNIT_BINDS_TO,                 0
 Unit.BindTo,                     config_parse_unit_deps,             UNIT_BINDS_TO,                 0
@@ -150,6 +148,8 @@ Unit.ReloadPropagatedFrom,       config_parse_unit_deps,             UNIT_RELOAD
 Unit.PropagateReloadFrom,        config_parse_unit_deps,             UNIT_RELOAD_PROPAGATED_FROM,   0
 Unit.PartOf,                     config_parse_unit_deps,             UNIT_PART_OF,                  0
 Unit.JoinsNamespaceOf,           config_parse_unit_deps,             UNIT_JOINS_NAMESPACE_OF,       0
+Unit.RequiresOverridable,        config_parse_obsolete_unit_deps,    UNIT_REQUIRES,                 0
+Unit.RequisiteOverridable,       config_parse_obsolete_unit_deps,    UNIT_REQUISITE,    0
 Unit.RequiresMountsFor,          config_parse_unit_requires_mounts_for, 0,                          0
 Unit.StopWhenUnneeded,           config_parse_bool,                  0,                             offsetof(Unit, stop_when_unneeded)
 Unit.RefuseManualStart,          config_parse_bool,                  0,                             offsetof(Unit, refuse_manual_start)

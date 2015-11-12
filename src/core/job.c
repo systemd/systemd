@@ -841,8 +841,6 @@ int job_finish_and_invalidate(Job *j, JobResult result, bool recursive) {
                         job_fail_dependencies(u, UNIT_REQUIRED_BY);
                         job_fail_dependencies(u, UNIT_REQUISITE_OF);
                         job_fail_dependencies(u, UNIT_BOUND_BY);
-                        job_fail_dependencies(u, UNIT_REQUIRED_BY_OVERRIDABLE);
-                        job_fail_dependencies(u, UNIT_REQUISITE_OF_OVERRIDABLE);
                 } else if (t == JOB_STOP)
                         job_fail_dependencies(u, UNIT_CONFLICTED_BY);
         }

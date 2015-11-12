@@ -218,18 +218,14 @@ typedef enum TimerState {
 typedef enum UnitDependency {
         /* Positive dependencies */
         UNIT_REQUIRES,
-        UNIT_REQUIRES_OVERRIDABLE,
         UNIT_REQUISITE,
-        UNIT_REQUISITE_OVERRIDABLE,
         UNIT_WANTS,
         UNIT_BINDS_TO,
         UNIT_PART_OF,
 
         /* Inverse of the above */
         UNIT_REQUIRED_BY,             /* inverse of 'requires' is 'required_by' */
-        UNIT_REQUIRED_BY_OVERRIDABLE, /* inverse of 'requires_overridable' is 'required_by_overridable' */
         UNIT_REQUISITE_OF,            /* inverse of 'requisite' is 'requisite_of' */
-        UNIT_REQUISITE_OF_OVERRIDABLE,/* inverse of 'requisite_overridable' is 'requisite_of_overridable' */
         UNIT_WANTED_BY,               /* inverse of 'wants' */
         UNIT_BOUND_BY,                /* inverse of 'binds_to' */
         UNIT_CONSISTS_OF,             /* inverse of 'part_of' */

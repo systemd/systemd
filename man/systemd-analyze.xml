@@ -226,9 +226,7 @@
         <varname>After=</varname> or <varname>Before=</varname> are
         shown. If <option>--require</option> is passed, only
         dependencies of type <varname>Requires=</varname>,
-        <varname>RequiresOverridable=</varname>,
         <varname>Requisite=</varname>,
-        <varname>RequisiteOverridable=</varname>,
         <varname>Wants=</varname> and <varname>Conflicts=</varname>
         are shown. If neither is passed, this shows dependencies of
         all these types.</para></listitem>

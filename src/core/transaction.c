@@ -950,17 +950,6 @@ int transaction_add_job_and_dependencies(
                                 }
                         }
 
-                        SET_FOREACH(dep, ret->unit->dependencies[UNIT_REQUIRES_OVERRIDABLE], i) {
-                                r = transaction_add_job_and_dependencies(tr, JOB_START, dep, ret, !override, override, false, false, ignore_order, e);
-                                if (r < 0) {
-                                        log_unit_full(dep,
-                                                      r == -EADDRNOTAVAIL ? LOG_DEBUG : LOG_WARNING, r,
-                                                      "Cannot add dependency job, ignoring: %s",
-                                                      bus_error_message(e, r));
-                                        sd_bus_error_free(e);
-                                }
-                        }
-
                         SET_FOREACH(dep, ret->unit->dependencies[UNIT_WANTS], i) {
                                 r = transaction_add_job_and_dependencies(tr, JOB_START, dep, ret, false, false, false, false, ignore_order, e);
                                 if (r < 0) {
@@ -978,17 +967,6 @@ int transaction_add_job_and_dependencies(
                                         if (r != -EBADR)
                                                 goto fail;
 
-                                        sd_bus_error_free(e);
-                                }
-                        }
-
-                        SET_FOREACH(dep, ret->unit->dependencies[UNIT_REQUISITE_OVERRIDABLE], i) {
-                                r = transaction_add_job_and_dependencies(tr, JOB_VERIFY_ACTIVE, dep, ret, !override, override, false, false, ignore_order, e);
-                                if (r < 0) {
-                                        log_unit_full(dep,
-                                                      r == -EADDRNOTAVAIL ? LOG_DEBUG : LOG_WARNING, r,
-                                                      "Cannot add dependency job, ignoring: %s",
-                                                      bus_error_message(e, r));
                                         sd_bus_error_free(e);
                                 }
                         }

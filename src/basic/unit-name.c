@@ -1000,16 +1000,12 @@ DEFINE_STRING_TABLE_LOOKUP(timer_state, TimerState);
 
 static const char* const unit_dependency_table[_UNIT_DEPENDENCY_MAX] = {
         [UNIT_REQUIRES] = "Requires",
-        [UNIT_REQUIRES_OVERRIDABLE] = "RequiresOverridable",
         [UNIT_REQUISITE] = "Requisite",
-        [UNIT_REQUISITE_OVERRIDABLE] = "RequisiteOverridable",
         [UNIT_WANTS] = "Wants",
         [UNIT_BINDS_TO] = "BindsTo",
         [UNIT_PART_OF] = "PartOf",
         [UNIT_REQUIRED_BY] = "RequiredBy",
-        [UNIT_REQUIRED_BY_OVERRIDABLE] = "RequiredByOverridable",
         [UNIT_REQUISITE_OF] = "RequisiteOf",
-        [UNIT_REQUISITE_OF_OVERRIDABLE] = "RequisiteOfOverridable",
         [UNIT_WANTED_BY] = "WantedBy",
         [UNIT_BOUND_BY] = "BoundBy",
         [UNIT_CONSISTS_OF] = "ConsistsOf",

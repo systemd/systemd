@@ -142,7 +142,7 @@ int generator_write_fsck_deps(
                 }
 
                 fprintf(f,
-                        "RequiresOverridable=%1$s\n"
+                        "Requires=%1$s\n"
                         "After=%1$s\n",
                         fsck);
         }
