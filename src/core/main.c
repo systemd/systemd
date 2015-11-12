@@ -1748,6 +1748,8 @@ int main(int argc, char *argv[]) {
                 if (r == -EPERM) {
                         log_debug("Default target could not be isolated, starting instead: %s", bus_error_message(&error, r));
 
+                        sd_bus_error_free(&error);
+
                         r = manager_add_job(m, JOB_START, target, JOB_REPLACE, &error, &default_unit_job);
                         if (r < 0) {
                                 log_emergency("Failed to start default target: %s", bus_error_message(&error, r));
