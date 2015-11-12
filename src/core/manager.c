@@ -486,7 +486,7 @@ static int manager_setup_signals(Manager *m) {
          * later than notify_fd processing, so that the notify
          * processing can still figure out to which process/service a
          * message belongs, before we reap the process. */
-        r = sd_event_source_set_priority(m->signal_event_source, -5);
+        r = sd_event_source_set_priority(m->signal_event_source, SD_EVENT_PRIORITY_NORMAL-5);
         if (r < 0)
                 return r;
 
@@ -734,7 +734,7 @@ static int manager_setup_notify(Manager *m) {
 
                 /* Process signals a bit earlier than SIGCHLD, so that we can
                  * still identify to which service an exit message belongs */
-                r = sd_event_source_set_priority(m->notify_event_source, -7);
+                r = sd_event_source_set_priority(m->notify_event_source, SD_EVENT_PRIORITY_NORMAL-7);
                 if (r < 0)
                         return log_error_errno(r, "Failed to set priority of notify event source: %m");
 
