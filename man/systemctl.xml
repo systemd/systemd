@@ -180,6 +180,7 @@
           dependencies of type <varname>WantedBy=</varname>,
           <varname>RequiredBy=</varname>,
           <varname>RequiredByOverridable=</varname>,
+          <varname>ReloadPropagatedFrom=</varname>,
           <varname>PartOf=</varname>, <varname>BoundBy=</varname>,
           instead of <varname>Wants=</varname> and similar.
           </para>
@@ -936,6 +937,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             <varname>Requisite=</varname>,
             <varname>RequisiteOverridable=</varname>,
             <varname>ConsistsOf=</varname>,
+            <varname>PropagatesReloadTo=</varname>,
             <varname>Wants=</varname>, <varname>BindsTo=</varname>
             dependencies. If no unit is specified,
             <filename>default.target</filename> is implied.</para>

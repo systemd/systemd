@@ -1508,6 +1508,7 @@ static int list_dependencies_get_dependencies(sd_bus *bus, const char *name, cha
                                        "RequisiteOverridable\0"
                                        "Wants\0"
                                        "ConsistsOf\0"
+                                       "PropagatesReloadTo\0"
                                        "BindsTo\0",
                 [DEPENDENCY_REVERSE] = "RequiredBy\0"
                                        "RequiredByOverridable\0"
@@ -1515,6 +1516,7 @@ static int list_dependencies_get_dependencies(sd_bus *bus, const char *name, cha
                                        "RequisiteOfOverridable\0"
                                        "WantedBy\0"
                                        "PartOf\0"
+                                       "ReloadPropagatedFrom\0"
                                        "BoundBy\0",
                 [DEPENDENCY_AFTER]   = "After\0",
                 [DEPENDENCY_BEFORE]  = "Before\0",
