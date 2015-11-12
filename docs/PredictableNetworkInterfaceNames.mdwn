@@ -64,4 +64,4 @@ You basically have four options:
 
 ## How does the new naming scheme look like, precisely?
 
-That's documented in detail in a comment block [[the sources of the net_id built-in|http://cgit.freedesktop.org/systemd/systemd/tree/src/udev/udev-builtin-net_id.c#n20]]. Please refer to this in case you are wondering how to decode the new interface names. 
+That's documented in detail in a comment block [[the sources of the net_id built-in|https://github.com/systemd/systemd/blob/master/src/udev/udev-builtin-net_id.c#L20]]. Please refer to this in case you are wondering how to decode the new interface names. 
