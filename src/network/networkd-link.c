@@ -1859,14 +1859,9 @@ static int link_set_ipv4_forward(Link *link) {
         p = strjoina("/proc/sys/net/ipv4/conf/", link->ifname, "/forwarding");
         v = one_zero(link_ipv4_forward_enabled(link));
 
-        r = write_string_file(p, v, 0);
-        if (r < 0) {
-                /* If the right value is set anyway, don't complain */
-                if (verify_one_line_file(p, v) > 0)
-                        return 0;
-
+        r = write_string_file(p, v, WRITE_STRING_FILE_VERIFY_ON_FAILURE);
+        if (r < 0)
                 log_link_warning_errno(link, r, "Cannot configure IPv4 forwarding for interface %s: %m", link->ifname);
-        }
 
         return 0;
 }
@@ -1888,14 +1883,9 @@ static int link_set_ipv6_forward(Link *link) {
         p = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/forwarding");
         v = one_zero(link_ipv6_forward_enabled(link));
 
-        r = write_string_file(p, v, 0);
-        if (r < 0) {
-                /* If the right value is set anyway, don't complain */
-                if (verify_one_line_file(p, v) > 0)
-                        return 0;
-
+        r = write_string_file(p, v, WRITE_STRING_FILE_VERIFY_ON_FAILURE);
+        if (r < 0)
                 log_link_warning_errno(link, r, "Cannot configure IPv6 forwarding for interface: %m");
-        }
 
         return 0;
 }
@@ -1917,14 +1907,9 @@ static int link_set_ipv6_privacy_extensions(Link *link) {
         p = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/use_tempaddr");
         xsprintf(buf, "%u", link->network->ipv6_privacy_extensions);
 
-        r = write_string_file(p, buf, 0);
-        if (r < 0) {
-                /* If the right value is set anyway, don't complain */
-                if (verify_one_line_file(p, buf) > 0)
-                        return 0;
-
+        r = write_string_file(p, buf, WRITE_STRING_FILE_VERIFY_ON_FAILURE);
+        if (r < 0)
                 log_link_warning_errno(link, r, "Cannot configure IPv6 privacy extension for interface: %m");
-        }
 
         return 0;
 }
@@ -1943,14 +1928,9 @@ static int link_set_ipv6_accept_ra(Link *link) {
         p = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/accept_ra");
 
         /* we handle router advertisments ourselves, tell the kernel to GTFO */
-        r = write_string_file(p, "0", 0);
-        if (r < 0) {
-                /* If the right value is set anyway, don't complain */
-                if (verify_one_line_file(p, "0") > 0)
-                        return 0;
-
+        r = write_string_file(p, "0", WRITE_STRING_FILE_VERIFY_ON_FAILURE);
+        if (r < 0)
                 log_link_warning_errno(link, r, "Cannot disable kernel IPv6 accept_ra for interface: %m");
-        }
 
         return 0;
 }
@@ -1974,14 +1954,9 @@ static int link_set_ipv6_dad_transmits(Link *link) {
 
         xsprintf(buf, "%u", link->network->ipv6_dad_transmits);
 
-        r = write_string_file(p, buf, 0);
-        if (r < 0) {
-                /* If the right value is set anyway, don't complain */
-                if (verify_one_line_file(p, buf) > 0)
-                        return 0;
-
+        r = write_string_file(p, buf, WRITE_STRING_FILE_VERIFY_ON_FAILURE);
+        if (r < 0)
                 log_link_warning_errno(link, r, "Cannot set IPv6 dad transmits for interface: %m");
-        }
 
         return 0;
 }
@@ -2005,14 +1980,9 @@ static int link_set_ipv6_hop_limit(Link *link) {
 
         xsprintf(buf, "%u", link->network->ipv6_hop_limit);
 
-        r = write_string_file(p, buf, 0);
-        if (r < 0) {
-                /* If the right value is set anyway, don't complain */
-                if (verify_one_line_file(p, buf) > 0)
-                        return 0;
-
+        r = write_string_file(p, buf, WRITE_STRING_FILE_VERIFY_ON_FAILURE);
+        if (r < 0)
                 log_link_warning_errno(link, r, "Cannot set IPv6 hop limit for interface: %m");
-        }
 
         return 0;
 }
