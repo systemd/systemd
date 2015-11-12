@@ -41,6 +41,7 @@
 #include "dirent-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "formats-util.h"
 #include "fs-util.h"
 #include "hashmap.h"
@@ -1240,6 +1241,7 @@ int server_process_datagram(sd_event_source *es, int fd, uint32_t revents, void 
 
 static int dispatch_sigusr1(sd_event_source *es, const struct signalfd_siginfo *si, void *userdata) {
         Server *s = userdata;
+        int r;
 
         assert(s);
 
@@ -1249,13 +1251,16 @@ static int dispatch_sigusr1(sd_event_source *es, const struct signalfd_siginfo *
         server_sync(s);
         server_vacuum(s, false, false);
 
-        (void) touch("/run/systemd/journal/flushed");
+        r = touch("/run/systemd/journal/flushed");
+        if (r < 0)
+                log_warning_errno(r, "Failed to touch /run/systemd/journal/flushed, ignoring: %m");
 
         return 0;
 }
 
 static int dispatch_sigusr2(sd_event_source *es, const struct signalfd_siginfo *si, void *userdata) {
         Server *s = userdata;
+        int r;
 
         assert(s);
 
@@ -1264,7 +1269,9 @@ static int dispatch_sigusr2(sd_event_source *es, const struct signalfd_siginfo *
         server_vacuum(s, true, true);
 
         /* Let clients know when the most recent rotation happened. */
-        (void) touch("/run/systemd/journal/rotated");
+        r = write_timestamp_file_atomic("/run/systemd/journal/rotated", now(CLOCK_MONOTONIC));
+        if (r < 0)
+                log_warning_errno(r, "Failed to write /run/systemd/journal/rotated, ignoring: %m");
 
         return 0;
 }
@@ -1282,6 +1289,7 @@ static int dispatch_sigterm(sd_event_source *es, const struct signalfd_siginfo *
 
 static int dispatch_sigrtmin1(sd_event_source *es, const struct signalfd_siginfo *si, void *userdata) {
         Server *s = userdata;
+        int r;
 
         assert(s);
 
@@ -1290,7 +1298,9 @@ static int dispatch_sigrtmin1(sd_event_source *es, const struct signalfd_siginfo
         server_sync(s);
 
         /* Let clients know when the most recent sync happened. */
-        (void) touch("/run/systemd/journal/synced");
+        r = write_timestamp_file_atomic("/run/systemd/journal/synced", now(CLOCK_MONOTONIC));
+        if (r < 0)
+                log_warning_errno(r, "Failed to write /run/systemd/journal/synced, ignoring: %m");
 
         return 0;
 }
@@ -1660,7 +1670,7 @@ static int server_connect_notify(Server *s) {
         if (sd_watchdog_enabled(false, &s->watchdog_usec) > 0) {
                 s->send_watchdog = true;
 
-                r = sd_event_add_time(s->event, &s->watchdog_event_source, CLOCK_MONOTONIC, now(CLOCK_MONOTONIC) + s->watchdog_usec/2, s->watchdog_usec*3/4, dispatch_watchdog, s);
+                r = sd_event_add_time(s->event, &s->watchdog_event_source, CLOCK_MONOTONIC, now(CLOCK_MONOTONIC) + s->watchdog_usec/2, s->watchdog_usec/4, dispatch_watchdog, s);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add watchdog time event: %m");
         }

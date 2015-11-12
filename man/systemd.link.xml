@@ -1,4 +1,4 @@
-<?xml version='1.0'?> <!--*-nxml-*-->
+<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
@@ -387,9 +387,52 @@
   </refsect1>
 
   <refsect1>
-    <title>Example</title>
+    <title>Examples</title>
+
+    <example>
+      <title>/usr/lib/systemd/network/99-default.link</title>
+
+      <para>The link file <filename>99-default.link</filename> that is
+      shipped with systemd defines the default naming policy for
+      links.</para>
+
+      <programlisting>[Link]
+NamePolicy=kernel database onboard slot path
+MACAddressPolicy=persistent</programlisting>
+    </example>
+
+    <example>
+      <title>/etc/systemd/network/10-dmz.link</title>
+
+      <para>This example assigns the fixed name
+      <literal>dmz0</literal> to the interface with the MAC address
+      00:a0:de:63:7a:e6:</para>
+
+      <programlisting>[Match]
+MACAddress=00:a0:de:63:7a:e6
+
+[Link]
+Name=dmz0</programlisting>
+    </example>
+
+    <example>
+      <title>/etc/systemd/network/10-internet.link</title>
+
+      <para>This example assigns the fixed name
+      <literal>internet0</literal> to the interface with the device
+      path <literal>pci-0000:00:1a.0-*</literal>:</para>
+
+      <programlisting>[Match]
+Path=pci-0000:00:1a.0-*
+
+[Link]
+Name=internet0</programlisting>
+    </example>
+
     <example>
       <title>/etc/systemd/network/25-wireless.link</title>
+
+      <para>Here's an overly complex example that shows the use of a large number of [Match] and [Link] settings.</para>
 
       <programlisting>[Match]
 MACAddress=12:34:56:78:9a:bc

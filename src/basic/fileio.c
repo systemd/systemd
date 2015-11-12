@@ -28,8 +28,10 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "hexdecoct.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "random-util.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "umask-util.h"
@@ -1147,5 +1149,39 @@ int tempfn_random_child(const char *p, const char *extra, char **ret) {
         *x = 0;
 
         *ret = path_kill_slashes(t);
+        return 0;
+}
+
+int write_timestamp_file_atomic(const char *fn, usec_t n) {
+        char ln[DECIMAL_STR_MAX(n)+2];
+
+        /* Creates a "timestamp" file, that contains nothing but a
+         * usec_t timestamp, formatted in ASCII. */
+
+        if (n <= 0 || n >= USEC_INFINITY)
+                return -ERANGE;
+
+        xsprintf(ln, USEC_FMT "\n", n);
+
+        return write_string_file(fn, ln, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC);
+}
+
+int read_timestamp_file(const char *fn, usec_t *ret) {
+        _cleanup_free_ char *ln = NULL;
+        uint64_t t;
+        int r;
+
+        r = read_one_line_file(fn, &ln);
+        if (r < 0)
+                return r;
+
+        r = safe_atou64(ln, &t);
+        if (r < 0)
+                return r;
+
+        if (t <= 0 || t >= (uint64_t) USEC_INFINITY)
+                return -ERANGE;
+
+        *ret = (usec_t) t;
         return 0;
 }
