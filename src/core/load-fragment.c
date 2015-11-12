@@ -402,6 +402,48 @@ int config_parse_socket_listen(const char *unit,
         return 0;
 }
 
+int config_parse_socket_protocol(const char *unit,
+                                 const char *filename,
+                                 unsigned line,
+                                 const char *section,
+                                 unsigned section_line,
+                                 const char *lvalue,
+                                 int ltype,
+                                 const char *rvalue,
+                                 void *data,
+                                 void *userdata) {
+
+        SocketPort *p;
+        int protocol;
+        Socket *s;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        s = SOCKET(data);
+
+        if (!s->ports)
+                return 0;
+
+        if (streq(rvalue, "udplite"))
+                protocol = IPPROTO_UDPLITE;
+        else if (streq(rvalue, "sctp"))
+                protocol = IPPROTO_SCTP;
+        else {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Socket protocol not supported, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        LIST_FOREACH(port, p, s->ports) {
+                p->address.protocol = protocol;
+        }
+
+        return 0;
+}
+
+
 int config_parse_socket_bind(const char *unit,
                              const char *filename,
                              unsigned line,
