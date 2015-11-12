@@ -449,6 +449,27 @@
           Defaults to unset.
         </para></listitem>
         </varlistentry>
+
+        <varlistentry>
+          <term><varname>IPv6RouterSolicitationDelaySec=</varname></term>
+          <listitem><para>Configures number of seconds to wait after
+          interface is brought up before sending Router Solicitations.
+          Defaults to unset.
+          </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>IPv6RouterSolicitationIntervalSec=</varname></term>
+          <listitem><para>Configures number of seconds to wait between
+          router solicitations. Defaults to unset.
+          </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>IPv6RouterSolicitations=</varname></term>
+          <listitem><para>Configures number of router solicitations to
+          send until assuming no routers are present. Defaults to unset.
+          </para></listitem>
+        </varlistentry>
+
         <varlistentry>
           <term><varname>Bridge=</varname></term>
           <listitem>
