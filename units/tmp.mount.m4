@@ -19,6 +19,3 @@ What=tmpfs
 Where=/tmp
 Type=tmpfs
 Options=mode=1777,strictatime
-m4_ifdef(`HAVE_SMACK',
-SmackFileSystemRootLabel=*
-)m4_dnl

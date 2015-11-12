@@ -366,18 +366,6 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>SmackFileSystemRootLabel=</varname></term>
-        <listitem><para>Takes a string for the SMACK label.
-        This option specifies the label to assign the root of the
-        file system if it lacks the SMACK extended attribute.
-        Note that this option will be ignored if kernel does not
-        support the SMACK feature.
-        See <ulink
-        url="https://www.kernel.org/doc/Documentation/security/Smack.txt">Smack.txt</ulink>
-        for details. </para></listitem>
-      </varlistentry>
-
-      <varlistentry>
         <term><varname>TimeoutSec=</varname></term>
         <listitem><para>Configures the time to wait for the mount
         command to finish. If a command does not exit within the
