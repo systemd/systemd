@@ -90,3 +90,5 @@ static inline int safe_atoli(const char *s, long int *ret_u) {
 #endif
 
 int safe_atod(const char *s, double *ret_d);
+
+int parse_fractional_part_u(const char **s, size_t digits, unsigned *res);

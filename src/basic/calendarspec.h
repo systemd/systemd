@@ -44,7 +44,7 @@ typedef struct CalendarSpec {
 
         CalendarComponent *hour;
         CalendarComponent *minute;
-        CalendarComponent *second;
+        CalendarComponent *microsecond;
 } CalendarSpec;
 
 void calendar_spec_free(CalendarSpec *c);
