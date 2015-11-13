@@ -229,6 +229,10 @@
     the value and all values plus multiples of the repetition value
     are matched.</para>
 
+    <para>The seconds component may contain decimal fractions both in
+    the value and the repetition. All fractions are rounded to 6
+    decimal places.</para>
+
     <para>Either time or date specification may be omitted, in which
     case the current day and 00:00:00 is implied, respectively. If the
     second component is not specified, <literal>:00</literal> is
@@ -276,6 +280,7 @@ Wed-Sat,Tue 12-10-15 1:2:3 → Tue-Sat 2012-10-15 01:02:03
     Sat,Sun 12-05 08:05:40 → Sat,Sun *-12-05 08:05:40
           Sat,Sun 08:05:40 → Sat,Sun *-*-* 08:05:40
           2003-03-05 05:40 → 2003-03-05 05:40:00
+05:40:23.4200004/3.1700005 → 05:40:23.420000/3.170001
       2003-03-05 05:40 UTC → 2003-03-05 05:40:00 UTC
                 2003-03-05 → 2003-03-05 00:00:00
                      03-05 → *-03-05 00:00:00
