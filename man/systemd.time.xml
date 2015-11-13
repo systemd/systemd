@@ -82,8 +82,8 @@
       <listitem><para>hours, hour, hr, h</para></listitem>
       <listitem><para>days, day, d</para></listitem>
       <listitem><para>weeks, week, w</para></listitem>
-      <listitem><para>months, month, M</para></listitem>
-      <listitem><para>years, year, y</para></listitem>
+      <listitem><para>months, month, M (defined as 30.44 days)</para></listitem>
+      <listitem><para>years, year, y (define as 365.25 days)</para></listitem>
     </itemizedlist>
 
     <para>If no time unit is specified, generally seconds are assumed,
