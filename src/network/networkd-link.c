@@ -111,14 +111,24 @@ static bool link_ipv4_forward_enabled(Link *link) {
         if (!link->network)
                 return false;
 
+        if (link->network->ip_forward == _ADDRESS_FAMILY_BOOLEAN_INVALID)
+                return false;
+
         return link->network->ip_forward & ADDRESS_FAMILY_IPV4;
 }
 
 static bool link_ipv6_forward_enabled(Link *link) {
+
+        if (!socket_ipv6_is_supported())
+                return false;
+
         if (link->flags & IFF_LOOPBACK)
                 return false;
 
         if (!link->network)
+                return false;
+
+        if (link->network->ip_forward == _ADDRESS_FAMILY_BOOLEAN_INVALID)
                 return false;
 
         return link->network->ip_forward & ADDRESS_FAMILY_IPV6;
@@ -147,6 +157,10 @@ bool link_ipv6_accept_ra_enabled(Link *link) {
 }
 
 static IPv6PrivacyExtensions link_ipv6_privacy_extensions(Link *link) {
+
+        if (!socket_ipv6_is_supported())
+                return _IPV6_PRIVACY_EXTENSIONS_INVALID;
+
         if (link->flags & IFF_LOOPBACK)
                 return _IPV6_PRIVACY_EXTENSIONS_INVALID;
 
@@ -1847,55 +1861,43 @@ static int link_enter_join_netdev(Link *link) {
 }
 
 static int link_set_ipv4_forward(Link *link) {
-        const char *p = NULL, *v;
         int r;
 
-        if (link->flags & IFF_LOOPBACK)
+        if (!link_ipv4_forward_enabled(link))
                 return 0;
 
-        if (link->network->ip_forward == _ADDRESS_FAMILY_BOOLEAN_INVALID)
-                return 0;
+        /* We propagate the forwarding flag from one interface to the
+         * global setting one way. This means: as long as at least one
+         * interface was configured at any time that had IP forwarding
+         * enabled the setting will stay on for good. We do this
+         * primarily to keep IPv4 and IPv6 packet forwarding behaviour
+         * somewhat in sync (see below). */
 
-        p = strjoina("/proc/sys/net/ipv4/conf/", link->ifname, "/forwarding");
-        v = one_zero(link_ipv4_forward_enabled(link));
-
-        r = write_string_file(p, v, 0);
-        if (r < 0) {
-                /* If the right value is set anyway, don't complain */
-                if (verify_one_line_file(p, v) > 0)
-                        return 0;
-
-                log_link_warning_errno(link, r, "Cannot configure IPv4 forwarding for interface %s: %m", link->ifname);
-        }
+        r = write_string_file("/proc/sys/net/ipv4/ip_forward", "1", WRITE_STRING_FILE_VERIFY_ON_FAILURE);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Cannot turn on IPv4 packet forwarding, ignoring: %m");
 
         return 0;
 }
 
 static int link_set_ipv6_forward(Link *link) {
-        const char *p = NULL, *v = NULL;
         int r;
 
-        /* Make this a NOP if IPv6 is not available */
-        if (!socket_ipv6_is_supported())
+        if (!link_ipv6_forward_enabled(link))
                 return 0;
 
-        if (link->flags & IFF_LOOPBACK)
-                return 0;
+        /* On Linux, the IPv6 stack does not not know a per-interface
+         * packet forwarding setting: either packet forwarding is on
+         * for all, or off for all. We hence don't bother with a
+         * per-interface setting, but simply propagate the interface
+         * flag, if it is set, to the global flag, one-way. Note that
+         * while IPv4 would allow a per-interface flag, we expose the
+         * same behaviour there and also propagate the setting from
+         * one to all, to keep things simple (see above). */
 
-        if (link->network->ip_forward == _ADDRESS_FAMILY_BOOLEAN_INVALID)
-                return 0;
-
-        p = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/forwarding");
-        v = one_zero(link_ipv6_forward_enabled(link));
-
-        r = write_string_file(p, v, 0);
-        if (r < 0) {
-                /* If the right value is set anyway, don't complain */
-                if (verify_one_line_file(p, v) > 0)
-                        return 0;
-
-                log_link_warning_errno(link, r, "Cannot configure IPv6 forwarding for interface: %m");
-        }
+        r = write_string_file("/proc/sys/net/ipv6/conf/all/forwarding", "1", WRITE_STRING_FILE_VERIFY_ON_FAILURE);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Cannot configure IPv6 packet forwarding, ignoring: %m");
 
         return 0;
 }
@@ -1906,25 +1908,16 @@ static int link_set_ipv6_privacy_extensions(Link *link) {
         const char *p = NULL;
         int r;
 
-        /* Make this a NOP if IPv6 is not available */
-        if (!socket_ipv6_is_supported())
-                return 0;
-
         s = link_ipv6_privacy_extensions(link);
-        if (s == _IPV6_PRIVACY_EXTENSIONS_INVALID)
+        if (s < 0)
                 return 0;
 
         p = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/use_tempaddr");
-        xsprintf(buf, "%u", link->network->ipv6_privacy_extensions);
+        xsprintf(buf, "%u", (unsigned) link->network->ipv6_privacy_extensions);
 
-        r = write_string_file(p, buf, 0);
-        if (r < 0) {
-                /* If the right value is set anyway, don't complain */
-                if (verify_one_line_file(p, buf) > 0)
-                        return 0;
-
+        r = write_string_file(p, buf, WRITE_STRING_FILE_VERIFY_ON_FAILURE);
+        if (r < 0)
                 log_link_warning_errno(link, r, "Cannot configure IPv6 privacy extension for interface: %m");
-        }
 
         return 0;
 }
@@ -1940,23 +1933,21 @@ static int link_set_ipv6_accept_ra(Link *link) {
         if (link->flags & IFF_LOOPBACK)
                 return 0;
 
+        if (!link->network)
+                return 0;
+
         p = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/accept_ra");
 
-        /* we handle router advertisments ourselves, tell the kernel to GTFO */
-        r = write_string_file(p, "0", 0);
-        if (r < 0) {
-                /* If the right value is set anyway, don't complain */
-                if (verify_one_line_file(p, "0") > 0)
-                        return 0;
-
+        /* We handle router advertisments ourselves, tell the kernel to GTFO */
+        r = write_string_file(p, "0", WRITE_STRING_FILE_VERIFY_ON_FAILURE);
+        if (r < 0)
                 log_link_warning_errno(link, r, "Cannot disable kernel IPv6 accept_ra for interface: %m");
-        }
 
         return 0;
 }
 
 static int link_set_ipv6_dad_transmits(Link *link) {
-        char buf[DECIMAL_STR_MAX(unsigned) + 1];
+        char buf[DECIMAL_STR_MAX(int) + 1];
         const char *p = NULL;
         int r;
 
@@ -1965,29 +1956,26 @@ static int link_set_ipv6_dad_transmits(Link *link) {
                 return 0;
 
         if (link->flags & IFF_LOOPBACK)
+                return 0;
+
+        if (!link->network)
                 return 0;
 
         if (link->network->ipv6_dad_transmits < 0)
                 return 0;
 
         p = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/dad_transmits");
+        xsprintf(buf, "%i", link->network->ipv6_dad_transmits);
 
-        xsprintf(buf, "%u", link->network->ipv6_dad_transmits);
-
-        r = write_string_file(p, buf, 0);
-        if (r < 0) {
-                /* If the right value is set anyway, don't complain */
-                if (verify_one_line_file(p, buf) > 0)
-                        return 0;
-
+        r = write_string_file(p, buf, WRITE_STRING_FILE_VERIFY_ON_FAILURE);
+        if (r < 0)
                 log_link_warning_errno(link, r, "Cannot set IPv6 dad transmits for interface: %m");
-        }
 
         return 0;
 }
 
 static int link_set_ipv6_hop_limit(Link *link) {
-        char buf[DECIMAL_STR_MAX(unsigned) + 1];
+        char buf[DECIMAL_STR_MAX(int) + 1];
         const char *p = NULL;
         int r;
 
@@ -1998,21 +1986,18 @@ static int link_set_ipv6_hop_limit(Link *link) {
         if (link->flags & IFF_LOOPBACK)
                 return 0;
 
+        if (!link->network)
+                return 0;
+
         if (link->network->ipv6_hop_limit < 0)
                 return 0;
 
         p = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/hop_limit");
+        xsprintf(buf, "%i", link->network->ipv6_hop_limit);
 
-        xsprintf(buf, "%u", link->network->ipv6_hop_limit);
-
-        r = write_string_file(p, buf, 0);
-        if (r < 0) {
-                /* If the right value is set anyway, don't complain */
-                if (verify_one_line_file(p, buf) > 0)
-                        return 0;
-
+        r = write_string_file(p, buf, WRITE_STRING_FILE_VERIFY_ON_FAILURE);
+        if (r < 0)
                 log_link_warning_errno(link, r, "Cannot set IPv6 hop limit for interface: %m");
-        }
 
         return 0;
 }

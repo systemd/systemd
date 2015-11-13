@@ -78,6 +78,7 @@ static int write_string_file_atomic(const char *fn, const char *line, bool enfor
 
 int write_string_file(const char *fn, const char *line, WriteStringFileFlags flags) {
         _cleanup_fclose_ FILE *f = NULL;
+        int q, r;
 
         assert(fn);
         assert(line);
@@ -85,30 +86,58 @@ int write_string_file(const char *fn, const char *line, WriteStringFileFlags fla
         if (flags & WRITE_STRING_FILE_ATOMIC) {
                 assert(flags & WRITE_STRING_FILE_CREATE);
 
-                return write_string_file_atomic(fn, line, !(flags & WRITE_STRING_FILE_AVOID_NEWLINE));
+                r = write_string_file_atomic(fn, line, !(flags & WRITE_STRING_FILE_AVOID_NEWLINE));
+                if (r < 0)
+                        goto fail;
+
+                return r;
         }
 
         if (flags & WRITE_STRING_FILE_CREATE) {
                 f = fopen(fn, "we");
-                if (!f)
-                        return -errno;
+                if (!f) {
+                        r = -errno;
+                        goto fail;
+                }
         } else {
                 int fd;
 
                 /* We manually build our own version of fopen(..., "we") that
                  * works without O_CREAT */
                 fd = open(fn, O_WRONLY|O_CLOEXEC|O_NOCTTY);
-                if (fd < 0)
-                        return -errno;
+                if (fd < 0) {
+                        r = -errno;
+                        goto fail;
+                }
 
                 f = fdopen(fd, "we");
                 if (!f) {
+                        r = -errno;
                         safe_close(fd);
-                        return -errno;
+                        goto fail;
                 }
         }
 
-        return write_string_stream(f, line, !(flags & WRITE_STRING_FILE_AVOID_NEWLINE));
+        r = write_string_stream(f, line, !(flags & WRITE_STRING_FILE_AVOID_NEWLINE));
+        if (r < 0)
+                goto fail;
+
+        return 0;
+
+fail:
+        if (!(flags & WRITE_STRING_FILE_VERIFY_ON_FAILURE))
+                return r;
+
+        f = safe_fclose(f);
+
+        /* OK, the operation failed, but let's see if the right
+         * contents in place already. If so, eat up the error. */
+
+        q = verify_file(fn, line, !(flags & WRITE_STRING_FILE_AVOID_NEWLINE));
+        if (q <= 0)
+                return r;
+
+        return 0;
 }
 
 int read_one_line_file(const char *fn, char **line) {
@@ -139,15 +168,41 @@ int read_one_line_file(const char *fn, char **line) {
         return 0;
 }
 
-int verify_one_line_file(const char *fn, const char *line) {
-        _cleanup_free_ char *value = NULL;
-        int r;
+int verify_file(const char *fn, const char *blob, bool accept_extra_nl) {
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_free_ char *buf = NULL;
+        size_t l, k;
 
-        r = read_one_line_file(fn, &value);
-        if (r < 0)
-                return r;
+        assert(fn);
+        assert(blob);
 
-        return streq(value, line);
+        l = strlen(blob);
+
+        if (accept_extra_nl && endswith(blob, "\n"))
+                accept_extra_nl = false;
+
+        buf = malloc(l + accept_extra_nl + 1);
+        if (!buf)
+                return -ENOMEM;
+
+        f = fopen(fn, "re");
+        if (!f)
+                return -errno;
+
+        /* We try to read one byte more than we need, so that we know whether we hit eof */
+        errno = 0;
+        k = fread(buf, 1, l + accept_extra_nl + 1, f);
+        if (ferror(f))
+                return errno > 0 ? -errno : -EIO;
+
+        if (k != l && k != l + accept_extra_nl)
+                return 0;
+        if (memcmp(buf, blob, l) != 0)
+                return 0;
+        if (k > l && buf[l] != '\n')
+                return 0;
+
+        return 1;
 }
 
 int read_full_stream(FILE *f, char **contents, size_t *size) {
