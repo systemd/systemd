@@ -92,6 +92,34 @@ CHANGES WITH 228:
           feature turned out to be little useful and little used, and
           has now been removed from the core and from systemctl.
 
+        * The dependency types RequiresOverridable= and
+          RequisiteOverridable= have been removed from systemd. They
+          have been used only very sparingly to our knowledge and
+          other options that provide a similar effect (such as
+          systemctl --mode=ignore-dependencies) are much more useful
+          and commonly used. Moreover, they were only half-way
+          implemented as the option to control behaviour regarding
+          these dependencies was never added to systemctl. By removing
+          these dependency types the execution engine becomes a bit
+          simpler. Unit files that use these dependencies should be
+          changed to use the non-Overridable dependency types
+          instead. In fact, when parsing unit files with these
+          options, that's what systemd will automatically convert them
+          too, but it will also warn, asking users to fix the unit
+          files accordingly. Removal of these dependency types should
+          only affect a negligible number of unit files in the wild.
+
+        * Behaviour of networkd's IPForward= option changed
+          (again). It will no longer maintain a per-interface setting,
+          but propagate one way from interfaces where this is enabled
+          to the global kernel setting. The global setting will be
+          enabled when requested by a network that is set up, but
+          never be disabled again. This change was made to make sure
+          IPv4 and IPv6 behaviour regarding packet forwarding is
+          similar (as the Linux IPv6 stack does not support
+          per-interface control of this setting) and to minimize
+          surprises.
+
         * In unit files the behaviour of %u, %U, %h, %s has
           changed. These specifiers will now unconditionally resolve
           to the various user database fields of the user that the
