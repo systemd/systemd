@@ -147,6 +147,10 @@ bool link_ipv6_accept_ra_enabled(Link *link) {
 }
 
 static IPv6PrivacyExtensions link_ipv6_privacy_extensions(Link *link) {
+
+        if (!socket_ipv6_is_supported())
+                return _IPV6_PRIVACY_EXTENSIONS_INVALID;
+
         if (link->flags & IFF_LOOPBACK)
                 return _IPV6_PRIVACY_EXTENSIONS_INVALID;
 
@@ -1896,10 +1900,6 @@ static int link_set_ipv6_privacy_extensions(Link *link) {
         const char *p = NULL;
         int r;
 
-        /* Make this a NOP if IPv6 is not available */
-        if (!socket_ipv6_is_supported())
-                return 0;
-
         s = link_ipv6_privacy_extensions(link);
         if (s < 0)
                 return 0;
@@ -1925,6 +1925,9 @@ static int link_set_ipv6_accept_ra(Link *link) {
         if (link->flags & IFF_LOOPBACK)
                 return 0;
 
+        if (!link->network)
+                return 0;
+
         p = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/accept_ra");
 
         /* We handle router advertisments ourselves, tell the kernel to GTFO */
@@ -1945,6 +1948,9 @@ static int link_set_ipv6_dad_transmits(Link *link) {
                 return 0;
 
         if (link->flags & IFF_LOOPBACK)
+                return 0;
+
+        if (!link->network)
                 return 0;
 
         if (link->network->ipv6_dad_transmits < 0)
@@ -1970,6 +1976,9 @@ static int link_set_ipv6_hop_limit(Link *link) {
                 return 0;
 
         if (link->flags & IFF_LOOPBACK)
+                return 0;
+
+        if (!link->network)
                 return 0;
 
         if (link->network->ipv6_hop_limit < 0)
