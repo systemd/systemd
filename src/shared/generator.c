@@ -64,7 +64,7 @@ static int write_fsck_sysroot_service(const char *dir, const char *what) {
                 "Description=File System Check on %2$s\n"
                 "DefaultDependencies=no\n"
                 "BindsTo=%3$s\n"
-                "After=%3$s\n"
+                "After=%3$s local-fs-pre.target\n"
                 "Before=shutdown.target\n"
                 "\n"
                 "[Service]\n"
