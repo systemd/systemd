@@ -50,6 +50,7 @@ typedef struct SocketAddress {
 
         /* Socket type, i.e. SOCK_STREAM, SOCK_DGRAM, ... */
         int type;
+        int family;
 
         /* Socket protocol, IPPROTO_xxx, usually 0, except for netlink */
         int protocol;
@@ -68,6 +69,8 @@ typedef enum SocketAddressBindIPv6Only {
 int socket_address_parse(SocketAddress *a, const char *s);
 int socket_address_parse_and_warn(SocketAddress *a, const char *s);
 int socket_address_parse_netlink(SocketAddress *a, const char *s);
+int socket_address_from_string(int family, const char *s, void *ret);
+int socket_address_from_string_auto(const char *s, SocketAddress *ret);
 int socket_address_print(const SocketAddress *a, char **p);
 int socket_address_verify(const SocketAddress *a) _pure_;
 int socket_address_unlink(SocketAddress *a);

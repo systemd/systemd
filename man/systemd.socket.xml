@@ -438,6 +438,18 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>OnlyFrom=</varname></term>
+        <listitem><para>Configures from which hosts this service is allowed.
+        The address check is based on the IP address of the remote host
+        connections to run services instances for, when
+        <option>Accept=true</option> is set. If the IP address does not match
+        then the connections are coming in, they will be refused.
+        This setting has no  effect on sockets configured with
+        <option>Accept=false</option> or datagram sockets.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>KeepAlive=</varname></term>
         <listitem><para>Takes a boolean argument. If true, the TCP/IP
         stack will send a keep alive message after 2h (depending on

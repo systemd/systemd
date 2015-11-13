@@ -26,6 +26,7 @@ typedef struct Socket Socket;
 #include "socket-util.h"
 #include "mount.h"
 #include "service.h"
+#include "in-addr-util.h"
 
 typedef enum SocketExecCommand {
         SOCKET_EXEC_START_PRE,
@@ -78,6 +79,8 @@ struct Socket {
         Unit meta;
 
         LIST_HEAD(SocketPort, ports);
+
+        Hashmap *acl_socket;
 
         unsigned n_accepted;
         unsigned n_connections;
