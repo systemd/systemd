@@ -126,6 +126,7 @@ static bool arg_default_cpu_accounting = false;
 static bool arg_default_blockio_accounting = false;
 static bool arg_default_memory_accounting = false;
 static bool arg_default_tasks_accounting = false;
+static uint64_t arg_default_tasks_max = (uint64_t) -1;
 
 static void pager_open_if_enabled(void) {
 
@@ -677,6 +678,7 @@ static int parse_config_file(void) {
                 { "Manager", "DefaultBlockIOAccounting",  config_parse_bool,             0, &arg_default_blockio_accounting        },
                 { "Manager", "DefaultMemoryAccounting",   config_parse_bool,             0, &arg_default_memory_accounting         },
                 { "Manager", "DefaultTasksAccounting",    config_parse_bool,             0, &arg_default_tasks_accounting          },
+                { "Manager", "DefaultTasksMax",           config_parse_tasks_max,        0, &arg_default_tasks_max                 },
                 {}
         };
 
@@ -712,6 +714,7 @@ static void manager_set_defaults(Manager *m) {
         m->default_blockio_accounting = arg_default_blockio_accounting;
         m->default_memory_accounting = arg_default_memory_accounting;
         m->default_tasks_accounting = arg_default_tasks_accounting;
+        m->default_tasks_max = arg_default_tasks_max;
 
         manager_set_default_rlimits(m, arg_default_rlimit);
         manager_environment_add(m, NULL, arg_default_environment);

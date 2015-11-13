@@ -260,6 +260,7 @@ struct Manager {
         bool default_blockio_accounting;
         bool default_tasks_accounting;
 
+        uint64_t default_tasks_max;
         usec_t default_timer_accuracy_usec;
 
         struct rlimit *rlimit[_RLIMIT_MAX];

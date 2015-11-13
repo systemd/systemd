@@ -577,6 +577,7 @@ int manager_new(ManagerRunningAs running_as, bool test_run, Manager **_m) {
         m->running_as = running_as;
         m->exit_code = _MANAGER_EXIT_CODE_INVALID;
         m->default_timer_accuracy_usec = USEC_PER_MINUTE;
+        m->default_tasks_max = (uint64_t) -1;
 
         /* Prepare log fields we can use for structured logging */
         m->unit_log_field = unit_log_fields[running_as];

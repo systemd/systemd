@@ -241,7 +241,10 @@
           see <ulink
           url="https://www.kernel.org/doc/Documentation/cgroups/pids.txt">pids.txt</ulink>.</para>
 
-          <para>Implies <literal>TasksAccounting=true</literal>.</para>
+          <para>Implies <literal>TasksAccounting=true</literal>. The
+          system default for this setting may be controlled with
+          <varname>DefaultTasksMax=</varname> in
+          <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
         </listitem>
       </varlistentry>
 

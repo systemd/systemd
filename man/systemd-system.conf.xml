@@ -1,4 +1,4 @@
-<?xml version='1.0'?> <!--*-nxml-*-->
+<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
@@ -318,6 +318,17 @@
         <varname>TasksAccounting=</varname>. See
         <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         for details on the per-unit settings.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>DefaultTasksMax=</varname></term>
+
+        <listitem><para>Configure the default value for the per-unit
+        <varname>TasksMax=</varname> setting. See
+        <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for details. This setting applies to all unit types that
+        support resource control settings, with the exception of slice
+        units.</para></listitem>
       </varlistentry>
 
       <varlistentry>
