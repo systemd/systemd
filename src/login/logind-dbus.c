@@ -2740,13 +2740,101 @@ int manager_send_changed(Manager *manager, const char *property, ...) {
                         l);
 }
 
+int manager_start_slice(
+                Manager *manager,
+                const char *slice,
+                const char *description,
+                const char *after,
+                const char *after2,
+                uint64_t tasks_max,
+                sd_bus_error *error,
+                char **job) {
+
+        _cleanup_bus_message_unref_ sd_bus_message *m = NULL, *reply = NULL;
+        int r;
+
+        assert(manager);
+        assert(slice);
+
+        r = sd_bus_message_new_method_call(
+                        manager->bus,
+                        &m,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "StartTransientUnit");
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(m, "ss", strempty(slice), "fail");
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_open_container(m, 'a', "(sv)");
+        if (r < 0)
+                return r;
+
+        if (!isempty(description)) {
+                r = sd_bus_message_append(m, "(sv)", "Description", "s", description);
+                if (r < 0)
+                        return r;
+        }
+
+        if (!isempty(after)) {
+                r = sd_bus_message_append(m, "(sv)", "After", "as", 1, after);
+                if (r < 0)
+                        return r;
+        }
+
+        if (!isempty(after2)) {
+                r = sd_bus_message_append(m, "(sv)", "After", "as", 1, after2);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_bus_message_append(m, "(sv)", "TasksMax", "t", tasks_max);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_close_container(m);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(m, "a(sa(sv))", 0);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_call(manager->bus, m, 0, error, &reply);
+        if (r < 0)
+                return r;
+
+        if (job) {
+                const char *j;
+                char *copy;
+
+                r = sd_bus_message_read(reply, "o", &j);
+                if (r < 0)
+                        return r;
+
+                copy = strdup(j);
+                if (!copy)
+                        return -ENOMEM;
+
+                *job = copy;
+        }
+
+        return 1;
+}
+
 int manager_start_scope(
                 Manager *manager,
                 const char *scope,
                 pid_t pid,
                 const char *slice,
                 const char *description,
-                const char *after, const char *after2,
+                const char *after,
+                const char *after2,
+                uint64_t tasks_max,
                 sd_bus_error *error,
                 char **job) {
 
@@ -2811,6 +2899,10 @@ int manager_start_scope(
                 return r;
 
         r = sd_bus_message_append(m, "(sv)", "PIDs", "au", 1, pid);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(m, "(sv)", "TasksMax", "t", tasks_max);
         if (r < 0)
                 return r;
 
