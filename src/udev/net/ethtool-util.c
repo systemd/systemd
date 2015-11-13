@@ -208,3 +208,41 @@ int ethtool_set_wol(int *fd, const char *ifname, WakeOnLan wol) {
 
         return 0;
 }
+
+int ethtool_set_tcp_offload(int *fd, const char *ifname, bool offload) {
+        struct ethtool_value eval = {
+                .cmd = ETHTOOL_GTSO
+        };
+        struct ifreq ifr = {
+                .ifr_data = (void*) &eval
+        };
+        bool need_update = false;
+        int r;
+
+        if (*fd < 0) {
+                r = ethtool_connect(fd);
+                if (r < 0)
+                        return log_warning_errno(r, "link_config: could not connect to ethtool: %m");
+        }
+
+        strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
+
+        r = ioctl(*fd, SIOCETHTOOL, &ifr);
+        if (r < 0)
+                return -errno;
+
+        if (eval.data != offload)
+                need_update = true;
+
+        if (need_update) {
+
+                eval.cmd = ETHTOOL_STSO;
+                eval.data = offload;
+
+                r = ioctl(*fd, SIOCETHTOOL, &ifr);
+                if (r < 0)
+                        return -errno;
+        }
+
+        return 0;
+}

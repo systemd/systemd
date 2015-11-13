@@ -383,6 +383,14 @@
           </variablelist>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>TCPSegmentationOffload=</varname></term>
+        <listitem>
+          <para>The TCP Segmentation Offload (TSO) when true enables
+          tcp segmentation offload. Takes a boolean value.
+          Defaults to "unset".</para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 

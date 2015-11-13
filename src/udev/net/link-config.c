@@ -170,6 +170,7 @@ static int load_link(link_config_ctx *ctx, const char *filename) {
         link->mac_policy = _MACPOLICY_INVALID;
         link->wol = _WOL_INVALID;
         link->duplex = _DUP_INVALID;
+        link->tcp_offload = -1;
 
         r = config_parse(NULL, filename, file,
                          "Match\0Link\0Ethernet\0",
@@ -399,6 +400,12 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
         if (r < 0)
                 log_warning_errno(r, "Could not set WakeOnLan of %s to %s: %m",
                                   old_name, wol_to_string(config->wol));
+
+        if (config->tcp_offload >= 0) {
+                r = ethtool_set_tcp_offload(&ctx->ethtool_fd, old_name, config->tcp_offload);
+                if (r < 0)
+                        log_warning_errno(r, "Could not set tcp offload of %s: %m", old_name);
+        }
 
         ifindex = udev_device_get_ifindex(device);
         if (ifindex <= 0) {
