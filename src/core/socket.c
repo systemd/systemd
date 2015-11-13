@@ -79,6 +79,15 @@ static const UnitActiveState state_translation_table[_SOCKET_STATE_MAX] = {
 static int socket_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata);
 static int socket_dispatch_timer(sd_event_source *source, usec_t usec, void *userdata);
 
+static void socket_address_hash_func(const void *p, struct siphash *state);
+static int socket_address_compare_func(const void *a, const void *b);
+bool access_control(Socket *s, int fd);
+
+const struct hash_ops socket_address_hash_ops = {
+        .hash = socket_address_hash_func,
+        .compare = socket_address_compare_func
+};
+
 static void socket_init(Unit *u) {
         Socket *s = SOCKET(u);
 
@@ -140,6 +149,7 @@ void socket_free_ports(Socket *s) {
 
 static void socket_done(Unit *u) {
         Socket *s = SOCKET(u);
+        SocketAddress *c;
 
         assert(s);
 
@@ -164,6 +174,15 @@ static void socket_done(Unit *u) {
 
         free(s->user);
         free(s->group);
+
+        while ((c = hashmap_steal_first(s->acl_socket))) {
+                free(c);
+        }
+
+        assert(hashmap_size(s->acl_socket) == 0);
+
+        hashmap_free(s->acl_socket);
+        s->acl_socket = NULL;
 
         s->timer_event_source = sd_event_source_unref(s->timer_event_source);
 }
@@ -453,6 +472,10 @@ static int socket_load(Unit *u) {
 
         assert(u);
         assert(u->load_state == UNIT_STUB);
+
+        r = hashmap_ensure_allocated(&s->acl_socket, &socket_address_hash_ops);
+        if (r < 0)
+                return r;
 
         r = unit_load_fragment_and_dropin(u);
         if (r < 0)
@@ -1937,6 +1960,12 @@ static void socket_enter_running(Socket *s, int cfd) {
                         return;
                 }
 
+                if (!access_control(s, cfd)) {
+                        log_unit_warning(UNIT(s), "Connection not allowed. Dropping .");
+                        safe_close(cfd);
+                        return;
+                }
+
                 r = socket_instantiate_service(s);
                 if (r < 0)
                         goto fail;
@@ -2108,6 +2137,7 @@ static int socket_stop(Unit *u) {
         assert(s->state == SOCKET_LISTENING || s->state == SOCKET_RUNNING);
 
         socket_enter_stop_pre(s, SOCKET_SUCCESS);
+
         return 1;
 }
 
@@ -2421,6 +2451,47 @@ _pure_ static bool socket_check_gc(Unit *u) {
         assert(u);
 
         return s->n_connections > 0;
+}
+
+bool access_control(Socket *s, int fd) {
+        char ipstr[INET6_ADDRSTRLEN];
+        SocketAddress remote;
+        SocketAddress *i;
+        socklen_t l;
+        int port;
+        int r;
+
+        assert(fd >= 0);
+        assert(s);
+
+        /* ACL not configured */
+        if (hashmap_isempty(s->acl_socket))
+                return true;
+
+        l = sizeof(remote.sockaddr.storage);
+        r = getpeername(fd, (struct sockaddr*)&remote.sockaddr.storage, &l);
+        if (r < 0)
+                return -errno;
+
+        /* debug only */
+        if (remote.sockaddr.storage.ss_family == AF_INET) {
+                struct sockaddr_in *a = (struct sockaddr_in *) &remote.sockaddr.in;
+                port = ntohs(a->sin_port);
+                inet_ntop(AF_INET, &a->sin_addr, ipstr, sizeof ipstr);
+        } else {
+                struct sockaddr_in6 *a = (struct sockaddr_in6 *) &remote.sockaddr.in6;
+                port = ntohs(a->sin6_port);
+                inet_ntop(AF_INET6, &a->sin6_addr, ipstr, sizeof ipstr);
+        }
+
+        log_unit_debug(UNIT(s), "Peer IP address: %s : port: %d", ipstr, port);
+
+        remote.family = remote.sockaddr.storage.ss_family;
+        i = hashmap_get(s->acl_socket, &remote);
+        if (i)
+                return true;
+
+        return false;
 }
 
 static int socket_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
@@ -2779,6 +2850,40 @@ char *socket_fdname(Socket *s) {
                 return s->fdname;
 
         return UNIT(s)->id;
+}
+
+static void socket_address_hash_func(const void *p, struct siphash *state) {
+        const SocketAddress *s = p;
+        assert(s);
+
+        siphash24_compress(&s->family, sizeof(s->family), state);
+
+        switch (s->family) {
+        case AF_INET:
+                siphash24_compress(&s->sockaddr.in.sin_addr, sizeof(s->sockaddr.in.sin_addr), state);
+                break;
+        case AF_INET6:
+                siphash24_compress(&s->sockaddr.in6.sin6_addr, sizeof(s->sockaddr.in6.sin6_addr), state);
+                break;
+        }
+}
+
+static int socket_address_compare_func(const void *a, const void *b) {
+        const SocketAddress *x = a, *y = b;
+
+        if (x->family < y->family)
+                return -1;
+        if (x->family > y->family)
+                return 1;
+
+        switch (x->family) {
+        case AF_INET:
+                return memcmp(&x->sockaddr.in.sin_addr, &y->sockaddr.in.sin_addr, sizeof(y->sockaddr.in.sin_addr));
+        case AF_INET6:
+                return memcmp(&x->sockaddr.in6.sin6_addr, &y->sockaddr.in6.sin6_addr, sizeof(y->sockaddr.in6.sin6_addr));
+        }
+
+        return -1;
 }
 
 static const char* const socket_exec_command_table[_SOCKET_EXEC_COMMAND_MAX] = {

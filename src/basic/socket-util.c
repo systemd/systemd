@@ -194,6 +194,42 @@ int socket_address_parse_and_warn(SocketAddress *a, const char *s) {
         return 0;
 }
 
+int socket_address_from_string(int family, const char *s, void *ret) {
+
+        assert(s);
+        assert(ret);
+
+        if (!IN_SET(family, AF_INET, AF_INET6))
+                return -EAFNOSUPPORT;
+
+        errno = 0;
+        if (inet_pton(family, s, ret) <= 0)
+                return errno ? -errno : -EINVAL;
+
+        return 0;
+}
+
+int socket_address_from_string_auto(const char *s, SocketAddress *ret) {
+        int r;
+
+        assert(s);
+        assert(ret);
+
+        r = socket_address_from_string(AF_INET, s, &ret->sockaddr.in.sin_addr);
+        if (r >= 0) {
+                ret->family = AF_INET;
+                return 0;
+        }
+
+        r = socket_address_from_string(AF_INET6, s, &ret->sockaddr.in6.sin6_addr);
+        if (r >= 0) {
+                ret->family = AF_INET6;
+                return 0;
+        }
+
+        return -EINVAL;
+}
+
 int socket_address_parse_netlink(SocketAddress *a, const char *s) {
         int family;
         unsigned group = 0;

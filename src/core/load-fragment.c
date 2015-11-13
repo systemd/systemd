@@ -66,6 +66,7 @@
 #include "unit.h"
 #include "utf8.h"
 #include "web-util.h"
+#include "in-addr-util.h"
 
 int config_parse_warn_compat(
                 const char *unit,
@@ -436,6 +437,66 @@ int config_parse_socket_bind(const char *unit,
                 s->bind_ipv6_only = r ? SOCKET_ADDRESS_IPV6_ONLY : SOCKET_ADDRESS_BOTH;
         } else
                 s->bind_ipv6_only = b;
+
+        return 0;
+}
+
+int config_parse_socket_acl_ip_address(const char *unit,
+                                const char *filename,
+                                unsigned line,
+                                const char *section,
+                                unsigned section_line,
+                                const char *lvalue,
+                                int ltype,
+                                const char *rvalue,
+                                void *data,
+                                void *userdata) {
+
+        const char *p;
+        Socket *s;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        s = SOCKET(data);
+
+        p = rvalue;
+        for(;;) {
+                _cleanup_free_ SocketAddress *entry = NULL;
+                _cleanup_free_ char *word = NULL;
+
+                r = extract_first_word(&p, &word, NULL, 0);
+
+                if (r == 0)
+                        break;
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse address, ignoring: %s", rvalue);
+                        continue;
+                }
+
+                entry = new0(SocketAddress, sizeof(SocketAddress));
+                if (!entry)
+                        return log_oom();
+
+                r = socket_address_from_string_auto(word, entry);
+                if (r < 0) {
+                        log_warning("Address is invalid, ignoring assignment: %s", word);
+                        continue;
+                }
+
+                r = hashmap_put(s->acl_socket, entry, entry);
+                if (r == -EEXIST)
+                        continue;
+                else if (r < 0)
+                        return r;
+
+                entry = NULL;
+        }
 
         return 0;
 }
