@@ -317,7 +317,9 @@
         <varname>MemoryAccounting=</varname> and
         <varname>TasksAccounting=</varname>. See
         <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        for details on the per-unit settings.</para></listitem>
+        for details on the per-unit
+        settings. <varname>DefaulTasksAccounting=</varname> defaults
+        to on, the other three settings to off.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -328,7 +330,7 @@
         <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         for details. This setting applies to all unit types that
         support resource control settings, with the exception of slice
-        units.</para></listitem>
+        units. Defaults to 512.</para></listitem>
       </varlistentry>
 
       <varlistentry>
