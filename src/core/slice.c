@@ -305,6 +305,7 @@ const UnitVTable slice_vtable = {
 
         .no_alias = true,
         .no_instances = true,
+        .can_transient = true,
 
         .load = slice_load,
 
