@@ -124,6 +124,10 @@ struct Network {
         int ipv6_dad_transmits;
         int ipv6_hop_limit;
 
+        usec_t router_solicitation_delay;
+        usec_t router_solicitation_interval;
+        int router_solicitations;
+
         union in_addr_union ipv6_token;
         IPv6PrivacyExtensions ipv6_privacy_extensions;
 
