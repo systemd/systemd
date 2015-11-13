@@ -82,7 +82,7 @@
       <listitem><para>hours, hour, hr, h</para></listitem>
       <listitem><para>days, day, d</para></listitem>
       <listitem><para>weeks, week, w</para></listitem>
-      <listitem><para>months, month</para></listitem>
+      <listitem><para>months, month, M</para></listitem>
       <listitem><para>years, year, y</para></listitem>
     </itemizedlist>
 
