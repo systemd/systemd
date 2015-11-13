@@ -40,6 +40,7 @@ struct VxLan {
         unsigned tos;
         unsigned ttl;
         unsigned max_fdb;
+        unsigned dest_port;
 
         usec_t fdb_ageing;
 
@@ -52,6 +53,8 @@ struct VxLan {
         bool udp6zerocsumtx;
         bool udp6zerocsumrx;
         bool group_policy;
+
+        struct ifla_vxlan_port_range port_range;
 };
 
 extern const NetDevVTable vxlan_vtable;
@@ -66,3 +69,13 @@ int config_parse_vxlan_group_address(const char *unit,
                                      const char *rvalue,
                                      void *data,
                                      void *userdata);
+int config_parse_port_range(const char *unit,
+                            const char *filename,
+                            unsigned line,
+                            const char *section,
+                            unsigned section_line,
+                            const char *lvalue,
+                            int ltype,
+                            const char *rvalue,
+                            void *data,
+                            void *userdata);
