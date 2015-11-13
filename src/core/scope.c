@@ -402,15 +402,10 @@ static bool scope_check_gc(Unit *u) {
         /* Never clean up scopes that still have a process around,
          * even if the scope is formally dead. */
 
-        if (u->cgroup_path) {
-                int r;
+        if (!u->cgroup_path)
+                return false;
 
-                r = cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path);
-                if (r <= 0)
-                        return true;
-        }
-
-        return false;
+        return cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path) <= 0;
 }
 
 static void scope_notify_cgroup_empty_event(Unit *u) {
@@ -577,6 +572,7 @@ const UnitVTable scope_vtable = {
 
         .no_alias = true,
         .no_instances = true,
+        .can_transient = true,
 
         .init = scope_init,
         .load = scope_load,
@@ -610,8 +606,6 @@ const UnitVTable scope_vtable = {
         .bus_vtable = bus_scope_vtable,
         .bus_set_property = bus_scope_set_property,
         .bus_commit_properties = bus_scope_commit_properties,
-
-        .can_transient = true,
 
         .enumerate = scope_enumerate,
 };
