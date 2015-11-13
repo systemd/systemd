@@ -259,12 +259,12 @@ int sd_dhcp6_client_set_request_option(sd_dhcp6_client *client, uint16_t option)
 
 int sd_dhcp6_client_get_lease(sd_dhcp6_client *client, sd_dhcp6_lease **ret) {
         assert_return(client, -EINVAL);
-        assert_return(ret, -EINVAL);
 
         if (!client->lease)
                 return -ENOMSG;
 
-        *ret = client->lease;
+        if (ret)
+                *ret = client->lease;
 
         return 0;
 }

@@ -131,7 +131,8 @@ static void dhcp6_handler(sd_dhcp6_client *client, int event, void *userdata) {
         case SD_DHCP6_CLIENT_EVENT_STOP:
         case SD_DHCP6_CLIENT_EVENT_RESEND_EXPIRE:
         case SD_DHCP6_CLIENT_EVENT_RETRANS_MAX:
-                log_link_warning(link, "DHCPv6 lease lost");
+                if (sd_dhcp6_client_get_lease(client, NULL) >= 0)
+                        log_link_warning(link, "DHCPv6 lease lost");
 
                 link->dhcp6_configured = false;
                 break;
