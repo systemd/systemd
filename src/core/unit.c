@@ -317,9 +317,6 @@ bool unit_check_gc(Unit *u) {
         if (state != UNIT_INACTIVE)
                 return true;
 
-        if (UNIT_VTABLE(u)->no_gc)
-                return true;
-
         if (u->no_gc)
                 return true;
 
