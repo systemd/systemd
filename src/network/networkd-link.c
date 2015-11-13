@@ -111,14 +111,24 @@ static bool link_ipv4_forward_enabled(Link *link) {
         if (!link->network)
                 return false;
 
+        if (link->network->ip_forward == _ADDRESS_FAMILY_BOOLEAN_INVALID)
+                return false;
+
         return link->network->ip_forward & ADDRESS_FAMILY_IPV4;
 }
 
 static bool link_ipv6_forward_enabled(Link *link) {
+
+        if (!socket_ipv6_is_supported())
+                return false;
+
         if (link->flags & IFF_LOOPBACK)
                 return false;
 
         if (!link->network)
+                return false;
+
+        if (link->network->ip_forward == _ADDRESS_FAMILY_BOOLEAN_INVALID)
                 return false;
 
         return link->network->ip_forward & ADDRESS_FAMILY_IPV6;
@@ -1851,45 +1861,43 @@ static int link_enter_join_netdev(Link *link) {
 }
 
 static int link_set_ipv4_forward(Link *link) {
-        const char *p = NULL, *v;
         int r;
 
-        if (link->flags & IFF_LOOPBACK)
+        if (!link_ipv4_forward_enabled(link))
                 return 0;
 
-        if (link->network->ip_forward == _ADDRESS_FAMILY_BOOLEAN_INVALID)
-                return 0;
+        /* We propagate the forwarding flag from one interface to the
+         * global setting one way. This means: as long as at least one
+         * interface was configured at any time that had IP forwarding
+         * enabled the setting will stay on for good. We do this
+         * primarily to keep IPv4 and IPv6 packet forwarding behaviour
+         * somewhat in sync (see below). */
 
-        p = strjoina("/proc/sys/net/ipv4/conf/", link->ifname, "/forwarding");
-        v = one_zero(link_ipv4_forward_enabled(link));
-
-        r = write_string_file(p, v, WRITE_STRING_FILE_VERIFY_ON_FAILURE);
+        r = write_string_file("/proc/sys/net/ipv4/ip_forward", "1", WRITE_STRING_FILE_VERIFY_ON_FAILURE);
         if (r < 0)
-                log_link_warning_errno(link, r, "Cannot configure IPv4 forwarding for interface %s: %m", link->ifname);
+                log_link_warning_errno(link, r, "Cannot turn on IPv4 packet forwarding, ignoring: %m");
 
         return 0;
 }
 
 static int link_set_ipv6_forward(Link *link) {
-        const char *p = NULL, *v = NULL;
         int r;
 
-        /* Make this a NOP if IPv6 is not available */
-        if (!socket_ipv6_is_supported())
+        if (!link_ipv6_forward_enabled(link))
                 return 0;
 
-        if (link->flags & IFF_LOOPBACK)
-                return 0;
+        /* On Linux, the IPv6 stack does not not know a per-interface
+         * packet forwarding setting: either packet forwarding is on
+         * for all, or off for all. We hence don't bother with a
+         * per-interface setting, but simply propagate the interface
+         * flag, if it is set, to the global flag, one-way. Note that
+         * while IPv4 would allow a per-interface flag, we expose the
+         * same behaviour there and also propagate the setting from
+         * one to all, to keep things simple (see above). */
 
-        if (link->network->ip_forward == _ADDRESS_FAMILY_BOOLEAN_INVALID)
-                return 0;
-
-        p = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/forwarding");
-        v = one_zero(link_ipv6_forward_enabled(link));
-
-        r = write_string_file(p, v, WRITE_STRING_FILE_VERIFY_ON_FAILURE);
+        r = write_string_file("/proc/sys/net/ipv6/conf/all/forwarding", "1", WRITE_STRING_FILE_VERIFY_ON_FAILURE);
         if (r < 0)
-                log_link_warning_errno(link, r, "Cannot configure IPv6 forwarding for interface: %m");
+                log_link_warning_errno(link, r, "Cannot configure IPv6 packet forwarding, ignoring: %m");
 
         return 0;
 }

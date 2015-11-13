@@ -363,29 +363,28 @@
         </varlistentry>
         <varlistentry>
           <term><varname>IPForward=</varname></term>
-          <listitem><para>Configures IP forwarding for the network
-          interface. If enabled, incoming packets on the network
-          interface will be forwarded to other interfaces according to
-          the routing table. Takes either a boolean argument, or the
-          values <literal>ipv4</literal> or <literal>ipv6</literal>,
-          which only enables IP forwarding for the specified address
-          family, or <literal>kernel</literal>, which preserves existing sysctl settings.
-          This controls the
-          <filename>net.ipv4.conf.&lt;interface&gt;.forwarding</filename>
-          and
-          <filename>net.ipv6.conf.&lt;interface&gt;.forwarding</filename>
-          sysctl options of the network interface (see <ulink
+          <listitem><para>Configures IP packet forwarding for the
+          system. If enabled, incoming packets on any network
+          interface will be forwarded to any other interfaces
+          according to the routing table. Takes either a boolean
+          argument, or the values <literal>ipv4</literal> or
+          <literal>ipv6</literal>, which only enable IP packet
+          forwarding for the specified address family.  This controls
+          the <filename>net.ipv4.ip_forward</filename> and
+          <filename>net.ipv6.conf.all.forwarding</filename> sysctl
+          options of the network interface (see <ulink
           url="https://www.kernel.org/doc/Documentation/networking/ip-sysctl.txt">ip-sysctl.txt</ulink>
           for details about sysctl options). Defaults to
           <literal>no</literal>.</para>
 
-         <para>Note: unless this option is turned on, or set to <literal>kernel</literal>,
-          no IP forwarding is done on this interface, even if this is
-          globally turned on in the kernel, with the
-          <filename>net.ipv4.ip_forward</filename>,
-          <filename>net.ipv4.conf.all.forwarding</filename>, and
-          <filename>net.ipv6.conf.all.forwarding</filename> sysctl
-          options.</para>
+          <para>Note: this setting controls a global kernel option,
+          and does so one way only: if a network that has this setting
+          enabled is set up the global setting is turned on.  However,
+          it is never turned off again, even after all networks with
+          this setting enabled are shut down again.</para>
+
+          <para>To allow IP packet forwarding only between specific
+          network interfaces use a firewall.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
