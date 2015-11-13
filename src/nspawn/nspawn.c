@@ -165,6 +165,7 @@ static char **arg_network_interfaces = NULL;
 static char **arg_network_macvlan = NULL;
 static char **arg_network_ipvlan = NULL;
 static bool arg_network_veth = false;
+static char **arg_network_veth_extra = NULL;
 static char *arg_network_bridge = NULL;
 static unsigned long arg_personality = PERSONALITY_INVALID;
 static char *arg_image = NULL;
@@ -212,6 +213,9 @@ static void help(void) {
                "                            existing network interface to the container\n"
                "  -n --network-veth         Add a virtual Ethernet connection between host\n"
                "                            and container\n"
+               "     --network-veth-extra=HOSTIF[:CONTAINERIF]\n"
+               "                            Add an additional virtual Ethernet link between\n"
+               "                            host and container\n"
                "     --network-bridge=INTERFACE\n"
                "                            Add a virtual Ethernet connection between host\n"
                "                            and container and add it to an existing bridge on\n"
@@ -334,6 +338,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NETWORK_MACVLAN,
                 ARG_NETWORK_IPVLAN,
                 ARG_NETWORK_BRIDGE,
+                ARG_NETWORK_VETH_EXTRA,
                 ARG_PERSONALITY,
                 ARG_VOLATILE,
                 ARG_TEMPLATE,
@@ -375,6 +380,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "network-macvlan",       required_argument, NULL, ARG_NETWORK_MACVLAN   },
                 { "network-ipvlan",        required_argument, NULL, ARG_NETWORK_IPVLAN    },
                 { "network-veth",          no_argument,       NULL, 'n'                   },
+                { "network-veth-extra",    required_argument, NULL, ARG_NETWORK_VETH_EXTRA},
                 { "network-bridge",        required_argument, NULL, ARG_NETWORK_BRIDGE    },
                 { "personality",           required_argument, NULL, ARG_PERSONALITY       },
                 { "image",                 required_argument, NULL, 'i'                   },
@@ -445,6 +451,15 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'n':
                         arg_network_veth = true;
+                        arg_private_network = true;
+                        arg_settings_mask |= SETTING_NETWORK;
+                        break;
+
+                case ARG_NETWORK_VETH_EXTRA:
+                        r = veth_extra_parse(&arg_network_veth_extra, optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --network-veth-extra= parameter: %s", optarg);
+
                         arg_private_network = true;
                         arg_settings_mask |= SETTING_NETWORK;
                         break;
@@ -2964,12 +2979,13 @@ static int load_settings(void) {
              settings->network_bridge ||
              settings->network_interfaces ||
              settings->network_macvlan ||
-             settings->network_ipvlan)) {
+             settings->network_ipvlan ||
+             settings->network_veth_extra)) {
 
                 if (!arg_settings_trusted)
                         log_warning("Ignoring network settings, file %s is not trusted.", p);
                 else {
-                        arg_network_veth = settings_private_network(settings);
+                        arg_network_veth = settings_network_veth(settings);
                         arg_private_network = settings_private_network(settings);
 
                         strv_free(arg_network_interfaces);
@@ -2983,6 +2999,10 @@ static int load_settings(void) {
                         strv_free(arg_network_ipvlan);
                         arg_network_ipvlan = settings->network_ipvlan;
                         settings->network_ipvlan = NULL;
+
+                        strv_free(arg_network_veth_extra);
+                        arg_network_veth_extra = settings->network_veth_extra;
+                        settings->network_veth_extra = NULL;
 
                         free(arg_network_bridge);
                         arg_network_bridge = settings->network_bridge;
@@ -3409,6 +3429,10 @@ int main(int argc, char *argv[]) {
                                 }
                         }
 
+                        r = setup_veth_extra(arg_machine, pid, arg_network_veth_extra);
+                        if (r < 0)
+                                goto finish;
+
                         r = setup_macvlan(arg_machine, pid, arg_network_macvlan);
                         if (r < 0)
                                 goto finish;
@@ -3610,6 +3634,7 @@ finish:
         strv_free(arg_network_interfaces);
         strv_free(arg_network_macvlan);
         strv_free(arg_network_ipvlan);
+        strv_free(arg_network_veth_extra);
         strv_free(arg_parameters);
         custom_mount_free_all(arg_custom_mounts, arg_n_custom_mounts);
         expose_port_free_all(arg_expose_ports);
