@@ -1901,11 +1901,11 @@ static int link_set_ipv6_privacy_extensions(Link *link) {
                 return 0;
 
         s = link_ipv6_privacy_extensions(link);
-        if (s == _IPV6_PRIVACY_EXTENSIONS_INVALID)
+        if (s < 0)
                 return 0;
 
         p = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/use_tempaddr");
-        xsprintf(buf, "%u", link->network->ipv6_privacy_extensions);
+        xsprintf(buf, "%u", (unsigned) link->network->ipv6_privacy_extensions);
 
         r = write_string_file(p, buf, WRITE_STRING_FILE_VERIFY_ON_FAILURE);
         if (r < 0)
@@ -1927,7 +1927,7 @@ static int link_set_ipv6_accept_ra(Link *link) {
 
         p = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/accept_ra");
 
-        /* we handle router advertisments ourselves, tell the kernel to GTFO */
+        /* We handle router advertisments ourselves, tell the kernel to GTFO */
         r = write_string_file(p, "0", WRITE_STRING_FILE_VERIFY_ON_FAILURE);
         if (r < 0)
                 log_link_warning_errno(link, r, "Cannot disable kernel IPv6 accept_ra for interface: %m");
@@ -1936,7 +1936,7 @@ static int link_set_ipv6_accept_ra(Link *link) {
 }
 
 static int link_set_ipv6_dad_transmits(Link *link) {
-        char buf[DECIMAL_STR_MAX(unsigned) + 1];
+        char buf[DECIMAL_STR_MAX(int) + 1];
         const char *p = NULL;
         int r;
 
@@ -1951,8 +1951,7 @@ static int link_set_ipv6_dad_transmits(Link *link) {
                 return 0;
 
         p = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/dad_transmits");
-
-        xsprintf(buf, "%u", link->network->ipv6_dad_transmits);
+        xsprintf(buf, "%i", link->network->ipv6_dad_transmits);
 
         r = write_string_file(p, buf, WRITE_STRING_FILE_VERIFY_ON_FAILURE);
         if (r < 0)
@@ -1962,7 +1961,7 @@ static int link_set_ipv6_dad_transmits(Link *link) {
 }
 
 static int link_set_ipv6_hop_limit(Link *link) {
-        char buf[DECIMAL_STR_MAX(unsigned) + 1];
+        char buf[DECIMAL_STR_MAX(int) + 1];
         const char *p = NULL;
         int r;
 
@@ -1977,8 +1976,7 @@ static int link_set_ipv6_hop_limit(Link *link) {
                 return 0;
 
         p = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/hop_limit");
-
-        xsprintf(buf, "%u", link->network->ipv6_hop_limit);
+        xsprintf(buf, "%i", link->network->ipv6_hop_limit);
 
         r = write_string_file(p, buf, WRITE_STRING_FILE_VERIFY_ON_FAILURE);
         if (r < 0)
