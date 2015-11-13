@@ -513,7 +513,6 @@ static int session_start_scope(Session *s) {
 
         assert(s);
         assert(s->user);
-        assert(s->user->slice);
 
         if (!s->scope) {
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
