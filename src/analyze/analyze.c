@@ -1085,9 +1085,6 @@ static int graph_one(sd_bus *bus, const UnitInfo *u, char *patterns[], char *fro
                 r = graph_one_property(bus, u, "Conflicts", "red", patterns, from_patterns, to_patterns);
                 if (r < 0)
                         return r;
-                r = graph_one_property(bus, u, "ConflictedBy", "red", patterns, from_patterns, to_patterns);
-                if (r < 0)
-                        return r;
         }
 
         return 0;
