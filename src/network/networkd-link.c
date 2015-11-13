@@ -506,9 +506,6 @@ static int link_stop_clients(Link *link) {
         assert(link->manager);
         assert(link->manager->event);
 
-        if (!link->network)
-                return 0;
-
         if (link->dhcp_client) {
                 k = sd_dhcp_client_stop(link->dhcp_client);
                 if (k < 0)
@@ -2485,7 +2482,7 @@ int link_ipv6ll_gained(Link *link) {
         link->ipv6ll_address = true;
         link_check_ready(link);
 
-        if (link->network) {
+        if (!IN_SET(link->state, LINK_STATE_PENDING, LINK_STATE_PENDING, LINK_STATE_UNMANAGED, LINK_STATE_FAILED)) {
                 r = link_acquire_ipv6_conf(link);
                 if (r < 0) {
                         link_enter_failed(link);
@@ -2501,7 +2498,7 @@ static int link_carrier_gained(Link *link) {
 
         assert(link);
 
-        if (link->network) {
+        if (!IN_SET(link->state, LINK_STATE_PENDING, LINK_STATE_PENDING, LINK_STATE_UNMANAGED, LINK_STATE_FAILED)) {
                 r = link_acquire_conf(link);
                 if (r < 0) {
                         link_enter_failed(link);
