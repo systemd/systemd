@@ -2,10 +2,6 @@ systemd System and Service Manager
 
 CHANGES WITH 228:
 
-        * When creating transient services via the bus API it is now
-          possible to pass in a set of file descriptors to use as
-          STDIN/STDOUT/STDERR for the invoked process.
-
         * A number of properties previously only settable in unit
           files are now also available as properties to set when
           creating transient units programmatically via the bus, as it
@@ -16,18 +12,57 @@ CHANGES WITH 228:
           ReadOnlyDirectories=, InaccessibleDirectories=,
           ProtectSystem=, ProtectHome=, RuntimeDirectory=.
 
-        * Any reference to /etc/mtab has been dropped from
-          systemd. The file has been obsolete since a while, but
-          systemd refused to work on systems where it was incorrectly
-          set up (it should be a symlink or non-existant). Please make
-          sure to update to util-linux 2.27.1 or newer in conjunction
-          with this systemd release, which also drops any reference to
-          /etc/mtab. If you maintain a distribution make sure that no
-          software you package still references it, as this is a
-          likely source of bugs. There's also a glibc bug pending,
-          asking for removal of any reference to the file:
+        * When creating transient services via the bus API it is now
+          possible to pass in a set of file descriptors to use as
+          STDIN/STDOUT/STDERR for the invoked process.
 
-          https://sourceware.org/bugzilla/show_bug.cgi?id=19108
+        * Wherever systemd expects a calendar timestamp specification
+          (like in journalctl's --since= and --until= switches) UTC
+          timestamps are now supported. Timestamps suffixed with "UTC"
+          are now considered to be in Universal Time Coordinated
+          instead of the local timezone. Also, timestamps may now
+          optionally be specified with a sub-second accuracy. Both of
+          these additions also apply to recurring calendar event
+          specification, such as OnCalendar= in timer units.
+
+        * journalctl gained a new "--sync" switch that asks the
+          journal daemon to write all so far unwritten log messages to
+          disk and sync the files, before returning.
+
+        * systemd-tmpfiles learned two new line types "q" and "Q" that
+          operate like "v", but also set up a basic btrfs quota
+          hierarchy when used on a btrfs file system with quota
+          enabled.
+
+        * systemd-detect-virt gained a new --chroot switch to detect
+          whether execution takes place in a chroot() environment.
+
+        * CPUAffinity= now takes CPU index ranges in addition to
+          individual indexes.
+
+        * The various memory-related resource limit settings (such as
+          LimitAS=) now understand the usual K, M, G, ... suffixes to
+          the base of 1024 (IEC). Similar, the time-related resource
+          limit settings understand the usual min, h, day, ...
+          suffixes now.
+
+        * systemd-nspawn gained the new --network-veth-extra= switch
+          to define additional and arbitrarily-named virtual Ethernet
+          links between the host and the container.
+
+        * A new service execution setting PassEnvironment= has been
+          added that allows importing select environment variables
+          from PID1's environment block into the environment block of
+          the service.
+
+        * systemd will now bump the net.unix.max_dgram_qlen to 512 by
+          default now (the kernel default is 16). This is beneficial
+          for avoiding blocking on AF_UNIX/SOCK_DGRAM sockets since it
+          allows substantially larger numbers of queued
+          datagrams. This should increase the capability of systemd to
+          parallelize boot-up, as logging and sd_notify() are unlikely
+          to stall execution anymore. If you need to change the value
+          from the new defaults, use the usual sysctl.d/ snippets.
 
         * The compression framing format used by the journal or
           coredump processing has changed to be in line with what the
@@ -40,52 +75,58 @@ CHANGES WITH 228:
           it a good default choice for the compression logic in the
           journal and in coredump handling.
 
-        * Wherever systemd expects a calendar timestamp specification
-          (like in journalctl's --since= and --until= switches) UTC
-          timestamps are now supported. Timestamps suffixed with "UTC"
-          are now considered to be in Universal Time Coordinated
-          instead of the local timezone. Also, timestamps may now
-          optionally be specified with a sub-second accuracy. Both of
-          these additions also apply to recurring calendar event
-          specification, such as OnCalendar= in timer units.
+        * Any reference to /etc/mtab has been dropped from
+          systemd. The file has been obsolete since a while, but
+          systemd refused to work on systems where it was incorrectly
+          set up (it should be a symlink or non-existant). Please make
+          sure to update to util-linux 2.27.1 or newer in conjunction
+          with this systemd release, which also drops any reference to
+          /etc/mtab. If you maintain a distribution make sure that no
+          software you package still references it, as this is a
+          likely source of bugs. There's also a glibc bug pending,
+          asking for removal of any reference to this obsolete file:
 
-        * systemd-tmpfiles learned two new line types "q" and "Q" that
-          operate like "v", but also set up a basic btrfs quota
-          hierarchy when used on a btrfs file system with quota
-          enabled.
-
-        * systemd-detect-virt gained a new --chroot switch to detect
-          whether execution takes place in a chroot() environment.
-
-        * CPUAffinity= now takes CPU index ranges in addition to just
-          individual indexes.
-
-        * systemd will now bump the net.unix.max_dgram_qlen to 512 by
-          default now (kernel default is 16). This is beneficial for
-          avoiding blocking on AF_UNIX/SOCK_DGRAM sockets since it
-          allows substantially larger numbers of queued
-          datagrams. This should increase the capability of systemd to
-          parallelize boot-up, as logging and sd_notify() are unlikely
-          to stall execution anymore. If you need to change the value
-          from the new defaults, use the usual sysctl.d/ snippets.
-
-        * The various memory-related resource limit settings (such as
-          LimitAS=) now understand the usual K, M, G, ... suffixes to
-          the base of 1024 (IEC). Similar, the time-related settings
-          understand the usual min, h, day, ... suffixes now.
-
-        * journalctl gained a new "--sync" switch that asks the
-          journal daemon to write all so far unwritten log messages to
-          disk and sync the files, before returning.
+          https://sourceware.org/bugzilla/show_bug.cgi?id=19108
 
         * Support for the ".snapshot" unit type has been removed. This
           feature turned out to be little useful and little used, and
           has now been removed from the core and from systemctl.
 
-        * A new service execution setting PassEnvironment= has been
-          added that allows importing select environment variables
-          from PID1's environment block into the environment block of
-          the service.
+        * In unit files the behaviour of %u, %U, %h, %s has
+          changed. These specifiers will now unconditionally resolve
+          to the various user database fields of the user that the
+          systemd instance is running as, instead of the user
+          configured in the specific unit via User=. Note that this
+          effectively doesn't change much, as resolving of these
+          specifiers was already turned off in the --system instance
+          of systemd, as we cannot do NSS lookups from PID 1. In the
+          --user instance of systemd these specifiers where correctly
+          resolved, but hardly made any sense, since the user instance
+          lacks privileges to do user switches anyway, and User= is
+          hence useless. Morever, even in the --user instance of
+          systemd behaviour was awkward as it would only take settings
+          from User= assignment placed before the specifier into
+          account. In order to unify and simplify the logic around
+          this the specifiers will now always resolve to the
+          credentials of the user invoking the manager (which in case
+          of PID 1 is the root user).
+
+        Contributions from: Andrew Jones, Beniamino Galvani, Boyuan
+        Yang, Daniel Machon, Daniel Mack, David Herrmann, David
+        Reynolds, David Strauss, Dongsu Park, Evgeny Vereshchagin,
+        Filipe Brandenburger, Franck Bui, Hristo Venev, Iago López
+        Galeiras, Jan Engelhardt, Jan Janssen, Jan Synacek, Jesus
+        Ornelas Aguayo, Karel Zak, kayrus, Kay Sievers, Lennart
+        Poettering, Mantas Mikulėnas, Marcel Holtmann, Marcin Bachry,
+        Marcos Alano, Marcos Mello, Mark Theunissen, Martin Pitt,
+        Michael Marineau, Michael Olbrich, Michal Schmidt, Michal
+        Sekletar, Mirco Tischler, Nick Owens, Nicolas Cornu, Patrik
+        Flykt, Peter Hutterer, reverendhomer, Ronny Chevalier,
+        Sangjung Woo, Seong-ho Cho, Shawn Landden, Susant Sahani,
+        Thomas Haller, Thomas Hindoe Paaboel Andersen, Tom Gundersen,
+        Torstein Husebø, Vito Caputo, Zbigniew Jędrzejewski-Szmek
+
+        -- Berlin, 2015-11-XX
 
 CHANGES WITH 227:
 
