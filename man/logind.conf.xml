@@ -288,7 +288,7 @@
         <varname>TasksMax=</varname> setting of the per-user slice
         unit, see
         <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        for details.</para></listitem>
+        for details. Defaults to 4096.</para></listitem>
       </varlistentry>
 
       <varlistentry>
