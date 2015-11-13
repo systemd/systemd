@@ -162,7 +162,6 @@ struct Job {
         bool installed:1;
         bool in_run_queue:1;
         bool matters_to_anchor:1;
-        bool override:1;
         bool in_dbus_queue:1;
         bool sent_dbus_new_signal:1;
         bool ignore_order:1;

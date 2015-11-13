@@ -452,27 +452,9 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>RequiresOverridable=</varname></term>
+        <term><varname>Requisite=</varname></term>
 
         <listitem><para>Similar to <varname>Requires=</varname>.
-        Dependencies listed in <varname>RequiresOverridable=</varname>
-        which cannot be fulfilled or fail to start are ignored if the
-        startup was explicitly requested by the user. If the start-up
-        was pulled in indirectly by some dependency or automatic
-        start-up of units that is not requested by the user, this
-        dependency must be fulfilled and otherwise the transaction
-        fails. Hence, this option may be used to configure
-        dependencies that are normally honored unless the user
-        explicitly starts up the unit, in which case whether they
-        failed or not is irrelevant.</para></listitem>
-
-      </varlistentry>
-      <varlistentry>
-        <term><varname>Requisite=</varname></term>
-        <term><varname>RequisiteOverridable=</varname></term>
-
-        <listitem><para>Similar to <varname>Requires=</varname> and
-        <varname>RequiresOverridable=</varname>, respectively.
         However, if the units listed here are not started already,
         they will not be started and the transaction will fail
         immediately. </para></listitem>

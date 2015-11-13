@@ -44,7 +44,6 @@ int transaction_add_job_and_dependencies(
                 Unit *unit,
                 Job *by,
                 bool matters,
-                bool override,
                 bool conflicts,
                 bool ignore_requirements,
                 bool ignore_order,

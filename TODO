@@ -36,12 +36,6 @@ Features:
 * PID1: find a way how we can reload unit file configuration for
   specific units only, without reloading the whole of systemd
 
-* For services: replace the default Requires=basic.target with After=basic.target + Requires=sysinit.target.
-
-* drop "Overridable" dependency types
-
-* document precise effect of DefaultDependencies=yes
-
 * add an explicit parser for LimitNICE= and LimitRTPRIO= that verifies
   the specified range and generates sane error messages for incorrect
   specifications. Also, for LimitNICE= maybe introduce a syntax such
@@ -52,7 +46,7 @@ Features:
 
 * when we detect that there are waiting jobs but no running jobs, do something
 
-* push CPUAffinity also into the "cpuset" cgroup controller (only after the cpuset controller got ported to the unified hierarchy)
+* push CPUAffinity= also into the "cpuset" cgroup controller (only after the cpuset controller got ported to the unified hierarchy)
 
 * add a concept of RemainAfterExit= to scope units
 
@@ -673,8 +667,6 @@ Features:
   - add new command to systemctl: "systemctl system-reexec" which reexecs as many daemons as virtually possible
   - systemctl enable: fail if target to alias into does not exist? maybe show how many units are enabled afterwards?
   - systemctl: "Journal has been rotated since unit was started." message is misleading
-  - support "systemctl stop foobar@.service" to stop all units matching a certain template
-  - Something is wrong with symlink handling of "autovt@.service" in "systemctl list-unit-files"
   - better error message if you run systemctl without systemd running
   - systemctl status output should should include list of triggering units and their status
 
@@ -689,7 +681,6 @@ Features:
     o DST changes
   - Support 2012-02~4 as syntax for specifying the fourth to last day of the month.
   - calendarspec: support value ranges with ".." notation. Example: 2013-4..8-1
-  - when parsing calendar timestamps support the UTC timezone (even if we will not support arbitrary timezone specs, support UTC itself certainly makes sense), also support syntaxes such as +0200
   - Modulate timer frequency based on battery state
 
 * add libsystemd-password or so to query passwords during boot using the password agent logic
@@ -749,8 +740,6 @@ Features:
 
 * introduce Type=pid-file
 
-* change Requires=basic.target to RequisiteOverride=basic.target
-
 * when breaking cycles drop sysv services first, then services from /run, then from /etc, then from /usr
 
 * ExecOnFailure=/usr/bin/foo
@@ -768,8 +757,6 @@ Features:
 * There's currently no way to cancel fsck (used to be possible via C-c or c on the console)
 
 * add option to sockets to avoid activation. Instead just drop packets/connections, see http://cyberelk.net/tim/2012/02/15/portreserve-systemd-solution/
-
-* default unix qlen is too small (10). bump sysctl? add sockopt?
 
 * save coredump in Windows/Mozilla minidump format
 
@@ -918,8 +905,6 @@ External:
 
 * drop accountsservice's StandardOutput=syslog and Type=dbus fields
 
-* dbus upstream still refers to dbus.target and should not
-
 * dbus: in fedora, make /var/lib/dbus/machine-id a symlink to /etc/machine-id
 
 * /usr/bin/service should actually show the new command line
@@ -954,7 +939,3 @@ Regularly:
 * use secure_getenv() instead of getenv() where appropriate
 
 * link up selected blog stories from man pages and unit files Documentation= fields
-
-Scheduled for removal or fixing:
-
-* xxxOverridable dependencies (probably: fix)

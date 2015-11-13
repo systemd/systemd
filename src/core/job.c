@@ -175,7 +175,6 @@ static void job_merge_into_installed(Job *j, Job *other) {
         else
                 assert(other->type == JOB_NOP);
 
-        j->override = j->override || other->override;
         j->irreversible = j->irreversible || other->irreversible;
         j->ignore_order = j->ignore_order || other->ignore_order;
 }
@@ -307,12 +306,10 @@ void job_dump(Job *j, FILE*f, const char *prefix) {
                 "%s-> Job %u:\n"
                 "%s\tAction: %s -> %s\n"
                 "%s\tState: %s\n"
-                "%s\tForced: %s\n"
                 "%s\tIrreversible: %s\n",
                 prefix, j->id,
                 prefix, j->unit->id, job_type_to_string(j->type),
                 prefix, job_state_to_string(j->state),
-                prefix, yes_no(j->override),
                 prefix, yes_no(j->irreversible));
 }
 
@@ -841,8 +838,6 @@ int job_finish_and_invalidate(Job *j, JobResult result, bool recursive) {
                         job_fail_dependencies(u, UNIT_REQUIRED_BY);
                         job_fail_dependencies(u, UNIT_REQUISITE_OF);
                         job_fail_dependencies(u, UNIT_BOUND_BY);
-                        job_fail_dependencies(u, UNIT_REQUIRED_BY_OVERRIDABLE);
-                        job_fail_dependencies(u, UNIT_REQUISITE_OF_OVERRIDABLE);
                 } else if (t == JOB_STOP)
                         job_fail_dependencies(u, UNIT_CONFLICTED_BY);
         }
@@ -967,7 +962,6 @@ int job_serialize(Job *j, FILE *f, FDSet *fds) {
         fprintf(f, "job-id=%u\n", j->id);
         fprintf(f, "job-type=%s\n", job_type_to_string(j->type));
         fprintf(f, "job-state=%s\n", job_state_to_string(j->state));
-        fprintf(f, "job-override=%s\n", yes_no(j->override));
         fprintf(f, "job-irreversible=%s\n", yes_no(j->irreversible));
         fprintf(f, "job-sent-dbus-new-signal=%s\n", yes_no(j->sent_dbus_new_signal));
         fprintf(f, "job-ignore-order=%s\n", yes_no(j->ignore_order));
@@ -1034,15 +1028,6 @@ int job_deserialize(Job *j, FILE *f, FDSet *fds) {
                                 log_debug("Failed to parse job state %s", v);
                         else
                                 job_set_state(j, s);
-
-                } else if (streq(l, "job-override")) {
-                        int b;
-
-                        b = parse_boolean(v);
-                        if (b < 0)
-                                log_debug("Failed to parse job override flag %s", v);
-                        else
-                                j->override = j->override || b;
 
                 } else if (streq(l, "job-irreversible")) {
                         int b;

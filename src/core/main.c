@@ -1744,11 +1744,13 @@ int main(int argc, char *argv[]) {
                         manager_dump_units(m, stdout, "\t");
                 }
 
-                r = manager_add_job(m, JOB_START, target, JOB_ISOLATE, false, &error, &default_unit_job);
+                r = manager_add_job(m, JOB_START, target, JOB_ISOLATE, &error, &default_unit_job);
                 if (r == -EPERM) {
                         log_debug("Default target could not be isolated, starting instead: %s", bus_error_message(&error, r));
 
-                        r = manager_add_job(m, JOB_START, target, JOB_REPLACE, false, &error, &default_unit_job);
+                        sd_bus_error_free(&error);
+
+                        r = manager_add_job(m, JOB_START, target, JOB_REPLACE, &error, &default_unit_job);
                         if (r < 0) {
                                 log_emergency("Failed to start default target: %s", bus_error_message(&error, r));
                                 error_message = "Failed to start default target";

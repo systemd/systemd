@@ -23,6 +23,7 @@
 
 #include "alloc-util.h"
 #include "analyze-verify.h"
+#include "bus-error.h"
 #include "bus-util.h"
 #include "log.h"
 #include "manager.h"
@@ -164,7 +165,6 @@ static int verify_documentation(Unit *u, bool check_man) {
 
 static int verify_unit(Unit *u, bool check_man) {
         _cleanup_bus_error_free_ sd_bus_error err = SD_BUS_ERROR_NULL;
-        Job *j;
         int r, k;
 
         assert(u);
@@ -173,11 +173,9 @@ static int verify_unit(Unit *u, bool check_man) {
                 unit_dump(u, stdout, "\t");
 
         log_unit_debug(u, "Creating %s/start job", u->id);
-        r = manager_add_job(u->manager, JOB_START, u, JOB_REPLACE, false, &err, &j);
-        if (sd_bus_error_is_set(&err))
-                log_unit_error(u, "Error: %s: %s", err.name, err.message);
+        r = manager_add_job(u->manager, JOB_START, u, JOB_REPLACE, &err, NULL);
         if (r < 0)
-                log_unit_error_errno(u, r, "Failed to create %s/start: %m", u->id);
+                log_unit_error_errno(u, r, "Failed to create %s/start: %s", u->id, bus_error_message(&err, r));
 
         k = verify_socket(u);
         if (k < 0 && r == 0)
