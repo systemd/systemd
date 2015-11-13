@@ -517,7 +517,12 @@
         should be set to open access to the notification socket
         provided by systemd. If <varname>NotifyAccess=</varname> is
         not set, it will be implicitly set to <option>main</option>.
-        Defaults to 0, which disables this feature.</para></listitem>
+        Defaults to 0, which disables this feature. The service can
+        check whether the service manager expects watchdog keep-alive
+        notifications. See
+        <citerefentry><refentrytitle>sd_watchdog_enabled</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+	for details.
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>
