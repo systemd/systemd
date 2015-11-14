@@ -22,7 +22,7 @@
 usage()
 {
     echo "Usage:"
-    echo "        $0 add KERNEL-VERSION KERNEL-IMAGE"
+    echo "        $0 add KERNEL-VERSION KERNEL-IMAGE [BOOT_ATTEMPTS]"
     echo "        $0 remove KERNEL-VERSION"
 }
 

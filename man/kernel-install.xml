@@ -82,7 +82,8 @@
     <para>The following commands are understood:</para>
     <variablelist>
       <varlistentry>
-        <term><command>add <replaceable>KERNEL-VERSION</replaceable> <replaceable>KERNEL-IMAGE</replaceable></command></term>
+        <term><command>add <replaceable>KERNEL-VERSION</replaceable>
+        <replaceable>KERNEL-IMAGE</replaceable> <arg choice="opt"><replaceable>BOOT-ATTEMPTS</replaceable></arg></command></term>
         <listitem>
           <para><command>kernel-install</command> creates the directory
           <filename>/boot/<replaceable>MACHINE-ID</replaceable>/<replaceable>KERNEL-VERSION</replaceable>/</filename>
@@ -110,7 +111,13 @@
           <replaceable>KERNEL-VERSION</replaceable>", if unset.  If
           the file <filename>initrd</filename> is found next to the
           <filename>linux</filename> file, the initrd will be added to
-          the configuration.</para>
+          the configuration. In addition, plugin will create text file
+          <filename>/boot/<replaceable>MACHINE-ID</replaceable>/<replaceable>KERNEL-VERSION</replaceable>/attempts</filename>. This
+          file contains configuration for OS loader which governs how many times
+          the loader will attempt to boot the entry before considering an entry
+          as invalid. Thus, before an attempt is made to boot the entry, counter is
+          decremented by one. File is populated with the value of
+          <replaceable>BOOT_ATTEMPTS</replaceable>. Defaults to 3.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
