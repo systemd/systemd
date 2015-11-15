@@ -1502,7 +1502,7 @@ int manager_get_machine_by_pid(Manager *m, pid_t pid, Machine **machine) {
         int r;
 
         assert(m);
-        assert(pid >= 1);
+        assert_return(pid >= 1, -EINVAL);
         assert(machine);
 
         mm = hashmap_get(m->machine_leaders, UINT_TO_PTR(pid));
