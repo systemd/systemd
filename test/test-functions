@@ -179,12 +179,17 @@ EOF
 }
 
 install_execs() {
-    # install any Execs from the service files
-    egrep -ho '^Exec[^ ]*=[^ ]+' $initdir/lib/systemd/system/*.service \
-        | while read i; do
-        i=${i##Exec*=}; i=${i##-}
-        inst $i
-    done
+    ddebug "install any Execs from the service files"
+    (
+    export PKG_CONFIG_PATH=$TEST_BASE_DIR/../src/core/
+    systemdsystemunitdir=$(pkg-config --variable=systemdsystemunitdir systemd)
+    systemduserunitdir=$(pkg-config --variable=systemduserunitdir systemd)
+    egrep -ho '^Exec[^ ]*=[^ ]+' $initdir/{$systemdsystemunitdir,$systemduserunitdir}/*.service \
+         | while read i; do
+         i=${i##Exec*=}; i=${i##-}
+         inst $i
+     done
+    )
 }
 
 generate_module_dependencies() {
