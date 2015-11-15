@@ -126,7 +126,7 @@ struct sd_bus_vtable {
         }
 
 #define SD_BUS_SIGNAL(_member, _signature, _flags)                      \
-        SD_BUS_SIGNAL_WITH_NAMES(_member, _signature, _names, _flags)
+        SD_BUS_SIGNAL_WITH_NAMES(_member, _signature, NULL, _flags)
 
 #define SD_BUS_PROPERTY(_member, _signature, _get, _offset, _flags)     \
         {                                                               \
