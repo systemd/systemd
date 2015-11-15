@@ -212,7 +212,7 @@ static const sd_bus_vtable vtable[] = {
 };
 
 static const sd_bus_vtable vtable2[] = {
-        SD_BUS_VTABLE_START(0),
+        SD_BUS_VTABLE_START(SD_BUS_VTABLE_DEPRECATED),
         SD_BUS_METHOD("NotifyTest", "", "", notify_test, 0),
         SD_BUS_METHOD("NotifyTest2", "", "", notify_test2, 0),
         SD_BUS_PROPERTY("Value", "s", value_handler, 10, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
@@ -255,6 +255,7 @@ static void *server(void *p) {
 
         assert_se(sd_bus_add_object_vtable(bus, NULL, "/foo", "org.freedesktop.systemd.test", vtable, c) >= 0);
         assert_se(sd_bus_add_object_vtable(bus, NULL, "/foo", "org.freedesktop.systemd.test2", vtable, c) >= 0);
+        assert_se(sd_bus_add_object_vtable(bus, NULL, "/foo", "org.freedesktop.systemd.test", vtable, c) == -EEXIST);
         assert_se(sd_bus_add_fallback_vtable(bus, NULL, "/value", "org.freedesktop.systemd.ValueTest", vtable2, NULL, UINT_TO_PTR(20)) >= 0);
         assert_se(sd_bus_add_node_enumerator(bus, NULL, "/value", enumerator_callback, NULL) >= 0);
         assert_se(sd_bus_add_node_enumerator(bus, NULL, "/value/a", enumerator2_callback, NULL) >= 0);
