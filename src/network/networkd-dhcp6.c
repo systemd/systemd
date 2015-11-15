@@ -221,7 +221,7 @@ int dhcp6_configure(Link *link) {
 
         r = sd_dhcp6_client_set_information_request(client, true);
         if (r < 0)
-                return r;
+                goto error;
 
         r = sd_dhcp6_client_set_mac(client,
                                     (const uint8_t *) &link->mac,
