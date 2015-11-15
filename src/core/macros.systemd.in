@@ -1,4 +1,4 @@
-#  -*- Mode: makefile; indent-tabs-mode: t -*- */
+#  -*- Mode: rpm-spec; indent-tabs-mode: nil -*- */
 #
 #  This file is part of systemd.
 #
@@ -39,7 +39,7 @@ Requires(postun): systemd \
 %systemd_post() \
 if [ $1 -eq 1 ] ; then \
         # Initial installation \
-        systemctl preset %{?*} >/dev/null 2>&1 || : \
+        systemctl --no-reload preset %{?*} >/dev/null 2>&1 || : \
 fi \
 %{nil}
 
@@ -48,8 +48,7 @@ fi \
 %systemd_preun() \
 if [ $1 -eq 0 ] ; then \
         # Package removal, not upgrade \
-        systemctl --no-reload disable %{?*} > /dev/null 2>&1 || : \
-        systemctl stop %{?*} > /dev/null 2>&1 || : \
+        systemctl --no-reload disable --now %{?*} > /dev/null 2>&1 || : \
 fi \
 %{nil}
 
@@ -60,14 +59,11 @@ if [ $1 -eq 0 ] ; then \
 fi \
 %{nil}
 
-%systemd_postun() \
-systemctl daemon-reload >/dev/null 2>&1 || : \
-%{nil}
+%systemd_postun() %{nil}
 
 %systemd_user_postun() %{nil}
 
 %systemd_postun_with_restart() \
-systemctl daemon-reload >/dev/null 2>&1 || : \
 if [ $1 -ge 1 ] ; then \
         # Package upgrade, not uninstall \
         systemctl try-restart %{?*} >/dev/null 2>&1 || : \

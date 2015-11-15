@@ -1403,7 +1403,8 @@ nodist_rpmmacros_DATA = \
 
 EXTRA_DIST += \
 	src/core/systemd.pc.in \
-	src/core/macros.systemd.in
+	src/core/macros.systemd.in \
+	src/core/triggers.systemd.in
 
 # ------------------------------------------------------------------------------
 
@@ -5873,7 +5874,7 @@ sysctl.d/%: sysctl.d/%.in
 %.conf: %.conf.in
 	$(SED_PROCESS)
 
-src/core/macros.%: src/core/macros.%.in
+src/core/%.systemd: src/core/%.systemd.in
 	$(SED_PROCESS)
 
 src/%.policy.in: src/%.policy.in.in
