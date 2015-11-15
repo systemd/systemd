@@ -199,6 +199,9 @@ static int method_get_machine_by_pid(sd_bus_message *message, void *userdata, sd
         if (r < 0)
                 return r;
 
+        if (pid < 0)
+                return -EINVAL;
+
         if (pid == 0) {
                 _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
 
