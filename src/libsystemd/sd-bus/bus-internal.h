@@ -140,9 +140,11 @@ struct vtable_member {
                         const char *result;
                         sd_bus_message_handler_t handler;
                         size_t offset;
+                        const char *const *names;
                 } method;
                 struct {
                         const char *signature;
+                        const char *const *names;
                 } signal;
                 struct {
                         const char *signature;

@@ -1713,6 +1713,7 @@ static int add_object_vtable_internal(
 
                 switch (v->type) {
 
+                case _SD_BUS_VTABLE_METHOD_v1:
                 case _SD_BUS_VTABLE_METHOD: {
 
                         if (!member_name_is_valid(v->x.method.member) ||
@@ -1730,6 +1731,8 @@ static int add_object_vtable_internal(
                         m->x.method.result = v->x.method.result;
                         m->x.method.handler = v->x.method.handler;
                         m->x.method.offset = v->x.method.offset;
+                        if (v->type == _SD_BUS_VTABLE_METHOD)
+                                m->x.method.names = v->x.method.names;
 
                         r = set_put(bus->vtable_methods, m);
                         if (r < 0)
@@ -1771,6 +1774,7 @@ static int add_object_vtable_internal(
                         break;
                 }
 
+                case _SD_BUS_VTABLE_SIGNAL_v1:
                 case _SD_BUS_VTABLE_SIGNAL:
 
                         if (!member_name_is_valid(v->x.signal.member) ||
@@ -1783,6 +1787,9 @@ static int add_object_vtable_internal(
                         m->type = _SD_BUS_VTABLE_SIGNAL;
                         m->flags = v->flags;
                         m->x.signal.signature = v->x.signal.signature;
+
+                        if (v->type == _SD_BUS_VTABLE_SIGNAL)
+                                m->x.signal.names = v->x.signal.names;
 
                         break;
 

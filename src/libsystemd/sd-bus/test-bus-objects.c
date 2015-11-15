@@ -196,9 +196,20 @@ static int emit_object_removed(sd_bus_message *m, void *userdata, sd_bus_error *
         return 1;
 }
 
+static const char *alter_something_names[] = {
+        "new_val",
+        "old_val"
+};
+
+static const char *signal_something_names[] = {
+        "an_arg",
+        "another_arg"
+};
+
+
 static const sd_bus_vtable vtable[] = {
         SD_BUS_VTABLE_START(0),
-        SD_BUS_METHOD("AlterSomething", "s", "s", something_handler, 0),
+        SD_BUS_METHOD_WITH_OFFSET_AND_NAMES("AlterSomething", "s", "s", something_handler, 0, alter_something_names, 0),
         SD_BUS_METHOD("Exit", "", "", exit_handler, 0),
         SD_BUS_WRITABLE_PROPERTY("Something", "s", get_handler, set_handler, 0, 0),
         SD_BUS_WRITABLE_PROPERTY("AutomaticStringProperty", "s", NULL, NULL, offsetof(struct context, automatic_string_property), 0),
@@ -208,6 +219,7 @@ static const sd_bus_vtable vtable[] = {
         SD_BUS_METHOD("EmitInterfacesRemoved", NULL, NULL, emit_interfaces_removed, 0),
         SD_BUS_METHOD("EmitObjectAdded", NULL, NULL, emit_object_added, 0),
         SD_BUS_METHOD("EmitObjectRemoved", NULL, NULL, emit_object_removed, 0),
+        SD_BUS_SIGNAL_WITH_NAMES("SomethingHappened", "sav", signal_something_names, 0),
         SD_BUS_VTABLE_END
 };
 
