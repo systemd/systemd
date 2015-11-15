@@ -154,8 +154,7 @@ void bus_slot_disconnect(sd_bus_slot *slot) {
                                         break;
                                 }
 
-                                case _SD_BUS_VTABLE_PROPERTY:
-                                case _SD_BUS_VTABLE_WRITABLE_PROPERTY: {
+                                case _SD_BUS_VTABLE_PROPERTY: {
                                         struct vtable_member_key key;
 
                                         key.path = slot->node_vtable.node->path;

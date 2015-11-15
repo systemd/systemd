@@ -640,7 +640,7 @@ static int property_get_set_callbacks_run(
                 const char *signature = NULL;
                 char type = 0;
 
-                if (c->type != _SD_BUS_VTABLE_WRITABLE_PROPERTY)
+                if (!(c->flags & SD_BUS_VTABLE_PROPERTY_WRITABLE))
                         return sd_bus_reply_method_errorf(m, SD_BUS_ERROR_PROPERTY_READ_ONLY, "Property '%s' is not writable.", c->member);
 
                 /* Avoid that we call the set routine more than once
@@ -754,7 +754,7 @@ static int vtable_append_all_properties(
                 return 1;
 
         for (v = c->members; v; v = v->next) {
-                if (v->type != _SD_BUS_VTABLE_PROPERTY && v->type != _SD_BUS_VTABLE_WRITABLE_PROPERTY)
+                if (v->type != _SD_BUS_VTABLE_PROPERTY)
                         continue;
 
                 if (v->flags & SD_BUS_VTABLE_HIDDEN)
@@ -1739,34 +1739,26 @@ static int add_object_vtable_internal(
                 }
 
                 case _SD_BUS_VTABLE_WRITABLE_PROPERTY:
-
-                        if (!(v->x.property.set || bus_type_is_basic(v->x.property.signature[0]))) {
-                                r = -EINVAL;
-                                goto fail;
-                        }
-
-                        if (v->flags & SD_BUS_VTABLE_PROPERTY_CONST) {
-                                r = -EINVAL;
-                                goto fail;
-                        }
-
-                        /* Fall through */
-
                 case _SD_BUS_VTABLE_PROPERTY: {
+
+                        m->type = _SD_BUS_VTABLE_PROPERTY;
+                        m->flags = v->flags;
+                        if (v->type == _SD_BUS_VTABLE_WRITABLE_PROPERTY)
+                                m->flags |= SD_BUS_VTABLE_PROPERTY_WRITABLE;
 
                         if (!member_name_is_valid(v->x.property.member) ||
                             !signature_is_single(v->x.property.signature, false) ||
-                            !(v->x.property.get || bus_type_is_basic(v->x.property.signature[0]) || streq(v->x.property.signature, "as")) ||
-                            (v->flags & SD_BUS_VTABLE_METHOD_NO_REPLY) ||
-                            (!!(v->flags & SD_BUS_VTABLE_PROPERTY_CONST) + !!(v->flags & SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE) + !!(v->flags & SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION)) > 1 ||
-                            ((v->flags & SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE) && (v->flags & SD_BUS_VTABLE_PROPERTY_EXPLICIT)) ||
-                            (v->flags & SD_BUS_VTABLE_UNPRIVILEGED && v->type == _SD_BUS_VTABLE_PROPERTY)) {
+                            !(m->x.property.get || bus_type_is_basic(v->x.property.signature[0]) || streq(v->x.property.signature, "as")) ||
+                            ((m->flags & SD_BUS_VTABLE_PROPERTY_WRITABLE) && !(v->x.property.set || bus_type_is_basic(v->x.property.signature[0]))) ||
+                            ((m->flags & SD_BUS_VTABLE_PROPERTY_WRITABLE) && (m->flags & SD_BUS_VTABLE_PROPERTY_CONST)) ||
+                            (!(m->flags == SD_BUS_VTABLE_PROPERTY_WRITABLE) && (m->flags & SD_BUS_VTABLE_UNPRIVILEGED)) ||
+                            (m->flags & SD_BUS_VTABLE_METHOD_NO_REPLY) ||
+                            (!!(m->flags & SD_BUS_VTABLE_PROPERTY_CONST) + !!(m->flags & SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE) + !!(m->flags & SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION)) > 1 ||
+                            ((m->flags & SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE) && (m->flags & SD_BUS_VTABLE_PROPERTY_EXPLICIT)) ) {
                                 r = -EINVAL;
                                 goto fail;
                         }
 
-                        m->type = v->type;
-                        m->flags = v->flags;
                         m->x.property.signature = v->x.property.signature;
                         m->x.property.get = v->x.property.get;
                         m->x.property.set = v->x.property.set;
@@ -1788,7 +1780,7 @@ static int add_object_vtable_internal(
                                 goto fail;
                         }
 
-                        m->type = v->type;
+                        m->type = _SD_BUS_VTABLE_SIGNAL;
                         m->flags = v->flags;
                         m->x.signal.signature = v->x.signal.signature;
 
@@ -1991,7 +1983,7 @@ static int emit_properties_changed_on_interface(
                          * as changing in the message. */
 
                         for (v = c->members; v; v = v->next) {
-                                if (v->type != _SD_BUS_VTABLE_PROPERTY && v->type != _SD_BUS_VTABLE_WRITABLE_PROPERTY)
+                                if (v->type != _SD_BUS_VTABLE_PROPERTY)
                                         continue;
 
                                 if (v->flags & SD_BUS_VTABLE_HIDDEN)
@@ -2062,7 +2054,7 @@ static int emit_properties_changed_on_interface(
                                 struct vtable_member *v;
 
                                 for (v = c->members; v; v = v->next) {
-                                        if (v->type != _SD_BUS_VTABLE_PROPERTY && v->type != _SD_BUS_VTABLE_WRITABLE_PROPERTY)
+                                        if (v->type != _SD_BUS_VTABLE_PROPERTY)
                                                 continue;
 
                                         if (v->flags & SD_BUS_VTABLE_HIDDEN)

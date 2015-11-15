@@ -83,7 +83,7 @@ static void introspect_write_flags(struct introspect *i, int type, int flags) {
         if (type == _SD_BUS_VTABLE_METHOD && (flags & SD_BUS_VTABLE_METHOD_NO_REPLY))
                 fputs("   <annotation name=\"org.freedesktop.DBus.Method.NoReply\" value=\"true\"/>\n", i->f);
 
-        if (type == _SD_BUS_VTABLE_PROPERTY || type == _SD_BUS_VTABLE_WRITABLE_PROPERTY) {
+        if (type == _SD_BUS_VTABLE_PROPERTY) {
                 if (flags & SD_BUS_VTABLE_PROPERTY_EXPLICIT)
                         fputs("   <annotation name=\"org.freedesktop.systemd1.Explicit\" value=\"true\"/>\n", i->f);
 
@@ -96,7 +96,7 @@ static void introspect_write_flags(struct introspect *i, int type, int flags) {
         }
 
         if (!i->trusted &&
-            (type == _SD_BUS_VTABLE_METHOD || type == _SD_BUS_VTABLE_WRITABLE_PROPERTY) &&
+            (type == _SD_BUS_VTABLE_METHOD || (type == _SD_BUS_VTABLE_PROPERTY && (flags & SD_BUS_VTABLE_PROPERTY_WRITABLE))) &&
             !(flags & SD_BUS_VTABLE_UNPRIVILEGED))
                 fputs("   <annotation name=\"org.freedesktop.systemd1.Privileged\" value=\"true\"/>\n", i->f);
 }
@@ -154,11 +154,10 @@ int introspect_write_interface(struct introspect *i, struct node_vtable *c) {
                         break;
 
                 case _SD_BUS_VTABLE_PROPERTY:
-                case _SD_BUS_VTABLE_WRITABLE_PROPERTY:
                         fprintf(i->f, "  <property name=\"%s\" type=\"%s\" access=\"%s\">\n",
                                 v->member,
                                 v->x.property.signature,
-                                v->type == _SD_BUS_VTABLE_WRITABLE_PROPERTY ? "readwrite" : "read");
+                                v->flags & SD_BUS_VTABLE_PROPERTY_WRITABLE ? "readwrite" : "read");
                         introspect_write_flags(i, v->type, v->flags);
                         fputs("  </property>\n", i->f);
                         break;

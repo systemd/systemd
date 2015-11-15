@@ -48,6 +48,7 @@ enum {
         SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE        = 1ULL << 5,
         SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION  = 1ULL << 6,
         SD_BUS_VTABLE_PROPERTY_EXPLICIT            = 1ULL << 7,
+        SD_BUS_VTABLE_PROPERTY_WRITABLE            = 1ULL << 8,
         _SD_BUS_VTABLE_CAPABILITY_MASK             = 0xFFFFULL << 40
 };
 
@@ -124,8 +125,8 @@ struct sd_bus_vtable {
 
 #define SD_BUS_WRITABLE_PROPERTY(_member, _signature, _get, _set, _offset, _flags) \
         {                                                               \
-                .type = _SD_BUS_VTABLE_WRITABLE_PROPERTY,               \
-                .flags = _flags,                                        \
+                .type = _SD_BUS_VTABLE_PROPERTY,                        \
+                .flags = (_flags) | SD_BUS_VTABLE_PROPERTY_WRITABLE,    \
                 .x.property.member = _member,                           \
                 .x.property.signature = _signature,                     \
                 .x.property.get = _get,                                 \
