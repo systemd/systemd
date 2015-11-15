@@ -21,7 +21,7 @@ CHANGES WITH 228:
           timestamps are now supported. Timestamps suffixed with "UTC"
           are now considered to be in Universal Time Coordinated
           instead of the local timezone. Also, timestamps may now
-          optionally be specified with a sub-second accuracy. Both of
+          optionally be specified with sub-second accuracy. Both of
           these additions also apply to recurring calendar event
           specification, such as OnCalendar= in timer units.
 
@@ -71,14 +71,14 @@ CHANGES WITH 228:
           was not compatible with the normal tools. With this release
           this has changed now, and it is hence safe for downstream
           distributions to turn it on. While not compressing as well
-          as the XZ,LZ4 is substantially faster, which makes
+          as the XZ, LZ4 is substantially faster, which makes
           it a good default choice for the compression logic in the
           journal and in coredump handling.
 
         * Any reference to /etc/mtab has been dropped from
           systemd. The file has been obsolete since a while, but
           systemd refused to work on systems where it was incorrectly
-          set up (it should be a symlink or non-existant). Please make
+          set up (it should be a symlink or non-existent). Please make
           sure to update to util-linux 2.27.1 or newer in conjunction
           with this systemd release, which also drops any reference to
           /etc/mtab. If you maintain a distribution make sure that no
