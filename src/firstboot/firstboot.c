@@ -542,7 +542,7 @@ static int process_root_password(void) {
 
         lock = take_etc_passwd_lock(arg_root);
         if (lock < 0)
-                return lock;
+                return log_error_errno(lock, "Failed to take a lock: %m");
 
         if (arg_copy_root_password && arg_root) {
                 struct spwd *p;
