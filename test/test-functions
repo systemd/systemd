@@ -4,6 +4,7 @@
 PATH=/sbin:/bin:/usr/sbin:/usr/bin
 export PATH
 
+LOOKS_LIKE_DEBIAN=$(source /etc/os-release && [[ "$ID" = "debian" || "$ID_LIKE" = "debian" ]] && echo yes)
 KERNEL_VER=${KERNEL_VER-$(uname -r)}
 KERNEL_MODS="/lib/modules/$KERNEL_VER/"
 
@@ -272,12 +273,14 @@ install_dbus() {
 }
 
 install_pam() {
+    (
+    [[ "$LOOKS_LIKE_DEBIAN" ]] && type -p dpkg-architecture &>/dev/null && find "/lib/$(dpkg-architecture -qDEB_HOST_MULTIARCH)/security" -xtype f
     find \
         /etc/pam.d \
         /etc/security \
         /lib64/security \
         /lib/security -xtype f \
-        | while read file; do
+    ) | while read file; do
         inst $file
     done
 }
