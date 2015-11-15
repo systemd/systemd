@@ -199,6 +199,7 @@
 /test-id128
 /test-inhibit
 /test-install
+/test-install-root
 /test-ipcrm
 /test-ipv4ll
 /test-ipv4ll-manual
