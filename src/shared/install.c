@@ -942,7 +942,7 @@ static int unit_file_load(
         if (fstat(fd, &st) < 0)
                 return -errno;
         if (null_or_empty(&st)) {
-                info->type = UNIT_FILE_MASKED;
+                info->type = UNIT_FILE_TYPE_MASKED;
                 return 0;
         }
         if (S_ISDIR(st.st_mode))
