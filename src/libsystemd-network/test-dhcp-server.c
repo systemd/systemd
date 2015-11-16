@@ -200,13 +200,11 @@ static void test_message_handler(void) {
 
 static uint64_t client_id_hash_helper(DHCPClientId *id, uint8_t key[HASH_KEY_SIZE]) {
         struct siphash state;
-        uint64_t hash;
 
         siphash24_init(&state, key);
         client_id_hash_func(id, &state);
-        siphash24_finalize(&hash, &state);
 
-        return hash;
+        return htole64(siphash24_finalize(&state));
 }
 
 static void test_client_id_hash(void) {

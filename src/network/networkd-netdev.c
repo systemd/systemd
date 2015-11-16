@@ -438,7 +438,7 @@ int netdev_get_mac(const char *ifname, struct ether_addr **ret) {
 
         /* Let's hash the host machine ID plus the container name. We
          * use a fixed, but originally randomly created hash key here. */
-        siphash24(&result, v, sz, HASH_KEY.bytes);
+        result = siphash24(v, sz, HASH_KEY.bytes);
 
         assert_cc(ETH_ALEN <= sizeof(result));
         memcpy(mac->ether_addr_octet, &result, ETH_ALEN);

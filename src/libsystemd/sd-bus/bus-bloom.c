@@ -72,7 +72,7 @@ static void bloom_add_data(
 
                 for (d = 0; d < w; d++) {
                         if (c <= 0) {
-                                siphash24(&h, data, n, hash_keys[hash_index++].bytes);
+                                h = siphash24(data, n, hash_keys[hash_index++].bytes);
                                 c += 8;
                         }
 

@@ -81,7 +81,7 @@ int net_get_unique_predictable_data(struct udev_device *device, uint64_t *result
         /* Let's hash the machine ID plus the device name. We
         * use a fixed, but originally randomly created hash
         * key here. */
-        siphash24(result, v, sz, HASH_KEY.bytes);
+        *result = htole64(siphash24(v, sz, HASH_KEY.bytes));
 
         return 0;
 }
