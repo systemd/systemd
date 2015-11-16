@@ -1751,7 +1751,7 @@ static int add_object_vtable_internal(
 
                         if (!member_name_is_valid(v->x.property.member) ||
                             !signature_is_single(v->x.property.signature, false) ||
-                            !(m->x.property.get || bus_type_is_basic(v->x.property.signature[0]) || streq(v->x.property.signature, "as")) ||
+                            !(v->x.property.get || bus_type_is_basic(v->x.property.signature[0]) || streq(v->x.property.signature, "as")) ||
                             ((m->flags & SD_BUS_VTABLE_PROPERTY_WRITABLE) && !(v->x.property.set || bus_type_is_basic(v->x.property.signature[0]))) ||
                             ((m->flags & SD_BUS_VTABLE_PROPERTY_WRITABLE) && (m->flags & SD_BUS_VTABLE_PROPERTY_CONST)) ||
                             (!(m->flags == SD_BUS_VTABLE_PROPERTY_WRITABLE) && (m->flags & SD_BUS_VTABLE_UNPRIVILEGED)) ||

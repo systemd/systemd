@@ -146,8 +146,8 @@ void bus_slot_disconnect(sd_bus_slot *slot) {
                                 case _SD_BUS_VTABLE_METHOD: {
                                         struct vtable_member_key key;
 
-                                        key.path = slot->node_vtable.node->path;
-                                        key.interface = slot->node_vtable.interface;
+                                        key.path = v->path;
+                                        key.interface = v->interface;
                                         key.member = v->member;
 
                                         set_remove(slot->bus->vtable_methods, &key);
@@ -157,8 +157,8 @@ void bus_slot_disconnect(sd_bus_slot *slot) {
                                 case _SD_BUS_VTABLE_PROPERTY: {
                                         struct vtable_member_key key;
 
-                                        key.path = slot->node_vtable.node->path;
-                                        key.interface = slot->node_vtable.interface;
+                                        key.path = v->path;
+                                        key.interface = v->interface;
                                         key.member = v->member;
 
                                         set_remove(slot->bus->vtable_properties, &key);
