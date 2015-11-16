@@ -2620,11 +2620,8 @@ int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *err
         }
 
         session = hashmap_get(m->session_units, unit);
-        if (session) {
-
-                if (streq_ptr(path, session->scope_job))
-                        session->scope_job = mfree(session->scope_job);
-
+        if (session && streq_ptr(path, session->scope_job)) {
+                session->scope_job = mfree(session->scope_job);
                 session_jobs_reply(session, unit, result);
 
                 session_save(session);
@@ -2633,7 +2630,9 @@ int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *err
         }
 
         user = hashmap_get(m->user_units, unit);
-        if (user) {
+        if (user &&
+            (streq_ptr(path, user->service_job) ||
+             streq_ptr(path, user->slice_job))) {
 
                 if (streq_ptr(path, user->service_job))
                         user->service_job = mfree(user->service_job);
