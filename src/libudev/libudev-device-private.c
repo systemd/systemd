@@ -18,11 +18,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "libudev.h"
-
 #include "device-private.h"
 #include "libudev-device-internal.h"
 #include "libudev-private.h"
+#include "libudev.h"
 
 int udev_device_tag_index(struct udev_device *udev_device, struct udev_device *udev_device_old, bool add) {
         sd_device *device_old = NULL;

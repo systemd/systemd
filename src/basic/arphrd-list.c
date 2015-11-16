@@ -22,13 +22,13 @@
 #include <net/if_arp.h>
 #include <string.h>
 
-#include "util.h"
 #include "arphrd-list.h"
+#include "util.h"
 
 static const struct arphrd_name* lookup_arphrd(register const char *str, register unsigned int len);
 
-#include "arphrd-to-name.h"
 #include "arphrd-from-name.h"
+#include "arphrd-to-name.h"
 
 const char *arphrd_to_name(int id) {
 

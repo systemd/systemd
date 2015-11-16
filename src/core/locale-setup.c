@@ -24,12 +24,12 @@
 
 #include "env-util.h"
 #include "fileio.h"
+#include "locale-setup.h"
 #include "locale-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "util.h"
 #include "virt.h"
-#include "locale-setup.h"
 
 int locale_setup(char ***environment) {
         char **add;

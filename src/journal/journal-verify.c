@@ -19,10 +19,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <unistd.h>
-#include <sys/mman.h>
 #include <fcntl.h>
 #include <stddef.h>
+#include <sys/mman.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "compress.h"

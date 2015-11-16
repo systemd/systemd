@@ -32,10 +32,10 @@
 #include "alloc-util.h"
 #include "log.h"
 #include "macro.h"
+#include "microhttpd-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "util.h"
-#include "microhttpd-util.h"
 
 void microhttpd_logger(void *arg, const char *fmt, va_list ap) {
         char *f;

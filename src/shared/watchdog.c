@@ -19,15 +19,15 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/ioctl.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <sys/ioctl.h>
 #include <unistd.h>
 #include <linux/watchdog.h>
 
-#include "watchdog.h"
-#include "log.h"
 #include "fd-util.h"
+#include "log.h"
+#include "watchdog.h"
 
 static int watchdog_fd = -1;
 static usec_t watchdog_timeout = USEC_INFINITY;

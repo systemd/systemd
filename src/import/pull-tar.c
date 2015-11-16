@@ -19,8 +19,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/prctl.h>
 #include <curl/curl.h>
+#include <sys/prctl.h>
 
 #include "sd-daemon.h"
 

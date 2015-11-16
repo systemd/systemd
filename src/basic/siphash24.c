@@ -17,9 +17,8 @@
     coding style)
 */
 
-#include "sparse-endian.h"
-
 #include "siphash24.h"
+#include "sparse-endian.h"
 #include "unaligned.h"
 #include "util.h"
 

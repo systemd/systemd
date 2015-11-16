@@ -29,8 +29,8 @@
 #include "conf-parser.h"
 #include "missing.h"
 #include "networkd-netdev-bond.h"
-#include "string-util.h"
 #include "string-table.h"
+#include "string-util.h"
 
 /*
  * Number of seconds between instances where the bonding

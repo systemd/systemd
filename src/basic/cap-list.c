@@ -28,8 +28,8 @@
 
 static const struct capability_name* lookup_capability(register const char *str, register unsigned int len);
 
-#include "cap-to-name.h"
 #include "cap-from-name.h"
+#include "cap-to-name.h"
 
 const char *capability_to_name(int id) {
 

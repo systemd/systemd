@@ -20,8 +20,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <net/ethernet.h>
 #include <arpa/inet.h>
+#include <net/ethernet.h>
 
 #include "alloc-util.h"
 #include "lldp-tlv.h"

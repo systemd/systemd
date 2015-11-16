@@ -34,9 +34,8 @@
 #include <time.h>
 #include <unistd.h>
 
-#include "libudev.h"
-
 #include "libudev-private.h"
+#include "libudev.h"
 #include "random-util.h"
 
 /* device info */

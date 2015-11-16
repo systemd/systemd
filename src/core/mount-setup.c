@@ -19,11 +19,11 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/mount.h>
 #include <errno.h>
-#include <stdlib.h>
-#include <unistd.h>
 #include <ftw.h>
+#include <stdlib.h>
+#include <sys/mount.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "bus-util.h"

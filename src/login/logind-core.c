@@ -19,10 +19,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/types.h>
-#include <sys/ioctl.h>
 #include <fcntl.h>
 #include <pwd.h>
+#include <sys/ioctl.h>
+#include <sys/types.h>
 #include <linux/vt.h>
 
 #include "alloc-util.h"

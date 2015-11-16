@@ -22,10 +22,11 @@
 #include <net/if.h>
 
 #include "sd-netlink.h"
-#include "networkd-netdev-vxlan.h"
-#include "networkd-link.h"
+
 #include "conf-parser.h"
 #include "missing.h"
+#include "networkd-link.h"
+#include "networkd-netdev-vxlan.h"
 
 static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
         VxLan *v;

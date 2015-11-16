@@ -21,10 +21,10 @@
 
 #include <stdio.h>
 
-#include "manager.h"
-#include "unit.h"
 #include "macro.h"
+#include "manager.h"
 #include "test-helper.h"
+#include "unit.h"
 
 static int test_cgroup_mask(void) {
         Manager *m = NULL;

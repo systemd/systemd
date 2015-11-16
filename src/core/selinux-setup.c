@@ -29,10 +29,10 @@
 
 #include "log.h"
 #include "macro.h"
+#include "selinux-setup.h"
 #include "selinux-util.h"
 #include "string-util.h"
 #include "util.h"
-#include "selinux-setup.h"
 
 #ifdef HAVE_SELINUX
 _printf_(2,3)

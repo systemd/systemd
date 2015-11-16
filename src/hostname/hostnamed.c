@@ -21,8 +21,8 @@
 
 #include <errno.h>
 #include <string.h>
-#include <unistd.h>
 #include <sys/utsname.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "bus-util.h"

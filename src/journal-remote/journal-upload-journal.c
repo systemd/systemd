@@ -19,9 +19,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdbool.h>
-
 #include <curl/curl.h>
+#include <stdbool.h>
 
 #include "alloc-util.h"
 #include "journal-upload.h"

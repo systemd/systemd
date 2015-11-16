@@ -21,16 +21,15 @@
 
 #include <unistd.h>
 
-#include "sd-messages.h"
 #include "sd-daemon.h"
+#include "sd-messages.h"
 
-#include "journal-authenticate.h"
-#include "journald-server.h"
-#include "journald-kmsg.h"
-#include "journald-syslog.h"
-
-#include "sigbus.h"
 #include "formats-util.h"
+#include "journal-authenticate.h"
+#include "journald-kmsg.h"
+#include "journald-server.h"
+#include "journald-syslog.h"
+#include "sigbus.h"
 
 int main(int argc, char *argv[]) {
         Server server;

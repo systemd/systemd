@@ -21,8 +21,8 @@
 
 #include "sd-netlink.h"
 
-#include "netlink-util.h"
 #include "netlink-internal.h"
+#include "netlink-util.h"
 
 int rtnl_set_link_name(sd_netlink **rtnl, int ifindex, const char *name) {
         _cleanup_netlink_message_unref_ sd_netlink_message *message = NULL;

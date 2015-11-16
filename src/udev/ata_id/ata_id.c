@@ -37,10 +37,9 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "libudev.h"
-
 #include "fd-util.h"
 #include "libudev-private.h"
+#include "libudev.h"
 #include "log.h"
 #include "udev-util.h"
 

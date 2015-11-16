@@ -19,16 +19,16 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/socket.h>
 #include <string.h>
+#include <sys/socket.h>
 
-#include "util.h"
 #include "af-list.h"
+#include "util.h"
 
 static const struct af_name* lookup_af(register const char *str, register unsigned int len);
 
-#include "af-to-name.h"
 #include "af-from-name.h"
+#include "af-to-name.h"
 
 const char *af_to_name(int id) {
 

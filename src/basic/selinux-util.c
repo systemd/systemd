@@ -24,15 +24,15 @@
 #include <sys/un.h>
 
 #ifdef HAVE_SELINUX
-#include <selinux/selinux.h>
-#include <selinux/label.h>
 #include <selinux/context.h>
+#include <selinux/label.h>
+#include <selinux/selinux.h>
 #endif
 
 #include "alloc-util.h"
-#include "strv.h"
 #include "path-util.h"
 #include "selinux-util.h"
+#include "strv.h"
 
 #ifdef HAVE_SELINUX
 DEFINE_TRIVIAL_CLEANUP_FUNC(security_context_t, freecon);

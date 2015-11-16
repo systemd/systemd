@@ -19,11 +19,11 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdlib.h>
-#include <unistd.h>
-#include <signal.h>
 #include <errno.h>
 #include <poll.h>
+#include <signal.h>
+#include <stdlib.h>
+#include <unistd.h>
 
 #include "fd-util.h"
 #include "io-util.h"

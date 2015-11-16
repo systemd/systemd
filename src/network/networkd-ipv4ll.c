@@ -22,8 +22,8 @@
 #include <netinet/ether.h>
 #include <linux/if.h>
 
-#include "networkd-link.h"
 #include "network-internal.h"
+#include "networkd-link.h"
 
 static int ipv4ll_address_lost(Link *link) {
         _cleanup_address_free_ Address *address = NULL;

@@ -24,10 +24,10 @@
 
 #include "fd-util.h"
 #include "fsprg.h"
+#include "hexdecoct.h"
 #include "journal-authenticate.h"
 #include "journal-def.h"
 #include "journal-file.h"
-#include "hexdecoct.h"
 
 static uint64_t journal_file_tag_seqnum(JournalFile *f) {
         uint64_t r;

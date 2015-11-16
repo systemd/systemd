@@ -19,12 +19,11 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <unistd.h>
+#include <blkid/blkid.h>
 #include <stdlib.h>
 #include <sys/statfs.h>
-#include <blkid/blkid.h>
+#include <unistd.h>
 
-#include "libudev.h"
 #include "sd-id128.h"
 
 #include "alloc-util.h"
@@ -37,6 +36,7 @@
 #include "fstab-util.h"
 #include "generator.h"
 #include "gpt.h"
+#include "libudev.h"
 #include "missing.h"
 #include "mkdir.h"
 #include "mount-util.h"

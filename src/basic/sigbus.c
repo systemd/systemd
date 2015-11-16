@@ -23,8 +23,8 @@
 #include <sys/mman.h>
 
 #include "macro.h"
-#include "util.h"
 #include "sigbus.h"
+#include "util.h"
 
 #define SIGBUS_QUEUE_MAX 64
 

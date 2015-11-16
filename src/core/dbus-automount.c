@@ -21,8 +21,8 @@
 
 #include "automount.h"
 #include "bus-util.h"
-#include "string-util.h"
 #include "dbus-automount.h"
+#include "string-util.h"
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_result, automount_result, AutomountResult);
 

@@ -19,13 +19,12 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "bus-util.h"
-#include "strv.h"
-
 #include "alloc-util.h"
+#include "bus-util.h"
 #include "networkd-link.h"
 #include "networkd.h"
 #include "parse-util.h"
+#include "strv.h"
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_operational_state, link_operstate, LinkOperationalState);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_administrative_state, link_state, LinkState);

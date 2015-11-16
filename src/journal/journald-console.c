@@ -19,9 +19,9 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <time.h>
 #include <fcntl.h>
 #include <sys/socket.h>
+#include <time.h>
 
 #include "alloc-util.h"
 #include "fd-util.h"

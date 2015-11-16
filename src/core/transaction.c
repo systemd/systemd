@@ -19,8 +19,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <unistd.h>
 #include <fcntl.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "bus-common-errors.h"

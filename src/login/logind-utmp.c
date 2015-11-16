@@ -20,9 +20,9 @@
 ***/
 
 #include <errno.h>
+#include <pwd.h>
 #include <string.h>
 #include <unistd.h>
-#include <pwd.h>
 
 #include "sd-messages.h"
 

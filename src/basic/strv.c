@@ -27,8 +27,8 @@
 #include "alloc-util.h"
 #include "escape.h"
 #include "string-util.h"
-#include "util.h"
 #include "strv.h"
+#include "util.h"
 
 char *strv_find(char **l, const char *name) {
         char **i;

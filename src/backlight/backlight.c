@@ -19,12 +19,11 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "libudev.h"
-
 #include "alloc-util.h"
 #include "def.h"
 #include "escape.h"
 #include "fileio.h"
+#include "libudev.h"
 #include "mkdir.h"
 #include "parse-util.h"
 #include "proc-cmdline.h"

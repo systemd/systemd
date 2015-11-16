@@ -20,8 +20,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <unistd.h>
 #include <fcntl.h>
+#include <unistd.h>
 
 #include "sd-journal.h"
 

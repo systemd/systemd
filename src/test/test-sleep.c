@@ -21,10 +21,10 @@
 
 #include <stdio.h>
 
-#include "util.h"
 #include "log.h"
 #include "sleep-config.h"
 #include "strv.h"
+#include "util.h"
 
 static void test_sleep(void) {
         _cleanup_strv_free_ char

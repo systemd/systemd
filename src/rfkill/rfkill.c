@@ -22,7 +22,6 @@
 #include <linux/rfkill.h>
 #include <poll.h>
 
-#include "libudev.h"
 #include "sd-daemon.h"
 
 #include "alloc-util.h"
@@ -30,6 +29,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "io-util.h"
+#include "libudev.h"
 #include "mkdir.h"
 #include "parse-util.h"
 #include "proc-cmdline.h"

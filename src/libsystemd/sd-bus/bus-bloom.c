@@ -19,9 +19,9 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "util.h"
-#include "siphash24.h"
 #include "bus-bloom.h"
+#include "siphash24.h"
+#include "util.h"
 
 static inline void set_bit(uint64_t filter[], unsigned long b) {
         filter[b >> 6] |= 1ULL << (b & 63);

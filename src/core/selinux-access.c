@@ -23,10 +23,10 @@
 
 #ifdef HAVE_SELINUX
 
-#include <stdio.h>
 #include <errno.h>
-#include <selinux/selinux.h>
 #include <selinux/avc.h>
+#include <selinux/selinux.h>
+#include <stdio.h>
 #ifdef HAVE_AUDIT
 #include <libaudit.h>
 #endif

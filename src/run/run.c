@@ -33,6 +33,7 @@
 #include "event-util.h"
 #include "fd-util.h"
 #include "formats-util.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "ptyfwd.h"
 #include "signal-util.h"
@@ -41,7 +42,6 @@
 #include "terminal-util.h"
 #include "unit-name.h"
 #include "user-util.h"
-#include "parse-util.h"
 
 static bool arg_ask_password = true;
 static bool arg_scope = false;

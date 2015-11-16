@@ -19,8 +19,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <net/if.h>
 #include <net/ethernet.h>
+#include <net/if.h>
 
 #include "alloc-util.h"
 #include "conf-parser.h"

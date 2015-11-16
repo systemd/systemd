@@ -20,8 +20,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <unistd.h>
 #include <stdio.h>
+#include <unistd.h>
 
 #include "label.h"
 #include "mkdir.h"

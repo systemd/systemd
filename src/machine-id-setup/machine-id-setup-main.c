@@ -26,8 +26,8 @@
 
 #include "log.h"
 #include "machine-id-setup.h"
-#include "util.h"
 #include "path-util.h"
+#include "util.h"
 
 static char *arg_root = NULL;
 static bool arg_commit = false;

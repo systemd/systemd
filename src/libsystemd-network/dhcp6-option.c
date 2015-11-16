@@ -19,8 +19,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <netinet/in.h>
 #include <errno.h>
+#include <netinet/in.h>
 #include <string.h>
 
 #include "alloc-util.h"

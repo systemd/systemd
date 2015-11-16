@@ -23,9 +23,9 @@
 #include <string.h>
 
 #include "alloc-util.h"
-#include "string-util.h"
 #include "calendarspec.h"
 #include "fileio.h"
+#include "string-util.h"
 
 #define BITS_WEEKDAYS   127
 

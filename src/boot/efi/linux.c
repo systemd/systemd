@@ -17,8 +17,8 @@
 #include <efi.h>
 #include <efilib.h>
 
-#include "util.h"
 #include "linux.h"
+#include "util.h"
 
 #define SETUP_MAGIC             0x53726448      /* "HdrS" */
 struct SetupHeader {

@@ -20,13 +20,13 @@
 ***/
 
 
-#include "unit.h"
+#include "conf-parser.h"
 #include "load-dropin.h"
+#include "load-fragment.h"
 #include "log.h"
 #include "strv.h"
 #include "unit-name.h"
-#include "conf-parser.h"
-#include "load-fragment.h"
+#include "unit.h"
 
 static int add_dependency_consumer(
                 UnitDependency dependency,

@@ -19,10 +19,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdlib.h>
-#include <pthread.h>
-#include <unistd.h>
 #include <fcntl.h>
+#include <pthread.h>
+#include <stdlib.h>
+#include <unistd.h>
 
 #include "sd-bus.h"
 
@@ -31,11 +31,11 @@
 #include "bus-internal.h"
 #include "bus-match.h"
 #include "bus-util.h"
+#include "fd-util.h"
 #include "formats-util.h"
 #include "log.h"
 #include "macro.h"
 #include "util.h"
-#include "fd-util.h"
 
 static int match_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
         log_info("Match triggered! interface=%s member=%s", strna(sd_bus_message_get_interface(m)), strna(sd_bus_message_get_member(m)));

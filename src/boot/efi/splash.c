@@ -18,9 +18,9 @@
 #include <efi.h>
 #include <efilib.h>
 
-#include "util.h"
 #include "graphics.h"
 #include "splash.h"
+#include "util.h"
 
 struct bmp_file {
         CHAR8 signature[2];

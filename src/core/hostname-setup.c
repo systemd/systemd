@@ -25,12 +25,12 @@
 
 #include "alloc-util.h"
 #include "fileio.h"
+#include "hostname-setup.h"
 #include "hostname-util.h"
 #include "log.h"
 #include "macro.h"
 #include "string-util.h"
 #include "util.h"
-#include "hostname-setup.h"
 
 int hostname_setup(void) {
         int r;

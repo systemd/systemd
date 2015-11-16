@@ -29,10 +29,9 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include "libudev.h"
-
 #include "fd-util.h"
 #include "libudev-private.h"
+#include "libudev.h"
 #include "scsi_id.h"
 #include "string-util.h"
 #include "udev-util.h"
