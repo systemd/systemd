@@ -121,7 +121,7 @@ int main(int argc, char *argv[]) {
                 }
 
 
-                k = hashmap_put(pids, UINT_TO_PTR(pid), s);
+                k = hashmap_put(pids, PID_TO_PTR(pid), s);
                 if (k < 0) {
                         log_error_errno(k, "Failed to add PID to set: %m");
                         ret = EXIT_FAILURE;
@@ -143,7 +143,7 @@ int main(int argc, char *argv[]) {
                         break;
                 }
 
-                s = hashmap_remove(pids, UINT_TO_PTR(si.si_pid));
+                s = hashmap_remove(pids, PID_TO_PTR(si.si_pid));
                 if (s) {
                         if (!is_clean_exit(si.si_code, si.si_status, NULL)) {
                                 if (si.si_code == CLD_EXITED)

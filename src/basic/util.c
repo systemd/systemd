@@ -206,7 +206,7 @@ static int do_execute(char **directories, usec_t timeout, char *argv[]) {
 
                         log_debug("Spawned %s as " PID_FMT ".", path, pid);
 
-                        r = hashmap_put(pids, UINT_TO_PTR(pid), path);
+                        r = hashmap_put(pids, PID_TO_PTR(pid), path);
                         if (r < 0)
                                 return log_oom();
                         path = NULL;
@@ -224,10 +224,10 @@ static int do_execute(char **directories, usec_t timeout, char *argv[]) {
                 _cleanup_free_ char *path = NULL;
                 pid_t pid;
 
-                pid = PTR_TO_UINT(hashmap_first_key(pids));
+                pid = PTR_TO_PID(hashmap_first_key(pids));
                 assert(pid > 0);
 
-                path = hashmap_remove(pids, UINT_TO_PTR(pid));
+                path = hashmap_remove(pids, PID_TO_PTR(pid));
                 assert(path);
 
                 wait_for_terminate_and_warn(path, pid, true);

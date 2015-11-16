@@ -392,11 +392,11 @@ static int file_load(Policy *p, const char *path) {
                                         } else {
                                                 PolicyItem *first;
 
-                                                first = hashmap_get(p->user_items, UINT32_TO_PTR(i->uid));
+                                                first = hashmap_get(p->user_items, UID_TO_PTR(i->uid));
                                                 item_append(i, &first);
                                                 i->uid_valid = true;
 
-                                                r = hashmap_replace(p->user_items, UINT32_TO_PTR(i->uid), first);
+                                                r = hashmap_replace(p->user_items, UID_TO_PTR(i->uid), first);
                                                 if (r < 0) {
                                                         LIST_REMOVE(items, first, i);
                                                         return log_oom();
@@ -424,11 +424,11 @@ static int file_load(Policy *p, const char *path) {
                                         } else {
                                                 PolicyItem *first;
 
-                                                first = hashmap_get(p->group_items, UINT32_TO_PTR(i->gid));
+                                                first = hashmap_get(p->group_items, GID_TO_PTR(i->gid));
                                                 item_append(i, &first);
                                                 i->gid_valid = true;
 
-                                                r = hashmap_replace(p->group_items, UINT32_TO_PTR(i->gid), first);
+                                                r = hashmap_replace(p->group_items, GID_TO_PTR(i->gid), first);
                                                 if (r < 0) {
                                                         LIST_REMOVE(items, first, i);
                                                         return log_oom();
@@ -787,7 +787,7 @@ static int policy_check(Policy *p, const struct policy_check_filter *filter) {
         verdict = check_policy_items(p->default_items, filter);
 
         if (filter->gid != GID_INVALID) {
-                items = hashmap_get(p->group_items, UINT32_TO_PTR(filter->gid));
+                items = hashmap_get(p->group_items, GID_TO_PTR(filter->gid));
                 if (items) {
                         v = check_policy_items(items, filter);
                         if (v != DUNNO)
@@ -796,7 +796,7 @@ static int policy_check(Policy *p, const struct policy_check_filter *filter) {
         }
 
         if (filter->uid != UID_INVALID) {
-                items = hashmap_get(p->user_items, UINT32_TO_PTR(filter->uid));
+                items = hashmap_get(p->user_items, UID_TO_PTR(filter->uid));
                 if (items) {
                         v = check_policy_items(items, filter);
                         if (v != DUNNO)
@@ -1155,7 +1155,7 @@ static void dump_hashmap_items(Hashmap *h) {
         void *k;
 
         HASHMAP_FOREACH_KEY(i, k, h, j) {
-                printf("\t%s Item for %u:\n", draw_special_char(DRAW_ARROW), PTR_TO_UINT(k));
+                printf("\t%s Item for " UID_FMT ":\n", draw_special_char(DRAW_ARROW), PTR_TO_UID(k));
                 dump_items(i, "\t\t");
         }
 }
