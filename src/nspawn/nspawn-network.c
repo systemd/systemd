@@ -47,7 +47,7 @@ static int generate_mac(
                 sd_id128_t hash_key,
                 uint64_t idx) {
 
-        uint8_t result[8];
+        uint64_t result;
         size_t l, sz;
         uint8_t *v, *i;
         int r;
@@ -74,10 +74,10 @@ static int generate_mac(
 
         /* Let's hash the host machine ID plus the container name. We
          * use a fixed, but originally randomly created hash key here. */
-        siphash24(result, v, sz, hash_key.bytes);
+        siphash24(&result, v, sz, hash_key.bytes);
 
         assert_cc(ETH_ALEN <= sizeof(result));
-        memcpy(mac->ether_addr_octet, result, ETH_ALEN);
+        memcpy(mac->ether_addr_octet, &result, ETH_ALEN);
 
         /* see eth_random_addr in the kernel */
         mac->ether_addr_octet[0] &= 0xfe;        /* clear multicast bit */

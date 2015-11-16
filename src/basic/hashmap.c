@@ -380,7 +380,7 @@ static unsigned base_bucket_hash(HashmapBase *h, const void *p) {
 
         h->hash_ops->hash(p, &state);
 
-        siphash24_finalize((uint8_t*)&hash, &state);
+        siphash24_finalize(&hash, &state);
 
         return (unsigned) (hash % n_buckets(h));
 }
