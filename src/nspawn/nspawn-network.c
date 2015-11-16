@@ -74,7 +74,7 @@ static int generate_mac(
 
         /* Let's hash the host machine ID plus the container name. We
          * use a fixed, but originally randomly created hash key here. */
-        siphash24(&result, v, sz, hash_key.bytes);
+        result = htole64(siphash24(v, sz, hash_key.bytes));
 
         assert_cc(ETH_ALEN <= sizeof(result));
         memcpy(mac->ether_addr_octet, &result, ETH_ALEN);

@@ -146,12 +146,11 @@ int sd_ipv4ll_set_mac(sd_ipv4ll *ll, const struct ether_addr *addr) {
                 uint64_t seed;
 
                 /* If no random data is set, generate some from the MAC */
-                siphash24(&seed, &addr->ether_addr_octet,
-                          ETH_ALEN, HASH_KEY.bytes);
+                seed = siphash24(&addr->ether_addr_octet, ETH_ALEN, HASH_KEY.bytes);
 
                 assert_cc(sizeof(unsigned) <= 8);
 
-                r = sd_ipv4ll_set_address_seed(ll, (unsigned)seed);
+                r = sd_ipv4ll_set_address_seed(ll, (unsigned) htole64(seed));
                 if (r < 0)
                         return r;
         }
