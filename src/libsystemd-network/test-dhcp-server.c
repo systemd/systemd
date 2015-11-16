@@ -204,7 +204,7 @@ static uint64_t client_id_hash_helper(DHCPClientId *id, uint8_t key[HASH_KEY_SIZ
 
         siphash24_init(&state, key);
         client_id_hash_func(id, &state);
-        siphash24_finalize((uint8_t*)&hash, &state);
+        siphash24_finalize(&hash, &state);
 
         return hash;
 }

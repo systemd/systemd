@@ -753,7 +753,7 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
 
                         siphash24_init(&state, HASH_KEY.bytes);
                         client_id_hash_func(&req->client_id, &state);
-                        siphash24_finalize((uint8_t*)&hash, &state);
+                        siphash24_finalize(&hash, &state);
                         next_offer = hash % server->pool_size;
 
                         for (i = 0; i < server->pool_size; i++) {
