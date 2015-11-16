@@ -211,6 +211,9 @@ int dhcp6_configure(Link *link) {
 
         assert(link);
 
+        if (link->dhcp6_client)
+                return 0;
+
         r = sd_dhcp6_client_new(&client);
         if (r < 0)
                 return r;

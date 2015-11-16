@@ -2089,7 +2089,8 @@ static int link_configure(Link *link) {
                         return r;
         }
 
-        if (link_dhcp6_enabled(link)) {
+        if (link_dhcp6_enabled(link) ||
+            link_ipv6_accept_ra_enabled(link)) {
                 r = dhcp6_configure(link);
                 if (r < 0)
                         return r;
