@@ -1266,6 +1266,19 @@ static int socket_open_fds(Socket *s) {
                                 know_label = true;
                         }
 
+                        /* Apply the socket protocol */
+                        switch(p->address.type) {
+                        case SOCK_STREAM:
+                        case SOCK_SEQPACKET:
+                                if (p->socket->socket_protocol == IPPROTO_SCTP)
+                                        p->address.protocol = p->socket->socket_protocol;
+                                break;
+                        case SOCK_DGRAM:
+                                if (p->socket->socket_protocol == IPPROTO_UDPLITE)
+                                        p->address.protocol = p->socket->socket_protocol;
+                                break;
+                        }
+
                         r = socket_address_listen(
                                         &p->address,
                                         SOCK_CLOEXEC|SOCK_NONBLOCK,
