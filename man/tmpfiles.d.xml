@@ -169,13 +169,15 @@
         <varlistentry>
           <term><varname>v</varname></term>
           <listitem><para>Create a subvolume if the path does not
-          exist yet and the file system supports this
-          (btrfs). Otherwise, create a normal directory, in the same
-          way as <varname>d</varname>. A subvolume created with this
-          line type is not assigned to any higher-level quota
-          group. For that, use <varname>q</varname> or
-          <varname>Q</varname>, which allow creating simple quota group
-          hierarchies, see below.</para></listitem>
+          exist yet, the file system supports subvolumes (btrfs), and
+          the system itself is installed into a subvolume
+          (specifically: the root directory <filename>/</filename> is
+          itself a subvolume). Otherwise, create a normal directory, in
+          the same way as <varname>d</varname>. A subvolume created
+          with this line type is not assigned to any higher-level
+          quota group. For that, use <varname>q</varname> or
+          <varname>Q</varname>, which allow creating simple quota
+          group hierarchies, see below.</para></listitem>
         </varlistentry>
 
         <varlistentry>

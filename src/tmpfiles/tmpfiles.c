@@ -1226,8 +1226,28 @@ static int create_item(Item *i) {
                         mkdir_parents_label(i->path, 0755);
 
                 if (IN_SET(i->type, CREATE_SUBVOLUME, CREATE_SUBVOLUME_INHERIT_QUOTA, CREATE_SUBVOLUME_NEW_QUOTA)) {
-                        RUN_WITH_UMASK((~i->mode) & 0777)
-                                r = btrfs_subvol_make(i->path);
+
+                        if (btrfs_is_subvol(isempty(arg_root) ? "/" : arg_root) <= 0)
+
+                                /* Don't create a subvolume unless the
+                                 * root directory is one, too. We do
+                                 * this under the assumption that if
+                                 * the root directory is just a plain
+                                 * directory (i.e. very light-weight),
+                                 * we shouldn't try to split it up
+                                 * into subvolumes (i.e. more
+                                 * heavy-weight). Thus, chroot()
+                                 * environments and suchlike will get
+                                 * a full brtfs subvolume set up below
+                                 * their tree only if they
+                                 * specifically set up a btrfs
+                                 * subvolume for the root dir too. */
+
+                                r = -ENOTTY;
+                        else {
+                                RUN_WITH_UMASK((~i->mode) & 0777)
+                                        r = btrfs_subvol_make(i->path);
+                        }
                 } else
                         r = 0;
 

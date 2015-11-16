@@ -105,7 +105,7 @@ int btrfs_is_filesystem(int fd) {
         return F_TYPE_EQUAL(sfs.f_type, BTRFS_SUPER_MAGIC);
 }
 
-int btrfs_is_subvol(int fd) {
+int btrfs_is_subvol_fd(int fd) {
         struct stat st;
 
         assert(fd >= 0);
@@ -119,6 +119,18 @@ int btrfs_is_subvol(int fd) {
                 return 0;
 
         return btrfs_is_filesystem(fd);
+}
+
+int btrfs_is_subvol(const char *path) {
+        _cleanup_close_ int fd = -1;
+
+        assert(path);
+
+        fd = open(path, O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY);
+        if (fd < 0)
+                return -errno;
+
+        return btrfs_is_subvol_fd(fd);
 }
 
 int btrfs_subvol_make(const char *path) {
@@ -1682,7 +1694,7 @@ int btrfs_subvol_snapshot_fd(int old_fd, const char *new_path, BtrfsSnapshotFlag
         assert(old_fd >= 0);
         assert(new_path);
 
-        r = btrfs_is_subvol(old_fd);
+        r = btrfs_is_subvol_fd(old_fd);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -1868,7 +1880,7 @@ int btrfs_subvol_auto_qgroup_fd(int fd, uint64_t subvol_id, bool insert_intermed
          */
 
         if (subvol_id == 0) {
-                r = btrfs_is_subvol(fd);
+                r = btrfs_is_subvol_fd(fd);
                 if (r < 0)
                         return r;
                 if (!r)

@@ -56,7 +56,9 @@ typedef enum BtrfsRemoveFlags {
 } BtrfsRemoveFlags;
 
 int btrfs_is_filesystem(int fd);
-int btrfs_is_subvol(int fd);
+
+int btrfs_is_subvol_fd(int fd);
+int btrfs_is_subvol(const char *path);
 
 int btrfs_reflink(int infd, int outfd);
 int btrfs_clone_range(int infd, uint64_t in_offset, int ofd, uint64_t out_offset, uint64_t sz);
