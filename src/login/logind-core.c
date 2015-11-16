@@ -98,15 +98,16 @@ int manager_add_session(Manager *m, const char *id, Session **_session) {
 
 int manager_add_user(Manager *m, uid_t uid, gid_t gid, const char *name, User **_user) {
         User *u;
+        int r;
 
         assert(m);
         assert(name);
 
         u = hashmap_get(m->users, UID_TO_PTR(uid));
         if (!u) {
-                u = user_new(m, uid, gid, name);
-                if (!u)
-                        return -ENOMEM;
+                r = user_new(&u, m, uid, gid, name);
+                if (r < 0)
+                        return r;
         }
 
         if (_user)

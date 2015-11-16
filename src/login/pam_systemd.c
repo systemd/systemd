@@ -267,28 +267,20 @@ _public_ PAM_EXTERN int pam_sm_open_session(
 
         pam_get_item(handle, PAM_SERVICE, (const void**) &service);
         if (streq_ptr(service, "systemd-user")) {
-                _cleanup_free_ char *p = NULL, *rt = NULL;
+                _cleanup_free_ char *rt = NULL;
 
-                if (asprintf(&p, "/run/systemd/users/"UID_FMT, pw->pw_uid) < 0)
+                if (asprintf(&rt, "/run/user/"UID_FMT, pw->pw_uid) < 0)
                         return PAM_BUF_ERR;
 
-                r = parse_env_file(p, NEWLINE,
-                                   "RUNTIME", &rt,
-                                   NULL);
-                if (r < 0 && r != -ENOENT)
-                        return PAM_SESSION_ERR;
-
-                if (rt)  {
-                        r = pam_misc_setenv(handle, "XDG_RUNTIME_DIR", rt, 0);
-                        if (r != PAM_SUCCESS) {
-                                pam_syslog(handle, LOG_ERR, "Failed to set runtime dir.");
-                                return r;
-                        }
-
-                        r = export_legacy_dbus_address(handle, pw->pw_uid, rt);
-                        if (r != PAM_SUCCESS)
-                                return r;
+                r = pam_misc_setenv(handle, "XDG_RUNTIME_DIR", rt, 0);
+                if (r != PAM_SUCCESS) {
+                        pam_syslog(handle, LOG_ERR, "Failed to set runtime dir.");
+                        return r;
                 }
+
+                r = export_legacy_dbus_address(handle, pw->pw_uid, rt);
+                if (r != PAM_SUCCESS)
+                        return r;
 
                 return PAM_SUCCESS;
         }
