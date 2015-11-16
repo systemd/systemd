@@ -1305,38 +1305,28 @@ int config_parse_exec_mount_flags(const char *unit,
                                   void *data,
                                   void *userdata) {
 
-        ExecContext *c = data;
-        const char *word, *state;
-        size_t l;
+
         unsigned long flags = 0;
+        ExecContext *c = data;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
-        FOREACH_WORD_SEPARATOR(word, l, rvalue, ", ", state) {
-                _cleanup_free_ char *t;
-
-                t = strndup(word, l);
-                if (!t)
-                        return log_oom();
-
-                if (streq(t, "shared"))
-                        flags = MS_SHARED;
-                else if (streq(t, "slave"))
-                        flags = MS_SLAVE;
-                else if (streq(t, "private"))
-                        flags = MS_PRIVATE;
-                else {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse mount flag %s, ignoring: %s", t, rvalue);
-                        return 0;
-                }
+        if (streq(rvalue, "shared"))
+                flags = MS_SHARED;
+        else if (streq(rvalue, "slave"))
+                flags = MS_SLAVE;
+        else if (streq(rvalue, "private"))
+                flags = MS_PRIVATE;
+        else {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse mount flag %s, ignoring.", rvalue);
+                return 0;
         }
-        if (!isempty(state))
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Trailing garbage, ignoring.");
 
         c->mount_flags = flags;
+
         return 0;
 }
 
