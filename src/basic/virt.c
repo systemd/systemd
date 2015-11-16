@@ -24,13 +24,13 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "dirent-util.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "process-util.h"
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
-#include "fd-util.h"
-#include "dirent-util.h"
 #include "util.h"
 #include "virt.h"
 
