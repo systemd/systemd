@@ -628,7 +628,7 @@ int sd_ndisc_router_discovery_start(sd_ndisc *nd) {
         assert(nd->event);
 
         if (nd->state != NDISC_STATE_IDLE)
-                return -EINVAL;
+                return -EBUSY;
 
         if (nd->index < 1)
                 return -EINVAL;

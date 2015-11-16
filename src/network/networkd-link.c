@@ -1264,7 +1264,7 @@ static int link_acquire_ipv6_conf(Link *link) {
                 log_link_debug(link, "Acquiring DHCPv6 lease");
 
                 r = sd_dhcp6_client_start(link->dhcp6_client);
-                if (r < 0)
+                if (r < 0 && r != -EBUSY)
                         return log_link_warning_errno(link, r,  "Could not acquire DHCPv6 lease: %m");
         }
 
@@ -1274,7 +1274,7 @@ static int link_acquire_ipv6_conf(Link *link) {
                 log_link_debug(link, "Discovering IPv6 routers");
 
                 r = sd_ndisc_router_discovery_start(link->ndisc_router_discovery);
-                if (r < 0)
+                if (r < 0 && r != -EBUSY)
                         return log_link_warning_errno(link, r, "Could not start IPv6 Router Discovery: %m");
         }
 

@@ -1137,7 +1137,7 @@ int sd_dhcp6_client_start(sd_dhcp6_client *client) {
         assert_return(client->index > 0, -EINVAL);
 
         if (!IN_SET(client->state, DHCP6_STATE_STOPPED))
-                return -EALREADY;
+                return -EBUSY;
 
         r = client_reset(client);
         if (r < 0)
