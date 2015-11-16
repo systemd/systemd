@@ -308,8 +308,10 @@ static int method_get_session_by_pid(sd_bus_message *message, void *userdata, sd
         r = sd_bus_message_read(message, "u", &pid);
         if (r < 0)
                 return r;
+        if (pid < 0)
+                return -EINVAL;
 
-        if (pid <= 0) {
+        if (pid == 0) {
                 r = manager_get_session_from_creds(m, message, NULL, error, &session);
                 if (r < 0)
                         return r;
@@ -369,8 +371,10 @@ static int method_get_user_by_pid(sd_bus_message *message, void *userdata, sd_bu
         r = sd_bus_message_read(message, "u", &pid);
         if (r < 0)
                 return r;
+        if (pid < 0)
+                return -EINVAL;
 
-        if (pid <= 0) {
+        if (pid == 0) {
                 r = manager_get_user_from_creds(m, message, UID_INVALID, error, &user);
                 if (r < 0)
                         return r;
@@ -573,12 +577,14 @@ static int method_list_inhibitors(sd_bus_message *message, void *userdata, sd_bu
 
 static int method_create_session(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         const char *service, *type, *class, *cseat, *tty, *display, *remote_user, *remote_host, *desktop;
-        uint32_t uid, leader, audit_id = 0;
+        uint32_t audit_id = 0;
         _cleanup_free_ char *id = NULL;
         Session *session = NULL;
         Manager *m = userdata;
         User *user = NULL;
         Seat *seat = NULL;
+        pid_t leader;
+        uid_t uid;
         int remote;
         uint32_t vtnr = 0;
         SessionType t;
@@ -588,11 +594,16 @@ static int method_create_session(sd_bus_message *message, void *userdata, sd_bus
         assert(message);
         assert(m);
 
+        assert_cc(sizeof(pid_t) == sizeof(uint32_t));
+        assert_cc(sizeof(uid_t) == sizeof(uint32_t));
+
         r = sd_bus_message_read(message, "uusssssussbss", &uid, &leader, &service, &type, &class, &desktop, &cseat, &vtnr, &tty, &display, &remote, &remote_user, &remote_host);
         if (r < 0)
                 return r;
 
-        if (leader == 1)
+        if (!uid_is_valid(uid))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid UID");
+        if (leader < 0 || leader == 1)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid leader PID");
 
         if (isempty(type))
@@ -684,7 +695,7 @@ static int method_create_session(sd_bus_message *message, void *userdata, sd_bus
                         c = SESSION_USER;
         }
 
-        if (leader <= 0) {
+        if (leader == 0) {
                 _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
 
                 r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID, &creds);
@@ -1093,7 +1104,9 @@ static int method_set_user_linger(sd_bus_message *message, void *userdata, sd_bu
                 r = sd_bus_creds_get_owner_uid(creds, &uid);
                 if (r < 0)
                         return r;
-        }
+
+        } else if (!uid_is_valid(uid))
+                return -EINVAL;
 
         errno = 0;
         pw = getpwuid(uid);
