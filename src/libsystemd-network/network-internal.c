@@ -56,7 +56,7 @@ const char *net_get_name(struct udev_device *device) {
 
 #define HASH_KEY SD_ID128_MAKE(d3,1e,48,fa,90,fe,4b,4c,9d,af,d5,d7,a1,b1,2e,8a)
 
-int net_get_unique_predictable_data(struct udev_device *device, uint8_t result[8]) {
+int net_get_unique_predictable_data(struct udev_device *device, uint64_t *result) {
         size_t l, sz = 0;
         const char *name = NULL;
         int r;

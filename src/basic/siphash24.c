@@ -20,6 +20,7 @@
 #include "sparse-endian.h"
 
 #include "siphash24.h"
+#include "unaligned.h"
 #include "util.h"
 
 static inline uint64_t rotate_left(uint64_t x, uint8_t b) {
@@ -104,7 +105,7 @@ void siphash24_compress(const void *_in, size_t inlen, struct siphash *state) {
         end -= ( state->inlen % sizeof (uint64_t) );
 
         for ( ; in < end; in += 8 ) {
-                m = le64toh(*(le64_t*) in);
+                m = unaligned_read_le64(in);
 #ifdef DEBUG
                 printf("(%3zu) v0 %08x %08x\n", state->inlen, (uint32_t) (state->v0 >> 32), (uint32_t) state->v0);
                 printf("(%3zu) v1 %08x %08x\n", state->inlen, (uint32_t) (state->v1 >> 32), (uint32_t) state->v1);
@@ -140,7 +141,7 @@ void siphash24_compress(const void *_in, size_t inlen, struct siphash *state) {
         }
 }
 
-void siphash24_finalize(uint8_t out[8], struct siphash *state) {
+void siphash24_finalize(uint64_t *out, struct siphash *state) {
         uint64_t b;
 
         b = state->padding | (( ( uint64_t )state->inlen ) << 56);
@@ -173,7 +174,7 @@ void siphash24_finalize(uint8_t out[8], struct siphash *state) {
 }
 
 /* SipHash-2-4 */
-void siphash24(uint8_t out[8], const void *_in, size_t inlen, const uint8_t k[16]) {
+void siphash24(uint64_t *out, const void *_in, size_t inlen, const uint8_t k[16]) {
         struct siphash state;
 
         siphash24_init(&state, k);

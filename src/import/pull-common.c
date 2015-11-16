@@ -165,7 +165,7 @@ static int hash_url(const char *url, char **ret) {
 
         assert(url);
 
-        siphash24((uint8_t *) &h, url, strlen(url), k.bytes);
+        siphash24(&h, url, strlen(url), k.bytes);
         if (asprintf(ret, "%"PRIx64, h) < 0)
                 return -ENOMEM;
 

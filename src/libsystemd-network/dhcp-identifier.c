@@ -35,6 +35,7 @@
 
 int dhcp_identifier_set_duid_en(struct duid *duid, size_t *len) {
         sd_id128_t machine_id;
+        uint64_t hash;
         int r;
 
         assert(duid);
@@ -50,8 +51,9 @@ int dhcp_identifier_set_duid_en(struct duid *duid, size_t *len) {
         *len = sizeof(duid->type) + sizeof(duid->en);
 
         /* a bit of snake-oil perhaps, but no need to expose the machine-id
-           directly */
-        siphash24(duid->en.id, &machine_id, sizeof(machine_id), HASH_KEY.bytes);
+           directly; duid->en.id might not be aligned, so we need to copy */
+        siphash24(&hash, &machine_id, sizeof(machine_id), HASH_KEY.bytes);
+        memcpy(duid->en.id, &hash, sizeof(duid->en.id));
 
         return 0;
 }
@@ -84,10 +86,10 @@ int dhcp_identifier_set_iaid(int ifindex, uint8_t *mac, size_t mac_len, void *_i
         }
 
         if (name)
-                siphash24((uint8_t*)&id, name, strlen(name), HASH_KEY.bytes);
+                siphash24(&id, name, strlen(name), HASH_KEY.bytes);
         else
                 /* fall back to MAC address if no predictable name available */
-                siphash24((uint8_t*)&id, mac, mac_len, HASH_KEY.bytes);
+                siphash24(&id, mac, mac_len, HASH_KEY.bytes);
 
         /* fold into 32 bits */
         unaligned_write_be32(_id, (id & 0xffffffff) ^ (id >> 32));

@@ -14,6 +14,6 @@ struct siphash {
 
 void siphash24_init(struct siphash *state, const uint8_t k[16]);
 void siphash24_compress(const void *in, size_t inlen, struct siphash *state);
-void siphash24_finalize(uint8_t out[8], struct siphash *state);
+void siphash24_finalize(uint64_t *out, struct siphash *state);
 
-void siphash24(uint8_t out[8], const void *in, size_t inlen, const uint8_t k[16]);
+void siphash24(uint64_t *out, const void *in, size_t inlen, const uint8_t k[16]);
