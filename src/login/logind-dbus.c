@@ -2964,7 +2964,7 @@ int manager_start_unit(Manager *manager, const char *unit, sd_bus_error *error, 
                         "StartUnit",
                         error,
                         &reply,
-                        "ss", unit, "fail");
+                        "ss", unit, "replace");
         if (r < 0)
                 return r;
 
