@@ -68,7 +68,7 @@ int asynchronous_sync(void) {
 }
 
 static void *close_thread(void *p) {
-        assert_se(close_nointr(PTR_TO_INT(p)) != -EBADF);
+        assert_se(close_nointr(PTR_TO_FD(p)) != -EBADF);
         return NULL;
 }
 
@@ -84,7 +84,7 @@ int asynchronous_close(int fd) {
         if (fd >= 0) {
                 PROTECT_ERRNO;
 
-                r = asynchronous_job(close_thread, INT_TO_PTR(fd));
+                r = asynchronous_job(close_thread, FD_TO_PTR(fd));
                 if (r < 0)
                          assert_se(close_nointr(fd) != -EBADF);
         }

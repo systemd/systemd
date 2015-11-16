@@ -28,6 +28,10 @@
 
 #include "macro.h"
 
+/* Make sure we can distinguish fd 0 and NULL */
+#define FD_TO_PTR(fd) INT_TO_PTR((fd)+1)
+#define PTR_TO_FD(p) (PTR_TO_INT(p)-1)
+
 int close_nointr(int fd);
 int safe_close(int fd);
 void safe_close_pair(int p[]);
