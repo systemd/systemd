@@ -360,7 +360,6 @@ void server_rotate(Server *s) {
 
 void server_sync(Server *s) {
         JournalFile *f;
-        void *k;
         Iterator i;
         int r;
 
@@ -370,7 +369,7 @@ void server_sync(Server *s) {
                         log_warning_errno(r, "Failed to sync system journal, ignoring: %m");
         }
 
-        ORDERED_HASHMAP_FOREACH_KEY(f, k, s->user_journals, i) {
+        ORDERED_HASHMAP_FOREACH(f, s->user_journals, i) {
                 r = journal_file_set_offline(f);
                 if (r < 0)
                         log_warning_errno(r, "Failed to sync user journal, ignoring: %m");
