@@ -162,7 +162,7 @@ static JournalRateLimitGroup* journal_rate_limit_group_new(JournalRateLimit *r, 
 
         siphash24_init(&state, r->hash_key);
         string_hash_func(g->id, &state);
-        siphash24_finalize((uint8_t*)&g->hash, &state);
+        siphash24_finalize(&g->hash, &state);
 
         journal_rate_limit_vacuum(r, ts);
 
@@ -230,7 +230,7 @@ int journal_rate_limit_test(JournalRateLimit *r, const char *id, int priority, u
 
         siphash24_init(&state, r->hash_key);
         string_hash_func(id, &state);
-        siphash24_finalize((uint8_t*)&h, &state);
+        siphash24_finalize(&h, &state);
         g = r->buckets[h % BUCKETS_MAX];
 
         LIST_FOREACH(bucket, g, g)

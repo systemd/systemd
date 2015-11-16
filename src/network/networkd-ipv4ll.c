@@ -201,7 +201,7 @@ static void ipv4ll_handler(sd_ipv4ll *ll, int event, void *userdata){
 }
 
 int ipv4ll_configure(Link *link) {
-        uint8_t seed[8];
+        uint64_t seed;
         int r;
 
         assert(link);
@@ -215,11 +215,11 @@ int ipv4ll_configure(Link *link) {
         }
 
         if (link->udev_device) {
-                r = net_get_unique_predictable_data(link->udev_device, seed);
+                r = net_get_unique_predictable_data(link->udev_device, &seed);
                 if (r >= 0) {
                         assert_cc(sizeof(unsigned) <= 8);
 
-                        r = sd_ipv4ll_set_address_seed(link->ipv4ll, *(unsigned *)seed);
+                        r = sd_ipv4ll_set_address_seed(link->ipv4ll, (unsigned)seed);
                         if (r < 0)
                                 return r;
                 }
