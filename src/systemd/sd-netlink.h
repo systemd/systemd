@@ -73,6 +73,7 @@ int sd_netlink_message_append_flag(sd_netlink_message *m, unsigned short type);
 int sd_netlink_message_append_u8(sd_netlink_message *m, unsigned short type, uint8_t data);
 int sd_netlink_message_append_u16(sd_netlink_message *m, unsigned short type, uint16_t data);
 int sd_netlink_message_append_u32(sd_netlink_message *m, unsigned short type, uint32_t data);
+int sd_netlink_message_append_l(sd_netlink_message *m, unsigned short type, const void *data, int len);
 int sd_netlink_message_append_in_addr(sd_netlink_message *m, unsigned short type, const struct in_addr *data);
 int sd_netlink_message_append_in6_addr(sd_netlink_message *m, unsigned short type, const struct in6_addr *data);
 int sd_netlink_message_append_ether_addr(sd_netlink_message *m, unsigned short type, const struct ether_addr *data);

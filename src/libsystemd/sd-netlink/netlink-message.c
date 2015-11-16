@@ -342,6 +342,19 @@ int sd_netlink_message_append_u32(sd_netlink_message *m, unsigned short type, ui
         return 0;
 }
 
+int sd_netlink_message_append_l(sd_netlink_message *m, unsigned short type, const void *data, int len) {
+        int r;
+
+        assert_return(m, -EINVAL);
+        assert_return(!m->sealed, -EPERM);
+
+        r = add_rtattr(m, type, &data, len);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 int sd_netlink_message_append_in_addr(sd_netlink_message *m, unsigned short type, const struct in_addr *data) {
         int r;
 
