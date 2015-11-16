@@ -21,6 +21,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "macro.h"
+
 enum {
         NETLINK_TYPE_UNSPEC,
         NETLINK_TYPE_U8,                        /* NLA_U8 */
