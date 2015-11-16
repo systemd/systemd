@@ -155,7 +155,7 @@ static void ndisc_router_handler(sd_ndisc *nd, uint8_t flags, const struct in6_a
                 return;
 
         if (flags & (ND_RA_FLAG_MANAGED | ND_RA_FLAG_OTHER)) {
-                if (flags & ND_RA_FLAG_MANAGED)
+                if ((flags & ND_RA_FLAG_MANAGED) && link->dhcp6_client)
                         dhcp6_request_address(link);
 
                 r = sd_dhcp6_client_start(link->dhcp6_client);
@@ -202,11 +202,13 @@ static void ndisc_handler(sd_ndisc *nd, int event, void *userdata) {
 
         switch (event) {
         case SD_NDISC_EVENT_TIMEOUT:
-                dhcp6_request_address(link);
+                if (link->dhcp6_client) {
+                        dhcp6_request_address(link);
 
-                r = sd_dhcp6_client_start(link->dhcp6_client);
-                if (r < 0 && r != -EALREADY)
-                        log_link_warning_errno(link, r, "Starting DHCPv6 client after NDisc timeout failed: %m");
+                        r = sd_dhcp6_client_start(link->dhcp6_client);
+                        if (r < 0 && r != -EALREADY)
+                                log_link_warning_errno(link, r, "Starting DHCPv6 client after NDisc timeout failed: %m");
+                }
                 break;
         case SD_NDISC_EVENT_STOP:
                 break;
