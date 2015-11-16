@@ -33,26 +33,21 @@
 #include "socket-util.h"
 
 int dhcp6_network_bind_udp_socket(int index, struct in6_addr *local_address) {
-        struct in6_pktinfo pktinfo = {
-                .ipi6_ifindex = index,
-        };
         union sockaddr_union src = {
                 .in6.sin6_family = AF_INET6,
                 .in6.sin6_port = htobe16(DHCP6_PORT_CLIENT),
-                .in6.sin6_addr = IN6ADDR_ANY_INIT,
+                .in6.sin6_scope_id = index,
         };
         _cleanup_close_ int s = -1;
         int r, off = 0, on = 1;
 
-        if (local_address)
-                src.in6.sin6_addr = *local_address;
+        assert(index > 0);
+        assert(local_address);
+
+        src.in6.sin6_addr = *local_address;
 
         s = socket(AF_INET6, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, IPPROTO_UDP);
         if (s < 0)
-                return -errno;
-
-        r = setsockopt(s, IPPROTO_IPV6, IPV6_PKTINFO, &pktinfo, sizeof(pktinfo));
-        if (r < 0)
                 return -errno;
 
         r = setsockopt(s, IPPROTO_IPV6, IPV6_V6ONLY, &on, sizeof(on));
