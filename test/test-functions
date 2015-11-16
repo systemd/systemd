@@ -226,6 +226,7 @@ install_config_files() {
     inst /etc/sysconfig/init
     inst /etc/passwd
     inst /etc/shadow
+    inst /etc/login.defs
     inst /etc/group
     inst /etc/shells
     inst /etc/nsswitch.conf
