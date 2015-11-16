@@ -45,16 +45,13 @@ int dhcp6_network_bind_udp_socket(int index, struct in6_addr *local_address) {
         int r, off = 0, on = 1;
 
         if (local_address)
-                memcpy(&src.in6.sin6_addr, local_address,
-                       sizeof(src.in6.sin6_addr));
+                src.in6.sin6_addr = *local_address;
 
-        s = socket(AF_INET6, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK,
-                   IPPROTO_UDP);
+        s = socket(AF_INET6, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, IPPROTO_UDP);
         if (s < 0)
                 return -errno;
 
-        r = setsockopt(s, IPPROTO_IPV6, IPV6_PKTINFO, &pktinfo,
-                       sizeof(pktinfo));
+        r = setsockopt(s, IPPROTO_IPV6, IPV6_PKTINFO, &pktinfo, sizeof(pktinfo));
         if (r < 0)
                 return -errno;
 
@@ -63,6 +60,10 @@ int dhcp6_network_bind_udp_socket(int index, struct in6_addr *local_address) {
                 return -errno;
 
         r = setsockopt(s, IPPROTO_IPV6, IPV6_MULTICAST_LOOP, &off, sizeof(off));
+        if (r < 0)
+                return -errno;
+
+        r = setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
         if (r < 0)
                 return -errno;
 
