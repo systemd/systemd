@@ -217,7 +217,7 @@ static int whitelist_device(const char *path, const char *node, const char *acc)
 
         r = cg_set_attribute("devices", path, "devices.allow", buf);
         if (r < 0)
-                log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EINVAL) ? LOG_DEBUG : LOG_WARNING, r,
+                log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EINVAL, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
                                "Failed to set devices.allow on %s: %m", path);
 
         return r;
@@ -288,7 +288,7 @@ static int whitelist_major(const char *path, const char *name, char type, const 
 
                 r = cg_set_attribute("devices", path, "devices.allow", buf);
                 if (r < 0)
-                        log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EINVAL) ? LOG_DEBUG : LOG_WARNING, r,
+                        log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EINVAL, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
                                        "Failed to set devices.allow on %s: %m", path);
         }
 
@@ -328,13 +328,13 @@ void cgroup_context_apply(CGroupContext *c, CGroupMask mask, const char *path, u
                         c->cpu_shares != CGROUP_CPU_SHARES_INVALID ? c->cpu_shares : CGROUP_CPU_SHARES_DEFAULT);
                 r = cg_set_attribute("cpu", path, "cpu.shares", buf);
                 if (r < 0)
-                        log_full_errno(IN_SET(r, -ENOENT, -EROFS) ? LOG_DEBUG : LOG_WARNING, r,
+                        log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
                                        "Failed to set cpu.shares on %s: %m", path);
 
                 sprintf(buf, USEC_FMT "\n", CGROUP_CPU_QUOTA_PERIOD_USEC);
                 r = cg_set_attribute("cpu", path, "cpu.cfs_period_us", buf);
                 if (r < 0)
-                        log_full_errno(IN_SET(r, -ENOENT, -EROFS) ? LOG_DEBUG : LOG_WARNING, r,
+                        log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
                                        "Failed to set cpu.cfs_period_us on %s: %m", path);
 
                 if (c->cpu_quota_per_sec_usec != USEC_INFINITY) {
@@ -343,7 +343,7 @@ void cgroup_context_apply(CGroupContext *c, CGroupMask mask, const char *path, u
                 } else
                         r = cg_set_attribute("cpu", path, "cpu.cfs_quota_us", "-1");
                 if (r < 0)
-                        log_full_errno(IN_SET(r, -ENOENT, -EROFS) ? LOG_DEBUG : LOG_WARNING, r,
+                        log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
                                        "Failed to set cpu.cfs_quota_us on %s: %m", path);
         }
 
@@ -359,7 +359,7 @@ void cgroup_context_apply(CGroupContext *c, CGroupMask mask, const char *path, u
                                 c->blockio_weight != CGROUP_BLKIO_WEIGHT_INVALID ? c->blockio_weight : CGROUP_BLKIO_WEIGHT_DEFAULT);
                         r = cg_set_attribute("blkio", path, "blkio.weight", buf);
                         if (r < 0)
-                                log_full_errno(IN_SET(r, -ENOENT, -EROFS) ? LOG_DEBUG : LOG_WARNING, r,
+                                log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
                                                "Failed to set blkio.weight on %s: %m", path);
 
                         /* FIXME: no way to reset this list */
@@ -373,7 +373,7 @@ void cgroup_context_apply(CGroupContext *c, CGroupMask mask, const char *path, u
                                 sprintf(buf, "%u:%u %" PRIu64 "\n", major(dev), minor(dev), w->weight);
                                 r = cg_set_attribute("blkio", path, "blkio.weight_device", buf);
                                 if (r < 0)
-                                        log_full_errno(IN_SET(r, -ENOENT, -EROFS) ? LOG_DEBUG : LOG_WARNING, r,
+                                        log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
                                                        "Failed to set blkio.weight_device on %s: %m", path);
                         }
                 }
@@ -392,7 +392,7 @@ void cgroup_context_apply(CGroupContext *c, CGroupMask mask, const char *path, u
                         sprintf(buf, "%u:%u %" PRIu64 "\n", major(dev), minor(dev), b->bandwidth);
                         r = cg_set_attribute("blkio", path, a, buf);
                         if (r < 0)
-                                log_full_errno(IN_SET(r, -ENOENT, -EROFS) ? LOG_DEBUG : LOG_WARNING, r,
+                                log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
                                                "Failed to set %s on %s: %m", a, path);
                 }
         }
@@ -416,7 +416,7 @@ void cgroup_context_apply(CGroupContext *c, CGroupMask mask, const char *path, u
                 }
 
                 if (r < 0)
-                        log_full_errno(IN_SET(r, -ENOENT, -EROFS) ? LOG_DEBUG : LOG_WARNING, r,
+                        log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
                                        "Failed to set memory.limit_in_bytes/memory.max on %s: %m", path);
         }
 
@@ -432,7 +432,7 @@ void cgroup_context_apply(CGroupContext *c, CGroupMask mask, const char *path, u
                 else
                         r = cg_set_attribute("devices", path, "devices.allow", "a");
                 if (r < 0)
-                        log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EINVAL) ? LOG_DEBUG : LOG_WARNING, r,
+                        log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EINVAL, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
                                        "Failed to reset devices.list on %s: %m", path);
 
                 if (c->device_policy == CGROUP_CLOSED ||
@@ -494,7 +494,7 @@ void cgroup_context_apply(CGroupContext *c, CGroupMask mask, const char *path, u
                         r = cg_set_attribute("pids", path, "pids.max", "max");
 
                 if (r < 0)
-                        log_full_errno(IN_SET(r, -ENOENT, -EROFS) ? LOG_DEBUG : LOG_WARNING, r,
+                        log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
                                        "Failed to set pids.max on %s: %m", path);
         }
 
@@ -505,7 +505,7 @@ void cgroup_context_apply(CGroupContext *c, CGroupMask mask, const char *path, u
 
                 r = cg_set_attribute("net_cls", path, "net_cls.classid", buf);
                 if (r < 0)
-                        log_full_errno(IN_SET(r, -ENOENT, -EROFS) ? LOG_DEBUG : LOG_WARNING, r,
+                        log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
                                        "Failed to set net_cls.classid on %s: %m", path);
         }
 }
