@@ -67,3 +67,5 @@ int dns_name_address(const char *p, int *family, union in_addr_union *a);
 
 int dns_name_root(const char *name);
 int dns_name_single_label(const char *name);
+
+int dns_name_to_wire_format(const char *domain, uint8_t *buffer, size_t len);
