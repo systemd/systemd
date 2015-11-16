@@ -403,9 +403,6 @@ struct UnitVTable {
         /* Instances make no sense for this type */
         bool no_instances:1;
 
-        /* Exclude from automatic gc */
-        bool no_gc:1;
-
         /* True if transient units of this type are OK */
         bool can_transient:1;
 };

@@ -132,6 +132,9 @@ static void unit_init(Unit *u) {
                 cc->blockio_accounting = u->manager->default_blockio_accounting;
                 cc->memory_accounting = u->manager->default_memory_accounting;
                 cc->tasks_accounting = u->manager->default_tasks_accounting;
+
+                if (u->type != UNIT_SLICE)
+                        cc->tasks_max = u->manager->default_tasks_max;
         }
 
         ec = unit_get_exec_context(u);
@@ -312,9 +315,6 @@ bool unit_check_gc(Unit *u) {
         /* But we keep the unit object around for longer when it is
          * referenced or configured to not be gc'ed */
         if (state != UNIT_INACTIVE)
-                return true;
-
-        if (UNIT_VTABLE(u)->no_gc)
                 return true;
 
         if (u->no_gc)

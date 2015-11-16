@@ -105,6 +105,10 @@ int register_machine(
                                 return bus_log_create_error(r);
                 }
 
+                r = sd_bus_message_append(m, "(sv)", "TasksMax", "t", 8192);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
                 r = sd_bus_message_append(m, "(sv)", "DevicePolicy", "s", "strict");
                 if (r < 0)
                         return bus_log_create_error(r);

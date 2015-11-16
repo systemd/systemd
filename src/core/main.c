@@ -125,7 +125,8 @@ static FILE* arg_serialization = NULL;
 static bool arg_default_cpu_accounting = false;
 static bool arg_default_blockio_accounting = false;
 static bool arg_default_memory_accounting = false;
-static bool arg_default_tasks_accounting = false;
+static bool arg_default_tasks_accounting = true;
+static uint64_t arg_default_tasks_max = UINT64_C(512);
 
 static void pager_open_if_enabled(void) {
 
@@ -657,7 +658,7 @@ static int parse_config_file(void) {
                 { "Manager", "DefaultStartLimitInterval", config_parse_sec,              0, &arg_default_start_limit_interval      },
                 { "Manager", "DefaultStartLimitBurst",    config_parse_unsigned,         0, &arg_default_start_limit_burst         },
                 { "Manager", "DefaultEnvironment",        config_parse_environ,          0, &arg_default_environment               },
-                { "Manager", "DefaultLimitCPU",           config_parse_limit,            0, &arg_default_rlimit[RLIMIT_CPU]        },
+                { "Manager", "DefaultLimitCPU",           config_parse_sec_limit,        0, &arg_default_rlimit[RLIMIT_CPU]        },
                 { "Manager", "DefaultLimitFSIZE",         config_parse_bytes_limit,      0, &arg_default_rlimit[RLIMIT_FSIZE]      },
                 { "Manager", "DefaultLimitDATA",          config_parse_bytes_limit,      0, &arg_default_rlimit[RLIMIT_DATA]       },
                 { "Manager", "DefaultLimitSTACK",         config_parse_bytes_limit,      0, &arg_default_rlimit[RLIMIT_STACK]      },
@@ -672,11 +673,12 @@ static int parse_config_file(void) {
                 { "Manager", "DefaultLimitMSGQUEUE",      config_parse_bytes_limit,      0, &arg_default_rlimit[RLIMIT_MSGQUEUE]   },
                 { "Manager", "DefaultLimitNICE",          config_parse_limit,            0, &arg_default_rlimit[RLIMIT_NICE]       },
                 { "Manager", "DefaultLimitRTPRIO",        config_parse_limit,            0, &arg_default_rlimit[RLIMIT_RTPRIO]     },
-                { "Manager", "DefaultLimitRTTIME",        config_parse_limit,            0, &arg_default_rlimit[RLIMIT_RTTIME]     },
+                { "Manager", "DefaultLimitRTTIME",        config_parse_usec_limit,       0, &arg_default_rlimit[RLIMIT_RTTIME]     },
                 { "Manager", "DefaultCPUAccounting",      config_parse_bool,             0, &arg_default_cpu_accounting            },
                 { "Manager", "DefaultBlockIOAccounting",  config_parse_bool,             0, &arg_default_blockio_accounting        },
                 { "Manager", "DefaultMemoryAccounting",   config_parse_bool,             0, &arg_default_memory_accounting         },
                 { "Manager", "DefaultTasksAccounting",    config_parse_bool,             0, &arg_default_tasks_accounting          },
+                { "Manager", "DefaultTasksMax",           config_parse_tasks_max,        0, &arg_default_tasks_max                 },
                 {}
         };
 
@@ -712,6 +714,7 @@ static void manager_set_defaults(Manager *m) {
         m->default_blockio_accounting = arg_default_blockio_accounting;
         m->default_memory_accounting = arg_default_memory_accounting;
         m->default_tasks_accounting = arg_default_tasks_accounting;
+        m->default_tasks_max = arg_default_tasks_max;
 
         manager_set_default_rlimits(m, arg_default_rlimit);
         manager_environment_add(m, NULL, arg_default_environment);

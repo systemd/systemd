@@ -513,25 +513,31 @@ static int session_start_scope(Session *s) {
 
         assert(s);
         assert(s->user);
-        assert(s->user->slice);
 
         if (!s->scope) {
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_free_ char *description = NULL;
                 char *scope, *job = NULL;
-
-                description = strjoin("Session ", s->id, " of user ", s->user->name, NULL);
-                if (!description)
-                        return log_oom();
+                const char *description;
 
                 scope = strjoin("session-", s->id, ".scope", NULL);
                 if (!scope)
                         return log_oom();
 
-                r = manager_start_scope(s->manager, scope, s->leader, s->user->slice, description, "systemd-logind.service", "systemd-user-sessions.service", &error, &job);
+                description = strjoina("Session ", s->id, " of user ", s->user->name, NULL);
+
+                r = manager_start_scope(
+                                s->manager,
+                                scope,
+                                s->leader,
+                                s->user->slice,
+                                description,
+                                "systemd-logind.service",
+                                "systemd-user-sessions.service",
+                                (uint64_t) -1, /* disable TasksMax= for the scope, rely on the slice setting for it */
+                                &error,
+                                &job);
                 if (r < 0) {
-                        log_error("Failed to start session scope %s: %s %s",
-                                  scope, bus_error_message(&error, r), error.name);
+                        log_error_errno(r, "Failed to start session scope %s: %s", scope, bus_error_message(&error, r));
                         free(scope);
                         return r;
                 } else {
@@ -543,7 +549,7 @@ static int session_start_scope(Session *s) {
         }
 
         if (s->scope)
-                hashmap_put(s->manager->session_units, s->scope, s);
+                (void) hashmap_put(s->manager->session_units, s->scope, s);
 
         return 0;
 }

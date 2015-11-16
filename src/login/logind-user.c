@@ -25,6 +25,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-util.h"
 #include "clean-ipc.h"
@@ -44,6 +45,7 @@
 #include "rm-rf.h"
 #include "smack-util.h"
 #include "special.h"
+#include "stdio-util.h"
 #include "string-table.h"
 #include "unit-name.h"
 #include "user-util.h"
@@ -392,34 +394,51 @@ fail:
 }
 
 static int user_start_slice(User *u) {
-        char *job;
         int r;
 
         assert(u);
 
         if (!u->slice) {
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-                char lu[DECIMAL_STR_MAX(uid_t) + 1], *slice;
-                sprintf(lu, UID_FMT, u->uid);
+                char lu[DECIMAL_STR_MAX(uid_t) + 1], *slice, *job;
+                const char *description;
 
+                u->slice_job  = mfree(u->slice_job);
+
+                xsprintf(lu, UID_FMT, u->uid);
                 r = slice_build_subslice(SPECIAL_USER_SLICE, lu, &slice);
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Failed to build slice name: %m");
 
-                r = manager_start_unit(u->manager, slice, &error, &job);
+                description = strjoina("User Slice of ", u->name);
+
+                r = manager_start_slice(
+                                u->manager,
+                                slice,
+                                description,
+                                "systemd-logind.service",
+                                "systemd-user-sessions.service",
+                                u->manager->user_tasks_max,
+                                &error,
+                                &job);
                 if (r < 0) {
-                        log_error("Failed to start user slice: %s", bus_error_message(&error, r));
-                        free(slice);
+
+                        if (sd_bus_error_has_name(&error, BUS_ERROR_UNIT_EXISTS))
+                                /* The slice already exists? If so, that's fine, let's just reuse it */
+                                u->slice = slice;
+                        else {
+                                log_error_errno(r, "Failed to start user slice %s, ignoring: %s (%s)", slice, bus_error_message(&error, r), error.name);
+                                free(slice);
+                                /* we don't fail due to this, let's try to continue */
+                        }
                 } else {
                         u->slice = slice;
-
-                        free(u->slice_job);
                         u->slice_job = job;
                 }
         }
 
         if (u->slice)
-                hashmap_put(u->manager->user_units, u->slice, u);
+                (void) hashmap_put(u->manager->user_units, u->slice, u);
 
         return 0;
 }
@@ -433,16 +452,21 @@ static int user_start_service(User *u) {
 
         if (!u->service) {
                 char lu[DECIMAL_STR_MAX(uid_t) + 1], *service;
-                sprintf(lu, UID_FMT, u->uid);
 
+                xsprintf(lu, UID_FMT, u->uid);
                 r = unit_name_build("user", lu, ".service", &service);
                 if (r < 0)
                         return log_error_errno(r, "Failed to build service name: %m");
 
-                r = manager_start_unit(u->manager, service, &error, &job);
+                r = manager_start_unit(
+                                u->manager,
+                                service,
+                                &error,
+                                &job);
                 if (r < 0) {
-                        log_error("Failed to start user service: %s", bus_error_message(&error, r));
+                        log_error_errno(r, "Failed to start user service, ignoring: %s", bus_error_message(&error, r));
                         free(service);
+                        /* we don't fail due to this, let's try to continue */
                 } else {
                         u->service = service;
 
@@ -452,7 +476,7 @@ static int user_start_service(User *u) {
         }
 
         if (u->service)
-                hashmap_put(u->manager->user_units, u->service, u);
+                (void) hashmap_put(u->manager->user_units, u->service, u);
 
         return 0;
 }

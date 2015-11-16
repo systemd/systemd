@@ -1,4 +1,4 @@
-<?xml version='1.0'?> <!--*-nxml-*-->
+<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
@@ -277,7 +277,18 @@
         limit relative to the amount of physical RAM. Defaults to 10%.
         Note that this size is a safety limit only. As each runtime
         directory is a tmpfs file system, it will only consume as much
-        memory as is needed. </para></listitem>
+        memory as is needed.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>UserTasksMax=</varname></term>
+
+        <listitem><para>Sets the maximum number of OS tasks each user
+        may run concurrently. This controls the
+        <varname>TasksMax=</varname> setting of the per-user slice
+        unit, see
+        <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for details. Defaults to 4096.</para></listitem>
       </varlistentry>
 
       <varlistentry>

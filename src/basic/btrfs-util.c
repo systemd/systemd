@@ -1423,12 +1423,16 @@ static int copy_quota_hierarchy(int fd, uint64_t old_subvol_id, uint64_t new_sub
                 return n_old_qgroups;
 
         r = btrfs_subvol_get_parent(fd, old_subvol_id, &old_parent_id);
-        if (r < 0)
+        if (r == -ENXIO)
+                /* We have no parent, hence nothing to copy. */
+                n_old_parent_qgroups = 0;
+        else if (r < 0)
                 return r;
-
-        n_old_parent_qgroups = btrfs_qgroup_find_parents(fd, old_parent_id, &old_parent_qgroups);
-        if (n_old_parent_qgroups < 0)
-                return n_old_parent_qgroups;
+        else {
+                n_old_parent_qgroups = btrfs_qgroup_find_parents(fd, old_parent_id, &old_parent_qgroups);
+                if (n_old_parent_qgroups < 0)
+                        return n_old_parent_qgroups;
+        }
 
         for (i = 0; i < n_old_qgroups; i++) {
                 uint64_t id;
@@ -1885,14 +1889,19 @@ int btrfs_subvol_auto_qgroup_fd(int fd, uint64_t subvol_id, bool insert_intermed
         if (n > 0) /* already parent qgroups set up, let's bail */
                 return 0;
 
-        r = btrfs_subvol_get_parent(fd, subvol_id, &parent_subvol);
-        if (r < 0)
-                return r;
-
         qgroups = mfree(qgroups);
-        n = btrfs_qgroup_find_parents(fd, parent_subvol, &qgroups);
-        if (n < 0)
-                return n;
+
+        r = btrfs_subvol_get_parent(fd, subvol_id, &parent_subvol);
+        if (r == -ENXIO)
+                /* No parent, hence no qgroup memberships */
+                n = 0;
+        else if (r < 0)
+                return r;
+        else {
+                n = btrfs_qgroup_find_parents(fd, parent_subvol, &qgroups);
+                if (n < 0)
+                        return n;
+        }
 
         if (insert_intermediary_qgroup) {
                 uint64_t lowest = 256, new_qgroupid;
