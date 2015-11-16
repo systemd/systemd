@@ -196,9 +196,20 @@ static int emit_object_removed(sd_bus_message *m, void *userdata, sd_bus_error *
         return 1;
 }
 
+static const char *alter_something_names[] = {
+        "new_val",
+        "old_val"
+};
+
+static const char *signal_something_names[] = {
+        "an_arg",
+        "another_arg"
+};
+
+
 static const sd_bus_vtable vtable[] = {
         SD_BUS_VTABLE_START(0),
-        SD_BUS_METHOD("AlterSomething", "s", "s", something_handler, 0),
+        SD_BUS_METHOD_WITH_OFFSET_AND_NAMES("AlterSomething", "s", "s", something_handler, 0, alter_something_names, 0),
         SD_BUS_METHOD("Exit", "", "", exit_handler, 0),
         SD_BUS_WRITABLE_PROPERTY("Something", "s", get_handler, set_handler, 0, 0),
         SD_BUS_WRITABLE_PROPERTY("AutomaticStringProperty", "s", NULL, NULL, offsetof(struct context, automatic_string_property), 0),
@@ -208,11 +219,12 @@ static const sd_bus_vtable vtable[] = {
         SD_BUS_METHOD("EmitInterfacesRemoved", NULL, NULL, emit_interfaces_removed, 0),
         SD_BUS_METHOD("EmitObjectAdded", NULL, NULL, emit_object_added, 0),
         SD_BUS_METHOD("EmitObjectRemoved", NULL, NULL, emit_object_removed, 0),
+        SD_BUS_SIGNAL_WITH_NAMES("SomethingHappened", "sav", signal_something_names, 0),
         SD_BUS_VTABLE_END
 };
 
 static const sd_bus_vtable vtable2[] = {
-        SD_BUS_VTABLE_START(0),
+        SD_BUS_VTABLE_START(SD_BUS_VTABLE_DEPRECATED),
         SD_BUS_METHOD("NotifyTest", "", "", notify_test, 0),
         SD_BUS_METHOD("NotifyTest2", "", "", notify_test2, 0),
         SD_BUS_PROPERTY("Value", "s", value_handler, 10, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
@@ -255,6 +267,7 @@ static void *server(void *p) {
 
         assert_se(sd_bus_add_object_vtable(bus, NULL, "/foo", "org.freedesktop.systemd.test", vtable, c) >= 0);
         assert_se(sd_bus_add_object_vtable(bus, NULL, "/foo", "org.freedesktop.systemd.test2", vtable, c) >= 0);
+        assert_se(sd_bus_add_object_vtable(bus, NULL, "/foo", "org.freedesktop.systemd.test", vtable, c) == -EEXIST);
         assert_se(sd_bus_add_fallback_vtable(bus, NULL, "/value", "org.freedesktop.systemd.ValueTest", vtable2, NULL, UINT_TO_PTR(20)) >= 0);
         assert_se(sd_bus_add_node_enumerator(bus, NULL, "/value", enumerator_callback, NULL) >= 0);
         assert_se(sd_bus_add_node_enumerator(bus, NULL, "/value/a", enumerator2_callback, NULL) >= 0);

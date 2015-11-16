@@ -137,39 +137,36 @@ void bus_slot_disconnect(sd_bus_slot *slot) {
 
         case BUS_NODE_VTABLE:
 
-                if (slot->node_vtable.node && slot->node_vtable.interface && slot->node_vtable.vtable) {
-                        const sd_bus_vtable *v;
+                if (slot->node_vtable.members) {
+                        struct vtable_member *v, *next;
 
-                        for (v = slot->node_vtable.vtable; v->type != _SD_BUS_VTABLE_END; v++) {
-                                struct vtable_member *x = NULL;
-
+                        for (v = slot->node_vtable.members; v; v = next) {
                                 switch (v->type) {
 
                                 case _SD_BUS_VTABLE_METHOD: {
-                                        struct vtable_member key;
+                                        struct vtable_member_key key;
 
-                                        key.path = slot->node_vtable.node->path;
-                                        key.interface = slot->node_vtable.interface;
-                                        key.member = v->x.method.member;
+                                        key.path = v->path;
+                                        key.interface = v->interface;
+                                        key.member = v->member;
 
-                                        x = hashmap_remove(slot->bus->vtable_methods, &key);
+                                        set_remove(slot->bus->vtable_methods, &key);
                                         break;
                                 }
 
-                                case _SD_BUS_VTABLE_PROPERTY:
-                                case _SD_BUS_VTABLE_WRITABLE_PROPERTY: {
-                                        struct vtable_member key;
+                                case _SD_BUS_VTABLE_PROPERTY: {
+                                        struct vtable_member_key key;
 
-                                        key.path = slot->node_vtable.node->path;
-                                        key.interface = slot->node_vtable.interface;
-                                        key.member = v->x.method.member;
+                                        key.path = v->path;
+                                        key.interface = v->interface;
+                                        key.member = v->member;
 
-
-                                        x = hashmap_remove(slot->bus->vtable_properties, &key);
+                                        set_remove(slot->bus->vtable_properties, &key);
                                         break;
                                 }}
 
-                                free(x);
+                                next = v->next;
+                                free(v);
                         }
                 }
 

@@ -70,13 +70,13 @@ static int node_vtable_get_userdata(
         return 1;
 }
 
-static void *vtable_method_convert_userdata(const sd_bus_vtable *p, void *u) {
+static void *vtable_method_convert_userdata(struct vtable_member *p, void *u) {
         assert(p);
 
         return (uint8_t*) u + p->x.method.offset;
 }
 
-static void *vtable_property_convert_userdata(const sd_bus_vtable *p, void *u) {
+static void *vtable_property_convert_userdata(struct vtable_member *p, void *u) {
         assert(p);
 
         return (uint8_t*) u + p->x.property.offset;
@@ -103,7 +103,7 @@ static int vtable_property_get_userdata(
         if (bus->nodes_modified)
                 return 0;
 
-        *userdata = vtable_property_convert_userdata(p->vtable, u);
+        *userdata = vtable_property_convert_userdata(p, u);
         return 1;
 }
 
@@ -325,7 +325,7 @@ static int check_access(sd_bus *bus, sd_bus_message *m, struct vtable_member *c,
                 return 0;
 
         /* If the member is marked UNPRIVILEGED let's grant access */
-        if (c->vtable->flags & SD_BUS_VTABLE_UNPRIVILEGED)
+        if (c->flags & SD_BUS_VTABLE_UNPRIVILEGED)
                 return 0;
 
         /* Check have the caller has the requested capability
@@ -333,9 +333,9 @@ static int check_access(sd_bus *bus, sd_bus_message *m, struct vtable_member *c,
          * number plus one, which we need to subtract here. We do this
          * so that we have 0 as special value for "default
          * capability". */
-        cap = CAPABILITY_SHIFT(c->vtable->flags);
+        cap = CAPABILITY_SHIFT(c->flags);
         if (cap == 0)
-                cap = CAPABILITY_SHIFT(c->parent->vtable[0].flags);
+                cap = CAPABILITY_SHIFT(c->parent->flags);
         if (cap == 0)
                 cap = CAP_SYS_ADMIN;
         else
@@ -380,7 +380,7 @@ static int method_callbacks_run(
         if (bus->nodes_modified)
                 return 0;
 
-        u = vtable_method_convert_userdata(c->vtable, u);
+        u = vtable_method_convert_userdata(c, u);
 
         *found_object = true;
 
@@ -397,27 +397,27 @@ static int method_callbacks_run(
         if (!signature)
                 return -EINVAL;
 
-        if (!streq(strempty(c->vtable->x.method.signature), signature))
+        if (!streq(strempty(c->x.method.signature), signature))
                 return sd_bus_reply_method_errorf(
                                 m,
                                 SD_BUS_ERROR_INVALID_ARGS,
                                 "Invalid arguments '%s' to call %s.%s(), expecting '%s'.",
-                                signature, c->interface, c->member, strempty(c->vtable->x.method.signature));
+                                signature, c->interface, c->member, strempty(c->x.method.signature));
 
         /* Keep track what the signature of the reply to this message
          * should be, so that this can be enforced when sealing the
          * reply. */
-        m->enforced_reply_signature = strempty(c->vtable->x.method.result);
+        m->enforced_reply_signature = strempty(c->x.method.result);
 
-        if (c->vtable->x.method.handler) {
+        if (c->x.method.handler) {
                 sd_bus_slot *slot;
 
                 slot = container_of(c->parent, sd_bus_slot, node_vtable);
 
                 bus->current_slot = sd_bus_slot_ref(slot);
-                bus->current_handler = c->vtable->x.method.handler;
+                bus->current_handler = c->x.method.handler;
                 bus->current_userdata = u;
-                r = c->vtable->x.method.handler(m, u, &error);
+                r = c->x.method.handler(m, u, &error);
                 bus->current_userdata = NULL;
                 bus->current_handler = NULL;
                 bus->current_slot = sd_bus_slot_unref(slot);
@@ -436,7 +436,7 @@ static int method_callbacks_run(
 static int invoke_property_get(
                 sd_bus *bus,
                 sd_bus_slot *slot,
-                const sd_bus_vtable *v,
+                struct vtable_member *v,
                 const char *path,
                 const char *interface,
                 const char *property,
@@ -501,7 +501,7 @@ static int invoke_property_get(
 static int invoke_property_set(
                 sd_bus *bus,
                 sd_bus_slot *slot,
-                const sd_bus_vtable *v,
+                struct vtable_member *v,
                 const char *path,
                 const char *interface,
                 const char *property,
@@ -616,7 +616,7 @@ static int property_get_set_callbacks_run(
                  * ultimately without side-effects or if they aren't
                  * then at least idempotent. */
 
-                r = sd_bus_message_open_container(reply, 'v', c->vtable->x.property.signature);
+                r = sd_bus_message_open_container(reply, 'v', c->x.property.signature);
                 if (r < 0)
                         return r;
 
@@ -625,7 +625,7 @@ static int property_get_set_callbacks_run(
                  * PropertiesChanged signals broadcast contents
                  * anyway. */
 
-                r = invoke_property_get(bus, slot, c->vtable, m->path, c->interface, c->member, reply, u, &error);
+                r = invoke_property_get(bus, slot, c, m->path, c->interface, c->member, reply, u, &error);
                 if (r < 0)
                         return bus_maybe_reply_error(m, r, &error);
 
@@ -640,7 +640,7 @@ static int property_get_set_callbacks_run(
                 const char *signature = NULL;
                 char type = 0;
 
-                if (c->vtable->type != _SD_BUS_VTABLE_WRITABLE_PROPERTY)
+                if (!(c->flags & SD_BUS_VTABLE_PROPERTY_WRITABLE))
                         return sd_bus_reply_method_errorf(m, SD_BUS_ERROR_PROPERTY_READ_ONLY, "Property '%s' is not writable.", c->member);
 
                 /* Avoid that we call the set routine more than once
@@ -655,10 +655,10 @@ static int property_get_set_callbacks_run(
                 if (r < 0)
                         return r;
 
-                if (type != 'v' || !streq(strempty(signature), strempty(c->vtable->x.property.signature)))
-                        return sd_bus_reply_method_errorf(m, SD_BUS_ERROR_INVALID_ARGS, "Incorrect parameters for property '%s', expected '%s', got '%s'.", c->member, strempty(c->vtable->x.property.signature), strempty(signature));
+                if (type != 'v' || !streq(strempty(signature), strempty(c->x.property.signature)))
+                        return sd_bus_reply_method_errorf(m, SD_BUS_ERROR_INVALID_ARGS, "Incorrect parameters for property '%s', expected '%s', got '%s'.", c->member, strempty(c->x.property.signature), strempty(signature));
 
-                r = sd_bus_message_enter_container(m, 'v', c->vtable->x.property.signature);
+                r = sd_bus_message_enter_container(m, 'v', c->x.property.signature);
                 if (r < 0)
                         return r;
 
@@ -666,7 +666,7 @@ static int property_get_set_callbacks_run(
                 if (r < 0)
                         return bus_maybe_reply_error(m, r, &error);
 
-                r = invoke_property_set(bus, slot, c->vtable, m->path, c->interface, c->member, m, u, &error);
+                r = invoke_property_set(bus, slot, c, m->path, c->interface, c->member, m, u, &error);
                 if (r < 0)
                         return bus_maybe_reply_error(m, r, &error);
 
@@ -690,7 +690,7 @@ static int vtable_append_one_property(
                 sd_bus_message *reply,
                 const char *path,
                 struct node_vtable *c,
-                const sd_bus_vtable *v,
+                struct vtable_member *v,
                 void *userdata,
                 sd_bus_error *error) {
 
@@ -707,7 +707,7 @@ static int vtable_append_one_property(
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_append(reply, "s", v->x.property.member);
+        r = sd_bus_message_append(reply, "s", v->member);
         if (r < 0)
                 return r;
 
@@ -717,7 +717,7 @@ static int vtable_append_one_property(
 
         slot = container_of(c, sd_bus_slot, node_vtable);
 
-        r = invoke_property_get(bus, slot, v, path, c->interface, v->x.property.member, reply, vtable_property_convert_userdata(v, userdata), error);
+        r = invoke_property_get(bus, slot, v, path, c->interface, v->member, reply, vtable_property_convert_userdata(v, userdata), error);
         if (r < 0)
                 return r;
         if (bus->nodes_modified)
@@ -742,7 +742,7 @@ static int vtable_append_all_properties(
                 void *userdata,
                 sd_bus_error *error) {
 
-        const sd_bus_vtable *v;
+        struct vtable_member *v;
         int r;
 
         assert(bus);
@@ -750,11 +750,11 @@ static int vtable_append_all_properties(
         assert(path);
         assert(c);
 
-        if (c->vtable[0].flags & SD_BUS_VTABLE_HIDDEN)
+        if (c->flags & SD_BUS_VTABLE_HIDDEN)
                 return 1;
 
-        for (v = c->vtable+1; v->type != _SD_BUS_VTABLE_END; v++) {
-                if (v->type != _SD_BUS_VTABLE_PROPERTY && v->type != _SD_BUS_VTABLE_WRITABLE_PROPERTY)
+        for (v = c->members; v; v = v->next) {
+                if (v->type != _SD_BUS_VTABLE_PROPERTY)
                         continue;
 
                 if (v->flags & SD_BUS_VTABLE_HIDDEN)
@@ -951,7 +951,7 @@ static int process_introspect(
 
                 empty = false;
 
-                if (c->vtable[0].flags & SD_BUS_VTABLE_HIDDEN)
+                if (c->flags & SD_BUS_VTABLE_HIDDEN)
                         continue;
 
                 if (!streq_ptr(previous_interface, c->interface)) {
@@ -962,7 +962,7 @@ static int process_introspect(
                         fprintf(intro.f, " <interface name=\"%s\">\n", c->interface);
                 }
 
-                r = introspect_write_interface(&intro, c->vtable);
+                r = introspect_write_interface(&intro, c);
                 if (r < 0)
                         goto finish;
 
@@ -1252,7 +1252,7 @@ static int object_find_and_run(
         vtable_key.interface = m->interface;
         vtable_key.member = m->member;
 
-        v = hashmap_get(bus->vtable_methods, &vtable_key);
+        v = set_get(bus->vtable_methods, &vtable_key);
         if (v) {
                 r = method_callbacks_run(bus, m, v, require_fallback, found_object);
                 if (r != 0)
@@ -1279,7 +1279,7 @@ static int object_find_and_run(
                         if (r < 0)
                                 return sd_bus_reply_method_errorf(m, SD_BUS_ERROR_INVALID_ARGS, "Expected interface and member parameters");
 
-                        v = hashmap_get(bus->vtable_properties, &vtable_key);
+                        v = set_get(bus->vtable_properties, &vtable_key);
                         if (v) {
                                 r = property_get_set_callbacks_run(bus, m, v, require_fallback, get, found_object);
                                 if (r != 0)
@@ -1581,7 +1581,7 @@ _public_ int sd_bus_add_fallback(
 }
 
 static void vtable_member_hash_func(const void *a, struct siphash *state) {
-        const struct vtable_member *m = a;
+        const struct vtable_member_key *m = a;
 
         assert(m);
 
@@ -1591,7 +1591,7 @@ static void vtable_member_hash_func(const void *a, struct siphash *state) {
 }
 
 static int vtable_member_compare_func(const void *a, const void *b) {
-        const struct vtable_member *x = a, *y = b;
+        const struct vtable_member_key *x = a, *y = b;
         int r;
 
         assert(x);
@@ -1625,27 +1625,33 @@ static int add_object_vtable_internal(
 
         sd_bus_slot *s = NULL;
         struct node_vtable *i, *existing = NULL;
+        struct vtable_member **prev_ptr;
         const sd_bus_vtable *v;
         struct node *n;
         int r;
+        size_t element_size;
 
         assert_return(bus, -EINVAL);
         assert_return(object_path_is_valid(path), -EINVAL);
         assert_return(interface_name_is_valid(interface), -EINVAL);
         assert_return(vtable, -EINVAL);
         assert_return(vtable[0].type == _SD_BUS_VTABLE_START, -EINVAL);
-        assert_return(vtable[0].x.start.element_size == sizeof(struct sd_bus_vtable), -EINVAL);
+        assert_return(!(vtable[0].flags & ~(SD_BUS_VTABLE_DEPRECATED|SD_BUS_VTABLE_HIDDEN|SD_BUS_VTABLE_UNPRIVILEGED)), -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
         assert_return(!streq(interface, "org.freedesktop.DBus.Properties") &&
                       !streq(interface, "org.freedesktop.DBus.Introspectable") &&
                       !streq(interface, "org.freedesktop.DBus.Peer") &&
                       !streq(interface, "org.freedesktop.DBus.ObjectManager"), -EINVAL);
 
-        r = hashmap_ensure_allocated(&bus->vtable_methods, &vtable_member_hash_ops);
+        element_size = vtable[0].x.start.element_size;
+        assert_return(element_size > 0, -EINVAL);
+        assert_return(element_size <= sizeof(struct sd_bus_vtable), -EINVAL);
+
+        r = set_ensure_allocated(&bus->vtable_methods, &vtable_member_hash_ops);
         if (r < 0)
                 return r;
 
-        r = hashmap_ensure_allocated(&bus->vtable_properties, &vtable_member_hash_ops);
+        r = set_ensure_allocated(&bus->vtable_properties, &vtable_member_hash_ops);
         if (r < 0)
                 return r;
 
@@ -1678,6 +1684,7 @@ static int add_object_vtable_internal(
 
         s->node_vtable.is_fallback = fallback;
         s->node_vtable.vtable = vtable;
+        s->node_vtable.flags = vtable[0].flags;
         s->node_vtable.find = find;
 
         s->node_vtable.interface = strdup(interface);
@@ -1686,12 +1693,28 @@ static int add_object_vtable_internal(
                 goto fail;
         }
 
-        for (v = s->node_vtable.vtable+1; v->type != _SD_BUS_VTABLE_END; v++) {
+        prev_ptr = &s->node_vtable.members;
+
+        for (v = vtable+1; v->type != _SD_BUS_VTABLE_END; v = (sd_bus_vtable*)((char*)v + element_size)) {
+                struct vtable_member *m;
+
+                m = new0(struct vtable_member, 1);
+                if (!m) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
+                *prev_ptr = m;
+                prev_ptr = &m->next;
+
+                m->parent = &s->node_vtable;
+                m->path = n->path;
+                m->interface = s->node_vtable.interface;
+                m->member = v->x.method.member;
 
                 switch (v->type) {
 
+                case _SD_BUS_VTABLE_METHOD_v1:
                 case _SD_BUS_VTABLE_METHOD: {
-                        struct vtable_member *m;
 
                         if (!member_name_is_valid(v->x.method.member) ||
                             !signature_is_valid(strempty(v->x.method.signature), false) ||
@@ -1702,76 +1725,56 @@ static int add_object_vtable_internal(
                                 goto fail;
                         }
 
-                        m = new0(struct vtable_member, 1);
-                        if (!m) {
-                                r = -ENOMEM;
-                                goto fail;
-                        }
+                        m->type = _SD_BUS_VTABLE_METHOD;
+                        m->flags = v->flags;
+                        m->x.method.signature = v->x.method.signature;
+                        m->x.method.result = v->x.method.result;
+                        m->x.method.handler = v->x.method.handler;
+                        m->x.method.offset = v->x.method.offset;
+                        if (v->type == _SD_BUS_VTABLE_METHOD)
+                                m->x.method.names = v->x.method.names;
 
-                        m->parent = &s->node_vtable;
-                        m->path = n->path;
-                        m->interface = s->node_vtable.interface;
-                        m->member = v->x.method.member;
-                        m->vtable = v;
-
-                        r = hashmap_put(bus->vtable_methods, m, m);
-                        if (r < 0) {
-                                free(m);
+                        r = set_put(bus->vtable_methods, m);
+                        if (r < 0)
                                 goto fail;
-                        }
 
                         break;
                 }
 
                 case _SD_BUS_VTABLE_WRITABLE_PROPERTY:
-
-                        if (!(v->x.property.set || bus_type_is_basic(v->x.property.signature[0]))) {
-                                r = -EINVAL;
-                                goto fail;
-                        }
-
-                        if (v->flags & SD_BUS_VTABLE_PROPERTY_CONST) {
-                                r = -EINVAL;
-                                goto fail;
-                        }
-
-                        /* Fall through */
-
                 case _SD_BUS_VTABLE_PROPERTY: {
-                        struct vtable_member *m;
+
+                        m->type = _SD_BUS_VTABLE_PROPERTY;
+                        m->flags = v->flags;
+                        if (v->type == _SD_BUS_VTABLE_WRITABLE_PROPERTY)
+                                m->flags |= SD_BUS_VTABLE_PROPERTY_WRITABLE;
 
                         if (!member_name_is_valid(v->x.property.member) ||
                             !signature_is_single(v->x.property.signature, false) ||
                             !(v->x.property.get || bus_type_is_basic(v->x.property.signature[0]) || streq(v->x.property.signature, "as")) ||
-                            (v->flags & SD_BUS_VTABLE_METHOD_NO_REPLY) ||
-                            (!!(v->flags & SD_BUS_VTABLE_PROPERTY_CONST) + !!(v->flags & SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE) + !!(v->flags & SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION)) > 1 ||
-                            ((v->flags & SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE) && (v->flags & SD_BUS_VTABLE_PROPERTY_EXPLICIT)) ||
-                            (v->flags & SD_BUS_VTABLE_UNPRIVILEGED && v->type == _SD_BUS_VTABLE_PROPERTY)) {
+                            ((m->flags & SD_BUS_VTABLE_PROPERTY_WRITABLE) && !(v->x.property.set || bus_type_is_basic(v->x.property.signature[0]))) ||
+                            ((m->flags & SD_BUS_VTABLE_PROPERTY_WRITABLE) && (m->flags & SD_BUS_VTABLE_PROPERTY_CONST)) ||
+                            (!(m->flags == SD_BUS_VTABLE_PROPERTY_WRITABLE) && (m->flags & SD_BUS_VTABLE_UNPRIVILEGED)) ||
+                            (m->flags & SD_BUS_VTABLE_METHOD_NO_REPLY) ||
+                            (!!(m->flags & SD_BUS_VTABLE_PROPERTY_CONST) + !!(m->flags & SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE) + !!(m->flags & SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION)) > 1 ||
+                            ((m->flags & SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE) && (m->flags & SD_BUS_VTABLE_PROPERTY_EXPLICIT)) ) {
                                 r = -EINVAL;
                                 goto fail;
                         }
 
-                        m = new0(struct vtable_member, 1);
-                        if (!m) {
-                                r = -ENOMEM;
-                                goto fail;
-                        }
+                        m->x.property.signature = v->x.property.signature;
+                        m->x.property.get = v->x.property.get;
+                        m->x.property.set = v->x.property.set;
+                        m->x.property.offset = v->x.property.offset;
 
-                        m->parent = &s->node_vtable;
-                        m->path = n->path;
-                        m->interface = s->node_vtable.interface;
-                        m->member = v->x.property.member;
-                        m->vtable = v;
-
-                        r = hashmap_put(bus->vtable_properties, m, m);
-                        if (r < 0) {
-                                free(m);
+                        r = set_put(bus->vtable_properties, m);
+                        if (r < 0)
                                 goto fail;
-                        }
 
                         break;
                 }
 
+                case _SD_BUS_VTABLE_SIGNAL_v1:
                 case _SD_BUS_VTABLE_SIGNAL:
 
                         if (!member_name_is_valid(v->x.signal.member) ||
@@ -1780,6 +1783,13 @@ static int add_object_vtable_internal(
                                 r = -EINVAL;
                                 goto fail;
                         }
+
+                        m->type = _SD_BUS_VTABLE_SIGNAL;
+                        m->flags = v->flags;
+                        m->x.signal.signature = v->x.signal.signature;
+
+                        if (v->type == _SD_BUS_VTABLE_SIGNAL)
+                                m->x.signal.names = v->x.signal.names;
 
                         break;
 
@@ -1884,7 +1894,7 @@ static int emit_properties_changed_on_interface(
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
         bool has_invalidating = false, has_changing = false;
-        struct vtable_member key = {};
+        struct vtable_member_key key = {};
         struct node_vtable *c;
         struct node *n;
         char **property;
@@ -1944,7 +1954,7 @@ static int emit_properties_changed_on_interface(
                                 assert_return(member_name_is_valid(*property), -EINVAL);
 
                                 key.member = *property;
-                                v = hashmap_get(bus->vtable_properties, &key);
+                                v = set_get(bus->vtable_properties, &key);
                                 if (!v)
                                         return -ENOENT;
 
@@ -1954,33 +1964,33 @@ static int emit_properties_changed_on_interface(
                                 if (c != v->parent)
                                         continue;
 
-                                assert_return(v->vtable->flags & SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE ||
-                                              v->vtable->flags & SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION, -EDOM);
+                                assert_return(v->flags & SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE ||
+                                              v->flags & SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION, -EDOM);
 
-                                assert_return(!(v->vtable->flags & SD_BUS_VTABLE_HIDDEN), -EDOM);
+                                assert_return(!(v->flags & SD_BUS_VTABLE_HIDDEN), -EDOM);
 
-                                if (v->vtable->flags & SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION) {
+                                if (v->flags & SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION) {
                                         has_invalidating = true;
                                         continue;
                                 }
 
                                 has_changing = true;
 
-                                r = vtable_append_one_property(bus, m, m->path, c, v->vtable, u, &error);
+                                r = vtable_append_one_property(bus, m, m->path, c, v, u, &error);
                                 if (r < 0)
                                         return r;
                                 if (bus->nodes_modified)
                                         return 0;
                         }
                 } else {
-                        const sd_bus_vtable *v;
+                        struct vtable_member *v;
 
                         /* If the caller specified no properties list
                          * we include all properties that are marked
                          * as changing in the message. */
 
-                        for (v = c->vtable+1; v->type != _SD_BUS_VTABLE_END; v++) {
-                                if (v->type != _SD_BUS_VTABLE_PROPERTY && v->type != _SD_BUS_VTABLE_WRITABLE_PROPERTY)
+                        for (v = c->members; v; v = v->next) {
+                                if (v->type != _SD_BUS_VTABLE_PROPERTY)
                                         continue;
 
                                 if (v->flags & SD_BUS_VTABLE_HIDDEN)
@@ -2037,10 +2047,10 @@ static int emit_properties_changed_on_interface(
                                         struct vtable_member *v;
 
                                         key.member = *property;
-                                        assert_se(v = hashmap_get(bus->vtable_properties, &key));
+                                        assert_se(v = set_get(bus->vtable_properties, &key));
                                         assert(c == v->parent);
 
-                                        if (!(v->vtable->flags & SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION))
+                                        if (!(v->flags & SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION))
                                                 continue;
 
                                         r = sd_bus_message_append(m, "s", *property);
@@ -2048,10 +2058,10 @@ static int emit_properties_changed_on_interface(
                                                 return r;
                                 }
                         } else {
-                                const sd_bus_vtable *v;
+                                struct vtable_member *v;
 
-                                for (v = c->vtable+1; v->type != _SD_BUS_VTABLE_END; v++) {
-                                        if (v->type != _SD_BUS_VTABLE_PROPERTY && v->type != _SD_BUS_VTABLE_WRITABLE_PROPERTY)
+                                for (v = c->members; v; v = v->next) {
+                                        if (v->type != _SD_BUS_VTABLE_PROPERTY)
                                                 continue;
 
                                         if (v->flags & SD_BUS_VTABLE_HIDDEN)
@@ -2060,7 +2070,7 @@ static int emit_properties_changed_on_interface(
                                         if (!(v->flags & SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION))
                                                 continue;
 
-                                        r = sd_bus_message_append(m, "s", v->x.property.member);
+                                        r = sd_bus_message_append(m, "s", v->member);
                                         if (r < 0)
                                                 return r;
                                 }

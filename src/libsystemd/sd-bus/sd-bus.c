@@ -160,8 +160,8 @@ static void bus_free(sd_bus *b) {
         assert(b->match_callbacks.type == BUS_MATCH_ROOT);
         bus_match_free(&b->match_callbacks);
 
-        hashmap_free_free(b->vtable_methods);
-        hashmap_free_free(b->vtable_properties);
+        set_free_free(b->vtable_methods);
+        set_free_free(b->vtable_properties);
 
         assert(hashmap_isempty(b->nodes));
         hashmap_free(b->nodes);

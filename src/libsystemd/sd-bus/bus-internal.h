@@ -34,6 +34,7 @@
 #include "list.h"
 #include "prioq.h"
 #include "refcnt.h"
+#include "set.h"
 #include "socket-util.h"
 #include "util.h"
 
@@ -108,11 +109,19 @@ struct node_vtable {
         char *interface;
         bool is_fallback;
         const sd_bus_vtable *vtable;
+        uint64_t flags;
+        struct vtable_member *members;
         sd_bus_object_find_t find;
 
         unsigned last_iteration;
 
         LIST_FIELDS(struct node_vtable, vtables);
+};
+
+struct vtable_member_key {
+        const char *path;
+        const char *interface;
+        const char *member;
 };
 
 struct vtable_member {
@@ -121,7 +130,29 @@ struct vtable_member {
         const char *member;
         struct node_vtable *parent;
         unsigned last_iteration;
-        const sd_bus_vtable *vtable;
+        struct vtable_member *next;
+
+        uint8_t type:8;
+        uint64_t flags:56;
+        union {
+                struct {
+                        const char *signature;
+                        const char *result;
+                        sd_bus_message_handler_t handler;
+                        size_t offset;
+                        const char *const *names;
+                } method;
+                struct {
+                        const char *signature;
+                        const char *const *names;
+                } signal;
+                struct {
+                        const char *signature;
+                        sd_bus_property_get_t get;
+                        sd_bus_property_set_t set;
+                        size_t offset;
+                } property;
+        } x;
 };
 
 typedef enum BusSlotType {
@@ -237,8 +268,8 @@ struct sd_bus {
         LIST_HEAD(struct filter_callback, filter_callbacks);
 
         Hashmap *nodes;
-        Hashmap *vtable_methods;
-        Hashmap *vtable_properties;
+        Set *vtable_methods;
+        Set *vtable_properties;
 
         union sockaddr_union sockaddr;
         socklen_t sockaddr_size;

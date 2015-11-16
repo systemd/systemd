@@ -3138,7 +3138,6 @@ tests += \
 	test-bus-kernel \
 	test-bus-kernel-bloom \
 	test-bus-zero-copy \
-	test-bus-introspect \
 	test-bus-objects \
 	test-bus-error \
 	test-bus-creds \
@@ -3255,12 +3254,6 @@ test_bus_zero_copy_SOURCES = \
 	src/libsystemd/sd-bus/test-bus-zero-copy.c
 
 test_bus_zero_copy_LDADD = \
-	libshared.la
-
-test_bus_introspect_SOURCES = \
-	src/libsystemd/sd-bus/test-bus-introspect.c
-
-test_bus_introspect_LDADD = \
 	libshared.la
 
 test_event_SOURCES = \
