@@ -53,8 +53,8 @@ void siphash24_init(struct siphash *state, const uint8_t k[16]) {
         assert(state);
         assert(k);
 
-        k0 = le64toh(*(le64_t*) k);
-        k1 = le64toh(*(le64_t*) (k + 8));
+        k0 = unaligned_read_le64(k);
+        k1 = unaligned_read_le64(k + 8);
 
         /* "somepseudorandomlygeneratedbytes" */
         state->v0 = 0x736f6d6570736575ULL ^ k0;
