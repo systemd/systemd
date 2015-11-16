@@ -22,11 +22,11 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+#include "journal-authenticate.h"
+#include "journal-file.h"
+#include "journal-vacuum.h"
 #include "log.h"
 #include "rm-rf.h"
-#include "journal-file.h"
-#include "journal-authenticate.h"
-#include "journal-vacuum.h"
 
 static bool arg_keep = false;
 

@@ -26,9 +26,9 @@
 #include "sd-id128.h"
 
 #include "fd-util.h"
+#include "hexdecoct.h"
 #include "io-util.h"
 #include "macro.h"
-#include "hexdecoct.h"
 #include "random-util.h"
 #include "util.h"
 

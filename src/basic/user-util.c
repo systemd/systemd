@@ -19,8 +19,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <pwd.h>
 #include <grp.h>
+#include <pwd.h>
 
 #include "alloc-util.h"
 #include "fd-util.h"

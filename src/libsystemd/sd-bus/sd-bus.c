@@ -20,12 +20,12 @@
 ***/
 
 #include <endian.h>
-#include <stdlib.h>
-#include <unistd.h>
 #include <netdb.h>
 #include <poll.h>
-#include <sys/mman.h>
 #include <pthread.h>
+#include <stdlib.h>
+#include <sys/mman.h>
+#include <unistd.h>
 
 #include "sd-bus.h"
 
@@ -46,10 +46,10 @@
 #include "cgroup-util.h"
 #include "def.h"
 #include "fd-util.h"
+#include "hexdecoct.h"
 #include "hostname-util.h"
 #include "macro.h"
 #include "missing.h"
-#include "hexdecoct.h"
 #include "parse-util.h"
 #include "string-util.h"
 #include "strv.h"

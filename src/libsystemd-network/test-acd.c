@@ -19,21 +19,21 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdlib.h>
 #include <errno.h>
+#include <stdlib.h>
 #include <unistd.h>
 
 #include <linux/veth.h>
 #include <net/if.h>
 
 #include "sd-event.h"
-#include "sd-netlink.h"
 #include "sd-ipv4acd.h"
+#include "sd-netlink.h"
 
-#include "util.h"
 #include "event-util.h"
-#include "netlink-util.h"
 #include "in-addr-util.h"
+#include "netlink-util.h"
+#include "util.h"
 
 static void acd_handler(sd_ipv4acd *acd, int event, void *userdata) {
         assert_se(acd);

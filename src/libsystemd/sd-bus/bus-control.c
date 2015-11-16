@@ -23,8 +23,8 @@
 #include <valgrind/memcheck.h>
 #endif
 
-#include <stddef.h>
 #include <errno.h>
+#include <stddef.h>
 
 #include "sd-bus.h"
 

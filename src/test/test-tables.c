@@ -36,6 +36,7 @@
 #include "logs-show.h"
 #include "mount.h"
 #include "path.h"
+#include "rlimit-util.h"
 #include "scope.h"
 #include "service.h"
 #include "slice.h"
@@ -43,13 +44,11 @@
 #include "socket.h"
 #include "swap.h"
 #include "target.h"
+#include "test-tables.h"
 #include "timer.h"
 #include "unit-name.h"
 #include "unit.h"
 #include "util.h"
-#include "rlimit-util.h"
-
-#include "test-tables.h"
 
 int main(int argc, char **argv) {
         test_table(architecture, ARCHITECTURE);

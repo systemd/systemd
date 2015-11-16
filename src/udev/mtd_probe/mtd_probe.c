@@ -17,14 +17,14 @@
  * Boston, MA  02110-1301  USA
  */
 
-#include <stdio.h>
-#include <sys/ioctl.h>
-#include <mtd/mtd-user.h>
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <fcntl.h>
-#include <unistd.h>
+#include <mtd/mtd-user.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <sys/ioctl.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #include "mtd_probe.h"
 

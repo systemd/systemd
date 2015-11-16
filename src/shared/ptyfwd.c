@@ -19,9 +19,9 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <limits.h>
 #include <sys/epoll.h>
 #include <sys/ioctl.h>
-#include <limits.h>
 #include <termios.h>
 
 #include "alloc-util.h"

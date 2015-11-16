@@ -22,8 +22,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#include "namespace.h"
 #include "log.h"
+#include "namespace.h"
 
 int main(int argc, char *argv[]) {
         const char * const writable[] = {

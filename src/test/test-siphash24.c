@@ -19,8 +19,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "util.h"
 #include "siphash24.h"
+#include "util.h"
 
 #define ITERATIONS 10000000ULL
 

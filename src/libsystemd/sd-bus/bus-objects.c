@@ -23,6 +23,7 @@
 #include "bus-internal.h"
 #include "bus-introspect.h"
 #include "bus-message.h"
+#include "bus-objects.h"
 #include "bus-signature.h"
 #include "bus-slot.h"
 #include "bus-type.h"
@@ -30,7 +31,6 @@
 #include "set.h"
 #include "string-util.h"
 #include "strv.h"
-#include "bus-objects.h"
 
 static int node_vtable_get_userdata(
                 sd_bus *bus,

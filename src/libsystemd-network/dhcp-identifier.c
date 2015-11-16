@@ -19,11 +19,11 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "libudev.h"
 #include "sd-id128.h"
 
 #include "dhcp-identifier.h"
 #include "dhcp6-protocol.h"
+#include "libudev.h"
 #include "network-internal.h"
 #include "siphash24.h"
 #include "sparse-endian.h"

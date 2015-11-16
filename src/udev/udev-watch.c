@@ -17,12 +17,12 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <errno.h>
-#include <stdio.h>
 #include <dirent.h>
+#include <errno.h>
 #include <stddef.h>
-#include <unistd.h>
+#include <stdio.h>
 #include <sys/inotify.h>
+#include <unistd.h>
 
 #include "udev.h"
 

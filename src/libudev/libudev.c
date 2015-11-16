@@ -24,11 +24,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "libudev.h"
-
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "libudev-private.h"
+#include "libudev.h"
 #include "missing.h"
 #include "string-util.h"
 

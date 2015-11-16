@@ -21,9 +21,9 @@
 
 #include <sys/utsname.h>
 
+#include "architecture.h"
 #include "string-table.h"
 #include "string-util.h"
-#include "architecture.h"
 
 int uname_architecture(void) {
 

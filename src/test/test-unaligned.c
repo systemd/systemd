@@ -17,8 +17,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "unaligned.h"
 #include "sparse-endian.h"
+#include "unaligned.h"
 #include "util.h"
 
 static uint8_t data[] = {

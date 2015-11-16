@@ -18,12 +18,12 @@
 #include <efi.h>
 #include <efilib.h>
 
-#include "util.h"
 #include "console.h"
-#include "graphics.h"
-#include "pefile.h"
 #include "disk.h"
+#include "graphics.h"
 #include "linux.h"
+#include "pefile.h"
+#include "util.h"
 
 #ifndef EFI_OS_INDICATIONS_BOOT_TO_FW_UI
 #define EFI_OS_INDICATIONS_BOOT_TO_FW_UI 0x0000000000000001ULL

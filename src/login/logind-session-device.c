@@ -25,11 +25,10 @@
 #include <sys/ioctl.h>
 #include <sys/types.h>
 
-#include "libudev.h"
-
 #include "alloc-util.h"
 #include "bus-util.h"
 #include "fd-util.h"
+#include "libudev.h"
 #include "logind-session-device.h"
 #include "missing.h"
 #include "util.h"

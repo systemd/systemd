@@ -19,12 +19,12 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdlib.h>
 #include <signal.h>
+#include <stdlib.h>
 
 #include "exit-status.h"
-#include "set.h"
 #include "macro.h"
+#include "set.h"
 
 const char* exit_status_to_string(ExitStatus status, ExitStatusLevel level) {
 

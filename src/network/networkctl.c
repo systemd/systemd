@@ -36,7 +36,6 @@
 #include "lldp.h"
 #include "local-addresses.h"
 #include "locale-util.h"
-#include "locale-util.h"
 #include "netlink-util.h"
 #include "pager.h"
 #include "parse-util.h"

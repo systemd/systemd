@@ -19,12 +19,12 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <unistd.h>
 #include <errno.h>
+#include <mntent.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
-#include <mntent.h>
+#include <unistd.h>
 
 #include "exit-status.h"
 #include "log.h"

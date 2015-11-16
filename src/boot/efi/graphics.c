@@ -20,8 +20,8 @@
 #include <efi.h>
 #include <efilib.h>
 
-#include "util.h"
 #include "graphics.h"
+#include "util.h"
 
 EFI_STATUS graphics_mode(BOOLEAN on) {
         #define EFI_CONSOLE_CONTROL_PROTOCOL_GUID \

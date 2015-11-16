@@ -16,12 +16,12 @@
 #include <efi.h>
 #include <efilib.h>
 
-#include "util.h"
-#include "pefile.h"
 #include "disk.h"
 #include "graphics.h"
-#include "splash.h"
 #include "linux.h"
+#include "pefile.h"
+#include "splash.h"
+#include "util.h"
 
 /* magic string to find in the binary image */
 static const char __attribute__((used)) magic[] = "#### LoaderInfo: systemd-stub " VERSION " ####";

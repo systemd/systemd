@@ -20,10 +20,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <locale.h>
-#include <unistd.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <locale.h>
+#include <unistd.h>
 
 #include "sd-messages.h"
 

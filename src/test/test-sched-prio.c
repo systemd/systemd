@@ -21,8 +21,8 @@
 
 #include <sched.h>
 
-#include "manager.h"
 #include "macro.h"
+#include "manager.h"
 
 int main(int argc, char *argv[]) {
         Manager *m = NULL;

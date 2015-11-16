@@ -25,11 +25,11 @@
 #include <sys/prctl.h>
 #include <unistd.h>
 
+#include "proc-cmdline.h"
 #include "process-util.h"
 #include "signal-util.h"
 #include "string-util.h"
 #include "util.h"
-#include "proc-cmdline.h"
 
 static bool arg_skip = false;
 static bool arg_force = false;

@@ -19,8 +19,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <string.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "install.h"
 

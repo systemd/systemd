@@ -19,11 +19,11 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdio.h>
-#include <errno.h>
-#include <unistd.h>
-#include <sys/epoll.h>
 #include <ctype.h>
+#include <errno.h>
+#include <stdio.h>
+#include <sys/epoll.h>
+#include <unistd.h>
 
 #include "sd-bus.h"
 #include "sd-daemon.h"

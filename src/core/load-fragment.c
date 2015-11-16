@@ -32,8 +32,8 @@
 #include <sys/resource.h>
 #include <sys/stat.h>
 
-#include "alloc-util.h"
 #include "af-list.h"
+#include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-internal.h"
 #include "bus-util.h"

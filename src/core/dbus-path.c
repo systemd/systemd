@@ -20,10 +20,10 @@
 ***/
 
 #include "bus-util.h"
+#include "dbus-path.h"
 #include "path.h"
 #include "string-util.h"
 #include "unit.h"
-#include "dbus-path.h"
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_result, path_result, PathResult);
 

@@ -30,8 +30,8 @@
 #include "fileio.h"
 #include "log.h"
 #include "string-util.h"
-#include "util.h"
 #include "sysctl-util.h"
+#include "util.h"
 
 char *sysctl_normalize(char *s) {
         char *n;

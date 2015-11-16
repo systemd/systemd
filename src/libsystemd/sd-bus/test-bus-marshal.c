@@ -19,8 +19,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdlib.h>
 #include <math.h>
+#include <stdlib.h>
 
 #ifdef HAVE_GLIB
 #include <gio/gio.h>
@@ -38,8 +38,8 @@
 #include "bus-message.h"
 #include "bus-util.h"
 #include "fd-util.h"
-#include "log.h"
 #include "hexdecoct.h"
+#include "log.h"
 #include "util.h"
 
 static void test_bus_path_encode_unique(void) {

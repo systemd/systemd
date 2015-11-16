@@ -19,12 +19,12 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdio.h>
 #include <errno.h>
+#include <stdio.h>
 #include <string.h>
 
-#include "manager.h"
 #include "bus-util.h"
+#include "manager.h"
 
 int main(int argc, char *argv[]) {
         _cleanup_bus_error_free_ sd_bus_error err = SD_BUS_ERROR_NULL;

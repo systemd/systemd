@@ -29,6 +29,7 @@
 #include "bus-error.h"
 #include "bus-util.h"
 #include "escape.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "formats-util.h"
@@ -42,7 +43,6 @@
 #include "terminal-util.h"
 #include "unit-name.h"
 #include "util.h"
-#include "extract-word.h"
 
 Machine* machine_new(Manager *manager, MachineClass class, const char *name) {
         Machine *m;
