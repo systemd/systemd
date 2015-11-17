@@ -2247,7 +2247,8 @@ int main(int argc, char *argv[]) {
                 if (arg_follow)
                         need_seek = true;
                 else {
-                        printf("-- No entries --\n");
+                        if (!arg_quiet)
+                                printf("-- No entries --\n");
                         goto finish;
                 }
         }
