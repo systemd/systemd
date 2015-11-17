@@ -5669,6 +5669,9 @@ EXTRA_DIST += \
 	test/TEST-03-JOBS/Makefile \
 	test/TEST-03-JOBS/test-jobs.sh \
 	test/TEST-03-JOBS/test.sh \
+	test/TEST-04-JOURNAL/Makefile \
+	test/TEST-04-JOURNAL/test-journal.sh \
+	test/TEST-04-JOURNAL/test.sh \
 	test/test-functions
 
 EXTRA_DIST += \
