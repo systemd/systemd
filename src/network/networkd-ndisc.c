@@ -207,6 +207,10 @@ static void ndisc_handler(sd_ndisc *nd, int event, void *userdata) {
                 r = sd_dhcp6_client_start(link->dhcp6_client);
                 if (r < 0 && r != -EALREADY)
                         log_link_warning_errno(link, r, "Starting DHCPv6 client after NDisc timeout failed: %m");
+
+                link->ndisc_configured = true;
+                link_check_ready(link);
+
                 break;
         case SD_NDISC_EVENT_STOP:
                 break;
