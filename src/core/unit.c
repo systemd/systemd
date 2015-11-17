@@ -3704,3 +3704,23 @@ int unit_fail_if_symlink(Unit *u, const char* where) {
 
         return -ELOOP;
 }
+
+bool unit_is_pristine(Unit *u) {
+        assert(u);
+
+        /* Check if the unit already exists or is already referenced,
+         * in a number of different ways. Note that to cater for unit
+         * types such as slice, we are generally fine with units that
+         * are marked UNIT_LOADED even even though nothing was
+         * actually loaded, as those unit types don't require a file
+         * on disk to validly load. */
+
+        return !(!IN_SET(u->load_state, UNIT_NOT_FOUND, UNIT_LOADED) ||
+                 u->fragment_path ||
+                 u->source_path ||
+                 !strv_isempty(u->dropin_paths) ||
+                 u->refs ||
+                 set_size(u->dependencies[UNIT_REFERENCED_BY]) > 0 ||
+                 u->job ||
+                 u->merged_into);
+}

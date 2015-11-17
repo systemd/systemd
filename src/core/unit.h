@@ -586,6 +586,8 @@ int unit_require_mounts_for(Unit *u, const char *path);
 
 bool unit_type_supported(UnitType t);
 
+bool unit_is_pristine(Unit *u);
+
 static inline bool unit_supported(Unit *u) {
         return unit_type_supported(u->type);
 }
