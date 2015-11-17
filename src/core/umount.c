@@ -27,11 +27,12 @@
 #include <sys/mount.h>
 #include <sys/swap.h>
 
+#include "libudev.h"
+
 #include "alloc-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fstab-util.h"
-#include "libudev.h"
 #include "list.h"
 #include "mount-setup.h"
 #include "path-util.h"

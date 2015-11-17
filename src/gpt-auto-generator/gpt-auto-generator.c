@@ -24,6 +24,7 @@
 #include <sys/statfs.h>
 #include <unistd.h>
 
+#include "libudev.h"
 #include "sd-id128.h"
 
 #include "alloc-util.h"
@@ -36,7 +37,6 @@
 #include "fstab-util.h"
 #include "generator.h"
 #include "gpt.h"
-#include "libudev.h"
 #include "missing.h"
 #include "mkdir.h"
 #include "mount-util.h"

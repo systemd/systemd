@@ -22,8 +22,9 @@
 #include <errno.h>
 #include <string.h>
 
-#include "alloc-util.h"
 #include "libudev.h"
+
+#include "alloc-util.h"
 #include "locale-util.h"
 #include "path-util.h"
 #include "string-util.h"

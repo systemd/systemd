@@ -28,12 +28,13 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include "libudev.h"
+
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "formats-util.h"
 #include "libudev-private.h"
-#include "libudev.h"
 #include "missing.h"
 #include "mount-util.h"
 #include "socket-util.h"
