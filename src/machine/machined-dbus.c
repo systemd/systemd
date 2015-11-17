@@ -1508,7 +1508,7 @@ int manager_get_machine_by_pid(Manager *m, pid_t pid, Machine **machine) {
         assert(pid >= 1);
         assert(machine);
 
-        mm = hashmap_get(m->machine_leaders, UINT_TO_PTR(pid));
+        mm = hashmap_get(m->machine_leaders, PID_TO_PTR(pid));
         if (!mm) {
                 _cleanup_free_ char *unit = NULL;
 

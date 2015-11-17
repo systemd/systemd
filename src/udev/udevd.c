@@ -191,7 +191,7 @@ static void worker_free(struct worker *worker) {
 
         assert(worker->manager);
 
-        hashmap_remove(worker->manager->workers, UINT_TO_PTR(worker->pid));
+        hashmap_remove(worker->manager->workers, PID_TO_PTR(worker->pid));
         udev_monitor_unref(worker->monitor);
         event_free(worker->event);
 
@@ -234,7 +234,7 @@ static int worker_new(struct worker **ret, Manager *manager, struct udev_monitor
         if (r < 0)
                 return r;
 
-        r = hashmap_put(manager->workers, UINT_TO_PTR(pid), worker);
+        r = hashmap_put(manager->workers, PID_TO_PTR(pid), worker);
         if (r < 0)
                 return r;
 
@@ -891,7 +891,7 @@ static int on_worker(sd_event_source *s, int fd, uint32_t revents, void *userdat
                 }
 
                 /* lookup worker who sent the signal */
-                worker = hashmap_get(manager->workers, UINT_TO_PTR(ucred->pid));
+                worker = hashmap_get(manager->workers, PID_TO_PTR(ucred->pid));
                 if (!worker) {
                         log_debug("worker ["PID_FMT"] returned, but is no longer tracked", ucred->pid);
                         continue;
@@ -1195,7 +1195,7 @@ static int on_sigchld(sd_event_source *s, const struct signalfd_siginfo *si, voi
                 if (pid <= 0)
                         break;
 
-                worker = hashmap_get(manager->workers, UINT_TO_PTR(pid));
+                worker = hashmap_get(manager->workers, PID_TO_PTR(pid));
                 if (!worker) {
                         log_warning("worker ["PID_FMT"] is unknown, ignoring", pid);
                         continue;

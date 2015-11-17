@@ -38,6 +38,7 @@
 #include "machine.h"
 #include "mkdir.h"
 #include "parse-util.h"
+#include "process-util.h"
 #include "special.h"
 #include "string-table.h"
 #include "terminal-util.h"
@@ -105,7 +106,7 @@ void machine_free(Machine *m) {
                 m->manager->host_machine = NULL;
 
         if (m->leader > 0)
-                (void) hashmap_remove_value(m->manager->machine_leaders, UINT_TO_PTR(m->leader), m);
+                (void) hashmap_remove_value(m->manager->machine_leaders, PID_TO_PTR(m->leader), m);
 
         sd_bus_message_unref(m->create_message);
 
@@ -401,7 +402,7 @@ int machine_start(Machine *m, sd_bus_message *properties, sd_bus_error *error) {
         if (m->started)
                 return 0;
 
-        r = hashmap_put(m->manager->machine_leaders, UINT_TO_PTR(m->leader), m);
+        r = hashmap_put(m->manager->machine_leaders, PID_TO_PTR(m->leader), m);
         if (r < 0)
                 return r;
 

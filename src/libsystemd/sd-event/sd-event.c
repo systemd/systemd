@@ -34,6 +34,7 @@
 #include "macro.h"
 #include "missing.h"
 #include "prioq.h"
+#include "process-util.h"
 #include "set.h"
 #include "signal-util.h"
 #include "string-util.h"
@@ -808,7 +809,7 @@ static void source_disconnect(sd_event_source *s) {
                                 s->event->n_enabled_child_sources--;
                         }
 
-                        (void) hashmap_remove(s->event->child_sources, INT_TO_PTR(s->child.pid));
+                        (void) hashmap_remove(s->event->child_sources, PID_TO_PTR(s->child.pid));
                         event_gc_signal_data(s->event, &s->priority, SIGCHLD);
                 }
 
@@ -1188,7 +1189,7 @@ _public_ int sd_event_add_child(
         if (r < 0)
                 return r;
 
-        if (hashmap_contains(e->child_sources, INT_TO_PTR(pid)))
+        if (hashmap_contains(e->child_sources, PID_TO_PTR(pid)))
                 return -EBUSY;
 
         s = source_new(e, !ret, SOURCE_CHILD);
@@ -1201,7 +1202,7 @@ _public_ int sd_event_add_child(
         s->userdata = userdata;
         s->enabled = SD_EVENT_ONESHOT;
 
-        r = hashmap_put(e->child_sources, INT_TO_PTR(pid), s);
+        r = hashmap_put(e->child_sources, PID_TO_PTR(pid), s);
         if (r < 0) {
                 source_free(s);
                 return r;

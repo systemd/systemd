@@ -101,6 +101,8 @@ int sd_ipv4ll_new(sd_ipv4ll **ret) {
         if (!ll)
                 return -ENOMEM;
 
+        ll->n_ref = 1;
+
         r = sd_ipv4acd_new(&ll->acd);
         if (r < 0)
                 return r;
@@ -108,8 +110,6 @@ int sd_ipv4ll_new(sd_ipv4ll **ret) {
         r = sd_ipv4acd_set_callback(ll->acd, ipv4ll_on_acd, ll);
         if (r < 0)
                 return r;
-
-        ll->n_ref = 1;
 
         *ret = ll;
         ll = NULL;

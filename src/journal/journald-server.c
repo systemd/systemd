@@ -69,6 +69,7 @@
 #include "socket-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "user-util.h"
 
 #define USER_JOURNALS_MAX 1024
 
@@ -281,7 +282,7 @@ static JournalFile* find_journal(Server *s, uid_t uid) {
         if (r < 0)
                 return s->system_journal;
 
-        f = ordered_hashmap_get(s->user_journals, UINT32_TO_PTR(uid));
+        f = ordered_hashmap_get(s->user_journals, UID_TO_PTR(uid));
         if (f)
                 return f;
 
@@ -302,7 +303,7 @@ static JournalFile* find_journal(Server *s, uid_t uid) {
 
         server_fix_perms(s, f, uid);
 
-        r = ordered_hashmap_put(s->user_journals, UINT32_TO_PTR(uid), f);
+        r = ordered_hashmap_put(s->user_journals, UID_TO_PTR(uid), f);
         if (r < 0) {
                 journal_file_close(f);
                 return s->system_journal;
@@ -348,7 +349,7 @@ void server_rotate(Server *s) {
         (void) do_rotate(s, &s->system_journal, "system", s->seal, 0);
 
         ORDERED_HASHMAP_FOREACH_KEY(f, k, s->user_journals, i) {
-                r = do_rotate(s, &f, "user", s->seal, PTR_TO_UINT32(k));
+                r = do_rotate(s, &f, "user", s->seal, PTR_TO_UID(k));
                 if (r >= 0)
                         ordered_hashmap_replace(s->user_journals, k, f);
                 else if (!f)
@@ -359,7 +360,6 @@ void server_rotate(Server *s) {
 
 void server_sync(Server *s) {
         JournalFile *f;
-        void *k;
         Iterator i;
         int r;
 
@@ -369,7 +369,7 @@ void server_sync(Server *s) {
                         log_warning_errno(r, "Failed to sync system journal, ignoring: %m");
         }
 
-        ORDERED_HASHMAP_FOREACH_KEY(f, k, s->user_journals, i) {
+        ORDERED_HASHMAP_FOREACH(f, s->user_journals, i) {
                 r = journal_file_set_offline(f);
                 if (r < 0)
                         log_warning_errno(r, "Failed to sync user journal, ignoring: %m");

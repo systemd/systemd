@@ -157,8 +157,7 @@ int coredump_vacuum(int exclude_fd, uint64_t keep_free, uint64_t max_use) {
                 if (errno == ENOENT)
                         return 0;
 
-                log_error_errno(errno, "Can't open coredump directory: %m");
-                return -errno;
+                return log_error_errno(errno, "Can't open coredump directory: %m");
         }
 
         for (;;) {
@@ -183,7 +182,7 @@ int coredump_vacuum(int exclude_fd, uint64_t keep_free, uint64_t max_use) {
                                 if (errno == ENOENT)
                                         continue;
 
-                                log_warning("Failed to stat /var/lib/systemd/coredump/%s", de->d_name);
+                                log_warning_errno(errno, "Failed to stat /var/lib/systemd/coredump/%s: %m", de->d_name);
                                 continue;
                         }
 
@@ -201,7 +200,7 @@ int coredump_vacuum(int exclude_fd, uint64_t keep_free, uint64_t max_use) {
 
                         t = timespec_load(&st.st_mtim);
 
-                        c = hashmap_get(h, UINT32_TO_PTR(uid));
+                        c = hashmap_get(h, UID_TO_PTR(uid));
                         if (c) {
 
                                 if (t < c->oldest_mtime) {
@@ -229,7 +228,7 @@ int coredump_vacuum(int exclude_fd, uint64_t keep_free, uint64_t max_use) {
 
                                 n->oldest_mtime = t;
 
-                                r = hashmap_put(h, UINT32_TO_PTR(uid), n);
+                                r = hashmap_put(h, UID_TO_PTR(uid), n);
                                 if (r < 0)
                                         return log_oom();
 
@@ -259,8 +258,7 @@ int coredump_vacuum(int exclude_fd, uint64_t keep_free, uint64_t max_use) {
                         if (errno == ENOENT)
                                 continue;
 
-                        log_error_errno(errno, "Failed to remove file %s: %m", worst->oldest_file);
-                        return -errno;
+                        return log_error_errno(errno, "Failed to remove file %s: %m", worst->oldest_file);
                 } else
                         log_info("Removed old coredump %s.", worst->oldest_file);
         }
@@ -268,6 +266,5 @@ int coredump_vacuum(int exclude_fd, uint64_t keep_free, uint64_t max_use) {
         return 0;
 
 fail:
-        log_error_errno(errno, "Failed to read directory: %m");
-        return -errno;
+        return log_error_errno(errno, "Failed to read directory: %m");
 }

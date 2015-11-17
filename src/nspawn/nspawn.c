@@ -2283,7 +2283,7 @@ static int wait_for_container(pid_t pid, ContainerStatus *container) {
 static int on_orderly_shutdown(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
         pid_t pid;
 
-        pid = PTR_TO_UINT32(userdata);
+        pid = PTR_TO_PID(userdata);
         if (pid > 0) {
                 if (kill(pid, arg_kill_signal) >= 0) {
                         log_info("Trying to halt container. Send SIGTERM again to trigger immediate termination.");
@@ -3510,8 +3510,8 @@ int main(int argc, char *argv[]) {
 
                 if (arg_kill_signal > 0) {
                         /* Try to kill the init system on SIGINT or SIGTERM */
-                        sd_event_add_signal(event, NULL, SIGINT, on_orderly_shutdown, UINT32_TO_PTR(pid));
-                        sd_event_add_signal(event, NULL, SIGTERM, on_orderly_shutdown, UINT32_TO_PTR(pid));
+                        sd_event_add_signal(event, NULL, SIGINT, on_orderly_shutdown, PID_TO_PTR(pid));
+                        sd_event_add_signal(event, NULL, SIGTERM, on_orderly_shutdown, PID_TO_PTR(pid));
                 } else {
                         /* Immediately exit */
                         sd_event_add_signal(event, NULL, SIGINT, NULL, NULL);
