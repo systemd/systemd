@@ -75,7 +75,7 @@ static void ndisc_prefix_autonomous_handler(sd_ndisc *nd, const struct in6_addr 
         address->family = AF_INET6;
         address->in_addr.in6 = *prefix;
         if (in_addr_is_null(AF_INET6, (const union in_addr_union *) &link->network->ipv6_token) == 0)
-                memcpy(&address->in_addr.in6 + 8, &link->network->ipv6_token + 8, 8);
+                memcpy(((char *)&address->in_addr.in6) + 8, ((char *)&link->network->ipv6_token) + 8, 8);
         else {
                 /* see RFC4291 section 2.5.1 */
                 address->in_addr.in6.__in6_u.__u6_addr8[8]  = link->mac.ether_addr_octet[0];
