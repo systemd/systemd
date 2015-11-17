@@ -137,10 +137,20 @@ enum {
         DHCP_OPTION_REBINDING_T2_TIME           = 59,
         DHCP_OPTION_VENDOR_CLASS_IDENTIFIER     = 60,
         DHCP_OPTION_CLIENT_IDENTIFIER           = 61,
+        DHCP_OPTION_FQDN                        = 81,
         DHCP_OPTION_NEW_POSIX_TIMEZONE          = 100,
         DHCP_OPTION_NEW_TZDB_TIMEZONE           = 101,
         DHCP_OPTION_CLASSLESS_STATIC_ROUTE      = 121,
         DHCP_OPTION_PRIVATE_BASE                = 224,
         DHCP_OPTION_PRIVATE_LAST                = 254,
         DHCP_OPTION_END                         = 255,
+};
+
+#define DHCP_MAX_FQDN_LENGTH 255
+
+enum {
+        DHCP_FQDN_FLAG_S = (1 << 0),
+        DHCP_FQDN_FLAG_O = (1 << 1),
+        DHCP_FQDN_FLAG_E = (1 << 2),
+        DHCP_FQDN_FLAG_N = (1 << 3),
 };

@@ -63,6 +63,7 @@ int sd_dhcp_client_get_client_id(sd_dhcp_client *client, uint8_t *type,
                                  const uint8_t **data, size_t *data_len);
 int sd_dhcp_client_set_mtu(sd_dhcp_client *client, uint32_t mtu);
 int sd_dhcp_client_set_hostname(sd_dhcp_client *client, const char *hostname);
+int sd_dhcp_client_set_fqdn(sd_dhcp_client *client, const char *fqdn);
 int sd_dhcp_client_set_vendor_class_identifier(sd_dhcp_client *client, const char *vci);
 int sd_dhcp_client_get_lease(sd_dhcp_client *client, sd_dhcp_lease **ret);
 

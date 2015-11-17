@@ -87,6 +87,7 @@ struct sd_dhcp_client {
         } _packed_ client_id;
         size_t client_id_len;
         char *hostname;
+        char *fqdn;
         char *vendor_class_identifier;
         uint32_t mtu;
         uint32_t xid;
@@ -108,6 +109,35 @@ static const uint8_t default_req_opts[] = {
         DHCP_OPTION_DOMAIN_NAME,
         DHCP_OPTION_DOMAIN_NAME_SERVER,
 };
+
+/* Encode a domain according to RFC 1035 Section 3.1 */
+static int dhcp_domain_to_wire_format(const char *hostname, uint8_t *buffer, unsigned len) {
+        unsigned long label_len;
+        size_t host_len;
+        uint8_t *start;
+        int i;
+
+        host_len = strlen(hostname);
+        if (host_len + 2 > len)
+                return -ENOBUFS;
+
+        memcpy(buffer + 1, hostname, host_len + 1);
+
+        start = buffer;
+        for (i = 1; ; i++) {
+                if (buffer[i] == '.' || buffer[i] == 0) {
+                        label_len = &buffer[i] - start - 1;
+                        if (label_len < 1 || label_len > 63)
+                                return -EINVAL;
+                        *start = label_len;
+                        start = &buffer[i];
+                        if (buffer[i] == 0)
+                                break;
+                }
+        }
+
+        return host_len + 2;
+}
 
 static int client_receive_message_raw(sd_event_source *s, int fd,
                                       uint32_t revents, void *userdata);
@@ -309,6 +339,27 @@ int sd_dhcp_client_set_hostname(sd_dhcp_client *client,
 
         free(client->hostname);
         client->hostname = new_hostname;
+
+        return 0;
+}
+
+int sd_dhcp_client_set_fqdn(sd_dhcp_client *client,
+                            const char *fqdn) {
+        char *new_fqdn = NULL;
+
+        assert_return(client, -EINVAL);
+
+        if (streq_ptr(client->fqdn, fqdn))
+                return 0;
+
+        if (fqdn) {
+                new_fqdn = strdup(fqdn);
+                if (!new_fqdn)
+                        return -ENOMEM;
+        }
+
+        free(client->fqdn);
+        client->fqdn = new_fqdn;
 
         return 0;
 }
@@ -576,10 +627,25 @@ static int client_send_discover(sd_dhcp_client *client) {
                         return r;
         }
 
-        /* it is unclear from RFC 2131 if client should send hostname in
-           DHCPDISCOVER but dhclient does and so we do as well
-        */
-        if (client->hostname) {
+        /* According to RFC 4702 "clients that send the Client FQDN option in
+           their messages MUST NOT also send the Host Name option".
+         */
+        if (client->fqdn) {
+                uint8_t fqdn[3 + DHCP_MAX_FQDN_LENGTH];
+
+                fqdn[0] = DHCP_FQDN_FLAG_S | /* Request server to perform A RR DNS updates */
+                          DHCP_FQDN_FLAG_E;  /* Canonical wire format */
+                fqdn[1] = 0;                 /* RCODE1 (deprecated) */
+                fqdn[2] = 0;                 /* RCODE2 (deprecated) */
+                r = dhcp_domain_to_wire_format(client->fqdn, fqdn + 3, sizeof (fqdn) - 3);
+                if (r > 0) {
+                        r = dhcp_option_append(&discover->dhcp, optlen, &optoffset, 0,
+                                               DHCP_OPTION_FQDN, 3 + r, fqdn);
+                }
+        } else if (client->hostname) {
+               /* it is unclear from RFC 2131 if client should send hostname in
+                  DHCPDISCOVER but dhclient does and so we do as well
+                */
                 r = dhcp_option_append(&discover->dhcp, optlen, &optoffset, 0,
                                        DHCP_OPTION_HOST_NAME,
                                        strlen(client->hostname), client->hostname);
@@ -687,7 +753,19 @@ static int client_send_request(sd_dhcp_client *client) {
                 return -EINVAL;
         }
 
-        if (client->hostname) {
+        if (client->fqdn) {
+                uint8_t fqdn[3 + DHCP_MAX_FQDN_LENGTH];
+
+                fqdn[0] = DHCP_FQDN_FLAG_S | /* Request server to perform A RR DNS updates */
+                          DHCP_FQDN_FLAG_E;  /* Canonical wire format */
+                fqdn[1] = 0;                 /* RCODE1 (deprecated) */
+                fqdn[2] = 0;                 /* RCODE2 (deprecated) */
+                r = dhcp_domain_to_wire_format(client->fqdn, fqdn + 3, sizeof (fqdn) - 3);
+                if (r > 0) {
+                        r = dhcp_option_append(&request->dhcp, optlen, &optoffset, 0,
+                                               DHCP_OPTION_FQDN, 3 + r, fqdn);
+                }
+        } else if (client->hostname) {
                 r = dhcp_option_append(&request->dhcp, optlen, &optoffset, 0,
                                        DHCP_OPTION_HOST_NAME,
                                        strlen(client->hostname), client->hostname);
