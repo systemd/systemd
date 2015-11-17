@@ -28,6 +28,7 @@
 #include <sys/statvfs.h>
 #include <linux/sockios.h>
 
+#include "libudev.h"
 #include "sd-daemon.h"
 #include "sd-journal.h"
 #include "sd-messages.h"
@@ -57,7 +58,6 @@
 #include "journald-server.h"
 #include "journald-stream.h"
 #include "journald-syslog.h"
-#include "libudev.h"
 #include "missing.h"
 #include "mkdir.h"
 #include "parse-util.h"

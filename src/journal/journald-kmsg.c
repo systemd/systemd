@@ -25,6 +25,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include "libudev.h"
 #include "sd-messages.h"
 
 #include "escape.h"
@@ -34,7 +35,6 @@
 #include "journald-kmsg.h"
 #include "journald-server.h"
 #include "journald-syslog.h"
-#include "libudev.h"
 #include "parse-util.h"
 #include "process-util.h"
 #include "stdio-util.h"

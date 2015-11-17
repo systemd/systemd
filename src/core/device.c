@@ -22,10 +22,11 @@
 #include <errno.h>
 #include <sys/epoll.h>
 
+#include "libudev.h"
+
 #include "alloc-util.h"
 #include "dbus-device.h"
 #include "device.h"
-#include "libudev.h"
 #include "log.h"
 #include "parse-util.h"
 #include "path-util.h"

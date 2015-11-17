@@ -33,8 +33,9 @@
 #include <time.h>
 #include <unistd.h>
 
-#include "libudev-private.h"
 #include "libudev.h"
+
+#include "libudev-private.h"
 #include "random-util.h"
 #include "scsi.h"
 #include "scsi_id.h"

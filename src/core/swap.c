@@ -24,6 +24,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "libudev.h"
+
 #include "alloc-util.h"
 #include "dbus-swap.h"
 #include "escape.h"
@@ -31,7 +33,6 @@
 #include "fd-util.h"
 #include "formats-util.h"
 #include "fstab-util.h"
-#include "libudev.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"

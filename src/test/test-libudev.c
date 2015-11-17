@@ -24,6 +24,7 @@
 #include <unistd.h>
 
 #include "libudev.h"
+
 #include "string-util.h"
 #include "udev-util.h"
 #include "util.h"

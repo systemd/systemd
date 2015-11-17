@@ -22,12 +22,12 @@
 #include <linux/veth.h>
 #include <net/if.h>
 
+#include "libudev.h"
 #include "sd-id128.h"
 #include "sd-netlink.h"
 
 #include "alloc-util.h"
 #include "ether-addr-util.h"
-#include "libudev.h"
 #include "netlink-util.h"
 #include "nspawn-network.h"
 #include "siphash24.h"

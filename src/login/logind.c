@@ -24,6 +24,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "libudev.h"
 #include "sd-daemon.h"
 
 #include "alloc-util.h"
@@ -34,7 +35,6 @@
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "formats-util.h"
-#include "libudev.h"
 #include "logind.h"
 #include "signal-util.h"
 #include "strv.h"
