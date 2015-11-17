@@ -1347,12 +1347,18 @@ static bool unit_assert_test(Unit *u) {
         return u->assert_result;
 }
 
+void unit_status_printf(Unit *u, const char *status, const char *unit_status_msg_format) {
+        DISABLE_WARNING_FORMAT_NONLITERAL;
+        manager_status_printf(u->manager, STATUS_TYPE_NORMAL, status, unit_status_msg_format, unit_description(u));
+        REENABLE_WARNING;
+}
+
 _pure_ static const char* unit_get_status_message_format(Unit *u, JobType t) {
         const char *format;
         const UnitStatusMessageFormats *format_table;
 
         assert(u);
-        assert(t == JOB_START || t == JOB_STOP || t == JOB_RELOAD);
+        assert(IN_SET(t, JOB_START, JOB_STOP, JOB_RELOAD));
 
         if (t != JOB_RELOAD) {
                 format_table = &UNIT_VTABLE(u)->status_message_formats;
@@ -1377,6 +1383,10 @@ static void unit_status_print_starting_stopping(Unit *u, JobType t) {
 
         assert(u);
 
+        /* Reload status messages have traditionally not been printed to console. */
+        if (!IN_SET(t, JOB_START, JOB_STOP))
+                return;
+
         format = unit_get_status_message_format(u, t);
 
         DISABLE_WARNING_FORMAT_NONLITERAL;
@@ -1391,7 +1401,7 @@ static void unit_status_log_starting_stopping_reloading(Unit *u, JobType t) {
 
         assert(u);
 
-        if (t != JOB_START && t != JOB_STOP && t != JOB_RELOAD)
+        if (!IN_SET(t, JOB_START, JOB_STOP, JOB_RELOAD))
                 return;
 
         if (log_on_console())
@@ -1423,12 +1433,12 @@ static void unit_status_log_starting_stopping_reloading(Unit *u, JobType t) {
 }
 
 void unit_status_emit_starting_stopping_reloading(Unit *u, JobType t) {
+        assert(u);
+        assert(t >= 0);
+        assert(t < _JOB_TYPE_MAX);
 
         unit_status_log_starting_stopping_reloading(u, t);
-
-        /* Reload status messages have traditionally not been printed to console. */
-        if (t != JOB_RELOAD)
-                unit_status_print_starting_stopping(u, t);
+        unit_status_print_starting_stopping(u, t);
 }
 
 /* Errors:
@@ -2894,13 +2904,6 @@ int unit_coldplug(Unit *u) {
                 return q;
 
         return 0;
-}
-
-void unit_status_printf(Unit *u, const char *status, const char *unit_status_msg_format) {
-        DISABLE_WARNING_FORMAT_NONLITERAL;
-        manager_status_printf(u->manager, STATUS_TYPE_NORMAL,
-                              status, unit_status_msg_format, unit_description(u));
-        REENABLE_WARNING;
 }
 
 bool unit_need_daemon_reload(Unit *u) {
