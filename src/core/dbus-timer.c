@@ -182,6 +182,7 @@ const sd_bus_vtable bus_timer_vtable[] = {
         SD_BUS_PROPERTY("AccuracyUSec", "t", bus_property_get_usec, offsetof(Timer, accuracy_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Persistent", "b", bus_property_get_bool, offsetof(Timer, persistent), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("WakeSystem", "b", bus_property_get_bool, offsetof(Timer, wake_system), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("RemainAfterElapse", "b", bus_property_get_bool, offsetof(Timer, remain_after_elapse), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_VTABLE_END
 };
 
@@ -283,7 +284,6 @@ static int bus_timer_set_transient_property(
                 return 1;
 
         } else if (streq(name, "WakeSystem")) {
-
                 int b;
 
                 r = sd_bus_message_read(message, "b", &b);
@@ -292,11 +292,24 @@ static int bus_timer_set_transient_property(
 
                 if (mode != UNIT_CHECK) {
                         t->wake_system = b;
-                        unit_write_drop_in_private_format(UNIT(t), mode, name, "%s=%s\n", name, yes_no(t->wake_system));
+                        unit_write_drop_in_private_format(UNIT(t), mode, name, "%s=%s\n", name, yes_no(b));
                 }
 
                 return 1;
 
+        } else if (streq(name, "RemainAfterElapse")) {
+                int b;
+
+                r = sd_bus_message_read(message, "b", &b);
+                if (r < 0)
+                        return r;
+
+                if (mode != UNIT_CHECK) {
+                        t->remain_after_elapse = b;
+                        unit_write_drop_in_private_format(UNIT(t), mode, name, "%s=%s\n", name, yes_no(b));
+                }
+
+                return 1;
         }
 
         return 0;
