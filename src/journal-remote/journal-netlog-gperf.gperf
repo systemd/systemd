@@ -1,0 +1,18 @@
+%{
+#include <stddef.h>
+#include "conf-parser.h"
+#include "journal-netlog-conf.h"
+#include "journal-netlog-manager.h"
+%}
+struct ConfigPerfItem;
+%null_strings
+%language=ANSI-C
+%define slot-name section_and_lvalue
+%define hash-function-name journal_netlog_gperf_hash
+%define lookup-function-name journal_netlog_gperf_lookup
+%readonly-tables
+%omit-struct-type
+%struct-type
+%includes
+%%
+Network.Address,  config_parse_netlog_remote_address, 0, 0
