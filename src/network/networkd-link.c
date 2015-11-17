@@ -615,7 +615,7 @@ void link_check_ready(Link *link) {
                         return;
 
         if (link_ipv6ll_enabled(link))
-                if (!link->ipv6ll_address)
+                if (in_addr_is_null(AF_INET6, (const union in_addr_union*) &link->ipv6ll_address) > 0)
                         return;
 
         if ((link_dhcp4_enabled(link) && !link_dhcp6_enabled(link) &&
@@ -1260,11 +1260,16 @@ static int link_acquire_ipv6_conf(Link *link) {
 
         if (link_dhcp6_enabled(link)) {
                 assert(link->dhcp6_client);
+                assert(in_addr_is_link_local(AF_INET6, (const union in_addr_union*)&link->ipv6ll_address) > 0);
 
                 log_link_debug(link, "Acquiring DHCPv6 lease");
 
+                r = sd_dhcp6_client_set_local_address(link->dhcp6_client, &link->ipv6ll_address);
+                if (r < 0 && r != -EBUSY)
+                        return log_link_warning_errno(link, r, "Could not set IPv6LL address in DHCP client: %m");
+
                 r = sd_dhcp6_client_start(link->dhcp6_client);
-                if (r < 0)
+                if (r < 0 && r != -EBUSY)
                         return log_link_warning_errno(link, r,  "Could not acquire DHCPv6 lease: %m");
         }
 
@@ -1274,7 +1279,7 @@ static int link_acquire_ipv6_conf(Link *link) {
                 log_link_debug(link, "Discovering IPv6 routers");
 
                 r = sd_ndisc_router_discovery_start(link->ndisc_router_discovery);
-                if (r < 0)
+                if (r < 0 && r != -EBUSY)
                         return log_link_warning_errno(link, r, "Could not start IPv6 Router Discovery: %m");
         }
 
@@ -2089,7 +2094,8 @@ static int link_configure(Link *link) {
                         return r;
         }
 
-        if (link_dhcp6_enabled(link)) {
+        if (link_dhcp6_enabled(link) ||
+            link_ipv6_accept_ra_enabled(link)) {
                 r = dhcp6_configure(link);
                 if (r < 0)
                         return r;
@@ -2121,7 +2127,7 @@ static int link_configure(Link *link) {
                 if (r < 0)
                         return r;
 
-                if (link->ipv6ll_address) {
+                if (in_addr_is_null(AF_INET6, (const union in_addr_union*) &link->ipv6ll_address) == 0) {
                         r = link_acquire_ipv6_conf(link);
                         if (r < 0)
                                 return r;
@@ -2472,14 +2478,14 @@ failed:
         return r;
 }
 
-int link_ipv6ll_gained(Link *link) {
+int link_ipv6ll_gained(Link *link, const struct in6_addr *address) {
         int r;
 
         assert(link);
 
         log_link_info(link, "Gained IPv6LL");
 
-        link->ipv6ll_address = true;
+        link->ipv6ll_address = *address;
         link_check_ready(link);
 
         if (!IN_SET(link->state, LINK_STATE_PENDING, LINK_STATE_PENDING, LINK_STATE_UNMANAGED, LINK_STATE_FAILED)) {

@@ -75,7 +75,7 @@ static void ndisc_prefix_autonomous_handler(sd_ndisc *nd, const struct in6_addr 
         address->family = AF_INET6;
         address->in_addr.in6 = *prefix;
         if (in_addr_is_null(AF_INET6, (const union in_addr_union *) &link->network->ipv6_token) == 0)
-                memcpy(&address->in_addr.in6 + 8, &link->network->ipv6_token + 8, 8);
+                memcpy(((char *)&address->in_addr.in6) + 8, ((char *)&link->network->ipv6_token) + 8, 8);
         else {
                 /* see RFC4291 section 2.5.1 */
                 address->in_addr.in6.__in6_u.__u6_addr8[8]  = link->mac.ether_addr_octet[0];
@@ -159,7 +159,7 @@ static void ndisc_router_handler(sd_ndisc *nd, uint8_t flags, const struct in6_a
                         dhcp6_request_address(link);
 
                 r = sd_dhcp6_client_start(link->dhcp6_client);
-                if (r < 0 && r != -EALREADY)
+                if (r < 0 && r != -EBUSY)
                         log_link_warning_errno(link, r, "Starting DHCPv6 client on NDisc request failed: %m");
         }
 
@@ -205,7 +205,7 @@ static void ndisc_handler(sd_ndisc *nd, int event, void *userdata) {
                 dhcp6_request_address(link);
 
                 r = sd_dhcp6_client_start(link->dhcp6_client);
-                if (r < 0 && r != -EALREADY)
+                if (r < 0 && r != -EBUSY)
                         log_link_warning_errno(link, r, "Starting DHCPv6 client after NDisc timeout failed: %m");
 
                 link->ndisc_configured = true;

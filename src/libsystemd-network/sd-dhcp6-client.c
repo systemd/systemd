@@ -32,6 +32,7 @@
 #include "dhcp6-lease-internal.h"
 #include "dhcp6-protocol.h"
 #include "fd-util.h"
+#include "in-addr-util.h"
 #include "network-internal.h"
 #include "random-util.h"
 #include "string-table.h"
@@ -46,6 +47,7 @@ struct sd_dhcp6_client {
         sd_event *event;
         int event_priority;
         int index;
+        struct in6_addr local_address;
         uint8_t mac_addr[MAX_MAC_ADDR_LEN];
         size_t mac_addr_len;
         uint16_t arp_type;
@@ -129,6 +131,18 @@ int sd_dhcp6_client_set_index(sd_dhcp6_client *client, int interface_index) {
         assert_return(IN_SET(client->state, DHCP6_STATE_STOPPED), -EBUSY);
 
         client->index = interface_index;
+
+        return 0;
+}
+
+int sd_dhcp6_client_set_local_address(sd_dhcp6_client *client, const struct in6_addr *local_address) {
+        assert_return(client, -EINVAL);
+        assert_return(local_address, -EINVAL);
+        assert_return(in_addr_is_link_local(AF_INET6, (const union in_addr_union *) local_address) > 0, -EINVAL);
+
+        assert_return(IN_SET(client->state, DHCP6_STATE_STOPPED), -EBUSY);
+
+        client->local_address = *local_address;
 
         return 0;
 }
@@ -1135,9 +1149,10 @@ int sd_dhcp6_client_start(sd_dhcp6_client *client) {
         assert_return(client, -EINVAL);
         assert_return(client->event, -EINVAL);
         assert_return(client->index > 0, -EINVAL);
+        assert_return(in_addr_is_link_local(AF_INET6, (const union in_addr_union *) &client->local_address) > 0, -EINVAL);
 
         if (!IN_SET(client->state, DHCP6_STATE_STOPPED))
-                return -EALREADY;
+                return -EBUSY;
 
         r = client_reset(client);
         if (r < 0)
@@ -1151,7 +1166,7 @@ int sd_dhcp6_client_start(sd_dhcp6_client *client) {
         if (r < 0)
                 return r;
 
-        r = dhcp6_network_bind_udp_socket(client->index, NULL);
+        r = dhcp6_network_bind_udp_socket(client->index, &client->local_address);
         if (r < 0)
                 return r;
 

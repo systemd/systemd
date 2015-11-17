@@ -562,6 +562,7 @@ static void test_client_information_cb(sd_dhcp6_client *client, int event,
         sd_event *e = userdata;
         sd_dhcp6_lease *lease;
         struct in6_addr *addrs;
+        struct in6_addr address = { { { 0xfe, 0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x01 } } };
         char **domains;
 
         assert_se(e);
@@ -589,6 +590,8 @@ static void test_client_information_cb(sd_dhcp6_client *client, int event,
 
         assert_se(sd_dhcp6_client_set_callback(client,
                                                test_client_solicit_cb, e) >= 0);
+
+        assert_se(sd_dhcp6_client_set_local_address(client, &address) >= 0);
 
         assert_se(sd_dhcp6_client_start(client) >= 0);
 }
@@ -701,6 +704,7 @@ int dhcp6_network_bind_udp_socket(int index, struct in6_addr *local_address) {
 static int test_client_solicit(sd_event *e) {
         sd_dhcp6_client *client;
         usec_t time_now = now(clock_boottime_or_monotonic());
+        struct in6_addr address = { { { 0xfe, 0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x01 } } };
         int val = true;
 
         if (verbose)
@@ -728,6 +732,8 @@ static int test_client_solicit(sd_event *e) {
         assert_se(sd_event_add_time(e, &hangcheck, clock_boottime_or_monotonic(),
                                     time_now + 2 * USEC_PER_SEC, 0,
                                     test_hangcheck, NULL) >= 0);
+
+        assert_se(sd_dhcp6_client_set_local_address(client, &address) >= 0);
 
         assert_se(sd_dhcp6_client_start(client) >= 0);
 
