@@ -644,12 +644,20 @@ static int transient_unit_from_message(
                 Unit **unit,
                 sd_bus_error *error) {
 
+        UnitType t;
         Unit *u;
         int r;
 
         assert(m);
         assert(message);
         assert(name);
+
+        t = unit_name_to_type(name);
+        if (t < 0)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid unit name or type.");
+
+        if (!unit_vtable[t]->can_transient)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unit type %s does not support transient units.", unit_type_to_string(t));
 
         r = manager_load_unit(m, name, NULL, error, &u);
         if (r < 0)
@@ -735,7 +743,6 @@ static int method_start_transient_unit(sd_bus_message *message, void *userdata, 
         const char *name, *smode;
         Manager *m = userdata;
         JobMode mode;
-        UnitType t;
         Unit *u;
         int r;
 
@@ -749,13 +756,6 @@ static int method_start_transient_unit(sd_bus_message *message, void *userdata, 
         r = sd_bus_message_read(message, "ss", &name, &smode);
         if (r < 0)
                 return r;
-
-        t = unit_name_to_type(name);
-        if (t < 0)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid unit type.");
-
-        if (!unit_vtable[t]->can_transient)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unit type %s does not support transient units.", unit_type_to_string(t));
 
         mode = job_mode_from_string(smode);
         if (mode < 0)
