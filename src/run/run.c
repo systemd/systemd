@@ -648,6 +648,11 @@ static int transient_timer_set_properties(sd_bus_message *m) {
         if (r < 0)
                 return r;
 
+        /* Automatically clean up our transient timers */
+        r = sd_bus_message_append(m, "(sv)", "RemainAfterElapse", "b", false);
+        if (r < 0)
+                return r;
+
         if (arg_on_active) {
                 r = sd_bus_message_append(m, "(sv)", "OnActiveSec", "t", arg_on_active);
                 if (r < 0)
