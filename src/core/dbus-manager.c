@@ -677,6 +677,9 @@ static int transient_unit_from_message(
         if (r < 0)
                 return r;
 
+        /* Now load the missing bits of the unit we just created */
+        manager_dispatch_load_queue(m);
+
         *unit = u;
 
         return 0;
@@ -687,8 +690,6 @@ static int transient_aux_units_from_message(
                 sd_bus_message *message,
                 sd_bus_error *error) {
 
-        Unit *u;
-        char *name = NULL;
         int r;
 
         assert(m);
@@ -699,19 +700,16 @@ static int transient_aux_units_from_message(
                 return r;
 
         while ((r = sd_bus_message_enter_container(message, 'r', "sa(sv)")) > 0) {
+                const char *name = NULL;
+                Unit *u;
+
                 r = sd_bus_message_read(message, "s", &name);
                 if (r < 0)
                         return r;
 
                 r = transient_unit_from_message(m, message, name, &u, error);
-                if (r < 0 && r != -EEXIST)
+                if (r < 0)
                         return r;
-
-                if (r != -EEXIST) {
-                        r = unit_load(u);
-                        if (r < 0)
-                                return r;
-                }
 
                 r = sd_bus_message_exit_container(message);
                 if (r < 0)
@@ -762,13 +760,6 @@ static int method_start_transient_unit(sd_bus_message *message, void *userdata, 
         r = transient_aux_units_from_message(m, message, error);
         if (r < 0)
                 return r;
-
-        /* And load this stub fully */
-        r = unit_load(u);
-        if (r < 0)
-                return r;
-
-        manager_dispatch_load_queue(m);
 
         /* Finally, start it */
         return bus_unit_queue_job(message, u, JOB_START, mode, false, error);
