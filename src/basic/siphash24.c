@@ -56,34 +56,37 @@ void siphash24_init(struct siphash *state, const uint8_t k[16]) {
         k0 = unaligned_read_le64(k);
         k1 = unaligned_read_le64(k + 8);
 
-        /* "somepseudorandomlygeneratedbytes" */
-        state->v0 = 0x736f6d6570736575ULL ^ k0;
-        state->v1 = 0x646f72616e646f6dULL ^ k1;
-        state->v2 = 0x6c7967656e657261ULL ^ k0;
-        state->v3 = 0x7465646279746573ULL ^ k1;
-        state->padding = 0;
-        state->inlen = 0;
+        *state = (struct siphash) {
+                /* "somepseudorandomlygeneratedbytes" */
+                .v0 = 0x736f6d6570736575ULL ^ k0,
+                .v1 = 0x646f72616e646f6dULL ^ k1,
+                .v2 = 0x6c7967656e657261ULL ^ k0,
+                .v3 = 0x7465646279746573ULL ^ k1,
+                .padding = 0,
+                .inlen = 0,
+        };
 }
 
 void siphash24_compress(const void *_in, size_t inlen, struct siphash *state) {
-        uint64_t m;
+
         const uint8_t *in = _in;
         const uint8_t *end = in + inlen;
-        unsigned left = state->inlen & 7;
+        size_t left = state->inlen & 7;
+        uint64_t m;
 
         assert(in);
         assert(state);
 
-        /* update total length */
+        /* Update total length */
         state->inlen += inlen;
 
-        /* if padding exists, fill it out */
+        /* If padding exists, fill it out */
         if (left > 0) {
-                for ( ; in < end && left < 8; in ++, left ++ )
-                        state->padding |= ( ( uint64_t )*in ) << (left * 8);
+                for ( ; in < end && left < 8; in ++, left ++)
+                        state->padding |= ((uint64_t) *in) << (left * 8);
 
                 if (in == end && left < 8)
-                        /* we did not have enough input to fill out the padding completely */
+                        /* We did not have enough input to fill out the padding completely */
                         return;
 
 #ifdef DEBUG
@@ -93,6 +96,7 @@ void siphash24_compress(const void *_in, size_t inlen, struct siphash *state) {
                 printf("(%3zu) v3 %08x %08x\n", state->inlen, (uint32_t) (state->v3 >> 32), (uint32_t) state->v3);
                 printf("(%3zu) compress padding %08x %08x\n", state->inlen, (uint32_t) (state->padding >> 32), (uint32_t)state->padding);
 #endif
+
                 state->v3 ^= state->padding;
                 sipround(state);
                 sipround(state);
@@ -101,9 +105,9 @@ void siphash24_compress(const void *_in, size_t inlen, struct siphash *state) {
                 state->padding = 0;
         }
 
-        end -= ( state->inlen % sizeof (uint64_t) );
+        end -= (state->inlen % sizeof(uint64_t));
 
-        for ( ; in < end; in += 8 ) {
+        for ( ; in < end; in += 8) {
                 m = unaligned_read_le64(in);
 #ifdef DEBUG
                 printf("(%3zu) v0 %08x %08x\n", state->inlen, (uint32_t) (state->v0 >> 32), (uint32_t) state->v0);
@@ -119,38 +123,41 @@ void siphash24_compress(const void *_in, size_t inlen, struct siphash *state) {
         }
 
         left = state->inlen & 7;
-
-        switch(left)
-        {
-                case 7: state->padding |= ((uint64_t) in[6]) << 48;
-
-                case 6: state->padding |= ((uint64_t) in[5]) << 40;
-
-                case 5: state->padding |= ((uint64_t) in[4]) << 32;
-
-                case 4: state->padding |= ((uint64_t) in[3]) << 24;
-
-                case 3: state->padding |= ((uint64_t) in[2]) << 16;
-
-                case 2: state->padding |= ((uint64_t) in[1]) <<  8;
-
-                case 1: state->padding |= ((uint64_t) in[0]); break;
-
-                case 0: break;
+        switch (left) {
+                case 7:
+                        state->padding |= ((uint64_t) in[6]) << 48;
+                case 6:
+                        state->padding |= ((uint64_t) in[5]) << 40;
+                case 5:
+                        state->padding |= ((uint64_t) in[4]) << 32;
+                case 4:
+                        state->padding |= ((uint64_t) in[3]) << 24;
+                case 3:
+                        state->padding |= ((uint64_t) in[2]) << 16;
+                case 2:
+                        state->padding |= ((uint64_t) in[1]) <<  8;
+                case 1:
+                        state->padding |= ((uint64_t) in[0]);
+                case 0:
+                        break;
         }
 }
 
 uint64_t siphash24_finalize(struct siphash *state) {
         uint64_t b;
 
-        b = state->padding | (( ( uint64_t )state->inlen ) << 56);
+        assert(state);
+
+        b = state->padding | (((uint64_t) state->inlen) << 56);
+
 #ifdef DEBUG
-        printf("(%3zu) v0 %08x %08x\n", state->inlen, (uint32_t) (state->v0 >> 32), (uint32_t)state->v0);
-        printf("(%3zu) v1 %08x %08x\n", state->inlen, (uint32_t) (state->v1 >> 32), (uint32_t)state->v1);
-        printf("(%3zu) v2 %08x %08x\n", state->inlen, (uint32_t) (state->v2 >> 32), (uint32_t)state->v2);
-        printf("(%3zu) v3 %08x %08x\n", state->inlen, (uint32_t) (state->v3 >> 32), (uint32_t)state->v3);
+        printf("(%3zu) v0 %08x %08x\n", state->inlen, (uint32_t) (state->v0 >> 32), (uint32_t) state->v0);
+        printf("(%3zu) v1 %08x %08x\n", state->inlen, (uint32_t) (state->v1 >> 32), (uint32_t) state->v1);
+        printf("(%3zu) v2 %08x %08x\n", state->inlen, (uint32_t) (state->v2 >> 32), (uint32_t) state->v2);
+        printf("(%3zu) v3 %08x %08x\n", state->inlen, (uint32_t) (state->v3 >> 32), (uint32_t) state->v3);
         printf("(%3zu) padding   %08x %08x\n", state->inlen, (uint32_t) (state->padding >> 32), (uint32_t) state->padding);
 #endif
+
         state->v3 ^= b;
         sipround(state);
         sipround(state);
@@ -172,12 +179,14 @@ uint64_t siphash24_finalize(struct siphash *state) {
         return state->v0 ^ state->v1 ^ state->v2  ^ state->v3;
 }
 
-/* SipHash-2-4 */
-uint64_t siphash24(const void *_in, size_t inlen, const uint8_t k[16]) {
+uint64_t siphash24(const void *in, size_t inlen, const uint8_t k[16]) {
         struct siphash state;
 
+        assert(in);
+        assert(k);
+
         siphash24_init(&state, k);
-        siphash24_compress(_in, inlen, &state);
+        siphash24_compress(in, inlen, &state);
 
         return siphash24_finalize(&state);
 }
