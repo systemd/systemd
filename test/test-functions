@@ -284,6 +284,9 @@ install_pam() {
     ) | while read file; do
         inst $file
     done
+
+    [[ "$LOOKS_LIKE_DEBIAN" ]] &&
+        cp /etc/pam.d/systemd-user $initdir/etc/pam.d/
 }
 
 install_keymaps() {
