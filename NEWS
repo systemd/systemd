@@ -16,6 +16,10 @@ CHANGES WITH 228:
           possible to pass in a set of file descriptors to use as
           STDIN/STDOUT/STDERR for the invoked process.
 
+        * Slice units may now be created transiently via the bus APIs,
+          similar to the way service and scope units may already be
+          created transiently.
+
         * Wherever systemd expects a calendar timestamp specification
           (like in journalctl's --since= and --until= switches) UTC
           timestamps are now supported. Timestamps suffixed with "UTC"
@@ -34,6 +38,13 @@ CHANGES WITH 228:
           hierarchy when used on a btrfs file system with quota
           enabled.
 
+        * tmpfiles' "v", "q" and "Q" will now create a plain directory
+          instead of a subvolume (even on a btrfs file system) if the
+          root directory is a plain directory, and not a
+          subvolume. This should simplify things with certain chroot()
+          environments which are not aware of the concept of btrfs
+          subvolumes.
+
         * systemd-detect-virt gained a new --chroot switch to detect
           whether execution takes place in a chroot() environment.
 
@@ -45,6 +56,28 @@ CHANGES WITH 228:
           the base of 1024 (IEC). Similar, the time-related resource
           limit settings understand the usual min, h, day, ...
           suffixes now.
+
+        * There's a new system.conf setting DefaultTasksMax= to
+          control the default TasksMax= setting for services and
+          scopes running on the system. (TasksMax= is the primary
+          setting that exposes the "pids" cgroup controller on systemd
+          and was introduced in the previous systemd release.) The
+          setting now defaults to 512, which means services that are
+          not explicitly configured otherwise will only be able to
+          create 512 processes or threads at maximum, from this
+          version on. Note that this means that thread- or
+          process-heavy services might need to be reconfigured to set
+          TasksMax= to a higher value. It is sufficient to set
+          TasksMax= in these specific unit files to a higher value, or
+          even "infinity". Similar, there's now a logind.conf setting
+          UserTasksMax= that defaults to 4096 and limits the total
+          number of processes or tasks each user may own
+          concurrently. nspawn containers also have the TasksMax=
+          value set by default now, to 8192. Note that all of this
+          only has an effect if the "pids" cgroup controller is
+          enabled in the kernel. The general benefit of these changes
+          should be a more robust and safer system, that provides a
+          certain amount of per-service fork() bomb protection.
 
         * systemd-nspawn gained the new --network-veth-extra= switch
           to define additional and arbitrarily-named virtual Ethernet
@@ -142,17 +175,18 @@ CHANGES WITH 228:
         Contributions from: Andrew Jones, Beniamino Galvani, Boyuan
         Yang, Daniel Machon, Daniel Mack, David Herrmann, David
         Reynolds, David Strauss, Dongsu Park, Evgeny Vereshchagin,
-        Filipe Brandenburger, Franck Bui, Hristo Venev, Iago López
-        Galeiras, Jan Engelhardt, Jan Janssen, Jan Synacek, Jesus
-        Ornelas Aguayo, Karel Zak, kayrus, Kay Sievers, Lennart
-        Poettering, Mantas Mikulėnas, Marcel Holtmann, Marcin Bachry,
-        Marcos Alano, Marcos Mello, Mark Theunissen, Martin Pitt,
-        Michael Marineau, Michael Olbrich, Michal Schmidt, Michal
-        Sekletar, Mirco Tischler, Nick Owens, Nicolas Cornu, Patrik
-        Flykt, Peter Hutterer, reverendhomer, Ronny Chevalier,
-        Sangjung Woo, Seong-ho Cho, Shawn Landden, Susant Sahani,
-        Thomas Haller, Thomas Hindoe Paaboel Andersen, Tom Gundersen,
-        Torstein Husebø, Vito Caputo, Zbigniew Jędrzejewski-Szmek
+        Felipe Sateler, Filipe Brandenburger, Franck Bui, Hristo
+        Venev, Iago López Galeiras, Jan Engelhardt, Jan Janssen, Jan
+        Synacek, Jesus Ornelas Aguayo, Karel Zak, kayrus, Kay Sievers,
+        Lennart Poettering, Liu Yuan Yuan, Mantas Mikulėnas, Marcel
+        Holtmann, Marcin Bachry, Marcos Alano, Marcos Mello, Mark
+        Theunissen, Martin Pitt, Michael Marineau, Michael Olbrich,
+        Michal Schmidt, Michal Sekletar, Mirco Tischler, Nick Owens,
+        Nicolas Cornu, Patrik Flykt, Peter Hutterer, reverendhomer,
+        Ronny Chevalier, Sangjung Woo, Seong-ho Cho, Shawn Landden,
+        Susant Sahani, Thomas Haller, Thomas Hindoe Paaboel Andersen,
+        Tom Gundersen, Torstein Husebø, Vito Caputo, Zbigniew
+        Jędrzejewski-Szmek
 
         -- Berlin, 2015-11-XX
 
