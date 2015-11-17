@@ -3428,7 +3428,15 @@ int unit_make_transient(Unit *u) {
         u->load_state = UNIT_STUB;
         u->load_error = 0;
         u->transient = true;
+
         u->fragment_path = mfree(u->fragment_path);
+        u->source_path = mfree(u->source_path);
+        u->dropin_paths = strv_free(u->dropin_paths);
+        u->fragment_mtime = u->source_mtime = u->dropin_mtime = 0;
+
+        unit_add_to_dbus_queue(u);
+        unit_add_to_gc_queue(u);
+        unit_add_to_load_queue(u);
 
         return 0;
 }
@@ -3708,7 +3716,7 @@ int unit_fail_if_symlink(Unit *u, const char* where) {
 bool unit_is_pristine(Unit *u) {
         assert(u);
 
-        /* Check if the unit already exists or is already referenced,
+        /* Check if the unit already exists or is already around,
          * in a number of different ways. Note that to cater for unit
          * types such as slice, we are generally fine with units that
          * are marked UNIT_LOADED even even though nothing was
@@ -3719,8 +3727,6 @@ bool unit_is_pristine(Unit *u) {
                  u->fragment_path ||
                  u->source_path ||
                  !strv_isempty(u->dropin_paths) ||
-                 u->refs ||
-                 set_size(u->dependencies[UNIT_REFERENCED_BY]) > 0 ||
                  u->job ||
                  u->merged_into);
 }
