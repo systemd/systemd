@@ -21,5 +21,35 @@ journalctl --flush
 journalctl -b -o cat -t "$ID" >/output
 cmp /expected /output
 
+# Remove trailing spaces
+ID=$(journalctl --new-id128 | sed -n 2p)
+printf "Trailing spaces\n">/expected
+printf $'<5>Trailing spaces \t \n' | systemd-cat -t "$ID" --level-prefix true
+journalctl --flush
+journalctl -b -o cat -t "$ID" >/output
+cmp /expected /output
+
+ID=$(journalctl --new-id128 | sed -n 2p)
+printf "Trailing spaces\n">/expected
+printf $'Trailing spaces \t \n' | systemd-cat -t "$ID" --level-prefix false
+journalctl --flush
+journalctl -b -o cat -t "$ID" >/output
+cmp /expected /output
+
+# Don't remove leading spaces
+ID=$(journalctl --new-id128 | sed -n 2p)
+printf $' \t Leading spaces\n'>/expected
+printf $'<5> \t Leading spaces\n' | systemd-cat -t "$ID" --level-prefix true
+journalctl --flush
+journalctl -b -o cat -t "$ID" >/output
+cmp /expected /output
+
+ID=$(journalctl --new-id128 | sed -n 2p)
+printf $' \t Leading spaces\n'>/expected
+printf $' \t Leading spaces\n' | systemd-cat -t "$ID" --level-prefix false
+journalctl --flush
+journalctl -b -o cat -t "$ID" >/output
+cmp /expected /output
+
 touch /testok
 exit 0
