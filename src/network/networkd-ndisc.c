@@ -26,7 +26,7 @@
 #include "sd-ndisc.h"
 
 #include "networkd-link.h"
-
+/*
 static int ndisc_netlink_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
         _cleanup_link_unref_ Link *link = userdata;
         int r;
@@ -77,7 +77,6 @@ static void ndisc_prefix_autonomous_handler(sd_ndisc *nd, const struct in6_addr 
         if (in_addr_is_null(AF_INET6, (const union in_addr_union *) &link->network->ipv6_token) == 0)
                 memcpy(((char *)&address->in_addr.in6) + 8, ((char *)&link->network->ipv6_token) + 8, 8);
         else {
-                /* see RFC4291 section 2.5.1 */
                 address->in_addr.in6.__in6_u.__u6_addr8[8]  = link->mac.ether_addr_octet[0];
                 address->in_addr.in6.__in6_u.__u6_addr8[8] ^= 1 << 1;
                 address->in_addr.in6.__in6_u.__u6_addr8[9]  = link->mac.ether_addr_octet[1];
@@ -140,11 +139,12 @@ static void ndisc_prefix_onlink_handler(sd_ndisc *nd, const struct in6_addr *pre
 
         link->ndisc_messages ++;
 }
+*/
 
 static void ndisc_router_handler(sd_ndisc *nd, uint8_t flags, const struct in6_addr *gateway, unsigned lifetime, int pref, void *userdata) {
         _cleanup_route_free_ Route *route = NULL;
         Link *link = userdata;
-        usec_t time_now;
+        /* usec_t time_now; */
         int r;
 
         assert(link);
@@ -163,6 +163,8 @@ static void ndisc_router_handler(sd_ndisc *nd, uint8_t flags, const struct in6_a
                         log_link_warning_errno(link, r, "Starting DHCPv6 client on NDisc request failed: %m");
         }
 
+        return;
+/*
         if (!gateway)
                 return;
 
@@ -189,6 +191,7 @@ static void ndisc_router_handler(sd_ndisc *nd, uint8_t flags, const struct in6_a
         }
 
         link->ndisc_messages ++;
+*/
 }
 
 static void ndisc_handler(sd_ndisc *nd, int event, void *userdata) {
@@ -242,8 +245,8 @@ int ndisc_configure(Link *link) {
 
         r = sd_ndisc_set_callback(link->ndisc_router_discovery,
                                   ndisc_router_handler,
-                                  ndisc_prefix_onlink_handler,
-                                  ndisc_prefix_autonomous_handler,
+                                  NULL,
+                                  NULL,
                                   ndisc_handler,
                                   link);
 
