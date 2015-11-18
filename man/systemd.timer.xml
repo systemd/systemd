@@ -190,13 +190,12 @@
         <varname>OnUnitInactiveSec=</varname> and ending the time
         configured with <varname>AccuracySec=</varname> later. Within
         this time window, the expiry time will be placed at a
-        host-specific, randomized but stable position that is
+        host-specific, randomized, but stable position that is
         synchronized between all local timer units. This is done in
-        order to distribute the wake-up time in networked
-        installations, as well as optimizing power consumption to
-        suppress unnecessary CPU wake-ups. To get best accuracy, set
-        this option to 1us. Note that the timer is still subject to
-        the timer slack configured via
+        order to optimize power consumption to suppress unnecessary
+        CPU wake-ups. To get best accuracy, set this option to
+        1us. Note that the timer is still subject to the timer slack
+        configured via
         <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>'s
         <varname>TimerSlackNSec=</varname> setting. See
         <citerefentry><refentrytitle>prctl</refentrytitle><manvolnum>2</manvolnum></citerefentry>
@@ -204,6 +203,38 @@
         this value as high as possible and as low as
         necessary.</para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>RandomSec=</varname></term>
+
+        <listitem><para>Delay the timer by a randomly selected, evenly
+        distributed amount of time between 0 and the specified time
+        value. Defaults to 0, indicating that no randomized delay
+        shall be applied. Each timer unit will determine this delay
+        randomly each time it is started, and the delay will simply be
+        added on top of the next determined elapsing time. This is
+        useful to stretch dispatching of similarly configured timer
+        events over a certain amount time, to avoid that they all fire
+        at the same time, possibly resulting in resource
+        congestion. Note the relation to
+        <varname>AccuracySec=</varname> above: the latter allows the
+        service manager to coalesce timer events within a specified
+        time range in order to minimize wakeups, the former does the
+        opposite: it stretches timer events over a time range, to make
+        it unlikely that they fire simultaneously. If
+        <varname>RandomSec=</varname> and
+        <varname>AccuracySec=</varname> are used in conjunction, first
+        the a randomized time is added, and the result is then
+        possibly shifted further to coalesce it with other timer
+        events possibly happening on the system. As mentioned above
+        <varname>AccuracySec=</varname> defaults to 1min and
+        <varname>RandomSec=</varname> to 0, thus encouraging
+        coalescing of timer events. In order to optimally stretch
+        timer events over a certain range of time, make sure to set
+        <varname>RandomSec=</varname> to a higher value, and
+        <varname>AccuracySec=1us</varname>.</para></listitem>
+      </varlistentry>
+
       <varlistentry>
         <term><varname>Unit=</varname></term>
 

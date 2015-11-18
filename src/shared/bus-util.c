@@ -1442,6 +1442,23 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                         return bus_log_create_error(r);
 
                 return 0;
+
+        } else if (streq(field, "RandomSec")) {
+                usec_t t;
+
+                r = parse_sec(eq, &t);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse RandomSec= parameter: %s", eq);
+
+                r = sd_bus_message_append_basic(m, SD_BUS_TYPE_STRING, "RandomUSec");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append(m, "v", "t", t);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                return 0;
         }
 
         r = sd_bus_message_append_basic(m, SD_BUS_TYPE_STRING, field);
