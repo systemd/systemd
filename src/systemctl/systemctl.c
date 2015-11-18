@@ -3360,6 +3360,7 @@ typedef struct UnitStatusInfo {
         usec_t inactive_enter_timestamp;
 
         bool need_daemon_reload;
+        bool transient;
 
         /* Service */
         pid_t main_pid;
@@ -3459,7 +3460,7 @@ static void print_status_info(
 
         path = i->source_path ? i->source_path : i->fragment_path;
 
-        if (i->load_error)
+        if (i->load_error != 0)
                 printf("   Loaded: %s%s%s (Reason: %s)\n",
                        on, strna(i->load_state), off, i->load_error);
         else if (path && !isempty(i->unit_file_state) && !isempty(i->unit_file_preset))
@@ -3474,6 +3475,9 @@ static void print_status_info(
         else
                 printf("   Loaded: %s%s%s\n",
                        on, strna(i->load_state), off);
+
+        if (i->transient)
+                printf("Transient: yes\n");
 
         if (!strv_isempty(i->dropin_paths)) {
                 _cleanup_free_ char *dir = NULL;
@@ -3839,6 +3843,8 @@ static int status_property(const char *name, sd_bus_message *m, UnitStatusInfo *
                         i->condition_result = b;
                 else if (streq(name, "AssertResult"))
                         i->assert_result = b;
+                else if (streq(name, "Transient"))
+                        i->transient = b;
 
                 break;
         }
