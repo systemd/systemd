@@ -75,7 +75,7 @@ static void test_next(const char *input, const char *new_tz, usec_t after, usec_
 
         u = after;
         r = calendar_spec_next_usec(c, after, &u);
-        printf("At: %s\n", r < 0 ? strerror(-r) : format_timestamp(buf, sizeof(buf), u));
+        printf("At: %s\n", r < 0 ? strerror(-r) : format_timestamp_us(buf, sizeof(buf), u));
         if (expect != (usec_t)-1)
                 assert_se(r >= 0 && u == expect);
         else
@@ -123,6 +123,9 @@ int main(int argc, char* argv[]) {
         test_one("annually", "*-01-01 00:00:00");
         test_one("*:2/3", "*-*-* *:02/3:00");
         test_one("2015-10-25 01:00:00 uTc", "2015-10-25 01:00:00 UTC");
+        test_one("2016-03-27 03:17:00.4200005", "2016-03-27 03:17:00.420001");
+        test_one("2016-03-27 03:17:00/0.42", "2016-03-27 03:17:00/0.420000");
+        test_one("2016-03-27 03:17:00/0.42", "2016-03-27 03:17:00/0.420000");
 
         test_next("2016-03-27 03:17:00", "", 12345, 1459048620000000);
         test_next("2016-03-27 03:17:00", "CET", 12345, 1459041420000000);
@@ -131,11 +134,19 @@ int main(int argc, char* argv[]) {
         test_next("2016-03-27 03:17:00 UTC", "", 12345, 1459048620000000);
         test_next("2016-03-27 03:17:00 UTC", "CET", 12345, 1459048620000000);
         test_next("2016-03-27 03:17:00 UTC", "EET", 12345, 1459048620000000);
+        test_next("2016-03-27 03:17:00.420000001 UTC", "EET", 12345, 1459048620420000);
+        test_next("2016-03-27 03:17:00.4200005 UTC", "EET", 12345, 1459048620420001);
+        test_next("2015-11-13 09:11:23.42", "EET", 12345, 1447398683420000);
+        test_next("2015-11-13 09:11:23.42/1.77", "EET", 1447398683420000, 1447398685190000);
+        test_next("2015-11-13 09:11:23.42/1.77", "EET", 1447398683419999, 1447398683420000);
 
         assert_se(calendar_spec_from_string("test", &c) < 0);
         assert_se(calendar_spec_from_string("", &c) < 0);
         assert_se(calendar_spec_from_string("7", &c) < 0);
         assert_se(calendar_spec_from_string("121212:1:2", &c) < 0);
+        assert_se(calendar_spec_from_string("2000-03-05.23 00:00:00", &c) < 0);
+        assert_se(calendar_spec_from_string("2000-03-05 00:00.1:00", &c) < 0);
+        assert_se(calendar_spec_from_string("00:00:00/0.00000001", &c) < 0);
 
         return 0;
 }

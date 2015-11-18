@@ -27,6 +27,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -658,29 +659,18 @@ int parse_timestamp(const char *t, usec_t *usec) {
 
 parse_usec:
         {
-                char *end;
-                unsigned long long val;
-                size_t l;
+                unsigned add;
 
                 k++;
-                if (*k < '0' || *k > '9')
+                r = parse_fractional_part_u(&k, 6, &add);
+                if (r < 0)
                         return -EINVAL;
 
-                /* base 10 instead of base 0, .09 is not base 8 */
-                errno = 0;
-                val = strtoull(k, &end, 10);
-                if (*end || errno)
+                if (*k)
                         return -EINVAL;
 
-                l = end-k;
+                x_usec = add;
 
-                /* val has l digits, make them 6 */
-                for (; l < 6; l++)
-                        val *= 10;
-                for (; l > 6; l--)
-                        val /= 10;
-
-                x_usec = val;
         }
 
 from_tm:
