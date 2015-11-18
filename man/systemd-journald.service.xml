@@ -106,13 +106,6 @@
     <programlisting>mkdir -p /var/log/journal
 systemd-tmpfiles --create --prefix /var/log/journal</programlisting>
 
-    <para><filename>systemd-journald</filename> will forward all
-    received log messages to the
-    <constant>AF_UNIX</constant>/<constant>SOCK_DGRAM</constant>
-    socket <filename>/run/systemd/journal/syslog</filename>, if it
-    exists, which may be used by Unix syslog daemons to process the
-    data further.</para>
-
     <para>See
     <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     for information about the configuration of this service.</para>
