@@ -1453,13 +1453,11 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                        "SendSIGHUP", "SendSIGKILL", "WakeSystem", "DefaultDependencies",
                        "IgnoreSIGPIPE", "TTYVHangup", "TTYReset", "RemainAfterExit",
                        "PrivateTmp", "PrivateDevices", "PrivateNetwork", "NoNewPrivileges",
-                       "SyslogLevelPrefix", "Delegate")) {
+                       "SyslogLevelPrefix", "Delegate", "RemainAfterElapse")) {
 
                 r = parse_boolean(eq);
-                if (r < 0) {
-                        log_error("Failed to parse boolean assignment %s.", assignment);
-                        return -EINVAL;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse boolean assignment %s.", assignment);
 
                 r = sd_bus_message_append(m, "v", "b", r);
 
