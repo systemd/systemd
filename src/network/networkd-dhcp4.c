@@ -255,6 +255,7 @@ static int dhcp_lease_lost(Link *link) {
         }
 
         link->dhcp_lease = sd_dhcp_lease_unref(link->dhcp_lease);
+        link_dirty(link);
         link->dhcp4_configured = false;
 
         return 0;
@@ -331,6 +332,7 @@ static int dhcp_lease_renew(sd_dhcp_client *client, Link *link) {
         sd_dhcp_lease_unref(link->dhcp_lease);
         link->dhcp4_configured = false;
         link->dhcp_lease = sd_dhcp_lease_ref(lease);
+        link_dirty(link);
 
         r = sd_dhcp_lease_get_address(lease, &address);
         if (r < 0)
@@ -408,6 +410,7 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
                            NULL);
 
         link->dhcp_lease = sd_dhcp_lease_ref(lease);
+        link_dirty(link);
 
         if (link->network->dhcp_mtu) {
                 uint16_t mtu;
