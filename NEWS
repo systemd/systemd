@@ -88,6 +88,14 @@ CHANGES WITH 228:
           from PID1's environment block into the environment block of
           the service.
 
+        * Timer units gained support for a new RemainAfterElapse=
+          setting which takes a boolean argument. It defaults on on,
+          exposing behaviour unchanged to previous releases. If set to
+          off, timer units are unloaded after they elapsed if they
+          cannot elapse again. This is particularly useful for
+          transient timer units, which shall not stay around longer
+          than until they first elapse.
+
         * systemd will now bump the net.unix.max_dgram_qlen to 512 by
           default now (the kernel default is 16). This is beneficial
           for avoiding blocking on AF_UNIX/SOCK_DGRAM sockets since it
