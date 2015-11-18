@@ -1428,16 +1428,19 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                         return bus_log_create_error(r);
 
                 return 0;
+
         } else if (streq(field, "EnvironmentFile")) {
+
                 r = sd_bus_message_append_basic(m, SD_BUS_TYPE_STRING, "EnvironmentFiles");
                 if (r < 0)
-                        return r;
+                        return bus_log_create_error(r);
 
                 r = sd_bus_message_append(m, "v", "a(sb)", 1,
                                           eq[0] == '-' ? eq + 1 : eq,
                                           eq[0] == '-');
                 if (r < 0)
-                        return r;
+                        return bus_log_create_error(r);
+
                 return 0;
         }
 
