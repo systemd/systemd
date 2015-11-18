@@ -626,6 +626,20 @@ int dns_transaction_go(DnsTransaction *t) {
         t->cached = dns_answer_unref(t->cached);
         t->cached_rcode = 0;
 
+        /* Check the zone, but obly if this transaction is not used
+         * for probing or verifying a zone item. */
+        if (set_isempty(t->zone_items)) {
+
+                r = dns_zone_lookup(&t->scope->zone, t->key, &t->cached, NULL, NULL);
+                if (r < 0)
+                        return r;
+                if (r > 0) {
+                        t->cached_rcode = DNS_RCODE_SUCCESS;
+                        dns_transaction_complete(t, DNS_TRANSACTION_SUCCESS);
+                        return 0;
+                }
+        }
+
         /* Check the cache, but only if this transaction is not used
          * for probing or verifying a zone item. */
         if (set_isempty(t->zone_items)) {
