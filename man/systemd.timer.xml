@@ -245,11 +245,20 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>RemainAfterExit=</varname></term>
+        <term><varname>RemainAfterElapse=</varname></term>
 
         <listitem><para>Takes a boolean argument. If true, an elapsed
-        timer will stay loaded, and its state remains
-        queriable. Defaults to
+        timer will stay loaded, and its state remains queriable. If
+        false, an elapsed timer unit that cannot elapse anymore is
+        unloaded. Turning this off is particularly useful for
+        transient timer units that shall disappear after they first
+        elapse. Note that this setting has an effect on repeatedly
+        starting the a timer unit that only elapses once: if
+        <varname>RemainAfterElapse=</varname> is on, it will not be
+        started again, and is guaranteed to elapse only once. However,
+        if <varname>RemainAfterLeapse=</varname> is off, it might be
+        started again if it is already elapsed, and thus be triggered
+        multiple times. Defaults to
         <varname>yes</varname>.</para></listitem>
       </varlistentry>
     </variablelist>
