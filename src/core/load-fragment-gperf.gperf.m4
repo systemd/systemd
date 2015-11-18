@@ -249,6 +249,7 @@ Socket.ListenNetlink,            config_parse_socket_listen,         SOCKET_SOCK
 Socket.ListenSpecial,            config_parse_socket_listen,         SOCKET_SPECIAL,                0
 Socket.ListenMessageQueue,       config_parse_socket_listen,         SOCKET_MQUEUE,                 0
 Socket.ListenUSBFunction,        config_parse_socket_listen,         SOCKET_USB_FUNCTION,           0
+Socket.SocketProtocol,           config_parse_socket_protocol,       0,                             0
 Socket.BindIPv6Only,             config_parse_socket_bind,           0,                             0,
 Socket.Backlog,                  config_parse_unsigned,              0,                             offsetof(Socket, backlog)
 Socket.BindToDevice,             config_parse_socket_bindtodevice,   0,                             0

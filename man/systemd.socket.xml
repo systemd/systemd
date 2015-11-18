@@ -311,6 +311,15 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>SocketProtocol=</varname></term>
+        <listitem><para>Takes a one of <option>udplite</option>
+        or <option>sctp</option>. Specifies a socket protocol
+        (<constant>IPPROTO_UDPLITE</constant>) UDP-Lite
+        (<constant>IPPROTO_SCTP</constant>) SCTP socket respectively. </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>BindIPv6Only=</varname></term>
         <listitem><para>Takes a one of <option>default</option>,
         <option>both</option> or <option>ipv6-only</option>. Controls
