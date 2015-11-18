@@ -61,6 +61,7 @@ int ask_string(char **ret, const char *text, ...) _printf_(2, 3);
 int vt_disallocate(const char *name);
 
 char *resolve_dev_console(char **active);
+int get_kernel_consoles(char ***consoles);
 bool tty_is_vc(const char *tty);
 bool tty_is_vc_resolve(const char *tty);
 bool tty_is_console(const char *tty) _pure_;
