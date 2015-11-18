@@ -626,6 +626,9 @@ void link_check_ready(Link *link) {
              !link->dhcp4_configured && !link->dhcp6_configured))
                 return;
 
+        if (link_ipv6_accept_ra_enabled(link) && !link->ndisc_configured)
+                return;
+
         SET_FOREACH(a, link->addresses, i)
                 if (!address_is_ready(a))
                         return;
@@ -1923,7 +1926,6 @@ static int link_set_ipv6_privacy_extensions(Link *link) {
 
 static int link_set_ipv6_accept_ra(Link *link) {
         const char *p = NULL;
-        const char *v;
         int r;
 
         /* Make this a NOP if IPv6 is not available */
@@ -1936,16 +1938,12 @@ static int link_set_ipv6_accept_ra(Link *link) {
         if (!link->network)
                 return 0;
 
-        if (link_ipv6_accept_ra_enabled(link))
-                v = "1";
-        else
-                v = "0";
-
         p = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/accept_ra");
 
-        r = write_string_file(p, v, WRITE_STRING_FILE_VERIFY_ON_FAILURE);
+        /* We handle router advertisments ourselves, tell the kernel to GTFO */
+        r = write_string_file(p, "0", WRITE_STRING_FILE_VERIFY_ON_FAILURE);
         if (r < 0)
-                log_link_warning_errno(link, r, "Cannot configure kernel IPv6 accept_ra for interface: %m");
+                log_link_warning_errno(link, r, "Cannot disable kernel IPv6 accept_ra for interface: %m");
 
         return 0;
 }
@@ -2006,7 +2004,6 @@ static int link_set_ipv6_hop_limit(Link *link) {
         return 0;
 }
 
-/*
 static int link_drop_foreign_config(Link *link) {
         Address *address;
         Route *route;
@@ -2014,6 +2011,7 @@ static int link_drop_foreign_config(Link *link) {
         int r;
 
         SET_FOREACH(address, link->addresses_foreign, i) {
+                /* we consider IPv6LL addresses to be managed by the kernel */
                 if (address->family == AF_INET6 && in_addr_is_link_local(AF_INET6, &address->in_addr) == 1)
                         continue;
 
@@ -2023,6 +2021,7 @@ static int link_drop_foreign_config(Link *link) {
         }
 
         SET_FOREACH(route, link->routes_foreign, i) {
+                /* do not touch routes managed by the kernel */
                 if (route->protocol == RTPROT_KERNEL)
                         continue;
 
@@ -2033,7 +2032,6 @@ static int link_drop_foreign_config(Link *link) {
 
         return 0;
 }
-*/
 
 static int link_configure(Link *link) {
         int r;
@@ -2042,11 +2040,9 @@ static int link_configure(Link *link) {
         assert(link->network);
         assert(link->state == LINK_STATE_PENDING);
 
-/*
         r = link_drop_foreign_config(link);
         if (r < 0)
                 return r;
-*/
 
         r = link_set_bridge_fdb(link);
         if (r < 0)
