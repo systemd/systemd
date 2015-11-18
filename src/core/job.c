@@ -500,16 +500,25 @@ static void job_change_type(Job *j, JobType newtype) {
 }
 
 static int job_perform_on_unit(Job **j) {
-        /* While we execute this operation the job might go away (for
-         * example: because it finishes immediately or is replaced by a new,
-         * conflicting job.) To make sure we don't access a freed job later on
-         * we store the id here, so that we can verify the job is still
-         * valid. */
-        Manager *m  = (*j)->manager;
-        Unit *u     = (*j)->unit;
-        JobType t   = (*j)->type;
-        uint32_t id = (*j)->id;
+        uint32_t id;
+        Manager *m;
+        JobType t;
+        Unit *u;
         int r;
+
+        /* While we execute this operation the job might go away (for
+         * example: because it finishes immediately or is replaced by
+         * a new, conflicting job.) To make sure we don't access a
+         * freed job later on we store the id here, so that we can
+         * verify the job is still valid. */
+
+        assert(j);
+        assert(*j);
+
+        m = (*j)->manager;
+        u = (*j)->unit;
+        t = (*j)->type;
+        id = (*j)->id;
 
         switch (t) {
                 case JOB_START:
@@ -518,6 +527,7 @@ static int job_perform_on_unit(Job **j) {
 
                 case JOB_RESTART:
                         t = JOB_STOP;
+                        /* fall through */
                 case JOB_STOP:
                         r = unit_stop(u);
                         break;
@@ -617,8 +627,7 @@ int job_run_and_invalidate(Job *j) {
 }
 
 _pure_ static const char *job_get_status_message_format(Unit *u, JobType t, JobResult result) {
-        const char *format;
-        const UnitStatusMessageFormats *format_table;
+
         static const char *const generic_finished_start_job[_JOB_RESULT_MAX] = {
                 [JOB_DONE]        = "Started %s.",
                 [JOB_TIMEOUT]     = "Timed out starting %s.",
@@ -644,11 +653,14 @@ _pure_ static const char *job_get_status_message_format(Unit *u, JobType t, JobR
                 [JOB_SKIPPED]     = "%s is not active.",
         };
 
+        const UnitStatusMessageFormats *format_table;
+        const char *format;
+
         assert(u);
         assert(t >= 0);
         assert(t < _JOB_TYPE_MAX);
 
-        if (t == JOB_START || t == JOB_STOP || t == JOB_RESTART) {
+        if (IN_SET(t, JOB_START, JOB_STOP, JOB_RESTART)) {
                 format_table = &UNIT_VTABLE(u)->status_message_formats;
                 if (format_table) {
                         format = t == JOB_START ? format_table->finished_start_job[result] :
@@ -672,7 +684,6 @@ _pure_ static const char *job_get_status_message_format(Unit *u, JobType t, JobR
 }
 
 static void job_print_status_message(Unit *u, JobType t, JobResult result) {
-        const char *format;
         static const char* const job_result_status_table[_JOB_RESULT_MAX] = {
                 [JOB_DONE]        = ANSI_GREEN            "  OK  " ANSI_NORMAL,
                 [JOB_TIMEOUT]     = ANSI_HIGHLIGHT_RED    " TIME " ANSI_NORMAL,
@@ -683,9 +694,15 @@ static void job_print_status_message(Unit *u, JobType t, JobResult result) {
                 [JOB_UNSUPPORTED] = ANSI_HIGHLIGHT_YELLOW "UNSUPP" ANSI_NORMAL,
         };
 
+        const char *format;
+
         assert(u);
         assert(t >= 0);
         assert(t < _JOB_TYPE_MAX);
+
+        /* Reload status messages have traditionally not been printed to console. */
+        if (t == JOB_RELOAD)
+                return;
 
         format = job_get_status_message_format(u, t, result);
         if (!format)
@@ -699,10 +716,10 @@ static void job_print_status_message(Unit *u, JobType t, JobResult result) {
         REENABLE_WARNING;
 
         if (t == JOB_START && result == JOB_FAILED) {
-                _cleanup_free_ char *quoted = shell_maybe_quote(u->id);
+                _cleanup_free_ char *quoted;
 
-                manager_status_printf(u->manager, STATUS_TYPE_NORMAL, NULL,
-                                      "See 'systemctl status %s' for details.", strna(quoted));
+                quoted = shell_maybe_quote(u->id);
+                manager_status_printf(u->manager, STATUS_TYPE_NORMAL, NULL, "See 'systemctl status %s' for details.", strna(quoted));
         }
 }
 
@@ -740,13 +757,22 @@ static void job_log_status_message(Unit *u, JobType t, JobResult result) {
         snprintf(buf, sizeof(buf), format, unit_description(u));
         REENABLE_WARNING;
 
-        if (t == JOB_START)
+        switch (t) {
+
+        case JOB_START:
                 mid = result == JOB_DONE ? SD_MESSAGE_UNIT_STARTED : SD_MESSAGE_UNIT_FAILED;
-        else if (t == JOB_STOP || t == JOB_RESTART)
-                mid = SD_MESSAGE_UNIT_STOPPED;
-        else if (t == JOB_RELOAD)
+                break;
+
+        case JOB_RELOAD:
                 mid = SD_MESSAGE_UNIT_RELOADED;
-        else {
+                break;
+
+        case JOB_STOP:
+        case JOB_RESTART:
+                mid = SD_MESSAGE_UNIT_STOPPED;
+                break;
+
+        default:
                 log_struct(job_result_log_level[result],
                            LOG_UNIT_ID(u),
                            LOG_MESSAGE("%s", buf),
@@ -770,10 +796,7 @@ static void job_emit_status_message(Unit *u, JobType t, JobResult result) {
                 return;
 
         job_log_status_message(u, t, result);
-
-        /* Reload status messages have traditionally not been printed to console. */
-        if (t != JOB_RELOAD)
-                job_print_status_message(u, t, result);
+        job_print_status_message(u, t, result);
 }
 
 static void job_fail_dependencies(Unit *u, UnitDependency d) {

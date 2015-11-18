@@ -73,6 +73,7 @@ struct Timer {
 
         bool persistent;
         bool wake_system;
+        bool remain_after_elapse;
 
         char *stamp_path;
 };

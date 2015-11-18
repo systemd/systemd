@@ -648,6 +648,11 @@ static int transient_timer_set_properties(sd_bus_message *m) {
         if (r < 0)
                 return r;
 
+        /* Automatically clean up our transient timers */
+        r = sd_bus_message_append(m, "(sv)", "RemainAfterElapse", "b", false);
+        if (r < 0)
+                return r;
+
         if (arg_on_active) {
                 r = sd_bus_message_append(m, "(sv)", "OnActiveSec", "t", arg_on_active);
                 if (r < 0)
@@ -684,6 +689,51 @@ static int transient_timer_set_properties(sd_bus_message *m) {
                         return r;
         }
 
+        return 0;
+}
+
+static int make_unit_name(sd_bus *bus, UnitType t, char **ret) {
+        const char *unique, *id;
+        char *p;
+        int r;
+
+        assert(bus);
+        assert(t >= 0);
+        assert(t < _UNIT_TYPE_MAX);
+
+        r = sd_bus_get_unique_name(bus, &unique);
+        if (r < 0) {
+                sd_id128_t rnd;
+
+                /* We couldn't get the unique name, which is a pretty
+                 * common case if we are connected to systemd
+                 * directly. In that case, just pick a random uuid as
+                 * name */
+
+                r = sd_id128_randomize(&rnd);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to generate random run unit name: %m");
+
+                if (asprintf(ret, "run-r" SD_ID128_FORMAT_STR ".%s", SD_ID128_FORMAT_VAL(rnd), unit_type_to_string(t)) < 0)
+                        return log_oom();
+
+                return 0;
+        }
+
+        /* We managed to get the unique name, then let's use that to
+         * name our transient units. */
+
+        id = startswith(unique, ":1.");
+        if (!id) {
+                log_error("Unique name %s has unexpected format.", unique);
+                return -EINVAL;
+        }
+
+        p = strjoin("run-u", id, ".", unit_type_to_string(t), NULL);
+        if (!p)
+                return log_oom();
+
+        *ret = p;
         return 0;
 }
 
@@ -763,8 +813,11 @@ static int start_transient_service(
                 r = unit_name_mangle_with_suffix(arg_unit, UNIT_NAME_NOGLOB, ".service", &service);
                 if (r < 0)
                         return log_error_errno(r, "Failed to mangle unit name: %m");
-        } else if (asprintf(&service, "run-"PID_FMT".service", getpid()) < 0)
-                return log_oom();
+        } else {
+                r = make_unit_name(bus, UNIT_SERVICE, &service);
+                if (r < 0)
+                        return r;
+        }
 
         r = sd_bus_message_new_method_call(
                         bus,
@@ -882,8 +935,11 @@ static int start_transient_scope(
                 r = unit_name_mangle_with_suffix(arg_unit, UNIT_NAME_NOGLOB, ".scope", &scope);
                 if (r < 0)
                         return log_error_errno(r, "Failed to mangle scope name: %m");
-        } else if (asprintf(&scope, "run-"PID_FMT".scope", getpid()) < 0)
-                return log_oom();
+        } else {
+                r = make_unit_name(bus, UNIT_SCOPE, &scope);
+                if (r < 0)
+                        return r;
+        }
 
         r = sd_bus_message_new_method_call(
                         bus,
@@ -1052,9 +1108,15 @@ static int start_transient_timer(
 
                         break;
                 }
-        } else if ((asprintf(&service, "run-"PID_FMT".service", getpid()) < 0) ||
-                   (asprintf(&timer, "run-"PID_FMT".timer", getpid()) < 0))
-                return log_oom();
+        } else {
+                r = make_unit_name(bus, UNIT_SERVICE, &service);
+                if (r < 0)
+                        return r;
+
+                r = unit_name_change_suffix(service, ".timer", &timer);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to change unit suffix: %m");
+        }
 
         r = sd_bus_message_new_method_call(
                         bus,

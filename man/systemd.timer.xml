@@ -243,6 +243,15 @@
         again after any work that is to be done is finished. Defaults
         to <varname>false</varname>.</para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>RemainAfterExit=</varname></term>
+
+        <listitem><para>Takes a boolean argument. If true, an elapsed
+        timer will stay loaded, and its state remains
+        queriable. Defaults to
+        <varname>yes</varname>.</para></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 

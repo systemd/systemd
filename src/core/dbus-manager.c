@@ -644,6 +644,7 @@ static int transient_unit_from_message(
                 Unit **unit,
                 sd_bus_error *error) {
 
+        UnitType t;
         Unit *u;
         int r;
 
@@ -651,23 +652,18 @@ static int transient_unit_from_message(
         assert(message);
         assert(name);
 
+        t = unit_name_to_type(name);
+        if (t < 0)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid unit name or type.");
+
+        if (!unit_vtable[t]->can_transient)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unit type %s does not support transient units.", unit_type_to_string(t));
+
         r = manager_load_unit(m, name, NULL, error, &u);
         if (r < 0)
                 return r;
 
-        /* Check if the unit already exists or is already referenced,
-         * in a number of different ways. Note that to cater for unit
-         * types such as slice, we are generally fine with units that
-         * are marked UNIT_LOADED even even though nothing was
-         * actually loaded, as those unit types don't require a file
-         * on disk to validly load. */
-
-        if (!IN_SET(u->load_state, UNIT_NOT_FOUND, UNIT_LOADED) ||
-            u->fragment_path ||
-            u->source_path ||
-            !strv_isempty(u->dropin_paths) ||
-            u->refs ||
-            set_size(u->dependencies[UNIT_REFERENCED_BY]) > 0)
+        if (!unit_is_pristine(u))
                 return sd_bus_error_setf(error, BUS_ERROR_UNIT_EXISTS, "Unit %s already exists.", name);
 
         /* OK, the unit failed to load and is unreferenced, now let's
@@ -681,6 +677,9 @@ static int transient_unit_from_message(
         if (r < 0)
                 return r;
 
+        /* Now load the missing bits of the unit we just created */
+        manager_dispatch_load_queue(m);
+
         *unit = u;
 
         return 0;
@@ -691,8 +690,6 @@ static int transient_aux_units_from_message(
                 sd_bus_message *message,
                 sd_bus_error *error) {
 
-        Unit *u;
-        char *name = NULL;
         int r;
 
         assert(m);
@@ -703,19 +700,16 @@ static int transient_aux_units_from_message(
                 return r;
 
         while ((r = sd_bus_message_enter_container(message, 'r', "sa(sv)")) > 0) {
+                const char *name = NULL;
+                Unit *u;
+
                 r = sd_bus_message_read(message, "s", &name);
                 if (r < 0)
                         return r;
 
                 r = transient_unit_from_message(m, message, name, &u, error);
-                if (r < 0 && r != -EEXIST)
+                if (r < 0)
                         return r;
-
-                if (r != -EEXIST) {
-                        r = unit_load(u);
-                        if (r < 0)
-                                return r;
-                }
 
                 r = sd_bus_message_exit_container(message);
                 if (r < 0)
@@ -735,7 +729,6 @@ static int method_start_transient_unit(sd_bus_message *message, void *userdata, 
         const char *name, *smode;
         Manager *m = userdata;
         JobMode mode;
-        UnitType t;
         Unit *u;
         int r;
 
@@ -749,13 +742,6 @@ static int method_start_transient_unit(sd_bus_message *message, void *userdata, 
         r = sd_bus_message_read(message, "ss", &name, &smode);
         if (r < 0)
                 return r;
-
-        t = unit_name_to_type(name);
-        if (t < 0)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid unit type.");
-
-        if (!unit_vtable[t]->can_transient)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unit type %s does not support transient units.", unit_type_to_string(t));
 
         mode = job_mode_from_string(smode);
         if (mode < 0)
@@ -774,13 +760,6 @@ static int method_start_transient_unit(sd_bus_message *message, void *userdata, 
         r = transient_aux_units_from_message(m, message, error);
         if (r < 0)
                 return r;
-
-        /* And load this stub fully */
-        r = unit_load(u);
-        if (r < 0)
-                return r;
-
-        manager_dispatch_load_queue(m);
 
         /* Finally, start it */
         return bus_unit_queue_job(message, u, JOB_START, mode, false, error);

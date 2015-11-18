@@ -55,6 +55,7 @@ static void timer_init(Unit *u) {
         t->next_elapse_monotonic_or_boottime = USEC_INFINITY;
         t->next_elapse_realtime = USEC_INFINITY;
         t->accuracy_usec = u->manager->default_timer_accuracy_usec;
+        t->remain_after_elapse = true;
 }
 
 void timer_free_values(Timer *t) {
@@ -217,13 +218,15 @@ static void timer_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sUnit: %s\n"
                 "%sPersistent: %s\n"
                 "%sWakeSystem: %s\n"
-                "%sAccuracy: %s\n",
+                "%sAccuracy: %s\n"
+                "%sRemainAfterElapse: %s\n",
                 prefix, timer_state_to_string(t->state),
                 prefix, timer_result_to_string(t->result),
                 prefix, trigger ? trigger->id : "n/a",
                 prefix, yes_no(t->persistent),
                 prefix, yes_no(t->wake_system),
-                prefix, format_timespan(buf, sizeof(buf), t->accuracy_usec, 1));
+                prefix, format_timespan(buf, sizeof(buf), t->accuracy_usec, 1),
+                prefix, yes_no(t->remain_after_elapse));
 
         LIST_FOREACH(value, v, t->values) {
 
@@ -275,13 +278,13 @@ static int timer_coldplug(Unit *u) {
         assert(t);
         assert(t->state == TIMER_DEAD);
 
-        if (t->deserialized_state != t->state) {
+        if (t->deserialized_state == t->state)
+                return 0;
 
-                if (t->deserialized_state == TIMER_WAITING)
-                        timer_enter_waiting(t, false);
-                else
-                        timer_set_state(t, t->deserialized_state);
-        }
+        if (t->deserialized_state == TIMER_WAITING)
+                timer_enter_waiting(t, false);
+        else
+                timer_set_state(t, t->deserialized_state);
 
         return 0;
 }
@@ -293,6 +296,23 @@ static void timer_enter_dead(Timer *t, TimerResult f) {
                 t->result = f;
 
         timer_set_state(t, t->result != TIMER_SUCCESS ? TIMER_FAILED : TIMER_DEAD);
+}
+
+static void timer_enter_elapsed(Timer *t, bool leave_around) {
+        assert(t);
+
+        /* If a unit is marked with RemainAfterElapse=yes we leave it
+         * around even after it elapsed once, so that starting it
+         * later again does not necessarily mean immediate
+         * retriggering. We unconditionally leave units with
+         * TIMER_UNIT_ACTIVE or TIMER_UNIT_INACTIVE triggers around,
+         * since they might be restarted automatically at any time
+         * later on. */
+
+        if (t->remain_after_elapse || leave_around)
+                timer_set_state(t, TIMER_ELAPSED);
+        else
+                timer_enter_dead(t, TIMER_SUCCESS);
 }
 
 static usec_t monotonic_to_boottime(usec_t t) {
@@ -314,6 +334,7 @@ static void timer_enter_waiting(Timer *t, bool initial) {
         bool found_monotonic = false, found_realtime = false;
         usec_t ts_realtime, ts_monotonic;
         usec_t base = 0;
+        bool leave_around = false;
         TimerValue *v;
         int r;
 
@@ -374,7 +395,7 @@ static void timer_enter_waiting(Timer *t, bool initial) {
                                 break;
 
                         case TIMER_UNIT_ACTIVE:
-
+                                leave_around = true;
                                 base = UNIT_TRIGGER(UNIT(t))->inactive_exit_timestamp.monotonic;
 
                                 if (base <= 0)
@@ -386,7 +407,7 @@ static void timer_enter_waiting(Timer *t, bool initial) {
                                 break;
 
                         case TIMER_UNIT_INACTIVE:
-
+                                leave_around = true;
                                 base = UNIT_TRIGGER(UNIT(t))->inactive_enter_timestamp.monotonic;
 
                                 if (base <= 0)
@@ -423,14 +444,16 @@ static void timer_enter_waiting(Timer *t, bool initial) {
 
         if (!found_monotonic && !found_realtime) {
                 log_unit_debug(UNIT(t), "Timer is elapsed.");
-                timer_set_state(t, TIMER_ELAPSED);
+                timer_enter_elapsed(t, leave_around);
                 return;
         }
 
         if (found_monotonic) {
                 char buf[FORMAT_TIMESPAN_MAX];
+                usec_t left;
 
-                log_unit_debug(UNIT(t), "Monotonic timer elapses in %s.", format_timespan(buf, sizeof(buf), t->next_elapse_monotonic_or_boottime > ts_monotonic ? t->next_elapse_monotonic_or_boottime - ts_monotonic : 0, 0));
+                left = t->next_elapse_monotonic_or_boottime > ts_monotonic ? t->next_elapse_monotonic_or_boottime - ts_monotonic : 0;
+                log_unit_debug(UNIT(t), "Monotonic timer elapses in %s.", format_timespan(buf, sizeof(buf), left, 0));
 
                 if (t->monotonic_event_source) {
                         r = sd_event_source_set_time(t->monotonic_event_source, t->next_elapse_monotonic_or_boottime);
