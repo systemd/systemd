@@ -26,8 +26,8 @@
 #include <net/ethernet.h>
 #include <sys/types.h>
 
-#include "sd-event.h"
 #include "sd-dhcp6-lease.h"
+#include "sd-event.h"
 
 #include "_sd-common.h"
 

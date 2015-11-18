@@ -22,8 +22,9 @@
 ***/
 
 #include "sd-event.h"
-#include "macro.h"
+
 #include "import-util.h"
+#include "macro.h"
 
 typedef struct RawImport RawImport;
 

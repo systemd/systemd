@@ -23,19 +23,19 @@
 
 #include <arpa/inet.h>
 
+#include "sd-bus.h"
 #include "sd-event.h"
 #include "sd-netlink.h"
-#include "sd-bus.h"
-#include "udev.h"
 
 #include "hashmap.h"
 #include "list.h"
+#include "udev.h"
 
 typedef struct Manager Manager;
 
-#include "networkd-network.h"
 #include "networkd-address-pool.h"
 #include "networkd-link.h"
+#include "networkd-network.h"
 #include "networkd-util.h"
 
 struct Manager {

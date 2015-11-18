@@ -23,12 +23,13 @@
 
 
 #include "sd-bus.h"
+
 #include "set.h"
 
 typedef struct DnsQuery DnsQuery;
 
-#include "resolved-dns-question.h"
 #include "resolved-dns-answer.h"
+#include "resolved-dns-question.h"
 #include "resolved-dns-stream.h"
 
 struct DnsQuery {

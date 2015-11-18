@@ -21,9 +21,9 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/socket.h>
-#include <netinet/in.h>
 #include <netinet/ether.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
 #include <sys/un.h>
 #include <linux/netlink.h>
 #include <linux/if_packet.h>

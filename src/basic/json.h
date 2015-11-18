@@ -22,6 +22,7 @@
 ***/
 
 #include <stdbool.h>
+
 #include "util.h"
 
 enum {

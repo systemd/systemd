@@ -23,8 +23,8 @@
 
 typedef struct Route Route;
 
-#include "networkd.h"
 #include "networkd-network.h"
+#include "networkd.h"
 
 struct Route {
         Network *network;

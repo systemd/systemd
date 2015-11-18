@@ -25,12 +25,11 @@
 #include <stdint.h>
 #include <linux/if_packet.h>
 
-#include "util.h"
-#include "list.h"
+#include "sd-dhcp-client.h"
 
 #include "dhcp-protocol.h"
-
-#include "sd-dhcp-client.h"
+#include "list.h"
+#include "util.h"
 
 struct sd_dhcp_route {
         struct in_addr dst_addr;

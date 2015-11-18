@@ -31,9 +31,9 @@ typedef struct DnsZone {
 typedef struct DnsZoneItem DnsZoneItem;
 typedef enum DnsZoneItemState DnsZoneItemState;
 
-#include "resolved-dns-rr.h"
-#include "resolved-dns-question.h"
 #include "resolved-dns-answer.h"
+#include "resolved-dns-question.h"
+#include "resolved-dns-rr.h"
 #include "resolved-dns-transaction.h"
 
 /* RFC 4795 Section 2.8. suggests a TTL of 30s by default */

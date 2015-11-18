@@ -25,6 +25,7 @@
 ***/
 
 #include <dirent.h>
+
 #include "bootchart.h"
 
 double gettime_ns(void);

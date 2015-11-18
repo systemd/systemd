@@ -25,12 +25,12 @@
 
 typedef struct Network Network;
 
-#include "networkd.h"
-#include "networkd-netdev.h"
 #include "networkd-address.h"
-#include "networkd-route.h"
 #include "networkd-fdb.h"
+#include "networkd-netdev.h"
+#include "networkd-route.h"
 #include "networkd-util.h"
+#include "networkd.h"
 
 #define DHCP_ROUTE_METRIC 1024
 #define IPV4LL_ROUTE_METRIC 2048

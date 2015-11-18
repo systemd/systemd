@@ -27,6 +27,7 @@
 #include <netinet/in.h>
 
 #include "sd-event.h"
+
 #include "_sd-common.h"
 
 _SD_BEGIN_DECLARATIONS;

@@ -22,10 +22,11 @@
 ***/
 
 #include "sd-event.h"
-#include "sd-network.h"
 #include "sd-netlink.h"
-#include "list.h"
+#include "sd-network.h"
+
 #include "hashmap.h"
+#include "list.h"
 
 typedef struct Manager Manager;
 typedef enum Support Support;

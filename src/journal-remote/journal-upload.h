@@ -2,8 +2,8 @@
 
 #include <inttypes.h>
 
-#include "sd-journal.h"
 #include "sd-event.h"
+#include "sd-journal.h"
 
 typedef enum {
         ENTRY_CURSOR = 0,           /* Nothing actually written yet. */

@@ -24,6 +24,7 @@
 #include <stdbool.h>
 
 #include "sd-bus.h"
+
 #include "macro.h"
 
 bool bus_error_is_dirty(sd_bus_error *e);

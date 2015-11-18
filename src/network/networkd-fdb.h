@@ -23,8 +23,8 @@
 
 typedef struct FdbEntry FdbEntry;
 
-#include "networkd.h"
 #include "networkd-network.h"
+#include "networkd.h"
 
 struct FdbEntry {
         Network *network;

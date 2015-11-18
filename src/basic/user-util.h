@@ -21,8 +21,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/types.h>
 #include <stdbool.h>
+#include <sys/types.h>
 
 bool uid_is_valid(uid_t uid);
 

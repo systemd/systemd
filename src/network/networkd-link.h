@@ -56,9 +56,9 @@ typedef enum LinkOperationalState {
         _LINK_OPERSTATE_INVALID = -1
 } LinkOperationalState;
 
-#include "networkd.h"
-#include "networkd-network.h"
 #include "networkd-address.h"
+#include "networkd-network.h"
+#include "networkd.h"
 
 struct Link {
         Manager *manager;

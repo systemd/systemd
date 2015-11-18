@@ -21,12 +21,13 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <libmount.h>
 #include <stdbool.h>
 #include <stdio.h>
-#include <libmount.h>
 
 #include "sd-bus.h"
 #include "sd-event.h"
+
 #include "cgroup-util.h"
 #include "fdset.h"
 #include "hashmap.h"

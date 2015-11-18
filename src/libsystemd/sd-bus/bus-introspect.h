@@ -24,6 +24,7 @@
 #include <stdio.h>
 
 #include "sd-bus.h"
+
 #include "set.h"
 
 struct introspect {

@@ -23,9 +23,9 @@
 
 #ifdef HAVE_ACL
 
+#include <acl/libacl.h>
 #include <stdbool.h>
 #include <sys/acl.h>
-#include <acl/libacl.h>
 
 #include "macro.h"
 

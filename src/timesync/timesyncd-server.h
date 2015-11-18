@@ -21,8 +21,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "socket-util.h"
 #include "list.h"
+#include "socket-util.h"
 
 typedef struct ServerAddress ServerAddress;
 typedef struct ServerName ServerName;

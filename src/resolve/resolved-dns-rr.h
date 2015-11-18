@@ -24,9 +24,9 @@
 #include <netinet/in.h>
 
 #include "bitmap.h"
+#include "dns-type.h"
 #include "hashmap.h"
 #include "in-addr-util.h"
-#include "dns-type.h"
 
 typedef struct DnsResourceKey DnsResourceKey;
 typedef struct DnsResourceRecord DnsResourceRecord;

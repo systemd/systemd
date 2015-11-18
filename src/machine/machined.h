@@ -31,9 +31,9 @@
 
 typedef struct Manager Manager;
 
-#include "machine.h"
-#include "machine-dbus.h"
 #include "image-dbus.h"
+#include "machine-dbus.h"
+#include "machine.h"
 
 struct Manager {
         sd_event *event;

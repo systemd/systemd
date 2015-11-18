@@ -21,9 +21,9 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/types.h>
 #include <inttypes.h>
 #include <stdbool.h>
+#include <sys/types.h>
 
 #include "sd-id128.h"
 #include "sd-journal.h"
