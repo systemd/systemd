@@ -4652,8 +4652,7 @@ static int show(int argc, char *argv[], void *userdata) {
                 return -EINVAL;
         }
 
-        if (show_properties)
-                pager_open_if_enabled();
+        pager_open_if_enabled();
 
         if (show_status)
                 /* Increase max number of open files to 16K if we can, we
