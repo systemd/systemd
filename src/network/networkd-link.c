@@ -2300,7 +2300,8 @@ network_file_fail:
                         if (r < 0) {
                                 log_link_debug_errno(link, r, "Failed to extract next address string: %m");
                                 continue;
-                        } if (r == 0)
+                        }
+                        if (r == 0)
                                 break;
 
                         prefixlen_str = strchr(address_str, '/');
@@ -2344,7 +2345,8 @@ network_file_fail:
                         if (r < 0) {
                                 log_link_debug_errno(link, r, "Failed to extract next route string: %m");
                                 continue;
-                        } if (r == 0)
+                        }
+                        if (r == 0)
                                 break;
 
                         prefixlen_str = strchr(route_str, '/');
