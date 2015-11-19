@@ -32,6 +32,7 @@
 #include "in-addr-util.h"
 #include "list.h"
 #include "socket-util.h"
+#include "string-util.h"
 
 #define NDISC_ROUTER_SOLICITATION_INTERVAL      4 * USEC_PER_SEC
 #define NDISC_MAX_ROUTER_SOLICITATIONS          3
@@ -484,6 +485,7 @@ static int ndisc_router_advertisment_recv(sd_event_source *s, int fd, uint32_t r
         int r, buflen = 0, pref, stateful;
         union sockaddr_union router = {};
         socklen_t router_len = sizeof(router);
+        struct in6_addr *gw;
         unsigned lifetime;
         ssize_t len;
 
@@ -503,13 +505,22 @@ static int ndisc_router_advertisment_recv(sd_event_source *s, int fd, uint32_t r
         if (len < 0) {
                 log_ndisc(nd, "Could not receive message from ICMPv6 socket: %m");
                 return 0;
-        } else if (router_len != sizeof(router.in6) && router_len != 0) {
+        } else if (router_len == 0)
+                gw = NULL; /* only happens when running the test-suite over a socketpair */
+        else if (router_len != sizeof(router.in6)) {
                 log_ndisc(nd, "Received invalid source address size from ICMPv6 socket: %zu bytes", (size_t)router_len);
                 return 0;
-        }
+        } else
+                gw = &router.in6.sin6_addr;
 
-        if (!in_addr_is_link_local(AF_INET6, (const union in_addr_union*) &router.in6.sin6_addr))
+        if (gw && !in_addr_is_link_local(AF_INET6, (const union in_addr_union*) gw)) {
+                _cleanup_free_ char *addr = NULL;
+
+                (void)in_addr_to_string(AF_INET6, (const union in_addr_union*) gw, &addr);
+
+                log_ndisc(nd, "Received RA from non-link-local address %s. Ignoring.", strna(addr));
                 return 0;
+        }
 
         if (ra->nd_ra_type != ND_ROUTER_ADVERT)
                 return 0;
@@ -547,7 +558,7 @@ static int ndisc_router_advertisment_recv(sd_event_source *s, int fd, uint32_t r
         }
 
         if (nd->router_callback)
-                nd->router_callback(nd, stateful, router_len != 0 ? &router.in6.sin6_addr : NULL, lifetime, pref, nd->userdata);
+                nd->router_callback(nd, stateful, gw, lifetime, pref, nd->userdata);
 
         return 0;
 }
