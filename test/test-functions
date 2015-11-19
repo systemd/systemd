@@ -68,8 +68,7 @@ selinux=0 \
 $KERNEL_APPEND \
 "
 
-    QEMU_OPTIONS="-machine accel=kvm:tcg \
--smp $QEMU_SMP \
+    QEMU_OPTIONS="-smp $QEMU_SMP \
 -net none \
 -m 512M \
 -nographic \
@@ -78,6 +77,10 @@ $KERNEL_APPEND \
 
     if [ "$INITRD" ]; then
         QEMU_OPTIONS="$QEMU_OPTIONS -initrd $INITRD"
+    fi
+
+    if [ -c /dev/kvm ]; then
+        QEMU_OPTIONS="$QEMU_OPTIONS -machine accel=kvm -enable-kvm -cpu host"
     fi
 
     ( set -x
