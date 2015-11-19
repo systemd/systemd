@@ -24,6 +24,7 @@
 #include <stdbool.h>
 
 #include "sd-id128.h"
+
 #include "hashmap.h"
 #include "strbuf.h"
 

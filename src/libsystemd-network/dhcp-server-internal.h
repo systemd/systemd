@@ -22,14 +22,13 @@
 
 #pragma once
 
-#include "sd-event.h"
 #include "sd-dhcp-server.h"
-
-#include "hashmap.h"
-#include "util.h"
-#include "log.h"
+#include "sd-event.h"
 
 #include "dhcp-internal.h"
+#include "hashmap.h"
+#include "log.h"
+#include "util.h"
 
 typedef struct DHCPClientId {
         size_t length;

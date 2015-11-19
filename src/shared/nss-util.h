@@ -21,11 +21,11 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <nss.h>
-#include <netdb.h>
-#include <resolv.h>
-#include <pwd.h>
 #include <grp.h>
+#include <netdb.h>
+#include <nss.h>
+#include <pwd.h>
+#include <resolv.h>
 
 
 #define NSS_GETHOSTBYNAME_PROTOTYPES(module)            \

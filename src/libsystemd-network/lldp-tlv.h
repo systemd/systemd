@@ -24,11 +24,11 @@
 
 #include <net/ethernet.h>
 
-#include "util.h"
-#include "lldp.h"
-#include "list.h"
-
 #include "sd-lldp.h"
+
+#include "list.h"
+#include "lldp.h"
+#include "util.h"
 
 typedef struct sd_lldp_packet tlv_packet;
 typedef struct sd_lldp_section tlv_section;

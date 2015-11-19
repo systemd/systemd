@@ -28,9 +28,9 @@
 
 typedef struct Address Address;
 
-#include "networkd.h"
-#include "networkd-network.h"
 #include "networkd-link.h"
+#include "networkd-network.h"
+#include "networkd.h"
 
 #define CACHE_INFO_INFINITY_LIFE_TIME 0xFFFFFFFFU
 

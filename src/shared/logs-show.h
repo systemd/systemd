@@ -26,8 +26,8 @@
 
 #include "sd-journal.h"
 
-#include "util.h"
 #include "output-mode.h"
+#include "util.h"
 
 int output_journal(
                 FILE *f,

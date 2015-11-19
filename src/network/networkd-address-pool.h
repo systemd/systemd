@@ -23,6 +23,7 @@
 
 typedef struct AddressPool AddressPool;
 
+#include "in-addr-util.h"
 #include "networkd.h"
 
 struct AddressPool {

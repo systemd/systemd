@@ -22,11 +22,11 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/types.h>
-#include <sys/signalfd.h>
-#include <sys/epoll.h>
 #include <inttypes.h>
 #include <signal.h>
+#include <sys/epoll.h>
+#include <sys/signalfd.h>
+#include <sys/types.h>
 
 #include "_sd-common.h"
 

@@ -21,8 +21,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <netinet/udp.h>
 #include <netinet/ip.h>
+#include <netinet/udp.h>
 #include <stdint.h>
 
 #include "macro.h"

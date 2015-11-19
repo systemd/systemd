@@ -27,8 +27,8 @@
 #include <netinet/in.h>
 #include <sys/types.h>
 
-#include "sd-event.h"
 #include "sd-dhcp-lease.h"
+#include "sd-event.h"
 
 #include "_sd-common.h"
 

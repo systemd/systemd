@@ -19,12 +19,12 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdbool.h>
-#include <sys/types.h>
 #include <alloca.h>
+#include <signal.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
-#include <signal.h>
+#include <sys/types.h>
 
 #include "formats-util.h"
 #include "macro.h"

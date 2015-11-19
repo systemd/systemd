@@ -23,9 +23,9 @@
 
 typedef struct Socket Socket;
 
-#include "socket-util.h"
 #include "mount.h"
 #include "service.h"
+#include "socket-util.h"
 
 typedef enum SocketExecCommand {
         SOCKET_EXEC_START_PRE,

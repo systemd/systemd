@@ -23,8 +23,8 @@
 
 #include <pthread.h>
 
-#include "list.h"
 #include "hashmap.h"
+#include "list.h"
 
 typedef enum PolicyItemType {
         _POLICY_ITEM_TYPE_UNSET = 0,

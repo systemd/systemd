@@ -23,12 +23,13 @@
 ***/
 
 #include <inttypes.h>
-#include <netinet/in.h>
 #include <netinet/ether.h>
+#include <netinet/in.h>
 #include <linux/rtnetlink.h>
 #include <linux/neighbour.h>
 
 #include "sd-event.h"
+
 #include "_sd-common.h"
 
 _SD_BEGIN_DECLARATIONS;

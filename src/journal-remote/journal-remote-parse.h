@@ -22,6 +22,7 @@
 #pragma once
 
 #include "sd-event.h"
+
 #include "journal-remote-write.h"
 
 typedef enum {

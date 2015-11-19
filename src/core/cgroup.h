@@ -112,8 +112,8 @@ struct CGroupContext {
         bool delegate;
 };
 
-#include "unit.h"
 #include "cgroup-util.h"
+#include "unit.h"
 
 void cgroup_context_init(CGroupContext *c);
 void cgroup_context_done(CGroupContext *c);

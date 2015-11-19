@@ -25,6 +25,7 @@
  * time, a la cron */
 
 #include <stdbool.h>
+
 #include "util.h"
 
 typedef struct CalendarComponent {

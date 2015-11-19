@@ -22,9 +22,8 @@
 ***/
 
 #include <net/if.h>
-
-#include <sys/types.h>
 #include <stdbool.h>
+#include <sys/types.h>
 
 int setup_veth(const char *machine_name, pid_t pid, char iface_name[IFNAMSIZ], bool bridge);
 int setup_veth_extra(const char *machine_name, pid_t pid, char **pairs);

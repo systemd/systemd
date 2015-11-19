@@ -39,10 +39,10 @@ enum DnsTransactionState {
         _DNS_TRANSACTION_STATE_INVALID = -1
 };
 
-#include "resolved-dns-scope.h"
+#include "resolved-dns-answer.h"
 #include "resolved-dns-packet.h"
 #include "resolved-dns-question.h"
-#include "resolved-dns-answer.h"
+#include "resolved-dns-scope.h"
 
 struct DnsTransaction {
         DnsScope *scope;

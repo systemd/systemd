@@ -30,11 +30,11 @@ typedef struct UnitVTable UnitVTable;
 typedef struct UnitRef UnitRef;
 typedef struct UnitStatusMessageFormats UnitStatusMessageFormats;
 
-#include "list.h"
 #include "condition.h"
-#include "install.h"
-#include "unit-name.h"
 #include "failure-action.h"
+#include "install.h"
+#include "list.h"
+#include "unit-name.h"
 
 typedef enum KillOperation {
         KILL_TERMINATE,
@@ -242,16 +242,16 @@ typedef enum UnitSetPropertiesMode {
         UNIT_PERSISTENT = 2,
 } UnitSetPropertiesMode;
 
-#include "socket.h"
-#include "busname.h"
-#include "target.h"
-#include "device.h"
 #include "automount.h"
-#include "swap.h"
-#include "timer.h"
-#include "slice.h"
+#include "busname.h"
+#include "device.h"
 #include "path.h"
 #include "scope.h"
+#include "slice.h"
+#include "socket.h"
+#include "swap.h"
+#include "target.h"
+#include "timer.h"
 
 struct UnitVTable {
         /* How much memory does an object of this unit type need */

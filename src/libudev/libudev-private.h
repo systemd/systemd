@@ -21,8 +21,8 @@
 #define _LIBUDEV_PRIVATE_H_
 
 #include <signal.h>
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 #include "libudev.h"
 

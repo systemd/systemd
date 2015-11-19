@@ -25,6 +25,7 @@
 #include <stdint.h>
 
 #include "sd-dhcp6-lease.h"
+
 #include "dhcp6-internal.h"
 
 struct sd_dhcp6_lease {

@@ -23,8 +23,8 @@
 
 #include <stdbool.h>
 
-#include "udev.h"
 #include "condition.h"
+#include "udev.h"
 
 bool net_match_config(const struct ether_addr *match_mac,
                       char * const *match_path,

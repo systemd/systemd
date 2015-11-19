@@ -21,8 +21,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/types.h>
 #include <inttypes.h>
+#include <sys/types.h>
 
 /* What characters are special in the shell? */
 /* must be escaped outside and inside double-quotes */

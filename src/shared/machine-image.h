@@ -21,9 +21,9 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "time-util.h"
-#include "lockfile-util.h"
 #include "hashmap.h"
+#include "lockfile-util.h"
+#include "time-util.h"
 
 typedef enum ImageType {
         IMAGE_DIRECTORY,

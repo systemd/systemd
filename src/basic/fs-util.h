@@ -22,10 +22,10 @@
 ***/
 
 #include <fcntl.h>
+#include <limits.h>
 #include <sys/inotify.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <limits.h>
 
 #include "time-util.h"
 

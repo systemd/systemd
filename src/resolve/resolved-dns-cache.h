@@ -23,18 +23,18 @@
 
 
 #include "hashmap.h"
+#include "list.h"
 #include "prioq.h"
 #include "time-util.h"
-#include "list.h"
 
 typedef struct DnsCache {
         Hashmap *by_key;
         Prioq *by_expiry;
 } DnsCache;
 
-#include "resolved-dns-rr.h"
-#include "resolved-dns-question.h"
 #include "resolved-dns-answer.h"
+#include "resolved-dns-question.h"
+#include "resolved-dns-rr.h"
 
 void dns_cache_flush(DnsCache *c);
 void dns_cache_prune(DnsCache *c);

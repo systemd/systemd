@@ -23,10 +23,11 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <net/ethernet.h>
 #include <inttypes.h>
+#include <net/ethernet.h>
 
 #include "sd-event.h"
+
 #include "_sd-common.h"
 
 _SD_BEGIN_DECLARATIONS;
