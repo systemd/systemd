@@ -71,8 +71,6 @@ Features:
 
 * install: include generator dirs in unit file search paths
 
-* invent a better systemd-run scheme for naming scopes, that works with remoting
-
 * rework C11 utf8.[ch] to use char32_t instead of uint32_t when referring
   to unicode chars, to make things more expressive.
 
@@ -103,7 +101,7 @@ Features:
 
 * Rework systemctl's GetAll property parsing to use the generic bus_map_all_properties() API
 
-* core/cgroup: support net_cls modules, and support automatically allocating class ids, then add support for making firewall changes depending on it, to implement a per-service firewall
+* implement a per-service firewall based on net_cls
 
 * Port various tools to make use of verbs.[ch], where applicable
 
@@ -154,8 +152,6 @@ Features:
 * what to do about udev db binary stability for apps? (raw access is not an option)
 
 * maybe provide an API to allow migration of foreign PIDs into existing scopes.
-
-* maybe support a new very "soft" reboot mode, that simply kills all processes, disassembles everything, flushes /run and sysvipc, and then reexecs systemd again
 
 * man: maybe use the word "inspect" rather than "introspect"?
 
@@ -212,8 +208,6 @@ Features:
   - fstab-generator: support systemd.volatile=yes|no|state on the kernel cmdline, too, similar to nspawn's --volatile=
 
 * generator that automatically discovers btrfs subvolumes, identifies their purpose based on some xattr on them.
-
-* timer units: actually add extra delays to timer units with high AccuracySec values, don't start them already when we are awake...
 
 * a way for container managers to turn off getty starting via $container_headless= or so...
 
@@ -736,7 +730,6 @@ Features:
   - Support --test based on current system state
   - If we show an error about a unit (such as not showing up) and it has no Description string, then show a description string generated form the reverse of unit_name_mangle().
   - after deserializing sockets in socket.c we should reapply sockopts and things
-  - make timer units go away after they elapsed
   - drop PID 1 reloading, only do reexecing (difficult: Reload()
     currently is properly synchronous, Reexec() is weird, because we
     cannot delay the response properly until we are back, so instead of

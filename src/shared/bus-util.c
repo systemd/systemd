@@ -1428,16 +1428,36 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                         return bus_log_create_error(r);
 
                 return 0;
+
         } else if (streq(field, "EnvironmentFile")) {
+
                 r = sd_bus_message_append_basic(m, SD_BUS_TYPE_STRING, "EnvironmentFiles");
                 if (r < 0)
-                        return r;
+                        return bus_log_create_error(r);
 
                 r = sd_bus_message_append(m, "v", "a(sb)", 1,
                                           eq[0] == '-' ? eq + 1 : eq,
                                           eq[0] == '-');
                 if (r < 0)
-                        return r;
+                        return bus_log_create_error(r);
+
+                return 0;
+
+        } else if (streq(field, "RandomSec")) {
+                usec_t t;
+
+                r = parse_sec(eq, &t);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse RandomSec= parameter: %s", eq);
+
+                r = sd_bus_message_append_basic(m, SD_BUS_TYPE_STRING, "RandomUSec");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append(m, "v", "t", t);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
                 return 0;
         }
 
@@ -1450,13 +1470,11 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                        "SendSIGHUP", "SendSIGKILL", "WakeSystem", "DefaultDependencies",
                        "IgnoreSIGPIPE", "TTYVHangup", "TTYReset", "RemainAfterExit",
                        "PrivateTmp", "PrivateDevices", "PrivateNetwork", "NoNewPrivileges",
-                       "SyslogLevelPrefix", "Delegate")) {
+                       "SyslogLevelPrefix", "Delegate", "RemainAfterElapse")) {
 
                 r = parse_boolean(eq);
-                if (r < 0) {
-                        log_error("Failed to parse boolean assignment %s.", assignment);
-                        return -EINVAL;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse boolean assignment %s.", assignment);
 
                 r = sd_bus_message_append(m, "v", "b", r);
 

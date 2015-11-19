@@ -543,6 +543,7 @@ static void dns_scope_verify_conflicts(DnsScope *s, DnsPacket *p) {
 void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
         _cleanup_(dns_packet_unrefp) DnsPacket *reply = NULL;
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL, *soa = NULL;
+        DnsResourceKey *key = NULL;
         bool tentative = false;
         int r, fd;
 
@@ -576,7 +577,10 @@ void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
                 return;
         }
 
-        r = dns_zone_lookup(&s->zone, p->question, &answer, &soa, &tentative);
+        assert(p->question->n_keys == 1);
+        key = p->question->keys[0];
+
+        r = dns_zone_lookup(&s->zone, key, &answer, &soa, &tentative);
         if (r < 0) {
                 log_debug_errno(r, "Failed to lookup key: %m");
                 return;

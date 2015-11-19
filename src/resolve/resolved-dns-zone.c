@@ -283,97 +283,76 @@ int dns_zone_put(DnsZone *z, DnsScope *s, DnsResourceRecord *rr, bool probe) {
         return 0;
 }
 
-int dns_zone_lookup(DnsZone *z, DnsQuestion *q, DnsAnswer **ret_answer, DnsAnswer **ret_soa, bool *ret_tentative) {
+int dns_zone_lookup(DnsZone *z, DnsResourceKey *key, DnsAnswer **ret_answer, DnsAnswer **ret_soa, bool *ret_tentative) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL, *soa = NULL;
-        unsigned i, n_answer = 0, n_soa = 0;
-        bool tentative = true;
+        unsigned n_answer = 0;
+        DnsZoneItem *j, *first;
+        bool tentative = true, need_soa = false;
         int r;
 
         assert(z);
-        assert(q);
+        assert(key);
         assert(ret_answer);
-        assert(ret_soa);
-
-        if (q->n_keys <= 0) {
-                *ret_answer = NULL;
-                *ret_soa = NULL;
-
-                if (ret_tentative)
-                        *ret_tentative = false;
-
-                return 0;
-        }
 
         /* First iteration, count what we have */
-        for (i = 0; i < q->n_keys; i++) {
-                DnsZoneItem *j, *first;
 
-                if (q->keys[i]->type == DNS_TYPE_ANY ||
-                    q->keys[i]->class == DNS_CLASS_ANY) {
-                        bool found = false, added = false;
-                        int k;
+        if (key->type == DNS_TYPE_ANY || key->class == DNS_CLASS_ANY) {
+                bool found = false, added = false;
+                int k;
 
-                        /* If this is a generic match, then we have to
-                         * go through the list by the name and look
-                         * for everything manually */
+                /* If this is a generic match, then we have to
+                 * go through the list by the name and look
+                 * for everything manually */
 
-                        first = hashmap_get(z->by_name, DNS_RESOURCE_KEY_NAME(q->keys[i]));
+                first = hashmap_get(z->by_name, DNS_RESOURCE_KEY_NAME(key));
+                LIST_FOREACH(by_name, j, first) {
+                        if (!IN_SET(j->state, DNS_ZONE_ITEM_PROBING, DNS_ZONE_ITEM_ESTABLISHED, DNS_ZONE_ITEM_VERIFYING))
+                                continue;
+
+                        found = true;
+
+                        k = dns_resource_key_match_rr(key, j->rr);
+                        if (k < 0)
+                                return k;
+                        if (k > 0) {
+                                n_answer++;
+                                added = true;
+                        }
+
+                }
+
+                if (found && !added)
+                        need_soa = true;
+
+        } else {
+                bool found = false;
+
+                /* If this is a specific match, then look for
+                 * the right key immediately */
+
+                first = hashmap_get(z->by_key, key);
+                LIST_FOREACH(by_key, j, first) {
+                        if (!IN_SET(j->state, DNS_ZONE_ITEM_PROBING, DNS_ZONE_ITEM_ESTABLISHED, DNS_ZONE_ITEM_VERIFYING))
+                                continue;
+
+                        found = true;
+                        n_answer++;
+                }
+
+                if (!found) {
+                        first = hashmap_get(z->by_name, DNS_RESOURCE_KEY_NAME(key));
                         LIST_FOREACH(by_name, j, first) {
                                 if (!IN_SET(j->state, DNS_ZONE_ITEM_PROBING, DNS_ZONE_ITEM_ESTABLISHED, DNS_ZONE_ITEM_VERIFYING))
                                         continue;
 
-                                found = true;
-
-                                k = dns_resource_key_match_rr(q->keys[i], j->rr);
-                                if (k < 0)
-                                        return k;
-                                if (k > 0) {
-                                        n_answer++;
-                                        added = true;
-                                }
-
-                        }
-
-                        if (found && !added)
-                                n_soa++;
-
-                } else {
-                        bool found = false;
-
-                        /* If this is a specific match, then look for
-                         * the right key immediately */
-
-                        first = hashmap_get(z->by_key, q->keys[i]);
-                        LIST_FOREACH(by_key, j, first) {
-                                if (!IN_SET(j->state, DNS_ZONE_ITEM_PROBING, DNS_ZONE_ITEM_ESTABLISHED, DNS_ZONE_ITEM_VERIFYING))
-                                        continue;
-
-                                found = true;
-                                n_answer++;
-                        }
-
-                        if (!found) {
-                                first = hashmap_get(z->by_name, DNS_RESOURCE_KEY_NAME(q->keys[i]));
-                                LIST_FOREACH(by_name, j, first) {
-                                        if (!IN_SET(j->state, DNS_ZONE_ITEM_PROBING, DNS_ZONE_ITEM_ESTABLISHED, DNS_ZONE_ITEM_VERIFYING))
-                                                continue;
-
-                                        n_soa++;
-                                        break;
-                                }
+                                need_soa = true;
+                                break;
                         }
                 }
         }
 
-        if (n_answer <= 0 && n_soa <= 0) {
-                *ret_answer = NULL;
-                *ret_soa = NULL;
-
-                if (ret_tentative)
-                        *ret_tentative = false;
-
-                return 0;
-        }
+        if (n_answer <= 0 && !need_soa)
+                goto return_empty;
 
         if (n_answer > 0) {
                 answer = dns_answer_new(n_answer);
@@ -381,99 +360,113 @@ int dns_zone_lookup(DnsZone *z, DnsQuestion *q, DnsAnswer **ret_answer, DnsAnswe
                         return -ENOMEM;
         }
 
-        if (n_soa > 0) {
-                soa = dns_answer_new(n_soa);
+        if (need_soa) {
+                soa = dns_answer_new(1);
                 if (!soa)
                         return -ENOMEM;
         }
 
         /* Second iteration, actually add the RRs to the answers */
-        for (i = 0; i < q->n_keys; i++) {
-                DnsZoneItem *j, *first;
+        if (key->type == DNS_TYPE_ANY || key->class == DNS_CLASS_ANY) {
+                bool found = false, added = false;
+                int k;
 
-                if (q->keys[i]->type == DNS_TYPE_ANY ||
-                    q->keys[i]->class == DNS_CLASS_ANY) {
-                        bool found = false, added = false;
-                        int k;
+                first = hashmap_get(z->by_name, DNS_RESOURCE_KEY_NAME(key));
+                LIST_FOREACH(by_name, j, first) {
+                        if (!IN_SET(j->state, DNS_ZONE_ITEM_PROBING, DNS_ZONE_ITEM_ESTABLISHED, DNS_ZONE_ITEM_VERIFYING))
+                                continue;
 
-                        first = hashmap_get(z->by_name, DNS_RESOURCE_KEY_NAME(q->keys[i]));
+                        found = true;
+
+                        if (j->state != DNS_ZONE_ITEM_PROBING)
+                                tentative = false;
+
+                        k = dns_resource_key_match_rr(key, j->rr);
+                        if (k < 0)
+                                return k;
+                        if (k > 0) {
+                                r = dns_answer_add(answer, j->rr, 0);
+                                if (r < 0)
+                                        return r;
+
+                                added = true;
+                        }
+                }
+
+                if (found && !added) {
+                        r = dns_answer_add_soa(soa, DNS_RESOURCE_KEY_NAME(key), LLMNR_DEFAULT_TTL);
+                        if (r < 0)
+                                return r;
+                }
+        } else {
+                bool found = false;
+
+                first = hashmap_get(z->by_key, key);
+                LIST_FOREACH(by_key, j, first) {
+                        if (!IN_SET(j->state, DNS_ZONE_ITEM_PROBING, DNS_ZONE_ITEM_ESTABLISHED, DNS_ZONE_ITEM_VERIFYING))
+                                continue;
+
+                        found = true;
+
+                        if (j->state != DNS_ZONE_ITEM_PROBING)
+                                tentative = false;
+
+                        r = dns_answer_add(answer, j->rr, 0);
+                        if (r < 0)
+                                return r;
+                }
+
+                if (!found) {
+                        bool add_soa = false;
+
+                        first = hashmap_get(z->by_name, DNS_RESOURCE_KEY_NAME(key));
                         LIST_FOREACH(by_name, j, first) {
                                 if (!IN_SET(j->state, DNS_ZONE_ITEM_PROBING, DNS_ZONE_ITEM_ESTABLISHED, DNS_ZONE_ITEM_VERIFYING))
                                         continue;
 
-                                found = true;
-
                                 if (j->state != DNS_ZONE_ITEM_PROBING)
                                         tentative = false;
 
-                                k = dns_resource_key_match_rr(q->keys[i], j->rr);
-                                if (k < 0)
-                                        return k;
-                                if (k > 0) {
-                                        r = dns_answer_add(answer, j->rr, 0);
-                                        if (r < 0)
-                                                return r;
-
-                                        added = true;
-                                }
+                                add_soa = true;
                         }
 
-                        if (found && !added) {
-                                r = dns_answer_add_soa(soa, DNS_RESOURCE_KEY_NAME(q->keys[i]), LLMNR_DEFAULT_TTL);
+                        if (add_soa) {
+                                r = dns_answer_add_soa(soa, DNS_RESOURCE_KEY_NAME(key), LLMNR_DEFAULT_TTL);
                                 if (r < 0)
                                         return r;
-                        }
-                } else {
-                        bool found = false;
-
-                        first = hashmap_get(z->by_key, q->keys[i]);
-                        LIST_FOREACH(by_key, j, first) {
-                                if (!IN_SET(j->state, DNS_ZONE_ITEM_PROBING, DNS_ZONE_ITEM_ESTABLISHED, DNS_ZONE_ITEM_VERIFYING))
-                                        continue;
-
-                                found = true;
-
-                                if (j->state != DNS_ZONE_ITEM_PROBING)
-                                        tentative = false;
-
-                                r = dns_answer_add(answer, j->rr, 0);
-                                if (r < 0)
-                                        return r;
-                        }
-
-                        if (!found) {
-                                bool add_soa = false;
-
-                                first = hashmap_get(z->by_name, DNS_RESOURCE_KEY_NAME(q->keys[i]));
-                                LIST_FOREACH(by_name, j, first) {
-                                        if (!IN_SET(j->state, DNS_ZONE_ITEM_PROBING, DNS_ZONE_ITEM_ESTABLISHED, DNS_ZONE_ITEM_VERIFYING))
-                                                continue;
-
-                                        if (j->state != DNS_ZONE_ITEM_PROBING)
-                                                tentative = false;
-
-                                        add_soa = true;
-                                }
-
-                                if (add_soa) {
-                                        r = dns_answer_add_soa(soa, DNS_RESOURCE_KEY_NAME(q->keys[i]), LLMNR_DEFAULT_TTL);
-                                        if (r < 0)
-                                                return r;
-                                }
                         }
                 }
         }
 
+        /* If the caller sets ret_tentative to NULL, then use this as
+         * indication to not return tentative entries */
+
+        if (!ret_tentative && tentative)
+                goto return_empty;
+
         *ret_answer = answer;
         answer = NULL;
 
-        *ret_soa = soa;
-        soa = NULL;
+        if (ret_soa) {
+                *ret_soa = soa;
+                soa = NULL;
+        }
 
         if (ret_tentative)
                 *ret_tentative = tentative;
 
         return 1;
+
+return_empty:
+        *ret_answer = NULL;
+
+        if (ret_soa)
+                *ret_soa = NULL;
+
+        if (ret_tentative)
+                *ret_tentative = false;
+
+        return 0;
 }
 
 void dns_zone_item_conflict(DnsZoneItem *i) {

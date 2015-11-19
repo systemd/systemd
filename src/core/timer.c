@@ -27,6 +27,7 @@
 #include "dbus-timer.h"
 #include "fs-util.h"
 #include "parse-util.h"
+#include "random-util.h"
 #include "special.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -330,6 +331,28 @@ static usec_t monotonic_to_boottime(usec_t t) {
                 return 0;
 }
 
+static void add_random(Timer *t, usec_t *v) {
+        char s[FORMAT_TIMESPAN_MAX];
+        usec_t add;
+
+        assert(t);
+        assert(*v);
+
+        if (t->random_usec == 0)
+                return;
+        if (*v == USEC_INFINITY)
+                return;
+
+        add = random_u64() % t->random_usec;
+
+        if (*v + add < *v) /* overflow */
+                *v = (usec_t) -2; /* Highest possible value, that is not USEC_INFINITY */
+        else
+                *v += add;
+
+        log_unit_info(UNIT(t), "Adding %s random time.", format_timespan(s, sizeof(s), add, 0));
+}
+
 static void timer_enter_waiting(Timer *t, bool initial) {
         bool found_monotonic = false, found_realtime = false;
         usec_t ts_realtime, ts_monotonic;
@@ -452,6 +475,8 @@ static void timer_enter_waiting(Timer *t, bool initial) {
                 char buf[FORMAT_TIMESPAN_MAX];
                 usec_t left;
 
+                add_random(t, &t->next_elapse_monotonic_or_boottime);
+
                 left = t->next_elapse_monotonic_or_boottime > ts_monotonic ? t->next_elapse_monotonic_or_boottime - ts_monotonic : 0;
                 log_unit_debug(UNIT(t), "Monotonic timer elapses in %s.", format_timespan(buf, sizeof(buf), left, 0));
 
@@ -486,6 +511,9 @@ static void timer_enter_waiting(Timer *t, bool initial) {
 
         if (found_realtime) {
                 char buf[FORMAT_TIMESTAMP_MAX];
+
+                add_random(t, &t->next_elapse_realtime);
+
                 log_unit_debug(UNIT(t), "Realtime timer elapses at %s.", format_timestamp(buf, sizeof(buf), t->next_elapse_realtime));
 
                 if (t->realtime_event_source) {
