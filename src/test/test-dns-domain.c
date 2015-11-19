@@ -52,6 +52,36 @@ static void test_dns_label_unescape(void) {
         test_dns_label_unescape_one("foobar.", "foobar", 20, 6);
 }
 
+static void test_dns_name_to_wire_format_one(const char *what, const char *expect, size_t buffer_sz, int ret) {
+        uint8_t buffer[buffer_sz];
+        int r;
+
+        r = dns_name_to_wire_format(what, buffer, buffer_sz);
+        assert_se(r == ret);
+
+        if (r < 0)
+                return;
+
+        assert_se(!memcmp(buffer, expect, r));
+}
+
+static void test_dns_name_to_wire_format(void) {
+        const char out1[] = { 3, 'f', 'o', 'o', 0 };
+        const char out2[] = { 5, 'h', 'a', 'l', 'l', 'o', 3, 'f', 'o', 'o', 3, 'b', 'a', 'r', 0 };
+        const char out3[] = { 4, ' ', 'f', 'o', 'o', 3, 'b', 'a', 'r', 0 };
+
+        test_dns_name_to_wire_format_one("", NULL, 0, -EINVAL);
+
+        test_dns_name_to_wire_format_one("foo", out1, sizeof(out1), sizeof(out1));
+        test_dns_name_to_wire_format_one("foo", out1, sizeof(out1) + 1, sizeof(out1));
+        test_dns_name_to_wire_format_one("foo", out1, sizeof(out1) - 1, -ENOBUFS);
+
+        test_dns_name_to_wire_format_one("hallo.foo.bar", out2, sizeof(out2), sizeof(out2));
+        test_dns_name_to_wire_format_one("hallo.foo..bar", NULL, 32, -EINVAL);
+
+        test_dns_name_to_wire_format_one("\\032foo.bar", out3, sizeof(out3), sizeof(out3));
+}
+
 static void test_dns_label_unescape_suffix_one(const char *what, const char *expect1, const char *expect2, size_t buffer_sz, int ret1, int ret2) {
         char buffer[buffer_sz];
         const char *label;
@@ -300,6 +330,7 @@ int main(int argc, char *argv[]) {
         test_dns_name_reverse();
         test_dns_name_concat();
         test_dns_name_is_valid();
+        test_dns_name_to_wire_format();
 
         return 0;
 }

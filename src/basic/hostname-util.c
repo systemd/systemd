@@ -72,7 +72,7 @@ static bool hostname_valid_char(char c) {
  * allow_trailing_dot is true and at least two components are present
  * in the name. Note that due to the restricted charset and length
  * this call is substantially more conservative than
- * dns_domain_is_valid().
+ * dns_name_is_valid().
  */
 bool hostname_is_valid(const char *s, bool allow_trailing_dot) {
         unsigned n_dots = 0;
