@@ -2437,7 +2437,9 @@ _public_ int sd_event_prepare(sd_event *e) {
 
         e->iteration++;
 
+        e->state = SD_EVENT_PREPARING;
         r = event_prepare(e);
+        e->state = SD_EVENT_INITIAL;
         if (r < 0)
                 return r;
 
