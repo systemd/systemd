@@ -30,7 +30,7 @@ static int do_test(const uint8_t *in, size_t len, const uint8_t *key) {
         unsigned i, j;
 
         out = siphash24(in, len, key);
-        assert_se(out == htole64(0xa129ca6149be45e5));
+        assert_se(out == 0xa129ca6149be45e5);
 
         /* verify the internal state as given in the above paper */
         siphash24_init(&state, key);
@@ -44,7 +44,7 @@ static int do_test(const uint8_t *in, size_t len, const uint8_t *key) {
         assert_se(state.v2 == 0x634cb3577b01fd3d);
         assert_se(state.v3 == 0xa5224d6f55c7d9c8);
         out = siphash24_finalize(&state);
-        assert_se(out == htole64(0xa129ca6149be45e5));
+        assert_se(out == 0xa129ca6149be45e5);
         assert_se(state.v0 == 0xf6bcd53893fecff1);
         assert_se(state.v1 == 0x54b9964c7ea0d937);
         assert_se(state.v2 == 0x1b38329c099bb55a);
@@ -59,7 +59,7 @@ static int do_test(const uint8_t *in, size_t len, const uint8_t *key) {
                         siphash24_compress(&in[i], j - i, &state);
                         siphash24_compress(&in[j], len - j, &state);
                         out = siphash24_finalize(&state);
-                        assert_se(out == htole64(0xa129ca6149be45e5));
+                        assert_se(out == 0xa129ca6149be45e5);
                 }
         }
         return 0;
