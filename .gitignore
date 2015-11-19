@@ -1,6 +1,5 @@
 *.a
 *.cache
-*.html
 *.la
 *.lo
 *.log
