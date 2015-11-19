@@ -1381,10 +1381,29 @@
       <varlistentry>
         <term><varname>$LISTEN_FDS</varname></term>
         <term><varname>$LISTEN_PID</varname></term>
+        <term><varname>$LISTEN_FDNAMES</varname></term>
 
         <listitem><para>Information about file descriptors passed to a
         service for socket activation. See
         <citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>$NOTIFY_SOCKET</varname></term>
+
+        <listitem><para>The socket
+        <function>sd_notify()</function> talks to. See
+        <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>$WATCHDOG_PID</varname></term>
+        <term><varname>$WATCHDOG_USEC</varname></term>
+
+        <listitem><para>Information about watchdog keep-alive notifications. See
+        <citerefentry><refentrytitle>sd_watchdog_enabled</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
         </para></listitem>
       </varlistentry>
 
@@ -1402,8 +1421,8 @@
 
     <para>Additional variables may be configured by the following
     means: for processes spawned in specific units, use the
-    <varname>Environment=</varname> and
-    <varname>EnvironmentFile=</varname> options above; to specify
+    <varname>Environment=</varname>, <varname>EnvironmentFile=</varname>
+    and <varname>PassEnvironment=</varname> options above; to specify
     variables globally, use <varname>DefaultEnvironment=</varname>
     (see
     <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>)
