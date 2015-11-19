@@ -508,6 +508,9 @@ static int ndisc_router_advertisment_recv(sd_event_source *s, int fd, uint32_t r
                 return 0;
         }
 
+        if (!in_addr_is_link_local(AF_INET6, (const union in_addr_union*) &router.in6.sin6_addr))
+                return 0;
+
         if (ra->nd_ra_type != ND_ROUTER_ADVERT)
                 return 0;
 
