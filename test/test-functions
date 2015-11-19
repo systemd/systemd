@@ -1131,7 +1131,9 @@ inst_libdir_file() {
 }
 
 check_nspawn() {
-    [[ -d /sys/fs/cgroup/systemd ]]
+    [[ -d /sys/fs/cgroup/systemd ]] && \
+    [[ -d /run/systemd/system ]] && \
+    [[ -e /lib/systemd/systemd-machined ]]
 }
 
 
