@@ -98,6 +98,11 @@
     <varname>WatchdogSec=</varname> in service files. See
     <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     for details.</para>
+
+    <para>Use
+    <citerefentry><refentrytitle>sd_event_set_watchdog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    to enable automatic watchdog support in
+    <citerefentry><refentrytitle>sd-event</refentrytitle><manvolnum>3</manvolnum></citerefentry>-based event loops.</para>
   </refsect1>
 
   <refsect1>
@@ -168,7 +173,8 @@
       <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>daemon</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_set_watchdog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     </para>
   </refsect1>
 

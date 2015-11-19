@@ -21,8 +21,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="sd_event_get_fd"
-        xmlns:xi="http://www.w3.org/2001/XInclude">
+<refentry id="sd_event_get_fd" xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>sd_event_get_fd</title>
@@ -51,11 +50,11 @@
 
   <refsynopsisdiv>
     <funcsynopsis>
-      <funcsynopsisinfo>#include &lt;systemd/sd-bus.h&gt;</funcsynopsisinfo>
+      <funcsynopsisinfo>#include &lt;systemd/sd-event.h&gt;</funcsynopsisinfo>
 
       <funcprototype>
         <funcdef>int <function>sd_event_get_fd</function></funcdef>
-        <paramdef>sd_bus *<parameter>event</parameter></paramdef>
+        <paramdef>sd_event *<parameter>event</parameter></paramdef>
       </funcprototype>
 
     </funcsynopsis>
@@ -65,19 +64,29 @@
     <title>Description</title>
 
     <para><function>sd_event_get_fd()</function> returns the file
-    descriptor that the event loop object returned by the
+    descriptor that an event loop object returned by the
     <citerefentry><refentrytitle>sd_event_new</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-    function uses to wait for events. This file descriptor can be
-    polled for events. This makes it possible to embed the
+    function uses to wait for events. This file descriptor may itself
+    be polled for
+    <constant>POLLIN</constant>/<constant>EPOLLIN</constant>
+    events. This makes it possible to embed an
     <citerefentry><refentrytitle>sd-event</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-    event loop inside of another event loop.</para>
+    event loop into another, possibly foreign, event loop.</para>
+
+    <para>The returned file descriptor refers to an <citerefentry
+    project='man-pages'><refentrytitle>epoll</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    object. It is recommended not to alter it by invoking
+    <citerefentry
+    project='man-pages'><refentrytitle>epoll_ctl</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+    on it, in order to avoid interference with the event loop's inner
+    logic and assumptions.</para>
   </refsect1>
 
   <refsect1>
     <title>Return Value</title>
 
     <para>On success, <function>sd_event_get_fd()</function> returns a
-    non-negative integer. On failure, it returns a negative
+    non-negative file descriptor. On failure, it returns a negative
     errno-style error code.</para>
   </refsect1>
 
@@ -108,21 +117,13 @@
     <title>Examples</title>
 
     <example>
-      <title>Integration in glib event loop</title>
+      <title>Integration in the GLib event loop</title>
 
       <programlisting><xi:include href="glib-event-glue.c" parse="text" /></programlisting>
     </example>
   </refsect1>
 
-  <refsect1>
-    <title>Notes</title>
-
-    <para><function>sd_event_get_fd()</function> is available as a
-    shared library, which can be compiled and linked to with the
-    <constant>libsystemd</constant> <citerefentry
-    project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    file.</para>
-  </refsect1>
+  <xi:include href="libsystemd-pkgconfig.xml" />
 
   <refsect1>
     <title>See Also</title>
@@ -130,7 +131,9 @@
     <para>
       <citerefentry><refentrytitle>sd-event</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_event_new</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>sd_event_ref</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>sd_event_wait</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>epoll_ctl</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>epoll</refentrytitle><manvolnum>7</manvolnum></citerefentry>
     </para>
   </refsect1>
 

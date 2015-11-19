@@ -1,0 +1,167 @@
+<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2015 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="sd_event_source_get_pending" xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_event_source_get_pending</title>
+    <productname>systemd</productname>
+
+    <authorgroup>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>Lennart</firstname>
+        <surname>Poettering</surname>
+        <email>lennart@poettering.net</email>
+      </author>
+    </authorgroup>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_event_source_get_pending</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_event_source_get_pending</refname>
+
+    <refpurpose>Determine pending state of event sources</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-event.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_event_source_get_pending</function></funcdef>
+        <paramdef>sd_event_source *<parameter>source</parameter></paramdef>
+      </funcprototype>
+
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>sd_event_source_get_pending()</function> may be
+    used to determine whether the event source object specified as
+    <parameter>source</parameter> has seen events but has not been
+    dispatched yet (and thus is marked "pending").</para>
+
+    <para>Event source objects initially are not marked pending, when
+    they are created with calls such as
+    <citerefentry><refentrytitle>sd_event_add_io</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>sd_event_add_time</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    with the exception of those created with
+    <citerefentry><refentrytitle>sd_event_add_defer</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    which are immediately marked pending, and
+    <citerefentry><refentrytitle>sd_event_add_exit</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    for which the "pending" concept is not defined. For details see
+    the respective manual pages.</para>
+
+    <para>In each event loop iteration one event source of those
+    marked pending is dispatched, in the order defined by the event
+    source priority, as set with
+    <citerefentry><refentrytitle>sd_event_source_set_priority</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
+
+    <para>For I/O event sources, as created with
+    <citerefentry><refentrytitle>sd_event_add_io</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    the call
+    <citerefentry><refentrytitle>sd_event_get_io_revents</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    may be used to query the type of event pending in more
+    detail.</para>
+
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success,
+    <function>sd_event_source_get_pending()</function> returns an
+    integer greater than zero when the event source is marked pending,
+    and zero when the event source is not marked pending. On failure,
+    it returns a negative errno-style error code.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Errors</title>
+
+    <para>Returned errors may indicate the following problems:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><constant>-EINVAL</constant></term>
+
+        <listitem><para><parameter>source</parameter> is not a valid
+        pointer to an <structname>sd_event_source</structname>
+        object.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><constant>-EDOM</constant></term>
+
+        <listitem><para><parameter>source</parameter> refers to an
+        event source object created with
+        <citerefentry><refentrytitle>sd_event_add_exit</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><constant>-ENOMEM</constant></term>
+
+        <listitem><para>Not enough memory.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><constant>-ESTALE</constant></term>
+
+        <listitem><para>The event loop is already terminated.</para></listitem>
+
+      </varlistentry>
+
+      <varlistentry>
+        <term><constant>-ECHILD</constant></term>
+
+        <listitem><para>The event loop has been created in a different process.</para></listitem>
+
+      </varlistentry>
+
+    </variablelist>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para>
+      <citerefentry><refentrytitle>sd-event</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_add_io</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_add_time</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_add_child</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_add_signal</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_add_defer</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_source_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>

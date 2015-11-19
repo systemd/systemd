@@ -1,0 +1,141 @@
+<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2015 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="sd_event_now" xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_event_now</title>
+    <productname>systemd</productname>
+
+    <authorgroup>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>Lennart</firstname>
+        <surname>Poettering</surname>
+        <email>lennart@poettering.net</email>
+      </author>
+    </authorgroup>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_event_now</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_event_now</refname>
+
+    <refpurpose>Retrieve current event loop iteration timestamp</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-event.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_event_now</function></funcdef>
+        <paramdef>sd_event *<parameter>event</parameter></paramdef>
+        <paramdef>clockid_t <parameter>clock</parameter></paramdef>
+        <paramdef>uint64_t *<parameter>usec</parameter></paramdef>
+      </funcprototype>
+
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>sd_event_now()</function> returns the timestamp
+    the most recent event loop iteration began. This timestamp is
+    taken right after after returning from the event sleep, and before
+    dispatching any event sources. The <parameter>event</parameter>
+    parameter takes the even loop object to retrieve the timestamp
+    from. The <parameter>clock</parameter> parameter specifies the clock to
+    retrieve the timestamp for, and is one of
+    <constant>CLOCK_REALTIME</constant> (or its equivalent
+    <constant>CLOCK_REALTIME_ALARM</constant>),
+    <constant>CLOCK_MONOTONIC</constant> or
+    <constant>CLOCK_BOOTTIME</constant> (or its equivalent
+    <constant>CLOCK_BOOTTIME_ALARM</constant>), see <citerefentry
+    project='man-pages'><refentrytitle>clock_gettime</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+    for more information on the various clocks. The retrieved
+    timestamp is stored in the <parameter>usec</parameter> parameter,
+    in µs since the clock's epoch. If this function is invoked before
+    the first event loop iteration the current time is returned, as
+    reported by <function>clock_gettime()</function>. To distinguish
+    this case from a regular invocation the return value will be
+    positive non-zero in this case, while it is zero when the returned
+    timestamp refers to the actual event loop iteration.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>If the first event loop iteration has not run yet
+    <function>sd_event_now()</function> returns the requested
+    timestamp in <parameter>usec</parameter> and returns a positive,
+    non-zero return value. Otherwise, on success it will return the
+    iteration's timestamp in <parameter>usec</parameter> and 0 as
+    return value. On failure, the call returns a negative errno-style
+    error code.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Errors</title>
+
+    <para>Returned errors may indicate the following problems:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><constant>-EINVAL</constant></term>
+
+        <listitem><para>An invalid parameter was
+        passed.</para></listitem>
+
+      </varlistentry>
+
+      <varlistentry>
+        <term><constant>-ECHILD</constant></term>
+
+        <listitem><para>The event loop object was created in a
+        different process.</para></listitem>
+      </varlistentry>
+
+    </variablelist>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd-event</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_new</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_add_time</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>clock_gettime</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>

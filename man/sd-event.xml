@@ -1,0 +1,187 @@
+<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2015 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="sd-event" xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd-event</title>
+    <productname>systemd</productname>
+
+    <authorgroup>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>Lennart</firstname>
+        <surname>Poettering</surname>
+        <email>lennart@poettering.net</email>
+      </author>
+    </authorgroup>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd-event</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd-event</refname>
+    <refpurpose>A generic event loop implementation</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-event.h&gt;</funcsynopsisinfo>
+    </funcsynopsis>
+
+    <cmdsynopsis>
+      <command>pkg-config --cflags --libs libsystemd</command>
+    </cmdsynopsis>
+
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><filename>sd-event.h</filename> provides a generic event
+    loop implementation, based on Linux <citerefentry
+    project='man-pages'><refentrytitle>epoll</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+    </para>
+
+    <para>See
+    <citerefentry><refentrytitle>sd_event_new</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>sd_event_run</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>sd_event_add_io</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>sd_event_add_time</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>sd_event_add_signal</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>sd_event_add_child</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>sd_event_add_defer</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>sd_event_source_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>sd_event_source_set_priority</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>sd_event_source_set_enabled</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>sd_event_source_set_userdata</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>sd_event_source_get_event</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>sd_event_source_get_pending</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>sd_event_source_set_description</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>sd_event_source_set_prepare</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>sd_event_wait</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>sd_event_get_fd</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>sd_event_set_watchdog</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>sd_event_exit</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>sd_event_now</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    for more information about the functions available.</para>
+
+    <para>The event loop design is targeted on running a separate
+    instance of the event loop in each thread; it has no concept of
+    distributing events from a single event loop instance onto
+    multiple worker threads. Dispatching events is strictly ordered
+    and subject to configurable priorities. In each event loop
+    iteration a single event source is dispatched. Each time an event
+    source is dispatched the kernel is polled for new events, before
+    the next event source is dispatched. The event loop is designed to
+    honour priorities and provide fairness within each priority. It is
+    not designed to provide optimal throughput, as this contradicts
+    these goals due the limitations of the underlying <citerefentry
+    project='man-pages'><refentrytitle>epoll</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    primitives.</para>
+
+    <para>The event loop implementation provides the following features:</para>
+
+    <orderedlist>
+      <listitem><para>I/O event sources, based on <citerefentry
+      project='man-pages'><refentrytitle>epoll</refentrytitle><manvolnum>7</manvolnum></citerefentry>'s
+      file descriptor watching, including edge triggered events (<constant>EPOLLET</constant>). See <citerefentry><refentrytitle>sd_event_add_io</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para></listitem>
+
+      <listitem><para>Timer event sources, based on <citerefentry
+      project='man-pages'><refentrytitle>timerfd_create</refentrytitle><manvolnum>2</manvolnum></citerefentry>,
+      supporting the <constant>CLOCK_MONOTONIC</constant>,
+      <constant>CLOCK_REALTIME</constant>,
+      <constant>CLOCK_BOOTIME</constant> clocks, as well as the
+      <constant>CLOCK_REALTIME_ALARM</constant> and
+      <constant>CLOCK_BOOTTIME_ALARM</constant> clocks that can resume
+      the system from suspend. When creating timer events a required
+      accuracy parameter may be specified which allows coalescing of
+      timer events to minimize power consumption. See <citerefentry><refentrytitle>sd_event_add_time</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para></listitem>
+
+      <listitem><para>UNIX process signal events, based on
+      <citerefentry
+      project='man-pages'><refentrytitle>signalfd</refentrytitle><manvolnum>2</manvolnum></citerefentry>,
+      including full support for real-time signals, and queued parameters. See <citerefentry><refentrytitle>sd_event_add_signal</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para></listitem>
+
+      <listitem><para>Child process state change events, based on
+      <citerefentry project='man-pages'><refentrytitle>waitid</refentrytitle><manvolnum>2</manvolnum></citerefentry>. See <citerefentry><refentrytitle>sd_event_add_child</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para></listitem>
+
+      <listitem><para>Static event sources, of three types: defer,
+      post and exit, for invoking calls in each event loop, after
+      other event sources or at event loop termination. See
+      <citerefentry><refentrytitle>sd_event_add_defer</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para></listitem>
+
+      <listitem><para>Event sources may be assigned a 64bit priority
+      value, that controls the order in which event sources are
+      dispatched if multiple are pending simultanously. See
+      <citerefentry><refentrytitle>sd_event_source_set_priority</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para></listitem>
+
+      <listitem><para>The event loop may automatically send watchdog
+      notification messages to the service manager. See
+      <citerefentry><refentrytitle>sd_event_set_watchdog</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para></listitem>
+
+      <listitem><para>The event loop may be integrated into foreign
+      event loops, such as the GLib one. See
+      <citerefentry><refentrytitle>sd_event_get_fd</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+      for an example.</para></listitem>
+    </orderedlist>
+
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_new</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_run</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_add_io</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_add_time</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_add_signal</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_add_child</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_add_defer</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_source_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_source_set_priority</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_source_set_enabled</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_source_set_userdata</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_source_get_event</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_source_get_pending</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_source_set_description</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_source_set_prepare</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_wait</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_get_fd</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_set_watchdog</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_exit</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_now</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>epoll</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>timerfd_create</refentrytitle><manvolnum>2</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>signalfd</refentrytitle><manvolnum>2</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>waitid</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>
