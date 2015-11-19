@@ -437,7 +437,9 @@ fail:
 }
 
 _public_ sd_event* sd_event_ref(sd_event *e) {
-        assert_return(e, NULL);
+
+        if (!e)
+                return NULL;
 
         assert(e->n_ref >= 1);
         e->n_ref++;
@@ -1339,7 +1341,9 @@ _public_ int sd_event_add_exit(
 }
 
 _public_ sd_event_source* sd_event_source_ref(sd_event_source *s) {
-        assert_return(s, NULL);
+
+        if (!s)
+                return NULL;
 
         assert(s->n_ref >= 1);
         s->n_ref++;
