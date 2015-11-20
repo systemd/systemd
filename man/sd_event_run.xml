@@ -21,7 +21,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="sd_event_run">
+<refentry id="sd_event_run" xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>sd_event_run</title>
@@ -46,7 +46,7 @@
     <refname>sd_event_run</refname>
     <refname>sd_event_loop</refname>
 
-    <refpurpose>Run the libsystemd event loop</refpurpose>
+    <refpurpose>Run an event loop</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -56,7 +56,7 @@
       <funcprototype>
         <funcdef>int <function>sd_event_run</function></funcdef>
         <paramdef>sd_event *<parameter>event</parameter></paramdef>
-        <paramdef>uint64_t <parameter>timeout</parameter></paramdef>
+        <paramdef>uint64_t <parameter>usec</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
@@ -69,47 +69,60 @@
   <refsect1>
     <title>Description</title>
 
-    <para><function>sd_event_run()</function> can be used to run one
-    iteration of the event loop of libsystemd. This function waits
-    until an event to process is available, and dispatches a handler
-    for it. The <parameter>timeout</parameter> parameter specifices the
-    maximum time (in microseconds) to wait. <constant>(uint64_t)
-    -1</constant> may be used to specify an infinite timeout.</para>
+    <para><function>sd_event_run()</function> may be used to run a single
+    iteration of the event loop specified in the
+    <parameter>event</parameter> parameter. The function waits until an event to
+    process is available, and dispatches the registered handler for
+    it. The <parameter>usec</parameter> parameter specifies the
+    maximum time (in microseconds) to wait for an event. Use
+    <constant>(uint64_t) -1</constant> to specify an infinite
+    timeout.</para>
 
-    <para><function>sd_event_loop</function> runs
-    <function>sd_event_wait</function> in a loop with a timeout of
-    infinity. This makes it suitable for the main event loop of a
-    program.</para>
+    <para><function>sd_event_loop()</function> invokes
+    <function>sd_event_run()</function> in a loop, thus implementing
+    the actual event loop. The call returns as soon as exiting was
+    requested using
+    <citerefentry><refentrytitle>sd_event_exit</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
 
     <para>The event loop object <parameter>event</parameter> is
     created with
-    <function>sd_event_new</function>.
-    Events to wait for and their handlers can be registered with
-    <function>sd_event_add_time</function>,
-    <function>sd_event_add_child</function>,
-    <function>sd_event_add_signal</function>,
-    <function>sd_event_add_defer</function>,
-    <function>sd_event_add_exit</function>,
+    <citerefentry><refentrytitle>sd_event_new</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+    Events sources to wait for and their handlers may be registered
+    with
+    <citerefentry><refentrytitle>sd_event_add_io</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>sd_event_add_time</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>sd_event_add_signal</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>sd_event_add_child</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>sd_event_add_defer</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>sd_event_add_post</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     and
-    <function>sd_event_add_post</function>.
+    <citerefentry><refentrytitle>sd_event_add_exit</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
     </para>
 
-    <para>For more fine-grained control,
-    <function>sd_event_prepare</function>,
-    <function>sd_event_wait</function>, and
-    <function>sd_event_dispatch</function> may be used. Along with
-    <function>sd_event_get_fd</function>, those functions make it
-    possible to integrate the libsystemd loop inside of another event
-    loop.</para>
+    <para>For low-level control of event loop execution, use
+    <citerefentry><refentrytitle>sd_event_prepare</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>sd_event_wait</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    and
+    <citerefentry><refentrytitle>sd_event_dispatch</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    which are wrapped by <function>sd_event_run()</function>. Along
+    with
+    <citerefentry><refentrytitle>sd_event_get_fd</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    these functions allow integration of an
+    <citerefentry><refentrytitle>sd-event</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    event loop into foreign event loop implementations.</para>
   </refsect1>
 
   <refsect1>
     <title>Return Value</title>
 
-    <para>On success, these functions return 0 or a positive integer.
-    On failure, they return a negative errno-style error code.
-    <function>sd_event_run</function> returns 0 if the event loop is
-    finished, and a positive value if it can be continued.</para>
+    <para>On failure, these functions return a negative errno-style
+    error code. <function>sd_event_run()</function> returns a
+    positive, non-zero integer if an event source was dispatched, and
+    zero when the specified timeout hit before an event source has
+    seen any event, and hence no event source was
+    dispatched. <function>sd_event_loop()</function> returns the exit
+    code specified when invoking
+    <function>sd_event_exit()</function>.</para>
   </refsect1>
 
   <refsect1>
@@ -122,7 +135,7 @@
         <term><constant>-EINVAL</constant></term>
 
         <listitem><para>The <parameter>event</parameter> parameter is
-        <constant>NULL</constant>.</para></listitem>
+        invalid or <constant>NULL</constant>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -153,15 +166,7 @@
     <para>Other errors are possible, too.</para>
   </refsect1>
 
-  <refsect1>
-    <title>Notes</title>
-
-    <para><function>sd_event_run()</function> and
-    <function>sd_event_loop()</function> are available
-    as a shared library, which can be compiled and linked to with the
-    <constant>libsystemd</constant> <citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    file.</para>
-  </refsect1>
+  <xi:include href="libsystemd-pkgconfig.xml" />
 
   <refsect1>
     <title>See Also</title>
@@ -169,13 +174,15 @@
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_event_new</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>sd_event_wait</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_event_add_io</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_event_add_time</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_event_add_signal</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_event_add_defer</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_event_add_exit</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_event_add_post</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_exit</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_get_fd</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_wait</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <ulink url="https://developer.gnome.org/glib/unstable/glib-The-Main-Event-Loop.html">GLib Main Event Loop</ulink>.
     </para>
   </refsect1>

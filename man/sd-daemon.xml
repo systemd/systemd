@@ -71,10 +71,10 @@
   <refsect1>
     <title>Description</title>
 
-    <para><filename>sd-daemon.h</filename> provide APIs for new-style
+    <para><filename>sd-daemon.h</filename> provides APIs for new-style
     daemons, as implemented by the
     <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    init system.</para>
+    service manager.</para>
 
     <para>See
     <citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
