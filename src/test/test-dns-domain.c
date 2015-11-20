@@ -316,6 +316,40 @@ static void test_dns_name_is_valid(void) {
         test_dns_name_is_valid_one("\n", 0);
 }
 
+static void test_dns_service_name_is_valid(void) {
+        assert_se(dns_service_name_is_valid("Lennart's Compüter"));
+        assert_se(dns_service_name_is_valid("piff.paff"));
+
+        assert_se(!dns_service_name_is_valid(NULL));
+        assert_se(!dns_service_name_is_valid(""));
+        assert_se(!dns_service_name_is_valid("foo\nbar"));
+        assert_se(!dns_service_name_is_valid("foo\201bar"));
+        assert_se(!dns_service_name_is_valid("this is an overly long string that is certainly longer than 63 characters"));
+}
+
+static void test_dns_srv_type_verify(void) {
+
+        assert_se(dns_srv_type_verify("_http._tcp") > 0);
+        assert_se(dns_srv_type_verify("_foo-bar._tcp") > 0);
+        assert_se(dns_srv_type_verify("_w._udp") > 0);
+        assert_se(dns_srv_type_verify("_piep._sub._w._udp") > 0);
+        assert_se(dns_srv_type_verify("_a800._tcp") > 0);
+        assert_se(dns_srv_type_verify("_a-800._tcp") > 0);
+
+        assert_se(dns_srv_type_verify(NULL) == 0);
+        assert_se(dns_srv_type_verify("") == 0);
+        assert_se(dns_srv_type_verify("x") == 0);
+        assert_se(dns_srv_type_verify("_foo") == 0);
+        assert_se(dns_srv_type_verify("_tcp") == 0);
+        assert_se(dns_srv_type_verify("_") == 0);
+        assert_se(dns_srv_type_verify("_foo.") == 0);
+        assert_se(dns_srv_type_verify("_föo._tcp") == 0);
+        assert_se(dns_srv_type_verify("_f\no._tcp") == 0);
+        assert_se(dns_srv_type_verify("_800._tcp") == 0);
+        assert_se(dns_srv_type_verify("_-800._tcp") == 0);
+        assert_se(dns_srv_type_verify("_-foo._tcp") == 0);
+}
+
 int main(int argc, char *argv[]) {
 
         test_dns_label_unescape();
@@ -331,6 +365,8 @@ int main(int argc, char *argv[]) {
         test_dns_name_concat();
         test_dns_name_is_valid();
         test_dns_name_to_wire_format();
+        test_dns_service_name_is_valid();
+        test_dns_srv_type_verify();
 
         return 0;
 }

@@ -29,6 +29,7 @@
 #include "hexdecoct.h"
 #include "parse-util.h"
 #include "string-util.h"
+#include "utf8.h"
 
 int dns_label_unescape(const char **name, char *dest, size_t sz) {
         const char *n;
@@ -748,4 +749,70 @@ int dns_name_to_wire_format(const char *domain, uint8_t *buffer, size_t len) {
         } while (r != 0);
 
         return out - buffer;
+}
+
+int dns_srv_type_verify(const char *name) {
+        unsigned c = 0;
+        int r;
+
+        if (!name)
+                return 0;
+
+        for (;;) {
+                char label[DNS_LABEL_MAX];
+                int k;
+
+                /* This more or less implements RFC 6335, Section 5.1 */
+
+                r = dns_label_unescape(&name, label, sizeof(label));
+                if (r == -EINVAL)
+                        return 0;
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return c >= 2; /* At least two labels */
+                if (r < 2) /* Label needs to be at least 2 chars long */
+                        return 0;
+                if (label[0] != '_') /* First label char needs to be underscore */
+                        return 0;
+
+                /* Second char must be a letter */
+                if (!(label[1] >= 'A' && label[1] <= 'Z') &&
+                    !(label[1] >= 'a' && label[1] <= 'z'))
+                        return 0;
+
+                /* Third and further chars must be alphanumeric or a hyphen */
+                for (k = 2; k < r; k++) {
+                        if (!(label[k] >= 'A' && label[k] <= 'Z') &&
+                            !(label[k] >= 'a' && label[k] <= 'z') &&
+                            !(label[k] >= '0' && label[k] <= '9') &&
+                            label[k] != '-')
+                                return 0;
+                }
+
+                c++;
+        }
+}
+
+bool dns_service_name_is_valid(const char *name) {
+        size_t l;
+
+        /* This more or less implements RFC 6763, Section 4.1.1 */
+
+        if (!name)
+                return false;
+
+        if (!utf8_is_valid(name))
+                return false;
+
+        if (string_has_cc(name, NULL))
+                return false;
+
+        l = strlen(name);
+        if (l <= 0)
+                return false;
+        if (l > 63)
+                return false;
+
+        return true;
 }
