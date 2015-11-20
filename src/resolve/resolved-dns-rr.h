@@ -27,9 +27,11 @@
 #include "dns-type.h"
 #include "hashmap.h"
 #include "in-addr-util.h"
+#include "list.h"
 
 typedef struct DnsResourceKey DnsResourceKey;
 typedef struct DnsResourceRecord DnsResourceRecord;
+typedef struct DnsTxtItem DnsTxtItem;
 
 /* DNS record classes, see RFC 1035 */
 enum {
@@ -43,6 +45,12 @@ struct DnsResourceKey {
         unsigned n_ref;
         uint16_t class, type;
         char *_name; /* don't access directy, use DNS_RESOURCE_KEY_NAME()! */
+};
+
+struct DnsTxtItem {
+        size_t length;
+        LIST_FIELDS(DnsTxtItem, items);
+        uint8_t data[];
 };
 
 struct DnsResourceRecord {
@@ -73,7 +81,7 @@ struct DnsResourceRecord {
                 } hinfo;
 
                 struct {
-                        char **strings;
+                        DnsTxtItem *items;
                 } txt, spf;
 
                 struct {
@@ -197,6 +205,9 @@ int dns_resource_record_new_address(DnsResourceRecord **ret, int family, const u
 int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecord *b);
 int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsResourceRecord*, dns_resource_record_unref);
+
+DnsTxtItem *dns_txt_item_free_all(DnsTxtItem *i);
+bool dns_txt_item_equal(DnsTxtItem *a, DnsTxtItem *b);
 
 const char *dns_class_to_string(uint16_t type);
 int dns_class_from_string(const char *name, uint16_t *class);

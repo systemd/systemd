@@ -155,9 +155,9 @@ int dns_packet_append_uint8(DnsPacket *p, uint8_t v, size_t *start);
 int dns_packet_append_uint16(DnsPacket *p, uint16_t v, size_t *start);
 int dns_packet_append_uint32(DnsPacket *p, uint32_t v, size_t *start);
 int dns_packet_append_string(DnsPacket *p, const char *s, size_t *start);
+int dns_packet_append_raw_string(DnsPacket *p, const void *s, size_t size, size_t *start);
 int dns_packet_append_label(DnsPacket *p, const char *s, size_t l, size_t *start);
-int dns_packet_append_name(DnsPacket *p, const char *name,
-                           bool allow_compression, size_t *start);
+int dns_packet_append_name(DnsPacket *p, const char *name, bool allow_compression, size_t *start);
 int dns_packet_append_key(DnsPacket *p, const DnsResourceKey *key, size_t *start);
 int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *start);
 
@@ -167,8 +167,8 @@ int dns_packet_read_uint8(DnsPacket *p, uint8_t *ret, size_t *start);
 int dns_packet_read_uint16(DnsPacket *p, uint16_t *ret, size_t *start);
 int dns_packet_read_uint32(DnsPacket *p, uint32_t *ret, size_t *start);
 int dns_packet_read_string(DnsPacket *p, char **ret, size_t *start);
-int dns_packet_read_name(DnsPacket *p, char **ret,
-                         bool allow_compression, size_t *start);
+int dns_packet_read_raw_string(DnsPacket *p, const void **ret, size_t *size, size_t *start);
+int dns_packet_read_name(DnsPacket *p, char **ret, bool allow_compression, size_t *start);
 int dns_packet_read_key(DnsPacket *p, DnsResourceKey **ret, size_t *start);
 int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start);
 

@@ -273,7 +273,7 @@ DnsResourceRecord* dns_resource_record_unref(DnsResourceRecord *rr) {
 
                 case DNS_TYPE_TXT:
                 case DNS_TYPE_SPF:
-                        strv_free(rr->txt.strings);
+                        dns_txt_item_free_all(rr->txt.items);
                         break;
 
                 case DNS_TYPE_SOA:
@@ -430,7 +430,7 @@ int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecor
 
         case DNS_TYPE_SPF: /* exactly the same as TXT */
         case DNS_TYPE_TXT:
-                return strv_equal(a->txt.strings, b->txt.strings);
+                return dns_txt_item_equal(a->txt.items, b->txt.items);
 
         case DNS_TYPE_A:
                 return memcmp(&a->a.in_addr, &b->a.in_addr, sizeof(struct in_addr)) == 0;
@@ -600,6 +600,43 @@ static char *format_types(Bitmap *types) {
         return strjoin("( ", str, " )", NULL);
 }
 
+static char *format_txt(DnsTxtItem *first) {
+        DnsTxtItem *i;
+        size_t c = 1;
+        char *p, *s;
+
+        LIST_FOREACH(items, i, first)
+                c += i->length * 4 + 3;
+
+        p = s = new(char, c);
+        if (!s)
+                return NULL;
+
+        LIST_FOREACH(items, i, first) {
+                size_t j;
+
+                if (i != first)
+                        *(p++) = ' ';
+
+                *(p++) = '"';
+
+                for (j = 0; j < i->length; j++) {
+                        if (i->data[j] < ' ' || i->data[j] == '"' || i->data[j] >= 127) {
+                                *(p++) = '\\';
+                                *(p++) = '0' + (i->data[j] / 100);
+                                *(p++) = '0' + ((i->data[j] / 10) % 10);
+                                *(p++) = '0' + (i->data[j] % 10);
+                        } else
+                                *(p++) = i->data[j];
+                }
+
+                *(p++) = '"';
+        }
+
+        *p = 0;
+        return s;
+}
+
 int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
         _cleanup_free_ char *k = NULL, *t = NULL;
         char *s;
@@ -642,14 +679,13 @@ int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
 
         case DNS_TYPE_SPF: /* exactly the same as TXT */
         case DNS_TYPE_TXT:
-                t = strv_join_quoted(rr->txt.strings);
+                t = format_txt(rr->txt.items);
                 if (!t)
                         return -ENOMEM;
 
                 s = strjoin(k, " ", t, NULL);
                 if (!s)
                         return -ENOMEM;
-
                 break;
 
         case DNS_TYPE_A: {
@@ -889,4 +925,33 @@ int dns_class_from_string(const char *s, uint16_t *class) {
                 return -EINVAL;
 
         return 0;
+}
+
+DnsTxtItem *dns_txt_item_free_all(DnsTxtItem *i) {
+        DnsTxtItem *n;
+
+        if (!i)
+                return NULL;
+
+        n = i->items_next;
+
+        free(i);
+        return dns_txt_item_free_all(n);
+}
+
+bool dns_txt_item_equal(DnsTxtItem *a, DnsTxtItem *b) {
+
+        if (!a != !b)
+                return false;
+
+        if (!a)
+                return true;
+
+        if (a->length != b->length)
+                return false;
+
+        if (memcmp(a->data, b->data, a->length) != 0)
+                return false;
+
+        return dns_txt_item_equal(a->items_next, b->items_next);
 }
