@@ -51,8 +51,11 @@ run_qemu() {
             && KERNEL_BIN="/boot/$MACHINE_ID/$KERNEL_VER/linux"
     fi
 
+    default_fedora_initrd=/boot/initramfs-${KERNEL_VER}.img
+    default_debian_initrd=/boot/initrd.img-${KERNEL_VER}
     [ "$KERNEL_BIN" ] || KERNEL_BIN=/boot/vmlinuz-$KERNEL_VER
-    [ "$INITRD" ]     || INITRD=/boot/initramfs-${KERNEL_VER}.img
+    [ "$INITRD" ]     || { [ -e "$default_fedora_initrd" ] && INITRD=$default_fedora_initrd; }
+    [ "$INITRD" ]     || { [ "$LOOKS_LIKE_DEBIAN" ] && [ -e "$default_debian_initrd" ] && INITRD=$default_debian_initrd; }
     [ "$QEMU_SMP" ]   || QEMU_SMP=1
 
     find_qemu_bin || return 1
