@@ -36,7 +36,7 @@ you can even skip the "clean" and "setup" if you want to run the machine again.
 $ sudo make KERNEL_APPEND="systemd.unit=multi-user.target" run
 
 You can specify a different kernel and initramfs with $KERNEL_BIN and $INITRD.
-(Fedora's default kernel path and initramfs are used by default)
+(Fedora's or Debian's default kernel path and initramfs are used by default)
 
 $ sudo make KERNEL_BIN=/boot/vmlinuz-foo INITRD=/boot/initramfs-bar clean check
 
