@@ -5369,6 +5369,11 @@ networkctl_LDADD = \
 	libshared.la \
 	libsystemd-network.la
 
+if ENABLE_BASH_COMPLETION
+dist_bashcompletion_DATA += \
+	shell-completion/bash/networkctl
+endif
+
 test_network_SOURCES = \
 	src/network/test-network.c
 
