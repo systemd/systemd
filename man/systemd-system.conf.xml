@@ -354,13 +354,26 @@
         <listitem><para>These settings control various default
         resource limits for units. See
         <citerefentry><refentrytitle>setrlimit</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-        for details. Use the string <varname>infinity</varname> to
-        configure no limit on a specific resource. The multiplicative suffixes
-        K (=1024), M (=1024*1024) and so on for G, T, P and E may be used for
-        resource limits measured in bytes (e.g. DefaultLimitAS=16G). These
-        settings may be overridden in individual units using the corresponding
-        LimitXXX= directives. Note that these resource limits are only
-        defaults for units, they are not applied to PID 1
+        for details. The resource limit is possible to specify in two formats,
+        <option>value</option> to set soft and hard limits to the same value,
+        or <option>soft:hard</option> to set both limits individually (e.g. DefaultLimitAS=4G:16G).
+        Use the string <varname>infinity</varname> to
+        configure no limit on a specific resource. The multiplicative
+        suffixes K (=1024), M (=1024*1024) and so on for G, T, P and E
+        may be used for resource limits measured in bytes
+        (e.g. DefaultLimitAS=16G). For the limits referring to time values,
+        the usual time units ms, s, min, h and so on may be used (see
+        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        for details). Note that if no time unit is specified for
+        <varname>DefaultLimitCPU=</varname> the default unit of seconds is
+        implied, while for <varname>DefaultLimitRTTIME=</varname> the default
+        unit of microseconds is implied. Also, note that the effective
+        granularity of the limits might influence their
+        enforcement. For example, time limits specified for
+        <varname>DefaultLimitCPU=</varname> will be rounded up implicitly to
+        multiples of 1s. These  settings may be overridden in individual units
+        using the corresponding LimitXXX= directives. Note that these resource
+        limits are only defaults for units, they are not applied to PID 1
         itself.</para></listitem>
       </varlistentry>
     </variablelist>

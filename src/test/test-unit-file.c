@@ -680,7 +680,17 @@ static void test_config_parse_rlimit(void) {
         assert_se(rl[RLIMIT_NOFILE]->rlim_cur == 55);
         assert_se(rl[RLIMIT_NOFILE]->rlim_cur == rl[RLIMIT_NOFILE]->rlim_max);
 
+        assert_se(config_parse_limit(NULL, "fake", 1, "section", 1, "LimitNOFILE", RLIMIT_NOFILE, "55:66", rl, NULL) >= 0);
+        assert_se(rl[RLIMIT_NOFILE]);
+        assert_se(rl[RLIMIT_NOFILE]->rlim_cur == 55);
+        assert_se(rl[RLIMIT_NOFILE]->rlim_max == 66);
+
         assert_se(config_parse_limit(NULL, "fake", 1, "section", 1, "LimitNOFILE", RLIMIT_NOFILE, "infinity", rl, NULL) >= 0);
+        assert_se(rl[RLIMIT_NOFILE]);
+        assert_se(rl[RLIMIT_NOFILE]->rlim_cur == RLIM_INFINITY);
+        assert_se(rl[RLIMIT_NOFILE]->rlim_cur == rl[RLIMIT_NOFILE]->rlim_max);
+
+        assert_se(config_parse_limit(NULL, "fake", 1, "section", 1, "LimitNOFILE", RLIMIT_NOFILE, "infinity:infinity", rl, NULL) >= 0);
         assert_se(rl[RLIMIT_NOFILE]);
         assert_se(rl[RLIMIT_NOFILE]->rlim_cur == RLIM_INFINITY);
         assert_se(rl[RLIMIT_NOFILE]->rlim_cur == rl[RLIMIT_NOFILE]->rlim_max);
@@ -696,6 +706,11 @@ static void test_config_parse_rlimit(void) {
         assert_se(rl[RLIMIT_CPU]);
         assert_se(rl[RLIMIT_CPU]->rlim_cur == 57);
         assert_se(rl[RLIMIT_CPU]->rlim_cur == rl[RLIMIT_CPU]->rlim_max);
+
+        assert_se(config_parse_sec_limit(NULL, "fake", 1, "section", 1, "LimitCPU", RLIMIT_CPU, "40s:1m", rl, NULL) >= 0);
+        assert_se(rl[RLIMIT_CPU]);
+        assert_se(rl[RLIMIT_CPU]->rlim_cur == 40);
+        assert_se(rl[RLIMIT_CPU]->rlim_max == 60);
 
         assert_se(config_parse_sec_limit(NULL, "fake", 1, "section", 1, "LimitCPU", RLIMIT_CPU, "infinity", rl, NULL) >= 0);
         assert_se(rl[RLIMIT_CPU]);
@@ -714,12 +729,27 @@ static void test_config_parse_rlimit(void) {
         assert_se(rl[RLIMIT_RTTIME]->rlim_cur == 58);
         assert_se(rl[RLIMIT_RTTIME]->rlim_cur == rl[RLIMIT_RTTIME]->rlim_max);
 
+        assert_se(config_parse_usec_limit(NULL, "fake", 1, "section", 1, "LimitRTTIME", RLIMIT_RTTIME, "58:60", rl, NULL) >= 0);
+        assert_se(rl[RLIMIT_RTTIME]);
+        assert_se(rl[RLIMIT_RTTIME]->rlim_cur == 58);
+        assert_se(rl[RLIMIT_RTTIME]->rlim_max == 60);
+
         assert_se(config_parse_usec_limit(NULL, "fake", 1, "section", 1, "LimitRTTIME", RLIMIT_RTTIME, "59s", rl, NULL) >= 0);
         assert_se(rl[RLIMIT_RTTIME]);
         assert_se(rl[RLIMIT_RTTIME]->rlim_cur == 59 * USEC_PER_SEC);
         assert_se(rl[RLIMIT_RTTIME]->rlim_cur == rl[RLIMIT_RTTIME]->rlim_max);
 
+        assert_se(config_parse_usec_limit(NULL, "fake", 1, "section", 1, "LimitRTTIME", RLIMIT_RTTIME, "59s:123s", rl, NULL) >= 0);
+        assert_se(rl[RLIMIT_RTTIME]);
+        assert_se(rl[RLIMIT_RTTIME]->rlim_cur == 59 * USEC_PER_SEC);
+        assert_se(rl[RLIMIT_RTTIME]->rlim_max == 123 * USEC_PER_SEC);
+
         assert_se(config_parse_usec_limit(NULL, "fake", 1, "section", 1, "LimitRTTIME", RLIMIT_RTTIME, "infinity", rl, NULL) >= 0);
+        assert_se(rl[RLIMIT_RTTIME]);
+        assert_se(rl[RLIMIT_RTTIME]->rlim_cur == RLIM_INFINITY);
+        assert_se(rl[RLIMIT_RTTIME]->rlim_cur == rl[RLIMIT_RTTIME]->rlim_max);
+
+        assert_se(config_parse_usec_limit(NULL, "fake", 1, "section", 1, "LimitRTTIME", RLIMIT_RTTIME, "infinity:infinity", rl, NULL) >= 0);
         assert_se(rl[RLIMIT_RTTIME]);
         assert_se(rl[RLIMIT_RTTIME]->rlim_cur == RLIM_INFINITY);
         assert_se(rl[RLIMIT_RTTIME]->rlim_cur == rl[RLIMIT_RTTIME]->rlim_max);

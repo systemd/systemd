@@ -630,7 +630,10 @@
         <listitem><para>These settings set both soft and hard limits
         of various resources for executed processes. See
         <citerefentry><refentrytitle>setrlimit</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-        for details. Use the string <varname>infinity</varname> to
+        for details. The resource limit is possible to specify in two formats,
+        <option>value</option> to set soft and hard limits to the same value,
+        or <option>soft:hard</option> to set both limits individually (e.g. LimitAS=4G:16G).
+        Use the string <varname>infinity</varname> to
         configure no limit on a specific resource. The multiplicative
         suffixes K (=1024), M (=1024*1024) and so on for G, T, P and E
         may be used for resource limits measured in bytes
