@@ -506,7 +506,8 @@
         larger than the configured time, then the service is placed in
         a failed state and it will be terminated with
         <constant>SIGABRT</constant>. By setting
-        <varname>Restart=</varname> to <option>on-failure</option> or
+        <varname>Restart=</varname> to <option>on-failure</option>,
+        <option>on-watchdog</option>, <option>on-abnormal</option> or
         <option>always</option>, the service will be automatically
         restarted. The time configured here will be passed to the
         executed service process in the
@@ -521,7 +522,9 @@
         check whether the service manager expects watchdog keep-alive
         notifications. See
         <citerefentry><refentrytitle>sd_watchdog_enabled</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-	for details.
+        for details.
+        <citerefentry><refentrytitle>sd_event_set_watchdog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+        may be used to enable automatic watchdog notification support.
         </para></listitem>
       </varlistentry>
 
