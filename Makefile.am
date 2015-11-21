@@ -426,6 +426,7 @@ dist_bashcompletion_DATA = \
 	shell-completion/bash/systemd-delta \
 	shell-completion/bash/systemd-detect-virt \
 	shell-completion/bash/systemd-nspawn \
+	shell-completion/bash/systemd-path \
 	shell-completion/bash/systemd-run \
 	shell-completion/bash/udevadm \
 	shell-completion/bash/kernel-install
