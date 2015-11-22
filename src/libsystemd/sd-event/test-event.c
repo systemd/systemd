@@ -158,6 +158,16 @@ static int exit_handler(sd_event_source *s, void *userdata) {
         return 3;
 }
 
+static bool got_post = false;
+
+static int post_handler(sd_event_source *s, void *userdata) {
+        log_info("got post handler");
+
+        got_post = true;
+
+        return 2;
+}
+
 static void test_basic(void) {
         sd_event *e = NULL;
         sd_event_source *w = NULL, *x = NULL, *y = NULL, *z = NULL, *q = NULL, *t = NULL;
@@ -230,10 +240,13 @@ static void test_basic(void) {
         sd_event_source_unref(y);
 
         do_quit = true;
+        assert_se(sd_event_add_post(e, NULL, post_handler, NULL) >= 0);
         assert_se(sd_event_source_set_time(z, now(CLOCK_MONOTONIC) + 200 * USEC_PER_MSEC) >= 0);
         assert_se(sd_event_source_set_enabled(z, SD_EVENT_ONESHOT) >= 0);
 
         assert_se(sd_event_loop(e) >= 0);
+        assert_se(got_post);
+        assert_se(got_exit);
 
         sd_event_source_unref(z);
         sd_event_source_unref(q);
