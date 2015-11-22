@@ -234,6 +234,7 @@ static void test_basic(void) {
         assert_se(sd_event_source_set_enabled(z, SD_EVENT_ONESHOT) >= 0);
 
         assert_se(sd_event_loop(e) >= 0);
+        assert_se(got_exit);
 
         sd_event_source_unref(z);
         sd_event_source_unref(q);
