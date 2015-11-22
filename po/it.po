@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2015-06-18 00:53+0200\n"
-"PO-Revision-Date: 2015-06-10 23:10+0100\n"
+"POT-Creation-Date: 2015-11-22 16:37+0100\n"
+"PO-Revision-Date: 2015-11-22 16:54+0100\n"
 "Last-Translator: Daniele Medri <dmedri@gmail.com>\n"
 "Language-Team: Italian\n"
 "Language: it\n"
@@ -16,7 +16,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
-"X-Generator: Poedit 1.7.6\n"
+"X-Generator: Poedit 1.8.5\n"
 
 #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:1
 msgid "Send passphrase back to system"
@@ -443,6 +443,14 @@ msgstr ""
 "Autenticazione richiesta per indicare al firmware di avviare l'interfaccia "
 "di configurazione."
 
+#: ../src/login/org.freedesktop.login1.policy.in.h:55
+msgid "Set a wall message"
+msgstr "Configura un messaggio per gli utenti"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:56
+msgid "Authentication is required to set a wall message"
+msgstr "Autenticazione richiesta per configurare un messaggio per gli utenti"
+
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:1
 msgid "Log into a local container"
 msgstr "Accedi in un container locale"
@@ -452,20 +460,62 @@ msgid "Authentication is required to log into a local container."
 msgstr "Autenticazione richiesta per accedere in un container locale."
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:3
+msgid "Log into the local host"
+msgstr "Accedi in un host locale"
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:4
+msgid "Authentication is required to log into the local host."
+msgstr "Autenticazione richiesta per accedere in un host locale."
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:5
+msgid "Acquire a shell in a local container"
+msgstr "Apri una shell in un container locale"
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:6
+msgid "Authentication is required to acquire a shell in a local container."
+msgstr "Autenticazione richiesta per aprire una shell in un container locale."
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:7
+msgid "Acquire a shell on the local host"
+msgstr "Apri una shell in un host locale"
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:8
+msgid "Authentication is required to acquire a shell on the local host."
+msgstr "Autenticazione richiesta per aprire una shell in un host locale."
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:9
+msgid "Acquire a pseudo TTY in a local container"
+msgstr "Apri un pseudo TTY in un container locale"
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:10
+msgid ""
+"Authentication is required to acquire a pseudo TTY in a local container."
+msgstr ""
+"Autenticazione richiesta per aprire un pseudo TTY in un container locale."
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:11
+msgid "Acquire a pseudo TTY on the local host"
+msgstr "Apri un pseudo TTY in un host locale"
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:12
+msgid "Authentication is required to acquire a pseudo TTY on the local host."
+msgstr "Autenticazione richiesta per aprire un pseudo TTY in un host locale."
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:13
 msgid "Manage local virtual machines and containers"
 msgstr "Gestisci le virtual machine e i container locali"
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:4
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:14
 msgid ""
 "Authentication is required to manage local virtual machines and containers."
 msgstr ""
 "Autenticazione richiesta per gestire le virtual machine e i container locali."
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:5
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:15
 msgid "Manage local virtual machine and container images"
 msgstr "Gestisci le immagini locali delle virtual machine e dei container"
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:6
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:16
 msgid ""
 "Authentication is required to manage local virtual machine and container "
 "images."
@@ -514,3 +564,32 @@ msgid ""
 msgstr ""
 "Autenticazione richiesta per verificare se la sincronizzazione dell'orario "
 "in rete possa essere attivata."
+
+#: ../src/core/dbus-unit.c:428
+msgid "Authentication is required to start '$(unit)'."
+msgstr "Autenticazione richiesta per avviare '$(unit)'."
+
+#: ../src/core/dbus-unit.c:429
+msgid "Authentication is required to stop '$(unit)'."
+msgstr "Autenticazione richiesta per fermare '$(unit)'."
+
+#: ../src/core/dbus-unit.c:430
+msgid "Authentication is required to reload '$(unit)'."
+msgstr "Autenticazione richiesta per ricaricare '$(unit)'."
+
+#: ../src/core/dbus-unit.c:431 ../src/core/dbus-unit.c:432
+msgid "Authentication is required to restart '$(unit)'."
+msgstr "Autenticazione richiesta per riavviare '$(unit)'."
+
+#: ../src/core/dbus-unit.c:535
+msgid "Authentication is required to kill '$(unit)'."
+msgstr "Autenticazione richiesta per terminare '$(unit)'."
+
+#: ../src/core/dbus-unit.c:565
+msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
+msgstr ""
+"Autenticazione richiesta per riconfigurare lo stato \"fallito\" di '$(unit)'."
+
+#: ../src/core/dbus-unit.c:597
+msgid "Authentication is required to set properties on '$(unit)'."
+msgstr "Autenticazione richiesta per configurare le proprietà di '$(unit)'."

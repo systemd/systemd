@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd master\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2015-06-18 00:53+0200\n"
+"POT-Creation-Date: 2015-11-22 16:37+0100\n"
 "PO-Revision-Date: 2014-04-29 09:17+0300\n"
 "Last-Translator: Dimitris Spingos (Δημήτρης Σπίγγος) <dmtrs32@gmail.com>\n"
 "Language-Team: team@lists.gnome.gr\n"
@@ -451,6 +451,15 @@ msgid ""
 "interface."
 msgstr "Απαιτείται πιστοποίηση για να ορίσετε τοπικά όνομα οικοδεσπότη."
 
+#: ../src/login/org.freedesktop.login1.policy.in.h:55
+msgid "Set a wall message"
+msgstr ""
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:56
+#, fuzzy
+msgid "Authentication is required to set a wall message"
+msgstr "Απαιτείται πιστοποίηση για να ορίσετε τοπικά όνομα οικοδεσπότη."
+
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:1
 msgid "Log into a local container"
 msgstr ""
@@ -461,20 +470,68 @@ msgid "Authentication is required to log into a local container."
 msgstr "Απαιτείται πιστοποίηση για να ορίσετε τοπικά όνομα οικοδεσπότη."
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:3
-msgid "Manage local virtual machines and containers"
+msgid "Log into the local host"
 msgstr ""
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:4
+#, fuzzy
+msgid "Authentication is required to log into the local host."
+msgstr "Απαιτείται πιστοποίηση για να ορίσετε τοπικά όνομα οικοδεσπότη."
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:5
+#, fuzzy
+msgid "Acquire a shell in a local container"
+msgstr "Απαιτείται πιστοποίηση για να ορίσετε τοπικά όνομα οικοδεσπότη."
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:6
+#, fuzzy
+msgid "Authentication is required to acquire a shell in a local container."
+msgstr "Απαιτείται πιστοποίηση για να ορίσετε τοπικά όνομα οικοδεσπότη."
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:7
+msgid "Acquire a shell on the local host"
+msgstr ""
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:8
+#, fuzzy
+msgid "Authentication is required to acquire a shell on the local host."
+msgstr "Απαιτείται πιστοποίηση για να ορίσετε τοπικά όνομα οικοδεσπότη."
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:9
+#, fuzzy
+msgid "Acquire a pseudo TTY in a local container"
+msgstr "Απαιτείται πιστοποίηση για να ορίσετε τοπικά όνομα οικοδεσπότη."
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:10
+#, fuzzy
+msgid ""
+"Authentication is required to acquire a pseudo TTY in a local container."
+msgstr "Απαιτείται πιστοποίηση για να ορίσετε τοπικά όνομα οικοδεσπότη."
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:11
+msgid "Acquire a pseudo TTY on the local host"
+msgstr ""
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:12
+#, fuzzy
+msgid "Authentication is required to acquire a pseudo TTY on the local host."
+msgstr "Απαιτείται πιστοποίηση για να ορίσετε τοπικά όνομα οικοδεσπότη."
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:13
+msgid "Manage local virtual machines and containers"
+msgstr ""
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:14
 #, fuzzy
 msgid ""
 "Authentication is required to manage local virtual machines and containers."
 msgstr "Απαιτείται πιστοποίηση για να ορίσετε πληροφορίες τοπικής μηχανής."
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:5
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:15
 msgid "Manage local virtual machine and container images"
 msgstr ""
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:6
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:16
 #, fuzzy
 msgid ""
 "Authentication is required to manage local virtual machine and container "
@@ -520,3 +577,38 @@ msgid ""
 msgstr ""
 "Απαιτείται πιστοποίηση για να ελέγξετε αν ο συγχρονισμός ώρας δικτύου θα "
 "ενεργοποιηθεί."
+
+#: ../src/core/dbus-unit.c:428
+#, fuzzy
+msgid "Authentication is required to start '$(unit)'."
+msgstr "Απαιτείται πιστοποίηση για να ορίσετε την ώρα του συστήματος."
+
+#: ../src/core/dbus-unit.c:429
+#, fuzzy
+msgid "Authentication is required to stop '$(unit)'."
+msgstr "Απαιτείται πιστοποίηση για να ορίσετε την ώρα του συστήματος."
+
+#: ../src/core/dbus-unit.c:430
+#, fuzzy
+msgid "Authentication is required to reload '$(unit)'."
+msgstr "Απαιτείται πιστοποίηση για να ορίσετε την ώρα του συστήματος."
+
+#: ../src/core/dbus-unit.c:431 ../src/core/dbus-unit.c:432
+#, fuzzy
+msgid "Authentication is required to restart '$(unit)'."
+msgstr "Απαιτείται πιστοποίηση για να ορίσετε την ώρα του συστήματος."
+
+#: ../src/core/dbus-unit.c:535
+#, fuzzy
+msgid "Authentication is required to kill '$(unit)'."
+msgstr "Απαιτείται πιστοποίηση για να ορίσετε τοπικά όνομα οικοδεσπότη."
+
+#: ../src/core/dbus-unit.c:565
+#, fuzzy
+msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
+msgstr "Απαιτείται πιστοποίηση για να ορίσετε τοπικά όνομα οικοδεσπότη."
+
+#: ../src/core/dbus-unit.c:597
+#, fuzzy
+msgid "Authentication is required to set properties on '$(unit)'."
+msgstr "Απαιτείται πιστοποίηση για να ορίσετε την ώρα του συστήματος."
