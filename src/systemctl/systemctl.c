@@ -6550,8 +6550,10 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         return version();
 
                 case 't': {
-                        if (isempty(optarg))
-                                return log_error_errno(r, "--type requires arguments.");
+                        if (isempty(optarg)) {
+                                log_error("--type requires arguments.");
+                                return -EINVAL;
+                        }
 
                         p = optarg;
                         for(;;) {
@@ -6783,8 +6785,10 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_STATE: {
-                        if (isempty(optarg))
-                                return log_error_errno(r, "--signal requires arguments.");
+                        if (isempty(optarg)) {
+                                log_error("--signal requires arguments.");
+                                return -EINVAL;
+                        }
 
                         p = optarg;
                         for(;;) {
