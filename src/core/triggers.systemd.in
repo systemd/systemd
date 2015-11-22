@@ -19,8 +19,34 @@
 
 # The contents of this are an example to be copied into systemd.spec.
 
+# This will run after any package is initially installed or
+# upgraded. We care about the case where a package is initially
+# installed, because other cases are covered by the scriptlets below,
+# so sometimes we will reload needlessly.
+
 %transfiletriggerin -- @systemunitdir@ /etc/systemd/system
 systemctl daemon-reload &>/dev/null || :
 
+# On removal, we need to run daemon-reload after any units have been
+# removed. %transfiletriggerpostun would be ideal, but it does not get
+# executed for some reason.
+# On upgrade, we need to run daemon-reload after any new unit files
+# have been installed, but before %postun scripts in packages get
+# executed. %transfiletriggerun gets the right list of files
+# but it is invoked too early (before changes happen).
+# %filetriggerpostun happens at the right time, but it fires for
+# every package.
+# To execute the reload at the right time, we create a state
+# file in %transfiletriggerun and execute the daemon-reload in
+# the first %filetriggerpostun.
+
 %transfiletriggerun -- @systemunitdir@ /etc/systemd/system
-systemctl daemon-reload &>/dev/null || :
+mkdir -p %{_localstatedir}/lib/rpm-state/systemd
+touch %{_localstatedir}/lib/rpm-state/systemd/needs-reload
+
+%filetriggerpostun -- @systemunitdir@ /etc/systemd/system
+if [ -e %{_localstatedir}/lib/rpm-state/systemd/needs-reload ]; then
+    rm %{_localstatedir}/lib/rpm-state/systemd/needs-reload || :
+    rmdir %{_localstatedir}/lib/rpm-state/systemd || :
+    systemctl daemon-reload || :
+fi
