@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2015-06-18 00:53+0200\n"
+"POT-Creation-Date: 2015-11-22 16:37+0100\n"
 "PO-Revision-Date: 2015-03-22 21:53+0300\n"
 "Last-Translator: Sergey Ptashnick <0comffdiz@inbox.ru>\n"
 "Language: ru\n"
@@ -465,6 +465,15 @@ msgid ""
 "interface."
 msgstr "Чтобы настроить имя компьютера, необходимо пройти аутентификацию."
 
+#: ../src/login/org.freedesktop.login1.policy.in.h:55
+msgid "Set a wall message"
+msgstr ""
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:56
+#, fuzzy
+msgid "Authentication is required to set a wall message"
+msgstr "Чтобы настроить имя компьютера, необходимо пройти аутентификацию."
+
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:1
 msgid "Log into a local container"
 msgstr "Зайти в локальный контейнер"
@@ -474,21 +483,70 @@ msgid "Authentication is required to log into a local container."
 msgstr "Чтобы зайти в локальный контейнер, необходимо пройти аутентификацию."
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:3
+#, fuzzy
+msgid "Log into the local host"
+msgstr "Зайти в локальный контейнер"
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:4
+#, fuzzy
+msgid "Authentication is required to log into the local host."
+msgstr "Чтобы зайти в локальный контейнер, необходимо пройти аутентификацию."
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:5
+#, fuzzy
+msgid "Acquire a shell in a local container"
+msgstr "Зайти в локальный контейнер"
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:6
+#, fuzzy
+msgid "Authentication is required to acquire a shell in a local container."
+msgstr "Чтобы зайти в локальный контейнер, необходимо пройти аутентификацию."
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:7
+msgid "Acquire a shell on the local host"
+msgstr ""
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:8
+#, fuzzy
+msgid "Authentication is required to acquire a shell on the local host."
+msgstr "Чтобы настроить имя компьютера, необходимо пройти аутентификацию."
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:9
+#, fuzzy
+msgid "Acquire a pseudo TTY in a local container"
+msgstr "Зайти в локальный контейнер"
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:10
+#, fuzzy
+msgid ""
+"Authentication is required to acquire a pseudo TTY in a local container."
+msgstr "Чтобы зайти в локальный контейнер, необходимо пройти аутентификацию."
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:11
+msgid "Acquire a pseudo TTY on the local host"
+msgstr ""
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:12
+#, fuzzy
+msgid "Authentication is required to acquire a pseudo TTY on the local host."
+msgstr "Чтобы настроить имя компьютера, необходимо пройти аутентификацию."
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:13
 msgid "Manage local virtual machines and containers"
 msgstr "Управление виртуальными машинами и контейнерами"
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:4
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:14
 msgid ""
 "Authentication is required to manage local virtual machines and containers."
 msgstr ""
 "Для управления виртуальными машинами и контейнерами, необходимо пройти "
 "аутентификацию."
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:5
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:15
 msgid "Manage local virtual machine and container images"
 msgstr "Управление образами виртуальных машин и контейнеров"
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:6
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:16
 msgid ""
 "Authentication is required to manage local virtual machine and container "
 "images."
@@ -535,6 +593,43 @@ msgid ""
 msgstr ""
 "Чтобы включить или выключить синхронизацию времени по сети, необходимо "
 "пройти аутентификацию."
+
+#: ../src/core/dbus-unit.c:428
+#, fuzzy
+msgid "Authentication is required to start '$(unit)'."
+msgstr "Чтобы настроить системное время, необходимо пройти аутентификацию."
+
+#: ../src/core/dbus-unit.c:429
+#, fuzzy
+msgid "Authentication is required to stop '$(unit)'."
+msgstr "Чтобы настроить системное время, необходимо пройти аутентификацию."
+
+#: ../src/core/dbus-unit.c:430
+#, fuzzy
+msgid "Authentication is required to reload '$(unit)'."
+msgstr ""
+"Чтобы заставить systemd перечитать конфигурацию, необходимо пройти "
+"аутентификацию."
+
+#: ../src/core/dbus-unit.c:431 ../src/core/dbus-unit.c:432
+#, fuzzy
+msgid "Authentication is required to restart '$(unit)'."
+msgstr "Чтобы настроить системное время, необходимо пройти аутентификацию."
+
+#: ../src/core/dbus-unit.c:535
+#, fuzzy
+msgid "Authentication is required to kill '$(unit)'."
+msgstr "Чтобы зайти в локальный контейнер, необходимо пройти аутентификацию."
+
+#: ../src/core/dbus-unit.c:565
+#, fuzzy
+msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
+msgstr "Чтобы настроить имя компьютера, необходимо пройти аутентификацию."
+
+#: ../src/core/dbus-unit.c:597
+#, fuzzy
+msgid "Authentication is required to set properties on '$(unit)'."
+msgstr "Чтобы настроить системное время, необходимо пройти аутентификацию."
 
 #~ msgid "Press Ctrl+C to cancel all filesystem checks in progress"
 #~ msgstr ""
