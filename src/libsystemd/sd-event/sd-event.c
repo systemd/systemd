@@ -416,11 +416,9 @@ _public_ int sd_event_new(sd_event** ret) {
         e->original_pid = getpid();
         e->perturb = USEC_INFINITY;
 
-        e->pending = prioq_new(pending_prioq_compare);
-        if (!e->pending) {
-                r = -ENOMEM;
+        r = prioq_ensure_allocated(&e->pending, pending_prioq_compare);
+        if (r < 0)
                 goto fail;
-        }
 
         e->epoll_fd = epoll_create1(EPOLL_CLOEXEC);
         if (e->epoll_fd < 0) {
@@ -1052,17 +1050,13 @@ _public_ int sd_event_add_time(
         d = event_get_clock_data(e, type);
         assert(d);
 
-        if (!d->earliest) {
-                d->earliest = prioq_new(earliest_time_prioq_compare);
-                if (!d->earliest)
-                        return -ENOMEM;
-        }
+        r = prioq_ensure_allocated(&d->earliest, earliest_time_prioq_compare);
+        if (r < 0)
+                return r;
 
-        if (!d->latest) {
-                d->latest = prioq_new(latest_time_prioq_compare);
-                if (!d->latest)
-                        return -ENOMEM;
-        }
+        r = prioq_ensure_allocated(&d->latest, latest_time_prioq_compare);
+        if (r < 0)
+                return r;
 
         if (d->fd < 0) {
                 r = event_setup_timer_fd(e, d, clock);
@@ -1313,11 +1307,9 @@ _public_ int sd_event_add_exit(
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
         assert_return(!event_pid_changed(e), -ECHILD);
 
-        if (!e->exit) {
-                e->exit = prioq_new(exit_prioq_compare);
-                if (!e->exit)
-                        return -ENOMEM;
-        }
+        r = prioq_ensure_allocated(&e->exit, exit_prioq_compare);
+        if (r < 0)
+                return r;
 
         s = source_new(e, !ret, SOURCE_EXIT);
         if (!s)
