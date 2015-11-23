@@ -1045,6 +1045,7 @@ libshared_la_SOURCES = \
 	src/shared/import-util.h \
 	src/shared/sysctl-util.c \
 	src/shared/sysctl-util.h \
+	src/shared/bus-macros.h \
 	src/shared/bus-util.c \
 	src/shared/bus-util.h \
 	src/shared/logs-show.c \
