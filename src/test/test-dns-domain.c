@@ -332,7 +332,6 @@ static void test_dns_srv_type_verify(void) {
         assert_se(dns_srv_type_verify("_http._tcp") > 0);
         assert_se(dns_srv_type_verify("_foo-bar._tcp") > 0);
         assert_se(dns_srv_type_verify("_w._udp") > 0);
-        assert_se(dns_srv_type_verify("_piep._sub._w._udp") > 0);
         assert_se(dns_srv_type_verify("_a800._tcp") > 0);
         assert_se(dns_srv_type_verify("_a-800._tcp") > 0);
 
@@ -348,6 +347,65 @@ static void test_dns_srv_type_verify(void) {
         assert_se(dns_srv_type_verify("_800._tcp") == 0);
         assert_se(dns_srv_type_verify("_-800._tcp") == 0);
         assert_se(dns_srv_type_verify("_-foo._tcp") == 0);
+        assert_se(dns_srv_type_verify("_piep._foo._udp") == 0);
+}
+
+static void test_dns_service_join_one(const char *a, const char *b, const char *c, int r, const char *d) {
+        _cleanup_free_ char *x = NULL, *y = NULL, *z = NULL, *t = NULL;
+
+        assert_se(dns_service_join(a, b, c, &t) == r);
+        assert_se(streq_ptr(t, d));
+
+        if (r < 0)
+                return;
+
+        assert_se(dns_service_split(t, &x, &y, &z) >= 0);
+        assert_se(streq_ptr(a, x));
+        assert_se(streq_ptr(b, y));
+        assert_se(streq_ptr(c, z));
+}
+
+static void test_dns_service_join(void) {
+        test_dns_service_join_one("", "", "", -EINVAL, NULL);
+        test_dns_service_join_one("", "_http._tcp", "", -EINVAL, NULL);
+        test_dns_service_join_one("", "_http._tcp", "foo", -EINVAL, NULL);
+        test_dns_service_join_one("foo", "", "foo", -EINVAL, NULL);
+        test_dns_service_join_one("foo", "foo", "foo", -EINVAL, NULL);
+
+        test_dns_service_join_one("foo", "_http._tcp", "", 0, "foo._http._tcp");
+        test_dns_service_join_one(NULL, "_http._tcp", "", 0, "_http._tcp");
+        test_dns_service_join_one("foo", "_http._tcp", "foo", 0, "foo._http._tcp.foo");
+        test_dns_service_join_one(NULL, "_http._tcp", "foo", 0, "_http._tcp.foo");
+        test_dns_service_join_one("Lennart's PC", "_pc._tcp", "foo.bar.com", 0, "Lennart\\039s\\032PC._pc._tcp.foo.bar.com");
+        test_dns_service_join_one(NULL, "_pc._tcp", "foo.bar.com", 0, "_pc._tcp.foo.bar.com");
+}
+
+static void test_dns_service_split_one(const char *joined, const char *a, const char *b, const char *c, int r) {
+        _cleanup_free_ char *x = NULL, *y = NULL, *z = NULL, *t = NULL;
+
+        assert_se(dns_service_split(joined, &x, &y, &z) == r);
+        assert_se(streq_ptr(x, a));
+        assert_se(streq_ptr(y, b));
+        assert_se(streq_ptr(z, c));
+
+        if (r < 0)
+                return;
+
+        if (y) {
+                assert_se(dns_service_join(x, y, z, &t) == 0);
+                assert_se(streq_ptr(joined, t));
+        } else
+                assert_se(!x && streq_ptr(z, joined));
+}
+
+static void test_dns_service_split(void) {
+        test_dns_service_split_one("", NULL, NULL, "", 0);
+        test_dns_service_split_one("foo", NULL, NULL, "foo", 0);
+        test_dns_service_split_one("foo.bar", NULL, NULL, "foo.bar", 0);
+        test_dns_service_split_one("_foo.bar", NULL, NULL, "_foo.bar", 0);
+        test_dns_service_split_one("_foo._bar", NULL, "_foo._bar", "", 0);
+        test_dns_service_split_one("_meh._foo._bar", "_meh", "_foo._bar", "", 0);
+        test_dns_service_split_one("Wuff\\032Wuff._foo._bar.waldo.com", "Wuff Wuff", "_foo._bar", "waldo.com", 0);
 }
 
 int main(int argc, char *argv[]) {
@@ -367,6 +425,8 @@ int main(int argc, char *argv[]) {
         test_dns_name_to_wire_format();
         test_dns_service_name_is_valid();
         test_dns_srv_type_verify();
+        test_dns_service_join();
+        test_dns_service_split();
 
         return 0;
 }

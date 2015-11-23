@@ -751,6 +751,34 @@ int dns_name_to_wire_format(const char *domain, uint8_t *buffer, size_t len) {
         return out - buffer;
 }
 
+static bool srv_type_label_is_valid(const char *label, size_t n) {
+        size_t k;
+
+        assert(label);
+
+        if (n < 2) /* Label needs to be at least 2 chars long */
+                return false;
+
+        if (label[0] != '_') /* First label char needs to be underscore */
+                return false;
+
+        /* Second char must be a letter */
+        if (!(label[1] >= 'A' && label[1] <= 'Z') &&
+            !(label[1] >= 'a' && label[1] <= 'z'))
+                return false;
+
+        /* Third and further chars must be alphanumeric or a hyphen */
+        for (k = 2; k < n; k++) {
+                if (!(label[k] >= 'A' && label[k] <= 'Z') &&
+                    !(label[k] >= 'a' && label[k] <= 'z') &&
+                    !(label[k] >= '0' && label[k] <= '9') &&
+                    label[k] != '-')
+                        return false;
+        }
+
+        return true;
+}
+
 int dns_srv_type_verify(const char *name) {
         unsigned c = 0;
         int r;
@@ -760,7 +788,6 @@ int dns_srv_type_verify(const char *name) {
 
         for (;;) {
                 char label[DNS_LABEL_MAX];
-                int k;
 
                 /* This more or less implements RFC 6335, Section 5.1 */
 
@@ -770,28 +797,18 @@ int dns_srv_type_verify(const char *name) {
                 if (r < 0)
                         return r;
                 if (r == 0)
-                        return c >= 2; /* At least two labels */
-                if (r < 2) /* Label needs to be at least 2 chars long */
-                        return 0;
-                if (label[0] != '_') /* First label char needs to be underscore */
+                        break;
+
+                if (c >= 2)
                         return 0;
 
-                /* Second char must be a letter */
-                if (!(label[1] >= 'A' && label[1] <= 'Z') &&
-                    !(label[1] >= 'a' && label[1] <= 'z'))
+                if (!srv_type_label_is_valid(label, r))
                         return 0;
-
-                /* Third and further chars must be alphanumeric or a hyphen */
-                for (k = 2; k < r; k++) {
-                        if (!(label[k] >= 'A' && label[k] <= 'Z') &&
-                            !(label[k] >= 'a' && label[k] <= 'z') &&
-                            !(label[k] >= '0' && label[k] <= '9') &&
-                            label[k] != '-')
-                                return 0;
-                }
 
                 c++;
         }
+
+        return c == 2; /* exactly two labels */
 }
 
 bool dns_service_name_is_valid(const char *name) {
@@ -815,4 +832,146 @@ bool dns_service_name_is_valid(const char *name) {
                 return false;
 
         return true;
+}
+
+int dns_service_join(const char *name, const char *type, const char *domain, char **ret) {
+        _cleanup_free_ char *escaped = NULL, *n = NULL;
+        int r;
+
+        assert(type);
+        assert(domain);
+        assert(ret);
+
+        if (!dns_srv_type_verify(type))
+                return -EINVAL;
+
+        if (!name)
+                return dns_name_concat(type, domain, ret);
+
+        if (!dns_service_name_is_valid(name))
+                return -EINVAL;
+
+        r = dns_label_escape(name, strlen(name), &escaped);
+        if (r < 0)
+                return r;
+
+        r = dns_name_concat(type, domain, &n);
+        if (r < 0)
+                return r;
+
+        return dns_name_concat(escaped, n, ret);
+}
+
+static bool dns_service_name_label_is_valid(const char *label, size_t n) {
+        char *s;
+
+        assert(label);
+
+        if (memchr(label, 0, n))
+                return false;
+
+        s = strndupa(label, n);
+        return dns_service_name_is_valid(s);
+}
+
+int dns_service_split(const char *joined, char **_name, char **_type, char **_domain) {
+        _cleanup_free_ char *name = NULL, *type = NULL, *domain = NULL;
+        const char *p = joined, *q = NULL, *d = NULL;
+        char a[DNS_LABEL_MAX], b[DNS_LABEL_MAX], c[DNS_LABEL_MAX];
+        int an, bn, cn, r;
+        unsigned x = 0;
+
+        assert(joined);
+
+        /* Get first label from the full name */
+        an = dns_label_unescape(&p, a, sizeof(a));
+        if (an < 0)
+                return an;
+
+        if (an > 0) {
+                x++;
+
+                /* If there was a first label, try to get the second one */
+                bn = dns_label_unescape(&p, b, sizeof(b));
+                if (bn < 0)
+                        return bn;
+
+                if (bn > 0) {
+                        x++;
+
+                        /* If there was a second label, try to get the third one */
+                        q = p;
+                        cn = dns_label_unescape(&p, c, sizeof(c));
+                        if (cn < 0)
+                                return cn;
+
+                        if (cn > 0)
+                                x++;
+                } else
+                        cn = 0;
+        } else
+                an = 0;
+
+        if (x >= 2 && srv_type_label_is_valid(b, bn)) {
+
+                if (x >= 3 && srv_type_label_is_valid(c, cn)) {
+
+                        if (dns_service_name_label_is_valid(a, an)) {
+
+                                /* OK, got <name> . <type> . <type2> . <domain> */
+
+                                name = strndup(a, an);
+                                if (!name)
+                                        return -ENOMEM;
+
+                                type = new(char, bn+1+cn+1);
+                                if (!type)
+                                        return -ENOMEM;
+                                strcpy(stpcpy(stpcpy(type, b), "."), c);
+
+                                d = p;
+                                goto finish;
+                        }
+
+                } else if (srv_type_label_is_valid(a, an)) {
+
+                        /* OK, got <type> . <type2> . <domain> */
+
+                        name = NULL;
+
+                        type = new(char, an+1+bn+1);
+                        if (!type)
+                                return -ENOMEM;
+                        strcpy(stpcpy(stpcpy(type, a), "."), b);
+
+                        d = q;
+                        goto finish;
+                }
+        }
+
+        name = NULL;
+        type = NULL;
+        d = joined;
+
+finish:
+        r = dns_name_normalize(d, &domain);
+        if (r < 0)
+                return r;
+
+        if (_domain) {
+                *_domain = domain;
+                domain = NULL;
+        }
+
+        if (_type) {
+                *_type = type;
+                type = NULL;
+        }
+
+        if (_name) {
+                *_name = name;
+                name = NULL;
+        }
+
+        return 0;
 }
