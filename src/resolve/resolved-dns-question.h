@@ -25,7 +25,7 @@ typedef struct DnsQuestion DnsQuestion;
 
 #include "resolved-dns-rr.h"
 
-/* A simple array of resources keys */
+/* A simple array of resources keys, all sharing the same domain */
 
 struct DnsQuestion {
         unsigned n_ref;
@@ -37,6 +37,10 @@ DnsQuestion *dns_question_new(unsigned n);
 DnsQuestion *dns_question_ref(DnsQuestion *q);
 DnsQuestion *dns_question_unref(DnsQuestion *q);
 
+int dns_question_new_address(DnsQuestion **ret, int family, const char *name);
+int dns_question_new_reverse(DnsQuestion **ret, int family, const union in_addr_union *a);
+int dns_question_new_service(DnsQuestion **ret, const char *name, bool with_txt);
+
 int dns_question_add(DnsQuestion *q, DnsResourceKey *key);
 
 int dns_question_matches_rr(DnsQuestion *q, DnsResourceRecord *rr);
@@ -47,5 +51,7 @@ int dns_question_contains(DnsQuestion *a, DnsResourceKey *k);
 int dns_question_is_equal(DnsQuestion *a, DnsQuestion *b);
 
 int dns_question_cname_redirect(DnsQuestion *q, const DnsResourceRecord *cname, DnsQuestion **ret);
+
+const char *dns_question_name(DnsQuestion *q);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsQuestion*, dns_question_unref);
