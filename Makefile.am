@@ -660,6 +660,7 @@ EXTRA_DIST += \
 	README.md \
 	autogen.sh \
 	.dir-locals.el \
+	.editorconfig \
 	.vimrc \
 	.ycm_extra_conf.py \
 	.travis.yml \
