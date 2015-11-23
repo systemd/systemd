@@ -43,7 +43,7 @@ if [ $1 -eq 1 ] ; then \
 fi \
 %{nil}
 
-%systemd_user_post() %systemd_post --user --global %{?*}
+%systemd_user_post() %{expand:%systemd_post \\--user \\--global %%{?*}}
 
 %systemd_preun() \
 if [ $1 -eq 0 ] ; then \
