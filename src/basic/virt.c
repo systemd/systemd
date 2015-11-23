@@ -269,13 +269,13 @@ int detect_vm(void) {
         if (cached_found >= 0)
                 return cached_found;
 
-        r = detect_vm_cpuid();
+        r = detect_vm_dmi();
         if (r < 0)
                 return r;
         if (r != VIRTUALIZATION_NONE)
                 goto finish;
 
-        r = detect_vm_dmi();
+        r = detect_vm_cpuid();
         if (r < 0)
                 return r;
         if (r != VIRTUALIZATION_NONE)
