@@ -35,6 +35,7 @@ typedef enum UnescapeFlags {
 } UnescapeFlags;
 
 char *cescape(const char *s);
+char *cescape_length(const char *s, size_t n);
 size_t cescape_char(char c, char *buf);
 
 int cunescape(const char *s, UnescapeFlags flags, char **ret);
