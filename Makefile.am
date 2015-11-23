@@ -1007,7 +1007,7 @@ libshared_la_SOURCES = \
 	src/shared/base-filesystem.h \
 	src/shared/uid-range.c \
 	src/shared/uid-range.h \
-	src/shared/nss-util.h \
+	src/shared/nss-macros.h \
 	src/shared/install.c \
 	src/shared/install.h \
 	src/shared/install-printf.c \

@@ -31,7 +31,7 @@
 #include "hostname-util.h"
 #include "in-addr-util.h"
 #include "macro.h"
-#include "nss-util.h"
+#include "nss-macros.h"
 #include "string-util.h"
 #include "user-util.h"
 #include "util.h"
