@@ -155,50 +155,6 @@ int dns_question_is_valid(DnsQuestion *q) {
         return 1;
 }
 
-int dns_question_is_superset(DnsQuestion *q, DnsQuestion *other) {
-        unsigned j;
-        int r;
-
-        /* Checks if all keys in "other" are also contained in "q" */
-
-        if (!other)
-                return 1;
-
-        for (j = 0; j < other->n_keys; j++) {
-                DnsResourceKey *b = other->keys[j];
-                bool found = false;
-                unsigned i;
-
-                if (!q)
-                        return 0;
-
-                for (i = 0; i < q->n_keys; i++) {
-                        DnsResourceKey *a = q->keys[i];
-
-                        r = dns_name_equal(DNS_RESOURCE_KEY_NAME(a), DNS_RESOURCE_KEY_NAME(b));
-                        if (r < 0)
-                                return r;
-
-                        if (r == 0)
-                                continue;
-
-                        if (a->class != b->class && a->class != DNS_CLASS_ANY)
-                                continue;
-
-                        if (a->type != b->type && a->type != DNS_TYPE_ANY)
-                                continue;
-
-                        found = true;
-                        break;
-                }
-
-                if (!found)
-                        return 0;
-        }
-
-        return 1;
-}
-
 int dns_question_contains(DnsQuestion *a, DnsResourceKey *k) {
         unsigned j;
         int r;
