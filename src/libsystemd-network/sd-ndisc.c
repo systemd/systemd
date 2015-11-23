@@ -572,8 +572,6 @@ static int ndisc_router_advertisment_recv(sd_event_source *s, int fd, uint32_t r
 static int ndisc_router_solicitation_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
         sd_ndisc *nd = userdata;
         uint64_t time_now, next_timeout;
-        struct ether_addr unset = { };
-        struct ether_addr *addr = NULL;
         int r;
 
         assert(s);
@@ -587,10 +585,7 @@ static int ndisc_router_solicitation_timeout(sd_event_source *s, uint64_t usec, 
                         nd->callback(nd, SD_NDISC_EVENT_TIMEOUT, nd->userdata);
                 nd->state = NDISC_STATE_ADVERTISMENT_LISTEN;
         } else {
-                if (memcmp(&nd->mac_addr, &unset, sizeof(struct ether_addr)))
-                        addr = &nd->mac_addr;
-
-                r = icmp6_send_router_solicitation(nd->fd, addr);
+                r = icmp6_send_router_solicitation(nd->fd, &nd->mac_addr);
                 if (r < 0)
                         log_ndisc(nd, "Error sending Router Solicitation");
                 else {

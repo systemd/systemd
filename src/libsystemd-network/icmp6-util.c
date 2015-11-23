@@ -101,25 +101,25 @@ int icmp6_send_router_solicitation(int s, const struct ether_addr *ether_addr) {
                 struct ether_addr rs_opt_mac;
         } _packed_ rs = {
                 .rs.nd_rs_type = ND_ROUTER_SOLICIT,
+                .rs_opt.nd_opt_type = ND_OPT_SOURCE_LINKADDR,
+                .rs_opt.nd_opt_len = 1,
         };
-        struct iovec iov[1] = {
-                { &rs, },
+        struct iovec iov = {
+                .iov_base = &rs,
+                .iov_len = sizeof(rs),
         };
         struct msghdr msg = {
                 .msg_name = &dst,
                 .msg_namelen = sizeof(dst),
-                .msg_iov = iov,
+                .msg_iov = &iov,
                 .msg_iovlen = 1,
         };
         int r;
 
-        if (ether_addr) {
-                memcpy(&rs.rs_opt_mac, ether_addr, ETH_ALEN);
-                rs.rs_opt.nd_opt_type = ND_OPT_SOURCE_LINKADDR;
-                rs.rs_opt.nd_opt_len = 1;
-                iov[0].iov_len = sizeof(rs);
-        } else
-                iov[0].iov_len = sizeof(rs.rs);
+        assert(s >= 0);
+        assert(ether_addr);
+
+        rs.rs_opt_mac = *ether_addr;
 
         r = sendmsg(s, &msg, 0);
         if (r < 0)
