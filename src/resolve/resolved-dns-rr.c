@@ -57,10 +57,33 @@ DnsResourceKey* dns_resource_key_new_cname(const DnsResourceKey *key) {
 }
 
 DnsResourceKey* dns_resource_key_new_redirect(const DnsResourceKey *key, const DnsResourceRecord *cname) {
+        int r;
+
         assert(key);
         assert(cname);
 
-        return dns_resource_key_new(key->class, key->type, cname->cname.name);
+        assert(IN_SET(cname->key->type, DNS_TYPE_CNAME, DNS_TYPE_DNAME));
+
+        if (cname->key->type == DNS_TYPE_CNAME)
+                return dns_resource_key_new(key->class, key->type, cname->cname.name);
+        else {
+                DnsResourceKey *k;
+                char *destination = NULL;
+
+                r = dns_name_change_suffix(DNS_RESOURCE_KEY_NAME(key), DNS_RESOURCE_KEY_NAME(cname->key), cname->dname.name, &destination);
+                if (r < 0)
+                        return NULL;
+                if (r == 0)
+                        return dns_resource_key_ref((DnsResourceKey*) key);
+
+                k = dns_resource_key_new_consume(key->class, key->type, destination);
+                if (!k) {
+                        free(destination);
+                        return NULL;
+                }
+
+                return k;
+        }
 }
 
 DnsResourceKey* dns_resource_key_new_consume(uint16_t class, uint16_t type, char *name) {
@@ -142,10 +165,12 @@ int dns_resource_key_match_cname(const DnsResourceKey *key, const DnsResourceRec
         if (rr->key->class != key->class && key->class != DNS_CLASS_ANY)
                 return 0;
 
-        if (rr->key->type != DNS_TYPE_CNAME)
+        if (rr->key->type == DNS_TYPE_CNAME)
+                return dns_name_equal(DNS_RESOURCE_KEY_NAME(key), DNS_RESOURCE_KEY_NAME(rr->key));
+        else if (rr->key->type == DNS_TYPE_DNAME)
+                return dns_name_endswith(DNS_RESOURCE_KEY_NAME(key), DNS_RESOURCE_KEY_NAME(rr->key));
+        else
                 return 0;
-
-        return dns_name_equal(DNS_RESOURCE_KEY_NAME(rr->key), DNS_RESOURCE_KEY_NAME(key));
 }
 
 static void dns_resource_key_hash_func(const void *i, struct siphash *state) {

@@ -20,8 +20,10 @@
 ***/
 
 #include "alloc-util.h"
+#include "dns-domain.h"
 #include "resolved-dns-cache.h"
 #include "resolved-dns-packet.h"
+#include "string-util.h"
 
 /* Never cache more than 1K entries */
 #define CACHE_MAX 1024
@@ -521,25 +523,53 @@ fail:
 
 static DnsCacheItem *dns_cache_get_by_key_follow_cname(DnsCache *c, DnsResourceKey *k) {
         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *cname_key = NULL;
-        DnsCacheItem *i, *j;
+        DnsCacheItem *i;
+        const char *n;
+        int r;
 
         assert(c);
         assert(k);
 
+        /* If we hit some OOM error, or suchlike, we don't care too
+         * much, after all this is just a cache */
+
         i = hashmap_get(c->by_key, k);
-        if (i || k->type == DNS_TYPE_CNAME)
+        if (i || k->type == DNS_TYPE_CNAME || k->type == DNS_TYPE_DNAME)
                 return i;
 
-        /* check if we have a CNAME record instead */
+        /* Check if we have a CNAME record instead */
         cname_key = dns_resource_key_new_cname(k);
         if (!cname_key)
                 return NULL;
 
-        j = hashmap_get(c->by_key, cname_key);
-        if (j)
-                return j;
+        i = hashmap_get(c->by_key, cname_key);
+        if (i)
+                return i;
 
-        return i;
+        /* OK, let's look for cached DNAME records. */
+        n = DNS_RESOURCE_KEY_NAME(k);
+        for (;;) {
+                _cleanup_(dns_resource_key_unrefp) DnsResourceKey *dname_key = NULL;
+                char label[DNS_LABEL_MAX];
+
+                if (isempty(n))
+                        return NULL;
+
+                dname_key = dns_resource_key_new(k->class, DNS_TYPE_DNAME, n);
+                if (!dname_key)
+                        return NULL;
+
+                i = hashmap_get(c->by_key, dname_key);
+                if (i)
+                        return i;
+
+                /* Jump one label ahead */
+                r = dns_label_unescape(&n, label, sizeof(label));
+                if (r <= 0)
+                        return NULL;
+        }
+
+        return NULL;
 }
 
 int dns_cache_lookup(DnsCache *c, DnsResourceKey *key, int *rcode, DnsAnswer **ret) {

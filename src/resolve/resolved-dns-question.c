@@ -207,6 +207,7 @@ int dns_question_cname_redirect(DnsQuestion *q, const DnsResourceRecord *cname, 
 
         assert(cname);
         assert(ret);
+        assert(IN_SET(cname->key->type, DNS_TYPE_CNAME, DNS_TYPE_DNAME));
 
         if (!q) {
                 n = dns_question_new(0);
@@ -219,7 +220,22 @@ int dns_question_cname_redirect(DnsQuestion *q, const DnsResourceRecord *cname, 
         }
 
         for (i = 0; i < q->n_keys; i++) {
-                r = dns_name_equal(DNS_RESOURCE_KEY_NAME(q->keys[i]), cname->cname.name);
+                _cleanup_free_ char *destination = NULL;
+                const char *d;
+
+                if (cname->key->type == DNS_TYPE_CNAME)
+                        d = cname->cname.name;
+                else {
+                        r = dns_name_change_suffix(DNS_RESOURCE_KEY_NAME(q->keys[i]), DNS_RESOURCE_KEY_NAME(cname->key), cname->dname.name, &destination);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                continue;
+
+                        d = destination;
+                }
+
+                r = dns_name_equal(DNS_RESOURCE_KEY_NAME(q->keys[i]), d);
                 if (r < 0)
                         return r;
 
