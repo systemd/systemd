@@ -547,6 +547,73 @@ int dns_name_endswith(const char *name, const char *suffix) {
         }
 }
 
+int dns_name_change_suffix(const char *name, const char *old_suffix, const char *new_suffix, char **ret) {
+        const char *n, *s, *saved_before = NULL, *saved_after = NULL, *prefix;
+        int r, q, k, w;
+
+        assert(name);
+        assert(old_suffix);
+        assert(new_suffix);
+        assert(ret);
+
+        n = name;
+        s = old_suffix;
+
+        for (;;) {
+                char ln[DNS_LABEL_MAX+1], ls[DNS_LABEL_MAX+1];
+
+                if (!saved_before)
+                        saved_before = n;
+
+                r = dns_label_unescape(&n, ln, sizeof(ln));
+                if (r < 0)
+                        return r;
+                k = dns_label_undo_idna(ln, r, ln, sizeof(ln));
+                if (k < 0)
+                        return k;
+                if (k > 0)
+                        r = k;
+
+                if (!saved_after)
+                        saved_after = n;
+
+                q = dns_label_unescape(&s, ls, sizeof(ls));
+                if (q < 0)
+                        return q;
+                w = dns_label_undo_idna(ls, q, ls, sizeof(ls));
+                if (w < 0)
+                        return w;
+                if (w > 0)
+                        q = w;
+
+                if (r == 0 && q == 0)
+                        break;
+                if (r == 0 && saved_after == n) {
+                        *ret = NULL; /* doesn't match */
+                        return 0;
+                }
+
+                ln[r] = ls[q] = 0;
+
+                if (r != q || strcasecmp(ln, ls)) {
+
+                        /* Not the same, let's jump back, and try with the next label again */
+                        s = old_suffix;
+                        n = saved_after;
+                        saved_after = saved_before = NULL;
+                }
+        }
+
+        /* Found it! Now generate the new name */
+        prefix = strndupa(name, saved_before - name);
+
+        r = dns_name_concat(prefix, new_suffix, ret);
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
 int dns_name_between(const char *a, const char *b, const char *c) {
         int n;
 

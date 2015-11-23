@@ -408,6 +408,25 @@ static void test_dns_service_split(void) {
         test_dns_service_split_one("Wuff\\032Wuff._foo._bar.waldo.com", "Wuff Wuff", "_foo._bar", "waldo.com", 0);
 }
 
+static void test_dns_name_change_suffix_one(const char *name, const char *old_suffix, const char *new_suffix, int r, const char *result) {
+        _cleanup_free_ char *s = NULL;
+
+        assert_se(dns_name_change_suffix(name, old_suffix, new_suffix, &s) == r);
+        assert_se(streq_ptr(s, result));
+}
+
+static void test_dns_name_change_suffix(void) {
+        test_dns_name_change_suffix_one("foo.bar", "bar", "waldo", 1, "foo.waldo");
+        test_dns_name_change_suffix_one("foo.bar.waldi.quux", "foo.bar.waldi.quux", "piff.paff", 1, "piff.paff");
+        test_dns_name_change_suffix_one("foo.bar.waldi.quux", "bar.waldi.quux", "piff.paff", 1, "foo.piff.paff");
+        test_dns_name_change_suffix_one("foo.bar.waldi.quux", "waldi.quux", "piff.paff", 1, "foo.bar.piff.paff");
+        test_dns_name_change_suffix_one("foo.bar.waldi.quux", "quux", "piff.paff", 1, "foo.bar.waldi.piff.paff");
+        test_dns_name_change_suffix_one("foo.bar.waldi.quux", "", "piff.paff", 1, "foo.bar.waldi.quux.piff.paff");
+        test_dns_name_change_suffix_one("", "", "piff.paff", 1, "piff.paff");
+        test_dns_name_change_suffix_one("", "", "", 1, "");
+        test_dns_name_change_suffix_one("a", "b", "c", 0, NULL);
+}
+
 int main(int argc, char *argv[]) {
 
         test_dns_label_unescape();
@@ -427,6 +446,7 @@ int main(int argc, char *argv[]) {
         test_dns_srv_type_verify();
         test_dns_service_join();
         test_dns_service_split();
+        test_dns_name_change_suffix();
 
         return 0;
 }

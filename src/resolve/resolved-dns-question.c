@@ -155,50 +155,6 @@ int dns_question_is_valid(DnsQuestion *q) {
         return 1;
 }
 
-int dns_question_is_superset(DnsQuestion *q, DnsQuestion *other) {
-        unsigned j;
-        int r;
-
-        /* Checks if all keys in "other" are also contained in "q" */
-
-        if (!other)
-                return 1;
-
-        for (j = 0; j < other->n_keys; j++) {
-                DnsResourceKey *b = other->keys[j];
-                bool found = false;
-                unsigned i;
-
-                if (!q)
-                        return 0;
-
-                for (i = 0; i < q->n_keys; i++) {
-                        DnsResourceKey *a = q->keys[i];
-
-                        r = dns_name_equal(DNS_RESOURCE_KEY_NAME(a), DNS_RESOURCE_KEY_NAME(b));
-                        if (r < 0)
-                                return r;
-
-                        if (r == 0)
-                                continue;
-
-                        if (a->class != b->class && a->class != DNS_CLASS_ANY)
-                                continue;
-
-                        if (a->type != b->type && a->type != DNS_TYPE_ANY)
-                                continue;
-
-                        found = true;
-                        break;
-                }
-
-                if (!found)
-                        return 0;
-        }
-
-        return 1;
-}
-
 int dns_question_contains(DnsQuestion *a, DnsResourceKey *k) {
         unsigned j;
         int r;
@@ -251,6 +207,7 @@ int dns_question_cname_redirect(DnsQuestion *q, const DnsResourceRecord *cname, 
 
         assert(cname);
         assert(ret);
+        assert(IN_SET(cname->key->type, DNS_TYPE_CNAME, DNS_TYPE_DNAME));
 
         if (!q) {
                 n = dns_question_new(0);
@@ -263,7 +220,22 @@ int dns_question_cname_redirect(DnsQuestion *q, const DnsResourceRecord *cname, 
         }
 
         for (i = 0; i < q->n_keys; i++) {
-                r = dns_name_equal(DNS_RESOURCE_KEY_NAME(q->keys[i]), cname->cname.name);
+                _cleanup_free_ char *destination = NULL;
+                const char *d;
+
+                if (cname->key->type == DNS_TYPE_CNAME)
+                        d = cname->cname.name;
+                else {
+                        r = dns_name_change_suffix(DNS_RESOURCE_KEY_NAME(q->keys[i]), DNS_RESOURCE_KEY_NAME(cname->key), cname->dname.name, &destination);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                continue;
+
+                        d = destination;
+                }
+
+                r = dns_name_equal(DNS_RESOURCE_KEY_NAME(q->keys[i]), d);
                 if (r < 0)
                         return r;
 

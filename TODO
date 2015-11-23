@@ -186,16 +186,17 @@ Features:
   - DNS
         - search paths
   - mDNS/DNS-SD
+        - mDNS RR resolving
+        - service registration
+        - service/domain/types browsing
         - avahi compat
   - DNS-SD service registration from socket units
   - edns0
-  - dname: Not necessary for plain DNS as synthesized cname is handed out instead if we do not
-           announce dname support. However, for DNSSEC it is necessary as the synthesized cname
-           will not be signed.
   - cname on PTR (?)
   - resolved should optionally register additional per-interface LLMNR
     names, so that for the container case we can establish the same name
     (maybe "host") for referencing the server, everywhere.
+  - add API so NM can push DNS server info into resolved
 
 * refcounting in sd-resolve is borked
 

@@ -62,6 +62,8 @@ int dns_name_between(const char *a, const char *b, const char *c);
 int dns_name_equal(const char *x, const char *y);
 int dns_name_endswith(const char *name, const char *suffix);
 
+int dns_name_change_suffix(const char *name, const char *old_suffix, const char *new_suffix, char **ret);
+
 int dns_name_reverse(int family, const union in_addr_union *a, char **ret);
 int dns_name_address(const char *p, int *family, union in_addr_union *a);
 
@@ -76,3 +78,5 @@ bool dns_service_name_is_valid(const char *name);
 
 int dns_service_join(const char *name, const char *type, const char *domain, char **ret);
 int dns_service_split(const char *joined, char **name, char **type, char **domain);
+
+int dns_name_replace_suffix(const char *name, const char *old_suffix, const char *new_suffix, char **ret);
