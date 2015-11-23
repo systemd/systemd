@@ -211,6 +211,8 @@ static int swap_add_device_links(Swap *s) {
 }
 
 static int swap_add_default_dependencies(Swap *s) {
+        int r;
+
         assert(s);
 
         if (!UNIT(s)->default_dependencies)
@@ -221,6 +223,12 @@ static int swap_add_default_dependencies(Swap *s) {
 
         if (detect_container() > 0)
                 return 0;
+
+        /* swap units generated for the swap dev links are missing the
+         * ordering dep against the swap target. */
+        r = unit_add_dependency_by_name(UNIT(s), UNIT_BEFORE, SPECIAL_SWAP_TARGET, NULL, true);
+        if (r < 0)
+                return r;
 
         return unit_add_two_dependencies_by_name(UNIT(s), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, NULL, true);
 }
