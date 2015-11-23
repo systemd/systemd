@@ -416,6 +416,9 @@ enum nss_status _nss_mymachines_getpwnam_r(
         if (!e || e == p)
                 goto not_found;
 
+        if (e - p > HOST_NAME_MAX - 1) /* -1 for the last dash */
+                goto not_found;
+
         r = parse_uid(e + 1, &uid);
         if (r < 0)
                 goto not_found;
@@ -571,6 +574,9 @@ enum nss_status _nss_mymachines_getgrnam_r(
 
         e = strrchr(p, '-');
         if (!e || e == p)
+                goto not_found;
+
+        if (e - p > HOST_NAME_MAX - 1)  /* -1 for the last dash */
                 goto not_found;
 
         r = parse_gid(e + 1, &gid);
