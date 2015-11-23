@@ -13,8 +13,8 @@ if ! ROOTLIBDIR=$(pkg-config --variable=systemdutildir systemd); then
     ROOTLIBDIR=/usr/lib/systemd
 fi
 
-BASICTOOLS="sh bash setsid loadkeys setfont login sulogin gzip sleep echo mount umount cryptsetup date dmsetup modprobe sed cmp tee"
-DEBUGTOOLS="df free ls stty cat ps ln ip route dmesg dhclient mkdir cp ping dhclient strace less grep id tty touch du sort hostname"
+BASICTOOLS="sh bash setsid loadkeys setfont login sulogin gzip sleep echo mount umount cryptsetup date dmsetup modprobe sed cmp tee rm"
+DEBUGTOOLS="df free ls stty cat ps ln ip route dmesg dhclient mkdir cp ping dhclient strace less grep id tty touch du sort hostname find"
 
 function find_qemu_bin() {
     # SUSE and Red Hat call the binary qemu-kvm

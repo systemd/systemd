@@ -5769,6 +5769,9 @@ EXTRA_DIST += \
 	test/TEST-05-RLIMITS/Makefile \
 	test/TEST-05-RLIMITS/test-rlimits.sh \
 	test/TEST-05-RLIMITS/test.sh \
+	test/TEST-07-ISSUE-1981/Makefile \
+	test/TEST-07-ISSUE-1981/test-segfault.sh \
+	test/TEST-07-ISSUE-1981/test.sh \
 	test/test-functions
 
 EXTRA_DIST += \
