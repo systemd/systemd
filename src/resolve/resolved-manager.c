@@ -553,6 +553,9 @@ Manager *manager_free(Manager *m) {
         sd_event_source_unref(m->network_event_source);
         sd_network_monitor_unref(m->network_monitor);
 
+        sd_netlink_unref(m->rtnl);
+        sd_event_source_unref(m->rtnl_event_source);
+
         manager_llmnr_stop(m);
 
         sd_bus_slot_unref(m->prepare_for_sleep_slot);

@@ -370,6 +370,28 @@ int dns_packet_append_string(DnsPacket *p, const char *s, size_t *start) {
         return 0;
 }
 
+int dns_packet_append_raw_string(DnsPacket *p, const void *s, size_t size, size_t *start) {
+        void *d;
+        int r;
+
+        assert(p);
+        assert(s || size == 0);
+
+        if (size > 255)
+                return -E2BIG;
+
+        r = dns_packet_extend(p, 1 + size, &d, start);
+        if (r < 0)
+                return r;
+
+        ((uint8_t*) d)[0] = (uint8_t) size;
+
+        if (size > 0)
+                memcpy(((uint8_t*) d) + 1, s, size);
+
+        return 0;
+}
+
 int dns_packet_append_label(DnsPacket *p, const char *d, size_t l, size_t *start) {
         void *w;
         int r;
@@ -643,19 +665,20 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *star
                 break;
 
         case DNS_TYPE_SPF: /* exactly the same as TXT */
-        case DNS_TYPE_TXT: {
-                char **s;
+        case DNS_TYPE_TXT:
 
-                if (strv_isempty(rr->txt.strings)) {
+                if (!rr->txt.items) {
                         /* RFC 6763, section 6.1 suggests to generate
                          * single empty string for an empty array. */
 
-                        r = dns_packet_append_string(p, "", NULL);
+                        r = dns_packet_append_raw_string(p, NULL, 0, NULL);
                         if (r < 0)
                                 goto fail;
                 } else {
-                        STRV_FOREACH(s, rr->txt.strings) {
-                                r = dns_packet_append_string(p, *s, NULL);
+                        DnsTxtItem *i;
+
+                        LIST_FOREACH(items, i, rr->txt.items) {
+                                r = dns_packet_append_raw_string(p, i->data, i->length, NULL);
                                 if (r < 0)
                                         goto fail;
                         }
@@ -663,7 +686,6 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *star
 
                 r = 0;
                 break;
-        }
 
         case DNS_TYPE_A:
                 r = dns_packet_append_blob(p, &rr->a.in_addr, sizeof(struct in_addr), NULL);
@@ -1062,6 +1084,35 @@ fail:
         return r;
 }
 
+int dns_packet_read_raw_string(DnsPacket *p, const void **ret, size_t *size, size_t *start) {
+        size_t saved_rindex;
+        uint8_t c;
+        int r;
+
+        assert(p);
+
+        saved_rindex = p->rindex;
+
+        r = dns_packet_read_uint8(p, &c, NULL);
+        if (r < 0)
+                goto fail;
+
+        r = dns_packet_read(p, c, ret, NULL);
+        if (r < 0)
+                goto fail;
+
+        if (size)
+                *size = c;
+        if (start)
+                *start = saved_rindex;
+
+        return 0;
+
+fail:
+        dns_packet_rewind(p, saved_rindex);
+        return r;
+}
+
 int dns_packet_read_name(
                 DnsPacket *p,
                 char **_ret,
@@ -1412,24 +1463,37 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
         case DNS_TYPE_SPF: /* exactly the same as TXT */
         case DNS_TYPE_TXT:
                 if (rdlength <= 0) {
+                        DnsTxtItem *i;
                         /* RFC 6763, section 6.1 suggests to treat
                          * empty TXT RRs as equivalent to a TXT record
                          * with a single empty string. */
 
-                        r = strv_extend(&rr->txt.strings, "");
-                        if (r < 0)
-                                goto fail;
+                        i = malloc0(offsetof(DnsTxtItem, data) + 1); /* for safety reasons we add an extra NUL byte */
+                        if (!i)
+                                return -ENOMEM;
+
+                        rr->txt.items = i;
                 } else {
+                        DnsTxtItem *last = NULL;
+
                         while (p->rindex < offset + rdlength) {
-                                char *s;
+                                DnsTxtItem *i;
+                                const void *data;
+                                size_t sz;
 
-                                r = dns_packet_read_string(p, &s, NULL);
+                                r = dns_packet_read_raw_string(p, &data, &sz, NULL);
                                 if (r < 0)
-                                        goto fail;
+                                        return r;
 
-                                r = strv_consume(&rr->txt.strings, s);
-                                if (r < 0)
-                                        goto fail;
+                                i = malloc0(offsetof(DnsTxtItem, data) + sz + 1); /* extra NUL byte at the end */
+                                if (!i)
+                                        return -ENOMEM;
+
+                                memcpy(i->data, data, sz);
+                                i->length = sz;
+
+                                LIST_INSERT_AFTER(items, rr->txt.items, last, i);
+                                last = i;
                         }
                 }
 

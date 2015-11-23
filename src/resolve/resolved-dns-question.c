@@ -301,3 +301,129 @@ int dns_question_cname_redirect(DnsQuestion *q, const DnsResourceRecord *cname, 
 
         return 1;
 }
+
+const char *dns_question_name(DnsQuestion *q) {
+        assert(q);
+
+        if (q->n_keys < 1)
+                return NULL;
+
+        return DNS_RESOURCE_KEY_NAME(q->keys[0]);
+}
+
+int dns_question_new_address(DnsQuestion **ret, int family, const char *name) {
+        _cleanup_(dns_question_unrefp) DnsQuestion *q = NULL;
+        int r;
+
+        assert(ret);
+        assert(name);
+
+        if (!IN_SET(family, AF_INET, AF_INET6, AF_UNSPEC))
+                return -EAFNOSUPPORT;
+
+        q = dns_question_new(family == AF_UNSPEC ? 2 : 1);
+        if (!q)
+                return -ENOMEM;
+
+        if (family != AF_INET6) {
+                _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+
+                key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, name);
+                if (!key)
+                        return -ENOMEM;
+
+                r = dns_question_add(q, key);
+                if (r < 0)
+                        return r;
+        }
+
+        if (family != AF_INET) {
+                _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+
+                key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_AAAA, name);
+                if (!key)
+                        return -ENOMEM;
+
+                r = dns_question_add(q, key);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = q;
+        q = NULL;
+
+        return 0;
+}
+
+int dns_question_new_reverse(DnsQuestion **ret, int family, const union in_addr_union *a) {
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        _cleanup_(dns_question_unrefp) DnsQuestion *q = NULL;
+        _cleanup_free_ char *reverse = NULL;
+        int r;
+
+        assert(ret);
+        assert(a);
+
+        if (!IN_SET(family, AF_INET, AF_INET6, AF_UNSPEC))
+                return -EAFNOSUPPORT;
+
+        r = dns_name_reverse(family, a, &reverse);
+        if (r < 0)
+                return r;
+
+        q = dns_question_new(1);
+        if (!q)
+                return -ENOMEM;
+
+        key = dns_resource_key_new_consume(DNS_CLASS_IN, DNS_TYPE_PTR, reverse);
+        if (!key)
+                return -ENOMEM;
+
+        reverse = NULL;
+
+        r = dns_question_add(q, key);
+        if (r < 0)
+                return r;
+
+        *ret = q;
+        q = NULL;
+
+        return 0;
+}
+
+int dns_question_new_service(DnsQuestion **ret, const char *name, bool with_txt) {
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        _cleanup_(dns_question_unrefp) DnsQuestion *q = NULL;
+        int r;
+
+        assert(ret);
+        assert(name);
+
+        q = dns_question_new(1 + with_txt);
+        if (!q)
+                return -ENOMEM;
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_SRV, name);
+        if (!key)
+                return -ENOMEM;
+
+        r = dns_question_add(q, key);
+        if (r < 0)
+                return r;
+
+        if (with_txt) {
+                dns_resource_key_unref(key);
+                key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_TXT, name);
+                if (!key)
+                        return -ENOMEM;
+
+                r = dns_question_add(q, key);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = q;
+        q = NULL;
+
+        return 0;
+}

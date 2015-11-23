@@ -28,6 +28,7 @@
 #include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-util.h"
+#include "escape.h"
 #include "in-addr-util.h"
 #include "parse-util.h"
 #include "resolved-def.h"
@@ -41,6 +42,7 @@ static int arg_type = 0;
 static uint16_t arg_class = 0;
 static bool arg_legend = true;
 static uint64_t arg_flags = 0;
+static bool arg_resolve_service = false;
 
 static void print_source(uint64_t flags, usec_t rtt) {
         char rtt_str[FORMAT_TIMESTAMP_MAX];
@@ -102,10 +104,8 @@ static int resolve_host(sd_bus *bus, const char *name) {
         ts = now(CLOCK_MONOTONIC);
 
         r = sd_bus_call(bus, req, DNS_CALL_TIMEOUT_USEC, &error, &reply);
-        if (r < 0) {
-                log_error("%s: resolve call failed: %s", name, bus_error_message(&error, r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "%s: resolve call failed: %s", name, bus_error_message(&error, r));
 
         ts = now(CLOCK_MONOTONIC) - ts;
 
@@ -114,10 +114,10 @@ static int resolve_host(sd_bus *bus, const char *name) {
                 return bus_log_parse_error(r);
 
         while ((r = sd_bus_message_enter_container(reply, 'r', "iiay")) > 0) {
-                const void *a;
-                size_t sz;
                 _cleanup_free_ char *pretty = NULL;
                 int ifindex, family;
+                const void *a;
+                size_t sz;
 
                 assert_cc(sizeof(int) == sizeof(int32_t));
 
@@ -140,7 +140,7 @@ static int resolve_host(sd_bus *bus, const char *name) {
 
                 if (sz != FAMILY_ADDRESS_SIZE(family)) {
                         log_error("%s: systemd-resolved returned address of invalid size %zu for family %s", name, sz, af_to_name(family) ?: "unknown");
-                        continue;
+                        return -EINVAL;
                 }
 
                 ifname[0] = 0;
@@ -437,6 +437,207 @@ static int resolve_record(sd_bus *bus, const char *name) {
         return 0;
 }
 
+static int resolve_service(sd_bus *bus, const char *name, const char *type, const char *domain) {
+        const char *canonical_name, *canonical_type, *canonical_domain;
+        _cleanup_bus_message_unref_ sd_bus_message *req = NULL, *reply = NULL;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        char ifname[IF_NAMESIZE] = "";
+        size_t indent, sz;
+        uint64_t flags;
+        const char *p;
+        unsigned c;
+        usec_t ts;
+        int r;
+
+        assert(bus);
+        assert(domain);
+
+        if (isempty(name))
+                name = NULL;
+        if (isempty(type))
+                type = NULL;
+
+        if (arg_ifindex > 0 && !if_indextoname(arg_ifindex, ifname))
+                return log_error_errno(errno, "Failed to resolve interface name for index %i: %m", arg_ifindex);
+
+        if (name)
+                log_debug("Resolving service \"%s\" of type %s in %s (family %s, interface %s).", name, type, domain, af_to_name(arg_family) ?: "*", isempty(ifname) ? "*" : ifname);
+        else if (type)
+                log_debug("Resolving service type %s of %s (family %s, interface %s).", type, domain, af_to_name(arg_family) ?: "*", isempty(ifname) ? "*" : ifname);
+        else
+                log_debug("Resolving service type %s (family %s, interface %s).", domain, af_to_name(arg_family) ?: "*", isempty(ifname) ? "*" : ifname);
+
+        r = sd_bus_message_new_method_call(
+                        bus,
+                        &req,
+                        "org.freedesktop.resolve1",
+                        "/org/freedesktop/resolve1",
+                        "org.freedesktop.resolve1.Manager",
+                        "ResolveService");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append(req, "isssit", arg_ifindex, name, type, domain, arg_family, arg_flags);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        ts = now(CLOCK_MONOTONIC);
+
+        r = sd_bus_call(bus, req, DNS_CALL_TIMEOUT_USEC, &error, &reply);
+        if (r < 0)
+                return log_error_errno(r, "Resolve call failed: %s", bus_error_message(&error, r));
+
+        ts = now(CLOCK_MONOTONIC) - ts;
+
+        r = sd_bus_message_enter_container(reply, 'a', "(qqqsa(iiay)s)");
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        indent =
+                (name ? strlen(name) + 1 : 0) +
+                (type ? strlen(type) + 1 : 0) +
+                strlen(domain) + 2;
+
+        c = 0;
+        while ((r = sd_bus_message_enter_container(reply, 'r', "qqqsa(iiay)s")) > 0) {
+                uint16_t priority, weight, port;
+                const char *hostname, *canonical;
+
+                r = sd_bus_message_read(reply, "qqqs", &priority, &weight, &port, &hostname);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                if (name)
+                        printf("%*s%s", (int) strlen(name), c == 0 ? name : "", c == 0 ? "/" : " ");
+                if (type)
+                        printf("%*s%s", (int) strlen(type), c == 0 ? type : "", c == 0 ? "/" : " ");
+
+                printf("%*s%s %s:%u [priority=%u, weight=%u]\n",
+                       (int) strlen(domain), c == 0 ? domain : "",
+                       c == 0 ? ":" : " ",
+                       hostname, port,
+                       priority, weight);
+
+                r = sd_bus_message_enter_container(reply, 'a', "(iiay)");
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                while ((r = sd_bus_message_enter_container(reply, 'r', "iiay")) > 0) {
+                        _cleanup_free_ char *pretty = NULL;
+                        int ifindex, family;
+                        const void *a;
+
+                        assert_cc(sizeof(int) == sizeof(int32_t));
+
+                        r = sd_bus_message_read(reply, "ii", &ifindex, &family);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        r = sd_bus_message_read_array(reply, 'y', &a, &sz);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        r = sd_bus_message_exit_container(reply);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        if (!IN_SET(family, AF_INET, AF_INET6)) {
+                                log_debug("%s: skipping entry with family %d (%s)", name, family, af_to_name(family) ?: "unknown");
+                                continue;
+                        }
+
+                        if (sz != FAMILY_ADDRESS_SIZE(family)) {
+                                log_error("%s: systemd-resolved returned address of invalid size %zu for family %s", name, sz, af_to_name(family) ?: "unknown");
+                                return -EINVAL;
+                        }
+
+                        ifname[0] = 0;
+                        if (ifindex > 0 && !if_indextoname(ifindex, ifname))
+                                log_warning_errno(errno, "Failed to resolve interface name for index %i: %m", ifindex);
+
+                        r = in_addr_to_string(family, a, &pretty);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to print address for %s: %m", name);
+
+                        printf("%*s%s%s%s\n", (int) indent, "", pretty, isempty(ifname) ? "" : "%s", ifname);
+                }
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                r = sd_bus_message_exit_container(reply);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                r = sd_bus_message_read(reply, "s", &canonical);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                if (!streq(hostname, canonical))
+                        printf("%*s(%s)\n", (int) indent, "", canonical);
+
+                r = sd_bus_message_exit_container(reply);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                c++;
+        }
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        r = sd_bus_message_exit_container(reply);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        r = sd_bus_message_enter_container(reply, 'a', "ay");
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        c = 0;
+        while ((r = sd_bus_message_read_array(reply, 'y', (const void**) &p, &sz)) > 0) {
+                _cleanup_free_ char *escaped = NULL;
+
+                escaped = cescape_length(p, sz);
+                if (!escaped)
+                        return log_oom();
+
+                printf("%*s%s\n", (int) indent, "", escaped);
+                c++;
+        }
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        r = sd_bus_message_exit_container(reply);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        r = sd_bus_message_read(reply, "ssst", &canonical_name, &canonical_type, &canonical_domain, &flags);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        if (isempty(canonical_name))
+                canonical_name = NULL;
+        if (isempty(canonical_type))
+                canonical_type = NULL;
+
+        if (!streq_ptr(name, canonical_name) ||
+            !streq_ptr(type, canonical_type) ||
+            !streq_ptr(domain, canonical_domain)) {
+
+                printf("%*s(", (int) indent, "");
+
+                if (canonical_name)
+                        printf("%s/", canonical_name);
+                if (canonical_type)
+                        printf("%s/", canonical_type);
+
+                printf("%s)\n", canonical_domain);
+        }
+
+        print_source(flags, ts);
+
+        return 0;
+}
+
 static void help_dns_types(void) {
         int i;
         const char *t;
@@ -464,33 +665,46 @@ static void help_dns_classes(void) {
 }
 
 static void help(void) {
-        printf("%s [OPTIONS...]\n\n"
-               "Resolve IPv4 or IPv6 addresses.\n\n"
-               "  -h --help               Show this help\n"
-               "     --version            Show package version\n"
-               "  -4                      Resolve IPv4 addresses\n"
-               "  -6                      Resolve IPv6 addresses\n"
-               "  -i INTERFACE            Look on interface\n"
-               "  -p --protocol=PROTOCOL  Look via protocol\n"
-               "  -t --type=TYPE          Query RR with DNS type\n"
-               "  -c --class=CLASS        Query RR with DNS class\n"
-               "     --legend[=BOOL]      Do [not] print column headers\n"
-               , program_invocation_short_name);
+        printf("%s [OPTIONS...] NAME...\n"
+               "%s [OPTIONS...] --service [[NAME] TYPE] DOMAIN\n\n"
+               "Resolve domain names, IPv4 or IPv6 addresses, resource records, and services.\n\n"
+               "  -h --help                 Show this help\n"
+               "     --version              Show package version\n"
+               "  -4                        Resolve IPv4 addresses\n"
+               "  -6                        Resolve IPv6 addresses\n"
+               "  -i INTERFACE              Look on interface\n"
+               "  -p --protocol=PROTOCOL    Look via protocol\n"
+               "  -t --type=TYPE            Query RR with DNS type\n"
+               "  -c --class=CLASS          Query RR with DNS class\n"
+               "     --service              Resolve service (SRV)\n"
+               "     --service-address=BOOL Do [not] resolve address for services\n"
+               "     --service-txt=BOOL     Do [not] resolve TXT records for services\n"
+               "     --cname=BOOL           Do [not] follow CNAME redirects\n"
+               "     --legend=BOOL          Do [not] print column headers\n"
+               , program_invocation_short_name, program_invocation_short_name);
 }
 
 static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
                 ARG_LEGEND,
+                ARG_SERVICE,
+                ARG_CNAME,
+                ARG_SERVICE_ADDRESS,
+                ARG_SERVICE_TXT,
         };
 
         static const struct option options[] = {
-                { "help",      no_argument,       NULL, 'h'           },
-                { "version",   no_argument,       NULL, ARG_VERSION   },
-                { "type",      required_argument, NULL, 't'           },
-                { "class",     required_argument, NULL, 'c'           },
-                { "legend",    optional_argument, NULL, ARG_LEGEND    },
-                { "protocol",  required_argument, NULL, 'p'           },
+                { "help",            no_argument,       NULL, 'h'                 },
+                { "version",         no_argument,       NULL, ARG_VERSION         },
+                { "type",            required_argument, NULL, 't'                 },
+                { "class",           required_argument, NULL, 'c'                 },
+                { "legend",          required_argument, NULL, ARG_LEGEND          },
+                { "protocol",        required_argument, NULL, 'p'                 },
+                { "cname",           required_argument, NULL, ARG_CNAME           },
+                { "service",         no_argument,       NULL, ARG_SERVICE         },
+                { "service-address", required_argument, NULL, ARG_SERVICE_ADDRESS },
+                { "service-txt",     required_argument, NULL, ARG_SERVICE_TXT     },
                 {}
         };
 
@@ -563,16 +777,11 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_LEGEND:
-                        if (optarg) {
-                                r = parse_boolean(optarg);
-                                if (r < 0) {
-                                        log_error("Failed to parse --legend= argument");
-                                        return r;
-                                }
+                        r = parse_boolean(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --legend= argument");
 
-                                arg_legend = !!r;
-                        } else
-                                arg_legend = false;
+                        arg_legend = r;
                         break;
 
                 case 'p':
@@ -591,6 +800,40 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case ARG_SERVICE:
+                        arg_resolve_service = true;
+                        break;
+
+                case ARG_CNAME:
+                        r = parse_boolean(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --cname= argument.");
+                        if (r == 0)
+                                arg_flags |= SD_RESOLVED_NO_CNAME;
+                        else
+                                arg_flags &= ~SD_RESOLVED_NO_CNAME;
+                        break;
+
+                case ARG_SERVICE_ADDRESS:
+                        r = parse_boolean(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --service-address= argument.");
+                        if (r == 0)
+                                arg_flags |= SD_RESOLVED_NO_ADDRESS;
+                        else
+                                arg_flags &= ~SD_RESOLVED_NO_ADDRESS;
+                        break;
+
+                case ARG_SERVICE_TXT:
+                        r = parse_boolean(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --service-txt= argument.");
+                        if (r == 0)
+                                arg_flags |= SD_RESOLVED_NO_TXT;
+                        else
+                                arg_flags &= ~SD_RESOLVED_NO_TXT;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -599,7 +842,12 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
         if (arg_type == 0 && arg_class != 0) {
-                log_error("--class= may only be used in conjunction with --type=");
+                log_error("--class= may only be used in conjunction with --type=.");
+                return -EINVAL;
+        }
+
+        if (arg_type != 0 && arg_resolve_service) {
+                log_error("--service and --type= may not be combined.");
                 return -EINVAL;
         }
 
@@ -629,6 +877,28 @@ int main(int argc, char **argv) {
         r = sd_bus_open_system(&bus);
         if (r < 0) {
                 log_error_errno(r, "sd_bus_open_system: %m");
+                goto finish;
+        }
+
+        if (arg_resolve_service) {
+
+                if (argc < optind + 1) {
+                        log_error("Domain specification required.");
+                        r = -EINVAL;
+                        goto finish;
+
+                } else if (argc == optind + 1)
+                        r = resolve_service(bus, NULL, NULL, argv[optind]);
+                else if (argc == optind + 2)
+                        r = resolve_service(bus, NULL, argv[optind], argv[optind+1]);
+                else if (argc == optind + 3)
+                        r = resolve_service(bus, argv[optind], argv[optind+1], argv[optind+2]);
+                else {
+                        log_error("Too many arguments");
+                        r = -EINVAL;
+                        goto finish;
+                }
+
                 goto finish;
         }
 

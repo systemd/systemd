@@ -69,3 +69,10 @@ int dns_name_root(const char *name);
 int dns_name_single_label(const char *name);
 
 int dns_name_to_wire_format(const char *domain, uint8_t *buffer, size_t len);
+
+int dns_srv_type_verify(const char *name);
+
+bool dns_service_name_is_valid(const char *name);
+
+int dns_service_join(const char *name, const char *type, const char *domain, char **ret);
+int dns_service_split(const char *joined, char **name, char **type, char **domain);

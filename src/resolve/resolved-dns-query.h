@@ -34,6 +34,16 @@ typedef struct DnsQuery DnsQuery;
 
 struct DnsQuery {
         Manager *manager;
+
+        /* When resolving a service, we first create a TXT+SRV query,
+         * and then for the hostnames we discover auxiliary A+AAAA
+         * queries. This pointer always points from the auxiliary
+         * queries back to the TXT+SRV query. */
+        DnsQuery *auxiliary_for;
+        LIST_HEAD(DnsQuery, auxiliary_queries);
+        unsigned n_auxiliary_queries;
+        int auxiliary_result;
+
         DnsQuestion *question;
 
         uint64_t flags;
@@ -53,8 +63,9 @@ struct DnsQuery {
         /* Bus client information */
         sd_bus_message *request;
         int request_family;
-        const char *request_hostname;
+        bool request_address_valid;
         union in_addr_union request_address;
+        unsigned block_all_complete;
 
         /* Completion callback */
         void (*complete)(DnsQuery* q);
@@ -65,15 +76,18 @@ struct DnsQuery {
         sd_bus_track *bus_track;
 
         LIST_FIELDS(DnsQuery, queries);
+        LIST_FIELDS(DnsQuery, auxiliary_queries);
 };
 
 int dns_query_new(Manager *m, DnsQuery **q, DnsQuestion *question, int family, uint64_t flags);
 DnsQuery *dns_query_free(DnsQuery *q);
 
+int dns_query_make_auxiliary(DnsQuery *q, DnsQuery *auxiliary_for);
+
 int dns_query_go(DnsQuery *q);
 void dns_query_ready(DnsQuery *q);
 
-int dns_query_cname_redirect(DnsQuery *q, const DnsResourceRecord *cname);
+int dns_query_process_cname(DnsQuery *q);
 
 int dns_query_bus_track(DnsQuery *q, sd_bus_message *m);
 

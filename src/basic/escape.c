@@ -89,25 +89,31 @@ size_t cescape_char(char c, char *buf) {
         return buf - buf_old;
 }
 
-char *cescape(const char *s) {
-        char *r, *t;
+char *cescape_length(const char *s, size_t n) {
         const char *f;
+        char *r, *t;
 
-        assert(s);
+        assert(s || n == 0);
 
         /* Does C style string escaping. May be reversed with
          * cunescape(). */
 
-        r = new(char, strlen(s)*4 + 1);
+        r = new(char, n*4 + 1);
         if (!r)
                 return NULL;
 
-        for (f = s, t = r; *f; f++)
+        for (f = s, t = r; f < s + n; f++)
                 t += cescape_char(*f, t);
 
         *t = 0;
 
         return r;
+}
+
+char *cescape(const char *s) {
+        assert(s);
+
+        return cescape_length(s, strlen(s));
 }
 
 int cunescape_one(const char *p, size_t length, char *ret, uint32_t *ret_unicode) {
