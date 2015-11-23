@@ -418,8 +418,7 @@ static int ndisc_prefix_update(sd_ndisc *nd, ssize_t len,
         return 0;
 }
 
-static int ndisc_ra_parse(sd_ndisc *nd, struct nd_router_advert *ra,
-                          ssize_t len) {
+static int ndisc_ra_parse(sd_ndisc *nd, struct nd_router_advert *ra, ssize_t len) {
         void *opt;
         struct nd_opt_hdr *opt_hdr;
 
@@ -482,12 +481,25 @@ static int ndisc_ra_parse(sd_ndisc *nd, struct nd_router_advert *ra,
 static int ndisc_router_advertisment_recv(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         _cleanup_free_ struct nd_router_advert *ra = NULL;
         sd_ndisc *nd = userdata;
-        int r, buflen = 0, pref, stateful;
-        union sockaddr_union router = {};
-        socklen_t router_len = sizeof(router);
+        union {
+                struct cmsghdr cmsghdr;
+                uint8_t buf[CMSG_LEN(sizeof(int))];
+        } control = {};
+        struct iovec iov = {};
+        union sockaddr_union sa = {};
+        struct msghdr msg = {
+                .msg_name = &sa.sa,
+                .msg_namelen = sizeof(sa),
+                .msg_iov = &iov,
+                .msg_iovlen = 1,
+                .msg_control = &control,
+                .msg_controllen = sizeof(control),
+        };
+        struct cmsghdr *cmsg;
         struct in6_addr *gw;
         unsigned lifetime;
         ssize_t len;
+        int r, pref, stateful, buflen = 0;
 
         assert(s);
         assert(nd);
@@ -500,24 +512,48 @@ static int ndisc_router_advertisment_recv(sd_event_source *s, int fd, uint32_t r
                 /* This really should not happen */
                 return -EIO;
 
-        ra = malloc(buflen);
+        iov.iov_len = buflen;
+
+        ra = malloc(iov.iov_len);
         if (!ra)
                 return -ENOMEM;
 
-        len = recvfrom(fd, ra, buflen, 0, &router.sa, &router_len);
+        iov.iov_base = ra;
+
+        len = recvmsg(fd, &msg, 0);
         if (len < 0) {
                 if (errno == EAGAIN || errno == EINTR)
                         return 0;
 
                 log_ndisc(nd, "Could not receive message from ICMPv6 socket: %m");
                 return -errno;
-        } else if (router_len == 0)
+        } else if ((size_t)len < sizeof(struct nd_router_advert)) {
+                return 0;
+        } else if (msg.msg_namelen == 0)
                 gw = NULL; /* only happens when running the test-suite over a socketpair */
-        else if (router_len != sizeof(router.in6)) {
-                log_ndisc(nd, "Received invalid source address size from ICMPv6 socket: %zu bytes", (size_t)router_len);
+        else if (msg.msg_namelen != sizeof(sa.in6)) {
+                log_ndisc(nd, "Received invalid source address size from ICMPv6 socket: %zu bytes", (size_t)msg.msg_namelen);
                 return 0;
         } else
-                gw = &router.in6.sin6_addr;
+                gw = &sa.in6.sin6_addr;
+
+        assert(!(msg.msg_flags & MSG_CTRUNC));
+        assert(!(msg.msg_flags & MSG_TRUNC));
+
+        CMSG_FOREACH(cmsg, &msg) {
+                if (cmsg->cmsg_level == SOL_IPV6 &&
+                    cmsg->cmsg_type == IPV6_HOPLIMIT &&
+                    cmsg->cmsg_len == CMSG_LEN(sizeof(int))) {
+                        int hops = *(int*)CMSG_DATA(cmsg);
+
+                        if (hops != 255) {
+                                log_ndisc(nd, "Received RA with invalid hop limit %d. Ignoring.", hops);
+                                return 0;
+                        }
+
+                        break;
+                }
+        }
 
         if (gw && !in_addr_is_link_local(AF_INET6, (const union in_addr_union*) gw)) {
                 _cleanup_free_ char *addr = NULL;

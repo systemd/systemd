@@ -47,17 +47,15 @@ int icmp6_bind_router_solicitation(int index) {
                 .ipv6mr_interface = index,
         };
         _cleanup_close_ int s = -1;
-        int r, zero = 0, hops = 255;
+        int r, zero = 0, one = 1, hops = 255;
 
-        s = socket(AF_INET6, SOCK_RAW | SOCK_CLOEXEC | SOCK_NONBLOCK,
-                   IPPROTO_ICMPV6);
+        s = socket(AF_INET6, SOCK_RAW | SOCK_CLOEXEC | SOCK_NONBLOCK, IPPROTO_ICMPV6);
         if (s < 0)
                 return -errno;
 
         ICMP6_FILTER_SETBLOCKALL(&filter);
         ICMP6_FILTER_SETPASS(ND_ROUTER_ADVERT, &filter);
-        r = setsockopt(s, IPPROTO_ICMPV6, ICMP6_FILTER, &filter,
-                       sizeof(filter));
+        r = setsockopt(s, IPPROTO_ICMPV6, ICMP6_FILTER, &filter, sizeof(filter));
         if (r < 0)
                 return -errno;
 
@@ -65,23 +63,23 @@ int icmp6_bind_router_solicitation(int index) {
            IPV6_PKTINFO socket option also applies for ICMPv6 multicast.
            Empirical experiments indicates otherwise and therefore an
            IPV6_MULTICAST_IF socket option is used here instead */
-        r = setsockopt(s, IPPROTO_IPV6, IPV6_MULTICAST_IF, &index,
-                       sizeof(index));
+        r = setsockopt(s, IPPROTO_IPV6, IPV6_MULTICAST_IF, &index, sizeof(index));
         if (r < 0)
                 return -errno;
 
-        r = setsockopt(s, IPPROTO_IPV6, IPV6_MULTICAST_LOOP, &zero,
-                       sizeof(zero));
+        r = setsockopt(s, IPPROTO_IPV6, IPV6_MULTICAST_LOOP, &zero, sizeof(zero));
         if (r < 0)
                 return -errno;
 
-        r = setsockopt(s, IPPROTO_IPV6, IPV6_MULTICAST_HOPS, &hops,
-                       sizeof(hops));
+        r = setsockopt(s, IPPROTO_IPV6, IPV6_MULTICAST_HOPS, &hops, sizeof(hops));
         if (r < 0)
                 return -errno;
 
-        r = setsockopt(s, IPPROTO_IPV6, IPV6_ADD_MEMBERSHIP, &mreq,
-                       sizeof(mreq));
+        r = setsockopt(s, IPPROTO_IPV6, IPV6_ADD_MEMBERSHIP, &mreq, sizeof(mreq));
+        if (r < 0)
+                return -errno;
+
+        r = setsockopt(s, SOL_IPV6, IPV6_RECVHOPLIMIT, &one, sizeof(one));
         if (r < 0)
                 return -errno;
 
