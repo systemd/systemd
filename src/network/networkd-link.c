@@ -2327,6 +2327,8 @@ network_file_fail:
         }
 
         if (routes) {
+                p = routes;
+
                 for (;;) {
                         Route *route;
                         _cleanup_free_ char *route_str = NULL;
