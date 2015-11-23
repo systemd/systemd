@@ -1,0 +1,17 @@
+# EditorConfig configuration for systemd
+# http://EditorConfig.org
+
+# top-most EditorConfig file
+root = true
+
+# Unix-style newlines with a newline ending every file, utf-8 charset
+[*]
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+charset = utf-8
+
+# match config files, set indent to spaces with width of eight
+[*.{c,h}]
+indent_style = space
+indent_size = 8
