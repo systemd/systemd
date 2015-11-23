@@ -268,6 +268,7 @@ def _make_section(template, name, directives, formatting):
             b = tree.SubElement(para, 'citerefentry')
             c = tree.SubElement(b, 'refentrytitle')
             c.text = manpage
+            c.attrib['target'] = varname
             d = tree.SubElement(b, 'manvolnum')
             d.text = manvolume
         entry.tail = '\n\n'
