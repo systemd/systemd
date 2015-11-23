@@ -264,7 +264,7 @@ static int detect_vm_zvm(void) {
 /* Returns a short identifier for the various VM implementations */
 int detect_vm(void) {
         static thread_local int cached_found = _VIRTUALIZATION_INVALID;
-        int r;
+        int r, _id;
 
         if (cached_found >= 0)
                 return cached_found;
@@ -272,12 +272,16 @@ int detect_vm(void) {
         r = detect_vm_cpuid();
         if (r < 0)
                 return r;
-        if (r != VIRTUALIZATION_NONE)
+        if (r != VIRTUALIZATION_NONE && r != VIRTUALIZATION_KVM)
                 goto finish;
+
+        _id = r;
 
         r = detect_vm_dmi();
         if (r < 0)
                 return r;
+        if (_id == VIRTUALIZATION_KVM && r != VIRTUALIZATION_ORACLE)
+                r = VIRTUALIZATION_KVM;
         if (r != VIRTUALIZATION_NONE)
                 goto finish;
 
