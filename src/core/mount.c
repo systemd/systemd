@@ -335,7 +335,7 @@ static int mount_add_device_links(Mount *m) {
         if (mount_is_auto(p) && UNIT(m)->manager->running_as == MANAGER_SYSTEM)
                 device_wants_mount = true;
 
-        r = unit_add_node_link(UNIT(m), p->what, device_wants_mount);
+        r = unit_add_node_link(UNIT(m), p->what, device_wants_mount, m->from_fragment);
         if (r < 0)
                 return r;
 

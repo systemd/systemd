@@ -528,7 +528,7 @@ int unit_serialize_item_escaped(Unit *u, FILE *f, const char *key, const char *v
 int unit_serialize_item_fd(Unit *u, FILE *f, FDSet *fds, const char *key, int fd);
 void unit_serialize_item_format(Unit *u, FILE *f, const char *key, const char *value, ...) _printf_(4,5);
 
-int unit_add_node_link(Unit *u, const char *what, bool wants);
+int unit_add_node_link(Unit *u, const char *what, bool wants, bool bindit);
 
 int unit_coldplug(Unit *u);
 
