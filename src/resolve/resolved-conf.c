@@ -29,8 +29,8 @@
 
 int manager_add_dns_server_by_string(Manager *m, DnsServerType type, const char *word) {
         union in_addr_union address;
-        DnsServer *first, *s;
         int family, r;
+        DnsServer *s;
 
         assert(m);
         assert(word);
@@ -39,13 +39,8 @@ int manager_add_dns_server_by_string(Manager *m, DnsServerType type, const char 
         if (r < 0)
                 return r;
 
-        first = type == DNS_SERVER_FALLBACK ? m->fallback_dns_servers : m->dns_servers;
-
         /* Filter out duplicates */
-        LIST_FOREACH(servers, s, first)
-                if (s->family == family && in_addr_equal(family, &s->address, &address))
-                        break;
-
+        s = manager_find_dns_server(m, type, family, &address);
         if (s) {
                 /*
                  * Drop the marker. This is used to find the servers

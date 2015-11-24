@@ -75,6 +75,10 @@ bool link_relevant(Link *l, int family);
 LinkAddress* link_find_address(Link *l, int family, const union in_addr_union *in_addr);
 void link_add_rrs(Link *l, bool force_remove);
 
+void link_flush_dns_servers(Link *l);
+void link_flush_marked_dns_servers(Link *l);
+void link_mark_dns_servers(Link *l);
+
 DnsServer* link_set_dns_server(Link *l, DnsServer *s);
 DnsServer* link_find_dns_server(Link *l, int family, const union in_addr_union *in_addr);
 DnsServer* link_get_dns_server(Link *l);

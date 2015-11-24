@@ -536,14 +536,14 @@ Manager *manager_free(Manager *m) {
         if (!m)
                 return NULL;
 
+        manager_flush_dns_servers(m, DNS_SERVER_SYSTEM);
+        manager_flush_dns_servers(m, DNS_SERVER_FALLBACK);
+
         while ((l = hashmap_first(m->links)))
                link_free(l);
 
         while (m->dns_queries)
                 dns_query_free(m->dns_queries);
-
-        manager_flush_dns_servers(m, DNS_SERVER_SYSTEM);
-        manager_flush_dns_servers(m, DNS_SERVER_FALLBACK);
 
         dns_scope_free(m->unicast_scope);
 

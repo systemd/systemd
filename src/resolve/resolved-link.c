@@ -65,18 +65,13 @@ Link *link_free(Link *l) {
         if (!l)
                 return NULL;
 
+        link_flush_dns_servers(l);
+
         while (l->addresses)
                 link_address_free(l->addresses);
 
         if (l->manager)
                 hashmap_remove(l->manager->links, INT_TO_PTR(l->ifindex));
-
-        while (l->dns_servers) {
-                DnsServer *s = l->dns_servers;
-
-                LIST_REMOVE(servers, l->dns_servers, s);
-                dns_server_unref(s);
-        }
 
         dns_scope_free(l->unicast_scope);
         dns_scope_free(l->llmnr_ipv4_scope);
@@ -158,7 +153,6 @@ int link_update_rtnl(Link *l, sd_netlink_message *m) {
 static int link_update_dns_servers(Link *l) {
         _cleanup_strv_free_ char **nameservers = NULL;
         char **nameserver;
-        DnsServer *s, *nx;
         int r;
 
         assert(l);
@@ -167,11 +161,11 @@ static int link_update_dns_servers(Link *l) {
         if (r < 0)
                 goto clear;
 
-        LIST_FOREACH(servers, s, l->dns_servers)
-                s->marked = true;
+        link_mark_dns_servers(l);
 
         STRV_FOREACH(nameserver, nameservers) {
                 union in_addr_union a;
+                DnsServer *s;
                 int family;
 
                 r = in_addr_from_string_auto(*nameserver, &family, &a);
@@ -188,22 +182,11 @@ static int link_update_dns_servers(Link *l) {
                 }
         }
 
-        LIST_FOREACH_SAFE(servers, s, nx, l->dns_servers)
-                if (s->marked) {
-                        LIST_REMOVE(servers, l->dns_servers, s);
-                        dns_server_unref(s);
-                }
-
+        link_flush_marked_dns_servers(l);
         return 0;
 
 clear:
-        while (l->dns_servers) {
-                s = l->dns_servers;
-
-                LIST_REMOVE(servers, l->dns_servers, s);
-                dns_server_unref(s);
-        }
-
+        link_flush_dns_servers(l);
         return r;
 }
 
@@ -303,10 +286,40 @@ LinkAddress *link_find_address(Link *l, int family, const union in_addr_union *i
         return NULL;
 }
 
+void link_flush_dns_servers(Link *l) {
+        assert(l);
+
+        while (l->dns_servers)
+                dns_server_unlink(l->dns_servers);
+}
+
+void link_flush_marked_dns_servers(Link *l) {
+        DnsServer *s, *next;
+
+        assert(l);
+
+        LIST_FOREACH_SAFE(servers, s, next, l->dns_servers) {
+                if (!s->marked)
+                        continue;
+
+                dns_server_unlink(s);
+        }
+}
+
+void link_mark_dns_servers(Link *l) {
+        DnsServer *s;
+
+        assert(l);
+
+        LIST_FOREACH(servers, s, l->dns_servers)
+                s->marked = true;
+}
+
 DnsServer* link_find_dns_server(Link *l, int family, const union in_addr_union *in_addr) {
         DnsServer *s;
 
         assert(l);
+        assert(in_addr);
 
         LIST_FOREACH(servers, s, l->dns_servers)
                 if (s->family == family && in_addr_equal(family, &s->address, in_addr))
@@ -327,7 +340,8 @@ DnsServer* link_set_dns_server(Link *l, DnsServer *s) {
                 log_info("Switching to DNS server %s for interface %s.", strna(ip), l->name);
         }
 
-        l->current_dns_server = s;
+        dns_server_unref(l->current_dns_server);
+        l->current_dns_server = dns_server_ref(s);
 
         if (l->unicast_scope)
                 dns_cache_flush(&l->unicast_scope->cache);
@@ -350,7 +364,9 @@ void link_next_dns_server(Link *l) {
         if (!l->current_dns_server)
                 return;
 
-        if (l->current_dns_server->servers_next) {
+        /* Change to the next one, but make sure to follow the linked
+         * list only if this server is actually still linked. */
+        if (l->current_dns_server->linked && l->current_dns_server->servers_next) {
                 link_set_dns_server(l, l->current_dns_server->servers_next);
                 return;
         }

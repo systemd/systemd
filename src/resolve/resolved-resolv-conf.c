@@ -36,7 +36,6 @@ int manager_read_resolv_conf(Manager *m) {
         _cleanup_fclose_ FILE *f = NULL;
         struct stat st, own;
         char line[LINE_MAX];
-        DnsServer *s;
         usec_t t;
         int r;
 
@@ -53,7 +52,7 @@ int manager_read_resolv_conf(Manager *m) {
                 if (errno == ENOENT)
                         r = 0;
                 else
-                        r = log_warning_errno(errno, "Failed to open /etc/resolv.conf: %m");
+                        r = log_warning_errno(errno, "Failed to stat /etc/resolv.conf: %m");
                 goto clear;
         }
 
@@ -89,7 +88,6 @@ int manager_read_resolv_conf(Manager *m) {
         manager_mark_dns_servers(m, DNS_SERVER_SYSTEM);
 
         FOREACH_LINE(line, f, r = -errno; goto clear) {
-                _cleanup_strv_free_ char **d = NULL;
                 const char *a;
                 char *l;
 
@@ -124,13 +122,7 @@ int manager_read_resolv_conf(Manager *m) {
         return 0;
 
 clear:
-        while (m->dns_servers) {
-                s = m->dns_servers;
-
-                LIST_REMOVE(servers, m->dns_servers, s);
-                dns_server_unref(s);
-        }
-
+        manager_flush_dns_servers(m, DNS_SERVER_SYSTEM);
         return r;
 }
 

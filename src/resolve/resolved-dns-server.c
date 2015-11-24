@@ -67,6 +67,7 @@ int dns_server_new(
                 assert_not_reached("Unknown server type");
 
         s->manager = m;
+        s->linked = true;
 
         /* A new DNS server that isn't fallback is added and the one
          * we used so far was a fallback one? Then let's try to pick
@@ -87,25 +88,9 @@ DnsServer* dns_server_ref(DnsServer *s)  {
                 return NULL;
 
         assert(s->n_ref > 0);
-
         s->n_ref ++;
 
         return s;
-}
-
-static DnsServer* dns_server_free(DnsServer *s)  {
-        if (!s)
-                return NULL;
-
-        if (s->link && s->link->current_dns_server == s)
-                link_set_dns_server(s->link, NULL);
-
-        if (s->manager && s->manager->current_dns_server == s)
-                manager_set_dns_server(s->manager, NULL);
-
-        free(s);
-
-        return NULL;
 }
 
 DnsServer* dns_server_unref(DnsServer *s)  {
@@ -113,13 +98,51 @@ DnsServer* dns_server_unref(DnsServer *s)  {
                 return NULL;
 
         assert(s->n_ref > 0);
+        s->n_ref --;
 
-        if (s->n_ref == 1)
-                dns_server_free(s);
-        else
-                s->n_ref --;
+        if (s->n_ref > 0)
+                return NULL;
 
+        free(s);
         return NULL;
+}
+
+void dns_server_unlink(DnsServer *s) {
+        assert(s);
+        assert(s->manager);
+
+        /* This removes the specified server from the linked list of
+         * servers, but any server might still stay around if it has
+         * refs, for example from an ongoing transaction. */
+
+        if (!s->linked)
+                return;
+
+        switch (s->type) {
+
+        case DNS_SERVER_LINK:
+                assert(s->link);
+                LIST_REMOVE(servers, s->link->dns_servers, s);
+                break;
+
+        case DNS_SERVER_SYSTEM:
+                LIST_REMOVE(servers, s->manager->dns_servers, s);
+                break;
+
+        case DNS_SERVER_FALLBACK:
+                LIST_REMOVE(servers, s->manager->fallback_dns_servers, s);
+                break;
+        }
+
+        s->linked = false;
+
+        if (s->link && s->link->current_dns_server == s)
+                link_set_dns_server(s->link, NULL);
+
+        if (s->manager->current_dns_server == s)
+                manager_set_dns_server(s->manager, NULL);
+
+        dns_server_unref(s);
 }
 
 void dns_server_packet_received(DnsServer *s, usec_t rtt) {
@@ -166,34 +189,48 @@ const struct hash_ops dns_server_hash_ops = {
         .compare = dns_server_compare_func
 };
 
-void manager_flush_dns_servers(Manager *m, DnsServerType type) {
-        DnsServer **first, *s;
-
+DnsServer *manager_get_first_dns_server(Manager *m, DnsServerType t) {
         assert(m);
 
-        first = type == DNS_SERVER_FALLBACK ? &m->fallback_dns_servers : &m->dns_servers;
+        switch (t) {
 
-        while (*first) {
-                s = *first;
+        case DNS_SERVER_SYSTEM:
+                return m->dns_servers;
 
-                LIST_REMOVE(servers, *first, s);
-                dns_server_unref(s);
+        case DNS_SERVER_FALLBACK:
+                return m->fallback_dns_servers;
+
+        default:
+                return NULL;
+        }
+}
+
+void manager_flush_dns_servers(Manager *m, DnsServerType type) {
+        assert(m);
+
+        for (;;) {
+                DnsServer *first;
+
+                first = manager_get_first_dns_server(m, type);
+                if (!first)
+                        break;
+
+                dns_server_unlink(first);
         }
 }
 
 void manager_flush_marked_dns_servers(Manager *m, DnsServerType type) {
-        DnsServer **first, *s, *next;
+        DnsServer *first, *s, *next;
 
         assert(m);
 
-        first = type == DNS_SERVER_FALLBACK ? &m->fallback_dns_servers : &m->dns_servers;
+        first = manager_get_first_dns_server(m, type);
 
-        LIST_FOREACH_SAFE(servers, s, next, *first) {
+        LIST_FOREACH_SAFE(servers, s, next, first) {
                 if (!s->marked)
                         continue;
 
-                LIST_REMOVE(servers, *first, s);
-                dns_server_unref(s);
+                dns_server_unlink(s);
         }
 }
 
@@ -202,23 +239,20 @@ void manager_mark_dns_servers(Manager *m, DnsServerType type) {
 
         assert(m);
 
-        first = type == DNS_SERVER_FALLBACK ? m->fallback_dns_servers : m->dns_servers;
-
+        first = manager_get_first_dns_server(m, type);
         LIST_FOREACH(servers, s, first)
                 s->marked = true;
 }
 
-DnsServer* manager_find_dns_server(Manager *m, int family, const union in_addr_union *in_addr) {
-        DnsServer *s;
+DnsServer* manager_find_dns_server(Manager *m, DnsServerType type, int family, const union in_addr_union *in_addr) {
+        DnsServer *first, *s;
 
         assert(m);
         assert(in_addr);
 
-        LIST_FOREACH(servers, s, m->dns_servers)
-                if (s->family == family && in_addr_equal(family, &s->address, in_addr) > 0)
-                        return s;
+        first = manager_get_first_dns_server(m, type);
 
-        LIST_FOREACH(servers, s, m->fallback_dns_servers)
+        LIST_FOREACH(servers, s, first)
                 if (s->family == family && in_addr_equal(family, &s->address, in_addr) > 0)
                         return s;
 
@@ -238,7 +272,8 @@ DnsServer *manager_set_dns_server(Manager *m, DnsServer *s) {
                 log_info("Switching to system DNS server %s.", strna(ip));
         }
 
-        m->current_dns_server = s;
+        dns_server_unref(m->current_dns_server);
+        m->current_dns_server = dns_server_ref(s);
 
         if (m->unicast_scope)
                 dns_cache_flush(&m->unicast_scope->cache);
@@ -286,8 +321,9 @@ void manager_next_dns_server(Manager *m) {
         if (!m->current_dns_server)
                 return;
 
-        /* Change to the next one */
-        if (m->current_dns_server->servers_next) {
+        /* Change to the next one, but make sure to follow the linked
+         * list only if the server is still linked. */
+        if (m->current_dns_server->linked && m->current_dns_server->servers_next) {
                 manager_set_dns_server(m, m->current_dns_server->servers_next);
                 return;
         }

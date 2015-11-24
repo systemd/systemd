@@ -51,6 +51,8 @@ struct DnsServer {
 
         bool marked:1;
 
+        /* If linked is set, then this server appears in the servers linked list */
+        bool linked:1;
         LIST_FIELDS(DnsServer, servers);
 };
 
@@ -65,17 +67,21 @@ int dns_server_new(
 DnsServer* dns_server_ref(DnsServer *s);
 DnsServer* dns_server_unref(DnsServer *s);
 
+void dns_server_unlink(DnsServer *s);
+
 void dns_server_packet_received(DnsServer *s, usec_t rtt);
 void dns_server_packet_lost(DnsServer *s, usec_t usec);
 
-DnsServer *manager_set_dns_server(Manager *m, DnsServer *s);
-DnsServer *manager_find_dns_server(Manager *m, int family, const union in_addr_union *in_addr);
-DnsServer *manager_get_dns_server(Manager *m);
-void manager_next_dns_server(Manager *m);
+DnsServer *manager_get_first_dns_server(Manager *m, DnsServerType t);
 
 void manager_flush_dns_servers(Manager *m, DnsServerType t);
 void manager_flush_marked_dns_servers(Manager *m, DnsServerType type);
 void manager_mark_dns_servers(Manager *m, DnsServerType type);
+
+DnsServer *manager_set_dns_server(Manager *m, DnsServer *s);
+DnsServer *manager_find_dns_server(Manager *m, DnsServerType t, int family, const union in_addr_union *in_addr);
+DnsServer *manager_get_dns_server(Manager *m);
+void manager_next_dns_server(Manager *m);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsServer*, dns_server_unref);
 
