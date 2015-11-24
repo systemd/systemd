@@ -38,7 +38,7 @@ static int reply_query_state(DnsQuery *q) {
 
                 name = ip;
         } else
-                name = dns_question_name(q->question);
+                name = dns_question_first_name(q->question);
 
         switch (q->state) {
 
@@ -145,7 +145,7 @@ static void bus_method_resolve_hostname_complete(DnsQuery *q) {
 
         r = dns_query_process_cname(q);
         if (r == -ELOOP) {
-                r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_CNAME_LOOP, "CNAME loop detected, or CNAME resolving disabled on '%s'", dns_question_name(q->question));
+                r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_CNAME_LOOP, "CNAME loop detected, or CNAME resolving disabled on '%s'", dns_question_first_name(q->question));
                 goto finish;
         }
         if (r < 0)
@@ -184,7 +184,7 @@ static void bus_method_resolve_hostname_complete(DnsQuery *q) {
         }
 
         if (added <= 0) {
-                r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_NO_SUCH_RR, "'%s' does not have any RR of the requested type", dns_question_name(q->question));
+                r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_NO_SUCH_RR, "'%s' does not have any RR of the requested type", dns_question_first_name(q->question));
                 goto finish;
         }
 
@@ -466,7 +466,7 @@ static void bus_method_resolve_record_complete(DnsQuery *q) {
 
         r = dns_query_process_cname(q);
         if (r == -ELOOP) {
-                r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_CNAME_LOOP, "CNAME loop detected, or CNAME resolving disabled on '%s'", dns_question_name(q->question));
+                r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_CNAME_LOOP, "CNAME loop detected, or CNAME resolving disabled on '%s'", dns_question_first_name(q->question));
                 goto finish;
         }
         if (r < 0)
@@ -502,7 +502,7 @@ static void bus_method_resolve_record_complete(DnsQuery *q) {
         }
 
         if (added <= 0) {
-                r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_NO_SUCH_RR, "Name '%s' does not have any RR of the requested type", dns_question_name(q->question));
+                r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_NO_SUCH_RR, "Name '%s' does not have any RR of the requested type", dns_question_first_name(q->question));
                 goto finish;
         }
 
@@ -612,7 +612,7 @@ static int append_srv(DnsQuery *q, sd_bus_message *reply, DnsResourceRecord *rr)
                         if (aux->auxiliary_result != 0)
                                 continue;
 
-                        r = dns_name_equal(dns_question_name(aux->question), rr->srv.name);
+                        r = dns_name_equal(dns_question_first_name(aux->question), rr->srv.name);
                         if (r < 0)
                                 return r;
                         if (r == 0)
@@ -664,7 +664,7 @@ static int append_srv(DnsQuery *q, sd_bus_message *reply, DnsResourceRecord *rr)
                         if (aux->auxiliary_result != 0)
                                 continue;
 
-                        r = dns_name_equal(dns_question_name(aux->question), rr->srv.name);
+                        r = dns_name_equal(dns_question_first_name(aux->question), rr->srv.name);
                         if (r < 0)
                                 return r;
                         if (r == 0)
@@ -773,7 +773,7 @@ static void resolve_service_all_complete(DnsQuery *q) {
                                 assert(bad->auxiliary_result != 0);
 
                                 if (bad->auxiliary_result == -ELOOP) {
-                                        r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_CNAME_LOOP, "CNAME loop detected, or CNAME resolving disabled on '%s'", dns_question_name(bad->question));
+                                        r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_CNAME_LOOP, "CNAME loop detected, or CNAME resolving disabled on '%s'", dns_question_first_name(bad->question));
                                         goto finish;
                                 }
 
@@ -818,7 +818,7 @@ static void resolve_service_all_complete(DnsQuery *q) {
         }
 
         if (added <= 0) {
-                r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_NO_SUCH_RR, "'%s' does not have any RR of the requested type", dns_question_name(q->question));
+                r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_NO_SUCH_RR, "'%s' does not have any RR of the requested type", dns_question_first_name(q->question));
                 goto finish;
         }
 
@@ -957,7 +957,7 @@ static void bus_method_resolve_service_complete(DnsQuery *q) {
 
         r = dns_query_process_cname(q);
         if (r == -ELOOP) {
-                r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_CNAME_LOOP, "CNAME loop detected, or CNAME resolving disabled on '%s'", dns_question_name(q->question));
+                r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_CNAME_LOOP, "CNAME loop detected, or CNAME resolving disabled on '%s'", dns_question_first_name(q->question));
                 goto finish;
         }
         if (r < 0)
@@ -993,7 +993,7 @@ static void bus_method_resolve_service_complete(DnsQuery *q) {
         }
 
         if (found <= 0) {
-                r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_NO_SUCH_RR, "'%s' does not have any RR of the requested type", dns_question_name(q->question));
+                r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_NO_SUCH_RR, "'%s' does not have any RR of the requested type", dns_question_first_name(q->question));
                 goto finish;
         }
 

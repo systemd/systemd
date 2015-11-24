@@ -85,7 +85,7 @@ int dns_query_new(Manager *m, DnsQuery **ret, DnsQuestion *question, int ifindex
         assert(m);
         assert(question);
 
-        r = dns_question_is_valid(question);
+        r = dns_question_is_valid_for_query(question);
         if (r < 0)
                 return r;
 
@@ -655,7 +655,7 @@ int dns_query_go(DnsQuery *q) {
         assert(q->question);
         assert(q->question->n_keys > 0);
 
-        name = dns_question_name(q->question);
+        name = dns_question_first_name(q->question);
 
         LIST_FOREACH(scopes, s, q->manager->dns_scopes) {
                 DnsScopeMatch match;

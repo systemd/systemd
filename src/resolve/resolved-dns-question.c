@@ -125,7 +125,7 @@ int dns_question_matches_cname(DnsQuestion *q, DnsResourceRecord *rr) {
         return 0;
 }
 
-int dns_question_is_valid(DnsQuestion *q) {
+int dns_question_is_valid_for_query(DnsQuestion *q) {
         const char *name;
         unsigned i;
         int r;
@@ -274,8 +274,10 @@ int dns_question_cname_redirect(DnsQuestion *q, const DnsResourceRecord *cname, 
         return 1;
 }
 
-const char *dns_question_name(DnsQuestion *q) {
-        assert(q);
+const char *dns_question_first_name(DnsQuestion *q) {
+
+        if (!q)
+                return NULL;
 
         if (q->n_keys < 1)
                 return NULL;
