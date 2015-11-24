@@ -24,7 +24,6 @@
 #include "in-addr-util.h"
 
 typedef struct DnsServer DnsServer;
-typedef enum DnsServerSource DnsServerSource;
 
 typedef enum DnsServerType {
         DNS_SERVER_SYSTEM,
