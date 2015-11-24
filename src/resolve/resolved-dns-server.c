@@ -123,18 +123,20 @@ DnsServer* dns_server_unref(DnsServer *s)  {
 void dns_server_packet_received(DnsServer *s, usec_t rtt) {
         assert(s);
 
-        if (rtt > s->max_rtt) {
-                s->max_rtt = rtt;
-                s->resend_timeout = MIN(MAX(DNS_TIMEOUT_MIN_USEC, s->max_rtt * 2),
-                                        DNS_TIMEOUT_MAX_USEC);
-        }
+        if (rtt <= s->max_rtt)
+                return;
+
+        s->max_rtt = rtt;
+        s->resend_timeout = MIN(MAX(DNS_TIMEOUT_MIN_USEC, s->max_rtt * 2), DNS_TIMEOUT_MAX_USEC);
 }
 
 void dns_server_packet_lost(DnsServer *s, usec_t usec) {
         assert(s);
 
-        if (s->resend_timeout <= usec)
-                s->resend_timeout = MIN(s->resend_timeout * 2, DNS_TIMEOUT_MAX_USEC);
+        if (s->resend_timeout > usec)
+                return;
+
+        s->resend_timeout = MIN(s->resend_timeout * 2, DNS_TIMEOUT_MAX_USEC);
 }
 
 static void dns_server_hash_func(const void *p, struct siphash *state) {

@@ -136,11 +136,11 @@ void dns_scope_next_dns_server(DnsScope *s) {
 void dns_scope_packet_received(DnsScope *s, usec_t rtt) {
         assert(s);
 
-        if (rtt > s->max_rtt) {
-                s->max_rtt = rtt;
-                s->resend_timeout = MIN(MAX(MULTICAST_RESEND_TIMEOUT_MIN_USEC, s->max_rtt * 2),
-                                        MULTICAST_RESEND_TIMEOUT_MAX_USEC);
-        }
+        if (rtt <= s->max_rtt)
+                return;
+
+        s->max_rtt = rtt;
+        s->resend_timeout = MIN(MAX(MULTICAST_RESEND_TIMEOUT_MIN_USEC, s->max_rtt * 2), MULTICAST_RESEND_TIMEOUT_MAX_USEC);
 }
 
 void dns_scope_packet_lost(DnsScope *s, usec_t usec) {
