@@ -27,53 +27,65 @@
 #include "resolved-conf.h"
 #include "string-util.h"
 
-int manager_parse_dns_server(Manager *m, DnsServerType type, const char *string) {
-        DnsServer *first;
+int manager_add_dns_server_by_string(Manager *m, DnsServerType type, const char *word) {
+        union in_addr_union address;
+        DnsServer *first, *s;
+        int family, r;
+
+        assert(m);
+        assert(word);
+
+        r = in_addr_from_string_auto(word, &family, &address);
+        if (r < 0)
+                return r;
+
+        first = type == DNS_SERVER_FALLBACK ? m->fallback_dns_servers : m->dns_servers;
+
+        /* Filter out duplicates */
+        LIST_FOREACH(servers, s, first)
+                if (s->family == family && in_addr_equal(family, &s->address, &address))
+                        break;
+
+        if (s) {
+                /*
+                 * Drop the marker. This is used to find the servers
+                 * that ceased to exist, see
+                 * manager_mark_dns_servers() and
+                 * manager_flush_marked_dns_servers().
+                 */
+                s->marked = false;
+                return 0;
+        }
+
+        return dns_server_new(m, NULL, type, NULL, family, &address);
+}
+
+int manager_parse_dns_server_string_and_warn(Manager *m, DnsServerType type, const char *string) {
         int r;
 
         assert(m);
         assert(string);
 
-        first = type == DNS_SERVER_FALLBACK ? m->fallback_dns_servers : m->dns_servers;
-
         for(;;) {
                 _cleanup_free_ char *word = NULL;
-                union in_addr_union addr;
-                bool found = false;
-                DnsServer *s;
-                int family;
 
                 r = extract_first_word(&string, &word, NULL, 0);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to parse resolved dns server syntax \"%s\": %m", string);
+                        return r;
                 if (r == 0)
                         break;
 
-                r = in_addr_from_string_auto(word, &family, &addr);
+                r = manager_add_dns_server_by_string(m, type, word);
                 if (r < 0) {
-                        log_warning("Ignoring invalid DNS address '%s'", word);
+                        log_warning_errno(r, "Failed to add DNS server address '%s', ignoring.", word);
                         continue;
                 }
-
-                /* Filter out duplicates */
-                LIST_FOREACH(servers, s, first)
-                        if (s->family == family && in_addr_equal(family, &s->address, &addr)) {
-                                found = true;
-                                break;
-                        }
-
-                if (found)
-                        continue;
-
-                r = dns_server_new(m, NULL, type, NULL, family, &addr);
-                if (r < 0)
-                        return r;
         }
 
         return 0;
 }
 
-int config_parse_dnsv(
+int config_parse_dns_servers(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -98,7 +110,7 @@ int config_parse_dnsv(
                 manager_flush_dns_servers(m, ltype);
         else {
                 /* Otherwise, add to the list */
-                r = manager_parse_dns_server(m, ltype, rvalue);
+                r = manager_parse_dns_server_string_and_warn(m, ltype, rvalue);
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse DNS server string '%s'. Ignoring.", rvalue);
                         return 0;

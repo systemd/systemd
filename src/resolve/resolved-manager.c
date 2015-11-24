@@ -477,7 +477,7 @@ int manager_new(Manager **ret) {
         m->llmnr_support = SUPPORT_YES;
         m->read_resolv_conf = true;
 
-        r = manager_parse_dns_server(m, DNS_SERVER_FALLBACK, DNS_SERVERS);
+        r = manager_parse_dns_server_string_and_warn(m, DNS_SERVER_FALLBACK, DNS_SERVERS);
         if (r < 0)
                 return r;
 
@@ -583,7 +583,7 @@ int manager_read_resolv_conf(Manager *m) {
         _cleanup_fclose_ FILE *f = NULL;
         struct stat st, own;
         char line[LINE_MAX];
-        DnsServer *s, *nx;
+        DnsServer *s;
         usec_t t;
         int r;
 
@@ -633,14 +633,12 @@ int manager_read_resolv_conf(Manager *m) {
                 goto clear;
         }
 
-        LIST_FOREACH(servers, s, m->dns_servers)
-                s->marked = true;
+        manager_mark_dns_servers(m, DNS_SERVER_SYSTEM);
 
         FOREACH_LINE(line, f, r = -errno; goto clear) {
-                union in_addr_union address;
-                int family;
-                char *l;
+                _cleanup_strv_free_ char **d = NULL;
                 const char *a;
+                char *l;
 
                 truncate_nl(line);
 
@@ -649,33 +647,16 @@ int manager_read_resolv_conf(Manager *m) {
                         continue;
 
                 a = first_word(l, "nameserver");
-                if (!a)
-                        continue;
-
-                r = in_addr_from_string_auto(a, &family, &address);
-                if (r < 0) {
-                        log_warning("Failed to parse name server %s.", a);
-                        continue;
-                }
-
-                LIST_FOREACH(servers, s, m->dns_servers)
-                        if (s->family == family && in_addr_equal(family, &s->address, &address) > 0)
-                                break;
-
-                if (s)
-                        s->marked = false;
-                else {
-                        r = dns_server_new(m, NULL, DNS_SERVER_SYSTEM, NULL, family, &address);
+                if (a) {
+                        r = manager_add_dns_server_by_string(m, DNS_SERVER_SYSTEM, a);
                         if (r < 0)
-                                goto clear;
+                                log_warning_errno(r, "Failed to parse DNS server address '%s', ignoring.", a);
+
+                        continue;
                 }
         }
 
-        LIST_FOREACH_SAFE(servers, s, nx, m->dns_servers)
-                if (s->marked) {
-                        LIST_REMOVE(servers, m->dns_servers, s);
-                        dns_server_unref(s);
-                }
+        manager_flush_marked_dns_servers(m, DNS_SERVER_SYSTEM);
 
         /* Whenever /etc/resolv.conf changes, start using the first
          * DNS server of it. This is useful to deal with broken
@@ -716,13 +697,14 @@ static void write_resolv_conf_server(DnsServer *s, FILE *f, unsigned *count) {
 
         if (*count == MAXNS)
                 fputs("# Too many DNS servers configured, the following entries may be ignored.\n", f);
+        (*count) ++;
 
         fprintf(f, "nameserver %s\n", t);
-        (*count) ++;
 }
 
 static void write_resolv_conf_search(
-                const char *domain, FILE *f,
+                const char *domain,
+                FILE *f,
                 unsigned *count,
                 unsigned *length) {
 
@@ -740,10 +722,11 @@ static void write_resolv_conf_search(
                 return;
         }
 
-        fprintf(f, " %s", domain);
-
         (*length) += strlen(domain);
         (*count) ++;
+
+        fputc(' ', f);
+        fputs(domain, f);
 }
 
 static int write_resolv_conf_contents(FILE *f, OrderedSet *dns, OrderedSet *domains) {
@@ -758,8 +741,8 @@ static int write_resolv_conf_contents(FILE *f, OrderedSet *dns, OrderedSet *doma
         if (ordered_set_isempty(dns))
                 fputs("# No DNS servers known.\n", f);
         else {
-                DnsServer *s;
                 unsigned count = 0;
+                DnsServer *s;
 
                 ORDERED_SET_FOREACH(s, dns, i)
                         write_resolv_conf_server(s, f, &count);
@@ -802,7 +785,7 @@ int manager_write_resolv_conf(Manager *m) {
         if (!domains)
                 return -ENOMEM;
 
-        /* First add the system-wide servers */
+        /* First add the system-wide servers and domains */
         LIST_FOREACH(servers, s, m->dns_servers) {
                 r = ordered_set_put(dns, s);
                 if (r == -EEXIST)
@@ -1418,28 +1401,6 @@ void manager_verify_all(Manager *m) {
 
         LIST_FOREACH(scopes, s, m->dns_scopes)
                 dns_zone_verify_all(&s->zone);
-}
-
-void manager_flush_dns_servers(Manager *m, DnsServerType t) {
-        DnsServer *s;
-
-        assert(m);
-
-        if (t == DNS_SERVER_SYSTEM)
-                while (m->dns_servers) {
-                        s = m->dns_servers;
-
-                        LIST_REMOVE(servers, m->dns_servers, s);
-                        dns_server_unref(s);
-                }
-
-        if (t == DNS_SERVER_FALLBACK)
-                while (m->fallback_dns_servers) {
-                        s = m->fallback_dns_servers;
-
-                        LIST_REMOVE(servers, m->fallback_dns_servers, s);
-                        dns_server_unref(s);
-                }
 }
 
 int manager_is_own_hostname(Manager *m, const char *name) {

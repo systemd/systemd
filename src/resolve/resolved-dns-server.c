@@ -161,3 +161,45 @@ const struct hash_ops dns_server_hash_ops = {
         .hash = dns_server_hash_func,
         .compare = dns_server_compare_func
 };
+
+void manager_flush_dns_servers(Manager *m, DnsServerType type) {
+        DnsServer **first, *s;
+
+        assert(m);
+
+        first = type == DNS_SERVER_FALLBACK ? &m->fallback_dns_servers : &m->dns_servers;
+
+        while (*first) {
+                s = *first;
+
+                LIST_REMOVE(servers, *first, s);
+                dns_server_unref(s);
+        }
+}
+
+void manager_flush_marked_dns_servers(Manager *m, DnsServerType type) {
+        DnsServer **first, *s, *next;
+
+        assert(m);
+
+        first = type == DNS_SERVER_FALLBACK ? &m->fallback_dns_servers : &m->dns_servers;
+
+        LIST_FOREACH_SAFE(servers, s, next, *first) {
+                if (!s->marked)
+                        continue;
+
+                LIST_REMOVE(servers, *first, s);
+                dns_server_unref(s);
+        }
+}
+
+void manager_mark_dns_servers(Manager *m, DnsServerType type) {
+        DnsServer *first, *s;
+
+        assert(m);
+
+        first = type == DNS_SERVER_FALLBACK ? m->fallback_dns_servers : m->dns_servers;
+
+        LIST_FOREACH(servers, s, first)
+                s->marked = true;
+}

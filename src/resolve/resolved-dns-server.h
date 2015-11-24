@@ -68,6 +68,10 @@ DnsServer* dns_server_unref(DnsServer *s);
 void dns_server_packet_received(DnsServer *s, usec_t rtt);
 void dns_server_packet_lost(DnsServer *s, usec_t usec);
 
+void manager_flush_dns_servers(Manager *m, DnsServerType t);
+void manager_flush_marked_dns_servers(Manager *m, DnsServerType type);
+void manager_mark_dns_servers(Manager *m, DnsServerType type);
+
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsServer*, dns_server_unref);
 
 extern const struct hash_ops dns_server_hash_ops;

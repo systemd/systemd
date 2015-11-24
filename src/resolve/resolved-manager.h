@@ -138,8 +138,6 @@ DnsScope* manager_find_scope(Manager *m, DnsPacket *p);
 
 void manager_verify_all(Manager *m);
 
-void manager_flush_dns_servers(Manager *m, DnsServerType t);
-
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 
 #define EXTRA_CMSG_SPACE 1024
