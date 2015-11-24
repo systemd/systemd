@@ -1101,8 +1101,123 @@ fail:
         return r;
 }
 
+static int append_dns_server(sd_bus_message *reply, DnsServer *s) {
+        int r;
+
+        assert(reply);
+        assert(s);
+
+        r = sd_bus_message_open_container(reply, 'r', "iiay");
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(reply, "ii", s->link ? s->link->ifindex : 0, s->family);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append_array(reply, 'y', &s->address, FAMILY_ADDRESS_SIZE(s->family));
+        if (r < 0)
+                return r;
+
+        return sd_bus_message_close_container(reply);
+}
+
+static int bus_property_get_dns_servers(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Manager *m = userdata;
+        unsigned c = 0;
+        DnsServer *s;
+        Iterator i;
+        Link *l;
+        int r;
+
+        assert(reply);
+        assert(m);
+
+        r = sd_bus_message_open_container(reply, 'a', "(iiay)");
+        if (r < 0)
+                return r;
+
+        LIST_FOREACH(servers, s, m->dns_servers) {
+                r = append_dns_server(reply, s);
+                if (r < 0)
+                        return r;
+
+                c++;
+        }
+
+        HASHMAP_FOREACH(l, m->links, i) {
+                LIST_FOREACH(servers, s, l->dns_servers) {
+                        r = append_dns_server(reply, s);
+                        if (r < 0)
+                                return r;
+                        c++;
+                }
+        }
+
+        if (c == 0) {
+                LIST_FOREACH(servers, s, m->fallback_dns_servers) {
+                        r = append_dns_server(reply, s);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        return sd_bus_message_close_container(reply);
+}
+
+static int bus_property_get_search_domains(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Manager *m = userdata;
+        DnsSearchDomain *d;
+        Iterator i;
+        Link *l;
+        int r;
+
+        assert(reply);
+        assert(m);
+
+        r = sd_bus_message_open_container(reply, 'a', "(is)");
+        if (r < 0)
+                return r;
+
+        LIST_FOREACH(domains, d, m->search_domains) {
+                r = sd_bus_message_append(reply, "(is)", 0, d->name);
+                if (r < 0)
+                        return r;
+        }
+
+        HASHMAP_FOREACH(l, m->links, i) {
+                LIST_FOREACH(domains, d, l->search_domains) {
+                        r = sd_bus_message_append(reply, "is", l->ifindex, d->name);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        return sd_bus_message_close_container(reply);
+}
+
 static const sd_bus_vtable resolve_vtable[] = {
         SD_BUS_VTABLE_START(0),
+        SD_BUS_PROPERTY("LLMNRHostname", "s", NULL, offsetof(Manager, llmnr_hostname), 0),
+        SD_BUS_PROPERTY("DNSServers", "a(iiay)", bus_property_get_dns_servers, 0, 0),
+        SD_BUS_PROPERTY("SearchDomains", "a(is)", bus_property_get_search_domains, 0, 0),
+
         SD_BUS_METHOD("ResolveHostname", "isit", "a(iiay)st", bus_method_resolve_hostname, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ResolveAddress", "iiayt", "a(is)t", bus_method_resolve_address, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ResolveRecord", "isqqt", "a(iqqay)t", bus_method_resolve_record, SD_BUS_VTABLE_UNPRIVILEGED),
