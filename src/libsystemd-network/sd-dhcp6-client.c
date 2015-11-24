@@ -895,7 +895,7 @@ static int client_receive_advertise(sd_dhcp6_client *client, DHCP6Message *adver
 static int client_receive_message(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         sd_dhcp6_client *client = userdata;
         DHCP6_CLIENT_DONT_DESTROY(client);
-        _cleanup_free_ DHCP6Message *message;
+        _cleanup_free_ DHCP6Message *message = NULL;
         int r, buflen, len;
 
         assert(s);
@@ -903,18 +903,26 @@ static int client_receive_message(sd_event_source *s, int fd, uint32_t revents, 
         assert(client->event);
 
         r = ioctl(fd, FIONREAD, &buflen);
-        if (r < 0 || buflen <= 0)
-                buflen = DHCP6_MIN_OPTIONS_SIZE;
+        if (r < 0)
+                return -errno;
+        else if (buflen < 0)
+                /* This really should not happen */
+                return -EIO;
 
-        message = malloc0(buflen);
+        message = malloc(buflen);
         if (!message)
                 return -ENOMEM;
 
         len = read(fd, message, buflen);
-        if ((size_t)len < sizeof(DHCP6Message)) {
-                log_dhcp6_client(client, "could not receive message from UDP socket: %m");
+        if (len < 0) {
+                if (errno == EAGAIN || errno == EINTR)
+                        return 0;
+
+                log_dhcp6_client(client, "Could not receive message from UDP socket: %m");
+
+                return -errno;
+        } else if ((size_t)len < sizeof(DHCP6Message))
                 return 0;
-        }
 
         switch(message->type) {
         case DHCP6_SOLICIT:

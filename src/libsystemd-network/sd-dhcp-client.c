@@ -1513,9 +1513,8 @@ static int client_receive_message_udp(sd_event_source *s, int fd,
 
         r = ioctl(fd, FIONREAD, &buflen);
         if (r < 0)
-                return r;
-
-        if (buflen < 0)
+                return -errno;
+        else if (buflen < 0)
                 /* this can't be right */
                 return -EIO;
 
@@ -1525,26 +1524,28 @@ static int client_receive_message_udp(sd_event_source *s, int fd,
 
         len = read(fd, message, buflen);
         if (len < 0) {
-                log_dhcp_client(client, "could not receive message from UDP "
-                                "socket: %m");
-                return 0;
+                if (errno == EAGAIN || errno == EINTR)
+                        return 0;
+
+                log_dhcp_client(client, "Could not receive message from UDP socket: %m");
+                return -errno;
         } else if ((size_t)len < sizeof(DHCPMessage)) {
-                log_dhcp_client(client, "too small to be a DHCP message: ignoring");
+                log_dhcp_client(client, "Too small to be a DHCP message: ignoring");
                 return 0;
         }
 
         if (be32toh(message->magic) != DHCP_MAGIC_COOKIE) {
-                log_dhcp_client(client, "not a DHCP message: ignoring");
+                log_dhcp_client(client, "Not a DHCP message: ignoring");
                 return 0;
         }
 
         if (message->op != BOOTREPLY) {
-                log_dhcp_client(client, "not a BOOTREPLY message: ignoring");
+                log_dhcp_client(client, "Not a BOOTREPLY message: ignoring");
                 return 0;
         }
 
         if (message->htype != client->arp_type) {
-                log_dhcp_client(client, "packet type does not match client type");
+                log_dhcp_client(client, "Packet type does not match client type");
                 return 0;
         }
 
@@ -1558,13 +1559,12 @@ static int client_receive_message_udp(sd_event_source *s, int fd,
         }
 
         if (message->hlen != expected_hlen) {
-                log_dhcp_client(client, "unexpected packet hlen %d", message->hlen);
+                log_dhcp_client(client, "Unexpected packet hlen %d", message->hlen);
                 return 0;
         }
 
         if (memcmp(&message->chaddr[0], expected_chaddr, ETH_ALEN)) {
-                log_dhcp_client(client, "received chaddr does not match "
-                                "expected: ignoring");
+                log_dhcp_client(client, "Received chaddr does not match expected: ignoring");
                 return 0;
         }
 
@@ -1572,8 +1572,7 @@ static int client_receive_message_udp(sd_event_source *s, int fd,
             be32toh(message->xid) != client->xid) {
                 /* in BOUND state, we may receive FORCERENEW with xid set by server,
                    so ignore the xid in this case */
-                log_dhcp_client(client, "received xid (%u) does not match "
-                                "expected (%u): ignoring",
+                log_dhcp_client(client, "Received xid (%u) does not match expected (%u): ignoring",
                                 be32toh(message->xid), client->xid);
                 return 0;
         }
@@ -1602,9 +1601,8 @@ static int client_receive_message_raw(sd_event_source *s, int fd,
 
         r = ioctl(fd, FIONREAD, &buflen);
         if (r < 0)
-                return r;
-
-        if (buflen < 0)
+                return -errno;
+        else if (buflen < 0)
                 /* this can't be right */
                 return -EIO;
 
@@ -1617,9 +1615,12 @@ static int client_receive_message_raw(sd_event_source *s, int fd,
 
         len = recvmsg(fd, &msg, 0);
         if (len < 0) {
-                log_dhcp_client(client, "could not receive message from raw "
-                                "socket: %m");
-                return 0;
+                if (errno == EAGAIN || errno == EINTR)
+                        return 0;
+
+                log_dhcp_client(client, "Could not receive message from raw socket: %m");
+
+                return -errno;
         } else if ((size_t)len < sizeof(DHCPPacket))
                 return 0;
 

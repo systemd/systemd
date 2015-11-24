@@ -494,8 +494,11 @@ static int ndisc_router_advertisment_recv(sd_event_source *s, int fd, uint32_t r
         assert(nd->event);
 
         r = ioctl(fd, FIONREAD, &buflen);
-        if (r < 0 || buflen <= 0)
-                buflen = ICMP6_RECV_SIZE;
+        if (r < 0)
+                return -errno;
+        else if (buflen < 0)
+                /* This really should not happen */
+                return -EIO;
 
         ra = malloc(buflen);
         if (!ra)
@@ -503,8 +506,11 @@ static int ndisc_router_advertisment_recv(sd_event_source *s, int fd, uint32_t r
 
         len = recvfrom(fd, ra, buflen, 0, &router.sa, &router_len);
         if (len < 0) {
+                if (errno == EAGAIN || errno == EINTR)
+                        return 0;
+
                 log_ndisc(nd, "Could not receive message from ICMPv6 socket: %m");
-                return 0;
+                return -errno;
         } else if (router_len == 0)
                 gw = NULL; /* only happens when running the test-suite over a socketpair */
         else if (router_len != sizeof(router.in6)) {

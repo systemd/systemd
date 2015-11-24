@@ -963,10 +963,10 @@ static int server_receive_message(sd_event_source *s, int fd,
 
         if (ioctl(fd, FIONREAD, &buflen) < 0)
                 return -errno;
-        if (buflen < 0)
+        else if (buflen < 0)
                 return -EIO;
 
-        message = malloc0(buflen);
+        message = malloc(buflen);
         if (!message)
                 return -ENOMEM;
 
@@ -974,9 +974,12 @@ static int server_receive_message(sd_event_source *s, int fd,
         iov.iov_len = buflen;
 
         len = recvmsg(fd, &msg, 0);
-        if (len < buflen)
-                return 0;
-        else if ((size_t)len < sizeof(DHCPMessage))
+        if (len < 0) {
+                if (errno == EAGAIN || errno == EINTR)
+                        return 0;
+
+                return -errno;
+        } else if ((size_t)len < sizeof(DHCPMessage))
                 return 0;
 
         CMSG_FOREACH(cmsg, &msg) {
