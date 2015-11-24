@@ -115,7 +115,8 @@ _systemctl () {
         if __contains_word "$prev" ${OPTS[ARG]}; then
                 case $prev in
                         --signal|-s)
-                                comps=$(compgen -A signal)
+                                _signals
+                                return
                         ;;
                         --type|-t)
                                 comps=$(__systemctl $mode -t help)
