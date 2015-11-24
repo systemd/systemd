@@ -1325,6 +1325,10 @@ int manager_start_scope(
         if (r < 0)
                 return r;
 
+        r = sd_bus_message_append(m, "(sv)", "TasksMax", "t", 8192);
+        if (r < 0)
+                return bus_log_create_error(r);
+
         if (more_properties) {
                 r = sd_bus_message_copy(m, more_properties, true);
                 if (r < 0)
