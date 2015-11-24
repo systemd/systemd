@@ -289,7 +289,7 @@ static int socket_add_device_link(Socket *s) {
                 return 0;
 
         t = strjoina("/sys/subsystem/net/devices/", s->bind_to_device);
-        return unit_add_node_link(UNIT(s), t, false);
+        return unit_add_node_link(UNIT(s), t, false, UNIT_BINDS_TO);
 }
 
 static int socket_add_default_dependencies(Socket *s) {

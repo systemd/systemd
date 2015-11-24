@@ -2840,7 +2840,7 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
         }
 }
 
-int unit_add_node_link(Unit *u, const char *what, bool wants) {
+int unit_add_node_link(Unit *u, const char *what, bool wants, UnitDependency dep) {
         Unit *device;
         _cleanup_free_ char *e = NULL;
         int r;
@@ -2867,7 +2867,9 @@ int unit_add_node_link(Unit *u, const char *what, bool wants) {
         if (r < 0)
                 return r;
 
-        r = unit_add_two_dependencies(u, UNIT_AFTER, u->manager->running_as == MANAGER_SYSTEM ? UNIT_BINDS_TO : UNIT_WANTS, device, true);
+        r = unit_add_two_dependencies(u, UNIT_AFTER,
+                                      u->manager->running_as == MANAGER_SYSTEM ? dep : UNIT_WANTS,
+                                      device, true);
         if (r < 0)
                 return r;
 
