@@ -114,11 +114,6 @@ Manager* manager_free(Manager *m);
 
 int manager_start(Manager *m);
 
-DnsServer *manager_set_dns_server(Manager *m, DnsServer *s);
-DnsServer *manager_find_dns_server(Manager *m, int family, const union in_addr_union *in_addr);
-DnsServer *manager_get_dns_server(Manager *m);
-void manager_next_dns_server(Manager *m);
-
 uint32_t manager_find_mtu(Manager *m);
 
 int manager_write(Manager *m, int fd, DnsPacket *p);
