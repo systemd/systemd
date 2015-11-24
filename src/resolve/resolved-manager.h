@@ -70,7 +70,8 @@ struct Manager {
         LIST_HEAD(DnsServer, fallback_dns_servers);
         DnsServer *current_dns_server;
 
-        bool read_resolv_conf;
+        bool need_builtin_fallbacks:1;
+        bool read_resolv_conf:1;
         usec_t resolv_conf_mtime;
 
         LIST_HEAD(DnsScope, dns_scopes);

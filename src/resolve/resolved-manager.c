@@ -476,10 +476,7 @@ int manager_new(Manager **ret) {
 
         m->llmnr_support = SUPPORT_YES;
         m->read_resolv_conf = true;
-
-        r = manager_parse_dns_server_string_and_warn(m, DNS_SERVER_FALLBACK, DNS_SERVERS);
-        if (r < 0)
-                return r;
+        m->need_builtin_fallbacks = true;
 
         r = sd_event_default(&m->event);
         if (r < 0)

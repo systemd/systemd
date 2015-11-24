@@ -116,6 +116,8 @@ int config_parse_dns_servers(
          * /etc/resolv.conf */
         if (ltype == DNS_SERVER_SYSTEM)
                 m->read_resolv_conf = false;
+        if (ltype == DNS_SERVER_FALLBACK)
+                m->need_builtin_fallbacks = false;
 
         return 0;
 }
@@ -155,11 +157,24 @@ int config_parse_support(
 }
 
 int manager_parse_config_file(Manager *m) {
+        int r;
+
         assert(m);
 
-        return config_parse_many(PKGSYSCONFDIR "/resolved.conf",
-                                 CONF_PATHS_NULSTR("systemd/resolved.conf.d"),
-                                 "Resolve\0",
-                                 config_item_perf_lookup, resolved_gperf_lookup,
-                                 false, m);
+        r = config_parse_many(PKGSYSCONFDIR "/resolved.conf",
+                              CONF_PATHS_NULSTR("systemd/resolved.conf.d"),
+                              "Resolve\0",
+                              config_item_perf_lookup, resolved_gperf_lookup,
+                              false, m);
+        if (r < 0)
+                return r;
+
+        if (m->need_builtin_fallbacks) {
+                r = manager_parse_dns_server_string_and_warn(m, DNS_SERVER_FALLBACK, DNS_SERVERS);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+
 }
