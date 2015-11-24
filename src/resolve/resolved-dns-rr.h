@@ -45,6 +45,9 @@ enum {
 #define DNSKEY_FLAG_ZONE_KEY (UINT16_C(1) << 8)
 #define DNSKEY_FLAG_SEP      (UINT16_C(1) << 0)
 
+/* mDNS RR flags */
+#define MDNS_RR_CACHE_FLUSH  (UINT16_C(1) << 15)
+
 /* DNSSEC algorithm identifiers, see
  * http://tools.ietf.org/html/rfc4034#appendix-A.1 and
  * https://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml */
@@ -76,6 +79,7 @@ struct DnsResourceKey {
         unsigned n_ref;
         uint16_t class, type;
         char *_name; /* don't access directy, use DNS_RESOURCE_KEY_NAME()! */
+        bool cache_flush:1;
 };
 
 /* Creates a temporary resource key. This is only useful to quickly

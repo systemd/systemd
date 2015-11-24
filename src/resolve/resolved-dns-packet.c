@@ -1421,6 +1421,7 @@ fail:
 
 int dns_packet_read_key(DnsPacket *p, DnsResourceKey **ret, size_t *start) {
         _cleanup_free_ char *name = NULL;
+        bool cache_flush = false;
         uint16_t class, type;
         DnsResourceKey *key;
         size_t saved_rindex;
@@ -1443,11 +1444,22 @@ int dns_packet_read_key(DnsPacket *p, DnsResourceKey **ret, size_t *start) {
         if (r < 0)
                 goto fail;
 
+        if (p->protocol == DNS_PROTOCOL_MDNS) {
+                /* See RFC6762, Section 10.2 */
+
+                if (class & MDNS_RR_CACHE_FLUSH) {
+                        class &= ~MDNS_RR_CACHE_FLUSH;
+                        cache_flush = true;
+                }
+        }
+
         key = dns_resource_key_new_consume(class, type, name);
         if (!key) {
                 r = -ENOMEM;
                 goto fail;
         }
+
+        key->cache_flush = cache_flush;
 
         name = NULL;
         *ret = key;
