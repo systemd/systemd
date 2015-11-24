@@ -48,7 +48,7 @@ int manager_add_dns_server_by_string(Manager *m, DnsServerType type, const char 
                  * manager_mark_dns_servers() and
                  * manager_flush_marked_dns_servers().
                  */
-                s->marked = false;
+                dns_server_move_back_and_unmark(s);
                 return 0;
         }
 

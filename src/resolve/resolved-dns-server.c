@@ -48,25 +48,34 @@ int dns_server_new(
                 return -ENOMEM;
 
         s->n_ref = 1;
+        s->manager = m;
         s->type = type;
         s->family = family;
         s->address = *in_addr;
         s->resend_timeout = DNS_TIMEOUT_MIN_USEC;
 
-        if (type == DNS_SERVER_LINK) {
+        switch (type) {
+
+        case DNS_SERVER_LINK:
+                s->link = l;
                 LIST_FIND_TAIL(servers, l->dns_servers, tail);
                 LIST_INSERT_AFTER(servers, l->dns_servers, tail, s);
-                s->link = l;
-        } else if (type == DNS_SERVER_SYSTEM) {
+                break;
+
+        case DNS_SERVER_SYSTEM:
                 LIST_FIND_TAIL(servers, m->dns_servers, tail);
                 LIST_INSERT_AFTER(servers, m->dns_servers, tail, s);
-        } else if (type == DNS_SERVER_FALLBACK) {
+                break;
+
+        case DNS_SERVER_FALLBACK:
                 LIST_FIND_TAIL(servers, m->fallback_dns_servers, tail);
                 LIST_INSERT_AFTER(servers, m->fallback_dns_servers, tail, s);
-        } else
-                assert_not_reached("Unknown server type");
+                break;
 
-        s->manager = m;
+        default:
+                assert_not_reached("Unknown server type");
+        }
+
         s->linked = true;
 
         /* A new DNS server that isn't fallback is added and the one
@@ -143,6 +152,48 @@ void dns_server_unlink(DnsServer *s) {
                 manager_set_dns_server(s->manager, NULL);
 
         dns_server_unref(s);
+}
+
+void dns_server_move_back_and_unmark(DnsServer *s) {
+        DnsServer *tail;
+
+        assert(s);
+
+        if (!s->marked)
+                return;
+
+        s->marked = false;
+
+        if (!s->linked || !s->servers_next)
+                return;
+
+        /* Move us to the end of the list, so that the order is
+         * strictly kept, if we are not at the end anyway. */
+
+        switch (s->type) {
+
+        case DNS_SERVER_LINK:
+                assert(s->link);
+                LIST_FIND_TAIL(servers, s, tail);
+                LIST_REMOVE(servers, s->link->dns_servers, s);
+                LIST_INSERT_AFTER(servers, s->link->dns_servers, tail, s);
+                break;
+
+        case DNS_SERVER_SYSTEM:
+                LIST_FIND_TAIL(servers, s, tail);
+                LIST_REMOVE(servers, s->manager->dns_servers, s);
+                LIST_INSERT_AFTER(servers, s->manager->dns_servers, tail, s);
+                break;
+
+        case DNS_SERVER_FALLBACK:
+                LIST_FIND_TAIL(servers, s, tail);
+                LIST_REMOVE(servers, s->manager->fallback_dns_servers, s);
+                LIST_INSERT_AFTER(servers, s->manager->fallback_dns_servers, tail, s);
+                break;
+
+        default:
+                assert_not_reached("Unknown server type");
+        }
 }
 
 void dns_server_packet_received(DnsServer *s, usec_t rtt) {

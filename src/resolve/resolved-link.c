@@ -174,7 +174,7 @@ static int link_update_dns_servers(Link *l) {
 
                 s = link_find_dns_server(l, family, &a);
                 if (s)
-                        s->marked = false;
+                        dns_server_move_back_and_unmark(s);
                 else {
                         r = dns_server_new(l->manager, NULL, DNS_SERVER_LINK, l, family, &a);
                         if (r < 0)

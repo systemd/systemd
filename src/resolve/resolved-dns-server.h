@@ -31,6 +31,7 @@ typedef enum DnsServerType {
         DNS_SERVER_LINK,
 } DnsServerType;
 
+#include "resolved-manager.h"
 #include "resolved-link.h"
 
 struct DnsServer {
@@ -39,7 +40,6 @@ struct DnsServer {
         unsigned n_ref;
 
         DnsServerType type;
-
         Link *link;
 
         int family;
@@ -57,9 +57,9 @@ struct DnsServer {
 
 int dns_server_new(
                 Manager *m,
-                DnsServer **s,
+                DnsServer **ret,
                 DnsServerType type,
-                Link *l,
+                Link *link,
                 int family,
                 const union in_addr_union *address);
 
@@ -67,6 +67,7 @@ DnsServer* dns_server_ref(DnsServer *s);
 DnsServer* dns_server_unref(DnsServer *s);
 
 void dns_server_unlink(DnsServer *s);
+void dns_server_move_back_and_unmark(DnsServer *s);
 
 void dns_server_packet_received(DnsServer *s, usec_t rtt);
 void dns_server_packet_lost(DnsServer *s, usec_t usec);
