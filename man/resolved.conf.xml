@@ -77,10 +77,11 @@
         sent to one of the listed DNS servers in parallel to any
         per-interface DNS servers acquired from
         <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-        For compatibility reasons, if set to the empty list, the DNS
-        servers listed in <filename>/etc/resolv.conf</filename> are
-        used, if any are configured there. This setting defaults to
-        the empty list.</para></listitem>
+        For compatibility reasons, if this setting is not specified, ,
+        the DNS servers listed in
+        <filename>/etc/resolv.conf</filename> are used instead, if
+        that file exists and any servers are configured in it. This
+        setting defaults to the empty list.</para></listitem>
       </varlistentry>
 
       <varlistentry>
