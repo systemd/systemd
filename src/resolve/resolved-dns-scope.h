@@ -47,8 +47,6 @@ struct DnsScope {
 
         Link *link;
 
-        char **domains;
-
         DnsCache cache;
         DnsZone zone;
 
@@ -91,3 +89,5 @@ int dns_scope_notify_conflict(DnsScope *scope, DnsResourceRecord *rr);
 void dns_scope_check_conflicts(DnsScope *scope, DnsPacket *p);
 
 void dns_scope_dump(DnsScope *s, FILE *f);
+
+DnsSearchDomain *dns_scope_get_search_domains(DnsScope *s);

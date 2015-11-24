@@ -40,6 +40,8 @@ enum Support {
 };
 
 #include "resolved-dns-query.h"
+#include "resolved-dns-search-domain.h"
+#include "resolved-dns-server.h"
 #include "resolved-dns-stream.h"
 #include "resolved-link.h"
 
@@ -70,7 +72,10 @@ struct Manager {
         LIST_HEAD(DnsServer, fallback_dns_servers);
         DnsServer *current_dns_server;
 
+        LIST_HEAD(DnsSearchDomain, search_domains);
+
         bool need_builtin_fallbacks:1;
+
         bool read_resolv_conf:1;
         usec_t resolv_conf_mtime;
 

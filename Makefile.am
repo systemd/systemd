@@ -5165,6 +5165,8 @@ systemd_resolved_SOURCES = \
 	src/resolve/resolved-dns-scope.c \
 	src/resolve/resolved-dns-server.h \
 	src/resolve/resolved-dns-server.c \
+	src/resolve/resolved-dns-search-domain.h \
+	src/resolve/resolved-dns-search-domain.c \
 	src/resolve/resolved-dns-cache.h \
 	src/resolve/resolved-dns-cache.c \
 	src/resolve/resolved-dns-zone.h \

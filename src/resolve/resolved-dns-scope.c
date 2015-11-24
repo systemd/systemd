@@ -103,7 +103,6 @@ DnsScope* dns_scope_free(DnsScope *s) {
         dns_zone_flush(&s->zone);
 
         LIST_REMOVE(scopes, s->manager->dns_scopes, s);
-        strv_free(s->domains);
         free(s);
 
         return NULL;
@@ -323,7 +322,7 @@ int dns_scope_tcp_socket(DnsScope *s, int family, const union in_addr_union *add
 }
 
 DnsScopeMatch dns_scope_good_domain(DnsScope *s, int ifindex, uint64_t flags, const char *domain) {
-        char **i;
+        DnsSearchDomain *d;
 
         assert(s);
         assert(domain);
@@ -345,8 +344,8 @@ DnsScopeMatch dns_scope_good_domain(DnsScope *s, int ifindex, uint64_t flags, co
             dns_name_equal(domain, "1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa") > 0)
                 return DNS_SCOPE_NO;
 
-        STRV_FOREACH(i, s->domains)
-                if (dns_name_endswith(domain, *i) > 0)
+        LIST_FOREACH(domains, d, dns_scope_get_search_domains(s))
+                if (dns_name_endswith(domain, d->name) > 0)
                         return DNS_SCOPE_YES;
 
         switch (s->protocol) {
@@ -849,4 +848,15 @@ void dns_scope_dump(DnsScope *s, FILE *f) {
                 fputs("CACHE:\n", f);
                 dns_cache_dump(&s->cache, f);
         }
+}
+
+DnsSearchDomain *dns_scope_get_search_domains(DnsScope *s) {
+
+        if (s->protocol != DNS_PROTOCOL_DNS)
+                return NULL;
+
+        if (s->link)
+                return s->link->search_domains;
+
+        return NULL;
 }

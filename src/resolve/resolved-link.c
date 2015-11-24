@@ -66,6 +66,7 @@ Link *link_free(Link *l) {
                 return NULL;
 
         link_flush_dns_servers(l);
+        dns_search_domain_unlink_all(l->search_domains);
 
         while (l->addresses)
                 link_address_free(l->addresses);
@@ -219,29 +220,56 @@ clear:
         return r;
 }
 
-static int link_update_domains(Link *l) {
+static int link_update_search_domains(Link *l) {
+        _cleanup_strv_free_ char **domains = NULL;
+        char **i;
         int r;
 
-        if (!l->unicast_scope)
-                return 0;
+        assert(l);
 
-        l->unicast_scope->domains = strv_free(l->unicast_scope->domains);
-
-        r = sd_network_link_get_domains(l->ifindex,
-                                        &l->unicast_scope->domains);
+        r = sd_network_link_get_domains(l->ifindex, &domains);
         if (r < 0)
-                return r;
+                goto clear;
 
+        dns_search_domain_mark_all(l->search_domains);
+
+        STRV_FOREACH(i, domains) {
+                DnsSearchDomain *d;
+
+                r = dns_search_domain_find(l->search_domains, *i, &d);
+                if (r < 0)
+                        goto clear;
+
+                if (r > 0)
+                        dns_search_domain_move_back_and_unmark(d);
+                else {
+                        r = dns_search_domain_new(l->manager, NULL, DNS_SEARCH_DOMAIN_LINK, l, *i);
+                        if (r < 0)
+                                goto clear;
+                }
+        }
+
+        dns_search_domain_unlink_marked(l->search_domains);
         return 0;
+
+clear:
+        dns_search_domain_unlink_all(l->search_domains);
+        return r;
 }
 
 int link_update_monitor(Link *l) {
+        int r;
+
         assert(l);
 
         link_update_dns_servers(l);
         link_update_llmnr_support(l);
         link_allocate_scopes(l);
-        link_update_domains(l);
+
+        r = link_update_search_domains(l);
+        if (r < 0)
+                log_warning_errno(r, "Failed to read search domains for interface %s, ignoring: %m", l->name);
+
         link_add_rrs(l, false);
 
         return 0;

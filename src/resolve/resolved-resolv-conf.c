@@ -86,12 +86,11 @@ int manager_read_resolv_conf(Manager *m) {
         }
 
         manager_mark_dns_servers(m, DNS_SERVER_SYSTEM);
+        dns_search_domain_mark_all(m->search_domains);
 
         FOREACH_LINE(line, f, r = -errno; goto clear) {
                 const char *a;
                 char *l;
-
-                truncate_nl(line);
 
                 l = strstrip(line);
                 if (*l == '#' || *l == ';')
@@ -105,9 +104,22 @@ int manager_read_resolv_conf(Manager *m) {
 
                         continue;
                 }
+
+                a = first_word(l, "domain");
+                if (!a) /* We treat "domain" lines, and "search" lines as equivalent, and add both to our list. */
+                        a = first_word(l, "search");
+                if (a) {
+                        r = manager_parse_search_domains_and_warn(m, a);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to parse search domain string '%s', ignoring.", a);
+                }
         }
 
+        /* Flush out all servers and search domains that are still
+         * marked. Those are then ones that didn't appear in the new
+         * /etc/resolv.conf */
         manager_flush_marked_dns_servers(m, DNS_SERVER_SYSTEM);
+        dns_search_domain_unlink_marked(m->search_domains);
 
         /* Whenever /etc/resolv.conf changes, start using the first
          * DNS server of it. This is useful to deal with broken
@@ -123,6 +135,7 @@ int manager_read_resolv_conf(Manager *m) {
 
 clear:
         manager_flush_dns_servers(m, DNS_SERVER_SYSTEM);
+        dns_search_domain_unlink_all(m->search_domains);
         return r;
 }
 
@@ -211,6 +224,7 @@ int manager_write_resolv_conf(Manager *m) {
         _cleanup_free_ char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_ordered_set_free_ OrderedSet *dns = NULL, *domains = NULL;
+        DnsSearchDomain *d;
         DnsServer *s;
         Iterator i;
         Link *l;
@@ -239,10 +253,16 @@ int manager_write_resolv_conf(Manager *m) {
                         return r;
         }
 
+        LIST_FOREACH(domains, d, m->search_domains) {
+                r = ordered_set_put(domains, d->name);
+                if (r == -EEXIST)
+                        continue;
+                if (r < 0)
+                        return r;
+        }
+
         /* Then, add the per-link servers and domains */
         HASHMAP_FOREACH(l, m->links, i) {
-                char **domain;
-
                 LIST_FOREACH(servers, s, l->dns_servers) {
                         r = ordered_set_put(dns, s);
                         if (r == -EEXIST)
@@ -251,11 +271,8 @@ int manager_write_resolv_conf(Manager *m) {
                                 return r;
                 }
 
-                if (!l->unicast_scope)
-                        continue;
-
-                STRV_FOREACH(domain, l->unicast_scope->domains) {
-                        r = ordered_set_put(domains, *domain);
+                LIST_FOREACH(domains, d, l->search_domains) {
+                        r = ordered_set_put(domains, d->name);
                         if (r == -EEXIST)
                                 continue;
                         if (r < 0)

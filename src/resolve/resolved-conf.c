@@ -71,10 +71,49 @@ int manager_parse_dns_server_string_and_warn(Manager *m, DnsServerType type, con
                         break;
 
                 r = manager_add_dns_server_by_string(m, type, word);
-                if (r < 0) {
+                if (r < 0)
                         log_warning_errno(r, "Failed to add DNS server address '%s', ignoring.", word);
-                        continue;
-                }
+        }
+
+        return 0;
+}
+
+int manager_add_search_domain_by_string(Manager *m, const char *domain) {
+        DnsSearchDomain *d;
+        int r;
+
+        assert(m);
+        assert(domain);
+
+        r = dns_search_domain_find(m->search_domains, domain, &d);
+        if (r < 0)
+                return r;
+        if (r > 0) {
+                dns_search_domain_move_back_and_unmark(d);
+                return 0;
+        }
+
+        return dns_search_domain_new(m, NULL, DNS_SEARCH_DOMAIN_SYSTEM, NULL, domain);
+}
+
+int manager_parse_search_domains_and_warn(Manager *m, const char *string) {
+        int r;
+
+        assert(m);
+        assert(string);
+
+        for(;;) {
+                _cleanup_free_ char *word = NULL;
+
+                r = extract_first_word(&string, &word, NULL, EXTRACT_QUOTES);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                r = manager_add_search_domain_by_string(m, word);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to add search domain '%s', ignoring.", word);
         }
 
         return 0;
@@ -118,6 +157,45 @@ int config_parse_dns_servers(
                 m->read_resolv_conf = false;
         if (ltype == DNS_SERVER_FALLBACK)
                 m->need_builtin_fallbacks = false;
+
+        return 0;
+}
+
+int config_parse_search_domains(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Manager *m = userdata;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(m);
+
+        if (isempty(rvalue))
+                /* Empty assignment means clear the list */
+                dns_search_domain_unlink_all(m->search_domains);
+        else {
+                /* Otherwise, add to the list */
+                r = manager_parse_search_domains_and_warn(m, rvalue);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse search domains string '%s'. Ignoring.", rvalue);
+                        return 0;
+                }
+        }
+
+        /* If we have a manual setting, then we stop reading
+         * /etc/resolv.conf */
+        m->read_resolv_conf = false;
 
         return 0;
 }

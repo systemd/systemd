@@ -1,4 +1,4 @@
-<?xml version='1.0'?> <!--*-nxml-*-->
+<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
@@ -77,7 +77,7 @@
         sent to one of the listed DNS servers in parallel to any
         per-interface DNS servers acquired from
         <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-        For compatibility reasons, if this setting is not specified, ,
+        For compatibility reasons, if this setting is not specified,
         the DNS servers listed in
         <filename>/etc/resolv.conf</filename> are used instead, if
         that file exists and any servers are configured in it. This
@@ -96,6 +96,16 @@
         only used if no other DNS server information is known. If this
         option is not given, a compiled-in list of DNS servers is used
         instead.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Domains=</varname></term>
+        <listitem><para>A space-separated list of search domains.  For
+        compatibility reasons, if this setting is not specified, the
+        search domains listed in <filename>/etc/resolv.conf</filename>
+        are used instead, if that file exists and any domains are
+        configured in it. This setting defaults to the empty
+        list.</para></listitem>
       </varlistentry>
 
       <varlistentry>

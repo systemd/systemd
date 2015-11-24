@@ -536,6 +536,8 @@ Manager *manager_free(Manager *m) {
         manager_flush_dns_servers(m, DNS_SERVER_SYSTEM);
         manager_flush_dns_servers(m, DNS_SERVER_FALLBACK);
 
+        dns_search_domain_unlink_all(m->search_domains);
+
         while ((l = hashmap_first(m->links)))
                link_free(l);
 
