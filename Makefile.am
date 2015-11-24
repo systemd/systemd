@@ -5140,6 +5140,8 @@ systemd_resolved_SOURCES = \
 	src/resolve/resolved-manager.h \
 	src/resolve/resolved-conf.c \
 	src/resolve/resolved-conf.h \
+	src/resolve/resolved-resolv-conf.c \
+	src/resolve/resolved-resolv-conf.h \
 	src/resolve/resolved-bus.c \
 	src/resolve/resolved-bus.h \
 	src/resolve/resolved-link.h \

@@ -113,8 +113,6 @@ int manager_new(Manager **ret);
 Manager* manager_free(Manager *m);
 
 int manager_start(Manager *m);
-int manager_read_resolv_conf(Manager *m);
-int manager_write_resolv_conf(Manager *m);
 
 DnsServer *manager_set_dns_server(Manager *m, DnsServer *s);
 DnsServer *manager_find_dns_server(Manager *m, int family, const union in_addr_union *in_addr);
