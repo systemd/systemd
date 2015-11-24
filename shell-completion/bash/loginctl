@@ -41,7 +41,8 @@ _loginctl () {
         if __contains_word "$prev" ${OPTS[ARG]}; then
                 case $prev in
                         --signal|-s)
-                                comps=$(compgen -A signal)
+                                _signals
+                                return
                         ;;
                         --kill-who)
                                 comps='all leader'
