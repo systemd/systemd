@@ -133,7 +133,8 @@ _systemd_nspawn() {
                                 comps=$( compgen -A file -- "$cur" )
                         ;;
                         --kill-signal)
-                                comps=$(compgen -A signal)
+                                _signals
+                                return
                         ;;
                 esac
                 COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
