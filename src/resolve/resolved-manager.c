@@ -597,9 +597,10 @@ int manager_read_resolv_conf(Manager *m) {
 
         r = stat("/etc/resolv.conf", &st);
         if (r < 0) {
-                if (errno != ENOENT)
-                        log_warning_errno(errno, "Failed to open /etc/resolv.conf: %m");
-                r = -errno;
+                if (errno == ENOENT)
+                        r = 0;
+                else
+                        r = log_warning_errno(errno, "Failed to open /etc/resolv.conf: %m");
                 goto clear;
         }
 
@@ -620,9 +621,10 @@ int manager_read_resolv_conf(Manager *m) {
 
         f = fopen("/etc/resolv.conf", "re");
         if (!f) {
-                if (errno != ENOENT)
-                        log_warning_errno(errno, "Failed to open /etc/resolv.conf: %m");
-                r = -errno;
+                if (errno == ENOENT)
+                        r = 0;
+                else
+                        r = log_warning_errno(errno, "Failed to open /etc/resolv.conf: %m");
                 goto clear;
         }
 
