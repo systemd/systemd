@@ -92,7 +92,7 @@ $KERNEL_APPEND \
 
 run_nspawn() {
     set -x
-    ../../systemd-nspawn --boot --directory=$TESTDIR/nspawn-root $ROOTLIBDIR/systemd $KERNEL_APPEND
+    ../../systemd-nspawn --register=no --boot --directory=$TESTDIR/nspawn-root $ROOTLIBDIR/systemd $KERNEL_APPEND
 }
 
 setup_basic_environment() {
@@ -1135,8 +1135,7 @@ inst_libdir_file() {
 
 check_nspawn() {
     [[ -d /sys/fs/cgroup/systemd ]] && \
-    [[ -d /run/systemd/system ]] && \
-    [[ -e /lib/systemd/systemd-machined ]]
+    [[ -d /run/systemd/system ]]
 }
 
 
