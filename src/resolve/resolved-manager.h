@@ -45,6 +45,9 @@ enum Support {
 #include "resolved-dns-stream.h"
 #include "resolved-link.h"
 
+#define MANAGER_SEARCH_DOMAINS_MAX 32
+#define MANAGER_DNS_SERVERS_MAX 32
+
 struct Manager {
         sd_event *event;
 
@@ -70,9 +73,11 @@ struct Manager {
         /* Unicast dns */
         LIST_HEAD(DnsServer, dns_servers);
         LIST_HEAD(DnsServer, fallback_dns_servers);
+        unsigned n_dns_servers; /* counts both main and fallback */
         DnsServer *current_dns_server;
 
         LIST_HEAD(DnsSearchDomain, search_domains);
+        unsigned n_search_domains;
 
         bool need_builtin_fallbacks:1;
 

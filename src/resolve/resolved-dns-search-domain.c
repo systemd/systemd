@@ -31,7 +31,7 @@ int dns_search_domain_new(
                 const char *name) {
 
         _cleanup_free_ char *normalized = NULL;
-        DnsSearchDomain *d, *tail;
+        DnsSearchDomain *d;
         int r;
 
         assert(m);
@@ -48,6 +48,14 @@ int dns_search_domain_new(
         if (r > 0)
                 return -EINVAL;
 
+        if (l) {
+                if (l->n_search_domains >= LINK_SEARCH_DOMAINS_MAX)
+                        return -E2BIG;
+        } else {
+                if (m->n_search_domains >= MANAGER_SEARCH_DOMAINS_MAX)
+                        return -E2BIG;
+        }
+
         d = new0(DnsSearchDomain, 1);
         if (!d)
                 return -ENOMEM;
@@ -62,13 +70,13 @@ int dns_search_domain_new(
 
         case DNS_SEARCH_DOMAIN_LINK:
                 d->link = l;
-                LIST_FIND_TAIL(domains, l->search_domains, tail);
-                LIST_INSERT_AFTER(domains, l->search_domains, tail, d);
+                LIST_APPEND(domains, l->search_domains, d);
+                l->n_search_domains++;
                 break;
 
         case DNS_SERVER_SYSTEM:
-                LIST_FIND_TAIL(domains, m->search_domains, tail);
-                LIST_INSERT_AFTER(domains, m->search_domains, tail, d);
+                LIST_APPEND(domains, m->search_domains, d);
+                m->n_search_domains++;
                 break;
 
         default:
@@ -120,11 +128,15 @@ void dns_search_domain_unlink(DnsSearchDomain *d) {
 
         case DNS_SEARCH_DOMAIN_LINK:
                 assert(d->link);
+                assert(d->link->n_search_domains > 0);
                 LIST_REMOVE(domains, d->link->search_domains, d);
+                d->link->n_search_domains--;
                 break;
 
         case DNS_SEARCH_DOMAIN_SYSTEM:
+                assert(d->manager->n_search_domains > 0);
                 LIST_REMOVE(domains, d->manager->search_domains, d);
+                d->manager->n_search_domains--;
                 break;
         }
 

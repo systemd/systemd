@@ -37,11 +37,22 @@ int dns_server_new(
                 int family,
                 const union in_addr_union *in_addr) {
 
-        DnsServer *s, *tail;
+        DnsServer *s;
 
         assert(m);
         assert((type == DNS_SERVER_LINK) == !!l);
         assert(in_addr);
+
+        if (!IN_SET(family, AF_INET, AF_INET6))
+                return -EAFNOSUPPORT;
+
+        if (l) {
+                if (l->n_dns_servers >= LINK_DNS_SERVERS_MAX)
+                        return -E2BIG;
+        } else {
+                if (m->n_dns_servers >= MANAGER_DNS_SERVERS_MAX)
+                        return -E2BIG;
+        }
 
         s = new0(DnsServer, 1);
         if (!s)
@@ -58,18 +69,18 @@ int dns_server_new(
 
         case DNS_SERVER_LINK:
                 s->link = l;
-                LIST_FIND_TAIL(servers, l->dns_servers, tail);
-                LIST_INSERT_AFTER(servers, l->dns_servers, tail, s);
+                LIST_APPEND(servers, l->dns_servers, s);
+                l->n_dns_servers++;
                 break;
 
         case DNS_SERVER_SYSTEM:
-                LIST_FIND_TAIL(servers, m->dns_servers, tail);
-                LIST_INSERT_AFTER(servers, m->dns_servers, tail, s);
+                LIST_APPEND(servers, m->dns_servers, s);
+                m->n_dns_servers++;
                 break;
 
         case DNS_SERVER_FALLBACK:
-                LIST_FIND_TAIL(servers, m->fallback_dns_servers, tail);
-                LIST_INSERT_AFTER(servers, m->fallback_dns_servers, tail, s);
+                LIST_APPEND(servers, m->fallback_dns_servers, s);
+                m->n_dns_servers++;
                 break;
 
         default:
@@ -131,15 +142,20 @@ void dns_server_unlink(DnsServer *s) {
 
         case DNS_SERVER_LINK:
                 assert(s->link);
+                assert(s->link->n_dns_servers > 0);
                 LIST_REMOVE(servers, s->link->dns_servers, s);
                 break;
 
         case DNS_SERVER_SYSTEM:
+                assert(s->manager->n_dns_servers > 0);
                 LIST_REMOVE(servers, s->manager->dns_servers, s);
+                s->manager->n_dns_servers--;
                 break;
 
         case DNS_SERVER_FALLBACK:
+                assert(s->manager->n_dns_servers > 0);
                 LIST_REMOVE(servers, s->manager->fallback_dns_servers, s);
+                s->manager->n_dns_servers--;
                 break;
         }
 
