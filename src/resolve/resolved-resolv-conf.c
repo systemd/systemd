@@ -220,14 +220,12 @@ static int write_resolv_conf_contents(FILE *f, OrderedSet *dns, OrderedSet *doma
 }
 
 int manager_write_resolv_conf(Manager *m) {
-        static const char path[] = "/run/systemd/resolve/resolv.conf";
+
+        #define PRIVATE_RESOLV_CONF "/run/systemd/resolve/resolv.conf"
+
+        _cleanup_ordered_set_free_ OrderedSet *dns = NULL, *domains = NULL;
         _cleanup_free_ char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_ordered_set_free_ OrderedSet *dns = NULL, *domains = NULL;
-        DnsSearchDomain *d;
-        DnsServer *s;
-        Iterator i;
-        Link *l;
         int r;
 
         assert(m);
@@ -236,62 +234,15 @@ int manager_write_resolv_conf(Manager *m) {
         manager_read_resolv_conf(m);
 
         /* Add the full list to a set, to filter out duplicates */
-        dns = ordered_set_new(&dns_server_hash_ops);
-        if (!dns)
-                return -ENOMEM;
+        r = manager_compile_dns_servers(m, &dns);
+        if (r < 0)
+                return r;
 
-        domains = ordered_set_new(&dns_name_hash_ops);
-        if (!domains)
-                return -ENOMEM;
+        r = manager_compile_search_domains(m, &domains);
+        if (r < 0)
+                return r;
 
-        /* First add the system-wide servers and domains */
-        LIST_FOREACH(servers, s, m->dns_servers) {
-                r = ordered_set_put(dns, s);
-                if (r == -EEXIST)
-                        continue;
-                if (r < 0)
-                        return r;
-        }
-
-        LIST_FOREACH(domains, d, m->search_domains) {
-                r = ordered_set_put(domains, d->name);
-                if (r == -EEXIST)
-                        continue;
-                if (r < 0)
-                        return r;
-        }
-
-        /* Then, add the per-link servers and domains */
-        HASHMAP_FOREACH(l, m->links, i) {
-                LIST_FOREACH(servers, s, l->dns_servers) {
-                        r = ordered_set_put(dns, s);
-                        if (r == -EEXIST)
-                                continue;
-                        if (r < 0)
-                                return r;
-                }
-
-                LIST_FOREACH(domains, d, l->search_domains) {
-                        r = ordered_set_put(domains, d->name);
-                        if (r == -EEXIST)
-                                continue;
-                        if (r < 0)
-                                return r;
-                }
-        }
-
-        /* If we found nothing, add the fallback servers */
-        if (ordered_set_isempty(dns)) {
-                LIST_FOREACH(servers, s, m->fallback_dns_servers) {
-                        r = ordered_set_put(dns, s);
-                        if (r == -EEXIST)
-                                continue;
-                        if (r < 0)
-                                return r;
-                }
-        }
-
-        r = fopen_temporary_label(path, path, &f, &temp_path);
+        r = fopen_temporary_label(PRIVATE_RESOLV_CONF, PRIVATE_RESOLV_CONF, &f, &temp_path);
         if (r < 0)
                 return r;
 
@@ -301,7 +252,7 @@ int manager_write_resolv_conf(Manager *m) {
         if (r < 0)
                 goto fail;
 
-        if (rename(temp_path, path) < 0) {
+        if (rename(temp_path, PRIVATE_RESOLV_CONF) < 0) {
                 r = -errno;
                 goto fail;
         }
@@ -309,7 +260,7 @@ int manager_write_resolv_conf(Manager *m) {
         return 0;
 
 fail:
-        (void) unlink(path);
+        (void) unlink(PRIVATE_RESOLV_CONF);
         (void) unlink(temp_path);
         return r;
 }

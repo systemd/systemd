@@ -27,6 +27,7 @@
 
 #include "hashmap.h"
 #include "list.h"
+#include "ordered-set.h"
 
 typedef struct Manager Manager;
 typedef enum Support Support;
@@ -147,6 +148,9 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 #define EXTRA_CMSG_SPACE 1024
 
 int manager_is_own_hostname(Manager *m, const char *name);
+
+int manager_compile_dns_servers(Manager *m, OrderedSet **servers);
+int manager_compile_search_domains(Manager *m, OrderedSet **domains);
 
 const char* support_to_string(Support p) _const_;
 int support_from_string(const char *s) _pure_;

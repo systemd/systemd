@@ -1055,6 +1055,88 @@ int manager_is_own_hostname(Manager *m, const char *name) {
         return 0;
 }
 
+int manager_compile_dns_servers(Manager *m, OrderedSet **dns) {
+        DnsServer *s;
+        Iterator i;
+        Link *l;
+        int r;
+
+        assert(m);
+        assert(dns);
+
+        r = ordered_set_ensure_allocated(dns, &dns_server_hash_ops);
+        if (r < 0)
+                return r;
+
+        /* First add the system-wide servers and domains */
+        LIST_FOREACH(servers, s, m->dns_servers) {
+                r = ordered_set_put(*dns, s);
+                if (r == -EEXIST)
+                        continue;
+                if (r < 0)
+                        return r;
+        }
+
+        /* Then, add the per-link servers */
+        HASHMAP_FOREACH(l, m->links, i) {
+                LIST_FOREACH(servers, s, l->dns_servers) {
+                        r = ordered_set_put(*dns, s);
+                        if (r == -EEXIST)
+                                continue;
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        /* If we found nothing, add the fallback servers */
+        if (ordered_set_isempty(*dns)) {
+                LIST_FOREACH(servers, s, m->fallback_dns_servers) {
+                        r = ordered_set_put(*dns, s);
+                        if (r == -EEXIST)
+                                continue;
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        return 0;
+}
+
+int manager_compile_search_domains(Manager *m, OrderedSet **domains) {
+        DnsSearchDomain *d;
+        Iterator i;
+        Link *l;
+        int r;
+
+        assert(m);
+        assert(domains);
+
+        r = ordered_set_ensure_allocated(domains, &dns_name_hash_ops);
+        if (r < 0)
+                return r;
+
+        LIST_FOREACH(domains, d, m->search_domains) {
+                r = ordered_set_put(*domains, d->name);
+                if (r == -EEXIST)
+                        continue;
+                if (r < 0)
+                        return r;
+        }
+
+        HASHMAP_FOREACH(l, m->links, i) {
+
+                LIST_FOREACH(domains, d, l->search_domains) {
+                        r = ordered_set_put(*domains, d->name);
+                        if (r == -EEXIST)
+                                continue;
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        return 0;
+}
+
 static const char* const support_table[_SUPPORT_MAX] = {
         [SUPPORT_NO] = "no",
         [SUPPORT_YES] = "yes",
