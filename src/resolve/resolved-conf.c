@@ -40,7 +40,7 @@ int manager_add_dns_server_by_string(Manager *m, DnsServerType type, const char 
                 return r;
 
         /* Filter out duplicates */
-        s = manager_find_dns_server(m, type, family, &address);
+        s = dns_server_find(manager_get_first_dns_server(m, type), family, &address);
         if (s) {
                 /*
                  * Drop the marker. This is used to find the servers
@@ -141,7 +141,7 @@ int config_parse_dns_servers(
 
         if (isempty(rvalue))
                 /* Empty assignment means clear the list */
-                manager_flush_dns_servers(m, ltype);
+                dns_server_unlink_all(manager_get_first_dns_server(m, ltype));
         else {
                 /* Otherwise, add to the list */
                 r = manager_parse_dns_server_string_and_warn(m, ltype, rvalue);

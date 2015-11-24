@@ -72,14 +72,15 @@ void dns_server_move_back_and_unmark(DnsServer *s);
 void dns_server_packet_received(DnsServer *s, usec_t rtt);
 void dns_server_packet_lost(DnsServer *s, usec_t usec);
 
+DnsServer *dns_server_find(DnsServer *first, int family, const union in_addr_union *in_addr);
+
+void dns_server_unlink_all(DnsServer *first);
+void dns_server_unlink_marked(DnsServer *first);
+void dns_server_mark_all(DnsServer *first);
+
 DnsServer *manager_get_first_dns_server(Manager *m, DnsServerType t);
 
-void manager_flush_dns_servers(Manager *m, DnsServerType t);
-void manager_flush_marked_dns_servers(Manager *m, DnsServerType type);
-void manager_mark_dns_servers(Manager *m, DnsServerType type);
-
 DnsServer *manager_set_dns_server(Manager *m, DnsServer *s);
-DnsServer *manager_find_dns_server(Manager *m, DnsServerType t, int family, const union in_addr_union *in_addr);
 DnsServer *manager_get_dns_server(Manager *m);
 void manager_next_dns_server(Manager *m);
 

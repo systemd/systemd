@@ -85,7 +85,7 @@ int manager_read_resolv_conf(Manager *m) {
                 goto clear;
         }
 
-        manager_mark_dns_servers(m, DNS_SERVER_SYSTEM);
+        dns_server_mark_all(m->dns_servers);
         dns_search_domain_mark_all(m->search_domains);
 
         FOREACH_LINE(line, f, r = -errno; goto clear) {
@@ -118,7 +118,7 @@ int manager_read_resolv_conf(Manager *m) {
         /* Flush out all servers and search domains that are still
          * marked. Those are then ones that didn't appear in the new
          * /etc/resolv.conf */
-        manager_flush_marked_dns_servers(m, DNS_SERVER_SYSTEM);
+        dns_server_unlink_marked(m->dns_servers);
         dns_search_domain_unlink_marked(m->search_domains);
 
         /* Whenever /etc/resolv.conf changes, start using the first
@@ -134,7 +134,7 @@ int manager_read_resolv_conf(Manager *m) {
         return 0;
 
 clear:
-        manager_flush_dns_servers(m, DNS_SERVER_SYSTEM);
+        dns_server_unlink_all(m->dns_servers);
         dns_search_domain_unlink_all(m->search_domains);
         return r;
 }

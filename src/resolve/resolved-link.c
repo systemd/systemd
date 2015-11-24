@@ -65,7 +65,7 @@ Link *link_free(Link *l) {
         if (!l)
                 return NULL;
 
-        link_flush_dns_servers(l);
+        dns_server_unlink_marked(l->dns_servers);
         dns_search_domain_unlink_all(l->search_domains);
 
         while (l->addresses)
@@ -162,7 +162,7 @@ static int link_update_dns_servers(Link *l) {
         if (r < 0)
                 goto clear;
 
-        link_mark_dns_servers(l);
+        dns_server_mark_all(l->dns_servers);
 
         STRV_FOREACH(nameserver, nameservers) {
                 union in_addr_union a;
@@ -173,7 +173,7 @@ static int link_update_dns_servers(Link *l) {
                 if (r < 0)
                         goto clear;
 
-                s = link_find_dns_server(l, family, &a);
+                s = dns_server_find(l->dns_servers, family, &a);
                 if (s)
                         dns_server_move_back_and_unmark(s);
                 else {
@@ -183,11 +183,11 @@ static int link_update_dns_servers(Link *l) {
                 }
         }
 
-        link_flush_marked_dns_servers(l);
+        dns_server_unlink_marked(l->dns_servers);
         return 0;
 
 clear:
-        link_flush_dns_servers(l);
+        dns_server_unlink_all(l->dns_servers);
         return r;
 }
 
@@ -311,47 +311,6 @@ LinkAddress *link_find_address(Link *l, int family, const union in_addr_union *i
                 if (a->family == family && in_addr_equal(family, &a->in_addr, in_addr))
                         return a;
 
-        return NULL;
-}
-
-void link_flush_dns_servers(Link *l) {
-        assert(l);
-
-        while (l->dns_servers)
-                dns_server_unlink(l->dns_servers);
-}
-
-void link_flush_marked_dns_servers(Link *l) {
-        DnsServer *s, *next;
-
-        assert(l);
-
-        LIST_FOREACH_SAFE(servers, s, next, l->dns_servers) {
-                if (!s->marked)
-                        continue;
-
-                dns_server_unlink(s);
-        }
-}
-
-void link_mark_dns_servers(Link *l) {
-        DnsServer *s;
-
-        assert(l);
-
-        LIST_FOREACH(servers, s, l->dns_servers)
-                s->marked = true;
-}
-
-DnsServer* link_find_dns_server(Link *l, int family, const union in_addr_union *in_addr) {
-        DnsServer *s;
-
-        assert(l);
-        assert(in_addr);
-
-        LIST_FOREACH(servers, s, l->dns_servers)
-                if (s->family == family && in_addr_equal(family, &s->address, in_addr))
-                        return s;
         return NULL;
 }
 

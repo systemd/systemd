@@ -240,6 +240,50 @@ const struct hash_ops dns_server_hash_ops = {
         .compare = dns_server_compare_func
 };
 
+void dns_server_unlink_all(DnsServer *first) {
+        DnsServer *next;
+
+        if (!first)
+                return;
+
+        next = first->servers_next;
+        dns_server_unlink(first);
+
+        dns_server_unlink_all(next);
+}
+
+void dns_server_unlink_marked(DnsServer *first) {
+        DnsServer *next;
+
+        if (!first)
+                return;
+
+        next = first->servers_next;
+
+        if (first->marked)
+                dns_server_unlink(first);
+
+        dns_server_unlink_marked(next);
+}
+
+void dns_server_mark_all(DnsServer *first) {
+        if (!first)
+                return;
+
+        first->marked = true;
+        dns_server_mark_all(first->servers_next);
+}
+
+DnsServer *dns_server_find(DnsServer *first, int family, const union in_addr_union *in_addr) {
+        DnsServer *s;
+
+        LIST_FOREACH(servers, s, first)
+                if (s->family == family && in_addr_equal(family, &s->address, in_addr) > 0)
+                        return s;
+
+        return NULL;
+}
+
 DnsServer *manager_get_first_dns_server(Manager *m, DnsServerType t) {
         assert(m);
 
@@ -254,60 +298,6 @@ DnsServer *manager_get_first_dns_server(Manager *m, DnsServerType t) {
         default:
                 return NULL;
         }
-}
-
-void manager_flush_dns_servers(Manager *m, DnsServerType type) {
-        assert(m);
-
-        for (;;) {
-                DnsServer *first;
-
-                first = manager_get_first_dns_server(m, type);
-                if (!first)
-                        break;
-
-                dns_server_unlink(first);
-        }
-}
-
-void manager_flush_marked_dns_servers(Manager *m, DnsServerType type) {
-        DnsServer *first, *s, *next;
-
-        assert(m);
-
-        first = manager_get_first_dns_server(m, type);
-
-        LIST_FOREACH_SAFE(servers, s, next, first) {
-                if (!s->marked)
-                        continue;
-
-                dns_server_unlink(s);
-        }
-}
-
-void manager_mark_dns_servers(Manager *m, DnsServerType type) {
-        DnsServer *first, *s;
-
-        assert(m);
-
-        first = manager_get_first_dns_server(m, type);
-        LIST_FOREACH(servers, s, first)
-                s->marked = true;
-}
-
-DnsServer* manager_find_dns_server(Manager *m, DnsServerType type, int family, const union in_addr_union *in_addr) {
-        DnsServer *first, *s;
-
-        assert(m);
-        assert(in_addr);
-
-        first = manager_get_first_dns_server(m, type);
-
-        LIST_FOREACH(servers, s, first)
-                if (s->family == family && in_addr_equal(family, &s->address, in_addr) > 0)
-                        return s;
-
-        return NULL;
 }
 
 DnsServer *manager_set_dns_server(Manager *m, DnsServer *s) {
