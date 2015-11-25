@@ -26,11 +26,12 @@
 #include "in-addr-util.h"
 
 #define DNS_LABEL_MAX 63
-#define DNS_NAME_MAX 255
+#define DNS_LABEL_ESCAPED_MAX (DNS_LABEL_MAX*4+1)
 
 int dns_label_unescape(const char **name, char *dest, size_t sz);
 int dns_label_unescape_suffix(const char *name, const char **label_end, char *dest, size_t sz);
-int dns_label_escape(const char *p, size_t l, char **ret);
+int dns_label_escape(const char *p, size_t l, char *dest, size_t sz);
+int dns_label_escape_new(const char *p, size_t l, char **ret);
 
 int dns_label_apply_idna(const char *encoded, size_t encoded_size, char *decoded, size_t decoded_max);
 int dns_label_undo_idna(const char *encoded, size_t encoded_size, char *decoded, size_t decoded_max);

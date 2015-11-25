@@ -126,7 +126,7 @@ static void test_dns_label_escape_one(const char *what, size_t l, const char *ex
         _cleanup_free_ char *t = NULL;
         int r;
 
-        r = dns_label_escape(what, l, &t);
+        r = dns_label_escape_new(what, l, &t);
         assert_se(r == ret);
 
         if (r < 0)

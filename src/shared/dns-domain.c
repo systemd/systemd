@@ -182,29 +182,30 @@ int dns_label_unescape_suffix(const char *name, const char **label_terminal, cha
         return r;
 }
 
-int dns_label_escape(const char *p, size_t l, char **ret) {
-        _cleanup_free_ char *s = NULL;
+int dns_label_escape(const char *p, size_t l, char *dest, size_t sz) {
         char *q;
-        int r;
-
-        assert(p);
-        assert(ret);
 
         if (l > DNS_LABEL_MAX)
                 return -EINVAL;
+        if (sz < 1)
+                return -ENOSPC;
 
-        s = malloc(l * 4 + 1);
-        if (!s)
-                return -ENOMEM;
+        assert(p);
+        assert(dest);
 
-        q = s;
+        q = dest;
         while (l > 0) {
 
                 if (*p == '.' || *p == '\\') {
 
+                        if (sz < 3)
+                                return -ENOSPC;
+
                         /* Dot or backslash */
                         *(q++) = '\\';
                         *(q++) = *p;
+
+                        sz -= 2;
 
                 } else if (*p == '_' ||
                            *p == '-' ||
@@ -213,14 +214,26 @@ int dns_label_escape(const char *p, size_t l, char **ret) {
                            (*p >= 'A' && *p <= 'Z')) {
 
                         /* Proper character */
+
+                        if (sz < 2)
+                                return -ENOSPC;
+
                         *(q++) = *p;
+                        sz -= 1;
+
                 } else if ((uint8_t) *p >= (uint8_t) ' ' && *p != 127) {
 
                         /* Everything else */
+
+                        if (sz < 5)
+                                return -ENOSPC;
+
                         *(q++) = '\\';
                         *(q++) = '0' + (char) ((uint8_t) *p / 100);
                         *(q++) = '0' + (char) (((uint8_t) *p / 10) % 10);
                         *(q++) = '0' + (char) ((uint8_t) *p % 10);
+
+                        sz -= 4;
 
                 } else
                         return -EINVAL;
@@ -230,8 +243,28 @@ int dns_label_escape(const char *p, size_t l, char **ret) {
         }
 
         *q = 0;
+        return (int) (q - dest);
+}
+
+int dns_label_escape_new(const char *p, size_t l, char **ret) {
+        _cleanup_free_ char *s = NULL;
+        int r;
+
+        assert(p);
+        assert(ret);
+
+        if (l > DNS_LABEL_MAX)
+                return -EINVAL;
+
+        s = new(char, DNS_LABEL_ESCAPED_MAX);
+        if (!s)
+                return -ENOMEM;
+
+        r = dns_label_escape(p, l, s, DNS_LABEL_ESCAPED_MAX);
+        if (r < 0)
+                return r;
+
         *ret = s;
-        r = q - s;
         s = NULL;
 
         return r;
@@ -351,27 +384,31 @@ int dns_name_concat(const char *a, const char *b, char **_ret) {
                 if (k > 0)
                         r = k;
 
-                r = dns_label_escape(label, r, &t);
-                if (r < 0)
-                        return r;
-
                 if (_ret) {
-                        if (!GREEDY_REALLOC(ret, allocated, n + !first + strlen(t) + 1))
+                        if (!GREEDY_REALLOC(ret, allocated, n + !first + DNS_LABEL_ESCAPED_MAX))
                                 return -ENOMEM;
 
-                        if (!first)
-                                ret[n++] = '.';
-                        else
-                                first = false;
+                        r = dns_label_escape(label, r, ret + n + !first, DNS_LABEL_ESCAPED_MAX);
+                        if (r < 0)
+                                return r;
 
-                        memcpy(ret + n, t, r);
+                        if (!first)
+                                ret[n] = '.';
+                } else {
+                        char escaped[DNS_LABEL_ESCAPED_MAX];
+
+                        r = dns_label_escape(label, r, escaped, sizeof(escaped));
+                        if (r < 0)
+                                return r;
                 }
+
+                if (!first)
+                        n++;
+                else
+                        first = false;
 
                 n += r;
         }
-
-        if (n > DNS_NAME_MAX)
-                return -EINVAL;
 
         if (_ret) {
                 if (!GREEDY_REALLOC(ret, allocated, n + 1))
@@ -892,7 +929,8 @@ bool dns_service_name_is_valid(const char *name) {
 }
 
 int dns_service_join(const char *name, const char *type, const char *domain, char **ret) {
-        _cleanup_free_ char *escaped = NULL, *n = NULL;
+        char escaped[DNS_LABEL_ESCAPED_MAX];
+        _cleanup_free_ char *n = NULL;
         int r;
 
         assert(type);
@@ -908,7 +946,7 @@ int dns_service_join(const char *name, const char *type, const char *domain, cha
         if (!dns_service_name_is_valid(name))
                 return -EINVAL;
 
-        r = dns_label_escape(name, strlen(name), &escaped);
+        r = dns_label_escape(name, strlen(name), escaped, sizeof(escaped));
         if (r < 0)
                 return r;
 

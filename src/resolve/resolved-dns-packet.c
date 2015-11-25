@@ -1145,7 +1145,6 @@ int dns_packet_read_name(
                         /* End of name */
                         break;
                 else if (c <= 63) {
-                        _cleanup_free_ char *t = NULL;
                         const char *label;
 
                         /* Literal label */
@@ -1153,21 +1152,20 @@ int dns_packet_read_name(
                         if (r < 0)
                                 goto fail;
 
-                        r = dns_label_escape(label, c, &t);
-                        if (r < 0)
-                                goto fail;
-
-                        if (!GREEDY_REALLOC(ret, allocated, n + !first + strlen(t) + 1)) {
+                        if (!GREEDY_REALLOC(ret, allocated, n + !first + DNS_LABEL_ESCAPED_MAX)) {
                                 r = -ENOMEM;
                                 goto fail;
                         }
 
-                        if (!first)
-                                ret[n++] = '.';
-                        else
+                        if (first)
                                 first = false;
+                        else
+                                ret[n++] = '.';
 
-                        memcpy(ret + n, t, r);
+                        r = dns_label_escape(label, c, ret + n, DNS_LABEL_ESCAPED_MAX);
+                        if (r < 0)
+                                goto fail;
+
                         n += r;
                         continue;
                 } else if (allow_compression && (c & 0xc0) == 0xc0) {

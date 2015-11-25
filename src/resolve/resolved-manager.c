@@ -351,7 +351,7 @@ static int determine_hostname(char **llmnr_hostname, char **mdns_hostname) {
                 return -EINVAL;
         }
 
-        r = dns_label_escape(label, r, &n);
+        r = dns_label_escape_new(label, r, &n);
         if (r < 0)
                 return log_error_errno(r, "Failed to escape host name: %m");
 
