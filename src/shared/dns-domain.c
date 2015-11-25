@@ -29,6 +29,7 @@
 #include "hexdecoct.h"
 #include "parse-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "utf8.h"
 
 int dns_label_unescape(const char **name, char *dest, size_t sz) {
@@ -752,36 +753,27 @@ int dns_name_address(const char *p, int *family, union in_addr_union *address) {
         return 0;
 }
 
-int dns_name_root(const char *name) {
-        char label[DNS_LABEL_MAX+1];
-        int r;
+bool dns_name_is_root(const char *name) {
 
         assert(name);
 
-        r = dns_label_unescape(&name, label, sizeof(label));
-        if (r < 0)
-                return r;
+        /* There are exactly two ways to encode the root domain name:
+         * as empty string, or with a single dot. */
 
-        return r == 0 && *name == 0;
+        return STR_IN_SET(name, "", ".");
 }
 
-int dns_name_single_label(const char *name) {
+bool dns_name_is_single_label(const char *name) {
         char label[DNS_LABEL_MAX+1];
         int r;
 
         assert(name);
 
         r = dns_label_unescape(&name, label, sizeof(label));
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return 0;
+        if (r <= 0)
+                return false;
 
-        r = dns_label_unescape(&name, label, sizeof(label));
-        if (r < 0)
-                return r;
-
-        return r == 0 && *name == 0;
+        return dns_name_is_root(name);
 }
 
 /* Encode a domain name according to RFC 1035 Section 3.1 */

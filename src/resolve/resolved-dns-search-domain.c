@@ -42,10 +42,7 @@ int dns_search_domain_new(
         if (r < 0)
                 return r;
 
-        r = dns_name_root(normalized);
-        if (r < 0)
-                return r;
-        if (r > 0)
+        if (dns_name_is_root(normalized))
                 return -EINVAL;
 
         if (l) {

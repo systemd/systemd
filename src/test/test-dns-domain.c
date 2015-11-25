@@ -246,21 +246,21 @@ static void test_dns_name_endswith(void) {
         test_dns_name_endswith_one("x.y\001.z", "waldo", -EINVAL);
 }
 
-static void test_dns_name_root(void) {
-        assert_se(dns_name_root("") == true);
-        assert_se(dns_name_root(".") == true);
-        assert_se(dns_name_root("xxx") == false);
-        assert_se(dns_name_root("xxx.") == false);
-        assert_se(dns_name_root("..") == -EINVAL);
+static void test_dns_name_is_root(void) {
+        assert_se(dns_name_is_root(""));
+        assert_se(dns_name_is_root("."));
+        assert_se(!dns_name_is_root("xxx"));
+        assert_se(!dns_name_is_root("xxx."));
+        assert_se(!dns_name_is_root(".."));
 }
 
-static void test_dns_name_single_label(void) {
-        assert_se(dns_name_single_label("") == false);
-        assert_se(dns_name_single_label(".") == false);
-        assert_se(dns_name_single_label("..") == -EINVAL);
-        assert_se(dns_name_single_label("x") == true);
-        assert_se(dns_name_single_label("x.") == true);
-        assert_se(dns_name_single_label("xx.yy") == false);
+static void test_dns_name_is_single_label(void) {
+        assert_se(!dns_name_is_single_label(""));
+        assert_se(!dns_name_is_single_label("."));
+        assert_se(!dns_name_is_single_label(".."));
+        assert_se(dns_name_is_single_label("x"));
+        assert_se(dns_name_is_single_label("x."));
+        assert_se(!dns_name_is_single_label("xx.yy"));
 }
 
 static void test_dns_name_reverse_one(const char *address, const char *name) {
@@ -436,8 +436,8 @@ int main(int argc, char *argv[]) {
         test_dns_name_equal();
         test_dns_name_endswith();
         test_dns_name_between();
-        test_dns_name_root();
-        test_dns_name_single_label();
+        test_dns_name_is_root();
+        test_dns_name_is_single_label();
         test_dns_name_reverse();
         test_dns_name_concat();
         test_dns_name_is_valid();

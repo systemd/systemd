@@ -342,7 +342,7 @@ DnsScopeMatch dns_scope_good_domain(DnsScope *s, int ifindex, uint64_t flags, co
         if ((SD_RESOLVED_FLAGS_MAKE(s->protocol, s->family) & flags) == 0)
                 return DNS_SCOPE_NO;
 
-        if (dns_name_root(domain) != 0)
+        if (dns_name_is_root(domain))
                 return DNS_SCOPE_NO;
 
         /* Never resolve any loopback hostname or IP address via DNS,
@@ -362,19 +362,16 @@ DnsScopeMatch dns_scope_good_domain(DnsScope *s, int ifindex, uint64_t flags, co
                         return DNS_SCOPE_YES;
 
         switch (s->protocol) {
-        case DNS_PROTOCOL_DNS: {
-                int is_single_label;
 
-                is_single_label = dns_name_single_label(domain);
+        case DNS_PROTOCOL_DNS:
 
-                if ((is_single_label == 0 ||
-                     (is_single_label > 0 && !(flags & SD_RESOLVED_NO_SEARCH) && dns_scope_has_search_domains(s))) &&
+                if ((!dns_name_is_single_label(domain) ||
+                     (!(flags & SD_RESOLVED_NO_SEARCH) && dns_scope_has_search_domains(s))) &&
                     dns_name_endswith(domain, "254.169.in-addr.arpa") == 0 &&
                     dns_name_endswith(domain, "0.8.e.f.ip6.arpa") == 0)
                         return DNS_SCOPE_MAYBE;
 
                 return DNS_SCOPE_NO;
-        }
 
         case DNS_PROTOCOL_MDNS:
                 if ((s->family == AF_INET && dns_name_endswith(domain, "in-addr.arpa") > 0) ||
@@ -389,7 +386,7 @@ DnsScopeMatch dns_scope_good_domain(DnsScope *s, int ifindex, uint64_t flags, co
         case DNS_PROTOCOL_LLMNR:
                 if ((s->family == AF_INET && dns_name_endswith(domain, "in-addr.arpa") > 0) ||
                     (s->family == AF_INET6 && dns_name_endswith(domain, "ip6.arpa") > 0) ||
-                    (dns_name_single_label(domain) > 0 && /* only resolve single label names via LLMNR */
+                    (dns_name_is_single_label(domain) && /* only resolve single label names via LLMNR */
                      !is_gateway_hostname(domain) && /* don't resolve "gateway" with LLMNR, let nss-myhostname handle this */
                      manager_is_own_hostname(s->manager, domain) <= 0))  /* never resolve the local hostname via LLMNR */
                         return DNS_SCOPE_MAYBE;
@@ -902,11 +899,11 @@ bool dns_scope_has_search_domains(DnsScope *s) {
         return false;
 }
 
-int dns_scope_name_needs_search_domain(DnsScope *s, const char *name) {
+bool dns_scope_name_needs_search_domain(DnsScope *s, const char *name) {
         assert(s);
 
         if (s->protocol != DNS_PROTOCOL_DNS)
-                return 0;
+                return false;
 
-        return dns_name_single_label(name);
+        return dns_name_is_single_label(name);
 }

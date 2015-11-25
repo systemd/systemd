@@ -95,10 +95,7 @@ int dns_resource_key_new_append_suffix(DnsResourceKey **ret, DnsResourceKey *key
         assert(key);
         assert(name);
 
-        r = dns_name_root(name);
-        if (r < 0)
-                return r;
-        if (r > 0) {
+        if (dns_name_is_root(name)) {
                 *ret = dns_resource_key_ref(key);
                 return 0;
         }
