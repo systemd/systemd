@@ -1746,12 +1746,9 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
                 if (r < 0)
                         goto fail;
 
-                /* The types bitmap must contain at least the NSEC record itself, so an empty bitmap means
-                   something went wrong */
-                if (bitmap_isclear(rr->nsec.types)) {
-                        r = -EBADMSG;
-                        goto fail;
-                }
+                /* We accept empty NSEC bitmaps. The bit indicating the presence of the NSEC record itself
+                 * is redundant and in e.g., RFC4956 this fact is used to define a use for NSEC records
+                 * without the NSEC bit set. */
 
                 break;
 
