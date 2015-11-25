@@ -1082,7 +1082,7 @@ static int client_handle_offer(sd_dhcp_client *client, DHCPMessage *offer,
                         return r;
         }
 
-        r = dhcp_option_parse(offer, len, dhcp_lease_parse_options, lease);
+        r = dhcp_option_parse(offer, len, dhcp_lease_parse_options, lease, NULL);
         if (r != DHCP_OFFER) {
                 log_dhcp_client(client, "received message was not an OFFER, ignoring");
                 return -ENOMSG;
@@ -1121,7 +1121,7 @@ static int client_handle_forcerenew(sd_dhcp_client *client, DHCPMessage *force,
                                     size_t len) {
         int r;
 
-        r = dhcp_option_parse(force, len, NULL, NULL);
+        r = dhcp_option_parse(force, len, NULL, NULL, NULL);
         if (r != DHCP_FORCERENEW)
                 return -ENOMSG;
 
@@ -1133,6 +1133,7 @@ static int client_handle_forcerenew(sd_dhcp_client *client, DHCPMessage *force,
 static int client_handle_ack(sd_dhcp_client *client, DHCPMessage *ack,
                              size_t len) {
         _cleanup_dhcp_lease_unref_ sd_dhcp_lease *lease = NULL;
+        _cleanup_free_ char *error_message = NULL;
         int r;
 
         r = dhcp_lease_new(&lease);
@@ -1147,9 +1148,9 @@ static int client_handle_ack(sd_dhcp_client *client, DHCPMessage *ack,
                         return r;
         }
 
-        r = dhcp_option_parse(ack, len, dhcp_lease_parse_options, lease);
+        r = dhcp_option_parse(ack, len, dhcp_lease_parse_options, lease, &error_message);
         if (r == DHCP_NAK) {
-                log_dhcp_client(client, "NAK");
+                log_dhcp_client(client, "NAK: %s", strna(error_message));
                 return -EADDRNOTAVAIL;
         }
 

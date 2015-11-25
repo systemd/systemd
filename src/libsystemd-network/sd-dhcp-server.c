@@ -699,6 +699,7 @@ static int get_pool_offset(sd_dhcp_server *server, be32_t requested_ip) {
 int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
                                size_t length) {
         _cleanup_dhcp_request_free_ DHCPRequest *req = NULL;
+        _cleanup_free_ char *error_message = NULL;
         DHCPLease *existing_lease;
         int type, r;
 
@@ -714,7 +715,7 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
         if (!req)
                 return -ENOMEM;
 
-        type = dhcp_option_parse(message, length, parse_request, req);
+        type = dhcp_option_parse(message, length, parse_request, req, &error_message);
         if (type < 0)
                 return 0;
 
@@ -784,8 +785,7 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
                 break;
         }
         case DHCP_DECLINE:
-                log_dhcp_server(server, "DECLINE (0x%x)",
-                                be32toh(req->message->xid));
+                log_dhcp_server(server, "DECLINE (0x%x): %s", be32toh(req->message->xid), strna(error_message));
 
                 /* TODO: make sure we don't offer this address again */
 
