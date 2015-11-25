@@ -71,9 +71,10 @@ struct DnsTransaction {
         /* TCP connection logic, if we need it */
         DnsStream *stream;
 
-        /* Queries this transaction is referenced by and that shall be
-         * notified about this specific transaction completing. */
-        Set *queries;
+        /* Query candidates this transaction is referenced by and that
+         * shall be notified about this specific transaction
+         * completing. */
+        Set *query_candidates;
 
         /* Zone items this transaction is referenced by and that shall
          * be notified about completion. */

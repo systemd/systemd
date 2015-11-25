@@ -26,11 +26,26 @@
 
 #include "set.h"
 
+typedef struct DnsQueryCandidate DnsQueryCandidate;
 typedef struct DnsQuery DnsQuery;
 
 #include "resolved-dns-answer.h"
 #include "resolved-dns-question.h"
 #include "resolved-dns-stream.h"
+#include "resolved-dns-search-domain.h"
+
+struct DnsQueryCandidate {
+        DnsQuery *query;
+        DnsScope *scope;
+
+        DnsSearchDomain *search_domain;
+
+        int error_code;
+        Set *transactions;
+
+        LIST_FIELDS(DnsQueryCandidate, candidates_by_query);
+        LIST_FIELDS(DnsQueryCandidate, candidates_by_scope);
+};
 
 struct DnsQuery {
         Manager *manager;
@@ -45,13 +60,13 @@ struct DnsQuery {
         int auxiliary_result;
 
         DnsQuestion *question;
-
         uint64_t flags;
         int ifindex;
 
         DnsTransactionState state;
         unsigned n_cname_redirects;
 
+        LIST_HEAD(DnsQueryCandidate, candidates);
         sd_event_source *timeout_event_source;
 
         /* Discovered data */
@@ -59,6 +74,7 @@ struct DnsQuery {
         int answer_family;
         DnsProtocol answer_protocol;
         int answer_rcode;
+        DnsSearchDomain *answer_search_domain;
 
         /* Bus client information */
         sd_bus_message *request;
@@ -71,13 +87,14 @@ struct DnsQuery {
         void (*complete)(DnsQuery* q);
         unsigned block_ready;
 
-        Set *transactions;
-
         sd_bus_track *bus_track;
 
         LIST_FIELDS(DnsQuery, queries);
         LIST_FIELDS(DnsQuery, auxiliary_queries);
 };
+
+DnsQueryCandidate* dns_query_candidate_free(DnsQueryCandidate *c);
+void dns_query_candidate_ready(DnsQueryCandidate *c);
 
 int dns_query_new(Manager *m, DnsQuery **q, DnsQuestion *question, int family, uint64_t flags);
 DnsQuery *dns_query_free(DnsQuery *q);

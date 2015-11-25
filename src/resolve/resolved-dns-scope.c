@@ -69,18 +69,12 @@ int dns_scope_new(Manager *m, DnsScope **ret, Link *l, DnsProtocol protocol, int
         return 0;
 }
 
-DnsScope* dns_scope_free(DnsScope *s) {
+static void dns_scope_abort_transactions(DnsScope *s) {
         DnsTransaction *t;
-        DnsResourceRecord *rr;
 
-        if (!s)
-                return NULL;
+        assert(s);
 
-        log_debug("Removing scope on link %s, protocol %s, family %s", s->link ? s->link->name : "*", dns_protocol_to_string(s->protocol), s->family == AF_UNSPEC ? "*" : af_to_name(s->family));
-
-        dns_scope_llmnr_membership(s, false);
-
-        while ((t = hashmap_steal_first(s->transactions))) {
+        while ((t = hashmap_first(s->transactions))) {
                 /* Abort the transaction, but make sure it is not
                  * freed while we still look at it */
 
@@ -90,6 +84,21 @@ DnsScope* dns_scope_free(DnsScope *s) {
 
                 dns_transaction_free(t);
         }
+}
+
+DnsScope* dns_scope_free(DnsScope *s) {
+        DnsResourceRecord *rr;
+
+        if (!s)
+                return NULL;
+
+        log_debug("Removing scope on link %s, protocol %s, family %s", s->link ? s->link->name : "*", dns_protocol_to_string(s->protocol), s->family == AF_UNSPEC ? "*" : af_to_name(s->family));
+
+        dns_scope_llmnr_membership(s, false);
+        dns_scope_abort_transactions(s);
+
+        while (s->query_candidates)
+                dns_query_candidate_free(s->query_candidates);
 
         hashmap_free(s->transactions);
 
@@ -344,18 +353,28 @@ DnsScopeMatch dns_scope_good_domain(DnsScope *s, int ifindex, uint64_t flags, co
             dns_name_equal(domain, "1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa") > 0)
                 return DNS_SCOPE_NO;
 
+        /* Always honour search domains for routing queries. Note that
+         * we return DNS_SCOPE_YES here, rather than just
+         * DNS_SCOPE_MAYBE, which means wildcard scopes won't be
+         * considered anymore. */
         LIST_FOREACH(domains, d, dns_scope_get_search_domains(s))
                 if (dns_name_endswith(domain, d->name) > 0)
                         return DNS_SCOPE_YES;
 
         switch (s->protocol) {
-        case DNS_PROTOCOL_DNS:
-                if (dns_name_endswith(domain, "254.169.in-addr.arpa") == 0 &&
-                    dns_name_endswith(domain, "0.8.e.f.ip6.arpa") == 0 &&
-                    dns_name_single_label(domain) == 0)
+        case DNS_PROTOCOL_DNS: {
+                int is_single_label;
+
+                is_single_label = dns_name_single_label(domain);
+
+                if ((is_single_label == 0 ||
+                     (is_single_label > 0 && !(flags & SD_RESOLVED_NO_SEARCH) && dns_scope_has_search_domains(s))) &&
+                    dns_name_endswith(domain, "254.169.in-addr.arpa") == 0 &&
+                    dns_name_endswith(domain, "0.8.e.f.ip6.arpa") == 0)
                         return DNS_SCOPE_MAYBE;
 
                 return DNS_SCOPE_NO;
+        }
 
         case DNS_PROTOCOL_MDNS:
                 if ((s->family == AF_INET && dns_name_endswith(domain, "in-addr.arpa") > 0) ||
@@ -851,6 +870,10 @@ void dns_scope_dump(DnsScope *s, FILE *f) {
 }
 
 DnsSearchDomain *dns_scope_get_search_domains(DnsScope *s) {
+        assert(s);
+
+        /* Returns the list of *local* search domains -- not the
+         * global ones. */
 
         if (s->protocol != DNS_PROTOCOL_DNS)
                 return NULL;
@@ -859,4 +882,31 @@ DnsSearchDomain *dns_scope_get_search_domains(DnsScope *s) {
                 return s->link->search_domains;
 
         return NULL;
+}
+
+bool dns_scope_has_search_domains(DnsScope *s) {
+        assert(s);
+
+        /* Tests if there are *any* search domains suitable for this
+         * scope. This means either local or global ones */
+
+        if (s->protocol != DNS_PROTOCOL_DNS)
+                return false;
+
+        if (s->manager->search_domains)
+                return true;
+
+        if (s->link && s->link->search_domains)
+                return true;
+
+        return false;
+}
+
+int dns_scope_name_needs_search_domain(DnsScope *s, const char *name) {
+        assert(s);
+
+        if (s->protocol != DNS_PROTOCOL_DNS)
+                return 0;
+
+        return dns_name_single_label(name);
 }

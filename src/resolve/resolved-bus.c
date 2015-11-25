@@ -166,7 +166,7 @@ static void bus_method_resolve_hostname_complete(DnsQuery *q) {
                 int ifindex;
 
                 DNS_ANSWER_FOREACH_IFINDEX(rr, ifindex, q->answer) {
-                        r = dns_question_matches_rr(q->question, rr);
+                        r = dns_question_matches_rr(q->question, rr, DNS_SEARCH_DOMAIN_NAME(q->answer_search_domain));
                         if (r < 0)
                                 goto finish;
                         if (r == 0)
@@ -254,7 +254,7 @@ static int bus_method_resolve_hostname(sd_bus_message *message, void *userdata, 
         if (r == 0)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid hostname '%s'", hostname);
 
-        r = check_ifindex_flags(ifindex, &flags, 0, error);
+        r = check_ifindex_flags(ifindex, &flags, SD_RESOLVED_NO_SEARCH, error);
         if (r < 0)
                 return r;
 
@@ -310,7 +310,7 @@ static void bus_method_resolve_address_complete(DnsQuery *q) {
 
         if (q->answer) {
                 DNS_ANSWER_FOREACH_IFINDEX(rr, ifindex, q->answer) {
-                        r = dns_question_matches_rr(q->question, rr);
+                        r = dns_question_matches_rr(q->question, rr, NULL);
                         if (r < 0)
                                 goto finish;
                         if (r == 0)
@@ -392,7 +392,7 @@ static int bus_method_resolve_address(sd_bus_message *message, void *userdata, s
         if (r < 0)
                 return r;
 
-        r = dns_query_new(m, &q, question, ifindex, flags);
+        r = dns_query_new(m, &q, question, ifindex, flags|SD_RESOLVED_NO_SEARCH);
         if (r < 0)
                 return r;
 
@@ -487,7 +487,7 @@ static void bus_method_resolve_record_complete(DnsQuery *q) {
                 int ifindex;
 
                 DNS_ANSWER_FOREACH_IFINDEX(rr, ifindex, q->answer) {
-                        r = dns_question_matches_rr(q->question, rr);
+                        r = dns_question_matches_rr(q->question, rr, NULL);
                         if (r < 0)
                                 goto finish;
                         if (r == 0)
@@ -566,7 +566,7 @@ static int bus_method_resolve_record(sd_bus_message *message, void *userdata, sd
         if (r < 0)
                 return r;
 
-        r = dns_query_new(m, &q, question, ifindex, flags);
+        r = dns_query_new(m, &q, question, ifindex, flags|SD_RESOLVED_NO_SEARCH);
         if (r < 0)
                 return r;
 
@@ -620,7 +620,7 @@ static int append_srv(DnsQuery *q, sd_bus_message *reply, DnsResourceRecord *rr)
 
                         DNS_ANSWER_FOREACH(zz, aux->answer) {
 
-                                r = dns_question_matches_rr(aux->question, zz);
+                                r = dns_question_matches_rr(aux->question, zz, NULL);
                                 if (r < 0)
                                         return r;
                                 if (r == 0)
@@ -672,7 +672,7 @@ static int append_srv(DnsQuery *q, sd_bus_message *reply, DnsResourceRecord *rr)
 
                         DNS_ANSWER_FOREACH_IFINDEX(zz, ifindex, aux->answer) {
 
-                                r = dns_question_matches_rr(aux->question, zz);
+                                r = dns_question_matches_rr(aux->question, zz, NULL);
                                 if (r < 0)
                                         return r;
                                 if (r == 0)
@@ -798,7 +798,7 @@ static void resolve_service_all_complete(DnsQuery *q) {
                 DnsResourceRecord *rr;
 
                 DNS_ANSWER_FOREACH(rr, q->answer) {
-                        r = dns_question_matches_rr(q->question, rr);
+                        r = dns_question_matches_rr(q->question, rr, NULL);
                         if (r < 0)
                                 goto finish;
                         if (r == 0)
@@ -834,7 +834,7 @@ static void resolve_service_all_complete(DnsQuery *q) {
                 DnsResourceRecord *rr;
 
                 DNS_ANSWER_FOREACH(rr, q->answer) {
-                        r = dns_question_matches_rr(q->question, rr);
+                        r = dns_question_matches_rr(q->question, rr, NULL);
                         if (r < 0)
                                 goto finish;
                         if (r == 0)
@@ -911,7 +911,7 @@ static int resolve_service_hostname(DnsQuery *q, DnsResourceRecord *rr, int ifin
         if (r < 0)
                 return r;
 
-        r = dns_query_new(q->manager, &aux, question, ifindex, q->flags);
+        r = dns_query_new(q->manager, &aux, question, ifindex, q->flags|SD_RESOLVED_NO_SEARCH);
         if (r < 0)
                 return r;
 
@@ -970,7 +970,7 @@ static void bus_method_resolve_service_complete(DnsQuery *q) {
                 int ifindex;
 
                 DNS_ANSWER_FOREACH_IFINDEX(rr, ifindex, q->answer) {
-                        r = dns_question_matches_rr(q->question, rr);
+                        r = dns_question_matches_rr(q->question, rr, NULL);
                         if (r < 0)
                                 goto finish;
                         if (r == 0)
@@ -1078,7 +1078,7 @@ static int bus_method_resolve_service(sd_bus_message *message, void *userdata, s
         if (r < 0)
                 return r;
 
-        r = dns_query_new(m, &q, question, ifindex, flags);
+        r = dns_query_new(m, &q, question, ifindex, flags|SD_RESOLVED_NO_SEARCH);
         if (r < 0)
                 return r;
 

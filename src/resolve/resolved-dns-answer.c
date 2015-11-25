@@ -141,7 +141,7 @@ int dns_answer_contains(DnsAnswer *a, DnsResourceKey *key) {
                 return 0;
 
         for (i = 0; i < a->n_rrs; i++) {
-                r = dns_resource_key_match_rr(key, a->items[i].rr);
+                r = dns_resource_key_match_rr(key, a->items[i].rr, NULL);
                 if (r < 0)
                         return r;
                 if (r > 0)

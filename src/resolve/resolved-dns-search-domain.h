@@ -68,4 +68,8 @@ void dns_search_domain_mark_all(DnsSearchDomain *first);
 
 int dns_search_domain_find(DnsSearchDomain *first, const char *name, DnsSearchDomain **ret);
 
+static inline const char* DNS_SEARCH_DOMAIN_NAME(DnsSearchDomain *d) {
+        return d ? d->name : NULL;
+}
+
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsSearchDomain*, dns_search_domain_unref);

@@ -86,6 +86,37 @@ DnsResourceKey* dns_resource_key_new_redirect(const DnsResourceKey *key, const D
         }
 }
 
+int dns_resource_key_new_append_suffix(DnsResourceKey **ret, DnsResourceKey *key, char *name) {
+        DnsResourceKey *new_key;
+        char *joined;
+        int r;
+
+        assert(ret);
+        assert(key);
+        assert(name);
+
+        r = dns_name_root(name);
+        if (r < 0)
+                return r;
+        if (r > 0) {
+                *ret = dns_resource_key_ref(key);
+                return 0;
+        }
+
+        r = dns_name_concat(DNS_RESOURCE_KEY_NAME(key), name, &joined);
+        if (r < 0)
+                return r;
+
+        new_key = dns_resource_key_new_consume(key->class, key->type, joined);
+        if (!new_key) {
+                free(joined);
+                return -ENOMEM;
+        }
+
+        *ret = new_key;
+        return 0;
+}
+
 DnsResourceKey* dns_resource_key_new_consume(uint16_t class, uint16_t type, char *name) {
         DnsResourceKey *k;
 
@@ -145,9 +176,15 @@ int dns_resource_key_equal(const DnsResourceKey *a, const DnsResourceKey *b) {
         return 1;
 }
 
-int dns_resource_key_match_rr(const DnsResourceKey *key, const DnsResourceRecord *rr) {
+int dns_resource_key_match_rr(const DnsResourceKey *key, const DnsResourceRecord *rr, const char *search_domain) {
+        int r;
+
         assert(key);
         assert(rr);
+
+        /* Checks if an rr matches the specified key. If a search
+         * domain is specified, it will also be checked if the key
+         * with the search domain suffixed might match the RR. */
 
         if (rr->key->class != key->class && key->class != DNS_CLASS_ANY)
                 return 0;
@@ -155,10 +192,26 @@ int dns_resource_key_match_rr(const DnsResourceKey *key, const DnsResourceRecord
         if (rr->key->type != key->type && key->type != DNS_TYPE_ANY)
                 return 0;
 
-        return dns_name_equal(DNS_RESOURCE_KEY_NAME(rr->key), DNS_RESOURCE_KEY_NAME(key));
+        r = dns_name_equal(DNS_RESOURCE_KEY_NAME(rr->key), DNS_RESOURCE_KEY_NAME(key));
+        if (r != 0)
+                return r;
+
+        if (search_domain) {
+                _cleanup_free_ char *joined = NULL;
+
+                r = dns_name_concat(DNS_RESOURCE_KEY_NAME(key), search_domain, &joined);
+                if (r < 0)
+                        return r;
+
+                return dns_name_equal(DNS_RESOURCE_KEY_NAME(rr->key), joined);
+        }
+
+        return 0;
 }
 
-int dns_resource_key_match_cname(const DnsResourceKey *key, const DnsResourceRecord *rr) {
+int dns_resource_key_match_cname(const DnsResourceKey *key, const DnsResourceRecord *rr, const char *search_domain) {
+        int r;
+
         assert(key);
         assert(rr);
 
@@ -166,11 +219,30 @@ int dns_resource_key_match_cname(const DnsResourceKey *key, const DnsResourceRec
                 return 0;
 
         if (rr->key->type == DNS_TYPE_CNAME)
-                return dns_name_equal(DNS_RESOURCE_KEY_NAME(key), DNS_RESOURCE_KEY_NAME(rr->key));
+                r = dns_name_equal(DNS_RESOURCE_KEY_NAME(key), DNS_RESOURCE_KEY_NAME(rr->key));
         else if (rr->key->type == DNS_TYPE_DNAME)
-                return dns_name_endswith(DNS_RESOURCE_KEY_NAME(key), DNS_RESOURCE_KEY_NAME(rr->key));
+                r = dns_name_endswith(DNS_RESOURCE_KEY_NAME(key), DNS_RESOURCE_KEY_NAME(rr->key));
         else
                 return 0;
+
+        if (r != 0)
+                return r;
+
+        if (search_domain) {
+                _cleanup_free_ char *joined = NULL;
+
+                r = dns_name_concat(DNS_RESOURCE_KEY_NAME(key), search_domain, &joined);
+                if (r < 0)
+                        return r;
+
+                if (rr->key->type == DNS_TYPE_CNAME)
+                        return dns_name_equal(joined, DNS_RESOURCE_KEY_NAME(rr->key));
+                else if (rr->key->type == DNS_TYPE_DNAME)
+                        return dns_name_endswith(joined, DNS_RESOURCE_KEY_NAME(rr->key));
+        }
+
+        return 0;
+
 }
 
 static void dns_resource_key_hash_func(const void *i, struct siphash *state) {

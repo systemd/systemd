@@ -680,6 +680,7 @@ static void help(void) {
                "     --service-address=BOOL Do [not] resolve address for services\n"
                "     --service-txt=BOOL     Do [not] resolve TXT records for services\n"
                "     --cname=BOOL           Do [not] follow CNAME redirects\n"
+               "     --search=BOOL          Do [not] use search domains\n"
                "     --legend=BOOL          Do [not] print column headers\n"
                , program_invocation_short_name, program_invocation_short_name);
 }
@@ -692,6 +693,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_CNAME,
                 ARG_SERVICE_ADDRESS,
                 ARG_SERVICE_TXT,
+                ARG_SEARCH,
         };
 
         static const struct option options[] = {
@@ -705,6 +707,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "service",         no_argument,       NULL, ARG_SERVICE         },
                 { "service-address", required_argument, NULL, ARG_SERVICE_ADDRESS },
                 { "service-txt",     required_argument, NULL, ARG_SERVICE_TXT     },
+                { "search",          required_argument, NULL, ARG_SEARCH          },
                 {}
         };
 
@@ -832,6 +835,16 @@ static int parse_argv(int argc, char *argv[]) {
                                 arg_flags |= SD_RESOLVED_NO_TXT;
                         else
                                 arg_flags &= ~SD_RESOLVED_NO_TXT;
+                        break;
+
+                case ARG_SEARCH:
+                        r = parse_boolean(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --search argument.");
+                        if (r == 0)
+                                arg_flags |= SD_RESOLVED_NO_SEARCH;
+                        else
+                                arg_flags &= ~SD_RESOLVED_NO_SEARCH;
                         break;
 
                 case '?':

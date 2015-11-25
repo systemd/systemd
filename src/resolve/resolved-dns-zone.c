@@ -311,7 +311,7 @@ int dns_zone_lookup(DnsZone *z, DnsResourceKey *key, DnsAnswer **ret_answer, Dns
 
                         found = true;
 
-                        k = dns_resource_key_match_rr(key, j->rr);
+                        k = dns_resource_key_match_rr(key, j->rr, NULL);
                         if (k < 0)
                                 return k;
                         if (k > 0) {
@@ -381,7 +381,7 @@ int dns_zone_lookup(DnsZone *z, DnsResourceKey *key, DnsAnswer **ret_answer, Dns
                         if (j->state != DNS_ZONE_ITEM_PROBING)
                                 tentative = false;
 
-                        k = dns_resource_key_match_rr(key, j->rr);
+                        k = dns_resource_key_match_rr(key, j->rr, NULL);
                         if (k < 0)
                                 return k;
                         if (k > 0) {

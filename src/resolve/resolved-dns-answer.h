@@ -61,7 +61,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(DnsAnswer*, dns_answer_unref);
 
 #define DNS_ANSWER_FOREACH(kk, a)                                       \
         for (unsigned _i = ({                                           \
-                                (kk) = ((a) && (a)->n_rrs > 0 ? (a)->items[0].rr : NULL); \
+                                (kk) = ((a) && (a)->n_rrs > 0) ? (a)->items[0].rr : NULL; \
                                 0;                                      \
                            });                                          \
              (a) && ((_i) < (a)->n_rrs);                                \
@@ -69,9 +69,9 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(DnsAnswer*, dns_answer_unref);
 
 #define DNS_ANSWER_FOREACH_IFINDEX(kk, ifindex, a)                      \
         for (unsigned _i = ({                                           \
-                                (kk) = ((a) && (a)->n_rrs > 0 ? (a)->items[0].rr : NULL); \
-                                (ifindex) = ((a) && (a)->n_rrs > 0 ? (a)->items[0].ifindex : 0); \
+                                (kk) = ((a) && (a)->n_rrs > 0) ? (a)->items[0].rr : NULL; \
+                                (ifindex) = ((a) && (a)->n_rrs > 0) ? (a)->items[0].ifindex : 0; \
                                 0;                                      \
                            });                                          \
              (a) && ((_i) < (a)->n_rrs);                                \
-             _i++, (kk) = (_i < (a)->n_rrs ? (a)->items[_i].rr : NULL), (ifindex) = (_i < (a)->n_rrs ? (a)->items[_i].ifindex : 0))
+             _i++, (kk) = ((_i < (a)->n_rrs) ? (a)->items[_i].rr : NULL), (ifindex) = ((_i < (a)->n_rrs) ? (a)->items[_i].ifindex : 0))

@@ -188,12 +188,13 @@ DnsResourceKey* dns_resource_key_new(uint16_t class, uint16_t type, const char *
 DnsResourceKey* dns_resource_key_new_cname(const DnsResourceKey *key);
 DnsResourceKey* dns_resource_key_new_dname(const DnsResourceKey *key);
 DnsResourceKey* dns_resource_key_new_redirect(const DnsResourceKey *key, const DnsResourceRecord *cname);
+int dns_resource_key_new_append_suffix(DnsResourceKey **ret, DnsResourceKey *key, char *name);
 DnsResourceKey* dns_resource_key_new_consume(uint16_t class, uint16_t type, char *name);
 DnsResourceKey* dns_resource_key_ref(DnsResourceKey *key);
 DnsResourceKey* dns_resource_key_unref(DnsResourceKey *key);
 int dns_resource_key_equal(const DnsResourceKey *a, const DnsResourceKey *b);
-int dns_resource_key_match_rr(const DnsResourceKey *key, const DnsResourceRecord *rr);
-int dns_resource_key_match_cname(const DnsResourceKey *key, const DnsResourceRecord *rr);
+int dns_resource_key_match_rr(const DnsResourceKey *key, const DnsResourceRecord *rr, const char *search_domain);
+int dns_resource_key_match_cname(const DnsResourceKey *key, const DnsResourceRecord *rr, const char *search_domain);
 int dns_resource_key_to_string(const DnsResourceKey *key, char **ret);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsResourceKey*, dns_resource_key_unref);
 
