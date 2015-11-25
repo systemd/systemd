@@ -1041,13 +1041,8 @@ static int bus_method_resolve_service(sd_bus_message *message, void *userdata, s
 
         if (isempty(type))
                 type = NULL;
-        else {
-                r = dns_srv_type_verify(type);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid SRV service type '%s'", type);
-        }
+        else if (!dns_srv_type_is_valid(type))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid SRV service type '%s'", type);
 
         r = dns_name_is_valid(domain);
         if (r < 0)

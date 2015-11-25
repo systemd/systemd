@@ -838,12 +838,12 @@ static bool srv_type_label_is_valid(const char *label, size_t n) {
         return true;
 }
 
-int dns_srv_type_verify(const char *name) {
+bool dns_srv_type_is_valid(const char *name) {
         unsigned c = 0;
         int r;
 
         if (!name)
-                return 0;
+                return false;
 
         for (;;) {
                 char label[DNS_LABEL_MAX];
@@ -851,18 +851,16 @@ int dns_srv_type_verify(const char *name) {
                 /* This more or less implements RFC 6335, Section 5.1 */
 
                 r = dns_label_unescape(&name, label, sizeof(label));
-                if (r == -EINVAL)
-                        return 0;
                 if (r < 0)
-                        return r;
+                        return false;
                 if (r == 0)
                         break;
 
                 if (c >= 2)
-                        return 0;
+                        return false;
 
                 if (!srv_type_label_is_valid(label, r))
-                        return 0;
+                        return false;
 
                 c++;
         }
@@ -901,7 +899,7 @@ int dns_service_join(const char *name, const char *type, const char *domain, cha
         assert(domain);
         assert(ret);
 
-        if (!dns_srv_type_verify(type))
+        if (!dns_srv_type_is_valid(type))
                 return -EINVAL;
 
         if (!name)

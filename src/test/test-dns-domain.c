@@ -327,27 +327,27 @@ static void test_dns_service_name_is_valid(void) {
         assert_se(!dns_service_name_is_valid("this is an overly long string that is certainly longer than 63 characters"));
 }
 
-static void test_dns_srv_type_verify(void) {
+static void test_dns_srv_type_is_valid(void) {
 
-        assert_se(dns_srv_type_verify("_http._tcp") > 0);
-        assert_se(dns_srv_type_verify("_foo-bar._tcp") > 0);
-        assert_se(dns_srv_type_verify("_w._udp") > 0);
-        assert_se(dns_srv_type_verify("_a800._tcp") > 0);
-        assert_se(dns_srv_type_verify("_a-800._tcp") > 0);
+        assert_se(dns_srv_type_is_valid("_http._tcp"));
+        assert_se(dns_srv_type_is_valid("_foo-bar._tcp"));
+        assert_se(dns_srv_type_is_valid("_w._udp"));
+        assert_se(dns_srv_type_is_valid("_a800._tcp"));
+        assert_se(dns_srv_type_is_valid("_a-800._tcp"));
 
-        assert_se(dns_srv_type_verify(NULL) == 0);
-        assert_se(dns_srv_type_verify("") == 0);
-        assert_se(dns_srv_type_verify("x") == 0);
-        assert_se(dns_srv_type_verify("_foo") == 0);
-        assert_se(dns_srv_type_verify("_tcp") == 0);
-        assert_se(dns_srv_type_verify("_") == 0);
-        assert_se(dns_srv_type_verify("_foo.") == 0);
-        assert_se(dns_srv_type_verify("_föo._tcp") == 0);
-        assert_se(dns_srv_type_verify("_f\no._tcp") == 0);
-        assert_se(dns_srv_type_verify("_800._tcp") == 0);
-        assert_se(dns_srv_type_verify("_-800._tcp") == 0);
-        assert_se(dns_srv_type_verify("_-foo._tcp") == 0);
-        assert_se(dns_srv_type_verify("_piep._foo._udp") == 0);
+        assert_se(!dns_srv_type_is_valid(NULL));
+        assert_se(!dns_srv_type_is_valid(""));
+        assert_se(!dns_srv_type_is_valid("x"));
+        assert_se(!dns_srv_type_is_valid("_foo"));
+        assert_se(!dns_srv_type_is_valid("_tcp"));
+        assert_se(!dns_srv_type_is_valid("_"));
+        assert_se(!dns_srv_type_is_valid("_foo."));
+        assert_se(!dns_srv_type_is_valid("_föo._tcp"));
+        assert_se(!dns_srv_type_is_valid("_f\no._tcp"));
+        assert_se(!dns_srv_type_is_valid("_800._tcp"));
+        assert_se(!dns_srv_type_is_valid("_-800._tcp"));
+        assert_se(!dns_srv_type_is_valid("_-foo._tcp"));
+        assert_se(!dns_srv_type_is_valid("_piep._foo._udp"));
 }
 
 static void test_dns_service_join_one(const char *a, const char *b, const char *c, int r, const char *d) {
@@ -443,7 +443,7 @@ int main(int argc, char *argv[]) {
         test_dns_name_is_valid();
         test_dns_name_to_wire_format();
         test_dns_service_name_is_valid();
-        test_dns_srv_type_verify();
+        test_dns_srv_type_is_valid();
         test_dns_service_join();
         test_dns_service_split();
         test_dns_name_change_suffix();
