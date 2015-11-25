@@ -2040,9 +2040,13 @@ static int link_configure(Link *link) {
         assert(link->network);
         assert(link->state == LINK_STATE_PENDING);
 
-        r = link_drop_foreign_config(link);
-        if (r < 0)
-                return r;
+        /* Drop foreign config, but ignore loopback device.
+         * We do not want to remove loopback address. */
+        if (!(link->flags & IFF_LOOPBACK)) {
+                r = link_drop_foreign_config(link);
+                if (r < 0)
+                        return r;
+        }
 
         r = link_set_bridge_fdb(link);
         if (r < 0)
