@@ -88,7 +88,8 @@
     configured in a unit file <filename>home-lennart.mount</filename>.
     For details about the escaping logic used to convert a file system
     path to a unit name, see
-    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    Note that mount units cannot be templated.</para>
 
     <para>Optionally, a mount unit may be accompanied by an automount
     unit, to allow on-demand or parallelized mounting. See
