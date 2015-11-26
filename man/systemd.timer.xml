@@ -224,9 +224,9 @@
         it unlikely that they fire simultaneously. If
         <varname>RandomizedDelaySec=</varname> and
         <varname>AccuracySec=</varname> are used in conjunction, first
-        the a randomized time is added, and the result is then
-        possibly shifted further to coalesce it with other timer
-        events possibly happening on the system. As mentioned above
+        the randomized delay is added, and then the result is
+        possibly further shifted to coalesce it with other timer
+        events happening on the system. As mentioned above
         <varname>AccuracySec=</varname> defaults to 1min and
         <varname>RandomizedDelaySec=</varname> to 0, thus encouraging
         coalescing of timer events. In order to optimally stretch
