@@ -49,7 +49,8 @@ DnsTransaction* dns_transaction_free(DnsTransaction *t) {
         dns_stream_free(t->stream);
 
         if (t->scope) {
-                hashmap_remove(t->scope->transactions, t->key);
+                hashmap_remove_value(t->scope->transactions_by_key, t->key, t);
+                LIST_REMOVE(transactions_by_scope, t->scope->transactions, t);
 
                 if (t->id != 0)
                         hashmap_remove(t->scope->manager->dns_transactions, UINT_TO_PTR(t->id));
@@ -94,7 +95,7 @@ int dns_transaction_new(DnsTransaction **ret, DnsScope *s, DnsResourceKey *key) 
         if (r < 0)
                 return r;
 
-        r = hashmap_ensure_allocated(&s->transactions, &dns_resource_key_hash_ops);
+        r = hashmap_ensure_allocated(&s->transactions_by_key, &dns_resource_key_hash_ops);
         if (r < 0)
                 return r;
 
@@ -118,12 +119,13 @@ int dns_transaction_new(DnsTransaction **ret, DnsScope *s, DnsResourceKey *key) 
                 return r;
         }
 
-        r = hashmap_put(s->transactions, t->key, t);
+        r = hashmap_replace(s->transactions_by_key, t->key, t);
         if (r < 0) {
                 hashmap_remove(s->manager->dns_transactions, UINT_TO_PTR(t->id));
                 return r;
         }
 
+        LIST_PREPEND(transactions_by_scope, s->transactions, t);
         t->scope = s;
 
         if (ret)

@@ -70,11 +70,11 @@ int dns_scope_new(Manager *m, DnsScope **ret, Link *l, DnsProtocol protocol, int
 }
 
 static void dns_scope_abort_transactions(DnsScope *s) {
-        DnsTransaction *t;
-
         assert(s);
 
-        while ((t = hashmap_first(s->transactions))) {
+        while (s->transactions) {
+                DnsTransaction *t = s->transactions;
+
                 /* Abort the transaction, but make sure it is not
                  * freed while we still look at it */
 
@@ -100,7 +100,7 @@ DnsScope* dns_scope_free(DnsScope *s) {
         while (s->query_candidates)
                 dns_query_candidate_free(s->query_candidates);
 
-        hashmap_free(s->transactions);
+        hashmap_free(s->transactions_by_key);
 
         while ((rr = ordered_hashmap_steal_first(s->conflict_queue)))
                 dns_resource_record_unref(rr);
@@ -653,7 +653,7 @@ DnsTransaction *dns_scope_find_transaction(DnsScope *scope, DnsResourceKey *key,
 
         /* Try to find an ongoing transaction that is a equal to the
          * specified question */
-        t = hashmap_get(scope->transactions, key);
+        t = hashmap_get(scope->transactions_by_key, key);
         if (!t)
                 return NULL;
 
