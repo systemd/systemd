@@ -129,6 +129,15 @@ int manager_read_resolv_conf(Manager *m) {
          * resolve VPN domains. */
         manager_set_dns_server(m, m->dns_servers);
 
+        /* Unconditionally flush the cache when /etc/resolv.conf is
+         * modified, even if the data it contained was completely
+         * identical to the previous version we used. We do this
+         * because altering /etc/resolv.conf is typically done when
+         * the network configuration changes, and that should be
+         * enough to flush the global unicast DNS cache. */
+        if (m->unicast_scope)
+                dns_cache_flush(&m->unicast_scope->cache);
+
         return 0;
 
 clear:
