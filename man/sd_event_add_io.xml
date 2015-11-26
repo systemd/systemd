@@ -196,7 +196,7 @@
     with <function>sd_event_add_io()</function>. It takes the event
     source object and the new event mask to set.</para>
 
-    <para><function>sd_event_source_get_io_events()</function>
+    <para><function>sd_event_source_get_io_revents()</function>
     retrieves the I/O event mask of currently seen but undispatched
     events from an I/O event source created previously with
     <function>sd_event_add_io()</function>. It takes the event source
