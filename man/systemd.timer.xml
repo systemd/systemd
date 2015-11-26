@@ -205,7 +205,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>RandomSec=</varname></term>
+        <term><varname>RandomizedDelaySec=</varname></term>
 
         <listitem><para>Delay the timer by a randomly selected, evenly
         distributed amount of time between 0 and the specified time
@@ -222,16 +222,16 @@
         time range in order to minimize wakeups, the former does the
         opposite: it stretches timer events over a time range, to make
         it unlikely that they fire simultaneously. If
-        <varname>RandomSec=</varname> and
+        <varname>RandomizedDelaySec=</varname> and
         <varname>AccuracySec=</varname> are used in conjunction, first
         the a randomized time is added, and the result is then
         possibly shifted further to coalesce it with other timer
         events possibly happening on the system. As mentioned above
         <varname>AccuracySec=</varname> defaults to 1min and
-        <varname>RandomSec=</varname> to 0, thus encouraging
+        <varname>RandomizedDelaySec=</varname> to 0, thus encouraging
         coalescing of timer events. In order to optimally stretch
         timer events over a certain range of time, make sure to set
-        <varname>RandomSec=</varname> to a higher value, and
+        <varname>RandomizedDelaySec=</varname> to a higher value, and
         <varname>AccuracySec=1us</varname>.</para></listitem>
       </varlistentry>
 
