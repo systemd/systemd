@@ -50,9 +50,9 @@ int manager_read_resolv_conf(Manager *m) {
         r = stat("/etc/resolv.conf", &st);
         if (r < 0) {
                 if (errno == ENOENT)
-                        r = 0;
-                else
-                        r = log_warning_errno(errno, "Failed to stat /etc/resolv.conf: %m");
+                        return 0;
+
+                r = log_warning_errno(errno, "Failed to stat /etc/resolv.conf: %m");
                 goto clear;
         }
 
@@ -61,22 +61,18 @@ int manager_read_resolv_conf(Manager *m) {
         if (t == m->resolv_conf_mtime)
                 return 0;
 
-        m->resolv_conf_mtime = t;
-
         /* Is it symlinked to our own file? */
         if (stat("/run/systemd/resolve/resolv.conf", &own) >= 0 &&
             st.st_dev == own.st_dev &&
-            st.st_ino == own.st_ino) {
-                r = 0;
-                goto clear;
-        }
+            st.st_ino == own.st_ino)
+                return 0;
 
         f = fopen("/etc/resolv.conf", "re");
         if (!f) {
                 if (errno == ENOENT)
-                        r = 0;
-                else
-                        r = log_warning_errno(errno, "Failed to open /etc/resolv.conf: %m");
+                        return 0;
+
+                r = log_warning_errno(errno, "Failed to open /etc/resolv.conf: %m");
                 goto clear;
         }
 
@@ -114,6 +110,8 @@ int manager_read_resolv_conf(Manager *m) {
                                 log_warning_errno(r, "Failed to parse search domain string '%s', ignoring.", a);
                 }
         }
+
+        m->resolv_conf_mtime = t;
 
         /* Flush out all servers and search domains that are still
          * marked. Those are then ones that didn't appear in the new
