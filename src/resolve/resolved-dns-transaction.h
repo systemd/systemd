@@ -55,8 +55,9 @@ struct DnsTransaction {
         bool initial_jitter;
 
         DnsPacket *sent, *received;
-        DnsAnswer *cached;
-        int cached_rcode;
+
+        DnsAnswer *answer;
+        int answer_rcode;
 
         usec_t start_usec;
         sd_event_source *timeout_event_source;

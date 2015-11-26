@@ -998,17 +998,9 @@ static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
 
                 case DNS_TRANSACTION_SUCCESS: {
                         /* We found a successfuly reply, merge it into the answer */
-                        DnsAnswer *merged, *a;
+                        DnsAnswer *merged;
 
-                        if (t->received) {
-                                q->answer_rcode = DNS_PACKET_RCODE(t->received);
-                                a = t->received->answer;
-                        } else {
-                                q->answer_rcode = t->cached_rcode;
-                                a = t->cached;
-                        }
-
-                        merged = dns_answer_merge(q->answer, a);
+                        merged = dns_answer_merge(q->answer, t->answer);
                         if (!merged) {
                                 dns_query_complete(q, DNS_TRANSACTION_RESOURCES);
                                 return;
@@ -1016,6 +1008,7 @@ static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
 
                         dns_answer_unref(q->answer);
                         q->answer = merged;
+                        q->answer_rcode = t->answer_rcode;
 
                         state = DNS_TRANSACTION_SUCCESS;
                         break;
@@ -1034,14 +1027,8 @@ static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
                         if (state != DNS_TRANSACTION_SUCCESS) {
 
                                 dns_answer_unref(q->answer);
-
-                                if (t->received) {
-                                        q->answer = dns_answer_ref(t->received->answer);
-                                        q->answer_rcode = DNS_PACKET_RCODE(t->received);
-                                } else {
-                                        q->answer = dns_answer_ref(t->cached);
-                                        q->answer_rcode = t->cached_rcode;
-                                }
+                                q->answer = dns_answer_ref(t->answer);
+                                q->answer_rcode = t->answer_rcode;
 
                                 state = t->state;
                         }

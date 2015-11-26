@@ -71,9 +71,9 @@ struct DnsQuery {
 
         /* Discovered data */
         DnsAnswer *answer;
-        int answer_family;
-        DnsProtocol answer_protocol;
         int answer_rcode;
+        DnsProtocol answer_protocol;
+        int answer_family;
         DnsSearchDomain *answer_search_domain;
 
         /* Bus client information */
