@@ -94,31 +94,19 @@ static int dns_query_candidate_next_search_domain(DnsQueryCandidate *c) {
         if (c->search_domain && c->search_domain->linked) {
                 next = c->search_domain->domains_next;
 
-                if (!next) {
-                        /* We hit the last entry. Let's see if this
-                         * was the per-link search domain list. If so,
-                         * let's continue with the global one. */
-
-                        if (c->search_domain->type == DNS_SEARCH_DOMAIN_LINK)
-                                next = c->query->manager->search_domains;
-
-                        if (!next) /* Still no item? Then we really hit the end of the list. */
-                                return 0;
-                }
+                if (!next) /* We hit the end of the list */
+                        return 0;
 
         } else {
-                /* If we have, start with the per-link domains */
                 next = dns_scope_get_search_domains(c->scope);
 
-                if (!next) /* Fall back to the global search domains */
-                        next = c->scope->manager->search_domains;
-
-                if (!next) /* OK, there's really nothing. */
+                if (!next) /* OK, there's nothing. */
                         return 0;
         }
 
         dns_search_domain_unref(c->search_domain);
         c->search_domain = dns_search_domain_ref(next);
+
         return 1;
 }
 
