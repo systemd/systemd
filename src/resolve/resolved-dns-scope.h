@@ -58,8 +58,18 @@ struct DnsScope {
         usec_t resend_timeout;
         usec_t max_rtt;
 
-        Hashmap *transactions;
         LIST_HEAD(DnsQueryCandidate, query_candidates);
+
+        /* Note that we keep track of ongoing transactions in two
+         * ways: once in a hashmap, indexed by the rr key, and once in
+         * a linked list. We use the hashmap to quickly find
+         * transactions we can reuse for a key. But note that there
+         * might be multiple transactions for the same key (because
+         * the zone probing can't reuse a transaction answered from
+         * the zone or the cache), and the hashmap only tracks the
+         * most recent entry. */
+        Hashmap *transactions_by_key;
+        LIST_HEAD(DnsTransaction, transactions);
 
         LIST_FIELDS(DnsScope, scopes);
 };

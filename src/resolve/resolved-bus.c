@@ -300,7 +300,7 @@ static void bus_method_resolve_address_complete(DnsQuery *q) {
 
         r = dns_query_process_cname(q);
         if (r == -ELOOP) {
-                r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_CNAME_LOOP, "CNAME loop detected, or CNAME resolving disabled on '%s'", dns_question_name(q->question));
+                r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_CNAME_LOOP, "CNAME loop detected, or CNAME resolving disabled on '%s'", dns_question_first_name(q->question));
                 goto finish;
         }
         if (r < 0)

@@ -94,31 +94,19 @@ static int dns_query_candidate_next_search_domain(DnsQueryCandidate *c) {
         if (c->search_domain && c->search_domain->linked) {
                 next = c->search_domain->domains_next;
 
-                if (!next) {
-                        /* We hit the last entry. Let's see if this
-                         * was the per-link search domain list. If so,
-                         * let's continue with the global one. */
-
-                        if (c->search_domain->type == DNS_SEARCH_DOMAIN_LINK)
-                                next = c->query->manager->search_domains;
-
-                        if (!next) /* Still no item? Then we really hit the end of the list. */
-                                return 0;
-                }
+                if (!next) /* We hit the end of the list */
+                        return 0;
 
         } else {
-                /* If we have, start with the per-link domains */
                 next = dns_scope_get_search_domains(c->scope);
 
-                if (!next) /* Fall back to the global search domains */
-                        next = c->scope->manager->search_domains;
-
-                if (!next) /* OK, there's really nothing. */
+                if (!next) /* OK, there's nothing. */
                         return 0;
         }
 
         dns_search_domain_unref(c->search_domain);
         c->search_domain = dns_search_domain_ref(next);
+
         return 1;
 }
 
@@ -998,17 +986,9 @@ static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
 
                 case DNS_TRANSACTION_SUCCESS: {
                         /* We found a successfuly reply, merge it into the answer */
-                        DnsAnswer *merged, *a;
+                        DnsAnswer *merged;
 
-                        if (t->received) {
-                                q->answer_rcode = DNS_PACKET_RCODE(t->received);
-                                a = t->received->answer;
-                        } else {
-                                q->answer_rcode = t->cached_rcode;
-                                a = t->cached;
-                        }
-
-                        merged = dns_answer_merge(q->answer, a);
+                        merged = dns_answer_merge(q->answer, t->answer);
                         if (!merged) {
                                 dns_query_complete(q, DNS_TRANSACTION_RESOURCES);
                                 return;
@@ -1016,6 +996,7 @@ static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
 
                         dns_answer_unref(q->answer);
                         q->answer = merged;
+                        q->answer_rcode = t->answer_rcode;
 
                         state = DNS_TRANSACTION_SUCCESS;
                         break;
@@ -1034,14 +1015,8 @@ static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
                         if (state != DNS_TRANSACTION_SUCCESS) {
 
                                 dns_answer_unref(q->answer);
-
-                                if (t->received) {
-                                        q->answer = dns_answer_ref(t->received->answer);
-                                        q->answer_rcode = DNS_PACKET_RCODE(t->received);
-                                } else {
-                                        q->answer = dns_answer_ref(t->cached);
-                                        q->answer_rcode = t->cached_rcode;
-                                }
+                                q->answer = dns_answer_ref(t->answer);
+                                q->answer_rcode = t->answer_rcode;
 
                                 state = t->state;
                         }
