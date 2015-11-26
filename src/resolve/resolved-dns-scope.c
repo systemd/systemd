@@ -661,7 +661,7 @@ DnsTransaction *dns_scope_find_transaction(DnsScope *scope, DnsResourceKey *key,
          * data instead of a real packet, if that's requested. */
         if (!cache_ok &&
             IN_SET(t->state, DNS_TRANSACTION_SUCCESS, DNS_TRANSACTION_FAILURE) &&
-            !t->received)
+            t->answer_source != DNS_TRANSACTION_NETWORK)
                 return NULL;
 
         return t;

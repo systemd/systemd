@@ -23,6 +23,7 @@
 
 typedef struct DnsTransaction DnsTransaction;
 typedef enum DnsTransactionState DnsTransactionState;
+typedef enum DnsTransactionSource DnsTransactionSource;
 
 enum DnsTransactionState {
         DNS_TRANSACTION_NULL,
@@ -37,6 +38,14 @@ enum DnsTransactionState {
         DNS_TRANSACTION_ABORTED,
         _DNS_TRANSACTION_STATE_MAX,
         _DNS_TRANSACTION_STATE_INVALID = -1
+};
+
+enum DnsTransactionSource {
+        DNS_TRANSACTION_NETWORK,
+        DNS_TRANSACTION_CACHE,
+        DNS_TRANSACTION_ZONE,
+        _DNS_TRANSACTION_SOURCE_MAX,
+        _DNS_TRANSACTION_SOURCE_INVALID = -1
 };
 
 #include "resolved-dns-answer.h"
@@ -58,6 +67,7 @@ struct DnsTransaction {
 
         DnsAnswer *answer;
         int answer_rcode;
+        DnsTransactionSource answer_source;
 
         usec_t start_usec;
         sd_event_source *timeout_event_source;
@@ -98,6 +108,9 @@ void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state);
 const char* dns_transaction_state_to_string(DnsTransactionState p) _const_;
 DnsTransactionState dns_transaction_state_from_string(const char *s) _pure_;
 
+const char* dns_transaction_source_to_string(DnsTransactionSource p) _const_;
+DnsTransactionSource dns_transaction_source_from_string(const char *s) _pure_;
+
 /* LLMNR Jitter interval, see RFC 4795 Section 7 */
 #define LLMNR_JITTER_INTERVAL_USEC (100 * USEC_PER_MSEC)
 
@@ -107,4 +120,4 @@ DnsTransactionState dns_transaction_state_from_string(const char *s) _pure_;
 /* Maximum attempts to send LLMNR requests, see RFC 4795 Section 2.7 */
 #define LLMNR_TRANSACTION_ATTEMPTS_MAX 3
 
-#define TRANSACTION_ATTEMPTS_MAX(p) (p == DNS_PROTOCOL_LLMNR ? LLMNR_TRANSACTION_ATTEMPTS_MAX : DNS_TRANSACTION_ATTEMPTS_MAX)
+#define TRANSACTION_ATTEMPTS_MAX(p) ((p) == DNS_PROTOCOL_LLMNR ? LLMNR_TRANSACTION_ATTEMPTS_MAX : DNS_TRANSACTION_ATTEMPTS_MAX)
