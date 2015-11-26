@@ -44,10 +44,23 @@ int in_addr_is_link_local(int family, const union in_addr_union *u) {
         assert(u);
 
         if (family == AF_INET)
-                return (be32toh(u->in.s_addr) & 0xFFFF0000) == (169U << 24 | 254U << 16);
+                return (be32toh(u->in.s_addr) & UINT32_C(0xFFFF0000)) == (UINT32_C(169) << 24 | UINT32_C(254) << 16);
 
         if (family == AF_INET6)
                 return IN6_IS_ADDR_LINKLOCAL(&u->in6);
+
+        return -EAFNOSUPPORT;
+}
+
+int in_addr_is_localhost(int family, const union in_addr_union *u) {
+        assert(u);
+
+        if (family == AF_INET)
+                /* All of 127.x.x.x is localhost. */
+                return (be32toh(u->in.s_addr) & UINT32_C(0xFF000000)) == UINT32_C(127) << 24;
+
+        if (family == AF_INET)
+                return IN6_IS_ADDR_LOOPBACK(&u->in6);
 
         return -EAFNOSUPPORT;
 }
