@@ -5,7 +5,7 @@
 /***
   This file is part of systemd.
 
-  Copyright 2014 Lennart Poettering
+  Copyright 2014 Tom Gundersen <teg@jklm.no>
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -21,13 +21,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#define SD_RESOLVED_DNS           ((uint64_t) 1)
-#define SD_RESOLVED_LLMNR_IPV4    ((uint64_t) 2)
-#define SD_RESOLVED_LLMNR_IPV6    ((uint64_t) 4)
-#define SD_RESOLVED_NO_CNAME      ((uint64_t) 8)
-#define SD_RESOLVED_NO_TXT        ((uint64_t) 16)
-#define SD_RESOLVED_NO_ADDRESS    ((uint64_t) 32)
-#define SD_RESOLVED_NO_SEARCH     ((uint64_t) 64)
+#include "resolved-manager.h"
 
-#define SD_RESOLVED_LLMNR         (SD_RESOLVED_LLMNR_IPV4|SD_RESOLVED_LLMNR_IPV6)
-#define SD_RESOLVED_PROTOCOLS_ALL (SD_RESOLVED_LLMNR|SD_RESOLVED_DNS)
+int manager_read_resolv_conf(Manager *m);
+int manager_write_resolv_conf(Manager *m);

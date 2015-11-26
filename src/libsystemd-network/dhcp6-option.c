@@ -360,7 +360,6 @@ int dhcp6_option_parse_domainname(const uint8_t *optval, uint16_t optlen, char *
                                 /* End of name */
                                 break;
                         else if (c <= 63) {
-                                _cleanup_free_ char *t = NULL;
                                 const char *label;
 
                                 /* Literal label */
@@ -369,21 +368,20 @@ int dhcp6_option_parse_domainname(const uint8_t *optval, uint16_t optlen, char *
                                 if (pos > optlen)
                                         return -EMSGSIZE;
 
-                                r = dns_label_escape(label, c, &t);
-                                if (r < 0)
-                                        goto fail;
-
-                                if (!GREEDY_REALLOC0(ret, allocated, n + !first + strlen(t) + 1)) {
+                                if (!GREEDY_REALLOC(ret, allocated, n + !first + DNS_LABEL_ESCAPED_MAX)) {
                                         r = -ENOMEM;
                                         goto fail;
                                 }
 
-                                if (!first)
-                                        ret[n++] = '.';
-                                else
+                                if (first)
                                         first = false;
+                                else
+                                        ret[n++] = '.';
 
-                                memcpy(ret + n, t, r);
+                                r = dns_label_escape(label, c, ret + n, DNS_LABEL_ESCAPED_MAX);
+                                if (r < 0)
+                                        goto fail;
+
                                 n += r;
                                 continue;
                         } else {

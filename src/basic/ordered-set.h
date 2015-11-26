@@ -29,6 +29,17 @@ static inline OrderedSet* ordered_set_new(const struct hash_ops *ops) {
         return (OrderedSet*) ordered_hashmap_new(ops);
 }
 
+static inline int ordered_set_ensure_allocated(OrderedSet **s, const struct hash_ops *ops) {
+        if (*s)
+                return 0;
+
+        *s = ordered_set_new(ops);
+        if (!*s)
+                return -ENOMEM;
+
+        return 0;
+}
+
 static inline OrderedSet* ordered_set_free(OrderedSet *s) {
         ordered_hashmap_free((OrderedHashmap*) s);
         return NULL;

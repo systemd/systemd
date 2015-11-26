@@ -5140,6 +5140,8 @@ systemd_resolved_SOURCES = \
 	src/resolve/resolved-manager.h \
 	src/resolve/resolved-conf.c \
 	src/resolve/resolved-conf.h \
+	src/resolve/resolved-resolv-conf.c \
+	src/resolve/resolved-resolv-conf.h \
 	src/resolve/resolved-bus.c \
 	src/resolve/resolved-bus.h \
 	src/resolve/resolved-link.h \
@@ -5163,6 +5165,8 @@ systemd_resolved_SOURCES = \
 	src/resolve/resolved-dns-scope.c \
 	src/resolve/resolved-dns-server.h \
 	src/resolve/resolved-dns-server.c \
+	src/resolve/resolved-dns-search-domain.h \
+	src/resolve/resolved-dns-search-domain.c \
 	src/resolve/resolved-dns-cache.h \
 	src/resolve/resolved-dns-cache.c \
 	src/resolve/resolved-dns-zone.h \

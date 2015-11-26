@@ -26,6 +26,7 @@
 #include "mkdir.h"
 #include "resolved-conf.h"
 #include "resolved-manager.h"
+#include "resolved-resolv-conf.h"
 #include "selinux-util.h"
 #include "signal-util.h"
 #include "user-util.h"
@@ -81,8 +82,10 @@ int main(int argc, char *argv[]) {
         }
 
         r = manager_parse_config_file(m);
-        if (r < 0)
-                log_warning_errno(r, "Failed to parse configuration file: %m");
+        if (r < 0) {
+                log_error_errno(r, "Failed to parse configuration file: %m");
+                goto finish;
+        }
 
         r = manager_start(m);
         if (r < 0) {

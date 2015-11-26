@@ -38,7 +38,7 @@ static int reply_query_state(DnsQuery *q) {
 
                 name = ip;
         } else
-                name = dns_question_name(q->question);
+                name = dns_question_first_name(q->question);
 
         switch (q->state) {
 
@@ -145,7 +145,7 @@ static void bus_method_resolve_hostname_complete(DnsQuery *q) {
 
         r = dns_query_process_cname(q);
         if (r == -ELOOP) {
-                r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_CNAME_LOOP, "CNAME loop detected, or CNAME resolving disabled on '%s'", dns_question_name(q->question));
+                r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_CNAME_LOOP, "CNAME loop detected, or CNAME resolving disabled on '%s'", dns_question_first_name(q->question));
                 goto finish;
         }
         if (r < 0)
@@ -166,7 +166,7 @@ static void bus_method_resolve_hostname_complete(DnsQuery *q) {
                 int ifindex;
 
                 DNS_ANSWER_FOREACH_IFINDEX(rr, ifindex, q->answer) {
-                        r = dns_question_matches_rr(q->question, rr);
+                        r = dns_question_matches_rr(q->question, rr, DNS_SEARCH_DOMAIN_NAME(q->answer_search_domain));
                         if (r < 0)
                                 goto finish;
                         if (r == 0)
@@ -184,7 +184,7 @@ static void bus_method_resolve_hostname_complete(DnsQuery *q) {
         }
 
         if (added <= 0) {
-                r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_NO_SUCH_RR, "'%s' does not have any RR of the requested type", dns_question_name(q->question));
+                r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_NO_SUCH_RR, "'%s' does not have any RR of the requested type", dns_question_first_name(q->question));
                 goto finish;
         }
 
@@ -254,7 +254,7 @@ static int bus_method_resolve_hostname(sd_bus_message *message, void *userdata, 
         if (r == 0)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid hostname '%s'", hostname);
 
-        r = check_ifindex_flags(ifindex, &flags, 0, error);
+        r = check_ifindex_flags(ifindex, &flags, SD_RESOLVED_NO_SEARCH, error);
         if (r < 0)
                 return r;
 
@@ -318,7 +318,7 @@ static void bus_method_resolve_address_complete(DnsQuery *q) {
 
         if (q->answer) {
                 DNS_ANSWER_FOREACH_IFINDEX(rr, ifindex, q->answer) {
-                        r = dns_question_matches_rr(q->question, rr);
+                        r = dns_question_matches_rr(q->question, rr, NULL);
                         if (r < 0)
                                 goto finish;
                         if (r == 0)
@@ -400,7 +400,7 @@ static int bus_method_resolve_address(sd_bus_message *message, void *userdata, s
         if (r < 0)
                 return r;
 
-        r = dns_query_new(m, &q, question, ifindex, flags);
+        r = dns_query_new(m, &q, question, ifindex, flags|SD_RESOLVED_NO_SEARCH);
         if (r < 0)
                 return r;
 
@@ -474,7 +474,7 @@ static void bus_method_resolve_record_complete(DnsQuery *q) {
 
         r = dns_query_process_cname(q);
         if (r == -ELOOP) {
-                r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_CNAME_LOOP, "CNAME loop detected, or CNAME resolving disabled on '%s'", dns_question_name(q->question));
+                r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_CNAME_LOOP, "CNAME loop detected, or CNAME resolving disabled on '%s'", dns_question_first_name(q->question));
                 goto finish;
         }
         if (r < 0)
@@ -495,7 +495,7 @@ static void bus_method_resolve_record_complete(DnsQuery *q) {
                 int ifindex;
 
                 DNS_ANSWER_FOREACH_IFINDEX(rr, ifindex, q->answer) {
-                        r = dns_question_matches_rr(q->question, rr);
+                        r = dns_question_matches_rr(q->question, rr, NULL);
                         if (r < 0)
                                 goto finish;
                         if (r == 0)
@@ -510,7 +510,7 @@ static void bus_method_resolve_record_complete(DnsQuery *q) {
         }
 
         if (added <= 0) {
-                r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_NO_SUCH_RR, "Name '%s' does not have any RR of the requested type", dns_question_name(q->question));
+                r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_NO_SUCH_RR, "Name '%s' does not have any RR of the requested type", dns_question_first_name(q->question));
                 goto finish;
         }
 
@@ -574,7 +574,7 @@ static int bus_method_resolve_record(sd_bus_message *message, void *userdata, sd
         if (r < 0)
                 return r;
 
-        r = dns_query_new(m, &q, question, ifindex, flags);
+        r = dns_query_new(m, &q, question, ifindex, flags|SD_RESOLVED_NO_SEARCH);
         if (r < 0)
                 return r;
 
@@ -620,7 +620,7 @@ static int append_srv(DnsQuery *q, sd_bus_message *reply, DnsResourceRecord *rr)
                         if (aux->auxiliary_result != 0)
                                 continue;
 
-                        r = dns_name_equal(dns_question_name(aux->question), rr->srv.name);
+                        r = dns_name_equal(dns_question_first_name(aux->question), rr->srv.name);
                         if (r < 0)
                                 return r;
                         if (r == 0)
@@ -628,7 +628,7 @@ static int append_srv(DnsQuery *q, sd_bus_message *reply, DnsResourceRecord *rr)
 
                         DNS_ANSWER_FOREACH(zz, aux->answer) {
 
-                                r = dns_question_matches_rr(aux->question, zz);
+                                r = dns_question_matches_rr(aux->question, zz, NULL);
                                 if (r < 0)
                                         return r;
                                 if (r == 0)
@@ -672,7 +672,7 @@ static int append_srv(DnsQuery *q, sd_bus_message *reply, DnsResourceRecord *rr)
                         if (aux->auxiliary_result != 0)
                                 continue;
 
-                        r = dns_name_equal(dns_question_name(aux->question), rr->srv.name);
+                        r = dns_name_equal(dns_question_first_name(aux->question), rr->srv.name);
                         if (r < 0)
                                 return r;
                         if (r == 0)
@@ -680,7 +680,7 @@ static int append_srv(DnsQuery *q, sd_bus_message *reply, DnsResourceRecord *rr)
 
                         DNS_ANSWER_FOREACH_IFINDEX(zz, ifindex, aux->answer) {
 
-                                r = dns_question_matches_rr(aux->question, zz);
+                                r = dns_question_matches_rr(aux->question, zz, NULL);
                                 if (r < 0)
                                         return r;
                                 if (r == 0)
@@ -781,7 +781,7 @@ static void resolve_service_all_complete(DnsQuery *q) {
                                 assert(bad->auxiliary_result != 0);
 
                                 if (bad->auxiliary_result == -ELOOP) {
-                                        r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_CNAME_LOOP, "CNAME loop detected, or CNAME resolving disabled on '%s'", dns_question_name(bad->question));
+                                        r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_CNAME_LOOP, "CNAME loop detected, or CNAME resolving disabled on '%s'", dns_question_first_name(bad->question));
                                         goto finish;
                                 }
 
@@ -806,7 +806,7 @@ static void resolve_service_all_complete(DnsQuery *q) {
                 DnsResourceRecord *rr;
 
                 DNS_ANSWER_FOREACH(rr, q->answer) {
-                        r = dns_question_matches_rr(q->question, rr);
+                        r = dns_question_matches_rr(q->question, rr, NULL);
                         if (r < 0)
                                 goto finish;
                         if (r == 0)
@@ -826,7 +826,7 @@ static void resolve_service_all_complete(DnsQuery *q) {
         }
 
         if (added <= 0) {
-                r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_NO_SUCH_RR, "'%s' does not have any RR of the requested type", dns_question_name(q->question));
+                r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_NO_SUCH_RR, "'%s' does not have any RR of the requested type", dns_question_first_name(q->question));
                 goto finish;
         }
 
@@ -842,7 +842,7 @@ static void resolve_service_all_complete(DnsQuery *q) {
                 DnsResourceRecord *rr;
 
                 DNS_ANSWER_FOREACH(rr, q->answer) {
-                        r = dns_question_matches_rr(q->question, rr);
+                        r = dns_question_matches_rr(q->question, rr, NULL);
                         if (r < 0)
                                 goto finish;
                         if (r == 0)
@@ -919,7 +919,7 @@ static int resolve_service_hostname(DnsQuery *q, DnsResourceRecord *rr, int ifin
         if (r < 0)
                 return r;
 
-        r = dns_query_new(q->manager, &aux, question, ifindex, q->flags);
+        r = dns_query_new(q->manager, &aux, question, ifindex, q->flags|SD_RESOLVED_NO_SEARCH);
         if (r < 0)
                 return r;
 
@@ -965,7 +965,7 @@ static void bus_method_resolve_service_complete(DnsQuery *q) {
 
         r = dns_query_process_cname(q);
         if (r == -ELOOP) {
-                r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_CNAME_LOOP, "CNAME loop detected, or CNAME resolving disabled on '%s'", dns_question_name(q->question));
+                r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_CNAME_LOOP, "CNAME loop detected, or CNAME resolving disabled on '%s'", dns_question_first_name(q->question));
                 goto finish;
         }
         if (r < 0)
@@ -978,7 +978,7 @@ static void bus_method_resolve_service_complete(DnsQuery *q) {
                 int ifindex;
 
                 DNS_ANSWER_FOREACH_IFINDEX(rr, ifindex, q->answer) {
-                        r = dns_question_matches_rr(q->question, rr);
+                        r = dns_question_matches_rr(q->question, rr, NULL);
                         if (r < 0)
                                 goto finish;
                         if (r == 0)
@@ -1001,7 +1001,7 @@ static void bus_method_resolve_service_complete(DnsQuery *q) {
         }
 
         if (found <= 0) {
-                r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_NO_SUCH_RR, "'%s' does not have any RR of the requested type", dns_question_name(q->question));
+                r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_NO_SUCH_RR, "'%s' does not have any RR of the requested type", dns_question_first_name(q->question));
                 goto finish;
         }
 
@@ -1049,13 +1049,8 @@ static int bus_method_resolve_service(sd_bus_message *message, void *userdata, s
 
         if (isempty(type))
                 type = NULL;
-        else {
-                r = dns_srv_type_verify(type);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid SRV service type '%s'", type);
-        }
+        else if (!dns_srv_type_is_valid(type))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid SRV service type '%s'", type);
 
         r = dns_name_is_valid(domain);
         if (r < 0)
@@ -1086,7 +1081,7 @@ static int bus_method_resolve_service(sd_bus_message *message, void *userdata, s
         if (r < 0)
                 return r;
 
-        r = dns_query_new(m, &q, question, ifindex, flags);
+        r = dns_query_new(m, &q, question, ifindex, flags|SD_RESOLVED_NO_SEARCH);
         if (r < 0)
                 return r;
 
@@ -1109,8 +1104,123 @@ fail:
         return r;
 }
 
+static int append_dns_server(sd_bus_message *reply, DnsServer *s) {
+        int r;
+
+        assert(reply);
+        assert(s);
+
+        r = sd_bus_message_open_container(reply, 'r', "iiay");
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(reply, "ii", s->link ? s->link->ifindex : 0, s->family);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append_array(reply, 'y', &s->address, FAMILY_ADDRESS_SIZE(s->family));
+        if (r < 0)
+                return r;
+
+        return sd_bus_message_close_container(reply);
+}
+
+static int bus_property_get_dns_servers(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Manager *m = userdata;
+        unsigned c = 0;
+        DnsServer *s;
+        Iterator i;
+        Link *l;
+        int r;
+
+        assert(reply);
+        assert(m);
+
+        r = sd_bus_message_open_container(reply, 'a', "(iiay)");
+        if (r < 0)
+                return r;
+
+        LIST_FOREACH(servers, s, m->dns_servers) {
+                r = append_dns_server(reply, s);
+                if (r < 0)
+                        return r;
+
+                c++;
+        }
+
+        HASHMAP_FOREACH(l, m->links, i) {
+                LIST_FOREACH(servers, s, l->dns_servers) {
+                        r = append_dns_server(reply, s);
+                        if (r < 0)
+                                return r;
+                        c++;
+                }
+        }
+
+        if (c == 0) {
+                LIST_FOREACH(servers, s, m->fallback_dns_servers) {
+                        r = append_dns_server(reply, s);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        return sd_bus_message_close_container(reply);
+}
+
+static int bus_property_get_search_domains(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Manager *m = userdata;
+        DnsSearchDomain *d;
+        Iterator i;
+        Link *l;
+        int r;
+
+        assert(reply);
+        assert(m);
+
+        r = sd_bus_message_open_container(reply, 'a', "(is)");
+        if (r < 0)
+                return r;
+
+        LIST_FOREACH(domains, d, m->search_domains) {
+                r = sd_bus_message_append(reply, "(is)", 0, d->name);
+                if (r < 0)
+                        return r;
+        }
+
+        HASHMAP_FOREACH(l, m->links, i) {
+                LIST_FOREACH(domains, d, l->search_domains) {
+                        r = sd_bus_message_append(reply, "is", l->ifindex, d->name);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        return sd_bus_message_close_container(reply);
+}
+
 static const sd_bus_vtable resolve_vtable[] = {
         SD_BUS_VTABLE_START(0),
+        SD_BUS_PROPERTY("LLMNRHostname", "s", NULL, offsetof(Manager, llmnr_hostname), 0),
+        SD_BUS_PROPERTY("DNSServers", "a(iiay)", bus_property_get_dns_servers, 0, 0),
+        SD_BUS_PROPERTY("SearchDomains", "a(is)", bus_property_get_search_domains, 0, 0),
+
         SD_BUS_METHOD("ResolveHostname", "isit", "a(iiay)st", bus_method_resolve_hostname, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ResolveAddress", "iiayt", "a(is)t", bus_method_resolve_address, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ResolveRecord", "isqqt", "a(iqqay)t", bus_method_resolve_record, SD_BUS_VTABLE_UNPRIVILEGED),

@@ -24,7 +24,6 @@
 #include "in-addr-util.h"
 
 typedef struct DnsServer DnsServer;
-typedef enum DnsServerSource DnsServerSource;
 
 typedef enum DnsServerType {
         DNS_SERVER_SYSTEM,
@@ -32,6 +31,7 @@ typedef enum DnsServerType {
         DNS_SERVER_LINK,
 } DnsServerType;
 
+#include "resolved-manager.h"
 #include "resolved-link.h"
 
 struct DnsServer {
@@ -40,7 +40,6 @@ struct DnsServer {
         unsigned n_ref;
 
         DnsServerType type;
-
         Link *link;
 
         int family;
@@ -51,22 +50,39 @@ struct DnsServer {
 
         bool marked:1;
 
+        /* If linked is set, then this server appears in the servers linked list */
+        bool linked:1;
         LIST_FIELDS(DnsServer, servers);
 };
 
 int dns_server_new(
                 Manager *m,
-                DnsServer **s,
+                DnsServer **ret,
                 DnsServerType type,
-                Link *l,
+                Link *link,
                 int family,
                 const union in_addr_union *address);
 
 DnsServer* dns_server_ref(DnsServer *s);
 DnsServer* dns_server_unref(DnsServer *s);
 
+void dns_server_unlink(DnsServer *s);
+void dns_server_move_back_and_unmark(DnsServer *s);
+
 void dns_server_packet_received(DnsServer *s, usec_t rtt);
 void dns_server_packet_lost(DnsServer *s, usec_t usec);
+
+DnsServer *dns_server_find(DnsServer *first, int family, const union in_addr_union *in_addr);
+
+void dns_server_unlink_all(DnsServer *first);
+void dns_server_unlink_marked(DnsServer *first);
+void dns_server_mark_all(DnsServer *first);
+
+DnsServer *manager_get_first_dns_server(Manager *m, DnsServerType t);
+
+DnsServer *manager_set_dns_server(Manager *m, DnsServer *s);
+DnsServer *manager_get_dns_server(Manager *m);
+void manager_next_dns_server(Manager *m);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsServer*, dns_server_unref);
 

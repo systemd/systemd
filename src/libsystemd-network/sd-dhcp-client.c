@@ -604,7 +604,7 @@ static int client_send_discover(sd_dhcp_client *client) {
                    their messages MUST NOT also send the Host Name option". Just send
                    one of the two depending on the hostname type.
                 */
-                if (dns_name_single_label(client->hostname)) {
+                if (dns_name_is_single_label(client->hostname)) {
                         /* it is unclear from RFC 2131 if client should send hostname in
                            DHCPDISCOVER but dhclient does and so we do as well
                         */
@@ -719,7 +719,7 @@ static int client_send_request(sd_dhcp_client *client) {
         }
 
         if (client->hostname) {
-                if (dns_name_single_label(client->hostname))
+                if (dns_name_is_single_label(client->hostname))
                         r = dhcp_option_append(&request->dhcp, optlen, &optoffset, 0,
                                                DHCP_OPTION_HOST_NAME,
                                                strlen(client->hostname), client->hostname);

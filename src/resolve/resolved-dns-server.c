@@ -21,7 +21,9 @@
 
 #include "alloc-util.h"
 #include "resolved-dns-server.h"
+#include "resolved-resolv-conf.h"
 #include "siphash24.h"
+#include "string-util.h"
 
 /* After how much time to repeat classic DNS requests */
 #define DNS_TIMEOUT_MIN_USEC (500 * USEC_PER_MSEC)
@@ -35,36 +37,57 @@ int dns_server_new(
                 int family,
                 const union in_addr_union *in_addr) {
 
-        DnsServer *s, *tail;
+        DnsServer *s;
 
         assert(m);
         assert((type == DNS_SERVER_LINK) == !!l);
         assert(in_addr);
+
+        if (!IN_SET(family, AF_INET, AF_INET6))
+                return -EAFNOSUPPORT;
+
+        if (l) {
+                if (l->n_dns_servers >= LINK_DNS_SERVERS_MAX)
+                        return -E2BIG;
+        } else {
+                if (m->n_dns_servers >= MANAGER_DNS_SERVERS_MAX)
+                        return -E2BIG;
+        }
 
         s = new0(DnsServer, 1);
         if (!s)
                 return -ENOMEM;
 
         s->n_ref = 1;
+        s->manager = m;
         s->type = type;
         s->family = family;
         s->address = *in_addr;
         s->resend_timeout = DNS_TIMEOUT_MIN_USEC;
 
-        if (type == DNS_SERVER_LINK) {
-                LIST_FIND_TAIL(servers, l->dns_servers, tail);
-                LIST_INSERT_AFTER(servers, l->dns_servers, tail, s);
-                s->link = l;
-        } else if (type == DNS_SERVER_SYSTEM) {
-                LIST_FIND_TAIL(servers, m->dns_servers, tail);
-                LIST_INSERT_AFTER(servers, m->dns_servers, tail, s);
-        } else if (type == DNS_SERVER_FALLBACK) {
-                LIST_FIND_TAIL(servers, m->fallback_dns_servers, tail);
-                LIST_INSERT_AFTER(servers, m->fallback_dns_servers, tail, s);
-        } else
-                assert_not_reached("Unknown server type");
+        switch (type) {
 
-        s->manager = m;
+        case DNS_SERVER_LINK:
+                s->link = l;
+                LIST_APPEND(servers, l->dns_servers, s);
+                l->n_dns_servers++;
+                break;
+
+        case DNS_SERVER_SYSTEM:
+                LIST_APPEND(servers, m->dns_servers, s);
+                m->n_dns_servers++;
+                break;
+
+        case DNS_SERVER_FALLBACK:
+                LIST_APPEND(servers, m->fallback_dns_servers, s);
+                m->n_dns_servers++;
+                break;
+
+        default:
+                assert_not_reached("Unknown server type");
+        }
+
+        s->linked = true;
 
         /* A new DNS server that isn't fallback is added and the one
          * we used so far was a fallback one? Then let's try to pick
@@ -85,25 +108,9 @@ DnsServer* dns_server_ref(DnsServer *s)  {
                 return NULL;
 
         assert(s->n_ref > 0);
-
         s->n_ref ++;
 
         return s;
-}
-
-static DnsServer* dns_server_free(DnsServer *s)  {
-        if (!s)
-                return NULL;
-
-        if (s->link && s->link->current_dns_server == s)
-                link_set_dns_server(s->link, NULL);
-
-        if (s->manager && s->manager->current_dns_server == s)
-                manager_set_dns_server(s->manager, NULL);
-
-        free(s);
-
-        return NULL;
 }
 
 DnsServer* dns_server_unref(DnsServer *s)  {
@@ -111,30 +118,117 @@ DnsServer* dns_server_unref(DnsServer *s)  {
                 return NULL;
 
         assert(s->n_ref > 0);
+        s->n_ref --;
 
-        if (s->n_ref == 1)
-                dns_server_free(s);
-        else
-                s->n_ref --;
+        if (s->n_ref > 0)
+                return NULL;
 
+        free(s);
         return NULL;
+}
+
+void dns_server_unlink(DnsServer *s) {
+        assert(s);
+        assert(s->manager);
+
+        /* This removes the specified server from the linked list of
+         * servers, but any server might still stay around if it has
+         * refs, for example from an ongoing transaction. */
+
+        if (!s->linked)
+                return;
+
+        switch (s->type) {
+
+        case DNS_SERVER_LINK:
+                assert(s->link);
+                assert(s->link->n_dns_servers > 0);
+                LIST_REMOVE(servers, s->link->dns_servers, s);
+                break;
+
+        case DNS_SERVER_SYSTEM:
+                assert(s->manager->n_dns_servers > 0);
+                LIST_REMOVE(servers, s->manager->dns_servers, s);
+                s->manager->n_dns_servers--;
+                break;
+
+        case DNS_SERVER_FALLBACK:
+                assert(s->manager->n_dns_servers > 0);
+                LIST_REMOVE(servers, s->manager->fallback_dns_servers, s);
+                s->manager->n_dns_servers--;
+                break;
+        }
+
+        s->linked = false;
+
+        if (s->link && s->link->current_dns_server == s)
+                link_set_dns_server(s->link, NULL);
+
+        if (s->manager->current_dns_server == s)
+                manager_set_dns_server(s->manager, NULL);
+
+        dns_server_unref(s);
+}
+
+void dns_server_move_back_and_unmark(DnsServer *s) {
+        DnsServer *tail;
+
+        assert(s);
+
+        if (!s->marked)
+                return;
+
+        s->marked = false;
+
+        if (!s->linked || !s->servers_next)
+                return;
+
+        /* Move us to the end of the list, so that the order is
+         * strictly kept, if we are not at the end anyway. */
+
+        switch (s->type) {
+
+        case DNS_SERVER_LINK:
+                assert(s->link);
+                LIST_FIND_TAIL(servers, s, tail);
+                LIST_REMOVE(servers, s->link->dns_servers, s);
+                LIST_INSERT_AFTER(servers, s->link->dns_servers, tail, s);
+                break;
+
+        case DNS_SERVER_SYSTEM:
+                LIST_FIND_TAIL(servers, s, tail);
+                LIST_REMOVE(servers, s->manager->dns_servers, s);
+                LIST_INSERT_AFTER(servers, s->manager->dns_servers, tail, s);
+                break;
+
+        case DNS_SERVER_FALLBACK:
+                LIST_FIND_TAIL(servers, s, tail);
+                LIST_REMOVE(servers, s->manager->fallback_dns_servers, s);
+                LIST_INSERT_AFTER(servers, s->manager->fallback_dns_servers, tail, s);
+                break;
+
+        default:
+                assert_not_reached("Unknown server type");
+        }
 }
 
 void dns_server_packet_received(DnsServer *s, usec_t rtt) {
         assert(s);
 
-        if (rtt > s->max_rtt) {
-                s->max_rtt = rtt;
-                s->resend_timeout = MIN(MAX(DNS_TIMEOUT_MIN_USEC, s->max_rtt * 2),
-                                        DNS_TIMEOUT_MAX_USEC);
-        }
+        if (rtt <= s->max_rtt)
+                return;
+
+        s->max_rtt = rtt;
+        s->resend_timeout = MIN(MAX(DNS_TIMEOUT_MIN_USEC, s->max_rtt * 2), DNS_TIMEOUT_MAX_USEC);
 }
 
 void dns_server_packet_lost(DnsServer *s, usec_t usec) {
         assert(s);
 
-        if (s->resend_timeout <= usec)
-                s->resend_timeout = MIN(s->resend_timeout * 2, DNS_TIMEOUT_MAX_USEC);
+        if (s->resend_timeout > usec)
+                return;
+
+        s->resend_timeout = MIN(s->resend_timeout * 2, DNS_TIMEOUT_MAX_USEC);
 }
 
 static void dns_server_hash_func(const void *p, struct siphash *state) {
@@ -161,3 +255,140 @@ const struct hash_ops dns_server_hash_ops = {
         .hash = dns_server_hash_func,
         .compare = dns_server_compare_func
 };
+
+void dns_server_unlink_all(DnsServer *first) {
+        DnsServer *next;
+
+        if (!first)
+                return;
+
+        next = first->servers_next;
+        dns_server_unlink(first);
+
+        dns_server_unlink_all(next);
+}
+
+void dns_server_unlink_marked(DnsServer *first) {
+        DnsServer *next;
+
+        if (!first)
+                return;
+
+        next = first->servers_next;
+
+        if (first->marked)
+                dns_server_unlink(first);
+
+        dns_server_unlink_marked(next);
+}
+
+void dns_server_mark_all(DnsServer *first) {
+        if (!first)
+                return;
+
+        first->marked = true;
+        dns_server_mark_all(first->servers_next);
+}
+
+DnsServer *dns_server_find(DnsServer *first, int family, const union in_addr_union *in_addr) {
+        DnsServer *s;
+
+        LIST_FOREACH(servers, s, first)
+                if (s->family == family && in_addr_equal(family, &s->address, in_addr) > 0)
+                        return s;
+
+        return NULL;
+}
+
+DnsServer *manager_get_first_dns_server(Manager *m, DnsServerType t) {
+        assert(m);
+
+        switch (t) {
+
+        case DNS_SERVER_SYSTEM:
+                return m->dns_servers;
+
+        case DNS_SERVER_FALLBACK:
+                return m->fallback_dns_servers;
+
+        default:
+                return NULL;
+        }
+}
+
+DnsServer *manager_set_dns_server(Manager *m, DnsServer *s) {
+        assert(m);
+
+        if (m->current_dns_server == s)
+                return s;
+
+        if (s) {
+                _cleanup_free_ char *ip = NULL;
+
+                in_addr_to_string(s->family, &s->address, &ip);
+                log_info("Switching to system DNS server %s.", strna(ip));
+        }
+
+        dns_server_unref(m->current_dns_server);
+        m->current_dns_server = dns_server_ref(s);
+
+        if (m->unicast_scope)
+                dns_cache_flush(&m->unicast_scope->cache);
+
+        return s;
+}
+
+DnsServer *manager_get_dns_server(Manager *m) {
+        Link *l;
+        assert(m);
+
+        /* Try to read updates resolv.conf */
+        manager_read_resolv_conf(m);
+
+        /* If no DNS server was chose so far, pick the first one */
+        if (!m->current_dns_server)
+                manager_set_dns_server(m, m->dns_servers);
+
+        if (!m->current_dns_server) {
+                bool found = false;
+                Iterator i;
+
+                /* No DNS servers configured, let's see if there are
+                 * any on any links. If not, we use the fallback
+                 * servers */
+
+                HASHMAP_FOREACH(l, m->links, i)
+                        if (l->dns_servers) {
+                                found = true;
+                                break;
+                        }
+
+                if (!found)
+                        manager_set_dns_server(m, m->fallback_dns_servers);
+        }
+
+        return m->current_dns_server;
+}
+
+void manager_next_dns_server(Manager *m) {
+        assert(m);
+
+        /* If there's currently no DNS server set, then the next
+         * manager_get_dns_server() will find one */
+        if (!m->current_dns_server)
+                return;
+
+        /* Change to the next one, but make sure to follow the linked
+         * list only if the server is still linked. */
+        if (m->current_dns_server->linked && m->current_dns_server->servers_next) {
+                manager_set_dns_server(m, m->current_dns_server->servers_next);
+                return;
+        }
+
+        /* If there was no next one, then start from the beginning of
+         * the list */
+        if (m->current_dns_server->type == DNS_SERVER_FALLBACK)
+                manager_set_dns_server(m, m->fallback_dns_servers);
+        else
+                manager_set_dns_server(m, m->dns_servers);
+}

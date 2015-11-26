@@ -29,7 +29,7 @@
 #include "string-table.h"
 
 DnsTransaction* dns_transaction_free(DnsTransaction *t) {
-        DnsQuery *q;
+        DnsQueryCandidate *c;
         DnsZoneItem *i;
 
         if (!t)
@@ -56,9 +56,10 @@ DnsTransaction* dns_transaction_free(DnsTransaction *t) {
 
         dns_resource_key_unref(t->key);
 
-        while ((q = set_steal_first(t->queries)))
-                set_remove(q->transactions, t);
-        set_free(t->queries);
+        while ((c = set_steal_first(t->query_candidates)))
+                set_remove(c->transactions, t);
+
+        set_free(t->query_candidates);
 
         while ((i = set_steal_first(t->zone_items)))
                 i->probe_transaction = NULL;
@@ -76,7 +77,7 @@ void dns_transaction_gc(DnsTransaction *t) {
         if (t->block_gc > 0)
                 return;
 
-        if (set_isempty(t->queries) && set_isempty(t->zone_items))
+        if (set_isempty(t->query_candidates) && set_isempty(t->zone_items))
                 dns_transaction_free(t);
 }
 
@@ -181,7 +182,7 @@ static void dns_transaction_tentative(DnsTransaction *t, DnsPacket *p) {
 }
 
 void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state) {
-        DnsQuery *q;
+        DnsQueryCandidate *c;
         DnsZoneItem *z;
         Iterator i;
 
@@ -205,8 +206,8 @@ void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state) {
         /* Notify all queries that are interested, but make sure the
          * transaction isn't freed while we are still looking at it */
         t->block_gc++;
-        SET_FOREACH(q, t->queries, i)
-                dns_query_ready(q);
+        SET_FOREACH(c, t->query_candidates, i)
+                dns_query_candidate_ready(c);
         SET_FOREACH(z, t->zone_items, i)
                 dns_zone_item_ready(z);
         t->block_gc--;

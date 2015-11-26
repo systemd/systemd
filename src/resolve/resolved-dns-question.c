@@ -89,7 +89,7 @@ int dns_question_add(DnsQuestion *q, DnsResourceKey *key) {
         return 0;
 }
 
-int dns_question_matches_rr(DnsQuestion *q, DnsResourceRecord *rr) {
+int dns_question_matches_rr(DnsQuestion *q, DnsResourceRecord *rr, const char *search_domain) {
         unsigned i;
         int r;
 
@@ -99,7 +99,7 @@ int dns_question_matches_rr(DnsQuestion *q, DnsResourceRecord *rr) {
                 return 0;
 
         for (i = 0; i < q->n_keys; i++) {
-                r = dns_resource_key_match_rr(q->keys[i], rr);
+                r = dns_resource_key_match_rr(q->keys[i], rr, search_domain);
                 if (r != 0)
                         return r;
         }
@@ -107,7 +107,7 @@ int dns_question_matches_rr(DnsQuestion *q, DnsResourceRecord *rr) {
         return 0;
 }
 
-int dns_question_matches_cname(DnsQuestion *q, DnsResourceRecord *rr) {
+int dns_question_matches_cname(DnsQuestion *q, DnsResourceRecord *rr, const char *search_domain) {
         unsigned i;
         int r;
 
@@ -117,7 +117,7 @@ int dns_question_matches_cname(DnsQuestion *q, DnsResourceRecord *rr) {
                 return 0;
 
         for (i = 0; i < q->n_keys; i++) {
-                r = dns_resource_key_match_cname(q->keys[i], rr);
+                r = dns_resource_key_match_cname(q->keys[i], rr, search_domain);
                 if (r != 0)
                         return r;
         }
@@ -125,7 +125,7 @@ int dns_question_matches_cname(DnsQuestion *q, DnsResourceRecord *rr) {
         return 0;
 }
 
-int dns_question_is_valid(DnsQuestion *q) {
+int dns_question_is_valid_for_query(DnsQuestion *q) {
         const char *name;
         unsigned i;
         int r;
@@ -274,8 +274,10 @@ int dns_question_cname_redirect(DnsQuestion *q, const DnsResourceRecord *cname, 
         return 1;
 }
 
-const char *dns_question_name(DnsQuestion *q) {
-        assert(q);
+const char *dns_question_first_name(DnsQuestion *q) {
+
+        if (!q)
+                return NULL;
 
         if (q->n_keys < 1)
                 return NULL;
