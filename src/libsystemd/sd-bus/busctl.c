@@ -137,7 +137,7 @@ static int list_bus_names(sd_bus *bus, char **argv) {
         }
 
         STRV_FOREACH(i, merged) {
-                _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
                 sd_id128_t mid;
 
                 if (hashmap_get(names, *i) == NAME_IS_ACTIVATABLE) {
@@ -334,8 +334,8 @@ static int find_nodes(sd_bus *bus, const char *service, const char *path, Set *p
                 .on_path = on_path,
         };
 
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *xml;
         int r;
 
@@ -867,8 +867,8 @@ static int introspect(sd_bus *bus, char **argv) {
                 .on_property = on_property,
         };
 
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(member_set_freep) Set *members = NULL;
         Iterator i;
         Member *m;
@@ -1132,7 +1132,7 @@ static int monitor(sd_bus *bus, char *argv[], int (*dump)(sd_bus_message *m, FIL
         log_info("Monitoring bus message stream.");
 
         for (;;) {
-                _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
 
                 r = sd_bus_process(bus, &m);
                 if (r < 0)
@@ -1182,7 +1182,7 @@ static int capture(sd_bus *bus, char *argv[]) {
 }
 
 static int status(sd_bus *bus, char *argv[]) {
-        _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
         pid_t pid;
         int r;
 
@@ -1489,8 +1489,8 @@ static int message_append_cmdline(sd_bus_message *m, const char *signature, char
 }
 
 static int call(sd_bus *bus, char *argv[]) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         int r;
 
         assert(bus);
@@ -1576,7 +1576,7 @@ static int call(sd_bus *bus, char *argv[]) {
 }
 
 static int get_property(sd_bus *bus, char *argv[]) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         unsigned n;
         char **i;
         int r;
@@ -1590,7 +1590,7 @@ static int get_property(sd_bus *bus, char *argv[]) {
         }
 
         STRV_FOREACH(i, argv + 4) {
-                _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
                 const char *contents = NULL;
                 char type;
 
@@ -1634,8 +1634,8 @@ static int get_property(sd_bus *bus, char *argv[]) {
 }
 
 static int set_property(sd_bus *bus, char *argv[]) {
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         unsigned n;
         char **p;
         int r;
@@ -1976,7 +1976,7 @@ static int busctl_main(sd_bus *bus, int argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
-        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
         log_parse_environment();

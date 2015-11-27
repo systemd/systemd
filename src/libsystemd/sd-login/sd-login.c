@@ -1017,7 +1017,8 @@ _public_ int sd_login_monitor_new(const char *category, sd_login_monitor **m) {
 _public_ sd_login_monitor* sd_login_monitor_unref(sd_login_monitor *m) {
         int fd;
 
-        assert_return(m, NULL);
+        if (!m)
+                return NULL;
 
         fd = MONITOR_TO_FD(m);
         close_nointr(fd);

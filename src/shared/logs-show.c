@@ -1241,7 +1241,7 @@ int show_journal_by_unit(
                 bool system_unit,
                 bool *ellipsized) {
 
-        _cleanup_journal_close_ sd_journal*j = NULL;
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
         int r;
 
         assert(mode >= 0);

@@ -30,7 +30,6 @@
 #include "bus-util.h"
 #include "calendarspec.h"
 #include "env-util.h"
-#include "event-util.h"
 #include "fd-util.h"
 #include "formats-util.h"
 #include "parse-util.h"
@@ -741,8 +740,8 @@ static int start_transient_service(
                 sd_bus *bus,
                 char **argv) {
 
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL, *reply = NULL;
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
         _cleanup_free_ char *service = NULL, *pty_path = NULL;
         _cleanup_close_ int master = -1;
@@ -766,7 +765,7 @@ static int start_transient_service(
                                 return log_error_errno(errno, "Failed to unlock tty: %m");
 
                 } else if (arg_transport == BUS_TRANSPORT_MACHINE) {
-                        _cleanup_bus_unref_ sd_bus *system_bus = NULL;
+                        _cleanup_(sd_bus_unrefp) sd_bus *system_bus = NULL;
                         const char *s;
 
                         r = sd_bus_default_system(&system_bus);
@@ -876,7 +875,7 @@ static int start_transient_service(
 
         if (master >= 0) {
                 _cleanup_(pty_forward_freep) PTYForward *forward = NULL;
-                _cleanup_event_unref_ sd_event *event = NULL;
+                _cleanup_(sd_event_unrefp) sd_event *event = NULL;
                 char last_char = 0;
 
                 r = sd_event_default(&event);
@@ -916,8 +915,8 @@ static int start_transient_scope(
                 sd_bus *bus,
                 char **argv) {
 
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
         _cleanup_strv_free_ char **env = NULL, **user_env = NULL;
         _cleanup_free_ char *scope = NULL;
@@ -1060,8 +1059,8 @@ static int start_transient_timer(
                 sd_bus *bus,
                 char **argv) {
 
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
         _cleanup_free_ char *timer = NULL, *service = NULL;
         const char *object = NULL;
@@ -1208,7 +1207,7 @@ static int start_transient_timer(
 }
 
 int main(int argc, char* argv[]) {
-        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_free_ char *description = NULL, *command = NULL;
         int r;
 

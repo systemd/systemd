@@ -665,7 +665,7 @@ static int adm_hwdb(struct udev *udev, int argc, char *argv[]) {
         }
 
         if (test) {
-                _cleanup_hwdb_unref_ sd_hwdb *hwdb = NULL;
+                _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb = NULL;
                 int r;
 
                 r = sd_hwdb_new(&hwdb);

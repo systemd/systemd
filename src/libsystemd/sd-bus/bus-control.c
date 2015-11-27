@@ -91,7 +91,7 @@ static int bus_request_name_kernel(sd_bus *bus, const char *name, uint64_t flags
 }
 
 static int bus_request_name_dbus1(sd_bus *bus, const char *name, uint64_t flags) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         uint32_t ret, param = 0;
         int r;
 
@@ -187,7 +187,7 @@ static int bus_release_name_kernel(sd_bus *bus, const char *name) {
 }
 
 static int bus_release_name_dbus1(sd_bus *bus, const char *name) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         uint32_t ret;
         int r;
 
@@ -326,7 +326,7 @@ static int bus_list_names_kernel(sd_bus *bus, char ***acquired, char ***activata
 }
 
 static int bus_list_names_dbus1(sd_bus *bus, char ***acquired, char ***activatable) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_strv_free_ char **x = NULL, **y = NULL;
         int r;
 
@@ -647,7 +647,7 @@ int bus_get_name_creds_kdbus(
                 bool allow_activator,
                 sd_bus_creds **creds) {
 
-        _cleanup_bus_creds_unref_ sd_bus_creds *c = NULL;
+        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *c = NULL;
         struct kdbus_cmd_info *cmd;
         struct kdbus_info *conn_info;
         size_t size, l;
@@ -753,8 +753,8 @@ static int bus_get_name_creds_dbus1(
                 uint64_t mask,
                 sd_bus_creds **creds) {
 
-        _cleanup_bus_message_unref_ sd_bus_message *reply_unique = NULL, *reply = NULL;
-        _cleanup_bus_creds_unref_ sd_bus_creds *c = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply_unique = NULL, *reply = NULL;
+        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *c = NULL;
         const char *unique = NULL;
         pid_t pid = 0;
         int r;
@@ -858,7 +858,7 @@ static int bus_get_name_creds_dbus1(
                 }
 
                 if (mask & SD_BUS_CREDS_SELINUX_CONTEXT) {
-                        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+                        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                         const void *p = NULL;
                         size_t sz = 0;
 
@@ -930,7 +930,7 @@ _public_ int sd_bus_get_name_creds(
 }
 
 static int bus_get_owner_creds_kdbus(sd_bus *bus, uint64_t mask, sd_bus_creds **ret) {
-        _cleanup_bus_creds_unref_ sd_bus_creds *c = NULL;
+        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *c = NULL;
         struct kdbus_cmd_info cmd = {
                 .size = sizeof(struct kdbus_cmd_info),
         };
@@ -979,7 +979,7 @@ static int bus_get_owner_creds_kdbus(sd_bus *bus, uint64_t mask, sd_bus_creds **
 }
 
 static int bus_get_owner_creds_dbus1(sd_bus *bus, uint64_t mask, sd_bus_creds **ret) {
-        _cleanup_bus_creds_unref_ sd_bus_creds *c = NULL;
+        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *c = NULL;
         pid_t pid = 0;
         bool do_label;
         int r;
@@ -1543,7 +1543,7 @@ int bus_remove_match_internal(
 }
 
 _public_ int sd_bus_get_name_machine_id(sd_bus *bus, const char *name, sd_id128_t *machine) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL, *m = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL, *m = NULL;
         const char *mid;
         int r;
 

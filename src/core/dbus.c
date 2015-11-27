@@ -74,7 +74,7 @@ int bus_send_queued_message(Manager *m) {
 }
 
 static int signal_agent_released(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
         const char *cgroup, *me;
         Manager *m = userdata;
         uid_t sender_uid;
@@ -146,8 +146,8 @@ static int signal_disconnected(sd_bus_message *message, void *userdata, sd_bus_e
 }
 
 static int signal_activation_request(sd_bus_message *message, void *userdata, sd_bus_error *ret_error) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         Manager *m = userdata;
         const char *name;
         Unit *u;
@@ -245,7 +245,7 @@ static int mac_selinux_filter(sd_bus_message *message, void *userdata, sd_bus_er
         }
 
         if (streq_ptr(path, "/org/freedesktop/systemd1/unit/self")) {
-                _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
                 pid_t pid;
 
                 r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID, &creds);
@@ -304,7 +304,7 @@ static int find_unit(Manager *m, sd_bus *bus, const char *path, Unit **unit, sd_
         assert(path);
 
         if (streq_ptr(path, "/org/freedesktop/systemd1/unit/self")) {
-                _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
                 sd_bus_message *message;
                 pid_t pid;
 
@@ -617,7 +617,7 @@ static int bus_setup_disconnected_match(Manager *m, sd_bus *bus) {
 }
 
 static int bus_on_connection(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        _cleanup_bus_unref_ sd_bus *bus = NULL;
+        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
         _cleanup_close_ int nfd = -1;
         Manager *m = userdata;
         sd_id128_t id;
@@ -815,7 +815,7 @@ static int bus_setup_api(Manager *m, sd_bus *bus) {
 }
 
 static int bus_init_api(Manager *m) {
-        _cleanup_bus_unref_ sd_bus *bus = NULL;
+        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
         int r;
 
         if (m->api_bus)
@@ -883,7 +883,7 @@ static int bus_setup_system(Manager *m, sd_bus *bus) {
 }
 
 static int bus_init_system(Manager *m) {
-        _cleanup_bus_unref_ sd_bus *bus = NULL;
+        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
         int r;
 
         if (m->system_bus)

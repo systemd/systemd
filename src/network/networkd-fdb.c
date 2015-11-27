@@ -97,7 +97,7 @@ static int set_fdb_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userda
 
 /* send a request to the kernel to add a FDB entry in its static MAC table. */
 int fdb_entry_configure(Link *const link, FdbEntry *const fdb_entry) {
-        _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         sd_netlink *rtnl;
         int r;
 

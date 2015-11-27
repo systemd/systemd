@@ -553,7 +553,7 @@ fail:
 }
 
 static void timer_enter_running(Timer *t) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(t);

@@ -38,7 +38,6 @@
 #include "io-util.h"
 #include "list.h"
 #include "missing.h"
-#include "resolve-util.h"
 #include "socket-util.h"
 #include "util.h"
 
@@ -179,7 +178,7 @@ static int getnameinfo_done(sd_resolve_query *q);
 static void resolve_query_disconnect(sd_resolve_query *q);
 
 #define RESOLVE_DONT_DESTROY(resolve) \
-        _cleanup_resolve_unref_ _unused_ sd_resolve *_dont_destroy_##resolve = sd_resolve_ref(resolve)
+        _cleanup_(sd_resolve_unrefp) _unused_ sd_resolve *_dont_destroy_##resolve = sd_resolve_ref(resolve)
 
 static int send_died(int out_fd) {
 

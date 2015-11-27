@@ -28,7 +28,6 @@
 #include "sd-ipv4ll.h"
 
 #include "alloc-util.h"
-#include "event-util.h"
 #include "in-addr-util.h"
 #include "list.h"
 #include "random-util.h"
@@ -41,7 +40,7 @@
 #define IPV4LL_NETMASK 0xFFFF0000L
 
 #define IPV4LL_DONT_DESTROY(ll) \
-        _cleanup_ipv4ll_unref_ _unused_ sd_ipv4ll *_dont_destroy_##ll = sd_ipv4ll_ref(ll)
+        _cleanup_(sd_ipv4ll_unrefp) _unused_ sd_ipv4ll *_dont_destroy_##ll = sd_ipv4ll_ref(ll)
 
 struct sd_ipv4ll {
         unsigned n_ref;
@@ -86,13 +85,10 @@ sd_ipv4ll *sd_ipv4ll_unref(sd_ipv4ll *ll) {
         return NULL;
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(sd_ipv4ll*, sd_ipv4ll_unref);
-#define _cleanup_ipv4ll_unref_ _cleanup_(sd_ipv4ll_unrefp)
-
 static void ipv4ll_on_acd(sd_ipv4acd *ll, int event, void *userdata);
 
 int sd_ipv4ll_new(sd_ipv4ll **ret) {
-        _cleanup_ipv4ll_unref_ sd_ipv4ll *ll = NULL;
+        _cleanup_(sd_ipv4ll_unrefp) sd_ipv4ll *ll = NULL;
         int r;
 
         assert_return(ret, -EINVAL);

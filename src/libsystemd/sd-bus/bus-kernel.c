@@ -1142,7 +1142,7 @@ int bus_kernel_write_message(sd_bus *bus, sd_bus_message *m, bool hint_sync_call
 
         r = ioctl(bus->output_fd, KDBUS_CMD_SEND, &cmd);
         if (r < 0) {
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 sd_bus_message *reply;
 
                 if (errno == EAGAIN || errno == EINTR)
@@ -1221,7 +1221,7 @@ static int push_name_owner_changed(
                 const char *new_owner,
                 const struct kdbus_timestamp *ts) {
 
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         int r;
 
         assert(bus);
@@ -1308,7 +1308,7 @@ static int translate_reply(
                 const struct kdbus_item *d,
                 const struct kdbus_timestamp *ts) {
 
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         int r;
 
         assert(bus);

@@ -25,7 +25,4 @@
 
 #include "util.h"
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(sd_hwdb*, sd_hwdb_unref);
-#define _cleanup_hwdb_unref_ _cleanup_(sd_hwdb_unrefp)
-
 bool hwdb_validate(sd_hwdb *hwdb);

@@ -181,7 +181,7 @@ int bus_event_loop_with_idle(
 }
 
 int bus_name_has_owner(sd_bus *c, const char *name, sd_bus_error *error) {
-        _cleanup_bus_message_unref_ sd_bus_message *rep = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *rep = NULL;
         int r, has_owner = 0;
 
         assert(c);
@@ -207,7 +207,7 @@ int bus_name_has_owner(sd_bus *c, const char *name, sd_bus_error *error) {
 }
 
 static int check_good_user(sd_bus_message *m, uid_t good_user) {
-        _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
         uid_t sender_uid;
         int r;
 
@@ -257,8 +257,8 @@ int bus_test_polkit(
                 return 1;
 #ifdef ENABLE_POLKIT
         else {
-                _cleanup_bus_message_unref_ sd_bus_message *request = NULL;
-                _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *request = NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
                 int authorized = false, challenge = false;
                 const char *sender, **k, **v;
 
@@ -361,7 +361,7 @@ static void async_polkit_query_free(AsyncPolkitQuery *q) {
 }
 
 static int async_polkit_callback(sd_bus_message *reply, void *userdata, sd_bus_error *error) {
-        _cleanup_bus_error_free_ sd_bus_error error_buffer = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error_buffer = SD_BUS_ERROR_NULL;
         AsyncPolkitQuery *q = userdata;
         int r;
 
@@ -399,7 +399,7 @@ int bus_verify_polkit_async(
                 sd_bus_error *error) {
 
 #ifdef ENABLE_POLKIT
-        _cleanup_bus_message_unref_ sd_bus_message *pk = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *pk = NULL;
         AsyncPolkitQuery *q;
         const char *sender, **k, **v;
         sd_bus_message_handler_t callback;
@@ -587,7 +587,7 @@ int bus_check_peercred(sd_bus *c) {
 }
 
 int bus_connect_system_systemd(sd_bus **_bus) {
-        _cleanup_bus_unref_ sd_bus *bus = NULL;
+        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
         int r;
 
         assert(_bus);
@@ -641,7 +641,7 @@ int bus_connect_system_systemd(sd_bus **_bus) {
 }
 
 int bus_connect_user_systemd(sd_bus **_bus) {
-        _cleanup_bus_unref_ sd_bus *bus = NULL;
+        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
         _cleanup_free_ char *ee = NULL;
         const char *e;
         int r;
@@ -907,8 +907,8 @@ int bus_print_property(const char *name, sd_bus_message *property, bool all) {
 }
 
 int bus_print_all_properties(sd_bus *bus, const char *dest, const char *path, char **filter, bool all) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(bus);
@@ -1091,7 +1091,7 @@ int bus_message_map_all_properties(
                 const struct bus_properties_map *map,
                 void *userdata) {
 
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(m);
@@ -1197,8 +1197,8 @@ int bus_map_all_properties(
                 const struct bus_properties_map *map,
                 void *userdata) {
 
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(bus);

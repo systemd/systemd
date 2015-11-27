@@ -55,6 +55,8 @@ sd_ipv4ll *sd_ipv4ll_ref(sd_ipv4ll *ll);
 sd_ipv4ll *sd_ipv4ll_unref(sd_ipv4ll *ll);
 int sd_ipv4ll_new (sd_ipv4ll **ret);
 
+_SD_DEFINE_POINTER_CLEANUP_FUNC(sd_ipv4ll, sd_ipv4ll_unref);
+
 _SD_END_DECLARATIONS;
 
 #endif

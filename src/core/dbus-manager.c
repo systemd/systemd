@@ -384,7 +384,7 @@ static int method_get_unit(sd_bus_message *message, void *userdata, sd_bus_error
                 return r;
 
         if (isempty(name)) {
-                _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
                 pid_t pid;
 
                 r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID, &creds);
@@ -436,7 +436,7 @@ static int method_get_unit_by_pid(sd_bus_message *message, void *userdata, sd_bu
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid PID " PID_FMT, pid);
 
         if (pid == 0) {
-                _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
 
                 r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID, &creds);
                 if (r < 0)
@@ -479,7 +479,7 @@ static int method_load_unit(sd_bus_message *message, void *userdata, sd_bus_erro
                 return r;
 
         if (isempty(name)) {
-                _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
                 pid_t pid;
 
                 r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID, &creds);
@@ -865,7 +865,7 @@ static int method_reset_failed(sd_bus_message *message, void *userdata, sd_bus_e
 }
 
 static int list_units_filtered(sd_bus_message *message, void *userdata, sd_bus_error *error, char **states) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         Manager *m = userdata;
         const char *k;
         Iterator i;
@@ -953,7 +953,7 @@ static int method_list_units_filtered(sd_bus_message *message, void *userdata, s
 }
 
 static int method_list_jobs(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         Manager *m = userdata;
         Iterator i;
         Job *j;
@@ -1441,7 +1441,7 @@ static int method_set_exit_code(sd_bus_message *message, void *userdata, sd_bus_
 }
 
 static int method_list_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         Manager *m = userdata;
         UnitFileList *item;
         Hashmap *h;
@@ -1547,7 +1547,7 @@ static int method_get_default_target(sd_bus_message *message, void *userdata, sd
 }
 
 static int send_unit_files_changed(sd_bus *bus, void *userdata) {
-        _cleanup_bus_message_unref_ sd_bus_message *message = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *message = NULL;
         int r;
 
         assert(bus);
@@ -1566,7 +1566,7 @@ static int reply_unit_file_changes_and_free(
                 UnitFileChange *changes,
                 unsigned n_changes) {
 
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         unsigned i;
         int r;
 
@@ -2023,7 +2023,7 @@ const sd_bus_vtable bus_manager_vtable[] = {
 };
 
 static int send_finished(sd_bus *bus, void *userdata) {
-        _cleanup_bus_message_unref_ sd_bus_message *message = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *message = NULL;
         usec_t *times = userdata;
         int r;
 
@@ -2071,7 +2071,7 @@ void bus_manager_send_finished(
 }
 
 static int send_reloading(sd_bus *bus, void *userdata) {
-        _cleanup_bus_message_unref_ sd_bus_message *message = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *message = NULL;
         int r;
 
         assert(bus);

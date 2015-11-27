@@ -194,7 +194,7 @@ int mac_selinux_generic_access_check(
                 sd_bus_error *error) {
 
 #ifdef HAVE_SELINUX
-        _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
         const char *tclass = NULL, *scon = NULL;
         struct audit_info audit_info = {};
         _cleanup_free_ char *cl = NULL;

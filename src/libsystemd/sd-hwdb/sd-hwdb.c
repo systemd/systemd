@@ -279,7 +279,7 @@ static const char hwdb_bin_paths[] =
         UDEVLIBEXECDIR "/hwdb.bin\0";
 
 _public_ int sd_hwdb_new(sd_hwdb **ret) {
-        _cleanup_hwdb_unref_ sd_hwdb *hwdb = NULL;
+        _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb = NULL;
         const char *hwdb_bin_path;
         const char sig[] = HWDB_SIG;
 

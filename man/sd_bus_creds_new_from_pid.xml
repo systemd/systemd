@@ -48,6 +48,7 @@
     <refname>sd_bus_creds_get_augmented_mask</refname>
     <refname>sd_bus_creds_ref</refname>
     <refname>sd_bus_creds_unref</refname>
+    <refname>sd_bus_creds_unrefp</refname>
 
     <refpurpose>Retrieve credentials object for the specified PID</refpurpose>
   </refnamediv>
@@ -81,6 +82,11 @@
       <funcprototype>
         <funcdef>sd_bus_creds *<function>sd_bus_creds_unref</function></funcdef>
         <paramdef>sd_bus_creds *<parameter>c</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>void <function>sd_bus_creds_unrefp</function></funcdef>
+        <paramdef>sd_bus_creds **<parameter>c</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
 
@@ -235,6 +241,21 @@
 
     <para><function>sd_bus_creds_unref()</function> destroys a reference
     to <parameter>c</parameter>.</para>
+
+    <para><function>sd_bus_creds_unrefp()</function> is similar to
+    <function>sd_bus_creds_unref()</function> but takes a pointer to a
+    pointer to an <type>sd_bus_creds</type> object. This call is useful in
+    conjunction with GCC's and LLVM's <ulink
+    url="https://gcc.gnu.org/onlinedocs/gcc/Common-Variable-Attributes.html">Clean-up
+    Variable Attribute</ulink>. Note that this function is defined as
+    inline function.</para>
+
+    <para><function>sd_bus_creds_ref()</function>,
+    <function>sd_bus_creds_unref()</function> and
+    <function>sd_bus_creds_unrefp()</function> execute no operation if
+    the passed in bus credentials object is
+    <constant>NULL</constant>.</para>
+
   </refsect1>
 
   <refsect1>

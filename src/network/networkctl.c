@@ -196,8 +196,8 @@ static void setup_state_to_color(const char *state, const char **on, const char 
 }
 
 static int list_links(int argc, char *argv[], void *userdata) {
-        _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL, *reply = NULL;
-        _cleanup_netlink_unref_ sd_netlink *rtnl = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
+        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_free_ LinkInfo *links = NULL;
         int r, c, i;
 
@@ -228,7 +228,7 @@ static int list_links(int argc, char *argv[], void *userdata) {
 
         for (i = 0; i < c; i++) {
                 _cleanup_free_ char *setup_state = NULL, *operational_state = NULL;
-                _cleanup_device_unref_ sd_device *d = NULL;
+                _cleanup_(sd_device_unrefp) sd_device *d = NULL;
                 const char *on_color_operational, *off_color_operational,
                            *on_color_setup, *off_color_setup;
                 char devid[2 + DECIMAL_STR_MAX(int)];
@@ -297,7 +297,7 @@ static int get_gateway_description(
                 int family,
                 union in_addr_union *gateway,
                 char **gateway_description) {
-        _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL, *reply = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
         sd_netlink_message *m;
         int r;
 
@@ -502,8 +502,8 @@ static int link_status_one(
                 const char *name) {
         _cleanup_strv_free_ char **dns = NULL, **ntp = NULL, **domains = NULL;
         _cleanup_free_ char *setup_state = NULL, *operational_state = NULL, *tz = NULL;
-        _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL, *reply = NULL;
-        _cleanup_device_unref_ sd_device *d = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
+        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
         char devid[2 + DECIMAL_STR_MAX(int)];
         _cleanup_free_ char *t = NULL, *network = NULL;
         const char *driver = NULL, *path = NULL, *vendor = NULL, *model = NULL, *link = NULL;
@@ -674,8 +674,8 @@ static int link_status_one(
 }
 
 static int link_status(int argc, char *argv[], void *userdata) {
-        _cleanup_hwdb_unref_ sd_hwdb *hwdb = NULL;
-        _cleanup_netlink_unref_ sd_netlink *rtnl = NULL;
+        _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb = NULL;
+        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         char **name;
         int r;
 
@@ -720,7 +720,7 @@ static int link_status(int argc, char *argv[], void *userdata) {
         pager_open_if_enabled();
 
         if (arg_all) {
-                _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL, *reply = NULL;
+                _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
                 _cleanup_free_ LinkInfo *links = NULL;
                 int c, i;
 
@@ -906,8 +906,8 @@ static char *lldp_system_caps(uint16_t cap) {
 }
 
 static int link_lldp_status(int argc, char *argv[], void *userdata) {
-        _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL, *reply = NULL;
-        _cleanup_netlink_unref_ sd_netlink *rtnl = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
+        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_free_ LinkInfo *links = NULL;
         double ttl = -1;
         uint32_t capability;

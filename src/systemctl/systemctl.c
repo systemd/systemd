@@ -530,9 +530,9 @@ static int get_unit_list(
                 int c,
                 sd_bus_message **_reply) {
 
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         size_t size = c;
         int r;
         UnitInfo u;
@@ -637,7 +637,7 @@ static int get_unit_list_recursive(
                         return log_error_errno(r, "Failed to get machine names: %m");
 
                 STRV_FOREACH(i, machines) {
-                        _cleanup_bus_flush_close_unref_ sd_bus *container = NULL;
+                        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *container = NULL;
                         int k;
 
                         r = sd_bus_open_system_machine(&container, *i);
@@ -699,7 +699,7 @@ static int get_triggered_units(
                 const char* path,
                 char*** ret) {
 
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(bus);
@@ -725,8 +725,8 @@ static int get_listening(
                 const char* unit_path,
                 char*** listening) {
 
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         const char *type, *path;
         int r, n = 0;
 
@@ -962,7 +962,7 @@ static int get_next_elapse(
                 const char *path,
                 dual_timestamp *next) {
 
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         dual_timestamp t;
         int r;
 
@@ -1003,7 +1003,7 @@ static int get_last_trigger(
                 const char *path,
                 usec_t *last) {
 
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(bus);
@@ -1358,7 +1358,7 @@ static void output_unit_file_list(const UnitFileList *units, unsigned c) {
 }
 
 static int list_unit_files(int argc, char *argv[], void *userdata) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ UnitFileList *units = NULL;
         UnitFileList *unit;
         size_t size = 0;
@@ -1404,7 +1404,7 @@ static int list_unit_files(int argc, char *argv[], void *userdata) {
                 assert(c <= n_units);
                 hashmap_free(h);
         } else {
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 sd_bus *bus;
 
                 r = acquire_bus(BUS_MANAGER, &bus);
@@ -1516,8 +1516,8 @@ static int list_dependencies_get_dependencies(sd_bus *bus, const char *name, cha
                 [DEPENDENCY_BEFORE]  = "Before\0",
         };
 
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_strv_free_ char **ret = NULL;
         _cleanup_free_ char *path = NULL;
         int r;
@@ -1742,7 +1742,7 @@ static int compare_machine_info(const void *a, const void *b) {
 }
 
 static int get_machine_properties(sd_bus *bus, struct machine_info *mi) {
-        _cleanup_bus_flush_close_unref_ sd_bus *container = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *container = NULL;
         int r;
 
         assert(mi);
@@ -1930,7 +1930,7 @@ static int list_machines(int argc, char *argv[], void *userdata) {
 }
 
 static int get_default(int argc, char *argv[], void *userdata) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ char *_path = NULL;
         const char *path;
         int r;
@@ -1942,7 +1942,7 @@ static int get_default(int argc, char *argv[], void *userdata) {
                 path = _path;
 
         } else {
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 sd_bus *bus;
 
                 r = acquire_bus(BUS_MANAGER, &bus);
@@ -2010,8 +2010,8 @@ static int set_default(int argc, char *argv[], void *userdata) {
                 unit_file_changes_free(changes, n_changes);
                 r = 0;
         } else {
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
                 sd_bus *bus;
 
                 polkit_agent_open_if_enabled();
@@ -2128,8 +2128,8 @@ static bool output_show_job(struct job_info *job, char **patterns) {
 }
 
 static int list_jobs(int argc, char *argv[], void *userdata) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         const char *name, *type, *state, *job_path, *unit_path;
         _cleanup_free_ struct job_info *jobs = NULL;
         size_t size = 0;
@@ -2200,7 +2200,7 @@ static int cancel_job(int argc, char *argv[], void *userdata) {
                 return r;
 
         STRV_FOREACH(name, strv_skip(argv, 1)) {
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 uint32_t id;
                 int q;
 
@@ -2228,7 +2228,7 @@ static int cancel_job(int argc, char *argv[], void *userdata) {
 }
 
 static int need_daemon_reload(sd_bus *bus, const char *unit) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         const char *path;
         int b, r;
 
@@ -2324,8 +2324,8 @@ static int unit_find_paths(
         assert(lp);
 
         if (!install_client_side() && !unit_name_is_valid(unit_name, UNIT_NAME_TEMPLATE)) {
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_bus_message_unref_ sd_bus_message *unit_load_error = NULL;
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *unit_load_error = NULL;
                 _cleanup_free_ char *unit = NULL;
                 char *unit_load_error_name, *unit_load_error_message;
 
@@ -2440,7 +2440,7 @@ static int unit_find_paths(
 }
 
 static int check_one_unit(sd_bus *bus, const char *name, const char *good_states, bool quiet) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ char *n = NULL, *state = NULL;
         const char *path;
         int r;
@@ -2497,7 +2497,7 @@ static int check_triggering_units(
                 sd_bus *bus,
                 const char *name) {
 
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *path = NULL, *n = NULL, *state = NULL;
         _cleanup_strv_free_ char **triggered_by = NULL;
         bool print_warning_label = true;
@@ -2601,7 +2601,7 @@ static int start_unit_one(
                 sd_bus_error *error,
                 BusWaitForJobs *w) {
 
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         const char *path;
         int r;
 
@@ -2680,7 +2680,7 @@ static int expand_names(sd_bus *bus, char **names, const char* suffix, char ***r
         /* Query the manager only if any of the names are a glob, since
          * this is fairly expensive */
         if (!strv_isempty(globs)) {
-                _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
                 _cleanup_free_ UnitInfo *unit_infos = NULL;
 
                 r = get_unit_list(bus, NULL, globs, &unit_infos, 0, &reply);
@@ -2783,7 +2783,7 @@ static int start_unit(int argc, char *argv[], void *userdata) {
         }
 
         STRV_FOREACH(name, names) {
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 int q;
 
                 q = start_unit_one(bus, method, *name, mode, &error, w);
@@ -2810,7 +2810,7 @@ static int start_unit(int argc, char *argv[], void *userdata) {
 
 static int logind_set_wall_message(void) {
 #ifdef HAVE_LOGIND
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus;
         _cleanup_free_ char *m = NULL;
         int r;
@@ -2846,7 +2846,7 @@ static int logind_set_wall_message(void) {
  * through PolicyKit */
 static int logind_reboot(enum action a) {
 #ifdef HAVE_LOGIND
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *method, *description;
         sd_bus *bus;
         int r;
@@ -2909,7 +2909,7 @@ static int logind_reboot(enum action a) {
 
 static int logind_check_inhibitors(enum action a) {
 #ifdef HAVE_LOGIND
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_strv_free_ char **sessions = NULL;
         const char *what, *who, *why, *mode;
         uint32_t uid, pid;
@@ -3025,7 +3025,7 @@ static int logind_check_inhibitors(enum action a) {
 
 static int logind_prepare_firmware_setup(void) {
 #ifdef HAVE_LOGIND
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus;
         int r;
 
@@ -3071,7 +3071,7 @@ static int prepare_firmware_setup(void) {
 }
 
 static int set_exit_code(uint8_t code) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus;
         int r;
 
@@ -3232,7 +3232,7 @@ static int kill_unit(int argc, char *argv[], void *userdata) {
                 return log_error_errno(r, "Failed to expand names: %m");
 
         STRV_FOREACH(name, names) {
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
                 q = sd_bus_call_method(
                                 bus,
@@ -4394,8 +4394,8 @@ static int show_one(
                 bool *new_line,
                 bool *ellipsized) {
 
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         UnitStatusInfo info = {
                 .memory_current = (uint64_t) -1,
                 .memory_limit = (uint64_t) -1,
@@ -4511,8 +4511,8 @@ static int get_unit_dbus_path_by_pid(
                 uint32_t pid,
                 char **unit) {
 
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         char *u;
         int r;
 
@@ -4547,7 +4547,7 @@ static int show_all(
                 bool *new_line,
                 bool *ellipsized) {
 
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ UnitInfo *unit_infos = NULL;
         const UnitInfo *u;
         unsigned c;
@@ -4846,8 +4846,8 @@ static int cat(int argc, char *argv[], void *userdata) {
 }
 
 static int set_property(int argc, char *argv[], void *userdata) {
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *n = NULL;
         sd_bus *bus;
         char **i;
@@ -4907,7 +4907,7 @@ static int set_property(int argc, char *argv[], void *userdata) {
 }
 
 static int daemon_reload(int argc, char *argv[], void *userdata) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *method;
         sd_bus *bus;
         int r;
@@ -4981,7 +4981,7 @@ static int reset_failed(int argc, char *argv[], void *userdata) {
                 return log_error_errno(r, "Failed to expand names: %m");
 
         STRV_FOREACH(name, names) {
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
                 q = sd_bus_call_method(
                                 bus,
@@ -5003,8 +5003,8 @@ static int reset_failed(int argc, char *argv[], void *userdata) {
 }
 
 static int show_environment(int argc, char *argv[], void *userdata) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         const char *text;
         sd_bus *bus;
         int r;
@@ -5044,7 +5044,7 @@ static int show_environment(int argc, char *argv[], void *userdata) {
 }
 
 static int switch_root(int argc, char *argv[], void *userdata) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *cmdline_init = NULL;
         const char *root, *init;
         sd_bus *bus;
@@ -5111,8 +5111,8 @@ static int switch_root(int argc, char *argv[], void *userdata) {
 }
 
 static int set_environment(int argc, char *argv[], void *userdata) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         const char *method;
         sd_bus *bus;
         int r;
@@ -5152,8 +5152,8 @@ static int set_environment(int argc, char *argv[], void *userdata) {
 }
 
 static int import_environment(int argc, char *argv[], void *userdata) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         sd_bus *bus;
         int r;
 
@@ -5448,8 +5448,8 @@ static int enable_unit(int argc, char *argv[], void *userdata) {
 
                 r = 0;
         } else {
-                _cleanup_bus_message_unref_ sd_bus_message *reply = NULL, *m = NULL;
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL, *m = NULL;
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 int expect_carries_install_info = false;
                 bool send_force = true, send_preset_mode = false;
                 const char *method;
@@ -5615,8 +5615,8 @@ static int add_dependency(int argc, char *argv[], void *userdata) {
                 unit_file_changes_free(changes, n_changes);
 
         } else {
-                _cleanup_bus_message_unref_ sd_bus_message *reply = NULL, *m = NULL;
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL, *m = NULL;
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 sd_bus *bus;
 
                 polkit_agent_open_if_enabled();
@@ -5679,8 +5679,8 @@ static int preset_all(int argc, char *argv[], void *userdata) {
                 r = 0;
 
         } else {
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
                 sd_bus *bus;
 
                 polkit_agent_open_if_enabled();
@@ -5758,7 +5758,7 @@ static int unit_is_enabled(int argc, char *argv[], void *userdata) {
                 }
 
         } else {
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 sd_bus *bus;
 
                 r = acquire_bus(BUS_MANAGER, &bus);
@@ -5766,7 +5766,7 @@ static int unit_is_enabled(int argc, char *argv[], void *userdata) {
                         return r;
 
                 STRV_FOREACH(name, names) {
-                        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+                        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
                         const char *s;
 
                         r = sd_bus_call_method(
@@ -7479,7 +7479,7 @@ static int halt_now(enum action a) {
 static int logind_schedule_shutdown(void) {
 
 #ifdef HAVE_LOGIND
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         char date[FORMAT_TIMESTAMP_MAX];
         const char *action;
         sd_bus *bus;
@@ -7607,7 +7607,7 @@ static int runlevel_main(void) {
 
 static int logind_cancel_shutdown(void) {
 #ifdef HAVE_LOGIND
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus;
         int r;
 

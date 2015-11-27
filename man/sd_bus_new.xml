@@ -46,6 +46,7 @@
     <refname>sd_bus_new</refname>
     <refname>sd_bus_ref</refname>
     <refname>sd_bus_unref</refname>
+    <refname>sd_bus_unrefp</refname>
 
     <refpurpose>Create a new bus object and create or destroy references to it</refpurpose>
   </refnamediv>
@@ -67,6 +68,11 @@
       <funcprototype>
         <funcdef>sd_bus *<function>sd_bus_unref</function></funcdef>
         <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>void <function>sd_bus_unrefp</function></funcdef>
+        <paramdef>sd_bus **<parameter>bus</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
@@ -93,14 +99,40 @@
     only allocate a bus object but also start the connection to a
     well-known bus in a single function invocation.</para>
 
-    <para><function>sd_bus_ref()</function> creates a new reference to
-    <parameter>bus</parameter>.</para>
+    <para><function>sd_bus_ref()</function> increases the reference
+    counter of <parameter>bus</parameter> by one.</para>
 
-    <para><function>sd_bus_unref()</function> destroys a reference to
-    <parameter>bus</parameter>. Once the reference count has dropped
-    to zero, <parameter>bus</parameter> cannot be used anymore, so
-    further calls to <function>sd_bus_ref()</function> or
+    <para><function>sd_bus_unref()</function> decreases the reference
+    counter of <parameter>bus</parameter> by one. Once the reference
+    count has dropped to zero, <parameter>bus</parameter> is destroyed
+    and cannot be used anymore, so further calls to
+    <function>sd_bus_ref()</function> or
     <function>sd_bus_unref()</function> are illegal.</para>
+
+    <para><function>sd_bus_unrefp()</function> is similar to
+    <function>sd_bus_unref()</function> but takes a pointer to a
+    pointer to an <type>sd_bus</type> object. This call is useful in
+    conjunction with GCC's and LLVM's <ulink
+    url="https://gcc.gnu.org/onlinedocs/gcc/Common-Variable-Attributes.html">Clean-up
+    Variable Attribute</ulink>. Note that this function is defined as
+    inline function. Use a declaration like the following, in order to
+    allocate a bus object that is freed automatically as the code
+    block is left:</para>
+
+    <programlisting>{
+        __attribute__((cleanup(sd_bus_unrefp)) sd_bus *bus = NULL;
+        int r;
+        …
+        r = sd_bus_default(&amp;bus);
+        if (r &lt; 0)
+                fprintf(stderr, "Failed to allocate bus: %s\n", strerror(-r));
+        …
+}</programlisting>
+
+    <para><function>sd_bus_ref()</function>,
+    <function>sd_bus_unref()</function> and
+    <function>sd_bus_unrefp()</function> execute no operation if the
+    passed in bus object is <constant>NULL</constant>.</para>
   </refsect1>
 
   <refsect1>
@@ -110,10 +142,10 @@
     positive integer. On failure, it returns a negative errno-style
     error code.</para>
 
-    <para><function>sd_bus_ref</function> always returns the argument.
+    <para><function>sd_bus_ref()</function> always returns the argument.
     </para>
 
-    <para><function>sd_bus_unref</function> always returns
+    <para><function>sd_bus_unref()</function> always returns
     <constant>NULL</constant>.</para>
   </refsect1>
 

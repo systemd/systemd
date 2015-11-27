@@ -46,7 +46,7 @@ static void server(sd_bus *b, size_t *result) {
         int r;
 
         for (;;) {
-                _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
 
                 r = sd_bus_process(b, &m);
                 assert_se(r >= 0);
@@ -80,7 +80,7 @@ static void server(sd_bus *b, size_t *result) {
 }
 
 static void transaction(sd_bus *b, size_t sz, const char *server_name) {
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         uint8_t *p;
 
         assert_se(sd_bus_message_new_method_call(b, &m, server_name, "/", "benchmark.server", "Work") >= 0);
@@ -92,7 +92,7 @@ static void transaction(sd_bus *b, size_t sz, const char *server_name) {
 }
 
 static void client_bisect(const char *address, const char *server_name) {
-        _cleanup_bus_message_unref_ sd_bus_message *x = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *x = NULL;
         size_t lsize, rsize, csize;
         sd_bus *b;
         int r;
@@ -166,7 +166,7 @@ static void client_bisect(const char *address, const char *server_name) {
 }
 
 static void client_chart(Type type, const char *address, const char *server_name, int fd) {
-        _cleanup_bus_message_unref_ sd_bus_message *x = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *x = NULL;
         size_t csize;
         sd_bus *b;
         int r;

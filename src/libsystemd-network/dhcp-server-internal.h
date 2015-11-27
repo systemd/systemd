@@ -84,9 +84,6 @@ typedef struct DHCPRequest {
         uint32_t lifetime;
 } DHCPRequest;
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(sd_dhcp_server*, sd_dhcp_server_unref);
-#define _cleanup_dhcp_server_unref_ _cleanup_(sd_dhcp_server_unrefp)
-
 #define log_dhcp_server(client, fmt, ...) log_internal(LOG_DEBUG, 0, __FILE__, __LINE__, __func__, "DHCP SERVER: " fmt, ##__VA_ARGS__)
 
 int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,

@@ -1613,7 +1613,7 @@ bool unit_can_reload(Unit *u) {
 
 static void unit_check_unneeded(Unit *u) {
 
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
         static const UnitDependency needed_dependencies[] = {
                 UNIT_REQUIRED_BY,
@@ -1660,7 +1660,7 @@ static void unit_check_unneeded(Unit *u) {
 }
 
 static void unit_check_binds_to(Unit *u) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         bool stop = false;
         Unit *other;
         Iterator i;

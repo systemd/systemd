@@ -53,7 +53,7 @@ static int test_proxy_acquired(sd_bus_message *m, void *userdata, sd_bus_error *
 }
 
 static void test_proxy_matched(void) {
-        _cleanup_bus_flush_close_unref_ sd_bus *a = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *a = NULL;
         _cleanup_free_ char *matchstr = NULL;
         TestProxyMatch match = {};
         const char *me;

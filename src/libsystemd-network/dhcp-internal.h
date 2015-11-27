@@ -61,13 +61,10 @@ void dhcp_packet_append_ip_headers(DHCPPacket *packet, be32_t source_addr,
 
 int dhcp_packet_verify_headers(DHCPPacket *packet, size_t len, bool checksum);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(sd_dhcp_client*, sd_dhcp_client_unref);
-#define _cleanup_dhcp_client_unref_ _cleanup_(sd_dhcp_client_unrefp)
-
 /* If we are invoking callbacks of a dhcp-client, ensure unreffing the
  * client from the callback doesn't destroy the object we are working
  * on */
 #define DHCP_CLIENT_DONT_DESTROY(client) \
-        _cleanup_dhcp_client_unref_ _unused_ sd_dhcp_client *_dont_destroy_##client = sd_dhcp_client_ref(client)
+        _cleanup_(sd_dhcp_client_unrefp) _unused_ sd_dhcp_client *_dont_destroy_##client = sd_dhcp_client_ref(client)
 
 #define log_dhcp_client(client, fmt, ...) log_internal(LOG_DEBUG, 0, __FILE__, __LINE__, __func__, "DHCP CLIENT (0x%x): " fmt, client->xid, ##__VA_ARGS__)

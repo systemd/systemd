@@ -802,7 +802,7 @@ _public_ int sd_bus_message_new_method_errorf(
                 const char *format,
                 ...) {
 
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         va_list ap;
 
         assert_return(name, -EINVAL);
@@ -821,7 +821,7 @@ _public_ int sd_bus_message_new_method_errno(
                 int error,
                 const sd_bus_error *p) {
 
-        _cleanup_bus_error_free_ sd_bus_error berror = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error berror = SD_BUS_ERROR_NULL;
 
         if (sd_bus_error_is_set(p))
                 return sd_bus_message_new_method_error(call, m, p);
@@ -838,7 +838,7 @@ _public_ int sd_bus_message_new_method_errnof(
                 const char *format,
                 ...) {
 
-        _cleanup_bus_error_free_ sd_bus_error berror = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error berror = SD_BUS_ERROR_NULL;
         va_list ap;
 
         va_start(ap, format);
@@ -919,7 +919,9 @@ fail:
 }
 
 _public_ sd_bus_message* sd_bus_message_ref(sd_bus_message *m) {
-        assert_return(m, NULL);
+
+        if (!m)
+                return NULL;
 
         assert(m->n_ref > 0);
         m->n_ref++;
@@ -5838,7 +5840,7 @@ _public_ sd_bus *sd_bus_message_get_bus(sd_bus_message *m) {
 }
 
 int bus_message_remarshal(sd_bus *bus, sd_bus_message **m) {
-        _cleanup_bus_message_unref_ sd_bus_message *n = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *n = NULL;
         usec_t timeout;
         int r;
 

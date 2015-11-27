@@ -557,7 +557,7 @@ fail:
 }
 
 static void busname_enter_running(BusName *n) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         bool pending = false;
         Unit *other;
         Iterator i;

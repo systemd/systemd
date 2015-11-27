@@ -164,7 +164,7 @@ static int verify_documentation(Unit *u, bool check_man) {
 }
 
 static int verify_unit(Unit *u, bool check_man) {
-        _cleanup_bus_error_free_ sd_bus_error err = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error err = SD_BUS_ERROR_NULL;
         int r, k;
 
         assert(u);
@@ -193,7 +193,7 @@ static int verify_unit(Unit *u, bool check_man) {
 }
 
 int verify_units(char **filenames, ManagerRunningAs running_as, bool check_man) {
-        _cleanup_bus_error_free_ sd_bus_error err = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error err = SD_BUS_ERROR_NULL;
         Manager *m = NULL;
         FILE *serial = NULL;
         FDSet *fdset = NULL;

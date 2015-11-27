@@ -29,7 +29,6 @@
 #include "sd-ipv4ll.h"
 
 #include "arp-util.h"
-#include "event-util.h"
 #include "fd-util.h"
 #include "socket-util.h"
 #include "util.h"
@@ -207,7 +206,7 @@ static void test_basic_request(sd_event *e) {
 }
 
 int main(int argc, char *argv[]) {
-        _cleanup_event_unref_ sd_event *e = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
 
         log_set_max_level(LOG_DEBUG);
         log_parse_environment();

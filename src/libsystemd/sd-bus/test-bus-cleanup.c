@@ -29,14 +29,14 @@
 #include "refcnt.h"
 
 static void test_bus_new(void) {
-        _cleanup_bus_unref_ sd_bus *bus = NULL;
+        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
 
         assert_se(sd_bus_new(&bus) == 0);
         printf("after new: refcount %u\n", REFCNT_GET(bus->n_ref));
 }
 
 static int test_bus_open(void) {
-        _cleanup_bus_unref_ sd_bus *bus = NULL;
+        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
         int r;
 
         r = sd_bus_open_system(&bus);
@@ -51,7 +51,7 @@ static int test_bus_open(void) {
 
 static void test_bus_new_method_call(void) {
         sd_bus *bus = NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
 
         assert_se(sd_bus_open_system(&bus) >= 0);
 
@@ -65,7 +65,7 @@ static void test_bus_new_method_call(void) {
 
 static void test_bus_new_signal(void) {
         sd_bus *bus = NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
 
         assert_se(sd_bus_open_system(&bus) >= 0);
 

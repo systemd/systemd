@@ -27,7 +27,7 @@
 #include "errno-list.h"
 
 static void test_error(void) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL, second = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL, second = SD_BUS_ERROR_NULL;
         const sd_bus_error const_error = SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_FILE_EXISTS, "const error");
         const sd_bus_error temporarily_const_error = {
                 .name = SD_BUS_ERROR_ACCESS_DENIED,

@@ -192,7 +192,7 @@ int bus_machine_method_kill(sd_bus_message *message, void *userdata, sd_bus_erro
 }
 
 int bus_machine_method_get_addresses(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         Machine *m = userdata;
         int r;
 
@@ -375,7 +375,7 @@ int bus_machine_method_get_addresses(sd_bus_message *message, void *userdata, sd
 }
 
 int bus_machine_method_get_os_release(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_strv_free_ char **l = NULL;
         Machine *m = userdata;
         char **k, **v;
@@ -481,7 +481,7 @@ int bus_machine_method_get_os_release(sd_bus_message *message, void *userdata, s
 }
 
 int bus_machine_method_open_pty(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ char *pty_name = NULL;
         _cleanup_close_ int master = -1;
         Machine *m = userdata;
@@ -536,7 +536,7 @@ static int container_bus_new(Machine *m, sd_bus_error *error, sd_bus **ret) {
                 break;
 
         case MACHINE_CONTAINER: {
-                _cleanup_bus_unref_ sd_bus *bus = NULL;
+                _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
                 char *address;
 
                 r = sd_bus_new(&bus);
@@ -570,9 +570,9 @@ static int container_bus_new(Machine *m, sd_bus_error *error, sd_bus **ret) {
 }
 
 int bus_machine_method_open_login(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ char *pty_name = NULL;
-        _cleanup_bus_flush_close_unref_ sd_bus *allocated_bus = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *allocated_bus = NULL;
         _cleanup_close_ int master = -1;
         sd_bus *container_bus = NULL;
         Machine *m = userdata;
@@ -639,9 +639,9 @@ int bus_machine_method_open_login(sd_bus_message *message, void *userdata, sd_bu
 }
 
 int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL, *tm = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL, *tm = NULL;
         _cleanup_free_ char *pty_name = NULL;
-        _cleanup_bus_flush_close_unref_ sd_bus *allocated_bus = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *allocated_bus = NULL;
         sd_bus *container_bus = NULL;
         _cleanup_close_ int master = -1, slave = -1;
         _cleanup_strv_free_ char **env = NULL, **args = NULL;
@@ -1086,7 +1086,7 @@ finish:
 }
 
 static int machine_operation_done(sd_event_source *s, const siginfo_t *si, void *userdata) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         MachineOperation *o = userdata;
         int r;
 
@@ -1312,7 +1312,7 @@ int machine_object_find(sd_bus *bus, const char *path, const char *interface, vo
         assert(m);
 
         if (streq(path, "/org/freedesktop/machine1/machine/self")) {
-                _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
                 sd_bus_message *message;
                 pid_t pid;
 
@@ -1411,7 +1411,7 @@ int machine_send_signal(Machine *m, bool new_machine) {
 }
 
 int machine_send_create_reply(Machine *m, sd_bus_error *error) {
-        _cleanup_bus_message_unref_ sd_bus_message *c = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *c = NULL;
         _cleanup_free_ char *p = NULL;
 
         assert(m);

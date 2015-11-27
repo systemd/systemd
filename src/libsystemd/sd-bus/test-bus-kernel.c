@@ -34,8 +34,8 @@
 int main(int argc, char *argv[]) {
         _cleanup_close_ int bus_ref = -1;
         _cleanup_free_ char *name = NULL, *bus_name = NULL, *address = NULL, *bname = NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *ua = NULL, *ub = NULL, *the_string = NULL;
         sd_bus *a, *b;
         int r, pipe_fds[2];

@@ -29,7 +29,7 @@
 #include "netlink-util.h"
 
 static int start_loopback(sd_netlink *rtnl) {
-        _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
 
         r = sd_rtnl_message_new_link(rtnl, &req, RTM_SETLINK, LOOPBACK_IFINDEX);
@@ -48,7 +48,7 @@ static int start_loopback(sd_netlink *rtnl) {
 }
 
 static bool check_loopback(sd_netlink *rtnl) {
-        _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL, *reply = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
         unsigned flags;
         int r;
 
@@ -68,7 +68,7 @@ static bool check_loopback(sd_netlink *rtnl) {
 }
 
 int loopback_setup(void) {
-        _cleanup_netlink_unref_ sd_netlink *rtnl = NULL;
+        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         int r;
 
         r = sd_netlink_open(&rtnl);

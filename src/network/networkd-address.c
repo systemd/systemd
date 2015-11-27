@@ -408,7 +408,7 @@ int address_get(Link *link, int family, const union in_addr_union *in_addr, unsi
 
 int address_remove(Address *address, Link *link,
                  sd_netlink_message_handler_t callback) {
-        _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
 
         assert(address);
@@ -503,7 +503,7 @@ static int address_acquire(Link *link, Address *original, Address **ret) {
 }
 
 int address_configure(Address *address, Link *link, sd_netlink_message_handler_t callback, bool update) {
-        _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
 
         assert(address);

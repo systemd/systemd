@@ -26,7 +26,6 @@
 #include "alloc-util.h"
 #include "bus-util.h"
 #include "dhcp-lease-internal.h"
-#include "event-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "netlink-util.h"
@@ -404,7 +403,7 @@ static void link_free(Link *link) {
 
         free(link->lease_file);
 
-        sd_lldp_free(link->lldp);
+        sd_lldp_unref(link->lldp);
 
         free(link->lldp_file);
 
@@ -1149,7 +1148,7 @@ static int set_mtu_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userda
 }
 
 int link_set_mtu(Link *link, uint32_t mtu) {
-        _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
 
         assert(link);
@@ -1176,7 +1175,7 @@ int link_set_mtu(Link *link, uint32_t mtu) {
 }
 
 static int link_set_bridge(Link *link) {
-        _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
 
         assert(link);
@@ -1360,7 +1359,7 @@ static int link_up_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userda
 }
 
 static int link_up(Link *link) {
-        _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         uint8_t ipv6ll_mode;
         int r;
 
@@ -1447,7 +1446,7 @@ static int link_down_handler(sd_netlink *rtnl, sd_netlink_message *m, void *user
 }
 
 static int link_down(Link *link) {
-        _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
 
         assert(link);
@@ -2201,7 +2200,7 @@ static int link_initialized_and_synced(sd_netlink *rtnl, sd_netlink_message *m,
 }
 
 int link_initialized(Link *link, struct udev_device *device) {
-        _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
 
         assert(link);
@@ -2336,7 +2335,7 @@ network_file_fail:
                 for (;;) {
                         Route *route;
                         _cleanup_free_ char *route_str = NULL;
-                        _cleanup_event_source_unref_ sd_event_source *expire = NULL;
+                        _cleanup_(sd_event_source_unrefp) sd_event_source *expire = NULL;
                         usec_t lifetime;
                         char *prefixlen_str;
                         int family;

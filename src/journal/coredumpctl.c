@@ -792,7 +792,7 @@ finish:
 }
 
 int main(int argc, char *argv[]) {
-        _cleanup_journal_close_ sd_journal*j = NULL;
+        _cleanup_(sd_journal_closep) sd_journal*j = NULL;
         const char* match;
         Iterator it;
         int r = 0;

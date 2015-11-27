@@ -135,5 +135,5 @@ int rtnl_rqueue_make_room(sd_netlink *rtnl);
 int rtnl_rqueue_partial_make_room(sd_netlink *rtnl);
 
 /* Make sure callbacks don't destroy the rtnl connection */
-#define RTNL_DONT_DESTROY(rtnl) \
-        _cleanup_netlink_unref_ _unused_ sd_netlink *_dont_destroy_##rtnl = sd_netlink_ref(rtnl)
+#define NETLINK_DONT_DESTROY(rtnl) \
+        _cleanup_(sd_netlink_unrefp) _unused_ sd_netlink *_dont_destroy_##rtnl = sd_netlink_ref(rtnl)

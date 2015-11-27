@@ -47,6 +47,7 @@
     <refname>sd_event_default</refname>
     <refname>sd_event_ref</refname>
     <refname>sd_event_unref</refname>
+    <refname>sd_event_unrefp</refname>
     <refname>sd_event_get_tid</refname>
     <refname>sd_event</refname>
 
@@ -77,6 +78,11 @@
       <funcprototype>
         <funcdef>sd_event *<function>sd_event_unref</function></funcdef>
         <paramdef>sd_event *<parameter>event</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>void <function>sd_event_unrefp</function></funcdef>
+        <paramdef>sd_event **<parameter>event</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
@@ -139,8 +145,29 @@
     all remaining event sources of the event loop also need to be
     freed as each keeps a reference to it.</para>
 
-    <para>Both <function>sd_event_ref()</function> and
-    <function>sd_event_unref()</function> execute no operation if the
+    <para><function>sd_event_unrefp()</function> is similar to
+    <function>sd_event_unref()</function> but takes a pointer to a
+    pointer to an <type>sd_event</type> object. This call is useful in
+    conjunction with GCC's and LLVM's <ulink
+    url="https://gcc.gnu.org/onlinedocs/gcc/Common-Variable-Attributes.html">Clean-up
+    Variable Attribute</ulink>. Note that this function is defined as
+    inline function. Use a declaration like the following,
+    in order to allocate an event loop object that is freed
+    automatically as the code block is left:</para>
+
+    <programlisting>{
+        __attribute__((cleanup(sd_event_unrefp)) sd_event *event = NULL;
+        int r;
+        …
+        r = sd_event_default(&amp;event);
+        if (r &lt; 0)
+                fprintf(stderr, "Failed to allocate event loop: %s\n", strerror(-r));
+        …
+}</programlisting>
+
+    <para><function>sd_event_ref()</function>,
+    <function>sd_event_unref()</function> and
+    <function>sd_event_unrefp()</function> execute no operation if the
     passed in event loop object is <constant>NULL</constant>.</para>
 
     <para><function>sd_event_get_tid()</function> retrieves the thread
