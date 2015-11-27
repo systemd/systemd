@@ -25,7 +25,6 @@
 #include "sd-netlink.h"
 
 #include "ether-addr-util.h"
-#include "event-util.h"
 #include "macro.h"
 #include "missing.h"
 #include "netlink-util.h"
@@ -34,7 +33,7 @@
 #include "util.h"
 
 static void test_message_link_bridge(sd_netlink *rtnl) {
-        _cleanup_netlink_message_unref_ sd_netlink_message *message = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL;
         uint32_t cost;
 
         assert_se(sd_rtnl_message_new_link(rtnl, &message, RTM_NEWLINK, 1) >= 0);
@@ -52,7 +51,7 @@ static void test_message_link_bridge(sd_netlink *rtnl) {
 }
 
 static void test_link_configure(sd_netlink *rtnl, int ifindex) {
-        _cleanup_netlink_message_unref_ sd_netlink_message *message = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL;
         const char *mac = "98:fe:94:3f:c6:18", *name = "test";
         char buffer[ETHER_ADDR_TO_STRING_MAX];
         unsigned int mtu = 1450, mtu_out;
@@ -146,7 +145,7 @@ static void test_address_get(sd_netlink *rtnl, int ifindex) {
 }
 
 static void test_route(void) {
-        _cleanup_netlink_message_unref_ sd_netlink_message *req;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req;
         struct in_addr addr, addr_data;
         uint32_t index = 2, u32_data;
         int r;
@@ -209,9 +208,9 @@ static int link_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata)
 }
 
 static void test_event_loop(int ifindex) {
-        _cleanup_event_unref_ sd_event *event = NULL;
-        _cleanup_netlink_unref_ sd_netlink *rtnl = NULL;
-        _cleanup_netlink_message_unref_ sd_netlink_message *m = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         char *ifname;
 
         ifname = strdup("lo2");
@@ -249,8 +248,8 @@ static int pipe_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata)
 }
 
 static void test_async(int ifindex) {
-        _cleanup_netlink_unref_ sd_netlink *rtnl = NULL;
-        _cleanup_netlink_message_unref_ sd_netlink_message *m = NULL, *r = NULL;
+        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL, *r = NULL;
         uint32_t serial;
         char *ifname;
 
@@ -270,8 +269,8 @@ static void test_async(int ifindex) {
 }
 
 static void test_pipe(int ifindex) {
-        _cleanup_netlink_unref_ sd_netlink *rtnl = NULL;
-        _cleanup_netlink_message_unref_ sd_netlink_message *m1 = NULL, *m2 = NULL;
+        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m1 = NULL, *m2 = NULL;
         int counter = 0;
 
         assert_se(sd_netlink_open(&rtnl) >= 0);
@@ -294,7 +293,7 @@ static void test_pipe(int ifindex) {
 }
 
 static void test_container(void) {
-        _cleanup_netlink_message_unref_ sd_netlink_message *m = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         uint16_t u16_data;
         uint32_t u32_data;
         const char *string_data;
@@ -329,7 +328,7 @@ static void test_container(void) {
 }
 
 static void test_match(void) {
-        _cleanup_netlink_unref_ sd_netlink *rtnl = NULL;
+        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
 
         assert_se(sd_netlink_open(&rtnl) >= 0);
 
@@ -344,7 +343,7 @@ static void test_match(void) {
 }
 
 static void test_get_addresses(sd_netlink *rtnl) {
-        _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL, *reply = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
         sd_netlink_message *m;
 
         assert_se(sd_rtnl_message_new_addr(rtnl, &req, RTM_GETADDR, 0, AF_UNSPEC) >= 0);
@@ -372,7 +371,7 @@ static void test_get_addresses(sd_netlink *rtnl) {
 }
 
 static void test_message(void) {
-        _cleanup_netlink_message_unref_ sd_netlink_message *m = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
 
         assert_se(rtnl_message_new_synthetic_error(-ETIMEDOUT, 1, &m) >= 0);
         assert_se(sd_netlink_message_get_errno(m) == -ETIMEDOUT);

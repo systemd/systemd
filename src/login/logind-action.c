@@ -61,7 +61,7 @@ int manager_handle_action(
                 [HANDLE_HYBRID_SLEEP] = SPECIAL_HYBRID_SLEEP_TARGET
         };
 
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         InhibitWhat inhibit_operation;
         Inhibitor *offending = NULL;
         bool supported;

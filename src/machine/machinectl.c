@@ -40,7 +40,6 @@
 #include "cgroup-util.h"
 #include "copy.h"
 #include "env-util.h"
-#include "event-util.h"
 #include "fd-util.h"
 #include "hostname-util.h"
 #include "import-util.h"
@@ -129,8 +128,8 @@ static int compare_machine_info(const void *a, const void *b) {
 static int list_machines(int argc, char *argv[], void *userdata) {
 
         size_t max_name = strlen("MACHINE"), max_class = strlen("CLASS"), max_service = strlen("SERVICE");
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ MachineInfo *machines = NULL;
         const char *name, *class, *service, *object;
         size_t n_machines = 0, n_allocated = 0, j;
@@ -230,9 +229,9 @@ static int compare_image_info(const void *a, const void *b) {
 
 static int list_images(int argc, char *argv[], void *userdata) {
 
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         size_t max_name = strlen("NAME"), max_type = strlen("TYPE"), max_size = strlen("USAGE"), max_crtime = strlen("CREATED"), max_mtime = strlen("MODIFIED");
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ ImageInfo *images = NULL;
         size_t n_images = 0, n_allocated = 0, j;
         const char *name, *type, *object;
@@ -344,8 +343,8 @@ static int list_images(int argc, char *argv[], void *userdata) {
 }
 
 static int show_unit_cgroup(sd_bus *bus, const char *unit, pid_t leader) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *path = NULL;
         const char *cgroup;
         int r;
@@ -393,7 +392,7 @@ static int show_unit_cgroup(sd_bus *bus, const char *unit, pid_t leader) {
 }
 
 static int print_addresses(sd_bus *bus, const char *name, int ifi, const char *prefix, const char *prefix2) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         int r;
 
         assert(bus);
@@ -454,7 +453,7 @@ static int print_addresses(sd_bus *bus, const char *name, int ifi, const char *p
 }
 
 static int print_os_release(sd_bus *bus, const char *name, const char *prefix) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         const char *k, *v, *pretty = NULL;
         int r;
 
@@ -701,8 +700,8 @@ static int show_machine_properties(sd_bus *bus, const char *path, bool *new_line
 
 static int show_machine(int argc, char *argv[], void *userdata) {
 
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         bool properties, new_line = false;
         sd_bus *bus = userdata;
         int r = 0, i;
@@ -950,8 +949,8 @@ static int show_image_properties(sd_bus *bus, const char *path, bool *new_line) 
 
 static int show_image(int argc, char *argv[], void *userdata) {
 
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         bool properties, new_line = false;
         sd_bus *bus = userdata;
         int r = 0, i;
@@ -1006,7 +1005,7 @@ static int show_image(int argc, char *argv[], void *userdata) {
 }
 
 static int kill_machine(int argc, char *argv[], void *userdata) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
         int r, i;
 
@@ -1051,7 +1050,7 @@ static int poweroff_machine(int argc, char *argv[], void *userdata) {
 }
 
 static int terminate_machine(int argc, char *argv[], void *userdata) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
         int r, i;
 
@@ -1079,7 +1078,7 @@ static int terminate_machine(int argc, char *argv[], void *userdata) {
 }
 
 static int copy_files(int argc, char *argv[], void *userdata) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *abs_host_path = NULL;
         char *dest, *host_path, *container_path;
         sd_bus *bus = userdata;
@@ -1122,7 +1121,7 @@ static int copy_files(int argc, char *argv[], void *userdata) {
 }
 
 static int bind_mount(int argc, char *argv[], void *userdata) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
         int r;
 
@@ -1226,11 +1225,11 @@ static int process_forward(sd_event *event, PTYForward **forward, int master, PT
 }
 
 static int login_machine(int argc, char *argv[], void *userdata) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(pty_forward_freep) PTYForward *forward = NULL;
-        _cleanup_bus_slot_unref_ sd_bus_slot *slot = NULL;
-        _cleanup_event_unref_ sd_event *event = NULL;
+        _cleanup_(sd_bus_slot_unrefp) sd_bus_slot *slot = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         int master = -1, r;
         sd_bus *bus = userdata;
         const char *pty, *match, *machine;
@@ -1293,11 +1292,11 @@ static int login_machine(int argc, char *argv[], void *userdata) {
 }
 
 static int shell_machine(int argc, char *argv[], void *userdata) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL, *m = NULL;
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL, *m = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(pty_forward_freep) PTYForward *forward = NULL;
-        _cleanup_bus_slot_unref_ sd_bus_slot *slot = NULL;
-        _cleanup_event_unref_ sd_event *event = NULL;
+        _cleanup_(sd_bus_slot_unrefp) sd_bus_slot *slot = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         int master = -1, r;
         sd_bus *bus = userdata;
         const char *pty, *match, *machine, *path, *uid = NULL;
@@ -1397,7 +1396,7 @@ static int shell_machine(int argc, char *argv[], void *userdata) {
 }
 
 static int remove_image(int argc, char *argv[], void *userdata) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
         int r, i;
 
@@ -1425,7 +1424,7 @@ static int remove_image(int argc, char *argv[], void *userdata) {
 }
 
 static int rename_image(int argc, char *argv[], void *userdata) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
         int r;
 
@@ -1449,7 +1448,7 @@ static int rename_image(int argc, char *argv[], void *userdata) {
 }
 
 static int clone_image(int argc, char *argv[], void *userdata) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
         int r;
 
@@ -1473,7 +1472,7 @@ static int clone_image(int argc, char *argv[], void *userdata) {
 }
 
 static int read_only_image(int argc, char *argv[], void *userdata) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
         int b = true, r;
 
@@ -1528,7 +1527,7 @@ static int make_service_name(const char *name, char **ret) {
 }
 
 static int start_machine(int argc, char *argv[], void *userdata) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
         sd_bus *bus = userdata;
         int r, i;
@@ -1542,7 +1541,7 @@ static int start_machine(int argc, char *argv[], void *userdata) {
                 return log_oom();
 
         for (i = 1; i < argc; i++) {
-                _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
                 _cleanup_free_ char *unit = NULL;
                 const char *object;
 
@@ -1581,8 +1580,8 @@ static int start_machine(int argc, char *argv[], void *userdata) {
 }
 
 static int enable_machine(int argc, char *argv[], void *userdata) {
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL, *reply = NULL;
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int carries_install_info = 0;
         const char *method = NULL;
         sd_bus *bus = userdata;
@@ -1721,10 +1720,10 @@ static int transfer_signal_handler(sd_event_source *s, const struct signalfd_sig
 }
 
 static int transfer_image_common(sd_bus *bus, sd_bus_message *m) {
-        _cleanup_bus_slot_unref_ sd_bus_slot *slot_job_removed = NULL, *slot_log_message = NULL;
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-        _cleanup_event_unref_ sd_event* event = NULL;
+        _cleanup_(sd_bus_slot_unrefp) sd_bus_slot *slot_job_removed = NULL, *slot_log_message = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(sd_event_unrefp) sd_event* event = NULL;
         const char *path = NULL;
         uint32_t id;
         int r;
@@ -1791,7 +1790,7 @@ static int transfer_image_common(sd_bus *bus, sd_bus_message *m) {
 }
 
 static int import_tar(int argc, char *argv[], void *userdata) {
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_free_ char *ll = NULL;
         _cleanup_close_ int fd = -1;
         const char *local = NULL, *path = NULL;
@@ -1858,7 +1857,7 @@ static int import_tar(int argc, char *argv[], void *userdata) {
 }
 
 static int import_raw(int argc, char *argv[], void *userdata) {
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_free_ char *ll = NULL;
         _cleanup_close_ int fd = -1;
         const char *local = NULL, *path = NULL;
@@ -1940,7 +1939,7 @@ static void determine_compression_from_filename(const char *p) {
 }
 
 static int export_tar(int argc, char *argv[], void *userdata) {
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_close_ int fd = -1;
         const char *local = NULL, *path = NULL;
         sd_bus *bus = userdata;
@@ -1990,7 +1989,7 @@ static int export_tar(int argc, char *argv[], void *userdata) {
 }
 
 static int export_raw(int argc, char *argv[], void *userdata) {
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_close_ int fd = -1;
         const char *local = NULL, *path = NULL;
         sd_bus *bus = userdata;
@@ -2040,7 +2039,7 @@ static int export_raw(int argc, char *argv[], void *userdata) {
 }
 
 static int pull_tar(int argc, char *argv[], void *userdata) {
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_free_ char *l = NULL, *ll = NULL;
         const char *local, *remote;
         sd_bus *bus = userdata;
@@ -2104,7 +2103,7 @@ static int pull_tar(int argc, char *argv[], void *userdata) {
 }
 
 static int pull_raw(int argc, char *argv[], void *userdata) {
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_free_ char *l = NULL, *ll = NULL;
         const char *local, *remote;
         sd_bus *bus = userdata;
@@ -2168,7 +2167,7 @@ static int pull_raw(int argc, char *argv[], void *userdata) {
 }
 
 static int pull_dkr(int argc, char *argv[], void *userdata) {
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         const char *local, *remote, *tag;
         sd_bus *bus = userdata;
         int r;
@@ -2255,8 +2254,8 @@ static int compare_transfer_info(const void *a, const void *b) {
 
 static int list_transfers(int argc, char *argv[], void *userdata) {
         size_t max_type = strlen("TYPE"), max_local = strlen("LOCAL"), max_remote = strlen("REMOTE");
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ TransferInfo *transfers = NULL;
         size_t n_transfers = 0, n_allocated = 0, j;
         const char *type, *remote, *local, *object;
@@ -2346,7 +2345,7 @@ static int list_transfers(int argc, char *argv[], void *userdata) {
 }
 
 static int cancel_transfer(int argc, char *argv[], void *userdata) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
         int r, i;
 
@@ -2380,7 +2379,7 @@ static int cancel_transfer(int argc, char *argv[], void *userdata) {
 }
 
 static int set_limit(int argc, char *argv[], void *userdata) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
         uint64_t limit;
         int r;
@@ -2737,7 +2736,7 @@ static int machinectl_main(int argc, char *argv[], sd_bus *bus) {
 }
 
 int main(int argc, char*argv[]) {
-        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
         setlocale(LC_ALL, "");

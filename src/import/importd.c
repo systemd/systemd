@@ -1039,7 +1039,7 @@ static int method_pull_dkr(sd_bus_message *msg, void *userdata, sd_bus_error *er
 }
 
 static int method_list_transfers(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         Manager *m = userdata;
         Transfer *t;
         Iterator i;

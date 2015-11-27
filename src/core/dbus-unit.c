@@ -399,7 +399,7 @@ static int property_get_load_error(
                 void *userdata,
                 sd_bus_error *error) {
 
-        _cleanup_bus_error_free_ sd_bus_error e = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error e = SD_BUS_ERROR_NULL;
         Unit *u = userdata;
 
         assert(bus);
@@ -846,7 +846,7 @@ const sd_bus_vtable bus_unit_cgroup_vtable[] = {
 };
 
 static int send_new_signal(sd_bus *bus, void *userdata) {
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_free_ char *p = NULL;
         Unit *u = userdata;
         int r;
@@ -923,7 +923,7 @@ void bus_unit_send_change_signal(Unit *u) {
 }
 
 static int send_removed_signal(sd_bus *bus, void *userdata) {
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_free_ char *p = NULL;
         Unit *u = userdata;
         int r;

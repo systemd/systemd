@@ -71,8 +71,8 @@ static void print_source(uint64_t flags, usec_t rtt) {
 
 static int resolve_host(sd_bus *bus, const char *name) {
 
-        _cleanup_bus_message_unref_ sd_bus_message *req = NULL, *reply = NULL;
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL, *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *canonical = NULL;
         char ifname[IF_NAMESIZE] = "";
         unsigned c = 0;
@@ -185,8 +185,8 @@ static int resolve_host(sd_bus *bus, const char *name) {
 }
 
 static int resolve_address(sd_bus *bus, int family, const union in_addr_union *address, int ifindex) {
-        _cleanup_bus_message_unref_ sd_bus_message *req = NULL, *reply = NULL;
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL, *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *pretty = NULL;
         char ifname[IF_NAMESIZE] = "";
         uint64_t flags;
@@ -320,8 +320,8 @@ static int parse_address(const char *s, int *family, union in_addr_union *addres
 
 static int resolve_record(sd_bus *bus, const char *name) {
 
-        _cleanup_bus_message_unref_ sd_bus_message *req = NULL, *reply = NULL;
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL, *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         char ifname[IF_NAMESIZE] = "";
         unsigned n = 0;
         uint64_t flags;
@@ -439,8 +439,8 @@ static int resolve_record(sd_bus *bus, const char *name) {
 
 static int resolve_service(sd_bus *bus, const char *name, const char *type, const char *domain) {
         const char *canonical_name, *canonical_type, *canonical_domain;
-        _cleanup_bus_message_unref_ sd_bus_message *req = NULL, *reply = NULL;
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL, *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         char ifname[IF_NAMESIZE] = "";
         size_t indent, sz;
         uint64_t flags;
@@ -871,7 +871,7 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 int main(int argc, char **argv) {
-        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
         log_parse_environment();

@@ -1151,7 +1151,7 @@ bool manager_should_reload(Manager *m) {
 }
 
 int manager_rtnl_enumerate_links(Manager *m) {
-        _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL, *reply = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
         sd_netlink_message *link;
         int r;
 
@@ -1186,7 +1186,7 @@ int manager_rtnl_enumerate_links(Manager *m) {
 }
 
 int manager_rtnl_enumerate_addresses(Manager *m) {
-        _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL, *reply = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
         sd_netlink_message *addr;
         int r;
 
@@ -1221,7 +1221,7 @@ int manager_rtnl_enumerate_addresses(Manager *m) {
 }
 
 int manager_rtnl_enumerate_routes(Manager *m) {
-        _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL, *reply = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
         sd_netlink_message *route;
         int r;
 

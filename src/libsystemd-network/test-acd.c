@@ -30,7 +30,6 @@
 #include "sd-ipv4acd.h"
 #include "sd-netlink.h"
 
-#include "event-util.h"
 #include "in-addr-util.h"
 #include "netlink-util.h"
 #include "util.h"
@@ -76,9 +75,9 @@ static int client_run(int ifindex, const struct in_addr *pa, const struct ether_
 }
 
 static int test_acd(const char *ifname, const char *address) {
-        _cleanup_event_unref_ sd_event *e = NULL;
-        _cleanup_netlink_unref_ sd_netlink *rtnl = NULL;
-        _cleanup_netlink_message_unref_ sd_netlink_message *m = NULL, *reply = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL, *reply = NULL;
         union in_addr_union pa;
         struct ether_addr ha;
         int ifindex;

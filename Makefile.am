@@ -947,7 +947,8 @@ libbasic_la_SOURCES = \
 	src/basic/copy.h \
 	src/basic/alloc-util.h \
 	src/basic/alloc-util.c \
-	src/basic/formats-util.h
+	src/basic/formats-util.h \
+	src/basic/nss-util.h
 
 nodist_libbasic_la_SOURCES = \
 	src/basic/errno-from-name.h \
@@ -1007,7 +1008,6 @@ libshared_la_SOURCES = \
 	src/shared/base-filesystem.h \
 	src/shared/uid-range.c \
 	src/shared/uid-range.h \
-	src/shared/nss-util.h \
 	src/shared/install.c \
 	src/shared/install.h \
 	src/shared/install-printf.c \
@@ -3041,7 +3041,6 @@ libsystemd_internal_la_SOURCES = \
 	src/libsystemd/sd-bus/bus-dump.h \
 	src/libsystemd/sd-utf8/sd-utf8.c \
 	src/libsystemd/sd-event/sd-event.c \
-	src/libsystemd/sd-event/event-util.h \
 	src/libsystemd/sd-netlink/sd-netlink.c \
 	src/libsystemd/sd-netlink/netlink-internal.h \
 	src/libsystemd/sd-netlink/netlink-message.c \
@@ -3070,8 +3069,7 @@ libsystemd_internal_la_SOURCES = \
 	src/libsystemd/sd-device/sd-device.c \
 	src/libsystemd/sd-device/device-private.c \
 	src/libsystemd/sd-device/device-private.h \
-	src/libsystemd/sd-resolve/sd-resolve.c \
-	src/libsystemd/sd-resolve/resolve-util.h
+	src/libsystemd/sd-resolve/sd-resolve.c
 
 libsystemd_internal_la_LIBADD = \
 	libbasic.la \
@@ -3353,7 +3351,6 @@ libsystemd_network_la_SOURCES = \
 	src/libsystemd-network/lldp-port.c \
 	src/libsystemd-network/lldp-internal.h \
 	src/libsystemd-network/lldp-internal.c \
-	src/libsystemd-network/lldp-util.h \
 	src/libsystemd-network/sd-lldp.c
 
 libsystemd_network_la_LIBADD = \

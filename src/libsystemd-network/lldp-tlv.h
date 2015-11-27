@@ -74,9 +74,6 @@ struct sd_lldp_packet {
 
 int tlv_packet_new(tlv_packet **ret);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(sd_lldp_packet*, sd_lldp_packet_unref);
-#define _cleanup_lldp_packet_unref_ _cleanup_(sd_lldp_packet_unrefp)
-
 int lldp_tlv_packet_open_container(tlv_packet *m, uint16_t type);
 int lldp_tlv_packet_close_container(tlv_packet *m);
 

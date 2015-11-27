@@ -46,7 +46,7 @@ static int netdev_bridge_set_handler(sd_netlink *rtnl, sd_netlink_message *m, vo
 }
 
 static int netdev_bridge_post_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
-        _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         Bridge *b;
         int r;
 

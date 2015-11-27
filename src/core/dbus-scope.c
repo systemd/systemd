@@ -205,7 +205,7 @@ int bus_scope_commit_properties(Unit *u) {
 }
 
 int bus_scope_send_request_stop(Scope *s) {
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_free_ char *p = NULL;
         int r;
 

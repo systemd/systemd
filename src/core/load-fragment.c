@@ -1699,7 +1699,7 @@ int config_parse_socket_service(
                 void *data,
                 void *userdata) {
 
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *p = NULL;
         Socket *s = data;
         Unit *x;
@@ -1914,7 +1914,7 @@ int config_parse_busname_service(
                 void *data,
                 void *userdata) {
 
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         BusName *n = data;
         int r;
         Unit *x;

@@ -193,7 +193,7 @@ static int show_status(sd_bus *bus, char **args, unsigned n) {
 }
 
 static int set_time(sd_bus *bus, char **args, unsigned n) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         bool relative = false, interactive = arg_ask_password;
         usec_t t;
         int r;
@@ -224,7 +224,7 @@ static int set_time(sd_bus *bus, char **args, unsigned n) {
 }
 
 static int set_timezone(sd_bus *bus, char **args, unsigned n) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(args);
@@ -247,7 +247,7 @@ static int set_timezone(sd_bus *bus, char **args, unsigned n) {
 }
 
 static int set_local_rtc(sd_bus *bus, char **args, unsigned n) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r, b;
 
         assert(args);
@@ -276,7 +276,7 @@ static int set_local_rtc(sd_bus *bus, char **args, unsigned n) {
 }
 
 static int set_ntp(sd_bus *bus, char **args, unsigned n) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int b, r;
 
         assert(args);
@@ -490,7 +490,7 @@ static int timedatectl_main(sd_bus *bus, int argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
-        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
         setlocale(LC_ALL, "");

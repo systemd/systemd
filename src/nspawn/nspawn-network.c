@@ -94,7 +94,7 @@ static int add_veth(
                 const char *ifname_container,
                 const struct ether_addr *mac_container) {
 
-        _cleanup_netlink_message_unref_ sd_netlink_message *m = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
         assert(rtnl);
@@ -163,7 +163,7 @@ int setup_veth(const char *machine_name,
                char iface_name[IFNAMSIZ],
                bool bridge) {
 
-        _cleanup_netlink_unref_ sd_netlink *rtnl = NULL;
+        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         struct ether_addr mac_host, mac_container;
         int r, i;
 
@@ -204,7 +204,7 @@ int setup_veth_extra(
                 pid_t pid,
                 char **pairs) {
 
-        _cleanup_netlink_unref_ sd_netlink *rtnl = NULL;
+        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         uint64_t idx = 0;
         char **a, **b;
         int r;
@@ -241,8 +241,8 @@ int setup_veth_extra(
 }
 
 int setup_bridge(const char *veth_name, const char *bridge_name) {
-        _cleanup_netlink_message_unref_ sd_netlink_message *m = NULL;
-        _cleanup_netlink_unref_ sd_netlink *rtnl = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         int r, bridge_ifi;
 
         assert(veth_name);
@@ -303,7 +303,7 @@ static int parse_interface(struct udev *udev, const char *name) {
 
 int move_network_interfaces(pid_t pid, char **ifaces) {
         _cleanup_udev_unref_ struct udev *udev = NULL;
-        _cleanup_netlink_unref_ sd_netlink *rtnl = NULL;
+        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         char **i;
         int r;
 
@@ -321,7 +321,7 @@ int move_network_interfaces(pid_t pid, char **ifaces) {
         }
 
         STRV_FOREACH(i, ifaces) {
-                _cleanup_netlink_message_unref_ sd_netlink_message *m = NULL;
+                _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
                 int ifi;
 
                 ifi = parse_interface(udev, *i);
@@ -346,7 +346,7 @@ int move_network_interfaces(pid_t pid, char **ifaces) {
 
 int setup_macvlan(const char *machine_name, pid_t pid, char **ifaces) {
         _cleanup_udev_unref_ struct udev *udev = NULL;
-        _cleanup_netlink_unref_ sd_netlink *rtnl = NULL;
+        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         unsigned idx = 0;
         char **i;
         int r;
@@ -365,7 +365,7 @@ int setup_macvlan(const char *machine_name, pid_t pid, char **ifaces) {
         }
 
         STRV_FOREACH(i, ifaces) {
-                _cleanup_netlink_message_unref_ sd_netlink_message *m = NULL;
+                _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
                 _cleanup_free_ char *n = NULL;
                 struct ether_addr mac;
                 int ifi;
@@ -434,7 +434,7 @@ int setup_macvlan(const char *machine_name, pid_t pid, char **ifaces) {
 
 int setup_ipvlan(const char *machine_name, pid_t pid, char **ifaces) {
         _cleanup_udev_unref_ struct udev *udev = NULL;
-        _cleanup_netlink_unref_ sd_netlink *rtnl = NULL;
+        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         char **i;
         int r;
 
@@ -452,7 +452,7 @@ int setup_ipvlan(const char *machine_name, pid_t pid, char **ifaces) {
         }
 
         STRV_FOREACH(i, ifaces) {
-                _cleanup_netlink_message_unref_ sd_netlink_message *m = NULL;
+                _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
                 _cleanup_free_ char *n = NULL;
                 int ifi;
 

@@ -203,7 +203,7 @@ static int method_get_machine_by_pid(sd_bus_message *message, void *userdata, sd
                 return -EINVAL;
 
         if (pid == 0) {
-                _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
 
                 r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID, &creds);
                 if (r < 0)
@@ -228,7 +228,7 @@ static int method_get_machine_by_pid(sd_bus_message *message, void *userdata, sd
 }
 
 static int method_list_machines(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         Manager *m = userdata;
         Machine *machine;
         Iterator i;
@@ -333,7 +333,7 @@ static int method_create_or_register_machine(Manager *manager, sd_bus_message *m
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Root directory must be empty or an absolute path");
 
         if (leader == 0) {
-                _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
 
                 r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID, &creds);
                 if (r < 0)
@@ -554,7 +554,7 @@ static int method_get_machine_os_release(sd_bus_message *message, void *userdata
 }
 
 static int method_list_images(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(image_hashmap_freep) Hashmap *images = NULL;
         Manager *m = userdata;
         Image *image;
@@ -1176,7 +1176,7 @@ int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *err
                         if (streq(result, "done"))
                                 machine_send_create_reply(machine, NULL);
                         else {
-                                _cleanup_bus_error_free_ sd_bus_error e = SD_BUS_ERROR_NULL;
+                                _cleanup_(sd_bus_error_free) sd_bus_error e = SD_BUS_ERROR_NULL;
 
                                 sd_bus_error_setf(&e, BUS_ERROR_JOB_FAILED, "Start job for unit %s failed with '%s'", unit, result);
 
@@ -1280,7 +1280,7 @@ int manager_start_scope(
                 sd_bus_error *error,
                 char **job) {
 
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         int r;
 
         assert(manager);
@@ -1362,7 +1362,7 @@ int manager_start_scope(
 }
 
 int manager_stop_unit(Manager *manager, const char *unit, sd_bus_error *error, char **job) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         int r;
 
         assert(manager);
@@ -1425,8 +1425,8 @@ int manager_kill_unit(Manager *manager, const char *unit, int signo, sd_bus_erro
 }
 
 int manager_unit_is_active(Manager *manager, const char *unit) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ char *path = NULL;
         const char *state;
         int r;
@@ -1467,8 +1467,8 @@ int manager_unit_is_active(Manager *manager, const char *unit) {
 }
 
 int manager_job_is_active(Manager *manager, const char *path) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         int r;
 
         assert(manager);

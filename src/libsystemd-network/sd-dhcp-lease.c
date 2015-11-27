@@ -865,7 +865,7 @@ fail:
 
 int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
 
-        _cleanup_dhcp_lease_unref_ sd_dhcp_lease *lease = NULL;
+        _cleanup_(sd_dhcp_lease_unrefp) sd_dhcp_lease *lease = NULL;
         _cleanup_free_ char
                 *address = NULL,
                 *router = NULL,

@@ -65,7 +65,7 @@ int message_new_empty(sd_netlink *rtnl, sd_netlink_message **ret) {
 }
 
 int message_new(sd_netlink *rtnl, sd_netlink_message **ret, uint16_t type) {
-        _cleanup_netlink_message_unref_ sd_netlink_message *m = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         const NLType *nl_type;
         size_t size;
         int r;

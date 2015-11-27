@@ -49,7 +49,7 @@
 #include "util.h"
 
 static int proxy_create_destination(Proxy *p, const char *destination, const char *local_sec, bool negotiate_fds) {
-        _cleanup_bus_flush_close_unref_ sd_bus *b = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *b = NULL;
         int r;
 
         r = sd_bus_new(&b);
@@ -491,7 +491,7 @@ static int process_policy_unlocked(sd_bus *from, sd_bus *to, sd_bus_message *m, 
                 (void) sd_bus_creds_get_egid(&m->creds, &sender_gid);
 
                 if (sender_uid == UID_INVALID || sender_gid == GID_INVALID) {
-                        _cleanup_bus_creds_unref_ sd_bus_creds *sender_creds = NULL;
+                        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *sender_creds = NULL;
 
                         /* If the message came from another legacy
                          * client, then the message creds will be
@@ -522,7 +522,7 @@ static int process_policy_unlocked(sd_bus *from, sd_bus *to, sd_bus_message *m, 
         }
 
         if (to->is_kernel) {
-                _cleanup_bus_creds_unref_ sd_bus_creds *destination_creds = NULL;
+                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *destination_creds = NULL;
                 uid_t destination_uid = UID_INVALID;
                 gid_t destination_gid = GID_INVALID;
                 const char *destination_unique = NULL;
@@ -609,7 +609,7 @@ static int process_policy(sd_bus *from, sd_bus *to, sd_bus_message *m, SharedPol
 }
 
 static int process_hello(Proxy *p, sd_bus_message *m) {
-        _cleanup_bus_message_unref_ sd_bus_message *n = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *n = NULL;
         bool is_hello;
         int r;
 
@@ -723,7 +723,7 @@ static int patch_sender(sd_bus *a, sd_bus_message *m) {
 }
 
 static int proxy_process_destination_to_local(Proxy *p) {
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         bool matched, matched_synthetic;
         int r;
 
@@ -832,7 +832,7 @@ static int proxy_process_destination_to_local(Proxy *p) {
 }
 
 static int proxy_process_local_to_destination(Proxy *p) {
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         int r;
 
         assert(p);

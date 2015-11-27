@@ -45,6 +45,7 @@
   <refnamediv>
     <refname>sd_login_monitor_new</refname>
     <refname>sd_login_monitor_unref</refname>
+    <refname>sd_login_monitor_unrefp</refname>
     <refname>sd_login_monitor_flush</refname>
     <refname>sd_login_monitor_get_fd</refname>
     <refname>sd_login_monitor_get_events</refname>
@@ -66,6 +67,11 @@
       <funcprototype>
         <funcdef>sd_login_monitor *<function>sd_login_monitor_unref</function></funcdef>
         <paramdef>sd_login_monitor *<parameter>m</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>void <function>sd_login_monitor_unrefp</function></funcdef>
+        <paramdef>sd_login_monitor **<parameter>m</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
@@ -121,12 +127,37 @@
     descriptor returned by
     <function>sd_login_monitor_get_fd()</function>.</para>
 
+    <para><function>sd_login_monitor_unrefp()</function> is similar to
+    <function>sd_login_monitor_unref()</function> but takes a pointer
+    to a pointer to an <type>sd_login_monitor</type> object. This call
+    is useful in conjunction with GCC's and LLVM's <ulink
+    url="https://gcc.gnu.org/onlinedocs/gcc/Common-Variable-Attributes.html">Clean-up
+    Variable Attribute</ulink>. Note that this function is defined as
+    inline function. Use a declaration like the following, in order to
+    allocate a login monitor object that is freed automatically as the
+    code block is left:</para>
+
+    <programlisting>{
+        __attribute__((cleanup(sd_login_monitor_unrefp)) sd_login_monitor *m = NULL;
+        int r;
+        …
+        r = sd_login_monitor_default(&amp;m);
+        if (r &lt; 0)
+                fprintf(stderr, "Failed to allocate login monitor object: %s\n", strerror(-r));
+        …
+}</programlisting>
+
     <para><function>sd_login_monitor_flush()</function> may be used to
     reset the wakeup state of the monitor object. Whenever an event
     causes the monitor to wake up the event loop via the file
     descriptor this function needs to be called to reset the wake-up
     state. If this call is not invoked, the file descriptor will
     immediately wake up the event loop again.</para>
+
+    <para><function>sd_login_monitor_unref()</function> and
+    <function>sd_login_monitor_unrefp()</function> execute no
+    operation if the passed in monitor object is
+    <constant>NULL</constant>.</para>
 
     <para><function>sd_login_monitor_get_fd()</function> may be used
     to retrieve the file descriptor of the monitor object that may be

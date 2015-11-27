@@ -32,7 +32,6 @@
 #include "dhcp6-internal.h"
 #include "dhcp6-lease-internal.h"
 #include "dhcp6-protocol.h"
-#include "event-util.h"
 #include "fd-util.h"
 #include "macro.h"
 #include "socket-util.h"
@@ -206,7 +205,7 @@ static uint8_t msg_reply[173] = {
 };
 
 static int test_advertise_option(sd_event *e) {
-        _cleanup_dhcp6_lease_free_ sd_dhcp6_lease *lease = NULL;
+        _cleanup_(sd_dhcp6_lease_unrefp) sd_dhcp6_lease *lease = NULL;
         DHCP6Message *advertise = (DHCP6Message *)msg_advertise;
         uint8_t *optval, *opt = msg_advertise + sizeof(DHCP6Message);
         uint16_t optcode;
@@ -408,7 +407,7 @@ static int test_client_send_reply(DHCP6Message *request) {
 
 static int test_client_verify_request(DHCP6Message *request, uint8_t *option,
                                       size_t len) {
-        _cleanup_dhcp6_lease_free_ sd_dhcp6_lease *lease = NULL;
+        _cleanup_(sd_dhcp6_lease_unrefp) sd_dhcp6_lease *lease = NULL;
         uint8_t *optval;
         uint16_t optcode;
         size_t optlen;
@@ -599,7 +598,7 @@ static void test_client_information_cb(sd_dhcp6_client *client, int event,
 static int test_client_verify_information_request(DHCP6Message *information_request,
                                                   uint8_t *option, size_t len) {
 
-        _cleanup_dhcp6_lease_free_ sd_dhcp6_lease *lease = NULL;
+        _cleanup_(sd_dhcp6_lease_unrefp) sd_dhcp6_lease *lease = NULL;
         uint8_t *optval;
         uint16_t optcode;
         size_t optlen;
@@ -749,7 +748,7 @@ static int test_client_solicit(sd_event *e) {
 }
 
 int main(int argc, char *argv[]) {
-        _cleanup_event_unref_ sd_event *e;
+        _cleanup_(sd_event_unrefp) sd_event *e;
 
         assert_se(sd_event_new(&e) >= 0);
 

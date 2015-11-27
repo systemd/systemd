@@ -57,7 +57,7 @@ static void *server(void *p) {
         assert_se(sd_bus_start(bus) >= 0);
 
         while (!quit) {
-                _cleanup_bus_message_unref_ sd_bus_message *m = NULL, *reply = NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
 
                 r = sd_bus_process(bus, &m);
                 if (r < 0) {
@@ -124,8 +124,8 @@ fail:
 }
 
 static int client(struct context *c) {
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL, *reply = NULL;
-        _cleanup_bus_unref_ sd_bus *bus = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
         sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 

@@ -40,7 +40,7 @@
 #include "util.h"
 
 static int get_creds_by_name(sd_bus *bus, const char *name, uint64_t mask, sd_bus_creds **_creds, sd_bus_error *error) {
-        _cleanup_bus_creds_unref_ sd_bus_creds *c = NULL;
+        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *c = NULL;
         int r;
 
         assert(bus);
@@ -75,7 +75,7 @@ static int get_creds_by_message(sd_bus *bus, sd_bus_message *m, uint64_t mask, s
 }
 
 static int driver_activation(sd_bus_message *reply, void *userdata, sd_bus_error *error) {
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         ProxyActivation *activation = userdata;
 
         /*
@@ -239,9 +239,9 @@ int bus_proxy_process_driver(Proxy *p, sd_bus *a, sd_bus *b, sd_bus_message *m, 
                 return synthetic_reply_method_return(m, NULL);
 
         } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "GetConnectionCredentials")) {
-                _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
-                _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
                 if (!sd_bus_message_has_signature(m, "s"))
                         return synthetic_reply_method_error(m, &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_INVALID_ARGS, "Invalid parameters"));
@@ -305,9 +305,9 @@ int bus_proxy_process_driver(Proxy *p, sd_bus *a, sd_bus *b, sd_bus_message *m, 
                 return synthetic_driver_send(m->bus, reply);
 
         } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "GetConnectionSELinuxSecurityContext")) {
-                _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-                _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
                 if (!sd_bus_message_has_signature(m, "s"))
                         return synthetic_reply_method_error(m, &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_INVALID_ARGS, "Invalid parameters"));
@@ -330,8 +330,8 @@ int bus_proxy_process_driver(Proxy *p, sd_bus *a, sd_bus *b, sd_bus_message *m, 
                 return synthetic_driver_send(m->bus, reply);
 
         } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "GetConnectionUnixProcessID")) {
-                _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
                 if (!sd_bus_message_has_signature(m, "s"))
                         return synthetic_reply_method_error(m, &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_INVALID_ARGS, "Invalid parameters"));
@@ -346,8 +346,8 @@ int bus_proxy_process_driver(Proxy *p, sd_bus *a, sd_bus *b, sd_bus_message *m, 
                 return synthetic_reply_method_return(m, "u", (uint32_t) creds->pid);
 
         } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "GetConnectionUnixUser")) {
-                _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
                 if (!sd_bus_message_has_signature(m, "s"))
                         return synthetic_reply_method_error(m, &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_INVALID_ARGS, "Invalid parameters"));
@@ -376,8 +376,8 @@ int bus_proxy_process_driver(Proxy *p, sd_bus *a, sd_bus *b, sd_bus_message *m, 
 
         } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "GetNameOwner")) {
                 const char *name;
-                _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
                 if (!sd_bus_message_has_signature(m, "s"))
                         return synthetic_reply_method_error(m, &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_INVALID_ARGS, "Invalid parameters"));
@@ -439,7 +439,7 @@ int bus_proxy_process_driver(Proxy *p, sd_bus *a, sd_bus *b, sd_bus_message *m, 
                 };
                 struct kdbus_info *name_list, *name;
                 _cleanup_strv_free_ char **owners = NULL;
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 char *arg0;
                 int err = 0;
 
@@ -610,7 +610,7 @@ int bus_proxy_process_driver(Proxy *p, sd_bus *a, sd_bus *b, sd_bus_message *m, 
                 return synthetic_reply_method_return(m, "u", BUS_NAME_PRIMARY_OWNER);
 
         } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "StartServiceByName")) {
-                _cleanup_bus_message_unref_ sd_bus_message *msg = NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *msg = NULL;
                 ProxyActivation *activation;
                 const char *name;
                 uint64_t cookie;
@@ -674,7 +674,7 @@ int bus_proxy_process_driver(Proxy *p, sd_bus *a, sd_bus *b, sd_bus_message *m, 
                 return 1;
 
         } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "UpdateActivationEnvironment")) {
-                _cleanup_bus_message_unref_ sd_bus_message *msg = NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *msg = NULL;
                 _cleanup_strv_free_ char **args = NULL;
 
                 if (!sd_bus_message_has_signature(m, "a{ss}"))
@@ -738,7 +738,7 @@ int bus_proxy_process_driver(Proxy *p, sd_bus *a, sd_bus *b, sd_bus_message *m, 
                 return synthetic_reply_method_return(m, NULL);
 
         } else {
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
                 r = sd_bus_error_setf(&error, SD_BUS_ERROR_UNKNOWN_METHOD, "Unknown method '%s'.", m->member);
 

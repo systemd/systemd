@@ -61,7 +61,7 @@ static int reply_query_state(DnsQuery *q) {
                 return sd_bus_reply_method_errorf(q->request, BUS_ERROR_ABORTED, "Query aborted");
 
         case DNS_TRANSACTION_FAILURE: {
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
                 if (q->answer_rcode == DNS_RCODE_NXDOMAIN)
                         sd_bus_error_setf(&error, _BUS_ERROR_DNS "NXDOMAIN", "'%s' not found", name);
@@ -132,7 +132,7 @@ static int append_address(sd_bus_message *reply, DnsResourceRecord *rr, int ifin
 
 static void bus_method_resolve_hostname_complete(DnsQuery *q) {
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *canonical = NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         unsigned added = 0;
         int r;
 
@@ -286,7 +286,7 @@ fail:
 }
 
 static void bus_method_resolve_address_complete(DnsQuery *q) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         DnsResourceRecord *rr;
         unsigned added = 0;
         int ifindex, r;
@@ -461,7 +461,7 @@ static int bus_message_append_rr(sd_bus_message *m, DnsResourceRecord *rr, int i
 }
 
 static void bus_method_resolve_record_complete(DnsQuery *q) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         unsigned added = 0;
         int r;
 

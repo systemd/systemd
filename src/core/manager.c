@@ -1257,7 +1257,7 @@ int manager_add_job_by_name(Manager *m, JobType type, const char *name, JobMode 
 }
 
 int manager_add_job_by_name_and_warn(Manager *m, JobType type, const char *name, JobMode mode, Job **ret) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(m);
@@ -1700,7 +1700,7 @@ static int manager_dispatch_sigchld(Manager *m) {
 }
 
 static int manager_start_target(Manager *m, const char *name, JobMode mode) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         log_debug("Activating special unit %s", name);

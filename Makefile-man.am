@@ -285,6 +285,7 @@ MANPAGES_ALIAS += \
 	man/sd_bus_creds_has_permitted_cap.3 \
 	man/sd_bus_creds_ref.3 \
 	man/sd_bus_creds_unref.3 \
+	man/sd_bus_creds_unrefp.3 \
 	man/sd_bus_default_system.3 \
 	man/sd_bus_default_user.3 \
 	man/sd_bus_error_copy.3 \
@@ -320,6 +321,7 @@ MANPAGES_ALIAS += \
 	man/sd_bus_ref.3 \
 	man/sd_bus_release_name.3 \
 	man/sd_bus_unref.3 \
+	man/sd_bus_unrefp.3 \
 	man/sd_event.3 \
 	man/sd_event_add_exit.3 \
 	man/sd_event_add_post.3 \
@@ -354,8 +356,10 @@ MANPAGES_ALIAS += \
 	man/sd_event_source_set_io_fd.3 \
 	man/sd_event_source_set_time.3 \
 	man/sd_event_source_set_time_accuracy.3 \
+	man/sd_event_source_unrefp.3 \
 	man/sd_event_time_handler_t.3 \
 	man/sd_event_unref.3 \
+	man/sd_event_unrefp.3 \
 	man/sd_id128_equal.3 \
 	man/sd_id128_from_string.3 \
 	man/sd_id128_get_boot.3 \
@@ -608,6 +612,7 @@ man/sd_bus_creds_has_inheritable_cap.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_has_permitted_cap.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_ref.3: man/sd_bus_creds_new_from_pid.3
 man/sd_bus_creds_unref.3: man/sd_bus_creds_new_from_pid.3
+man/sd_bus_creds_unrefp.3: man/sd_bus_creds_new_from_pid.3
 man/sd_bus_default_system.3: man/sd_bus_default.3
 man/sd_bus_default_user.3: man/sd_bus_default.3
 man/sd_bus_error_copy.3: man/sd_bus_error.3
@@ -643,6 +648,7 @@ man/sd_bus_path_encode_many.3: man/sd_bus_path_encode.3
 man/sd_bus_ref.3: man/sd_bus_new.3
 man/sd_bus_release_name.3: man/sd_bus_request_name.3
 man/sd_bus_unref.3: man/sd_bus_new.3
+man/sd_bus_unrefp.3: man/sd_bus_new.3
 man/sd_event.3: man/sd_event_new.3
 man/sd_event_add_exit.3: man/sd_event_add_defer.3
 man/sd_event_add_post.3: man/sd_event_add_defer.3
@@ -677,8 +683,10 @@ man/sd_event_source_set_io_events.3: man/sd_event_add_io.3
 man/sd_event_source_set_io_fd.3: man/sd_event_add_io.3
 man/sd_event_source_set_time.3: man/sd_event_add_time.3
 man/sd_event_source_set_time_accuracy.3: man/sd_event_add_time.3
+man/sd_event_source_unrefp.3: man/sd_event_source_unref.3
 man/sd_event_time_handler_t.3: man/sd_event_add_time.3
 man/sd_event_unref.3: man/sd_event_new.3
+man/sd_event_unrefp.3: man/sd_event_new.3
 man/sd_id128_equal.3: man/sd-id128.3
 man/sd_id128_from_string.3: man/sd_id128_to_string.3
 man/sd_id128_get_boot.3: man/sd_id128_get_machine.3
@@ -1157,6 +1165,9 @@ man/sd_bus_creds_ref.html: man/sd_bus_creds_new_from_pid.html
 man/sd_bus_creds_unref.html: man/sd_bus_creds_new_from_pid.html
 	$(html-alias)
 
+man/sd_bus_creds_unrefp.html: man/sd_bus_creds_new_from_pid.html
+	$(html-alias)
+
 man/sd_bus_default_system.html: man/sd_bus_default.html
 	$(html-alias)
 
@@ -1262,6 +1273,9 @@ man/sd_bus_release_name.html: man/sd_bus_request_name.html
 man/sd_bus_unref.html: man/sd_bus_new.html
 	$(html-alias)
 
+man/sd_bus_unrefp.html: man/sd_bus_new.html
+	$(html-alias)
+
 man/sd_event.html: man/sd_event_new.html
 	$(html-alias)
 
@@ -1364,10 +1378,16 @@ man/sd_event_source_set_time.html: man/sd_event_add_time.html
 man/sd_event_source_set_time_accuracy.html: man/sd_event_add_time.html
 	$(html-alias)
 
+man/sd_event_source_unrefp.html: man/sd_event_source_unref.html
+	$(html-alias)
+
 man/sd_event_time_handler_t.html: man/sd_event_add_time.html
 	$(html-alias)
 
 man/sd_event_unref.html: man/sd_event_new.html
+	$(html-alias)
+
+man/sd_event_unrefp.html: man/sd_event_new.html
 	$(html-alias)
 
 man/sd_id128_equal.html: man/sd-id128.html
@@ -2138,6 +2158,7 @@ MANPAGES_ALIAS += \
 	man/sd_login_monitor_get_fd.3 \
 	man/sd_login_monitor_get_timeout.3 \
 	man/sd_login_monitor_unref.3 \
+	man/sd_login_monitor_unrefp.3 \
 	man/sd_peer_get_cgroup.3 \
 	man/sd_peer_get_machine_name.3 \
 	man/sd_peer_get_owner_uid.3 \
@@ -2184,6 +2205,7 @@ man/sd_login_monitor_get_events.3: man/sd_login_monitor_new.3
 man/sd_login_monitor_get_fd.3: man/sd_login_monitor_new.3
 man/sd_login_monitor_get_timeout.3: man/sd_login_monitor_new.3
 man/sd_login_monitor_unref.3: man/sd_login_monitor_new.3
+man/sd_login_monitor_unrefp.3: man/sd_login_monitor_new.3
 man/sd_peer_get_cgroup.3: man/sd_pid_get_session.3
 man/sd_peer_get_machine_name.3: man/sd_pid_get_session.3
 man/sd_peer_get_owner_uid.3: man/sd_pid_get_session.3
@@ -2246,6 +2268,9 @@ man/sd_login_monitor_get_timeout.html: man/sd_login_monitor_new.html
 	$(html-alias)
 
 man/sd_login_monitor_unref.html: man/sd_login_monitor_new.html
+	$(html-alias)
+
+man/sd_login_monitor_unrefp.html: man/sd_login_monitor_new.html
 	$(html-alias)
 
 man/sd_peer_get_cgroup.html: man/sd_pid_get_session.html

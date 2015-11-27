@@ -102,6 +102,3 @@ int dhcp_lease_set_client_id(sd_dhcp_lease *lease, const void *client_id, size_t
 
 int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file);
 int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file);
-
-DEFINE_TRIVIAL_CLEANUP_FUNC(sd_dhcp_lease*, sd_dhcp_lease_unref);
-#define _cleanup_dhcp_lease_unref_ _cleanup_(sd_dhcp_lease_unrefp)

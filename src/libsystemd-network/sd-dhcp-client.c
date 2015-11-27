@@ -1067,7 +1067,7 @@ static int client_timeout_t1(sd_event_source *s, uint64_t usec,
 
 static int client_handle_offer(sd_dhcp_client *client, DHCPMessage *offer,
                                size_t len) {
-        _cleanup_dhcp_lease_unref_ sd_dhcp_lease *lease = NULL;
+        _cleanup_(sd_dhcp_lease_unrefp) sd_dhcp_lease *lease = NULL;
         int r;
 
         r = dhcp_lease_new(&lease);
@@ -1132,7 +1132,7 @@ static int client_handle_forcerenew(sd_dhcp_client *client, DHCPMessage *force,
 
 static int client_handle_ack(sd_dhcp_client *client, DHCPMessage *ack,
                              size_t len) {
-        _cleanup_dhcp_lease_unref_ sd_dhcp_lease *lease = NULL;
+        _cleanup_(sd_dhcp_lease_unrefp) sd_dhcp_lease *lease = NULL;
         _cleanup_free_ char *error_message = NULL;
         int r;
 
@@ -1751,7 +1751,7 @@ sd_dhcp_client *sd_dhcp_client_unref(sd_dhcp_client *client) {
 }
 
 int sd_dhcp_client_new(sd_dhcp_client **ret) {
-        _cleanup_dhcp_client_unref_ sd_dhcp_client *client = NULL;
+        _cleanup_(sd_dhcp_client_unrefp) sd_dhcp_client *client = NULL;
 
         assert_return(ret, -EINVAL);
 

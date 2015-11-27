@@ -49,7 +49,6 @@ typedef void (*sd_dhcp_client_cb_t)(sd_dhcp_client *client, int event,
 int sd_dhcp_client_set_callback(sd_dhcp_client *client, sd_dhcp_client_cb_t cb,
                                 void *userdata);
 
-
 int sd_dhcp_client_set_request_option(sd_dhcp_client *client, uint8_t option);
 int sd_dhcp_client_set_request_address(sd_dhcp_client *client,
                                        const struct in_addr *last_address);
@@ -77,6 +76,8 @@ int sd_dhcp_client_new(sd_dhcp_client **ret);
 int sd_dhcp_client_attach_event(sd_dhcp_client *client, sd_event *event, int priority);
 int sd_dhcp_client_detach_event(sd_dhcp_client *client);
 sd_event *sd_dhcp_client_get_event(sd_dhcp_client *client);
+
+_SD_DEFINE_POINTER_CLEANUP_FUNC(sd_dhcp_client, sd_dhcp_client_unref);
 
 _SD_END_DECLARATIONS;
 

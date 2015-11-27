@@ -335,7 +335,7 @@ int lldp_chassis_new(tlv_packet *tlv,
 }
 
 int lldp_receive_packet(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        _cleanup_lldp_packet_unref_ tlv_packet *packet = NULL;
+        _cleanup_(sd_lldp_packet_unrefp) tlv_packet *packet = NULL;
         tlv_packet *p;
         uint16_t length;
         int r;

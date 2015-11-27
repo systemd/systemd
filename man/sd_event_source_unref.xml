@@ -44,6 +44,7 @@
 
   <refnamediv>
     <refname>sd_event_source_unref</refname>
+    <refname>sd_event_source_unrefp</refname>
     <refname>sd_event_source_ref</refname>
 
     <refpurpose>Increase or decrease event source reference counters</refpurpose>
@@ -56,6 +57,11 @@
       <funcprototype>
         <funcdef>sd_event_source* <function>sd_event_source_unref</function></funcdef>
         <paramdef>sd_event_source *<parameter>source</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>void <function>sd_event_source_unrefp</function></funcdef>
+        <paramdef>sd_event_source **<parameter>source</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
@@ -80,12 +86,23 @@
     the reference counter reaches zero it is removed from its event loop
     object and destroyed.</para>
 
+    <para><function>sd_event_source_unrefp()</function> is similar to
+    <function>sd_event_source_unref()</function> but takes a pointer to a
+    pointer to an <type>sd_event_source</type> object. This call is useful in
+    conjunction with GCC's and LLVM's <ulink
+    url="https://gcc.gnu.org/onlinedocs/gcc/Common-Variable-Attributes.html">Clean-up
+    Variable Attribute</ulink>. Note that this function is defined as
+    inline function.</para>
+
     <para><function>sd_event_source_ref()</function> may be used
     to increase by one the reference counter of the event source object
     specified as <parameter>source</parameter>.</para>
 
-    <para>Both functions execute no operation if the passed event
-    source object is <constant>NULL</constant>.</para>
+    <para><function>sd_event_source_unref()</function>,
+    <function>sd_bus_creds_unrefp()</function> and
+    <function>sd_bus_creds_ref()</function> execute no operation if
+    the passed event source object is
+    <constant>NULL</constant>.</para>
 
     <para>Note that event source objects stay alive and may be
     dispatched as long as they have a reference counter greater than

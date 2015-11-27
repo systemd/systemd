@@ -72,6 +72,8 @@ sd_dhcp6_client *sd_dhcp6_client_ref(sd_dhcp6_client *client);
 sd_dhcp6_client *sd_dhcp6_client_unref(sd_dhcp6_client *client);
 int sd_dhcp6_client_new(sd_dhcp6_client **ret);
 
+_SD_DEFINE_POINTER_CLEANUP_FUNC(sd_dhcp6_client, sd_dhcp6_client_unref);
+
 _SD_END_DECLARATIONS;
 
 #endif

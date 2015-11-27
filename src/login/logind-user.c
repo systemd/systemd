@@ -393,7 +393,7 @@ fail:
 }
 
 static int user_start_slice(User *u) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *description;
         char *job;
         int r;
@@ -424,7 +424,7 @@ static int user_start_slice(User *u) {
 }
 
 static int user_start_service(User *u) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         char *job;
         int r;
 
@@ -509,7 +509,7 @@ int user_start(User *u) {
 }
 
 static int user_stop_slice(User *u) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         char *job;
         int r;
 
@@ -528,7 +528,7 @@ static int user_stop_slice(User *u) {
 }
 
 static int user_stop_service(User *u) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         char *job;
         int r;
 

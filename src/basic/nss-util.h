@@ -27,7 +27,6 @@
 #include <pwd.h>
 #include <resolv.h>
 
-
 #define NSS_GETHOSTBYNAME_PROTOTYPES(module)            \
 enum nss_status _nss_##module##_gethostbyname4_r(       \
                 const char *name,                       \

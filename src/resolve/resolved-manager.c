@@ -193,7 +193,7 @@ fail:
 }
 
 static int manager_rtnl_listen(Manager *m) {
-        _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL, *reply = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
         sd_netlink_message *i;
         int r;
 

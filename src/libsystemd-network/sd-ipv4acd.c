@@ -28,7 +28,6 @@
 
 #include "alloc-util.h"
 #include "arp-util.h"
-#include "event-util.h"
 #include "fd-util.h"
 #include "in-addr-util.h"
 #include "list.h"
@@ -120,11 +119,8 @@ sd_ipv4acd *sd_ipv4acd_unref(sd_ipv4acd *ll) {
         return NULL;
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(sd_ipv4acd*, sd_ipv4acd_unref);
-#define _cleanup_ipv4acd_unref_ _cleanup_(sd_ipv4acd_unrefp)
-
 int sd_ipv4acd_new(sd_ipv4acd **ret) {
-        _cleanup_ipv4acd_unref_ sd_ipv4acd *ll = NULL;
+        _cleanup_(sd_ipv4acd_unrefp) sd_ipv4acd *ll = NULL;
 
         assert_return(ret, -EINVAL);
 
@@ -189,7 +185,7 @@ int sd_ipv4acd_stop(sd_ipv4acd *ll) {
 static int ipv4acd_on_timeout(sd_event_source *s, uint64_t usec, void *userdata);
 
 static int ipv4acd_set_next_wakeup(sd_ipv4acd *ll, int sec, int random_sec) {
-        _cleanup_event_source_unref_ sd_event_source *timer = NULL;
+        _cleanup_(sd_event_source_unrefp) sd_event_source *timer = NULL;
         usec_t next_timeout;
         usec_t time_now;
         int r;

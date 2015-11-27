@@ -571,7 +571,7 @@ static int import_file(struct trie *trie, const char *filename) {
 }
 
 static int hwdb_query(int argc, char *argv[], void *userdata) {
-        _cleanup_hwdb_unref_ sd_hwdb *hwdb = NULL;
+        _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb = NULL;
         const char *key, *value;
         const char *modalias;
         int r;

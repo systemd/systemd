@@ -245,11 +245,8 @@ sd_ndisc *sd_ndisc_unref(sd_ndisc *nd) {
         return NULL;
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(sd_ndisc*, sd_ndisc_unref);
-#define _cleanup_sd_ndisc_free_ _cleanup_(sd_ndisc_unrefp)
-
 int sd_ndisc_new(sd_ndisc **ret) {
-        _cleanup_sd_ndisc_free_ sd_ndisc *nd = NULL;
+        _cleanup_(sd_ndisc_unrefp) sd_ndisc *nd = NULL;
 
         assert(ret);
 

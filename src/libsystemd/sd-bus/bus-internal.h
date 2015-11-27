@@ -381,7 +381,7 @@ char *bus_address_escape(const char *v);
  * bus from the callback doesn't destroy the object we are working
  * on */
 #define BUS_DONT_DESTROY(bus) \
-        _cleanup_bus_unref_ _unused_ sd_bus *_dont_destroy_##bus = sd_bus_ref(bus)
+        _cleanup_(sd_bus_unrefp) _unused_ sd_bus *_dont_destroy_##bus = sd_bus_ref(bus)
 
 int bus_set_address_system(sd_bus *bus);
 int bus_set_address_user(sd_bus *bus);

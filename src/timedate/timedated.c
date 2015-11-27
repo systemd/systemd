@@ -33,7 +33,6 @@
 #include "bus-util.h"
 #include "clock-util.h"
 #include "def.h"
-#include "event-util.h"
 #include "fileio-label.h"
 #include "fs-util.h"
 #include "path-util.h"
@@ -167,8 +166,8 @@ static int context_write_data_local_rtc(Context *c) {
 }
 
 static int context_read_ntp(Context *c, sd_bus *bus) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         const char *s;
         int r;
 
@@ -650,7 +649,7 @@ static const sd_bus_vtable timedate_vtable[] = {
 };
 
 static int connect_bus(Context *c, sd_event *event, sd_bus **_bus) {
-        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
         assert(c);
@@ -681,8 +680,8 @@ static int connect_bus(Context *c, sd_event *event, sd_bus **_bus) {
 
 int main(int argc, char *argv[]) {
         Context context = {};
-        _cleanup_event_unref_ sd_event *event = NULL;
-        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
         log_set_target(LOG_TARGET_AUTO);

@@ -146,7 +146,7 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int rename_service(sd_bus *a, sd_bus *b) {
-        _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
         _cleanup_free_ char *p = NULL, *name = NULL;
         const char *comm;
         char **cmdline;

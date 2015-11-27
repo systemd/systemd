@@ -211,7 +211,7 @@ int expose_port_watch_rtnl(
                 sd_netlink_message_handler_t handler,
                 union in_addr_union *exposed,
                 sd_netlink **ret) {
-        _cleanup_netlink_unref_ sd_netlink *rtnl = NULL;
+        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         int fd, r;
 
         assert(event);

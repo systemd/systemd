@@ -404,7 +404,7 @@ static int vt_is_busy(unsigned int vtnr) {
 }
 
 int manager_spawn_autovt(Manager *m, unsigned int vtnr) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         char name[sizeof("autovt@tty.service") + DECIMAL_STR_MAX(unsigned int)];
         int r;
 

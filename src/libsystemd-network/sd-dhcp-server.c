@@ -185,7 +185,7 @@ sd_dhcp_server *sd_dhcp_server_unref(sd_dhcp_server *server) {
 }
 
 int sd_dhcp_server_new(sd_dhcp_server **ret, int ifindex) {
-        _cleanup_dhcp_server_unref_ sd_dhcp_server *server = NULL;
+        _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
 
         assert_return(ret, -EINVAL);
         assert_return(ifindex > 0, -EINVAL);

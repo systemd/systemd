@@ -127,8 +127,8 @@ static void print_status_info(StatusInfo *i) {
 }
 
 static int show_one_name(sd_bus *bus, const char* attr) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *s;
         int r;
 
@@ -233,7 +233,7 @@ static int show_status(sd_bus *bus, char **args, unsigned n) {
 }
 
 static int set_simple_string(sd_bus *bus, const char *method, const char *value) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r = 0;
 
         polkit_agent_open_if_enabled();
@@ -507,7 +507,7 @@ static int hostnamectl_main(sd_bus *bus, int argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
-        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
         setlocale(LC_ALL, "");

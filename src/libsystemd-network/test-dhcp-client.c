@@ -31,7 +31,6 @@
 #include "dhcp-identifier.h"
 #include "dhcp-internal.h"
 #include "dhcp-protocol.h"
-#include "event-util.h"
 #include "fd-util.h"
 #include "util.h"
 
@@ -491,7 +490,7 @@ static void test_addr_acq(sd_event *e) {
 }
 
 int main(int argc, char *argv[]) {
-        _cleanup_event_unref_ sd_event *e;
+        _cleanup_(sd_event_unrefp) sd_event *e;
 
         log_set_max_level(LOG_DEBUG);
         log_parse_environment();

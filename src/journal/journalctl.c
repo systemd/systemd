@@ -1766,8 +1766,8 @@ static int access_check(sd_journal *j) {
 }
 
 static int flush_to_var(void) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_close_ int watch_fd = -1;
         int r;
 
@@ -1828,7 +1828,7 @@ static int flush_to_var(void) {
 }
 
 static int send_signal_and_wait(int sig, const char *watch_path) {
-        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_close_ int watch_fd = -1;
         usec_t start;
         int r;
@@ -1857,7 +1857,7 @@ static int send_signal_and_wait(int sig, const char *watch_path) {
 
                 /* Let's ask for a sync, but only once. */
                 if (!bus) {
-                        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+                        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
                         r = bus_connect_system_systemd(&bus);
                         if (r < 0)
@@ -1920,7 +1920,7 @@ static int sync_journal(void) {
 
 int main(int argc, char *argv[]) {
         int r;
-        _cleanup_journal_close_ sd_journal *j = NULL;
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
         bool need_seek = false;
         sd_id128_t previous_boot_id;
         bool previous_boot_id_valid = false, first_line = true;

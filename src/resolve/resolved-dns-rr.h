@@ -156,6 +156,7 @@ struct DnsResourceRecord {
                         size_t signature_size;
                 } rrsig;
 
+                /* https://tools.ietf.org/html/rfc4034#section-4.1 */
                 struct {
                         char *next_domain_name;
                         Bitmap *types;
