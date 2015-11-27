@@ -21,6 +21,6 @@ Sockets=systemd-udevd-control.socket systemd-udevd-kernel.socket
 Restart=always
 RestartSec=0
 ExecStart=@rootlibexecdir@/systemd-udevd
-MountFlags=slave
+MountFlags=rslave
 KillMode=mixed
 WatchdogSec=3min
