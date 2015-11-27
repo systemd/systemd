@@ -2414,8 +2414,8 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
 
         for (i = 0; i < RLIM_NLIMITS; i++)
                 if (c->rlimit[i])
-                        fprintf(f, "%s%s: "RLIM_FMT"\n",
-                                prefix, rlimit_to_string(i), c->rlimit[i]->rlim_max);
+                        fprintf(f, "%s%s: " RLIM_FMT " " RLIM_FMT "\n",
+                                prefix, rlimit_to_string(i), c->rlimit[i]->rlim_cur, c->rlimit[i]->rlim_max);
 
         if (c->ioprio_set) {
                 _cleanup_free_ char *class_str = NULL;
