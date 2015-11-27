@@ -2056,7 +2056,7 @@ int exec_spawn(Unit *unit,
                    NULL);
         pid = fork();
         if (pid < 0)
-                return log_unit_error_errno(unit, r, "Failed to fork: %m");
+                return log_unit_error_errno(unit, errno, "Failed to fork: %m");
 
         if (pid == 0) {
                 int exit_status;
