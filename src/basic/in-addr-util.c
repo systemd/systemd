@@ -59,7 +59,7 @@ int in_addr_is_localhost(int family, const union in_addr_union *u) {
                 /* All of 127.x.x.x is localhost. */
                 return (be32toh(u->in.s_addr) & UINT32_C(0xFF000000)) == UINT32_C(127) << 24;
 
-        if (family == AF_INET)
+        if (family == AF_INET6)
                 return IN6_IS_ADDR_LOOPBACK(&u->in6);
 
         return -EAFNOSUPPORT;
