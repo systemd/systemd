@@ -630,9 +630,13 @@ static int method_set_unit_properties(sd_bus_message *message, void *userdata, s
         if (r < 0)
                 return r;
 
-        u = manager_get_unit(m, name);
-        if (!u)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s is not loaded.", name);
+        r = manager_load_unit(m, name, NULL, error, &u);
+        if (r < 0)
+                return r;
+
+        r = bus_unit_check_load_state(u, error);
+        if (r < 0)
+                return r;
 
         return bus_unit_method_set_properties(message, u, error);
 }
