@@ -50,9 +50,9 @@ int manager_read_resolv_conf(Manager *m) {
         r = stat("/etc/resolv.conf", &st);
         if (r < 0) {
                 if (errno == ENOENT)
-                        r = 0;
-                else
-                        r = log_warning_errno(errno, "Failed to stat /etc/resolv.conf: %m");
+                        return 0;
+
+                r = log_warning_errno(errno, "Failed to stat /etc/resolv.conf: %m");
                 goto clear;
         }
 
@@ -61,22 +61,18 @@ int manager_read_resolv_conf(Manager *m) {
         if (t == m->resolv_conf_mtime)
                 return 0;
 
-        m->resolv_conf_mtime = t;
-
         /* Is it symlinked to our own file? */
         if (stat("/run/systemd/resolve/resolv.conf", &own) >= 0 &&
             st.st_dev == own.st_dev &&
-            st.st_ino == own.st_ino) {
-                r = 0;
-                goto clear;
-        }
+            st.st_ino == own.st_ino)
+                return 0;
 
         f = fopen("/etc/resolv.conf", "re");
         if (!f) {
                 if (errno == ENOENT)
-                        r = 0;
-                else
-                        r = log_warning_errno(errno, "Failed to open /etc/resolv.conf: %m");
+                        return 0;
+
+                r = log_warning_errno(errno, "Failed to open /etc/resolv.conf: %m");
                 goto clear;
         }
 
@@ -115,6 +111,8 @@ int manager_read_resolv_conf(Manager *m) {
                 }
         }
 
+        m->resolv_conf_mtime = t;
+
         /* Flush out all servers and search domains that are still
          * marked. Those are then ones that didn't appear in the new
          * /etc/resolv.conf */
@@ -130,6 +128,15 @@ int manager_read_resolv_conf(Manager *m) {
          * will continue to use the local one thus being unable to
          * resolve VPN domains. */
         manager_set_dns_server(m, m->dns_servers);
+
+        /* Unconditionally flush the cache when /etc/resolv.conf is
+         * modified, even if the data it contained was completely
+         * identical to the previous version we used. We do this
+         * because altering /etc/resolv.conf is typically done when
+         * the network configuration changes, and that should be
+         * enough to flush the global unicast DNS cache. */
+        if (m->unicast_scope)
+                dns_cache_flush(&m->unicast_scope->cache);
 
         return 0;
 
