@@ -1443,14 +1443,14 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
 
                 return 0;
 
-        } else if (streq(field, "RandomSec")) {
+        } else if (streq(field, "RandomizedDelaySec")) {
                 usec_t t;
 
                 r = parse_sec(eq, &t);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to parse RandomSec= parameter: %s", eq);
+                        return log_error_errno(r, "Failed to parse RandomizedDelaySec= parameter: %s", eq);
 
-                r = sd_bus_message_append_basic(m, SD_BUS_TYPE_STRING, "RandomUSec");
+                r = sd_bus_message_append_basic(m, SD_BUS_TYPE_STRING, "RandomizedDelayUSec");
                 if (r < 0)
                         return bus_log_create_error(r);
 
