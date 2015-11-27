@@ -239,13 +239,13 @@ static int stdout_stream_log(StdoutStream *s, const char *p) {
         assert(s);
         assert(p);
 
-        if (isempty(p))
-                return 0;
-
         priority = s->priority;
 
         if (s->level_prefix)
                 syslog_parse_priority(&p, &priority, false);
+
+        if (isempty(p))
+                return 0;
 
         if (s->forward_to_syslog || s->server->forward_to_syslog)
                 server_forward_syslog(s->server, syslog_fixup_facility(priority), s->identifier, p, &s->ucred, NULL);
@@ -286,10 +286,12 @@ static int stdout_stream_log(StdoutStream *s, const char *p) {
 
 static int stdout_stream_line(StdoutStream *s, char *p) {
         int r;
+        char *orig;
 
         assert(s);
         assert(p);
 
+        orig = p;
         p = strstrip(p);
 
         switch (s->state) {
@@ -378,7 +380,7 @@ static int stdout_stream_line(StdoutStream *s, char *p) {
                 return 0;
 
         case STDOUT_STREAM_RUNNING:
-                return stdout_stream_log(s, p);
+                return stdout_stream_log(s, orig);
         }
 
         assert_not_reached("Unknown stream state");
