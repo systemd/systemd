@@ -304,8 +304,7 @@ DnsQuery *dns_query_free(DnsQuery *q) {
                 LIST_REMOVE(auxiliary_queries, q->auxiliary_for->auxiliary_queries, q);
         }
 
-        while (q->candidates)
-                dns_query_candidate_free(q->candidates);
+        dns_query_candidate_free(q->candidates);
 
         dns_question_unref(q->question);
         dns_answer_unref(q->answer);
