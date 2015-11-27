@@ -27,11 +27,11 @@
 
 #include "alloc-util.h"
 #include "bus-common-errors.h"
-#include "bus-util.h"
+#include "bus-macros.h"
 #include "hostname-util.h"
 #include "in-addr-util.h"
 #include "macro.h"
-#include "nss-util.h"
+#include "nss-macros.h"
 #include "string-util.h"
 #include "user-util.h"
 #include "util.h"

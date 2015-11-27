@@ -1007,7 +1007,7 @@ libshared_la_SOURCES = \
 	src/shared/base-filesystem.h \
 	src/shared/uid-range.c \
 	src/shared/uid-range.h \
-	src/shared/nss-util.h \
+	src/shared/nss-macros.h \
 	src/shared/install.c \
 	src/shared/install.h \
 	src/shared/install-printf.c \
@@ -1045,6 +1045,7 @@ libshared_la_SOURCES = \
 	src/shared/import-util.h \
 	src/shared/sysctl-util.c \
 	src/shared/sysctl-util.h \
+	src/shared/bus-macros.h \
 	src/shared/bus-util.c \
 	src/shared/bus-util.h \
 	src/shared/logs-show.c \
@@ -4850,7 +4851,7 @@ libnss_myhostname_la_LDFLAGS = \
 	-Wl,--version-script=$(top_srcdir)/src/nss-myhostname/nss-myhostname.sym
 
 libnss_myhostname_la_LIBADD = \
-	libshared.la
+	libsystemd-internal.la
 
 lib_LTLIBRARIES += \
 	libnss_myhostname.la
@@ -4950,7 +4951,7 @@ libnss_mymachines_la_LDFLAGS = \
 	-Wl,--version-script=$(top_srcdir)/src/nss-mymachines/nss-mymachines.sym
 
 libnss_mymachines_la_LIBADD = \
-	libshared.la
+	libsystemd-internal.la
 
 lib_LTLIBRARIES += \
 	libnss_mymachines.la
@@ -5235,7 +5236,7 @@ libnss_resolve_la_LDFLAGS = \
 	-Wl,--version-script=$(top_srcdir)/src/nss-resolve/nss-resolve.sym
 
 libnss_resolve_la_LIBADD = \
-	libshared.la \
+	libsystemd-internal.la \
         -ldl
 
 lib_LTLIBRARIES += \
