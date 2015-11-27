@@ -158,12 +158,13 @@ void dns_scope_packet_lost(DnsScope *s, usec_t usec) {
                 s->resend_timeout = MIN(s->resend_timeout * 2, MULTICAST_RESEND_TIMEOUT_MAX_USEC);
 }
 
-int dns_scope_emit(DnsScope *s, int fd, DnsPacket *p) {
+int dns_scope_emit(DnsScope *s, int fd, DnsServer *server, DnsPacket *p) {
         union in_addr_union addr;
         int ifindex = 0, r;
         int family;
         uint16_t port;
         uint32_t mtu;
+        size_t saved_size = 0;
 
         assert(s);
         assert(p);
@@ -178,8 +179,28 @@ int dns_scope_emit(DnsScope *s, int fd, DnsPacket *p) {
 
         switch (s->protocol) {
         case DNS_PROTOCOL_DNS:
+                assert(server);
+
                 if (DNS_PACKET_QDCOUNT(p) > 1)
                         return -EOPNOTSUPP;
+
+                if (server->possible_features >= DNS_SERVER_FEATURE_LEVEL_EDNS0) {
+                        bool edns_do;
+                        size_t packet_size;
+
+                        edns_do = server->possible_features >= DNS_SERVER_FEATURE_LEVEL_DO;
+
+                        if (server->possible_features >= DNS_SERVER_FEATURE_LEVEL_LARGE)
+                                packet_size = DNS_PACKET_UNICAST_SIZE_LARGE_MAX;
+                        else
+                                packet_size = server->received_udp_packet_max;
+
+                        r = dns_packet_append_opt_rr(p, packet_size, edns_do, &saved_size);
+                        if (r < 0)
+                                return r;
+
+                        DNS_PACKET_HEADER(p)->arcount = htobe16(be16toh(DNS_PACKET_HEADER(p)->arcount) + 1);
+                }
 
                 if (p->size > DNS_PACKET_UNICAST_SIZE_MAX)
                         return -EMSGSIZE;
@@ -190,6 +211,12 @@ int dns_scope_emit(DnsScope *s, int fd, DnsPacket *p) {
                 r = manager_write(s->manager, fd, p);
                 if (r < 0)
                         return r;
+
+                if (saved_size > 0) {
+                        dns_packet_truncate(p, saved_size);
+
+                        DNS_PACKET_HEADER(p)->arcount = htobe16(be16toh(DNS_PACKET_HEADER(p)->arcount) - 1);
+                }
 
                 break;
 
@@ -242,6 +269,11 @@ static int dns_scope_socket(DnsScope *s, int type, int family, const union in_ad
                 srv = dns_scope_get_dns_server(s);
                 if (!srv)
                         return -ESRCH;
+
+                srv->possible_features = dns_server_possible_features(srv);
+
+                if (type == SOCK_DGRAM && srv->possible_features < DNS_SERVER_FEATURE_LEVEL_UDP)
+                        return -EAGAIN;
 
                 sa.sa.sa_family = srv->family;
                 if (srv->family == AF_INET) {
@@ -734,7 +766,7 @@ static int on_conflict_dispatch(sd_event_source *es, usec_t usec, void *userdata
                         return 0;
                 }
 
-                r = dns_scope_emit(scope, -1, p);
+                r = dns_scope_emit(scope, -1, NULL, p);
                 if (r < 0)
                         log_debug_errno(r, "Failed to send conflict packet: %m");
         }

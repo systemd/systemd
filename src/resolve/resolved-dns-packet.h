@@ -65,6 +65,9 @@ struct DnsPacketHeader {
 /* RFC 1035 say 512 is the maximum, for classic unicast DNS */
 #define DNS_PACKET_UNICAST_SIZE_MAX 512
 
+/* With EDNS0 we can use larger packets, default to 4096, which is what is commonly used */
+#define DNS_PACKET_UNICAST_SIZE_LARGE_MAX 4096
+
 #define DNS_PACKET_SIZE_START 512
 
 struct DnsPacket {
@@ -160,6 +163,9 @@ int dns_packet_append_label(DnsPacket *p, const char *s, size_t l, size_t *start
 int dns_packet_append_name(DnsPacket *p, const char *name, bool allow_compression, size_t *start);
 int dns_packet_append_key(DnsPacket *p, const DnsResourceKey *key, size_t *start);
 int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *start);
+int dns_packet_append_opt_rr(DnsPacket *p, uint16_t max_udp_size, bool edns0_do, size_t *start);
+
+void dns_packet_truncate(DnsPacket *p, size_t sz);
 
 int dns_packet_read(DnsPacket *p, size_t sz, const void **ret, size_t *start);
 int dns_packet_read_blob(DnsPacket *p, void *d, size_t sz, size_t *start);

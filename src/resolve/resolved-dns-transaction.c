@@ -418,7 +418,22 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
         case DNS_PROTOCOL_DNS:
                 assert(t->server);
 
-                dns_server_packet_received(t->server, ts - t->start_usec);
+                if (IN_SET(DNS_PACKET_RCODE(p), DNS_RCODE_FORMERR, DNS_RCODE_SERVFAIL, DNS_RCODE_NOTIMP)) {
+
+                        /* request failed, immediately try again with reduced features */
+                        log_debug("Server returned error: %s", dns_rcode_to_string(DNS_PACKET_RCODE(p)));
+
+                        dns_server_packet_failed(t->server, t->current_features);
+
+                        r = dns_transaction_go(t);
+                        if (r < 0) {
+                                dns_transaction_complete(t, DNS_TRANSACTION_RESOURCES);
+                                return;
+                        }
+
+                        return;
+                } else
+                        dns_server_packet_received(t->server, t->current_features, ts - t->start_usec, p->size);
 
                 break;
         case DNS_PROTOCOL_LLMNR:
@@ -530,9 +545,12 @@ static int dns_transaction_emit(DnsTransaction *t) {
                 t->server = dns_server_ref(server);
         }
 
-        r = dns_scope_emit(t->scope, t->dns_udp_fd, t->sent);
+        r = dns_scope_emit(t->scope, t->dns_udp_fd, t->server, t->sent);
         if (r < 0)
                 return r;
+
+        if (t->server)
+                t->current_features = t->server->possible_features;
 
         return 0;
 }
@@ -544,14 +562,25 @@ static int on_transaction_timeout(sd_event_source *s, usec_t usec, void *userdat
         assert(s);
         assert(t);
 
-        /* Timeout reached? Try again, with a new server */
-        dns_transaction_next_dns_server(t);
+        /* Timeout reached? Increase the timeout for the server used */
+        switch (t->scope->protocol) {
+        case DNS_PROTOCOL_DNS:
+                assert(t->server);
 
-        /* ... and possibly increased timeout */
-        if (t->server)
-                dns_server_packet_lost(t->server, usec - t->start_usec);
-        else
+                dns_server_packet_lost(t->server, t->current_features, usec - t->start_usec);
+
+                break;
+        case DNS_PROTOCOL_LLMNR:
+        case DNS_PROTOCOL_MDNS:
                 dns_scope_packet_lost(t->scope, usec - t->start_usec);
+
+                break;
+        default:
+                assert_not_reached("Invalid DNS protocol.");
+        }
+
+        /* ...and try again with a new server */
+        dns_transaction_next_dns_server(t);
 
         r = dns_transaction_go(t);
         if (r < 0)
@@ -734,11 +763,13 @@ int dns_transaction_go(DnsTransaction *t) {
                  * always be made via TCP on LLMNR */
                 r = dns_transaction_open_tcp(t);
         } else {
-                /* Try via UDP, and if that fails due to large size try via TCP */
+                /* Try via UDP, and if that fails due to large size or lack of
+                 * support try via TCP */
                 r = dns_transaction_emit(t);
-                if (r == -EMSGSIZE)
+                if (r == -EMSGSIZE || r == -EAGAIN)
                         r = dns_transaction_open_tcp(t);
         }
+
         if (r == -ESRCH) {
                 /* No servers to send this to? */
                 dns_transaction_complete(t, DNS_TRANSACTION_NO_SERVERS);

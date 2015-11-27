@@ -79,6 +79,9 @@ struct DnsTransaction {
         /* The active server */
         DnsServer *server;
 
+        /* the features of the DNS server at time of transaction start */
+        DnsServerFeatureLevel current_features;
+
         /* TCP connection logic, if we need it */
         DnsStream *stream;
 
