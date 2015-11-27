@@ -947,7 +947,8 @@ libbasic_la_SOURCES = \
 	src/basic/copy.h \
 	src/basic/alloc-util.h \
 	src/basic/alloc-util.c \
-	src/basic/formats-util.h
+	src/basic/formats-util.h \
+	src/basic/nss-util.h
 
 nodist_libbasic_la_SOURCES = \
 	src/basic/errno-from-name.h \
@@ -1007,7 +1008,6 @@ libshared_la_SOURCES = \
 	src/shared/base-filesystem.h \
 	src/shared/uid-range.c \
 	src/shared/uid-range.h \
-	src/shared/nss-util.h \
 	src/shared/install.c \
 	src/shared/install.h \
 	src/shared/install-printf.c \
