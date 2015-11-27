@@ -223,7 +223,7 @@ int dhcp_network_send_udp_socket(int s, be32_t address, uint16_t port, const voi
 static int test_discover_message_verify(size_t size, struct DHCPMessage *dhcp) {
         int res;
 
-        res = dhcp_option_parse(dhcp, size, check_options, NULL);
+        res = dhcp_option_parse(dhcp, size, check_options, NULL, NULL);
         assert_se(res == DHCP_DISCOVER);
 
         if (verbose)
@@ -390,7 +390,7 @@ static int test_addr_acq_recv_request(size_t size, DHCPMessage *request) {
         uint8_t *msg_bytes = (uint8_t *)request;
         int res;
 
-        res = dhcp_option_parse(request, size, check_options, NULL);
+        res = dhcp_option_parse(request, size, check_options, NULL, NULL);
         assert_se(res == DHCP_REQUEST);
         assert_se(xid == request->xid);
 
@@ -420,7 +420,7 @@ static int test_addr_acq_recv_discover(size_t size, DHCPMessage *discover) {
         uint8_t *msg_bytes = (uint8_t *)discover;
         int res;
 
-        res = dhcp_option_parse(discover, size, check_options, NULL);
+        res = dhcp_option_parse(discover, size, check_options, NULL, NULL);
         assert_se(res == DHCP_DISCOVER);
 
         assert_se(msg_bytes[size - 1] == DHCP_OPTION_END);

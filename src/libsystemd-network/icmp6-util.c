@@ -47,17 +47,15 @@ int icmp6_bind_router_solicitation(int index) {
                 .ipv6mr_interface = index,
         };
         _cleanup_close_ int s = -1;
-        int r, zero = 0, hops = 255;
+        int r, zero = 0, one = 1, hops = 255;
 
-        s = socket(AF_INET6, SOCK_RAW | SOCK_CLOEXEC | SOCK_NONBLOCK,
-                   IPPROTO_ICMPV6);
+        s = socket(AF_INET6, SOCK_RAW | SOCK_CLOEXEC | SOCK_NONBLOCK, IPPROTO_ICMPV6);
         if (s < 0)
                 return -errno;
 
         ICMP6_FILTER_SETBLOCKALL(&filter);
         ICMP6_FILTER_SETPASS(ND_ROUTER_ADVERT, &filter);
-        r = setsockopt(s, IPPROTO_ICMPV6, ICMP6_FILTER, &filter,
-                       sizeof(filter));
+        r = setsockopt(s, IPPROTO_ICMPV6, ICMP6_FILTER, &filter, sizeof(filter));
         if (r < 0)
                 return -errno;
 
@@ -65,23 +63,23 @@ int icmp6_bind_router_solicitation(int index) {
            IPV6_PKTINFO socket option also applies for ICMPv6 multicast.
            Empirical experiments indicates otherwise and therefore an
            IPV6_MULTICAST_IF socket option is used here instead */
-        r = setsockopt(s, IPPROTO_IPV6, IPV6_MULTICAST_IF, &index,
-                       sizeof(index));
+        r = setsockopt(s, IPPROTO_IPV6, IPV6_MULTICAST_IF, &index, sizeof(index));
         if (r < 0)
                 return -errno;
 
-        r = setsockopt(s, IPPROTO_IPV6, IPV6_MULTICAST_LOOP, &zero,
-                       sizeof(zero));
+        r = setsockopt(s, IPPROTO_IPV6, IPV6_MULTICAST_LOOP, &zero, sizeof(zero));
         if (r < 0)
                 return -errno;
 
-        r = setsockopt(s, IPPROTO_IPV6, IPV6_MULTICAST_HOPS, &hops,
-                       sizeof(hops));
+        r = setsockopt(s, IPPROTO_IPV6, IPV6_MULTICAST_HOPS, &hops, sizeof(hops));
         if (r < 0)
                 return -errno;
 
-        r = setsockopt(s, IPPROTO_IPV6, IPV6_ADD_MEMBERSHIP, &mreq,
-                       sizeof(mreq));
+        r = setsockopt(s, IPPROTO_IPV6, IPV6_ADD_MEMBERSHIP, &mreq, sizeof(mreq));
+        if (r < 0)
+                return -errno;
+
+        r = setsockopt(s, SOL_IPV6, IPV6_RECVHOPLIMIT, &one, sizeof(one));
         if (r < 0)
                 return -errno;
 
@@ -101,25 +99,25 @@ int icmp6_send_router_solicitation(int s, const struct ether_addr *ether_addr) {
                 struct ether_addr rs_opt_mac;
         } _packed_ rs = {
                 .rs.nd_rs_type = ND_ROUTER_SOLICIT,
+                .rs_opt.nd_opt_type = ND_OPT_SOURCE_LINKADDR,
+                .rs_opt.nd_opt_len = 1,
         };
-        struct iovec iov[1] = {
-                { &rs, },
+        struct iovec iov = {
+                .iov_base = &rs,
+                .iov_len = sizeof(rs),
         };
         struct msghdr msg = {
                 .msg_name = &dst,
                 .msg_namelen = sizeof(dst),
-                .msg_iov = iov,
+                .msg_iov = &iov,
                 .msg_iovlen = 1,
         };
         int r;
 
-        if (ether_addr) {
-                memcpy(&rs.rs_opt_mac, ether_addr, ETH_ALEN);
-                rs.rs_opt.nd_opt_type = ND_OPT_SOURCE_LINKADDR;
-                rs.rs_opt.nd_opt_len = 1;
-                iov[0].iov_len = sizeof(rs);
-        } else
-                iov[0].iov_len = sizeof(rs.rs);
+        assert(s >= 0);
+        assert(ether_addr);
+
+        rs.rs_opt_mac = *ether_addr;
 
         r = sendmsg(s, &msg, 0);
         if (r < 0)
