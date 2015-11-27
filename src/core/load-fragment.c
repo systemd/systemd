@@ -1173,6 +1173,7 @@ static int parse_rlimit_range(
                 struct rlimit **rl,
                 int (*rlim_parser)(const char *, rlim_t *)) {
 
+        const char *whole_value = value;
         rlim_t soft, hard;
         _cleanup_free_ char *sword = NULL, *hword = NULL;
         int nwords, r;
@@ -1188,9 +1189,11 @@ static int parse_rlimit_range(
         if (r == 0 && nwords == 2)
                 r = rlim_parser(hword, &hard);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse resource value, ignoring: %s", value);
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse resource value, ignoring: %s", whole_value);
                 return 0;
         }
+        if (nwords == 2 && soft > hard)
+                return log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid resource value ("RLIM_FMT" > "RLIM_FMT"), ignoring: %s", soft, hard, whole_value);
 
         if (!*rl) {
                 *rl = new(struct rlimit, 1);
