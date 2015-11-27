@@ -10,14 +10,14 @@ set -o pipefail
 ID=$(journalctl --new-id128 | sed -n 2p)
 >/expected
 printf $'\n\n\n' | systemd-cat -t "$ID" --level-prefix false
-journalctl --flush
+journalctl --sync
 journalctl -b -o cat -t "$ID" >/output
 cmp /expected /output
 
 ID=$(journalctl --new-id128 | sed -n 2p)
 >/expected
 printf $'<5>\n<6>\n<7>\n' | systemd-cat -t "$ID" --level-prefix true
-journalctl --flush
+journalctl --sync
 journalctl -b -o cat -t "$ID" >/output
 cmp /expected /output
 
@@ -25,14 +25,14 @@ cmp /expected /output
 ID=$(journalctl --new-id128 | sed -n 2p)
 printf "Trailing spaces\n">/expected
 printf $'<5>Trailing spaces \t \n' | systemd-cat -t "$ID" --level-prefix true
-journalctl --flush
+journalctl --sync
 journalctl -b -o cat -t "$ID" >/output
 cmp /expected /output
 
 ID=$(journalctl --new-id128 | sed -n 2p)
 printf "Trailing spaces\n">/expected
 printf $'Trailing spaces \t \n' | systemd-cat -t "$ID" --level-prefix false
-journalctl --flush
+journalctl --sync
 journalctl -b -o cat -t "$ID" >/output
 cmp /expected /output
 
@@ -40,14 +40,14 @@ cmp /expected /output
 ID=$(journalctl --new-id128 | sed -n 2p)
 printf $' \t Leading spaces\n'>/expected
 printf $'<5> \t Leading spaces\n' | systemd-cat -t "$ID" --level-prefix true
-journalctl --flush
+journalctl --sync
 journalctl -b -o cat -t "$ID" >/output
 cmp /expected /output
 
 ID=$(journalctl --new-id128 | sed -n 2p)
 printf $' \t Leading spaces\n'>/expected
 printf $' \t Leading spaces\n' | systemd-cat -t "$ID" --level-prefix false
-journalctl --flush
+journalctl --sync
 journalctl -b -o cat -t "$ID" >/output
 cmp /expected /output
 
