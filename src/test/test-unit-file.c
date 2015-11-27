@@ -695,6 +695,27 @@ static void test_config_parse_rlimit(void) {
         assert_se(rl[RLIMIT_NOFILE]->rlim_cur == RLIM_INFINITY);
         assert_se(rl[RLIMIT_NOFILE]->rlim_cur == rl[RLIMIT_NOFILE]->rlim_max);
 
+        assert_se(config_parse_limit(NULL, "fake", 1, "section", 1, "LimitNOFILE", RLIMIT_NOFILE, "10:20:30", rl, NULL) >= 0);
+        assert_se(rl[RLIMIT_NOFILE]);
+        assert_se(rl[RLIMIT_NOFILE]->rlim_cur == 10);
+        assert_se(rl[RLIMIT_NOFILE]->rlim_max == 20);
+
+        /* Invalid values don't change rl */
+        assert_se(config_parse_limit(NULL, "fake", 1, "section", 1, "LimitNOFILE", RLIMIT_NOFILE, "wat:wat", rl, NULL) >= 0);
+        assert_se(rl[RLIMIT_NOFILE]);
+        assert_se(rl[RLIMIT_NOFILE]->rlim_cur == 10);
+        assert_se(rl[RLIMIT_NOFILE]->rlim_max == 20);
+
+        assert_se(config_parse_limit(NULL, "fake", 1, "section", 1, "LimitNOFILE", RLIMIT_NOFILE, "66:wat", rl, NULL) >= 0);
+        assert_se(rl[RLIMIT_NOFILE]);
+        assert_se(rl[RLIMIT_NOFILE]->rlim_cur == 10);
+        assert_se(rl[RLIMIT_NOFILE]->rlim_max == 20);
+
+        assert_se(config_parse_limit(NULL, "fake", 1, "section", 1, "LimitNOFILE", RLIMIT_NOFILE, "200:100", rl, NULL) >= 0);
+        assert_se(rl[RLIMIT_NOFILE]);
+        assert_se(rl[RLIMIT_NOFILE]->rlim_cur == 10);
+        assert_se(rl[RLIMIT_NOFILE]->rlim_max == 20);
+
         rl[RLIMIT_NOFILE] = mfree(rl[RLIMIT_NOFILE]);
 
         assert_se(config_parse_sec_limit(NULL, "fake", 1, "section", 1, "LimitCPU", RLIMIT_CPU, "56", rl, NULL) >= 0);
