@@ -71,6 +71,7 @@ int acl_find_uid(acl_t acl, uid_t uid, acl_entry_t *entry) {
 int calc_acl_mask_if_needed(acl_t *acl_p) {
         acl_entry_t i;
         int r;
+        bool need = false;
 
         assert(acl_p);
 
@@ -85,17 +86,16 @@ int calc_acl_mask_if_needed(acl_t *acl_p) {
                 if (tag == ACL_MASK)
                         return 0;
 
-                if (IN_SET(tag, ACL_USER, ACL_GROUP)) {
-                        if (acl_calc_mask(acl_p) < 0)
-                                return -errno;
-
-                        return 1;
-                }
+                if (IN_SET(tag, ACL_USER, ACL_GROUP))
+                        need = true;
         }
         if (r < 0)
                 return -errno;
 
-        return 0;
+        if (need && acl_calc_mask(acl_p) < 0)
+                return -errno;
+
+        return need;
 }
 
 int add_base_acls_if_needed(acl_t *acl_p, const char *path) {
