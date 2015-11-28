@@ -493,6 +493,25 @@
         VXLAN Group Policy </ulink> document. Defaults to false.</para>
       </listitem>
     </varlistentry>
+    <varlistentry>
+      <term><varname>DestinationPort=</varname></term>
+      <listitem>
+        <para>Configures the default destination UDP port on a per-device basis.
+        If destination port is not specified then Linux kernel default will be used.
+        Set destination port 4789 to get the IANA assigned value,
+        and destination port 0 to get default values.</para>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term><varname>PortRange=</varname></term>
+        <listitem>
+          <para>Configures VXLAN port range. VXLAN bases source
+          UDP port based on flow to help the receiver to be able
+          to load balance based on outer header flow. It
+          restricts the port range to the normal UDP local
+          ports, and allows overriding via configuration.</para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
   <refsect1>
