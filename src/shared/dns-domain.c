@@ -442,6 +442,9 @@ int dns_name_concat(const char *a, const char *b, char **_ret) {
                 n += r;
         }
 
+        if (n > DNS_HOSTNAME_MAX)
+                return -EINVAL;
+
         if (_ret) {
                 if (!GREEDY_REALLOC(ret, allocated, n + 1))
                         return -ENOMEM;
