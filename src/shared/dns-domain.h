@@ -25,7 +25,10 @@
 #include "hashmap.h"
 #include "in-addr-util.h"
 
+/* Length of a single label, with all escaping removed, excluding any trailing dot or NUL byte */
 #define DNS_LABEL_MAX 63
+
+/* Worst case length of a single label, with all escaping applied and room for a trailing NUL byte. */
 #define DNS_LABEL_ESCAPED_MAX (DNS_LABEL_MAX*4+1)
 
 int dns_label_unescape(const char **name, char *dest, size_t sz);

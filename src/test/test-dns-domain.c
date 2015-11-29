@@ -136,7 +136,7 @@ static void test_dns_label_escape_one(const char *what, size_t l, const char *ex
 }
 
 static void test_dns_label_escape(void) {
-        test_dns_label_escape_one("", 0, "", 0);
+        test_dns_label_escape_one("", 0, NULL, -EINVAL);
         test_dns_label_escape_one("hallo", 5, "hallo", 5);
         test_dns_label_escape_one("hallo", 6, NULL, -EINVAL);
         test_dns_label_escape_one("hallo hallo.foobar,waldi", 24, "hallo\\032hallo\\.foobar\\044waldi", 31);
