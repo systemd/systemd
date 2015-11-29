@@ -357,7 +357,6 @@ int dns_name_concat(const char *a, const char *b, char **_ret) {
         assert(a);
 
         for (;;) {
-                _cleanup_free_ char *t = NULL;
                 char label[DNS_LABEL_MAX];
                 int k;
 

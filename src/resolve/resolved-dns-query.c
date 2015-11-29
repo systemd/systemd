@@ -86,7 +86,6 @@ DnsQueryCandidate* dns_query_candidate_free(DnsQueryCandidate *c) {
 }
 
 static int dns_query_candidate_next_search_domain(DnsQueryCandidate *c) {
-        _cleanup_(dns_search_domain_unrefp) DnsSearchDomain *previous = NULL;
         DnsSearchDomain *next = NULL;
 
         assert(c);
