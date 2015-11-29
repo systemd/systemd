@@ -20,7 +20,8 @@
 -->
 
 <xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" version="1.0">
-
+<xsl:import href="cross-refs-html.xsl"/>
+<xsl:import href="permalink-id-scheme-html.xsl"/>
 <xsl:import href="http://docbook.sourceforge.net/release/xsl/current/html/docbook.xsl"/>
 <!--
   - The docbook stylesheet injects empty anchor tags into generated HTML, identified by an auto-generated ID.
@@ -33,180 +34,71 @@
  -->
 <xsl:param name="generate.consistent.ids" select="1"/>
 
+<!--
+  - Helper template to generate cross reference hyperlink
+ -->
+<xsl:template name="reflink">
+  <xsl:param name="href"/>
+  <a href="{$href}"><xsl:call-template name="inline.charseq"/></a>
+</xsl:template>
+
 <!-- translate man page references to links to html pages -->
+<xsl:param name="cross.refs.debug" select="'0'"/>
 <xsl:template match="citerefentry[not(@project)]">
-  <a>
-    <xsl:attribute name="href">
-      <xsl:value-of select="refentrytitle"/><xsl:text>.html#</xsl:text>
-      <xsl:value-of select="refentrytitle/@target"/>
-    </xsl:attribute>
-    <xsl:call-template name="inline.charseq"/>
-  </a>
+  <xsl:variable name="crossID">
+    <xsl:call-template name="determineCrossID"/>
+  </xsl:variable>
+  <xsl:call-template name="reflink">
+    <xsl:with-param name="href">
+      <xsl:value-of select="concat(refentrytitle,'.html')"/>
+      <xsl:if test="string($crossID)!=''">
+        <xsl:value-of select="concat('#',$crossID)"/>
+      </xsl:if>
+    </xsl:with-param>
+  </xsl:call-template>
+
+  <xsl:if test="$cross.refs.debug!='' and number($cross.refs.debug)!= 0">
+    <blockquote><pre>Debug info:<br/>
+        <xsl:call-template name="determineCrossID">
+            <xsl:with-param name="cross-refs-debug" select="'debug'"/>
+        </xsl:call-template>
+    </pre></blockquote>
+  </xsl:if>
 </xsl:template>
 
 <xsl:template match="citerefentry[@project='man-pages'] | citerefentry[manvolnum='2'] | citerefentry[manvolnum='4']">
-  <a>
-    <xsl:attribute name="href">
-      <xsl:text>http://man7.org/linux/man-pages/man</xsl:text>
-      <xsl:value-of select="manvolnum"/>
-      <xsl:text>/</xsl:text>
-      <xsl:value-of select="refentrytitle"/>
-      <xsl:text>.</xsl:text>
-      <xsl:value-of select="manvolnum"/>
-      <xsl:text>.html</xsl:text>
-    </xsl:attribute>
-    <xsl:call-template name="inline.charseq"/>
-  </a>
+  <xsl:call-template name="reflink">
+    <xsl:with-param name="href" select="concat('http://man7.org/linux/man-pages/man', manvolnum, '/', refentrytitle, '.', manvolnum, '.html')"/>
+  </xsl:call-template>
 </xsl:template>
 
 <xsl:template match="citerefentry[@project='die-net']">
-  <a>
-    <xsl:attribute name="href">
-      <xsl:text>http://linux.die.net/man/</xsl:text>
-      <xsl:value-of select="manvolnum"/>
-      <xsl:text>/</xsl:text>
-      <xsl:value-of select="refentrytitle"/>
-    </xsl:attribute>
-    <xsl:call-template name="inline.charseq"/>
-  </a>
+  <xsl:call-template name="reflink">
+    <xsl:with-param name="href" select="concat('http://linux.die.net/man/', manvolnum, '/', refentrytitle)"/>
+  </xsl:call-template>
 </xsl:template>
 
 <xsl:template match="citerefentry[@project='mankier']">
-  <a>
-    <xsl:attribute name="href">
-      <xsl:text>https://www.mankier.com/</xsl:text>
-      <xsl:value-of select="manvolnum"/>
-      <xsl:text>/</xsl:text>
-      <xsl:value-of select="refentrytitle"/>
-    </xsl:attribute>
-    <xsl:call-template name="inline.charseq"/>
-  </a>
+  <xsl:call-template name="reflink">
+    <xsl:with-param name="href" select="concat('https://www.mankier.com/', manvolnum, '/', refentrytitle)"/>
+  </xsl:call-template>
 </xsl:template>
 
 <xsl:template match="citerefentry[@project='archlinux']">
-  <a>
-    <xsl:attribute name="href">
-      <xsl:text>https://www.archlinux.org/</xsl:text>
-      <xsl:value-of select="refentrytitle"/>
-      <xsl:text>/</xsl:text>
-      <xsl:value-of select="refentrytitle"/>
-      <xsl:text>.</xsl:text>
-      <xsl:value-of select="manvolnum"/>
-      <xsl:text>.html</xsl:text>
-    </xsl:attribute>
-    <xsl:call-template name="inline.charseq"/>
-  </a>
+  <xsl:call-template name="reflink">
+    <xsl:with-param name="href" select="concat('https://www.archlinux.org/', refentrytitle, '/', refentrytitle, '.', manvolnum, '.html')"/>
+  </xsl:call-template>
 </xsl:template>
 
 <xsl:template match="citerefentry[@project='freebsd']">
-  <a>
-    <xsl:attribute name="href">
-      <xsl:text>https://www.freebsd.org/cgi/man.cgi?</xsl:text>
-      <xsl:value-of select="refentrytitle"/>
-      <xsl:text>(</xsl:text>
-      <xsl:value-of select="manvolnum"/>
-      <xsl:text>)</xsl:text>
-    </xsl:attribute>
-    <xsl:call-template name="inline.charseq"/>
-  </a>
+  <xsl:call-template name="reflink">
+    <xsl:with-param name="href" select="concat('https://www.freebsd.org/cgi/man.cgi?', refentrytitle, '(', manvolnum, ')')"/>
+  </xsl:call-template>
 </xsl:template>
 
 <xsl:template match="citerefentry[@project='dbus']">
-  <a>
-    <xsl:attribute name="href">
-      <xsl:text>http://dbus.freedesktop.org/doc/</xsl:text>
-      <xsl:value-of select="refentrytitle"/>
-      <xsl:text>.</xsl:text>
-      <xsl:value-of select="manvolnum"/>
-      <xsl:text>.html</xsl:text>
-    </xsl:attribute>
-    <xsl:call-template name="inline.charseq"/>
-  </a>
-</xsl:template>
-
-<!--
-  - helper template to do conflict resolution between various headings with the same inferred ID attribute/tag from the headerlink template
-  - this conflict resolution is necessary to prevent malformed HTML output (multiple ID attributes with the same value)
-  - and it fixes xsltproc warnings during compilation of HTML man pages
-  -
-  - A simple top-to-bottom numbering scheme is implemented for nodes with the same ID value to derive unique ID values for HTML output.
-  - It uses two parameters:
-      templateID  the proposed ID string to use which must be checked for conflicts
-      keyNode     the context node which 'produced' the given templateID.
-  -
-  - Conflicts are detected solely based on keyNode, templateID is not taken into account for that purpose.
- -->
-<xsl:template name="generateID">
-  <!-- node which generatedID needs to assume as the 'source' of the ID -->
-  <xsl:param name="keyNode"/>
-  <!-- suggested value for generatedID output, a contextually meaningful ID string -->
-  <xsl:param name="templateID"/>
-  <xsl:variable name="conflictSource" select="preceding::refsect1/title|preceding::refsect1/info/title|
-					      preceding::refsect2/title|preceding::refsect2/info/title|
-					      preceding::varlistentry/term[1]"/>
-  <xsl:variable name="conflictCount" select="count($conflictSource[. = $keyNode])"/>
-  <xsl:choose>
-    <!-- special case conflictCount = 0 to preserve compatibility with URLs generated by previous versions of this XSL stylesheet where possible -->
-    <xsl:when test="$conflictCount = 0">
-      <xsl:value-of select="$templateID"/>
-    </xsl:when>
-    <xsl:otherwise>
-      <xsl:value-of select="concat($templateID, $conflictCount)"/>
-    </xsl:otherwise>
-  </xsl:choose>
-</xsl:template>
-
-<!--
-  - a helper template to abstract over the structure of generated subheading + permalink HTML output
-  - It helps reduce tedious repetition and groups all actual markup output (as opposed to URL/ID logic) in a single location.
- -->
-<xsl:template name="permalink">
-  <xsl:param name="nodeType"/> <!-- local name of the element node to generate, e.g. 'h2' for <h2></h2> -->
-  <xsl:param name="nodeContent"/> <!-- nodeset to apply further templates to obtain the content of the subheading/term -->
-  <xsl:param name="linkTitle"/> <!-- value for title attribute of generated permalink, e.g. 'this is a permalink' -->
-
-  <!-- parameters passed to generateID template, otherwise unused. -->
-  <xsl:param name="keyNode"/>
-  <xsl:param name="templateID"/>
-
-  <!--
-    - If stable URLs with fragment markers (references to the ID) turn out not to be important:
-    - generatedID could simply take the value of generate-id(), and various other helper templates may be dropped entirely.
-    - Alternatively, if xsltproc is patched to generate reproducible generate-id() output, the same simplifications can be
-    - applied at the cost of breaking compatibility with URLs generated from output of previous versions of this stylesheet.
-   -->
-  <xsl:variable name="generatedID">
-    <xsl:call-template name="generateID">
-      <xsl:with-param name="keyNode" select="$keyNode"/>
-      <xsl:with-param name="templateID" select="$templateID"/>
-    </xsl:call-template>
-  </xsl:variable>
-
-  <xsl:element name="{$nodeType}">
-    <xsl:attribute name="id">
-      <xsl:value-of select="$generatedID"/>
-    </xsl:attribute>
-    <xsl:apply-templates select="$nodeContent"/>
-    <a class="headerlink" title="{$linkTitle}" href="#{$generatedID}">¶</a>
-  </xsl:element>
-</xsl:template>
-
-<!-- simple wrapper around permalink to avoid repeating common info for each level of subheading covered by the permalink logic (h2, h3) -->
-<xsl:template name="headerlink">
-  <xsl:param name="nodeType"/>
-  <xsl:call-template name="permalink">
-    <xsl:with-param name="nodeType" select="$nodeType"/>
-    <xsl:with-param name="linkTitle" select="'Permalink to this headline'"/>
-    <xsl:with-param name="nodeContent" select="node()"/>
-    <xsl:with-param name="keyNode" select="."/>
-    <!--
-      - To retain compatibility with IDs generated by previous versions of the template, inline.charseq must be called.
-      - The purpose of that template is to generate markup (according to docbook documentation its purpose is to mark/format something as plain text).
-      - The only reason to call this template is to get the auto-generated text such as brackets ([]) before flattening it.
-     -->
-    <xsl:with-param name="templateID">
-      <xsl:call-template name="inline.charseq"/>
-    </xsl:with-param>
+  <xsl:call-template name="reflink">
+    <xsl:with-param name="href" select="concat('http://dbus.freedesktop.org/doc/', refentrytitle, '.', manvolnum, '.html')"/>
   </xsl:call-template>
 </xsl:template>
 
