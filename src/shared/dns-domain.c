@@ -866,19 +866,17 @@ bool dns_name_is_single_label(const char *name) {
 
 /* Encode a domain name according to RFC 1035 Section 3.1 */
 int dns_name_to_wire_format(const char *domain, uint8_t *buffer, size_t len) {
-        uint8_t *label_length;
-        uint8_t *out;
+        uint8_t *label_length, *out;
         int r;
 
-        assert_return(buffer, -EINVAL);
-        assert_return(domain, -EINVAL);
-        assert_return(domain[0], -EINVAL);
+        assert(domain);
+        assert(buffer);
 
         out = buffer;
 
         do {
                 /* reserve a byte for label length */
-                if (len == 0)
+                if (len <= 0)
                         return -ENOBUFS;
                 len--;
                 label_length = out;

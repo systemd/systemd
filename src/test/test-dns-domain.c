@@ -66,11 +66,12 @@ static void test_dns_name_to_wire_format_one(const char *what, const char *expec
 }
 
 static void test_dns_name_to_wire_format(void) {
+        const char out0[] = { 0 };
         const char out1[] = { 3, 'f', 'o', 'o', 0 };
         const char out2[] = { 5, 'h', 'a', 'l', 'l', 'o', 3, 'f', 'o', 'o', 3, 'b', 'a', 'r', 0 };
         const char out3[] = { 4, ' ', 'f', 'o', 'o', 3, 'b', 'a', 'r', 0 };
 
-        test_dns_name_to_wire_format_one("", NULL, 0, -EINVAL);
+        test_dns_name_to_wire_format_one("", out0, sizeof(out0), sizeof(out0));
 
         test_dns_name_to_wire_format_one("foo", out1, sizeof(out1), sizeof(out1));
         test_dns_name_to_wire_format_one("foo", out1, sizeof(out1) + 1, sizeof(out1));
