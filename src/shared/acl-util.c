@@ -71,6 +71,7 @@ int acl_find_uid(acl_t acl, uid_t uid, acl_entry_t *entry) {
 int calc_acl_mask_if_needed(acl_t *acl_p) {
         acl_entry_t i;
         int r;
+        bool need = false;
 
         assert(acl_p);
 
@@ -85,17 +86,16 @@ int calc_acl_mask_if_needed(acl_t *acl_p) {
                 if (tag == ACL_MASK)
                         return 0;
 
-                if (IN_SET(tag, ACL_USER, ACL_GROUP)) {
-                        if (acl_calc_mask(acl_p) < 0)
-                                return -errno;
-
-                        return 1;
-                }
+                if (IN_SET(tag, ACL_USER, ACL_GROUP))
+                        need = true;
         }
         if (r < 0)
                 return -errno;
 
-        return 0;
+        if (need && acl_calc_mask(acl_p) < 0)
+                return -errno;
+
+        return need;
 }
 
 int add_base_acls_if_needed(acl_t *acl_p, const char *path) {
@@ -397,4 +397,35 @@ int acls_for_file(const char *path, acl_type_t type, acl_t new, acl_t *acl) {
         *acl = old;
         old = NULL;
         return 0;
+}
+
+int add_acls_for_user(int fd, uid_t uid) {
+        _cleanup_(acl_freep) acl_t acl = NULL;
+        acl_entry_t entry;
+        acl_permset_t permset;
+        int r;
+
+        acl = acl_get_fd(fd);
+        if (!acl)
+                return -errno;
+
+        r = acl_find_uid(acl, uid, &entry);
+        if (r <= 0) {
+                if (acl_create_entry(&acl, &entry) < 0 ||
+                    acl_set_tag_type(entry, ACL_USER) < 0 ||
+                    acl_set_qualifier(entry, &uid) < 0)
+                        return -errno;
+        }
+
+        /* We do not recalculate the mask unconditionally here,
+         * so that the fchmod() mask above stays intact. */
+        if (acl_get_permset(entry, &permset) < 0 ||
+            acl_add_perm(permset, ACL_READ) < 0)
+                return -errno;
+
+        r = calc_acl_mask_if_needed(&acl);
+        if (r < 0)
+                return r;
+
+        return acl_set_fd(fd, acl);
 }

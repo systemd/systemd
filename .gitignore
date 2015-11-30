@@ -133,6 +133,7 @@
 /systemd-vconsole-setup
 /tags
 /test-acd
+/test-acl-util
 /test-af-list
 /test-architecture
 /test-arphrd-list

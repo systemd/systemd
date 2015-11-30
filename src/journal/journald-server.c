@@ -204,58 +204,19 @@ static int determine_space(Server *s, bool verbose, bool patch_min_use, uint64_t
         return determine_space_for(s, metrics, path, name, verbose, patch_min_use, available, limit);
 }
 
-void server_fix_perms(Server *s, JournalFile *f, uid_t uid) {
-        int r;
+static void server_add_acls(JournalFile *f, uid_t uid) {
 #ifdef HAVE_ACL
-        _cleanup_(acl_freep) acl_t acl = NULL;
-        acl_entry_t entry;
-        acl_permset_t permset;
+        int r;
 #endif
-
         assert(f);
-
-        r = fchmod(f->fd, 0640);
-        if (r < 0)
-                log_warning_errno(errno, "Failed to fix access mode on %s, ignoring: %m", f->path);
 
 #ifdef HAVE_ACL
         if (uid <= SYSTEM_UID_MAX)
                 return;
 
-        acl = acl_get_fd(f->fd);
-        if (!acl) {
-                log_warning_errno(errno, "Failed to read ACL on %s, ignoring: %m", f->path);
-                return;
-        }
-
-        r = acl_find_uid(acl, uid, &entry);
-        if (r <= 0) {
-
-                if (acl_create_entry(&acl, &entry) < 0 ||
-                    acl_set_tag_type(entry, ACL_USER) < 0 ||
-                    acl_set_qualifier(entry, &uid) < 0) {
-                        log_warning_errno(errno, "Failed to patch ACL on %s, ignoring: %m", f->path);
-                        return;
-                }
-        }
-
-        /* We do not recalculate the mask unconditionally here,
-         * so that the fchmod() mask above stays intact. */
-        if (acl_get_permset(entry, &permset) < 0 ||
-            acl_add_perm(permset, ACL_READ) < 0) {
-                log_warning_errno(errno, "Failed to patch ACL on %s, ignoring: %m", f->path);
-                return;
-        }
-
-        r = calc_acl_mask_if_needed(&acl);
-        if (r < 0) {
-                log_warning_errno(r, "Failed to patch ACL on %s, ignoring: %m", f->path);
-                return;
-        }
-
-        if (acl_set_fd(f->fd, acl) < 0)
-                log_warning_errno(errno, "Failed to set ACL on %s, ignoring: %m", f->path);
-
+        r = add_acls_for_user(f->fd, uid);
+        if (r < 0)
+                log_warning_errno(r, "Failed to set ACL on %s, ignoring: %m", f->path);
 #endif
 }
 
@@ -301,7 +262,7 @@ static JournalFile* find_journal(Server *s, uid_t uid) {
         if (r < 0)
                 return s->system_journal;
 
-        server_fix_perms(s, f, uid);
+        server_add_acls(f, uid);
 
         r = ordered_hashmap_put(s->user_journals, UID_TO_PTR(uid), f);
         if (r < 0) {
@@ -332,7 +293,7 @@ static int do_rotate(
                 else
                         log_error_errno(r, "Failed to create new %s journal: %m", name);
         else
-                server_fix_perms(s, *f, uid);
+                server_add_acls(*f, uid);
 
         return r;
 }
@@ -971,7 +932,7 @@ static int system_journal_open(Server *s, bool flush_requested) {
                 fn = strjoina(fn, "/system.journal");
                 r = journal_file_open_reliably(fn, O_RDWR|O_CREAT, 0640, s->compress, s->seal, &s->system_metrics, s->mmap, NULL, &s->system_journal);
                 if (r >= 0) {
-                        server_fix_perms(s, s->system_journal, 0);
+                        server_add_acls(s->system_journal, 0);
                         (void) determine_space_for(s, &s->system_metrics, "/var/log/journal/", "System journal", true, true, NULL, NULL);
                 } else if (r < 0) {
                         if (r != -ENOENT && r != -EROFS)
@@ -1015,7 +976,7 @@ static int system_journal_open(Server *s, bool flush_requested) {
                 }
 
                 if (s->runtime_journal) {
-                        server_fix_perms(s, s->runtime_journal, 0);
+                        server_add_acls(s->runtime_journal, 0);
                         (void) determine_space_for(s, &s->runtime_metrics, "/run/log/journal/", "Runtime journal", true, true, NULL, NULL);
                 }
         }
