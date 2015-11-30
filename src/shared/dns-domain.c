@@ -53,11 +53,11 @@ int dns_label_unescape(const char **name, char *dest, size_t sz) {
                 if (*n == 0)
                         break;
 
-                if (sz <= 0)
-                        return -ENOSPC;
-
                 if (r >= DNS_LABEL_MAX)
                         return -EINVAL;
+
+                if (sz <= 0)
+                        return -ENOBUFS;
 
                 if (*n == '\\') {
                         /* Escaped character */
@@ -192,7 +192,7 @@ int dns_label_escape(const char *p, size_t l, char *dest, size_t sz) {
         if (l <= 0 || l > DNS_LABEL_MAX)
                 return -EINVAL;
         if (sz < 1)
-                return -ENOSPC;
+                return -ENOBUFS;
 
         assert(p);
         assert(dest);
@@ -205,7 +205,7 @@ int dns_label_escape(const char *p, size_t l, char *dest, size_t sz) {
                         /* Dot or backslash */
 
                         if (sz < 3)
-                                return -ENOSPC;
+                                return -ENOBUFS;
 
                         *(q++) = '\\';
                         *(q++) = *p;
@@ -221,7 +221,7 @@ int dns_label_escape(const char *p, size_t l, char *dest, size_t sz) {
                         /* Proper character */
 
                         if (sz < 2)
-                                return -ENOSPC;
+                                return -ENOBUFS;
 
                         *(q++) = *p;
                         sz -= 1;
@@ -231,7 +231,7 @@ int dns_label_escape(const char *p, size_t l, char *dest, size_t sz) {
                         /* Everything else */
 
                         if (sz < 5)
-                                return -ENOSPC;
+                                return -ENOBUFS;
 
                         *(q++) = '\\';
                         *(q++) = '0' + (char) ((uint8_t) *p / 100);
@@ -315,7 +315,7 @@ int dns_label_apply_idna(const char *encoded, size_t encoded_size, char *decoded
         if (l <= 0 || l > DNS_LABEL_MAX)
                 return -EINVAL;
         if (l > decoded_max)
-                return -ENOSPC;
+                return -ENOBUFS;
 
         memcpy(decoded, buffer, l);
 
@@ -366,7 +366,7 @@ int dns_label_undo_idna(const char *encoded, size_t encoded_size, char *decoded,
         if (w <= 0)
                 return -EINVAL;
         if (w > decoded_max)
-                return -ENOSPC;
+                return -ENOBUFS;
 
         memcpy(decoded, result, w);
 

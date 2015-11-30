@@ -39,7 +39,7 @@ static void test_dns_label_unescape_one(const char *what, const char *expect, si
 
 static void test_dns_label_unescape(void) {
         test_dns_label_unescape_one("hallo", "hallo", 6, 5);
-        test_dns_label_unescape_one("hallo", "hallo", 4, -ENOSPC);
+        test_dns_label_unescape_one("hallo", "hallo", 4, -ENOBUFS);
         test_dns_label_unescape_one("", "", 10, 0);
         test_dns_label_unescape_one("hallo\\.foobar", "hallo.foobar", 20, 12);
         test_dns_label_unescape_one("hallo.foobar", "hallo", 10, 5);
@@ -132,7 +132,7 @@ static void test_dns_label_unescape_suffix_one(const char *what, const char *exp
 
 static void test_dns_label_unescape_suffix(void) {
         test_dns_label_unescape_suffix_one("hallo", "hallo", "", 6, 5, 0);
-        test_dns_label_unescape_suffix_one("hallo", "hallo", "", 4, -ENOSPC, -ENOSPC);
+        test_dns_label_unescape_suffix_one("hallo", "hallo", "", 4, -ENOBUFS, -ENOBUFS);
         test_dns_label_unescape_suffix_one("", "", "", 10, 0, 0);
         test_dns_label_unescape_suffix_one("hallo\\.foobar", "hallo.foobar", "", 20, 12, 0);
         test_dns_label_unescape_suffix_one("hallo.foobar", "foobar", "hallo", 10, 6, 5);
