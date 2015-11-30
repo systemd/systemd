@@ -41,7 +41,7 @@ static void test_add_acls_for_user(void) {
         assert_se(fd >= 0);
 
         /* Use the mode that user journal files use */
-        assert(fchmod(fd, 0640) == 0);
+        assert_se(fchmod(fd, 0640) == 0);
 
         cmd = strjoina("ls -l ", fn);
         assert_se(system(cmd) == 0);
@@ -82,4 +82,6 @@ static void test_add_acls_for_user(void) {
 
 int main(int argc, char **argv) {
         test_add_acls_for_user();
+
+        return 0;
 }
