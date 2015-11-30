@@ -864,7 +864,7 @@ bool dns_name_is_single_label(const char *name) {
         return dns_name_is_root(name);
 }
 
-/* Encode a domain name according to RFC 1035 Section 3.1 */
+/* Encode a domain name according to RFC 1035 Section 3.1, without compression */
 int dns_name_to_wire_format(const char *domain, uint8_t *buffer, size_t len) {
         uint8_t *label_length, *out;
         int r;
@@ -875,23 +875,34 @@ int dns_name_to_wire_format(const char *domain, uint8_t *buffer, size_t len) {
         out = buffer;
 
         do {
-                /* reserve a byte for label length */
+                /* Reserve a byte for label length */
                 if (len <= 0)
                         return -ENOBUFS;
                 len--;
                 label_length = out;
                 out++;
 
-                /* convert and copy a single label */
+                /* Convert and copy a single label. Note that
+                 * dns_label_unescape() returns 0 when it hits the end
+                 * of the domain name, which we rely on here to encode
+                 * the trailing NUL byte. */
                 r = dns_label_unescape(&domain, (char *) out, len);
                 if (r < 0)
                         return r;
 
-                /* fill label length, move forward */
+                /* Fill label length, move forward */
                 *label_length = r;
                 out += r;
                 len -= r;
+
         } while (r != 0);
+
+        /* Verify the maximum size of the encoded name. The trailing
+         * dot + NUL byte account are included this time, hence
+         * compare against DNS_HOSTNAME_MAX + 2 (which is 255) this
+         * time. */
+        if (out - buffer > DNS_HOSTNAME_MAX + 2)
+                return -EINVAL;
 
         return out - buffer;
 }
