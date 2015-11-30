@@ -33,9 +33,13 @@ A+ /run/log/journal/%m - - - - group:adm:r-x,group:wheel:r-x
 
 z /var/log/journal 2755 root systemd-journal - -
 z /var/log/journal/%m 2755 root systemd-journal - -
+z /var/log/journal/%m/system.journal 0644 root systemd-journal - -
 m4_ifdef(`HAVE_ACL',``
+a+ /var/log/journal    - - - - d:group:adm:r-x,d:group:wheel:r-x
+a+ /var/log/journal    - - - - group:adm:r-x,group:wheel:r-x
 a+ /var/log/journal/%m - - - - d:group:adm:r-x,d:group:wheel:r-x
 a+ /var/log/journal/%m - - - - group:adm:r-x,group:wheel:r-x
+a+ /var/log/journal/%m/system.journal - - - - group:adm:r--,group:wheel:r--
 '')m4_dnl
 
 d /var/lib/systemd 0755 root root -

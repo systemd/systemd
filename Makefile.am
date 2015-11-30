@@ -1499,6 +1499,11 @@ tests += \
 	test-dns-domain \
 	test-install-root
 
+if HAVE_ACL
+tests += \
+	test-acl-util
+endif
+
 EXTRA_DIST += \
 	test/a.service \
 	test/basic.target \
@@ -1844,6 +1849,12 @@ test_install_root_SOURCES = \
 	src/test/test-install-root.c
 
 test_install_root_LDADD = \
+	libshared.la
+
+test_acl_util_SOURCES = \
+	src/test/test-acl-util.c
+
+test_acl_util_LDADD = \
 	libshared.la
 
 test_namespace_LDADD = \
