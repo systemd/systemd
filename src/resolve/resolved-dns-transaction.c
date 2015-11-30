@@ -624,38 +624,6 @@ static int on_transaction_timeout(sd_event_source *s, usec_t usec, void *userdat
         return 0;
 }
 
-static int dns_transaction_make_packet(DnsTransaction *t) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
-        int r;
-
-        assert(t);
-
-        if (t->sent)
-                return 0;
-
-        r = dns_packet_new_query(&p, t->scope->protocol, 0, t->scope->dnssec_mode == DNSSEC_YES);
-        if (r < 0)
-                return r;
-
-        r = dns_scope_good_key(t->scope, t->key);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return -EDOM;
-
-        r = dns_packet_append_key(p, t->key, NULL);
-        if (r < 0)
-                return r;
-
-        DNS_PACKET_HEADER(p)->qdcount = htobe16(1);
-        DNS_PACKET_HEADER(p)->id = t->id;
-
-        t->sent = p;
-        p = NULL;
-
-        return 0;
-}
-
 static usec_t transaction_get_resend_timeout(DnsTransaction *t) {
         assert(t);
         assert(t->scope);
@@ -760,6 +728,130 @@ static int dns_transaction_prepare_next_attempt(DnsTransaction *t, usec_t ts) {
         }
 
         return 1;
+}
+
+static int dns_transaction_make_packet_mdns(DnsTransaction *t) {
+
+        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
+        DnsTransaction *other;
+        unsigned qdcount;
+        usec_t ts;
+        int r;
+
+        assert(t);
+        assert(t->scope->protocol == DNS_PROTOCOL_MDNS);
+
+        /* Discard any previously prepared packet, so we can start over and coaleasce again */
+        t->sent = dns_packet_unref(t->sent);
+
+        r = dns_packet_new_query(&p, t->scope->protocol, 0, false);
+        if (r < 0)
+                return r;
+
+        r = dns_packet_append_key(p, t->key, NULL);
+        if (r < 0)
+                return r;
+
+        qdcount = 1;
+
+        /*
+         * For mDNS, we want to coalesce as many open queries in pending transactions into one single
+         * query packet on the wire as possible. To achieve that, we iterate through all pending transactions
+         * in our current scope, and see whether their timing contraints allow them to be sent.
+         */
+
+        assert_se(sd_event_now(t->scope->manager->event, clock_boottime_or_monotonic(), &ts) >= 0);
+
+        LIST_FOREACH(transactions_by_scope, other, t->scope->transactions) {
+
+                /* Skip ourselves */
+                if (other == t)
+                        continue;
+
+                if (other->state != DNS_TRANSACTION_PENDING)
+                        continue;
+
+                if (other->next_attempt_after > ts)
+                        continue;
+
+                if (qdcount >= UINT16_MAX)
+                        break;
+
+                r = dns_packet_append_key(p, other->key, NULL);
+
+                /*
+                 * If we can't stuff more questions into the packet, just give up.
+                 * One of the 'other' transactions will fire later and take care of the rest.
+                 */
+                if (r == -EMSGSIZE)
+                        break;
+
+                if (r < 0)
+                        return r;
+
+                r = dns_transaction_prepare_next_attempt(other, ts);
+                if (r <= 0)
+                        continue;
+
+                ts += transaction_get_resend_timeout(other);
+
+                r = sd_event_add_time(
+                                other->scope->manager->event,
+                                &other->timeout_event_source,
+                                clock_boottime_or_monotonic(),
+                                ts, 0,
+                                on_transaction_timeout, other);
+                if (r < 0)
+                        return r;
+
+                other->state = DNS_TRANSACTION_PENDING;
+                other->next_attempt_after = ts;
+
+                qdcount ++;
+        }
+
+        DNS_PACKET_HEADER(p)->qdcount = htobe16(qdcount);
+        DNS_PACKET_HEADER(p)->id = t->id;
+
+        t->sent = p;
+        p = NULL;
+
+        return 0;
+}
+
+static int dns_transaction_make_packet(DnsTransaction *t) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
+        int r;
+
+        assert(t);
+
+        if (t->scope->protocol == DNS_PROTOCOL_MDNS)
+                return dns_transaction_make_packet_mdns(t);
+
+        if (t->sent)
+                return 0;
+
+        r = dns_packet_new_query(&p, t->scope->protocol, 0, t->scope->dnssec_mode == DNSSEC_YES);
+        if (r < 0)
+                return r;
+
+        r = dns_scope_good_key(t->scope, t->key);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EDOM;
+
+        r = dns_packet_append_key(p, t->key, NULL);
+        if (r < 0)
+                return r;
+
+        DNS_PACKET_HEADER(p)->qdcount = htobe16(1);
+        DNS_PACKET_HEADER(p)->id = t->id;
+
+        t->sent = p;
+        p = NULL;
+
+        return 0;
 }
 
 int dns_transaction_go(DnsTransaction *t) {
