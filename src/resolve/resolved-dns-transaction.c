@@ -675,9 +675,8 @@ static usec_t transaction_get_resend_timeout(DnsTransaction *t) {
         }
 }
 
-int dns_transaction_go(DnsTransaction *t) {
+static int dns_transaction_prepare_next_attempt(DnsTransaction *t, usec_t ts) {
         bool had_stream;
-        usec_t ts;
         int r;
 
         assert(t);
@@ -685,11 +684,6 @@ int dns_transaction_go(DnsTransaction *t) {
         had_stream = !!t->stream;
 
         dns_transaction_stop(t);
-
-        log_debug("Excercising transaction on scope %s on %s/%s",
-                  dns_protocol_to_string(t->scope->protocol),
-                  t->scope->link ? t->scope->link->name : "*",
-                  t->scope->family == AF_UNSPEC ? "*" : af_to_name(t->scope->family));
 
         if (t->n_attempts >= TRANSACTION_ATTEMPTS_MAX(t->scope->protocol)) {
                 dns_transaction_complete(t, DNS_TRANSACTION_ATTEMPTS_MAX_REACHED);
@@ -702,8 +696,6 @@ int dns_transaction_go(DnsTransaction *t) {
                 dns_transaction_complete(t, DNS_TRANSACTION_ATTEMPTS_MAX_REACHED);
                 return 0;
         }
-
-        assert_se(sd_event_now(t->scope->manager->event, clock_boottime_or_monotonic(), &ts) >= 0);
 
         t->n_attempts++;
         t->start_usec = ts;
@@ -766,6 +758,25 @@ int dns_transaction_go(DnsTransaction *t) {
                         return 0;
                 }
         }
+
+        return 1;
+}
+
+int dns_transaction_go(DnsTransaction *t) {
+        usec_t ts;
+        int r;
+
+        assert(t);
+
+        assert_se(sd_event_now(t->scope->manager->event, clock_boottime_or_monotonic(), &ts) >= 0);
+        r = dns_transaction_prepare_next_attempt(t, ts);
+        if (r <= 0)
+                return r;
+
+        log_debug("Excercising transaction on scope %s on %s/%s",
+                  dns_protocol_to_string(t->scope->protocol),
+                  t->scope->link ? t->scope->link->name : "*",
+                  t->scope->family == AF_UNSPEC ? "*" : af_to_name(t->scope->family));
 
         if (!t->initial_jitter_scheduled &&
             (t->scope->protocol == DNS_PROTOCOL_LLMNR ||
