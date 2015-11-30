@@ -250,6 +250,10 @@ int dns_resource_key_match_cname(const DnsResourceKey *key, const DnsResourceRec
 int dns_resource_key_to_string(const DnsResourceKey *key, char **ret);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsResourceKey*, dns_resource_key_unref);
 
+static inline bool dns_key_is_shared(const DnsResourceKey *key) {
+        return IN_SET(key->type, DNS_TYPE_PTR);
+}
+
 DnsResourceRecord* dns_resource_record_new(DnsResourceKey *key);
 DnsResourceRecord* dns_resource_record_new_full(uint16_t class, uint16_t type, const char *name);
 DnsResourceRecord* dns_resource_record_ref(DnsResourceRecord *rr);

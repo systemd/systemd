@@ -32,6 +32,7 @@ typedef struct DnsCache {
 } DnsCache;
 
 #include "resolved-dns-answer.h"
+#include "resolved-dns-packet.h"
 #include "resolved-dns-question.h"
 #include "resolved-dns-rr.h"
 
@@ -45,3 +46,5 @@ int dns_cache_check_conflicts(DnsCache *cache, DnsResourceRecord *rr, int owner_
 
 void dns_cache_dump(DnsCache *cache, FILE *f);
 bool dns_cache_is_empty(DnsCache *cache);
+
+int dns_cache_export_shared_to_packet(DnsCache *cache, DnsPacket *p);

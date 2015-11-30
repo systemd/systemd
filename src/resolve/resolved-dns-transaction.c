@@ -24,6 +24,7 @@
 #include "dns-domain.h"
 #include "fd-util.h"
 #include "random-util.h"
+#include "resolved-dns-cache.h"
 #include "resolved-dns-transaction.h"
 #include "resolved-llmnr.h"
 #include "string-table.h"
@@ -733,6 +734,7 @@ static int dns_transaction_prepare_next_attempt(DnsTransaction *t, usec_t ts) {
 static int dns_transaction_make_packet_mdns(DnsTransaction *t) {
 
         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
+        bool add_known_answers = false;
         DnsTransaction *other;
         unsigned qdcount;
         usec_t ts;
@@ -753,6 +755,9 @@ static int dns_transaction_make_packet_mdns(DnsTransaction *t) {
                 return r;
 
         qdcount = 1;
+
+        if (dns_key_is_shared(t->key))
+                add_known_answers = true;
 
         /*
          * For mDNS, we want to coalesce as many open queries in pending transactions into one single
@@ -808,10 +813,20 @@ static int dns_transaction_make_packet_mdns(DnsTransaction *t) {
                 other->next_attempt_after = ts;
 
                 qdcount ++;
+
+                if (dns_key_is_shared(other->key))
+                        add_known_answers = true;
         }
 
         DNS_PACKET_HEADER(p)->qdcount = htobe16(qdcount);
         DNS_PACKET_HEADER(p)->id = t->id;
+
+        /* Append known answer section if we're asking for any shared record */
+        if (add_known_answers) {
+                r = dns_cache_export_shared_to_packet(&t->scope->cache, p);
+                if (r < 0)
+                        return r;
+        }
 
         t->sent = p;
         p = NULL;
