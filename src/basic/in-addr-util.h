@@ -22,6 +22,8 @@
 ***/
 
 #include <netinet/in.h>
+#include <stddef.h>
+#include <sys/socket.h>
 
 #include "macro.h"
 #include "util.h"

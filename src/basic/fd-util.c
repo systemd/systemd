@@ -19,10 +19,19 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "dirent-util.h"
+#include <errno.h>
+#include <fcntl.h>
+#include <sys/resource.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
 #include "fd-util.h"
 #include "parse-util.h"
 #include "socket-util.h"
+#include "macro.h"
+#include "missing.h"
+#include "path-util.h"
 #include "util.h"
 
 int close_nointr(int fd) {

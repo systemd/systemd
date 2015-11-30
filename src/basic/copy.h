@@ -23,6 +23,7 @@
 
 #include <inttypes.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <sys/types.h>
 
 int copy_file_fd(const char *from, int to, bool try_reflink);

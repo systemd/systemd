@@ -22,7 +22,7 @@
 #include <string.h>
 
 #include "errno-list.h"
-#include "util.h"
+#include "macro.h"
 
 static const struct errno_name* lookup_errno(register const char *str,
                                                  register unsigned int len);

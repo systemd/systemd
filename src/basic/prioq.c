@@ -29,9 +29,12 @@
  * The underlying algorithm used in this implementation is a Heap.
  */
 
+#include <errno.h>
+#include <stdlib.h>
+
 #include "alloc-util.h"
 #include "prioq.h"
-#include "util.h"
+#include "hashmap.h"
 
 struct prioq_item {
         void *data;

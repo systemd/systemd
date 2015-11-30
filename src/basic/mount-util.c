@@ -19,9 +19,13 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <errno.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/mount.h>
+#include <sys/stat.h>
 #include <sys/statvfs.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "escape.h"
@@ -31,9 +35,9 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "set.h"
+#include "hashmap.h"
 #include "stdio-util.h"
 #include "string-util.h"
-#include "util.h"
 
 static int fd_fdinfo_mnt_id(int fd, const char *filename, int flags, int *mnt_id) {
         char path[strlen("/proc/self/fdinfo/") + DECIMAL_STR_MAX(int)];

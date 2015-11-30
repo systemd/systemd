@@ -23,6 +23,7 @@
 
 #include <stdbool.h>
 #include <sys/socket.h>
+#include <sys/types.h>
 
 #include "macro.h"
 

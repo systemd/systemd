@@ -20,18 +20,18 @@
 ***/
 
 #include <errno.h>
+#include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
-#include "dirent-util.h"
-#include "fd-util.h"
 #include "fileio.h"
 #include "process-util.h"
+#include "macro.h"
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
-#include "util.h"
 #include "virt.h"
 
 static int detect_vm_cpuid(void) {

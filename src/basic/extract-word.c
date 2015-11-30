@@ -19,12 +19,22 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <errno.h>
+#include <stdarg.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+#include <syslog.h>
+
 #include "alloc-util.h"
 #include "escape.h"
 #include "extract-word.h"
+#include "log.h"
+#include "macro.h"
 #include "string-util.h"
 #include "utf8.h"
-#include "util.h"
 
 int extract_first_word(const char **p, char **ret, const char *separators, ExtractFlags flags) {
         _cleanup_free_ char *s = NULL;

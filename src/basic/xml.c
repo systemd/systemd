@@ -19,10 +19,12 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <errno.h>
+#include <stddef.h>
 #include <string.h>
 
+#include "macro.h"
 #include "string-util.h"
-#include "util.h"
 #include "xml.h"
 
 enum {

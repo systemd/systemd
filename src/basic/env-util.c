@@ -19,17 +19,21 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <errno.h>
 #include <limits.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
-#include "def.h"
 #include "env-util.h"
 #include "parse-util.h"
+#include "extract-word.h"
+#include "macro.h"
 #include "string-util.h"
 #include "strv.h"
 #include "utf8.h"
-#include "util.h"
 
 #define VALID_CHARS_ENV_NAME                    \
         DIGITS LETTERS                          \

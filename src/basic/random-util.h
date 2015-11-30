@@ -19,6 +19,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <stddef.h>
 #include <stdint.h>
 
 int dev_urandom(void *p, size_t n);

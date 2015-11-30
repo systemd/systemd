@@ -22,6 +22,8 @@
 ***/
 
 
+#include <stddef.h>
+
 #include "macro.h"
 
 size_t strpcpy(char **dest, size_t size, const char *src);

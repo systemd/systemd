@@ -19,13 +19,20 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <errno.h>
+#include <fcntl.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/time.h>
 #include <sys/xattr.h>
 
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "sparse-endian.h"
+#include "macro.h"
+#include "time-util.h"
 #include "stdio-util.h"
-#include "util.h"
 #include "xattr-util.h"
 
 int getxattr_malloc(const char *path, const char *name, char **value, bool allow_symlink) {

@@ -24,6 +24,7 @@
 ***/
 
 #include <stdbool.h>
+#include <sys/types.h>
 
 #include "macro.h"
 

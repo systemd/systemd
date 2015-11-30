@@ -22,6 +22,7 @@
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <sys/types.h>
 
 #include "macro.h"
 #include "time-util.h"

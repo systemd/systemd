@@ -19,13 +19,19 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <alloca.h>
+#include <errno.h>
+#include <stddef.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "alloc-util.h"
 #include "calendarspec.h"
 #include "fileio.h"
 #include "parse-util.h"
+#include "macro.h"
 #include "string-util.h"
 
 #define BITS_WEEKDAYS   127

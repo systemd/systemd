@@ -19,8 +19,14 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <errno.h>
+#include <getopt.h>
+#include <stdbool.h>
+#include <stddef.h>
+
+#include "log.h"
+#include "macro.h"
 #include "string-util.h"
-#include "util.h"
 #include "verbs.h"
 
 int dispatch_verb(int argc, char *argv[], const Verb verbs[], void *userdata) {

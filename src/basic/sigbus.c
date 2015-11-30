@@ -19,7 +19,9 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <errno.h>
 #include <signal.h>
+#include <stddef.h>
 #include <sys/mman.h>
 
 #include "macro.h"

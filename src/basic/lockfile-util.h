@@ -21,6 +21,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <stddef.h>
+
 #include "macro.h"
 #include "missing.h"
 

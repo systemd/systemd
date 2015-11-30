@@ -17,18 +17,21 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <assert.h>
 #include <ctype.h>
 #include <errno.h>
+#include <limits.h>
+#include <linux/oom.h>
 #include <sched.h>
 #include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/personality.h>
 #include <sys/prctl.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <syslog.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -40,6 +43,8 @@
 #include "log.h"
 #include "process-util.h"
 #include "signal-util.h"
+#include "macro.h"
+#include "missing.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "user-util.h"

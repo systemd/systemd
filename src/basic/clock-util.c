@@ -21,6 +21,9 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
+#include <stdbool.h>
+#include <time.h>
 #include <linux/rtc.h>
 #include <stdio.h>
 #include <sys/ioctl.h>
@@ -30,7 +33,6 @@
 #include "fd-util.h"
 #include "macro.h"
 #include "string-util.h"
-#include "util.h"
 
 int clock_get_hwclock(struct tm *tm) {
         _cleanup_close_ int fd = -1;

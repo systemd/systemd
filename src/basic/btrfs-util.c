@@ -19,9 +19,20 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <errno.h>
+#include <fcntl.h>
+#include <inttypes.h>
+#include <linux/loop.h>
+#include <stddef.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <sys/ioctl.h>
 #include <sys/stat.h>
-#include <sys/vfs.h>
+#include <sys/statfs.h>
+#include <sys/sysmacros.h>
+#include <unistd.h>
+
 #ifdef HAVE_LINUX_BTRFS_H
 #include <linux/btrfs.h>
 #endif
@@ -37,6 +48,8 @@
 #include "path-util.h"
 #include "selinux-util.h"
 #include "smack-util.h"
+#include "sparse-endian.h"
+#include "time-util.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "util.h"

@@ -19,6 +19,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <stdbool.h>
+#include <stddef.h>
+#include <string.h>
+
 #include "alloc-util.h"
 #include "extract-word.h"
 #include "fileio.h"

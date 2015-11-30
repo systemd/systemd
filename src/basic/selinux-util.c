@@ -21,7 +21,12 @@
 
 #include <errno.h>
 #include <malloc.h>
+#include <stddef.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <sys/time.h>
 #include <sys/un.h>
+#include <syslog.h>
 
 #ifdef HAVE_SELINUX
 #include <selinux/context.h>
@@ -32,7 +37,10 @@
 #include "alloc-util.h"
 #include "path-util.h"
 #include "selinux-util.h"
-#include "strv.h"
+#include "log.h"
+#include "macro.h"
+#include "time-util.h"
+#include "util.h"
 
 #ifdef HAVE_SELINUX
 DEFINE_TRIVIAL_CLEANUP_FUNC(security_context_t, freecon);

@@ -21,12 +21,18 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <printf.h>
+#include <inttypes.h>
+#include <limits.h>
 #include <stdarg.h>
 #include <stddef.h>
 #include <stdio.h>
+#include <string.h>
+#include <sys/signalfd.h>
 #include <sys/socket.h>
+#include <sys/time.h>
+#include <sys/uio.h>
 #include <sys/un.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "sd-messages.h"
@@ -43,6 +49,7 @@
 #include "process-util.h"
 #include "signal-util.h"
 #include "socket-util.h"
+#include "time-util.h"
 #include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"

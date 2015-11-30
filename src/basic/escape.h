@@ -22,7 +22,11 @@
 ***/
 
 #include <inttypes.h>
+#include <stddef.h>
+#include <stdint.h>
 #include <sys/types.h>
+
+#include "string-util.h"
 
 /* What characters are special in the shell? */
 /* must be escaped outside and inside double-quotes */

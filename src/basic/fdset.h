@@ -21,7 +21,11 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <stdbool.h>
+
 #include "set.h"
+#include "hashmap.h"
+#include "macro.h"
 
 typedef struct FDSet FDSet;
 

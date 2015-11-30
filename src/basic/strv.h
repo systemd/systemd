@@ -24,8 +24,11 @@
 #include <fnmatch.h>
 #include <stdarg.h>
 #include <stdbool.h>
+#include <stddef.h>
 
 #include "extract-word.h"
+#include "alloc-util.h"
+#include "macro.h"
 #include "util.h"
 
 char *strv_find(char **l, const char *name) _pure_;
