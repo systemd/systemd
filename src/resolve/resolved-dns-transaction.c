@@ -814,6 +814,7 @@ int dns_transaction_go(DnsTransaction *t) {
                         return r;
 
                 t->n_attempts = 0;
+                t->next_attempt_after = ts;
                 t->state = DNS_TRANSACTION_PENDING;
 
                 log_debug("Delaying %s transaction for " USEC_FMT "us.", dns_protocol_to_string(t->scope->protocol), jitter);
@@ -863,16 +864,20 @@ int dns_transaction_go(DnsTransaction *t) {
                 return dns_transaction_go(t);
         }
 
+        ts += transaction_get_resend_timeout(t);
+
         r = sd_event_add_time(
                         t->scope->manager->event,
                         &t->timeout_event_source,
                         clock_boottime_or_monotonic(),
-                        ts + transaction_get_resend_timeout(t), 0,
+                        ts, 0,
                         on_transaction_timeout, t);
         if (r < 0)
                 return r;
 
         t->state = DNS_TRANSACTION_PENDING;
+        t->next_attempt_after = ts;
+
         return 1;
 }
 

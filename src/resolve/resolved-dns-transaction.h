@@ -73,6 +73,7 @@ struct DnsTransaction {
         bool answer_authenticated;
 
         usec_t start_usec;
+        usec_t next_attempt_after;
         sd_event_source *timeout_event_source;
         unsigned n_attempts;
 
