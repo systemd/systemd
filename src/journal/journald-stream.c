@@ -493,7 +493,7 @@ static int stdout_stream_install(Server *s, int fd, StdoutStream **ret) {
         if (r < 0)
                 return log_error_errno(r, "Failed to determine peer credentials: %m");
 
-        if (mac_selinux_use()) {
+        if (mac_selinux_have()) {
                 r = getpeersec(fd, &stream->label);
                 if (r < 0 && r != -EOPNOTSUPP)
                         (void) log_warning_errno(r, "Failed to determine peer security context: %m");

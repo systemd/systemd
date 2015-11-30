@@ -27,6 +27,7 @@
 #include "macro.h"
 
 bool mac_selinux_use(void);
+bool mac_selinux_have(void);
 void mac_selinux_retest(void);
 
 int mac_selinux_init(const char *prefix);

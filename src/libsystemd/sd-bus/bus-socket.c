@@ -609,7 +609,7 @@ static void bus_get_peercred(sd_bus *b) {
         b->ucred_valid = getpeercred(b->input_fd, &b->ucred) >= 0;
 
         /* Get the SELinux context of the peer */
-        if (mac_selinux_use()) {
+        if (mac_selinux_have()) {
                 r = getpeersec(b->input_fd, &b->label);
                 if (r < 0 && r != -EOPNOTSUPP)
                         log_debug_errno(r, "Failed to determine peer security context: %m");
