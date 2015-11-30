@@ -23,7 +23,7 @@
 #include <string.h>
 
 #include "arphrd-list.h"
-#include "util.h"
+#include "macro.h"
 
 static const struct arphrd_name* lookup_arphrd(register const char *str, register unsigned int len);
 

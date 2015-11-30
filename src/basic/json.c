@@ -19,7 +19,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <errno.h>
 #include <math.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/types.h>
 
 #include "alloc-util.h"

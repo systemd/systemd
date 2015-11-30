@@ -21,10 +21,9 @@
 
 #include <fcntl.h>
 #include <sys/stat.h>
-#include <sys/types.h>
-#include <unistd.h>
 
 #include "dirent-util.h"
+#include "path-util.h"
 #include "string-util.h"
 
 int dirent_ensure_type(DIR *d, struct dirent *de) {

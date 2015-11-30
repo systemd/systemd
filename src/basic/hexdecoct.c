@@ -20,11 +20,13 @@
 ***/
 
 #include <ctype.h>
-#include <inttypes.h>
+#include <errno.h>
+#include <stdint.h>
+#include <stdlib.h>
 
 #include "alloc-util.h"
 #include "hexdecoct.h"
-#include "util.h"
+#include "macro.h"
 
 char octchar(int x) {
         return '0' + (x & 7);

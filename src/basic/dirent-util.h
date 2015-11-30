@@ -22,8 +22,11 @@
 ***/
 
 #include <dirent.h>
+#include <errno.h>
+#include <stdbool.h>
 
 #include "path-util.h"
+#include "macro.h"
 
 int dirent_ensure_type(DIR *d, struct dirent *de);
 

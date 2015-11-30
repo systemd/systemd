@@ -23,7 +23,7 @@
 #include <sys/socket.h>
 
 #include "af-list.h"
-#include "util.h"
+#include "macro.h"
 
 static const struct af_name* lookup_af(register const char *str, register unsigned int len);
 

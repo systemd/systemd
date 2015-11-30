@@ -20,12 +20,17 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <errno.h>
+#include <stddef.h>
+#include <syslog.h>
+
 #include "alloc-util.h"
 #include "cpu-set-util.h"
 #include "extract-word.h"
 #include "parse-util.h"
+#include "log.h"
+#include "macro.h"
 #include "string-util.h"
-#include "util.h"
 
 cpu_set_t* cpu_set_malloc(unsigned *ncpus) {
         cpu_set_t *c;

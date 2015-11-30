@@ -19,10 +19,13 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <errno.h>
+#include <sys/resource.h>
+
 #include "missing.h"
 #include "rlimit-util.h"
+#include "macro.h"
 #include "string-table.h"
-#include "util.h"
 
 int setrlimit_closest(int resource, const struct rlimit *rlim) {
         struct rlimit highest, fixed;

@@ -19,17 +19,27 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <alloca.h>
+#include <errno.h>
+#include <fcntl.h>
 #include <grp.h>
 #include <pwd.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "macro.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "formats-util.h"
 #include "string-util.h"
 #include "user-util.h"
-#include "util.h"
 
 bool uid_is_valid(uid_t uid) {
 

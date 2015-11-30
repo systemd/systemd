@@ -22,8 +22,11 @@
 ***/
 
 #include <stdbool.h>
+#include <stdint.h>
 #include <sys/capability.h>
+#include <sys/types.h>
 
+#include "macro.h"
 #include "util.h"
 
 unsigned long cap_last_cap(void);

@@ -21,13 +21,15 @@
 
 #include <arpa/inet.h>
 #include <errno.h>
+#include <limits.h>
 #include <net/if.h>
 #include <netdb.h>
 #include <netinet/ip.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
-#include <sys/types.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -39,6 +41,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "socket-util.h"
+#include "log.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "user-util.h"

@@ -24,10 +24,12 @@
 #include <fcntl.h>
 #include <mntent.h>
 #include <stdbool.h>
+#include <stdio.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 
 #include "missing.h"
+#include "macro.h"
 
 int fd_is_mount_point(int fd, const char *filename, int flags);
 int path_is_mount_point(const char *path, int flags);

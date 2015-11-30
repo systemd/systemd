@@ -22,9 +22,12 @@
 ***/
 
 #include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
 #include <sys/types.h>
 #include <sys/uio.h>
 
+#include "macro.h"
 #include "time-util.h"
 
 int flush_fd(int fd);

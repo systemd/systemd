@@ -20,7 +20,10 @@
 ***/
 
 
+#include <sys/time.h>
+
 #include "ratelimit.h"
+#include "macro.h"
 
 /* Modelled after Linux' lib/ratelimit.c by Dave Young
  * <hidave.darkstar@gmail.com>, which is licensed GPLv2. */

@@ -19,14 +19,24 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <dirent.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <sys/stat.h>
+#include <sys/statfs.h>
+#include <unistd.h>
+
 #include "btrfs-util.h"
 #include "fd-util.h"
 #include "mount-util.h"
 #include "path-util.h"
 #include "rm-rf.h"
+#include "log.h"
+#include "macro.h"
 #include "stat-util.h"
 #include "string-util.h"
-#include "util.h"
 
 int rm_rf_children(int fd, RemoveFlags flags, struct stat *root_dev) {
         _cleanup_closedir_ DIR *d = NULL;

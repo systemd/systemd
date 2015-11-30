@@ -19,6 +19,16 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <dirent.h>
+#include <errno.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <time.h>
+#include <unistd.h>
+
 #include "alloc-util.h"
 #include "dirent-util.h"
 #include "fd-util.h"
@@ -27,6 +37,10 @@
 #include "mkdir.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "log.h"
+#include "macro.h"
+#include "missing.h"
+#include "time-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "user-util.h"

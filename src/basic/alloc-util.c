@@ -19,7 +19,11 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <stdint.h>
+#include <string.h>
+
 #include "alloc-util.h"
+#include "macro.h"
 #include "util.h"
 
 void* memdup(const void *p, size_t l) {

@@ -19,9 +19,16 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <errno.h>
+#include <limits.h>
+#include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <sys/time.h>
 #include <sys/timerfd.h>
 #include <sys/timex.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "fd-util.h"
@@ -29,10 +36,11 @@
 #include "fs-util.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "log.h"
+#include "macro.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
-#include "util.h"
 
 usec_t now(clockid_t clock_id) {
         struct timespec ts;

@@ -32,7 +32,6 @@
 #include "barrier.h"
 #include "fd-util.h"
 #include "macro.h"
-#include "util.h"
 
 /**
  * Barriers

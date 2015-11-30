@@ -22,6 +22,8 @@
 ***/
 
 #include <inttypes.h>
+#include <stddef.h>
+#include <stdint.h>
 #include <sys/types.h>
 
 int memfd_new(const char *name);

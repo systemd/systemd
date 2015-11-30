@@ -19,8 +19,18 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <dirent.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/sendfile.h>
+#include <sys/stat.h>
 #include <sys/xattr.h>
+#include <time.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "btrfs-util.h"
@@ -31,10 +41,11 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "io-util.h"
+#include "macro.h"
+#include "time-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "umask-util.h"
-#include "util.h"
 #include "xattr-util.h"
 
 #define COPY_BUFFER_SIZE (16*1024)

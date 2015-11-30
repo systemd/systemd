@@ -20,14 +20,16 @@
 ***/
 
 #include <errno.h>
+#include <stdbool.h>
 #include <string.h>
+#include <sys/stat.h>
 
 #include "fs-util.h"
 #include "mkdir.h"
 #include "path-util.h"
+#include "macro.h"
 #include "stat-util.h"
 #include "user-util.h"
-#include "util.h"
 
 int mkdir_safe_internal(const char *path, mode_t mode, uid_t uid, gid_t gid, mkdir_func_t _mkdir) {
         struct stat st;

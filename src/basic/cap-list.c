@@ -19,11 +19,13 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <errno.h>
 #include <string.h>
 
 #include "cap-list.h"
 #include "missing.h"
 #include "parse-util.h"
+#include "macro.h"
 #include "util.h"
 
 static const struct capability_name* lookup_capability(register const char *str, register unsigned int len);

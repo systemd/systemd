@@ -20,6 +20,9 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <stdint.h>
+#include <stdlib.h>
+
 #include "macro.h"
 #include "mempool.h"
 #include "util.h"

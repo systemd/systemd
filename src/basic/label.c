@@ -19,10 +19,14 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <errno.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
 #include "label.h"
 #include "selinux-util.h"
 #include "smack-util.h"
-#include "util.h"
+#include "macro.h"
 
 int label_fix(const char *path, bool ignore_enoent, bool ignore_erofs) {
         int r, q;

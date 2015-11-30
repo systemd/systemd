@@ -25,6 +25,7 @@
  * Returns the * remaining size, and 0 if the string was truncated.
  */
 
+#include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
 

@@ -22,7 +22,9 @@
 ***/
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <sys/stat.h>
+#include <sys/statfs.h>
 #include <sys/types.h>
 #include <sys/vfs.h>
 

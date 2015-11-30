@@ -19,12 +19,12 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <errno.h>
 #include <glob.h>
 
 #include "glob-util.h"
-#include "string-util.h"
+#include "macro.h"
 #include "strv.h"
-#include "util.h"
 
 int glob_exists(const char *path) {
         _cleanup_globfree_ glob_t g = {};

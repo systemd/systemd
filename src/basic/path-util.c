@@ -20,11 +20,11 @@
 ***/
 
 #include <errno.h>
-#include <fcntl.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/statvfs.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 /* When we include libgen.h because we need dirname() we immediately
@@ -34,18 +34,16 @@
 #undef basename
 
 #include "alloc-util.h"
-#include "fd-util.h"
-#include "fileio.h"
 #include "fs-util.h"
 #include "log.h"
 #include "macro.h"
 #include "missing.h"
-#include "parse-util.h"
 #include "path-util.h"
+#include "extract-word.h"
+#include "time-util.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
-#include "util.h"
 
 bool path_is_absolute(const char *p) {
         return p[0] == '/';

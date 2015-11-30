@@ -24,6 +24,8 @@
 #include <stdbool.h>
 
 #include "set.h"
+#include "hashmap.h"
+#include "macro.h"
 
 typedef enum ExitStatus {
         /* EXIT_SUCCESS defined by libc */

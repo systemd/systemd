@@ -25,7 +25,6 @@
 #include "bus-label.h"
 #include "hexdecoct.h"
 #include "macro.h"
-#include "util.h"
 
 char *bus_label_escape(const char *s) {
         char *r, *t;

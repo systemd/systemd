@@ -19,7 +19,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "def.h"
+#include <string.h>
+
 #include "login-util.h"
 #include "string-util.h"
 

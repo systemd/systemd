@@ -19,13 +19,15 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <errno.h>
+#include <fcntl.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <linux/fs.h>
 
 #include "chattr-util.h"
 #include "fd-util.h"
-#include "util.h"
+#include "macro.h"
 
 int chattr_fd(int fd, unsigned value, unsigned mask) {
         unsigned old_attr, new_attr;
