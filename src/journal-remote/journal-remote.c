@@ -238,11 +238,29 @@ static int init_writer_hashmap(RemoteServer *s) {
         return 0;
 }
 
+static inline void remove_port_from_host(char** modified_host, const char *host) {
+        int index;
+        char* ret;
+
+        if (host==NULL)
+            return;
+
+        *modified_host = strdup(host);
+        ret = strstr(*modified_host, ":");
+        if (ret) {
+            index = ret - (*modified_host);
+            (*modified_host)[index] = '\0';
+        }
+}
+
 static int get_writer(RemoteServer *s, const char *host,
                       Writer **writer) {
         const void *key;
         _cleanup_writer_unref_ Writer *w = NULL;
+        _cleanup_free_ char *modified_host = NULL;
         int r;
+
+        remove_port_from_host(&modified_host, host);
 
         switch(arg_split_mode) {
         case JOURNAL_WRITE_SPLIT_NONE:
@@ -250,8 +268,8 @@ static int get_writer(RemoteServer *s, const char *host,
                 break;
 
         case JOURNAL_WRITE_SPLIT_HOST:
-                assert(host);
-                key = host;
+                assert(modified_host);
+                key = modified_host;
                 break;
 
         default:
@@ -272,15 +290,16 @@ static int get_writer(RemoteServer *s, const char *host,
                                 return log_oom();
                 }
 
-                r = open_output(w, host);
+                r = open_output(w, modified_host);
+
                 if (r < 0)
                         return r;
 
                 r = hashmap_put(s->writers, w->hashmap_key ?: key, w);
                 if (r < 0)
                         return r;
-        }
 
+        }
         *writer = w;
         w = NULL;
         return 0;
@@ -621,7 +640,7 @@ static int request_handler(
                 if (r < 0)
                         return code;
         } else {
-                r = getnameinfo_pretty(fd, &hostname);
+                r = getpeername_pretty(fd, &hostname);
                 if (r < 0)
                         return mhd_respond(connection, MHD_HTTP_INTERNAL_SERVER_ERROR,
                                            "Cannot check remote hostname");
@@ -879,7 +898,7 @@ static int remoteserver_init(RemoteServer *s,
                 } else if (sd_is_socket(fd, AF_UNSPEC, 0, false)) {
                         char *hostname;
 
-                        r = getnameinfo_pretty(fd, &hostname);
+                        r = getpeername_pretty(fd, &hostname);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to retrieve remote name: %m");
 

@@ -67,6 +67,13 @@ static int do_rotate(JournalFile **f, bool compress, bool seal) {
         return r;
 }
 
+static void replace_log_monotonic_timestamp(dual_timestamp *ts) {
+        struct timespec monotonic;
+
+        clock_gettime(CLOCK_MONOTONIC, &monotonic );
+        ts->monotonic = monotonic.tv_sec*10000000 + monotonic.tv_nsec/1000;
+}
+
 Writer* writer_new(RemoteServer *server) {
         Writer *w;
 
@@ -142,6 +149,8 @@ int writer_write(Writer *w,
                 if (r < 0)
                         return r;
         }
+
+        replace_log_monotonic_timestamp(ts);
 
         r = journal_file_append_entry(w->journal, ts, iovw->iovec, iovw->count,
                                       &w->seqnum, NULL, NULL);
