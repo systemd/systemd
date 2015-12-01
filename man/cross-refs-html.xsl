@@ -45,16 +45,64 @@
 <xsl:import href="permalink-id-scheme-html.xsl"/>
 <xsl:import href="http://docbook.sourceforge.net/release/xsl/current/html/docbook.xsl"/>
 
+
+<!--
+  - Helper template to generate cross reference hyperlink
+ -->
+<xsl:template name="reflink">
+  <xsl:param name="href"/>
+  <a href="{$href}"><xsl:call-template name="inline.charseq"/></a>
+</xsl:template>
+
+
+<xsl:param name="cross.refs.debug" select="'0'"/>
+
 <!--
   - Helper template to determine the ID value of the href attribute for systemd cross reference links.
   - Right now it's just a wrapper, but in the future might need some more complex introspection here.
  -->
 <xsl:template name="determineCrossID">
-  <xsl:param name="element" select="."/>
-  <xsl:param name="cross-refs-debug" select="''"/>
-  <xsl:apply-templates select="$element" mode="cross-refs">
-    <xsl:with-param name="cross-refs-debug" select="$cross-refs-debug"/>
-  </xsl:apply-templates>
+
+  <xsl:choose>
+    <xsl:when test="normalize-space(string(manvolnum)) = '3'">
+      <xsl:call-template name="reflink">
+        <xsl:with-param name="href" select="concat(refentrytitle,'.html')"/>
+      </xsl:call-template>
+      <xsl:if test="$cross.refs.debug!='' and number($cross.refs.debug)!= 0">
+        <xsl:value-of select="concat('c-api-exception ::&#x09;', refentrytitle)"/>
+      </xsl:if>
+    </xsl:when>
+    <xsl:otherwise>
+
+      <xsl:variable name="document" select="document(refs:rewrite-document-name(refentrytitle), refentrytitle)"/>
+
+      <xsl:variable name="crossID">
+        <xsl:apply-templates select="." mode="cross-refs">
+          <xsl:with-param name="cross-refs-debug" select="''"/>
+          <xsl:with-param name="document" select="$document"/>
+        </xsl:apply-templates>
+      </xsl:variable>
+
+
+      <xsl:call-template name="reflink">
+        <xsl:with-param name="href">
+          <xsl:value-of select="concat(refentrytitle,'.html')"/>
+          <xsl:if test="string($crossID)!=''">
+            <xsl:value-of select="concat('#',$crossID)"/>
+          </xsl:if>
+        </xsl:with-param>
+      </xsl:call-template>
+
+      <xsl:if test="$cross.refs.debug!='' and number($cross.refs.debug)!= 0">
+        <blockquote><pre>Debug info:<br/>
+          <xsl:apply-templates select="." mode="cross-refs">
+            <xsl:with-param name="cross-refs-debug" select="'debug'"/>
+            <xsl:with-param name="document" select="$document"/>
+          </xsl:apply-templates>
+        </pre></blockquote>
+      </xsl:if>
+    </xsl:otherwise>
+  </xsl:choose>
 </xsl:template>
 
 <!--
@@ -250,7 +298,7 @@
  -->
 <fn:function name="refs:matchRefID">
   <xsl:param name="target"/>
-  <xsl:param name="document"/>
+  <xsl:param name="refNodeSet"/>
   <!--
     - After loading the referenced man page XML into a node set, that XML document tree should be stripped down to the (hopefully) single
     - 'thing' (element) which matches the reference.
@@ -275,7 +323,6 @@
     </xsl:choose>
   </xsl:variable>
 
-  <xsl:variable name="refNodeSet" select="document(refs:rewrite-document-name($document), $document)"/>
   <xsl:variable name="refMatchingSections" select="$refNodeSet//refsect2/title[refs:node-set-matches(., $query, $altQuery) = 'found']|
                                           $refNodeSet//refsect2/info/title[refs:node-set-matches(., $query, $altQuery) = 'found']|
                                           $refNodeSet//refsect1/title[refs:node-set-matches(., $query, $altQuery) = 'found']|
@@ -383,8 +430,8 @@
 </xsl:template>
 
 <xsl:template match="citerefentry[not(refentrytitle/@target)]" mode="cross-refs">
+  <xsl:param name="document"/>
   <xsl:param name="cross-refs-debug" select="''"/>
-  <xsl:variable name="document" select="refentrytitle"/>
   <!--
     - Avoid selecting based on the title because that would break if ever the documentation is translated into another language.
    -->
@@ -444,8 +491,9 @@
 </xsl:template>
 
 <xsl:template match="citerefentry[refentrytitle/@target]" mode="cross-refs">
+  <xsl:param name="document"/>
   <xsl:param name="cross-refs-debug" select="''"/>
-  <xsl:variable name="document" select="refentrytitle"/>
+
   <xsl:variable name="found" select="exsl:node-set(refs:findMatchesForID(refentrytitle/@target, $document))/*"/>
   <xsl:choose>
     <!-- Special case: constants list in systemd.directives. -->

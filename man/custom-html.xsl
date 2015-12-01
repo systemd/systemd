@@ -34,36 +34,9 @@
  -->
 <xsl:param name="generate.consistent.ids" select="1"/>
 
-<!--
-  - Helper template to generate cross reference hyperlink
- -->
-<xsl:template name="reflink">
-  <xsl:param name="href"/>
-  <a href="{$href}"><xsl:call-template name="inline.charseq"/></a>
-</xsl:template>
-
 <!-- translate man page references to links to html pages -->
-<xsl:param name="cross.refs.debug" select="'0'"/>
 <xsl:template match="citerefentry[not(@project)]">
-  <xsl:variable name="crossID">
-    <xsl:call-template name="determineCrossID"/>
-  </xsl:variable>
-  <xsl:call-template name="reflink">
-    <xsl:with-param name="href">
-      <xsl:value-of select="concat(refentrytitle,'.html')"/>
-      <xsl:if test="string($crossID)!=''">
-        <xsl:value-of select="concat('#',$crossID)"/>
-      </xsl:if>
-    </xsl:with-param>
-  </xsl:call-template>
-
-  <xsl:if test="$cross.refs.debug!='' and number($cross.refs.debug)!= 0">
-    <blockquote><pre>Debug info:<br/>
-        <xsl:call-template name="determineCrossID">
-            <xsl:with-param name="cross-refs-debug" select="'debug'"/>
-        </xsl:call-template>
-    </pre></blockquote>
-  </xsl:if>
+  <xsl:call-template name="determineCrossID"/>
 </xsl:template>
 
 <xsl:template match="citerefentry[@project='man-pages'] | citerefentry[manvolnum='2'] | citerefentry[manvolnum='4']">
