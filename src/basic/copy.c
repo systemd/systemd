@@ -42,9 +42,9 @@
 #include "fs-util.h"
 #include "io-util.h"
 #include "macro.h"
-#include "time-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "time-util.h"
 #include "umask-util.h"
 #include "xattr-util.h"
 

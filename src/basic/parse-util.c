@@ -29,8 +29,8 @@
 
 #include "alloc-util.h"
 #include "extract-word.h"
-#include "parse-util.h"
 #include "macro.h"
+#include "parse-util.h"
 #include "string-util.h"
 
 int parse_boolean(const char *v) {

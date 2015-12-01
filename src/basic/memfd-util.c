@@ -32,9 +32,9 @@
 
 #include "alloc-util.h"
 #include "fd-util.h"
+#include "macro.h"
 #include "memfd-util.h"
 #include "missing.h"
-#include "macro.h"
 #include "string-util.h"
 #include "utf8.h"
 

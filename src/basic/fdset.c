@@ -29,11 +29,11 @@
 
 #include "fd-util.h"
 #include "fdset.h"
+#include "log.h"
 #include "macro.h"
 #include "parse-util.h"
-#include "set.h"
-#include "log.h"
 #include "path-util.h"
+#include "set.h"
 
 #define MAKE_SET(s) ((Set*) s)
 #define MAKE_FDSET(s) ((FDSet*) s)

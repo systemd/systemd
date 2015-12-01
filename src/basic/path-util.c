@@ -34,16 +34,16 @@
 #undef basename
 
 #include "alloc-util.h"
+#include "extract-word.h"
 #include "fs-util.h"
 #include "log.h"
 #include "macro.h"
 #include "missing.h"
 #include "path-util.h"
-#include "extract-word.h"
-#include "time-util.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "time-util.h"
 
 bool path_is_absolute(const char *p) {
         return p[0] == '/';

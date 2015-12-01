@@ -23,9 +23,9 @@
 
 #include <stdbool.h>
 
-#include "set.h"
 #include "hashmap.h"
 #include "macro.h"
+#include "set.h"
 
 typedef struct FDSet FDSet;
 

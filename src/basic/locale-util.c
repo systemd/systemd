@@ -34,10 +34,10 @@
 
 #include "dirent-util.h"
 #include "fd-util.h"
+#include "hashmap.h"
 #include "locale-util.h"
 #include "path-util.h"
 #include "set.h"
-#include "hashmap.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"

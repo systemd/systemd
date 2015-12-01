@@ -49,9 +49,9 @@
 #include "selinux-util.h"
 #include "smack-util.h"
 #include "sparse-endian.h"
-#include "time-util.h"
 #include "stat-util.h"
 #include "string-util.h"
+#include "time-util.h"
 #include "util.h"
 
 /* WARNING: Be careful with file system ioctls! When we get an fd, we

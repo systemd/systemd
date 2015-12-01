@@ -31,12 +31,12 @@
 
 #include "alloc-util.h"
 #include "fd-util.h"
+#include "log.h"
 #include "macro.h"
 #include "missing.h"
 #include "mkdir.h"
 #include "selinux-util.h"
 #include "socket-util.h"
-#include "log.h"
 
 int socket_address_listen(
                 const SocketAddress *a,
