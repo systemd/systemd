@@ -28,9 +28,9 @@
 
 #include "alloc-util.h"
 #include "env-util.h"
-#include "parse-util.h"
 #include "extract-word.h"
 #include "macro.h"
+#include "parse-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "utf8.h"

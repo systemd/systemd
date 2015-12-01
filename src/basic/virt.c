@@ -27,8 +27,8 @@
 
 #include "alloc-util.h"
 #include "fileio.h"
-#include "process-util.h"
 #include "macro.h"
+#include "process-util.h"
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"

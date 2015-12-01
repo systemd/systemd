@@ -22,9 +22,9 @@
 #include <errno.h>
 #include <sys/resource.h>
 
+#include "macro.h"
 #include "missing.h"
 #include "rlimit-util.h"
-#include "macro.h"
 #include "string-table.h"
 
 int setrlimit_closest(int resource, const struct rlimit *rlim) {

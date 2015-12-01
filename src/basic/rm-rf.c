@@ -30,11 +30,11 @@
 
 #include "btrfs-util.h"
 #include "fd-util.h"
+#include "log.h"
+#include "macro.h"
 #include "mount-util.h"
 #include "path-util.h"
 #include "rm-rf.h"
-#include "log.h"
-#include "macro.h"
 #include "stat-util.h"
 #include "string-util.h"
 

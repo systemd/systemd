@@ -33,8 +33,8 @@
 #include <stdlib.h>
 
 #include "alloc-util.h"
-#include "prioq.h"
 #include "hashmap.h"
+#include "prioq.h"
 
 struct prioq_item {
         void *data;

@@ -29,10 +29,10 @@
 
 #include "alloc-util.h"
 #include "fd-util.h"
-#include "sparse-endian.h"
 #include "macro.h"
-#include "time-util.h"
+#include "sparse-endian.h"
 #include "stdio-util.h"
+#include "time-util.h"
 #include "xattr-util.h"
 
 int getxattr_malloc(const char *path, const char *name, char **value, bool allow_symlink) {

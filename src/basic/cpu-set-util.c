@@ -27,9 +27,9 @@
 #include "alloc-util.h"
 #include "cpu-set-util.h"
 #include "extract-word.h"
-#include "parse-util.h"
 #include "log.h"
 #include "macro.h"
+#include "parse-util.h"
 #include "string-util.h"
 
 cpu_set_t* cpu_set_malloc(unsigned *ncpus) {

@@ -31,11 +31,11 @@
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "hashmap.h"
 #include "mount-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "set.h"
-#include "hashmap.h"
 #include "stdio-util.h"
 #include "string-util.h"
 

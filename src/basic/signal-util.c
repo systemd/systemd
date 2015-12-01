@@ -23,9 +23,9 @@
 #include <stdarg.h>
 #include <stdio.h>
 
+#include "macro.h"
 #include "parse-util.h"
 #include "signal-util.h"
-#include "macro.h"
 #include "string-table.h"
 #include "string-util.h"
 

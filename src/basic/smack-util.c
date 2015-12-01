@@ -29,11 +29,11 @@
 
 #include "alloc-util.h"
 #include "fileio.h"
+#include "log.h"
+#include "macro.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "smack-util.h"
-#include "log.h"
-#include "macro.h"
 #include "string-table.h"
 #include "xattr-util.h"
 

@@ -30,8 +30,8 @@
 #include "fd-util.h"
 #include "fs-util.h"
 #include "lockfile-util.h"
-#include "path-util.h"
 #include "macro.h"
+#include "path-util.h"
 
 int make_lock_file(const char *p, int operation, LockFile *ret) {
         _cleanup_close_ int fd = -1;

@@ -25,9 +25,9 @@
 #include <sys/stat.h>
 
 #include "fs-util.h"
+#include "macro.h"
 #include "mkdir.h"
 #include "path-util.h"
-#include "macro.h"
 #include "stat-util.h"
 #include "user-util.h"
 

@@ -49,12 +49,12 @@
 #include "process-util.h"
 #include "signal-util.h"
 #include "socket-util.h"
-#include "time-util.h"
 #include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "syslog-util.h"
 #include "terminal-util.h"
+#include "time-util.h"
 #include "util.h"
 
 #define SNDBUF_SIZE (8*1024*1024)

@@ -28,9 +28,9 @@
 #include <sys/types.h>
 
 #include "def.h"
-#include "set.h"
 #include "hashmap.h"
 #include "macro.h"
+#include "set.h"
 
 /* An enum of well known cgroup controllers */
 typedef enum CGroupController {

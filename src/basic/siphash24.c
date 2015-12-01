@@ -17,8 +17,8 @@
     coding style)
 */
 
-#include "siphash24.h"
 #include "macro.h"
+#include "siphash24.h"
 #include "unaligned.h"
 
 static inline uint64_t rotate_left(uint64_t x, uint8_t b) {

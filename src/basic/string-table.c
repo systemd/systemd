@@ -19,8 +19,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "string-util.h"
 #include "string-table.h"
+#include "string-util.h"
 
 ssize_t string_table_lookup(const char * const *table, size_t len, const char *key) {
         size_t i;

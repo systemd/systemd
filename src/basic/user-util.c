@@ -34,10 +34,10 @@
 
 #include "alloc-util.h"
 #include "fd-util.h"
+#include "formats-util.h"
 #include "macro.h"
 #include "parse-util.h"
 #include "path-util.h"
-#include "formats-util.h"
 #include "string-util.h"
 #include "user-util.h"
 
