@@ -336,8 +336,8 @@ static int add_mount(
         if (r < 0)
                 return log_error_errno(r, "Failed to write unit file %s: %m", unit);
 
-        if (!noauto) {
-                lnk = strjoin(arg_dest, "/", post, nofail || automount ? ".wants/" : ".requires/", name, NULL);
+        if (!noauto && !automount) {
+                lnk = strjoin(arg_dest, "/", post, nofail ? ".wants/" : ".requires/", name, NULL);
                 if (!lnk)
                         return log_oom();
 
