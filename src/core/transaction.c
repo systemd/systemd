@@ -950,7 +950,7 @@ int transaction_add_job_and_dependencies(
                                 r = transaction_add_job_and_dependencies(tr, JOB_START, dep, ret, false, false, false, ignore_order, e);
                                 if (r < 0) {
                                         log_unit_full(dep,
-                                                      r == -EADDRNOTAVAIL ? LOG_DEBUG : LOG_WARNING, r,
+                                                      r == -EBADR /* unit masked */ ? LOG_DEBUG : LOG_WARNING, r,
                                                       "Cannot add dependency job, ignoring: %s",
                                                       bus_error_message(e, r));
                                         sd_bus_error_free(e);
