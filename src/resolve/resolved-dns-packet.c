@@ -351,25 +351,10 @@ int dns_packet_append_uint32(DnsPacket *p, uint32_t v, size_t *start) {
 }
 
 int dns_packet_append_string(DnsPacket *p, const char *s, size_t *start) {
-        void *d;
-        size_t l;
-        int r;
-
         assert(p);
         assert(s);
 
-        l = strlen(s);
-        if (l > 255)
-                return -E2BIG;
-
-        r = dns_packet_extend(p, 1 + l, &d, start);
-        if (r < 0)
-                return r;
-
-        ((uint8_t*) d)[0] = (uint8_t) l;
-        memcpy(((uint8_t*) d) + 1, s, l);
-
-        return 0;
+        return dns_packet_append_raw_string(p, s, strlen(s), start);
 }
 
 int dns_packet_append_raw_string(DnsPacket *p, const void *s, size_t size, size_t *start) {
