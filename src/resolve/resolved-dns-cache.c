@@ -479,6 +479,15 @@ int dns_cache_put(
         if (r > 0)
                 return 0;
 
+        /* But not if it has a matching CNAME/DNAME (the negative
+         * caching will be done on the canonical name, not on the
+         * alias) */
+        r = dns_answer_find_cname_or_dname(answer, key, NULL);
+        if (r < 0)
+                goto fail;
+        if (r > 0)
+                return 0;
+
         /* See https://tools.ietf.org/html/rfc2308, which say that a
          * matching SOA record in the packet is used to to enable
          * negative caching. */

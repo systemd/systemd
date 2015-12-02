@@ -249,6 +249,29 @@ int dns_answer_find_soa(DnsAnswer *a, const DnsResourceKey *key, DnsResourceReco
         return 0;
 }
 
+int dns_answer_find_cname_or_dname(DnsAnswer *a, const DnsResourceKey *key, DnsResourceRecord **ret) {
+        DnsResourceRecord *rr;
+
+        assert(key);
+
+        if (!a)
+                return 0;
+
+        /* For a {C,D}NAME record we can never find a matching {C,D}NAME record */
+        if (key->type == DNS_TYPE_CNAME || key->type == DNS_TYPE_DNAME)
+                return 0;
+
+        DNS_ANSWER_FOREACH(rr, a) {
+                if (dns_resource_key_match_cname_or_dname(key, rr->key, NULL)) {
+                        if (ret)
+                                *ret = rr;
+                        return 1;
+                }
+        }
+
+        return 0;
+}
+
 int dns_answer_merge(DnsAnswer *a, DnsAnswer *b, DnsAnswer **ret) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *k = NULL;
         int r;

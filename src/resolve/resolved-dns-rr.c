@@ -220,19 +220,19 @@ int dns_resource_key_match_rr(const DnsResourceKey *key, const DnsResourceRecord
         return 0;
 }
 
-int dns_resource_key_match_cname(const DnsResourceKey *key, const DnsResourceRecord *rr, const char *search_domain) {
+int dns_resource_key_match_cname_or_dname(const DnsResourceKey *key, const DnsResourceKey *cname, const char *search_domain) {
         int r;
 
         assert(key);
-        assert(rr);
+        assert(cname);
 
-        if (rr->key->class != key->class && key->class != DNS_CLASS_ANY)
+        if (cname->class != key->class && key->class != DNS_CLASS_ANY)
                 return 0;
 
-        if (rr->key->type == DNS_TYPE_CNAME)
-                r = dns_name_equal(DNS_RESOURCE_KEY_NAME(key), DNS_RESOURCE_KEY_NAME(rr->key));
-        else if (rr->key->type == DNS_TYPE_DNAME)
-                r = dns_name_endswith(DNS_RESOURCE_KEY_NAME(key), DNS_RESOURCE_KEY_NAME(rr->key));
+        if (cname->type == DNS_TYPE_CNAME)
+                r = dns_name_equal(DNS_RESOURCE_KEY_NAME(key), DNS_RESOURCE_KEY_NAME(cname));
+        else if (cname->type == DNS_TYPE_DNAME)
+                r = dns_name_endswith(DNS_RESOURCE_KEY_NAME(key), DNS_RESOURCE_KEY_NAME(cname));
         else
                 return 0;
 
@@ -246,10 +246,10 @@ int dns_resource_key_match_cname(const DnsResourceKey *key, const DnsResourceRec
                 if (r < 0)
                         return r;
 
-                if (rr->key->type == DNS_TYPE_CNAME)
-                        return dns_name_equal(joined, DNS_RESOURCE_KEY_NAME(rr->key));
-                else if (rr->key->type == DNS_TYPE_DNAME)
-                        return dns_name_endswith(joined, DNS_RESOURCE_KEY_NAME(rr->key));
+                if (cname->type == DNS_TYPE_CNAME)
+                        return dns_name_equal(joined, DNS_RESOURCE_KEY_NAME(cname));
+                else if (cname->type == DNS_TYPE_DNAME)
+                        return dns_name_endswith(joined, DNS_RESOURCE_KEY_NAME(cname));
         }
 
         return 0;
