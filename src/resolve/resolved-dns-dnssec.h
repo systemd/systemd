@@ -30,6 +30,7 @@ enum {
         DNSSEC_INVALID,
         DNSSEC_NO_SIGNATURE,
         DNSSEC_MISSING_KEY,
+        DNSSEC_SIGNATURE_EXPIRED,
 };
 
 
@@ -38,8 +39,8 @@ enum {
 int dnssec_rrsig_match_dnskey(DnsResourceRecord *rrsig, DnsResourceRecord *dnskey);
 int dnssec_key_match_rrsig(DnsResourceKey *key, DnsResourceRecord *rrsig);
 
-int dnssec_verify_rrset(DnsAnswer *answer, DnsResourceKey *key, DnsResourceRecord *rrsig, DnsResourceRecord *dnskey);
-int dnssec_verify_rrset_search(DnsAnswer *a, DnsResourceKey *key, DnsAnswer *validated_dnskeys);
+int dnssec_verify_rrset(DnsAnswer *answer, DnsResourceKey *key, DnsResourceRecord *rrsig, DnsResourceRecord *dnskey, usec_t realtime);
+int dnssec_verify_rrset_search(DnsAnswer *a, DnsResourceKey *key, DnsAnswer *validated_dnskeys, usec_t realtime);
 
 int dnssec_verify_dnskey(DnsResourceRecord *dnskey, DnsResourceRecord *ds);
 

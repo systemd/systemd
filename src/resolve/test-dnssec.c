@@ -106,7 +106,8 @@ static void test_dnssec_verify_rrset(void) {
         assert_se(answer);
         assert_se(dns_answer_add(answer, a, 0) >= 0);
 
-        assert_se(dnssec_verify_rrset(answer, a->key, rrsig, dnskey) == DNSSEC_VERIFIED);
+        /* Validate the RR as it if was 2015-12-2 today */
+        assert_se(dnssec_verify_rrset(answer, a->key, rrsig, dnskey, 1449092754*USEC_PER_SEC) == DNSSEC_VERIFIED);
 }
 
 static void test_dnssec_verify_dns_key(void) {

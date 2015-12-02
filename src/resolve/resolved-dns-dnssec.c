@@ -209,7 +209,44 @@ static void md_add_uint32(gcry_md_hd_t md, uint32_t v) {
         gcry_md_write(md, &v, sizeof(v));
 }
 
-int dnssec_verify_rrset(DnsAnswer *a, DnsResourceKey *key, DnsResourceRecord *rrsig, DnsResourceRecord *dnskey) {
+static int dnssec_rrsig_expired(DnsResourceRecord *rrsig, usec_t realtime) {
+        usec_t expiration, inception, skew;
+
+        assert(rrsig);
+        assert(rrsig->key->type == DNS_TYPE_RRSIG);
+
+        if (realtime == USEC_INFINITY)
+                realtime = now(CLOCK_REALTIME);
+
+        expiration = rrsig->rrsig.expiration * USEC_PER_SEC;
+        inception = rrsig->rrsig.inception * USEC_PER_SEC;
+
+        if (inception > expiration)
+                return -EINVAL;
+
+        /* Permit a certain amount of clock skew of 10% of the valid time range */
+        skew = (expiration - inception) / 10;
+
+        if (inception < skew)
+                inception = 0;
+        else
+                inception -= skew;
+
+        if (expiration + skew < expiration)
+                expiration = USEC_INFINITY;
+        else
+                expiration += skew;
+
+        return realtime < inception || realtime > expiration;
+}
+
+int dnssec_verify_rrset(
+                DnsAnswer *a,
+                DnsResourceKey *key,
+                DnsResourceRecord *rrsig,
+                DnsResourceRecord *dnskey,
+                usec_t realtime) {
+
         uint8_t wire_format_name[DNS_WIRE_FOMAT_HOSTNAME_MAX];
         size_t exponent_size, modulus_size, hash_size;
         void *exponent, *modulus, *hash;
@@ -221,6 +258,8 @@ int dnssec_verify_rrset(DnsAnswer *a, DnsResourceKey *key, DnsResourceRecord *rr
         assert(key);
         assert(rrsig);
         assert(dnskey);
+        assert(rrsig->key->type == DNS_TYPE_RRSIG);
+        assert(dnskey->key->type == DNS_TYPE_DNSKEY);
 
         /* Verifies the the RRSet matching the specified "key" in "a",
          * using the signature "rrsig" and the key "dnskey". It's
@@ -231,6 +270,12 @@ int dnssec_verify_rrset(DnsAnswer *a, DnsResourceKey *key, DnsResourceRecord *rr
 
         if (a->n_rrs > VERIFY_RRS_MAX)
                 return -E2BIG;
+
+        r = dnssec_rrsig_expired(rrsig, realtime);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                return DNSSEC_SIGNATURE_EXPIRED;
 
         /* Collect all relevant RRs in a single array, so that we can look at the RRset */
         list = newa(DnsResourceRecord *, a->n_rrs);
@@ -422,7 +467,12 @@ int dnssec_key_match_rrsig(DnsResourceKey *key, DnsResourceRecord *rrsig) {
         return dns_name_equal(DNS_RESOURCE_KEY_NAME(rrsig->key), DNS_RESOURCE_KEY_NAME(key));
 }
 
-int dnssec_verify_rrset_search(DnsAnswer *a, DnsResourceKey *key, DnsAnswer *validated_dnskeys) {
+int dnssec_verify_rrset_search(
+                DnsAnswer *a,
+                DnsResourceKey *key,
+                DnsAnswer *validated_dnskeys,
+                usec_t realtime) {
+
         bool found_rrsig = false, found_dnskey = false;
         DnsResourceRecord *rrsig;
         int r;
@@ -456,12 +506,18 @@ int dnssec_verify_rrset_search(DnsAnswer *a, DnsResourceKey *key, DnsAnswer *val
 
                         found_dnskey = true;
 
+                        /* Take the time here, if it isn't set yet, so
+                         * that we do all validations with the same
+                         * time. */
+                        if (realtime == USEC_INFINITY)
+                                realtime = now(CLOCK_REALTIME);
+
                         /* Yay, we found a matching RRSIG with a matching
                          * DNSKEY, awesome. Now let's verify all entries of
                          * the RRSet against the RRSIG and DNSKEY
                          * combination. */
 
-                        r = dnssec_verify_rrset(a, key, rrsig, dnskey);
+                        r = dnssec_verify_rrset(a, key, rrsig, dnskey, realtime);
                         if (r < 0 && r != EOPNOTSUPP)
                                 return r;
                         if (r == DNSSEC_VERIFIED)
