@@ -826,11 +826,11 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *star
                 break;
 
         case DNS_TYPE_DNSKEY:
-                r = dns_packet_append_uint16(p, dnskey_to_flags(rr), NULL);
+                r = dns_packet_append_uint16(p, rr->dnskey.flags, NULL);
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_uint8(p, 3u, NULL);
+                r = dns_packet_append_uint8(p, rr->dnskey.protocol, NULL);
                 if (r < 0)
                         goto fail;
 
@@ -1412,17 +1412,6 @@ static bool loc_size_ok(uint8_t size) {
         return m <= 9 && e <= 9 && (m > 0 || e == 0);
 }
 
-static int dnskey_parse_flags(DnsResourceRecord *rr, uint16_t flags) {
-        assert(rr);
-
-        if (flags & ~(DNSKEY_FLAG_SEP | DNSKEY_FLAG_ZONE_KEY))
-                return -EBADMSG;
-
-        rr->dnskey.zone_key_flag = flags & DNSKEY_FLAG_ZONE_KEY;
-        rr->dnskey.sep_flag = flags & DNSKEY_FLAG_SEP;
-        return 0;
-}
-
 int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
@@ -1691,27 +1680,14 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
 
                 break;
 
-        case DNS_TYPE_DNSKEY: {
-                uint16_t flags;
-                uint8_t proto;
-
-                r = dns_packet_read_uint16(p, &flags, NULL);
+        case DNS_TYPE_DNSKEY:
+                r = dns_packet_read_uint16(p, &rr->dnskey.flags, NULL);
                 if (r < 0)
                         goto fail;
 
-                r = dnskey_parse_flags(rr, flags);
+                r = dns_packet_read_uint8(p, &rr->dnskey.protocol, NULL);
                 if (r < 0)
                         goto fail;
-
-                r = dns_packet_read_uint8(p, &proto, NULL);
-                if (r < 0)
-                        goto fail;
-
-                /* protocol is required to be always 3 */
-                if (proto != 3) {
-                        r = -EBADMSG;
-                        goto fail;
-                }
 
                 r = dns_packet_read_uint8(p, &rr->dnskey.algorithm, NULL);
                 if (r < 0)
@@ -1729,7 +1705,6 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
                 }
 
                 break;
-        }
 
         case DNS_TYPE_RRSIG:
                 r = dns_packet_read_uint16(p, &rr->rrsig.type_covered, NULL);

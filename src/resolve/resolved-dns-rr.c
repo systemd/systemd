@@ -576,8 +576,8 @@ int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecor
                        memcmp(a->sshfp.fingerprint, b->sshfp.fingerprint, a->sshfp.fingerprint_size) == 0;
 
         case DNS_TYPE_DNSKEY:
-                return a->dnskey.zone_key_flag == b->dnskey.zone_key_flag &&
-                       a->dnskey.sep_flag == b->dnskey.sep_flag &&
+                return a->dnskey.flags == b->dnskey.flags &&
+                       a->dnskey.protocol == b->dnskey.protocol &&
                        a->dnskey.algorithm == b->dnskey.algorithm &&
                        a->dnskey.key_size == b->dnskey.key_size &&
                        memcmp(a->dnskey.key, b->dnskey.key, a->dnskey.key_size) == 0;
@@ -883,9 +883,10 @@ int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
                 if (!t)
                         return -ENOMEM;
 
-                r = asprintf(&s, "%s %u 3 %.*s%.*u %s",
+                r = asprintf(&s, "%s %u %u %.*s%.*u %s",
                              k,
-                             dnskey_to_flags(rr),
+                             rr->dnskey.flags,
+                             rr->dnskey.protocol,
                              alg ? -1 : 0, alg,
                              alg ? 0 : 1, alg ? 0u : (unsigned) rr->dnskey.algorithm,
                              t);

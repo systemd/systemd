@@ -135,8 +135,8 @@ struct DnsResourceRecord {
 
                 /* http://tools.ietf.org/html/rfc4034#section-2.1 */
                 struct {
-                        bool zone_key_flag:1;
-                        bool sep_flag:1;
+                        uint16_t flags;
+                        uint8_t protocol;
                         uint8_t algorithm;
                         void* key;
                         size_t key_size;

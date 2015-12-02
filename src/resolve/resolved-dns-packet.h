@@ -223,15 +223,11 @@ DnsProtocol dns_protocol_from_string(const char *s) _pure_;
 #define LLMNR_MULTICAST_IPV4_ADDRESS ((struct in_addr) { .s_addr = htobe32(224U << 24 | 252U) })
 #define LLMNR_MULTICAST_IPV6_ADDRESS ((struct in6_addr) { .s6_addr = { 0xFF, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x03 } })
 
-#define DNSKEY_FLAG_ZONE_KEY (1u << 8)
-#define DNSKEY_FLAG_SEP      (1u << 0)
+#define DNSKEY_FLAG_ZONE_KEY (UINT16_C(1) << 8)
+#define DNSKEY_FLAG_SEP      (UINT16_C(1) << 0)
 
-static inline uint16_t dnskey_to_flags(const DnsResourceRecord *rr) {
-        return (rr->dnskey.zone_key_flag * DNSKEY_FLAG_ZONE_KEY |
-                rr->dnskey.sep_flag * DNSKEY_FLAG_SEP);
-}
-
-/* http://tools.ietf.org/html/rfc4034#appendix-A.1 */
+/* http://tools.ietf.org/html/rfc4034#appendix-A.1 and
+ * https://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml */
 enum {
         DNSSEC_ALGORITHM_RSAMD5 = 1,
         DNSSEC_ALGORITHM_DH,
