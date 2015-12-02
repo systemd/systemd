@@ -39,7 +39,7 @@ static void test_dns_label_unescape_one(const char *what, const char *expect, si
 
 static void test_dns_label_unescape(void) {
         test_dns_label_unescape_one("hallo", "hallo", 6, 5);
-        test_dns_label_unescape_one("hallo", "hallo", 4, -ENOSPC);
+        test_dns_label_unescape_one("hallo", "hallo", 4, -ENOBUFS);
         test_dns_label_unescape_one("", "", 10, 0);
         test_dns_label_unescape_one("hallo\\.foobar", "hallo.foobar", 20, 12);
         test_dns_label_unescape_one("hallo.foobar", "hallo", 10, 5);
@@ -66,11 +66,38 @@ static void test_dns_name_to_wire_format_one(const char *what, const char *expec
 }
 
 static void test_dns_name_to_wire_format(void) {
-        const char out1[] = { 3, 'f', 'o', 'o', 0 };
-        const char out2[] = { 5, 'h', 'a', 'l', 'l', 'o', 3, 'f', 'o', 'o', 3, 'b', 'a', 'r', 0 };
-        const char out3[] = { 4, ' ', 'f', 'o', 'o', 3, 'b', 'a', 'r', 0 };
+        static const char out0[] = { 0 };
+        static const char out1[] = { 3, 'f', 'o', 'o', 0 };
+        static const char out2[] = { 5, 'h', 'a', 'l', 'l', 'o', 3, 'f', 'o', 'o', 3, 'b', 'a', 'r', 0 };
+        static const char out3[] = { 4, ' ', 'f', 'o', 'o', 3, 'b', 'a', 'r', 0 };
+        static const char out4[] = { 9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
+                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
+                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
+                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
+                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
+                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
+                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
+                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
+                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
+                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
+                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
+                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
+                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
+                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
+                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
+                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
+                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
+                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
+                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
+                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
+                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
+                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
+                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
+                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
+                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
+                                     3, 'a', '1', '2', 0 };
 
-        test_dns_name_to_wire_format_one("", NULL, 0, -EINVAL);
+        test_dns_name_to_wire_format_one("", out0, sizeof(out0), sizeof(out0));
 
         test_dns_name_to_wire_format_one("foo", out1, sizeof(out1), sizeof(out1));
         test_dns_name_to_wire_format_one("foo", out1, sizeof(out1) + 1, sizeof(out1));
@@ -80,6 +107,9 @@ static void test_dns_name_to_wire_format(void) {
         test_dns_name_to_wire_format_one("hallo.foo..bar", NULL, 32, -EINVAL);
 
         test_dns_name_to_wire_format_one("\\032foo.bar", out3, sizeof(out3), sizeof(out3));
+
+        test_dns_name_to_wire_format_one("a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a123", NULL, 500, -EINVAL);
+        test_dns_name_to_wire_format_one("a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12", out4, sizeof(out4), sizeof(out4));
 }
 
 static void test_dns_label_unescape_suffix_one(const char *what, const char *expect1, const char *expect2, size_t buffer_sz, int ret1, int ret2) {
@@ -102,7 +132,7 @@ static void test_dns_label_unescape_suffix_one(const char *what, const char *exp
 
 static void test_dns_label_unescape_suffix(void) {
         test_dns_label_unescape_suffix_one("hallo", "hallo", "", 6, 5, 0);
-        test_dns_label_unescape_suffix_one("hallo", "hallo", "", 4, -ENOSPC, -ENOSPC);
+        test_dns_label_unescape_suffix_one("hallo", "hallo", "", 4, -ENOBUFS, -ENOBUFS);
         test_dns_label_unescape_suffix_one("", "", "", 10, 0, 0);
         test_dns_label_unescape_suffix_one("hallo\\.foobar", "hallo.foobar", "", 20, 12, 0);
         test_dns_label_unescape_suffix_one("hallo.foobar", "foobar", "hallo", 10, 6, 5);
@@ -136,7 +166,7 @@ static void test_dns_label_escape_one(const char *what, size_t l, const char *ex
 }
 
 static void test_dns_label_escape(void) {
-        test_dns_label_escape_one("", 0, "", 0);
+        test_dns_label_escape_one("", 0, NULL, -EINVAL);
         test_dns_label_escape_one("hallo", 5, "hallo", 5);
         test_dns_label_escape_one("hallo", 6, NULL, -EINVAL);
         test_dns_label_escape_one("hallo hallo.foobar,waldi", 24, "hallo\\032hallo\\.foobar\\044waldi", 31);
@@ -314,6 +344,24 @@ static void test_dns_name_is_valid(void) {
         test_dns_name_is_valid_one("\\zbar", 0);
         test_dns_name_is_valid_one("ä", 1);
         test_dns_name_is_valid_one("\n", 0);
+
+        /* 256 characters*/
+        test_dns_name_is_valid_one("a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345", 0);
+
+        /* 255 characters*/
+        test_dns_name_is_valid_one("a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a1234", 0);
+
+        /* 254 characters*/
+        test_dns_name_is_valid_one("a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a123", 0);
+
+        /* 253 characters*/
+        test_dns_name_is_valid_one("a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12", 1);
+
+        /* label of 64 chars length */
+        test_dns_name_is_valid_one("a123456789a123456789a123456789a123456789a123456789a123456789a123", 0);
+
+        /* label of 63 chars length */
+        test_dns_name_is_valid_one("a123456789a123456789a123456789a123456789a123456789a123456789a12", 1);
 }
 
 static void test_dns_service_name_is_valid(void) {

@@ -134,52 +134,45 @@ _printf_(2, 3) static int log_callback(int type, const char *fmt, ...) {
 #endif
 
         va_start(ap, fmt);
-        log_internalv(LOG_AUTH | callback_type_to_priority(type),
-                      0, __FILE__, __LINE__, __FUNCTION__, fmt, ap);
+        log_internalv(LOG_AUTH | callback_type_to_priority(type), 0, __FILE__, __LINE__, __FUNCTION__, fmt, ap);
         va_end(ap);
 
         return 0;
 }
 
-/*
-   Function must be called once to initialize the SELinux AVC environment.
-   Sets up callbacks.
-   If you want to cleanup memory you should need to call selinux_access_finish.
-*/
-static int access_init(void) {
-        int r = 0;
-
-        if (avc_open(NULL, 0))
-                return log_error_errno(errno, "avc_open() failed: %m");
-
-        selinux_set_callback(SELINUX_CB_AUDIT, (union selinux_callback) audit_callback);
-        selinux_set_callback(SELINUX_CB_LOG, (union selinux_callback) log_callback);
-
-        if (security_getenforce() < 0){
-                r = -errno;
-                avc_destroy();
-        }
-
-        return r;
-}
-
-static int mac_selinux_access_init(sd_bus_error *error) {
-        int r;
-
-        if (initialized)
-                return 0;
+static int access_init(sd_bus_error *error) {
 
         if (!mac_selinux_use())
                 return 0;
 
-        r = access_init();
-        if (r < 0)
-                return sd_bus_error_set(error, SD_BUS_ERROR_ACCESS_DENIED, "Failed to initialize SELinux.");
+        if (initialized)
+                return 1;
+
+        if (avc_open(NULL, 0) != 0) {
+                int enforce, saved_errno = errno;
+
+                enforce = security_getenforce();
+                log_full_errno(enforce != 0 ? LOG_ERR : LOG_WARNING, saved_errno, "Failed to open the SELinux AVC: %m");
+
+                /* If enforcement isn't on, then let's suppress this
+                 * error, and just don't do any AVC checks. The
+                 * warning we printed is hence all the admin will
+                 * see. */
+                if (enforce == 0)
+                        return 0;
+
+                /* Return an access denied error, if we couldn't load
+                 * the AVC but enforcing mode was on, or we couldn't
+                 * determine whether it is one. */
+                return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Failed to open the SELinux AVC: %s", strerror(saved_errno));
+        }
+
+        selinux_set_callback(SELINUX_CB_AUDIT, (union selinux_callback) audit_callback);
+        selinux_set_callback(SELINUX_CB_LOG, (union selinux_callback) log_callback);
 
         initialized = true;
-        return 0;
+        return 1;
 }
-#endif
 
 /*
    This function communicates with the kernel to check whether or not it should
@@ -193,7 +186,6 @@ int mac_selinux_generic_access_check(
                 const char *permission,
                 sd_bus_error *error) {
 
-#ifdef HAVE_SELINUX
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
         const char *tclass = NULL, *scon = NULL;
         struct audit_info audit_info = {};
@@ -206,11 +198,8 @@ int mac_selinux_generic_access_check(
         assert(permission);
         assert(error);
 
-        if (!mac_selinux_use())
-                return 0;
-
-        r = mac_selinux_access_init(error);
-        if (r < 0)
+        r = access_init(error);
+        if (r <= 0)
                 return r;
 
         r = sd_bus_query_sender_creds(
@@ -277,7 +266,17 @@ finish:
         }
 
         return r;
-#else
-        return 0;
-#endif
 }
+
+#else
+
+int mac_selinux_generic_access_check(
+                sd_bus_message *message,
+                const char *path,
+                const char *permission,
+                sd_bus_error *error) {
+
+        return 0;
+}
+
+#endif
