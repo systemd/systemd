@@ -5,7 +5,7 @@
 /***
   This file is part of systemd.
 
-  Copyright 2014 Lennart Poettering
+  Copyright 2015 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -21,27 +21,28 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "hashmap.h"
-#include "list.h"
-#include "prioq.h"
-#include "time-util.h"
-
-typedef struct DnsCache {
-        Hashmap *by_key;
-        Prioq *by_expiry;
-} DnsCache;
-
+#include "dns-domain.h"
 #include "resolved-dns-answer.h"
-#include "resolved-dns-question.h"
 #include "resolved-dns-rr.h"
 
-void dns_cache_flush(DnsCache *c);
-void dns_cache_prune(DnsCache *c);
+enum {
+        DNSSEC_VERIFIED,
+        DNSSEC_INVALID,
+        DNSSEC_NO_SIGNATURE,
+        DNSSEC_MISSING_KEY,
+};
 
-int dns_cache_put(DnsCache *c, DnsResourceKey *key, int rcode, DnsAnswer *answer, unsigned max_rrs, usec_t timestamp, int owner_family, const union in_addr_union *owner_address);
-int dns_cache_lookup(DnsCache *c, DnsResourceKey *key, int *rcode, DnsAnswer **answer);
 
-int dns_cache_check_conflicts(DnsCache *cache, DnsResourceRecord *rr, int owner_family, const union in_addr_union *owner_address);
+#define DNSSEC_CANONICAL_HOSTNAME_MAX (DNS_HOSTNAME_MAX + 2)
 
-void dns_cache_dump(DnsCache *cache, FILE *f);
-bool dns_cache_is_empty(DnsCache *cache);
+int dnssec_rrsig_match_dnskey(DnsResourceRecord *rrsig, DnsResourceRecord *dnskey);
+int dnssec_key_match_rrsig(DnsResourceKey *key, DnsResourceRecord *rrsig);
+
+int dnssec_verify_rrset(DnsAnswer *answer, DnsResourceKey *key, DnsResourceRecord *rrsig, DnsResourceRecord *dnskey);
+int dnssec_verify_rrset_search(DnsAnswer *a, DnsResourceKey *key, DnsAnswer *validated_dnskeys);
+
+int dnssec_verify_dnskey(DnsResourceRecord *dnskey, DnsResourceRecord *ds);
+
+uint16_t dnssec_keytag(DnsResourceRecord *dnskey);
+
+int dnssec_canonicalize(const char *n, char *buffer, size_t buffer_max);

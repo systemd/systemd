@@ -34,6 +34,9 @@
 /* Maximum length of a full hostname, consisting of a series of unescaped labels, and no trailing dot or NUL byte */
 #define DNS_HOSTNAME_MAX 253
 
+/* Maximum length of a full hostname, on the wire, including the final NUL byte */
+#define DNS_WIRE_FOMAT_HOSTNAME_MAX 255
+
 int dns_label_unescape(const char **name, char *dest, size_t sz);
 int dns_label_unescape_suffix(const char *name, const char **label_end, char *dest, size_t sz);
 int dns_label_escape(const char *p, size_t l, char *dest, size_t sz);
