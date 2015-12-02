@@ -48,11 +48,17 @@
  */
 
 static bool dnssec_algorithm_supported(int algorithm) {
-        return IN_SET(algorithm, DNSSEC_ALGORITHM_RSASHA1, DNSSEC_ALGORITHM_RSASHA256, DNSSEC_ALGORITHM_RSASHA512);
+        return IN_SET(algorithm,
+                      DNSSEC_ALGORITHM_RSASHA1,
+                      DNSSEC_ALGORITHM_RSASHA1_NSEC3_SHA1,
+                      DNSSEC_ALGORITHM_RSASHA256,
+                      DNSSEC_ALGORITHM_RSASHA512);
 }
 
 static bool dnssec_digest_supported(int digest) {
-        return IN_SET(digest, DNSSEC_DIGEST_SHA1, DNSSEC_DIGEST_SHA256);
+        return IN_SET(digest,
+                      DNSSEC_DIGEST_SHA1,
+                      DNSSEC_DIGEST_SHA256);
 }
 
 uint16_t dnssec_keytag(DnsResourceRecord *dnskey) {
@@ -305,6 +311,7 @@ int dnssec_verify_rrset(
         switch (rrsig->rrsig.algorithm) {
 
         case DNSSEC_ALGORITHM_RSASHA1:
+        case DNSSEC_ALGORITHM_RSASHA1_NSEC3_SHA1:
                 gcry_md_open(&md, GCRY_MD_SHA1, 0);
                 hash_size = 20;
                 break;
