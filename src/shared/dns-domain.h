@@ -77,7 +77,7 @@ int dns_name_address(const char *p, int *family, union in_addr_union *a);
 bool dns_name_is_root(const char *name);
 bool dns_name_is_single_label(const char *name);
 
-int dns_name_to_wire_format(const char *domain, uint8_t *buffer, size_t len);
+int dns_name_to_wire_format(const char *domain, uint8_t *buffer, size_t len, bool canonical);
 
 bool dns_srv_type_is_valid(const char *name);
 bool dns_service_name_is_valid(const char *name);

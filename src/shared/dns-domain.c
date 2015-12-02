@@ -865,7 +865,7 @@ bool dns_name_is_single_label(const char *name) {
 }
 
 /* Encode a domain name according to RFC 1035 Section 3.1, without compression */
-int dns_name_to_wire_format(const char *domain, uint8_t *buffer, size_t len) {
+int dns_name_to_wire_format(const char *domain, uint8_t *buffer, size_t len, bool canonical) {
         uint8_t *label_length, *out;
         int r;
 
@@ -889,6 +889,20 @@ int dns_name_to_wire_format(const char *domain, uint8_t *buffer, size_t len) {
                 r = dns_label_unescape(&domain, (char *) out, len);
                 if (r < 0)
                         return r;
+
+                if (canonical) {
+                        size_t i;
+
+                        /* Optionally, output the name in DNSSEC
+                         * canonical format, as described in RFC 4034,
+                         * section 6.2. Or in other words: in
+                         * lower-case. */
+
+                        for (i = 0; i < (size_t) r; i++) {
+                                if (out[i] >= 'A' && out[i] <= 'Z')
+                                        out[i] = out[i] - 'A' + 'a';
+                        }
+                }
 
                 /* Fill label length, move forward */
                 *label_length = r;
