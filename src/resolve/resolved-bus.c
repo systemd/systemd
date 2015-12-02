@@ -425,8 +425,6 @@ fail:
 }
 
 static int bus_message_append_rr(sd_bus_message *m, DnsResourceRecord *rr, int ifindex) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
-        size_t start;
         int r;
 
         assert(m);
@@ -443,17 +441,11 @@ static int bus_message_append_rr(sd_bus_message *m, DnsResourceRecord *rr, int i
         if (r < 0)
                 return r;
 
-        r = dns_packet_new(&p, DNS_PROTOCOL_DNS, 0);
+        r = dns_resource_record_to_wire_format(rr, false);
         if (r < 0)
                 return r;
 
-        p->refuse_compression = true;
-
-        r = dns_packet_append_rr(p, rr, &start);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_append_array(m, 'y', DNS_PACKET_DATA(p) + start, p->size - start);
+        r = sd_bus_message_append_array(m, 'y', rr->wire_format, rr->wire_format_size);
         if (r < 0)
                 return r;
 
