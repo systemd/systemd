@@ -2135,7 +2135,7 @@ int cg_unified(void) {
         else if (F_TYPE_EQUAL(fs.f_type, TMPFS_MAGIC))
                 unified_cache = false;
         else
-                return -ENOEXEC;
+                return -ENOMEDIUM;
 
         return unified_cache;
 }
