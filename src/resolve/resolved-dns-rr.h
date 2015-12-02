@@ -57,7 +57,11 @@ struct DnsResourceRecord {
         unsigned n_ref;
         DnsResourceKey *key;
         uint32_t ttl;
-        bool unparseable;
+        bool unparseable:1;
+        bool wire_format_canonical:1;
+        void *wire_format;
+        size_t wire_format_size;
+        size_t wire_format_rdata_offset;
         union {
                 struct {
                         void *data;
@@ -208,6 +212,8 @@ int dns_resource_record_new_address(DnsResourceRecord **ret, int family, const u
 int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecord *b);
 int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsResourceRecord*, dns_resource_record_unref);
+
+int dns_resource_record_to_wire_format(DnsResourceRecord *rr, bool canonical);
 
 DnsTxtItem *dns_txt_item_free_all(DnsTxtItem *i);
 bool dns_txt_item_equal(DnsTxtItem *a, DnsTxtItem *b);

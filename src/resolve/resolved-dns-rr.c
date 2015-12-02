@@ -416,6 +416,7 @@ DnsResourceRecord* dns_resource_record_unref(DnsResourceRecord *rr) {
                         free(rr->generic.data);
                 }
 
+                free(rr->wire_format);
                 dns_resource_key_unref(rr->key);
         }
 
@@ -991,6 +992,51 @@ int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
         }
 
         *ret = s;
+        return 0;
+}
+
+int dns_resource_record_to_wire_format(DnsResourceRecord *rr, bool canonical) {
+
+        DnsPacket packet = {
+                .n_ref = 1,
+                .protocol = DNS_PROTOCOL_DNS,
+                .on_stack = true,
+                .refuse_compression = true,
+                .canonical_form = canonical,
+        };
+
+        size_t start, rds;
+        int r;
+
+        assert(rr);
+
+        /* Generates the RR in wire-format, optionally in the
+         * canonical form as discussed in the DNSSEC RFC 4034, Section
+         * 6.2. We allocate a throw-away DnsPacket object on the stack
+         * here, because we need some book-keeping for memory
+         * management, and can reuse the DnsPacket serializer, that
+         * can generate the canonical form, too, but also knows label
+         * compression and suchlike. */
+
+        if (rr->wire_format && rr->wire_format_canonical == canonical)
+                return 0;
+
+        r = dns_packet_append_rr(&packet, rr, &start, &rds);
+        if (r < 0)
+                return r;
+
+        assert(start == 0);
+        assert(packet._data);
+
+        free(rr->wire_format);
+        rr->wire_format = packet._data;
+        rr->wire_format_size = packet.size;
+        rr->wire_format_rdata_offset = rds;
+        rr->wire_format_canonical = canonical;
+
+        packet._data = NULL;
+        dns_packet_unref(&packet);
+
         return 0;
 }
 

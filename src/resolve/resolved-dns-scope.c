@@ -549,7 +549,7 @@ static int dns_scope_make_reply_packet(
 
         if (answer) {
                 for (i = 0; i < answer->n_rrs; i++) {
-                        r = dns_packet_append_rr(p, answer->items[i].rr, NULL);
+                        r = dns_packet_append_rr(p, answer->items[i].rr, NULL, NULL);
                         if (r < 0)
                                 return r;
                 }
@@ -559,7 +559,7 @@ static int dns_scope_make_reply_packet(
 
         if (soa) {
                 for (i = 0; i < soa->n_rrs; i++) {
-                        r = dns_packet_append_rr(p, soa->items[i].rr, NULL);
+                        r = dns_packet_append_rr(p, soa->items[i].rr, NULL, NULL);
                         if (r < 0)
                                 return r;
                 }
@@ -733,7 +733,7 @@ static int dns_scope_make_conflict_packet(
         if (r < 0)
                 return r;
 
-        r = dns_packet_append_rr(p, rr, NULL);
+        r = dns_packet_append_rr(p, rr, NULL, NULL);
         if (r < 0)
                 return r;
 

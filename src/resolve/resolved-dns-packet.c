@@ -108,6 +108,8 @@ DnsPacket *dns_packet_ref(DnsPacket *p) {
         if (!p)
                 return NULL;
 
+        assert(!p->on_stack);
+
         assert(p->n_ref > 0);
         p->n_ref++;
         return p;
@@ -126,7 +128,9 @@ static void dns_packet_free(DnsPacket *p) {
         hashmap_free(p->names);
 
         free(p->_data);
-        free(p);
+
+        if (!p->on_stack)
+                free(p);
 }
 
 DnsPacket *dns_packet_unref(DnsPacket *p) {
@@ -380,7 +384,7 @@ int dns_packet_append_raw_string(DnsPacket *p, const void *s, size_t size, size_
 }
 
 int dns_packet_append_label(DnsPacket *p, const char *d, size_t l, size_t *start) {
-        void *w;
+        uint8_t *w;
         int r;
 
         assert(p);
@@ -389,12 +393,29 @@ int dns_packet_append_label(DnsPacket *p, const char *d, size_t l, size_t *start
         if (l > DNS_LABEL_MAX)
                 return -E2BIG;
 
-        r = dns_packet_extend(p, 1 + l, &w, start);
+        r = dns_packet_extend(p, 1 + l, (void**) &w, start);
         if (r < 0)
                 return r;
 
-        ((uint8_t*) w)[0] = (uint8_t) l;
-        memcpy(((uint8_t*) w) + 1, d, l);
+        *(w++) = (uint8_t) l;
+
+        if (p->canonical_form) {
+                size_t i;
+
+                /* Generate in canonical form, as defined by DNSSEC
+                 * RFC 4034, Section 6.2, i.e. all lower-case. */
+
+                for (i = 0; i < l; i++) {
+                        if (d[i] >= 'A' && d[i] <= 'Z')
+                                w[i] = (uint8_t) (d[i] - 'A' + 'a');
+                        else
+                                w[i] = (uint8_t) d[i];
+                }
+        } else
+                /* Otherwise, just copy the string unaltered. This is
+                 * essential for DNS-SD, where the casing of labels
+                 * matters and needs to be retained. */
+                memcpy(w, d, l);
 
         return 0;
 }
@@ -647,8 +668,8 @@ fail:
         return r;
 }
 
-int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *start) {
-        size_t saved_size, rdlength_offset, end, rdlength;
+int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *start, size_t *rdata_start) {
+        size_t saved_size, rdlength_offset, end, rdlength, rds;
         int r;
 
         assert(p);
@@ -668,6 +689,8 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *star
         r = dns_packet_append_uint16(p, 0, &rdlength_offset);
         if (r < 0)
                 goto fail;
+
+        rds = p->size - saved_size;
 
         switch (rr->unparseable ? _DNS_TYPE_INVALID : rr->key->type) {
 
@@ -946,6 +969,9 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *star
 
         if (start)
                 *start = saved_size;
+
+        if (rdata_start)
+                *rdata_start = rds;
 
         return 0;
 

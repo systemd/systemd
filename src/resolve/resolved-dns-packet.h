@@ -88,8 +88,10 @@ struct DnsPacket {
         uint16_t sender_port, destination_port;
         uint32_t ttl;
 
-        bool extracted;
-        bool refuse_compression;
+        bool on_stack:1;
+        bool extracted:1;
+        bool refuse_compression:1;
+        bool canonical_form:1;
 };
 
 static inline uint8_t* DNS_PACKET_DATA(DnsPacket *p) {
@@ -162,7 +164,7 @@ int dns_packet_append_raw_string(DnsPacket *p, const void *s, size_t size, size_
 int dns_packet_append_label(DnsPacket *p, const char *s, size_t l, size_t *start);
 int dns_packet_append_name(DnsPacket *p, const char *name, bool allow_compression, size_t *start);
 int dns_packet_append_key(DnsPacket *p, const DnsResourceKey *key, size_t *start);
-int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *start);
+int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *start, size_t *rdata_start);
 int dns_packet_append_opt_rr(DnsPacket *p, uint16_t max_udp_size, bool edns0_do, size_t *start);
 
 void dns_packet_truncate(DnsPacket *p, size_t sz);
