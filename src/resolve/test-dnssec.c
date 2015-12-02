@@ -25,7 +25,6 @@
 
 #include "alloc-util.h"
 #include "resolved-dns-dnssec.h"
-#include "resolved-dns-packet.h"
 #include "resolved-dns-rr.h"
 #include "string-util.h"
 

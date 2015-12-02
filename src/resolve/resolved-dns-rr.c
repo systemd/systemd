@@ -27,6 +27,7 @@
 #include "hexdecoct.h"
 #include "resolved-dns-packet.h"
 #include "resolved-dns-rr.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 
@@ -1096,3 +1097,25 @@ bool dns_txt_item_equal(DnsTxtItem *a, DnsTxtItem *b) {
 
         return dns_txt_item_equal(a->items_next, b->items_next);
 }
+
+static const char* const dnssec_algorithm_table[_DNSSEC_ALGORITHM_MAX_DEFINED] = {
+        [DNSSEC_ALGORITHM_RSAMD5]             = "RSAMD5",
+        [DNSSEC_ALGORITHM_DH]                 = "DH",
+        [DNSSEC_ALGORITHM_DSA]                = "DSA",
+        [DNSSEC_ALGORITHM_ECC]                = "ECC",
+        [DNSSEC_ALGORITHM_RSASHA1]            = "RSASHA1",
+        [DNSSEC_ALGORITHM_DSA_NSEC3_SHA1]     = "DSA-NSEC3-SHA1",
+        [DNSSEC_ALGORITHM_RSASHA1_NSEC3_SHA1] = "RSASHA1-NSEC3-SHA1",
+        [DNSSEC_ALGORITHM_RSASHA256]          = "RSASHA256",
+        [DNSSEC_ALGORITHM_RSASHA512]          = "RSASHA512",
+        [DNSSEC_ALGORITHM_INDIRECT]           = "INDIRECT",
+        [DNSSEC_ALGORITHM_PRIVATEDNS]         = "PRIVATEDNS",
+        [DNSSEC_ALGORITHM_PRIVATEOID]         = "PRIVATEOID",
+};
+DEFINE_STRING_TABLE_LOOKUP(dnssec_algorithm, int);
+
+static const char* const dnssec_digest_table[_DNSSEC_DIGEST_MAX_DEFINED] = {
+        [DNSSEC_DIGEST_SHA1] = "SHA1",
+        [DNSSEC_DIGEST_SHA256] = "SHA256",
+};
+DEFINE_STRING_TABLE_LOOKUP(dnssec_digest, int);

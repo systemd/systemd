@@ -41,6 +41,37 @@ enum {
         _DNS_CLASS_INVALID = -1
 };
 
+/* DNSKEY RR flags */
+#define DNSKEY_FLAG_ZONE_KEY (UINT16_C(1) << 8)
+#define DNSKEY_FLAG_SEP      (UINT16_C(1) << 0)
+
+/* DNSSEC algorithm identifiers, see
+ * http://tools.ietf.org/html/rfc4034#appendix-A.1 and
+ * https://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml */
+enum {
+        DNSSEC_ALGORITHM_RSAMD5 = 1,
+        DNSSEC_ALGORITHM_DH,
+        DNSSEC_ALGORITHM_DSA,
+        DNSSEC_ALGORITHM_ECC,
+        DNSSEC_ALGORITHM_RSASHA1,
+        DNSSEC_ALGORITHM_DSA_NSEC3_SHA1,
+        DNSSEC_ALGORITHM_RSASHA1_NSEC3_SHA1,
+        DNSSEC_ALGORITHM_RSASHA256 = 8,  /* RFC 5702 */
+        DNSSEC_ALGORITHM_RSASHA512 = 10, /* RFC 5702 */
+        DNSSEC_ALGORITHM_INDIRECT = 252,
+        DNSSEC_ALGORITHM_PRIVATEDNS,
+        DNSSEC_ALGORITHM_PRIVATEOID,
+        _DNSSEC_ALGORITHM_MAX_DEFINED
+};
+
+/* DNSSEC digest identifiers, see
+ * https://www.iana.org/assignments/ds-rr-types/ds-rr-types.xhtml */
+enum {
+        DNSSEC_DIGEST_SHA1 = 1,
+        DNSSEC_DIGEST_SHA256 = 2,
+        _DNSSEC_DIGEST_MAX_DEFINED
+};
+
 struct DnsResourceKey {
         unsigned n_ref;
         uint16_t class, type;
@@ -222,3 +253,9 @@ const char *dns_class_to_string(uint16_t type);
 int dns_class_from_string(const char *name, uint16_t *class);
 
 extern const struct hash_ops dns_resource_key_hash_ops;
+
+const char* dnssec_algorithm_to_string(int i) _const_;
+int dnssec_algorithm_from_string(const char *s) _pure_;
+
+const char *dnssec_digest_to_string(int i) _const_;
+int dnssec_digest_from_string(const char *s) _pure_;
