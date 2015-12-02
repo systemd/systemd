@@ -29,6 +29,7 @@
 #include "rm-rf.h"
 #include "string-util.h"
 #include "strv.h"
+#include "test-helper.h"
 #include "unit.h"
 #include "util.h"
 
@@ -44,7 +45,7 @@ static int setup_test(Manager **m) {
         assert_se(m);
 
         r = manager_new(MANAGER_USER, true, &tmp);
-        if (IN_SET(r, -EPERM, -EACCES, -EADDRINUSE, -EHOSTDOWN, -ENOENT, -ENOEXEC)) {
+        if (MANAGER_SKIP_TEST(r)) {
                 printf("Skipping test: manager_new: %s", strerror(-r));
                 return -EXIT_TEST_SKIP;
         }
