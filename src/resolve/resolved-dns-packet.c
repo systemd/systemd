@@ -1952,3 +1952,9 @@ static const char* const dnssec_algorithm_table[_DNSSEC_ALGORITHM_MAX_DEFINED] =
         [DNSSEC_ALGORITHM_PRIVATEOID]         = "PRIVATEOID",
 };
 DEFINE_STRING_TABLE_LOOKUP(dnssec_algorithm, int);
+
+static const char* const dnssec_digest_table[_DNSSEC_DIGEST_MAX_DEFINED] = {
+        [DNSSEC_DIGEST_SHA1] = "SHA1",
+        [DNSSEC_DIGEST_SHA256] = "SHA256",
+};
+DEFINE_STRING_TABLE_LOOKUP(dnssec_digest, int);

@@ -247,6 +247,16 @@ enum {
 const char* dnssec_algorithm_to_string(int i) _const_;
 int dnssec_algorithm_from_string(const char *s) _pure_;
 
+/* https://www.iana.org/assignments/ds-rr-types/ds-rr-types.xhtml */
+enum {
+        DNSSEC_DIGEST_SHA1 = 1,
+        DNSSEC_DIGEST_SHA256 = 2,
+        _DNSSEC_DIGEST_MAX_DEFINED
+};
+
+const char *dnssec_digest_to_string(int i) _const_;
+int dnssec_digest_from_string(const char *s) _pure_;
+
 static inline uint64_t SD_RESOLVED_FLAGS_MAKE(DnsProtocol protocol, int family) {
 
         /* Converts a protocol + family into a flags field as used in queries */
