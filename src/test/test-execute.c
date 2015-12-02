@@ -29,6 +29,7 @@
 #include "mkdir.h"
 #include "path-util.h"
 #include "rm-rf.h"
+#include "test-helper.h"
 #include "unit.h"
 #include "util.h"
 
@@ -296,8 +297,8 @@ int main(int argc, char *argv[]) {
         assert_se(unsetenv("VAR3") == 0);
 
         r = manager_new(MANAGER_USER, true, &m);
-        if (IN_SET(r, -EPERM, -EACCES, -EADDRINUSE, -EHOSTDOWN, -ENOENT)) {
-                printf("Skipping test: manager_new: %s", strerror(-r));
+        if (MANAGER_SKIP_TEST(r)) {
+                printf("Skipping test: manager_new: %s\n", strerror(-r));
                 return EXIT_TEST_SKIP;
         }
         assert_se(r >= 0);

@@ -131,7 +131,7 @@ static int get_cgroup_root(char **ret) {
 
         if (!arg_machine) {
                 r = cg_get_root_path(ret);
-                if (r == -ENOEXEC)
+                if (r == -ENOMEDIUM)
                         return log_error_errno(r, "Failed to get root control group path: No cgroup filesystem mounted on /sys/fs/cgroup");
                 else if (r < 0)
                         return log_error_errno(r, "Failed to get root control group path: %m");
