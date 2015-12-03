@@ -22,6 +22,8 @@
 ***/
 
 #include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
 
 #include "sd-id128.h"
 

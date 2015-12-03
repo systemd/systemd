@@ -22,6 +22,7 @@
 #include <sys/utsname.h>
 
 #include "architecture.h"
+#include "macro.h"
 #include "string-table.h"
 #include "string-util.h"
 

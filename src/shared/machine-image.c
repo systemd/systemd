@@ -19,10 +19,15 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <dirent.h>
+#include <errno.h>
 #include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #include <linux/fs.h>
-#include <sys/statfs.h>
-
 #include "alloc-util.h"
 #include "btrfs-util.h"
 #include "chattr-util.h"
@@ -30,6 +35,10 @@
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
+#include "hashmap.h"
+#include "lockfile-util.h"
+#include "log.h"
+#include "macro.h"
 #include "machine-image.h"
 #include "mkdir.h"
 #include "path-util.h"
@@ -37,7 +46,9 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
+#include "time-util.h"
 #include "utf8.h"
+#include "util.h"
 #include "xattr-util.h"
 
 static const char image_search_path[] =

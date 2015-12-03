@@ -19,6 +19,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <errno.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -28,11 +29,13 @@
 #include "fileio.h"
 #include "fstab-util.h"
 #include "generator.h"
+#include "log.h"
+#include "macro.h"
 #include "mkdir.h"
-#include "mount-util.h"
 #include "path-util.h"
 #include "special.h"
 #include "string-util.h"
+#include "time-util.h"
 #include "unit-name.h"
 #include "util.h"
 

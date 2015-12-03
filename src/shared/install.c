@@ -19,22 +19,31 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <fnmatch.h>
+#include <limits.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
 #include "conf-files.h"
 #include "conf-parser.h"
 #include "dirent-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
 #include "hashmap.h"
 #include "install-printf.h"
 #include "install.h"
+#include "log.h"
+#include "macro.h"
 #include "mkdir.h"
 #include "path-lookup.h"
 #include "path-util.h"
@@ -45,7 +54,6 @@
 #include "string-util.h"
 #include "strv.h"
 #include "unit-name.h"
-#include "util.h"
 
 #define UNIT_FILE_FOLLOW_SYMLINK_MAX 64
 

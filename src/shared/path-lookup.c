@@ -26,6 +26,8 @@
 
 #include "alloc-util.h"
 #include "install.h"
+#include "log.h"
+#include "macro.h"
 #include "path-lookup.h"
 #include "path-util.h"
 #include "string-util.h"

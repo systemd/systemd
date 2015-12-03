@@ -26,6 +26,7 @@
 #include "alloc-util.h"
 #include "dev-setup.h"
 #include "label.h"
+#include "log.h"
 #include "path-util.h"
 #include "user-util.h"
 #include "util.h"

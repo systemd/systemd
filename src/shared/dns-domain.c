@@ -24,9 +24,18 @@
 #include <stringprep.h>
 #endif
 
+#include <endian.h>
+#include <netinet/in.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/socket.h>
+
 #include "alloc-util.h"
 #include "dns-domain.h"
+#include "hashmap.h"
 #include "hexdecoct.h"
+#include "in-addr-util.h"
+#include "macro.h"
 #include "parse-util.h"
 #include "string-util.h"
 #include "strv.h"

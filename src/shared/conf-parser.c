@@ -20,15 +20,17 @@
 ***/
 
 #include <errno.h>
+#include <limits.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-#include "sd-messages.h"
+#include <sys/types.h>
 
 #include "alloc-util.h"
 #include "conf-files.h"
 #include "conf-parser.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "log.h"
@@ -40,8 +42,8 @@
 #include "string-util.h"
 #include "strv.h"
 #include "syslog-util.h"
+#include "time-util.h"
 #include "utf8.h"
-#include "util.h"
 
 int config_item_table_lookup(
                 const void *table,

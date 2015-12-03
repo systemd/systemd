@@ -20,8 +20,11 @@
 ***/
 
 #include <errno.h>
+#include <fcntl.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <sys/stat.h>
+#include <syslog.h>
 #include <unistd.h>
 
 #include "alloc-util.h"

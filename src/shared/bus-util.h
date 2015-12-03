@@ -21,11 +21,18 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <sys/types.h>
+
+#include "sd-bus-vtable.h"
 #include "sd-bus.h"
 #include "sd-event.h"
 
 #include "hashmap.h"
 #include "install.h"
+#include "macro.h"
 #include "string-util.h"
 #include "time-util.h"
 

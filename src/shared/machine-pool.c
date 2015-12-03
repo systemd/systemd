@@ -19,10 +19,23 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <errno.h>
+#include <fcntl.h>
+#include <linux/loop.h>
+#include <signal.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/ioctl.h>
 #include <sys/mount.h>
 #include <sys/prctl.h>
+#include <sys/stat.h>
+#include <sys/statfs.h>
 #include <sys/statvfs.h>
-#include <sys/vfs.h>
+#include <unistd.h>
+
+#include "sd-bus-protocol.h"
+#include "sd-bus.h"
 
 #include "alloc-util.h"
 #include "btrfs-util.h"
@@ -30,7 +43,10 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "lockfile-util.h"
+#include "log.h"
 #include "machine-pool.h"
+#include "macro.h"
+#include "missing.h"
 #include "mkdir.h"
 #include "mount-util.h"
 #include "parse-util.h"
@@ -39,7 +55,6 @@
 #include "signal-util.h"
 #include "stat-util.h"
 #include "string-util.h"
-#include "util.h"
 
 #define VAR_LIB_MACHINES_SIZE_START (1024UL*1024UL*500UL)
 #define VAR_LIB_MACHINES_FREE_MIN (1024UL*1024UL*750UL)

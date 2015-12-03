@@ -30,7 +30,10 @@ typedef struct UnitFileChange UnitFileChange;
 typedef struct UnitFileList UnitFileList;
 typedef struct UnitFileInstallInfo UnitFileInstallInfo;
 
+#include <stdbool.h>
+
 #include "hashmap.h"
+#include "macro.h"
 #include "path-lookup.h"
 #include "strv.h"
 #include "unit-name.h"

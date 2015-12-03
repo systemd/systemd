@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include <stdbool.h>
 /***
   This file is part of systemd.
 

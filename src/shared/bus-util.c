@@ -19,14 +19,24 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <errno.h>
+#include <fcntl.h>
+#include <inttypes.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/ioctl.h>
+#include <sys/resource.h>
 #include <sys/socket.h>
+#include <unistd.h>
 
+#include "sd-bus-protocol.h"
 #include "sd-bus.h"
 #include "sd-daemon.h"
 #include "sd-event.h"
+#include "sd-id128.h"
 
 #include "alloc-util.h"
-#include "bus-error.h"
 #include "bus-internal.h"
 #include "bus-label.h"
 #include "bus-message.h"
@@ -35,7 +45,12 @@
 #include "def.h"
 #include "env-util.h"
 #include "escape.h"
+#include "extract-word.h"
 #include "fd-util.h"
+#include "hashmap.h"
+#include "install.h"
+#include "kdbus.h"
+#include "log.h"
 #include "macro.h"
 #include "missing.h"
 #include "parse-util.h"
@@ -49,6 +64,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "syslog-util.h"
+#include "time-util.h"
 #include "unit-name.h"
 #include "user-util.h"
 #include "utf8.h"

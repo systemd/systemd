@@ -19,9 +19,14 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <errno.h>
+#include <string.h>
+
 #include "alloc-util.h"
 #include "btrfs-util.h"
 #include "import-util.h"
+#include "log.h"
+#include "macro.h"
 #include "path-util.h"
 #include "string-table.h"
 #include "string-util.h"

@@ -22,6 +22,7 @@
 ***/
 
 #include <seccomp.h>
+#include <stdint.h>
 
 const char* seccomp_arch_to_string(uint32_t c);
 int seccomp_arch_from_string(const char *n, uint32_t *ret);

@@ -19,19 +19,14 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <errno.h>
-#include <getopt.h>
-#include <limits.h>
-#include <stdbool.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 
 #include "fileio.h"
 #include "log.h"
+#include "macro.h"
 #include "string-util.h"
 #include "sysctl-util.h"
-#include "util.h"
 
 char *sysctl_normalize(char *s) {
         char *n;

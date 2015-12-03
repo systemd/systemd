@@ -19,7 +19,13 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <errno.h>
+#include <stdbool.h>
+#include <stddef.h>
 #include <stdio.h>
+#include <string.h>
+#include <syslog.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "conf-parser.h"
@@ -27,11 +33,11 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "log.h"
+#include "macro.h"
 #include "parse-util.h"
 #include "sleep-config.h"
 #include "string-util.h"
 #include "strv.h"
-#include "util.h"
 
 #define USE(x, y) do{ (x) = (y); (y) = NULL; } while(0)
 

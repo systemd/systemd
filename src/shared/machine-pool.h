@@ -21,6 +21,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <stdint.h>
+
 #include "sd-bus.h"
 
 /* Grow the /var/lib/machines directory after each 10MiB written */

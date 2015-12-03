@@ -20,9 +20,13 @@
 ***/
 
 #include <errno.h>
+#include <fcntl.h>
 #include <fnmatch.h>
+#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "sd-id128.h"
@@ -38,6 +42,8 @@
 #include "glob-util.h"
 #include "hostname-util.h"
 #include "ima-util.h"
+#include "list.h"
+#include "macro.h"
 #include "mount-util.h"
 #include "parse-util.h"
 #include "path-util.h"
