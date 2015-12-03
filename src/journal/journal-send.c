@@ -337,7 +337,11 @@ _public_ int sd_journal_sendv(const struct iovec *iov, int n) {
                         return r;
         }
 
-        return send_one_fd_sa(fd, buffer_fd, mh.msg_name, mh.msg_namelen, 0);
+        r = send_one_fd_sa(fd, buffer_fd, mh.msg_name, mh.msg_namelen, 0);
+        if (r == -ENOENT)
+                /* Fail silently if the journal is not available */
+                return 0;
+        return r;
 }
 
 static int fill_iovec_perror_and_send(const char *message, int skip, struct iovec iov[]) {
