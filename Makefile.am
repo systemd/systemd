@@ -5474,7 +5474,8 @@ endif
 
 EXTRA_DIST += \
 	units/systemd-networkd.service.m4.in \
-	units/systemd-networkd-wait-online.service.in
+	units/systemd-networkd-wait-online.service.in \
+	test/networkd-test.py
 
 # ------------------------------------------------------------------------------
 if ENABLE_LOGIND
