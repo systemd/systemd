@@ -225,7 +225,7 @@ _public_ int sd_journal_sendv(const struct iovec *iov, int n) {
         assert_return(iov, -EINVAL);
         assert_return(n > 0, -EINVAL);
 
-        w = alloca(sizeof(struct iovec) * n * 5 + 3);
+        w = alloca(sizeof(struct iovec) * (n * 5 + 3));
         l = alloca(sizeof(uint64_t) * n);
 
         for (i = 0; i < n; i++) {
@@ -337,7 +337,10 @@ _public_ int sd_journal_sendv(const struct iovec *iov, int n) {
                         return r;
         }
 
-        return send_one_fd(fd, buffer_fd, 0);
+        mh.msg_iov = NULL;
+        mh.msg_iovlen = 0;
+
+        return send_one_fd_mh(fd, buffer_fd, &mh, 0);
 }
 
 static int fill_iovec_perror_and_send(const char *message, int skip, struct iovec iov[]) {

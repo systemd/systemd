@@ -128,7 +128,8 @@ int ip_tos_from_string(const char *s);
 int getpeercred(int fd, struct ucred *ucred);
 int getpeersec(int fd, char **ret);
 
-int send_one_fd(int transport_fd, int fd, int flags);
+int send_one_fd_mh(int transport_fd, int fd, struct msghdr *mh, int flags);
+#define send_one_fd(transport_fd, fd, flags) send_one_fd_mh(transport_fd, fd, NULL, flags)
 int receive_one_fd(int transport_fd, int flags);
 
 #define CMSG_FOREACH(cmsg, mh)                                          \
