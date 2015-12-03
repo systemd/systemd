@@ -36,6 +36,9 @@
 #define VERIFY_RRS_MAX 256
 #define MAX_KEY_SIZE (32*1024)
 
+/* Permit a maximum clock skew of 1h 10min. This should be enough to deal with DST confusion */
+#define SKEW_MAX (1*USEC_PER_HOUR + 10*USEC_PER_MINUTE)
+
 /*
  * The DNSSEC Chain of trust:
  *
@@ -230,8 +233,12 @@ static int dnssec_rrsig_expired(DnsResourceRecord *rrsig, usec_t realtime) {
         if (inception > expiration)
                 return -EKEYREJECTED;
 
-        /* Permit a certain amount of clock skew of 10% of the valid time range */
+        /* Permit a certain amount of clock skew of 10% of the valid
+         * time range. This takes inspiration from unbound's
+         * resolver. */
         skew = (expiration - inception) / 10;
+        if (skew > SKEW_MAX)
+                skew = SKEW_MAX;
 
         if (inception < skew)
                 inception = 0;
