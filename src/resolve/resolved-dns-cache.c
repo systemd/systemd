@@ -636,7 +636,9 @@ int dns_cache_lookup(DnsCache *c, DnsResourceKey *key, int *rcode, DnsAnswer **r
                 *ret = NULL;
                 *rcode = DNS_RCODE_SUCCESS;
 
-                return !bitmap_isset(nsec->nsec.types, key->type);
+                return !bitmap_isset(nsec->nsec.types, key->type) &&
+                       !bitmap_isset(nsec->nsec.types, DNS_TYPE_CNAME) &&
+                       !bitmap_isset(nsec->nsec.types, DNS_TYPE_DNAME);
         }
 
         log_debug("%s cache hit for %s",
