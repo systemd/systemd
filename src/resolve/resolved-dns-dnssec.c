@@ -37,12 +37,11 @@
  *   - Iterative validation
  *   - NSEC proof of non-existance
  *   - NSEC3 proof of non-existance
- *   - Trust anchor store
- *   - wildcard zones
- *   - multi-label zones
- *   - cname support
- *   - DNSSEC bus API extensions
- *   - global + per-interface DNSSEC setting
+ *   - Make trust anchor store read additional DS+DNSKEY data from disk
+ *   - wildcard zones compatibility
+ *   - multi-label zone compatibility
+ *   - DMSSEC cname/dname compatibility
+ *   - per-interface DNSSEC setting
  *   - DSA support
  *   - EC support?
  *
