@@ -20,6 +20,7 @@
 ***/
 
 #include <errno.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 
@@ -29,6 +30,7 @@
 
 int main(int argc, char *argv[]) {
         char huge[4096*1024];
+        int r;
 
         /* utf-8 and non-utf-8, message-less and message-ful iovecs */
         struct iovec graph1[] = {
@@ -59,9 +61,11 @@ int main(int argc, char *argv[]) {
         memcpy(huge, "HUGE=", 5);
         char_array_0(huge);
 
-        assert_se(sd_journal_send("MESSAGE=Huge field attached",
-                                  huge,
-                                  NULL) == 0);
+        r = sd_journal_send("MESSAGE=Huge field attached",
+                            huge,
+                            NULL);
+        fprintf(stderr, "huge → %d\n", r);
+        assert_se(r == 0);
 
         assert_se(sd_journal_send("MESSAGE=uiui",
                                   "VALUE=A",
