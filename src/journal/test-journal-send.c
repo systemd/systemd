@@ -19,17 +19,16 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <errno.h>
 #include <stdlib.h>
 #include <unistd.h>
 
 #include "sd-journal.h"
 
-#include "log.h"
+#include "macro.h"
 
 int main(int argc, char *argv[]) {
         char huge[4096*1024];
-
-        log_set_max_level(LOG_DEBUG);
 
         sd_journal_print(LOG_INFO, "piepapo");
 
