@@ -56,7 +56,7 @@ static void test_dns_name_to_wire_format_one(const char *what, const char *expec
         uint8_t buffer[buffer_sz];
         int r;
 
-        r = dns_name_to_wire_format(what, buffer, buffer_sz);
+        r = dns_name_to_wire_format(what, buffer, buffer_sz, false);
         assert_se(r == ret);
 
         if (r < 0)

@@ -23,9 +23,10 @@
 
 typedef struct DnsQuestion DnsQuestion;
 
+#include "macro.h"
 #include "resolved-dns-rr.h"
 
-/* A simple array of resources keys */
+/* A simple array of resource keys */
 
 struct DnsQuestion {
         unsigned n_ref;
@@ -55,10 +56,12 @@ const char *dns_question_first_name(DnsQuestion *q);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsQuestion*, dns_question_unref);
 
-#define DNS_QUESTION_FOREACH(key, q)                                    \
-        for (unsigned _i = ({                                           \
+#define _DNS_QUESTION_FOREACH(u, key, q)                                \
+        for (unsigned UNIQ_T(i, u) = ({                                 \
                                 (key) = ((q) && (q)->n_keys > 0) ? (q)->keys[0] : NULL; \
                                 0;                                      \
                         });                                             \
-             (q) && ((_i) < (q)->n_keys);                               \
-             _i++, (key) = (_i < (q)->n_keys ? (q)->keys[_i] : NULL))
+             (q) && (UNIQ_T(i, u) < (q)->n_keys);                       \
+             UNIQ_T(i, u)++, (key) = (UNIQ_T(i, u) < (q)->n_keys ? (q)->keys[UNIQ_T(i, u)] : NULL))
+
+#define DNS_QUESTION_FOREACH(key, q) _DNS_QUESTION_FOREACH(UNIQ, key, q)

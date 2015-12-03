@@ -27,6 +27,7 @@
 #include "hexdecoct.h"
 #include "resolved-dns-packet.h"
 #include "resolved-dns-rr.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 
@@ -416,6 +417,7 @@ DnsResourceRecord* dns_resource_record_unref(DnsResourceRecord *rr) {
                         free(rr->generic.data);
                 }
 
+                free(rr->wire_format);
                 dns_resource_key_unref(rr->key);
         }
 
@@ -576,8 +578,8 @@ int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecor
                        memcmp(a->sshfp.fingerprint, b->sshfp.fingerprint, a->sshfp.fingerprint_size) == 0;
 
         case DNS_TYPE_DNSKEY:
-                return a->dnskey.zone_key_flag == b->dnskey.zone_key_flag &&
-                       a->dnskey.sep_flag == b->dnskey.sep_flag &&
+                return a->dnskey.flags == b->dnskey.flags &&
+                       a->dnskey.protocol == b->dnskey.protocol &&
                        a->dnskey.algorithm == b->dnskey.algorithm &&
                        a->dnskey.key_size == b->dnskey.key_size &&
                        memcmp(a->dnskey.key, b->dnskey.key, a->dnskey.key_size) == 0;
@@ -883,9 +885,10 @@ int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
                 if (!t)
                         return -ENOMEM;
 
-                r = asprintf(&s, "%s %u 3 %.*s%.*u %s",
+                r = asprintf(&s, "%s %u %u %.*s%.*u %s",
                              k,
-                             dnskey_to_flags(rr),
+                             rr->dnskey.flags,
+                             rr->dnskey.protocol,
                              alg ? -1 : 0, alg,
                              alg ? 0 : 1, alg ? 0u : (unsigned) rr->dnskey.algorithm,
                              t);
@@ -993,6 +996,51 @@ int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
         return 0;
 }
 
+int dns_resource_record_to_wire_format(DnsResourceRecord *rr, bool canonical) {
+
+        DnsPacket packet = {
+                .n_ref = 1,
+                .protocol = DNS_PROTOCOL_DNS,
+                .on_stack = true,
+                .refuse_compression = true,
+                .canonical_form = canonical,
+        };
+
+        size_t start, rds;
+        int r;
+
+        assert(rr);
+
+        /* Generates the RR in wire-format, optionally in the
+         * canonical form as discussed in the DNSSEC RFC 4034, Section
+         * 6.2. We allocate a throw-away DnsPacket object on the stack
+         * here, because we need some book-keeping for memory
+         * management, and can reuse the DnsPacket serializer, that
+         * can generate the canonical form, too, but also knows label
+         * compression and suchlike. */
+
+        if (rr->wire_format && rr->wire_format_canonical == canonical)
+                return 0;
+
+        r = dns_packet_append_rr(&packet, rr, &start, &rds);
+        if (r < 0)
+                return r;
+
+        assert(start == 0);
+        assert(packet._data);
+
+        free(rr->wire_format);
+        rr->wire_format = packet._data;
+        rr->wire_format_size = packet.size;
+        rr->wire_format_rdata_offset = rds;
+        rr->wire_format_canonical = canonical;
+
+        packet._data = NULL;
+        dns_packet_unref(&packet);
+
+        return 0;
+}
+
 const char *dns_class_to_string(uint16_t class) {
 
         switch (class) {
@@ -1049,3 +1097,25 @@ bool dns_txt_item_equal(DnsTxtItem *a, DnsTxtItem *b) {
 
         return dns_txt_item_equal(a->items_next, b->items_next);
 }
+
+static const char* const dnssec_algorithm_table[_DNSSEC_ALGORITHM_MAX_DEFINED] = {
+        [DNSSEC_ALGORITHM_RSAMD5]             = "RSAMD5",
+        [DNSSEC_ALGORITHM_DH]                 = "DH",
+        [DNSSEC_ALGORITHM_DSA]                = "DSA",
+        [DNSSEC_ALGORITHM_ECC]                = "ECC",
+        [DNSSEC_ALGORITHM_RSASHA1]            = "RSASHA1",
+        [DNSSEC_ALGORITHM_DSA_NSEC3_SHA1]     = "DSA-NSEC3-SHA1",
+        [DNSSEC_ALGORITHM_RSASHA1_NSEC3_SHA1] = "RSASHA1-NSEC3-SHA1",
+        [DNSSEC_ALGORITHM_RSASHA256]          = "RSASHA256",
+        [DNSSEC_ALGORITHM_RSASHA512]          = "RSASHA512",
+        [DNSSEC_ALGORITHM_INDIRECT]           = "INDIRECT",
+        [DNSSEC_ALGORITHM_PRIVATEDNS]         = "PRIVATEDNS",
+        [DNSSEC_ALGORITHM_PRIVATEOID]         = "PRIVATEOID",
+};
+DEFINE_STRING_TABLE_LOOKUP(dnssec_algorithm, int);
+
+static const char* const dnssec_digest_table[_DNSSEC_DIGEST_MAX_DEFINED] = {
+        [DNSSEC_DIGEST_SHA1] = "SHA1",
+        [DNSSEC_DIGEST_SHA256] = "SHA256",
+};
+DEFINE_STRING_TABLE_LOOKUP(dnssec_digest, int);

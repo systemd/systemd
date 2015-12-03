@@ -41,6 +41,37 @@ enum {
         _DNS_CLASS_INVALID = -1
 };
 
+/* DNSKEY RR flags */
+#define DNSKEY_FLAG_ZONE_KEY (UINT16_C(1) << 8)
+#define DNSKEY_FLAG_SEP      (UINT16_C(1) << 0)
+
+/* DNSSEC algorithm identifiers, see
+ * http://tools.ietf.org/html/rfc4034#appendix-A.1 and
+ * https://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml */
+enum {
+        DNSSEC_ALGORITHM_RSAMD5 = 1,
+        DNSSEC_ALGORITHM_DH,
+        DNSSEC_ALGORITHM_DSA,
+        DNSSEC_ALGORITHM_ECC,
+        DNSSEC_ALGORITHM_RSASHA1,
+        DNSSEC_ALGORITHM_DSA_NSEC3_SHA1,
+        DNSSEC_ALGORITHM_RSASHA1_NSEC3_SHA1,
+        DNSSEC_ALGORITHM_RSASHA256 = 8,  /* RFC 5702 */
+        DNSSEC_ALGORITHM_RSASHA512 = 10, /* RFC 5702 */
+        DNSSEC_ALGORITHM_INDIRECT = 252,
+        DNSSEC_ALGORITHM_PRIVATEDNS,
+        DNSSEC_ALGORITHM_PRIVATEOID,
+        _DNSSEC_ALGORITHM_MAX_DEFINED
+};
+
+/* DNSSEC digest identifiers, see
+ * https://www.iana.org/assignments/ds-rr-types/ds-rr-types.xhtml */
+enum {
+        DNSSEC_DIGEST_SHA1 = 1,
+        DNSSEC_DIGEST_SHA256 = 2,
+        _DNSSEC_DIGEST_MAX_DEFINED
+};
+
 struct DnsResourceKey {
         unsigned n_ref;
         uint16_t class, type;
@@ -57,7 +88,11 @@ struct DnsResourceRecord {
         unsigned n_ref;
         DnsResourceKey *key;
         uint32_t ttl;
-        bool unparseable;
+        bool unparseable:1;
+        bool wire_format_canonical:1;
+        void *wire_format;
+        size_t wire_format_size;
+        size_t wire_format_rdata_offset;
         union {
                 struct {
                         void *data;
@@ -135,8 +170,8 @@ struct DnsResourceRecord {
 
                 /* http://tools.ietf.org/html/rfc4034#section-2.1 */
                 struct {
-                        bool zone_key_flag:1;
-                        bool sep_flag:1;
+                        uint16_t flags;
+                        uint8_t protocol;
                         uint8_t algorithm;
                         void* key;
                         size_t key_size;
@@ -209,6 +244,8 @@ int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecor
 int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsResourceRecord*, dns_resource_record_unref);
 
+int dns_resource_record_to_wire_format(DnsResourceRecord *rr, bool canonical);
+
 DnsTxtItem *dns_txt_item_free_all(DnsTxtItem *i);
 bool dns_txt_item_equal(DnsTxtItem *a, DnsTxtItem *b);
 
@@ -216,3 +253,9 @@ const char *dns_class_to_string(uint16_t type);
 int dns_class_from_string(const char *name, uint16_t *class);
 
 extern const struct hash_ops dns_resource_key_hash_ops;
+
+const char* dnssec_algorithm_to_string(int i) _const_;
+int dnssec_algorithm_from_string(const char *s) _pure_;
+
+const char *dnssec_digest_to_string(int i) _const_;
+int dnssec_digest_from_string(const char *s) _pure_;

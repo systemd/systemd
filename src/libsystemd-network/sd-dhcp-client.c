@@ -554,7 +554,7 @@ static int client_append_fqdn_option(DHCPMessage *message, size_t optlen, size_t
         buffer[1] = 0;                 /* RCODE1 (deprecated) */
         buffer[2] = 0;                 /* RCODE2 (deprecated) */
 
-        r = dns_name_to_wire_format(fqdn, buffer + 3, sizeof(buffer) - 3);
+        r = dns_name_to_wire_format(fqdn, buffer + 3, sizeof(buffer) - 3, false);
         if (r > 0)
                 r = dhcp_option_append(message, optlen, optoffset, 0,
                                        DHCP_OPTION_FQDN, 3 + r, buffer);

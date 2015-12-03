@@ -88,8 +88,10 @@ struct DnsPacket {
         uint16_t sender_port, destination_port;
         uint32_t ttl;
 
-        bool extracted;
-        bool refuse_compression;
+        bool on_stack:1;
+        bool extracted:1;
+        bool refuse_compression:1;
+        bool canonical_form:1;
 };
 
 static inline uint8_t* DNS_PACKET_DATA(DnsPacket *p) {
@@ -162,7 +164,7 @@ int dns_packet_append_raw_string(DnsPacket *p, const void *s, size_t size, size_
 int dns_packet_append_label(DnsPacket *p, const char *s, size_t l, size_t *start);
 int dns_packet_append_name(DnsPacket *p, const char *name, bool allow_compression, size_t *start);
 int dns_packet_append_key(DnsPacket *p, const DnsResourceKey *key, size_t *start);
-int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *start);
+int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *start, size_t *rdata_start);
 int dns_packet_append_opt_rr(DnsPacket *p, uint16_t max_udp_size, bool edns0_do, size_t *start);
 
 void dns_packet_truncate(DnsPacket *p, size_t sz);
@@ -222,32 +224,6 @@ DnsProtocol dns_protocol_from_string(const char *s) _pure_;
 
 #define LLMNR_MULTICAST_IPV4_ADDRESS ((struct in_addr) { .s_addr = htobe32(224U << 24 | 252U) })
 #define LLMNR_MULTICAST_IPV6_ADDRESS ((struct in6_addr) { .s6_addr = { 0xFF, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x03 } })
-
-#define DNSKEY_FLAG_ZONE_KEY (1u << 8)
-#define DNSKEY_FLAG_SEP      (1u << 0)
-
-static inline uint16_t dnskey_to_flags(const DnsResourceRecord *rr) {
-        return (rr->dnskey.zone_key_flag * DNSKEY_FLAG_ZONE_KEY |
-                rr->dnskey.sep_flag * DNSKEY_FLAG_SEP);
-}
-
-/* http://tools.ietf.org/html/rfc4034#appendix-A.1 */
-enum {
-        DNSSEC_ALGORITHM_RSAMD5 = 1,
-        DNSSEC_ALGORITHM_DH,
-        DNSSEC_ALGORITHM_DSA,
-        DNSSEC_ALGORITHM_ECC,
-        DNSSEC_ALGORITHM_RSASHA1,
-        DNSSEC_ALGORITHM_DSA_NSEC3_SHA1,
-        DNSSEC_ALGORITHM_RSASHA1_NSEC3_SHA1,
-        DNSSEC_ALGORITHM_INDIRECT = 252,
-        DNSSEC_ALGORITHM_PRIVATEDNS,
-        DNSSEC_ALGORITHM_PRIVATEOID,
-        _DNSSEC_ALGORITHM_MAX_DEFINED
-};
-
-const char* dnssec_algorithm_to_string(int i) _const_;
-int dnssec_algorithm_from_string(const char *s) _pure_;
 
 static inline uint64_t SD_RESOLVED_FLAGS_MAKE(DnsProtocol protocol, int family) {
 

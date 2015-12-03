@@ -521,8 +521,8 @@ fail:
         return r;
 }
 
-static DnsCacheItem *dns_cache_get_by_key_follow_cname(DnsCache *c, DnsResourceKey *k) {
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *cname_key = NULL;
+static DnsCacheItem *dns_cache_get_by_key_follow_cname_dname_nsec(DnsCache *c, DnsResourceKey *k) {
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *nsec_key = NULL, *cname_key = NULL;
         DnsCacheItem *i;
         const char *n;
         int r;
@@ -534,20 +534,29 @@ static DnsCacheItem *dns_cache_get_by_key_follow_cname(DnsCache *c, DnsResourceK
          * much, after all this is just a cache */
 
         i = hashmap_get(c->by_key, k);
-        if (i || k->type == DNS_TYPE_CNAME || k->type == DNS_TYPE_DNAME)
+        if (i || IN_SET(k->type, DNS_TYPE_CNAME, DNS_TYPE_DNAME, DNS_TYPE_NSEC))
+                return i;
+
+        n = DNS_RESOURCE_KEY_NAME(k);
+
+        /* Check if we have an NSEC record instead for the name. */
+        nsec_key = dns_resource_key_new(k->class, DNS_TYPE_NSEC, n);
+        if (!nsec_key)
+                return NULL;
+
+        i = hashmap_get(c->by_key, nsec_key);
+        if (i)
                 return i;
 
         /* Check if we have a CNAME record instead */
         cname_key = dns_resource_key_new_cname(k);
         if (!cname_key)
                 return NULL;
-
         i = hashmap_get(c->by_key, cname_key);
         if (i)
                 return i;
 
         /* OK, let's look for cached DNAME records. */
-        n = DNS_RESOURCE_KEY_NAME(k);
         for (;;) {
                 _cleanup_(dns_resource_key_unrefp) DnsResourceKey *dname_key = NULL;
                 char label[DNS_LABEL_MAX];
@@ -578,6 +587,7 @@ int dns_cache_lookup(DnsCache *c, DnsResourceKey *key, int *rcode, DnsAnswer **r
         int r;
         bool nxdomain = false;
         _cleanup_free_ char *key_str = NULL;
+        DnsResourceRecord *nsec = NULL;
         DnsCacheItem *j, *first;
 
         assert(c);
@@ -601,7 +611,7 @@ int dns_cache_lookup(DnsCache *c, DnsResourceKey *key, int *rcode, DnsAnswer **r
                 return 0;
         }
 
-        first = dns_cache_get_by_key_follow_cname(c, key);
+        first = dns_cache_get_by_key_follow_cname_dname_nsec(c, key);
         if (!first) {
                 /* If one question cannot be answered we need to refresh */
 
@@ -617,9 +627,11 @@ int dns_cache_lookup(DnsCache *c, DnsResourceKey *key, int *rcode, DnsAnswer **r
         }
 
         LIST_FOREACH(by_key, j, first) {
-                if (j->rr)
+                if (j->rr) {
+                        if (j->rr->key->type == DNS_TYPE_NSEC)
+                                nsec = j->rr;
                         n++;
-                else if (j->type == DNS_CACHE_NXDOMAIN)
+                } else if (j->type == DNS_CACHE_NXDOMAIN)
                         nxdomain = true;
         }
 
@@ -627,9 +639,22 @@ int dns_cache_lookup(DnsCache *c, DnsResourceKey *key, int *rcode, DnsAnswer **r
         if (r < 0)
                 return r;
 
+        if (nsec && key->type != DNS_TYPE_NSEC) {
+                log_debug("NSEC NODATA cache hit for %s", key_str);
+
+                /* We only found an NSEC record that matches our name.
+                 * If it says the type doesn't exit report
+                 * NODATA. Otherwise report a cache miss. */
+
+                *ret = NULL;
+                *rcode = DNS_RCODE_SUCCESS;
+
+                return !bitmap_isset(nsec->nsec.types, key->type);
+        }
+
         log_debug("%s cache hit for %s",
-                  nxdomain ? "NXDOMAIN" :
-                     n > 0 ? "Positive" : "NODATA",
+                  n > 0    ? "Positive" :
+                  nxdomain ? "NXDOMAIN" : "NODATA",
                   key_str);
 
         if (n <= 0) {

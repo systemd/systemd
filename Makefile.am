@@ -5136,12 +5136,13 @@ polkitpolicy_in_files += \
 	src/import/org.freedesktop.import1.policy.in
 
 EXTRA_DIST += \
-	units/systemd-importd.service.in \
-	src/resolve/resolved.conf.in
+	units/systemd-importd.service.in
 
 
 # ------------------------------------------------------------------------------
 if ENABLE_RESOLVED
+if HAVE_GCRYPT
+
 systemd_resolved_SOURCES = \
 	src/resolve/resolved.c \
 	src/resolve/resolved-manager.c \
@@ -5181,6 +5182,8 @@ systemd_resolved_SOURCES = \
 	src/resolve/resolved-dns-zone.c \
 	src/resolve/resolved-dns-stream.h \
 	src/resolve/resolved-dns-stream.c \
+	src/resolve/resolved-dns-dnssec.h \
+	src/resolve/resolved-dns-dnssec.c \
 	src/resolve/dns-type.c \
 	src/resolve/dns-type.h
 
@@ -5226,9 +5229,6 @@ GENERAL_ALIASES += \
 nodist_pkgsysconf_DATA += \
 	src/resolve/resolved.conf
 
-tests += \
-	test-dns-domain
-
 libnss_resolve_la_SOURCES = \
 	src/nss-resolve/nss-resolve.sym \
 	src/nss-resolve/nss-resolve.c
@@ -5272,10 +5272,34 @@ systemd_resolve_host_LDADD = \
 rootlibexec_PROGRAMS += \
 	systemd-resolve-host
 
+tests += \
+	test-dns-domain \
+	test-dnssec
+
+test_dnssec_SOURCES = \
+	src/resolve/test-dnssec.c \
+	src/resolve/resolved-dns-packet.c \
+	src/resolve/resolved-dns-packet.h \
+	src/resolve/resolved-dns-rr.c \
+	src/resolve/resolved-dns-rr.h \
+	src/resolve/resolved-dns-answer.c \
+	src/resolve/resolved-dns-answer.h \
+	src/resolve/resolved-dns-question.c \
+	src/resolve/resolved-dns-question.h \
+	src/resolve/resolved-dns-dnssec.c \
+	src/resolve/resolved-dns-dnssec.h \
+	src/resolve/dns-type.c \
+	src/resolve/dns-type.h
+
+test_dnssec_LDADD = \
+	libshared.la
+
+endif
 endif
 
 EXTRA_DIST += \
-	units/systemd-resolved.service.m4.in
+	units/systemd-resolved.service.m4.in \
+	src/resolve/resolved.conf.in
 
 # ------------------------------------------------------------------------------
 if ENABLE_NETWORKD

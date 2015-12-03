@@ -21,7 +21,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-
 #include "hashmap.h"
 #include "list.h"
 #include "prioq.h"
