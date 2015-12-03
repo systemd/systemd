@@ -870,16 +870,24 @@ int getpeersec(int fd, char **ret) {
         return 0;
 }
 
-int send_one_fd(int transport_fd, int fd, int flags) {
+int send_one_fd_sa(
+                int transport_fd,
+                int fd,
+                const struct sockaddr *sa, socklen_t len,
+                int flags) {
+
         union {
                 struct cmsghdr cmsghdr;
                 uint8_t buf[CMSG_SPACE(sizeof(int))];
         } control = {};
+        struct cmsghdr *cmsg;
+
         struct msghdr mh = {
+                .msg_name = (struct sockaddr*) sa,
+                .msg_namelen = len,
                 .msg_control = &control,
                 .msg_controllen = sizeof(control),
         };
-        struct cmsghdr *cmsg;
 
         assert(transport_fd >= 0);
         assert(fd >= 0);
