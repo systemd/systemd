@@ -78,6 +78,19 @@ struct DnsResourceKey {
         char *_name; /* don't access directy, use DNS_RESOURCE_KEY_NAME()! */
 };
 
+/* Creates a temporary resource key. This is only useful to quickly
+ * look up something, without allocating a full DnsResourceKey object
+ * for it. Note that it is not OK to take references to this kind of
+ * resource key object. */
+#define DNS_RESOURCE_KEY_CONST(c, t, n)                 \
+        ((DnsResourceKey) {                             \
+                .n_ref = (unsigned) -1,                 \
+                .class = c,                             \
+                .type = t,                              \
+                ._name = (char*) n,                     \
+        })
+
+
 struct DnsTxtItem {
         size_t length;
         LIST_FIELDS(DnsTxtItem, items);
@@ -221,8 +234,6 @@ static inline const char* DNS_RESOURCE_KEY_NAME(const DnsResourceKey *key) {
 }
 
 DnsResourceKey* dns_resource_key_new(uint16_t class, uint16_t type, const char *name);
-DnsResourceKey* dns_resource_key_new_cname(const DnsResourceKey *key);
-DnsResourceKey* dns_resource_key_new_dname(const DnsResourceKey *key);
 DnsResourceKey* dns_resource_key_new_redirect(const DnsResourceKey *key, const DnsResourceRecord *cname);
 int dns_resource_key_new_append_suffix(DnsResourceKey **ret, DnsResourceKey *key, char *name);
 DnsResourceKey* dns_resource_key_new_consume(uint16_t class, uint16_t type, char *name);

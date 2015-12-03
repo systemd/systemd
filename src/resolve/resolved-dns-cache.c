@@ -522,7 +522,6 @@ fail:
 }
 
 static DnsCacheItem *dns_cache_get_by_key_follow_cname_dname_nsec(DnsCache *c, DnsResourceKey *k) {
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *nsec_key = NULL, *cname_key = NULL;
         DnsCacheItem *i;
         const char *n;
         int r;
@@ -540,35 +539,23 @@ static DnsCacheItem *dns_cache_get_by_key_follow_cname_dname_nsec(DnsCache *c, D
         n = DNS_RESOURCE_KEY_NAME(k);
 
         /* Check if we have an NSEC record instead for the name. */
-        nsec_key = dns_resource_key_new(k->class, DNS_TYPE_NSEC, n);
-        if (!nsec_key)
-                return NULL;
-
-        i = hashmap_get(c->by_key, nsec_key);
+        i = hashmap_get(c->by_key, &DNS_RESOURCE_KEY_CONST(k->class, DNS_TYPE_NSEC, n));
         if (i)
                 return i;
 
         /* Check if we have a CNAME record instead */
-        cname_key = dns_resource_key_new_cname(k);
-        if (!cname_key)
-                return NULL;
-        i = hashmap_get(c->by_key, cname_key);
+        i = hashmap_get(c->by_key, &DNS_RESOURCE_KEY_CONST(k->class, DNS_TYPE_CNAME, n));
         if (i)
                 return i;
 
         /* OK, let's look for cached DNAME records. */
         for (;;) {
-                _cleanup_(dns_resource_key_unrefp) DnsResourceKey *dname_key = NULL;
                 char label[DNS_LABEL_MAX];
 
                 if (isempty(n))
                         return NULL;
 
-                dname_key = dns_resource_key_new(k->class, DNS_TYPE_DNAME, n);
-                if (!dname_key)
-                        return NULL;
-
-                i = hashmap_get(c->by_key, dname_key);
+                i = hashmap_get(c->by_key, &DNS_RESOURCE_KEY_CONST(k->class, DNS_TYPE_DNAME, n));
                 if (i)
                         return i;
 
