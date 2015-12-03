@@ -44,6 +44,7 @@ enum Support {
 #include "resolved-dns-search-domain.h"
 #include "resolved-dns-server.h"
 #include "resolved-dns-stream.h"
+#include "resolved-dns-trust-anchor.h"
 #include "resolved-link.h"
 
 #define MANAGER_SEARCH_DOMAINS_MAX 32
@@ -84,6 +85,8 @@ struct Manager {
 
         bool read_resolv_conf:1;
         usec_t resolv_conf_mtime;
+
+        DnsTrustAnchor trust_anchor;
 
         LIST_HEAD(DnsScope, dns_scopes);
         DnsScope *unicast_scope;

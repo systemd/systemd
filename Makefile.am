@@ -5184,6 +5184,8 @@ systemd_resolved_SOURCES = \
 	src/resolve/resolved-dns-stream.c \
 	src/resolve/resolved-dns-dnssec.h \
 	src/resolve/resolved-dns-dnssec.c \
+	src/resolve/resolved-dns-trust-anchor.h \
+	src/resolve/resolved-dns-trust-anchor.c \
 	src/resolve/dns-type.c \
 	src/resolve/dns-type.h
 

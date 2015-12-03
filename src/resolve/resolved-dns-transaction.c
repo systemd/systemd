@@ -675,7 +675,20 @@ int dns_transaction_go(DnsTransaction *t) {
         t->answer_rcode = 0;
         t->answer_source = _DNS_TRANSACTION_SOURCE_INVALID;
 
-        /* Check the zone, but obly if this transaction is not used
+        /* Check the trust anchor. Do so only on classic DNS, since DNSSEC does not apply otherwise. */
+        if (t->scope->protocol == DNS_PROTOCOL_DNS) {
+                r = dns_trust_anchor_lookup(&t->scope->manager->trust_anchor, t->key, &t->answer);
+                if (r < 0)
+                        return r;
+                if (r > 0) {
+                        t->answer_rcode = DNS_RCODE_SUCCESS;
+                        t->answer_source = DNS_TRANSACTION_TRUST_ANCHOR;
+                        dns_transaction_complete(t, DNS_TRANSACTION_SUCCESS);
+                        return 0;
+                }
+        }
+
+        /* Check the zone, but only if this transaction is not used
          * for probing or verifying a zone item. */
         if (set_isempty(t->zone_items)) {
 
@@ -817,5 +830,6 @@ static const char* const dns_transaction_source_table[_DNS_TRANSACTION_SOURCE_MA
         [DNS_TRANSACTION_NETWORK] = "network",
         [DNS_TRANSACTION_CACHE] = "cache",
         [DNS_TRANSACTION_ZONE] = "zone",
+        [DNS_TRANSACTION_TRUST_ANCHOR] = "trust-anchor",
 };
 DEFINE_STRING_TABLE_LOOKUP(dns_transaction_source, DnsTransactionSource);
