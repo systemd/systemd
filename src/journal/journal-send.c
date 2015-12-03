@@ -225,8 +225,8 @@ _public_ int sd_journal_sendv(const struct iovec *iov, int n) {
         assert_return(iov, -EINVAL);
         assert_return(n > 0, -EINVAL);
 
-        w = alloca(sizeof(struct iovec) * n * 5 + 3);
-        l = alloca(sizeof(uint64_t) * n);
+        w = newa(struct iovec, n * 5 + 3);
+        l = newa(uint64_t, n);
 
         for (i = 0; i < n; i++) {
                 char *c, *nl;
