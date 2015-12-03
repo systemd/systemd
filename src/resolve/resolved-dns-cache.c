@@ -364,6 +364,8 @@ static int dns_cache_put_negative(
         if (key->class == DNS_CLASS_ANY)
                 return 0;
         if (key->type == DNS_TYPE_ANY)
+                /* This is particularly important to filter out as we use this as a
+                 * pseudo-type for NXDOMAIN entries */
                 return 0;
         if (soa_ttl <= 0) {
                 r = dns_resource_key_to_string(key, &key_str);
@@ -389,12 +391,20 @@ static int dns_cache_put_negative(
                 return -ENOMEM;
 
         i->type = rcode == DNS_RCODE_SUCCESS ? DNS_CACHE_NODATA : DNS_CACHE_NXDOMAIN;
-        i->key = dns_resource_key_ref(key);
         i->until = timestamp + MIN(soa_ttl * USEC_PER_SEC, CACHE_TTL_MAX_USEC);
         i->prioq_idx = PRIOQ_IDX_NULL;
         i->owner_family = owner_family;
         i->owner_address = *owner_address;
         i->authenticated = authenticated;
+
+        if (i->type == DNS_CACHE_NXDOMAIN) {
+                /* NXDOMAIN entries should apply equally to all types, so we use ANY as
+                 * a pseudo type for this purpose here. */
+                i->key = dns_resource_key_new(key->class, DNS_TYPE_ANY, DNS_RESOURCE_KEY_NAME(key));
+                if (!i->key)
+                        return -ENOMEM;
+        } else
+                i->key = dns_resource_key_ref(key);
 
         r = dns_cache_link_item(c, i);
         if (r < 0)
@@ -533,6 +543,12 @@ static DnsCacheItem *dns_cache_get_by_key_follow_cname_dname_nsec(DnsCache *c, D
                 return i;
 
         n = DNS_RESOURCE_KEY_NAME(k);
+
+        /* Check if we have an NXDOMAIN cache item for the name, notice that we use
+         * the pseudo-type ANY for NXDOMAIN cache items. */
+        i = hashmap_get(c->by_key, &DNS_RESOURCE_KEY_CONST(k->class, DNS_TYPE_ANY, n));
+        if (i && i->type == DNS_CACHE_NXDOMAIN)
+                return i;
 
         /* Check if we have an NSEC record instead for the name. */
         i = hashmap_get(c->by_key, &DNS_RESOURCE_KEY_CONST(k->class, DNS_TYPE_NSEC, n));
