@@ -481,20 +481,29 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                 return;
         }
 
-        /* Install the answer as answer to the transaction */
-        dns_answer_unref(t->answer);
-        t->answer = dns_answer_ref(p->answer);
-        t->answer_rcode = DNS_PACKET_RCODE(p);
-
         /* Only consider responses with equivalent query section to the request */
         if (p->question->n_keys != 1 || dns_resource_key_equal(p->question->keys[0], t->key) <= 0) {
                 dns_transaction_complete(t, DNS_TRANSACTION_INVALID_REPLY);
                 return;
         }
 
+        /* Install the answer as answer to the transaction */
+        dns_answer_unref(t->answer);
+        t->answer = dns_answer_ref(p->answer);
+        t->answer_rcode = DNS_PACKET_RCODE(p);
+        t->answer_authenticated = t->scope->dnssec_mode == DNSSEC_TRUST && DNS_PACKET_AD(p);
+
         /* According to RFC 4795, section 2.9. only the RRs from the answer section shall be cached */
         if (DNS_PACKET_SHALL_CACHE(p))
-                dns_cache_put(&t->scope->cache, t->key, DNS_PACKET_RCODE(p), p->answer, DNS_PACKET_ANCOUNT(p), 0, p->family, &p->sender);
+                dns_cache_put(&t->scope->cache,
+                              t->key,
+                              DNS_PACKET_RCODE(p),
+                              p->answer,
+                              DNS_PACKET_ANCOUNT(p),
+                              t->answer_authenticated,
+                              0,
+                              p->family,
+                              &p->sender);
 
         if (DNS_PACKET_RCODE(p) == DNS_RCODE_SUCCESS)
                 dns_transaction_complete(t, DNS_TRANSACTION_SUCCESS);
@@ -683,6 +692,7 @@ int dns_transaction_go(DnsTransaction *t) {
                 if (r > 0) {
                         t->answer_rcode = DNS_RCODE_SUCCESS;
                         t->answer_source = DNS_TRANSACTION_TRUST_ANCHOR;
+                        t->answer_authenticated = true;
                         dns_transaction_complete(t, DNS_TRANSACTION_SUCCESS);
                         return 0;
                 }
@@ -698,6 +708,7 @@ int dns_transaction_go(DnsTransaction *t) {
                 if (r > 0) {
                         t->answer_rcode = DNS_RCODE_SUCCESS;
                         t->answer_source = DNS_TRANSACTION_ZONE;
+                        t->answer_authenticated = true;
                         dns_transaction_complete(t, DNS_TRANSACTION_SUCCESS);
                         return 0;
                 }
@@ -715,7 +726,7 @@ int dns_transaction_go(DnsTransaction *t) {
                 /* Let's then prune all outdated entries */
                 dns_cache_prune(&t->scope->cache);
 
-                r = dns_cache_lookup(&t->scope->cache, t->key, &t->answer_rcode, &t->answer);
+                r = dns_cache_lookup(&t->scope->cache, t->key, &t->answer_rcode, &t->answer, &t->answer_authenticated);
                 if (r < 0)
                         return r;
                 if (r > 0) {

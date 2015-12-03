@@ -225,16 +225,19 @@ DnsProtocol dns_protocol_from_string(const char *s) _pure_;
 #define LLMNR_MULTICAST_IPV4_ADDRESS ((struct in_addr) { .s_addr = htobe32(224U << 24 | 252U) })
 #define LLMNR_MULTICAST_IPV6_ADDRESS ((struct in6_addr) { .s6_addr = { 0xFF, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x03 } })
 
-static inline uint64_t SD_RESOLVED_FLAGS_MAKE(DnsProtocol protocol, int family) {
+static inline uint64_t SD_RESOLVED_FLAGS_MAKE(DnsProtocol protocol, int family, bool authenticated) {
+        uint64_t f;
 
-        /* Converts a protocol + family into a flags field as used in queries */
+        /* Converts a protocol + family into a flags field as used in queries and responses */
+
+        f = authenticated ? SD_RESOLVED_AUTHENTICATED : 0;
 
         switch (protocol) {
         case DNS_PROTOCOL_DNS:
-                return SD_RESOLVED_DNS;
+                return f|SD_RESOLVED_DNS;
 
         case DNS_PROTOCOL_LLMNR:
-                return family == AF_INET6 ? SD_RESOLVED_LLMNR_IPV6 : SD_RESOLVED_LLMNR_IPV4;
+                return f|(family == AF_INET6 ? SD_RESOLVED_LLMNR_IPV6 : SD_RESOLVED_LLMNR_IPV4);
 
         default:
                 break;

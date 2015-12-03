@@ -972,6 +972,7 @@ static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
         DnsTransactionState state = DNS_TRANSACTION_NO_SERVERS;
         DnsTransaction *t;
         Iterator i;
+        bool has_authenticated = false, has_non_authenticated = false;
 
         assert(q);
 
@@ -998,6 +999,11 @@ static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
                         dns_answer_unref(q->answer);
                         q->answer = merged;
                         q->answer_rcode = t->answer_rcode;
+
+                        if (t->answer_authenticated)
+                                has_authenticated = true;
+                        else
+                                has_non_authenticated = true;
 
                         state = DNS_TRANSACTION_SUCCESS;
                         break;
@@ -1028,6 +1034,7 @@ static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
 
         q->answer_protocol = c->scope->protocol;
         q->answer_family = c->scope->family;
+        q->answer_authenticated = has_authenticated && !has_non_authenticated;
 
         dns_search_domain_unref(q->answer_search_domain);
         q->answer_search_domain = dns_search_domain_ref(c->search_domain);

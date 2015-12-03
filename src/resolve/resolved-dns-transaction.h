@@ -69,6 +69,7 @@ struct DnsTransaction {
         DnsAnswer *answer;
         int answer_rcode;
         DnsTransactionSource answer_source;
+        bool answer_authenticated;
 
         usec_t start_usec;
         sd_event_source *timeout_event_source;
