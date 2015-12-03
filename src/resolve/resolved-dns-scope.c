@@ -368,13 +368,14 @@ DnsScopeMatch dns_scope_good_domain(DnsScope *s, int ifindex, uint64_t flags, co
         assert(s);
         assert(domain);
 
+        /* Checks if the specified domain is something to look up on
+         * this scope. Note that this accepts non-qualified hostnames,
+         * i.e. those without any search path prefixed yet. */
+
         if (ifindex != 0 && (!s->link || s->link->ifindex != ifindex))
                 return DNS_SCOPE_NO;
 
         if ((SD_RESOLVED_FLAGS_MAKE(s->protocol, s->family) & flags) == 0)
-                return DNS_SCOPE_NO;
-
-        if (dns_name_is_root(domain))
                 return DNS_SCOPE_NO;
 
         /* Never resolve any loopback hostname or IP address via DNS,
@@ -403,9 +404,8 @@ DnsScopeMatch dns_scope_good_domain(DnsScope *s, int ifindex, uint64_t flags, co
 
         case DNS_PROTOCOL_DNS:
 
-                if ((!dns_name_is_single_label(domain) ||
-                     (!(flags & SD_RESOLVED_NO_SEARCH) && dns_scope_has_search_domains(s))) &&
-                    dns_name_endswith(domain, "254.169.in-addr.arpa") == 0 &&
+                /* Exclude link-local IP ranges */
+                if (dns_name_endswith(domain, "254.169.in-addr.arpa") == 0 &&
                     dns_name_endswith(domain, "8.e.f.ip6.arpa") == 0 &&
                     dns_name_endswith(domain, "9.e.f.ip6.arpa") == 0 &&
                     dns_name_endswith(domain, "a.e.f.ip6.arpa") == 0 &&
@@ -443,8 +443,27 @@ int dns_scope_good_key(DnsScope *s, DnsResourceKey *key) {
         assert(s);
         assert(key);
 
-        if (s->protocol == DNS_PROTOCOL_DNS)
-                return true;
+        /* Check if it makes sense to resolve the specified key on
+         * this scope. Note that this call assumes as fully qualified
+         * name, i.e. the search suffixes already appended. */
+
+        if (s->protocol == DNS_PROTOCOL_DNS) {
+
+                /* On classic DNS, lookin up non-address RRs is always
+                 * fine. (Specifically, we want to permit looking up
+                 * DNSKEY and DS records on the root and top-level
+                 * domains.) */
+                if (!dns_resource_key_is_address(key))
+                        return true;
+
+                /* However, we refuse to look up A and AAAA RRs on the
+                 * root and single-label domains, under the assumption
+                 * that those should be resolved via LLMNR or search
+                 * path only, and should not be leaked onto the
+                 * internet. */
+                return !(dns_name_is_single_label(DNS_RESOURCE_KEY_NAME(key)) ||
+                         dns_name_is_root(DNS_RESOURCE_KEY_NAME(key)));
+        }
 
         /* On mDNS and LLMNR, send A and AAAA queries only on the
          * respective scopes */
@@ -910,34 +929,13 @@ void dns_scope_dump(DnsScope *s, FILE *f) {
 DnsSearchDomain *dns_scope_get_search_domains(DnsScope *s) {
         assert(s);
 
-        /* Returns the list of *local* search domains -- not the
-         * global ones. */
-
         if (s->protocol != DNS_PROTOCOL_DNS)
                 return NULL;
 
         if (s->link)
                 return s->link->search_domains;
 
-        return NULL;
-}
-
-bool dns_scope_has_search_domains(DnsScope *s) {
-        assert(s);
-
-        /* Tests if there are *any* search domains suitable for this
-         * scope. This means either local or global ones */
-
-        if (s->protocol != DNS_PROTOCOL_DNS)
-                return false;
-
-        if (s->manager->search_domains)
-                return true;
-
-        if (s->link && s->link->search_domains)
-                return true;
-
-        return false;
+        return s->manager->search_domains;
 }
 
 bool dns_scope_name_needs_search_domain(DnsScope *s, const char *name) {

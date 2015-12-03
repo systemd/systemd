@@ -157,6 +157,14 @@ DnsResourceKey* dns_resource_key_unref(DnsResourceKey *k) {
         return NULL;
 }
 
+bool dns_resource_key_is_address(const DnsResourceKey *key) {
+        assert(key);
+
+        /* Check if this is an A or AAAA resource key */
+
+        return key->class == DNS_CLASS_IN && IN_SET(key->type, DNS_TYPE_A, DNS_TYPE_AAAA);
+}
+
 int dns_resource_key_equal(const DnsResourceKey *a, const DnsResourceKey *b) {
         int r;
 
