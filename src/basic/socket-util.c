@@ -870,28 +870,32 @@ int getpeersec(int fd, char **ret) {
         return 0;
 }
 
-int send_one_fd(int transport_fd, int fd, int flags) {
+int send_one_fd_mh(int transport_fd, int fd, struct msghdr *mh, int flags) {
+        /* this mangles *mh, iff mh != NULL */
+
         union {
                 struct cmsghdr cmsghdr;
                 uint8_t buf[CMSG_SPACE(sizeof(int))];
         } control = {};
-        struct msghdr mh = {
-                .msg_control = &control,
-                .msg_controllen = sizeof(control),
-        };
         struct cmsghdr *cmsg;
+
+        if (mh == NULL)
+                mh = alloca0(sizeof(struct msghdr));
+
+        mh->msg_control = &control;
+        mh->msg_controllen = sizeof(control);
 
         assert(transport_fd >= 0);
         assert(fd >= 0);
 
-        cmsg = CMSG_FIRSTHDR(&mh);
+        cmsg = CMSG_FIRSTHDR(mh);
         cmsg->cmsg_level = SOL_SOCKET;
         cmsg->cmsg_type = SCM_RIGHTS;
         cmsg->cmsg_len = CMSG_LEN(sizeof(int));
         memcpy(CMSG_DATA(cmsg), &fd, sizeof(int));
 
-        mh.msg_controllen = CMSG_SPACE(sizeof(int));
-        if (sendmsg(transport_fd, &mh, MSG_NOSIGNAL | flags) < 0)
+        mh->msg_controllen = CMSG_SPACE(sizeof(int));
+        if (sendmsg(transport_fd, mh, MSG_NOSIGNAL | flags) < 0)
                 return -errno;
 
         return 0;
