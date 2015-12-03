@@ -548,7 +548,7 @@ static DnsCacheItem *dns_cache_get_by_key_follow_cname_dname_nsec(DnsCache *c, D
          * much, after all this is just a cache */
 
         i = hashmap_get(c->by_key, k);
-        if (i || IN_SET(k->type, DNS_TYPE_CNAME, DNS_TYPE_DNAME, DNS_TYPE_NSEC))
+        if (i)
                 return i;
 
         n = DNS_RESOURCE_KEY_NAME(k);
@@ -559,31 +559,39 @@ static DnsCacheItem *dns_cache_get_by_key_follow_cname_dname_nsec(DnsCache *c, D
         if (i && i->type == DNS_CACHE_NXDOMAIN)
                 return i;
 
-        /* Check if we have an NSEC record instead for the name. */
-        i = hashmap_get(c->by_key, &DNS_RESOURCE_KEY_CONST(k->class, DNS_TYPE_NSEC, n));
-        if (i)
-                return i;
-
-        /* Check if we have a CNAME record instead */
-        i = hashmap_get(c->by_key, &DNS_RESOURCE_KEY_CONST(k->class, DNS_TYPE_CNAME, n));
-        if (i)
-                return i;
-
-        /* OK, let's look for cached DNAME records. */
-        for (;;) {
-                char label[DNS_LABEL_MAX];
-
-                if (isempty(n))
-                        return NULL;
-
-                i = hashmap_get(c->by_key, &DNS_RESOURCE_KEY_CONST(k->class, DNS_TYPE_DNAME, n));
+        /* The following record types should never be redirected. See
+         * <https://tools.ietf.org/html/rfc4035#section-2.5>. */
+        if (!IN_SET(k->type, DNS_TYPE_CNAME, DNS_TYPE_DNAME,
+                            DNS_TYPE_NSEC3, DNS_TYPE_NSEC, DNS_TYPE_RRSIG,
+                            DNS_TYPE_NXT, DNS_TYPE_SIG, DNS_TYPE_KEY)) {
+                /* Check if we have a CNAME record instead */
+                i = hashmap_get(c->by_key, &DNS_RESOURCE_KEY_CONST(k->class, DNS_TYPE_CNAME, n));
                 if (i)
                         return i;
 
-                /* Jump one label ahead */
-                r = dns_label_unescape(&n, label, sizeof(label));
-                if (r <= 0)
-                        return NULL;
+                /* OK, let's look for cached DNAME records. */
+                for (;;) {
+                        char label[DNS_LABEL_MAX];
+
+                        if (isempty(n))
+                                return NULL;
+
+                        i = hashmap_get(c->by_key, &DNS_RESOURCE_KEY_CONST(k->class, DNS_TYPE_DNAME, n));
+                        if (i)
+                                return i;
+
+                        /* Jump one label ahead */
+                        r = dns_label_unescape(&n, label, sizeof(label));
+                        if (r <= 0)
+                                return NULL;
+                }
+        }
+
+        if (k-> type != DNS_TYPE_NSEC) {
+                /* Check if we have an NSEC record instead for the name. */
+                i = hashmap_get(c->by_key, &DNS_RESOURCE_KEY_CONST(k->class, DNS_TYPE_NSEC, n));
+                if (i)
+                        return i;
         }
 
         return NULL;
