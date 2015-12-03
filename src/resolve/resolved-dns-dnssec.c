@@ -228,7 +228,7 @@ static int dnssec_rrsig_expired(DnsResourceRecord *rrsig, usec_t realtime) {
         inception = rrsig->rrsig.inception * USEC_PER_SEC;
 
         if (inception > expiration)
-                return -EINVAL;
+                return -EKEYREJECTED;
 
         /* Permit a certain amount of clock skew of 10% of the valid time range */
         skew = (expiration - inception) / 10;
