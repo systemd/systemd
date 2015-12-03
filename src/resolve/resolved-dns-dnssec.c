@@ -32,6 +32,20 @@
  * How does the DNSSEC canonical form of a hostname with a label
  * containing a dot look like, the way DNS-SD does it?
  *
+ * TODO:
+ *
+ *   - Iterative validation
+ *   - NSEC proof of non-existance
+ *   - NSEC3 proof of non-existance
+ *   - Trust anchor store
+ *   - wildcard zones
+ *   - multi-label zones
+ *   - cname support
+ *   - DNSSEC bus API extensions
+ *   - global + per-interface DNSSEC setting
+ *   - DSA support
+ *   - EC support?
+ *
  * */
 
 #define VERIFY_RRS_MAX 256
