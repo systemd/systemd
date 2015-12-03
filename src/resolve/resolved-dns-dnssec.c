@@ -25,6 +25,7 @@
 #include "dns-domain.h"
 #include "resolved-dns-dnssec.h"
 #include "resolved-dns-packet.h"
+#include "string-table.h"
 
 /* Open question:
  *
@@ -697,3 +698,10 @@ finish:
         gcry_md_close(md);
         return r;
 }
+
+static const char* const dnssec_mode_table[_DNSSEC_MODE_MAX] = {
+        [DNSSEC_NO] = "no",
+        [DNSSEC_TRUST] = "trust",
+        [DNSSEC_YES] = "yes",
+};
+DEFINE_STRING_TABLE_LOOKUP(dnssec_mode, DnssecMode);

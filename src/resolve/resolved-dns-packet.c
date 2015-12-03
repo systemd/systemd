@@ -65,7 +65,7 @@ int dns_packet_new(DnsPacket **ret, DnsProtocol protocol, size_t mtu) {
         return 0;
 }
 
-int dns_packet_new_query(DnsPacket **ret, DnsProtocol protocol, size_t mtu) {
+int dns_packet_new_query(DnsPacket **ret, DnsProtocol protocol, size_t mtu, bool dnssec_checking_disabled) {
         DnsPacket *p;
         DnsPacketHeader *h;
         int r;
@@ -96,7 +96,7 @@ int dns_packet_new_query(DnsPacket **ret, DnsProtocol protocol, size_t mtu) {
                                                          1 /* rd (ask for recursion) */,
                                                          0 /* ra */,
                                                          0 /* ad */,
-                                                         0 /* cd */,
+                                                         dnssec_checking_disabled /* cd */,
                                                          0 /* rcode */));
 
         *ret = p;

@@ -16,3 +16,4 @@
 #FallbackDNS=@DNS_SERVERS@
 #Domains=
 #LLMNR=yes
+#DNSSEC=no

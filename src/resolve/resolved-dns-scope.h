@@ -26,6 +26,7 @@
 typedef struct DnsScope DnsScope;
 
 #include "resolved-dns-cache.h"
+#include "resolved-dns-dnssec.h"
 #include "resolved-dns-packet.h"
 #include "resolved-dns-server.h"
 #include "resolved-dns-zone.h"
@@ -44,6 +45,7 @@ struct DnsScope {
 
         DnsProtocol protocol;
         int family;
+        DnssecMode dnssec_mode;
 
         Link *link;
 
