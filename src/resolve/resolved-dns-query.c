@@ -430,15 +430,17 @@ static int dns_query_add_candidate(DnsQuery *q, DnsScope *s) {
                 return r;
 
         /* If this a single-label domain on DNS, we might append a suitable search domain first. */
-        r = dns_scope_name_needs_search_domain(s, dns_question_first_name(q->question));
-        if (r < 0)
-                goto fail;
-        if (r > 0) {
-                /* OK, we need a search domain now. Let's find one for this scope */
-
-                r = dns_query_candidate_next_search_domain(c);
-                if (r <= 0) /* if there's no search domain, then we won't add any transaction. */
+        if ((q->flags & SD_RESOLVED_NO_SEARCH) == 0)  {
+                r = dns_scope_name_needs_search_domain(s, dns_question_first_name(q->question));
+                if (r < 0)
                         goto fail;
+                if (r > 0) {
+                        /* OK, we need a search domain now. Let's find one for this scope */
+
+                        r = dns_query_candidate_next_search_domain(c);
+                        if (r <= 0) /* if there's no search domain, then we won't add any transaction. */
+                                goto fail;
+                }
         }
 
         r = dns_query_candidate_setup_transactions(c);
