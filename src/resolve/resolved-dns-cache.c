@@ -443,8 +443,17 @@ int dns_cache_put(
                 dns_cache_remove(c, key);
         }
 
-        if (!answer)
+        if (!answer) {
+                _cleanup_free_ char *key_str = NULL;
+
+                r = dns_resource_key_to_string(key, &key_str);
+                if (r < 0)
+                        return r;
+
+                log_debug("Not caching negative entry without a SOA record: %s", key_str);
+
                 return 0;
+        }
 
         for (i = 0; i < answer->n_rrs; i++)
                 dns_cache_remove(c, answer->items[i].rr->key);
