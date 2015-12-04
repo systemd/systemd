@@ -80,7 +80,7 @@ void dns_packet_set_flags(DnsPacket *p, bool dnssec_checking_disabled, bool trun
                 h->flags = htobe16(DNS_PACKET_MAKE_FLAGS(0 /* qr */,
                                                          0 /* opcode */,
                                                          0 /* c */,
-                                                         0/* tc */,
+                                                         0 /* tc */,
                                                          0 /* t */,
                                                          0 /* ra */,
                                                          0 /* ad */,
@@ -1848,7 +1848,7 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
         case DNS_TYPE_NSEC: {
 
                 /*
-                 * RFC6762, section 18.14 explicly states mDNS should use name compression.
+                 * RFC6762, section 18.14 explictly states mDNS should use name compression.
                  * This contradicts RFC3845, section 2.1.1
                  */
 
