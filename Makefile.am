@@ -4816,9 +4816,6 @@ systemd_timesyncd_SOURCES = \
 nodist_systemd_timesyncd_SOURCES = \
 	src/timesync/timesyncd-gperf.c
 
-gperf_gperf_sources += \
-	src/timesync/timesyncd-gperf.gperf
-
 systemd_timesyncd_LDADD = \
 	libsystemd-network.la \
 	libshared.la
@@ -4832,15 +4829,18 @@ nodist_systemunit_DATA += \
 GENERAL_ALIASES += \
 	$(systemunitdir)/systemd-timesyncd.service $(pkgsysconfdir)/system/sysinit.target.wants/systemd-timesyncd.service
 
-EXTRA_DIST += \
-	units/systemd-timesyncd.service.in
 
 nodist_pkgsysconf_DATA += \
 	src/timesync/timesyncd.conf
 
-EXTRA_DIST += \
-	src/timesync/timesyncd.conf.in
 endif
+
+gperf_gperf_sources += \
+	src/timesync/timesyncd-gperf.gperf
+
+EXTRA_DIST += \
+	units/systemd-timesyncd.service.in \
+	src/timesync/timesyncd.conf.in
 
 # ------------------------------------------------------------------------------
 if HAVE_MYHOSTNAME
@@ -5467,10 +5467,11 @@ SYSTEM_UNIT_ALIASES += \
 BUSNAMES_TARGET_WANTS += \
 	org.freedesktop.network1.busname
 
+endif
+
 gperf_gperf_sources += \
 	src/network/networkd-network-gperf.gperf \
 	src/network/networkd-netdev-gperf.gperf
-endif
 
 EXTRA_DIST += \
 	units/systemd-networkd.service.m4.in \
