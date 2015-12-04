@@ -151,19 +151,6 @@ int dns_answer_contains(DnsAnswer *a, DnsResourceKey *key) {
         return 0;
 }
 
-int dns_answer_match_soa(DnsResourceKey *key, DnsResourceKey *soa) {
-        if (soa->class != DNS_CLASS_IN)
-                return 0;
-
-        if (soa->type != DNS_TYPE_SOA)
-                return 0;
-
-        if (!dns_name_endswith(DNS_RESOURCE_KEY_NAME(key), DNS_RESOURCE_KEY_NAME(soa)))
-                return 0;
-
-        return 1;
-}
-
 int dns_answer_find_soa(DnsAnswer *a, DnsResourceKey *key, DnsResourceRecord **ret) {
         unsigned i;
 
@@ -179,7 +166,13 @@ int dns_answer_find_soa(DnsAnswer *a, DnsResourceKey *key, DnsResourceRecord **r
 
         for (i = 0; i < a->n_rrs; i++) {
 
-                if (dns_answer_match_soa(key, a->items[i].rr->key)) {
+                if (a->items[i].rr->key->class != DNS_CLASS_IN)
+                        continue;
+
+                if (a->items[i].rr->key->type != DNS_TYPE_SOA)
+                        continue;
+
+                if (dns_name_endswith(DNS_RESOURCE_KEY_NAME(key), DNS_RESOURCE_KEY_NAME(a->items[i].rr->key))) {
                         *ret = a->items[i].rr;
                         return 1;
                 }
