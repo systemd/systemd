@@ -368,6 +368,7 @@ static int delete_dm(dev_t devnum) {
 
 static int mount_points_list_umount(MountPoint **head, bool *changed, bool log_error) {
         MountPoint *m, *n;
+        bool check_path;
         int n_failed = 0;
 
         assert(head);
@@ -410,12 +411,12 @@ static int mount_points_list_umount(MountPoint **head, bool *changed, bool log_e
                 /* Skip / and /usr since we cannot unmount that
                  * anyway, since we are running from it. They have
                  * already been remounted ro. */
-                if (path_equal(m->path, "/")
+                check_path = path_equal(m->path, "/");
 #ifndef HAVE_SPLIT_USR
-                    || path_equal(m->path, "/usr")
+                check_path = (check_path || path_equal(m->path, "/usr"));
 #endif
-                )
-                        continue;
+                if (check_path)
+                   continue;
 
                 /* Trying to umount. We don't force here since we rely
                  * on busy NFS and FUSE file systems to return EBUSY
