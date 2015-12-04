@@ -182,6 +182,7 @@
 /test-dhcp-server
 /test-dhcp6-client
 /test-dns-domain
+/test-dnssec
 /test-efi-disk.img
 /test-ellipsize
 /test-engine
