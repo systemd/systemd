@@ -234,6 +234,41 @@ int config_parse_support(
         return 0;
 }
 
+int config_parse_dnssec(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Manager *m = data;
+        DnssecMode mode;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        mode = dnssec_mode_from_string(rvalue);
+        if (mode < 0) {
+                r = parse_boolean(rvalue);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse DNSSEC mode '%s'. Ignoring.", rvalue);
+                        return 0;
+                }
+
+                mode = r ? DNSSEC_YES : DNSSEC_NO;
+        }
+
+        m->unicast_scope->dnssec_mode = mode;
+        return 0;
+}
+
 int manager_parse_config_file(Manager *m) {
         int r;
 

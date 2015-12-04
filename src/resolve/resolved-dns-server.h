@@ -61,10 +61,11 @@ struct DnsServer {
         int family;
         union in_addr_union address;
 
+        bool marked:1;
+
         usec_t resend_timeout;
         usec_t max_rtt;
 
-        bool marked:1;
         DnsServerFeatureLevel verified_features;
         DnsServerFeatureLevel possible_features;
         size_t received_udp_packet_max;

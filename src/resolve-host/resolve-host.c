@@ -67,6 +67,8 @@ static void print_source(uint64_t flags, usec_t rtt) {
 
         fputc('.', stdout);
         fputc('\n', stdout);
+
+        printf("-- Data is authenticated: %s\n", yes_no(flags & SD_RESOLVED_AUTHENTICATED));
 }
 
 static int resolve_host(sd_bus *bus, const char *name) {

@@ -75,6 +75,7 @@ struct DnsQuery {
         DnsProtocol answer_protocol;
         int answer_family;
         DnsSearchDomain *answer_search_domain;
+        bool answer_authenticated;
 
         /* Bus client information */
         sd_bus_message *request;

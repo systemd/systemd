@@ -25,16 +25,33 @@
 #include "dns-domain.h"
 #include "resolved-dns-dnssec.h"
 #include "resolved-dns-packet.h"
+#include "string-table.h"
 
 /* Open question:
  *
  * How does the DNSSEC canonical form of a hostname with a label
  * containing a dot look like, the way DNS-SD does it?
  *
+ * TODO:
+ *
+ *   - Iterative validation
+ *   - NSEC proof of non-existance
+ *   - NSEC3 proof of non-existance
+ *   - Make trust anchor store read additional DS+DNSKEY data from disk
+ *   - wildcard zones compatibility
+ *   - multi-label zone compatibility
+ *   - DMSSEC cname/dname compatibility
+ *   - per-interface DNSSEC setting
+ *   - DSA support
+ *   - EC support?
+ *
  * */
 
 #define VERIFY_RRS_MAX 256
 #define MAX_KEY_SIZE (32*1024)
+
+/* Permit a maximum clock skew of 1h 10min. This should be enough to deal with DST confusion */
+#define SKEW_MAX (1*USEC_PER_HOUR + 10*USEC_PER_MINUTE)
 
 /*
  * The DNSSEC Chain of trust:
@@ -228,10 +245,14 @@ static int dnssec_rrsig_expired(DnsResourceRecord *rrsig, usec_t realtime) {
         inception = rrsig->rrsig.inception * USEC_PER_SEC;
 
         if (inception > expiration)
-                return -EINVAL;
+                return -EKEYREJECTED;
 
-        /* Permit a certain amount of clock skew of 10% of the valid time range */
+        /* Permit a certain amount of clock skew of 10% of the valid
+         * time range. This takes inspiration from unbound's
+         * resolver. */
         skew = (expiration - inception) / 10;
+        if (skew > SKEW_MAX)
+                skew = SKEW_MAX;
 
         if (inception < skew)
                 inception = 0;
@@ -690,3 +711,10 @@ finish:
         gcry_md_close(md);
         return r;
 }
+
+static const char* const dnssec_mode_table[_DNSSEC_MODE_MAX] = {
+        [DNSSEC_NO] = "no",
+        [DNSSEC_TRUST] = "trust",
+        [DNSSEC_YES] = "yes",
+};
+DEFINE_STRING_TABLE_LOOKUP(dnssec_mode, DnssecMode);

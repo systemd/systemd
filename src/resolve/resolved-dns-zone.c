@@ -163,7 +163,6 @@ static int dns_zone_link_item(DnsZone *z, DnsZoneItem *i) {
 }
 
 static int dns_zone_item_probe_start(DnsZoneItem *i)  {
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
         DnsTransaction *t;
         int r;
 
@@ -172,12 +171,14 @@ static int dns_zone_item_probe_start(DnsZoneItem *i)  {
         if (i->probe_transaction)
                 return 0;
 
-        key = dns_resource_key_new(i->rr->key->class, DNS_TYPE_ANY, DNS_RESOURCE_KEY_NAME(i->rr->key));
-        if (!key)
-                return -ENOMEM;
-
-        t = dns_scope_find_transaction(i->scope, key, false);
+        t = dns_scope_find_transaction(i->scope, &DNS_RESOURCE_KEY_CONST(i->rr->key->class, DNS_TYPE_ANY, DNS_RESOURCE_KEY_NAME(i->rr->key)), false);
         if (!t) {
+                _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+
+                key = dns_resource_key_new(i->rr->key->class, DNS_TYPE_ANY, DNS_RESOURCE_KEY_NAME(i->rr->key));
+                if (!key)
+                        return -ENOMEM;
+
                 r = dns_transaction_new(&t, i->scope, key);
                 if (r < 0)
                         return r;

@@ -430,15 +430,17 @@ static int dns_query_add_candidate(DnsQuery *q, DnsScope *s) {
                 return r;
 
         /* If this a single-label domain on DNS, we might append a suitable search domain first. */
-        r = dns_scope_name_needs_search_domain(s, dns_question_first_name(q->question));
-        if (r < 0)
-                goto fail;
-        if (r > 0) {
-                /* OK, we need a search domain now. Let's find one for this scope */
-
-                r = dns_query_candidate_next_search_domain(c);
-                if (r <= 0) /* if there's no search domain, then we won't add any transaction. */
+        if ((q->flags & SD_RESOLVED_NO_SEARCH) == 0)  {
+                r = dns_scope_name_needs_search_domain(s, dns_question_first_name(q->question));
+                if (r < 0)
                         goto fail;
+                if (r > 0) {
+                        /* OK, we need a search domain now. Let's find one for this scope */
+
+                        r = dns_query_candidate_next_search_domain(c);
+                        if (r <= 0) /* if there's no search domain, then we won't add any transaction. */
+                                goto fail;
+                }
         }
 
         r = dns_query_candidate_setup_transactions(c);
@@ -970,6 +972,7 @@ static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
         DnsTransactionState state = DNS_TRANSACTION_NO_SERVERS;
         DnsTransaction *t;
         Iterator i;
+        bool has_authenticated = false, has_non_authenticated = false;
 
         assert(q);
 
@@ -996,6 +999,11 @@ static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
                         dns_answer_unref(q->answer);
                         q->answer = merged;
                         q->answer_rcode = t->answer_rcode;
+
+                        if (t->answer_authenticated)
+                                has_authenticated = true;
+                        else
+                                has_non_authenticated = true;
 
                         state = DNS_TRANSACTION_SUCCESS;
                         break;
@@ -1026,6 +1034,7 @@ static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
 
         q->answer_protocol = c->scope->protocol;
         q->answer_family = c->scope->family;
+        q->answer_authenticated = has_authenticated && !has_non_authenticated;
 
         dns_search_domain_unref(q->answer_search_domain);
         q->answer_search_domain = dns_search_domain_ref(c->search_domain);

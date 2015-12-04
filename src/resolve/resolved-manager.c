@@ -478,6 +478,10 @@ int manager_new(Manager **ret) {
         m->read_resolv_conf = true;
         m->need_builtin_fallbacks = true;
 
+        r = dns_trust_anchor_load(&m->trust_anchor);
+        if (r < 0)
+                return r;
+
         r = sd_event_default(&m->event);
         if (r < 0)
                 return r;
@@ -571,6 +575,8 @@ Manager *manager_free(Manager *m) {
         safe_close(m->hostname_fd);
         free(m->llmnr_hostname);
         free(m->mdns_hostname);
+
+        dns_trust_anchor_flush(&m->trust_anchor);
 
         free(m);
 

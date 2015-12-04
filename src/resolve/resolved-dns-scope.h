@@ -26,6 +26,7 @@
 typedef struct DnsScope DnsScope;
 
 #include "resolved-dns-cache.h"
+#include "resolved-dns-dnssec.h"
 #include "resolved-dns-packet.h"
 #include "resolved-dns-server.h"
 #include "resolved-dns-zone.h"
@@ -44,6 +45,7 @@ struct DnsScope {
 
         DnsProtocol protocol;
         int family;
+        DnssecMode dnssec_mode;
 
         Link *link;
 
@@ -102,6 +104,5 @@ void dns_scope_check_conflicts(DnsScope *scope, DnsPacket *p);
 void dns_scope_dump(DnsScope *s, FILE *f);
 
 DnsSearchDomain *dns_scope_get_search_domains(DnsScope *s);
-bool dns_scope_has_search_domains(DnsScope *s);
 
 bool dns_scope_name_needs_search_domain(DnsScope *s, const char *name);

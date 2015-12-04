@@ -51,12 +51,6 @@ DnsResourceKey* dns_resource_key_new(uint16_t class, uint16_t type, const char *
         return k;
 }
 
-DnsResourceKey* dns_resource_key_new_cname(const DnsResourceKey *key) {
-        assert(key);
-
-        return dns_resource_key_new(key->class, DNS_TYPE_CNAME, DNS_RESOURCE_KEY_NAME(key));
-}
-
 DnsResourceKey* dns_resource_key_new_redirect(const DnsResourceKey *key, const DnsResourceRecord *cname) {
         int r;
 
@@ -137,6 +131,10 @@ DnsResourceKey* dns_resource_key_ref(DnsResourceKey *k) {
         if (!k)
                 return NULL;
 
+        /* Static/const keys created with DNS_RESOURCE_KEY_CONST will
+         * set this to -1, they should not be reffed/unreffed */
+        assert(k->n_ref != (unsigned) -1);
+
         assert(k->n_ref > 0);
         k->n_ref++;
 
@@ -147,6 +145,7 @@ DnsResourceKey* dns_resource_key_unref(DnsResourceKey *k) {
         if (!k)
                 return NULL;
 
+        assert(k->n_ref != (unsigned) -1);
         assert(k->n_ref > 0);
 
         if (k->n_ref == 1) {
@@ -156,6 +155,14 @@ DnsResourceKey* dns_resource_key_unref(DnsResourceKey *k) {
                 k->n_ref--;
 
         return NULL;
+}
+
+bool dns_resource_key_is_address(const DnsResourceKey *key) {
+        assert(key);
+
+        /* Check if this is an A or AAAA resource key */
+
+        return key->class == DNS_CLASS_IN && IN_SET(key->type, DNS_TYPE_A, DNS_TYPE_AAAA);
 }
 
 int dns_resource_key_equal(const DnsResourceKey *a, const DnsResourceKey *b) {

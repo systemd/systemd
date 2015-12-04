@@ -5,7 +5,7 @@
 /***
   This file is part of systemd.
 
-  Copyright 2014 Lennart Poettering
+  Copyright 2015 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -21,14 +21,19 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#define SD_RESOLVED_DNS           (UINT64_C(1) << 0)
-#define SD_RESOLVED_LLMNR_IPV4    (UINT64_C(1) << 1)
-#define SD_RESOLVED_LLMNR_IPV6    (UINT64_C(1) << 2)
-#define SD_RESOLVED_NO_CNAME      (UINT64_C(1) << 5)
-#define SD_RESOLVED_NO_TXT        (UINT64_C(1) << 6)
-#define SD_RESOLVED_NO_ADDRESS    (UINT64_C(1) << 7)
-#define SD_RESOLVED_NO_SEARCH     (UINT64_C(1) << 8)
-#define SD_RESOLVED_AUTHENTICATED (UINT64_C(1) << 9)
+typedef struct DnsTrustAnchor DnsTrustAnchor;
 
-#define SD_RESOLVED_LLMNR         (SD_RESOLVED_LLMNR_IPV4|SD_RESOLVED_LLMNR_IPV6)
-#define SD_RESOLVED_PROTOCOLS_ALL (SD_RESOLVED_LLMNR|SD_RESOLVED_DNS)
+#include "hashmap.h"
+#include "resolved-dns-answer.h"
+#include "resolved-dns-rr.h"
+
+/* This contains a fixed database mapping domain names to DS or DNSKEY records. */
+
+struct DnsTrustAnchor {
+        Hashmap *by_key;
+};
+
+int dns_trust_anchor_load(DnsTrustAnchor *d);
+void dns_trust_anchor_flush(DnsTrustAnchor *d);
+
+int dns_trust_anchor_lookup(DnsTrustAnchor *d, DnsResourceKey* key, DnsAnswer **answer);

@@ -44,6 +44,7 @@ enum DnsTransactionSource {
         DNS_TRANSACTION_NETWORK,
         DNS_TRANSACTION_CACHE,
         DNS_TRANSACTION_ZONE,
+        DNS_TRANSACTION_TRUST_ANCHOR,
         _DNS_TRANSACTION_SOURCE_MAX,
         _DNS_TRANSACTION_SOURCE_INVALID = -1
 };
@@ -68,6 +69,7 @@ struct DnsTransaction {
         DnsAnswer *answer;
         int answer_rcode;
         DnsTransactionSource answer_source;
+        bool answer_authenticated;
 
         usec_t start_usec;
         sd_event_source *timeout_event_source;

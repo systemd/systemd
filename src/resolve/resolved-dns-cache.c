@@ -46,6 +46,7 @@ struct DnsCacheItem {
         usec_t until;
         DnsCacheItemType type;
         unsigned prioq_idx;
+        bool authenticated;
         int owner_family;
         union in_addr_union owner_address;
         LIST_FIELDS(DnsCacheItem, by_key);
@@ -237,7 +238,7 @@ static DnsCacheItem* dns_cache_get(DnsCache *c, DnsResourceRecord *rr) {
         return NULL;
 }
 
-static void dns_cache_item_update_positive(DnsCache *c, DnsCacheItem *i, DnsResourceRecord *rr, usec_t timestamp) {
+static void dns_cache_item_update_positive(DnsCache *c, DnsCacheItem *i, DnsResourceRecord *rr, bool authenticated, usec_t timestamp) {
         assert(c);
         assert(i);
         assert(rr);
@@ -257,6 +258,7 @@ static void dns_cache_item_update_positive(DnsCache *c, DnsCacheItem *i, DnsReso
         dns_resource_key_unref(i->key);
         i->key = dns_resource_key_ref(rr->key);
 
+        i->authenticated = authenticated;
         i->until = timestamp + MIN(rr->ttl * USEC_PER_SEC, CACHE_TTL_MAX_USEC);
 
         prioq_reshuffle(c->by_expiry, i, &i->prioq_idx);
@@ -265,6 +267,7 @@ static void dns_cache_item_update_positive(DnsCache *c, DnsCacheItem *i, DnsReso
 static int dns_cache_put_positive(
                 DnsCache *c,
                 DnsResourceRecord *rr,
+                bool authenticated,
                 usec_t timestamp,
                 int owner_family,
                 const union in_addr_union *owner_address) {
@@ -300,7 +303,7 @@ static int dns_cache_put_positive(
         /* Entry exists already? Update TTL and timestamp */
         existing = dns_cache_get(c, rr);
         if (existing) {
-                dns_cache_item_update_positive(c, existing, rr, timestamp);
+                dns_cache_item_update_positive(c, existing, rr, authenticated, timestamp);
                 return 0;
         }
 
@@ -322,6 +325,7 @@ static int dns_cache_put_positive(
         i->prioq_idx = PRIOQ_IDX_NULL;
         i->owner_family = owner_family;
         i->owner_address = *owner_address;
+        i->authenticated = authenticated;
 
         r = dns_cache_link_item(c, i);
         if (r < 0)
@@ -341,6 +345,7 @@ static int dns_cache_put_negative(
                 DnsCache *c,
                 DnsResourceKey *key,
                 int rcode,
+                bool authenticated,
                 usec_t timestamp,
                 uint32_t soa_ttl,
                 int owner_family,
@@ -389,6 +394,7 @@ static int dns_cache_put_negative(
         i->prioq_idx = PRIOQ_IDX_NULL;
         i->owner_family = owner_family;
         i->owner_address = *owner_address;
+        i->authenticated = authenticated;
 
         r = dns_cache_link_item(c, i);
         if (r < 0)
@@ -410,6 +416,7 @@ int dns_cache_put(
                 int rcode,
                 DnsAnswer *answer,
                 unsigned max_rrs,
+                bool authenticated,
                 usec_t timestamp,
                 int owner_family,
                 const union in_addr_union *owner_address) {
@@ -452,7 +459,7 @@ int dns_cache_put(
 
         /* Second, add in positive entries for all contained RRs */
         for (i = 0; i < MIN(max_rrs, answer->n_rrs); i++) {
-                r = dns_cache_put_positive(c, answer->items[i].rr, timestamp, owner_family, owner_address);
+                r = dns_cache_put_positive(c, answer->items[i].rr, authenticated, timestamp, owner_family, owner_address);
                 if (r < 0)
                         goto fail;
         }
@@ -496,13 +503,13 @@ int dns_cache_put(
                         if (!dns_answer_match_soa(canonical_key, soa->key))
                                 continue;
 
-                        r = dns_cache_put_negative(c, canonical_key, rcode, timestamp, MIN(soa->soa.minimum, soa->ttl), owner_family, owner_address);
+                        r = dns_cache_put_negative(c, canonical_key, rcode, authenticated, timestamp, MIN(soa->soa.minimum, soa->ttl), owner_family, owner_address);
                         if (r < 0)
                                 goto fail;
                 }
         }
 
-        r = dns_cache_put_negative(c, key, rcode, timestamp, MIN(soa->soa.minimum, soa->ttl), owner_family, owner_address);
+        r = dns_cache_put_negative(c, key, rcode, authenticated, timestamp, MIN(soa->soa.minimum, soa->ttl), owner_family, owner_address);
         if (r < 0)
                 goto fail;
 
@@ -522,7 +529,6 @@ fail:
 }
 
 static DnsCacheItem *dns_cache_get_by_key_follow_cname_dname_nsec(DnsCache *c, DnsResourceKey *k) {
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *nsec_key = NULL, *cname_key = NULL;
         DnsCacheItem *i;
         const char *n;
         int r;
@@ -540,35 +546,23 @@ static DnsCacheItem *dns_cache_get_by_key_follow_cname_dname_nsec(DnsCache *c, D
         n = DNS_RESOURCE_KEY_NAME(k);
 
         /* Check if we have an NSEC record instead for the name. */
-        nsec_key = dns_resource_key_new(k->class, DNS_TYPE_NSEC, n);
-        if (!nsec_key)
-                return NULL;
-
-        i = hashmap_get(c->by_key, nsec_key);
+        i = hashmap_get(c->by_key, &DNS_RESOURCE_KEY_CONST(k->class, DNS_TYPE_NSEC, n));
         if (i)
                 return i;
 
         /* Check if we have a CNAME record instead */
-        cname_key = dns_resource_key_new_cname(k);
-        if (!cname_key)
-                return NULL;
-        i = hashmap_get(c->by_key, cname_key);
+        i = hashmap_get(c->by_key, &DNS_RESOURCE_KEY_CONST(k->class, DNS_TYPE_CNAME, n));
         if (i)
                 return i;
 
         /* OK, let's look for cached DNAME records. */
         for (;;) {
-                _cleanup_(dns_resource_key_unrefp) DnsResourceKey *dname_key = NULL;
                 char label[DNS_LABEL_MAX];
 
                 if (isempty(n))
                         return NULL;
 
-                dname_key = dns_resource_key_new(k->class, DNS_TYPE_DNAME, n);
-                if (!dname_key)
-                        return NULL;
-
-                i = hashmap_get(c->by_key, dname_key);
+                i = hashmap_get(c->by_key, &DNS_RESOURCE_KEY_CONST(k->class, DNS_TYPE_DNAME, n));
                 if (i)
                         return i;
 
@@ -581,24 +575,26 @@ static DnsCacheItem *dns_cache_get_by_key_follow_cname_dname_nsec(DnsCache *c, D
         return NULL;
 }
 
-int dns_cache_lookup(DnsCache *c, DnsResourceKey *key, int *rcode, DnsAnswer **ret) {
+int dns_cache_lookup(DnsCache *c, DnsResourceKey *key, int *rcode, DnsAnswer **ret, bool *authenticated) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
         unsigned n = 0;
         int r;
         bool nxdomain = false;
         _cleanup_free_ char *key_str = NULL;
-        DnsResourceRecord *nsec = NULL;
-        DnsCacheItem *j, *first;
+        DnsCacheItem *j, *first, *nsec = NULL;
+        bool have_authenticated = false, have_non_authenticated = false;
 
         assert(c);
         assert(key);
         assert(rcode);
         assert(ret);
+        assert(authenticated);
 
         if (key->type == DNS_TYPE_ANY ||
             key->class == DNS_CLASS_ANY) {
 
-                /* If we have ANY lookups we simply refresh */
+                /* If we have ANY lookups we don't use the cache, so
+                 * that the caller refreshes via the network. */
 
                 r = dns_resource_key_to_string(key, &key_str);
                 if (r < 0)
@@ -629,10 +625,16 @@ int dns_cache_lookup(DnsCache *c, DnsResourceKey *key, int *rcode, DnsAnswer **r
         LIST_FOREACH(by_key, j, first) {
                 if (j->rr) {
                         if (j->rr->key->type == DNS_TYPE_NSEC)
-                                nsec = j->rr;
+                                nsec = j;
+
                         n++;
                 } else if (j->type == DNS_CACHE_NXDOMAIN)
                         nxdomain = true;
+
+                if (j->authenticated)
+                        have_authenticated = true;
+                else
+                        have_non_authenticated = true;
         }
 
         r = dns_resource_key_to_string(key, &key_str);
@@ -648,8 +650,11 @@ int dns_cache_lookup(DnsCache *c, DnsResourceKey *key, int *rcode, DnsAnswer **r
 
                 *ret = NULL;
                 *rcode = DNS_RCODE_SUCCESS;
+                *authenticated = nsec->authenticated;
 
-                return !bitmap_isset(nsec->nsec.types, key->type);
+                return !bitmap_isset(nsec->rr->nsec.types, key->type) &&
+                       !bitmap_isset(nsec->rr->nsec.types, DNS_TYPE_CNAME) &&
+                       !bitmap_isset(nsec->rr->nsec.types, DNS_TYPE_DNAME);
         }
 
         log_debug("%s cache hit for %s",
@@ -660,6 +665,7 @@ int dns_cache_lookup(DnsCache *c, DnsResourceKey *key, int *rcode, DnsAnswer **r
         if (n <= 0) {
                 *ret = NULL;
                 *rcode = nxdomain ? DNS_RCODE_NXDOMAIN : DNS_RCODE_SUCCESS;
+                *authenticated = have_authenticated && !have_non_authenticated;
                 return 1;
         }
 
@@ -678,6 +684,7 @@ int dns_cache_lookup(DnsCache *c, DnsResourceKey *key, int *rcode, DnsAnswer **r
 
         *ret = answer;
         *rcode = DNS_RCODE_SUCCESS;
+        *authenticated = have_authenticated && !have_non_authenticated;
         answer = NULL;
 
         return n;

@@ -21,9 +21,25 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+typedef enum DnssecMode DnssecMode;
+
 #include "dns-domain.h"
 #include "resolved-dns-answer.h"
 #include "resolved-dns-rr.h"
+
+enum DnssecMode {
+        /* No DNSSEC validation is done */
+        DNSSEC_NO,
+
+        /* Trust the AD bit sent by the server. UNSAFE! */
+        DNSSEC_TRUST,
+
+        /* Validate locally, if the server knows DO, but if not, don't. Don't trust the AD bit */
+        DNSSEC_YES,
+
+        _DNSSEC_MODE_MAX,
+        _DNSSEC_MODE_INVALID = -1
+};
 
 enum {
         DNSSEC_VERIFIED,
@@ -32,7 +48,6 @@ enum {
         DNSSEC_MISSING_KEY,
         DNSSEC_SIGNATURE_EXPIRED,
 };
-
 
 #define DNSSEC_CANONICAL_HOSTNAME_MAX (DNS_HOSTNAME_MAX + 2)
 
@@ -47,3 +62,6 @@ int dnssec_verify_dnskey(DnsResourceRecord *dnskey, DnsResourceRecord *ds);
 uint16_t dnssec_keytag(DnsResourceRecord *dnskey);
 
 int dnssec_canonicalize(const char *n, char *buffer, size_t buffer_max);
+
+const char* dnssec_mode_to_string(DnssecMode m) _const_;
+DnssecMode dnssec_mode_from_string(const char *s) _pure_;
