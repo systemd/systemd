@@ -569,7 +569,6 @@ int dnssec_verify_rrset_search(
 }
 
 int dnssec_canonicalize(const char *n, char *buffer, size_t buffer_max) {
-        _cleanup_free_ char *s = NULL;
         size_t c = 0;
         int r;
 
