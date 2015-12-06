@@ -21,6 +21,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <stdbool.h>
+#include <sys/types.h>
+
+#include "time-util.h"
 #include "util.h"
 
 #ifdef HAVE_UTMP

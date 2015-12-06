@@ -21,8 +21,12 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <stdbool.h>
+#include <stdint.h>
+
 #include "hashmap.h"
 #include "lockfile-util.h"
+#include "macro.h"
 #include "time-util.h"
 
 typedef enum ImageType {

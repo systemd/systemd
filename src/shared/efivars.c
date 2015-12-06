@@ -19,17 +19,27 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <dirent.h>
+#include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <unistd.h>
+
+#include "sd-id128.h"
 
 #include "alloc-util.h"
 #include "dirent-util.h"
 #include "efivars.h"
 #include "fd-util.h"
 #include "io-util.h"
+#include "macro.h"
 #include "parse-util.h"
 #include "stdio-util.h"
+#include "time-util.h"
 #include "utf8.h"
 #include "util.h"
 #include "virt.h"

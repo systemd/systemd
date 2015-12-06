@@ -21,6 +21,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "hashmap.h"
 #include "macro.h"
 #include "set.h"
 #include "unit-name.h"

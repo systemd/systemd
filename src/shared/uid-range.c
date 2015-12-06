@@ -19,9 +19,13 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <errno.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include "macro.h"
 #include "uid-range.h"
 #include "user-util.h"
-#include "util.h"
 
 static bool uid_range_intersect(UidRange *range, uid_t start, uid_t nr) {
         assert(range);

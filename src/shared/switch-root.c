@@ -21,14 +21,16 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <stdbool.h>
-#include <string.h>
+#include <stdio.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
 #include "base-filesystem.h"
 #include "fd-util.h"
+#include "log.h"
 #include "missing.h"
 #include "mkdir.h"
 #include "path-util.h"

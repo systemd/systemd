@@ -19,9 +19,14 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <alloca.h>
 #include <arpa/inet.h>
+#include <endian.h>
+#include <errno.h>
 #include <net/if.h>
-#include <sys/types.h>
+#include <stddef.h>
+#include <string.h>
+#include <sys/socket.h>
 #include <linux/netfilter_ipv4/ip_tables.h>
 #include <linux/netfilter/nf_nat.h>
 #include <linux/netfilter/xt_addrtype.h>
@@ -29,7 +34,8 @@
 
 #include "alloc-util.h"
 #include "firewall-util.h"
-#include "util.h"
+#include "in-addr-util.h"
+#include "macro.h"
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct xtc_handle*, iptc_free);
 

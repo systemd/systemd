@@ -21,13 +21,22 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <inttypes.h>
+#include <limits.h>
 #include <poll.h>
+#include <signal.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/inotify.h>
 #include <sys/signalfd.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
+#include <sys/time.h>
+#include <sys/uio.h>
 #include <sys/un.h>
 #include <termios.h>
 #include <unistd.h>
@@ -38,6 +47,8 @@
 #include "fileio.h"
 #include "formats-util.h"
 #include "io-util.h"
+#include "log.h"
+#include "macro.h"
 #include "missing.h"
 #include "mkdir.h"
 #include "random-util.h"
@@ -46,6 +57,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "time-util.h"
 #include "umask-util.h"
 #include "util.h"
 

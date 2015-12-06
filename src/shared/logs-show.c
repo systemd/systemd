@@ -21,9 +21,17 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <signal.h>
+#include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <syslog.h>
 #include <time.h>
+#include <unistd.h>
+
+#include "sd-id128.h"
+#include "sd-journal.h"
 
 #include "alloc-util.h"
 #include "fd-util.h"
@@ -34,11 +42,15 @@
 #include "journal-internal.h"
 #include "log.h"
 #include "logs-show.h"
+#include "macro.h"
+#include "output-mode.h"
 #include "parse-util.h"
 #include "process-util.h"
+#include "sparse-endian.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "terminal-util.h"
+#include "time-util.h"
 #include "utf8.h"
 #include "util.h"
 
