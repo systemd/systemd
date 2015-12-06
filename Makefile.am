@@ -1497,7 +1497,8 @@ tests += \
 	test-af-list \
 	test-arphrd-list \
 	test-dns-domain \
-	test-install-root
+	test-install-root \
+	test-rlimit-util
 
 if HAVE_ACL
 tests += \
@@ -1859,6 +1860,12 @@ test_acl_util_LDADD = \
 
 test_namespace_LDADD = \
 	libcore.la
+
+test_rlimit_util_SOURCES = \
+	src/test/test-rlimit-util.c
+
+test_rlimit_util_LDADD = \
+	libshared.la
 
 BUILT_SOURCES += \
 	src/test/test-hashmap-ordered.c
