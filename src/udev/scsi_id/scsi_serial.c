@@ -1,3 +1,5 @@
+/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
+
 /*
  * Copyright (C) IBM Corp. 2003
  *

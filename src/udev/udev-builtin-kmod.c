@@ -1,3 +1,5 @@
+/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
+
 /*
  * load kernel modules
  *
