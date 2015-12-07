@@ -788,6 +788,9 @@ int mount_systemd_cgroup_writable(
         if (path_equal(own_cgroup_path, "/"))
                 return 0;
 
+        if (path_startswith(own_cgroup_path, "/.."))
+                return log_error_errno(EACCES, "Own cgroup unreachable from current cgroup namespace: %m");
+
         if (unified_requested) {
                 systemd_own = strjoina(dest, "/sys/fs/cgroup", own_cgroup_path);
                 systemd_root = prefix_roota(dest, "/sys/fs/cgroup");
