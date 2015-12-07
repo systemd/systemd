@@ -5212,12 +5212,6 @@ nodist_systemd_resolved_SOURCES = \
 	src/resolve/dns_type-to-name.h \
 	src/resolve/resolved-gperf.c
 
-gperf_gperf_sources += \
-	src/resolve/resolved-gperf.gperf
-
-gperf_txt_sources += \
-	src/resolve/dns_type-list.txt
-
 systemd_resolved_LDADD = \
 	libsystemd-network.la \
 	libshared.la
@@ -5316,6 +5310,12 @@ test_dnssec_LDADD = \
 
 endif
 endif
+
+gperf_txt_sources += \
+	src/resolve/dns_type-list.txt
+
+gperf_gperf_sources += \
+	src/resolve/resolved-gperf.gperf
 
 EXTRA_DIST += \
 	units/systemd-resolved.service.m4.in \
