@@ -52,11 +52,11 @@
  * is normally one or some small number of descriptors.
  */
 static const struct scsi_id_search_values id_search_list[] = {
-        { SCSI_ID_TGTGROUP,        SCSI_ID_NAA_DONT_CARE,        SCSI_ID_BINARY },
-        { SCSI_ID_NAA,        SCSI_ID_NAA_IEEE_REG_EXTENDED,        SCSI_ID_BINARY },
-        { SCSI_ID_NAA,        SCSI_ID_NAA_IEEE_REG_EXTENDED,        SCSI_ID_ASCII },
-        { SCSI_ID_NAA,        SCSI_ID_NAA_IEEE_REG,        SCSI_ID_BINARY },
-        { SCSI_ID_NAA,        SCSI_ID_NAA_IEEE_REG,        SCSI_ID_ASCII },
+        { SCSI_ID_TGTGROUP, SCSI_ID_NAA_DONT_CARE,         SCSI_ID_BINARY },
+        { SCSI_ID_NAA,      SCSI_ID_NAA_IEEE_REG_EXTENDED, SCSI_ID_BINARY },
+        { SCSI_ID_NAA,      SCSI_ID_NAA_IEEE_REG_EXTENDED, SCSI_ID_ASCII  },
+        { SCSI_ID_NAA,      SCSI_ID_NAA_IEEE_REG,          SCSI_ID_BINARY },
+        { SCSI_ID_NAA,      SCSI_ID_NAA_IEEE_REG,          SCSI_ID_ASCII  },
         /*
          * Devices already exist using NAA values that are now marked
          * reserved. These should not conflict with other values, or it is
@@ -66,14 +66,14 @@ static const struct scsi_id_search_values id_search_list[] = {
          * non-IEEE descriptors in a random order will get different
          * names.
          */
-        { SCSI_ID_NAA,        SCSI_ID_NAA_DONT_CARE,        SCSI_ID_BINARY },
-        { SCSI_ID_NAA,        SCSI_ID_NAA_DONT_CARE,        SCSI_ID_ASCII },
-        { SCSI_ID_EUI_64,        SCSI_ID_NAA_DONT_CARE,        SCSI_ID_BINARY },
-        { SCSI_ID_EUI_64,        SCSI_ID_NAA_DONT_CARE,        SCSI_ID_ASCII },
-        { SCSI_ID_T10_VENDOR,        SCSI_ID_NAA_DONT_CARE,        SCSI_ID_BINARY },
-        { SCSI_ID_T10_VENDOR,        SCSI_ID_NAA_DONT_CARE,        SCSI_ID_ASCII },
-        { SCSI_ID_VENDOR_SPECIFIC,        SCSI_ID_NAA_DONT_CARE,        SCSI_ID_BINARY },
-        { SCSI_ID_VENDOR_SPECIFIC,        SCSI_ID_NAA_DONT_CARE,        SCSI_ID_ASCII },
+        { SCSI_ID_NAA,             SCSI_ID_NAA_DONT_CARE, SCSI_ID_BINARY },
+        { SCSI_ID_NAA,             SCSI_ID_NAA_DONT_CARE, SCSI_ID_ASCII  },
+        { SCSI_ID_EUI_64,          SCSI_ID_NAA_DONT_CARE, SCSI_ID_BINARY },
+        { SCSI_ID_EUI_64,          SCSI_ID_NAA_DONT_CARE, SCSI_ID_ASCII  },
+        { SCSI_ID_T10_VENDOR,      SCSI_ID_NAA_DONT_CARE, SCSI_ID_BINARY },
+        { SCSI_ID_T10_VENDOR,      SCSI_ID_NAA_DONT_CARE, SCSI_ID_ASCII  },
+        { SCSI_ID_VENDOR_SPECIFIC, SCSI_ID_NAA_DONT_CARE, SCSI_ID_BINARY },
+        { SCSI_ID_VENDOR_SPECIFIC, SCSI_ID_NAA_DONT_CARE, SCSI_ID_ASCII  },
 };
 
 static const char hex_str[]="0123456789abcdef";
@@ -83,21 +83,21 @@ static const char hex_str[]="0123456789abcdef";
  * are used here.
  */
 
-#define DID_NO_CONNECT                        0x01        /* Unable to connect before timeout */
-#define DID_BUS_BUSY                        0x02        /* Bus remain busy until timeout */
-#define DID_TIME_OUT                        0x03        /* Timed out for some other reason */
-#define DRIVER_TIMEOUT                        0x06
-#define DRIVER_SENSE                        0x08        /* Sense_buffer has been set */
+#define DID_NO_CONNECT               0x01        /* Unable to connect before timeout */
+#define DID_BUS_BUSY                 0x02        /* Bus remain busy until timeout */
+#define DID_TIME_OUT                 0x03        /* Timed out for some other reason */
+#define DRIVER_TIMEOUT               0x06
+#define DRIVER_SENSE                 0x08        /* Sense_buffer has been set */
 
 /* The following "category" function returns one of the following */
 #define SG_ERR_CAT_CLEAN                0        /* No errors or other information */
 #define SG_ERR_CAT_MEDIA_CHANGED        1        /* interpreted from sense buffer */
 #define SG_ERR_CAT_RESET                2        /* interpreted from sense buffer */
-#define SG_ERR_CAT_TIMEOUT                3
-#define SG_ERR_CAT_RECOVERED                4        /* Successful command after recovered err */
-#define SG_ERR_CAT_NOTSUPPORTED                5        /* Illegal / unsupported command */
-#define SG_ERR_CAT_SENSE                98        /* Something else in the sense buffer */
-#define SG_ERR_CAT_OTHER                99        /* Some other error/warning */
+#define SG_ERR_CAT_TIMEOUT              3
+#define SG_ERR_CAT_RECOVERED            4        /* Successful command after recovered err */
+#define SG_ERR_CAT_NOTSUPPORTED         5        /* Illegal / unsupported command */
+#define SG_ERR_CAT_SENSE               98        /* Something else in the sense buffer */
+#define SG_ERR_CAT_OTHER               99        /* Some other error/warning */
 
 static int do_scsi_page80_inquiry(struct udev *udev,
                                   struct scsi_id_device *dev_scsi, int fd,
@@ -214,7 +214,7 @@ static int scsi_dump_sense(struct udev *udev,
                 s = sense_buffer[7] + 8;
                 if (sb_len < s) {
                         log_debug("%s: sense buffer too small %d bytes, %d bytes too short",
-                            dev_scsi->kernel, sb_len, s - sb_len);
+                                  dev_scsi->kernel, sb_len, s - sb_len);
                         return -1;
                 }
                 if ((code == 0x0) || (code == 0x1)) {
@@ -224,7 +224,7 @@ static int scsi_dump_sense(struct udev *udev,
                                  * Possible?
                                  */
                                 log_debug("%s: sense result too" " small %d bytes",
-                                    dev_scsi->kernel, s);
+                                          dev_scsi->kernel, s);
                                 return -1;
                         }
                         asc = sense_buffer[12];
@@ -235,15 +235,15 @@ static int scsi_dump_sense(struct udev *udev,
                         ascq = sense_buffer[3];
                 } else {
                         log_debug("%s: invalid sense code 0x%x",
-                            dev_scsi->kernel, code);
+                                  dev_scsi->kernel, code);
                         return -1;
                 }
                 log_debug("%s: sense key 0x%x ASC 0x%x ASCQ 0x%x",
-                    dev_scsi->kernel, sense_key, asc, ascq);
+                          dev_scsi->kernel, sense_key, asc, ascq);
         } else {
                 if (sb_len < 4) {
                         log_debug("%s: sense buffer too small %d bytes, %d bytes too short",
-                            dev_scsi->kernel, sb_len, 4 - sb_len);
+                                  dev_scsi->kernel, sb_len, 4 - sb_len);
                         return -1;
                 }
 
@@ -251,9 +251,9 @@ static int scsi_dump_sense(struct udev *udev,
                         log_debug("%s: old sense key: 0x%x", dev_scsi->kernel, sense_buffer[0] & 0x0f);
                 else
                         log_debug("%s: sense = %2x %2x",
-                            dev_scsi->kernel, sense_buffer[0], sense_buffer[2]);
+                                  dev_scsi->kernel, sense_buffer[0], sense_buffer[2]);
                 log_debug("%s: non-extended sense class %d code 0x%0x",
-                    dev_scsi->kernel, sense_class, code);
+                          dev_scsi->kernel, sense_class, code);
 
         }
 
@@ -284,7 +284,7 @@ static int scsi_dump(struct udev *udev,
         }
 
         log_debug("%s: sg_io failed status 0x%x 0x%x 0x%x 0x%x",
-            dev_scsi->kernel, io->driver_status, io->host_status, io->msg_status, io->status);
+                  dev_scsi->kernel, io->driver_status, io->host_status, io->msg_status, io->status);
         if (io->status == SCSI_CHECK_CONDITION)
                 return scsi_dump_sense(udev, dev_scsi, io->sbp, io->sb_len_wr);
         else
@@ -304,8 +304,7 @@ static int scsi_dump_v4(struct udev *udev,
         }
 
         log_debug("%s: sg_io failed status 0x%x 0x%x 0x%x",
-            dev_scsi->kernel, io->driver_status, io->transport_status,
-             io->device_status);
+                  dev_scsi->kernel, io->driver_status, io->transport_status, io->device_status);
         if (io->device_status == SCSI_CHECK_CONDITION)
                 return scsi_dump_sense(udev, dev_scsi, (unsigned char *)(uintptr_t)io->response,
                                        io->response_len);
@@ -401,7 +400,7 @@ resend:
 error:
         if (retval < 0)
                 log_debug("%s: Unable to get INQUIRY vpd %d page 0x%x.",
-                    dev_scsi->kernel, evpd, page);
+                          dev_scsi->kernel, evpd, page);
 
         return retval;
 }
@@ -423,7 +422,7 @@ static int do_scsi_page0_inquiry(struct udev *udev,
                 return 1;
         }
         if (buffer[3] > len) {
-                log_debug("%s: page 0 buffer too long %d", dev_scsi->kernel,         buffer[3]);
+                log_debug("%s: page 0 buffer too long %d", dev_scsi->kernel, buffer[3]);
                 return 1;
         }
 
@@ -466,7 +465,7 @@ static int prepend_vendor_model(struct udev *udev,
          */
         if (ind != (VENDOR_LENGTH + MODEL_LENGTH)) {
                 log_debug("%s: expected length %d, got length %d",
-                     dev_scsi->kernel, (VENDOR_LENGTH + MODEL_LENGTH), ind);
+                          dev_scsi->kernel, (VENDOR_LENGTH + MODEL_LENGTH), ind);
                 return -1;
         }
         return ind;
@@ -531,7 +530,7 @@ static int check_fill_0x83_id(struct udev *udev,
 
         if (max_len < len) {
                 log_debug("%s: length %d too short - need %d",
-                    dev_scsi->kernel, max_len, len);
+                          dev_scsi->kernel, max_len, len);
                 return 1;
         }
 
@@ -787,7 +786,7 @@ static int do_scsi_page80_inquiry(struct udev *udev,
         len = 1 + VENDOR_LENGTH + MODEL_LENGTH + buf[3];
         if (max_len < len) {
                 log_debug("%s: length %d too short - need %d",
-                     dev_scsi->kernel, max_len, len);
+                          dev_scsi->kernel, max_len, len);
                 return 1;
         }
         /*
