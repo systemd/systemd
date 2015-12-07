@@ -2129,7 +2129,7 @@ int cg_unified(void) {
         if (statfs("/sys/fs/cgroup/", &fs) < 0)
                 return -errno;
 
-        if (F_TYPE_EQUAL(fs.f_type, CGROUP_SUPER_MAGIC))
+        if (F_TYPE_EQUAL(fs.f_type, CGROUP2_SUPER_MAGIC))
                 unified_cache = true;
         else if (F_TYPE_EQUAL(fs.f_type, TMPFS_MAGIC))
                 unified_cache = false;

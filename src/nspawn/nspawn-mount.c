@@ -750,7 +750,7 @@ static int mount_unified_cgroups(const char *dest) {
                 return -EINVAL;
         }
 
-        if (mount("cgroup", p, "cgroup", MS_NOSUID|MS_NOEXEC|MS_NODEV, "__DEVEL__sane_behavior") < 0)
+        if (mount("cgroup", p, "cgroup2", MS_NOSUID|MS_NOEXEC|MS_NODEV, NULL) < 0)
                 return log_error_errno(errno, "Failed to mount unified cgroup hierarchy to %s: %m", p);
 
         return 0;
