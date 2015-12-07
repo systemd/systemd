@@ -147,6 +147,7 @@ tests=
 manual_tests =
 TEST_EXTENSIONS = .py
 PY_LOG_COMPILER = $(PYTHON)
+DISABLE_HARD_ERRORS = yes
 if ENABLE_TESTS
 noinst_PROGRAMS = $(manual_tests) $(tests)
 TESTS = $(tests)
