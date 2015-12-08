@@ -433,7 +433,11 @@ DnsScopeMatch dns_scope_good_domain(DnsScope *s, int ifindex, uint64_t flags, co
                     dns_name_endswith(domain, "8.e.f.ip6.arpa") == 0 &&
                     dns_name_endswith(domain, "9.e.f.ip6.arpa") == 0 &&
                     dns_name_endswith(domain, "a.e.f.ip6.arpa") == 0 &&
-                    dns_name_endswith(domain, "b.e.f.ip6.arpa") == 0)
+                    dns_name_endswith(domain, "b.e.f.ip6.arpa") == 0 &&
+                    /* If networks use .local in their private setups, they are supposed to also add .local to their search
+                     * domains, which we already checked above. Otherwise, we consider .local specific to mDNS and won't
+                     * send such queries ordinary DNS servers. */
+                    dns_name_endswith(domain, "local") == 0)
                         return DNS_SCOPE_MAYBE;
 
                 return DNS_SCOPE_NO;
